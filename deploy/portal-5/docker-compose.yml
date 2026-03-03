@@ -1,0 +1,81 @@
+# Portal 5.0 — Clean Stack
+# Usage: docker compose up -d
+
+services:
+
+  # ── Open WebUI ─────────────────────────────────────────────────────────────
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: portal5-open-webui
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+    environment:
+      # Portal Pipeline is the ONLY model source (routes all LLM requests)
+      - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
+      - OPENAI_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
+      # ComfyUI native image generation
+      - ENABLE_IMAGE_GENERATION=True
+      - IMAGE_GENERATION_ENGINE=comfyui
+      - COMFYUI_BASE_URL=http://host.docker.internal:8188
+      # Auth
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-portal5-secret-change-me}
+      - WEBUI_AUTH=${WEBUI_AUTH:-true}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      portal-pipeline:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+  # ── Portal Pipeline (intelligent router) ───────────────────────────────────
+  portal-pipeline:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.pipeline
+    container_name: portal5-pipeline
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9099:9099"
+    volumes:
+      - ../../config/backends.yaml:/app/config/backends.yaml:ro
+    environment:
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+  # ── Open WebUI Init (auto-seeds on fresh volume) ────────────────────────────
+  openwebui-init:
+    image: python:3.11-slim
+    container_name: portal5-init
+    restart: "no"
+    depends_on:
+      open-webui:
+        condition: service_healthy
+    environment:
+      - OPENWEBUI_URL=http://open-webui:8080
+      - OPENWEBUI_ADMIN_EMAIL=${OPENWEBUI_ADMIN_EMAIL:-admin@portal.local}
+      - OPENWEBUI_ADMIN_PASSWORD=${OPENWEBUI_ADMIN_PASSWORD:-portal-admin-change-me}
+    volumes:
+      - ../../scripts:/scripts:ro
+      - ../../imports:/imports:ro
+    command: >
+      sh -c "pip install httpx --quiet && python /scripts/openwebui_init.py"
+
+volumes:
+  open-webui-data:
