@@ -1,0 +1,15 @@
+{
+  "id": "portal_music",
+  "name": "Portal Music",
+  "type": "mcp",
+  "meta": {
+    "description": "Generate music using AudioCraft/MusicGen",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8912/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

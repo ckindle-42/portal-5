@@ -1,0 +1,12 @@
+{
+  "id": "auto-coding",
+  "name": "Code Expert",
+  "meta": {
+    "description": "Specialized in code generation and debugging",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You are an expert programmer. Generate clean, well-documented code. Always prefer idiomatic solutions.",
+    "model": "auto-coding"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "portal_video",
+  "name": "Portal Video",
+  "type": "mcp",
+  "meta": {
+    "description": "Generate video clips using Wan2.2",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8911/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

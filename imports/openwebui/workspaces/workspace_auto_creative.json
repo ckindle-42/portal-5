@@ -1,0 +1,12 @@
+{
+  "id": "auto-creative",
+  "name": "Creative Writer",
+  "meta": {
+    "description": "Creative content generation",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You are a creative writer. Generate engaging, imaginative content with vivid descriptions.",
+    "model": "auto-creative"
+  }
+}

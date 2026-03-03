@@ -1,0 +1,10 @@
+{
+  "version": "1.1",
+  "description": "Portal 5.0 MCP Tool Server configurations",
+  "tool_servers": [
+    { "name": "Portal Documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
+    { "name": "Portal Music",     "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
+    { "name": "Portal TTS",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" },
+    { "name": "Portal Code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" }
+  ]
+}

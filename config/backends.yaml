@@ -2,28 +2,28 @@
 # This file defines Ollama/vLLM backends and their workspace routing.
 
 backends:
-  # ── Local Ollama (M4 Mac or any single-node setup) ─────────────────────────
+  # ── Local Ollama (Docker Compose) ──────────────────────────────────────────
   - id: local-ollama
     type: ollama
-    url: "http://host.docker.internal:11434"
-    group: general          # Used for workspace routing
+    url: "http://ollama:11434"       # Docker service name
+    group: general                  # Used for workspace routing
     models:
-      - dolphin-llama3:8b   # Default fast model
-      - llama3.1:8b         # Alternative
+      - dolphin-llama3:8b           # Default fast model
+    health_check_interval: 30
 
 # Workspace → Group(s) routing map
 workspace_routing:
-  auto:              [general]
-  auto-coding:       [coding, general]
-  auto-document:     [general]
-  auto-security:     [general]
-  auto-images:       [general]
-  auto-creative:     [creative, general]
-  auto-documents:    [general]
-  auto-video:        [general]
-  auto-music:        [general]
-  auto-research:     [general]
+  auto:           [general]
+  auto-coding:    [coding, general]
+  auto-security:  [general]
+  auto-creative:  [creative, general]
+  auto-documents: [general]
+  auto-video:     [general]
+  auto-music:     [general]
+  auto-research:  [general]
 
 # Defaults
 defaults:
   fallback_group: general
+  request_timeout: 120
+  health_timeout: 10

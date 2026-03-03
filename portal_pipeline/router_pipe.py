@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 WORKSPACES = {
     "auto": {"name": "🤖 Portal Router", "description": "Smart routing based on request context"},
     "auto-coding": {"name": "💻 Coding Assistant", "description": "Optimized for software development tasks"},
-    "auto-document": {"name": "📝 Document Builder", "description": "Create professional documents"},
     "auto-security": {"name": "🔒 Security Analyst", "description": "Security analysis and hardening"},
-    "auto-images": {"name": "🎨 Image Creator", "description": "Generate and edit images"},
     "auto-creative": {"name": "✨ Creative Writer", "description": "Creative writing and storytelling"},
     "auto-documents": {"name": "📄 Portal Document Builder", "description": "Create Word, Excel, PowerPoint via MCP tools"},
     "auto-video": {"name": "🎬 Portal Video Creator", "description": "Generate video clips via ComfyUI/Wan2.1"},

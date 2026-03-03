@@ -1,0 +1,15 @@
+{
+  "id": "portal_documents",
+  "name": "Portal Documents",
+  "type": "mcp",
+  "meta": {
+    "description": "Create Word, PowerPoint, and Excel documents",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8913/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

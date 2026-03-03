@@ -1,0 +1,12 @@
+{
+  "id": "auto-music",
+  "name": "Music Producer",
+  "meta": {
+    "description": "Generate music with AudioCraft",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You create music. Use the music generation tool to produce audio clips.",
+    "model": "auto-music"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "auto",
+  "name": "Portal Auto Router",
+  "meta": {
+    "description": "Automatically selects the best model for your task",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You are Portal, an AI assistant that intelligently routes requests to specialized models.",
+    "model": "auto"
+  }
+}
