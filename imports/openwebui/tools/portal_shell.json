@@ -1,0 +1,15 @@
+{
+  "id": "portal_shell",
+  "name": "Portal Shell",
+  "type": "mcp",
+  "meta": {
+    "description": "Execute shell commands in a sandboxed environment",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8091/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

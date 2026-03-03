@@ -1,0 +1,15 @@
+{
+  "id": "portal_comfyui",
+  "name": "Portal ComfyUI",
+  "type": "mcp",
+  "meta": {
+    "description": "Generate images and videos via ComfyUI workflows",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8910/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

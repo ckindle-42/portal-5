@@ -1,0 +1,27 @@
+# Paste this mcpServers block into ~/LibreChat/librechat.yaml
+# LibreChat spawns these as native child processes — no mcpo needed.
+mcpServers:
+  filesystem:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp", "${HOME}/Projects"]
+  memory:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-memory"]
+  sqlite:
+    command: uvx
+    args: ["mcp-server-sqlite", "--db-path", "${HOME}/.portal/data/portal.db"]
+  git:
+    command: uvx
+    args: ["mcp-server-git", "--repository", "${HOME}/Projects"]
+  sequential-thinking:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+  time:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-time"]
+  scrapling:
+    url: "http://localhost:8900/mcp"
+    type: streamable-http
+  microsoft-learn:
+    url: "https://learn.microsoft.com/api/mcp"
+    type: streamable-http

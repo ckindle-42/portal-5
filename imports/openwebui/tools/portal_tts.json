@@ -1,0 +1,15 @@
+{
+  "id": "portal_tts",
+  "name": "Portal TTS",
+  "type": "mcp",
+  "meta": {
+    "description": "Text-to-speech using Fish Speech or CosyVoice",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8916/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

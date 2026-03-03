@@ -36,10 +36,20 @@ class Backend:
 
     @property
     def chat_url(self) -> str:
-        """Return the chat completions URL for this backend."""
+        """Return the OpenAI-compatible chat completions URL for this backend.
+
+        Both Ollama (>=0.1.24) and vLLM expose /v1/chat/completions.
+        We always use the OpenAI-compatible endpoint so request body format
+        is identical regardless of backend type.
+        """
+        return f"{self.url.rstrip('/')}/v1/chat/completions"
+
+    @property
+    def health_url(self) -> str:
+        """Return the health/availability check URL for this backend."""
         if self.type == "ollama":
-            return f"{self.url}/api/chat"
-        return f"{self.url}/chat/completions"
+            return f"{self.url.rstrip('/')}/api/tags"   # Ollama: list models
+        return f"{self.url.rstrip('/')}/health"          # vLLM: /health
 
 
 class BackendRegistry:
@@ -135,21 +145,10 @@ class BackendRegistry:
     async def _check_one(self, backend: Backend) -> None:
         """Check a single backend's health."""
         import time
-
         try:
-            if backend.type == "ollama":
-                # Ollama: hit /api/tags to verify it's up
-                url = f"{backend.url}/api/tags"
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(url)
-                    backend.healthy = resp.status_code == 200
-            else:
-                # OpenAI-compatible: simple GET or lightweight models call
-                # vLLM exposes /health or /models
-                health_url = f"{backend.url}/health"
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.get(health_url)
-                    backend.healthy = resp.status_code == 200
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(backend.health_url)
+                backend.healthy = resp.status_code == 200
         except Exception as e:
             logger.debug("Health check failed for %s: %s", backend.id, e)
             backend.healthy = False

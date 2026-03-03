@@ -1,0 +1,12 @@
+{
+  "id": "auto-reasoning",
+  "name": "Deep Reasoner",
+  "meta": {
+    "description": "Complex reasoning and analysis",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You are a deep reasoning AI. Break down complex problems step-by-step and provide thorough analysis.",
+    "model": "auto-reasoning"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "auto-research",
+  "name": "Research Assistant",
+  "meta": {
+    "description": "Web research and information synthesis",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You are a research assistant. Search the web and synthesize information from multiple sources.",
+    "model": "auto-research"
+  }
+}

@@ -3,6 +3,69 @@
 
 services:
 
+  # ── Ollama (local inference) ────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: portal5-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 20s
+      timeout: 10s
+      start_period: 30s
+      retries: 10
+
+  # ── Model Init (pulls default model on first run) ───────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: portal5-ollama-init
+    restart: "no"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Pulling default model: ${DEFAULT_MODEL:-dolphin-llama3:8b}' &&
+        ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
+        echo 'Model pull complete'
+      "
+    volumes:
+      - ollama-models:/root/.ollama
+
+  # ── Portal Pipeline (intelligent router) ───────────────────────────────────
+  portal-pipeline:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.pipeline
+    container_name: portal5-pipeline
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9099:9099"
+    volumes:
+      - ../../config/backends.yaml:/app/config/backends.yaml:ro
+    environment:
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
   # ── Open WebUI ─────────────────────────────────────────────────────────────
   open-webui:
     image: ghcr.io/open-webui/open-webui:latest
@@ -36,28 +99,66 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── Portal Pipeline (intelligent router) ───────────────────────────────────
-  portal-pipeline:
+  # ── MCP: Document Generation ─────────────────────────────────────────────────
+  mcp-documents:
     build:
       context: ../..
-      dockerfile: Dockerfile.pipeline
-    container_name: portal5-pipeline
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-documents
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9099:9099"
-    volumes:
-      - ../../config/backends.yaml:/app/config/backends.yaml:ro
+      - "8913:8913"
     environment:
-      - PIPELINE_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
-      interval: 15s
-      timeout: 5s
-      start_period: 30s
-      retries: 5
+      - DOCUMENTS_MCP_PORT=8913
+    command: ["python", "-m", "portal_mcp.documents.document_mcp"]
+    volumes:
+      - "${HOME}/AI_Output:/app/data/generated"
+
+  # ── MCP: Music Generation ─────────────────────────────────────────────────
+  mcp-music:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-music
+    restart: unless-stopped
+    ports:
+      - "8912:8912"
+    environment:
+      - MUSIC_MCP_PORT=8912
+    command: ["python", "-m", "portal_mcp.generation.music_mcp"]
+    volumes:
+      - "${HOME}/AI_Output:/app/data/generated"
+
+  # ── MCP: Text-to-Speech ───────────────────────────────────────────────────
+  mcp-tts:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-tts
+    restart: unless-stopped
+    ports:
+      - "8916:8916"
+    environment:
+      - TTS_MCP_PORT=8916
+      - TTS_BACKEND=${TTS_BACKEND:-fish_speech}
+    command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
+    volumes:
+      - "${HOME}/AI_Output:/app/data/generated"
+
+  # ── MCP: Code Sandbox ────────────────────────────────────────────────────
+  mcp-sandbox:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-sandbox
+    restart: unless-stopped
+    ports:
+      - "8914:8914"
+    environment:
+      - SANDBOX_MCP_PORT=8914
+    command: ["python", "-m", "portal_mcp.execution.code_sandbox_mcp"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   # ── Open WebUI Init (auto-seeds on fresh volume) ────────────────────────────
   openwebui-init:
@@ -79,3 +180,4 @@ services:
 
 volumes:
   open-webui-data:
+  ollama-models:

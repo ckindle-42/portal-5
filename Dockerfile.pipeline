@@ -1,13 +1,25 @@
 FROM python:3.11-slim
+
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
-    fastapi>=0.109.0 \
-    uvicorn>=0.27.0 \
-    httpx>=0.26.0 \
-    pyyaml>=6.0.1
+# Install build tools
+RUN pip install --no-cache-dir hatchling
 
+# Copy dependency spec first (cache layer)
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir \
+    "fastapi>=0.109.0" \
+    "uvicorn[standard]>=0.27.0" \
+    "httpx>=0.26.0" \
+    "pyyaml>=6.0.1"
+
+# Copy application code
 COPY portal_pipeline/ ./portal_pipeline/
 COPY config/ ./config/
+
+EXPOSE 9099
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"
 
 CMD ["python", "-m", "portal_pipeline"]

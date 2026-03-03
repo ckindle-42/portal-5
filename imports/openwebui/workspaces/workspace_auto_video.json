@@ -1,0 +1,12 @@
+{
+  "id": "auto-video",
+  "name": "Video Creator",
+  "meta": {
+    "description": "Generate videos with Wan2.2",
+    "profile_image_url": ""
+  },
+  "params": {
+    "system": "You create videos. Use ComfyUI to generate videos from text prompts.",
+    "model": "auto-video"
+  }
+}
