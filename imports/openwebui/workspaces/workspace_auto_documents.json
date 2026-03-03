@@ -1,12 +1,12 @@
 {
   "id": "auto-documents",
-  "name": "Document Builder",
+  "name": "\ud83d\udcc4 Portal Document Builder",
   "meta": {
-    "description": "Create documents, spreadsheets, presentations",
+    "description": "\ud83d\udcc4 Portal Document Builder",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You help create professional documents. Use available tools to generate Word, Excel, and PowerPoint files.",
+    "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
     "model": "auto-documents"
   }
 }

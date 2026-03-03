@@ -34,6 +34,7 @@ ADMIN_NAME = os.environ.get("OPENWEBUI_ADMIN_NAME", "Portal Admin")
 IMPORTS_DIR = Path("/imports/openwebui")
 MCP_FILE = IMPORTS_DIR / "mcp-servers.json"
 WORKSPACES_DIR = IMPORTS_DIR / "workspaces"
+PERSONAS_DIR = Path("/personas")
 
 MAX_WAIT_SECONDS = 120
 POLL_INTERVAL = 5
@@ -251,6 +252,85 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
     print(f"  Done: {created} created, {skipped} skipped, {failed} failed")
 
 
+# --- Persona Presets -----------------------------------------------------------
+
+def create_persona_presets(client: httpx.Client, token: str, personas_dir: Path) -> None:
+    """Create Open WebUI model presets from persona YAML files."""
+    import yaml as _yaml
+
+    print("\nCreating Persona Model Presets...")
+    if not personas_dir.exists():
+        print(f"  Skipping — {personas_dir} not found")
+        return
+
+    persona_files = sorted(personas_dir.glob("*.yaml"))
+    if not persona_files:
+        print("  Skipping — no persona YAML files found")
+        return
+
+    # Get existing models to avoid duplicates
+    existing_ids: set[str] = set()
+    try:
+        resp = client.get(f"{OPENWEBUI_URL}/api/v1/models/", headers=auth_headers(token))
+        if resp.status_code == 200:
+            data = resp.json()
+            for m in (data if isinstance(data, list) else data.get("data", [])):
+                existing_ids.add(m.get("id", ""))
+    except Exception as e:
+        print(f"  Warning: could not fetch existing models: {e}")
+
+    created = skipped = failed = 0
+    for f in persona_files:
+        try:
+            persona = _yaml.safe_load(f.read_text())
+        except Exception as e:
+            print(f"  Skip {f.name}: parse error — {e}")
+            continue
+
+        slug = persona.get("slug", f.stem)
+        name = persona.get("name", slug)
+        system_prompt = persona.get("system_prompt", "")
+        workspace_model = persona.get("workspace_model") or "dolphin-llama3:8b"
+
+        if slug in existing_ids:
+            print(f"  Skip (exists): {name}")
+            skipped += 1
+            continue
+
+        payload = {
+            "id": slug,
+            "name": name,
+            "meta": {
+                "description": f"Portal persona: {name}",
+                "profile_image_url": "",
+                "tags": [{"name": persona.get("category", "general")}],
+            },
+            "params": {
+                "system": system_prompt,
+                "model": workspace_model,
+            },
+        }
+
+        try:
+            resp = client.post(
+                f"{OPENWEBUI_URL}/api/v1/models/",
+                json=payload,
+                headers=auth_headers(token),
+                timeout=10.0,
+            )
+            if resp.status_code in (200, 201):
+                print(f"  Created persona: {name} → {workspace_model}")
+                created += 1
+            else:
+                print(f"  Failed {name}: HTTP {resp.status_code}")
+                failed += 1
+        except Exception as e:
+            print(f"  Error {name}: {e}")
+            failed += 1
+
+    print(f"  Done: {created} created, {skipped} skipped, {failed} failed")
+
+
 # --- Main ---------------------------------------------------------------------
 
 def main() -> int:
@@ -276,6 +356,7 @@ def main() -> int:
     # Seed the instance
     register_tool_servers(client, token)
     create_workspaces(client, token)
+    create_persona_presets(client, token, PERSONAS_DIR)
 
     print("\nPortal Open WebUI initialization complete")
     return 0

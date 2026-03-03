@@ -48,8 +48,29 @@ case "${1:-up}" in
     echo ""
     echo "Open WebUI: http://localhost:8080"
     ;;
+  pull-models)
+    echo "=== Pulling additional Portal 5 models ==="
+    echo "This may take 30-90 minutes depending on your connection."
+    echo ""
+    # Security models
+    docker exec portal5-ollama ollama pull xploiter/the-xploiter || true
+    docker exec portal5-ollama ollama pull "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0" || true
+    docker exec portal5-ollama ollama pull huihui_ai/baronllm-abliterated || true
+    # Reasoning / research
+    docker exec portal5-ollama ollama pull "huihui_ai/tongyi-deepresearch-abliterated:30b" || true
+    # Coding
+    docker exec portal5-ollama ollama pull "qwen3-coder-next:30b-q5" || true
+    docker exec portal5-ollama ollama pull "devstral:24b" || true
+    docker exec portal5-ollama ollama pull "deepseek-coder:16b-instruct-q4_K_M" || true
+    # Vision
+    docker exec portal5-ollama ollama pull "qwen3-omni:30b" || true
+    docker exec portal5-ollama ollama pull "llava:7b" || true
+    echo ""
+    echo "=== All models pulled. Restart pipeline to pick up new models: ==="
+    echo "    docker compose -f deploy/portal-5/docker-compose.yml restart portal-pipeline"
+    ;;
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models]"
     echo ""
     echo "  up         Start all services (first run pulls model)"
     echo "  down       Stop all services (data preserved)"
@@ -58,5 +79,6 @@ case "${1:-up}" in
     echo "  seed       Re-run Open WebUI seeding (workspaces + tool servers)"
     echo "  logs [svc] Tail logs (default: portal-pipeline)"
     echo "  status     Show service status and health"
+    echo "  pull-models Pull all Portal 5 Ollama models (30-90 min)"
     ;;
 esac

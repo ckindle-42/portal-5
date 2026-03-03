@@ -1,9 +1,9 @@
-# Portal 5.0 — Clean Stack
-# Usage: docker compose up -d
+# Portal 5.0 — Complete Stack
+# Usage: ./launch.sh up  (from repo root — do not run docker compose directly)
 
 services:
 
-  # ── Ollama (local inference) ────────────────────────────────────────────────
+  # ── Ollama — Local LLM inference ─────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     container_name: portal5-ollama
@@ -14,6 +14,8 @@ services:
       - ollama-models:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=24h       # Keep models hot between requests
+      - OLLAMA_NUM_PARALLEL=2       # Allow 2 concurrent requests
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 20s
@@ -21,7 +23,7 @@ services:
       start_period: 30s
       retries: 10
 
-  # ── Model Init (pulls default model on first run) ───────────────────────────
+  # ── Ollama Init — pulls models on first run ───────────────────────────────
   ollama-init:
     image: ollama/ollama:latest
     container_name: portal5-ollama-init
@@ -31,16 +33,18 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    command: >
-      sh -c "
-        echo 'Pulling default model: ${DEFAULT_MODEL:-dolphin-llama3:8b}' &&
-        ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
-        echo 'Model pull complete'
-      "
     volumes:
       - ollama-models:/root/.ollama
+    command: >
+      sh -c "
+        echo '=== Portal 5: Pulling models ===' &&
+        ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
+        ollama pull llama3.2:3b-instruct-q4_K_M &&
+        echo '=== Core models ready ==='
+        echo 'To pull additional models: ./launch.sh pull-models'
+      "
 
-  # ── Portal Pipeline (intelligent router) ───────────────────────────────────
+  # ── Portal Pipeline — Intelligent Router ─────────────────────────────────
   portal-pipeline:
     build:
       context: ../..
@@ -60,13 +64,13 @@ services:
       ollama:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9099/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"]
       interval: 15s
       timeout: 5s
       start_period: 30s
       retries: 5
 
-  # ── Open WebUI ─────────────────────────────────────────────────────────────
+  # ── Open WebUI — Chat Interface ───────────────────────────────────────────
   open-webui:
     image: ghcr.io/open-webui/open-webui:latest
     container_name: portal5-open-webui
@@ -77,16 +81,20 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
     environment:
-      # Portal Pipeline is the ONLY model source (routes all LLM requests)
+      # Portal Pipeline is the SOLE model source
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
-      # ComfyUI native image generation
+      # ComfyUI image generation (host-side ComfyUI)
       - ENABLE_IMAGE_GENERATION=True
       - IMAGE_GENERATION_ENGINE=comfyui
       - COMFYUI_BASE_URL=http://host.docker.internal:8188
       # Auth
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-portal5-secret-change-me}
       - WEBUI_AUTH=${WEBUI_AUTH:-true}
+      # Features
+      - ENABLE_COMMUNITY_SHARING=false
+      - ENABLE_MESSAGE_RATING=true
+      - ENABLE_WORKSPACE=true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -99,68 +107,7 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── MCP: Document Generation ─────────────────────────────────────────────────
-  mcp-documents:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.mcp
-    container_name: portal5-mcp-documents
-    restart: unless-stopped
-    ports:
-      - "8913:8913"
-    environment:
-      - DOCUMENTS_MCP_PORT=8913
-    command: ["python", "-m", "portal_mcp.documents.document_mcp"]
-    volumes:
-      - "${HOME}/AI_Output:/app/data/generated"
-
-  # ── MCP: Music Generation ─────────────────────────────────────────────────
-  mcp-music:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.mcp
-    container_name: portal5-mcp-music
-    restart: unless-stopped
-    ports:
-      - "8912:8912"
-    environment:
-      - MUSIC_MCP_PORT=8912
-    command: ["python", "-m", "portal_mcp.generation.music_mcp"]
-    volumes:
-      - "${HOME}/AI_Output:/app/data/generated"
-
-  # ── MCP: Text-to-Speech ───────────────────────────────────────────────────
-  mcp-tts:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.mcp
-    container_name: portal5-mcp-tts
-    restart: unless-stopped
-    ports:
-      - "8916:8916"
-    environment:
-      - TTS_MCP_PORT=8916
-      - TTS_BACKEND=${TTS_BACKEND:-fish_speech}
-    command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
-    volumes:
-      - "${HOME}/AI_Output:/app/data/generated"
-
-  # ── MCP: Code Sandbox ────────────────────────────────────────────────────
-  mcp-sandbox:
-    build:
-      context: ../..
-      dockerfile: Dockerfile.mcp
-    container_name: portal5-mcp-sandbox
-    restart: unless-stopped
-    ports:
-      - "8914:8914"
-    environment:
-      - SANDBOX_MCP_PORT=8914
-    command: ["python", "-m", "portal_mcp.execution.code_sandbox_mcp"]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  # ── Open WebUI Init (auto-seeds on fresh volume) ────────────────────────────
+  # ── Open WebUI Init — Auto-seeds on fresh volume ──────────────────────────
   openwebui-init:
     image: python:3.11-slim
     container_name: portal5-init
@@ -175,9 +122,149 @@ services:
     volumes:
       - ../../scripts:/scripts:ro
       - ../../imports:/imports:ro
+      - ../../config/personas:/personas:ro
     command: >
-      sh -c "pip install httpx --quiet && python /scripts/openwebui_init.py"
+      sh -c "pip install httpx pyyaml --quiet && python /scripts/openwebui_init.py"
+
+  # ── MCP: Document Generation (Word, PowerPoint, Excel) ───────────────────
+  mcp-documents:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-documents
+    restart: unless-stopped
+    ports:
+      - "8913:8913"
+    environment:
+      - DOCUMENTS_MCP_PORT=8913
+      - OUTPUT_DIR=/app/data/generated
+    command: ["python", "-m", "portal_mcp.documents.document_mcp"]
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+
+  # ── MCP: Music Generation (AudioCraft/MusicGen) ───────────────────────────
+  mcp-music:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-music
+    restart: unless-stopped
+    ports:
+      - "8912:8912"
+    environment:
+      - MUSIC_MCP_PORT=8912
+      - MUSIC_MODEL_SIZE=${MUSIC_MODEL_SIZE:-medium}
+      - OUTPUT_DIR=/app/data/generated
+      # HuggingFace cache — models download here on first use
+      - HF_HOME=/app/data/hf_cache
+      - TRANSFORMERS_CACHE=/app/data/hf_cache
+    command: ["python", "-m", "portal_mcp.generation.music_mcp"]
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+      - portal5-hf-cache:/app/data/hf_cache
+
+  # ── MCP: Text-to-Speech (Fish Speech / CosyVoice) ────────────────────────
+  mcp-tts:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-tts
+    restart: unless-stopped
+    ports:
+      - "8916:8916"
+    environment:
+      - TTS_MCP_PORT=8916
+      - TTS_BACKEND=${TTS_BACKEND:-fish_speech}
+      - OUTPUT_DIR=/app/data/generated
+      - HF_HOME=/app/data/hf_cache
+    command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+      - portal5-hf-cache:/app/data/hf_cache
+
+  # ── MCP: Whisper Transcription ────────────────────────────────────────────
+  mcp-whisper:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-whisper
+    restart: unless-stopped
+    ports:
+      - "8915:8915"
+    environment:
+      - WHISPER_MCP_PORT=8915
+      - HF_HOME=/app/data/hf_cache
+    command: ["python", "-m", "portal_mcp.generation.whisper_mcp"]
+    volumes:
+      - portal5-hf-cache:/app/data/hf_cache
+
+  # ── MCP: Code Execution Sandbox ───────────────────────────────────────────
+  mcp-sandbox:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-sandbox
+    restart: unless-stopped
+    ports:
+      - "8914:8914"
+    environment:
+      - SANDBOX_MCP_PORT=8914
+      - SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-30}
+    command: ["python", "-m", "portal_mcp.execution.code_sandbox_mcp"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ── MCP: ComfyUI Bridge (image/video via host ComfyUI) ────────────────────
+  mcp-comfyui:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-comfyui
+    restart: unless-stopped
+    ports:
+      - "8910:8910"
+    environment:
+      - COMFYUI_MCP_PORT=8910
+      - COMFYUI_URL=http://host.docker.internal:8188
+    command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── MCP: Video Generation (via ComfyUI Wan2.2) ────────────────────────────
+  mcp-video:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-video
+    restart: unless-stopped
+    ports:
+      - "8911:8911"
+    environment:
+      - VIDEO_MCP_PORT=8911
+      - COMFYUI_URL=http://host.docker.internal:8188
+      - OUTPUT_DIR=/app/data/generated
+    command: ["python", "-m", "portal_mcp.generation.video_mcp"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+
+  # ── Telegram (optional — uncomment to enable) ─────────────────────────────
+  # portal-telegram:
+  #   build: { context: ../.., dockerfile: Dockerfile.mcp }
+  #   container_name: portal5-telegram
+  #   restart: unless-stopped
+  #   environment:
+  #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+  #     - TELEGRAM_USER_IDS=${TELEGRAM_USER_IDS}
+  #     - PIPELINE_URL=http://portal-pipeline:9099
+  #     - PIPELINE_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
+  #   command: ["python", "-m", "portal_channels.telegram.bot"]
+  #   depends_on:
+  #     portal-pipeline:
+  #       condition: service_healthy
 
 volumes:
-  open-webui-data:
-  ollama-models:
+  ollama-models:       # Ollama model weights — survives docker compose down
+  open-webui-data:     # Open WebUI database — wipe with ./launch.sh clean
+  portal5-hf-cache:    # HuggingFace model cache (music, TTS, whisper)

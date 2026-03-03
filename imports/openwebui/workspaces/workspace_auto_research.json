@@ -1,12 +1,12 @@
 {
   "id": "auto-research",
-  "name": "Research Assistant",
+  "name": "\ud83d\udd0d Portal Research Assistant",
   "meta": {
-    "description": "Web research and information synthesis",
+    "description": "\ud83d\udd0d Portal Research Assistant",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You are a research assistant. Search the web and synthesize information from multiple sources.",
+    "system": "You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.",
     "model": "auto-research"
   }
 }
