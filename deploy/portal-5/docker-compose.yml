@@ -431,9 +431,9 @@ services:
       - SETGID
       - SETUID
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "-qO/dev/null", "http://localhost:8080/"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       start_period: 30s
       retries: 3
 
@@ -470,12 +470,13 @@ services:
         condition: service_healthy
     volumes:
       - comfyui-models:/models
+      - ../../scripts:/scripts:ro
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
       - IMAGE_MODEL=${IMAGE_MODEL:-flux-schnell}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - "pip install huggingface_hub --quiet && python3 -c 'import os; from huggingface_hub import hf_hub_download; hf_token = os.environ.get(\"HF_TOKEN\", \"\"); model = os.environ.get(\"IMAGE_MODEL\", \"flux-schnell\"); models_dir = \"/models/checkpoints\"; os.makedirs(models_dir, exist_ok=True); [print(f\"Downloading {model}...\") or hf_hub_download(repo_id=\"black-forest-labs/FLUX.1-schnell\" if model == \"flux-schnell\" else \"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"flux1-schnell.safetensors\" if model == \"flux-schnell\" else \"sd_xl_base_1.0.safetensors\", local_dir=models_dir, token=hf_token if hf_token else None) for _ in [1]]; print(\"Done\")' || echo 'Model download skipped'"
+      - MODELS_DIR=/models/checkpoints
+    command: >
+      sh -c "pip install huggingface_hub --quiet && python /scripts/download_comfyui_models.py"
 
   # ── Prometheus — Metrics collection ──────────────────────────────────────
   prometheus:

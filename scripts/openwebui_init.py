@@ -380,26 +380,13 @@ def configure_audio_settings(client: httpx.Client, token: str) -> None:
 
 
 def configure_tool_settings(client: httpx.Client, token: str) -> None:
-    """Configure Open WebUI tool calling settings for all users."""
-    print("\nConfiguring tool settings...")
-    try:
-        # Enable native function calling mode globally
-        resp = client.post(
-            f"{OPENWEBUI_URL}/api/v1/configs/features",
-            json={
-                "enable_tools": True,
-                "native_tool_calling": True,
-                "tool_call_mode": "native",
-            },
-            headers=auth_headers(token),
-            timeout=10.0,
-        )
-        if resp.status_code in (200, 201):
-            print("  Tool calling enabled: native mode")
-        else:
-            print(f"  Warning: tool config HTTP {resp.status_code}")
-    except Exception as e:
-        print(f"  Warning: tool config failed: {e}")
+    """Tool calling is enabled by default in Open WebUI.
+
+    SAFE_MODE=false in docker-compose.yml env allows full tool access.
+    No runtime API call needed — Open WebUI handles this natively.
+    The /api/v1/configs/features endpoint does not exist in Open WebUI.
+    """
+    print("\nTool settings: enabled via SAFE_MODE=false in environment (no API call needed)")
 
 
 # --- Main ---------------------------------------------------------------------

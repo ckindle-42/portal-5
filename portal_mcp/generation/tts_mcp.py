@@ -38,6 +38,69 @@ async def health_check(request):
     })
 
 
+@mcp.custom_route("/v1/audio/speech", methods=["POST"])
+async def openai_audio_speech(request):
+    """OpenAI-compatible TTS endpoint.
+
+    Open WebUI sends: {"model": "...", "input": "text", "voice": "af_heart"}
+    We return audio/wav binary data.
+    Required for AUDIO_TTS_ENGINE=openai integration.
+    """
+    import json as _json
+    from starlette.responses import Response
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    text = body.get("input", body.get("text", ""))
+    voice = body.get("voice", TTS_VOICE)
+    speed = float(body.get("speed", TTS_SPEED))
+
+    if not text:
+        from starlette.responses import JSONResponse
+        return JSONResponse({"error": "No input text provided"}, status_code=400)
+
+    # Use kokoro (primary zero-setup backend)
+    available, error = _check_kokoro()
+    if not available:
+        from starlette.responses import JSONResponse
+        return JSONResponse({"error": f"TTS unavailable: {error}"}, status_code=503)
+
+    result = await _speak_kokoro(text, voice, speed)
+
+    if "error" in result:
+        from starlette.responses import JSONResponse
+        return JSONResponse(result, status_code=500)
+
+    # Read generated audio file and return as binary
+    audio_path = result.get("file_path", "")
+    if not audio_path or not Path(audio_path).exists():
+        from starlette.responses import JSONResponse
+        return JSONResponse({"error": "Audio file not generated"}, status_code=500)
+
+    audio_bytes = Path(audio_path).read_bytes()
+    return Response(
+        content=audio_bytes,
+        media_type="audio/wav",
+        headers={"Content-Disposition": "attachment; filename=speech.wav"},
+    )
+
+
+@mcp.custom_route("/v1/models", methods=["GET"])
+async def openai_models(request):
+    """OpenAI-compatible models list for TTS voice selection."""
+    from starlette.responses import JSONResponse
+    kokoro_ok, _ = _check_kokoro()
+    models = []
+    if kokoro_ok:
+        models = [
+            {"id": "kokoro", "object": "model", "owned_by": "portal-5"},
+        ]
+    return JSONResponse({"object": "list", "data": models})
+
+
 def _check_kokoro() -> tuple[bool, str]:
     try:
         import kokoro_onnx  # noqa: F401

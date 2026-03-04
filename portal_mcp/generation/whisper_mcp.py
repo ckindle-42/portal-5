@@ -19,6 +19,66 @@ async def health_check(request):
     return JSONResponse({"status": "ok", "service": "whisper-mcp"})
 
 
+@mcp.custom_route("/v1/audio/transcriptions", methods=["POST"])
+async def openai_audio_transcriptions(request):
+    """OpenAI-compatible STT endpoint.
+
+    Open WebUI sends multipart/form-data with 'file' field containing audio.
+    Required for AUDIO_STT_ENGINE=openai integration.
+    """
+    import tempfile
+    from starlette.responses import JSONResponse
+
+    try:
+        form = await request.form()
+        audio_file = form.get("file")
+        if audio_file is None:
+            return JSONResponse({"error": "No file provided"}, status_code=400)
+
+        # Save uploaded audio to a temp file
+        contents = await audio_file.read()
+        suffix = ".wav"
+        # Detect format from filename if available
+        fname = getattr(audio_file, "filename", "") or ""
+        for ext in [".webm", ".ogg", ".mp4", ".m4a", ".wav", ".mp3"]:
+            if fname.endswith(ext):
+                suffix = ext
+                break
+
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+    except Exception as e:
+        return JSONResponse({"error": f"Upload failed: {e}"}, status_code=400)
+
+    # Transcribe
+    result = await transcribe_audio(file_path=tmp_path)
+
+    # Clean up temp file
+    import os
+    try:
+        os.unlink(tmp_path)
+    except Exception:
+        pass
+
+    if "error" in result:
+        return JSONResponse(result, status_code=500)
+
+    text = result.get("text", result.get("transcription", ""))
+    return JSONResponse({"text": text})
+
+
+@mcp.custom_route("/v1/models", methods=["GET"])
+async def openai_models(request):
+    """OpenAI-compatible models list for STT model selection."""
+    from starlette.responses import JSONResponse
+    return JSONResponse({
+        "object": "list",
+        "data": [{"id": "whisper-1", "object": "model", "owned_by": "portal-5"}]
+    })
+
+
 # Tool manifest for discovery
 TOOLS_MANIFEST = [
     {
