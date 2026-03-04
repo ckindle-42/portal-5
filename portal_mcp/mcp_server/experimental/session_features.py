@@ -103,7 +103,7 @@ class ExperimentalServerSessionFeatures:
     async def elicit_as_task(
         self,
         message: str,
-        requestedSchema: types.ElicitRequestedSchema,
+        requested_schema: types.ElicitRequestedSchema,
         *,
         ttl: int = 60000,
     ) -> types.ElicitResult:
@@ -119,7 +119,7 @@ class ExperimentalServerSessionFeatures:
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response
+            requested_schema: Schema defining the expected response
             ttl: Task time-to-live in milliseconds
 
         Returns:
@@ -138,7 +138,7 @@ class ExperimentalServerSessionFeatures:
                 types.ElicitRequest(
                     params=types.ElicitRequestFormParams(
                         message=message,
-                        requestedSchema=requestedSchema,
+                        requested_schema=requested_schema,
                         task=types.TaskMetadata(ttl=ttl),
                     )
                 )

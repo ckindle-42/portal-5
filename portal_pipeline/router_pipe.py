@@ -172,7 +172,7 @@ async def chat_completions(
 
     # Concurrency check — return 503 if server is overloaded
     assert _request_semaphore is not None
-    if _request_semaphore._value == 0:
+    if _request_semaphore.locked():
         raise HTTPException(
             status_code=503,
             detail="Server busy — too many concurrent requests. Please retry.",
@@ -237,8 +237,7 @@ async def chat_completions(
 async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:
     assert registry is not None
     try:
-        async with httpx.AsyncClient(timeout=registry.request_timeout) as client:
-            async with client.stream("POST", url, json=body) as resp:
+        async with httpx.AsyncClient(timeout=registry.request_timeout) as client, client.stream("POST", url, json=body) as resp:
                 if resp.status_code != 200:
                     err = await resp.aread()
                     yield (

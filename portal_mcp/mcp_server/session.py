@@ -365,14 +365,14 @@ class ServerSession(
     async def elicit(
         self,
         message: str,
-        requestedSchema: types.ElicitRequestedSchema,
+        requested_schema: types.ElicitRequestedSchema,
         related_request_id: types.RequestId | None = None,
     ) -> types.ElicitResult:
         """Send a form mode elicitation/create request.
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response structure
+            requested_schema: Schema defining the expected response structure
             related_request_id: Optional ID of the request that triggered this elicitation
 
         Returns:
@@ -382,19 +382,19 @@ class ServerSession(
             This method is deprecated in favor of elicit_form(). It remains for
             backward compatibility but new code should use elicit_form().
         """
-        return await self.elicit_form(message, requestedSchema, related_request_id)
+        return await self.elicit_form(message, requested_schema, related_request_id)
 
     async def elicit_form(
         self,
         message: str,
-        requestedSchema: types.ElicitRequestedSchema,
+        requested_schema: types.ElicitRequestedSchema,
         related_request_id: types.RequestId | None = None,
     ) -> types.ElicitResult:
         """Send a form mode elicitation/create request.
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response structure
+            requested_schema: Schema defining the expected response structure
             related_request_id: Optional ID of the request that triggered this elicitation
 
         Returns:
@@ -405,7 +405,7 @@ class ServerSession(
                 types.ElicitRequest(
                     params=types.ElicitRequestFormParams(
                         message=message,
-                        requestedSchema=requestedSchema,
+                        requested_schema=requested_schema,
                     ),
                 )
             ),
@@ -521,7 +521,7 @@ class ServerSession(
     def _build_elicit_form_request(
         self,
         message: str,
-        requestedSchema: types.ElicitRequestedSchema,
+        requested_schema: types.ElicitRequestedSchema,
         related_task_id: str | None = None,
         task: types.TaskMetadata | None = None,
     ) -> types.JSONRPCRequest:
@@ -529,7 +529,7 @@ class ServerSession(
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response structure
+            requested_schema: Schema defining the expected response structure
             related_task_id: If provided, adds io.modelcontextprotocol/related-task metadata
             task: If provided, makes this a task-augmented request
 
@@ -538,7 +538,7 @@ class ServerSession(
         """
         params = types.ElicitRequestFormParams(
             message=message,
-            requestedSchema=requestedSchema,
+            requested_schema=requested_schema,
             task=task,
         )
         params_data = params.model_dump(by_alias=True, mode="json", exclude_none=True)

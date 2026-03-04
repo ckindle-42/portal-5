@@ -305,8 +305,8 @@ class FastMCP(Generic[LifespanResultT]):
             transport: Transport protocol to use ("stdio", "sse", or "streamable-http")
             mount_path: Optional mount path for SSE transport
         """
-        TRANSPORTS = Literal["stdio", "sse", "streamable-http"]
-        if transport not in TRANSPORTS.__args__:  # type: ignore  # pragma: no cover
+        transports = Literal["stdio", "sse", "streamable-http"]
+        if transport not in transports.__args__:  # type: ignore  # pragma: no cover
             raise ValueError(f"Unknown transport: {transport}")
 
         match transport:
@@ -418,7 +418,7 @@ class FastMCP(Generic[LifespanResultT]):
             ]
         except Exception as e:  # pragma: no cover
             logger.exception(f"Error reading resource {uri}")
-            raise ResourceError(str(e))
+            raise ResourceError(str(e)) from e
 
     def add_tool(
         self,
@@ -1122,7 +1122,7 @@ class FastMCP(Generic[LifespanResultT]):
             )
         except Exception as e:
             logger.exception(f"Error getting prompt {name}")
-            raise ValueError(str(e))
+            raise ValueError(str(e)) from e
 
 
 class StreamableHTTPASGIApp:

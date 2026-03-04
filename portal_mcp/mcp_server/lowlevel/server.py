@@ -491,10 +491,9 @@ class Server(Generic[LifespanResultT, RequestT]):
 
         Returns the Tool object if found, None otherwise.
         """
-        if tool_name not in self._tool_cache:
-            if types.ListToolsRequest in self.request_handlers:
-                logger.debug("Tool cache miss for %s, refreshing cache", tool_name)
-                await self.request_handlers[types.ListToolsRequest](None)
+        if tool_name not in self._tool_cache and types.ListToolsRequest in self.request_handlers:
+            logger.debug("Tool cache miss for %s, refreshing cache", tool_name)
+            await self.request_handlers[types.ListToolsRequest](None)
 
         tool = self._tool_cache.get(tool_name)
         if tool is None:

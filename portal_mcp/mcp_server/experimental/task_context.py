@@ -64,7 +64,7 @@ class ServerTaskContext:
 
             result = await task.elicit(
                 message="Continue?",
-                requestedSchema={"type": "object", "properties": {"ok": {"type": "boolean"}}}
+                requested_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}}
             )
 
             if result.content.get("ok"):
@@ -205,7 +205,7 @@ class ServerTaskContext:
     async def elicit(
         self,
         message: str,
-        requestedSchema: ElicitRequestedSchema,
+        requested_schema: ElicitRequestedSchema,
     ) -> ElicitResult:
         """
         Send an elicitation request via the task message queue.
@@ -220,7 +220,7 @@ class ServerTaskContext:
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response structure
+            requested_schema: Schema defining the expected response structure
 
         Returns:
             The client's response
@@ -241,7 +241,7 @@ class ServerTaskContext:
         # Build the request using session's helper
         request = self._session._build_elicit_form_request(  # pyright: ignore[reportPrivateUsage]
             message=message,
-            requestedSchema=requestedSchema,
+            requested_schema=requested_schema,
             related_task_id=self.task_id,
         )
         request_id: RequestId = request.id
@@ -441,7 +441,7 @@ class ServerTaskContext:
     async def elicit_as_task(
         self,
         message: str,
-        requestedSchema: ElicitRequestedSchema,
+        requested_schema: ElicitRequestedSchema,
         *,
         ttl: int = 60000,
     ) -> ElicitResult:
@@ -455,7 +455,7 @@ class ServerTaskContext:
 
         Args:
             message: The message to present to the user
-            requestedSchema: Schema defining the expected response structure
+            requested_schema: Schema defining the expected response structure
             ttl: Task time-to-live in milliseconds for the client's task
 
         Returns:
@@ -478,7 +478,7 @@ class ServerTaskContext:
 
         request = self._session._build_elicit_form_request(  # pyright: ignore[reportPrivateUsage]
             message=message,
-            requestedSchema=requestedSchema,
+            requested_schema=requested_schema,
             related_task_id=self.task_id,
             task=TaskMetadata(ttl=ttl),
         )

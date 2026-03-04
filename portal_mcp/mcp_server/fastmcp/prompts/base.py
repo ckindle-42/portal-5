@@ -180,9 +180,9 @@ class Prompt(BaseModel):
                     else:  # pragma: no cover
                         content = pydantic_core.to_json(msg, fallback=str, indent=2).decode()
                         messages.append(Message(role="user", content=content))
-                except Exception:  # pragma: no cover
-                    raise ValueError(f"Could not convert prompt result to message: {msg}")
+                except Exception as err:  # pragma: no cover
+                    raise ValueError(f"Could not convert prompt result to message: {msg}") from err
 
             return messages
         except Exception as e:  # pragma: no cover
-            raise ValueError(f"Error rendering prompt {self.name}: {e}")
+            raise ValueError(f"Error rendering prompt {self.name}: {e}") from e
