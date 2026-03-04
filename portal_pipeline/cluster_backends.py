@@ -11,6 +11,7 @@ import logging
 import os
 import random
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -18,7 +19,36 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIG_PATH = os.environ.get("BACKEND_CONFIG_PATH", "/app/config/backends.yaml")
+
+def _default_config_path() -> str:
+    """Resolve backends.yaml path with environment awareness.
+
+    Priority:
+    1. BACKEND_CONFIG_PATH env var (explicit override)
+    2. /app/config/backends.yaml (Docker container path)
+    3. <repo_root>/config/backends.yaml (local development — relative to this file)
+    """
+    # Explicit override always wins
+    if env_path := os.environ.get("BACKEND_CONFIG_PATH"):
+        return env_path
+
+    # Docker path
+    docker_path = Path("/app/config/backends.yaml")
+    if docker_path.exists():
+        return str(docker_path)
+
+    # Local dev: walk up from this file to find config/backends.yaml
+    this_file = Path(__file__).resolve()
+    for parent in [this_file.parent, this_file.parent.parent, this_file.parent.parent.parent]:
+        candidate = parent / "config" / "backends.yaml"
+        if candidate.exists():
+            return str(candidate)
+
+    # Fall back to Docker path (will log an error if not found — expected in CI)
+    return str(docker_path)
+
+
+DEFAULT_CONFIG_PATH = _default_config_path()
 
 
 @dataclass

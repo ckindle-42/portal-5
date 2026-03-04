@@ -18,10 +18,10 @@ backends:
     url: "http://ollama:11434"
     group: coding
     models:
-      - qwen3-coder-next:30b-q5                     # Best: agentic, Splunk/BigFix/PPT
-      - unsloth/GLM-4.7-Flash                        # Fast MoE, PowerShell/C#/SQL
-      - deepseek-ai/DeepSeek-Coder-V2-Lite-Base:16b # Splunk SPL specialist
-      - devstral:24b                                  # Agentic dev workflows
+      - qwen3-coder-next:30b-q5                          # Best: agentic, Splunk/BigFix/PPT
+      - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
+      - deepseek-coder:16b-instruct-q4_K_M               # Splunk SPL specialist
+      - devstral:24b                                     # Agentic dev workflows
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security

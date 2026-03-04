@@ -371,32 +371,12 @@ def configure_user_settings(client: httpx.Client, token: str) -> None:
 
 
 def configure_audio_settings(client: httpx.Client, token: str) -> None:
-    """Configure Open WebUI to use Portal TTS for native voice output."""
-    print("\nConfiguring audio settings...")
-    # Open WebUI can use any OpenAI-compatible TTS endpoint
-    # mcp-tts exposes /v1/audio/speech compatible endpoint
-    try:
-        resp = client.post(
-            f"{OPENWEBUI_URL}/api/v1/configs/audio",
-            json={
-                "tts_engine": "openai",
-                "tts_openai_api_base_url": "http://mcp-tts:8916",
-                "tts_openai_api_key": "portal-tts",
-                "tts_model": "kokoro",
-                "tts_voice": "af_heart",
-                "stt_engine": "openai",
-                "stt_openai_api_base_url": "http://mcp-whisper:8915",
-                "stt_openai_api_key": "portal-whisper",
-            },
-            headers=auth_headers(token),
-            timeout=10.0,
-        )
-        if resp.status_code in (200, 201):
-            print("  Audio (TTS/STT) configured to use Portal MCP servers")
-        else:
-            print(f"  Warning: audio config returned HTTP {resp.status_code}")
-    except Exception as e:
-        print(f"  Warning: audio config failed: {e}")
+    """Audio TTS/STT is configured via Open WebUI environment variables.
+
+    AUDIO_TTS_ENGINE, AUDIO_TTS_OPENAI_API_BASE_URL, etc. are set in
+    docker-compose.yml. No runtime API call needed.
+    """
+    print("\nAudio settings: configured via environment variables (TTS→mcp-tts:8916, STT→mcp-whisper:8915)")
 
 
 def configure_tool_settings(client: httpx.Client, token: str) -> None:

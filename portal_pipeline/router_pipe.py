@@ -152,10 +152,14 @@ async def health() -> dict:
 
 @app.get("/metrics")
 async def metrics() -> PlainTextResponse:
-    """Prometheus-compatible metrics endpoint."""
+    """Prometheus-compatible metrics endpoint.
+
+    Note: request counters are per-worker when PIPELINE_WORKERS > 1.
+    For aggregate counts, sum across scrape intervals or set PIPELINE_WORKERS=1.
+    """
     uptime = time.time() - _startup_time
     lines = [
-        "# HELP portal_requests_total Total requests by workspace",
+        "# HELP portal_requests_total Total requests by workspace (per-worker when workers>1)",
         "# TYPE portal_requests_total counter",
     ]
     for ws_id, count in _request_count.items():

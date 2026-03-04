@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     ffmpeg \
     curl \
+    espeak-ng \
+    libespeak-ng1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Core deps

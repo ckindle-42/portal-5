@@ -24,6 +24,21 @@ This document tracks known limitations in Portal 5. These are items that have be
 - **Configuration**: Set via `MAX_CONCURRENT_REQUESTS` environment variable
 - **Last Verified**: 2026-03-03 (load test with 25 concurrent requests passes - excess requests properly return 503)
 
+### Load Testing
+- **ID**: P5-ROAD-040
+- **Status**: DOCUMENTED
+- **Description**: Load testing with 25 concurrent users requires a running stack (Ollama + Open WebUI). Unit tests cover the semaphore logic.
+- **Approach**: Use Locust for real load testing
+- **Configuration**:
+  ```bash
+  # With stack running:
+  pip install locust
+  # Create locustfile.py (see docs/LOAD_TESTING.md)
+  locust -f locustfile.py --headless -u 25 -r 5 --run-time 60s
+  ```
+- **Note**: With `PIPELINE_WORKERS > 1`, request counters are per-worker. Set `PIPELINE_WORKERS=1` for accurate aggregate metrics.
+- **Last Verified**: 2026-03-03
+
 ---
 
 ## Infrastructure
