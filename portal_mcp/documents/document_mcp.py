@@ -81,6 +81,16 @@ TOOLS_MANIFEST = [
             "required": ["source_path", "target_format"],
         },
     },
+    {
+        "name": "list_generated_files",
+        "description": "List recently generated documents in the output directory. "
+                        "Use this to find files created by other tools.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 
@@ -322,26 +332,73 @@ def convert_document(
     source_path: str,
     target_format: str,
 ) -> dict:
-    """Convert a document between formats.
+    """Copy a document to a new format name.
+
+    Note: True format conversion (e.g., .docx to .pdf) requires LibreOffice
+    installed on the host. Without LibreOffice, this tool copies the file with
+    the new extension, which is only useful for same-family formats.
+
+    For PDF export, use LibreOffice on the host:
+      libreoffice --headless --convert-to pdf <file>
 
     Args:
-        source_path: Path to source file (.docx, .pptx, .xlsx, or .pdf)
-        target_format: Target format: 'pdf', 'docx', 'pptx', or 'xlsx'
+        source_path:   Path to the source document
+        target_format: Target extension: 'pdf', 'docx', 'pptx', or 'xlsx'
     """
+    import shutil
+    import subprocess
     from pathlib import Path as _Path
+
     src = _Path(source_path)
     if not src.exists():
         return {"error": f"Source file not found: {source_path}"}
 
-    # Format conversion via python-docx / python-pptx
-    # For now: copy with format note (full conversion requires LibreOffice)
-    import shutil
-    out_path = _unique_path(src.stem, f".{target_format.lstrip('.')}")
+    target_format = target_format.lower().lstrip(".")
+    out_path = _unique_path(src.stem, f".{target_format}")
+
+    # Attempt LibreOffice conversion for cross-format (best quality)
+    try:
+        result = subprocess.run(
+            ["libreoffice", "--headless", "--convert-to", target_format,
+             "--outdir", str(out_path.parent), str(src)],
+            capture_output=True, timeout=60,
+        )
+        if result.returncode == 0:
+            # LibreOffice writes to same dir as source — find the output file
+            converted = src.parent / f"{src.stem}.{target_format}"
+            if converted.exists():
+                shutil.move(str(converted), str(out_path))
+                return {"success": True, "path": str(out_path), "method": "libreoffice"}
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # LibreOffice not installed — fall through to copy fallback
+
+    # Fallback: copy with new extension (only meaningful for same-family formats)
+    same_family = {
+        frozenset({"docx", "doc"}),
+        frozenset({"pptx", "ppt"}),
+        frozenset({"xlsx", "xls"}),
+    }
+    src_ext = src.suffix.lstrip(".")
+    is_same_family = any(
+        {src_ext, target_format} <= fam for fam in same_family
+    )
+
+    if not is_same_family:
+        return {
+            "error": (
+                f"Cannot convert {src_ext!r} → {target_format!r} without LibreOffice. "
+                "Install LibreOffice for PDF and cross-format conversion."
+            ),
+            "install": "brew install libreoffice  # or apt-get install libreoffice",
+        }
+
     shutil.copy2(str(src), str(out_path))
     return {
         "success": True,
         "path": str(out_path),
-        "note": "Native format conversion. For PDF export install LibreOffice.",
+        "method": "copy",
+        "note": f"Copied {src_ext} → {target_format}. "
+                "Install LibreOffice for true format conversion.",
     }
 
 

@@ -1,9 +1,10 @@
 {
   "id": "auto-reasoning",
-  "name": "\ud83e\udde0 Portal Deep Reasoner",
+  "name": "🧠 Portal Deep Reasoner",
   "meta": {
-    "description": "\ud83e\udde0 Portal Deep Reasoner",
-    "profile_image_url": ""
+    "description": "🧠 Portal Deep Reasoner",
+    "profile_image_url": "",
+    "toolIds": []
   },
   "params": {
     "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",

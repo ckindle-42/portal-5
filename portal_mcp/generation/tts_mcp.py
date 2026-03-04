@@ -103,7 +103,10 @@ async def openai_audio_speech(request):
     # Read generated audio file and return as binary
     audio_path = result.get("file_path", "")
     if not audio_path or not Path(audio_path).exists():
-        return JSONResponse({"error": "Audio file not generated"}, status_code=500)
+        return JSONResponse(
+            {"error": "Audio file not generated — TTS process produced no output"},
+            status_code=503,
+        )
 
     audio_bytes = Path(audio_path).read_bytes()
     return Response(

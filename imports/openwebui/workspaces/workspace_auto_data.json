@@ -1,9 +1,13 @@
 {
   "id": "auto-data",
-  "name": "\ud83d\udcca Portal Data Analyst",
+  "name": "📊 Portal Data Analyst",
   "meta": {
-    "description": "\ud83d\udcca Portal Data Analyst",
-    "profile_image_url": ""
+    "description": "📊 Portal Data Analyst",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_code",
+      "portal_documents"
+    ]
   },
   "params": {
     "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",

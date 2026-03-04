@@ -461,7 +461,14 @@ class TestSandboxMCPTools:
 
 
 class TestAllMCPServerToolAlignment:
-    """Verify TOOLS_MANIFEST matches registered tools for every MCP server."""
+    """Verify TOOLS_MANIFEST and @mcp.tool() registered names are in sync for all servers.
+
+    Both directions are checked:
+    1. Every name in TOOLS_MANIFEST must have a matching @mcp.tool() function
+       (otherwise AI tool calls fail silently)
+    2. Every @mcp.tool() function must appear in TOOLS_MANIFEST
+       (otherwise the tool is registered but invisible to the AI — dead code)
+    """
 
     @pytest.mark.parametrize("module_path", [
         "portal_mcp.documents.document_mcp",
@@ -472,16 +479,25 @@ class TestAllMCPServerToolAlignment:
         "portal_mcp.generation.video_mcp",
         "portal_mcp.execution.code_sandbox_mcp",
     ])
-    def test_manifest_matches_registered(self, module_path):
-        """Every tool in TOOLS_MANIFEST must be registered with @mcp.tool()."""
+    def test_manifest_and_registered_are_in_sync(self, module_path):
+        """TOOLS_MANIFEST and @mcp.tool() must be a perfect bidirectional match."""
         import importlib
         import sys
         sys.path.insert(0, ".")
         mod = importlib.import_module(module_path)
         registered = set(mod.mcp._tool_manager._tools.keys())
-        manifest = {t["name"] for t in mod.TOOLS_MANIFEST}
-        missing = manifest - registered
-        assert not missing, (
-            f"{module_path}: tools in TOOLS_MANIFEST but not registered: {missing}. "
-            f"AI calls to these tools will silently fail."
+        manifest   = {t["name"] for t in mod.TOOLS_MANIFEST}
+
+        missing_from_manifest = registered - manifest
+        missing_from_code     = manifest - registered
+
+        assert not missing_from_code, (
+            f"{module_path}: tools in TOOLS_MANIFEST but NOT registered with @mcp.tool():\n"
+            f"  {missing_from_code}\n"
+            f"  Effect: AI calls these tools but they don't exist → silent failure"
+        )
+        assert not missing_from_manifest, (
+            f"{module_path}: tools registered with @mcp.tool() but NOT in TOOLS_MANIFEST:\n"
+            f"  {missing_from_manifest}\n"
+            f"  Effect: AI has no knowledge these tools exist → dead code"
         )

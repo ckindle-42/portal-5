@@ -1,9 +1,10 @@
 {
   "id": "auto",
-  "name": "\ud83e\udd16 Portal Auto Router",
+  "name": "🤖 Portal Auto Router",
   "meta": {
-    "description": "\ud83e\udd16 Portal Auto Router",
-    "profile_image_url": ""
+    "description": "🤖 Portal Auto Router",
+    "profile_image_url": "",
+    "toolIds": []
   },
   "params": {
     "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.",

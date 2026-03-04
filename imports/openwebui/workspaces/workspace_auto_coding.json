@@ -1,9 +1,12 @@
 {
   "id": "auto-coding",
-  "name": "\ud83d\udcbb Portal Code Expert",
+  "name": "💻 Portal Code Expert",
   "meta": {
-    "description": "\ud83d\udcbb Portal Code Expert",
-    "profile_image_url": ""
+    "description": "💻 Portal Code Expert",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_code"
+    ]
   },
   "params": {
     "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. Explain your approach briefly before writing code.",
