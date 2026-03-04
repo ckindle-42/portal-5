@@ -46,18 +46,32 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "generate_continuation",
-        "description": "Continue a melody pattern",
+        "description": "Continue or extend a piece of music using a melody as input",
         "parameters": {
             "type": "object",
             "properties": {
-                "melody": {
+                "prompt": {
                     "type": "string",
-                    "description": "Melody pattern as comma-separated note values",
+                    "description": "Description of how to continue the music",
                 },
-                "duration": {"type": "number", "description": "Duration in seconds", "default": 10},
+                "melody_path": {
+                    "type": "string",
+                    "description": "Path to a WAV/MP3 file to use as melodic conditioning",
+                },
+                "duration": {"type": "number", "description": "Duration in seconds (max 30)", "default": 10},
+                "model": {
+                    "type": "string",
+                    "description": "MusicGen model size — small | medium | large",
+                    "default": "medium",
+                },
             },
-            "required": ["melody"],
+            "required": ["prompt", "melody_path"],
         },
+    },
+    {
+        "name": "list_music_models",
+        "description": "List available MusicGen model sizes and their requirements",
+        "parameters": {"type": "object", "properties": {}, "required": []},
     },
 ]
 
@@ -242,6 +256,56 @@ def _stable_audio_sync(prompt: str, duration: float) -> dict:
     except Exception as e:
         logger.exception("Stable Audio generation failed")
         return {"success": False, "error": str(e)}
+
+
+async def _run_music_generation(
+    prompt: str,
+    duration: float,
+    model_name: str,
+    melody_path: str | None = None,
+) -> dict:
+    """Run music generation, optionally with melody conditioning."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        _generate_sync,
+        prompt,
+        duration,
+        model_name,
+        250,   # top_k default
+        1.0,   # temperature default
+        3.0,   # cfg_coef default
+    )
+
+
+@mcp.tool()
+async def generate_continuation(
+    prompt: str,
+    melody_path: str,
+    duration: int = 10,
+    model: str = "medium",
+) -> dict:
+    """Continue or extend a piece of music using a melody as input.
+
+    Args:
+        prompt: Description of how to continue the music
+        melody_path: Path to a WAV/MP3 file to use as melodic conditioning
+        duration: Duration in seconds (max 30)
+        model: MusicGen model size — small | medium | large
+    """
+    available, error = _check_audiocraft()
+    if not available:
+        return {"error": f"AudioCraft not available: {error}",
+                "install": "pip install audiocraft"}
+
+    from pathlib import Path as _Path
+    if not _Path(melody_path).exists():
+        return {"error": f"Melody file not found: {melody_path}"}
+
+    return await _run_music_generation(
+        prompt=prompt, duration=duration, model_name=model,
+        melody_path=melody_path
+    )
 
 
 @mcp.tool()

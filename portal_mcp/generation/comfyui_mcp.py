@@ -259,6 +259,27 @@ async def list_workflows() -> list[str]:
         return checkpoints
 
 
+@mcp.tool()
+async def get_generation_status(job_id: str) -> dict:
+    """Check the status of an image generation job by its prompt_id.
+
+    Args:
+        job_id: The prompt_id returned by generate_image
+    """
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
+            if resp.status_code == 200:
+                history = resp.json()
+                if job_id in history:
+                    return {"status": "complete", "job_id": job_id,
+                            "outputs": history[job_id].get("outputs", {})}
+                return {"status": "pending", "job_id": job_id}
+            return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
+        except Exception as e:
+            return {"error": str(e), "job_id": job_id}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("COMFYUI_MCP_PORT", "8910"))
     mcp.settings.port = port

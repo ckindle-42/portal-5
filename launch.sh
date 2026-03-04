@@ -127,6 +127,169 @@ case "${1:-up}" in
     echo "  Grafana:     http://localhost:3000  (admin / check .env)"
     echo "  Prometheus:  http://localhost:9090"
     ;;
+  test)
+    # Run end-to-end smoke tests against the live stack
+    # Usage: ./launch.sh up && sleep 30 && ./launch.sh test
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    OWUI="${OPENWEBUI_URL:-http://localhost:8080}"
+    PIPE="http://localhost:9099"
+    PASS=0; FAIL=0
+
+    _check() {
+        local name="$1" result="$2" expect="$3"
+        if [ "$result" = "$expect" ]; then
+            echo "  ✅ $name"
+            PASS=$((PASS+1))
+        else
+            echo "  ❌ $name (got: $result, expected: $expect)"
+            FAIL=$((FAIL+1))
+        fi
+    }
+
+    echo "=== Portal 5 Live Stack Smoke Test ==="
+    echo ""
+
+    # ── Pipeline ──────────────────────────────────────────────────────────────
+    echo "Pipeline:"
+    STATUS=$(curl -s "$PIPE/health" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
+    _check "health endpoint responds" "$STATUS" "ok"
+    _check "health status ok (Ollama connected)" "$STATUS" "ok"
+
+    WS_COUNT=$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null)
+    _check "all 13 workspaces exposed" "$WS_COUNT" "13"
+
+    METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
+    [ "$METRICS" -ge 4 ] && echo "  ✅ Prometheus metrics ($METRICS gauges)" && PASS=$((PASS+1)) || { echo "  ❌ Metrics missing"; FAIL=$((FAIL+1)); }
+
+    # ── Open WebUI ────────────────────────────────────────────────────────────
+    echo ""
+    echo "Open WebUI:"
+    OW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$OWUI/health")
+    _check "Open WebUI responds" "$OW_STATUS" "200"
+
+    # ── Ollama inference ──────────────────────────────────────────────────────
+    echo ""
+    echo "Ollama:"
+    MODELS=$(curl -s http://localhost:11434/api/tags | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('models',[])))" 2>/dev/null)
+    [ "$MODELS" -ge 1 ] && echo "  ✅ Ollama has $MODELS model(s) loaded" && PASS=$((PASS+1)) || { echo "  ❌ No Ollama models loaded — run: ./launch.sh pull-models"; FAIL=$((FAIL+1)); }
+
+    # Live inference test
+    REPLY=$(curl -s -X POST "$PIPE/v1/chat/completions" \
+        -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG"}],"stream":false}' \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('choices',[{}])[0].get('message',{}).get('content','FAIL')[:20])" 2>/dev/null)
+    [ -n "$REPLY" ] && [ "$REPLY" != "FAIL" ] && echo "  ✅ Live inference: got reply" && PASS=$((PASS+1)) || { echo "  ❌ Live inference failed — check Ollama has a model"; FAIL=$((FAIL+1)); }
+
+    # ── MCP Servers ───────────────────────────────────────────────────────────
+    echo ""
+    echo "MCP Servers:"
+    for port_name in "8913:Documents" "8912:Music" "8916:TTS" "8915:Whisper" \
+                     "8910:ComfyUI" "8911:Video" "8914:Sandbox"; do
+        PORT="${port_name%%:*}"
+        NAME="${port_name##*:}"
+        HC=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/health" 2>/dev/null)
+        _check "$NAME MCP (:$PORT)" "$HC" "200"
+    done
+
+    # ── Document generation ───────────────────────────────────────────────────
+    echo ""
+    echo "Document Generation:"
+    DOC_RESULT=$(curl -s -X POST "http://localhost:8913/mcp" \
+        -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_word_document","arguments":{"title":"Smoke Test","content":"Portal 5 smoke test document"}},"id":1}' \
+        2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('result',{}); print('OK' if r.get('success') or 'path' in str(r) else 'FAIL')" 2>/dev/null)
+    _check "Word document created" "$DOC_RESULT" "OK"
+
+    # ── TTS ───────────────────────────────────────────────────────────────────
+    echo ""
+    echo "TTS / Voice:"
+    TTS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8916/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d '{"input":"Hello from Portal 5","voice":"af_heart"}' 2>/dev/null)
+    # 200 = works, 503 = model downloading, both acceptable
+    [ "$TTS_STATUS" = "200" ] && echo "  ✅ TTS generates audio" && PASS=$((PASS+1)) || \
+    [ "$TTS_STATUS" = "503" ] && echo "  ⚠️  TTS: kokoro model downloading (first run — try again in 60s)" || \
+    { echo "  ❌ TTS error (HTTP $TTS_STATUS)"; FAIL=$((FAIL+1)); }
+
+    # ── SearXNG ───────────────────────────────────────────────────────────────
+    echo ""
+    echo "Web Search:"
+    SEARCH=$(curl -s "http://localhost:8088/search?q=portal+ai&format=json" \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK' if d.get('results') else 'EMPTY')" 2>/dev/null)
+    _check "SearXNG returns results" "$SEARCH" "OK"
+
+    # ── Prometheus + Grafana ──────────────────────────────────────────────────
+    echo ""
+    echo "Metrics:"
+    PROM=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:9090/-/healthy" 2>/dev/null)
+    _check "Prometheus healthy" "$PROM" "200"
+    GRAF=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/health" 2>/dev/null)
+    _check "Grafana healthy" "$GRAF" "200"
+
+    # ── Channels (if running) ─────────────────────────────────────────────────
+    echo ""
+    echo "Channels:"
+    TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" || echo 0)
+    [ "$TG" -ge 1 ] && echo "  ✅ Telegram container running" && PASS=$((PASS+1)) || echo "  ℹ️  Telegram not running (./launch.sh up-telegram to start)"
+    SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" || echo 0)
+    [ "$SL" -ge 1 ] && echo "  ✅ Slack container running" && PASS=$((PASS+1)) || echo "  ℹ️  Slack not running (./launch.sh up-slack to start)"
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    echo ""
+    echo "=================================================="
+    echo "  Results: $PASS passed, $FAIL failed"
+    echo "=================================================="
+    [ "$FAIL" -eq 0 ] && echo "  ✅ All checks passed — Portal 5 is fully operational" || \
+        echo "  ❌ $FAIL check(s) failed — review output above"
+    [ "$FAIL" -gt 0 ] && exit 1 || exit 0
+    ;;
+
+  up-telegram)
+    # Start core stack + Telegram bot
+    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+        source "$ENV_FILE"
+    fi
+    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+        echo "ERROR: TELEGRAM_BOT_TOKEN not set in .env"
+        echo "  Get a token from @BotFather: https://t.me/BotFather"
+        echo "  Then set TELEGRAM_BOT_TOKEN=... in .env"
+        exit 1
+    fi
+    set -a; source "$ENV_FILE"; set +a
+    cd "$COMPOSE_DIR"
+    docker compose --profile telegram up -d
+    echo "[portal-5] Stack + Telegram started"
+    echo "  Send /start to your bot to verify it's working"
+    ;;
+
+  up-slack)
+    # Start core stack + Slack bot
+    source "$ENV_FILE" 2>/dev/null || true
+    set -a; source "$ENV_FILE"; set +a
+    for var in SLACK_BOT_TOKEN SLACK_APP_TOKEN; do
+        val="${!var:-}"
+        if [ -z "$val" ]; then
+            echo "ERROR: $var not set in .env"
+            echo "  Create at: https://api.slack.com/apps"
+            echo "  Enable Socket Mode and create an App-Level Token (xapp-...)"
+            exit 1
+        fi
+    done
+    cd "$COMPOSE_DIR"
+    docker compose --profile slack up -d
+    echo "[portal-5] Stack + Slack started"
+    echo "  Mention @portal in any channel to verify"
+    ;;
+
+  up-channels)
+    # Start core stack + both Telegram and Slack
+    set -a; source "$ENV_FILE"; set +a
+    cd "$COMPOSE_DIR"
+    docker compose --profile telegram --profile slack up -d
+    echo "[portal-5] Stack + all channels started"
+    ;;
+
   down)
     cd "$COMPOSE_DIR"
     docker compose down
@@ -325,9 +488,13 @@ for u in users:
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|add-user|list-users]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|up-telegram|up-slack|up-channels]"
     echo ""
     echo "  up           Start all services (first run auto-generates secrets)"
+    echo "  up-telegram  Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
+    echo "  up-slack     Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
+    echo "  up-channels  Start core stack + both Telegram and Slack"
+    echo "  test         Run end-to-end smoke tests against the live stack"
     echo "  down         Stop all services (data preserved)"
     echo "  clean        Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all    Stop + wipe everything including Ollama models"

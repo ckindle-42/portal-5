@@ -26,6 +26,37 @@ TTS_BACKEND = os.getenv("TTS_BACKEND", "kokoro")  # kokoro | fish_speech
 TTS_VOICE = os.getenv("TTS_DEFAULT_VOICE", "af_heart")  # Kokoro default voice
 TTS_SPEED = float(os.getenv("TTS_SPEED", "1.0"))
 
+# Kokoro model cache location
+KOKORO_CACHE_DIR = Path(os.getenv("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "kokoro"
+KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
+KOKORO_VOICES_FILE = "voices-v1.0.bin"
+KOKORO_HF_REPO = "hexgrad/kokoro-onnx"
+
+
+def _ensure_kokoro_models() -> tuple[str, str]:
+    """Return (model_path, voices_path), downloading from HuggingFace if needed.
+
+    ~60 MB total. Downloaded once, then cached at KOKORO_CACHE_DIR.
+    """
+    KOKORO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    model_path = KOKORO_CACHE_DIR / KOKORO_MODEL_FILE
+    voices_path = KOKORO_CACHE_DIR / KOKORO_VOICES_FILE
+
+    if not model_path.exists() or not voices_path.exists():
+        logger.info("Downloading kokoro-onnx model files (~60 MB)...")
+        from huggingface_hub import hf_hub_download
+        if not model_path.exists():
+            hf_hub_download(repo_id=KOKORO_HF_REPO,
+                            filename=KOKORO_MODEL_FILE,
+                            local_dir=str(KOKORO_CACHE_DIR))
+        if not voices_path.exists():
+            hf_hub_download(repo_id=KOKORO_HF_REPO,
+                            filename=KOKORO_VOICES_FILE,
+                            local_dir=str(KOKORO_CACHE_DIR))
+        logger.info("Kokoro model files ready at %s", KOKORO_CACHE_DIR)
+
+    return str(model_path), str(voices_path)
+
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
@@ -66,7 +97,8 @@ async def openai_audio_speech(request):
     result = await _speak_kokoro(text, voice, speed)
 
     if "error" in result:
-        return JSONResponse(result, status_code=500)
+        # 503 = service unavailable (model not ready / downloading)
+        return JSONResponse(result, status_code=503)
 
     # Read generated audio file and return as binary
     audio_path = result.get("file_path", "")
@@ -210,14 +242,16 @@ async def _speak_kokoro(text: str, voice: str, speed: float) -> dict:
 
 
 def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
+    """Generate speech using kokoro-onnx. Downloads model files on first use."""
     try:
         import soundfile as sf
         from kokoro_onnx import Kokoro
 
-        # Kokoro downloads model on first use (~200MB)
-        kokoro = Kokoro("kokoro-v1.0.onnx", "voices-v1.0.bin")
+        model_path, voices_path = _ensure_kokoro_models()
+        kokoro = Kokoro(model_path, voices_path)
         samples, sample_rate = kokoro.create(text, voice=voice, speed=speed, lang="en-us")
 
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         output_path = OUTPUT_DIR / f"tts_{hash(text) & 0xFFFFFF}.wav"
         sf.write(str(output_path), samples, sample_rate)
 

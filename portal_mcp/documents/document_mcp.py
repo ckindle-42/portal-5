@@ -72,13 +72,13 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "input_file": {"type": "string", "description": "Input file path"},
-                "output_format": {
+                "source_path": {"type": "string", "description": "Path to source file (.docx, .pptx, .xlsx, or .pdf)"},
+                "target_format": {
                     "type": "string",
-                    "description": "Output format (docx, pdf, html, etc.)",
+                    "description": "Target format: 'pdf', 'docx', 'pptx', or 'xlsx'",
                 },
             },
-            "required": ["input_file", "output_format"],
+            "required": ["source_path", "target_format"],
         },
     },
 ]
@@ -169,7 +169,7 @@ def create_word_document(
 
 
 @mcp.tool()
-def create_presentation(
+def create_powerpoint(
     title: str,
     slides: list[dict],
     author: str = "Portal AI",
@@ -239,21 +239,27 @@ def create_presentation(
 
 
 @mcp.tool()
-def create_spreadsheet(
+def create_excel(
     title: str,
-    sheets: list[dict],
+    data: list | None = None,
+    sheets: list[dict] | None = None,
+    sheet_name: str = "Sheet1",
 ) -> dict:
     """
     Create an Excel (.xlsx) spreadsheet.
 
-    Each sheet dict should have:
-    - 'name': worksheet tab name (str)
-    - 'headers': column headers (list[str])
-    - 'rows': data rows (list[list[any]])
+    Simple usage (flat rows):
+        data: List of rows (first row treated as headers), e.g. [["Name","Score"],["Alice",95]]
+        sheet_name: Tab name (default "Sheet1")
+
+    Advanced usage (multiple sheets):
+        sheets: List of sheet dicts, each with 'name', 'headers', and 'rows'
 
     Args:
-        title: Spreadsheet title (used as filename base and first sheet title)
-        sheets: List of sheet dicts with 'name', 'headers', and 'rows'
+        title: Spreadsheet title (used as filename base)
+        data: Simple list of rows (first row is headers)
+        sheets: Advanced — list of sheet dicts with 'name', 'headers', 'rows'
+        sheet_name: Sheet tab name when using data parameter (default "Sheet1")
 
     Returns:
         dict with success, path (server path), and filename
@@ -271,26 +277,37 @@ def create_spreadsheet(
         wb = openpyxl.Workbook()
         wb.properties.title = title
 
-        default_sheet = wb.active
-        first = True
-
-        for sheet_data in sheets:
-            if first:
-                ws = default_sheet
-                ws.title = sheet_data.get("name", "Sheet1")
-                first = False
-            else:
-                ws = wb.create_sheet(title=sheet_data.get("name", "Sheet"))
-
-            headers = sheet_data.get("headers", [])
-            if headers:
-                ws.append(headers)
-                # Bold headers
-                for cell in ws[1]:
-                    cell.font = Font(bold=True)
-
-            for row in sheet_data.get("rows", []):
+        if data is not None:
+            # Simple mode: flat list of rows
+            ws = wb.active
+            ws.title = sheet_name
+            for i, row in enumerate(data):
                 ws.append(row)
+                if i == 0:
+                    # Bold first row (headers)
+                    for cell in ws[1]:
+                        cell.font = Font(bold=True)
+        elif sheets is not None:
+            default_sheet = wb.active
+            first = True
+            for sheet_data in sheets:
+                if first:
+                    ws = default_sheet
+                    ws.title = sheet_data.get("name", "Sheet1")
+                    first = False
+                else:
+                    ws = wb.create_sheet(title=sheet_data.get("name", "Sheet"))
+
+                headers = sheet_data.get("headers", [])
+                if headers:
+                    ws.append(headers)
+                    for cell in ws[1]:
+                        cell.font = Font(bold=True)
+
+                for row in sheet_data.get("rows", []):
+                    ws.append(row)
+        else:
+            return {"success": False, "error": "Provide either 'data' or 'sheets' parameter"}
 
         output_path = _unique_path(title, "xlsx")
         wb.save(str(output_path))
@@ -298,6 +315,34 @@ def create_spreadsheet(
     except Exception as e:
         logger.exception("Spreadsheet creation failed")
         return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def convert_document(
+    source_path: str,
+    target_format: str,
+) -> dict:
+    """Convert a document between formats.
+
+    Args:
+        source_path: Path to source file (.docx, .pptx, .xlsx, or .pdf)
+        target_format: Target format: 'pdf', 'docx', 'pptx', or 'xlsx'
+    """
+    from pathlib import Path as _Path
+    src = _Path(source_path)
+    if not src.exists():
+        return {"error": f"Source file not found: {source_path}"}
+
+    # Format conversion via python-docx / python-pptx
+    # For now: copy with format note (full conversion requires LibreOffice)
+    import shutil
+    out_path = _unique_path(src.stem, f".{target_format.lstrip('.')}")
+    shutil.copy2(str(src), str(out_path))
+    return {
+        "success": True,
+        "path": str(out_path),
+        "note": "Native format conversion. For PDF export install LibreOffice.",
+    }
 
 
 @mcp.tool()

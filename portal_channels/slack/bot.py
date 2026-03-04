@@ -1,9 +1,19 @@
 """Portal 5.0 — Slack Channel Adapter
 
-Receives Slack events, forwards to Portal Pipeline, returns response.
-Thin adapter: all routing intelligence lives in portal_pipeline/.
-"""
+Listens via Socket Mode (no public webhook required).
+Handles @mentions in channels and direct messages.
+Thin adapter — all intelligence is in portal_pipeline/.
 
+Required environment variables:
+  SLACK_BOT_TOKEN      xoxb-... (Bot User OAuth Token)
+  SLACK_APP_TOKEN      xapp-... (App-Level Token for Socket Mode)
+  SLACK_SIGNING_SECRET Signing secret from app settings
+
+Optional:
+  PIPELINE_URL         default: http://portal-pipeline:9099
+  PIPELINE_API_KEY     default: value from PIPELINE_API_KEY env
+  SLACK_DEFAULT_WORKSPACE  default: auto
+"""
 from __future__ import annotations
 
 import logging
@@ -11,106 +21,131 @@ import os
 from typing import Any
 
 import httpx
-from slack_bolt.adapter.socket_mode import SocketModeHandler
-from slack_bolt.app import App
 
 logger = logging.getLogger(__name__)
 
-SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
-SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 DEFAULT_WORKSPACE = os.environ.get("SLACK_DEFAULT_WORKSPACE", "auto")
 
-slack_app = App(token=SLACK_BOT_TOKEN, signing_secret=SLACK_SIGNING_SECRET)
+# Channel name → workspace routing (matches current 13 canonical workspace IDs)
+CHANNEL_WORKSPACE_MAP: dict[str, str] = {
+    "coding":     "auto-coding",
+    "security":   "auto-security",
+    "redteam":    "auto-redteam",
+    "blueteam":   "auto-blueteam",
+    "images":     "auto-vision",       # was "auto-images" (invalid)
+    "vision":     "auto-vision",
+    "creative":   "auto-creative",
+    "documents":  "auto-documents",
+    "video":      "auto-video",
+    "music":      "auto-music",
+    "research":   "auto-research",
+    "reasoning":  "auto-reasoning",
+    "data":       "auto-data",
+}
 
 
-def _get_workspace_for_channel(channel_name: str) -> str:
-    """Map channel names to workspaces."""
-    channel_map = {
-        "coding": "auto-coding",
-        "security": "auto-security",
-        "images": "auto-images",
-        "creative": "auto-creative",
-        "documents": "auto-documents",
-        "video": "auto-video",
-        "music": "auto-music",
-        "research": "auto-research",
-    }
-    for key, ws in channel_map.items():
-        if key in channel_name.lower():
-            return ws
+def _get_tokens() -> tuple[str, str, str]:
+    """Read Slack tokens from environment. Raises clear error if missing."""
+    bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
+    app_token = os.environ.get("SLACK_APP_TOKEN", "")
+    signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+
+    missing = []
+    if not bot_token:
+        missing.append("SLACK_BOT_TOKEN (xoxb-...)")
+    if not app_token:
+        missing.append("SLACK_APP_TOKEN (xapp-...)")
+
+    if missing:
+        raise RuntimeError(
+            "Slack credentials missing from .env:\n" +
+            "\n".join(f"  {m}" for m in missing) +
+            "\n\nSee: https://api.slack.com/apps → create app → Socket Mode"
+        )
+    return bot_token, app_token, signing_secret
+
+
+def _workspace_for_channel(channel_name: str) -> str:
+    for keyword, workspace in CHANNEL_WORKSPACE_MAP.items():
+        if keyword in channel_name.lower():
+            return workspace
     return DEFAULT_WORKSPACE
 
 
-@slack_app.event("app_mention")
-def handle_mention(event: dict[str, Any], say: Any, client: Any) -> None:
-    """Handle @bot mentions."""
-    channel_id = event.get("channel", "")
-    channel_info = client.conversations_info(channel=channel_id)
-    channel_name = channel_info.get("channel", {}).get("name", "general")
-    workspace = _get_workspace_for_channel(channel_name)
-
-    user_text = event.get("text", "").strip()
-    thread_ts = event.get("thread_ts", event.get("ts"))
-
-    # Call Pipeline API
+def _call_pipeline(text: str, workspace: str) -> str:
+    """Synchronous Pipeline call for use inside Slack bolt handlers."""
     payload = {
         "model": workspace,
-        "messages": [{"role": "user", "content": user_text}],
+        "messages": [{"role": "user", "content": text}],
         "stream": False,
     }
+    with httpx.Client(timeout=120.0) as client:
+        resp = client.post(
+            f"{PIPELINE_URL}/v1/chat/completions",
+            json=payload,
+            headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"]
 
-    try:
-        import httpx
 
-        with httpx.Client(timeout=120.0) as http_client:
-            resp = http_client.post(
-                f"{PIPELINE_URL}/v1/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            reply = data["choices"][0]["message"]["content"]
+def build_app():
+    """Build the Slack App and SocketModeHandler. Reads tokens here, not at import."""
+    from slack_bolt import App
+    from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+    bot_token, app_token, signing_secret = _get_tokens()
+    slack_app = App(token=bot_token, signing_secret=signing_secret)
+
+    @slack_app.event("app_mention")
+    def handle_mention(event: dict[str, Any], say: Any, client: Any) -> None:
+        """Handle @portal mentions in channels."""
+        channel_id = event.get("channel", "")
+        channel_name = ""
+        try:
+            info = client.conversations_info(channel=channel_id)
+            channel_name = info.get("channel", {}).get("name", "")
+        except Exception:
+            pass
+
+        workspace = _workspace_for_channel(channel_name)
+        user_text = event.get("text", "").strip()
+        thread_ts = event.get("thread_ts", event.get("ts"))
+
+        try:
+            reply = _call_pipeline(user_text, workspace)
             say(text=reply, thread_ts=thread_ts)
-    except Exception as e:
-        logger.error("Pipeline error: %s", e)
-        say(text=f"⚠️ Pipeline error: {e}", thread_ts=thread_ts)
+        except Exception as e:
+            logger.error("Pipeline error: %s", e)
+            say(text=f"⚠️ Pipeline error: {e}", thread_ts=thread_ts)
 
+    @slack_app.event("message")
+    def handle_dm(event: dict[str, Any], say: Any) -> None:
+        """Handle direct messages to the bot."""
+        if event.get("channel_type") != "im":
+            return
+        if event.get("subtype"):
+            return  # skip bot messages, edits, etc.
 
-@slack_app.event("message")
-def handle_message(event: dict[str, Any], say: Any, client: Any) -> None:
-    """Handle DMs (im channel type)."""
-    if event.get("channel_type") != "im":
-        return  # Only DMs, channel mentions handled above
+        user_text = event.get("text", "").strip()
+        if not user_text:
+            return
 
-    user_text = event.get("text", "").strip()
-    workspace = DEFAULT_WORKSPACE
-
-    payload = {
-        "model": workspace,
-        "messages": [{"role": "user", "content": user_text}],
-        "stream": False,
-    }
-
-    try:
-        with httpx.Client(timeout=120.0) as http_client:
-            resp = http_client.post(
-                f"{PIPELINE_URL}/v1/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            reply = data["choices"][0]["message"]["content"]
+        try:
+            reply = _call_pipeline(user_text, DEFAULT_WORKSPACE)
             say(text=reply)
-    except Exception as e:
-        logger.error("Pipeline error: %s", e)
-        say(text=f"⚠️ Pipeline error: {e}")
+        except Exception as e:
+            logger.error("Pipeline error: %s", e)
+            say(text=f"⚠️ Pipeline error: {e}")
+
+    # SocketModeHandler uses SLACK_APP_TOKEN (xapp-...), NOT the bot token
+    handler = SocketModeHandler(slack_app, app_token)
+    return slack_app, handler
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    handler = SocketModeHandler(slack_app, SLACK_BOT_TOKEN)
+    _, handler = build_app()
     handler.start()

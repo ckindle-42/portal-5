@@ -68,6 +68,11 @@ TOOLS_MANIFEST = [
             "required": ["command"],
         },
     },
+    {
+        "name": "sandbox_status",
+        "description": "Check if the code sandbox (Docker/DinD) is available",
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
 ]
 
 
@@ -182,7 +187,7 @@ async def _run_in_docker(
 
 
 @mcp.tool()
-async def run_python(
+async def execute_python(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict:
@@ -211,7 +216,7 @@ async def run_python(
 
 
 @mcp.tool()
-async def run_node(
+async def execute_nodejs(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict:
@@ -239,7 +244,7 @@ async def run_node(
 
 
 @mcp.tool()
-async def run_bash(
+async def execute_bash(
     code: str,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict:
