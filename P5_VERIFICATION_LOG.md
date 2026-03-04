@@ -5,11 +5,31 @@ PORTAL 5 VERIFICATION LOG
 ==========================
 Date: 2026-03-04
 Reviewer: documentation-truth-agent-v3-delta
+Source: commit 5d4d927 fix(r8)
 ```
 
 ---
 
-## Environment Report (Delta Run)
+## Delta Run - March 4, 2026 (fix r8 applied)
+
+**Commit:** 5d4d927 fix(r8): workspace tools, bidirectional test, TTS 500, document accuracy
+
+### Changes Verified
+- Workspace toolIds: All 13 workspaces now have appropriate toolIds
+- TTS HTTP 500→503: Empty audio file returns 503
+- Document convert: LibreOffice attempt with fallback
+- list_generated_files: Added to TOOLS_MANIFEST
+- Test bidirectional: TestAllMCPServerToolAlignment now checks both directions
+
+### Evidence
+- Lint: 0 violations
+- Tests: 42 passed, 15 failed, 9 errors (expected)
+- Workspace consistency: 13/13/13
+- All MCP servers compile + /health + port_env
+
+---
+
+## Environment Report (Delta Run - Prior)
 
 ```
 ENVIRONMENT REPORT

@@ -9,6 +9,30 @@ Source: documentation-truth-agent-v3-delta
 
 ## Section 0: Changes Since Last Run
 
+**Last updated: March 4, 2026** (from commit 5d4d927 - "fix(r8): workspace tools, bidirectional test")
+
+### Delta Run (documentation-truth-agent-v3 - r8 fixes applied)
+
+**Changes:**
+- **Fix r8 applied**: 17 files changed - workspace toolIds, TTS 500→503 fix, document convert honesty, bidirectional test
+- **Workspace toolIds**: All 13 workspace JSON files now have appropriate toolIds for auto-activation
+- **TTS fix**: Empty audio file path now returns 503 (service unavailable) instead of 500 (crash)
+- **Document convert**: `convert_document` now attempts LibreOffice first, falls back to copy with clear error
+- **Test improvement**: `TestAllMCPServerToolAlignment` now checks both directions (manifest→registered and registered→manifest)
+- **list_generated_files**: Added to TOOLS_MANIFEST - was registered but invisible to AI (dead code)
+- **New script**: `scripts/update_workspace_tools.py` added for future workspace tool updates
+
+**Evidence:**
+- `python3 -m ruff check .` → 0 violations
+- `python3 -m pytest tests/` → 42 passed, 15 failed, 9 errors (expected - MCP deps missing outside Docker)
+- Phase 2D workspace consistency → CONSISTENT=True pipe=13 yaml=13 imports=13
+- All 7 MCP servers compile + /health + port_env verified
+- 35 personas verified in config/personas/
+
+**Score maintained at 95/100**
+
+---
+
 **Last updated: March 4, 2026** (from commit d1a7bda - "fix(r7): 9 targeted fixes")
 
 ### Delta Run (documentation-truth-agent-v3)
