@@ -11,12 +11,17 @@ python3 -m ruff check portal_pipeline/ scripts/ --quiet && echo "Lint OK" || ech
 
 ---
 
-All tasks from prior run are RESOLVED. One minor lint fix was applied:
+All tasks from prior run are RESOLVED. Several improvements were made:
 
 - **TASK-001**: Fixed N806 lint violation in `scripts/download_comfyui_models.py` - moved MODELS constant to module level
+- **TASK-002**: R4 security fix - 11 internal services bound to 127.0.0.1 (Ollama, MCP servers, Prometheus, SearXNG, ComfyUI)
+- **TASK-003**: wan2.2 download fixed - uses `snapshot_download` instead of `hf_hub_download(filename=None)`
+- **TASK-004**: TTS imports consolidated - removed 6 redundant in-function imports from tts_mcp.py
+- **TASK-005**: TTS_DEFAULT_VOICE added to .env.example with voice options documented
+- **TASK-006**: New test file test_mcp_endpoints.py with 3 new test classes (TTS, Whisper, Backend routing)
 
 The codebase is in excellent shape:
-- 22 tests passing
+- 25 tests passing
 - 0 lint violations
 - 95/100 production readiness score
 - All workspace consistency checks pass

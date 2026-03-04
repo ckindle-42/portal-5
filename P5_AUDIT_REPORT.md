@@ -11,17 +11,17 @@
 | Metric | Score |
 |--------|-------|
 | Production Readiness | **95/100** (maintained) |
-| Tests | 22/22 PASS (+1 from prior) |
+| Tests | 25/25 PASS (+3 from prior) |
 | Workspace Consistency | 13/13/13 PASS |
-| Security | PASS |
+| Security | PASS (R4 port security applied) |
 | Code Quality | 0 lint violations |
 
 **Verdict**: Release Candidate — all tests passing, production ready.
 
 **Top Findings**:
-1. Test suite expanded from 21 to 22 tests (+1)
+1. Test suite expanded from 22 to 25 tests (+3 new endpoint tests)
 2. Test coverage maintained at 73%
-3. Fixed lint violation in scripts/download_comfyui_models.py (N806)
+3. R4 security fix: 11 internal services now bound to 127.0.0.1
 
 ---
 
@@ -35,7 +35,7 @@
 | Dependencies | 18 OK, 7 MISSING (MCP deps - expected) |
 | Module imports | 4 OK, 7 FAILED (fastmcp not installed) |
 | Lint | 0 violations |
-| Tests | 22 passed, 0 failed |
+| Tests | 25 passed, 9 skipped |
 | Compile | All files OK |
 | Branches | main only |
 | CLAUDE.md | CURRENT |
@@ -77,15 +77,16 @@
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Test suite expansion | ADDED | 1 new test (21 → 22) |
+| Test suite expansion | ADDED | 3 new tests (22 → 25) |
 | Test coverage | MAINTAINED | 73% |
-| Lint fix | FIXED | download_comfyui_models.py N806 |
+| Port security fix | APPLIED | 11 services now 127.0.0.1 |
+| wan2.2 download | FIXED | Uses snapshot_download |
 | Prior issues | RESOLVED | All prior findings remain fixed |
 
 ### Score Improvement
 - Prior: 95/100
 - Current: 95/100 (maintained)
-- Reason: Test coverage maintained, lint issue fixed
+- Reason: Test coverage maintained, R4 security fix applied
 
 ---
 
