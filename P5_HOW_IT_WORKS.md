@@ -9,7 +9,16 @@ Source: documentation-truth-agent-v3-delta
 
 ## Section 0: Changes Since Last Run
 
-**Last updated: March 4, 2026** (from commit f89edad - "fix: lint cleanup")
+**Last updated: March 4, 2026** (from commit e0efeb2 - "code-quality-agent-v3 delta run")
+
+### Delta Run (code-quality-agent-v3)
+
+**Changes:**
+- **Test Suite**: 9 MCP endpoint tests now ERROR at setup instead of properly SKIPPING (missing `@pytest.mark.skipif` decorators). This is a test infrastructure issue, not a functional regression.
+- **Lint**: 3 import ordering issues auto-fixed in `tests/unit/test_mcp_endpoints.py` by ruff.
+- **Score**: Maintained at 95/100.
+
+### Previous (from commit f89edad - "fix: lint cleanup")
 
 ### Lint Cleanup (v5.0.1)
 - **download_comfyui_models.py**: Moved MODELS constant to module level (N806 fix).

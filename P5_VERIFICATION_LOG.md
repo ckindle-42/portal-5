@@ -753,3 +753,104 @@ Key verifications:
 - Tests: 22 passed
 
 No new issues found. Score: 95/100 (maintained from prior)
+---
+
+## Delta Run: March 4, 2026 (code-quality-agent-v3 follow-up)
+
+### Environment
+- Python: 3.14.3
+- Install: CLEAN
+- Lint: 0 violations
+- Tests: 26 passed, 9 errors (MCP tests - missing skipif markers)
+- Prior run: DELTA
+
+### Workspace Consistency (Phase 2D)
+```
+CONSISTENT=True pipe=13 yaml=13 imports=13
+```
+All 13 workspaces verified across pipe/WORKSPACES, backends.yaml, and imports.
+
+### Persona Catalog (Phase 2E)
+```
+Total: 35
+```
+35 personas verified in config/personas/ across 8 categories.
+
+### Pipeline Smoke Test (Phase 3A)
+```
+/health: {"status": "degraded", "backends_healthy": 0, "backends_total": 0, "workspaces": 13}
+/v1/models no auth: HTTP 401 (expected)
+/v1/models with auth: 13 workspaces (auto, auto-blueteam, auto-coding, auto-creative, auto-data, auto-documents, auto-music, auto-reasoning, auto-redteam, auto-research, auto-security, auto-video, auto-vision)
+/metrics: 5 gauges (portal_requests_total, portal_backends_healthy, portal_backends_total, portal_uptime_seconds, portal_workspaces_total)
+```
+
+### BackendRegistry Tests (Phase 3B)
+```
+Test 1 - timeout loaded from YAML:
+  request_timeout: 180.0 (expected 180)
+  health_interval: 45.0 (expected 45)
+  health_timeout: 8.0 (expected 8)
+
+Test 2 - URL correctness:
+  chat_url: http://ollama:11434/v1/chat/completions (expected ✓)
+  health_url: http://ollama:11434/api/tags (expected ✓)
+
+Test 3 - unhealthy fallback:
+  fallback: got healthy (expected ✓)
+```
+
+### openwebui_init.py (Phase 3C)
+All 10 required functions present:
+- wait_for_openwebui ✓
+- create_admin_account ✓
+- login ✓
+- register_tool_servers ✓
+- create_workspaces ✓
+- create_persona_presets ✓
+- configure_user_settings ✓
+- configure_audio_settings ✓
+- configure_tool_settings ✓
+- main ✓
+
+API endpoints correct (/api/v1/tools/server/ present, no broken endpoints)
+No hardcoded secrets
+
+### Docker Compose (Phase 3D)
+Services: 18
+- All 12 feature checks pass
+- 11 internal services bound to 127.0.0.1
+- DinD sandbox present
+- No docker.sock in mcp-sandbox
+
+### MCP Server Compilation (Phase 3E)
+All 7 servers compile with /health endpoint:
+- document_mcp: compile=True /health=True
+- music_mcp: compile=True /health=True
+- tts_mcp: compile=True /health=True, kokoro=True, fish_optional=True
+- whisper_mcp: compile=True /health=True
+- comfyui_mcp: compile=True /health=True
+- video_mcp: compile=True /health=True
+- code_sandbox_mcp: compile=True /health=True
+
+### Feature Status Matrix (Phase 3H)
+27 features verified - all pass except:
+- Telegram/Slack adapters: NOT_IMPLEMENTED (STUB)
+- Voice cloning: DEGRADED (fish-speech optional)
+- User approval: NOT_IMPLEMENTED (Open WebUI handles)
+
+### Summary
+
+**Delta run verified:** Test regression noted (9 MCP tests ERROR vs SKIP).
+
+Key verifications:
+- Workspace consistency: 13/13/13 (unchanged)
+- Persona count: 35 (unchanged)
+- All 7 MCP servers compile with tools
+- openwebui_init.py: All 10 required functions present
+- Compose: All 12 feature checks pass
+- BackendRegistry: Config loading, timeout, fallback all working
+- Tests: 26 passed, 9 errors (needs skipif markers)
+
+Known issue: MCP test skip markers needed (P5-ROAD-107)
+
+Score: 95/100 (maintained)

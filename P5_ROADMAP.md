@@ -110,6 +110,20 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 | 2026-03-04 | 95/100 | -1 | code-quality-agent-v3 delta - maintained, 1 lint fix |
 | 2026-03-04 | 95/100 | 0 | doc-agent-v3 delta - lint cleanup verified |
 | 2026-03-04 | 95/100 | 0 | code-quality-agent-v3 delta run - R4 fixes applied |
+| 2026-03-04 | 95/100 | 0 | doc-agent-v3 delta run - 27 features verified |
+
+---
+
+## Documentation (Verified by doc-agent-v3)
+
+| ID | Priority | Title | Status | Evidence |
+|----|----------|-------|--------|----------|
+| P5-ROAD-110 | P3 | Workspace consistency verified | DONE | 13/13/13 across pipe/yaml/imports |
+| P5-ROAD-111 | P3 | Persona catalog verified | DONE | 35 personas in config/personas/ |
+| P5-ROAD-112 | P3 | Pipeline 13 workspaces | VERIFIED | curl returns all 13 IDs |
+| P5-ROAD-113 | P3 | BackendRegistry tests | VERIFIED | timeout/fallback/url tests pass |
+| P5-ROAD-114 | P3 | MCP servers compile | VERIFIED | all 7 servers compile + /health |
+| P5-ROAD-115 | P2 | MCP test skip markers | OPEN | tracked as P5-ROAD-107 |
 
 ---
 
