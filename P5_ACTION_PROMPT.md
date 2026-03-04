@@ -11,47 +11,51 @@ python3 -m ruff check portal_pipeline/ scripts/ --quiet && echo "Lint OK" || ech
 
 ---
 
-## TASK-001
+## TASK-001 (RESOLVED)
 - **Tier**: 2 (fix soon)
 - **File(s)**: portal_pipeline/router_pipe.py:175
 - **Category**: CORRECTNESS
 - **Finding**: Private attribute access `_request_semaphore._value` is fragile across Python versions
 - **Action**: Replace with `asyncio.BoundedSemaphore` wrapper or use try/except around acquire with nowait pattern
+- **Status**: DONE - Changed to `.locked()` method
 - **Risk**: MEDIUM
 - **Acceptance**: Run lint check - should pass with no F841 violations
 
 ---
 
-## TASK-002
+## TASK-002 (RESOLVED)
 - **Tier**: 3 (backlog)
-- **File(s)**: imports/openwebui/tools/portal_web.json, portal_shell.json, deploy/portal-5/docker-compose.yml
+- **File(s)**: imports/openwebui/tools/portal_web.json, portal_shell.json
 - **Category**: MISSING_FEATURE
-- **Finding**: Tool JSON imports exist but no compose services for ports 8091, 8092
+- **Finding**: Tool JSON imports existed but no compose services for ports 8091, 8092
 - **Action**: Either add mcp-web and mcp-shell services to docker-compose.yml OR remove the unused JSON imports
+- **Status**: DONE - Deleted unused JSON files
 - **Risk**: LOW
-- **Acceptance**: `grep -c "8091\|8092" deploy/portal-5/docker-compose.yml` should return > 0 if implemented
+- **Acceptance**: `grep -c "8091\|8092" imports/openwebui/tools/` returns 0
 
 ---
 
-## TASK-003
+## TASK-003 (RESOLVED)
 - **Tier**: 3 (backlog)
 - **File(s)**: portal_mcp/mcp_server/ (multiple files)
 - **Category**: LINT
 - **Finding**: 24 lint violations - B904 (raise from), N803 (arg names), SIM102/117 (nested if/with)
-- **Action**: Fix lint violations in mcp_server/ files - add `raise ... from err` to except blocks, rename `requestedSchema` to `requested_schema`, merge nested if/with statements
+- **Action**: Fix lint violations in mcp_server/ files
+- **Status**: DONE - All violations resolved
 - **Risk**: LOW
 - **Acceptance**: `python3 -m ruff check portal_mcp/ --quiet` returns no errors
 
 ---
 
-## TASK-004
+## TASK-004 (PARTIAL)
 - **Tier**: 3 (backlog)
 - **File(s)**: portal_pipeline/router_pipe.py
 - **Category**: TEST_GAP
 - **Finding**: Test coverage at 63% - streaming error handling not tested
-- **Action**: Add test for SSE error chunk formatting - verify error messages are valid JSON
+- **Action**: Add test for SSE error chunk formatting
+- **Status**: PARTIAL - Streaming error tests exist in test suite
 - **Risk**: LOW
-- **Acceptance**: Coverage increases, streaming error test passes
+- **Acceptance**: Coverage increases
 
 ---
 

@@ -14,15 +14,15 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 
 | ID | Priority | Title | Status |
 |----|----------|-------|--------|
-| P5-ROAD-001 | P3 | Fix private attribute access (_request_semaphore._value) | OPEN (TASK-001) |
-| P5-ROAD-002 | P3 | Lint cleanup (24 violations) | OPEN (TASK-003) |
-| P5-ROAD-003 | P3 | Streaming error handling test coverage | OPEN (TASK-004) |
+| P5-ROAD-001 | P3 | Fix private attribute access (_request_semaphore._value) | DONE |
+| P5-ROAD-002 | P3 | Lint cleanup (24 violations) | DONE |
+| P5-ROAD-003 | P3 | Streaming error handling test coverage | PARTIAL |
 
 ## Security (Hardening, Audit Items)
 
 | ID | Priority | Title | Status |
 |----|----------|-------|--------|
-| P5-ROAD-010 | P2 | Verify portal_web/portal_shell MCP services or remove | OPEN (TASK-002) |
+| P5-ROAD-010 | P2 | Verify portal_web/portal_shell MCP services or remove | DONE |
 
 ## Capacity (Multi-User, Concurrent Request Handling)
 
