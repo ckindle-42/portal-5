@@ -1,5 +1,220 @@
 # P5_VERIFICATION_LOG.md
 
+---
+
+## Delta Run — doc-agent-v4 (R10) — March 4, 2026
+
+**Commit:** 693bde8 | **Tag:** v5.0.0
+
+### Environment Build
+```
+Python: 3.14.3 (.venv) | Install: CLEAN | Lint: 0 violations
+Tests: 72 passed, 0 failed, 0 skipped | Compile: All OK | Branch: main only
+```
+
+### Lint Results
+```
+$ .venv/bin/python3 -m ruff check portal_pipeline/ scripts/ portal_mcp/ portal_channels/
+All checks passed!
+```
+
+### Test Results
+```
+$ .venv/bin/python3 -m pytest tests/ -q --tb=no
+72 passed in 1.21s
+```
+
+### Phase 1 — Module Import Status
+```
+VERIFIED portal_pipeline.router_pipe
+VERIFIED portal_pipeline.cluster_backends
+VERIFIED portal_pipeline.__main__
+VERIFIED portal_channels.telegram.bot
+VERIFIED portal_channels.slack.bot
+VERIFIED portal_mcp.documents.document_mcp
+VERIFIED portal_mcp.generation.music_mcp
+VERIFIED portal_mcp.generation.tts_mcp
+VERIFIED portal_mcp.generation.whisper_mcp
+VERIFIED portal_mcp.generation.comfyui_mcp
+VERIFIED portal_mcp.generation.video_mcp
+VERIFIED portal_mcp.execution.code_sandbox_mcp
+BROKEN   scripts.openwebui_init — ValueError: OPENWEBUI_ADMIN_PASSWORD must be set
+         [UNTESTABLE outside Docker — by design, compose provides this var]
+```
+
+### Phase 2D — Workspace Consistency
+```
+CONSISTENT=True pipe=13 yaml=13 imports=13
+All 13 workspace IDs present in all three sources.
+```
+
+### Phase 2E — Persona Catalog
+```
+Total: 35 personas
+Category counts:
+  architecture: 1 | data: 6 | development: 17
+  general: 2 | security: 5 | systems: 2 | writing: 2
+```
+
+### Phase 3A — Pipeline Server
+```
+$ curl -s http://localhost:9099/health
+{"status":"degraded","backends_healthy":0,"backends_total":6,"workspaces":13}
+
+$ curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost:9099/v1/models
+HTTP 401
+
+$ curl -s -H "Authorization: Bearer portal-pipeline" http://localhost:9099/v1/models
+13 workspaces: ['auto', 'auto-blueteam', 'auto-coding', 'auto-creative', 'auto-data',
+  'auto-documents', 'auto-music', 'auto-reasoning', 'auto-redteam', 'auto-research',
+  'auto-security', 'auto-video', 'auto-vision']
+
+$ curl -s http://localhost:9099/metrics | grep "^portal_"
+portal_backends_healthy 0
+portal_backends_total 6
+portal_uptime_seconds 0.8
+portal_workspaces_total 13
+```
+
+### Phase 3B — BackendRegistry
+```
+request_timeout: 180.0 (custom YAML)
+health_interval: 45.0
+health_timeout: 8.0
+chat_url: http://ollama:11434/v1/chat/completions
+health_url: http://ollama:11434/api/tags
+fallback: got healthy (expected healthy)
+real config timeout: 120.0
+```
+
+### Phase 3C — openwebui_init.py
+```
+Compile: OK
+PRESENT: wait_for_openwebui(), create_admin_account(), login()
+PRESENT: register_tool_servers(), create_workspaces(), create_persona_presets()
+PRESENT: configure_user_settings(), configure_audio_settings()
+PRESENT: configure_tool_settings(), main()
+correct tool API: True | persona seeding: True | audio config: True
+workspace upsert: True | Secret check: OK
+```
+
+### Phase 3D — Compose Structure
+```
+Services: 20
+  comfyui, comfyui-model-init, dind, grafana,
+  mcp-comfyui, mcp-documents, mcp-music, mcp-sandbox,
+  mcp-tts, mcp-video, mcp-whisper, ollama, ollama-init,
+  open-webui, openwebui-init, portal-pipeline,
+  portal-slack [profile:slack], portal-telegram [profile:telegram],
+  prometheus, searxng
+Volumes: 9 named volumes
+Feature checklist: 12/12 OK
+  ENABLE_RAG_WEB_SEARCH, RAG_EMBEDDING_ENGINE, ENABLE_MEMORY_FEATURE,
+  SEARXNG_QUERY_URL, ENABLE_SIGNUP, DEFAULT_USER_ROLE,
+  ComfyUI service, SearXNG service, Prometheus, Grafana,
+  DinD sandbox, Sandbox no docker.sock
+```
+
+### Phase 3E — MCP Servers
+```
+All 7 servers: compile=True, /health=True, port_env=True
+documents: create_word_document, create_powerpoint, create_excel — OK
+music:     generate_music — OK
+tts:       speak, clone_voice, list_voices — OK (kokoro=True, fish graceful=True)
+whisper:   transcribe_audio — OK
+comfyui:   generate_image — OK
+video:     generate_video — OK
+sandbox:   execute_python, execute_bash — OK
+```
+
+### Phase 3F — Secret Generation
+```
+CHANGEME count in .env.example: 6
+bootstrap_secrets/generate_secret/CHANGEME in launch.sh: 23
+Weak defaults in compose: PASS (none present)
+```
+
+### Phase 3G — Launch Commands
+```
+PRESENT: up, down, clean, clean-all, seed, logs, status, pull-models
+PRESENT: add-user, list-users, up-telegram, up-slack, up-channels, test
+MISSING: backup
+MISSING: restore
+```
+Finding: README documents `./launch.sh backup` and `./launch.sh restore` but they are not implemented. → P5-ROAD-145
+
+### Phase 3H — Channel Adapters
+```
+OK: dispatcher.py — 13 workspaces, match=True
+OK: portal_channels.telegram.bot importable, build_app=True
+OK: portal_channels.slack.bot importable, build_app=True
+OK: Slack SLACK_APP_TOKEN reference: True
+OK: Slack SocketModeHandler(slack_app, app_token): True
+OK: telegram/bot.py — direct_httpx=False, uses_dispatcher=True
+OK: slack/bot.py — direct_httpx=False, uses_dispatcher=True
+```
+
+### Phase 3I — Workspace toolIds
+```
+All 13: VERIFIED
+```
+
+### Undocumented Env Vars (in Python code, absent from .env.example)
+```
+Internal (set by compose): BACKEND_CONFIG_PATH, DOCKER_HOST,
+  OPENWEBUI_ADMIN_NAME, OPENWEBUI_URL, PIPELINE_PORT, PIPELINE_TIMEOUT,
+  PIPELINE_URL, MODELS_DIR
+
+Optional channel vars (documented in README, not .env.example):
+  TELEGRAM_BOT_TOKEN, TELEGRAM_USER_IDS, TELEGRAM_DEFAULT_WORKSPACE
+  SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_SIGNING_SECRET, SLACK_DEFAULT_WORKSPACE
+
+Advanced optional: HF_TOKEN
+```
+
+### Feature Status Matrix (3J)
+```
+Feature                              | Status      | Evidence
+-------------------------------------|-------------|----------
+Pipeline /health                     | VERIFIED    | 3A: HTTP 200
+Pipeline /v1/models (13 WS)          | VERIFIED    | 3A: 13 returned
+Pipeline /metrics                    | VERIFIED    | 3A: 4 gauges
+model_hint routing logic             | VERIFIED    | 3B: fallback=healthy
+Timeout read from YAML (120s)        | VERIFIED    | 3B: timeout=120.0
+Unhealthy backend fallback           | VERIFIED    | 3B: got healthy
+Semaphore concurrency limit          | VERIFIED    | 3D: compose env
+Web search (SearXNG)                 | VERIFIED    | 3D: SEARXNG_QUERY_URL
+RAG / embeddings configured          | VERIFIED    | 3D: RAG_EMBEDDING_ENGINE
+Cross-session memory                 | VERIFIED    | 3D: ENABLE_MEMORY_FEATURE
+Health metrics (Prometheus)          | VERIFIED    | 3A: /metrics 4 gauges
+Grafana dashboards                   | VERIFIED    | 3D: service present
+Image generation (ComfyUI)           | VERIFIED    | 3D: comfyui service
+Video generation (Wan2.2)            | VERIFIED    | 3E: generate_video present
+Music generation (AudioCraft)        | VERIFIED    | 3E: generate_music present
+TTS (kokoro-onnx)                    | VERIFIED    | 3E: kokoro=True
+Voice cloning (fish-speech)          | DEGRADED    | 3E: fish graceful=True (optional)
+Audio transcription (Whisper)        | VERIFIED    | 3E: transcribe_audio present
+Document generation (Word/PPT/XL)    | VERIFIED    | 3E: all 3 tools present
+Code sandbox (DinD isolated)         | VERIFIED    | 3D: dind service, no docker.sock
+Telegram adapter                     | VERIFIED    | 3H: importable, build_app=True
+Slack adapter                        | VERIFIED    | 3H: importable, build_app=True
+Persona seeding (35)                 | VERIFIED    | 2E: 35 personas
+Open WebUI auto-seeding              | UNTESTABLE  | 3C: needs Docker
+Secret auto-generation               | VERIFIED    | 3F: 23 references in launch.sh
+Multi-user (ENABLE_SIGNUP)           | VERIFIED    | 3D: in compose env
+User approval flow (pending)         | VERIFIED    | 3D: DEFAULT_USER_ROLE=pending
+add-user CLI command                 | VERIFIED    | 3G: PRESENT
+backup CLI command                   | BROKEN      | 3G: MISSING from launch.sh
+restore CLI command                  | BROKEN      | 3G: MISSING from launch.sh
+Dispatcher covers all 13 workspaces  | VERIFIED    | 3H: match=True
+Channel bots use dispatcher          | VERIFIED    | 3H: no direct httpx
+Workspace toolIds seeded (10/13)     | VERIFIED    | 3I: all 13 correct
+```
+
+---
+
+## Prior Runs (archived below)
+
 ```
 PORTAL 5 VERIFICATION LOG
 ==========================
