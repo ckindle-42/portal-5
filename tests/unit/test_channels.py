@@ -512,7 +512,6 @@ class TestDispatcher:
             call_pipeline_async,
             call_pipeline_sync,
             is_valid_workspace,
-            VALID_WORKSPACES,
         )
         assert callable(call_pipeline_async)
         assert callable(call_pipeline_sync)
@@ -550,8 +549,9 @@ class TestDispatcher:
     @pytest.mark.asyncio
     async def test_call_pipeline_async_calls_correct_endpoint(self):
         """call_pipeline_async sends to /v1/chat/completions with correct payload."""
-        from portal_channels.dispatcher import call_pipeline_async
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        from portal_channels.dispatcher import call_pipeline_async
 
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
@@ -577,8 +577,9 @@ class TestDispatcher:
 
     def test_call_pipeline_sync_calls_correct_endpoint(self):
         """call_pipeline_sync sends to /v1/chat/completions with correct payload."""
-        from portal_channels.dispatcher import call_pipeline_sync
         from unittest.mock import MagicMock, patch
+
+        from portal_channels.dispatcher import call_pipeline_sync
 
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
