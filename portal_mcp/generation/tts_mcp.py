@@ -387,9 +387,9 @@ def _cosyvoice_clone_sync(text: str, reference_audio_path: str) -> dict:
         # Load reference audio
         reference, sr = torchaudio.load(reference_audio_path)
         if sr != 22050:
-            import torchaudio.functional as F
+            import torchaudio.functional as functional
 
-            reference = F.resample(reference, sr, 22050)
+            reference = functional.resample(reference, sr, 22050)
 
         logger.info("Cloning voice and generating: %s", text[:50])
         for output in cosyvoice.inference_zero_shot(text, reference, "中文女"):

@@ -237,17 +237,20 @@ async def chat_completions(
 async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:
     assert registry is not None
     try:
-        async with httpx.AsyncClient(timeout=registry.request_timeout) as client, client.stream("POST", url, json=body) as resp:
-                if resp.status_code != 200:
-                    err = await resp.aread()
-                    yield (
-                        f'data: {{"error": "Backend {resp.status_code}: '
-                        f'{err[:100].decode(errors="replace")}"}}\n\n'
-                    ).encode()
-                    return
-                async for chunk in resp.aiter_bytes():
-                    if chunk:
-                        yield chunk
+        async with (
+            httpx.AsyncClient(timeout=registry.request_timeout) as client,
+            client.stream("POST", url, json=body) as resp,
+        ):
+            if resp.status_code != 200:
+                err = await resp.aread()
+                yield (
+                    f'data: {{"error": "Backend {resp.status_code}: '
+                    f'{err[:100].decode(errors="replace")}"}}\n\n'
+                ).encode()
+                return
+            async for chunk in resp.aiter_bytes():
+                if chunk:
+                    yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         yield f'data: {{"error": "Backend connection error: {e}"}}\n\n'.encode()
