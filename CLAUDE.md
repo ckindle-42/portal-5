@@ -381,3 +381,24 @@ Open WebUI points to ComfyUI at `http://host.docker.internal:8188` by default.
 - Do NOT use `docker compose down -v` in scripts (nukes Ollama models) — use targeted volume removal
 - Do NOT commit `.env` — it is in `.gitignore`
 - Do NOT skip tests — they protect the routing logic that everything depends on
+
+---
+
+## Git Workflow
+
+### During Stabilization (now)
+- **Work in main only** — no branches until v5.0 stable tag
+- Every commit directly to main via push
+- Run tests before every push: `pytest tests/ -q --tb=no`
+- Commit format: `type(scope): description`
+
+### After v5.0 Tagged
+- main = stable releases only (PRs from dev)
+- dev = active work (default branch)
+- feature/* = individual features (PRs to dev)
+
+### Never
+- Never force push
+- Never commit .env
+- Never commit pyproject.toml changes that add cloud/external deps
+- Never modify Open WebUI source code
