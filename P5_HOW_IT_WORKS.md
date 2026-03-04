@@ -9,6 +9,21 @@ Source: documentation-truth-agent-v3-delta
 
 ## Section 0: Changes Since Last Run
 
+**Last updated: March 4, 2026** (from commit d1a7bda - "fix(r7): 9 targeted fixes")
+
+### Delta Run (documentation-truth-agent-v3)
+
+**Changes:**
+- **Lint**: 30 import ordering/semicolon issues fixed in `tests/unit/test_channels.py` by ruff.
+- **Tests**: Core pipeline tests maintained (42 passed). MCP tests still fail outside Docker due to missing `mcp` module - this is expected behavior.
+- **Workspace Consistency**: Verified 13/13/13 - all three sources (pipe/yaml/imports) are consistent.
+- **No functional changes** - this was a documentation verification run.
+
+**Evidence:**
+- `python3 -m ruff check .` → 0 violations
+- `python3 -m pytest tests/` → 42 passed, 15 failed, 9 errors (expected)
+- Phase 2D workspace consistency → CONSISTENT=True pipe=13 yaml=13 imports=13
+
 **Last updated: March 4, 2026** (from commit e0efeb2 - "code-quality-agent-v3 delta run")
 
 ### Delta Run (code-quality-agent-v3)

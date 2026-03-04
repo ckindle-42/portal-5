@@ -11,6 +11,7 @@ tokens set (tokens are read inside build_app(), not at module level).
 
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 sys.path.insert(0, ".")
@@ -39,6 +40,7 @@ class TestTelegramAdapter:
     def test_build_app_raises_without_token(self):
         """build_app() raises RuntimeError with helpful message when token missing."""
         import os
+
         from portal_channels.telegram.bot import build_app
         env_backup = os.environ.pop("TELEGRAM_BOT_TOKEN", None)
         try:
@@ -59,10 +61,13 @@ class TestTelegramAdapter:
 
     def test_is_allowed_enforces_allowlist(self):
         """Non-empty TELEGRAM_USER_IDS blocks unlisted users."""
+        import importlib
         import os
+
         os.environ["TELEGRAM_USER_IDS"] = "111,222"
         from portal_channels.telegram import bot
-        import importlib; importlib.reload(bot)
+
+        importlib.reload(bot)
         assert bot._is_allowed(111) is True
         assert bot._is_allowed(999) is False
         os.environ.pop("TELEGRAM_USER_IDS", None)
@@ -70,10 +75,13 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_handle_message_unauthorized_user(self):
         """Unauthorized user gets rejected before Pipeline is called."""
+        import importlib
         import os
+
         os.environ["TELEGRAM_USER_IDS"] = "12345"
         from portal_channels.telegram import bot
-        import importlib; importlib.reload(bot)
+
+        importlib.reload(bot)
 
         update = MagicMock()
         update.effective_user.id = 99999  # not in allowlist
@@ -87,10 +95,13 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_handle_message_calls_pipeline(self):
         """Authorized message calls Pipeline with correct payload."""
+        import importlib
         import os
+
         os.environ.pop("TELEGRAM_USER_IDS", None)  # allow all
         from portal_channels.telegram import bot
-        import importlib; importlib.reload(bot)
+
+        importlib.reload(bot)
 
         update = MagicMock()
         update.effective_user.id = 12345
@@ -131,10 +142,13 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_handle_message_stores_history(self):
         """Conversation history is stored and bounded at 20 messages."""
+        import importlib
         import os
+
         os.environ.pop("TELEGRAM_USER_IDS", None)
         from portal_channels.telegram import bot
-        import importlib; importlib.reload(bot)
+
+        importlib.reload(bot)
 
         context = MagicMock()
         context.user_data = {
@@ -201,10 +215,13 @@ class TestTelegramAdapter:
     @pytest.mark.asyncio
     async def test_pipeline_error_handled_gracefully(self):
         """Pipeline connection failure returns error message, does not crash."""
+        import importlib
         import os
+
         os.environ.pop("TELEGRAM_USER_IDS", None)
         from portal_channels.telegram import bot
-        import importlib; importlib.reload(bot)
+
+        importlib.reload(bot)
 
         update = MagicMock()
         update.effective_user.id = 1
@@ -231,7 +248,8 @@ class TestSlackAdapter:
 
     def test_module_imports_without_tokens(self):
         """Module must be importable without SLACK_BOT_TOKEN set."""
-        import importlib, os
+        import importlib
+        import os
         for key in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"):
             os.environ.pop(key, None)
         if "portal_channels.slack.bot" in sys.modules:
@@ -242,9 +260,12 @@ class TestSlackAdapter:
 
     def test_build_app_raises_without_bot_token(self):
         """build_app() raises RuntimeError with helpful message."""
+        import importlib
         import os
+
         from portal_channels.slack import bot as slack_bot
-        import importlib; importlib.reload(slack_bot)
+
+        importlib.reload(slack_bot)
         for key in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"):
             os.environ.pop(key, None)
         with pytest.raises(RuntimeError, match="SLACK_BOT_TOKEN"):
@@ -252,9 +273,12 @@ class TestSlackAdapter:
 
     def test_channel_workspace_map_all_valid(self):
         """Every workspace in CHANNEL_WORKSPACE_MAP is a real workspace ID."""
-        import sys; sys.path.insert(0, ".")
+        import sys
+
+        sys.path.insert(0, ".")
         from portal_channels.slack.bot import CHANNEL_WORKSPACE_MAP
         from portal_pipeline.router_pipe import WORKSPACES
+
         for channel_keyword, workspace_id in CHANNEL_WORKSPACE_MAP.items():
             assert workspace_id in WORKSPACES, (
                 f"Slack channel '{channel_keyword}' → '{workspace_id}' "
@@ -271,10 +295,13 @@ class TestSlackAdapter:
 
     def test_pipeline_call_correct_endpoint(self):
         """_call_pipeline sends request to correct endpoint with auth."""
+        import importlib
         import os
+
         os.environ["PIPELINE_API_KEY"] = "test-key"
         from portal_channels.slack import bot as slack_bot
-        import importlib; importlib.reload(slack_bot)
+
+        importlib.reload(slack_bot)
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -310,6 +337,7 @@ class TestSlackAdapter:
     def test_get_tokens_requires_both_tokens(self):
         """_get_tokens raises if either token is missing."""
         import os
+
         from portal_channels.slack.bot import _get_tokens
         os.environ["SLACK_BOT_TOKEN"] = "xoxb-test"
         os.environ.pop("SLACK_APP_TOKEN", None)
@@ -325,8 +353,11 @@ class TestDocumentMCPTools:
 
     def test_registered_tool_names_match_manifest(self):
         """Tool names used by AI must match @mcp.tool() registered names."""
-        import sys; sys.path.insert(0, ".")
-        from portal_mcp.documents.document_mcp import mcp, TOOLS_MANIFEST
+        import sys
+
+        sys.path.insert(0, ".")
+        from portal_mcp.documents.document_mcp import TOOLS_MANIFEST, mcp
+
         registered = set(mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in TOOLS_MANIFEST}
         missing = manifest - registered
@@ -337,11 +368,15 @@ class TestDocumentMCPTools:
 
     def test_create_powerpoint_creates_file(self, tmp_path, monkeypatch):
         """create_powerpoint tool actually generates a .pptx file."""
-        import sys, os; sys.path.insert(0, ".")
+        import importlib
+        import sys
+
+        sys.path.insert(0, ".")
         monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
         # Reload to pick up new OUTPUT_DIR
-        import importlib
+
         import portal_mcp.documents.document_mcp as doc_mod
+
         importlib.reload(doc_mod)
 
         result = doc_mod.create_powerpoint(
@@ -357,10 +392,14 @@ class TestDocumentMCPTools:
 
     def test_create_excel_creates_file(self, tmp_path, monkeypatch):
         """create_excel tool actually generates a .xlsx file."""
-        import sys; sys.path.insert(0, ".")
-        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
         import importlib
+        import sys
+
+        sys.path.insert(0, ".")
+        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
+
         import portal_mcp.documents.document_mcp as doc_mod
+
         importlib.reload(doc_mod)
 
         result = doc_mod.create_excel(
@@ -372,10 +411,14 @@ class TestDocumentMCPTools:
 
     def test_create_word_document_creates_file(self, tmp_path, monkeypatch):
         """create_word_document actually generates a .docx file."""
-        import sys; sys.path.insert(0, ".")
-        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
         import importlib
+        import sys
+
+        sys.path.insert(0, ".")
+        monkeypatch.setenv("OUTPUT_DIR", str(tmp_path))
+
         import portal_mcp.documents.document_mcp as doc_mod
+
         importlib.reload(doc_mod)
 
         result = doc_mod.create_word_document(
@@ -390,21 +433,30 @@ class TestSandboxMCPTools:
     """Test sandbox tool name alignment."""
 
     def test_registered_names_match_manifest(self):
-        import sys; sys.path.insert(0, ".")
-        from portal_mcp.execution.code_sandbox_mcp import mcp, TOOLS_MANIFEST
+        import sys
+
+        sys.path.insert(0, ".")
+        from portal_mcp.execution.code_sandbox_mcp import TOOLS_MANIFEST, mcp
+
         registered = set(mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in TOOLS_MANIFEST}
         missing = manifest - registered
         assert not missing, f"Tools in manifest not registered: {missing}"
 
     def test_execute_python_exists(self):
-        import sys; sys.path.insert(0, ".")
+        import sys
+
+        sys.path.insert(0, ".")
         from portal_mcp.execution.code_sandbox_mcp import mcp
+
         assert "execute_python" in mcp._tool_manager._tools
 
     def test_execute_bash_exists(self):
-        import sys; sys.path.insert(0, ".")
+        import sys
+
+        sys.path.insert(0, ".")
         from portal_mcp.execution.code_sandbox_mcp import mcp
+
         assert "execute_bash" in mcp._tool_manager._tools
 
 
@@ -422,7 +474,8 @@ class TestAllMCPServerToolAlignment:
     ])
     def test_manifest_matches_registered(self, module_path):
         """Every tool in TOOLS_MANIFEST must be registered with @mcp.tool()."""
-        import sys, importlib
+        import importlib
+        import sys
         sys.path.insert(0, ".")
         mod = importlib.import_module(module_path)
         registered = set(mod.mcp._tool_manager._tools.keys())
