@@ -11,7 +11,7 @@ services:
     container_name: portal5-ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama-models:/root/.ollama
     environment:
@@ -207,7 +207,7 @@ services:
     container_name: portal5-mcp-documents
     restart: unless-stopped
     ports:
-      - "8913:8913"
+      - "127.0.0.1:8913:8913"
     environment:
       - DOCUMENTS_MCP_PORT=8913
       - MCP_PORT=8913
@@ -230,7 +230,7 @@ services:
     container_name: portal5-mcp-music
     restart: unless-stopped
     ports:
-      - "8912:8912"
+      - "127.0.0.1:8912:8912"
     environment:
       - MUSIC_MCP_PORT=8912
       - MCP_PORT=8912
@@ -258,7 +258,7 @@ services:
     container_name: portal5-mcp-tts
     restart: unless-stopped
     ports:
-      - "8916:8916"
+      - "127.0.0.1:8916:8916"
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
@@ -285,7 +285,7 @@ services:
     container_name: portal5-mcp-whisper
     restart: unless-stopped
     ports:
-      - "8915:8915"
+      - "127.0.0.1:8915:8915"
     environment:
       - WHISPER_MCP_PORT=8915
       - MCP_PORT=8915
@@ -325,7 +325,7 @@ services:
     container_name: portal5-mcp-sandbox
     restart: unless-stopped
     ports:
-      - "8914:8914"
+      - "127.0.0.1:8914:8914"
     environment:
       - SANDBOX_MCP_PORT=8914
       - MCP_PORT=8914
@@ -352,7 +352,7 @@ services:
     container_name: portal5-mcp-comfyui
     restart: unless-stopped
     ports:
-      - "8910:8910"
+      - "127.0.0.1:8910:8910"
     environment:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
@@ -376,7 +376,7 @@ services:
     container_name: portal5-mcp-video
     restart: unless-stopped
     ports:
-      - "8911:8911"
+      - "127.0.0.1:8911:8911"
     environment:
       - VIDEO_MCP_PORT=8911
       - MCP_PORT=8911
@@ -416,7 +416,7 @@ services:
     container_name: portal5-searxng
     restart: unless-stopped
     ports:
-      - "8088:8080"
+      - "127.0.0.1:8088:8080"
     volumes:
       - ../../config/searxng:/etc/searxng:rw
       - searxng-data:/var/lib/searxng
@@ -445,7 +445,7 @@ services:
     container_name: portal5-comfyui
     restart: unless-stopped
     ports:
-      - "8188:8188"
+      - "127.0.0.1:8188:8188"
     volumes:
       - comfyui-models:/opt/ComfyUI/models
       - comfyui-output:/opt/ComfyUI/output
@@ -484,7 +484,7 @@ services:
     container_name: portal5-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ../../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus

@@ -64,6 +64,11 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
         size_mb = dest.stat().st_size / 1_000_000
         print(f"Skipping {model} — already downloaded ({size_mb:.0f}MB at {dest})")
         return
+    elif spec["filename"] is None:
+        # For full repo downloads, check if any model files exist in the target dir
+        if any(models_dir.glob("*.safetensors")) or any(models_dir.glob("*.bin")):
+            print(f"Skipping {model} — model files already present in {models_dir}")
+            return
 
     # Check token requirement
     if spec["requires_token"] and not hf_token:
@@ -75,21 +80,28 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
     print(f"Downloading {model} ({spec['size_note']}) to {models_dir}...")
     print("This may take several minutes on first run.")
 
-    kwargs = {
-        "repo_id": spec["repo_id"],
-        "local_dir": str(models_dir),
-    }
-    if spec["filename"]:
-        kwargs["filename"] = spec["filename"]
-    if hf_token:
-        kwargs["token"] = hf_token
-
     try:
-        hf_hub_download(**kwargs)
+        if spec["filename"] is None:
+            # Full repo download (e.g., wan2.2 which has multiple model files)
+            from huggingface_hub import snapshot_download
+            snapshot_download(
+                repo_id=spec["repo_id"],
+                local_dir=str(models_dir),
+                token=hf_token if hf_token else None,
+                ignore_patterns=["*.md", "*.txt"],  # skip docs, just model weights
+            )
+        else:
+            # Single file download
+            hf_hub_download(
+                repo_id=spec["repo_id"],
+                filename=spec["filename"],
+                local_dir=str(models_dir),
+                token=hf_token if hf_token else None,
+            )
         print(f"Downloaded {model} successfully")
     except Exception as e:
         print(f"WARNING: Download failed: {e}")
-        print("ComfyUI will start but image generation won't work until model is downloaded.")
+        print("ComfyUI will start but this model won't work until downloaded manually.")
         print(f"Manual: huggingface-cli download {spec['repo_id']}")
 
 
