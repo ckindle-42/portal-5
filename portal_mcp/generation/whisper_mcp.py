@@ -4,6 +4,7 @@ Wraps faster-whisper for audio transcription as an MCP tool.
 """
 
 import asyncio
+import contextlib
 import os
 from pathlib import Path
 
@@ -27,6 +28,7 @@ async def openai_audio_transcriptions(request):
     Required for AUDIO_STT_ENGINE=openai integration.
     """
     import tempfile
+
     from starlette.responses import JSONResponse
 
     try:
@@ -57,10 +59,8 @@ async def openai_audio_transcriptions(request):
 
     # Clean up temp file
     import os
-    try:
+    with contextlib.suppress(Exception):
         os.unlink(tmp_path)
-    except Exception:
-        pass
 
     if "error" in result:
         return JSONResponse(result, status_code=500)

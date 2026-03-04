@@ -46,7 +46,6 @@ async def openai_audio_speech(request):
     We return audio/wav binary data.
     Required for AUDIO_TTS_ENGINE=openai integration.
     """
-    import json as _json
     from starlette.responses import Response
 
     try:

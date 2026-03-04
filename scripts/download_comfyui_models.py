@@ -14,6 +14,34 @@ import os
 import sys
 from pathlib import Path
 
+# Model specifications - module-level constant
+MODELS = {
+    "flux-schnell": {
+        "repo_id": "black-forest-labs/FLUX.1-schnell",
+        "filename": "flux1-schnell.safetensors",
+        "requires_token": False,
+        "size_note": "~12GB",
+    },
+    "flux-dev": {
+        "repo_id": "black-forest-labs/FLUX.1-dev",
+        "filename": "flux1-dev.safetensors",
+        "requires_token": True,
+        "size_note": "~24GB",
+    },
+    "sdxl": {
+        "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
+        "filename": "sd_xl_base_1.0.safetensors",
+        "requires_token": False,
+        "size_note": "~7GB",
+    },
+    "wan2.2": {
+        "repo_id": "Wan-AI/Wan2.2-T2V-5B",
+        "filename": None,   # downloads full repo
+        "requires_token": False,
+        "size_note": "~18GB",
+    },
+}
+
 
 def download_model(model: str, hf_token: str, models_dir: Path) -> None:
     try:
@@ -23,33 +51,6 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
         sys.exit(1)
 
     models_dir.mkdir(parents=True, exist_ok=True)
-
-    MODELS = {
-        "flux-schnell": {
-            "repo_id": "black-forest-labs/FLUX.1-schnell",
-            "filename": "flux1-schnell.safetensors",
-            "requires_token": False,
-            "size_note": "~12GB",
-        },
-        "flux-dev": {
-            "repo_id": "black-forest-labs/FLUX.1-dev",
-            "filename": "flux1-dev.safetensors",
-            "requires_token": True,
-            "size_note": "~24GB",
-        },
-        "sdxl": {
-            "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
-            "filename": "sd_xl_base_1.0.safetensors",
-            "requires_token": False,
-            "size_note": "~7GB",
-        },
-        "wan2.2": {
-            "repo_id": "Wan-AI/Wan2.2-T2V-5B",
-            "filename": None,   # downloads full repo
-            "requires_token": False,
-            "size_note": "~18GB",
-        },
-    }
 
     if model not in MODELS:
         print(f"ERROR: Unknown model '{model}'. Valid: {list(MODELS.keys())}")
@@ -97,7 +98,7 @@ def main() -> None:
     hf_token = os.environ.get("HF_TOKEN", "")
     models_dir = Path(os.environ.get("MODELS_DIR", "/models/checkpoints"))
 
-    print(f"=== Portal 5: ComfyUI Model Download ===")
+    print("=== Portal 5: ComfyUI Model Download ===")
     print(f"Model: {model}")
     print(f"Destination: {models_dir}")
     print(f"HF_TOKEN: {'set' if hf_token else 'not set'}")

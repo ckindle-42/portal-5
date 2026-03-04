@@ -10,7 +10,8 @@ os.environ.setdefault("PIPELINE_API_KEY", "portal-pipeline")
 
 sys.path.insert(0, ".")
 from fastapi.testclient import TestClient
-from portal_pipeline.router_pipe import app, PIPELINE_API_KEY
+
+from portal_pipeline.router_pipe import PIPELINE_API_KEY, app
 
 HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
 
