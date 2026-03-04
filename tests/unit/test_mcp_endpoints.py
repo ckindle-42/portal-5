@@ -140,8 +140,10 @@ class TestBackendModelHintRouting:
 
     def test_all_13_workspaces_have_routing_entries(self):
         """Every workspace ID must have a routing entry in backends.yaml."""
-        import yaml
         from pathlib import Path
+
+        import yaml
+
         from portal_pipeline.router_pipe import WORKSPACES
 
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
@@ -162,9 +164,10 @@ class TestBackendModelHintRouting:
 
     def test_security_workspaces_use_security_models(self):
         """Security-focused workspaces must route to security-group backends."""
-        import yaml
         from pathlib import Path
-        from portal_pipeline.router_pipe import WORKSPACES
+
+        import yaml
+
 
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
         routing = cfg.get("workspace_routing", {})
