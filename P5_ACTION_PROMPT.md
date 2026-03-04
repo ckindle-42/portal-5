@@ -11,28 +11,24 @@ python3 -m ruff check portal_pipeline/ scripts/ --quiet && echo "Lint OK" || ech
 
 ---
 
-All tasks from prior run are RESOLVED. Several improvements were made:
+## Tasks
 
-- **TASK-001**: Fixed N806 lint violation in `scripts/download_comfyui_models.py` - moved MODELS constant to module level
-- **TASK-002**: R4 security fix - 11 internal services bound to 127.0.0.1 (Ollama, MCP servers, Prometheus, SearXNG, ComfyUI)
-- **TASK-003**: wan2.2 download fixed - uses `snapshot_download` instead of `hf_hub_download(filename=None)`
-- **TASK-004**: TTS imports consolidated - removed 6 redundant in-function imports from tts_mcp.py
-- **TASK-005**: TTS_DEFAULT_VOICE added to .env.example with voice options documented
-- **TASK-006**: New test file test_mcp_endpoints.py with 3 new test classes (TTS, Whisper, Backend routing)
+### TASK-001
+Tier:         2 (fix soon)
+File(s):      tests/unit/test_mcp_endpoints.py
+Category:     Tests
+Finding:      FINDING-001 - 9 MCP tests ERROR instead of SKIP
+Action:       Add skip markers for MCP-dependent tests. Add at top of test_mcp_endpoints.py:
 
-The codebase is in excellent shape:
-- 25 tests passing
-- 0 lint violations
-- 95/100 production readiness score
-- All workspace consistency checks pass
-- All zero-setup compliance checks pass
+```python
+import importlib.util
+MCP_AVAILABLE = importlib.util.find_spec("mcp") is not None
+```
 
-**COMPLIANCE CHECK**
-- Hard constraints met: Yes
-- Output format followed: Yes
-- All findings backed by runtime or static evidence: Yes
-- Uncertainty Log: None
+Then add to each test class that imports from portal_mcp:
+```python
+@pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP SDK not installed")
+```
 
----
-
-*Generated from P5_ROADMAP.md open items (Delta Run)*
+Risk:         Low
+Acceptance:   python3 -m pytest tests/unit/test_mcp_endpoints.py -v shows SKIPPED (not ERROR) for MCP tests

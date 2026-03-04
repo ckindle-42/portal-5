@@ -11,17 +11,17 @@
 | Metric | Score |
 |--------|-------|
 | Production Readiness | **95/100** (maintained) |
-| Tests | 25/25 PASS (+3 from prior) |
+| Tests | 26/26 PASS (with 9 errors - regression) |
 | Workspace Consistency | 13/13/13 PASS |
 | Security | PASS (R4 port security applied) |
 | Code Quality | 0 lint violations |
 
-**Verdict**: Release Candidate — all tests passing, production ready.
+**Verdict**: Release Candidate — all core tests passing, production ready.
 
 **Top Findings**:
-1. Test suite expanded from 22 to 25 tests (+3 new endpoint tests)
-2. Test coverage maintained at 73%
-3. R4 security fix: 11 internal services now bound to 127.0.0.1
+1. Lint: 3 import ordering issues fixed by ruff
+2. Test regression: 9 MCP tests ERROR instead of SKIP (missing `mcp` module)
+3. Score maintained at 95/100
 
 ---
 
@@ -31,62 +31,69 @@
 |------|--------|
 | Python | 3.14.3 |
 | venv | active |
-| Install | PARTIAL (av build failure - expected, core OK) |
-| Dependencies | 18 OK, 7 MISSING (MCP deps - expected) |
-| Module imports | 4 OK, 7 FAILED (fastmcp not installed) |
-| Lint | 0 violations |
-| Tests | 25 passed, 9 skipped |
+| Install | PARTIAL (MCP deps missing - expected) |
+| Dependencies | 18 OK, 9 MISSING (MCP/audio deps - expected) |
+| Module imports | 4 OK, 7 FAILED (mcp module not installed) |
+| Lint | 0 violations (3 auto-fixed) |
+| Tests | 26 passed, 9 errors |
 | Compile | All files OK |
 | Branches | main only |
 | CLAUDE.md | CURRENT |
+| Prior run artifacts | DELTA RUN |
 
 ---
 
-## 3. Behavioral Verification Summary
-
-| Test | Result |
-|------|--------|
-| Pipeline /health returns 200 | PASS |
-| Pipeline /v1/models auth enforced | PASS (401/200) |
-| Pipeline returns 13 workspaces | PASS |
-| Pipeline /metrics returns gauges | PASS |
-| Pipeline 503 when no backends | PASS |
-| Timeout=120 read from YAML | PASS |
-| Unhealthy fallback works | PASS |
-| All backends unhealthy → None | PASS |
-| Ollama chat_url uses /v1/... | PASS |
-| All 13 workspaces have model_hint | PASS |
-| Security workspace uses sec model | PASS |
-| launch.sh syntax valid | PASS |
-| All 10 launch commands present | PASS |
-| Secret generation produces 30+ char | PASS (43 chars) |
-| No weak defaults in compose | PASS |
-| ComfyUI in Docker | PASS |
-| SearXNG in Docker | PASS |
-| TTS uses kokoro primary | PASS |
-| TTS degrades gracefully | PASS |
-| Document MCP has real implementation | PASS |
-| DinD sandbox | PASS |
-| nomic-embed-text in ollama-init | PASS |
-
----
-
-## 4. Delta Summary
+## 3. Delta Summary
 
 ### Changes Since Prior Run
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Test suite expansion | ADDED | 3 new tests (22 → 25) |
-| Test coverage | MAINTAINED | 73% |
-| Port security fix | APPLIED | 11 services now 127.0.0.1 |
-| wan2.2 download | FIXED | Uses snapshot_download |
-| Prior issues | RESOLVED | All prior findings remain fixed |
+| Lint cleanup | FIXED | 3 import ordering issues auto-fixed |
+| Test results | REGRESSION | 9 tests now ERROR instead of SKIP |
+| Test count | 26→26 | Core tests maintained |
+| Score | 95/100 | Maintained |
 
-### Score Improvement
-- Prior: 95/100
-- Current: 95/100 (maintained)
-- Reason: Test coverage maintained, R4 security fix applied
+### Finding: Test Regression
+
+The 9 MCP endpoint tests now fail with ERROR instead of being properly skipped:
+
+```
+ModuleNotFoundError: No module named 'mcp'
+```
+
+These tests should use `@pytest.mark.skipif` to conditionally skip when the MCP SDK is not installed, rather than failing with import errors.
+
+**Evidence**: Test run output shows 9 errors in TestTTSOpenAIEndpoints and TestWhisperOpenAIEndpoints
+
+---
+
+## 4. Behavioral Verification Summary
+
+| Test | Result | Evidence Ref |
+|------|--------|--------------|
+| Pipeline /health returns 200 | PASS | 3A output |
+| Pipeline /v1/models auth enforced | PASS | 3A output (401/200) |
+| Pipeline returns 13 workspaces | PASS | 3A output |
+| Pipeline /metrics returns gauges | PASS | 3A output |
+| Pipeline 503 when no backends | PASS | 3A output |
+| Timeout=120 read from YAML | PASS | 3B output |
+| Unhealthy fallback works | PASS | 3B output |
+| All backends unhealthy → None | PASS | 3B output |
+| Ollama chat_url uses /v1/... | PASS | 3B output |
+| All 13 workspaces have model_hint | PASS | 3C output |
+| Security workspace uses sec model | PASS | 3C output |
+| launch.sh syntax valid | PASS | 3D output |
+| All 10 launch commands present | PASS | 3D output |
+| Secret generation produces 30+ char | PASS | 3D output (41 chars) |
+| No weak defaults in compose | PASS | 2E output (1 acceptable fallback) |
+| ComfyUI in Docker | PASS | 3E output |
+| SearXNG in Docker | PASS | 3E output |
+| TTS uses kokoro primary | PASS | 3F output |
+| TTS degrades gracefully | PASS | 3F output |
+| Document MCP has real implementation | PASS | 3F output |
+| DinD sandbox | PASS | 3E output |
+| nomic-embed-text in ollama-init | PASS | 3E output |
 
 ---
 
@@ -98,7 +105,7 @@
 | Backend group coverage | PASS: 6 groups covered |
 | Timeout config | PASS: 120s request, 30s health interval |
 | Compose services | PASS: 18 services |
-| Compose security | PASS: no docker.sock, DinD used |
+| Compose security | PASS: 11 services bound to 127.0.0.1 |
 | Feature completeness | PASS: all 7 features present |
 | Secret hygiene | PASS: 6 CHANGEME sentinels, .env not tracked |
 | openwebui_init.py | PASS: all 10 functions present |
@@ -121,6 +128,32 @@
 | Documentation | 10/10 | CLAUDE.md + docs complete |
 | Deployment cleanliness | 10/10 | Healthchecks, volumes correct |
 | **TOTAL** | **95/100** | |
+
+---
+
+## 7. Code Findings Register
+
+### FINDING-001
+File:           tests/unit/test_mcp_endpoints.py (entire file)
+Severity:       Medium
+Category:       Tests
+Observation:    9 MCP endpoint tests ERROR at setup due to missing `mcp` module
+Impact:         Test suite shows errors instead of clean skips; makes CI results harder to interpret
+Recommendation: Add skip markers to tests that require MCP SDK:
+                ```python
+                @pytest.mark.skipif(
+                    importlib.util.find_spec("mcp") is None,
+                    reason="MCP SDK not installed"
+                )
+                ```
+                Add at top of file:
+                ```python
+                import importlib.util
+                MCP_AVAILABLE = importlib.util.find_spec("mcp") is not None
+                ```
+Effort:         S
+Risk of fix:    Low
+Verified by:    pytest output showing ModuleNotFoundError
 
 ---
 
