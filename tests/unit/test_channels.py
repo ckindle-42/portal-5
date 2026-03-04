@@ -118,7 +118,7 @@ class TestTelegramAdapter:
         }
         mock_response.raise_for_status = MagicMock()
 
-        with patch("portal_channels.telegram.bot.httpx.AsyncClient") as mock_client:
+        with patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value.post = AsyncMock(return_value=mock_response)
@@ -168,7 +168,7 @@ class TestTelegramAdapter:
         mock_response.json.return_value = {"choices": [{"message": {"content": "reply"}}]}
         mock_response.raise_for_status = MagicMock()
 
-        with patch("portal_channels.telegram.bot.httpx.AsyncClient") as mock_client:
+        with patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value.post = AsyncMock(return_value=mock_response)
@@ -231,7 +231,7 @@ class TestTelegramAdapter:
         context = MagicMock()
         context.user_data = {}
 
-        with patch("portal_channels.telegram.bot.httpx.AsyncClient") as mock_client:
+        with patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client.return_value)
             mock_client.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_client.return_value.post = AsyncMock(side_effect=Exception("Connection refused"))
@@ -309,7 +309,7 @@ class TestSlackAdapter:
         }
         mock_response.raise_for_status = MagicMock()
 
-        with patch("portal_channels.slack.bot.httpx.Client") as mock_client:
+        with patch("portal_channels.dispatcher.httpx.Client") as mock_client:
             mock_client.return_value.__enter__ = MagicMock(return_value=mock_client.return_value)
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.post = MagicMock(return_value=mock_response)
@@ -327,7 +327,7 @@ class TestSlackAdapter:
     def test_pipeline_error_returns_error_string(self):
         """_call_pipeline raises exception that callers handle."""
         from portal_channels.slack import bot as slack_bot
-        with patch("portal_channels.slack.bot.httpx.Client") as mock_client:
+        with patch("portal_channels.dispatcher.httpx.Client") as mock_client:
             mock_client.return_value.__enter__ = MagicMock(return_value=mock_client.return_value)
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
             mock_client.return_value.post = MagicMock(side_effect=Exception("Connection error"))

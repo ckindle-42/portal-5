@@ -444,7 +444,65 @@ for cmd in up down clean clean-all seed logs status pull-models add-user list-us
 done
 ```
 
-### 3H — Feature Status Matrix
+### 3H — Channel Adapter Verification (NEW)
+
+```python
+import sys, os
+sys.path.insert(0, ".")
+
+# Dispatcher exists and is correct
+from portal_channels.dispatcher import VALID_WORKSPACES, call_pipeline_async, call_pipeline_sync
+from portal_pipeline.router_pipe import WORKSPACES
+assert set(VALID_WORKSPACES) == set(WORKSPACES.keys())
+print(f"OK: dispatcher.py — {len(VALID_WORKSPACES)} workspaces")
+
+# Bots importable without tokens
+for key in ("TELEGRAM_BOT_TOKEN", "SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"):
+    os.environ.pop(key, None)
+import importlib
+for mod_path in ("portal_channels.telegram.bot", "portal_channels.slack.bot"):
+    if mod_path in sys.modules: del sys.modules[mod_path]
+    m = importlib.import_module(mod_path)
+    assert hasattr(m, "build_app"), f"FAIL: {mod_path} missing build_app()"
+    print(f"OK: {mod_path} importable without token")
+
+# Slack: correct SocketModeHandler token
+slack_src = open("portal_channels/slack/bot.py").read()
+assert "app_token" in slack_src and "SLACK_APP_TOKEN" in slack_src
+assert "SocketModeHandler(slack_app, app_token)" in slack_src
+print("OK: Slack uses SLACK_APP_TOKEN for SocketModeHandler")
+
+# Neither bot imports httpx (uses dispatcher)
+for f in ["portal_channels/telegram/bot.py", "portal_channels/slack/bot.py"]:
+    src = open(f).read()
+    assert "import httpx" not in src, f"FAIL: {f} imports httpx directly"
+    print(f"OK: {f} delegates to dispatcher")
+```
+
+### 3I — Workspace toolIds Verification (NEW)
+
+```python
+import json
+from pathlib import Path
+
+EXPECTED = {
+    "auto-coding": ["portal_code"], "auto-documents": ["portal_documents","portal_code"],
+    "auto-music": ["portal_music","portal_tts"], "auto-video": ["portal_video","portal_comfyui"],
+    "auto-security": ["portal_code"], "auto-redteam": ["portal_code"],
+    "auto-blueteam": ["portal_code"], "auto-creative": ["portal_tts"],
+    "auto-vision": ["portal_comfyui"], "auto-data": ["portal_code","portal_documents"],
+    "auto": [], "auto-research": [], "auto-reasoning": [],
+}
+for f in sorted(Path("imports/openwebui/workspaces").glob("workspace_*.json")):
+    d = json.loads(f.read_text())
+    ws_id = d.get("id", "")
+    got = sorted(d.get("meta", {}).get("toolIds", []))
+    exp = sorted(EXPECTED.get(ws_id, []))
+    status = "VERIFIED" if got == exp else "BROKEN"
+    print(f"  {status}: {ws_id}: toolIds={got}")
+```
+
+### 3J — Feature Status Matrix
 
 **Fill every cell. No blanks. Every cell requires Phase 3 evidence.**
 
@@ -479,6 +537,9 @@ Secret auto-generation           | [status]            | 3F output        |
 Multi-user (ENABLE_SIGNUP)       | [status]            | 3D compose check |
 User approval flow (pending)     | [status]            | 3D compose check |
 add-user CLI command             | [status]            | 3G output        |
+Dispatcher covers all 13 workspaces | [status]        | 3H               |
+Channel bots use dispatcher not direct httpx | [status] | 3H             |
+Workspace toolIds seeded (10/13 non-empty) | [status]  | 3I               |
 ```
 
 Status tags: **VERIFIED** | **BROKEN** | **DEGRADED** | **STUB** | **NOT_IMPLEMENTED** | **UNTESTABLE**
@@ -531,6 +592,12 @@ mcp-video        | 8911 | httpx (calls ComfyUI)      | [status]  | generate_vide
 mcp-sandbox      | 8914 | docker (via DinD TCP)      | [status]  | execute_python/bash| DinD required
 ```
 
+**Section 5b: Channel Dispatcher**
+- `portal_channels/dispatcher.py` — shared httpx call logic for all channel adapters
+- `VALID_WORKSPACES` — canonical list of 13 workspace IDs
+- `call_pipeline_async` — async pipeline call for Telegram
+- `call_pipeline_sync` — sync pipeline call for Slack
+
 **Section 6: Web Search**
 - SearXNG service: verified from 3D compose check
 - Open WebUI integration: SEARXNG_QUERY_URL config from 3D
@@ -552,6 +619,11 @@ mcp-sandbox      | 8914 | docker (via DinD TCP)      | [status]  | execute_pytho
 - User management via CLI: `./launch.sh add-user` / `./launch.sh list-users`
 - Session security settings (from 3D env check)
 - Capacity: OLLAMA_NUM_PARALLEL, PIPELINE_WORKERS, MAX_CONCURRENT_REQUESTS
+
+**Section 9b: Live Smoke Test**
+- `./launch.sh test` — runs live smoke tests against the running stack
+- What each check verifies: pipeline health, Open WebUI login, Ollama models, MCP endpoints
+- Expected output on a healthy stack
 
 **Section 10: Health & Metrics**
 - Prometheus scraping /metrics on portal-pipeline
