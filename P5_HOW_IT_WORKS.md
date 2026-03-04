@@ -9,9 +9,19 @@ Source: documentation-truth-agent-v3-delta
 
 ## Section 0: Changes Since Last Run
 
-**Last updated: March 4, 2026** (from commit ed14441 - "fix: 11 targeted fixes")
+**Last updated: March 4, 2026** (from commit f89edad - "fix: lint cleanup")
 
-### Critical Fixes (v5.0.1)
+### Lint Cleanup (v5.0.1)
+- **download_comfyui_models.py**: Moved MODELS constant to module level (N806 fix).
+- **tts_mcp.py**: Removed unused `json` import.
+- **whisper_mcp.py**: Replaced try/except with `contextlib.suppress()`.
+- **test_semaphore.py**: Sorted imports for consistency.
+
+---
+
+### Previously (from commit ed14441 - 11 targeted fixes)
+
+**Critical Fixes (v5.0.1)**
 - **SearXNG secret**: Removed hardcoded `secret_key` from `settings.yml`. Now reads `SEARXNG_SECRET_KEY` from environment automatically.
 - **Prometheus**: Removed non-working `open-webui` scrape job (endpoint doesn't exist). Keeps `portal-pipeline` and `ollama` metrics.
 - **Audio TTS/STT**: Moved from broken API call to compose environment variables (`AUDIO_TTS_ENGINE`, `AUDIO_STT_ENGINE`).

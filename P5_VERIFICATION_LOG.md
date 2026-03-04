@@ -567,3 +567,189 @@ Key verifications:
 - MCP servers: All 7 compile and have tools
 
 No new issues found. Score: 96/100 (+1 from prior 95/100)
+
+---
+
+## Delta Run: March 4, 2026 (commit f89edad - lint cleanup)
+
+### Environment Report
+
+```
+ENVIRONMENT REPORT
+==================
+Python:        3.14.3
+Install:       CLEAN
+Lint:          0 violations
+Tests:         22 passed, 0 failed, 0 skipped
+Compile:       All OK
+Branches:      main only
+Prior run:     DELTA (doc-agent-v3 delta)
+```
+
+### Phase 0: Install
+
+```
+CLEAN INSTALL
+```
+
+All dependencies installed successfully.
+
+### Phase 0: Lint
+
+```
+All checks passed!
+```
+
+### Phase 0: Tests
+
+```
+22 passed in 0.53s
+```
+
+### Phase 1: Module Import Tests
+
+```
+OK: portal_pipeline.router_pipe
+OK: portal_pipeline.cluster_backends
+OK: portal_pipeline.__main__
+FAIL: portal_channels.telegram.bot → 'TELEGRAM_BOT_TOKEN' (expected - STUB)
+FAIL: portal_channels.slack.bot → 'SLACK_BOT_TOKEN' (expected - STUB)
+```
+
+### Phase 2: Workspace Consistency
+
+```
+CONSISTENT=True pipe=13 yaml=13 imports=13
+  auto                             pipe=Y yaml=Y import=Y
+  auto-blueteam                    pipe=Y yaml=Y import=Y
+  auto-coding                      pipe=Y yaml=Y import=Y
+  auto-creative                    pipe=Y yaml=Y import=Y
+  auto-data                        pipe=Y yaml=Y import=Y
+  auto-documents                   pipe=Y yaml=Y import=Y
+  auto-music                       pipe=Y yaml=Y import=Y
+  auto-reasoning                   pipe=Y yaml=Y import=Y
+  auto-redteam                     pipe=Y yaml=Y import=Y
+  auto-research                    pipe=Y yaml=Y import=Y
+  auto-security                    pipe=Y yaml=Y import=Y
+  auto-video                       pipe=Y yaml=Y import=Y
+  auto-vision                      pipe=Y yaml=Y import=Y
+```
+
+### Phase 2: Persona Catalog
+
+```
+Total: 35
+```
+
+Categories: development (17), security (6), data (7), systems (2), general (2), writing (1)
+
+### Phase 3: MCP Server Compilation
+
+```
+portal_mcp/documents/document_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['create_word_document', 'create_powerpoint', 'create_excel']
+portal_mcp/generation/music_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['generate_music']
+portal_mcp/generation/tts_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['speak', 'clone_voice', 'list_voices']
+portal_mcp/generation/whisper_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['transcribe_audio']
+portal_mcp/generation/comfyui_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['generate_image']
+portal_mcp/generation/video_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['generate_video']
+portal_mcp/execution/code_sandbox_mcp.py:
+  compile=True /health=True port_env=True
+  tools present: ['execute_python', 'execute_bash']
+```
+
+### Phase 3: openwebui_init.py Verification
+
+```
+PRESENT: wait_for_openwebui()
+PRESENT: create_admin_account()
+PRESENT: login()
+PRESENT: register_tool_servers()
+PRESENT: create_workspaces()
+PRESENT: create_persona_presets()
+PRESENT: configure_user_settings()
+PRESENT: configure_audio_settings()
+PRESENT: configure_tool_settings()
+PRESENT: main()
+correct tool API: True
+persona seeding: True
+audio config: True
+```
+
+### Phase 3: Docker Compose Structure
+
+```
+Services: 18
+OK: ENABLE_RAG_WEB_SEARCH
+OK: RAG_EMBEDDING_ENGINE
+OK: ENABLE_MEMORY_FEATURE
+OK: SEARXNG_QUERY_URL
+OK: ComfyUI service
+OK: SearXNG service
+OK: Prometheus service
+OK: Grafana service
+OK: Multi-user ENABLE_SIGNUP
+OK: DEFAULT_USER_ROLE
+OK: DinD sandbox
+OK: Sandbox no docker.sock
+```
+
+### Phase 3: BackendRegistry Tests
+
+```
+request_timeout: 180.0
+health_interval: 45.0
+health_timeout: 8.0
+chat_url: http://ollama:11434/v1/chat/completions
+health_url: http://ollama:11434/api/tags
+fallback: got healthy (expected healthy)
+```
+
+### Phase 3: Secret Generation
+
+```
+CHANGEME count in .env.example: 6
+PASS: no weak defaults in compose
+```
+
+### Phase 3: Launch Script Commands
+
+```
+PASS: syntax valid
+PRESENT: up
+PRESENT: down
+PRESENT: clean
+PRESENT: clean-all
+PRESENT: seed
+PRESENT: logs
+PRESENT: status
+PRESENT: pull-models
+PRESENT: add-user
+PRESENT: list-users
+```
+
+### Summary
+
+**Delta run verified:** Lint cleanup from commit f89edad verified.
+
+Key verifications:
+- Workspace consistency: 13/13/13 (unchanged)
+- Persona count: 35 (unchanged)
+- All 7 MCP servers compile with tools
+- openwebui_init.py: All 10 required functions present
+- Compose: All 12 feature checks pass
+- BackendRegistry: Config loading, timeout, fallback all working
+- Tests: 22 passed
+
+No new issues found. Score: 95/100 (maintained from prior)
