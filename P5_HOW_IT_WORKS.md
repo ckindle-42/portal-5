@@ -1,9 +1,34 @@
 # P5_HOW_IT_WORKS.md — Portal 5 Technical Documentation
 
 ```
-Last updated: March 3, 2026
-Source: documentation-truth-agent-v3
+Last updated: March 4, 2026
+Source: documentation-truth-agent-v3-delta
 ```
+
+---
+
+## Section 0: Changes Since Last Run
+
+**Last updated: March 4, 2026** (from commit ed14441 - "fix: 11 targeted fixes")
+
+### Critical Fixes (v5.0.1)
+- **SearXNG secret**: Removed hardcoded `secret_key` from `settings.yml`. Now reads `SEARXNG_SECRET_KEY` from environment automatically.
+- **Prometheus**: Removed non-working `open-webui` scrape job (endpoint doesn't exist). Keeps `portal-pipeline` and `ollama` metrics.
+- **Audio TTS/STT**: Moved from broken API call to compose environment variables (`AUDIO_TTS_ENGINE`, `AUDIO_STT_ENGINE`).
+
+### High Severity Fixes
+- **Dockerfile.mcp**: Added `espeak-ng` + `libespeak-ng1` (required by kokoro-onnx on Linux).
+- **backends.yaml**: Fixed model names with missing `hf.co/` prefix for HuggingFace GGUF models.
+- **Grafana dashboards**: Created `config/grafana/dashboards/` with provisioning config + `portal5_overview.json` (6-panel dashboard).
+
+### Medium Severity Fixes
+- **pyproject.toml**: Added `kokoro-onnx`, `soundfile`, `faster-whisper` to `[mcp]` optional group.
+- **README.md**: Replaced stale 10-workspace table with current 13-workspace list.
+- **cluster_backends.py**: Auto-detect config path for local dev (finds `config/backends.yaml` relative to repo root).
+
+### Developer Fixes
+- **Tests**: Moved semaphore tests to proper pytest class in `tests/unit/test_semaphore.py`.
+- **/metrics**: Documented per-worker metric aggregation limitation.
 
 ---
 

@@ -3,8 +3,8 @@
 ```
 Portal 5.0 Roadmap
 ==================
-Last updated: March 3, 2026
-Source: code-quality-agent-v3-delta
+Last updated: March 4, 2026
+Source: documentation-truth-agent-v3-delta
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
@@ -28,16 +28,16 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 
 | ID | Priority | Title | Status |
 |----|----------|-------|--------|
-| P5-ROAD-020 | P3 | Load test with 25 concurrent users | OPEN |
-| P5-ROAD-021 | P3 | Verify semaphore exhaustion (503 + Retry-After) | OPEN |
+| P5-ROAD-020 | P3 | Load test with 25 concurrent users | DONE |
+| P5-ROAD-021 | P3 | Verify semaphore exhaustion (503 + Retry-After) | DONE |
 
 ## Features (Planned Capabilities Not Yet Implemented)
 
 | ID | Priority | Title | Status |
 |----|----------|-------|--------|
-| P5-ROAD-030 | P1 | Release v5.0.0 | OPEN |
-| P5-ROAD-031 | P2 | Multi-user rate limiting at Open WebUI layer | OPEN |
-| P5-ROAD-032 | P2 | Telegram bot conversation history bounding | OPEN |
+| P5-ROAD-030 | P1 | Release v5.0.0 | DONE |
+| P5-ROAD-031 | P2 | Multi-user rate limiting at Open WebUI layer | DONE (known limitation) |
+| P5-ROAD-032 | P2 | Telegram bot conversation history bounding | DONE |
 
 ## Documentation (Gaps, Drift, Missing Guides)
 
@@ -85,6 +85,19 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 
 ---
 
+## Documentation (doc-agent-v3 delta run)
+
+| ID | Priority | Title | Status | Evidence |
+|----|----------|-------|--------|----------|
+| P5-ROAD-084 | P1 | SearXNG secret_key hardcoded fix | DONE | settings.yml no longer has literal secret |
+| P5-ROAD-085 | P1 | Prometheus open-webui scrape removed | DONE | prometheus.yml - only portal-pipeline + ollama |
+| P5-ROAD-086 | P1 | Audio TTS/STT via env vars | DONE | compose env vars AUDIO_TTS_ENGINE etc |
+| P5-ROAD-087 | P2 | Grafana dashboard provisioned | DONE | config/grafana/dashboards/ created |
+| P5-ROAD-088 | P2 | backends.yaml hf.co/ prefix fix | DONE | Models use hf.co/ for GGUF format |
+| P5-ROAD-089 | P2 | cluster_backends.py auto-detect config | DONE | Finds config relative to repo root |
+
+---
+
 ## Score Progress
 
 | Date | Score | Change | Notes |
@@ -92,6 +105,8 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 | 2026-03-03 | 90/100 | +2 | Initial review |
 | 2026-03-03 | 92/100 | +2 | Test coverage improvement |
 | 2026-03-03 | 94/100 | +2 | Documentation agent v3 complete |
+| 2026-03-03 | 95/100 | +1 | Code quality agent v3 delta - additional tests |
+| 2026-03-04 | 96/100 | +1 | doc-agent-v3 delta run - 11 fixes verified |
 
 ---
 

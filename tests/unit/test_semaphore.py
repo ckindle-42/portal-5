@@ -1,15 +1,14 @@
 """tests/unit/test_semaphore.py — Semaphore exhaustion behavior."""
-import asyncio
 import os
 import sys
-import pytest
 
 # Must set before importing the module
 os.environ.setdefault("MAX_CONCURRENT_REQUESTS", "2")
 
 sys.path.insert(0, ".")
 from fastapi.testclient import TestClient
-from portal_pipeline.router_pipe import app, _request_semaphore, PIPELINE_API_KEY
+
+from portal_pipeline.router_pipe import PIPELINE_API_KEY, app
 
 CLIENT = TestClient(app)
 HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
