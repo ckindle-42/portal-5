@@ -42,10 +42,8 @@ from typing import Any, TypeVar, overload
 
 import anyio
 import anyio.lowlevel
-from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pydantic import AnyUrl
-
 import mcp.types as types
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.server.experimental.session_features import ExperimentalServerSessionFeatures
 from mcp.server.models import InitializationOptions
 from mcp.server.validation import validate_sampling_tools, validate_tool_use_result_messages
@@ -57,6 +55,7 @@ from mcp.shared.session import (
     RequestResponder,
 )
 from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
+from pydantic import AnyUrl
 
 
 class InitializationState(Enum):
@@ -98,9 +97,9 @@ class ServerSession(
         )
 
         self._init_options = init_options
-        self._incoming_message_stream_writer, self._incoming_message_stream_reader = anyio.create_memory_object_stream[
-            ServerRequestResponder
-        ](0)
+        self._incoming_message_stream_writer, self._incoming_message_stream_reader = (
+            anyio.create_memory_object_stream[ServerRequestResponder](0)
+        )
         self._exit_stack.push_async_callback(lambda: self._incoming_message_stream_reader.aclose())
 
     @property
@@ -117,7 +116,9 @@ class ServerSession(
             self._experimental_features = ExperimentalServerSessionFeatures(self)
         return self._experimental_features
 
-    def check_client_capability(self, capability: types.ClientCapabilities) -> bool:  # pragma: no cover
+    def check_client_capability(
+        self, capability: types.ClientCapabilities
+    ) -> bool:  # pragma: no cover
         """Check if the client supports a specific capability."""
         if self._client_params is None:
             return False
@@ -145,7 +146,10 @@ class ServerSession(
             if client_caps.experimental is None:
                 return False
             for exp_key, exp_value in capability.experimental.items():
-                if exp_key not in client_caps.experimental or client_caps.experimental[exp_key] != exp_value:
+                if (
+                    exp_key not in client_caps.experimental
+                    or client_caps.experimental[exp_key] != exp_value
+                ):
                     return False
 
         if capability.tasks is not None:
@@ -160,7 +164,9 @@ class ServerSession(
         async with self._incoming_message_stream_writer:
             await super()._receive_loop()
 
-    async def _received_request(self, responder: RequestResponder[types.ClientRequest, types.ServerResult]):
+    async def _received_request(
+        self, responder: RequestResponder[types.ClientRequest, types.ServerResult]
+    ):
         match responder.request.root:
             case types.InitializeRequest(params=params):
                 requested_version = params.protocolVersion
@@ -199,7 +205,9 @@ class ServerSession(
             case types.InitializedNotification():
                 self._initialization_state = InitializationState.Initialized
             case _:
-                if self._initialization_state != InitializationState.Initialized:  # pragma: no cover
+                if (
+                    self._initialization_state != InitializationState.Initialized
+                ):  # pragma: no cover
                     raise RuntimeError("Received notification before initialization was complete")
 
     async def send_log_message(
@@ -472,7 +480,9 @@ class ServerSession(
 
     async def send_resource_list_changed(self) -> None:  # pragma: no cover
         """Send a resource list changed notification."""
-        await self.send_notification(types.ServerNotification(types.ResourceListChangedNotification()))
+        await self.send_notification(
+            types.ServerNotification(types.ResourceListChangedNotification())
+        )
 
     async def send_tool_list_changed(self) -> None:  # pragma: no cover
         """Send a tool list changed notification."""
@@ -480,7 +490,9 @@ class ServerSession(
 
     async def send_prompt_list_changed(self) -> None:  # pragma: no cover
         """Send a prompt list changed notification."""
-        await self.send_notification(types.ServerNotification(types.PromptListChangedNotification()))
+        await self.send_notification(
+            types.ServerNotification(types.PromptListChangedNotification())
+        )
 
     async def send_elicit_complete(
         self,

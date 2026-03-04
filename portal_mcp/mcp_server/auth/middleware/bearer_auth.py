@@ -2,12 +2,11 @@ import json
 import time
 from typing import Any
 
+from mcp.server.auth.provider import AccessToken, TokenVerifier
 from pydantic import AnyHttpUrl
 from starlette.authentication import AuthCredentials, AuthenticationBackend, SimpleUser
 from starlette.requests import HTTPConnection
 from starlette.types import Receive, Scope, Send
-
-from mcp.server.auth.provider import AccessToken, TokenVerifier
 
 
 class AuthenticatedUser(SimpleUser):
@@ -89,13 +88,18 @@ class RequireAuthMiddleware:
             # auth_credentials should always be provided; this is just paranoia
             if auth_credentials is None or required_scope not in auth_credentials.scopes:
                 await self._send_auth_error(
-                    send, status_code=403, error="insufficient_scope", description=f"Required scope: {required_scope}"
+                    send,
+                    status_code=403,
+                    error="insufficient_scope",
+                    description=f"Required scope: {required_scope}",
                 )
                 return
 
         await self.app(scope, receive, send)
 
-    async def _send_auth_error(self, send: Send, status_code: int, error: str, description: str) -> None:
+    async def _send_auth_error(
+        self, send: Send, status_code: int, error: str, description: str
+    ) -> None:
         """Send an authentication error response with WWW-Authenticate header."""
         # Build WWW-Authenticate header value
         www_auth_parts = [f'error="{error}"', f'error_description="{description}"']

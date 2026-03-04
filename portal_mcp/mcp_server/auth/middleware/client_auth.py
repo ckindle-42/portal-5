@@ -5,10 +5,9 @@ import time
 from typing import Any
 from urllib.parse import unquote
 
-from starlette.requests import Request
-
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider
 from mcp.shared.auth import OAuthClientInformationFull
+from starlette.requests import Request
 
 
 class AuthenticationError(Exception):
@@ -66,7 +65,9 @@ class ClientAuthenticator:
 
         if client.token_endpoint_auth_method == "client_secret_basic":
             if not auth_header.startswith("Basic "):
-                raise AuthenticationError("Missing or invalid Basic authentication in Authorization header")
+                raise AuthenticationError(
+                    "Missing or invalid Basic authentication in Authorization header"
+                )
 
             try:
                 encoded_credentials = auth_header[6:]  # Remove "Basic " prefix
@@ -106,10 +107,14 @@ class ClientAuthenticator:
             # hmac.compare_digest requires that both arguments are either bytes or a `str` containing
             # only ASCII characters. Since we do not control `request_client_secret`, we encode both
             # arguments to bytes.
-            if not hmac.compare_digest(client.client_secret.encode(), request_client_secret.encode()):
+            if not hmac.compare_digest(
+                client.client_secret.encode(), request_client_secret.encode()
+            ):
                 raise AuthenticationError("Invalid client_secret")  # pragma: no cover
 
-            if client.client_secret_expires_at and client.client_secret_expires_at < int(time.time()):
+            if client.client_secret_expires_at and client.client_secret_expires_at < int(
+                time.time()
+            ):
                 raise AuthenticationError("Client secret has expired")  # pragma: no cover
 
         return client

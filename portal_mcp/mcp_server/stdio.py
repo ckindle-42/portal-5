@@ -24,9 +24,8 @@ from io import TextIOWrapper
 
 import anyio
 import anyio.lowlevel
-from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-
 import mcp.types as types
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.shared.message import SessionMessage
 
 

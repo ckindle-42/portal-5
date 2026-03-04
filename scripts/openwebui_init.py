@@ -51,6 +51,7 @@ POLL_INTERVAL = 5
 
 # --- Utilities ---------------------------------------------------------------
 
+
 def wait_for_openwebui(client: httpx.Client) -> bool:
     """Poll until Open WebUI health endpoint responds."""
     print(f"Waiting for Open WebUI at {OPENWEBUI_URL}...")
@@ -129,6 +130,7 @@ def auth_headers(token: str) -> dict:
 
 # --- Tool Server Registration -------------------------------------------------
 
+
 def register_tool_servers(client: httpx.Client, token: str) -> None:
     """Register all Portal MCP servers as Tool Servers in Open WebUI."""
     print("\nRegistering MCP Tool Servers...")
@@ -151,7 +153,7 @@ def register_tool_servers(client: httpx.Client, token: str) -> None:
         )
         if resp.status_code == 200:
             data = resp.json()
-            for s in (data if isinstance(data, list) else data.get("data", [])):
+            for s in data if isinstance(data, list) else data.get("data", []):
                 existing_urls.add(s.get("url", ""))
     except Exception as e:
         print(f"  Warning: could not check existing tool servers: {e}")
@@ -195,6 +197,7 @@ def register_tool_servers(client: httpx.Client, token: str) -> None:
 
 
 # --- Workspace Creation -------------------------------------------------------
+
 
 def create_workspaces(client: httpx.Client, token: str) -> None:
     """Create Portal workspace presets in Open WebUI."""
@@ -263,6 +266,7 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
 
 # --- Persona Presets -----------------------------------------------------------
 
+
 def create_persona_presets(client: httpx.Client, token: str, personas_dir: Path) -> None:
     """Create Open WebUI model presets from persona YAML files."""
     import yaml as _yaml
@@ -283,7 +287,7 @@ def create_persona_presets(client: httpx.Client, token: str, personas_dir: Path)
         resp = client.get(f"{OPENWEBUI_URL}/api/v1/models/", headers=auth_headers(token))
         if resp.status_code == 200:
             data = resp.json()
-            for m in (data if isinstance(data, list) else data.get("data", [])):
+            for m in data if isinstance(data, list) else data.get("data", []):
                 existing_ids.add(m.get("id", ""))
     except Exception as e:
         print(f"  Warning: could not fetch existing models: {e}")
@@ -362,11 +366,12 @@ def configure_user_settings(client: httpx.Client, token: str) -> None:
         print(f"  Warning: signup config failed: {e}")
 
     print(f"  Default user role: {default_role}")
-    print(f"  Note: New users with role 'pending' must be approved by admin at:")
+    print("  Note: New users with role 'pending' must be approved by admin at:")
     print(f"        {OPENWEBUI_URL}/admin/users")
 
 
 # --- Main ---------------------------------------------------------------------
+
 
 def main() -> int:
     client = httpx.Client(timeout=30.0)

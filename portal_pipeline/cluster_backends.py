@@ -3,6 +3,7 @@
 Config-driven backend selection. No hardcoded URLs. Supports Ollama and
 OpenAI-compatible backends (vLLM, etc.).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,9 +18,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIG_PATH = os.environ.get(
-    "BACKEND_CONFIG_PATH", "/app/config/backends.yaml"
-)
+DEFAULT_CONFIG_PATH = os.environ.get("BACKEND_CONFIG_PATH", "/app/config/backends.yaml")
 
 
 @dataclass
@@ -48,8 +47,8 @@ class Backend:
     def health_url(self) -> str:
         """Return the health/availability check URL for this backend."""
         if self.type == "ollama":
-            return f"{self.url.rstrip('/')}/api/tags"   # Ollama: list models
-        return f"{self.url.rstrip('/')}/health"          # vLLM: /health
+            return f"{self.url.rstrip('/')}/api/tags"  # Ollama: list models
+        return f"{self.url.rstrip('/')}/health"  # vLLM: /health
 
 
 class BackendRegistry:
@@ -86,8 +85,7 @@ class BackendRegistry:
             )
             self._backends[backend.id] = backend
             logger.info(
-                "Registered backend: %s (%s) in group '%s'",
-                backend.id, backend.type, backend.group
+                "Registered backend: %s (%s) in group '%s'", backend.id, backend.type, backend.group
             )
 
         # Load workspace routing
@@ -101,8 +99,7 @@ class BackendRegistry:
         self._health_timeout = float(defaults.get("health_timeout", 10.0))
 
         logger.info(
-            "BackendRegistry loaded: %d backends, %d workspace routes, "
-            "request_timeout=%.0fs",
+            "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs",
             len(self._backends),
             len(self._workspace_routes),
             self._request_timeout,
@@ -118,7 +115,7 @@ class BackendRegistry:
 
     def get_backend_for_workspace(self, workspace_id: str) -> Backend | None:
         """Select the best healthy backend for a given workspace.
-        
+
         Routing logic:
         1. Look up workspace → group(s) mapping
         2. Try each group in order for healthy backends
@@ -126,7 +123,7 @@ class BackendRegistry:
         4. Within a group, randomly select for load balancing
         """
         # Normalize workspace ID (strip "auto-" prefix if present for lookup)
-        route_key = workspace_id.replace("auto-", "") if workspace_id.startswith("auto-") else workspace_id
+        workspace_id.replace("auto-", "") if workspace_id.startswith("auto-") else workspace_id
         groups = self._workspace_routes.get(workspace_id, [self._fallback_group])
 
         healthy = self.list_healthy_backends()
@@ -150,8 +147,7 @@ class BackendRegistry:
     async def health_check_all(self) -> None:
         """Run async health checks against all backends."""
         await asyncio.gather(
-            *[self._check_one(b) for b in self._backends.values()],
-            return_exceptions=True
+            *[self._check_one(b) for b in self._backends.values()], return_exceptions=True
         )
         healthy_count = len([b for b in self._backends.values() if b.healthy])
         logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
@@ -159,6 +155,7 @@ class BackendRegistry:
     async def _check_one(self, backend: Backend) -> None:
         """Check a single backend's health."""
         import time
+
         try:
             async with httpx.AsyncClient(timeout=self._health_timeout) as client:
                 resp = await client.get(backend.health_url)

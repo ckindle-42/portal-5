@@ -6,14 +6,13 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
-
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.utilities.context_injection import find_context_parameter
 from mcp.server.fastmcp.utilities.func_metadata import FuncMetadata, func_metadata
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.shared.tool_name_validation import validate_and_warn_tool_name
 from mcp.types import Icon, ToolAnnotations
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
@@ -33,9 +32,15 @@ class Tool(BaseModel):
         description="Metadata about the function including a pydantic model for tool arguments"
     )
     is_async: bool = Field(description="Whether the tool is async")
-    context_kwarg: str | None = Field(None, description="Name of the kwarg that should receive context")
-    annotations: ToolAnnotations | None = Field(None, description="Optional annotations for the tool")
-    icons: list[Icon] | None = Field(default=None, description="Optional list of icons for this tool")
+    context_kwarg: str | None = Field(
+        None, description="Name of the kwarg that should receive context"
+    )
+    annotations: ToolAnnotations | None = Field(
+        None, description="Optional annotations for the tool"
+    )
+    icons: list[Icon] | None = Field(
+        default=None, description="Optional list of icons for this tool"
+    )
     meta: dict[str, Any] | None = Field(default=None, description="Optional metadata for this tool")
 
     @cached_property

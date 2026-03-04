@@ -11,10 +11,9 @@ import anyio.to_thread
 import httpx
 import pydantic
 import pydantic_core
-from pydantic import AnyUrl, Field, ValidationInfo, validate_call
-
 from mcp.server.fastmcp.resources.base import Resource
 from mcp.types import Annotations, Icon
+from pydantic import AnyUrl, Field, ValidationInfo, validate_call
 
 
 class TextResource(Resource):
@@ -63,9 +62,7 @@ class FunctionResource(Resource):
 
             if isinstance(result, Resource):  # pragma: no cover
                 return await result.read()
-            elif isinstance(result, bytes):
-                return result
-            elif isinstance(result, str):
+            elif isinstance(result, (bytes, str)):
                 return result
             else:
                 return pydantic_core.to_json(result, fallback=str, indent=2).decode()
@@ -153,7 +150,9 @@ class HttpResource(Resource):
     """A resource that reads from an HTTP endpoint."""
 
     url: str = Field(description="URL to fetch content from")
-    mime_type: str = Field(default="application/json", description="MIME type of the resource content")
+    mime_type: str = Field(
+        default="application/json", description="MIME type of the resource content"
+    )
 
     async def read(self) -> str | bytes:
         """Read the HTTP content."""
@@ -169,7 +168,9 @@ class DirectoryResource(Resource):
     path: Path = Field(description="Path to the directory")
     recursive: bool = Field(default=False, description="Whether to list files recursively")
     pattern: str | None = Field(default=None, description="Optional glob pattern to filter files")
-    mime_type: str = Field(default="application/json", description="MIME type of the resource content")
+    mime_type: str = Field(
+        default="application/json", description="MIME type of the resource content"
+    )
 
     @pydantic.field_validator("path")
     @classmethod
@@ -188,7 +189,11 @@ class DirectoryResource(Resource):
 
         try:
             if self.pattern:
-                return list(self.path.glob(self.pattern)) if not self.recursive else list(self.path.rglob(self.pattern))
+                return (
+                    list(self.path.glob(self.pattern))
+                    if not self.recursive
+                    else list(self.path.rglob(self.pattern))
+                )
             return list(self.path.glob("*")) if not self.recursive else list(self.path.rglob("*"))
         except Exception as e:
             raise ValueError(f"Error listing directory {self.path}: {e}")

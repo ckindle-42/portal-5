@@ -44,19 +44,18 @@ from urllib.parse import quote
 from uuid import UUID, uuid4
 
 import anyio
-from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pydantic import ValidationError
-from sse_starlette import EventSourceResponse
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.types import Receive, Scope, Send
-
 import mcp.types as types
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.server.transport_security import (
     TransportSecurityMiddleware,
     TransportSecuritySettings,
 )
 from mcp.shared.message import ServerMessageMetadata, SessionMessage
+from pydantic import ValidationError
+from sse_starlette import EventSourceResponse
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.types import Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,9 @@ class SseServerTransport:
     _read_stream_writers: dict[UUID, MemoryObjectSendStream[SessionMessage | Exception]]
     _security: TransportSecurityMiddleware
 
-    def __init__(self, endpoint: str, security_settings: TransportSecuritySettings | None = None) -> None:
+    def __init__(
+        self, endpoint: str, security_settings: TransportSecuritySettings | None = None
+    ) -> None:
         """
         Creates a new SSE server transport, which will direct the client to POST
         messages to the relative path given.
@@ -173,7 +174,9 @@ class SseServerTransport:
                     await sse_stream_writer.send(
                         {
                             "event": "message",
-                            "data": session_message.message.model_dump_json(by_alias=True, exclude_none=True),
+                            "data": session_message.message.model_dump_json(
+                                by_alias=True, exclude_none=True
+                            ),
                         }
                     )
 
@@ -185,9 +188,9 @@ class SseServerTransport:
                 In this case we close our side of the streams to signal the client that
                 the connection has been closed.
                 """
-                await EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer)(
-                    scope, receive, send
-                )
+                await EventSourceResponse(
+                    content=sse_stream_reader, data_sender_callable=sse_writer
+                )(scope, receive, send)
                 await read_stream_writer.aclose()
                 await write_stream_reader.aclose()
                 logging.debug(f"Client session disconnected {session_id}")
@@ -198,7 +201,9 @@ class SseServerTransport:
             logger.debug("Yielding read and write streams")
             yield (read_stream, write_stream)
 
-    async def handle_post_message(self, scope: Scope, receive: Receive, send: Send) -> None:  # pragma: no cover
+    async def handle_post_message(
+        self, scope: Scope, receive: Receive, send: Send
+    ) -> None:  # pragma: no cover
         logger.debug("Handling POST message")
         request = Request(scope, receive)
 

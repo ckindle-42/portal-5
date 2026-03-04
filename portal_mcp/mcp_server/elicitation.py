@@ -6,10 +6,9 @@ import types
 from collections.abc import Sequence
 from typing import Generic, Literal, TypeVar, Union, get_args, get_origin
 
-from pydantic import BaseModel
-
 from mcp.server.session import ServerSession
 from mcp.types import RequestId
+from pydantic import BaseModel
 
 ElicitSchemaModelT = TypeVar("ElicitSchemaModelT", bound=BaseModel)
 
@@ -33,7 +32,9 @@ class CancelledElicitation(BaseModel):
     action: Literal["cancel"] = "cancel"
 
 
-ElicitationResult = AcceptedElicitation[ElicitSchemaModelT] | DeclinedElicitation | CancelledElicitation
+ElicitationResult = (
+    AcceptedElicitation[ElicitSchemaModelT] | DeclinedElicitation | CancelledElicitation
+)
 
 
 class AcceptedUrlElicitation(BaseModel):
@@ -54,11 +55,12 @@ def _validate_elicitation_schema(schema: type[BaseModel]) -> None:
     for field_name, field_info in schema.model_fields.items():
         annotation = field_info.annotation
 
-        if annotation is None or annotation is types.NoneType:  # pragma: no cover
-            continue
-        elif _is_primitive_field(annotation):
-            continue
-        elif _is_string_sequence(annotation):
+        if (
+            annotation is None
+            or annotation is types.NoneType
+            or _is_primitive_field(annotation)
+            or _is_string_sequence(annotation)
+        ):  # pragma: no cover
             continue
         else:
             raise TypeError(
@@ -96,7 +98,8 @@ def _is_primitive_field(annotation: type) -> bool:
         args = get_args(annotation)
         # All args must be primitive types, None, or string sequences
         return all(
-            arg is types.NoneType or arg in _ELICITATION_PRIMITIVE_TYPES or _is_string_sequence(arg) for arg in args
+            arg is types.NoneType or arg in _ELICITATION_PRIMITIVE_TYPES or _is_string_sequence(arg)
+            for arg in args
         )
 
     return False

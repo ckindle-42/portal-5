@@ -9,7 +9,6 @@ Start with: python -m mcp.generation.video_mcp
 """
 
 import asyncio
-import json
 import os
 import time
 import uuid
@@ -35,14 +34,33 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "prompt": {"type": "string", "description": "Text description of the video to generate"},
-                "width": {"type": "integer", "description": "Video width in pixels", "default": 832},
-                "height": {"type": "integer", "description": "Video height in pixels", "default": 480},
+                "prompt": {
+                    "type": "string",
+                    "description": "Text description of the video to generate",
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "Video width in pixels",
+                    "default": 832,
+                },
+                "height": {
+                    "type": "integer",
+                    "description": "Video height in pixels",
+                    "default": 480,
+                },
                 "frames": {"type": "integer", "description": "Number of frames", "default": 81},
                 "fps": {"type": "integer", "description": "Frames per second", "default": 16},
-                "steps": {"type": "integer", "description": "Number of inference steps", "default": 20},
+                "steps": {
+                    "type": "integer",
+                    "description": "Number of inference steps",
+                    "default": 20,
+                },
                 "cfg": {"type": "number", "description": "CFG scale", "default": 6.0},
-                "negative_prompt": {"type": "string", "description": "Negative prompt", "default": ""},
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "Negative prompt",
+                    "default": "",
+                },
                 "model": {"type": "string", "description": "Model name (optional)"},
                 "seed": {"type": "integer", "description": "Random seed", "default": -1},
             },
@@ -60,6 +78,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
@@ -327,7 +346,9 @@ async def list_video_models() -> list[str]:
                 pass  # CheckpointLoaderSimple not available
 
             # Filter to likely video models
-            video_models = [c for c in all_checkpoints if any(k in c.lower() for k in video_keywords)]
+            video_models = [
+                c for c in all_checkpoints if any(k in c.lower() for k in video_keywords)
+            ]
             return video_models if video_models else all_checkpoints
         except Exception as e:
             return [f"Error listing models: {e}"]

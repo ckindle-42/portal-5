@@ -2,13 +2,6 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import urlparse
 
-from pydantic import AnyHttpUrl
-from starlette.middleware.cors import CORSMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.routing import Route, request_response  # type: ignore
-from starlette.types import ASGIApp
-
 from mcp.server.auth.handlers.authorize import AuthorizationHandler
 from mcp.server.auth.handlers.metadata import MetadataHandler
 from mcp.server.auth.handlers.register import RegistrationHandler
@@ -19,6 +12,12 @@ from mcp.server.auth.provider import OAuthAuthorizationServerProvider
 from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
 from mcp.server.streamable_http import MCP_PROTOCOL_VERSION_HEADER
 from mcp.shared.auth import OAuthMetadata
+from pydantic import AnyHttpUrl
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route, request_response  # type: ignore
+from starlette.types import ASGIApp
 
 
 def validate_issuer_url(url: AnyHttpUrl):
@@ -182,7 +181,10 @@ def build_metadata(
     # Add revocation endpoint if supported
     if revocation_options.enabled:  # pragma: no branch
         metadata.revocation_endpoint = AnyHttpUrl(str(issuer_url).rstrip("/") + REVOCATION_PATH)
-        metadata.revocation_endpoint_auth_methods_supported = ["client_secret_post", "client_secret_basic"]
+        metadata.revocation_endpoint_auth_methods_supported = [
+            "client_secret_post",
+            "client_secret_basic",
+        ]
 
     return metadata
 
@@ -203,7 +205,9 @@ def build_resource_metadata_url(resource_server_url: AnyHttpUrl) -> AnyHttpUrl:
     parsed = urlparse(str(resource_server_url))
     # Handle trailing slash: if path is just "/", treat as empty
     resource_path = parsed.path if parsed.path != "/" else ""
-    return AnyHttpUrl(f"{parsed.scheme}://{parsed.netloc}/.well-known/oauth-protected-resource{resource_path}")
+    return AnyHttpUrl(
+        f"{parsed.scheme}://{parsed.netloc}/.well-known/oauth-protected-resource{resource_path}"
+    )
 
 
 def create_protected_resource_routes(

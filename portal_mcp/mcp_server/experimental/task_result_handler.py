@@ -14,7 +14,6 @@ import logging
 from typing import Any
 
 import anyio
-
 from mcp.server.session import ServerSession
 from mcp.shared.exceptions import McpError
 from mcp.shared.experimental.tasks.helpers import RELATED_TASK_METADATA_KEY, is_terminal
@@ -127,7 +126,9 @@ class TaskResultHandler:
                 # The stored result contains the actual payload data
                 # Per spec: tasks/result MUST include _meta with related-task metadata
                 related_task = RelatedTaskMetadata(taskId=task_id)
-                related_task_meta: dict[str, Any] = {RELATED_TASK_METADATA_KEY: related_task.model_dump(by_alias=True)}
+                related_task_meta: dict[str, Any] = {
+                    RELATED_TASK_METADATA_KEY: related_task.model_dump(by_alias=True)
+                }
                 if result is not None:
                     result_data = result.model_dump(by_alias=True)
                     existing_meta: dict[str, Any] = result_data.get("_meta") or {}

@@ -8,7 +8,6 @@ Start with: python -m mcp.generation.comfyui_mcp
 """
 
 import asyncio
-import json
 import os
 import time
 import uuid
@@ -35,13 +34,36 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "prompt": {"type": "string", "description": "Text description of the image to generate"},
-                "width": {"type": "integer", "description": "Image width in pixels", "default": 1024},
-                "height": {"type": "integer", "description": "Image height in pixels", "default": 1024},
-                "steps": {"type": "integer", "description": "Number of diffusion steps", "default": 4},
+                "prompt": {
+                    "type": "string",
+                    "description": "Text description of the image to generate",
+                },
+                "width": {
+                    "type": "integer",
+                    "description": "Image width in pixels",
+                    "default": 1024,
+                },
+                "height": {
+                    "type": "integer",
+                    "description": "Image height in pixels",
+                    "default": 1024,
+                },
+                "steps": {
+                    "type": "integer",
+                    "description": "Number of diffusion steps",
+                    "default": 4,
+                },
                 "cfg": {"type": "number", "description": "CFG scale", "default": 1.0},
-                "negative_prompt": {"type": "string", "description": "Negative prompt", "default": ""},
-                "seed": {"type": "integer", "description": "Random seed (-1 for random)", "default": -1},
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "Negative prompt",
+                    "default": "",
+                },
+                "seed": {
+                    "type": "integer",
+                    "description": "Random seed (-1 for random)",
+                    "default": -1,
+                },
             },
             "required": ["prompt"],
         },
@@ -68,6 +90,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux" or "sdxl"
@@ -206,7 +229,7 @@ async def generate_image(
 
             if prompt_id in history:
                 outputs = history[prompt_id].get("outputs", {})
-                for node_id, node_output in outputs.items():
+                for _node_id, node_output in outputs.items():
                     images = node_output.get("images", [])
                     if images:
                         filename = images[0]["filename"]

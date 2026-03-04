@@ -4,15 +4,18 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from mcp.server.auth.errors import stringify_pydantic_error
+from mcp.server.auth.json_response import PydanticJSONResponse
+from mcp.server.auth.provider import (
+    OAuthAuthorizationServerProvider,
+    RegistrationError,
+    RegistrationErrorCode,
+)
+from mcp.server.auth.settings import ClientRegistrationOptions
+from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata
 from pydantic import BaseModel, RootModel, ValidationError
 from starlette.requests import Request
 from starlette.responses import Response
-
-from mcp.server.auth.errors import stringify_pydantic_error
-from mcp.server.auth.json_response import PydanticJSONResponse
-from mcp.server.auth.provider import OAuthAuthorizationServerProvider, RegistrationError, RegistrationErrorCode
-from mcp.server.auth.settings import ClientRegistrationOptions
-from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata
 
 
 class RegistrationRequest(RootModel[OAuthClientMetadata]):
@@ -131,6 +134,8 @@ class RegistrationHandler:
         except RegistrationError as e:
             # Handle registration errors as defined in RFC 7591 Section 3.2.2
             return PydanticJSONResponse(
-                content=RegistrationErrorResponse(error=e.error, error_description=e.error_description),
+                content=RegistrationErrorResponse(
+                    error=e.error, error_description=e.error_description
+                ),
                 status_code=400,
             )

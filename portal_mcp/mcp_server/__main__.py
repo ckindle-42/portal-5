@@ -3,7 +3,6 @@ import logging
 import sys
 
 import anyio
-
 from mcp.server.models import InitializationOptions
 from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
@@ -30,20 +29,20 @@ async def receive_loop(session: ServerSession):
 
 async def main():
     version = importlib.metadata.version("mcp")
-    async with stdio_server() as (read_stream, write_stream):
-        async with (
-            ServerSession(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name="mcp",
-                    server_version=version,
-                    capabilities=ServerCapabilities(),
-                ),
-            ) as session,
+    async with (
+        stdio_server() as (read_stream, write_stream),
+        ServerSession(
+            read_stream,
             write_stream,
-        ):
-            await receive_loop(session)
+            InitializationOptions(
+                server_name="mcp",
+                server_version=version,
+                capabilities=ServerCapabilities(),
+            ),
+        ) as session,
+        write_stream,
+    ):
+        await receive_loop(session)
 
 
 if __name__ == "__main__":

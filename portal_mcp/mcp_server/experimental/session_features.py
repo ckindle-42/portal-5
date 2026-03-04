@@ -52,7 +52,9 @@ class ExperimentalServerSessionFeatures:
             GetTaskResult containing the task status
         """
         return await self._session.send_request(
-            types.ServerRequest(types.GetTaskRequest(params=types.GetTaskRequestParams(taskId=task_id))),
+            types.ServerRequest(
+                types.GetTaskRequest(params=types.GetTaskRequestParams(taskId=task_id))
+            ),
             types.GetTaskResult,
         )
 
@@ -72,7 +74,11 @@ class ExperimentalServerSessionFeatures:
             The task result, validated against result_type
         """
         return await self._session.send_request(
-            types.ServerRequest(types.GetTaskPayloadRequest(params=types.GetTaskPayloadRequestParams(taskId=task_id))),
+            types.ServerRequest(
+                types.GetTaskPayloadRequest(
+                    params=types.GetTaskPayloadRequestParams(taskId=task_id)
+                )
+            ),
             result_type,
         )
 
@@ -122,7 +128,9 @@ class ExperimentalServerSessionFeatures:
         Raises:
             McpError: If client doesn't support task-augmented elicitation
         """
-        client_caps = self._session.client_params.capabilities if self._session.client_params else None
+        client_caps = (
+            self._session.client_params.capabilities if self._session.client_params else None
+        )
         require_task_augmented_elicitation(client_caps)
 
         create_result = await self._session.send_request(
@@ -186,7 +194,9 @@ class ExperimentalServerSessionFeatures:
             McpError: If client doesn't support task-augmented sampling or tools
             ValueError: If tool_use or tool_result message structure is invalid
         """
-        client_caps = self._session.client_params.capabilities if self._session.client_params else None
+        client_caps = (
+            self._session.client_params.capabilities if self._session.client_params else None
+        )
         require_task_augmented_sampling(client_caps)
         validate_sampling_tools(client_caps, tools, tool_choice)
         validate_tool_use_result_messages(messages)

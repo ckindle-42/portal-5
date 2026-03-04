@@ -3,6 +3,7 @@
 import abc
 from typing import Annotated, Any
 
+from mcp.types import Annotations, Icon
 from pydantic import (
     AnyUrl,
     BaseModel,
@@ -13,15 +14,15 @@ from pydantic import (
     field_validator,
 )
 
-from mcp.types import Annotations, Icon
-
 
 class Resource(BaseModel, abc.ABC):
     """Base class for all resources."""
 
     model_config = ConfigDict(validate_default=True)
 
-    uri: Annotated[AnyUrl, UrlConstraints(host_required=False)] = Field(default=..., description="URI of the resource")
+    uri: Annotated[AnyUrl, UrlConstraints(host_required=False)] = Field(
+        default=..., description="URI of the resource"
+    )
     name: str | None = Field(description="Name of the resource", default=None)
     title: str | None = Field(description="Human-readable title of the resource", default=None)
     description: str | None = Field(description="Description of the resource", default=None)
@@ -30,9 +31,15 @@ class Resource(BaseModel, abc.ABC):
         description="MIME type of the resource content",
         pattern=r"^[a-zA-Z0-9]+/[a-zA-Z0-9\-+.]+(;\s*[a-zA-Z0-9\-_.]+=[a-zA-Z0-9\-_.]+)*$",
     )
-    icons: list[Icon] | None = Field(default=None, description="Optional list of icons for this resource")
-    annotations: Annotations | None = Field(default=None, description="Optional annotations for the resource")
-    meta: dict[str, Any] | None = Field(default=None, description="Optional metadata for this resource")
+    icons: list[Icon] | None = Field(
+        default=None, description="Optional list of icons for this resource"
+    )
+    annotations: Annotations | None = Field(
+        default=None, description="Optional annotations for the resource"
+    )
+    meta: dict[str, Any] | None = Field(
+        default=None, description="Optional metadata for this resource"
+    )
 
     @field_validator("name", mode="before")
     @classmethod

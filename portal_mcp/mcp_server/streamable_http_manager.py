@@ -11,10 +11,6 @@ from uuid import uuid4
 
 import anyio
 from anyio.abc import TaskStatus
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.types import Receive, Scope, Send
-
 from mcp.server.lowlevel.server import Server as MCPServer
 from mcp.server.streamable_http import (
     MCP_SESSION_ID_HEADER,
@@ -23,6 +19,9 @@ from mcp.server.streamable_http import (
 )
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import INVALID_REQUEST, ErrorData, JSONRPCError
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.types import Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +172,9 @@ class StreamableHTTPSessionManager:
         )
 
         # Start server in a new task
-        async def run_stateless_server(*, task_status: TaskStatus[None] = anyio.TASK_STATUS_IGNORED):
+        async def run_stateless_server(
+            *, task_status: TaskStatus[None] = anyio.TASK_STATUS_IGNORED
+        ):
             async with http_transport.connect() as streams:
                 read_stream, write_stream = streams
                 task_status.started()
@@ -216,7 +217,9 @@ class StreamableHTTPSessionManager:
         request_mcp_session_id = request.headers.get(MCP_SESSION_ID_HEADER)
 
         # Existing session case
-        if request_mcp_session_id is not None and request_mcp_session_id in self._server_instances:  # pragma: no cover
+        if (
+            request_mcp_session_id is not None and request_mcp_session_id in self._server_instances
+        ):  # pragma: no cover
             transport = self._server_instances[request_mcp_session_id]
             logger.debug("Session already exists, handling request directly")
             await transport.handle_request(scope, receive, send)
@@ -240,7 +243,9 @@ class StreamableHTTPSessionManager:
                 logger.info(f"Created new transport with session ID: {new_session_id}")
 
                 # Define the server runner
-                async def run_server(*, task_status: TaskStatus[None] = anyio.TASK_STATUS_IGNORED) -> None:
+                async def run_server(
+                    *, task_status: TaskStatus[None] = anyio.TASK_STATUS_IGNORED
+                ) -> None:
                     async with http_transport.connect() as streams:
                         read_stream, write_stream = streams
                         task_status.started()

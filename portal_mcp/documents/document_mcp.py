@@ -33,7 +33,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "content": {"type": "string", "description": "Document content (markdown supported)"},
+                "content": {
+                    "type": "string",
+                    "description": "Document content (markdown supported)",
+                },
                 "title": {"type": "string", "description": "Document title"},
             },
             "required": ["content"],
@@ -70,7 +73,10 @@ TOOLS_MANIFEST = [
             "type": "object",
             "properties": {
                 "input_file": {"type": "string", "description": "Input file path"},
-                "output_format": {"type": "string", "description": "Output format (docx, pdf, html, etc.)"},
+                "output_format": {
+                    "type": "string",
+                    "description": "Output format (docx, pdf, html, etc.)",
+                },
             },
             "required": ["input_file", "output_format"],
         },
@@ -81,6 +87,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 logger = logging.getLogger(__name__)
 

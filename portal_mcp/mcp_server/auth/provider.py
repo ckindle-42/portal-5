@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import Generic, Literal, Protocol, TypeVar
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from pydantic import AnyUrl, BaseModel
-
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
+from pydantic import AnyUrl, BaseModel
 
 
 class AuthorizationParams(BaseModel):
@@ -103,7 +102,9 @@ RefreshTokenT = TypeVar("RefreshTokenT", bound=RefreshToken)
 AccessTokenT = TypeVar("AccessTokenT", bound=AccessToken)
 
 
-class OAuthAuthorizationServerProvider(Protocol, Generic[AuthorizationCodeT, RefreshTokenT, AccessTokenT]):
+class OAuthAuthorizationServerProvider(
+    Protocol, Generic[AuthorizationCodeT, RefreshTokenT, AccessTokenT]
+):
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
         """
         Retrieves client information by client ID.
@@ -132,7 +133,9 @@ class OAuthAuthorizationServerProvider(Protocol, Generic[AuthorizationCodeT, Ref
             RegistrationError: If the client metadata is invalid.
         """
 
-    async def authorize(self, client: OAuthClientInformationFull, params: AuthorizationParams) -> str:
+    async def authorize(
+        self, client: OAuthClientInformationFull, params: AuthorizationParams
+    ) -> str:
         """
         Called as part of the /authorize endpoint, and returns a URL that the client
         will be redirected to.
@@ -208,7 +211,9 @@ class OAuthAuthorizationServerProvider(Protocol, Generic[AuthorizationCodeT, Ref
         """
         ...
 
-    async def load_refresh_token(self, client: OAuthClientInformationFull, refresh_token: str) -> RefreshTokenT | None:
+    async def load_refresh_token(
+        self, client: OAuthClientInformationFull, refresh_token: str
+    ) -> RefreshTokenT | None:
         """
         Loads a RefreshToken by its token string.
 
@@ -293,7 +298,10 @@ class ProviderTokenVerifier(TokenVerifier):
     the TokenVerifier protocol with a dedicated implementation like IntrospectionTokenVerifier.
     """
 
-    def __init__(self, provider: "OAuthAuthorizationServerProvider[AuthorizationCode, RefreshToken, AccessToken]"):
+    def __init__(
+        self,
+        provider: "OAuthAuthorizationServerProvider[AuthorizationCode, RefreshToken, AccessToken]",
+    ):
         self.provider = provider
 
     async def verify_token(self, token: str) -> AccessToken | None:

@@ -35,7 +35,11 @@ TOOLS_MANIFEST = [
             "properties": {
                 "prompt": {"type": "string", "description": "Description of the music to generate"},
                 "duration": {"type": "number", "description": "Duration in seconds", "default": 10},
-                "model": {"type": "string", "description": "Model size (small, medium, large)", "default": "medium"},
+                "model": {
+                    "type": "string",
+                    "description": "Model size (small, medium, large)",
+                    "default": "medium",
+                },
             },
             "required": ["prompt"],
         },
@@ -46,7 +50,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "melody": {"type": "string", "description": "Melody pattern as comma-separated note values"},
+                "melody": {
+                    "type": "string",
+                    "description": "Melody pattern as comma-separated note values",
+                },
                 "duration": {"type": "number", "description": "Duration in seconds", "default": 10},
             },
             "required": ["melody"],
@@ -58,6 +65,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 logger = logging.getLogger(__name__)
 

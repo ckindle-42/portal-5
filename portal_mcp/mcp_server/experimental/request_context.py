@@ -139,9 +139,7 @@ class Experimental:
             True if the client can use this tool, False otherwise
         """
         mode = tool_task_mode or TASK_FORBIDDEN
-        if mode == TASK_REQUIRED and not self.client_supports_tasks:
-            return False
-        return True
+        return not (mode == TASK_REQUIRED and not self.client_supports_tasks)
 
     async def run_task(
         self,
@@ -197,7 +195,9 @@ class Experimental:
         WARNING: This API is experimental and may change without notice.
         """
         if self._task_support is None:
-            raise RuntimeError("Task support not enabled. Call server.experimental.enable_tasks() first.")
+            raise RuntimeError(
+                "Task support not enabled. Call server.experimental.enable_tasks() first."
+            )
         if self._session is None:
             raise RuntimeError("Session not available.")
         if self.task_metadata is None:

@@ -4,21 +4,22 @@ import time
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
-from pydantic import AnyHttpUrl, AnyUrl, BaseModel, Field, RootModel, ValidationError
-from starlette.requests import Request
-
 from mcp.server.auth.errors import stringify_pydantic_error
 from mcp.server.auth.json_response import PydanticJSONResponse
 from mcp.server.auth.middleware.client_auth import AuthenticationError, ClientAuthenticator
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider, TokenError, TokenErrorCode
 from mcp.shared.auth import OAuthToken
+from pydantic import AnyHttpUrl, AnyUrl, BaseModel, Field, RootModel, ValidationError
+from starlette.requests import Request
 
 
 class AuthorizationCodeRequest(BaseModel):
     # See https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
     grant_type: Literal["authorization_code"]
     code: str = Field(..., description="The authorization code")
-    redirect_uri: AnyUrl | None = Field(None, description="Must be the same as redirect URI provided in /authorize")
+    redirect_uri: AnyUrl | None = Field(
+        None, description="Must be the same as redirect URI provided in /authorize"
+    )
     client_id: str
     # we use the client_secret param, per https://datatracker.ietf.org/doc/html/rfc6749#section-2.3.1
     client_secret: str | None = None
@@ -122,7 +123,9 @@ class TokenHandler:
             return self.response(
                 TokenErrorResponse(
                     error="unsupported_grant_type",
-                    error_description=(f"Unsupported grant type (supported grant types are {client_info.grant_types})"),
+                    error_description=(
+                        f"Unsupported grant type (supported grant types are {client_info.grant_types})"
+                    ),
                 )
             )
 
@@ -130,7 +133,9 @@ class TokenHandler:
 
         match token_request:
             case AuthorizationCodeRequest():
-                auth_code = await self.provider.load_authorization_code(client_info, token_request.code)
+                auth_code = await self.provider.load_authorization_code(
+                    client_info, token_request.code
+                )
                 if auth_code is None or auth_code.client_id != token_request.client_id:
                     # if code belongs to different client, pretend it doesn't exist
                     return self.response(
@@ -158,16 +163,24 @@ class TokenHandler:
                     authorize_request_redirect_uri = None
 
                 # Convert both sides to strings for comparison to handle AnyUrl vs string issues
-                token_redirect_str = str(token_request.redirect_uri) if token_request.redirect_uri is not None else None
+                token_redirect_str = (
+                    str(token_request.redirect_uri)
+                    if token_request.redirect_uri is not None
+                    else None
+                )
                 auth_redirect_str = (
-                    str(authorize_request_redirect_uri) if authorize_request_redirect_uri is not None else None
+                    str(authorize_request_redirect_uri)
+                    if authorize_request_redirect_uri is not None
+                    else None
                 )
 
                 if token_redirect_str != auth_redirect_str:
                     return self.response(
                         TokenErrorResponse(
                             error="invalid_request",
-                            error_description=("redirect_uri did not match the one used when creating auth code"),
+                            error_description=(
+                                "redirect_uri did not match the one used when creating auth code"
+                            ),
                         )
                     )
 
@@ -196,7 +209,9 @@ class TokenHandler:
                     )
 
             case RefreshTokenRequest():  # pragma: no cover
-                refresh_token = await self.provider.load_refresh_token(client_info, token_request.refresh_token)
+                refresh_token = await self.provider.load_refresh_token(
+                    client_info, token_request.refresh_token
+                )
                 if refresh_token is None or refresh_token.client_id != token_request.client_id:
                     # if token belongs to different client, pretend it doesn't exist
                     return self.response(
@@ -216,20 +231,26 @@ class TokenHandler:
                     )
 
                 # Parse scopes if provided
-                scopes = token_request.scope.split(" ") if token_request.scope else refresh_token.scopes
+                scopes = (
+                    token_request.scope.split(" ") if token_request.scope else refresh_token.scopes
+                )
 
                 for scope in scopes:
                     if scope not in refresh_token.scopes:
                         return self.response(
                             TokenErrorResponse(
                                 error="invalid_scope",
-                                error_description=(f"cannot request scope `{scope}` not provided by refresh token"),
+                                error_description=(
+                                    f"cannot request scope `{scope}` not provided by refresh token"
+                                ),
                             )
                         )
 
                 try:
                     # Exchange refresh token for new tokens
-                    tokens = await self.provider.exchange_refresh_token(client_info, refresh_token, scopes)
+                    tokens = await self.provider.exchange_refresh_token(
+                        client_info, refresh_token, scopes
+                    )
                 except TokenError as e:
                     return self.response(
                         TokenErrorResponse(

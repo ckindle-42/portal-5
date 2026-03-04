@@ -2,11 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from pydantic import AnyUrl, BaseModel, Field, RootModel, ValidationError
-from starlette.datastructures import FormData, QueryParams
-from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
-
 from mcp.server.auth.errors import stringify_pydantic_error
 from mcp.server.auth.json_response import PydanticJSONResponse
 from mcp.server.auth.provider import (
@@ -17,6 +12,10 @@ from mcp.server.auth.provider import (
     construct_redirect_uri,
 )
 from mcp.shared.auth import InvalidRedirectUriError, InvalidScopeError
+from pydantic import AnyUrl, BaseModel, Field, RootModel, ValidationError
+from starlette.datastructures import FormData, QueryParams
+from starlette.requests import Request
+from starlette.responses import RedirectResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +26,13 @@ class AuthorizationRequest(BaseModel):
     redirect_uri: AnyUrl | None = Field(None, description="URL to redirect to after authorization")
 
     # see OAuthClientMetadata; we only support `code`
-    response_type: Literal["code"] = Field(..., description="Must be 'code' for authorization code flow")
+    response_type: Literal["code"] = Field(
+        ..., description="Must be 'code' for authorization code flow"
+    )
     code_challenge: str = Field(..., description="PKCE code challenge")
-    code_challenge_method: Literal["S256"] = Field("S256", description="PKCE code challenge method, must be S256")
+    code_challenge_method: Literal["S256"] = Field(
+        "S256", description="PKCE code challenge method, must be S256"
+    )
     state: str | None = Field(None, description="Optional state parameter")
     scope: str | None = Field(
         None,
@@ -128,7 +131,9 @@ class AuthorizationHandler:
 
             if redirect_uri and client:
                 return RedirectResponse(
-                    url=construct_redirect_uri(str(redirect_uri), **error_resp.model_dump(exclude_none=True)),
+                    url=construct_redirect_uri(
+                        str(redirect_uri), **error_resp.model_dump(exclude_none=True)
+                    ),
                     status_code=302,
                     headers={"Cache-Control": "no-store"},
                 )
@@ -221,4 +226,6 @@ class AuthorizationHandler:
         except Exception as validation_error:  # pragma: no cover
             # Catch-all for unexpected errors
             logger.exception("Unexpected error in authorization_handler", exc_info=validation_error)
-            return await error_response(error="server_error", error_description="An unexpected error occurred")
+            return await error_response(
+                error="server_error", error_description="An unexpected error occurred"
+            )

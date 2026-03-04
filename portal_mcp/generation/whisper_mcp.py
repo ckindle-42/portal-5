@@ -28,8 +28,16 @@ TOOLS_MANIFEST = [
             "type": "object",
             "properties": {
                 "audio_path": {"type": "string", "description": "Path to audio file"},
-                "language": {"type": "string", "description": "Language code (e.g., en, zh)", "default": "auto"},
-                "model_size": {"type": "string", "description": "Whisper model size", "default": "base"},
+                "language": {
+                    "type": "string",
+                    "description": "Language code (e.g., en, zh)",
+                    "default": "auto",
+                },
+                "model_size": {
+                    "type": "string",
+                    "description": "Whisper model size",
+                    "default": "base",
+                },
             },
             "required": ["audio_path"],
         },
@@ -40,6 +48,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "base")
 _model = None

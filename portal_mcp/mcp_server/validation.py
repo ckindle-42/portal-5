@@ -30,9 +30,7 @@ def check_sampling_tools_capability(client_caps: ClientCapabilities | None) -> b
         return False
     if client_caps.sampling is None:
         return False
-    if client_caps.sampling.tools is None:
-        return False
-    return True
+    return client_caps.sampling.tools is not None
 
 
 def validate_sampling_tools(
@@ -91,7 +89,9 @@ def validate_tool_use_result_messages(messages: list[SamplingMessage]) -> None:
         # Per spec: "SamplingMessage with tool result content blocks
         # MUST NOT contain other content types."
         if any(c.type != "tool_result" for c in last_content):
-            raise ValueError("The last message must contain only tool_result content if any is present")
+            raise ValueError(
+                "The last message must contain only tool_result content if any is present"
+            )
         if previous_content is None:
             raise ValueError("tool_result requires a previous message containing tool_use")
         if not has_previous_tool_use:
@@ -101,4 +101,6 @@ def validate_tool_use_result_messages(messages: list[SamplingMessage]) -> None:
         tool_use_ids = {c.id for c in previous_content if c.type == "tool_use"}
         tool_result_ids = {c.toolUseId for c in last_content if c.type == "tool_result"}
         if tool_use_ids != tool_result_ids:
-            raise ValueError("ids of tool_result blocks and tool_use blocks from previous message do not match")
+            raise ValueError(
+                "ids of tool_result blocks and tool_use blocks from previous message do not match"
+            )

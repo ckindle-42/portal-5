@@ -75,6 +75,7 @@ TOOLS_MANIFEST = [
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
+
 logger = logging.getLogger(__name__)
 
 SANDBOX_DIR = Path(os.getenv("SANDBOX_DIR", "data/sandbox"))

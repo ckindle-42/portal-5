@@ -3,6 +3,7 @@
 Receives Slack events, forwards to Portal Pipeline, returns response.
 Thin adapter: all routing intelligence lives in portal_pipeline/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,6 +63,7 @@ def handle_mention(event: dict[str, Any], say: Any, client: Any) -> None:
 
     try:
         import httpx
+
         with httpx.Client(timeout=120.0) as http_client:
             resp = http_client.post(
                 f"{PIPELINE_URL}/v1/chat/completions",

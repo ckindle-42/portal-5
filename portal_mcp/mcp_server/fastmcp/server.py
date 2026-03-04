@@ -17,17 +17,6 @@ from typing import Any, Generic, Literal
 
 import anyio
 import pydantic_core
-from pydantic import BaseModel
-from pydantic.networks import AnyUrl
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
-from starlette.routing import Mount, Route
-from starlette.types import Receive, Scope, Send
-
 from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
 from mcp.server.auth.middleware.bearer_auth import (
     BearerAuthBackend,
@@ -71,6 +60,16 @@ from mcp.types import PromptArgument as MCPPromptArgument
 from mcp.types import Resource as MCPResource
 from mcp.types import ResourceTemplate as MCPResourceTemplate
 from mcp.types import Tool as MCPTool
+from pydantic import BaseModel
+from pydantic.networks import AnyUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Mount, Route
+from starlette.types import Receive, Scope, Send
 
 logger = get_logger(__name__)
 
@@ -120,7 +119,9 @@ class Settings(BaseSettings, Generic[LifespanResultT]):
     dependencies: list[str]
     """A list of dependencies to install in the server environment."""
 
-    lifespan: Callable[[FastMCP[LifespanResultT]], AbstractAsyncContextManager[LifespanResultT]] | None
+    lifespan: (
+        Callable[[FastMCP[LifespanResultT]], AbstractAsyncContextManager[LifespanResultT]] | None
+    )
     """A async context manager that will be called when the server is started."""
 
     auth: AuthSettings | None
@@ -170,7 +171,10 @@ class FastMCP(Generic[LifespanResultT]):
         warn_on_duplicate_tools: bool = True,
         warn_on_duplicate_prompts: bool = True,
         dependencies: Collection[str] = (),
-        lifespan: (Callable[[FastMCP[LifespanResultT]], AbstractAsyncContextManager[LifespanResultT]] | None) = None,
+        lifespan: (
+            Callable[[FastMCP[LifespanResultT]], AbstractAsyncContextManager[LifespanResultT]]
+            | None
+        ) = None,
         auth: AuthSettings | None = None,
         transport_security: TransportSecuritySettings | None = None,
     ):
@@ -209,19 +213,33 @@ class FastMCP(Generic[LifespanResultT]):
             icons=icons,
             # TODO(Marcelo): It seems there's a type mismatch between the lifespan type from an FastMCP and Server.
             # We need to create a Lifespan type that is a generic on the server type, like Starlette does.
-            lifespan=(lifespan_wrapper(self, self.settings.lifespan) if self.settings.lifespan else default_lifespan),  # type: ignore
+            lifespan=(
+                lifespan_wrapper(self, self.settings.lifespan)
+                if self.settings.lifespan
+                else default_lifespan
+            ),  # type: ignore
         )
-        self._tool_manager = ToolManager(tools=tools, warn_on_duplicate_tools=self.settings.warn_on_duplicate_tools)
-        self._resource_manager = ResourceManager(warn_on_duplicate_resources=self.settings.warn_on_duplicate_resources)
-        self._prompt_manager = PromptManager(warn_on_duplicate_prompts=self.settings.warn_on_duplicate_prompts)
+        self._tool_manager = ToolManager(
+            tools=tools, warn_on_duplicate_tools=self.settings.warn_on_duplicate_tools
+        )
+        self._resource_manager = ResourceManager(
+            warn_on_duplicate_resources=self.settings.warn_on_duplicate_resources
+        )
+        self._prompt_manager = PromptManager(
+            warn_on_duplicate_prompts=self.settings.warn_on_duplicate_prompts
+        )
         # Validate auth configuration
         if self.settings.auth is not None:
             if auth_server_provider and token_verifier:  # pragma: no cover
                 raise ValueError("Cannot specify both auth_server_provider and token_verifier")
             if not auth_server_provider and not token_verifier:  # pragma: no cover
-                raise ValueError("Must specify either auth_server_provider or token_verifier when auth is enabled")
+                raise ValueError(
+                    "Must specify either auth_server_provider or token_verifier when auth is enabled"
+                )
         elif auth_server_provider or token_verifier:  # pragma: no cover
-            raise ValueError("Cannot specify auth_server_provider or token_verifier without auth settings")
+            raise ValueError(
+                "Cannot specify auth_server_provider or token_verifier without auth settings"
+            )
 
         self._auth_server_provider = auth_server_provider
         self._token_verifier = token_verifier
@@ -340,10 +358,14 @@ class FastMCP(Generic[LifespanResultT]):
             request_context = None
         return Context(request_context=request_context, fastmcp=self)
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Sequence[ContentBlock] | dict[str, Any]:
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any]
+    ) -> Sequence[ContentBlock] | dict[str, Any]:
         """Call a tool by name with arguments."""
         context = self.get_context()
-        return await self._tool_manager.call_tool(name, arguments, context=context, convert_result=True)
+        return await self._tool_manager.call_tool(
+            name, arguments, context=context, convert_result=True
+        )
 
     async def list_resources(self) -> list[MCPResource]:
         """List all available resources."""
@@ -389,7 +411,11 @@ class FastMCP(Generic[LifespanResultT]):
 
         try:
             content = await resource.read()
-            return [ReadResourceContents(content=content, mime_type=resource.mime_type, meta=resource.meta)]
+            return [
+                ReadResourceContents(
+                    content=content, mime_type=resource.mime_type, meta=resource.meta
+                )
+            ]
         except Exception as e:  # pragma: no cover
             logger.exception(f"Error reading resource {uri}")
             raise ResourceError(str(e))
@@ -602,7 +628,7 @@ class FastMCP(Generic[LifespanResultT]):
                 uri_params = set(re.findall(r"{(\w+)}", uri))
                 # We need to remove the context_param from the resource function if
                 # there is any.
-                func_params = {p for p in sig.parameters.keys() if p != context_param}
+                func_params = {p for p in sig.parameters if p != context_param}
 
                 if uri_params != func_params:
                     raise ValueError(
@@ -696,7 +722,9 @@ class FastMCP(Generic[LifespanResultT]):
             )
 
         def decorator(func: AnyFunction) -> AnyFunction:
-            prompt = Prompt.from_function(func, name=name, title=title, description=description, icons=icons)
+            prompt = Prompt.from_function(
+                func, name=name, title=title, description=description, icons=icons
+            )
             self.add_prompt(prompt)
             return func
 
@@ -825,7 +853,9 @@ class FastMCP(Generic[LifespanResultT]):
             self.settings.mount_path = mount_path
 
         # Create normalized endpoint considering the mount path
-        normalized_message_endpoint = self._normalize_path(self.settings.mount_path, self.settings.message_path)
+        normalized_message_endpoint = self._normalize_path(
+            self.settings.mount_path, self.settings.message_path
+        )
 
         # Set up auth context and dependencies
 
@@ -893,20 +923,26 @@ class FastMCP(Generic[LifespanResultT]):
                 from mcp.server.auth.routes import build_resource_metadata_url
 
                 # Build compliant metadata URL for WWW-Authenticate header
-                resource_metadata_url = build_resource_metadata_url(self.settings.auth.resource_server_url)
+                resource_metadata_url = build_resource_metadata_url(
+                    self.settings.auth.resource_server_url
+                )
 
             # Auth is enabled, wrap the endpoints with RequireAuthMiddleware
             routes.append(
                 Route(
                     self.settings.sse_path,
-                    endpoint=RequireAuthMiddleware(handle_sse, required_scopes, resource_metadata_url),
+                    endpoint=RequireAuthMiddleware(
+                        handle_sse, required_scopes, resource_metadata_url
+                    ),
                     methods=["GET"],
                 )
             )
             routes.append(
                 Mount(
                     self.settings.message_path,
-                    app=RequireAuthMiddleware(sse.handle_post_message, required_scopes, resource_metadata_url),
+                    app=RequireAuthMiddleware(
+                        sse.handle_post_message, required_scopes, resource_metadata_url
+                    ),
                 )
             )
         else:  # pragma: no cover
@@ -1006,12 +1042,16 @@ class FastMCP(Generic[LifespanResultT]):
                 from mcp.server.auth.routes import build_resource_metadata_url
 
                 # Build compliant metadata URL for WWW-Authenticate header
-                resource_metadata_url = build_resource_metadata_url(self.settings.auth.resource_server_url)
+                resource_metadata_url = build_resource_metadata_url(
+                    self.settings.auth.resource_server_url
+                )
 
             routes.append(
                 Route(
                     self.settings.streamable_http_path,
-                    endpoint=RequireAuthMiddleware(streamable_http_app, required_scopes, resource_metadata_url),
+                    endpoint=RequireAuthMiddleware(
+                        streamable_http_app, required_scopes, resource_metadata_url
+                    ),
                 )
             )
         else:
@@ -1065,7 +1105,9 @@ class FastMCP(Generic[LifespanResultT]):
             for prompt in prompts
         ]
 
-    async def get_prompt(self, name: str, arguments: dict[str, Any] | None = None) -> GetPromptResult:
+    async def get_prompt(
+        self, name: str, arguments: dict[str, Any] | None = None
+    ) -> GetPromptResult:
         """Get a prompt by name with arguments."""
         try:
             prompt = self._prompt_manager.get_prompt(name)
@@ -1091,7 +1133,9 @@ class StreamableHTTPASGIApp:
     def __init__(self, session_manager: StreamableHTTPSessionManager):
         self.session_manager = session_manager
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:  # pragma: no cover
+    async def __call__(
+        self, scope: Scope, receive: Receive, send: Send
+    ) -> None:  # pragma: no cover
         await self.session_manager.handle_request(scope, receive, send)
 
 
@@ -1159,7 +1203,9 @@ class Context(BaseModel, Generic[ServerSessionT, LifespanContextT, RequestT]):
             raise ValueError("Context is not available outside of a request")
         return self._request_context
 
-    async def report_progress(self, progress: float, total: float | None = None, message: str | None = None) -> None:
+    async def report_progress(
+        self, progress: float, total: float | None = None, message: str | None = None
+    ) -> None:
         """Report progress for the current operation.
 
         Args:
@@ -1167,7 +1213,9 @@ class Context(BaseModel, Generic[ServerSessionT, LifespanContextT, RequestT]):
             total: Optional total value e.g. 100
             message: Optional message e.g. Starting render...
         """
-        progress_token = self.request_context.meta.progressToken if self.request_context.meta else None
+        progress_token = (
+            self.request_context.meta.progressToken if self.request_context.meta else None
+        )
 
         if progress_token is None:  # pragma: no cover
             return
@@ -1286,7 +1334,9 @@ class Context(BaseModel, Generic[ServerSessionT, LifespanContextT, RequestT]):
     def client_id(self) -> str | None:
         """Get the client ID if available."""
         return (
-            getattr(self.request_context.meta, "client_id", None) if self.request_context.meta else None
+            getattr(self.request_context.meta, "client_id", None)
+            if self.request_context.meta
+            else None
         )  # pragma: no cover
 
     @property
@@ -1328,7 +1378,9 @@ class Context(BaseModel, Generic[ServerSessionT, LifespanContextT, RequestT]):
             Currently, client reconnection for standalone GET streams is NOT
             implemented - this is a known gap.
         """
-        if self._request_context and self._request_context.close_standalone_sse_stream:  # pragma: no cover
+        if (
+            self._request_context and self._request_context.close_standalone_sse_stream
+        ):  # pragma: no cover
             await self._request_context.close_standalone_sse_stream()
 
     # Convenience methods for common log levels

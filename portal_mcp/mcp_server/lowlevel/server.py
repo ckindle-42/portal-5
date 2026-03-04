@@ -78,11 +78,8 @@ from typing import Any, Generic, TypeAlias, cast
 
 import anyio
 import jsonschema
-from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pydantic import AnyUrl
-from typing_extensions import TypeVar
-
 import mcp.types as types
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.server.experimental.request_context import Experimental
 from mcp.server.lowlevel.experimental import ExperimentalHandlers
 from mcp.server.lowlevel.func_inspection import create_call_wrapper
@@ -94,6 +91,8 @@ from mcp.shared.exceptions import McpError, UrlElicitationRequiredError
 from mcp.shared.message import ServerMessageMetadata, SessionMessage
 from mcp.shared.session import RequestResponder
 from mcp.shared.tool_name_validation import validate_and_warn_tool_name
+from pydantic import AnyUrl
+from typing_extensions import TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +105,9 @@ UnstructuredContent: TypeAlias = Iterable[types.ContentBlock]
 CombinationContent: TypeAlias = tuple[UnstructuredContent, StructuredContent]
 
 # This will be properly typed in each Server instance's context
-request_ctx: contextvars.ContextVar[RequestContext[ServerSession, Any, Any]] = contextvars.ContextVar("request_ctx")
+request_ctx: contextvars.ContextVar[RequestContext[ServerSession, Any, Any]] = (
+    contextvars.ContextVar("request_ctx")
+)
 
 
 class NotificationOptions:
@@ -204,7 +205,9 @@ class Server(Generic[LifespanResultT, RequestT]):
 
         # Set prompt capabilities if handler exists
         if types.ListPromptsRequest in self.request_handlers:
-            prompts_capability = types.PromptsCapability(listChanged=notification_options.prompts_changed)
+            prompts_capability = types.PromptsCapability(
+                listChanged=notification_options.prompts_changed
+            )
 
         # Set resource capabilities if handler exists
         if types.ListResourcesRequest in self.request_handlers:
@@ -252,7 +255,9 @@ class Server(Generic[LifespanResultT, RequestT]):
 
         # We create this inline so we only add these capabilities _if_ they're actually used
         if self._experimental_handlers is None:
-            self._experimental_handlers = ExperimentalHandlers(self, self.request_handlers, self.notification_handlers)
+            self._experimental_handlers = ExperimentalHandlers(
+                self, self.request_handlers, self.notification_handlers
+            )
         return self._experimental_handlers
 
     def list_prompts(self):
@@ -322,7 +327,9 @@ class Server(Generic[LifespanResultT, RequestT]):
 
             async def handler(_: Any):
                 templates = await func()
-                return types.ServerResult(types.ListResourceTemplatesResult(resourceTemplates=templates))
+                return types.ServerResult(
+                    types.ListResourceTemplatesResult(resourceTemplates=templates)
+                )
 
             self.request_handlers[types.ListResourceTemplatesRequest] = handler
             return func
@@ -338,7 +345,9 @@ class Server(Generic[LifespanResultT, RequestT]):
             async def handler(req: types.ReadResourceRequest):
                 result = await func(req.params.uri)
 
-                def create_content(data: str | bytes, mime_type: str | None, meta: dict[str, Any] | None = None):
+                def create_content(
+                    data: str | bytes, mime_type: str | None, meta: dict[str, Any] | None = None
+                ):
                     # Note: ResourceContents uses Field(alias="_meta"), so we must use the alias key
                     meta_kwargs: dict[str, Any] = {"_meta": meta} if meta is not None else {}
                     match data:
@@ -369,7 +378,9 @@ class Server(Generic[LifespanResultT, RequestT]):
                     case Iterable() as contents:
                         contents_list = [
                             create_content(
-                                content_item.content, content_item.mime_type, getattr(content_item, "meta", None)
+                                content_item.content,
+                                content_item.mime_type,
+                                getattr(content_item, "meta", None),
                             )
                             for content_item in contents
                         ]
@@ -379,7 +390,9 @@ class Server(Generic[LifespanResultT, RequestT]):
                             )
                         )
                     case _:  # pragma: no cover
-                        raise ValueError(f"Unexpected return type from read_resource: {type(result)}")
+                        raise ValueError(
+                            f"Unexpected return type from read_resource: {type(result)}"
+                        )
 
                 return types.ServerResult(  # pragma: no cover
                     types.ReadResourceResult(
@@ -544,17 +557,23 @@ class Server(Generic[LifespanResultT, RequestT]):
                         return types.ServerResult(results)
                     elif isinstance(results, tuple) and len(results) == 2:
                         # tool returned both structured and unstructured content
-                        unstructured_content, maybe_structured_content = cast(CombinationContent, results)
+                        unstructured_content, maybe_structured_content = cast(
+                            CombinationContent, results
+                        )
                     elif isinstance(results, dict):
                         # tool returned structured content only
                         maybe_structured_content = cast(StructuredContent, results)
-                        unstructured_content = [types.TextContent(type="text", text=json.dumps(results, indent=2))]
+                        unstructured_content = [
+                            types.TextContent(type="text", text=json.dumps(results, indent=2))
+                        ]
                     elif hasattr(results, "__iter__"):  # pragma: no cover
                         # tool returned unstructured content only
                         unstructured_content = cast(UnstructuredContent, results)
                         maybe_structured_content = None
                     else:  # pragma: no cover
-                        return self._make_error_result(f"Unexpected return type from tool: {type(results).__name__}")
+                        return self._make_error_result(
+                            f"Unexpected return type from tool: {type(results).__name__}"
+                        )
 
                     # output validation
                     if tool and tool.outputSchema is not None:
@@ -564,9 +583,13 @@ class Server(Generic[LifespanResultT, RequestT]):
                             )
                         else:
                             try:
-                                jsonschema.validate(instance=maybe_structured_content, schema=tool.outputSchema)
+                                jsonschema.validate(
+                                    instance=maybe_structured_content, schema=tool.outputSchema
+                                )
                             except jsonschema.ValidationError as e:
-                                return self._make_error_result(f"Output validation error: {e.message}")
+                                return self._make_error_result(
+                                    f"Output validation error: {e.message}"
+                                )
 
                     # result
                     return types.ServerResult(
@@ -665,7 +688,9 @@ class Server(Generic[LifespanResultT, RequestT]):
             )
 
             # Configure task support for this session if enabled
-            task_support = self._experimental_handlers.task_support if self._experimental_handlers else None
+            task_support = (
+                self._experimental_handlers.task_support if self._experimental_handlers else None
+            )
             if task_support is not None:
                 task_support.configure_session(session)
                 await stack.enter_async_context(task_support.run())
@@ -684,7 +709,9 @@ class Server(Generic[LifespanResultT, RequestT]):
 
     async def _handle_message(
         self,
-        message: RequestResponder[types.ClientRequest, types.ServerResult] | types.ClientNotification | Exception,
+        message: RequestResponder[types.ClientRequest, types.ServerResult]
+        | types.ClientNotification
+        | Exception,
         session: ServerSession,
         lifespan_context: LifespanResultT,
         raise_exceptions: bool = False,
@@ -693,7 +720,9 @@ class Server(Generic[LifespanResultT, RequestT]):
             match message:
                 case RequestResponder(request=types.ClientRequest(root=req)) as responder:
                     with responder:
-                        await self._handle_request(message, req, session, lifespan_context, raise_exceptions)
+                        await self._handle_request(
+                            message, req, session, lifespan_context, raise_exceptions
+                        )
                 case types.ClientNotification(root=notify):
                     await self._handle_notification(notify)
                 case Exception():  # pragma: no cover
@@ -733,12 +762,20 @@ class Server(Generic[LifespanResultT, RequestT]):
                 ):  # pragma: no cover
                     request_data = message.message_metadata.request_context
                     close_sse_stream_cb = message.message_metadata.close_sse_stream
-                    close_standalone_sse_stream_cb = message.message_metadata.close_standalone_sse_stream
+                    close_standalone_sse_stream_cb = (
+                        message.message_metadata.close_standalone_sse_stream
+                    )
 
                 # Set our global state that can be retrieved via
                 # app.get_request_context()
-                client_capabilities = session.client_params.capabilities if session.client_params else None
-                task_support = self._experimental_handlers.task_support if self._experimental_handlers else None
+                client_capabilities = (
+                    session.client_params.capabilities if session.client_params else None
+                )
+                task_support = (
+                    self._experimental_handlers.task_support
+                    if self._experimental_handlers
+                    else None
+                )
                 # Get task metadata from request params if present
                 task_metadata = None
                 if hasattr(req, "params") and req.params is not None:

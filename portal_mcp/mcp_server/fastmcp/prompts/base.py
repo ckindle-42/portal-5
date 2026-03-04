@@ -7,11 +7,10 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic_core
-from pydantic import BaseModel, Field, TypeAdapter, validate_call
-
 from mcp.server.fastmcp.utilities.context_injection import find_context_parameter, inject_context
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.types import ContentBlock, Icon, TextContent
+from pydantic import BaseModel, Field, TypeAdapter, validate_call
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
@@ -69,10 +68,16 @@ class Prompt(BaseModel):
     name: str = Field(description="Name of the prompt")
     title: str | None = Field(None, description="Human-readable title of the prompt")
     description: str | None = Field(None, description="Description of what the prompt does")
-    arguments: list[PromptArgument] | None = Field(None, description="Arguments that can be passed to the prompt")
+    arguments: list[PromptArgument] | None = Field(
+        None, description="Arguments that can be passed to the prompt"
+    )
     fn: Callable[..., PromptResult | Awaitable[PromptResult]] = Field(exclude=True)
-    icons: list[Icon] | None = Field(default=None, description="Optional list of icons for this prompt")
-    context_kwarg: str | None = Field(None, description="Name of the kwarg that should receive context", exclude=True)
+    icons: list[Icon] | None = Field(
+        default=None, description="Optional list of icons for this prompt"
+    )
+    context_kwarg: str | None = Field(
+        None, description="Name of the kwarg that should receive context", exclude=True
+    )
 
     @classmethod
     def from_function(

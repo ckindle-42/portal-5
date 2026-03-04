@@ -68,7 +68,12 @@ class ExperimentalHandlers:
         # Only add tasks capability if handlers are registered
         if not any(
             req_type in self._request_handlers
-            for req_type in [GetTaskRequest, ListTasksRequest, CancelTaskRequest, GetTaskPayloadRequest]
+            for req_type in [
+                GetTaskRequest,
+                ListTasksRequest,
+                CancelTaskRequest,
+                GetTaskPayloadRequest,
+            ]
         ):
             return
 
@@ -213,7 +218,8 @@ class ExperimentalHandlers:
     def get_task(
         self,
     ) -> Callable[
-        [Callable[[GetTaskRequest], Awaitable[GetTaskResult]]], Callable[[GetTaskRequest], Awaitable[GetTaskResult]]
+        [Callable[[GetTaskRequest], Awaitable[GetTaskResult]]],
+        Callable[[GetTaskRequest], Awaitable[GetTaskResult]],
     ]:
         """Register a handler for getting task status.
 

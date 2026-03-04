@@ -10,7 +10,6 @@ This wraps the pure TaskContext and adds server-specific functionality:
 from typing import Any
 
 import anyio
-
 from mcp.server.experimental.task_result_handler import TaskResultHandler
 from mcp.server.session import ServerSession
 from mcp.server.validation import validate_sampling_tools, validate_tool_use_result_messages
@@ -181,7 +180,9 @@ class ServerTaskContext:
 
     def _check_elicitation_capability(self) -> None:
         """Check if the client supports elicitation."""
-        if not self._session.check_client_capability(ClientCapabilities(elicitation=ElicitationCapability())):
+        if not self._session.check_client_capability(
+            ClientCapabilities(elicitation=ElicitationCapability())
+        ):
             raise McpError(
                 ErrorData(
                     code=INVALID_REQUEST,
@@ -191,7 +192,9 @@ class ServerTaskContext:
 
     def _check_sampling_capability(self) -> None:
         """Check if the client supports sampling."""
-        if not self._session.check_client_capability(ClientCapabilities(sampling=SamplingCapability())):
+        if not self._session.check_client_capability(
+            ClientCapabilities(sampling=SamplingCapability())
+        ):
             raise McpError(
                 ErrorData(
                     code=INVALID_REQUEST,
@@ -228,7 +231,9 @@ class ServerTaskContext:
         self._check_elicitation_capability()
 
         if self._handler is None:
-            raise RuntimeError("handler is required for elicit(). Pass handler= to ServerTaskContext.")
+            raise RuntimeError(
+                "handler is required for elicit(). Pass handler= to ServerTaskContext."
+            )
 
         # Update status to input_required
         await self._store.update_task(self.task_id, status=TASK_STATUS_INPUT_REQUIRED)
@@ -299,7 +304,9 @@ class ServerTaskContext:
         self._check_elicitation_capability()
 
         if self._handler is None:
-            raise RuntimeError("handler is required for elicit_url(). Pass handler= to ServerTaskContext.")
+            raise RuntimeError(
+                "handler is required for elicit_url(). Pass handler= to ServerTaskContext."
+            )
 
         # Update status to input_required
         await self._store.update_task(self.task_id, status=TASK_STATUS_INPUT_REQUIRED)
@@ -378,12 +385,16 @@ class ServerTaskContext:
             ValueError: If tool_use or tool_result message structure is invalid
         """
         self._check_sampling_capability()
-        client_caps = self._session.client_params.capabilities if self._session.client_params else None
+        client_caps = (
+            self._session.client_params.capabilities if self._session.client_params else None
+        )
         validate_sampling_tools(client_caps, tools, tool_choice)
         validate_tool_use_result_messages(messages)
 
         if self._handler is None:
-            raise RuntimeError("handler is required for create_message(). Pass handler= to ServerTaskContext.")
+            raise RuntimeError(
+                "handler is required for create_message(). Pass handler= to ServerTaskContext."
+            )
 
         # Update status to input_required
         await self._store.update_task(self.task_id, status=TASK_STATUS_INPUT_REQUIRED)
@@ -454,7 +465,9 @@ class ServerTaskContext:
             McpError: If client doesn't support task-augmented elicitation
             RuntimeError: If handler is not configured
         """
-        client_caps = self._session.client_params.capabilities if self._session.client_params else None
+        client_caps = (
+            self._session.client_params.capabilities if self._session.client_params else None
+        )
         require_task_augmented_elicitation(client_caps)
 
         if self._handler is None:
@@ -549,7 +562,9 @@ class ServerTaskContext:
             ValueError: If tool_use or tool_result message structure is invalid
             RuntimeError: If handler is not configured
         """
-        client_caps = self._session.client_params.capabilities if self._session.client_params else None
+        client_caps = (
+            self._session.client_params.capabilities if self._session.client_params else None
+        )
         require_task_augmented_sampling(client_caps)
         validate_sampling_tools(client_caps, tools, tool_choice)
         validate_tool_use_result_messages(messages)

@@ -36,7 +36,10 @@ def create_call_wrapper(func: Callable[..., R], request_type: type[T]) -> Callab
 
     # Check for any positional/keyword parameter typed as request_type
     for param_name, param in sig.parameters.items():
-        if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):  # pragma: no branch
+        if param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):  # pragma: no branch
             param_type = type_hints.get(param_name)
             if param_type == request_type:
                 # Check if it has a default - if so, treat as old style

@@ -3,6 +3,7 @@
 Receives Telegram updates, forwards to Portal Pipeline, streams response back.
 Thin adapter: no routing logic here, all intelligence is in portal_pipeline/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,7 +52,9 @@ async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(f"Workspace set to: {ws}")
     else:
         current = context.user_data.get("workspace", DEFAULT_WORKSPACE)
-        await update.message.reply_text(f"Current workspace: {current}\nUsage: /workspace [auto|auto-coding|auto-security|...]")
+        await update.message.reply_text(
+            f"Current workspace: {current}\nUsage: /workspace [auto|auto-coding|auto-security|...]"
+        )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -99,18 +102,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Telegram has a 4096 char limit
     if len(reply) > 4000:
-        for chunk in [reply[i:i+4000] for i in range(0, len(reply), 4000)]:
+        for chunk in [reply[i : i + 4000] for i in range(0, len(reply), 4000)]:
             await update.message.reply_text(chunk, parse_mode="Markdown")
     else:
         await update.message.reply_text(reply, parse_mode="Markdown")
 
 
 def build_app() -> Application:
-    app = (
-        Application.builder()
-        .token(TELEGRAM_BOT_TOKEN)
-        .build()
-    )
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("clear", clear))
     app.add_handler(CommandHandler("workspace", set_workspace))
@@ -119,7 +118,6 @@ def build_app() -> Application:
 
 
 if __name__ == "__main__":
-    import asyncio
     logging.basicConfig(level=logging.INFO)
     bot_app = build_app()
     bot_app.run_polling()

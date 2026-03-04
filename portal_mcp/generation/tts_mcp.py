@@ -33,8 +33,16 @@ TOOLS_MANIFEST = [
             "type": "object",
             "properties": {
                 "text": {"type": "string", "description": "Text to speak"},
-                "voice": {"type": "string", "description": "Voice name (e.g., female_zhang, male_yun)", "default": "female_zhang"},
-                "backend": {"type": "string", "description": "TTS backend (fish_speech or cosyvoice)", "default": "fish_speech"},
+                "voice": {
+                    "type": "string",
+                    "description": "Voice name (e.g., female_zhang, male_yun)",
+                    "default": "female_zhang",
+                },
+                "backend": {
+                    "type": "string",
+                    "description": "TTS backend (fish_speech or cosyvoice)",
+                    "default": "fish_speech",
+                },
             },
             "required": ["text"],
         },
@@ -45,7 +53,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "reference_audio": {"type": "string", "description": "Path to reference audio file"},
+                "reference_audio": {
+                    "type": "string",
+                    "description": "Path to reference audio file",
+                },
                 "text": {"type": "string", "description": "Text to speak with cloned voice"},
             },
             "required": ["reference_audio", "text"],
@@ -62,6 +73,7 @@ TOOLS_MANIFEST = [
 @mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
+
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +108,7 @@ def _check_fish_speech() -> tuple[bool, str]:
     """Check if Fish Speech is available."""
     try:
         import fish_speech  # noqa: F401
+
         return True, ""
     except ImportError:
         return False, "Fish Speech not installed. See: https://github.com/fishaudio/fish-speech"
@@ -106,6 +119,7 @@ def _check_cosyvoice() -> tuple[bool, str]:
     try:
         import cosyvoice  # noqa: F401
         import torchaudio  # noqa: F401
+
         return True, ""
     except ImportError:
         return False, "CosyVoice not installed. Run: pip install cosyvoice torchaudio"
@@ -208,7 +222,10 @@ async def _speak_cosyvoice(text: str, voice: str, output_format: str) -> dict:
     """Generate speech using CosyVoice (fallback)."""
     available, error = _check_cosyvoice()
     if not available:
-        return {"success": False, "error": f"Neither Fish Speech nor CosyVoice available. Fish Speech: {error}"}
+        return {
+            "success": False,
+            "error": f"Neither Fish Speech nor CosyVoice available. Fish Speech: {error}",
+        }
 
     valid_voices = list(COSYVOICE_SPEAKERS.keys())
     if voice not in valid_voices:
@@ -295,7 +312,7 @@ async def _clone_fish_speech(text: str, reference_audio_path: str) -> dict:
             reference_audio_path,
         )
         return result
-    except Exception as e:
+    except Exception:
         logger.exception("Fish Speech voice cloning failed")
         # Fall back to CosyVoice
         return await _clone_cosyvoice(text, reference_audio_path)
@@ -371,6 +388,7 @@ def _cosyvoice_clone_sync(text: str, reference_audio_path: str) -> dict:
         reference, sr = torchaudio.load(reference_audio_path)
         if sr != 22050:
             import torchaudio.functional as F
+
             reference = F.resample(reference, sr, 22050)
 
         logger.info("Cloning voice and generating: %s", text[:50])

@@ -2,16 +2,15 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any, Literal
 
-from pydantic import BaseModel, ValidationError
-from starlette.requests import Request
-from starlette.responses import Response
-
 from mcp.server.auth.errors import (
     stringify_pydantic_error,
 )
 from mcp.server.auth.json_response import PydanticJSONResponse
 from mcp.server.auth.middleware.client_auth import AuthenticationError, ClientAuthenticator
 from mcp.server.auth.provider import AccessToken, OAuthAuthorizationServerProvider, RefreshToken
+from pydantic import BaseModel, ValidationError
+from starlette.requests import Request
+from starlette.responses import Response
 
 
 class RevocationRequest(BaseModel):

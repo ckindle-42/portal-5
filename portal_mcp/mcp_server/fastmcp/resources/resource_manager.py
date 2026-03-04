@@ -5,12 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from pydantic import AnyUrl
-
 from mcp.server.fastmcp.resources.base import Resource
 from mcp.server.fastmcp.resources.templates import ResourceTemplate
 from mcp.server.fastmcp.utilities.logging import get_logger
 from mcp.types import Annotations, Icon
+from pydantic import AnyUrl
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
