@@ -132,6 +132,10 @@ async def _run_in_docker(
         "256m",  # Max 256MB RAM
         "--pids-limit",
         "64",  # Max 64 processes
+        "--security-opt",
+        "no-new-privileges",  # Prevent privilege escalation
+        "--cap-drop",
+        "ALL",  # Drop all Linux capabilities
         "--read-only",  # Read-only root filesystem
         "--tmpfs",
         "/tmp:size=64m",  # 64MB /tmp
@@ -194,7 +198,8 @@ async def execute_python(
     """
     Execute Python code in an isolated Docker sandbox.
 
-    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout.
+    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
+    read-only filesystem, no Linux capabilities, no privilege escalation.
     Standard library available; no third-party packages by default.
     Use run_python_with_packages for code requiring external libraries.
 
@@ -204,7 +209,7 @@ async def execute_python(
 
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
-    """
+"""
     timeout = min(timeout, 120)
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
@@ -223,7 +228,8 @@ async def execute_nodejs(
     """
     Execute JavaScript/Node.js code in an isolated Docker sandbox.
 
-    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout.
+    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
+    read-only filesystem, no Linux capabilities, no privilege escalation.
     Node.js standard libraries available; no npm packages.
 
     Args:
@@ -251,7 +257,8 @@ async def execute_bash(
     """
     Execute a Bash script in an isolated Docker sandbox.
 
-    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout.
+    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
+    read-only filesystem, no Linux capabilities, no privilege escalation.
     Common Unix utilities available (Alpine-based). No sudo, no network.
 
     Args:
@@ -300,6 +307,8 @@ async def sandbox_status() -> dict:
             "memory_mb": 256,
             "cpu_fraction": 0.5,
             "pids_limit": 64,
+            "security_opt": "no-new-privileges",
+            "cap_drop": "ALL",
         },
     }
 

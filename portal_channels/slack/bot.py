@@ -20,12 +20,10 @@ import logging
 import os
 from typing import Any
 
-import httpx
+from portal_channels.dispatcher import call_pipeline_sync
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 DEFAULT_WORKSPACE = os.environ.get("SLACK_DEFAULT_WORKSPACE", "auto")
 
 # Channel name → workspace routing (matches current 13 canonical workspace IDs)
@@ -75,20 +73,8 @@ def _workspace_for_channel(channel_name: str) -> str:
 
 
 def _call_pipeline(text: str, workspace: str) -> str:
-    """Synchronous Pipeline call for use inside Slack bolt handlers."""
-    payload = {
-        "model": workspace,
-        "messages": [{"role": "user", "content": text}],
-        "stream": False,
-    }
-    with httpx.Client(timeout=120.0) as client:
-        resp = client.post(
-            f"{PIPELINE_URL}/v1/chat/completions",
-            json=payload,
-            headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
-        )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+    """Delegate to shared dispatcher."""
+    return call_pipeline_sync(text, workspace)
 
 
 def build_app():

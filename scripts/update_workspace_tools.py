@@ -19,19 +19,36 @@ WORKSPACE_TOOLS = {
     "auto-data":      ["portal_code", "portal_documents"],
 }
 
-ws_dir = Path("imports/openwebui/workspaces")
-for ws_file in sorted(ws_dir.glob("workspace_*.json")):
-    data = json.loads(ws_file.read_text())
-    ws_id = data.get("id", "")
-    if ws_id not in WORKSPACE_TOOLS:
-        print(f"SKIP: {ws_file.name} (id={ws_id!r} not in map)")
-        continue
 
-    tool_ids = WORKSPACE_TOOLS[ws_id]
-    if "meta" not in data:
-        data["meta"] = {}
-    data["meta"]["toolIds"] = tool_ids
-    ws_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    print(f"Updated {ws_file.name}: toolIds={tool_ids}")
+def main() -> None:
+    """Update workspace JSON files with current toolId mappings."""
+    ws_dir = Path("imports/openwebui/workspaces")
+    if not ws_dir.exists():
+        # Try relative to script location
+        ws_dir = Path(__file__).parent.parent / "imports/openwebui/workspaces"
 
-print("Done.")
+    if not ws_dir.exists():
+        print(f"WARNING: workspace directory not found: {ws_dir}")
+        return
+
+    for ws_file in sorted(ws_dir.glob("workspace_*.json")):
+        data = json.loads(ws_file.read_text())
+        ws_id = data.get("id", "")
+        if ws_id not in WORKSPACE_TOOLS:
+            print(f"SKIP: {ws_file.name} (id={ws_id!r} not in map)")
+            continue
+
+        tool_ids = WORKSPACE_TOOLS[ws_id]
+        if "meta" not in data:
+            data["meta"] = {}
+        if data["meta"].get("toolIds") == tool_ids:
+            continue  # already current
+        data["meta"]["toolIds"] = tool_ids
+        ws_file.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        print(f"Updated {ws_file.name}: toolIds={tool_ids}")
+
+    print("Done.")
+
+
+if __name__ == "__main__":
+    main()

@@ -501,3 +501,99 @@ class TestAllMCPServerToolAlignment:
             f"  {missing_from_manifest}\n"
             f"  Effect: AI has no knowledge these tools exist → dead code"
         )
+
+
+class TestDispatcher:
+    """Test the shared channel dispatcher module."""
+
+    def test_dispatcher_importable(self):
+        """Dispatcher module is importable without any credentials."""
+        from portal_channels.dispatcher import (
+            call_pipeline_async,
+            call_pipeline_sync,
+            is_valid_workspace,
+            VALID_WORKSPACES,
+        )
+        assert callable(call_pipeline_async)
+        assert callable(call_pipeline_sync)
+        assert callable(is_valid_workspace)
+
+    def test_valid_workspaces_covers_all_13(self):
+        """Dispatcher knows all 13 canonical workspace IDs."""
+        import sys
+        sys.path.insert(0, ".")
+        from portal_channels.dispatcher import VALID_WORKSPACES
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        pipeline_ids = set(WORKSPACES.keys())
+        dispatcher_ids = set(VALID_WORKSPACES)
+
+        missing = pipeline_ids - dispatcher_ids
+        assert not missing, (
+            f"Workspaces in pipeline but not in dispatcher: {missing}. "
+            f"Update VALID_WORKSPACES in dispatcher.py"
+        )
+
+    def test_is_valid_workspace_true_for_known(self):
+        from portal_channels.dispatcher import is_valid_workspace
+        for ws in ["auto", "auto-coding", "auto-security", "auto-redteam",
+                   "auto-blueteam", "auto-creative", "auto-reasoning",
+                   "auto-documents", "auto-video", "auto-music",
+                   "auto-research", "auto-vision", "auto-data"]:
+            assert is_valid_workspace(ws), f"Expected valid: {ws}"
+
+    def test_is_valid_workspace_false_for_unknown(self):
+        from portal_channels.dispatcher import is_valid_workspace
+        for ws in ["", "auto-images", "auto-nonexistent", "general", "unknown"]:
+            assert not is_valid_workspace(ws), f"Expected invalid: {ws}"
+
+    @pytest.mark.asyncio
+    async def test_call_pipeline_async_calls_correct_endpoint(self):
+        """call_pipeline_async sends to /v1/chat/completions with correct payload."""
+        from portal_channels.dispatcher import call_pipeline_async
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "Test reply"}}]
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = AsyncMock(return_value=mock_resp)
+
+            result = await call_pipeline_async("Hello", "auto-coding")
+
+            call_args = mock_client.post.call_args
+            url = call_args[0][0]
+            assert "/v1/chat/completions" in url
+            payload = call_args[1]["json"]
+            assert payload["model"] == "auto-coding"
+            assert payload["messages"][-1]["content"] == "Hello"
+            assert result == "Test reply"
+
+    def test_call_pipeline_sync_calls_correct_endpoint(self):
+        """call_pipeline_sync sends to /v1/chat/completions with correct payload."""
+        from portal_channels.dispatcher import call_pipeline_sync
+        from unittest.mock import MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "Sync reply"}}]
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("portal_channels.dispatcher.httpx.Client") as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+            mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+            mock_client.post = MagicMock(return_value=mock_resp)
+
+            result = call_pipeline_sync("Hello sync", "auto")
+
+            assert result == "Sync reply"
+            call_args = mock_client.post.call_args
+            assert "/v1/chat/completions" in call_args[0][0]

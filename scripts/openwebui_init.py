@@ -203,6 +203,21 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
     """Create Portal workspace presets in Open WebUI."""
     print("\nCreating Workspaces...")
 
+    # Ensure workspace toolIds are current before seeding
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "update_workspace_tools",
+            Path(__file__).parent / "update_workspace_tools.py",
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if hasattr(mod, "main"):
+            mod.main()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Could not update workspace toolIds: %s", e)
+
     if not WORKSPACES_DIR.exists():
         print(f"  Skipping - {WORKSPACES_DIR} not found")
         return
@@ -227,41 +242,62 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
     except Exception as e:
         print(f"  Warning: could not check existing models: {e}")
 
-    created = skipped = failed = 0
+    created = updated = failed = 0
     for ws_file in ws_files:
         ws = json.loads(ws_file.read_text())
         ws_id = ws.get("id", "")
-
-        if ws_id in existing_names:
-            print(f"  Skip (exists): {ws['name']}")
-            skipped += 1
-            continue
+        ws_name = ws.get("name", ws_id)
 
         payload = {
             "id": ws_id,
-            "name": ws["name"],
+            "name": ws_name,
             "meta": ws.get("meta", {}),
             "params": ws.get("params", {}),
         }
 
         try:
-            resp = client.post(
-                f"{OPENWEBUI_URL}/api/v1/models/",
-                json=payload,
-                headers=auth_headers(token),
-                timeout=10.0,
-            )
-            if resp.status_code in (200, 201):
-                print(f"  Created: {ws['name']}")
-                created += 1
+            if ws_id in existing_names:
+                # Upsert: update existing workspace to pick up toolIds changes
+                resp = client.post(
+                    f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
+                    json=payload,
+                    headers=auth_headers(token),
+                    timeout=10.0,
+                )
+                if resp.status_code in (200, 201):
+                    print(f"  Updated: {ws_name}")
+                    updated += 1
+                else:
+                    # Some Open WebUI versions use PUT for update
+                    resp = client.put(
+                        f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
+                        json=payload,
+                        headers=auth_headers(token),
+                        timeout=10.0,
+                    )
+                    if resp.status_code in (200, 201):
+                        print(f"  Updated: {ws_name}")
+                        updated += 1
+                    else:
+                        print(f"  Skip (update failed {resp.status_code}): {ws_name}")
             else:
-                print(f"  Failed {ws['name']}: HTTP {resp.status_code} - {resp.text[:100]}")
-                failed += 1
+                resp = client.post(
+                    f"{OPENWEBUI_URL}/api/v1/models/",
+                    json=payload,
+                    headers=auth_headers(token),
+                    timeout=10.0,
+                )
+                if resp.status_code in (200, 201):
+                    print(f"  Created: {ws_name}")
+                    created += 1
+                else:
+                    print(f"  Failed {ws_name}: HTTP {resp.status_code}")
+                    failed += 1
         except Exception as e:
-            print(f"  Error {ws['name']}: {e}")
+            print(f"  Error {ws_name}: {e}")
             failed += 1
 
-    print(f"  Done: {created} created, {skipped} skipped, {failed} failed")
+    print(f"  Workspaces: {created} created, {updated} updated, {failed} failed")
 
 
 # --- Persona Presets -----------------------------------------------------------

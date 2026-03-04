@@ -8,14 +8,13 @@ from __future__ import annotations
 import logging
 import os
 
-import httpx
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
+from portal_channels.dispatcher import VALID_WORKSPACES, is_valid_workspace
+
 logger = logging.getLogger(__name__)
 
-PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 DEFAULT_WORKSPACE = os.environ.get("TELEGRAM_DEFAULT_WORKSPACE", "auto")
 
 
@@ -60,25 +59,15 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def list_workspaces(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    workspaces = [
-        "auto", "auto-coding", "auto-security", "auto-redteam", "auto-blueteam",
-        "auto-creative", "auto-reasoning", "auto-documents", "auto-video",
-        "auto-music", "auto-research", "auto-vision", "auto-data",
-    ]
-    text = "Available workspaces:\n" + "\n".join(f"  • {ws}" for ws in workspaces)
+    text = "Available workspaces:\n" + "\n".join(f"  • {ws}" for ws in sorted(VALID_WORKSPACES))
     await update.message.reply_text(text)
 
 
 async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args
-    valid = {
-        "auto", "auto-coding", "auto-security", "auto-redteam", "auto-blueteam",
-        "auto-creative", "auto-reasoning", "auto-documents", "auto-video",
-        "auto-music", "auto-research", "auto-vision", "auto-data",
-    }
     if args:
         ws = args[0].lower().strip()
-        if ws not in valid:
+        if not is_valid_workspace(ws):
             await update.message.reply_text(
                 f"Unknown workspace: {ws!r}\n"
                 f"Use /workspaces to see available options."
@@ -115,20 +104,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await update.message.chat.send_action("typing")
 
-    payload = {
-        "model": workspace,
-        "messages": history,
-        "stream": False,
-    }
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                f"{PIPELINE_URL}/v1/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {PIPELINE_API_KEY}"},
-            )
-            resp.raise_for_status()
-            reply = resp.json()["choices"][0]["message"]["content"]
+        from portal_channels.dispatcher import call_pipeline_async
+        reply = await call_pipeline_async(user_text, workspace, history=history[:-1])
     except Exception as e:
         logger.error("Pipeline error: %s", e)
         reply = f"⚠️ Pipeline error: {e}"
