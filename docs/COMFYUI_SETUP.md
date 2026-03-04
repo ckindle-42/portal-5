@@ -51,6 +51,28 @@ huggingface-cli download Wan-AI/Wan2.2-T2V-5B \
     --local-dir ~/ComfyUI/models/checkpoints/
 ```
 
+### Video Generation Workflow
+
+The Video MCP (`portal_mcp/video/video_mcp.py`) communicates with ComfyUI via API to generate videos:
+
+1. **ComfyUI must be running** at `http://localhost:8188`
+2. **Wan2.2 model must be downloaded** to `~/ComfyUI/models/checkpoints/`
+3. **Video MCP service** in docker-compose connects to ComfyUI
+4. **User requests video** via Open WebUI Tools panel
+
+To test video generation manually:
+```bash
+# Check ComfyUI API is accessible
+curl http://localhost:8188/system_stats
+
+# Check available models
+curl http://localhost:8188/object_info/ComfyUINode
+```
+
+**Note**: Video generation is resource-intensive. On Apple Silicon (M-series Macs), expect:
+- Wan2.2 T2V: 5-15 minutes per video
+- Requires ~12GB unified memory available
+
 ## Open WebUI Configuration
 
 Once ComfyUI is running at `http://localhost:8188`:

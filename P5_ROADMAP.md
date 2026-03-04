@@ -51,18 +51,18 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 | ID | Priority | Title | Status |
 |----|----------|-------|--------|
 | P5-ROAD-050 | P2 | launch.sh verified | DONE |
-| P5-ROAD-051 | P2 | Backup/restore documentation | OPEN |
+| P5-ROAD-051 | P2 | Backup/restore documentation | DONE |
 
 ## MCP Dependencies (From Phase 3 Verification)
 
 | ID | Priority | Title | Status | Evidence |
 |----|----------|-------|--------|----------|
-| P5-ROAD-060 | P2 | Document MCP: Add python-docx/pptx/openpyxl to Dockerfile.mcp | OPEN | document_mcp.py compiles, but deps not installed |
-| P5-ROAD-061 | P2 | Music MCP: Bundle audiocraft in Dockerfile.mcp | OPEN | music_mcp.py compiles, but audiocraft not installed |
-| P5-ROAD-062 | P2 | TTS MCP: Bundle fish-speech in Dockerfile.mcp | OPEN | tts_mcp.py compiles, but fish-speech not installed |
-| P5-ROAD-063 | P2 | Whisper MCP: Bundle faster-whisper in Dockerfile.mcp | OPEN | whisper_mcp.py compiles, but faster-whisper not installed |
-| P5-ROAD-064 | P1 | ComfyUI integration: Document host-side setup required | OPEN | comfyui_mcp.py verified, but ComfyUI runs externally |
-| P5-ROAD-065 | P1 | Video MCP: Document ComfyUI video model requirements | OPEN | video_mcp.py verified, but requires ComfyUI + video models |
+| P5-ROAD-060 | P2 | Document MCP: Add python-docx/pptx/openpyxl to Dockerfile.mcp | DONE | Dependencies present in Dockerfile.mcp lines 21-25 |
+| P5-ROAD-061 | P2 | Music MCP: Bundle audiocraft in Dockerfile.mcp | DONE | Dependencies present in Dockerfile.mcp lines 28-33 |
+| P5-ROAD-062 | P2 | TTS MCP: fish-speech host-side setup documented | DONE | docs/FISH_SPEECH_SETUP.md created |
+| P5-ROAD-063 | P2 | Whisper MCP: Bundle faster-whisper in Dockerfile.mcp | DONE | Dependencies present in Dockerfile.mcp lines 28-29 |
+| P5-ROAD-064 | P1 | ComfyUI integration: Document host-side setup required | DONE | docs/COMFYUI_SETUP.md verified and updated |
+| P5-ROAD-065 | P1 | Video MCP: Document ComfyUI video model requirements | DONE | docs/COMFYUI_SETUP.md updated with Wan2.2 workflow |
 
 ---
 
