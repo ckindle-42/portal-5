@@ -1,29 +1,98 @@
-# Portal 5.0 — Backend Registry Configuration
-# This file defines Ollama/vLLM backends and their workspace routing.
+# Portal 5.0 — Backend Registry
+# OPERATOR FILE: Edit this to add cluster nodes. No code changes needed.
+# After editing: docker compose restart portal-pipeline
 
 backends:
-  # ── Local Ollama (Docker Compose) ──────────────────────────────────────────
-  - id: local-ollama
+  # ── General (default fast model, function calling, creative) ───────────────
+  - id: ollama-general
     type: ollama
-    url: "http://ollama:11434"       # Docker service name
-    group: general                  # Used for workspace routing
+    url: "http://ollama:11434"
+    group: general
     models:
-      - dolphin-llama3:8b           # Default fast model
-    health_check_interval: 30
+      - dolphin-llama3:8b        # Primary: fast, uncensored, function calling
+      - llama3.2:3b-instruct-q4_K_M  # Fallback: ultra fast for routing/classify
 
-# Workspace → Group(s) routing map
+  # ── Coding (specialized code models) ──────────────────────────────────────
+  - id: ollama-coding
+    type: ollama
+    url: "http://ollama:11434"
+    group: coding
+    models:
+      - qwen3-coder-next:30b-q5  # Primary: best local code model
+      - devstral:24b              # Secondary: agentic code
+      - deepseek-coder:16b-instruct-q4_K_M  # Tertiary: fast code
+
+  # ── Security / Red Team / Blue Team ───────────────────────────────────────
+  - id: ollama-security
+    type: ollama
+    url: "http://ollama:11434"
+    group: security
+    models:
+      - xploiter/the-xploiter                         # Red team primary
+      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0  # Pentest
+      - huihui_ai/baronllm-abliterated               # Blue team / defense
+
+  # ── Reasoning / Research / Data ──────────────────────────────────────────
+  - id: ollama-reasoning
+    type: ollama
+    url: "http://ollama:11434"
+    group: reasoning
+    models:
+      - huihui_ai/tongyi-deepresearch-abliterated:30b  # Deep research, analysis
+      - dolphin-llama3:70b                              # Large general (if RAM allows)
+
+  # ── Vision / Multimodal ──────────────────────────────────────────────────
+  - id: ollama-vision
+    type: ollama
+    url: "http://ollama:11434"
+    group: vision
+    models:
+      - qwen3-omni:30b   # Best local multimodal
+      - llava:7b          # Lightweight vision fallback
+
+  # ── Creative ────────────────────────────────────────────────────────────
+  - id: ollama-creative
+    type: ollama
+    url: "http://ollama:11434"
+    group: creative
+    models:
+      - dolphin-llama3:8b   # Uncensored, good creative writing
+      - huihui_ai/baronllm-abliterated  # Abliterated, no restrictions
+
+  # ── FUTURE CLUSTER NODES (uncomment as Mac Studios are added) ─────────────
+  # Stage 2: Second Mac Studio
+  # - id: ollama-node-2
+  #   type: ollama
+  #   url: "http://192.168.1.102:11434"
+  #   group: general
+  #   models: [dolphin-llama3:8b]
+  #
+  # Stage 3: vLLM for 70B
+  # - id: vllm-70b
+  #   type: openai_compatible
+  #   url: "http://192.168.1.103:8000"
+  #   group: reasoning
+  #   models: [meta-llama/Llama-3.1-70B-Instruct]
+
+# Workspace → Backend Group routing
+# First group is preferred; falls back down the list if no healthy backend
 workspace_routing:
   auto:           [general]
   auto-coding:    [coding, general]
-  auto-security:  [general]
+  auto-security:  [security, general]
+  auto-redteam:   [security, general]
+  auto-blueteam:  [security, general]
   auto-creative:  [creative, general]
+  auto-reasoning: [reasoning, general]
   auto-documents: [general]
   auto-video:     [general]
   auto-music:     [general]
-  auto-research:  [general]
+  auto-research:  [reasoning, general]
+  auto-vision:    [vision, general]
+  auto-data:      [reasoning, general]
 
-# Defaults
 defaults:
   fallback_group: general
   request_timeout: 120
   health_timeout: 10
+  health_check_interval: 30

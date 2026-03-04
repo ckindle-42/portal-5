@@ -1,12 +1,12 @@
 {
   "id": "auto-security",
-  "name": "Security Analyst",
+  "name": "\ud83d\udd12 Portal Security Analyst",
   "meta": {
-    "description": "Security analysis and defensive coding",
+    "description": "\ud83d\udd12 Portal Security Analyst",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, and defensive measures.",
+    "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant.",
     "model": "auto-security"
   }
 }

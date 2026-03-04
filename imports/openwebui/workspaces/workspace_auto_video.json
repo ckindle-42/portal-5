@@ -1,12 +1,12 @@
 {
   "id": "auto-video",
-  "name": "Video Creator",
+  "name": "\ud83c\udfac Portal Video Creator",
   "meta": {
-    "description": "Generate videos with Wan2.2",
+    "description": "\ud83c\udfac Portal Video Creator",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You create videos. Use ComfyUI to generate videos from text prompts.",
+    "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
     "model": "auto-video"
   }
 }

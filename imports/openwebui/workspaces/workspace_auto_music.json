@@ -1,12 +1,12 @@
 {
   "id": "auto-music",
-  "name": "Music Producer",
+  "name": "\ud83c\udfb5 Portal Music Producer",
   "meta": {
-    "description": "Generate music with AudioCraft",
+    "description": "\ud83c\udfb5 Portal Music Producer",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You create music. Use the music generation tool to produce audio clips.",
+    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
     "model": "auto-music"
   }
 }

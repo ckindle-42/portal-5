@@ -1,12 +1,12 @@
 {
   "id": "auto-coding",
-  "name": "Code Expert",
+  "name": "\ud83d\udcbb Portal Code Expert",
   "meta": {
-    "description": "Specialized in code generation and debugging",
+    "description": "\ud83d\udcbb Portal Code Expert",
     "profile_image_url": ""
   },
   "params": {
-    "system": "You are an expert programmer. Generate clean, well-documented code. Always prefer idiomatic solutions.",
+    "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. Explain your approach briefly before writing code.",
     "model": "auto-coding"
   }
 }
