@@ -16,8 +16,10 @@ services:
       - ollama-models:/root/.ollama
     environment:
       - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_KEEP_ALIVE=24h       # Keep models hot between requests
-      - OLLAMA_NUM_PARALLEL=2       # Allow 2 concurrent requests
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4}     # 4 concurrent LLM requests
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-2}  # Keep 2 models in VRAM
+      - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-25}           # Queue up to 25 requests
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 20s
@@ -39,11 +41,11 @@ services:
       - ollama-models:/root/.ollama
     command: >
       sh -c "
-        echo '=== Portal 5: Pulling models ===' &&
+        echo '=== Portal 5: Pulling core models ===' &&
         ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
         ollama pull llama3.2:3b-instruct-q4_K_M &&
-        echo '=== Core models ready ==='
-        echo 'To pull additional models: ./launch.sh pull-models'
+        echo '=== Core models ready ===' &&
+        echo 'Run: ./launch.sh pull-models  to pull all specialized models'
       "
 
   # ── Portal Pipeline — Intelligent Router ─────────────────────────────────
@@ -59,7 +61,10 @@ services:
       - ../../config/backends.yaml:/app/config/backends.yaml:ro
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
+      - PIPELINE_PORT=9099
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -83,20 +88,48 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
     environment:
-      # Portal Pipeline is the SOLE model source
+      # ── Model source ────────────────────────────────────────────────────────
+      # Portal Pipeline is the SOLE model source — no direct Ollama access
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
-      # ComfyUI image generation (host-side ComfyUI)
+
+      # ── Image generation (host-side ComfyUI) ────────────────────────────────
       - ENABLE_IMAGE_GENERATION=True
       - IMAGE_GENERATION_ENGINE=comfyui
       - COMFYUI_BASE_URL=http://host.docker.internal:8188
-      # Auth
+
+      # ── Authentication & Session Security ───────────────────────────────────
+      - WEBUI_AUTH=true
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
-      - WEBUI_AUTH=${WEBUI_AUTH:-true}
-      # Features
+      - WEBUI_SESSION_COOKIE_SAME_SITE=lax
+      - WEBUI_SESSION_COOKIE_SECURE=false  # Set to true when behind HTTPS proxy
+      - JWT_EXPIRES_IN=24h                 # Session duration
+
+      # ── User Registration & Roles ────────────────────────────────────────────
+      # new signups require admin approval before they can use the system
+      # Admin approves at: Admin Panel > Users > set role to 'user'
+      # To allow immediate access: change to DEFAULT_USER_ROLE=user
+      - ENABLE_SIGNUP=true
+      - DEFAULT_USER_ROLE=pending
+      - ENABLE_LOGIN_FORM=true
+
+      # ── User Permissions ────────────────────────────────────────────────────
+      # Users can delete their own chats, edit their own messages
+      - USER_PERMISSIONS_CHAT_DELETION=true
+      - USER_PERMISSIONS_CHAT_EDITING=true
+      # Users cannot share chats publicly or access admin features
       - ENABLE_COMMUNITY_SHARING=false
+
+      # ── Admin Controls ───────────────────────────────────────────────────────
+      # Admin can view all users' chats for moderation/support
+      - ENABLE_ADMIN_CHAT_ACCESS=true
+      - ENABLE_ADMIN_EXPORT=true
+
+      # ── Features ────────────────────────────────────────────────────────────
       - ENABLE_MESSAGE_RATING=true
       - ENABLE_WORKSPACE=true
+      - ENABLE_CHANNELS=false         # Disable public channels (private chats only)
+      - SAFE_MODE=false               # Allow full tool access for approved users
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -121,6 +154,8 @@ services:
       - OPENWEBUI_URL=http://open-webui:8080
       - OPENWEBUI_ADMIN_EMAIL=${OPENWEBUI_ADMIN_EMAIL}
       - OPENWEBUI_ADMIN_PASSWORD=${OPENWEBUI_ADMIN_PASSWORD}
+      - DEFAULT_USER_ROLE=${DEFAULT_USER_ROLE:-pending}
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
     volumes:
       - ../../scripts:/scripts:ro
       - ../../imports:/imports:ro
@@ -330,7 +365,7 @@ services:
   #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
   #     - TELEGRAM_USER_IDS=${TELEGRAM_USER_IDS}
   #     - PIPELINE_URL=http://portal-pipeline:9099
-  #     - PIPELINE_API_KEY=${PIPELINE_API_KEY:-portal-pipeline}
+  #     - PIPELINE_API_KEY=${PIPELINE_API_KEY}
   #   command: ["python", "-m", "portal_channels.telegram.bot"]
   #   depends_on:
   #     portal-pipeline:

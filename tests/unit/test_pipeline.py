@@ -133,6 +133,53 @@ defaults:
         assert reg.get_backend_for_workspace("auto") is None
 
 
+class TestTimeoutConfiguration:
+    """Ensure timeouts are actually read from backends.yaml, not hardcoded."""
+
+    def test_request_timeout_read_from_yaml(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: test
+    type: ollama
+    url: http://localhost:11434
+    group: general
+    models: [dolphin-llama3:8b]
+workspace_routing:
+  auto: [general]
+defaults:
+  fallback_group: general
+  request_timeout: 180
+  health_check_interval: 60
+  health_timeout: 15
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        assert reg.request_timeout == 180.0, (
+            f"Expected 180.0 from YAML, got {reg.request_timeout} — "
+            "timeout is not being read from config"
+        )
+        assert reg._health_check_interval == 60.0
+        assert reg._health_timeout == 15.0
+
+    def test_default_timeout_when_not_in_yaml(self, tmp_path):
+        cfg = tmp_path / "backends.yaml"
+        cfg.write_text("""
+backends:
+  - id: test
+    type: ollama
+    url: http://localhost:11434
+    group: general
+    models: [dolphin-llama3:8b]
+workspace_routing:
+  auto: [general]
+""")
+        reg = BackendRegistry(config_path=str(cfg))
+        # Should use sensible defaults, not hardcoded 30
+        assert reg.request_timeout >= 60.0, (
+            f"Default timeout too low for reasoning models: {reg.request_timeout}s"
+        )
+
+
 class TestPipelineAPI:
     def test_health_endpoint(self, client):
         resp = client.get("/health")

@@ -92,7 +92,21 @@ class BackendRegistry:
 
         # Load workspace routing
         self._workspace_routes = cfg.get("workspace_routing", {})
-        self._fallback_group = cfg.get("defaults", {}).get("fallback_group", "general")
+
+        # Load defaults
+        defaults = cfg.get("defaults", {})
+        self._fallback_group = defaults.get("fallback_group", "general")
+        self._request_timeout = float(defaults.get("request_timeout", 120.0))
+        self._health_check_interval = float(defaults.get("health_check_interval", 30.0))
+        self._health_timeout = float(defaults.get("health_timeout", 10.0))
+
+        logger.info(
+            "BackendRegistry loaded: %d backends, %d workspace routes, "
+            "request_timeout=%.0fs",
+            len(self._backends),
+            len(self._workspace_routes),
+            self._request_timeout,
+        )
 
     def list_backends(self) -> list[Backend]:
         """Return all registered backends."""
@@ -146,7 +160,7 @@ class BackendRegistry:
         """Check a single backend's health."""
         import time
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=self._health_timeout) as client:
                 resp = await client.get(backend.health_url)
                 backend.healthy = resp.status_code == 200
         except Exception as e:
