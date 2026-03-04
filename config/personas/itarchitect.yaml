@@ -2,7 +2,7 @@ name: IT Architect
 slug: itarchitect
 category: architecture
 source: prompts.chat
-workspace_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+workspace_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 system_prompt: 'I will provide some details about the functionality of an application
   or other digital product, and it will be your job to come up with  ways to integrate
   it into the IT landscape. This could involve analyzing business requirements, performing
@@ -31,6 +31,6 @@ original_prompt: I want you to act as an IT Architect. I will provide some detai
 workspace:
   enabled: true
   description: IT Architect - specialized AI assistant for architecture tasks
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+  suggested_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 tags:
 - itarchitect

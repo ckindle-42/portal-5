@@ -50,6 +50,20 @@ bootstrap_secrets() {
         changed=1
     fi
 
+    if grep -q "^SEARXNG_SECRET_KEY=CHANGEME" "$tmp"; then
+        local key; key=$(generate_secret)
+        sed -i.bak "s|^SEARXNG_SECRET_KEY=CHANGEME|SEARXNG_SECRET_KEY=$key|" "$tmp"
+        echo "[portal-5] Generated SEARXNG_SECRET_KEY"
+        changed=1
+    fi
+
+    if grep -q "^GRAFANA_PASSWORD=CHANGEME" "$tmp"; then
+        local key; key=$(generate_secret | head -c 20)
+        sed -i.bak "s|^GRAFANA_PASSWORD=CHANGEME|GRAFANA_PASSWORD=$key|" "$tmp"
+        echo "[portal-5] Generated GRAFANA_PASSWORD"
+        changed=1
+    fi
+
     # Clean up sed backup files
     rm -f "${tmp}.bak"
 
@@ -94,7 +108,7 @@ case "${1:-up}" in
     set -a; source "$ENV_FILE"; set +a
 
     # Validate required secrets are set and not placeholder values
-    for var in PIPELINE_API_KEY WEBUI_SECRET_KEY OPENWEBUI_ADMIN_PASSWORD; do
+    for var in PIPELINE_API_KEY WEBUI_SECRET_KEY OPENWEBUI_ADMIN_PASSWORD SEARXNG_SECRET_KEY GRAFANA_PASSWORD; do
         val="${!var:-}"
         if [ -z "$val" ] || [ "$val" = "CHANGEME" ]; then
             echo "ERROR: $var is not set or still CHANGEME in .env"
@@ -106,7 +120,12 @@ case "${1:-up}" in
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose up -d
-    echo "[portal-5] Stack started. Open WebUI: http://localhost:8080"
+    echo "[portal-5] Stack started."
+    echo "  Open WebUI:  http://localhost:8080"
+    echo "  SearXNG:     http://localhost:8088"
+    echo "  ComfyUI:     http://localhost:8188"
+    echo "  Grafana:     http://localhost:3000  (admin / check .env)"
+    echo "  Prometheus:  http://localhost:9090"
     ;;
   down)
     cd "$COMPOSE_DIR"
@@ -170,21 +189,41 @@ case "${1:-up}" in
 
     # Add or remove models here — one per line
     MODELS=(
-        # Security / Red Team / Blue Team
+        # ── Security (priority — core use case) ───────────────────────────
+        # BaronLLM Offensive Security (~18GB Q6_K — best for red team)
+        "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+        # Lily-Cybersecurity 7B — fast, balanced red/blue, zero refusals
+        "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+        # The-Xploiter — classic offensive security specialist
         "xploiter/the-xploiter"
+        # WhiteRabbitNeo 8B — fast classic security
         "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        # BaronLLM abliterated — uncensored general
         "huihui_ai/baronllm-abliterated"
-        # Deep reasoning / research / data
-        "huihui_ai/tongyi-deepresearch-abliterated:30b"
-        # Coding
+
+        # ── Coding ──────────────────────────────────────────────────────
+        # Qwen3-Coder 30B — best agentic coding, Splunk/BigFix/PPT
         "qwen3-coder-next:30b-q5"
-        "devstral:24b"
+        # GLM-4.7-Flash — fast MoE, strong PowerShell/C#/SQL
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF"
+        # DeepSeek-Coder V2 16B — Splunk SPL specialist
         "deepseek-coder:16b-instruct-q4_K_M"
-        # Vision / multimodal
+        # Devstral 24B — agentic development workflows
+        "devstral:24b"
+
+        # ── Reasoning / Research ────────────────────────────────────────
+        # DeepSeek-R1 32B — deep reasoning + code (~16GB)
+        "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+        # Tongyi DeepResearch 30B — abliterated, research synthesis
+        "huihui_ai/tongyi-deepresearch-abliterated:30b"
+
+        # ── Vision ──────────────────────────────────────────────────────
         "qwen3-omni:30b"
         "llava:7b"
-        # Large general (requires 48GB+ RAM)
-        # "dolphin-llama3:70b"
+
+        # ── Large General (requires 48GB+ free RAM, commented by default) ─
+        # "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
+        # "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
     )
 
     total=${#MODELS[@]}

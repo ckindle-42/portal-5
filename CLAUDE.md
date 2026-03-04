@@ -371,6 +371,44 @@ Open WebUI points to ComfyUI at `http://host.docker.internal:8188` by default.
 
 ---
 
+## Zero-Setup Requirements
+
+Every feature must work from `./launch.sh up` without manual steps.
+
+| Feature | How it achieves zero-setup |
+|---|---|
+| Image generation | ComfyUI runs in Docker; models auto-downloaded by comfyui-model-init |
+| Music generation | AudioCraft/Stable Audio in Dockerfile.mcp; models auto-downloaded |
+| Voice TTS | kokoro-onnx in Dockerfile.mcp; models auto-downloaded on first call |
+| Voice cloning | fish-speech is OPTIONAL; degrade gracefully with helpful message |
+| Web search | SearXNG in Docker; configured automatically via Open WebUI env vars |
+| RAG | Open WebUI native; embedding model pulled by ollama-init |
+| Memory | Open WebUI native; enabled via env var |
+| Metrics | Prometheus + Grafana in Docker; start with ./launch.sh up |
+
+### Adding a New Feature
+
+If a new feature requires a new dependency:
+1. It MUST be installable via pip or apt-get in the relevant Dockerfile
+2. OR it MUST be a Docker service in docker-compose.yml
+3. It MUST NOT require any manual user steps
+4. If a dependency may fail (e.g., GPU-only, large download) — handle it with a
+   graceful degradation + helpful error message, not a crash
+
+### Model Downloads
+
+Models that are downloaded on first use (auto, via HuggingFace):
+- nomic-embed-text (RAG embeddings) — pulled by ollama-init
+- FLUX.1-schnell (images) — pulled by comfyui-model-init
+- faster-whisper base (transcription) — downloaded on first use
+- kokoro-onnx voices (~200MB) — downloaded on first call
+- AudioCraft MusicGen — downloaded on first call
+
+Models that require `./launch.sh pull-models` (large, optional):
+- All specialized LLM models (security, coding, reasoning, vision)
+
+---
+
 ## Do Not
 
 - Do NOT add `OLLAMA_BASE_URL` directly to Open WebUI's env — everything must go through `portal-pipeline`

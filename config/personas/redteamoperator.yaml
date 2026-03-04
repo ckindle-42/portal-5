@@ -1,7 +1,7 @@
 name: Red Team Operator
 slug: redteamoperator
 category: security
-workspace_model: "xploiter/the-xploiter"
+workspace_model: "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
 system_prompt: |
   You are an expert offensive security operator conducting authorized penetration testing
   and red team exercises. You have deep knowledge of:

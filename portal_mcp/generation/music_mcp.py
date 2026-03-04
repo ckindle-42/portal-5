@@ -29,7 +29,7 @@ async def health_check(request):
 TOOLS_MANIFEST = [
     {
         "name": "generate_music",
-        "description": "Generate music using Meta AudioCraft/MusicGen",
+        "description": "Generate music using Meta AudioCraft/MusicGen or Stable Audio",
         "parameters": {
             "type": "object",
             "properties": {
@@ -37,7 +37,7 @@ TOOLS_MANIFEST = [
                 "duration": {"type": "number", "description": "Duration in seconds", "default": 10},
                 "model": {
                     "type": "string",
-                    "description": "Model size (small, medium, large)",
+                    "description": "Model size (small, medium, large, stable-audio)",
                     "default": "medium",
                 },
             },
@@ -82,6 +82,14 @@ def _check_audiocraft() -> tuple[bool, str]:
         return False, "AudioCraft not installed. Run: pip install audiocraft"
 
 
+def _check_stable_audio() -> tuple[bool, str]:
+    try:
+        import stable_audio_tools  # noqa: F401
+        return True, "stable-audio-tools available"
+    except ImportError:
+        return False, "stable-audio-tools not installed"
+
+
 @mcp.tool()
 async def generate_music(
     prompt: str,
@@ -92,27 +100,35 @@ async def generate_music(
     cfg_coef: float = 3.0,
 ) -> dict:
     """
-    Generate music from a text description using Meta MusicGen.
+    Generate music from a text description using Meta MusicGen or Stable Audio.
 
     Models are downloaded automatically on first use:
     - small: ~300MB (fast, lower quality)
     - medium: ~1.5GB (recommended, good quality)
     - large: ~3.3GB (best quality, needs 16GB+ VRAM or 32GB+ unified memory)
+    - stable-audio: uses Stable Audio Open 1.0 (~3GB, higher quality)
 
     Args:
         prompt: Description of music to generate (e.g., "upbeat jazz piano solo", "dark orchestral")
         duration: Duration in seconds (default 10.0, max ~30s per generation)
-        model_size: Model size — small, medium, or large (default medium)
+        model_size: Model size — small, medium, large, or stable-audio (default medium)
         top_k: Top-k sampling parameter (default 250)
         temperature: Sampling temperature (default 1.0)
         cfg_coef: Classifier-free guidance strength (default 3.0; higher = closer to prompt)
     """
+    # Handle stable-audio separately
+    if model_size == "stable-audio":
+        available, error = _check_stable_audio()
+        if not available:
+            return {"success": False, "error": f"stable-audio-tools not available: {error}. Use small/medium/large."}
+        return await _generate_stable_audio(prompt, duration)
+
     available, error = _check_audiocraft()
     if not available:
         return {"success": False, "error": error}
 
     if model_size not in ("small", "medium", "large"):
-        return {"success": False, "error": "model_size must be one of: small, medium, large"}
+        return {"success": False, "error": "model_size must be one of: small, medium, large, stable-audio"}
 
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
@@ -176,18 +192,78 @@ def _generate_sync(
         return {"success": False, "error": str(e)}
 
 
+async def _generate_stable_audio(prompt: str, duration: float) -> dict:
+    """Generate music using Stable Audio Open."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _stable_audio_sync, prompt, duration)
+
+
+def _stable_audio_sync(prompt: str, duration: float) -> dict:
+    """Synchronous Stable Audio generation."""
+    try:
+        import torch
+        import torchaudio
+        from stable_audio_tools import get_pretrained_model
+        from stable_audio_tools.inference import generate
+
+        logger.info("Loading Stable Audio Open model...")
+        model, _ = get_pretrained_model("stabilityai/stable-audio-open-1.0")
+        model = model.to("cuda" if torch.cuda.is_available() else "cpu")
+
+        logger.info("Generating: %s", prompt[:80])
+        # Generate audio
+        output = generate(
+            model=model,
+            prompts=[prompt],
+            duration=duration,
+            cfg_scale=7.5,
+            steps=50,
+        )
+
+        # Extract audio tensor
+        audio = output["audio"][0]  # [channels, samples]
+        if audio.shape[0] > 1:
+            audio = audio.mean(dim=0)  # Mono
+
+        sample_rate = 48000  # Stable Audio uses 48kHz
+        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
+        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
+        torchaudio.save(str(output_file), audio.unsqueeze(0), sample_rate)
+
+        actual_duration = audio.shape[-1] / sample_rate
+        return {
+            "success": True,
+            "path": str(output_file),
+            "duration_seconds": round(actual_duration, 2),
+            "sample_rate": sample_rate,
+            "prompt": prompt,
+            "model": "stabilityai/stable-audio-open-1.0",
+        }
+    except Exception as e:
+        logger.exception("Stable Audio generation failed")
+        return {"success": False, "error": str(e)}
+
+
 @mcp.tool()
 async def list_music_models() -> dict:
     """List available MusicGen model sizes and their requirements."""
-    available, error = _check_audiocraft()
+    audiocraft_available, _ = _check_audiocraft()
+    stable_audio_available, _ = _check_stable_audio()
+
+    models = {
+        "small": {"params": "300M", "vram_gb": 4, "quality": "fast"},
+        "medium": {"params": "1.5B", "vram_gb": 8, "quality": "recommended"},
+        "large": {"params": "3.3B", "vram_gb": 16, "quality": "best"},
+    }
+
+    if stable_audio_available:
+        models["stable-audio"] = {"params": "~3GB", "vram_gb": 8, "quality": "high", "note": "Stable Audio Open 1.0"}
+
     return {
-        "audiocraft_installed": available,
-        "install_command": "pip install audiocraft" if not available else None,
-        "models": {
-            "small": {"params": "300M", "vram_gb": 4, "quality": "fast"},
-            "medium": {"params": "1.5B", "vram_gb": 8, "quality": "recommended"},
-            "large": {"params": "3.3B", "vram_gb": 16, "quality": "best"},
-        },
+        "audiocraft_installed": audiocraft_available,
+        "stable_audio_installed": stable_audio_available,
+        "install_command": "pip install audiocraft stable-audio-tools" if not (audiocraft_available or stable_audio_available) else None,
+        "models": models,
         "note": "Models are downloaded automatically from HuggingFace on first use.",
     }
 

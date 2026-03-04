@@ -2,7 +2,7 @@ name: Statistician
 slug: statistician
 category: data
 source: prompts.chat
-workspace_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+workspace_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 system_prompt: 'I want to act as a Statistician. I will provide you with details related
   with statistics. You should be knowledge of statistics terminology, statistical
   distributions, confidence interval, probabillity, hypothesis testing and statistical
@@ -27,6 +27,6 @@ original_prompt: I want to act as a Statistician. I will provide you with detail
 workspace:
   enabled: true
   description: Statistician - specialized AI assistant for data tasks
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+  suggested_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 tags:
 - statistician

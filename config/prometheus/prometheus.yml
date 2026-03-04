@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'portal-pipeline'
+    static_configs:
+      - targets: ['portal-pipeline:9099']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  - job_name: 'open-webui'
+    static_configs:
+      - targets: ['open-webui:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

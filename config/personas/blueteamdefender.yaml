@@ -1,7 +1,7 @@
 name: Blue Team Defender
 slug: blueteamdefender
 category: security
-workspace_model: "huihui_ai/baronllm-abliterated"
+workspace_model: "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
 system_prompt: |
   You are an expert defensive security analyst specializing in:
   - Threat detection and hunting (SIEM, EDR, NDR analysis)

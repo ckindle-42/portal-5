@@ -1,10 +1,10 @@
 """
-TTS MCP Server
-Wraps Fish Speech or CosyVoice for local text-to-speech.
-Exposes: speak, clone_voice, list_voices
+TTS MCP Server — Portal 5.0
 
-Requires: Fish Speech (recommended) or CosyVoice
-Start with: python -m mcp.generation.tts_mcp
+Primary backend: kokoro-onnx (zero-setup, pip-installable, Apache 2.0)
+Optional backend: fish-speech (higher quality voice cloning, manual install)
+
+Kokoro models downloaded automatically on first use from HuggingFace (~200MB).
 """
 
 import asyncio
@@ -16,32 +16,71 @@ from starlette.responses import JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
+logger = logging.getLogger(__name__)
 mcp = FastMCP("tts-generation")
+
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+TTS_BACKEND = os.getenv("TTS_BACKEND", "kokoro")  # kokoro | fish_speech
+TTS_VOICE = os.getenv("TTS_DEFAULT_VOICE", "af_heart")  # Kokoro default voice
+TTS_SPEED = float(os.getenv("TTS_SPEED", "1.0"))
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
-    return JSONResponse({"status": "ok", "service": "tts-mcp"})
+    backend = _get_available_backend()
+    return JSONResponse({
+        "status": "ok",
+        "service": "tts-mcp",
+        "backend": backend,
+        "voice_cloning": _check_fish_speech()[0],
+    })
+
+
+def _check_kokoro() -> tuple[bool, str]:
+    try:
+        import kokoro_onnx  # noqa: F401
+        return True, "kokoro-onnx available"
+    except ImportError:
+        return False, "kokoro-onnx not installed. Run: pip install kokoro-onnx"
+
+
+def _check_fish_speech() -> tuple[bool, str]:
+    try:
+        import fish_speech  # noqa: F401
+        return True, "fish-speech available"
+    except ImportError:
+        return False, "fish-speech not installed (voice cloning unavailable)"
+
+
+def _get_available_backend() -> str:
+    if TTS_BACKEND == "fish_speech" and _check_fish_speech()[0]:
+        return "fish_speech"
+    if _check_kokoro()[0]:
+        return "kokoro"
+    return "none"
 
 
 # Tool manifest for discovery
 TOOLS_MANIFEST = [
     {
         "name": "speak",
-        "description": "Convert text to speech using Fish Speech or CosyVoice",
+        "description": "Convert text to speech. Returns path to generated audio file.",
         "parameters": {
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to speak"},
+                "text": {"type": "string", "description": "The text to convert to speech"},
                 "voice": {
                     "type": "string",
-                    "description": "Voice name (e.g., female_zhang, male_yun)",
-                    "default": "female_zhang",
+                    "description": "Voice name (kokoro: af_heart, af_sky, am_adam, bf_emma, bm_george)",
+                    "default": "af_heart",
                 },
+                "speed": {"type": "number", "description": "Speech rate (0.5-2.0, default 1.0)", "default": 1.0},
                 "backend": {
                     "type": "string",
-                    "description": "TTS backend (fish_speech or cosyvoice)",
-                    "default": "fish_speech",
+                    "description": "Force specific backend: 'kokoro' or 'fish_speech'",
+                    "default": "",
                 },
             },
             "required": ["text"],
@@ -49,22 +88,19 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "clone_voice",
-        "description": "Clone a voice from reference audio",
+        "description": "Clone a voice from reference audio and speak text with it. Requires fish-speech to be installed.",
         "parameters": {
             "type": "object",
             "properties": {
-                "reference_audio": {
-                    "type": "string",
-                    "description": "Path to reference audio file",
-                },
-                "text": {"type": "string", "description": "Text to speak with cloned voice"},
+                "reference_audio": {"type": "string", "description": "Path to 5-30 second reference audio file"},
+                "text": {"type": "string", "description": "Text to speak with the cloned voice"},
             },
             "required": ["reference_audio", "text"],
         },
     },
     {
         "name": "list_voices",
-        "description": "List available TTS voices",
+        "description": "List available voices for text-to-speech.",
         "parameters": {"type": "object", "properties": {}},
     },
 ]
@@ -75,117 +111,80 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
-logger = logging.getLogger(__name__)
-
-OUTPUT_DIR = Path(os.getenv("GENERATED_FILES_DIR", "data/generated"))
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-TTS_BACKEND = os.getenv("TTS_BACKEND", "fish_speech")  # "fish_speech" or "cosyvoice"
-
-# Fish Speech voice presets
-FISH_SPEECH_VOICES = {
-    "female_zhang": "Female Chinese (Zhang)",
-    "female_ning": "Female Chinese (Ning)",
-    "male_yun": "Male Chinese (Yun)",
-    "male_tian": "Male Chinese (Tian)",
-    "english_alice": "English (Alice)",
-    "english_marcus": "English (Marcus)",
-    "japanese_yuki": "Japanese (Yuki)",
-}
-
-# CosyVoice voice presets (fallback)
-COSYVOICE_SPEAKERS = {
-    "中文女": "Chinese female",
-    "中文男": "Chinese male",
-    "英文女": "English female",
-    "英文男": "English male",
-    "日文女": "Japanese female",
-    "日文男": "Japanese male",
-}
-
-
-def _check_fish_speech() -> tuple[bool, str]:
-    """Check if Fish Speech is available."""
-    try:
-        import fish_speech  # noqa: F401
-
-        return True, ""
-    except ImportError:
-        return False, "Fish Speech not installed. See: https://github.com/fishaudio/fish-speech"
-
-
-def _check_cosyvoice() -> tuple[bool, str]:
-    """Check if CosyVoice is available."""
-    try:
-        import cosyvoice  # noqa: F401
-        import torchaudio  # noqa: F401
-
-        return True, ""
-    except ImportError:
-        return False, "CosyVoice not installed. Run: pip install cosyvoice torchaudio"
-
-
 @mcp.tool()
 async def speak(
     text: str,
-    voice: str = "female_zhang",
+    voice: str = "",
     speed: float = 1.0,
-    output_format: str = "wav",
+    backend: str = "",
 ) -> dict:
     """
-    Generate speech from text using Fish Speech (or CosyVoice fallback).
-
-    Fish Speech is a modern TTS engine with high quality and MPS support.
-    Runs efficiently on Apple Silicon M4.
+    Convert text to speech. Returns path to generated audio file.
 
     Args:
-        text: Text to synthesize into speech
-        voice: Voice preset (default: female_zhang)
-        speed: Speech speed multiplier (default: 1.0, range 0.5-2.0)
-        output_format: Audio format — wav or mp3 (default: wav)
+        text: The text to convert to speech
+        voice: Voice name (kokoro: af_heart, af_sky, am_adam, bf_emma, bm_george)
+        speed: Speech rate (0.5-2.0, default 1.0)
+        backend: Force specific backend: 'kokoro' or 'fish_speech'
     """
-    if TTS_BACKEND == "cosyvoice":
-        return await _speak_cosyvoice(text, voice, output_format)
-    else:
-        return await _speak_fish_speech(text, voice, speed, output_format)
+    use_backend = backend or TTS_BACKEND
+    use_voice = voice or TTS_VOICE
+    use_speed = speed or TTS_SPEED
 
+    # Try kokoro first (zero-setup), fall back if explicitly requesting fish_speech
+    if use_backend == "fish_speech":
+        available, error = _check_fish_speech()
+        if not available:
+            return {"error": f"fish-speech not available: {error}. Using kokoro instead.",
+                    "suggestion": "Install fish-speech or use backend='kokoro'"}
+        return await _speak_fish_speech(text, use_voice, use_speed)
 
-async def _speak_fish_speech(
-    text: str,
-    voice: str,
-    speed: float,
-    output_format: str,
-) -> dict:
-    """Generate speech using Fish Speech."""
-    available, error = _check_fish_speech()
+    # Default: kokoro-onnx
+    available, error = _check_kokoro()
     if not available:
-        # Fall back to CosyVoice
-        logger.warning("Fish Speech not available, falling back to CosyVoice")
-        return await _speak_cosyvoice(text, voice, output_format)
+        return {"error": f"kokoro-onnx not available: {error}",
+                "install": "pip install kokoro-onnx"}
 
+    return await _speak_kokoro(text, use_voice, use_speed)
+
+
+async def _speak_kokoro(text: str, voice: str, speed: float) -> dict:
+    """Generate speech using kokoro-onnx."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _kokoro_sync, text, voice, speed)
+
+
+def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
     try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            _fish_speech_sync,
-            text,
-            voice,
-            speed,
-            output_format,
-        )
-        return result
+        import soundfile as sf
+        from kokoro_onnx import Kokoro
+
+        # Kokoro downloads model on first use (~200MB)
+        kokoro = Kokoro("kokoro-v1.0.onnx", "voices-v1.0.bin")
+        samples, sample_rate = kokoro.create(text, voice=voice, speed=speed, lang="en-us")
+
+        output_path = OUTPUT_DIR / f"tts_{hash(text) & 0xFFFFFF}.wav"
+        sf.write(str(output_path), samples, sample_rate)
+
+        return {
+            "status": "success",
+            "file_path": str(output_path),
+            "backend": "kokoro",
+            "voice": voice,
+            "duration_estimate": f"{len(text) / 15:.1f}s",
+        }
     except Exception as e:
-        logger.exception("Fish Speech generation failed")
-        return {"success": False, "error": str(e)}
+        logger.error("Kokoro TTS error: %s", e)
+        return {"error": str(e), "backend": "kokoro"}
 
 
-def _fish_speech_sync(
-    text: str,
-    voice: str,
-    speed: float,
-    output_format: str,
-) -> dict:
-    """Synchronous Fish Speech generation."""
+async def _speak_fish_speech(text: str, voice: str, speed: float) -> dict:
+    """Generate speech using fish-speech."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _fish_speech_sync, text, voice, speed)
+
+
+def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
     try:
         from fish_speech.models import Text2Speech
         from fish_speech.utils import get_audio
@@ -199,254 +198,95 @@ def _fish_speech_sync(
         logger.info("Generating speech for: %s", text[:50])
         audio = tts.generate(text, speaker_id=voice, speed=speed)
 
-        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in text[:30]).strip("_")
-        output_file = OUTPUT_DIR / f"tts_{safe_name}.{output_format}"
-
-        # Save audio
-        get_audio(audio).save(str(output_file))
+        output_path = OUTPUT_DIR / f"tts_{hash(text) & 0xFFFFFF}.wav"
+        get_audio(audio).save(str(output_path))
 
         return {
-            "success": True,
-            "path": str(output_file),
-            "format": output_format,
-            "voice": voice,
-            "speed": speed,
+            "status": "success",
+            "file_path": str(output_path),
             "backend": "fish_speech",
+            "voice": voice,
         }
     except Exception as e:
         logger.error("Fish Speech generation failed: %s", e)
-        return {"success": False, "error": str(e)}
-
-
-async def _speak_cosyvoice(text: str, voice: str, output_format: str) -> dict:
-    """Generate speech using CosyVoice (fallback)."""
-    available, error = _check_cosyvoice()
-    if not available:
-        return {
-            "success": False,
-            "error": f"Neither Fish Speech nor CosyVoice available. Fish Speech: {error}",
-        }
-
-    valid_voices = list(COSYVOICE_SPEAKERS.keys())
-    if voice not in valid_voices:
-        voice = valid_voices[0]  # Default to first voice
-
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            _cosyvoice_sync,
-            text,
-            voice,
-            output_format,
-        )
-        return result
-    except Exception as e:
-        logger.exception("CosyVoice generation failed")
-        return {"success": False, "error": str(e)}
-
-
-def _cosyvoice_sync(text: str, voice: str, output_format: str) -> dict:
-    """Synchronous CosyVoice generation."""
-    try:
-        import torchaudio
-        from cosyvoice.cli.cosyvoice import CosyVoice
-
-        output_file = OUTPUT_DIR / f"tts_{hash(text) % 10000}.wav"
-
-        logger.info("Loading CosyVoice model...")
-        cosyvoice = CosyVoice("pretrained_models/CosyVoice-300M-SFT")
-
-        logger.info("Generating speech for: %s", text[:50])
-        for output in cosyvoice.inference_sft(text, voice):
-            torchaudio.save(str(output_file), output["tts_speech"], 22050)
-            break
-
-        if output_file.exists():
-            return {
-                "success": True,
-                "path": str(output_file),
-                "format": "wav",
-                "voice": voice,
-                "backend": "cosyvoice",
-            }
-        return {"success": False, "error": "Audio file not created"}
-
-    except Exception as e:
-        logger.error("CosyVoice generation failed: %s", e)
-        return {"success": False, "error": str(e)}
+        return {"error": str(e), "backend": "fish_speech"}
 
 
 @mcp.tool()
 async def clone_voice(
+    reference_audio: str,
     text: str,
-    reference_audio_path: str,
 ) -> dict:
     """
-    Clone voice from reference audio and generate speech.
-
-    Uses zero-shot voice cloning (Fish Speech) or CosyVoice fallback.
+    Clone a voice from reference audio and speak text with it.
+    Requires fish-speech to be installed (advanced feature).
 
     Args:
-        text: Text to synthesize
-        reference_audio_path: Path to reference audio file (5-30 seconds)
+        reference_audio: Path to 5-30 second reference audio file
+        text: Text to speak with the cloned voice
     """
-    ref_path = Path(reference_audio_path)
-    if not ref_path.exists():
-        return {"success": False, "error": f"Reference audio not found: {reference_audio_path}"}
-
-    if TTS_BACKEND == "cosyvoice" or TTS_BACKEND == "cosyvoice_fallback":
-        return await _clone_cosyvoice(text, reference_audio_path)
-    else:
-        return await _clone_fish_speech(text, reference_audio_path)
+    available, error = _check_fish_speech()
+    if not available:
+        return {
+            "error": "Voice cloning requires fish-speech",
+            "status": "unavailable",
+            "install_docs": "See docs/FISH_SPEECH_SETUP.md",
+            "alternative": "Use speak() tool with built-in kokoro voices",
+        }
+    return await _clone_fish_speech(text, reference_audio)
 
 
 async def _clone_fish_speech(text: str, reference_audio_path: str) -> dict:
-    """Clone voice using Fish Speech."""
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            _fish_clone_sync,
-            text,
-            reference_audio_path,
-        )
-        return result
-    except Exception:
-        logger.exception("Fish Speech voice cloning failed")
-        # Fall back to CosyVoice
-        return await _clone_cosyvoice(text, reference_audio_path)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _fish_clone_sync, text, reference_audio_path)
 
 
 def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
-    """Synchronous Fish Speech voice cloning."""
     try:
         from fish_speech.models import Text2Speech
         from fish_speech.utils import get_audio, load_audio
 
-        logger.info("Loading Fish Speech model for cloning...")
-        tts = Text2Speech.load_from_checkpoint(
-            checkpoint_path="models/fish_speech/fish-speech-1.4",
+        model = Text2Speech.from_pretrained(
+            "models/fish_speech/fish-speech-1.4",
             device="mps",
         )
+        ref_audio, ref_sr = load_audio(reference_audio_path)
+        audio = get_audio(model, text, reference=ref_audio)
 
-        # Load reference audio
-        reference = load_audio(reference_audio_path, 32000)
+        output_path = OUTPUT_DIR / f"clone_{hash(text) & 0xFFFFFF}.wav"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Cloning voice and generating: %s", text[:50])
-        audio = tts.generate(text, reference_audio=reference)
-
-        safe_name = f"clone_{hash(text) % 10000}"
-        output_file = OUTPUT_DIR / f"{safe_name}.wav"
-
-        get_audio(audio).save(str(output_file))
-
-        return {
-            "success": True,
-            "path": str(output_file),
-            "format": "wav",
-            "reference": reference_audio_path,
-            "backend": "fish_speech",
-        }
+        import soundfile as sf
+        sf.write(str(output_path), audio, 24000)
+        return {"status": "success", "file_path": str(output_path), "backend": "fish_speech"}
     except Exception as e:
-        logger.error("Fish Speech cloning failed: %s", e)
-        return {"success": False, "error": str(e)}
-
-
-async def _clone_cosyvoice(text: str, reference_audio_path: str) -> dict:
-    """Clone voice using CosyVoice."""
-    available, error = _check_cosyvoice()
-    if not available:
-        return {"success": False, "error": f"Voice cloning requires CosyVoice: {error}"}
-
-    try:
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            _cosyvoice_clone_sync,
-            text,
-            reference_audio_path,
-        )
-        return result
-    except Exception as e:
-        logger.exception("CosyVoice voice cloning failed")
-        return {"success": False, "error": str(e)}
-
-
-def _cosyvoice_clone_sync(text: str, reference_audio_path: str) -> dict:
-    """Synchronous CosyVoice voice cloning."""
-    try:
-        import torchaudio
-        from cosyvoice.cli.cosyvoice import CosyVoice
-
-        output_file = OUTPUT_DIR / f"clone_{hash(text) % 10000}.wav"
-
-        logger.info("Loading CosyVoice model for cloning...")
-        cosyvoice = CosyVoice("pretrained_models/CosyVoice-300M-ZeroShot")
-
-        # Load reference audio
-        reference, sr = torchaudio.load(reference_audio_path)
-        if sr != 22050:
-            import torchaudio.functional as functional
-
-            reference = functional.resample(reference, sr, 22050)
-
-        logger.info("Cloning voice and generating: %s", text[:50])
-        for output in cosyvoice.inference_zero_shot(text, reference, "中文女"):
-            torchaudio.save(str(output_file), output["tts_speech"], 22050)
-            break
-
-        if output_file.exists():
-            return {
-                "success": True,
-                "path": str(output_file),
-                "format": "wav",
-                "reference": reference_audio_path,
-                "backend": "cosyvoice",
-            }
-        return {"success": False, "error": "Audio file not created"}
-
-    except Exception as e:
-        logger.error("CosyVoice cloning failed: %s", e)
-        return {"success": False, "error": str(e)}
+        return {"error": str(e), "backend": "fish_speech"}
 
 
 @mcp.tool()
 async def list_voices() -> dict:
-    """
-    List available TTS voices.
+    """List available voices for text-to-speech."""
+    kokoro_available, _ = _check_kokoro()
+    fish_available, _ = _check_fish_speech()
 
-    Returns voices for the configured backend (Fish Speech or CosyVoice).
-    """
-    if TTS_BACKEND == "cosyvoice":
-        return {
-            "backend": "cosyvoice",
-            "voices": COSYVOICE_SPEAKERS,
+    voices = {}
+    if kokoro_available:
+        voices["kokoro"] = {
+            "female_american": ["af_heart", "af_sky", "af_bella", "af_nicole", "af_sarah"],
+            "male_american": ["am_adam", "am_michael"],
+            "female_british": ["bf_emma", "bf_isabella"],
+            "male_british": ["bm_george", "bm_lewis"],
         }
-    else:
-        # Check Fish Speech availability
-        available, _ = _check_fish_speech()
-        if available:
-            return {
-                "backend": "fish_speech",
-                "voices": FISH_SPEECH_VOICES,
-                "note": "Fish Speech requires models at models/fish_speech/",
-            }
-        else:
-            # Show both with note
-            return {
-                "backend": "fish_speech_unavailable",
-                "fish_speech": {
-                    "available": False,
-                    "voices": FISH_SPEECH_VOICES,
-                    "install": "https://github.com/fishaudio/fish-speech",
-                },
-                "cosyvoice_fallback": {
-                    "available": True,
-                    "voices": COSYVOICE_SPEAKERS,
-                },
-                "current_backend": "cosyvoice (fallback active)",
-            }
+    if fish_available:
+        voices["fish_speech"] = ["female_zhang", "male_yun", "custom (from reference audio)"]
+
+    return {
+        "available_backends": list(voices.keys()),
+        "voices": voices,
+        "default_backend": _get_available_backend(),
+        "default_voice": TTS_VOICE,
+        "voice_cloning": fish_available,
+    }
 
 
 if __name__ == "__main__":

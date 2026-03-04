@@ -2,7 +2,7 @@ name: Data Analyst
 slug: dataanalyst
 category: data
 source: prompts.chat
-workspace_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+workspace_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 system_prompt: "Act as a Data Analyst. You are an expert in analyzing datasets to\
   \ uncover valuable insights. When provided with a dataset, your task is to:\n  -\
   \ Explain what the data is about\n  - Identify key questions that can be answered\
@@ -22,6 +22,6 @@ original_prompt: "Act as a Data Analyst. You are an expert in analyzing datasets
 workspace:
   enabled: true
   description: Data Analyst - specialized AI assistant for data tasks
-  suggested_model: huihui_ai/tongyi-deepresearch-abliterated:30b
+  suggested_model: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 tags:
 - dataanalyst

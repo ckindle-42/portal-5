@@ -370,6 +370,58 @@ def configure_user_settings(client: httpx.Client, token: str) -> None:
     print(f"        {OPENWEBUI_URL}/admin/users")
 
 
+def configure_audio_settings(client: httpx.Client, token: str) -> None:
+    """Configure Open WebUI to use Portal TTS for native voice output."""
+    print("\nConfiguring audio settings...")
+    # Open WebUI can use any OpenAI-compatible TTS endpoint
+    # mcp-tts exposes /v1/audio/speech compatible endpoint
+    try:
+        resp = client.post(
+            f"{OPENWEBUI_URL}/api/v1/configs/audio",
+            json={
+                "tts_engine": "openai",
+                "tts_openai_api_base_url": "http://mcp-tts:8916",
+                "tts_openai_api_key": "portal-tts",
+                "tts_model": "kokoro",
+                "tts_voice": "af_heart",
+                "stt_engine": "openai",
+                "stt_openai_api_base_url": "http://mcp-whisper:8915",
+                "stt_openai_api_key": "portal-whisper",
+            },
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code in (200, 201):
+            print("  Audio (TTS/STT) configured to use Portal MCP servers")
+        else:
+            print(f"  Warning: audio config returned HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"  Warning: audio config failed: {e}")
+
+
+def configure_tool_settings(client: httpx.Client, token: str) -> None:
+    """Configure Open WebUI tool calling settings for all users."""
+    print("\nConfiguring tool settings...")
+    try:
+        # Enable native function calling mode globally
+        resp = client.post(
+            f"{OPENWEBUI_URL}/api/v1/configs/features",
+            json={
+                "enable_tools": True,
+                "native_tool_calling": True,
+                "tool_call_mode": "native",
+            },
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code in (200, 201):
+            print("  Tool calling enabled: native mode")
+        else:
+            print(f"  Warning: tool config HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"  Warning: tool config failed: {e}")
+
+
 # --- Main ---------------------------------------------------------------------
 
 
@@ -397,6 +449,8 @@ def main() -> int:
     register_tool_servers(client, token)
     create_workspaces(client, token)
     configure_user_settings(client, token)
+    configure_audio_settings(client, token)
+    configure_tool_settings(client, token)
     create_persona_presets(client, token, PERSONAS_DIR)
 
     print("\nPortal Open WebUI initialization complete")

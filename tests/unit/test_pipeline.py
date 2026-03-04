@@ -219,3 +219,43 @@ class TestPipelineAPI:
         )
         # Either 503 (no backends) or 502 (backend error) are acceptable
         assert resp.status_code in (503, 502)
+
+
+class TestMetricsEndpoint:
+    def test_metrics_endpoint_returns_200(self, client):
+        resp = client.get("/metrics")
+        assert resp.status_code == 200
+
+    def test_metrics_contains_required_gauges(self, client):
+        resp = client.get("/metrics")
+        content = resp.text
+        assert "portal_backends_healthy" in content
+        assert "portal_workspaces_total" in content
+        assert "portal_uptime_seconds" in content
+
+    def test_metrics_workspace_count_correct(self, client):
+        resp = client.get("/metrics")
+        assert f"portal_workspaces_total {len(WORKSPACES)}" in resp.text
+
+
+class TestWorkspaceModelHintUpdated:
+    """Verify model hints use the updated recs.md models."""
+
+    def test_security_uses_baronllm(self):
+        ws = WORKSPACES.get("auto-security", {})
+        assert "baronllm" in ws.get("model_hint", "").lower() or \
+               "baron" in ws.get("model_hint", "").lower() or \
+               "xploiter" in ws.get("model_hint", "").lower(), \
+               "Security workspace should use a dedicated security model"
+
+    def test_coding_uses_qwen_or_glm(self):
+        ws = WORKSPACES.get("auto-coding", {})
+        hint = ws.get("model_hint", "").lower()
+        assert "qwen" in hint or "glm" in hint or "deepseek" in hint, \
+               "Coding workspace should use a specialized coding model"
+
+    def test_reasoning_uses_deepseek_or_tongyi(self):
+        ws = WORKSPACES.get("auto-reasoning", {})
+        hint = ws.get("model_hint", "").lower()
+        assert "deepseek" in hint or "tongyi" in hint or "r1" in hint, \
+               "Reasoning workspace should use a deep reasoning model"

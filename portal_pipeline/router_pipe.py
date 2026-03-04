@@ -17,11 +17,16 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from portal_pipeline.cluster_backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
+
+# Basic Prometheus-compatible metrics counter
+_request_count: dict[str, int] = {}
+_request_errors: int = 0
+_startup_time = time.time()
 
 # Canonical workspace definitions — must match backends.yaml workspace_routing keys
 # model_hint: preferred Ollama model tag within the routed backend group
@@ -39,17 +44,17 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
-        "model_hint": "xploiter/the-xploiter",
+        "model_hint": "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
     },
     "auto-redteam": {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
-        "model_hint": "xploiter/the-xploiter",
+        "model_hint": "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
-        "model_hint": "huihui_ai/baronllm-abliterated",
+        "model_hint": "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF",
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
@@ -59,7 +64,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
-        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated:30b",
+        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
@@ -79,7 +84,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-research": {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
-        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated:30b",
+        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -89,7 +94,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-data": {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
-        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated:30b",
+        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
     },
 }
 
@@ -145,6 +150,38 @@ async def health() -> dict:
     }
 
 
+@app.get("/metrics")
+async def metrics() -> PlainTextResponse:
+    """Prometheus-compatible metrics endpoint."""
+    uptime = time.time() - _startup_time
+    lines = [
+        "# HELP portal_requests_total Total requests by workspace",
+        "# TYPE portal_requests_total counter",
+    ]
+    for ws_id, count in _request_count.items():
+        lines.append(f'portal_requests_total{{workspace="{ws_id}"}} {count}')
+
+    assert registry is not None
+    healthy = len(registry.list_healthy_backends())
+    total = len(registry.list_backends())
+
+    lines += [
+        "# HELP portal_backends_healthy Number of healthy backends",
+        "# TYPE portal_backends_healthy gauge",
+        f"portal_backends_healthy {healthy}",
+        "# HELP portal_backends_total Total registered backends",
+        "# TYPE portal_backends_total gauge",
+        f"portal_backends_total {total}",
+        "# HELP portal_uptime_seconds Process uptime in seconds",
+        "# TYPE portal_uptime_seconds gauge",
+        f"portal_uptime_seconds {uptime:.1f}",
+        "# HELP portal_workspaces_total Number of configured workspaces",
+        "# TYPE portal_workspaces_total gauge",
+        f"portal_workspaces_total {len(WORKSPACES)}",
+    ]
+    return PlainTextResponse("\n".join(lines) + "\n")
+
+
 @app.get("/v1/models")
 async def list_models(authorization: str | None = Header(None)) -> dict:
     _verify_key(authorization)
@@ -185,6 +222,9 @@ async def chat_completions(
         body = await request.json()
     workspace_id = body.get("model", "auto")
     stream = body.get("stream", True)
+
+    # Increment request counter for this workspace
+    _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
 
     # Select backend
     backend = registry.get_backend_for_workspace(workspace_id)

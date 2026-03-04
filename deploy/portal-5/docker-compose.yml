@@ -44,6 +44,7 @@ services:
         echo '=== Portal 5: Pulling core models ===' &&
         ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
         ollama pull llama3.2:3b-instruct-q4_K_M &&
+        ollama pull nomic-embed-text:latest &&
         echo '=== Core models ready ===' &&
         echo 'Run: ./launch.sh pull-models  to pull all specialized models'
       "
@@ -93,10 +94,33 @@ services:
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
 
-      # ── Image generation (host-side ComfyUI) ────────────────────────────────
+      # ── Image generation (ComfyUI in Docker) ────────────────────────────────
       - ENABLE_IMAGE_GENERATION=True
       - IMAGE_GENERATION_ENGINE=comfyui
-      - COMFYUI_BASE_URL=http://host.docker.internal:8188
+      - COMFYUI_BASE_URL=http://comfyui:8188
+
+      # ── Web Search (SearXNG) ─────────────────────────────────────────────────
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>&format=json&language=en
+      - RAG_WEB_SEARCH_RESULT_COUNT=5
+      - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10
+
+      # ── RAG / Knowledge Base ────────────────────────────────────────────────
+      # Uses Ollama for embeddings (local, no external API)
+      - RAG_EMBEDDING_ENGINE=ollama
+      - RAG_OLLAMA_BASE_URL=http://ollama:11434
+      - RAG_EMBEDDING_MODEL=nomic-embed-text:latest
+      - ENABLE_RAG_LOCAL_WEB_FETCH=true
+      - RAG_RERANKING_MODEL=
+      - CHUNK_SIZE=1500
+      - CHUNK_OVERLAP=100
+      - PDF_EXTRACT_IMAGES=true
+      - ENABLE_RAG_HYBRID_SEARCH=true
+
+      # ── Cross-Session Memory ────────────────────────────────────────────────
+      - ENABLE_MEMORY_FEATURE=true
+      - MEMORY_EMBEDDING_MODEL=nomic-embed-text:latest
 
       # ── Authentication & Session Security ───────────────────────────────────
       - WEBUI_AUTH=true
@@ -135,6 +159,8 @@ services:
     depends_on:
       portal-pipeline:
         condition: service_healthy
+      searxng:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -214,7 +240,7 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── MCP: Text-to-Speech (Fish Speech / CosyVoice) ────────────────────────
+  # ── MCP: Text-to-Speech (Kokoro / Fish Speech) ────────────────────────────
   mcp-tts:
     build:
       context: ../..
@@ -226,7 +252,8 @@ services:
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
-      - TTS_BACKEND=${TTS_BACKEND:-fish_speech}
+      - TTS_BACKEND=${TTS_BACKEND:-kokoro}
+      - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
       - OUTPUT_DIR=/app/data/generated
       - HF_HOME=/app/data/hf_cache
     command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
@@ -307,7 +334,7 @@ services:
       retries: 3
     # NO docker.sock mount
 
-  # ── MCP: ComfyUI Bridge (image/video via host ComfyUI) ────────────────────
+  # ── MCP: ComfyUI Bridge (image/video via ComfyUI in Docker) ───────────────
   mcp-comfyui:
     build:
       context: ../..
@@ -319,10 +346,11 @@ services:
     environment:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
-      - COMFYUI_URL=http://host.docker.internal:8188
+      - COMFYUI_URL=http://comfyui:8188
     command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      comfyui:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8910/health"]
       interval: 30s
@@ -342,11 +370,12 @@ services:
     environment:
       - VIDEO_MCP_PORT=8911
       - MCP_PORT=8911
-      - COMFYUI_URL=http://host.docker.internal:8188
+      - COMFYUI_URL=http://comfyui:8188
       - OUTPUT_DIR=/app/data/generated
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      comfyui:
+        condition: service_healthy
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
     healthcheck:
@@ -371,8 +400,122 @@ services:
   #     portal-pipeline:
   #       condition: service_healthy
 
+  # ── SearXNG — Self-hosted privacy-respecting web search ──────────────────
+  searxng:
+    image: searxng/searxng:latest
+    container_name: portal5-searxng
+    restart: unless-stopped
+    ports:
+      - "8088:8080"
+    volumes:
+      - ../../config/searxng:/etc/searxng:rw
+      - searxng-data:/var/lib/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8088/
+      - INSTANCE_NAME=Portal5 Search
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # ── ComfyUI — Image and Video Generation Engine ───────────────────────────
+  # Uses CPU by default (works everywhere). Enable GPU profile for CUDA.
+  # Models are downloaded by comfyui-model-init on first start.
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui:latest-cpu
+    container_name: portal5-comfyui
+    restart: unless-stopped
+    ports:
+      - "8188:8188"
+    volumes:
+      - comfyui-models:/opt/ComfyUI/models
+      - comfyui-output:/opt/ComfyUI/output
+      - ../../config/comfyui/workflows:/opt/ComfyUI/workflows:ro
+    environment:
+      - COMFYUI_EXTRA_ARGS=--listen 0.0.0.0 --port 8188
+      - CF_TORCH_DEVICE=${CF_TORCH_DEVICE:-cpu}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      interval: 30s
+      timeout: 15s
+      start_period: 120s
+      retries: 5
+
+  # ── ComfyUI Model Init — downloads image/video models on first run ─────────
+  comfyui-model-init:
+    image: python:3.11-slim
+    container_name: portal5-comfyui-init
+    restart: "no"
+    depends_on:
+      comfyui:
+        condition: service_healthy
+    volumes:
+      - comfyui-models:/models
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - IMAGE_MODEL=${IMAGE_MODEL:-flux-schnell}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "pip install huggingface_hub --quiet && python3 -c 'import os; from huggingface_hub import hf_hub_download; hf_token = os.environ.get(\"HF_TOKEN\", \"\"); model = os.environ.get(\"IMAGE_MODEL\", \"flux-schnell\"); models_dir = \"/models/checkpoints\"; os.makedirs(models_dir, exist_ok=True); [print(f\"Downloading {model}...\") or hf_hub_download(repo_id=\"black-forest-labs/FLUX.1-schnell\" if model == \"flux-schnell\" else \"stabilityai/stable-diffusion-xl-base-1.0\", filename=\"flux1-schnell.safetensors\" if model == \"flux-schnell\" else \"sd_xl_base_1.0.safetensors\", local_dir=models_dir, token=hf_token if hf_token else None) for _ in [1]]; print(\"Done\")' || echo 'Model download skipped'"
+
+  # ── Prometheus — Metrics collection ──────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: portal5-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Grafana — Metrics dashboards ────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: portal5-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../../config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-CHANGEME}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   ollama-models:       # Ollama model weights — survives docker compose down
   open-webui-data:     # Open WebUI database — wipe with ./launch.sh clean
   portal5-hf-cache:    # HuggingFace model cache (music, TTS, whisper)
   dind-storage:        # DinD persistent storage
+  searxng-data:        # SearXNG data
+  comfyui-models:      # ComfyUI model weights
+  comfyui-output:      # ComfyUI generated images/videos
+  prometheus-data:     # Prometheus metrics data
+  grafana-data:        # Grafana dashboards/data

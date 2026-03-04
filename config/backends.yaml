@@ -3,24 +3,25 @@
 # After editing: docker compose restart portal-pipeline
 
 backends:
-  # ── General (default fast model, function calling, creative) ───────────────
+  # ── General (fast default, function calling, creative) ─────────────────────
   - id: ollama-general
     type: ollama
     url: "http://ollama:11434"
     group: general
     models:
-      - dolphin-llama3:8b        # Primary: fast, uncensored, function calling
-      - llama3.2:3b-instruct-q4_K_M  # Fallback: ultra fast for routing/classify
+      - dolphin-llama3:8b              # Default: fast, uncensored, strong function calling
+      - llama3.2:3b-instruct-q4_K_M   # Ultra-fast fallback for routing
 
-  # ── Coding (specialized code models) ──────────────────────────────────────
+  # ── Coding (code generation, debugging, architecture) ─────────────────────
   - id: ollama-coding
     type: ollama
     url: "http://ollama:11434"
     group: coding
     models:
-      - qwen3-coder-next:30b-q5  # Primary: best local code model
-      - devstral:24b              # Secondary: agentic code
-      - deepseek-coder:16b-instruct-q4_K_M  # Tertiary: fast code
+      - qwen3-coder-next:30b-q5                     # Best: agentic, Splunk/BigFix/PPT
+      - unsloth/GLM-4.7-Flash                        # Fast MoE, PowerShell/C#/SQL
+      - deepseek-ai/DeepSeek-Coder-V2-Lite-Base:16b # Splunk SPL specialist
+      - devstral:24b                                  # Agentic dev workflows
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security
@@ -28,18 +29,22 @@ backends:
     url: "http://ollama:11434"
     group: security
     models:
-      - xploiter/the-xploiter                         # Red team primary
-      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0  # Pentest
-      - huihui_ai/baronllm-abliterated               # Blue team / defense
+      - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive
+      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Fast: balanced red/blue
+      - xploiter/the-xploiter                                                          # Fast: pentest
+      - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research
+      - huihui_ai/baronllm-abliterated                                                # Uncensored general security
+      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN
 
-  # ── Reasoning / Research / Data ──────────────────────────────────────────
+  # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
     type: ollama
     url: "http://ollama:11434"
     group: reasoning
     models:
-      - huihui_ai/tongyi-deepresearch-abliterated:30b  # Deep research, analysis
-      - dolphin-llama3:70b                              # Large general (if RAM allows)
+      - hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF      # NEW: deep reasoning, ~16GB
+      - huihui_ai/tongyi-deepresearch-abliterated:30b # Research synthesis
+      - dolphin-llama3:8b                              # Fast fallback
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
@@ -47,35 +52,26 @@ backends:
     url: "http://ollama:11434"
     group: vision
     models:
-      - qwen3-omni:30b   # Best local multimodal
-      - llava:7b          # Lightweight vision fallback
+      - qwen3-omni:30b    # Best: multimodal, vision + audio understanding
+      - llava:7b           # Fast: lightweight vision fallback
 
-  # ── Creative ────────────────────────────────────────────────────────────
+  # ── Creative (writing, storytelling) ────────────────────────────────────
   - id: ollama-creative
     type: ollama
     url: "http://ollama:11434"
     group: creative
     models:
-      - dolphin-llama3:8b   # Uncensored, good creative writing
-      - huihui_ai/baronllm-abliterated  # Abliterated, no restrictions
+      - dolphin-llama3:8b                # Uncensored, strong creative
+      - huihui_ai/baronllm-abliterated   # No restrictions creative
 
-  # ── FUTURE CLUSTER NODES (uncomment as Mac Studios are added) ─────────────
-  # Stage 2: Second Mac Studio
+  # ── FUTURE CLUSTER NODES ─────────────────────────────────────────────────
+  # Uncomment and update URL as Mac Studios are added:
   # - id: ollama-node-2
   #   type: ollama
   #   url: "http://192.168.1.102:11434"
   #   group: general
   #   models: [dolphin-llama3:8b]
-  #
-  # Stage 3: vLLM for 70B
-  # - id: vllm-70b
-  #   type: openai_compatible
-  #   url: "http://192.168.1.103:8000"
-  #   group: reasoning
-  #   models: [meta-llama/Llama-3.1-70B-Instruct]
 
-# Workspace → Backend Group routing
-# First group is preferred; falls back down the list if no healthy backend
 workspace_routing:
   auto:           [general]
   auto-coding:    [coding, general]

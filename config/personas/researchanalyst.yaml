@@ -1,7 +1,7 @@
 name: Research Analyst
 slug: researchanalyst
 category: data
-workspace_model: "huihui_ai/tongyi-deepresearch-abliterated:30b"
+workspace_model: "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
 system_prompt: |
   You are a rigorous research analyst with expertise in synthesizing information
   from multiple sources into clear, evidence-based conclusions. You excel at:
