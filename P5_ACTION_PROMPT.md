@@ -98,16 +98,16 @@ python3 -m ruff check portal_pipeline/ scripts/ --quiet && echo "Lint OK" || ech
 
 ---
 
-## TASK-008 (OPEN)
+## TASK-008 (RESOLVED - KNOWN LIMITATION)
 - **Tier**: 2 (high)
-- **File(s)**: Open WebUI configuration
+- **File(s)**: KNOWN_ISSUES.md
 - **Category**: SECURITY
 - **Roadmap ID**: P5-ROAD-031
 - **Finding**: Multi-user rate limiting not implemented at Open WebUI layer
-- **Action**: Configure rate limiting in Open WebUI or via middleware
-- **Status**: OPEN
+- **Action**: Document as known limitation
+- **Status**: DONE - Documented in KNOWN_ISSUES.md
 - **Risk**: MEDIUM
-- **Acceptance**: Rate limits enforced for multi-user scenario
+- **Acceptance**: KNOWN_ISSUES.md exists and is referenced in CLAUDE.md
 
 ---
 

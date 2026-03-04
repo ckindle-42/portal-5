@@ -440,3 +440,7 @@ Models that require `./launch.sh pull-models` (large, optional):
 - Never commit .env
 - Never commit pyproject.toml changes that add cloud/external deps
 - Never modify Open WebUI source code
+
+## Known Limitations
+
+Before adding new tasks or filing issues, check `KNOWN_ISSUES.md` — some items are documented known limitations rather than bugs to fix. AI agents should read this file before proposing new work.
