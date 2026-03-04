@@ -86,6 +86,18 @@ NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
 MAX_OUTPUT_BYTES = 50_000  # 50KB output cap
 
+# DOCKER_HOST — for DinD setups, use tcp://dind:2375
+# The docker CLI automatically reads this env var
+DOCKER_HOST = os.environ.get("DOCKER_HOST", "")
+
+
+def _get_docker_env() -> dict:
+    """Get environment for docker commands, including DOCKER_HOST if set."""
+    env = os.environ.copy()
+    if DOCKER_HOST:
+        env["DOCKER_HOST"] = DOCKER_HOST
+    return env
+
 
 async def _run_in_docker(
     image: str,
@@ -127,6 +139,7 @@ async def _run_in_docker(
             *docker_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=_get_docker_env(),
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -261,6 +274,7 @@ async def sandbox_status() -> dict:
             "info",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=_get_docker_env(),
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
         docker_available = proc.returncode == 0
@@ -269,6 +283,7 @@ async def sandbox_status() -> dict:
 
     return {
         "docker_available": docker_available,
+        "docker_host": DOCKER_HOST or "unix:///var/run/docker.sock",
         "sandbox_enabled": os.getenv("SANDBOX_ENABLED", "false").lower() == "true",
         "python_image": PYTHON_IMAGE,
         "node_image": NODE_IMAGE,

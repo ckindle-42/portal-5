@@ -1,6 +1,4 @@
 """Portal 5.0 Pipeline unit tests — no live backends required."""
-import os
-from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,8 +6,31 @@ from fastapi.testclient import TestClient
 from portal_pipeline.cluster_backends import BackendRegistry
 from portal_pipeline.router_pipe import WORKSPACES, app
 
-CLIENT = TestClient(app)
+
+# Use TestClient with context manager to trigger lifespan
+# Or set up registry before tests
+@pytest.fixture(scope="session", autouse=True)
+def setup_registry():
+    """Initialize registry before tests run."""
+    # Manually create registry for tests
+    reg = BackendRegistry()
+    # Replace module-level registry
+    import portal_pipeline.router_pipe as pipe_module
+
+    pipe_module.registry = reg
+    yield
+    pipe_module.registry = None
+
+
+@pytest.fixture
+def client():
+    """Create a test client with proper lifespan."""
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 HEADERS = {"Authorization": "Bearer portal-pipeline"}
+
 
 @pytest.fixture
 def sample_config(tmp_path):
@@ -113,19 +134,19 @@ defaults:
 
 
 class TestPipelineAPI:
-    def test_health_endpoint(self):
-        resp = CLIENT.get("/health")
+    def test_health_endpoint(self, client):
+        resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert "status" in data
         assert "backends_healthy" in data
 
-    def test_models_requires_auth(self):
-        resp = CLIENT.get("/v1/models")
+    def test_models_requires_auth(self, client):
+        resp = client.get("/v1/models")
         assert resp.status_code == 401
 
-    def test_models_returns_workspaces(self):
-        resp = CLIENT.get("/v1/models", headers=HEADERS)
+    def test_models_returns_workspaces(self, client):
+        resp = client.get("/v1/models", headers=HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         ids = {m["id"] for m in data["data"]}
@@ -134,15 +155,19 @@ class TestPipelineAPI:
         assert "auto-security" in ids
         assert len(ids) == len(WORKSPACES)
 
-    def test_chat_requires_auth(self):
-        resp = CLIENT.post("/v1/chat/completions", json={})
+    def test_chat_requires_auth(self, client):
+        resp = client.post("/v1/chat/completions", json={})
         assert resp.status_code == 401
 
-    def test_chat_no_backends_returns_503_or_502(self):
+    def test_chat_no_backends_returns_503_or_502(self, client):
         # Pipeline has no backends in test env — should return 503 or 502
-        resp = CLIENT.post(
+        resp = client.post(
             "/v1/chat/completions",
-            json={"model": "auto", "messages": [{"role": "user", "content": "hi"}], "stream": False},
+            json={
+                "model": "auto",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+            },
             headers=HEADERS,
         )
         # Either 503 (no backends) or 502 (backend error) are acceptable
