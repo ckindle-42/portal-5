@@ -4,6 +4,7 @@ Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
 Open WebUI connects here as its sole model source.
 Routes by workspace to the appropriate backend + model.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -93,13 +94,19 @@ WORKSPACES: dict[str, dict[str, str]] = {
 }
 
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+
+# Concurrency limiter — prevents Ollama overload when all workers are busy
+_MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
+_request_semaphore: asyncio.Semaphore | None = None
+
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global registry, _health_task
+    global registry, _health_task, _request_semaphore
+    _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     registry = BackendRegistry()
     await registry.health_check_all()
     healthy = registry.list_healthy_backends()
@@ -162,9 +169,20 @@ async def chat_completions(
     authorization: str | None = Header(None),
 ) -> Any:
     _verify_key(authorization)
-    assert registry is not None
 
-    body = await request.json()
+    # Concurrency check — return 503 if server is overloaded
+    assert _request_semaphore is not None
+    if _request_semaphore._value == 0:
+        raise HTTPException(
+            status_code=503,
+            detail="Server busy — too many concurrent requests. Please retry.",
+            headers={"Retry-After": "5"},
+        )
+
+    async with _request_semaphore:
+        assert registry is not None
+
+        body = await request.json()
     workspace_id = body.get("model", "auto")
     stream = body.get("stream", True)
 
@@ -176,7 +194,7 @@ async def chat_completions(
             detail=(
                 "No healthy backends available. "
                 "Ensure Ollama is running and a model is pulled. "
-                f"Check config/backends.yaml."
+                "Check config/backends.yaml."
             ),
         )
 
@@ -191,14 +209,21 @@ async def chat_completions(
         if model_hint and target_model != model_hint:
             logger.debug(
                 "Workspace %s wants %s but backend %s only has %s — using %s",
-                workspace_id, model_hint, backend.id, backend.models, target_model,
+                workspace_id,
+                model_hint,
+                backend.id,
+                backend.models,
+                target_model,
             )
 
     backend_body = {**body, "model": target_model}
 
     logger.info(
         "Routing workspace=%s → backend=%s model=%s stream=%s",
-        workspace_id, backend.id, target_model, stream,
+        workspace_id,
+        backend.id,
+        target_model,
+        stream,
     )
 
     if stream:
