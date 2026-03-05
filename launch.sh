@@ -309,7 +309,7 @@ case "${1:-up}" in
     echo "[portal-5] Backing up Open WebUI data..."
     docker run --rm \
         -v portal-5_open-webui-data:/data \
-        -v "$(pwd)/${BACKUP_PATH}:/backup" \
+        -v "$(realpath "$BACKUP_PATH"):/backup" \
         alpine sh -c "tar czf /backup/openwebui-data.tar.gz /data 2>/dev/null && echo 'Done'" \
         && echo "  ✅ openwebui-data.tar.gz" \
         || echo "  ⚠️  Open WebUI backup failed (is the stack running?)"
@@ -318,7 +318,7 @@ case "${1:-up}" in
     echo "[portal-5] Backing up Grafana data..."
     docker run --rm \
         -v portal-5_grafana-data:/data \
-        -v "$(pwd)/${BACKUP_PATH}:/backup" \
+        -v "$(realpath "$BACKUP_PATH"):/backup" \
         alpine sh -c "tar czf /backup/grafana-data.tar.gz /data 2>/dev/null && echo 'Done'" \
         && echo "  ✅ grafana-data.tar.gz" \
         || echo "  ⚠️  Grafana backup skipped"

@@ -55,6 +55,7 @@ RUN pip install --no-cache-dir \
 
 # Copy application
 COPY portal_mcp/ ./portal_mcp/
+COPY portal_channels/ ./portal_channels/
 
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
 
