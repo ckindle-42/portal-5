@@ -16,24 +16,26 @@ _check_hardware() {
     WARN=0
 
     # RAM check (need ≥16GB, warn below 32GB for full model catalog)
-    if command -v python3 &>/dev/null; then
-        RAM_GB=$(python3 -c "
-import os
-with open('/proc/meminfo') as f:
-    for line in f:
-        if 'MemTotal' in line:
-            print(int(line.split()[1]) // 1024 // 1024)
-            break
-" 2>/dev/null || echo 0)
-        if [ "$RAM_GB" -lt 16 ] 2>/dev/null; then
-            echo "  ⚠️  RAM: ${RAM_GB}GB detected — 16GB minimum required"
-            echo "     Portal 5 may crash or fail to load models"
-            WARN=1
-        elif [ "$RAM_GB" -lt 32 ] 2>/dev/null; then
-            echo "  ℹ️  RAM: ${RAM_GB}GB — enough for core models (32GB+ for full catalog)"
-        else
-            echo "  ✅ RAM: ${RAM_GB}GB"
-        fi
+    # Cross-platform: /proc/meminfo on Linux, sysctl on macOS
+    RAM_GB=0
+    if [ "$(uname -s)" = "Darwin" ]; then
+        # macOS
+        MEM_BYTES=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
+        RAM_GB=$(( MEM_BYTES / 1024 / 1024 / 1024 ))
+    elif [ -f /proc/meminfo ]; then
+        # Linux
+        MEM_KB=$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+        RAM_GB=$(( MEM_KB / 1024 / 1024 ))
+    fi
+
+    if [ "$RAM_GB" -lt 16 ] 2>/dev/null; then
+        echo "  ⚠️  RAM: ${RAM_GB}GB detected — 16GB minimum required"
+        echo "     Portal 5 may crash or fail to load models"
+        WARN=1
+    elif [ "$RAM_GB" -lt 32 ] 2>/dev/null; then
+        echo "  ℹ️  RAM: ${RAM_GB}GB — enough for core models (32GB+ for full catalog)"
+    elif [ "$RAM_GB" -gt 0 ]; then
+        echo "  ✅ RAM: ${RAM_GB}GB"
     fi
 
     # Disk check (need ≥20GB free; FLUX alone is ~12GB)

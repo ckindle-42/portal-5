@@ -8,8 +8,10 @@ Kokoro models downloaded automatically on first use from HuggingFace (~200MB).
 """
 
 import asyncio
+import contextlib
 import logging
 import os
+import time
 from pathlib import Path
 
 from starlette.responses import JSONResponse, Response
@@ -29,8 +31,6 @@ TTS_SPEED = float(os.getenv("TTS_SPEED", "1.0"))
 
 def _cleanup_stale_audio(max_age_hours: int = 1) -> None:
     """Remove TTS audio files older than max_age_hours. Called at startup."""
-    import time
-    import contextlib
     if not OUTPUT_DIR.exists():
         return
     cutoff = time.time() - (max_age_hours * 3600)
@@ -137,7 +137,6 @@ async def openai_audio_speech(request):
     audio_bytes = Path(audio_path).read_bytes()
 
     # Clean up: the HTTP endpoint delivers bytes directly, no reason to keep the file
-    import contextlib
     with contextlib.suppress(OSError):
         Path(audio_path).unlink()
 

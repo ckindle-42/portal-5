@@ -113,6 +113,7 @@ class TestTelegramAdapter:
         context.user_data = {}
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "Python is a programming language."}}]
         }
@@ -165,6 +166,7 @@ class TestTelegramAdapter:
         update.message.chat.send_action = AsyncMock()
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {"choices": [{"message": {"content": "reply"}}]}
         mock_response.raise_for_status = MagicMock()
 
@@ -304,6 +306,7 @@ class TestSlackAdapter:
         importlib.reload(slack_bot)
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "choices": [{"message": {"content": "test reply"}}]
         }
@@ -554,6 +557,7 @@ class TestDispatcher:
         from portal_channels.dispatcher import call_pipeline_async
 
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "choices": [{"message": {"content": "Test reply"}}]
         }
@@ -582,6 +586,7 @@ class TestDispatcher:
         from portal_channels.dispatcher import call_pipeline_sync
 
         mock_resp = MagicMock()
+        mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "choices": [{"message": {"content": "Sync reply"}}]
         }
