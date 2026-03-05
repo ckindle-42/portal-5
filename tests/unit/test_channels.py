@@ -603,3 +603,64 @@ class TestDispatcher:
             assert result == "Sync reply"
             call_args = mock_client.post.call_args
             assert "/v1/chat/completions" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_call_pipeline_async_retries_on_500(self):
+        """Dispatcher retries async calls on HTTP 5xx before succeeding."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from portal_channels.dispatcher import call_pipeline_async
+
+        call_count = 0
+
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            mock_resp = MagicMock()
+            if call_count < 2:
+                mock_resp.status_code = 503   # server error on first attempt
+            else:
+                mock_resp.status_code = 200
+                mock_resp.raise_for_status = MagicMock()
+                mock_resp.json.return_value = {
+                    "choices": [{"message": {"content": "retry worked"}}]
+                }
+            return mock_resp
+
+        with patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2), \
+             patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001), \
+             patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post = mock_post
+
+            result = await call_pipeline_async("hello", "auto")
+
+        assert result == "retry worked"
+        assert call_count == 2, f"Expected 2 attempts, got: {call_count}"
+
+    def test_call_pipeline_sync_raises_after_exhausting_retries(self):
+        """Dispatcher sync raises ConnectError after all retries exhausted."""
+        from unittest.mock import MagicMock, patch
+        import httpx
+        from portal_channels.dispatcher import call_pipeline_sync
+
+        call_count = 0
+
+        def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            raise httpx.ConnectError("Connection refused")
+
+        with patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2), \
+             patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001), \
+             patch("portal_channels.dispatcher.httpx.Client") as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+            mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+            mock_client.post = mock_post
+
+            with pytest.raises(httpx.ConnectError):
+                call_pipeline_sync("hello", "auto")
+
+        assert call_count == 2, f"Expected 2 attempts, got: {call_count}"

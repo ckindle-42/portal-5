@@ -271,6 +271,26 @@ echo "Wrong pattern count: $WRONG_PATTERN (expect 0)"
     || echo "FAIL: backup still uses \$(pwd)/\${BACKUP_PATH}"
 ```
 
+### 2I — Dispatcher Retry Test Coverage (NEW)
+
+**Verify dispatcher retry tests exist:**
+```python
+import re
+src = open("tests/unit/test_channels.py").read()
+
+assert "test_call_pipeline_async_retries_on_500" in src, (
+    "FAIL: dispatcher retry test missing.\n"
+    "  The retry logic in dispatcher.py (PIPELINE_RETRIES, exponential backoff)\n"
+    "  has no test coverage. Add:\n"
+    "  - TestDispatcher::test_call_pipeline_async_retries_on_500\n"
+    "  - TestDispatcher::test_call_pipeline_sync_raises_after_exhausting_retries"
+)
+assert "test_call_pipeline_sync_raises_after_exhausting_retries" in src, \
+    "FAIL: sync retry exhaustion test missing"
+
+print("OK: dispatcher retry tests present")
+```
+
 ---
 
 ## Phase 3 — Behavioral Verification
