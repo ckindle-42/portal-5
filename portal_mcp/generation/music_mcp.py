@@ -86,6 +86,24 @@ logger = logging.getLogger(__name__)
 OUTPUT_DIR = Path(os.getenv("GENERATED_FILES_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
+
+
+def _cleanup_old_music_files() -> None:
+    """Keep only the MAX_MUSIC_FILES most recently generated music files."""
+    import contextlib
+    if not OUTPUT_DIR.exists():
+        return
+    music_files = sorted(
+        OUTPUT_DIR.glob("music_*.wav"),
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,  # newest first
+    )
+    for old_file in music_files[MAX_MUSIC_FILES:]:
+        with contextlib.suppress(OSError):
+            old_file.unlink()
+            logger.info("Cleaned up old music file: %s", old_file.name)
+
 
 def _check_audiocraft() -> tuple[bool, str]:
     try:
@@ -135,7 +153,10 @@ async def generate_music(
         available, error = _check_stable_audio()
         if not available:
             return {"success": False, "error": f"stable-audio-tools not available: {error}. Use small/medium/large."}
-        return await _generate_stable_audio(prompt, duration)
+        result = await _generate_stable_audio(prompt, duration)
+        if result.get("success"):
+            _cleanup_old_music_files()
+        return result
 
     available, error = _check_audiocraft()
     if not available:
@@ -155,6 +176,8 @@ async def generate_music(
         temperature,
         cfg_coef,
     )
+    if result.get("success"):
+        _cleanup_old_music_files()
     return result
 
 
@@ -302,10 +325,13 @@ async def generate_continuation(
     if not _Path(melody_path).exists():
         return {"error": f"Melody file not found: {melody_path}"}
 
-    return await _run_music_generation(
+    result = await _run_music_generation(
         prompt=prompt, duration=duration, model_name=model,
         melody_path=melody_path
     )
+    if result.get("success"):
+        _cleanup_old_music_files()
+    return result
 
 
 @mcp.tool()

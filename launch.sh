@@ -10,6 +10,74 @@ generate_secret() {
     openssl rand -base64 32 | tr -d '/+=' | head -c 43
 }
 
+# ── Hardware check ──────────────────────────────────────────────────────────
+_check_hardware() {
+    echo "[portal-5] Checking system requirements..."
+    WARN=0
+
+    # RAM check (need ≥16GB, warn below 32GB for full model catalog)
+    if command -v python3 &>/dev/null; then
+        RAM_GB=$(python3 -c "
+import os
+with open('/proc/meminfo') as f:
+    for line in f:
+        if 'MemTotal' in line:
+            print(int(line.split()[1]) // 1024 // 1024)
+            break
+" 2>/dev/null || echo 0)
+        if [ "$RAM_GB" -lt 16 ] 2>/dev/null; then
+            echo "  ⚠️  RAM: ${RAM_GB}GB detected — 16GB minimum required"
+            echo "     Portal 5 may crash or fail to load models"
+            WARN=1
+        elif [ "$RAM_GB" -lt 32 ] 2>/dev/null; then
+            echo "  ℹ️  RAM: ${RAM_GB}GB — enough for core models (32GB+ for full catalog)"
+        else
+            echo "  ✅ RAM: ${RAM_GB}GB"
+        fi
+    fi
+
+    # Disk check (need ≥20GB free; FLUX alone is ~12GB)
+    DISK_FREE=$(df -BG . 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G' || echo 0)
+    if [ "$DISK_FREE" -lt 20 ] 2>/dev/null; then
+        echo "  ⚠️  Disk: ${DISK_FREE}GB free — 20GB minimum (FLUX model is 12GB)"
+        echo "     Free up disk space before continuing: docker system prune -a"
+        WARN=1
+    elif [ "$DISK_FREE" -lt 50 ] 2>/dev/null; then
+        echo "  ℹ️  Disk: ${DISK_FREE}GB free — enough for core stack (50GB+ for all models)"
+    else
+        echo "  ✅ Disk: ${DISK_FREE}GB free"
+    fi
+
+    # Docker check
+    if ! docker info &>/dev/null; then
+        echo "  ❌ Docker: not running — start Docker Desktop and retry"
+        exit 1
+    else
+        echo "  ✅ Docker: running"
+    fi
+
+    # Apple Silicon detection (helpful context)
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "arm64" ]; then
+        echo "  ✅ Platform: Apple Silicon — Metal acceleration available"
+    elif [ "$ARCH" = "x86_64" ]; then
+        # Check for NVIDIA GPU
+        if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
+            GPU=$(nvidia-smi -L 2>/dev/null | head -1 | sed 's/GPU 0: //' | cut -d'(' -f1)
+            echo "  ✅ GPU: $GPU (CUDA acceleration available)"
+        else
+            echo "  ℹ️  GPU: No NVIDIA GPU detected — CPU inference (slower)"
+        fi
+    fi
+
+    if [ "$WARN" -eq 1 ]; then
+        echo ""
+        echo "[portal-5] ⚠️  System requirements warning — see above"
+        echo "           Press Enter to continue anyway, or Ctrl+C to abort"
+        read -r _
+    fi
+}
+
 # ── First-run bootstrap ───────────────────────────────────────────────────────
 bootstrap_secrets() {
     local env_file="$1"
@@ -104,6 +172,9 @@ case "${1:-up}" in
 
     # Generate any secrets still set to CHANGEME
     bootstrap_secrets "$ENV_FILE"
+
+    # Check hardware requirements before starting
+    _check_hardware
 
     set -a; source "$ENV_FILE"; set +a
 

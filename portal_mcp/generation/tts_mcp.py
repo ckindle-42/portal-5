@@ -26,6 +26,32 @@ TTS_BACKEND = os.getenv("TTS_BACKEND", "kokoro")  # kokoro | fish_speech
 TTS_VOICE = os.getenv("TTS_DEFAULT_VOICE", "af_heart")  # Kokoro default voice
 TTS_SPEED = float(os.getenv("TTS_SPEED", "1.0"))
 
+
+def _cleanup_stale_audio(max_age_hours: int = 1) -> None:
+    """Remove TTS audio files older than max_age_hours. Called at startup."""
+    import time
+    import contextlib
+    if not OUTPUT_DIR.exists():
+        return
+    cutoff = time.time() - (max_age_hours * 3600)
+    removed = 0
+    for f in OUTPUT_DIR.glob("tts_*.wav"):
+        if f.stat().st_mtime < cutoff:
+            with contextlib.suppress(OSError):
+                f.unlink()
+                removed += 1
+    for f in OUTPUT_DIR.glob("clone_*.wav"):
+        if f.stat().st_mtime < cutoff:
+            with contextlib.suppress(OSError):
+                f.unlink()
+                removed += 1
+    if removed:
+        logger.info("Cleaned up %d stale TTS audio files", removed)
+
+
+# Call at module load
+_cleanup_stale_audio()
+
 # Kokoro model cache location
 KOKORO_CACHE_DIR = Path(os.getenv("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "kokoro"
 KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
@@ -109,6 +135,12 @@ async def openai_audio_speech(request):
         )
 
     audio_bytes = Path(audio_path).read_bytes()
+
+    # Clean up: the HTTP endpoint delivers bytes directly, no reason to keep the file
+    import contextlib
+    with contextlib.suppress(OSError):
+        Path(audio_path).unlink()
+
     return Response(
         content=audio_bytes,
         media_type="audio/wav",
