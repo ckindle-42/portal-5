@@ -215,7 +215,8 @@ print("OK: all sandbox security flags present")
 ```bash
 bash -n launch.sh && echo "PASS: syntax valid"
 for cmd in up down clean clean-all seed logs status pull-models test \
-           add-user list-users up-telegram up-slack up-channels; do
+           add-user list-users up-telegram up-slack up-channels \
+           backup restore; do
     grep -q "^  ${cmd})" launch.sh && echo "PRESENT: $cmd" || echo "MISSING: $cmd"
 done
 ```
