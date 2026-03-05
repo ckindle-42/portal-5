@@ -151,9 +151,19 @@ case "${1:-up}" in
 
     # ── Pipeline ──────────────────────────────────────────────────────────────
     echo "Pipeline:"
-    STATUS=$(curl -s "$PIPE/health" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
-    _check "health endpoint responds" "$STATUS" "ok"
-    _check "health status ok (Ollama connected)" "$STATUS" "ok"
+    HEALTH_JSON=$(curl -s "$PIPE/health" 2>/dev/null)
+    STATUS=$(echo "$HEALTH_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
+    BACKENDS=$(echo "$HEALTH_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('backends_healthy',0))" 2>/dev/null)
+
+    # Pipeline is reachable if status is 'ok' or 'degraded' (either means it's running)
+    [ "$STATUS" = "ok" ] || [ "$STATUS" = "degraded" ] \
+        && { echo "  ✅ Pipeline reachable (status=$STATUS)"; PASS=$((PASS+1)); } \
+        || { echo "  ❌ Pipeline not responding (status=$STATUS)"; FAIL=$((FAIL+1)); }
+
+    # Ollama connectivity is informational — degraded is expected before models are pulled
+    [ "$STATUS" = "ok" ] \
+        && echo "  ✅ Ollama connected ($BACKENDS backends healthy)" && PASS=$((PASS+1)) \
+        || echo "  ℹ️  Ollama: no backends healthy yet — run: ./launch.sh pull-models"
 
     WS_COUNT=$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null)
     _check "all 13 workspaces exposed" "$WS_COUNT" "13"

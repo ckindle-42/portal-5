@@ -221,6 +221,56 @@ for cmd in up down clean clean-all seed logs status pull-models test \
 done
 ```
 
+### 2H — Dockerfile Completeness and Channel Deployment Checks (NEW)
+
+**Verify Dockerfile.mcp copies all required modules:**
+```python
+src = open("Dockerfile.mcp").read()
+
+# Critical: channel containers run portal_channels — must be copied
+assert "COPY portal_mcp/ ./portal_mcp/" in src, \
+    "FAIL: portal_mcp not copied into MCP image"
+assert "COPY portal_channels/ ./portal_channels/" in src, \
+    "FAIL: portal_channels not copied — portal-telegram/slack will crash with " \
+    "ModuleNotFoundError on every startup"
+
+# Verify order: portal_mcp before portal_channels
+mcp_pos = src.index("COPY portal_mcp/")
+ch_pos  = src.index("COPY portal_channels/")
+assert ch_pos > mcp_pos, "FAIL: COPY order wrong — portal_channels before portal_mcp"
+
+# Verify all channel deps installed
+for pkg in ["python-telegram-bot", "slack-bolt"]:
+    assert pkg in src, f"FAIL: {pkg} not installed in Dockerfile.mcp"
+    print(f"OK: {pkg}")
+
+print("OK: Dockerfile.mcp copies both portal_mcp/ and portal_channels/")
+```
+
+**Verify channel services have healthchecks:**
+```python
+import yaml
+dc = yaml.safe_load(open("deploy/portal-5/docker-compose.yml"))
+
+for svc_name in ["portal-telegram", "portal-slack"]:
+    svc = dc["services"].get(svc_name, {})
+    hc = svc.get("healthcheck")
+    assert hc is not None, \
+        f"FAIL: {svc_name} has no healthcheck — crashes go undetected and restart never triggers"
+    assert hc.get("test"), f"FAIL: {svc_name} healthcheck has no test command"
+    assert hc.get("interval"), f"FAIL: {svc_name} healthcheck has no interval"
+    print(f"OK: {svc_name} healthcheck: {hc['test']}")
+```
+
+**Verify backup uses realpath (not $(pwd)/):**
+```bash
+# $(pwd)/${BACKUP_PATH} breaks for absolute paths like /mnt/nas/backup
+WRONG_PATTERN=$(grep -c '$(pwd)/${BACKUP_PATH}' launch.sh || echo 0)
+echo "Wrong pattern count: $WRONG_PATTERN (expect 0)"
+[ "$WRONG_PATTERN" -eq 0 ] && echo "OK: backup uses realpath" \
+    || echo "FAIL: backup still uses \$(pwd)/\${BACKUP_PATH}"
+```
+
 ---
 
 ## Phase 3 — Behavioral Verification
