@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "filesystem": {
-      "command": "uvx",
-      "args": ["mcp-filesystem", "--config", "/Users/chris/portal/mcp/filesystem/config.toml"]
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/Projects", "/tmp"]
     },
     "fetch": {
       "command": "uvx",

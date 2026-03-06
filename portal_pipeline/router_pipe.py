@@ -367,10 +367,23 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     return None
 
 
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+_raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
+if not _raw_api_key:
+    import warnings
+    warnings.warn(
+        "PIPELINE_API_KEY is not set — using insecure default 'portal-pipeline'. "
+        "Set PIPELINE_API_KEY in .env before deploying.",
+        stacklevel=1,
+    )
+    _raw_api_key = "portal-pipeline"
+PIPELINE_API_KEY: str = _raw_api_key
 
 # Concurrency limiter — prevents Ollama overload when all workers are busy
 _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
+
+# Semaphore acquisition timeout in milliseconds. Default 50ms survives normal
+# scheduling jitter. Set to 0 to restore original 1ms non-blocking behavior.
+_SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
 _request_semaphore: asyncio.Semaphore | None = None
 
 registry: BackendRegistry | None = None
@@ -482,7 +495,7 @@ async def chat_completions(
 
     assert _request_semaphore is not None
     try:
-        await asyncio.wait_for(_request_semaphore.acquire(), timeout=0.001)
+        await asyncio.wait_for(_request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT)
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=503,

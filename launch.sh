@@ -275,9 +275,11 @@ _check_ports() {
         echo ""
         echo "  Options:"
         echo "  1. Stop the conflicting process (see 'kill <PID>' above)"
-        echo "  2. If it's a previous Portal 5 stack: ./launch.sh down"
+        echo "  2. If it's a previous Portal 5 stack:  ./launch.sh down"
+        echo "     Note: 'down' also stops native MLX (:8081) and ComfyUI (:8188)"
         echo "  3. If it's a different service, override the port in .env:"
         echo "     e.g.:  DOCUMENTS_HOST_PORT=9013  (for MCP Documents)"
+        echo "            MLX_PORT=8082             (for MLX inference server)"
         echo "     All overrideable ports are documented in .env.example"
         echo ""
         exit 1
@@ -600,8 +602,37 @@ case "${1:-up}" in
     ;;
 
   down)
+    # ── Stop Docker stack ─────────────────────────────────────────────────
     cd "$COMPOSE_DIR"
     docker compose down
+    echo "[portal-5] Docker stack stopped."
+
+    # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
+    # These run outside Docker and must be stopped explicitly.
+    # Uses launchctl if the service is registered, falls back to pkill.
+    if [ "$(uname -s)" = "Darwin" ]; then
+        # MLX inference server (:8081)
+        if launchctl list com.portal5.mlx &>/dev/null 2>&1; then
+            launchctl stop com.portal5.mlx 2>/dev/null || true
+            echo "[portal-5] MLX inference service stopped (launchd)."
+        elif pgrep -f "mlx_lm.server" &>/dev/null 2>&1; then
+            pkill -f "mlx_lm.server" 2>/dev/null || true
+            echo "[portal-5] MLX inference process stopped (pkill)."
+        else
+            echo "[portal-5] MLX inference: not running (nothing to stop)."
+        fi
+
+        # ComfyUI (:8188)
+        if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
+            launchctl stop com.portal5.comfyui 2>/dev/null || true
+            echo "[portal-5] ComfyUI service stopped (launchd)."
+        elif pgrep -f "comfyui\|ComfyUI\|main.py.*comfy" &>/dev/null 2>&1; then
+            pkill -f "comfyui\|ComfyUI\|main.py.*comfy" 2>/dev/null || true
+            echo "[portal-5] ComfyUI process stopped (pkill)."
+        else
+            echo "[portal-5] ComfyUI: not running (nothing to stop)."
+        fi
+    fi
     ;;
   backup)
     # Back up all critical Portal 5 data

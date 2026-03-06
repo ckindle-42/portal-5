@@ -3,6 +3,7 @@
 Shared pipeline call logic for all channel adapters (Telegram, Slack, future).
 Provides both sync and async variants for use in different event loop contexts.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,16 +16,33 @@ import httpx
 logger = logging.getLogger(__name__)
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
-PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY") or "portal-pipeline"
+if PIPELINE_API_KEY == "portal-pipeline" and not os.environ.get("PIPELINE_API_KEY"):
+    import logging as _log
+    _log.getLogger(__name__).warning(
+        "PIPELINE_API_KEY not set — using insecure default. Set in .env."
+    )
 PIPELINE_TIMEOUT = float(os.environ.get("PIPELINE_TIMEOUT", "120"))
 PIPELINE_RETRIES = int(os.environ.get("PIPELINE_RETRIES", "3"))
 PIPELINE_RETRY_BASE = float(os.environ.get("PIPELINE_RETRY_BASE", "1.0"))
 
-VALID_WORKSPACES = frozenset({
-    "auto", "auto-coding", "auto-security", "auto-redteam", "auto-blueteam",
-    "auto-creative", "auto-reasoning", "auto-documents", "auto-video",
-    "auto-music", "auto-research", "auto-vision", "auto-data",
-})
+VALID_WORKSPACES = frozenset(
+    {
+        "auto",
+        "auto-coding",
+        "auto-security",
+        "auto-redteam",
+        "auto-blueteam",
+        "auto-creative",
+        "auto-reasoning",
+        "auto-documents",
+        "auto-video",
+        "auto-music",
+        "auto-research",
+        "auto-vision",
+        "auto-data",
+    }
+)
 
 
 def _build_payload(messages: list[dict], workspace: str) -> dict:
@@ -65,10 +83,13 @@ async def call_pipeline_async(
                     headers=_auth_headers(),
                 )
                 if resp.status_code >= 500 and attempt < PIPELINE_RETRIES - 1:
-                    wait = PIPELINE_RETRY_BASE * (2 ** attempt)
+                    wait = PIPELINE_RETRY_BASE * (2**attempt)
                     logger.warning(
                         "Pipeline returned %s on attempt %d/%d — retrying in %.1fs",
-                        resp.status_code, attempt + 1, PIPELINE_RETRIES, wait,
+                        resp.status_code,
+                        attempt + 1,
+                        PIPELINE_RETRIES,
+                        wait,
                     )
                     await asyncio.sleep(wait)
                     continue
@@ -78,10 +99,13 @@ async def call_pipeline_async(
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
             last_exc = e
             if attempt < PIPELINE_RETRIES - 1:
-                wait = PIPELINE_RETRY_BASE * (2 ** attempt)
+                wait = PIPELINE_RETRY_BASE * (2**attempt)
                 logger.warning(
                     "Pipeline connection error on attempt %d/%d — retrying in %.1fs: %s",
-                    attempt + 1, PIPELINE_RETRIES, wait, e,
+                    attempt + 1,
+                    PIPELINE_RETRIES,
+                    wait,
+                    e,
                 )
                 await asyncio.sleep(wait)
             else:
@@ -108,10 +132,13 @@ def call_pipeline_sync(text: str, workspace: str) -> str:
                     headers=_auth_headers(),
                 )
                 if resp.status_code >= 500 and attempt < PIPELINE_RETRIES - 1:
-                    wait = PIPELINE_RETRY_BASE * (2 ** attempt)
+                    wait = PIPELINE_RETRY_BASE * (2**attempt)
                     logger.warning(
                         "Pipeline returned %s on attempt %d/%d — retrying in %.1fs",
-                        resp.status_code, attempt + 1, PIPELINE_RETRIES, wait,
+                        resp.status_code,
+                        attempt + 1,
+                        PIPELINE_RETRIES,
+                        wait,
                     )
                     time.sleep(wait)
                     continue
@@ -121,10 +148,13 @@ def call_pipeline_sync(text: str, workspace: str) -> str:
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
             last_exc = e
             if attempt < PIPELINE_RETRIES - 1:
-                wait = PIPELINE_RETRY_BASE * (2 ** attempt)
+                wait = PIPELINE_RETRY_BASE * (2**attempt)
                 logger.warning(
                     "Pipeline connection error on attempt %d/%d — retrying in %.1fs: %s",
-                    attempt + 1, PIPELINE_RETRIES, wait, e,
+                    attempt + 1,
+                    PIPELINE_RETRIES,
+                    wait,
+                    e,
                 )
                 time.sleep(wait)
             else:
