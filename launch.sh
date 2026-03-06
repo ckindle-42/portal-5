@@ -759,14 +759,22 @@ case "${1:-up}" in
 
     # ── HuggingFace CLI availability ──────────────────────────────────────────
     _ensure_hf_cli() {
-        if ! command -v huggingface-cli &>/dev/null; then
-            echo "  Installing huggingface_hub CLI..."
+        # Check importability via python3 — avoids PATH issues with the binary
+        if ! python3 -c "import huggingface_hub" &>/dev/null 2>&1; then
+            echo "  Installing huggingface_hub..."
             pip3 install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
             pip3 install huggingface_hub --quiet
         fi
-        # Login with token if set and not already logged in
+        # Authenticate if token provided — use python API (no binary PATH needed)
         if [ -n "${HF_TOKEN:-}" ]; then
-            huggingface-cli login --token "$HF_TOKEN" --add-to-git-credential 2>/dev/null || true
+            python3 -W ignore -c "
+from huggingface_hub import login
+import warnings; warnings.filterwarnings('ignore')
+try:
+    login(token='${HF_TOKEN}', add_to_git_credential=False)
+except Exception:
+    pass
+" 2>/dev/null || true
         fi
     }
 
@@ -919,6 +927,8 @@ case "${1:-up}" in
 
         local gguf_path=""
         local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
+        local _hf_err
+        _hf_err=$(mktemp)
         if [ -n "$filename" ]; then
             echo "  File: $filename"
             mkdir -p "$_dl_dir"
@@ -926,8 +936,9 @@ case "${1:-up}" in
                 DL_REPO="$actual_repo" \
                 DL_FILE="$filename" \
                 DL_DIR="$_dl_dir" \
-                python3 -c "
-import os, sys
+                python3 -W ignore -c "
+import os, sys, warnings
+warnings.filterwarnings('ignore')
 from huggingface_hub import hf_hub_download
 token = os.environ.get('HF_TOKEN') or None
 try:
@@ -936,18 +947,12 @@ try:
         filename=os.environ['DL_FILE'],
         token=token,
         local_dir=os.environ['DL_DIR'],
-        local_dir_use_symlinks=False,
     )
     print(path)
 except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
+    print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>&1)
-        # Strip Python output from gguf_path if it contains an error line
-        if echo "$gguf_path" | grep -q "^ERROR:"; then
-            echo "  ❌ Exact filename download error: $gguf_path"
-            gguf_path=""
-        fi
+" 2>"$_hf_err")
         elif [ -n "$glob_pattern" ]; then
             echo "  Pattern: $glob_pattern (listing repo to find file)"
             mkdir -p "$_dl_dir"
@@ -955,44 +960,46 @@ except Exception as e:
                 DL_REPO="$actual_repo" \
                 DL_GLOB="$glob_pattern" \
                 DL_DIR="$_dl_dir" \
-                python3 -c "
-import os, sys, fnmatch
+                python3 -W ignore -c "
+import os, sys, fnmatch, warnings
+warnings.filterwarnings('ignore')
 from huggingface_hub import hf_hub_download, list_repo_files
 token = os.environ.get('HF_TOKEN') or None
 try:
     files = list(list_repo_files(os.environ['DL_REPO'], token=token))
     pat = os.environ['DL_GLOB']
+    # Case-insensitive match to handle repos that use lowercase quant names
     matches = [f for f in files if fnmatch.fnmatch(f.lower(), pat.lower()) and f.endswith('.gguf')]
     if not matches:
-        print(f'ERROR: no files matching {pat} (case-insensitive) in repo. Available .gguf files: {[f for f in files if f.endswith(".gguf")]}', file=sys.stderr)
+        print(f'ERROR: no .gguf files matching {pat} in repo. Available: {[f for f in files if f.endswith(\".gguf\")]}', file=sys.stderr)
         sys.exit(1)
-    target = next((f for f in matches if 'Q4_K_M.gguf' in f), matches[0])
+    target = next((f for f in matches if 'q4_k_m.gguf' in f.lower()), matches[0])
     path = hf_hub_download(
         repo_id=os.environ['DL_REPO'],
         filename=target,
         token=token,
         local_dir=os.environ['DL_DIR'],
-        local_dir_use_symlinks=False,
     )
     print(path)
 except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
+    print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>&1)
-            # Strip error lines before using gguf_path
-            if echo "$gguf_path" | grep -q "^ERROR:"; then
-                echo "  ❌ Download failed: $(echo "$gguf_path" | head -1)"
-                gguf_path=""
-            fi
+" 2>"$_hf_err")
         fi
 
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
             echo "  ❌ Download failed for $actual_repo"
+            # Show the actual Python error — critical for diagnosing auth/network/version issues
+            if [ -s "$_hf_err" ]; then
+                echo "  Error detail: $(cat "$_hf_err")"
+            fi
+            rm -f "$_hf_err"
             echo "     Retry manually:"
             echo "       huggingface-cli download $actual_repo ${filename:-} --local-dir ~/Downloads"
             echo "     Then import: ./launch.sh import-gguf ~/Downloads/${filename:-model.gguf} $ollama_name"
             return 1
         fi
+        rm -f "$_hf_err"
 
         echo "  ✅ Downloaded: $(basename "$gguf_path")"
         echo "  Importing as: $ollama_name"
@@ -1478,12 +1485,20 @@ MLXPLIST
     for model in "${MLX_MODELS[@]}"; do
         count=$((count + 1))
         echo "[$count/$total] $model"
-        if python3 -c "from huggingface_hub import snapshot_download; snapshot_download('$model', ignore_patterns=['*.md','*.txt'])" 2>/dev/null; then
+        _mlx_err=$(mktemp)
+        if python3 -W ignore -c "
+import warnings; warnings.filterwarnings('ignore')
+from huggingface_hub import snapshot_download
+snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+" 2>"$_mlx_err"; then
             echo "  ✅ Downloaded"
         else
-            echo "  ❌ Failed — try: huggingface-cli download $model"
+            echo "  ❌ Failed"
+            [ -s "$_mlx_err" ] && echo "  Error: $(cat "$_mlx_err" | tail -1)"
+            echo "  Retry: huggingface-cli download $model"
             failed=$((failed + 1))
         fi
+        rm -f "$_mlx_err"
         echo ""
     done
 
@@ -1491,8 +1506,19 @@ MLXPLIST
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
             echo "  Downloading: $model (~40GB)"
-            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('$model')" 2>/dev/null \
-                && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
+            _mlx_err=$(mktemp)
+            if python3 -W ignore -c "
+import warnings; warnings.filterwarnings('ignore')
+from huggingface_hub import snapshot_download
+snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+" 2>"$_mlx_err"; then
+                echo "  ✅ Done"
+            else
+                echo "  ❌ Failed"
+                [ -s "$_mlx_err" ] && echo "  Error: $(cat "$_mlx_err" | tail -1)"
+                failed=$((failed + 1))
+            fi
+            rm -f "$_mlx_err"
         done
     else
         echo "Skipping Llama-3.3-70B MLX (~40GB) — set PULL_HEAVY=true to include"
