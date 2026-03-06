@@ -84,8 +84,9 @@ _check_hardware() {
             echo "     Start:   ~/ComfyUI/start.sh"
         fi
         # Check mlx_lm server
-        if curl -s http://localhost:8080/v1/models &>/dev/null 2>&1; then
-            MLX_ACTIVE=$(curl -s http://localhost:8080/v1/models 2>/dev/null | \
+        local MLX_PORT_CHECK="${MLX_PORT:-8081}"
+        if curl -s "http://localhost:${MLX_PORT_CHECK}/v1/models" &>/dev/null 2>&1; then
+            MLX_ACTIVE=$(curl -s "http://localhost:${MLX_PORT_CHECK}/v1/models" 2>/dev/null | \
                 python3 -c "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" 2>/dev/null || echo "running")
             echo "  ✅ mlx_lm: active ($MLX_ACTIVE) — native Apple Silicon inference"
         elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
@@ -110,6 +111,92 @@ _check_hardware() {
         echo "[portal-5] ⚠️  System requirements warning — see above"
         echo "           Press Enter to continue anyway, or Ctrl+C to abort"
         read -r _
+    fi
+}
+
+# ── Auto-start native services if installed but not running ─────────────────
+_ensure_native_services() {
+    local ARCH
+    ARCH=$(uname -m)
+    echo "[portal-5] Checking native services..."
+
+    # ── Ollama ───────────────────────────────────────────────────────────────
+    if command -v ollama &>/dev/null; then
+        if ! curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            echo "[portal-5]   Ollama installed but not running — starting..."
+            if command -v brew &>/dev/null; then
+                brew services start ollama &>/dev/null || true
+            else
+                # Linux: start as background process
+                mkdir -p "$HOME/.portal5/logs"
+                nohup ollama serve > "$HOME/.portal5/logs/ollama.log" 2>&1 &
+            fi
+            # Wait up to 10s for Ollama to respond
+            local retries=10
+            while [ "$retries" -gt 0 ]; do
+                sleep 1
+                if curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+                    echo "[portal-5]   ✅ Ollama started"
+                    break
+                fi
+                retries=$((retries - 1))
+            done
+            if [ "$retries" -eq 0 ]; then
+                echo "[portal-5]   ⚠️  Ollama did not respond after 10s — check: brew services info ollama"
+            fi
+        else
+            echo "[portal-5]   ✅ Ollama: running"
+        fi
+    fi
+
+    # ── ComfyUI (Apple Silicon native only) ──────────────────────────────────
+    if [ "$ARCH" = "arm64" ]; then
+        local COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
+        if [ -f "$COMFYUI_DIR/start.sh" ]; then
+            if ! curl -s http://localhost:8188/system_stats &>/dev/null 2>&1; then
+                echo "[portal-5]   ComfyUI installed but not running — starting..."
+                mkdir -p "$HOME/.portal5/logs"
+                if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
+                    launchctl start com.portal5.comfyui 2>/dev/null || true
+                else
+                    nohup "$COMFYUI_DIR/start.sh" \
+                        > "$HOME/.portal5/logs/comfyui.log" 2>&1 &
+                fi
+                echo "[portal-5]   ⏳ ComfyUI starting in background (may take 30-60s)"
+                echo "[portal-5]      Logs: $HOME/.portal5/logs/comfyui.log"
+                echo "[portal-5]      UI:   http://localhost:8188"
+            else
+                echo "[portal-5]   ✅ ComfyUI: running"
+            fi
+        fi
+    fi
+
+    # ── MLX inference server (Apple Silicon native only) ─────────────────────
+    if [ "$ARCH" = "arm64" ]; then
+        local MLX_PORT_VAL="${MLX_PORT:-8081}"
+        local MLX_START_SCRIPT="$HOME/.portal5/mlx/start.sh"
+        if [ -f "$MLX_START_SCRIPT" ]; then
+            if ! curl -s "http://localhost:${MLX_PORT_VAL}/v1/models" &>/dev/null 2>&1; then
+                echo "[portal-5]   MLX server installed but not running — starting..."
+                mkdir -p "$HOME/.portal5/logs"
+                if launchctl list com.portal5.mlx &>/dev/null 2>&1; then
+                    launchctl start com.portal5.mlx 2>/dev/null || true
+                else
+                    MLX_PORT="$MLX_PORT_VAL" nohup "$MLX_START_SCRIPT" \
+                        > "$HOME/.portal5/logs/mlx.log" 2>&1 &
+                fi
+                echo "[portal-5]   ⏳ MLX starting in background (first run downloads model ~18GB)"
+                echo "[portal-5]      Logs: $HOME/.portal5/logs/mlx.log"
+                echo "[portal-5]      API:  http://localhost:${MLX_PORT_VAL}/v1"
+            else
+                local MLX_MODEL_NAME
+                MLX_MODEL_NAME=$(curl -s "http://localhost:${MLX_PORT_VAL}/v1/models" 2>/dev/null | \
+                    python3 -c "import json,sys; d=json.load(sys.stdin); \
+                    print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" \
+                    2>/dev/null || echo "running")
+                echo "[portal-5]   ✅ MLX: running ($MLX_MODEL_NAME)"
+            fi
+        fi
     fi
 }
 
@@ -169,6 +256,9 @@ _check_ports() {
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
     _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
+
+    # MLX inference server (Apple Silicon)
+    _port_check "${MLX_PORT:-8081}"   "MLX inference server"
 
     # Ollama (Docker profile) — only check if explicitly using docker-ollama
     # Native Ollama on 11434 is expected and correct for the default setup
@@ -290,6 +380,9 @@ case "${1:-up}" in
 
     # Check hardware requirements before starting
     _check_hardware
+
+    # Auto-start native services if installed but not running
+    _ensure_native_services
 
     set -a; source "$ENV_FILE"; set +a
 
@@ -658,6 +751,16 @@ case "${1:-up}" in
     echo "This may take 30-90 minutes depending on connection speed."
     echo ""
 
+    # ── HuggingFace authentication — required for hf.co/ models ─────────────
+    # If you see "realm host huggingface.co does not match original host hf.co",
+    # complete this ONE-TIME setup before re-running pull-models:
+    echo "[portal-5] ℹ️  hf.co/ models require Ollama's SSH key on HuggingFace."
+    echo "   One-time setup (if not done):"
+    echo "     1. cat ~/.ollama/id_ed25519.pub | pbcopy"
+    echo "     2. https://huggingface.co/settings/keys  → Add new SSH key"
+    echo "     3. https://huggingface.co/settings/local-apps  → enable Ollama"
+    echo ""
+
     MODELS=(
         # ── Core ──────────────────────────────────────────────────────────
         "${DEFAULT_MODEL:-dolphin-llama3:8b}"
@@ -672,8 +775,8 @@ case "${1:-up}" in
         "huihui_ai/baronllm-abliterated"
         "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
         # ── Coding ───────────────────────────────────────────────────────
-        "hf.co/Qwen/Qwen3-Coder-Next-GGUF"
-        "qwen3-coder-next:30b-q5"
+        # NOTE: Qwen3-Coder-Next GGUF removed — sharded GGUF incompatible with Ollama
+        # Use MLX backend instead: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
         "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
         "hf.co/unsloth/GLM-4.7-Flash-GGUF"
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
@@ -684,7 +787,7 @@ case "${1:-up}" in
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "huihui_ai/tongyi-deepresearch-abliterated:30b"
         # ── Vision ───────────────────────────────────────────────────────
-        "qwen3-omni:30b"
+        "qwen3-vl:32b"
         "llava:7b"
     )
 
@@ -986,13 +1089,66 @@ PLIST
 # Portal 5 — mlx_lm inference server
 # Usage: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh
 MODEL="${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
-PORT="${MLX_PORT:-8080}"
+PORT="${MLX_PORT:-8081}"
 echo "[portal5-mlx] Starting: $MODEL on :$PORT"
 echo "[portal5-mlx] Logs: ~/.portal5/logs/mlx.log"
 python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0
 MLXSTART
     chmod +x "$MLX_DIR/start.sh"
     echo "  ✅ Start wrapper: $MLX_DIR/start.sh"
+
+    # ── Register MLX as a launchd service (auto-start on login) ──────────────
+    if [ "$(uname -s)" = "Darwin" ]; then
+        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
+        PYTHON_PATH=$(which python3)
+        MLX_LOG_DIR="$HOME/.portal5/logs"
+        mkdir -p "$MLX_LOG_DIR"
+
+        cat > "$PLIST_PATH" << MLXPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.mlx</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${PYTHON_PATH}</string>
+        <string>-m</string>
+        <string>mlx_lm.server</string>
+        <string>--model</string>
+        <string>mlx-community/Qwen3-Coder-Next-4bit</string>
+        <string>--port</string>
+        <string>8081</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${MLX_LOG_DIR}/mlx.log</string>
+    <key>StandardErrorPath</key>
+    <string>${MLX_LOG_DIR}/mlx-error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>${HOME}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
+MLXPLIST
+
+        launchctl load "$PLIST_PATH" 2>/dev/null || true
+        echo "  ✅ launchd service registered: com.portal5.mlx"
+        echo "  ✅ Auto-starts on login (will start after pull-mlx-models completes)"
+        echo "  ℹ️  Start now:  launchctl start com.portal5.mlx"
+        echo "  ℹ️  Stop:       launchctl stop com.portal5.mlx"
+        echo "  ℹ️  Logs:       $MLX_LOG_DIR/mlx.log"
+    fi
 
     echo ""
     echo "Next steps:"

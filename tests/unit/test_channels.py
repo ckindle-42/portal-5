@@ -608,6 +608,7 @@ class TestDispatcher:
     async def test_call_pipeline_async_retries_on_500(self):
         """Dispatcher retries async calls on HTTP 5xx before succeeding."""
         from unittest.mock import AsyncMock, MagicMock, patch
+
         from portal_channels.dispatcher import call_pipeline_async
 
         call_count = 0
@@ -642,7 +643,9 @@ class TestDispatcher:
     def test_call_pipeline_sync_raises_after_exhausting_retries(self):
         """Dispatcher sync raises ConnectError after all retries exhausted."""
         from unittest.mock import MagicMock, patch
+
         import httpx
+
         from portal_channels.dispatcher import call_pipeline_sync
 
         call_count = 0
