@@ -39,7 +39,8 @@ _check_hardware() {
     fi
 
     # Disk check (need ≥20GB free; FLUX alone is ~12GB)
-    DISK_FREE=$(df -BG . 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G' || echo 0)
+    # Check root filesystem "/" - more reliable than current directory on macOS
+    DISK_FREE=$(df -BG / 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G' || echo 0)
     if [ "$DISK_FREE" -lt 20 ] 2>/dev/null; then
         echo "  ⚠️  Disk: ${DISK_FREE}GB free — 20GB minimum (FLUX model is 12GB)"
         echo "     Free up disk space before continuing: docker system prune -a"
