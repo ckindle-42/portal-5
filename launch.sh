@@ -737,15 +737,193 @@ case "${1:-up}" in
   pull-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 
-    # Pull via native Ollama if running, otherwise via Docker container
-    _do_pull() {
-        local model="$1"
+    # ── Ollama availability check ─────────────────────────────────────────────
+    _ollama_cmd() {
+        # Returns the ollama command prefix to use (native or docker exec)
         if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
-            ollama pull "$model"
+            echo "ollama"
         elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
-            docker exec portal5-ollama ollama pull "$model"
+            echo "docker exec portal5-ollama ollama"
         else
+            echo ""
+        fi
+    }
+
+    # ── Check if model is already loaded in Ollama ────────────────────────────
+    _model_exists() {
+        local model_name="$1"
+        local ollama_cmd
+        ollama_cmd=$(_ollama_cmd)
+        [ -n "$ollama_cmd" ] && $ollama_cmd list 2>/dev/null | grep -q "^${model_name}"
+    }
+
+    # ── HuggingFace CLI availability ──────────────────────────────────────────
+    _ensure_hf_cli() {
+        if ! command -v huggingface-cli &>/dev/null; then
+            echo "  Installing huggingface_hub CLI..."
+            pip3 install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
+            pip3 install huggingface_hub --quiet
+        fi
+        # Login with token if set and not already logged in
+        if [ -n "${HF_TOKEN:-}" ]; then
+            huggingface-cli login --token "$HF_TOKEN" --add-to-git-credential 2>/dev/null || true
+        fi
+    }
+
+    # ── Main model pull function ──────────────────────────────────────────────
+    # Routes hf.co/ models through huggingface-cli + ollama create (bypasses
+    # Ollama's broken cross-host auth redirect for HuggingFace models).
+    # Native Ollama registry models use ollama pull directly.
+    _pull_model() {
+        local model="$1"
+        local ollama_cmd
+        ollama_cmd=$(_ollama_cmd)
+
+        if [ -z "$ollama_cmd" ]; then
             echo "  ❌ No Ollama available. Run: ./launch.sh install-ollama"
+            return 1
+        fi
+
+        # ── Native Ollama registry (no hf.co/ prefix) ────────────────────────
+        if [[ "$model" != hf.co/* ]]; then
+            $ollama_cmd pull "$model"
+            return $?
+        fi
+
+        # ── HuggingFace model: use cli download + ollama create ───────────────
+        # Strip the hf.co/ prefix to get the repo_id
+        local repo_id="${model#hf.co/}"
+
+        # Look up the spec for this repo — filename and Ollama name
+        local filename=""
+        local ollama_name=""
+        local glob=""
+
+        case "$repo_id" in
+            AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF)
+                filename="baronllm-llama3.1-v1-q6_k.gguf"
+                ollama_name="baronllm:q6_k"
+                ;;
+            segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF)
+                filename="Lily-7B-Instruct-v0.2.Q4_K_M.gguf"
+                ollama_name="lily-cybersecurity:q4_k_m"
+                ;;
+            cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="dolphin3-r1-mistral:24b-q4_k_m"
+                ;;
+            WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="whiterabbitneo:33b-q4_k_m"
+                ;;
+            unsloth/GLM-4.7-Flash-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="glm-4.7-flash:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="deepseek-coder-v2-lite:q4_k_m"
+                ;;
+            MiniMaxAI/MiniMax-M2.1-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="minimax-m2:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-R1-32B-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="deepseek-r1:32b-q4_k_m"
+                ;;
+            cognitivecomputations/dolphin-3-llama3-70b-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="dolphin3-llama3:70b-q4_k_m"
+                ;;
+            meta-llama/Meta-Llama-3.3-70B-GGUF)
+                glob="*Q4_K_M*"
+                ollama_name="llama3.3:70b-q4_k_m"
+                ;;
+            *)
+                echo "  ⚠️  No download spec for $repo_id — trying direct ollama pull"
+                $ollama_cmd pull "$model"
+                return $?
+                ;;
+        esac
+
+        # Skip if already imported into Ollama
+        if _model_exists "$ollama_name"; then
+            echo "  ✅ Already in Ollama as $ollama_name — skipping download"
+            return 0
+        fi
+
+        # Ensure huggingface-cli is available and authenticated
+        _ensure_hf_cli
+
+        # Download directory for this model
+        local dl_dir="$HOME/.portal5/model_downloads/$(echo "$repo_id" | tr '/' '_')"
+        mkdir -p "$dl_dir"
+
+        echo "  Downloading from HuggingFace: $repo_id"
+        echo "  Destination: $dl_dir"
+
+        # Download: use specific filename or glob pattern
+        local dl_ok=0
+        if [ -n "$filename" ]; then
+            echo "  File: $filename"
+            if huggingface-cli download "$repo_id" "$filename" \
+                --local-dir "$dl_dir" \
+                --local-dir-use-symlinks False \
+                ${HF_TOKEN:+--token "$HF_TOKEN"} 2>/dev/null; then
+                dl_ok=1
+            fi
+        elif [ -n "$glob" ]; then
+            echo "  Pattern: $glob"
+            if huggingface-cli download "$repo_id" \
+                --include "$glob" \
+                --local-dir "$dl_dir" \
+                --local-dir-use-symlinks False \
+                ${HF_TOKEN:+--token "$HF_TOKEN"} 2>/dev/null; then
+                # Find the downloaded file
+                filename=$(find "$dl_dir" -name "*.gguf" -not -name "*.part" 2>/dev/null | head -1 | xargs basename 2>/dev/null)
+                [ -n "$filename" ] && dl_ok=1
+            fi
+        fi
+
+        if [ "$dl_ok" -eq 0 ] || [ -z "$filename" ]; then
+            echo "  ❌ Download failed for $repo_id"
+            echo "     Try manually:"
+            echo "       huggingface-cli download $repo_id --local-dir ~/models/$(basename "$repo_id")"
+            echo "     Then: ./launch.sh import-gguf ~/models/$(basename "$repo_id")/<file>.gguf $ollama_name"
+            return 1
+        fi
+
+        local gguf_path="$dl_dir/$filename"
+        if [ ! -f "$gguf_path" ]; then
+            # Try to find it in a subdirectory (huggingface-cli sometimes nests files)
+            gguf_path=$(find "$dl_dir" -name "$filename" 2>/dev/null | head -1)
+        fi
+
+        if [ ! -f "$gguf_path" ]; then
+            echo "  ❌ Downloaded file not found at expected path: $dl_dir/$filename"
+            return 1
+        fi
+
+        echo "  Creating Ollama model: $ollama_name"
+
+        # Write a Modelfile pointing to the downloaded GGUF
+        local modelfile="$dl_dir/Modelfile"
+        cat > "$modelfile" << MEOF
+FROM $gguf_path
+PARAMETER temperature 0.7
+PARAMETER num_ctx 8192
+MEOF
+
+        # Import into Ollama
+        if ollama create "$ollama_name" -f "$modelfile"; then
+            echo "  ✅ Imported as: $ollama_name"
+            echo "  ℹ️  Freeing download cache (Ollama has its own copy)..."
+            rm -rf "$dl_dir"
+            return 0
+        else
+            echo "  ❌ ollama create failed for $ollama_name"
+            echo "     GGUF file kept at: $gguf_path"
             return 1
         fi
     }
@@ -755,13 +933,12 @@ case "${1:-up}" in
     echo ""
 
     # ── HuggingFace authentication — required for hf.co/ models ─────────────
-    # If you see "realm host huggingface.co does not match original host hf.co",
-    # complete this ONE-TIME setup before re-running pull-models:
-    echo "[portal-5] ℹ️  hf.co/ models require Ollama's SSH key on HuggingFace."
-    echo "   One-time setup (if not done):"
-    echo "     1. cat ~/.ollama/id_ed25519.pub | pbcopy"
-    echo "     2. https://huggingface.co/settings/keys  → Add new SSH key"
-    echo "     3. https://huggingface.co/settings/local-apps  → enable Ollama"
+    echo "[portal-5] ℹ️  HuggingFace models: using huggingface-cli download (bypasses Ollama auth issues)"
+    echo "   For gated models (BaronLLM etc.), you must first accept terms at huggingface.co"
+    echo "   then set HF_TOKEN in .env:"
+    echo "     1. https://huggingface.co/<repo> → Accept conditions"
+    echo "     2. https://huggingface.co/settings/tokens → Create token (read scope)"
+    echo "     3. Add to .env:  HF_TOKEN=hf_..."
     echo ""
 
     MODELS=(
@@ -800,7 +977,7 @@ case "${1:-up}" in
     for model in "${MODELS[@]}"; do
         count=$((count + 1))
         echo "[$count/$total] $model"
-        if _do_pull "$model"; then
+        if _pull_model "$model"; then
             echo "  ✅ Done"
         else
             failed=$((failed + 1))
@@ -815,7 +992,7 @@ case "${1:-up}" in
             "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF" \
             "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"; do
             echo "  Pulling: $model (~35GB)"
-            _do_pull "$model" && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
+            _pull_model "$model" && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
         done
     else
         echo "Skipping 70B models (set PULL_HEAVY=true in .env to pull ~35GB models)"
@@ -1242,6 +1419,47 @@ MLXPLIST
     echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
     ;;
 
+  import-gguf)
+    # Import a locally downloaded GGUF file into Ollama
+    # Usage: ./launch.sh import-gguf /path/to/model.gguf [ollama-name]
+    local gguf_path="${2:-}"
+    local model_name="${3:-}"
+
+    if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
+        echo "Usage: ./launch.sh import-gguf <path-to-gguf> [model-name]"
+        echo ""
+        echo "  path-to-gguf   Full path to a .gguf file"
+        echo "  model-name     Name to register in Ollama (default: filename without extension)"
+        echo ""
+        echo "Example:"
+        echo "  ./launch.sh import-gguf ~/Downloads/baronllm-q6_k.gguf baronllm:q6_k"
+        exit 1
+    fi
+
+    if [ -z "$model_name" ]; then
+        model_name=$(basename "$gguf_path" .gguf | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    fi
+
+    echo "[portal-5] Importing GGUF: $gguf_path"
+    echo "           Ollama name:   $model_name"
+
+    tmp_dir=$(mktemp -d)
+    cat > "$tmp_dir/Modelfile" << MEOF
+FROM $gguf_path
+PARAMETER temperature 0.7
+PARAMETER num_ctx 8192
+MEOF
+
+    if ollama create "$model_name" -f "$tmp_dir/Modelfile"; then
+        echo "[portal-5] ✅ Imported: $model_name"
+        echo "  Run it: ollama run $model_name"
+    else
+        echo "[portal-5] ❌ Import failed. Check Ollama is running: brew services info ollama"
+        exit 1
+    fi
+    rm -rf "$tmp_dir"
+    ;;
+
   download-comfyui-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
@@ -1270,7 +1488,7 @@ MLXPLIST
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -1289,6 +1507,7 @@ MLXPLIST
     echo "  logs [svc]            Tail logs (default: portal-pipeline)"
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
+    echo "  import-gguf <path> [name]  Import a locally downloaded GGUF file into Ollama"
     echo "  add-user <email> [name] [role]  Create a user account"
     echo "  list-users            List all registered users"
     echo "  backup                Back up all data to ./backups/ (or specified path)"

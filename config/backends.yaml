@@ -45,19 +45,13 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: coding
     models:
-      # REMOVED: hf.co/Qwen/Qwen3-Coder-Next-GGUF  (sharded GGUF, Ollama incompatible)
-      # REMOVED: qwen3-coder-next:30b-q5            (missing tensor blk.0.ssm_in.weight)
-      # Use MLX backend instead: ./launch.sh install-mlx
-      - qwen3.5:9b                                       # New: fast dense model, 8-12GB, 30-50 t/s on M4
-      - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
-      - hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF  # Lightning: Splunk SPL specialist (~8GB)
-      - deepseek-coder:16b-instruct-q4_K_M               # Fast: Splunk SPL fallback
-      - devstral:24b                                     # Agentic dev workflows
-      - hf.co/MiniMaxAI/MiniMax-M2.1-GGUF               # Large: multi-file BigFix + presentation scripting (~22GB)
-      - hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF        # Heavy: coding + reasoning + tech writing (~38GB, PULL_HEAVY) — better than 3.1 for code
-      # ── WATCH: Qwen3.5 MoE series (Feb-March 2026 — validate before adding) ──
-      # - qwen3.5:35b-a3b     # 35B MoE, 3B active, SWE-Bench ~76% claimed — wait for stable Ollama tag
-      # - qwen3.5:27b         # 27B dense — skip, 9B and 35B MoE cover this tier better
+      - qwen3.5:9b
+      - deepseek-coder:16b-instruct-q4_K_M
+      - devstral:24b
+      - glm-4.7-flash:q4_k_m             # was: hf.co/unsloth/GLM-4.7-Flash-GGUF
+      - deepseek-coder-v2-lite:q4_k_m    # was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF
+      - minimax-m2:q4_k_m                # was: hf.co/MiniMaxAI/MiniMax-M2.1-GGUF
+      - llama3.3:70b-q4_k_m              # was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY)
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security
@@ -65,16 +59,16 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: security
     models:
-      # ── Fast / always-available first (native Ollama registry) ───────────
-      - huihui_ai/baronllm-abliterated                                                # Fast: uncensored, no HF auth needed (~5GB)
-      - xploiter/the-xploiter                                                          # Fast: pentest specialist (~5GB)
-      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN (~5GB)
-      # ── Specialist models (require HF SSH key + pull) ────────────────────
-      - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive (~18GB)
-      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Balanced red/blue (~4GB)
-      - hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF                   # Uncensored R1-style CoT (~14GB)
-      - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research (~18GB)
-      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy (~35GB, PULL_HEAVY)
+      # ── Fast / always-available (native Ollama registry) ─────────────────
+      - huihui_ai/baronllm-abliterated
+      - xploiter/the-xploiter
+      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
+      # ── Downloaded via huggingface-cli + imported ─────────────────────────
+      - baronllm:q6_k                    # was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_...
+      - lily-cybersecurity:q4_k_m        # was: hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
+      - dolphin3-r1-mistral:24b-q4_k_m   # was: hf.co/cognitivecomputations/Dolphin3.0-R1-...
+      - whiterabbitneo:33b-q4_k_m        # was: hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF
+      - dolphin3-llama3:70b-q4_k_m       # was: hf.co/cognitivecomputations/dolphin-3-llama3-70b (PULL_HEAVY)
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
@@ -82,9 +76,9 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: reasoning
     models:
-      - dolphin-llama3:8b                                # Fast fallback — always available
-      - huihui_ai/tongyi-deepresearch-abliterated:30b    # Research synthesis
-      - hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF          # Deep reasoning (~16GB, needs HF auth)
+      - dolphin-llama3:8b
+      - huihui_ai/tongyi-deepresearch-abliterated:30b
+      - deepseek-r1:32b-q4_k_m           # was: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision

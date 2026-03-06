@@ -47,17 +47,17 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
-        "model_hint": "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
+        "model_hint": "baronllm:q6_k",
     },
     "auto-redteam": {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
-        "model_hint": "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
+        "model_hint": "baronllm:q6_k",
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
-        "model_hint": "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF",
+        "model_hint": "lily-cybersecurity:q4_k_m",
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
@@ -67,12 +67,12 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
-        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
+        "model_hint": "deepseek-r1:32b-q4_k_m",
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
-        "model_hint": "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF",
+        "model_hint": "minimax-m2:q4_k_m",
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",
@@ -87,7 +87,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-research": {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
-        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
+        "model_hint": "deepseek-r1:32b-q4_k_m",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -97,7 +97,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-data": {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
-        "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
+        "model_hint": "deepseek-r1:32b-q4_k_m",
     },
 }
 
