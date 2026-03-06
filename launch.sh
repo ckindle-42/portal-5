@@ -185,11 +185,10 @@ case "${1:-up}" in
 
     # Validate required secrets — auto-repair any still set to CHANGEME
     # (handles interrupted first-run or manual .env edits that left placeholders)
-    local _repair=0
+    _repair=0
     for var in PIPELINE_API_KEY WEBUI_SECRET_KEY OPENWEBUI_ADMIN_PASSWORD SEARXNG_SECRET_KEY GRAFANA_PASSWORD; do
         val="${!var:-}"
         if [ -z "$val" ] || [ "$val" = "CHANGEME" ]; then
-            local _new_secret
             _new_secret=$(generate_secret)
             # Write the new value directly into .env
             if grep -q "^${var}=" "$ENV_FILE"; then
