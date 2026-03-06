@@ -381,3 +381,55 @@ class TestR18ModelCompleteness:
         content = open(".env.example").read()
         assert "VIDEO_MODEL" in content, "VIDEO_MODEL missing from .env.example"
         assert "PULL_HEAVY" in content, "PULL_HEAVY missing from .env.example"
+
+
+class TestR20NativeOllama:
+    """Verify R20: Native Ollama as primary path on Apple Silicon."""
+
+    def test_backends_yaml_uses_ollama_url_env_var(self):
+        """backends.yaml uses OLLAMA_URL env var — required for native Ollama on Apple Silicon."""
+        content = open("config/backends.yaml").read()
+        assert "OLLAMA_URL" in content, \
+            "backends.yaml must use ${OLLAMA_URL:-...} not hardcoded http://ollama:11434"
+        assert '"http://ollama:11434"' not in content, \
+            "Hardcoded http://ollama:11434 found — breaks native Ollama on macOS"
+
+    def test_compose_ollama_behind_profile(self):
+        """Docker Ollama is optional — gated behind docker-ollama profile."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        assert "docker-ollama" in content, \
+            "Ollama service must use profiles: [docker-ollama] — native Ollama is default on macOS"
+
+    def test_compose_admin_email_has_default(self):
+        """OPENWEBUI_ADMIN_EMAIL has a default to prevent blank string warning."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        assert "OPENWEBUI_ADMIN_EMAIL:-" in content, \
+            "OPENWEBUI_ADMIN_EMAIL must have :-admin@portal.local default in compose"
+
+    def test_compose_comfyui_has_platform(self):
+        """ComfyUI service specifies platform to silence ARM/amd64 mismatch warning."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        assert "platform: linux/amd64" in content, \
+            "ComfyUI needs platform: linux/amd64 — no ARM build exists, uses Rosetta"
+
+    def test_mcp_ports_configurable(self):
+        """All MCP host ports are overridable via env vars."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        for port_var in ["WHISPER_HOST_PORT", "TTS_HOST_PORT", "DOCUMENTS_HOST_PORT"]:
+            assert port_var in content, f"{port_var} not found in docker-compose.yml"
+
+    def test_launch_sh_has_install_ollama(self):
+        """launch.sh has install-ollama command for native Ollama setup."""
+        content = open("launch.sh").read()
+        assert "install-ollama" in content, \
+            "launch.sh must have install-ollama command"
+        assert "brew install ollama" in content, \
+            "install-ollama must use brew install ollama"
+
+    def test_pull_models_supports_native_ollama(self):
+        """pull-models detects native Ollama, not just docker exec portal5-ollama."""
+        content = open("launch.sh").read()
+        assert "command -v ollama" in content, \
+            "pull-models must detect native ollama binary"
+        assert "_do_pull" in content, \
+            "pull-models must use _do_pull() helper that handles both native and Docker"

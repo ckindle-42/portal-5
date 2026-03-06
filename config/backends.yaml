@@ -6,7 +6,7 @@ backends:
   # ── General (fast default, function calling, creative) ─────────────────────
   - id: ollama-general
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: general
     models:
       - dolphin-llama3:8b              # Default: fast, uncensored, strong function calling
@@ -15,7 +15,7 @@ backends:
   # ── Coding (code generation, debugging, architecture) ─────────────────────
   - id: ollama-coding
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: coding
     models:
       - hf.co/Qwen/Qwen3-Coder-Next-GGUF                # NEW: 80B MoE agentic king, SWE-Bench leader (~18GB active)
@@ -30,7 +30,7 @@ backends:
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: security
     models:
       - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive (~18GB)
@@ -45,7 +45,7 @@ backends:
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: reasoning
     models:
       - hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF      # NEW: deep reasoning, ~16GB
@@ -55,7 +55,7 @@ backends:
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: vision
     models:
       - qwen3-omni:30b    # Best: multimodal, vision + audio understanding
@@ -64,7 +64,7 @@ backends:
   # ── Creative (writing, storytelling) ────────────────────────────────────
   - id: ollama-creative
     type: ollama
-    url: "http://ollama:11434"
+    url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: creative
     models:
       - dolphin-llama3:8b                # Uncensored, strong creative

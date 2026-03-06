@@ -5,11 +5,13 @@
 
 services:
 
-  # ── Ollama — Local LLM inference ─────────────────────────────────────────
+  # ── Ollama — Local LLM inference (opt-in, native is default) ─────────────
   ollama:
     image: ollama/ollama:latest
     container_name: portal5-ollama
     restart: unless-stopped
+    profiles:
+      - docker-ollama
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
@@ -27,11 +29,13 @@ services:
       start_period: 30s
       retries: 10
 
-  # ── Ollama Init — pulls models on first run ───────────────────────────────
+  # ── Ollama Init — pulls models on first run (opt-in, native is default) ───
   ollama-init:
     image: ollama/ollama:latest
     container_name: portal5-ollama-init
     restart: "no"
+    profiles:
+      - docker-ollama
     environment:
       - OLLAMA_HOST=http://ollama:11434
     depends_on:
@@ -68,9 +72,7 @@ services:
       - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      ollama:
-        condition: service_healthy
+    depends_on: []
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"]
       interval: 15s
@@ -109,7 +111,7 @@ services:
       # ── RAG / Knowledge Base ────────────────────────────────────────────────
       # Uses Ollama for embeddings (local, no external API)
       - RAG_EMBEDDING_ENGINE=ollama
-      - RAG_OLLAMA_BASE_URL=http://ollama:11434
+      - RAG_OLLAMA_BASE_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - RAG_EMBEDDING_MODEL=nomic-embed-text:latest
       - ENABLE_RAG_LOCAL_WEB_FETCH=true
       - RAG_RERANKING_MODEL=
@@ -188,7 +190,7 @@ services:
         condition: service_healthy
     environment:
       - OPENWEBUI_URL=http://open-webui:8080
-      - OPENWEBUI_ADMIN_EMAIL=${OPENWEBUI_ADMIN_EMAIL}
+      - OPENWEBUI_ADMIN_EMAIL=${OPENWEBUI_ADMIN_EMAIL:-admin@portal.local}
       - OPENWEBUI_ADMIN_PASSWORD=${OPENWEBUI_ADMIN_PASSWORD}
       - DEFAULT_USER_ROLE=${DEFAULT_USER_ROLE:-pending}
       - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
@@ -207,7 +209,7 @@ services:
     container_name: portal5-mcp-documents
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8913:8913"
+      - "127.0.0.1:${DOCUMENTS_HOST_PORT:-8913}:8913"
     environment:
       - DOCUMENTS_MCP_PORT=8913
       - MCP_PORT=8913
@@ -230,7 +232,7 @@ services:
     container_name: portal5-mcp-music
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8912:8912"
+      - "127.0.0.1:${MUSIC_HOST_PORT:-8912}:8912"
     environment:
       - MUSIC_MCP_PORT=8912
       - MCP_PORT=8912
@@ -250,7 +252,7 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── MCP: Text-to-Speech (Kokoro / Fish Speech) ────────────────────────────
+    # ── MCP: Text-to-Speech (Kokoro / Fish Speech) ────────────────────────────
   mcp-tts:
     build:
       context: ../..
@@ -258,7 +260,7 @@ services:
     container_name: portal5-mcp-tts
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8916:8916"
+      - "127.0.0.1:${TTS_HOST_PORT:-8916}:8916"
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
@@ -277,7 +279,7 @@ services:
       start_period: 60s
       retries: 3
 
-  # ── MCP: Whisper Transcription ────────────────────────────────────────────
+    # ── MCP: Whisper Transcription ────────────────────────────────────────────
   mcp-whisper:
     build:
       context: ../..
@@ -285,7 +287,7 @@ services:
     container_name: portal5-mcp-whisper
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8915:8915"
+      - "127.0.0.1:${WHISPER_HOST_PORT:-8915}:8915"
     environment:
       - WHISPER_MCP_PORT=8915
       - MCP_PORT=8915
@@ -317,7 +319,7 @@ services:
       start_period: 30s
       retries: 5
 
-  # ── MCP: Code Execution Sandbox ───────────────────────────────────────────
+    # ── MCP: Code Execution Sandbox ───────────────────────────────────────────
   mcp-sandbox:
     build:
       context: ../..
@@ -325,7 +327,7 @@ services:
     container_name: portal5-mcp-sandbox
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8914:8914"
+      - "127.0.0.1:${SANDBOX_HOST_PORT:-8914}:8914"
     environment:
       - SANDBOX_MCP_PORT=8914
       - MCP_PORT=8914
@@ -344,7 +346,7 @@ services:
       retries: 3
     # NO docker.sock mount
 
-  # ── MCP: ComfyUI Bridge (image/video via ComfyUI in Docker) ───────────────
+    # ── MCP: ComfyUI Bridge (image/video via ComfyUI in Docker) ───────────────
   mcp-comfyui:
     build:
       context: ../..
@@ -352,7 +354,7 @@ services:
     container_name: portal5-mcp-comfyui
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8910:8910"
+      - "127.0.0.1:${COMFYUI_MCP_HOST_PORT:-8910}:8910"
     environment:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
@@ -376,7 +378,7 @@ services:
     container_name: portal5-mcp-video
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8911:8911"
+      - "127.0.0.1:${VIDEO_MCP_HOST_PORT:-8911}:8911"
     environment:
       - VIDEO_MCP_PORT=8911
       - MCP_PORT=8911
@@ -486,6 +488,7 @@ services:
   # Models are downloaded by comfyui-model-init on first start.
   comfyui:
     image: ghcr.io/ai-dock/comfyui:latest-cpu
+    platform: linux/amd64
     container_name: portal5-comfyui
     restart: unless-stopped
     ports:

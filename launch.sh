@@ -65,6 +65,16 @@ _check_hardware() {
     ARCH=$(uname -m)
     if [ "$ARCH" = "arm64" ]; then
         echo "  ✅ Platform: Apple Silicon — Metal acceleration available"
+        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            OLLAMA_VER=$(ollama --version 2>/dev/null | head -1 || echo "installed")
+            echo "  ✅ Ollama: native ($OLLAMA_VER) — Metal GPU active"
+        elif command -v ollama &>/dev/null; then
+            echo "  ⚠️  Ollama installed but not running — start it: brew services start ollama"
+            WARN=1
+        else
+            echo "  ⚠️  Ollama not installed — run: ./launch.sh install-ollama"
+            WARN=1
+        fi
     elif [ "$ARCH" = "x86_64" ]; then
         # Check for NVIDIA GPU
         if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
@@ -526,99 +536,85 @@ case "${1:-up}" in
     echo "Open WebUI: http://localhost:8080"
     ;;
   pull-models)
-    cd "$COMPOSE_DIR"
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 
-    # Verify ollama container is running
-    if ! docker ps --format '{{.Names}}' | grep -q "portal5-ollama"; then
-        echo "ERROR: portal5-ollama is not running. Start the stack first: ./launch.sh up"
-        exit 1
-    fi
+    # Pull via native Ollama if running, otherwise via Docker container
+    _do_pull() {
+        local model="$1"
+        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            ollama pull "$model"
+        elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+            docker exec portal5-ollama ollama pull "$model"
+        else
+            echo "  ❌ No Ollama available. Run: ./launch.sh install-ollama"
+            return 1
+        fi
+    }
 
-    echo "=== Portal 5: Pulling additional models ==="
+    echo "=== Portal 5: Pulling AI models ==="
     echo "This may take 30-90 minutes depending on connection speed."
-    echo "Pulled models survive docker compose down (stored in ollama-models volume)."
     echo ""
 
-    # Add or remove models here — one per line
     MODELS=(
-        # ── Security (priority — core use case) ───────────────────────────
-        # BaronLLM Offensive Security (~18GB Q6_K — best for red team)
+        # ── Core ──────────────────────────────────────────────────────────
+        "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+        "llama3.2:3b-instruct-q4_K_M"
+        "nomic-embed-text:latest"
+        # ── Security ─────────────────────────────────────────────────────
         "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
-        # Lily-Cybersecurity 7B — fast, balanced red/blue, zero refusals
         "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
-        # The-Xploiter — classic offensive security specialist
+        "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF"
         "xploiter/the-xploiter"
-        # WhiteRabbitNeo 8B — fast classic security
-        "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
-        # BaronLLM abliterated — uncensored general
+        "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
         "huihui_ai/baronllm-abliterated"
-
-        # ── Coding ──────────────────────────────────────────────────────
-        # Qwen3-Coder 30B — best agentic coding, Splunk/BigFix/PPT
+        "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        # ── Coding ───────────────────────────────────────────────────────
+        "hf.co/Qwen/Qwen3-Coder-Next-GGUF"
         "qwen3-coder-next:30b-q5"
-        # GLM-4.7-Flash — fast MoE, strong PowerShell/C#/SQL
         "hf.co/unsloth/GLM-4.7-Flash-GGUF"
-        # DeepSeek-Coder V2 16B — Splunk SPL specialist
+        "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder:16b-instruct-q4_K_M"
-        # Devstral 24B — agentic development workflows
         "devstral:24b"
-        # MiniMax-M2.1 — agentic powerhouse, large codebases, for documents workspace
         "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF"
-
-        # ── Reasoning / Research ────────────────────────────────────────
-        # DeepSeek-R1 32B — deep reasoning + code (~16GB)
+        # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
-        # Tongyi DeepResearch 30B — abliterated, research synthesis
         "huihui_ai/tongyi-deepresearch-abliterated:30b"
-
-        # ── Vision ──────────────────────────────────────────────────────
+        # ── Vision ───────────────────────────────────────────────────────
         "qwen3-omni:30b"
         "llava:7b"
-
-        # ── Heavy 70B models (requires 48GB+ free RAM, gated behind PULL_HEAVY) ─
     )
-
-    # Pull heavy 70B models if PULL_HEAVY=true
-    if [ "${PULL_HEAVY:-false}" = "true" ]; then
-        echo ""
-        echo "Pulling heavy 70B models (PULL_HEAVY=true)..."
-        HEAVY_MODELS=(
-            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
-            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"
-        )
-        for model in "${HEAVY_MODELS[@]}"; do
-            echo "  Pulling: $model (~35GB)"
-            docker exec portal5-ollama ollama pull "$model" || echo "  ❌ Failed: $model"
-        done
-    else
-        echo ""
-        echo "Skipping 70B models (set PULL_HEAVY=true to pull these ~35GB models)"
-        echo "  - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF (security)"
-        echo "  - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF (coding)"
-    fi
 
     total=${#MODELS[@]}
     count=0
     failed=0
     for model in "${MODELS[@]}"; do
         count=$((count + 1))
-        echo "[$count/$total] Pulling: $model"
-        if docker exec portal5-ollama ollama pull "$model"; then
-            echo "  ✅ $model"
+        echo "[$count/$total] $model"
+        if _do_pull "$model"; then
+            echo "  ✅ Done"
         else
-            echo "  ❌ Failed: $model"
             failed=$((failed + 1))
         fi
         echo ""
     done
 
-    echo "=== Pull complete: $((total - failed))/$total succeeded ==="
-    if [ $failed -gt 0 ]; then
-        echo "  $failed model(s) failed — check logs above"
+    # Heavy 70B models — gated behind PULL_HEAVY=true
+    if [ "${PULL_HEAVY:-false}" = "true" ]; then
+        echo "Pulling heavy 70B models (PULL_HEAVY=true)..."
+        for model in \
+            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF" \
+            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"; do
+            echo "  Pulling: $model (~35GB)"
+            _do_pull "$model" && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
+        done
+    else
+        echo "Skipping 70B models (set PULL_HEAVY=true in .env to pull ~35GB models)"
+        echo "  - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
+        echo "  - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"
     fi
+
     echo ""
-    echo "Restart the pipeline to pick up new models:"
-    echo "  docker compose -f $COMPOSE_DIR/docker-compose.yml restart portal-pipeline"
+    echo "=== Pull complete: $((total - failed))/$total succeeded ==="
     ;;
 
   add-user)
@@ -695,24 +691,69 @@ for u in users:
 " 2>/dev/null || echo "  Could not fetch users — is stack running?"
     ;;
 
-  *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels]"
+  install-ollama)
+    echo "=== Installing Ollama natively (Apple Silicon / Metal GPU) ==="
+    ARCH=$(uname -m)
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  Non-Apple-Silicon detected ($ARCH)."
+        echo "  For Linux: curl -fsSL https://ollama.com/install.sh | sh"
+        echo "  Then run:  ./launch.sh up --profile docker-ollama"
+        exit 0
+    fi
+
+    if ! command -v brew &>/dev/null; then
+        echo "  ❌ Homebrew not found. Install it first:"
+        echo '     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        echo "  Then re-run: ./launch.sh install-ollama"
+        exit 1
+    fi
+
+    if command -v ollama &>/dev/null; then
+        echo "  ✅ Ollama already installed: $(ollama --version 2>/dev/null | head -1 || echo 'installed')"
+    else
+        echo "  Installing Ollama via brew..."
+        brew install ollama
+        echo "  ✅ Ollama installed"
+    fi
+
+    echo "  Starting Ollama service (auto-starts on login)..."
+    brew services start ollama
+    sleep 3
+
+    if curl -s http://localhost:11434/api/tags &>/dev/null; then
+        echo "  ✅ Ollama is running at http://localhost:11434"
+        echo "  ✅ Will auto-start on login via brew services"
+    else
+        echo "  ⚠️  Ollama installed but not yet responding — wait a moment then check:"
+        echo "     curl http://localhost:11434/api/tags"
+    fi
+
     echo ""
-    echo "  up           Start all services (first run auto-generates secrets)"
-    echo "  up-telegram  Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
-    echo "  up-slack     Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
-    echo "  up-channels  Start core stack + both Telegram and Slack"
-    echo "  test         Run end-to-end smoke tests against the live stack"
-    echo "  down         Stop all services (data preserved)"
-    echo "  clean        Stop + wipe Open WebUI data (Ollama models preserved)"
-    echo "  clean-all    Stop + wipe everything including Ollama models"
-    echo "  seed         Re-run Open WebUI seeding (workspaces + personas + tools)"
-    echo "  logs [svc]   Tail logs (default: portal-pipeline)"
-    echo "  status       Show service status and health"
-    echo "  pull-models  Pull all Portal 5 Ollama models (30-90 min)"
+    echo "Next steps:"
+    echo "  ./launch.sh up           — start Portal 5 stack"
+    echo "  ./launch.sh pull-models  — pull AI models (30-90 min)"
+    ;;
+
+  *)
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama]"
+    echo ""
+    echo "  up               Start all services (first run auto-generates secrets)"
+    echo "  install-ollama   Install Ollama natively via brew (Apple Silicon recommended)"
+    echo "  up-telegram      Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
+    echo "  up-slack         Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
+    echo "  up-channels      Start core stack + both Telegram and Slack"
+    echo "  test             Run end-to-end smoke tests against the live stack"
+    echo "  down             Stop all services (data preserved)"
+    echo "  clean            Stop + wipe Open WebUI data (Ollama models preserved)"
+    echo "  clean-all        Stop + wipe everything including Ollama models"
+    echo "  seed             Re-run Open WebUI seeding (workspaces + personas + tools)"
+    echo "  logs [svc]       Tail logs (default: portal-pipeline)"
+    echo "  status           Show service status and health"
+    echo "  pull-models      Pull all Portal 5 Ollama models (30-90 min)"
     echo "  add-user <email> [name] [role]  Create a user account"
-    echo "  list-users   List all registered users"
-    echo "  backup       Back up all data to ./backups/ (or specified path)"
-    echo "  restore      Restore data from a backup directory"
+    echo "  list-users       List all registered users"
+    echo "  backup           Back up all data to ./backups/ (or specified path)"
+    echo "  restore          Restore data from a backup directory"
     ;;
 esac
