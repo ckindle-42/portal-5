@@ -2,7 +2,7 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
-## [Unreleased] - 2026-03-03
+## [5.0.2] - 2026-03-05
 
 ### Fixed
 - SearXNG: removed literal `${SEARXNG_SECRET_KEY}` from settings.yml — was never

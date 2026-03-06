@@ -152,8 +152,6 @@ class BackendRegistry:
         3. If none found, fall back to any healthy backend in fallback_group
         4. Within a group, randomly select for load balancing
         """
-        # Normalize workspace ID (strip "auto-" prefix if present for lookup)
-        workspace_id.replace("auto-", "") if workspace_id.startswith("auto-") else workspace_id
         groups = self._workspace_routes.get(workspace_id, [self._fallback_group])
 
         healthy = self.list_healthy_backends()

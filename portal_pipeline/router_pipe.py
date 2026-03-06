@@ -224,58 +224,58 @@ async def chat_completions(
         assert registry is not None
 
         body = await request.json()
-    workspace_id = body.get("model", "auto")
-    stream = body.get("stream", True)
+        workspace_id = body.get("model", "auto")
+        stream = body.get("stream", True)
 
-    # Increment request counter for this workspace
-    _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
+        # Increment request counter for this workspace
+        _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
 
-    # Select backend
-    backend = registry.get_backend_for_workspace(workspace_id)
-    if not backend:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "No healthy backends available. "
-                "Ensure Ollama is running and a model is pulled. "
-                "Check config/backends.yaml."
-            ),
-        )
-
-    # Select model: use workspace model_hint if available on this backend,
-    # otherwise fall back to first available model on the backend
-    ws_cfg = WORKSPACES.get(workspace_id, {})
-    model_hint = ws_cfg.get("model_hint", "")
-    if model_hint and model_hint in backend.models:
-        target_model = model_hint
-    else:
-        target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
-        if model_hint and target_model != model_hint:
-            logger.debug(
-                "Workspace %s wants %s but backend %s only has %s — using %s",
-                workspace_id,
-                model_hint,
-                backend.id,
-                backend.models,
-                target_model,
+        # Select backend
+        backend = registry.get_backend_for_workspace(workspace_id)
+        if not backend:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "No healthy backends available. "
+                    "Ensure Ollama is running and a model is pulled. "
+                    "Check config/backends.yaml."
+                ),
             )
 
-    backend_body = {**body, "model": target_model}
+        # Select model: use workspace model_hint if available on this backend,
+        # otherwise fall back to first available model on the backend
+        ws_cfg = WORKSPACES.get(workspace_id, {})
+        model_hint = ws_cfg.get("model_hint", "")
+        if model_hint and model_hint in backend.models:
+            target_model = model_hint
+        else:
+            target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+            if model_hint and target_model != model_hint:
+                logger.debug(
+                    "Workspace %s wants %s but backend %s only has %s — using %s",
+                    workspace_id,
+                    model_hint,
+                    backend.id,
+                    backend.models,
+                    target_model,
+                )
 
-    logger.info(
-        "Routing workspace=%s → backend=%s model=%s stream=%s",
-        workspace_id,
-        backend.id,
-        target_model,
-        stream,
-    )
+        backend_body = {**body, "model": target_model}
 
-    if stream:
-        return StreamingResponse(
-            _stream_from_backend(backend.chat_url, backend_body),
-            media_type="text/event-stream",
+        logger.info(
+            "Routing workspace=%s → backend=%s model=%s stream=%s",
+            workspace_id,
+            backend.id,
+            target_model,
+            stream,
         )
-    return await _complete_from_backend(backend.chat_url, backend_body)
+
+        if stream:
+            return StreamingResponse(
+                _stream_from_backend(backend.chat_url, backend_body),
+                media_type="text/event-stream",
+            )
+        return await _complete_from_backend(backend.chat_url, backend_body)
 
 
 async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:

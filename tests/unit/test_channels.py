@@ -85,11 +85,11 @@ class TestTelegramAdapter:
 
         update = MagicMock()
         update.effective_user.id = 99999  # not in allowlist
-        update.message.reply_text = AsyncMock()
-        update.message.text = "hello"
+        update.effective_message.reply_text = AsyncMock()
+        update.effective_message.text = "hello"
 
         await bot.handle_message(update, MagicMock())
-        update.message.reply_text.assert_called_once_with("Unauthorized.")
+        update.effective_message.reply_text.assert_called_once_with("Unauthorized.")
         os.environ.pop("TELEGRAM_USER_IDS", None)
 
     @pytest.mark.asyncio
@@ -105,9 +105,9 @@ class TestTelegramAdapter:
 
         update = MagicMock()
         update.effective_user.id = 12345
-        update.message.text = "What is Python?"
-        update.message.reply_text = AsyncMock()
-        update.message.chat.send_action = AsyncMock()
+        update.effective_message.text = "What is Python?"
+        update.effective_message.reply_text = AsyncMock()
+        update.effective_message.chat.send_action = AsyncMock()
 
         context = MagicMock()
         context.user_data = {}
@@ -136,8 +136,8 @@ class TestTelegramAdapter:
             assert any("Python" in m["content"] for m in user_messages)
 
             # Verify response sent to user
-            update.message.reply_text.assert_called_once()
-            reply_text = update.message.reply_text.call_args[0][0]
+            update.effective_message.reply_text.assert_called_once()
+            reply_text = update.effective_message.reply_text.call_args[0][0]
             assert "Python" in reply_text
 
     @pytest.mark.asyncio
@@ -161,9 +161,9 @@ class TestTelegramAdapter:
 
         update = MagicMock()
         update.effective_user.id = 1
-        update.message.text = "new message"
-        update.message.reply_text = AsyncMock()
-        update.message.chat.send_action = AsyncMock()
+        update.effective_message.text = "new message"
+        update.effective_message.reply_text = AsyncMock()
+        update.effective_message.chat.send_action = AsyncMock()
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -186,7 +186,7 @@ class TestTelegramAdapter:
         from portal_channels.telegram.bot import set_workspace
 
         update = MagicMock()
-        update.message.reply_text = AsyncMock()
+        update.effective_message.reply_text = AsyncMock()
 
         context = MagicMock()
         context.user_data = {}
@@ -194,7 +194,7 @@ class TestTelegramAdapter:
 
         await set_workspace(update, context)
         assert context.user_data["workspace"] == "auto-coding"
-        update.message.reply_text.assert_called_once()
+        update.effective_message.reply_text.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_workspace_command_rejects_invalid(self):
@@ -202,7 +202,7 @@ class TestTelegramAdapter:
         from portal_channels.telegram.bot import set_workspace
 
         update = MagicMock()
-        update.message.reply_text = AsyncMock()
+        update.effective_message.reply_text = AsyncMock()
 
         context = MagicMock()
         context.user_data = {}
@@ -211,7 +211,7 @@ class TestTelegramAdapter:
         await set_workspace(update, context)
         # Should NOT set the workspace
         assert "workspace" not in context.user_data
-        reply = update.message.reply_text.call_args[0][0]
+        reply = update.effective_message.reply_text.call_args[0][0]
         assert "Unknown workspace" in reply or "nonexistent" in reply.lower()
 
     @pytest.mark.asyncio
@@ -227,9 +227,9 @@ class TestTelegramAdapter:
 
         update = MagicMock()
         update.effective_user.id = 1
-        update.message.text = "hello"
-        update.message.reply_text = AsyncMock()
-        update.message.chat.send_action = AsyncMock()
+        update.effective_message.text = "hello"
+        update.effective_message.reply_text = AsyncMock()
+        update.effective_message.chat.send_action = AsyncMock()
         context = MagicMock()
         context.user_data = {}
 
@@ -239,7 +239,7 @@ class TestTelegramAdapter:
             mock_client.return_value.post = AsyncMock(side_effect=Exception("Connection refused"))
             await bot.handle_message(update, context)
 
-        reply = update.message.reply_text.call_args[0][0]
+        reply = update.effective_message.reply_text.call_args[0][0]
         assert "⚠️" in reply or "error" in reply.lower()
 
 

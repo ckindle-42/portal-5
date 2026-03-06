@@ -40,7 +40,9 @@ def _is_allowed(user_id: int) -> bool:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
+    if not update.effective_message:
+        return
+    await update.effective_message.reply_text(
         "🤖 Portal 5.0 — Local AI Assistant\n\n"
         "Send any message to chat.\n"
         "Commands:\n"
@@ -54,45 +56,57 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.user_data.clear()
-    await update.message.reply_text("Conversation history cleared.")
+    if not update.effective_message:
+        return
+    if context.user_data is not None:
+        context.user_data.clear()
+    await update.effective_message.reply_text("Conversation history cleared.")
 
 
 async def list_workspaces(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.effective_message:
+        return
     text = "Available workspaces:\n" + "\n".join(f"  • {ws}" for ws in sorted(VALID_WORKSPACES))
-    await update.message.reply_text(text)
+    await update.effective_message.reply_text(text)
 
 
 async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.effective_message:
+        return
+    if context.user_data is None:
+        return
     args = context.args
     if args:
         ws = args[0].lower().strip()
         if not is_valid_workspace(ws):
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 f"Unknown workspace: {ws!r}\n"
                 f"Use /workspaces to see available options."
             )
             return
         context.user_data["workspace"] = ws
-        await update.message.reply_text(f"Workspace set to: {ws}")
+        await update.effective_message.reply_text(f"Workspace set to: {ws}")
     else:
         current = context.user_data.get("workspace", DEFAULT_WORKSPACE)
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"Current workspace: {current}\n"
             "Usage: /workspace <name>"
         )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.effective_user:
+    if not update.effective_message or not update.effective_user:
         return
     if not _is_allowed(update.effective_user.id):
-        await update.message.reply_text("Unauthorized.")
+        await update.effective_message.reply_text("Unauthorized.")
         return
 
-    user_text = update.message.text or ""
+    user_text = update.effective_message.text or ""
     if not user_text.strip():
         return
+
+    if context.user_data is None:
+        context.user_data = {}
 
     workspace = context.user_data.get("workspace", DEFAULT_WORKSPACE)
 
@@ -102,7 +116,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if len(history) > 20:
         history = history[-20:]
 
-    await update.message.chat.send_action("typing")
+    await update.effective_message.chat.send_action("typing")
 
     try:
         from portal_channels.dispatcher import call_pipeline_async
@@ -116,7 +130,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Telegram 4096-char message limit
     for chunk in [reply[i : i + 4000] for i in range(0, len(reply), 4000)]:
-        await update.message.reply_text(chunk, parse_mode="Markdown")
+        await update.effective_message.reply_text(chunk, parse_mode="Markdown")
 
 
 def build_app() -> Application:

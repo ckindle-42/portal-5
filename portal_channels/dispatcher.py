@@ -73,7 +73,7 @@ async def call_pipeline_async(
                     await asyncio.sleep(wait)
                     continue
                 resp.raise_for_status()
-                return resp.json()["choices"][0]["message"]["content"]
+                return str(resp.json()["choices"][0]["message"]["content"])
 
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
             last_exc = e
@@ -116,7 +116,7 @@ def call_pipeline_sync(text: str, workspace: str) -> str:
                     time.sleep(wait)
                     continue
                 resp.raise_for_status()
-                return resp.json()["choices"][0]["message"]["content"]
+                return str(resp.json()["choices"][0]["message"]["content"])
 
         except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
             last_exc = e
