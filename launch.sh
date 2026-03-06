@@ -75,6 +75,14 @@ _check_hardware() {
             echo "  ⚠️  Ollama not installed — run: ./launch.sh install-ollama"
             WARN=1
         fi
+        # Check native ComfyUI is running
+        if curl -s http://localhost:8188/system_stats &>/dev/null 2>&1; then
+            echo "  ✅ ComfyUI: native — Metal GPU active (:8188)"
+        else
+            echo "  ℹ️  ComfyUI not running (image/video generation unavailable)"
+            echo "     Install: ./launch.sh install-comfyui"
+            echo "     Start:   ~/ComfyUI/start.sh"
+        fi
     elif [ "$ARCH" = "x86_64" ]; then
         # Check for NVIDIA GPU
         if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
@@ -571,6 +579,7 @@ case "${1:-up}" in
         # ── Coding ───────────────────────────────────────────────────────
         "hf.co/Qwen/Qwen3-Coder-Next-GGUF"
         "qwen3-coder-next:30b-q5"
+        "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
         "hf.co/unsloth/GLM-4.7-Flash-GGUF"
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder:16b-instruct-q4_K_M"
@@ -603,14 +612,14 @@ case "${1:-up}" in
         echo "Pulling heavy 70B models (PULL_HEAVY=true)..."
         for model in \
             "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF" \
-            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"; do
+            "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"; do
             echo "  Pulling: $model (~35GB)"
             _do_pull "$model" && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
         done
     else
         echo "Skipping 70B models (set PULL_HEAVY=true in .env to pull ~35GB models)"
         echo "  - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
-        echo "  - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"
+        echo "  - hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"
     fi
 
     echo ""
@@ -735,25 +744,173 @@ for u in users:
     echo "  ./launch.sh pull-models  — pull AI models (30-90 min)"
     ;;
 
-  *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama]"
+  install-comfyui)
+    echo "=== Installing ComfyUI natively (Apple Silicon / Metal GPU) ==="
+    ARCH=$(uname -m)
+    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  Non-Apple-Silicon detected ($ARCH)."
+        echo "  For Linux with NVIDIA: use Docker ComfyUI via --profile docker-comfyui"
+        echo "  Or install manually: https://github.com/comfyanonymous/ComfyUI"
+        exit 0
+    fi
+
+    # ── Install Python dependency manager ────────────────────────────────────
+    if ! command -v python3 &>/dev/null; then
+        echo "  ❌ python3 not found. Install via brew: brew install python"
+        exit 1
+    fi
+
+    # ── Clone ComfyUI ─────────────────────────────────────────────────────────
+    if [ -d "$COMFYUI_DIR" ]; then
+        echo "  ✅ ComfyUI already cloned at $COMFYUI_DIR"
+        echo "  Updating..."
+        git -C "$COMFYUI_DIR" pull --quiet
+    else
+        echo "  Cloning ComfyUI to $COMFYUI_DIR..."
+        git clone https://github.com/comfyanonymous/ComfyUI "$COMFYUI_DIR"
+        echo "  ✅ ComfyUI cloned"
+    fi
+
+    # ── Install Python dependencies ───────────────────────────────────────────
+    echo "  Installing Python dependencies (this may take a few minutes)..."
+    cd "$COMFYUI_DIR"
+
+    # Use a venv to avoid system Python conflicts
+    if [ ! -d "$COMFYUI_DIR/.venv" ]; then
+        python3 -m venv "$COMFYUI_DIR/.venv"
+    fi
+
+    "$COMFYUI_DIR/.venv/bin/pip" install --quiet --upgrade pip
+    "$COMFYUI_DIR/.venv/bin/pip" install --quiet -r requirements.txt
+    # PyTorch for Apple Silicon (MPS)
+    "$COMFYUI_DIR/.venv/bin/pip" install --quiet \
+        torch torchvision torchaudio
+    echo "  ✅ Dependencies installed"
+
+    # ── Create model directories ──────────────────────────────────────────────
+    mkdir -p "$COMFYUI_DIR/models/checkpoints"
+    mkdir -p "$COMFYUI_DIR/models/video"
+    mkdir -p "$COMFYUI_DIR/output"
+    echo "  ✅ Model directories created"
+
+    # ── Create a launch script for ComfyUI ───────────────────────────────────
+    cat > "$COMFYUI_DIR/start.sh" << 'COMFY_START'
+#!/bin/bash
+# Start ComfyUI with Metal (MPS) acceleration for Apple Silicon
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+.venv/bin/python main.py \
+    --listen 0.0.0.0 \
+    --port 8188 \
+    --force-fp16
+COMFY_START
+    chmod +x "$COMFYUI_DIR/start.sh"
+
+    # ── Register as a launchd service (auto-start on login) ──────────────────
+    PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.comfyui.plist"
+    cat > "$PLIST_PATH" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.comfyui</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$COMFYUI_DIR/.venv/bin/python</string>
+        <string>$COMFYUI_DIR/main.py</string>
+        <string>--listen</string>
+        <string>0.0.0.0</string>
+        <string>--port</string>
+        <string>8188</string>
+        <string>--force-fp16</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$COMFYUI_DIR</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$HOME/.portal5/logs/comfyui.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/.portal5/logs/comfyui-error.log</string>
+</dict>
+</plist>
+PLIST
+
+    mkdir -p "$HOME/.portal5/logs"
+
+    # Load the service
+    launchctl load "$PLIST_PATH" 2>/dev/null || true
+    launchctl start com.portal5.comfyui 2>/dev/null || true
+    sleep 5
+
+    if curl -s http://localhost:8188/system_stats &>/dev/null; then
+        echo "  ✅ ComfyUI is running at http://localhost:8188"
+        echo "  ✅ Auto-starts on login via launchd"
+    else
+        echo "  ⚠️  ComfyUI installed but not yet responding."
+        echo "  Logs: $HOME/.portal5/logs/comfyui.log"
+        echo "  Or start manually: $COMFYUI_DIR/start.sh"
+    fi
+
     echo ""
-    echo "  up               Start all services (first run auto-generates secrets)"
-    echo "  install-ollama   Install Ollama natively via brew (Apple Silicon recommended)"
-    echo "  up-telegram      Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
-    echo "  up-slack         Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
-    echo "  up-channels      Start core stack + both Telegram and Slack"
-    echo "  test             Run end-to-end smoke tests against the live stack"
-    echo "  down             Stop all services (data preserved)"
-    echo "  clean            Stop + wipe Open WebUI data (Ollama models preserved)"
-    echo "  clean-all        Stop + wipe everything including Ollama models"
-    echo "  seed             Re-run Open WebUI seeding (workspaces + personas + tools)"
-    echo "  logs [svc]       Tail logs (default: portal-pipeline)"
-    echo "  status           Show service status and health"
-    echo "  pull-models      Pull all Portal 5 Ollama models (30-90 min)"
+    echo "Next steps:"
+    echo "  ./launch.sh download-comfyui-models   — download image/video models"
+    echo "  ./launch.sh up                        — start Portal 5 stack"
+    ;;
+
+  download-comfyui-models)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
+    IMAGE_MODEL="${IMAGE_MODEL:-flux-schnell}"
+    VIDEO_MODEL="${VIDEO_MODEL:-wan2.2}"
+    HF_TOKEN="${HF_TOKEN:-}"
+
+    echo "=== Downloading ComfyUI models ==="
+    echo "  Image model: $IMAGE_MODEL"
+    echo "  Video model: $VIDEO_MODEL"
+    echo "  Models dir:  $COMFYUI_DIR/models/checkpoints"
+    echo ""
+
+    # Ensure huggingface_hub is available
+    if ! python3 -c "import huggingface_hub" &>/dev/null; then
+        echo "  Installing huggingface_hub..."
+        pip install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
+            python3 -m pip install huggingface_hub --quiet
+    fi
+
+    IMAGE_MODEL="$IMAGE_MODEL" \
+    VIDEO_MODEL="$VIDEO_MODEL" \
+    HF_TOKEN="$HF_TOKEN" \
+    MODELS_DIR="$COMFYUI_DIR/models/checkpoints" \
+    python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
+    ;;
+
+  *)
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|download-comfyui-models]"
+    echo ""
+    echo "  up                    Start all services (first run auto-generates secrets)"
+    echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
+    echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
+    echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
+    echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
+    echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
+    echo "  up-channels           Start core stack + both Telegram and Slack"
+    echo "  test                  Run end-to-end smoke tests against the live stack"
+    echo "  down                  Stop all services (data preserved)"
+    echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
+    echo "  clean-all             Stop + wipe everything including Ollama models"
+    echo "  seed                  Re-run Open WebUI seeding (workspaces + personas + tools)"
+    echo "  logs [svc]            Tail logs (default: portal-pipeline)"
+    echo "  status                Show service status and health"
+    echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  add-user <email> [name] [role]  Create a user account"
-    echo "  list-users       List all registered users"
-    echo "  backup           Back up all data to ./backups/ (or specified path)"
-    echo "  restore          Restore data from a backup directory"
+    echo "  list-users            List all registered users"
+    echo "  backup                Back up all data to ./backups/ (or specified path)"
+    echo "  restore               Restore data from a backup directory"
     ;;
 esac

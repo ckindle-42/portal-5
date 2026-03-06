@@ -96,10 +96,10 @@ services:
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
 
-      # ── Image generation (ComfyUI in Docker) ────────────────────────────────
+      # ── Image generation (ComfyUI) ───────────────────────────────────────────
       - ENABLE_IMAGE_GENERATION=True
       - IMAGE_GENERATION_ENGINE=comfyui
-      - COMFYUI_BASE_URL=http://comfyui:8188
+      - COMFYUI_BASE_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
 
       # ── Web Search (SearXNG) ─────────────────────────────────────────────────
       - ENABLE_RAG_WEB_SEARCH=true
@@ -346,7 +346,7 @@ services:
       retries: 3
     # NO docker.sock mount
 
-    # ── MCP: ComfyUI Bridge (image/video via ComfyUI in Docker) ───────────────
+  # ── MCP: ComfyUI Bridge (image/video via ComfyUI) ────────────────────────────
   mcp-comfyui:
     build:
       context: ../..
@@ -358,11 +358,9 @@ services:
     environment:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
-      - COMFYUI_URL=http://comfyui:8188
+      - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
     command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
-    depends_on:
-      comfyui:
-        condition: service_healthy
+    depends_on: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8910/health"]
       interval: 30s
@@ -382,12 +380,10 @@ services:
     environment:
       - VIDEO_MCP_PORT=8911
       - MCP_PORT=8911
-      - COMFYUI_URL=http://comfyui:8188
+      - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
       - OUTPUT_DIR=/app/data/generated
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
-    depends_on:
-      comfyui:
-        condition: service_healthy
+    depends_on: []
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
     healthcheck:
@@ -483,7 +479,7 @@ services:
       start_period: 30s
       retries: 3
 
-  # ── ComfyUI — Image and Video Generation Engine ───────────────────────────
+  # ── ComfyUI — Image and Video Generation Engine (opt-in, native is default) ──
   # Uses CPU by default (works everywhere). Enable GPU profile for CUDA.
   # Models are downloaded by comfyui-model-init on first start.
   comfyui:
@@ -491,6 +487,8 @@ services:
     platform: linux/amd64
     container_name: portal5-comfyui
     restart: unless-stopped
+    profiles:
+      - docker-comfyui
     ports:
       - "127.0.0.1:8188:8188"
     volumes:
@@ -507,11 +505,13 @@ services:
       start_period: 120s
       retries: 5
 
-  # ── ComfyUI Model Init — downloads image/video models on first run ─────────
+  # ── ComfyUI Model Init — downloads image/video models on first run (opt-in) ──
   comfyui-model-init:
     image: python:3.11-slim
     container_name: portal5-comfyui-init
     restart: "no"
+    profiles:
+      - docker-comfyui
     depends_on:
       comfyui:
         condition: service_healthy

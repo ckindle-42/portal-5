@@ -20,12 +20,17 @@ backends:
     models:
       - hf.co/Qwen/Qwen3-Coder-Next-GGUF                # NEW: 80B MoE agentic king, SWE-Bench leader (~18GB active)
       - qwen3-coder-next:30b-q5                          # Fast: agentic, Splunk/BigFix/PPT
+      # - qwen2.5-coder:32b-instruct                    # Fallback: if Qwen3-Coder-Next GGUF unavailable in Ollama
+      - qwen3.5:9b                                       # New: fast dense model, 8-12GB, 30-50 t/s on M4
       - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
       - hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF  # Lightning: Splunk SPL specialist (~8GB)
       - deepseek-coder:16b-instruct-q4_K_M               # Fast: Splunk SPL fallback
       - devstral:24b                                     # Agentic dev workflows
       - hf.co/MiniMaxAI/MiniMax-M2.1-GGUF               # Large: multi-file BigFix + presentation scripting (~22GB)
-      - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF        # Heavy: high-reasoning + tech writing (~35GB, PULL_HEAVY)
+      - hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF        # Heavy: coding + reasoning + tech writing (~38GB, PULL_HEAVY) — better than 3.1 for code
+      # ── WATCH: Qwen3.5 MoE series (Feb-March 2026 — validate before adding) ──
+      # - qwen3.5:35b-a3b     # 35B MoE, 3B active, SWE-Bench ~76% claimed — wait for stable Ollama tag
+      # - qwen3.5:27b         # 27B dense — skip, 9B and 35B MoE cover this tier better
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security

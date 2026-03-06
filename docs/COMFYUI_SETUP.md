@@ -1,91 +1,65 @@
 # Portal 5.0 — ComfyUI Setup Guide
 
-ComfyUI handles image and video generation. It runs **outside Docker** on the host
-machine to access GPU/MPS hardware directly.
+ComfyUI handles image and video generation. It runs natively on the host
+for Metal GPU access on Apple Silicon.
 
-## Installation (macOS — Apple Silicon)
+## Quick Install (Apple Silicon)
 
 ```bash
-git clone https://github.com/comfyanonymous/ComfyUI
-cd ComfyUI
-pip install -r requirements.txt
+./launch.sh install-comfyui
 ```
 
-Start ComfyUI (add to a startup script or run in a terminal before `./launch.sh up`):
+This clones ComfyUI to `~/ComfyUI`, installs PyTorch with MPS support,
+and registers it as a launchd service that auto-starts on login.
+
+## Download Models
+
 ```bash
-cd ~/ComfyUI
-python main.py --listen 0.0.0.0 --port 8188
-# For MPS (Apple Silicon): python main.py --listen 0.0.0.0 --port 8188 --force-fp16
+# Default: flux-schnell (image) + wan2.2 (video)
+./launch.sh download-comfyui-models
+
+# Choose a different image model:
+IMAGE_MODEL=flux-uncensored ./launch.sh download-comfyui-models
+
+# All image model options:
+#   flux-schnell (~12GB, default)    flux-dev (~24GB, needs HF_TOKEN)
+#   flux-uncensored (~24GB)          flux2-klein (~20GB)
+#   sdxl (~7GB)                      juggernaut-xl (~7GB)
+#   pony-diffusion (~12GB)           epicrealism-xl (~12GB)
+
+# All video model options:
+#   wan2.2 (~18GB, default)          wan2.2-uncensored (~20GB)
+#   skyreels-v1 (~15GB)              mochi-1 (~15GB)
+#   stable-video-diffusion (~10GB)
 ```
 
-## Model Downloads
+## Manual Start / Stop
 
-Place all models in `~/ComfyUI/models/checkpoints/` (create directory if needed).
-
-### FLUX.1-schnell (Fast image generation — recommended first install)
 ```bash
-pip install huggingface_hub
-huggingface-cli download black-forest-labs/FLUX.1-schnell \
-    flux1-schnell.safetensors \
-    --local-dir ~/ComfyUI/models/checkpoints/
+# Start
+~/ComfyUI/start.sh
+
+# Stop
+launchctl stop com.portal5.comfyui
+
+# Restart
+launchctl stop com.portal5.comfyui && launchctl start com.portal5.comfyui
+
+# View logs
+tail -f ~/.portal5/logs/comfyui.log
 ```
 
-### FLUX.1-dev (Higher quality, requires HuggingFace token)
+## Linux (NVIDIA GPU)
+
 ```bash
-huggingface-cli login  # Enter your HF_TOKEN
-huggingface-cli download black-forest-labs/FLUX.1-dev \
-    flux1-dev.safetensors \
-    --local-dir ~/ComfyUI/models/checkpoints/
+# Use Docker ComfyUI with CUDA profile
+./launch.sh up --profile docker-comfyui
+# Models download automatically on first start
 ```
 
-### SDXL Base 1.0 (Alternative — no token required)
+## Verify
+
 ```bash
-huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 \
-    sd_xl_base_1.0.safetensors \
-    --local-dir ~/ComfyUI/models/checkpoints/
-```
-
-### Wan2.2 (Text-to-video — 5B model, requires ~12GB VRAM)
-```bash
-huggingface-cli download Wan-AI/Wan2.2-T2V-5B \
-    --local-dir ~/ComfyUI/models/checkpoints/
-```
-
-### Video Generation Workflow
-
-The Video MCP (`portal_mcp/video/video_mcp.py`) communicates with ComfyUI via API to generate videos:
-
-1. **ComfyUI must be running** at `http://localhost:8188`
-2. **Wan2.2 model must be downloaded** to `~/ComfyUI/models/checkpoints/`
-3. **Video MCP service** in docker-compose connects to ComfyUI
-4. **User requests video** via Open WebUI Tools panel
-
-To test video generation manually:
-```bash
-# Check ComfyUI API is accessible
 curl http://localhost:8188/system_stats
-
-# Check available models
-curl http://localhost:8188/object_info/ComfyUINode
+# Should return JSON with GPU info showing MPS device
 ```
-
-**Note**: Video generation is resource-intensive. On Apple Silicon (M-series Macs), expect:
-- Wan2.2 T2V: 5-15 minutes per video
-- Requires ~12GB unified memory available
-
-## Open WebUI Configuration
-
-Once ComfyUI is running at `http://localhost:8188`:
-
-1. Log in to Open WebUI as admin
-2. Go to **Admin Panel > Settings > Images**
-3. Enable **Image Generation**
-4. Set engine to **ComfyUI**
-5. Set URL to `http://host.docker.internal:8188`
-6. Select a default model from the dropdown
-
-## Testing
-
-In a chat, type: `Generate an image of a futuristic city at sunset`
-
-The image should appear inline in the chat response.

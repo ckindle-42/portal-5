@@ -274,7 +274,7 @@ class TestR17bModelExpansion:
 
         required = [
             "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF",
-            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF",
+            "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF",
             "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF",
         ]
         for model in required:
@@ -325,7 +325,7 @@ class TestR18ModelCompleteness:
             "GLM-4.7-Flash",
             "DeepSeek-Coder-V2",
             "MiniMax-M2.1",
-            "Meta-Llama-3.1-70B",
+            "Meta-Llama-3.3-70B",
             # Reasoning
             "DeepSeek-R1-32B",
         ]
@@ -433,3 +433,73 @@ class TestR20NativeOllama:
             "pull-models must detect native ollama binary"
         assert "_do_pull" in content, \
             "pull-models must use _do_pull() helper that handles both native and Docker"
+
+
+class TestR21NativeComfyUI:
+    """Verify R21: Native ComfyUI as primary path on Apple Silicon."""
+
+    def test_compose_comfyui_behind_profile(self):
+        """Docker ComfyUI is optional — gated behind docker-comfyui profile."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        assert "docker-comfyui" in content, \
+            "ComfyUI Docker service must use profiles: [docker-comfyui] — native is default on macOS"
+
+    def test_compose_comfyui_url_uses_env_var(self):
+        """mcp-comfyui and mcp-video use COMFYUI_URL env var, not hardcoded container."""
+        content = open("deploy/portal-5/docker-compose.yml").read()
+        assert "COMFYUI_URL:-http://host.docker.internal:8188" in content, \
+            "COMFYUI_URL must default to host.docker.internal for native ComfyUI support"
+        assert "COMFYUI_URL=http://comfyui:8188" not in content, \
+            "Hardcoded http://comfyui:8188 found — breaks native ComfyUI on macOS"
+
+    def test_launch_sh_has_install_comfyui(self):
+        """launch.sh has install-comfyui command."""
+        content = open("launch.sh").read()
+        assert "install-comfyui" in content, \
+            "launch.sh must have install-comfyui command"
+        assert "comfyanonymous/ComfyUI" in content, \
+            "install-comfyui must clone from comfyanonymous/ComfyUI"
+
+    def test_launch_sh_has_download_comfyui_models(self):
+        """launch.sh has download-comfyui-models command."""
+        content = open("launch.sh").read()
+        assert "download-comfyui-models" in content, \
+            "launch.sh must have download-comfyui-models command"
+        assert "download_comfyui_models.py" in content, \
+            "download-comfyui-models must call scripts/download_comfyui_models.py"
+
+
+class TestR22CodingModelUpdates:
+    """Verify R22: Coding model updates from models2.md review."""
+
+    def test_coding_model_updates_r22(self):
+        """R22 coding model updates: Llama 3.3 replaces 3.1, Qwen3.5-9B added."""
+        import yaml
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        coding = next(b for b in cfg["backends"] if b["id"] == "ollama-coding")
+        models = coding["models"]
+
+        # Llama 3.3 should be present (upgraded from 3.1)
+        assert any("3.3-70B" in m or "Llama-3.3" in m for m in models), \
+            "Llama 3.3-70B missing from coding group — should have replaced 3.1"
+
+        # Llama 3.1 should be gone
+        assert not any("Meta-Llama-3.1-70B" in m for m in models), \
+            "Llama 3.1-70B still in coding group — should be replaced by 3.3"
+
+        # Qwen3.5-9B should be present
+        assert any("qwen3.5" in m.lower() or "Qwen3.5" in m for m in models), \
+            "qwen3.5:9b missing from coding group — fast coding slot"
+
+    def test_launch_sh_pull_models_has_r22_updates(self):
+        """launch.sh pull-models includes Llama 3.3 and Qwen3.5-9B."""
+        content = open("launch.sh").read()
+        # Qwen3.5-9B in standard list
+        assert "qwen3.5:9b" in content, \
+            "launch.sh should pull qwen3.5:9b in standard models"
+        # Llama 3.3 in PULL_HEAVY list
+        assert "Meta-Llama-3.3-70B-GGUF" in content, \
+            "launch.sh should pull Meta-Llama-3.3-70B-GGUF in PULL_HEAVY"
+        # Llama 3.1 should be gone
+        assert "Meta-Llama-3.1-70B-GGUF" not in content, \
+            "launch.sh should not pull Meta-Llama-3.1-70B-GGUF anymore"
