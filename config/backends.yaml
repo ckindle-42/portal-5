@@ -64,7 +64,7 @@ backends:
       - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
       # ── Downloaded via huggingface-cli + imported ─────────────────────────
       - baronllm:q6_k                    # was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_...
-      - lily-cybersecurity:q4_k_m        # was: hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
+      - lily-cybersecurity:7b-q4_k_m     # imported by pull-models from segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
       - dolphin3-r1-mistral:24b-q4_k_m   # was: hf.co/cognitivecomputations/Dolphin3.0-R1-...
       - whiterabbitneo:33b-v1.5-q4_k_m    # updated to match new import name
       - dolphin-llama3:70b-q4_k_m         # dolphin-2.9.1-llama-3-70b (PULL_HEAVY)

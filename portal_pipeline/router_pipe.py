@@ -57,7 +57,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
-        "model_hint": "lily-cybersecurity:q4_k_m",
+        "model_hint": "lily-cybersecurity:7b-q4_k_m",
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",

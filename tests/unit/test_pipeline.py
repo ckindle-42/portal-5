@@ -321,7 +321,7 @@ class TestR18ModelCompleteness:
         required = [
             # Security
             "baronllm:q6_k",  # R23: BaronLLM_Offensive now imported as baronllm:q6_k
-            "lily-cybersecurity:q4_k_m",  # R23: exact import name
+            "lily-cybersecurity:7b-q4_k_m",  # R23: exact import name
             "dolphin3-r1-mistral:24b-q4_k_m",  # R23: updated to bartowski rehost
             "whiterabbitneo:33b-v1.5",  # R23: updated from 33b to 33b-v1.5
             "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b

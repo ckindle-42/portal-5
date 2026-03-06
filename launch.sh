@@ -914,18 +914,24 @@ case "${1:-up}" in
         echo "  Downloading from: https://huggingface.co/$actual_repo"
 
         local gguf_path=""
+        local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
         if [ -n "$filename" ]; then
             echo "  File: $filename"
-            gguf_path=$(python3 -c "
-from huggingface_hub import hf_hub_download
+            mkdir -p "$_dl_dir"
+            gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
+                DL_REPO="$actual_repo" \
+                DL_FILE="$filename" \
+                DL_DIR="$_dl_dir" \
+                python3 -c "
 import os, sys
+from huggingface_hub import hf_hub_download
 token = os.environ.get('HF_TOKEN') or None
 try:
     path = hf_hub_download(
-        repo_id='$actual_repo',
-        filename='$filename',
+        repo_id=os.environ['DL_REPO'],
+        filename=os.environ['DL_FILE'],
         token=token,
-        local_dir=os.path.expanduser('~/.portal5/model_downloads/\${actual_repo//\//_}'),
+        local_dir=os.environ['DL_DIR'],
         local_dir_use_symlinks=False,
     )
     print(path)
@@ -934,25 +940,29 @@ except Exception as e:
     sys.exit(1)
 " 2>/dev/null)
         elif [ -n "$glob_pattern" ]; then
-            echo "  Pattern: $glob_pattern (listing repo files to find exact name)"
-            gguf_path=$(python3 -c "
-from huggingface_hub import hf_hub_download, list_repo_files
+            echo "  Pattern: $glob_pattern (listing repo to find file)"
+            mkdir -p "$_dl_dir"
+            gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
+                DL_REPO="$actual_repo" \
+                DL_GLOB="$glob_pattern" \
+                DL_DIR="$_dl_dir" \
+                python3 -c "
 import os, sys, fnmatch
+from huggingface_hub import hf_hub_download, list_repo_files
 token = os.environ.get('HF_TOKEN') or None
 try:
-    files = list(list_repo_files('$actual_repo', token=token))
-    matches = [f for f in files if fnmatch.fnmatch(f, '$glob_pattern') and f.endswith('.gguf')]
+    files = list(list_repo_files(os.environ['DL_REPO'], token=token))
+    pat = os.environ['DL_GLOB']
+    matches = [f for f in files if fnmatch.fnmatch(f, pat) and f.endswith('.gguf')]
     if not matches:
-        print('ERROR: no files matching $glob_pattern', file=sys.stderr)
+        print(f'ERROR: no files matching {pat}', file=sys.stderr)
         sys.exit(1)
-    # Prefer exact Q4_K_M, not Q4_K_M_L etc
     target = next((f for f in matches if 'Q4_K_M.gguf' in f), matches[0])
-    dl_dir = os.path.expanduser('~/.portal5/model_downloads/\${actual_repo//\//_}')
     path = hf_hub_download(
-        repo_id='$actual_repo',
+        repo_id=os.environ['DL_REPO'],
         filename=target,
         token=token,
-        local_dir=dl_dir,
+        local_dir=os.environ['DL_DIR'],
         local_dir_use_symlinks=False,
     )
     print(path)
@@ -982,8 +992,7 @@ except Exception as e:
             echo "  ✅ Imported: $ollama_name"
             rm -f "$modelfile"
             # Clean download cache — Ollama has its own copy in blob store
-            local dl_cache="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
-            [ -d "$dl_cache" ] && rm -rf "$dl_cache" && echo "  ℹ️  Freed download cache"
+            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir" && echo "  ℹ️  Freed download cache"
             return 0
         else
             echo "  ❌ ollama create failed — GGUF kept at: $gguf_path"
@@ -1484,11 +1493,14 @@ MLXPLIST
 
   import-gguf)
     # Import a locally downloaded GGUF file into Ollama
-    # Usage: ./launch.sh import-gguf /path/to/model.gguf [ollama-name]
-    local gguf_path="${2:-}"
-    local model_name="${3:-}"
+    # Usage: ./launch.sh import-gguf /path/to-model.gguf [ollama-name]
+    _gguf_path="${2:-}"
+    _model_name="${3:-}"
 
-    if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
+    # Expand ~ manually since this runs at script level, not inside a function
+    _gguf_path="${_gguf_path/#\~/$HOME}"
+
+    if [ -z "$_gguf_path" ] || [ ! -f "$_gguf_path" ]; then
         echo "Usage: ./launch.sh import-gguf <path-to-gguf> [model-name]"
         echo ""
         echo "  path-to-gguf   Full path to a .gguf file"
@@ -1496,31 +1508,43 @@ MLXPLIST
         echo ""
         echo "Example:"
         echo "  ./launch.sh import-gguf ~/Downloads/baronllm-q6_k.gguf baronllm:q6_k"
+        echo "  ./launch.sh import-gguf ~/Downloads/WhiteRabbitNeo-33B-v1.5-Q4_K_M.gguf whiterabbitneo:33b-v1.5-q4_k_m"
         exit 1
     fi
 
-    if [ -z "$model_name" ]; then
-        model_name=$(basename "$gguf_path" .gguf | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+    if [ -z "$_model_name" ]; then
+        _model_name=$(basename "$_gguf_path" .gguf | tr '[:upper:]' '[:lower:]' | tr '_' '-')
     fi
 
-    echo "[portal-5] Importing GGUF: $gguf_path"
-    echo "           Ollama name:   $model_name"
+    # Detect Ollama (native or Docker)
+    if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+        _ollama_import_cmd="ollama"
+    elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+        _ollama_import_cmd="docker exec portal5-ollama ollama"
+    else
+        echo "[portal-5] ❌ No Ollama available. Run: ./launch.sh install-ollama"
+        exit 1
+    fi
 
-    tmp_dir=$(mktemp -d)
-    cat > "$tmp_dir/Modelfile" << MEOF
-FROM $gguf_path
+    echo "[portal-5] Importing GGUF: $_gguf_path"
+    echo "           Ollama name:   $_model_name"
+
+    _tmp_dir=$(mktemp -d)
+    cat > "$_tmp_dir/Modelfile" << MEOF
+FROM $_gguf_path
 PARAMETER temperature 0.7
 PARAMETER num_ctx 8192
 MEOF
 
-    if ollama create "$model_name" -f "$tmp_dir/Modelfile"; then
-        echo "[portal-5] ✅ Imported: $model_name"
-        echo "  Run it: ollama run $model_name"
+    if $_ollama_import_cmd create "$_model_name" -f "$_tmp_dir/Modelfile"; then
+        echo "[portal-5] ✅ Imported: $_model_name"
+        echo "  Run it: ollama run $_model_name"
     else
         echo "[portal-5] ❌ Import failed. Check Ollama is running: brew services info ollama"
+        rm -rf "$_tmp_dir"
         exit 1
     fi
-    rm -rf "$tmp_dir"
+    rm -rf "$_tmp_dir"
     ;;
 
   download-comfyui-models)
