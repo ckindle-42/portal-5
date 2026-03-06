@@ -191,10 +191,10 @@ These are the Ollama models Portal 5 is designed around. All pulled via `ollama 
 | The-Xploiter | `xploiter/the-xploiter` | Red team / security offense | 12GB |
 | WhiteRabbitNeo 8B | `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0` | Security research | 6GB |
 | BaronLLM Abliterated | `huihui_ai/baronllm-abliterated` | Uncensored general | 6GB |
-| Tongyi DeepResearch 30B | `huihui_ai/tongyi-deepresearch-abliterated:30b` | Reasoning, research, analysis | 22GB |
+| Tongyi DeepResearch 30B | `huihui_ai/tongyi-deepresearch-abliterated` | Reasoning, research, analysis | 19GB |
 | Qwen3 Coder 30B | `qwen3-coder-next:30b-q5` | Code generation, review | 24GB |
 | Devstral 24B | `devstral:24b` | Code, agentic development | 20GB |
-| DeepSeek Coder 16B | `deepseek-coder:16b-instruct-q4_K_M` | Code, math | 16GB |
+| DeepSeek Coder 16B | `deepseek-coder-v2:16b-lite-instruct-q4_K_M` | Code, math | 11GB |
 | Qwen3 Omni 30B | `qwen3-omni:30b` | Multimodal, vision, audio | 30GB |
 | LLaVA 7B | `llava:7b` | Vision / image understanding | 8GB |
 | Llama 3.2 3B | `llama3.2:3b-instruct-q4_K_M` | Fast routing classifier | 3GB |
@@ -244,12 +244,12 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `pentester` → `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0`
 
 ### Data / Research
-- `dataanalyst` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
-- `datascientist` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
-- `machinelearningengineer` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
-- `statistician` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
-- `itarchitect` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
-- `researchanalyst` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
+- `dataanalyst` → `huihui_ai/tongyi-deepresearch-abliterated`
+- `datascientist` → `huihui_ai/tongyi-deepresearch-abliterated`
+- `machinelearningengineer` → `huihui_ai/tongyi-deepresearch-abliterated`
+- `statistician` → `huihui_ai/tongyi-deepresearch-abliterated`
+- `itarchitect` → `huihui_ai/tongyi-deepresearch-abliterated`
+- `researchanalyst` → `huihui_ai/tongyi-deepresearch-abliterated`
 
 ### Systems
 - `linuxterminal` → `qwen3-coder-next:30b-q5`
@@ -260,7 +260,7 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `techreviewer` → `dolphin-llama3:8b`
 - `techwriter` → `dolphin-llama3:8b`
 - `creativewriter` → `dolphin-llama3:8b`
-- `excelsheet` → `huihui_ai/tongyi-deepresearch-abliterated:30b`
+- `excelsheet` → `huihui_ai/tongyi-deepresearch-abliterated`
 
 ---
 
@@ -276,13 +276,13 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-redteam` | security → general | xploiter/the-xploiter |
 | `auto-blueteam` | security → general | huihui_ai/baronllm-abliterated |
 | `auto-creative` | creative → general | dolphin-llama3:8b |
-| `auto-reasoning` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated:30b |
+| `auto-reasoning` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
 | `auto-documents` | general | dolphin-llama3:8b |
 | `auto-video` | general | dolphin-llama3:8b |
 | `auto-music` | general | dolphin-llama3:8b |
-| `auto-research` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated:30b |
+| `auto-research` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
 | `auto-vision` | vision → general | qwen3-omni:30b |
-| `auto-data` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated:30b |
+| `auto-data` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
 
 ---
 

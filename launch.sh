@@ -953,9 +953,9 @@ token = os.environ.get('HF_TOKEN') or None
 try:
     files = list(list_repo_files(os.environ['DL_REPO'], token=token))
     pat = os.environ['DL_GLOB']
-    matches = [f for f in files if fnmatch.fnmatch(f, pat) and f.endswith('.gguf')]
+    matches = [f for f in files if fnmatch.fnmatch(f.lower(), pat.lower()) and f.endswith('.gguf')]
     if not matches:
-        print(f'ERROR: no files matching {pat}', file=sys.stderr)
+        print(f'ERROR: no files matching {pat} (case-insensitive) in repo. Available .gguf files: {[f for f in files if f.endswith(".gguf")]}', file=sys.stderr)
         sys.exit(1)
     target = next((f for f in matches if 'Q4_K_M.gguf' in f), matches[0])
     path = hf_hub_download(
@@ -969,7 +969,12 @@ try:
 except Exception as e:
     print(f'ERROR: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>/dev/null)
+" 2>&1)
+            # Strip error lines before using gguf_path
+            if echo "$gguf_path" | grep -q "^ERROR:"; then
+                echo "  ❌ Download failed: $(echo "$gguf_path" | head -1)"
+                gguf_path=""
+            fi
         fi
 
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
@@ -1033,11 +1038,11 @@ except Exception as e:
         "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
         "hf.co/unsloth/GLM-4.7-Flash-GGUF"
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
-        "deepseek-coder:16b-instruct-q4_K_M"
+        "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
         # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
-        "huihui_ai/tongyi-deepresearch-abliterated:30b"
+        "huihui_ai/tongyi-deepresearch-abliterated"
         # ── Vision ───────────────────────────────────────────────────────
         "qwen3-vl:32b"
         "llava:7b"

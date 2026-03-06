@@ -46,7 +46,7 @@ backends:
     group: coding
     models:
       - qwen3.5:9b
-      - deepseek-coder:16b-instruct-q4_K_M
+      - deepseek-coder-v2:16b-lite-instruct-q4_K_M  # https://ollama.com/library/deepseek-coder-v2/tags
       - devstral:24b
       - glm-4.7-flash:q4_k_m             # was: hf.co/unsloth/GLM-4.7-Flash-GGUF
       - deepseek-coder-v2-lite:q4_k_m    # was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF
@@ -76,7 +76,7 @@ backends:
     group: reasoning
     models:
       - dolphin-llama3:8b
-      - huihui_ai/tongyi-deepresearch-abliterated:30b
+      - huihui_ai/tongyi-deepresearch-abliterated
       - deepseek-r1:32b-q4_k_m           # was: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
