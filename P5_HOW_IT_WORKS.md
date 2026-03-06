@@ -1,13 +1,49 @@
 # P5_HOW_IT_WORKS.md — Portal 5 Technical Documentation
 
 ```
-Last updated: March 4, 2026
-Source: documentation-truth-agent-v3 delta (R10, v5.0.0 release)
+Last updated: March 5, 2026
+Source: documentation-truth-agent-v4 delta (R20-R23, v5.1.0)
 ```
 
 ---
 
 ## Section 0: Changes Since Last Run
+
+**Last updated: March 5, 2026** (commits 1f463d2 + 7067541 — R22/R20 + R23 code quality agent)
+
+### Delta Run (doc-agent-v4 + code-quality-agent-v5, R23)
+
+**What changed since previous run (R17/v5.0.0):**
+
+- **R20: Native Ollama (brew) as primary path on Apple Silicon** — Ollama runs natively via `brew install ollama` instead of Docker. Docker Ollama now behind `docker-ollama` profile. Uses `${OLLAMA_URL:-http://host.docker.internal:11434}` instead of hardcoded `http://ollama:11434`.
+
+- **R21: Native ComfyUI (git) as primary path on Apple Silicon** — ComfyUI runs natively on host (Metal GPU acceleration). Docker ComfyUI behind `docker-comfyui` profile. Uses `${COMFYUI_URL:-http://host.docker.internal:8188}`.
+
+- **R22: Coding model updates from models2.md review** — Primary coding model updated to `qwen3-coder-next:30b-q5` across all 17+ coding personas.
+
+- **R23: MLX inference support** — New `mlx` backend type in backends.yaml with 9 mlx-community models. auto-coding, auto-reasoning, auto-research, auto-vision, auto-creative route to MLX first (20-40% faster on M4). Security workspaces (auto-security, auto-redteam, auto-blueteam) skip MLX (no MLX equivalents for security models).
+
+- **Boot reliability fixes** — Disk check now uses `python3 shutil.disk_usage` instead of `df -BG` (Linux-only, broken on macOS). CHANGEME secrets auto-repair on startup. `OPENWEBUI_ADMIN_EMAIL` has default in compose. ComfyUI has `platform: linux/amd64` to silence ARM warning.
+
+**New commands added to launch.sh:**
+- `install-ollama` — brew install + start
+- `install-comfyui` — git clone + pip + launchd
+- `install-mlx` — pip install mlx-lm + start.sh
+- `pull-mlx-models` — download mlx-community models
+- `download-comfyui-models` — download FLUX/Wan2.2
+
+**Evidence:**
+- `python3 -m pytest tests/ -q` → `103 passed` (up from 72)
+- `python3 -m ruff check portal_pipeline/ scripts/` → `All checks passed!`
+- Phase 2J (MLX Architecture): All 10 checks PASS
+- Phase 2K (Boot Reliability): All 5 checks PASS
+- Phase 2D (Compose Profiles): Ollama+ComfyUI behind docker-ollama/docker-comfyui
+- MLX backend: 1 backend, 9 models, routing priority verified
+- All 13 workspaces consistent across 3 sources
+
+**Score: 100/100** (+3 from R17)
+
+---
 
 **Last updated: March 4, 2026** (commits 2fe4d32 + 693bde8 — v5.0.0 release + R10 doc agent)
 

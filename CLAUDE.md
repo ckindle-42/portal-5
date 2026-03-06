@@ -2,8 +2,8 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 5.0.0  
-**Last Updated**: March 3, 2026
+**Version**: 5.1.0  
+**Last Updated**: March 5, 2026
 
 ---
 
@@ -16,7 +16,8 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
 
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← Ollama/vLLM ← local models  
+**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_lm (primary, host:8080) / Ollama (fallback, host:11434) ← local models  
+**Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
 ---

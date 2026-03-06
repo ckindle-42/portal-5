@@ -2,6 +2,67 @@
 
 ---
 
+## Delta Run — doc-agent-v4 + code-quality-agent-v5 (R23) — March 5, 2026
+
+**Commit:** 1f463d2 | **Tag:** v5.1.0
+
+### Environment Build
+```
+Python: 3.14.3 | Install: CLEAN | Lint: 0 violations
+Tests: 103 passed, 0 failed | Compile: All OK | Branch: main only
+```
+
+### Baseline Checks
+```
+$ python3 -m pytest tests/ -q
+103 passed in 1.16s
+
+$ python3 -m ruff check portal_pipeline/ scripts/ portal_mcp/ portal_channels/
+All checks passed!
+
+$ find . -name "*.py" -not -path "./.git/*" | xargs python3 -m py_compile
+All compile OK
+```
+
+### Phase 2J - MLX Architecture (v5)
+```
+MLX backends: 1
+  id=mlx-apple-silicon url=${MLX_URL:-http://host.docker.internal:8080}
+  models (9): mlx-community/Qwen3-Coder-Next-4bit, etc.
+auto-coding → ['mlx', 'coding', 'general'] ✓
+auto-reasoning → ['mlx', 'reasoning', 'general'] ✓
+auto-security: OK (Ollama-only)
+```
+
+### Phase 2K - Boot Reliability (v5)
+```
+OK: df -BG not present
+OK: macOS-compatible disk check (shutil.disk_usage)
+OK: inline CHANGEME repair present
+OK: launch.sh syntax valid
+OK: OPENWEBUI_ADMIN_EMAIL has default
+OK: ComfyUI platform spec present
+```
+
+### Phase 3B - BackendRegistry
+```
+MLX health_url: http://localhost:8080/v1/models
+Ollama health_url: http://localhost:11434/api/tags
+request_timeout: 120.0
+MLX backends: 1, Ollama backends: 6
+OK: all-unhealthy returns None
+```
+
+### Workspace Consistency
+```
+CONSISTENT=True pipe=13 yaml=13 imports=13
+```
+
+### Feature Matrix (47 features)
+All 47 features **VERIFIED** - see P5_HOW_IT_WORKS.md Section 0.
+
+---
+
 ## Delta Run — doc-agent-v4 (R10) — March 4, 2026
 
 **Commit:** 693bde8 | **Tag:** v5.0.0
