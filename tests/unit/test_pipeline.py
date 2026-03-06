@@ -302,3 +302,82 @@ class TestR17bModelExpansion:
         required = ["wan2.2-uncensored", "skyreels-v1", "mochi-1", "stable-video-diffusion"]
         for key in required:
             assert f'"{key}"' in src, f"FAIL: video model key '{key}' not in download script"
+
+
+class TestR18ModelCompleteness:
+    """Verify R18 model completeness: all recs.md + models.md models wired."""
+
+    def test_all_required_llm_models_in_backends(self):
+        """All recs.md + models.md LLM models are present in backends.yaml."""
+        import yaml
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        all_models = [m for b in cfg["backends"] for m in b.get("models", [])]
+
+        required = [
+            # Security
+            "BaronLLM_Offensive",
+            "Lily-Cybersecurity-7B",
+            "Dolphin3.0-R1-Mistral-24B",
+            "WhiteRabbitNeo-33B",
+            "dolphin-3-llama3-70b",
+            # Coding
+            "Qwen3-Coder-Next-GGUF",
+            "GLM-4.7-Flash",
+            "DeepSeek-Coder-V2",
+            "MiniMax-M2.1",
+            "Meta-Llama-3.1-70B",
+            # Reasoning
+            "DeepSeek-R1-32B",
+        ]
+        for frag in required:
+            found = any(frag in m for m in all_models)
+            assert found, (
+                f"Model fragment '{frag}' not found in any backend group.\n"
+                f"  All models: {all_models}"
+            )
+
+    def test_router_hints_use_best_models(self):
+        """Key workspaces use the recommended primary model hints."""
+        assert "Qwen3-Coder-Next-GGUF" in WORKSPACES["auto-coding"]["model_hint"], \
+            "auto-coding should prefer Qwen3-Coder-Next MoE"
+        assert "MiniMax-M2.1" in WORKSPACES["auto-documents"]["model_hint"], \
+            "auto-documents should use MiniMax-M2.1"
+        assert "BaronLLM" in WORKSPACES["auto-security"]["model_hint"], \
+            "auto-security should use BaronLLM as primary"
+        assert "Lily" in WORKSPACES["auto-blueteam"]["model_hint"], \
+            "auto-blueteam should use Lily-Cybersecurity"
+        assert "DeepSeek-R1" in WORKSPACES["auto-reasoning"]["model_hint"], \
+            "auto-reasoning should use DeepSeek-R1"
+
+    def test_all_required_image_models_in_download_script(self):
+        """All recs.md + models.md image models are in download_comfyui_models.py."""
+        src = open("scripts/download_comfyui_models.py").read()
+        required = [
+            "flux-schnell", "flux-dev", "flux-uncensored", "flux2-klein",
+            "sdxl", "juggernaut-xl", "pony-diffusion", "epicrealism-xl",
+        ]
+        for key in required:
+            assert f'"{key}"' in src, f"Image model key '{key}' missing from download script"
+
+    def test_all_required_video_models_in_download_script(self):
+        """All recs.md + models.md video models are in download_comfyui_models.py."""
+        src = open("scripts/download_comfyui_models.py").read()
+        required = [
+            "wan2.2", "wan2.2-uncensored", "skyreels-v1", "mochi-1",
+            "stable-video-diffusion",
+        ]
+        for key in required:
+            assert f'"{key}"' in src, f"Video model key '{key}' missing from download script"
+
+    def test_video_models_have_subdir(self):
+        """All video models specify subdir='video' for correct ComfyUI placement."""
+        exec(open("scripts/download_comfyui_models.py").read(), ns := {})
+        for key, spec in ns["VIDEO_MODELS"].items():
+            assert spec.get("subdir") == "video", \
+                f"Video model '{key}' missing subdir='video'"
+
+    def test_env_example_has_video_model_and_pull_heavy(self):
+        """env.example documents VIDEO_MODEL and PULL_HEAVY."""
+        content = open(".env.example").read()
+        assert "VIDEO_MODEL" in content, "VIDEO_MODEL missing from .env.example"
+        assert "PULL_HEAVY" in content, "PULL_HEAVY missing from .env.example"

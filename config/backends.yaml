@@ -18,12 +18,14 @@ backends:
     url: "http://ollama:11434"
     group: coding
     models:
-      - qwen3-coder-next:30b-q5                          # Best: agentic, Splunk/BigFix/PPT
+      - hf.co/Qwen/Qwen3-Coder-Next-GGUF                # NEW: 80B MoE agentic king, SWE-Bench leader (~18GB active)
+      - qwen3-coder-next:30b-q5                          # Fast: agentic, Splunk/BigFix/PPT
       - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
-      - deepseek-coder:16b-instruct-q4_K_M               # Splunk SPL specialist
+      - hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF  # Lightning: Splunk SPL specialist (~8GB)
+      - deepseek-coder:16b-instruct-q4_K_M               # Fast: Splunk SPL fallback
       - devstral:24b                                     # Agentic dev workflows
-      - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF        # High-reasoning architecture + tech writing (~35GB)
-      - hf.co/MiniMaxAI/MiniMax-M2.1-GGUF               # Agentic powerhouse, large codebases (~22GB)
+      - hf.co/MiniMaxAI/MiniMax-M2.1-GGUF               # Large: multi-file BigFix + presentation scripting (~22GB)
+      - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF        # Heavy: high-reasoning + tech writing (~35GB, PULL_HEAVY)
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security
@@ -31,13 +33,14 @@ backends:
     url: "http://ollama:11434"
     group: security
     models:
-      - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive
-      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Fast: balanced red/blue
-      - xploiter/the-xploiter                                                          # Fast: pentest
-      - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research
+      - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive (~18GB)
+      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Fast: balanced red/blue (~4GB)
+      - hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF                   # NEW: uncensored R1-style CoT for novel exploits (~14GB)
+      - xploiter/the-xploiter                                                          # Fast: pentest (~5GB)
+      - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research (~18GB)
       - huihui_ai/baronllm-abliterated                                                # Uncensored general security
       - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN
-      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy: complex attack sim (~35GB)
+      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy: complex attack sim (~35GB, PULL_HEAVY)
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning

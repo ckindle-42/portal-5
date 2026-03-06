@@ -39,7 +39,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder-next:30b-q5",
+        "model_hint": "hf.co/Qwen/Qwen3-Coder-Next-GGUF",
     },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
