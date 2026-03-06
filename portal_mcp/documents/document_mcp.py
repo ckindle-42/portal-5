@@ -72,7 +72,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "source_path": {"type": "string", "description": "Path to source file (.docx, .pptx, .xlsx, or .pdf)"},
+                "source_path": {
+                    "type": "string",
+                    "description": "Path to source file (.docx, .pptx, .xlsx, or .pdf)",
+                },
                 "target_format": {
                     "type": "string",
                     "description": "Target format: 'pdf', 'docx', 'pptx', or 'xlsx'",
@@ -84,7 +87,7 @@ TOOLS_MANIFEST = [
     {
         "name": "list_generated_files",
         "description": "List recently generated documents in the output directory. "
-                        "Use this to find files created by other tools.",
+        "Use this to find files created by other tools.",
         "parameters": {
             "type": "object",
             "properties": {},
@@ -101,7 +104,7 @@ async def list_tools(request):
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(os.getenv("GENERATED_FILES_DIR", "data/generated"))
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -354,14 +357,22 @@ def convert_document(
         return {"error": f"Source file not found: {source_path}"}
 
     target_format = target_format.lower().lstrip(".")
-    out_path = _unique_path(src.stem, f".{target_format}")
+    out_path = _unique_path(src.stem, target_format)
 
     # Attempt LibreOffice conversion for cross-format (best quality)
     try:
         result = subprocess.run(
-            ["libreoffice", "--headless", "--convert-to", target_format,
-             "--outdir", str(out_path.parent), str(src)],
-            capture_output=True, timeout=60,
+            [
+                "libreoffice",
+                "--headless",
+                "--convert-to",
+                target_format,
+                "--outdir",
+                str(out_path.parent),
+                str(src),
+            ],
+            capture_output=True,
+            timeout=60,
         )
         if result.returncode == 0:
             # LibreOffice writes to same dir as source — find the output file
@@ -379,9 +390,7 @@ def convert_document(
         frozenset({"xlsx", "xls"}),
     }
     src_ext = src.suffix.lstrip(".")
-    is_same_family = any(
-        {src_ext, target_format} <= fam for fam in same_family
-    )
+    is_same_family = any({src_ext, target_format} <= fam for fam in same_family)
 
     if not is_same_family:
         return {
@@ -398,7 +407,7 @@ def convert_document(
         "path": str(out_path),
         "method": "copy",
         "note": f"Copied {src_ext} → {target_format}. "
-                "Install LibreOffice for true format conversion.",
+        "Install LibreOffice for true format conversion.",
     }
 
 

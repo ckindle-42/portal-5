@@ -213,14 +213,15 @@ async def chat_completions(
 
     # Concurrency check — return 503 if server is overloaded
     assert _request_semaphore is not None
-    if _request_semaphore.locked():
+    try:
+        await asyncio.wait_for(_request_semaphore.acquire(), timeout=0.001)
+    except asyncio.TimeoutError:
         raise HTTPException(
             status_code=503,
             detail="Server busy — too many concurrent requests. Please retry.",
             headers={"Retry-After": "5"},
-        )
-
-    async with _request_semaphore:
+        ) from None
+    try:
         assert registry is not None
 
         body = await request.json()
@@ -276,6 +277,8 @@ async def chat_completions(
                 media_type="text/event-stream",
             )
         return await _complete_from_backend(backend.chat_url, backend_body)
+    finally:
+        _request_semaphore.release()
 
 
 async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:

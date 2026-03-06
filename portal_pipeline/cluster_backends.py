@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,22 @@ import httpx
 import yaml
 
 logger = logging.getLogger(__name__)
+
+
+def _expand_env(val: Any) -> Any:
+    """Expand ${VAR:-default} and ${VAR} env var syntax in strings."""
+    if isinstance(val, str):
+
+        def _replace(m: re.Match) -> str:
+            var, _, default = m.group(1).partition(":-")
+            return os.environ.get(var, default)
+
+        return re.sub(r"\$\{([^}]+)\}", _replace, val)
+    if isinstance(val, dict):
+        return {k: _expand_env(v) for k, v in val.items()}
+    if isinstance(val, list):
+        return [_expand_env(item) for item in val]
+    return val
 
 
 def _default_config_path() -> str:
@@ -56,7 +73,7 @@ class Backend:
     """A single inference backend (Ollama, vLLM, etc.)."""
 
     id: str
-    type: str  # "ollama" | "openai_compatible"
+    type: str  # "ollama" | "openai_compatible" | "mlx"
     url: str
     group: str  # e.g., "general", "coding", "creative"
     models: list[str]
@@ -78,6 +95,8 @@ class Backend:
         """Return the health/availability check URL for this backend."""
         if self.type == "ollama":
             return f"{self.url.rstrip('/')}/api/tags"  # Ollama: list models
+        if self.type == "mlx":
+            return f"{self.url.rstrip('/')}/v1/models"  # mlx_lm: OpenAI-compatible
         return f"{self.url.rstrip('/')}/health"  # vLLM: /health
 
 
@@ -103,6 +122,18 @@ class BackendRegistry:
 
         with open(self.config_path, encoding="utf-8") as f:
             cfg: dict[str, Any] = yaml.safe_load(f) or {}
+
+        # Verify env interpolation
+        sample_url = (cfg.get("backends") or [{}])[0].get("url", "")
+        if "${" in sample_url:
+            logger.warning(
+                "backends.yaml URLs contain unexpanded env vars (e.g. %s). "
+                "Adding os.path.expandvars() expansion.",
+                sample_url[:60],
+            )
+
+        # Expand environment variables
+        cfg = _expand_env(cfg)
 
         # Load backends
         for be in cfg.get("backends", []):

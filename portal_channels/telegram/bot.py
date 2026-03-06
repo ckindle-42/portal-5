@@ -3,6 +3,7 @@
 Receives Telegram updates, forwards to Portal Pipeline, streams response back.
 Thin adapter: no routing logic — all intelligence is in portal_pipeline/.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,8 +24,7 @@ def _get_token() -> str:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:
         raise RuntimeError(
-            "TELEGRAM_BOT_TOKEN is not set. "
-            "Get a token from @BotFather and add it to .env"
+            "TELEGRAM_BOT_TOKEN is not set. Get a token from @BotFather and add it to .env"
         )
     return token
 
@@ -80,8 +80,7 @@ async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ws = args[0].lower().strip()
         if not is_valid_workspace(ws):
             await update.effective_message.reply_text(
-                f"Unknown workspace: {ws!r}\n"
-                f"Use /workspaces to see available options."
+                f"Unknown workspace: {ws!r}\nUse /workspaces to see available options."
             )
             return
         context.user_data["workspace"] = ws
@@ -89,8 +88,7 @@ async def set_workspace(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         current = context.user_data.get("workspace", DEFAULT_WORKSPACE)
         await update.effective_message.reply_text(
-            f"Current workspace: {current}\n"
-            "Usage: /workspace <name>"
+            f"Current workspace: {current}\nUsage: /workspace <name>"
         )
 
 
@@ -105,13 +103,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user_text.strip():
         return
 
-    if context.user_data is None:
-        context.user_data = {}
-
-    workspace = context.user_data.get("workspace", DEFAULT_WORKSPACE)
+    # user_data is always a dict in PTB; None guard is incorrect (assignment doesn't persist)
+    # Use safe .get() throughout instead
+    workspace = (context.user_data or {}).get("workspace", DEFAULT_WORKSPACE)
 
     # Bounded conversation history (20 messages = 10 turns)
-    history: list[dict] = context.user_data.get("history", [])
+    history: list[dict] = list((context.user_data or {}).get("history", []))
     history.append({"role": "user", "content": user_text})
     if len(history) > 20:
         history = history[-20:]
@@ -120,13 +117,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     try:
         from portal_channels.dispatcher import call_pipeline_async
+
         reply = await call_pipeline_async(user_text, workspace, history=history[:-1])
     except Exception as e:
         logger.error("Pipeline error: %s", e)
         reply = f"⚠️ Pipeline error: {e}"
 
     history.append({"role": "assistant", "content": reply})
-    context.user_data["history"] = history
+    if context.user_data is not None:
+        context.user_data["history"] = history
 
     # Telegram 4096-char message limit
     for chunk in [reply[i : i + 4000] for i in range(0, len(reply), 4000)]:

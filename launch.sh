@@ -83,6 +83,18 @@ _check_hardware() {
             echo "     Install: ./launch.sh install-comfyui"
             echo "     Start:   ~/ComfyUI/start.sh"
         fi
+        # Check mlx_lm server
+        if curl -s http://localhost:8080/v1/models &>/dev/null 2>&1; then
+            MLX_ACTIVE=$(curl -s http://localhost:8080/v1/models 2>/dev/null | \
+                python3 -c "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" 2>/dev/null || echo "running")
+            echo "  ✅ mlx_lm: active ($MLX_ACTIVE) — native Apple Silicon inference"
+        elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+            echo "  ℹ️  mlx_lm: installed, not running (Ollama will be used)"
+            echo "     Start: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+        else
+            echo "  ℹ️  mlx_lm: not installed (optional, 20-40% faster than Ollama on M4)"
+            echo "     Install: ./launch.sh install-mlx"
+        fi
     elif [ "$ARCH" = "x86_64" ]; then
         # Check for NVIDIA GPU
         if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
@@ -99,6 +111,85 @@ _check_hardware() {
         echo "           Press Enter to continue anyway, or Ctrl+C to abort"
         read -r _
     fi
+}
+
+# ── Port pre-flight check ───────────────────────────────────────────────────
+_check_ports() {
+    echo "[portal-5] Checking for port conflicts..."
+    local FAILED=0
+
+    # Check if a port is in use. Prints owning process if found.
+    # Usage: _port_check <port> <service_name> [skip_if_profile_absent]
+    _port_check() {
+        local port="$1"
+        local name="$2"
+        local in_use=0
+
+        # Primary check: try connecting
+        if command -v nc &>/dev/null; then
+            nc -z 127.0.0.1 "$port" 2>/dev/null && in_use=1
+        elif command -v bash &>/dev/null; then
+            (echo >/dev/tcp/127.0.0.1/"$port") 2>/dev/null && in_use=1
+        fi
+
+        if [ "$in_use" -eq 1 ]; then
+            echo "  ❌ Port $port ($name) is already in use"
+            # Show which process owns it
+            if command -v lsof &>/dev/null; then
+                local owner
+                owner=$(lsof -ti :"$port" 2>/dev/null | head -1)
+                if [ -n "$owner" ]; then
+                    local proc
+                    proc=$(ps -p "$owner" -o comm= 2>/dev/null || echo "PID $owner")
+                    echo "     └─ Owned by: $proc (PID $owner)"
+                    echo "     └─ To free:  kill $owner"
+                fi
+            elif command -v ss &>/dev/null; then
+                ss -tlnp "sport = :$port" 2>/dev/null | tail -1 | awk '{print "     └─ " $0}'
+            fi
+            FAILED=1
+        else
+            echo "  ✅ Port $port ($name) is free"
+        fi
+    }
+
+    # Core services — always checked
+    _port_check 8080  "Open WebUI"
+    _port_check 9099  "Portal Pipeline"
+    _port_check 8088  "SearXNG"
+    _port_check 9090  "Prometheus"
+    _port_check 3000  "Grafana"
+
+    # MCP servers — use env overrides if set
+    _port_check "${DOCUMENTS_HOST_PORT:-8913}"  "MCP Documents"
+    _port_check "${MUSIC_HOST_PORT:-8912}"      "MCP Music"
+    _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
+    _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
+    _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
+    _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
+    _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
+
+    # Ollama (Docker profile) — only check if explicitly using docker-ollama
+    # Native Ollama on 11434 is expected and correct for the default setup
+    if echo "${COMPOSE_PROFILES:-}" | grep -q "docker-ollama"; then
+        _port_check 11434 "Ollama (Docker profile — conflicts with native Ollama)"
+    fi
+
+    if [ "$FAILED" -eq 1 ]; then
+        echo ""
+        echo "[portal-5] ❌ Port conflict(s) detected — cannot start safely."
+        echo ""
+        echo "  Options:"
+        echo "  1. Stop the conflicting process (see 'kill <PID>' above)"
+        echo "  2. If it's a previous Portal 5 stack: ./launch.sh down"
+        echo "  3. If it's a different service, override the port in .env:"
+        echo "     e.g.:  DOCUMENTS_HOST_PORT=9013  (for MCP Documents)"
+        echo "     All overrideable ports are documented in .env.example"
+        echo ""
+        exit 1
+    fi
+
+    echo "[portal-5] ✅ All ports are free."
 }
 
 # ── First-run bootstrap ───────────────────────────────────────────────────────
@@ -224,6 +315,9 @@ case "${1:-up}" in
         set -a; source "$ENV_FILE"; set +a
         echo "[portal-5] Secrets repaired. Continuing..."
     fi
+
+    # Port pre-flight check (uses sourced env for port overrides)
+    _check_ports
 
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
@@ -863,6 +957,124 @@ PLIST
     echo "  ./launch.sh up                        — start Portal 5 stack"
     ;;
 
+  install-mlx)
+    echo "=== Installing mlx_lm (Apple Silicon native inference) ==="
+    ARCH=$(uname -m)
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  mlx_lm is Apple Silicon only. On Linux, Ollama GGUF handles inference."
+        exit 0
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        echo "  ❌ python3 required. Install: brew install python"
+        exit 1
+    fi
+
+    echo "  Installing mlx-lm..."
+    pip3 install mlx-lm --upgrade --quiet 2>/dev/null || \
+        pip3 install mlx-lm --upgrade --quiet --break-system-packages
+    echo "  ✅ mlx-lm installed: $(python3 -c 'import mlx_lm; print(mlx_lm.__version__)' 2>/dev/null || echo 'ok')"
+
+    # Create start wrapper
+    MLX_DIR="$HOME/.portal5/mlx"
+    mkdir -p "$MLX_DIR" "$HOME/.portal5/logs"
+
+    cat > "$MLX_DIR/start.sh" << 'MLXSTART'
+#!/bin/bash
+# Portal 5 — mlx_lm inference server
+# Usage: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh
+MODEL="${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
+PORT="${MLX_PORT:-8080}"
+echo "[portal5-mlx] Starting: $MODEL on :$PORT"
+echo "[portal5-mlx] Logs: ~/.portal5/logs/mlx.log"
+python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0
+MLXSTART
+    chmod +x "$MLX_DIR/start.sh"
+    echo "  ✅ Start wrapper: $MLX_DIR/start.sh"
+
+    echo ""
+    echo "Next steps:"
+    echo "  1. Pull MLX models:  ./launch.sh pull-mlx-models"
+    echo "  2. Start inference:  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+    echo "  3. Start Portal:     ./launch.sh up"
+    echo ""
+    echo "NOTE: mlx_lm serves ONE model at a time."
+    echo "      Portal automatically falls back to Ollama when mlx_lm is not running."
+    ;;
+
+  pull-mlx-models)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    ARCH=$(uname -m)
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  MLX models are Apple Silicon only. Use: ./launch.sh pull-models for Ollama."
+        exit 0
+    fi
+
+    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
+        exit 1
+    fi
+
+    echo "=== Downloading MLX models to HuggingFace cache ==="
+    echo "Models download to: ~/.cache/huggingface/hub/"
+    echo ""
+
+    # Standard MLX models (confirmed on mlx-community)
+    MLX_MODELS=(
+        # Coding — primary workspace models
+        "mlx-community/Qwen3-Coder-Next-4bit"              # ~18GB active
+        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"  # ~17GB
+        "mlx-community/Qwen3.5-35B-A3B-4bit"               # ~20GB
+        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx"  # ~9GB
+        "mlx-community/Devstral-Small-2505-4bit"            # ~13GB
+        # Reasoning
+        "mlx-community/DeepSeek-R1-0528-4bit"              # ~18GB
+        "mlx-community/Qwen3.5-27B-4bit"                   # ~15GB
+        # General / fast routing
+        "mlx-community/Llama-3.2-3B-Instruct-4bit"         # ~2GB — ultra-fast
+    )
+
+    # Heavy models — gated behind PULL_HEAVY=true
+    HEAVY_MLX_MODELS=(
+        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
+    )
+
+    total=${#MLX_MODELS[@]}
+    count=0
+    failed=0
+
+    for model in "${MLX_MODELS[@]}"; do
+        count=$((count + 1))
+        echo "[$count/$total] $model"
+        if python3 -c "from huggingface_hub import snapshot_download; snapshot_download('$model', ignore_patterns=['*.md','*.txt'])" 2>/dev/null; then
+            echo "  ✅ Downloaded"
+        else
+            echo "  ❌ Failed — try: huggingface-cli download $model"
+            failed=$((failed + 1))
+        fi
+        echo ""
+    done
+
+    if [ "${PULL_HEAVY:-false}" = "true" ]; then
+        echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
+        for model in "${HEAVY_MLX_MODELS[@]}"; do
+            echo "  Downloading: $model (~40GB)"
+            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('$model')" 2>/dev/null \
+                && echo "  ✅ Done" || { echo "  ❌ Failed"; failed=$((failed + 1)); }
+        done
+    else
+        echo "Skipping Llama-3.3-70B MLX (~40GB) — set PULL_HEAVY=true to include"
+    fi
+
+    echo ""
+    echo "=== MLX download complete: $((total - failed))/$total succeeded ==="
+    echo ""
+    echo "Start inference with:"
+    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+    ;;
+
   download-comfyui-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
@@ -891,12 +1103,14 @@ PLIST
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|download-comfyui-models]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
+    echo "  install-mlx           Install mlx_lm for native Apple Silicon inference"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
+    echo "  pull-mlx-models       Download MLX model weights to HF cache"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
     echo "  up-channels           Start core stack + both Telegram and Slack"

@@ -551,7 +551,7 @@ services:
     container_name: portal5-grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ../../config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
