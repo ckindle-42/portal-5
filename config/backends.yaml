@@ -3,6 +3,33 @@
 # After editing: docker compose restart portal-pipeline
 
 backends:
+  # ── MLX — Apple Silicon native (20-40% faster than Ollama GGUF on M-series) ─
+  # Requires: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
+  # mlx_lm serves ONE model at a time — set MLX_MODEL in .env to switch
+  # When mlx_lm is not running, router falls through to Ollama automatically
+  - id: mlx-apple-silicon
+    type: mlx
+    url: "${MLX_URL:-http://host.docker.internal:8081}"
+    group: mlx
+    models:
+      # ── Coding (primary — best for Splunk, BigFix, PowerShell, Python) ────
+      - mlx-community/Qwen3-Coder-Next-4bit              # Primary: 80B MoE (~18GB active, 256k ctx)
+      - mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  # Fast: 30B agentic coder (~17GB)
+      - mlx-community/Qwen3.5-35B-A3B-4bit               # New: 35B MoE, SWE-Bench ~76% (~20GB)
+      - mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx  # SPL specialist (~9GB)
+      - mlx-community/Devstral-Small-2505-4bit            # Agentic dev workflows (~13GB)
+      # ── Reasoning / Research ──────────────────────────────────────────────
+      - mlx-community/DeepSeek-R1-0528-4bit               # Deep reasoning (~18GB)
+      - mlx-community/Qwen3.5-27B-4bit                    # Balanced reasoning + coding (~15GB)
+      # ── General / Creative ────────────────────────────────────────────────
+      - mlx-community/Llama-3.2-3B-Instruct-4bit          # Ultra-fast routing + quick tasks
+      # ── Heavy (unload others first on 64GB) ──────────────────────────────
+      - mlx-community/Llama-3.3-70B-Instruct-4bit         # ~40GB — heavy coding + reasoning
+      # ── NOT INCLUDED (reasons): ───────────────────────────────────────────
+      # mlx-community/MiniMax-M2-4bit      → 129GB, doesn't fit in 64GB
+      # BaronLLM, WhiteRabbitNeo, Lily     → No MLX versions exist, use Ollama GGUF
+      # Dolphin3.0-R1-Mistral-24B MLX      → Community fork only, use Ollama GGUF
+
   # ── General (fast default, function calling, creative) ─────────────────────
   - id: ollama-general
     type: ollama
@@ -18,9 +45,9 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: coding
     models:
-      - hf.co/Qwen/Qwen3-Coder-Next-GGUF                # NEW: 80B MoE agentic king, SWE-Bench leader (~18GB active)
-      - qwen3-coder-next:30b-q5                          # Fast: agentic, Splunk/BigFix/PPT
-      # - qwen2.5-coder:32b-instruct                    # Fallback: if Qwen3-Coder-Next GGUF unavailable in Ollama
+      # REMOVED: hf.co/Qwen/Qwen3-Coder-Next-GGUF  (sharded GGUF, Ollama incompatible)
+      # REMOVED: qwen3-coder-next:30b-q5            (missing tensor blk.0.ssm_in.weight)
+      # Use MLX backend instead: ./launch.sh install-mlx
       - qwen3.5:9b                                       # New: fast dense model, 8-12GB, 30-50 t/s on M4
       - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
       - hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF  # Lightning: Splunk SPL specialist (~8GB)
@@ -63,7 +90,7 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: vision
     models:
-      - qwen3-omni:30b    # Best: multimodal, vision + audio understanding
+      - qwen3-vl:32b   # FIX: was qwen3-omni:30b (does not exist in Ollama library)
       - llava:7b           # Fast: lightweight vision fallback
 
   # ── Creative (writing, storytelling) ────────────────────────────────────
@@ -84,19 +111,19 @@ backends:
   #   models: [dolphin-llama3:8b]
 
 workspace_routing:
-  auto:           [general]
-  auto-coding:    [coding, general]
-  auto-security:  [security, general]
-  auto-redteam:   [security, general]
-  auto-blueteam:  [security, general]
-  auto-creative:  [creative, general]
-  auto-reasoning: [reasoning, general]
-  auto-documents: [general]
+  auto:           [mlx, general]
+  auto-coding:    [mlx, coding, general]
+  auto-security:  [security, general]        # No MLX for security models
+  auto-redteam:   [security, general]        # No MLX for security models
+  auto-blueteam:  [security, general]        # No MLX for security models
+  auto-creative:  [mlx, creative, general]
+  auto-reasoning: [mlx, reasoning, general]
+  auto-documents: [coding, general]          # MiniMax-M2 MLX is 129GB — use Ollama
   auto-video:     [general]
   auto-music:     [general]
-  auto-research:  [reasoning, general]
-  auto-vision:    [vision, general]
-  auto-data:      [reasoning, general]
+  auto-research:  [mlx, reasoning, general]
+  auto-vision:    [mlx, vision, general]
+  auto-data:      [mlx, reasoning, general]
 
 defaults:
   fallback_group: general
