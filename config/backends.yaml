@@ -22,6 +22,8 @@ backends:
       - hf.co/unsloth/GLM-4.7-Flash-GGUF                 # Fast MoE, PowerShell/C#/SQL
       - deepseek-coder:16b-instruct-q4_K_M               # Splunk SPL specialist
       - devstral:24b                                     # Agentic dev workflows
+      - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF        # High-reasoning architecture + tech writing (~35GB)
+      - hf.co/MiniMaxAI/MiniMax-M2.1-GGUF               # Agentic powerhouse, large codebases (~22GB)
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   - id: ollama-security
@@ -35,6 +37,7 @@ backends:
       - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research
       - huihui_ai/baronllm-abliterated                                                # Uncensored general security
       - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN
+      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy: complex attack sim (~35GB)
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning

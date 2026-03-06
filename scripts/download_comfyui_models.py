@@ -6,7 +6,8 @@ Downloads image/video generation models on first run.
 Run by the comfyui-model-init Docker service.
 
 Environment variables:
-  IMAGE_MODEL    Model to download: flux-schnell (default) | flux-dev | sdxl | wan2.2
+  IMAGE_MODEL    Image model to download: flux-schnell (default) | flux-dev | flux-uncensored | sdxl | juggernaut-xl | pony-diffusion | epicrealism-xl
+  VIDEO_MODEL    Video model to download: wan2.2 (default) | wan2.2-uncensored | skyreels-v1 | mochi-1 | stable-video-diffusion
   HF_TOKEN       HuggingFace token (required for flux-dev, optional otherwise)
   MODELS_DIR     Download destination (default: /models/checkpoints)
 """
@@ -28,17 +29,69 @@ MODELS = {
         "requires_token": True,
         "size_note": "~24GB",
     },
+    "flux-uncensored": {
+        "repo_id": "enhanceaiteam/Flux-Uncensored-V2",
+        "filename": None,           # full repo — multiple model files
+        "requires_token": False,
+        "size_note": "~24GB — explicit content, no filters",
+    },
     "sdxl": {
         "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
         "filename": "sd_xl_base_1.0.safetensors",
         "requires_token": False,
         "size_note": "~7GB",
     },
+    "juggernaut-xl": {
+        "repo_id": "RunDiffusion/Juggernaut-XL-v9",
+        "filename": "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
+        "requires_token": False,
+        "size_note": "~7GB — photoreal NSFW checkpoint",
+    },
+    "pony-diffusion": {
+        "repo_id": "Aidynbek/PonyDiffusion-V6",
+        "filename": None,           # full repo
+        "requires_token": False,
+        "size_note": "~8-15GB — anime/hentai style uncensored",
+    },
+    "epicrealism-xl": {
+        "repo_id": "mattthew/epiCRealism-XL",
+        "filename": None,           # full repo
+        "requires_token": False,
+        "size_note": "~12GB — hyperdetailed realistic",
+    },
     "wan2.2": {
         "repo_id": "Wan-AI/Wan2.2-T2V-5B",
         "filename": None,   # downloads full repo
         "requires_token": False,
         "size_note": "~18GB",
+    },
+    "wan2.2-uncensored": {
+        "repo_id": "camenduru/Wan-2.2",
+        "filename": None,           # full repo — uncensored fork
+        "requires_token": False,
+        "size_note": "~14-20GB — uncensored Hollywood-quality video",
+        "subdir": "video",         # goes into models/video/ not models/checkpoints/
+    },
+    "skyreels-v1": {
+        "repo_id": "Skywork/SkyReels-V1",
+        "filename": None,
+        "requires_token": False,
+        "size_note": "~15GB — cinematic human-focused video",
+        "subdir": "video",
+    },
+    "mochi-1": {
+        "repo_id": "genmo/mochi-1-preview",
+        "filename": None,
+        "requires_token": False,
+        "size_note": "~15GB — long-form storytelling video (Apache 2.0)",
+        "subdir": "video",
+    },
+    "stable-video-diffusion": {
+        "repo_id": "stabilityai/stable-video-diffusion-img2vid-xt",
+        "filename": "svd_xt.safetensors",
+        "requires_token": False,
+        "size_note": "~10GB — image-to-video animation",
+        "subdir": "video",
     },
 }
 
@@ -50,13 +103,16 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
         print("ERROR: huggingface_hub not installed. Run: pip install huggingface_hub")
         sys.exit(1)
 
+    spec = MODELS[model]
+    subdir = spec.get("subdir")
+    if subdir:
+        models_dir = models_dir.parent / subdir
     models_dir.mkdir(parents=True, exist_ok=True)
 
     if model not in MODELS:
         print(f"ERROR: Unknown model '{model}'. Valid: {list(MODELS.keys())}")
         sys.exit(1)
 
-    spec = MODELS[model]
     dest = models_dir / (spec["filename"] or "")
 
     # Skip if already downloaded
@@ -106,19 +162,26 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
 
 
 def main() -> None:
-    model = os.environ.get("IMAGE_MODEL", "flux-schnell")
+    image_model = os.environ.get("IMAGE_MODEL", "flux-schnell")
+    video_model = os.environ.get("VIDEO_MODEL", "wan2.2")
     hf_token = os.environ.get("HF_TOKEN", "")
     models_dir = Path(os.environ.get("MODELS_DIR", "/models/checkpoints"))
 
     print("=== Portal 5: ComfyUI Model Download ===")
-    print(f"Model: {model}")
+    print(f"Image model: {image_model}")
+    print(f"Video model: {video_model}")
     print(f"Destination: {models_dir}")
     print(f"HF_TOKEN: {'set' if hf_token else 'not set'}")
     print()
 
     try:
-        download_model(model, hf_token, models_dir)
-        print("\nDone. ComfyUI is ready for image generation.")
+        print(f"--- Downloading image model: {image_model} ---")
+        download_model(image_model, hf_token, models_dir)
+
+        print(f"\n--- Downloading video model: {video_model} ---")
+        download_model(video_model, hf_token, models_dir)
+
+        print("\nDone. ComfyUI is ready for image and video generation.")
     except KeyboardInterrupt:
         print("\nDownload interrupted.")
         sys.exit(1)

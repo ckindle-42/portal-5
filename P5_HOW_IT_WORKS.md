@@ -307,6 +307,64 @@ When requested model isn't pulled:
 3. Fallback to next backend in group
 4. If no healthy backends → 503 Service Unavailable
 
+### LLM Models by Workspace
+
+| Workspace | Primary Model | HF Source | Size |
+|-----------|--------------|-----------|------|
+| auto | dolphin-llama3:8b | Ollama registry | ~5GB |
+| auto-coding | qwen3-coder-next:30b-q5 | Ollama registry | ~18GB |
+| auto-security | BaronLLM Offensive | AlicanKiraz0/... | ~18GB |
+| auto-redteam | BaronLLM Offensive | AlicanKiraz0/... | ~18GB |
+| auto-blueteam | Lily-Cybersecurity-7B | segolilylabs/... | ~4GB |
+| auto-creative | dolphin-llama3:8b | Ollama registry | ~5GB |
+| auto-reasoning | DeepSeek-R1-32B | deepseek-ai/... | ~16GB |
+| auto-documents | MiniMax-M2.1 | MiniMaxAI/... | ~22GB |
+| auto-research | DeepSeek-R1-32B | deepseek-ai/... | ~16GB |
+| auto-vision | qwen3-omni:30b | Ollama registry | ~18GB |
+| auto-data | DeepSeek-R1-32B | deepseek-ai/... | ~16GB |
+
+**Additional models available in each group (automatic fallback):**
+- Security group also has: WhiteRabbitNeo-33B, Lily-7B, xploiter, Dolphin-3-70B
+- Coding group also has: GLM-4.7-Flash, DeepSeek-Coder-V2, devstral, Llama-3.1-70B
+- Reasoning group also has: Tongyi-DeepResearch-30B
+
+### Image Generation Models (ComfyUI)
+
+Set `IMAGE_MODEL` in `.env` before first run:
+
+| IMAGE_MODEL value | Model | Size | Notes |
+|---|---|---|---|
+| `flux-schnell` | FLUX.1-schnell | ~12GB | Default — fast, clean |
+| `flux-dev` | FLUX.1-dev | ~24GB | Requires HF_TOKEN |
+| `flux-uncensored` | Flux Uncensored V2 | ~24GB | No content filters |
+| `sdxl` | Stable Diffusion XL | ~7GB | Versatile baseline |
+| `juggernaut-xl` | Juggernaut XL v9 | ~7GB | Photoreal NSFW |
+| `pony-diffusion` | Pony Diffusion V6 | ~12GB | Anime/hentai style |
+| `epicrealism-xl` | epiCRealism XL | ~12GB | Hyperdetailed realistic |
+
+### Video Generation Models (ComfyUI)
+
+Set `VIDEO_MODEL` in `.env` before first run:
+
+| VIDEO_MODEL value | Model | Size | Notes |
+|---|---|---|---|
+| `wan2.2` | Wan 2.2 T2V | ~18GB | Default |
+| `wan2.2-uncensored` | Wan 2.2 Uncensored | ~20GB | No content filters |
+| `skyreels-v1` | SkyReels V1 | ~15GB | Cinematic human-focused |
+| `mochi-1` | Mochi 1 | ~15GB | Long-form, Apache 2.0 |
+| `stable-video-diffusion` | SVD-XT | ~10GB | Image-to-video |
+
+### Music Generation
+
+Set `MUSIC_MODEL_SIZE` in `.env`:
+
+| MUSIC_MODEL_SIZE value | Model | Size | Notes |
+|---|---|---|---|
+| `small` | MusicGen Small | ~300MB | Fast, lower quality |
+| `medium` | MusicGen Medium | ~1.5GB | Default — balanced |
+| `large` | MusicGen Large | ~7GB | Best quality |
+| `stable-audio` | Stable Audio Open 1.0 | ~3GB | Alternative backend, vocals |
+
 ---
 
 ## Section 4: Persona Reference

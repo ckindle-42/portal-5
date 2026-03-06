@@ -259,3 +259,46 @@ class TestWorkspaceModelHintUpdated:
         hint = ws.get("model_hint", "").lower()
         assert "deepseek" in hint or "tongyi" in hint or "r1" in hint, \
                "Reasoning workspace should use a deep reasoning model"
+
+
+class TestR17bModelExpansion:
+    """Verify R17b model expansion: all recs.md models wired."""
+
+    def test_new_llm_models_in_backends_yaml(self):
+        """All recs.md LLM models are present in backends.yaml."""
+        import yaml
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        all_models = []
+        for b in cfg["backends"]:
+            all_models.extend(b.get("models", []))
+
+        required = [
+            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF",
+            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF",
+            "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF",
+        ]
+        for model in required:
+            assert any(model in m for m in all_models), (
+                f"FAIL: {model} not found in any backend group in backends.yaml"
+            )
+
+    def test_documents_workspace_uses_minimax(self):
+        """auto-documents workspace model_hint is MiniMax-M2.1."""
+        hint = WORKSPACES["auto-documents"]["model_hint"]
+        assert "MiniMax-M2.1" in hint, (
+            f"Expected auto-documents to use MiniMax-M2.1, got: {hint}"
+        )
+
+    def test_comfyui_download_script_has_all_image_models(self):
+        """download_comfyui_models.py covers all recs.md image models."""
+        src = open("scripts/download_comfyui_models.py").read()
+        required = ["flux-uncensored", "juggernaut-xl", "pony-diffusion", "epicrealism-xl"]
+        for key in required:
+            assert f'"{key}"' in src, f"FAIL: image model key '{key}' not in download script"
+
+    def test_comfyui_download_script_has_all_video_models(self):
+        """download_comfyui_models.py covers all recs.md video models."""
+        src = open("scripts/download_comfyui_models.py").read()
+        required = ["wan2.2-uncensored", "skyreels-v1", "mochi-1", "stable-video-diffusion"]
+        for key in required:
+            assert f'"{key}"' in src, f"FAIL: video model key '{key}' not in download script"

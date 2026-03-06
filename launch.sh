@@ -546,6 +546,8 @@ case "${1:-up}" in
         "deepseek-coder:16b-instruct-q4_K_M"
         # Devstral 24B — agentic development workflows
         "devstral:24b"
+        # MiniMax-M2.1 — agentic powerhouse, large codebases, for documents workspace
+        "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF"
 
         # ── Reasoning / Research ────────────────────────────────────────
         # DeepSeek-R1 32B — deep reasoning + code (~16GB)
@@ -557,10 +559,27 @@ case "${1:-up}" in
         "qwen3-omni:30b"
         "llava:7b"
 
-        # ── Large General (requires 48GB+ free RAM, commented by default) ─
-        # "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
-        # "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
+        # ── Heavy 70B models (requires 48GB+ free RAM, gated behind PULL_HEAVY) ─
     )
+
+    # Pull heavy 70B models if PULL_HEAVY=true
+    if [ "${PULL_HEAVY:-false}" = "true" ]; then
+        echo ""
+        echo "Pulling heavy 70B models (PULL_HEAVY=true)..."
+        HEAVY_MODELS=(
+            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
+            "hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF"
+        )
+        for model in "${HEAVY_MODELS[@]}"; do
+            echo "  Pulling: $model (~35GB)"
+            docker exec portal5-ollama ollama pull "$model" || echo "  ❌ Failed: $model"
+        done
+    else
+        echo ""
+        echo "Skipping 70B models (set PULL_HEAVY=true to pull these ~35GB models)"
+        echo "  - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF (security)"
+        echo "  - hf.co/meta-llama/Meta-Llama-3.1-70B-GGUF (coding)"
+    fi
 
     total=${#MODELS[@]}
     count=0

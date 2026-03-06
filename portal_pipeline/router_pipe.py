@@ -69,7 +69,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
-        "model_hint": "dolphin-llama3:8b",
+        "model_hint": "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF",
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",

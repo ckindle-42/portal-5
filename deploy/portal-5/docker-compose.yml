@@ -518,6 +518,7 @@ services:
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
       - IMAGE_MODEL=${IMAGE_MODEL:-flux-schnell}
+      - VIDEO_MODEL=${VIDEO_MODEL:-wan2.2}
       - MODELS_DIR=/models/checkpoints
     command: >
       sh -c "pip install huggingface_hub --quiet && python /scripts/download_comfyui_models.py"
