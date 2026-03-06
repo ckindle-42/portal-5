@@ -83,18 +83,25 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
+# Wan2.2 model filename — set this to match what's in ComfyUI's models/unet/ directory.
+# FX-FeiHou/wan2.2-Remix typically includes files like wan2.2_remix_t2v_5B_fp16.safetensors
+# Run: docker exec portal5-comfyui ls /opt/ComfyUI/models/unet/
+WAN22_MODEL_FILE = os.getenv("WAN22_MODEL_FILE", "wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_CLIP_FILE = os.getenv("WAN22_CLIP_FILE", "clip_l.safetensors")
+WAN22_VAE_FILE = os.getenv("WAN22_VAE_FILE", "wan2.2_vae.safetensors")
+
 # Wan2.2 T2V workflow — uses UNETLoader, CLIPLoader, VAELoader, EmptyHunyuanLatentVideo
 _WAN22_T2V_WORKFLOW: dict = {
     "1": {
-        "inputs": {"model_name": "wan2.2_ti2v_5B_fp16.safetensors"},
+        "inputs": {"model_name": WAN22_MODEL_FILE},
         "class_type": "UNETLoader",
     },
     "2": {
-        "inputs": {"model_name": "clip_l.safetensors"},
+        "inputs": {"model_name": WAN22_CLIP_FILE},
         "class_type": "CLIPLoader",
     },
     "3": {
-        "inputs": {"model_name": "wan2.2_vae.safetensors"},
+        "inputs": {"model_name": WAN22_VAE_FILE},
         "class_type": "VAELoader",
     },
     "4": {
@@ -309,7 +316,7 @@ async def generate_video(
 @mcp.tool()
 async def list_video_models() -> list[str]:
     """List available video model checkpoints in ComfyUI."""
-    video_keywords = ("cogvideo", "mochi", "wan2", "wan_2", "video")
+    video_keywords = ("cogvideo", "mochi", "wan2", "wan_2", "video", "remix")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:

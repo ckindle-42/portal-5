@@ -382,6 +382,9 @@ services:
       - MCP_PORT=8911
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
       - OUTPUT_DIR=/app/data/generated
+      - WAN22_MODEL_FILE=${WAN22_MODEL_FILE:-wan2.2_ti2v_5B_fp16.safetensors}
+      - WAN22_CLIP_FILE=${WAN22_CLIP_FILE:-clip_l.safetensors}
+      - WAN22_VAE_FILE=${WAN22_VAE_FILE:-wan2.2_vae.safetensors}
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
     volumes:

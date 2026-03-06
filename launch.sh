@@ -128,8 +128,9 @@ _check_ports() {
         # Primary check: try connecting
         if command -v nc &>/dev/null; then
             nc -z 127.0.0.1 "$port" 2>/dev/null && in_use=1
-        elif command -v bash &>/dev/null; then
-            (echo >/dev/tcp/127.0.0.1/"$port") 2>/dev/null && in_use=1
+        else
+            # bash built-in /dev/tcp fallback — works without nc
+            (echo >/dev/tcp/127.0.0.1/"$port") 2>/dev/null && in_use=1 || true
         fi
 
         if [ "$in_use" -eq 1 ]; then

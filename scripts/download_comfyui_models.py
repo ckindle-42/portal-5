@@ -11,6 +11,7 @@ Environment variables:
   HF_TOKEN       HuggingFace token (required for flux-dev, optional otherwise)
   MODELS_DIR     Download destination (default: /models/checkpoints)
 """
+
 import os
 import sys
 from pathlib import Path
@@ -41,7 +42,7 @@ IMAGE_MODELS: dict = {
         "requires_token": False,
         "size_note": "~20GB — next-gen Flux, superior composition/lighting",
         "note": "Use uncensored LoRAs from HF for NSFW. If FLUX.2-schnell unavailable, "
-                "try: black-forest-labs/FLUX.2-dev (requires token)",
+        "try: black-forest-labs/FLUX.2-dev (requires token)",
     },
     "sdxl": {
         "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
@@ -73,11 +74,16 @@ IMAGE_MODELS: dict = {
 # ── Video model specifications ────────────────────────────────────────────────
 VIDEO_MODELS: dict = {
     "wan2.2": {
-        "repo_id": "Wan-AI/Wan2.2-T2V-5B",
+        "repo_id": "FX-FeiHou/wan2.2-Remix",
         "filename": None,
         "requires_token": False,
-        "size_note": "~18GB — default, Hollywood-quality text-to-video",
+        "size_note": "~18GB — Wan2.2 Remix v2.1, better consistency + M4 Pro low-VRAM",
         "subdir": "video",
+        "download_note": (
+            "huggingface-cli download FX-FeiHou/wan2.2-Remix --include '*.safetensors'\n"
+            "After download, check ~/ComfyUI/models/video/ for the actual filename\n"
+            "and set WAN22_MODEL_FILE in .env to match."
+        ),
     },
     "wan2.2-uncensored": {
         "repo_id": "camenduru/Wan-2.2",
@@ -167,7 +173,7 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
                 repo_id=spec["repo_id"],
                 local_dir=str(target_dir),
                 token=hf_token if hf_token else None,
-                ignore_patterns=["*.md", "*.txt"],
+                ignore_patterns=["*.md", "*.txt", ".gitattributes", "*.json"],
             )
         else:
             hf_hub_download(
@@ -177,6 +183,11 @@ def download_model(model: str, hf_token: str, models_dir: Path) -> None:
                 token=hf_token if hf_token else None,
             )
         print(f"Downloaded {model} successfully")
+        if model == "wan2.2":
+            print("")
+            print("  ⚠️  Wan2.2 Remix filenames vary by release.")
+            print(f"  Check: ls {target_dir}/*.safetensors")
+            print("  Then update WAN22_MODEL_FILE in .env to match the actual filename.")
     except Exception as e:
         fallback_note = spec.get("fallback_note", "")
         print(f"WARNING: Download failed: {e}")
@@ -194,8 +205,12 @@ def main() -> None:
     models_dir = Path(os.environ.get("MODELS_DIR", "/models/checkpoints"))
 
     print("=== Portal 5: ComfyUI Model Download ===")
-    print(f"Image model: {image_model}  ({IMAGE_MODELS.get(image_model, {}).get('size_note', 'unknown')})")
-    print(f"Video model: {video_model}  ({VIDEO_MODELS.get(video_model, {}).get('size_note', 'unknown')})")
+    print(
+        f"Image model: {image_model}  ({IMAGE_MODELS.get(image_model, {}).get('size_note', 'unknown')})"
+    )
+    print(
+        f"Video model: {video_model}  ({VIDEO_MODELS.get(video_model, {}).get('size_note', 'unknown')})"
+    )
     print(f"Destination: {models_dir}")
     print(f"HF_TOKEN:    {'set' if hf_token else 'not set'}")
     print()

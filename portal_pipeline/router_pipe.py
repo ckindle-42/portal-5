@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Basic Prometheus-compatible metrics counter
 _request_count: dict[str, int] = {}
-_request_errors: int = 0
 _startup_time = time.time()
 
 # Canonical workspace definitions — must match backends.yaml workspace_routing keys
@@ -211,7 +210,6 @@ async def chat_completions(
 ) -> Any:
     _verify_key(authorization)
 
-    # Concurrency check — return 503 if server is overloaded
     assert _request_semaphore is not None
     try:
         await asyncio.wait_for(_request_semaphore.acquire(), timeout=0.001)
@@ -221,6 +219,8 @@ async def chat_completions(
             detail="Server busy — too many concurrent requests. Please retry.",
             headers={"Retry-After": "5"},
         ) from None
+
+    _is_streaming = False
     try:
         assert registry is not None
 
@@ -228,10 +228,8 @@ async def chat_completions(
         workspace_id = body.get("model", "auto")
         stream = body.get("stream", True)
 
-        # Increment request counter for this workspace
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
 
-        # Select backend
         backend = registry.get_backend_for_workspace(workspace_id)
         if not backend:
             raise HTTPException(
@@ -243,8 +241,6 @@ async def chat_completions(
                 ),
             )
 
-        # Select model: use workspace model_hint if available on this backend,
-        # otherwise fall back to first available model on the backend
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
         if model_hint and model_hint in backend.models:
@@ -272,16 +268,28 @@ async def chat_completions(
         )
 
         if stream:
+            _is_streaming = True  # Suppress finally-block release
+            # _stream_from_backend_guarded releases the semaphore when done
             return StreamingResponse(
-                _stream_from_backend(backend.chat_url, backend_body),
+                _stream_from_backend_guarded(backend.chat_url, backend_body, _request_semaphore),
                 media_type="text/event-stream",
             )
         return await _complete_from_backend(backend.chat_url, backend_body)
     finally:
-        _request_semaphore.release()
+        if not _is_streaming:
+            # Non-streaming: response fully awaited above, safe to release here
+            # Streaming: generator releases after stream completes
+            _request_semaphore.release()
 
 
-async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:
+async def _stream_from_backend_guarded(
+    url: str, body: dict, sem: asyncio.Semaphore
+) -> AsyncIterator[bytes]:
+    """Stream from backend and release semaphore only when stream is complete.
+
+    This is required because StreamingResponse returns immediately (before the
+    generator runs), so the normal finally-block release fires too early.
+    """
     assert registry is not None
     try:
         async with (
@@ -301,6 +309,8 @@ async def _stream_from_backend(url: str, body: dict) -> AsyncIterator[bytes]:
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         yield f'data: {{"error": "Backend connection error: {e}"}}\n\n'.encode()
+    finally:
+        sem.release()  # Release AFTER generator is fully exhausted
 
 
 async def _complete_from_backend(url: str, body: dict) -> JSONResponse:

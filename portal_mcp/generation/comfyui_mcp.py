@@ -11,7 +11,6 @@ import asyncio
 import os
 import time
 import uuid
-from pathlib import Path
 
 import httpx
 from starlette.responses import JSONResponse
@@ -94,7 +93,6 @@ async def list_tools(request):
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux" or "sdxl"
-OUTPUT_DIR = Path.home() / "AI_Output" / "images"
 
 # FLUX.1-schnell workflow template
 FLUX_WORKFLOW = {
@@ -214,11 +212,20 @@ async def generate_image(
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         # Queue the prompt
-        resp = await client.post(
-            f"{COMFYUI_URL}/prompt",
-            json={"prompt": workflow, "client_id": client_id},
-        )
-        resp.raise_for_status()
+        try:
+            resp = await client.post(
+                f"{COMFYUI_URL}/prompt",
+                json={"prompt": workflow, "client_id": client_id},
+            )
+            resp.raise_for_status()
+        except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+            return {
+                "success": False,
+                "error": (
+                    f"ComfyUI not available at {COMFYUI_URL}: {e}. "
+                    "Ensure ComfyUI is running and a model is installed."
+                ),
+            }
         prompt_id = resp.json()["prompt_id"]
 
         # Poll for completion
@@ -236,7 +243,7 @@ async def generate_image(
                         return {
                             "success": True,
                             "filename": filename,
-                            "url": f"http://localhost:8080/images/{filename}",
+                            "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
                             "prompt": prompt,
                             "seed": seed,
                         }
@@ -272,8 +279,11 @@ async def get_generation_status(job_id: str) -> dict:
             if resp.status_code == 200:
                 history = resp.json()
                 if job_id in history:
-                    return {"status": "complete", "job_id": job_id,
-                            "outputs": history[job_id].get("outputs", {})}
+                    return {
+                        "status": "complete",
+                        "job_id": job_id,
+                        "outputs": history[job_id].get("outputs", {}),
+                    }
                 return {"status": "pending", "job_id": job_id}
             return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
         except Exception as e:
