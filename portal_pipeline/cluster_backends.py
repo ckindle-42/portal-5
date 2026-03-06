@@ -109,7 +109,7 @@ class BackendRegistry:
         self._workspace_routes: dict[str, list[str]] = {}
         self._fallback_group: str = "general"
         self._health_check_interval = 30.0
-        self._request_timeout = 30.0
+        self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
 
         self._load_config()
 

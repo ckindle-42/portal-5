@@ -32,7 +32,11 @@ _startup_time = time.time()
 WORKSPACES: dict[str, dict[str, str]] = {
     "auto": {
         "name": "🤖 Portal Auto Router",
-        "description": "Intelligently routes to the best model for your task",
+        "description": (
+            "Intelligently routes to the best specialist model based on your question. "
+            "Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. "
+            "Reasoning/research → DeepSeek-R1. Other → general."
+        ),
         "model_hint": "dolphin-llama3:8b",
     },
     "auto-coding": {
@@ -96,6 +100,272 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF",
     },
 }
+
+# ── Content-aware routing keyword sets ───────────────────────────────────────
+# Applied only when the user selects the 'auto' workspace.
+# Each set maps to a workspace. Order matters — security before coding
+# so "write an exploit in Python" routes to security, not coding.
+
+_SECURITY_KEYWORDS: frozenset[str] = frozenset(
+    {
+        # Offensive / redteam
+        "exploit",
+        "payload",
+        "shellcode",
+        "privilege escalation",
+        "privesc",
+        "reverse shell",
+        "bind shell",
+        "command injection",
+        "sql injection",
+        "sqli",
+        "xss",
+        "csrf",
+        "buffer overflow",
+        "rop chain",
+        "heap spray",
+        "use after free",
+        "uaf",
+        "zero day",
+        "0day",
+        "cve-",
+        "metasploit",
+        "msfvenom",
+        "meterpreter",
+        "cobalt strike",
+        "c2 server",
+        "c&c",
+        "lateral movement",
+        "persistence mechanism",
+        "evasion",
+        "obfuscation",
+        "antivirus bypass",
+        "edr bypass",
+        "av evasion",
+        "defense evasion",
+        "exfiltration",
+        "data exfiltration",
+        "lolbas",
+        "living off the land",
+        "pentesting",
+        "pentest",
+        "penetration test",
+        "red team",
+        "redteam",
+        "offensive security",
+        "bug bounty",
+        "ctf",
+        "capture the flag",
+        "nmap",
+        "masscan",
+        "gobuster",
+        "nikto",
+        "burp suite",
+        "sqlmap",
+        "hydra",
+        "hashcat",
+        "mimikatz",
+        "bloodhound",
+        "crackmapexec",
+        "pass the hash",
+        "pass the ticket",
+        "kerberoasting",
+        "asreproasting",
+        "golden ticket",
+        "silver ticket",
+        "dcsync",
+        # Defensive / blue team
+        "incident response",
+        "threat hunting",
+        "threat intelligence",
+        "ioc",
+        "indicator of compromise",
+        "malware analysis",
+        "reverse engineering",
+        "yara rule",
+        "sigma rule",
+        "siem alert",
+        "splunk detection",
+        "ids rule",
+        "snort rule",
+        "suricata",
+        "network forensics",
+        "memory forensics",
+        "volatility",
+        "malware",
+        "ransomware",
+        "trojan",
+        "rootkit",
+        "backdoor",
+        "botnet",
+        "apt",
+        "threat actor",
+        "vulnerability assessment",
+        "vulnerability scan",
+        "nessus",
+        "openvas",
+        "security audit",
+        "hardening",
+        "cis benchmark",
+        "mitre att&ck",
+        "attack framework",
+        "kill chain",
+        "diamond model",
+    }
+)
+
+_REDTEAM_KEYWORDS: frozenset[str] = frozenset(
+    {
+        # Clearly offensive intent — route to redteam (more permissive model)
+        "exploit",
+        "payload",
+        "shellcode",
+        "bypass",
+        "evasion",
+        "obfuscate",
+        "reverse shell",
+        "bind shell",
+        "privilege escalation",
+        "privesc",
+        "c2",
+        "c2 server",
+        "command and control",
+        "metasploit",
+        "msfvenom",
+        "cobalt strike",
+        "offensive",
+        "red team",
+        "redteam",
+        "pentest",
+        "penetration test",
+        "attack",
+        "hack",
+        "hacking",
+        "ctf",
+        "lolbas",
+        "living off",
+        "lateral movement",
+        "mimikatz",
+        "bloodhound",
+        "dcsync",
+        "kerberoast",
+        "pass the hash",
+        "golden ticket",
+        "edr bypass",
+        "av evasion",
+        "antivirus bypass",
+    }
+)
+
+_CODING_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "write a function",
+        "write a script",
+        "write a program",
+        "write code",
+        "debug this",
+        "fix this code",
+        "fix the bug",
+        "code review",
+        "refactor",
+        "implement",
+        "class definition",
+        "api endpoint",
+        "unit test",
+        "pytest",
+        "unittest",
+        "docker",
+        "kubernetes",
+        "ci/cd",
+        "sql query",
+        "regex",
+        "algorithm",
+        "data structure",
+        "python",
+        "javascript",
+        "typescript",
+        "rust",
+        "go ",
+        "golang",
+        "bash script",
+        "powershell",
+        "ansible",
+        "terraform",
+        "splunk",
+        "spl query",
+        "bigfix",
+        "bes xml",
+        "relevance",
+    }
+)
+
+_REASONING_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "analyze",
+        "compare",
+        "evaluate",
+        "pros and cons",
+        "trade-off",
+        "research",
+        "summarize",
+        "explain in depth",
+        "step by step",
+        "break down",
+        "how does",
+        "why does",
+        "what is the difference",
+        "deep dive",
+        "comprehensive",
+        "thorough",
+        "detailed analysis",
+    }
+)
+
+
+def _detect_workspace(messages: list[dict]) -> str | None:
+    """Detect the most appropriate workspace from the last user message.
+
+    Returns a workspace ID string, or None if no strong signal found
+    (caller should use the default 'auto' routing in that case).
+
+    Routing priority (highest to lowest):
+    1. Redteam keywords → auto-redteam (most permissive security model)
+    2. Security keywords → auto-security (defensive + offensive analysis)
+    3. Coding keywords → auto-coding (Qwen3-Coder-Next via MLX)
+    4. Reasoning keywords → auto-reasoning (DeepSeek-R1)
+    """
+    # Find the last user message
+    last_user_content = ""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            last_user_content = str(msg.get("content", "")).lower()
+            break
+
+    if not last_user_content:
+        return None
+
+    # Redteam check first — more specific than security
+    redteam_hits = sum(1 for kw in _REDTEAM_KEYWORDS if kw in last_user_content)
+    if redteam_hits >= 2:
+        return "auto-redteam"
+
+    # Security check (broader — includes defensive topics)
+    security_hits = sum(1 for kw in _SECURITY_KEYWORDS if kw in last_user_content)
+    if security_hits >= 1:
+        return "auto-security"
+
+    # Coding check
+    coding_hits = sum(1 for kw in _CODING_KEYWORDS if kw in last_user_content)
+    if coding_hits >= 1:
+        return "auto-coding"
+
+    # Reasoning check (requires 2+ signals to avoid false positives)
+    reasoning_hits = sum(1 for kw in _REASONING_KEYWORDS if kw in last_user_content)
+    if reasoning_hits >= 2:
+        return "auto-reasoning"
+
+    return None
+
 
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
 
@@ -228,6 +498,17 @@ async def chat_completions(
         workspace_id = body.get("model", "auto")
         stream = body.get("stream", True)
 
+        # Content-aware routing for 'auto' workspace
+        # Inspect message content to pick the most specialized backend.
+        # This lets users ask security/coding/reasoning questions through 'auto'
+        # and get the right specialist model without manually switching workspaces.
+        if workspace_id == "auto":
+            messages = body.get("messages", [])
+            detected = _detect_workspace(messages)
+            if detected:
+                logger.info("Auto-routing: detected workspace '%s' from message content", detected)
+                workspace_id = detected
+
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
 
         backend = registry.get_backend_for_workspace(workspace_id)
@@ -268,12 +549,14 @@ async def chat_completions(
         )
 
         if stream:
-            _is_streaming = True  # Suppress finally-block release
-            # _stream_from_backend_guarded releases the semaphore when done
-            return StreamingResponse(
+            # Construct first, mark streaming only after success
+            # If StreamingResponse() raises, finally block correctly releases semaphore
+            _streaming_response = StreamingResponse(
                 _stream_from_backend_guarded(backend.chat_url, backend_body, _request_semaphore),
                 media_type="text/event-stream",
             )
+            _is_streaming = True  # Only set AFTER successful construction
+            return _streaming_response
         return await _complete_from_backend(backend.chat_url, backend_body)
     finally:
         if not _is_streaming:

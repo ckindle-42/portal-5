@@ -257,8 +257,11 @@ _check_ports() {
     _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
 
-    # MLX inference server (Apple Silicon)
-    _port_check "${MLX_PORT:-8081}"   "MLX inference server"
+    # MLX inference server — only check if MLX is installed
+    # Avoids false "port conflict" errors on Linux or Mac systems without MLX
+    if [ -f "$HOME/.portal5/mlx/start.sh" ] || python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+        _port_check "${MLX_PORT:-8081}"   "MLX inference server"
+    fi
 
     # Ollama (Docker profile) — only check if explicitly using docker-ollama
     # Native Ollama on 11434 is expected and correct for the default setup
@@ -1100,7 +1103,14 @@ MLXSTART
     # ── Register MLX as a launchd service (auto-start on login) ──────────────
     if [ "$(uname -s)" = "Darwin" ]; then
         PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-        PYTHON_PATH=$(which python3)
+        # Find the Python that actually has mlx_lm installed
+        # Falls back to system python3 if detection fails
+        PYTHON_PATH=$(python3 -c "import mlx_lm, sys; print(sys.executable)" 2>/dev/null || which python3)
+        if [ -z "$PYTHON_PATH" ]; then
+            echo "  ❌ Cannot find Python with mlx_lm — install mlx-lm first"
+            exit 1
+        fi
+        echo "  ✅ Using Python: $PYTHON_PATH"
         MLX_LOG_DIR="$HOME/.portal5/logs"
         mkdir -p "$MLX_LOG_DIR"
 

@@ -65,14 +65,16 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: security
     models:
+      # ── Fast / always-available first (native Ollama registry) ───────────
+      - huihui_ai/baronllm-abliterated                                                # Fast: uncensored, no HF auth needed (~5GB)
+      - xploiter/the-xploiter                                                          # Fast: pentest specialist (~5GB)
+      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN (~5GB)
+      # ── Specialist models (require HF SSH key + pull) ────────────────────
       - hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF  # Best: dedicated offensive (~18GB)
-      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Fast: balanced red/blue (~4GB)
-      - hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF                   # NEW: uncensored R1-style CoT for novel exploits (~14GB)
-      - xploiter/the-xploiter                                                          # Fast: pentest (~5GB)
+      - hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF                           # Balanced red/blue (~4GB)
+      - hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF                   # Uncensored R1-style CoT (~14GB)
       - hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF                           # Large: payload research (~18GB)
-      - huihui_ai/baronllm-abliterated                                                # Uncensored general security
-      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0                              # Fast: classic WRN
-      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy: complex attack sim (~35GB, PULL_HEAVY)
+      - hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF                        # Heavy (~35GB, PULL_HEAVY)
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
@@ -80,9 +82,9 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: reasoning
     models:
-      - hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF      # NEW: deep reasoning, ~16GB
-      - huihui_ai/tongyi-deepresearch-abliterated:30b # Research synthesis
-      - dolphin-llama3:8b                              # Fast fallback
+      - dolphin-llama3:8b                                # Fast fallback — always available
+      - huihui_ai/tongyi-deepresearch-abliterated:30b    # Research synthesis
+      - hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF          # Deep reasoning (~16GB, needs HF auth)
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
@@ -111,18 +113,18 @@ backends:
   #   models: [dolphin-llama3:8b]
 
 workspace_routing:
-  auto:           [mlx, general]
+  auto:           [mlx, security, coding, general]  # Content-aware routing handles redirection; these are fallbacks
   auto-coding:    [mlx, coding, general]
-  auto-security:  [security, general]        # No MLX for security models
-  auto-redteam:   [security, general]        # No MLX for security models
-  auto-blueteam:  [security, general]        # No MLX for security models
+  auto-security:  [security, general]
+  auto-redteam:   [security, general]
+  auto-blueteam:  [security, general]
   auto-creative:  [mlx, creative, general]
   auto-reasoning: [mlx, reasoning, general]
-  auto-documents: [coding, general]          # MiniMax-M2 MLX is 129GB — use Ollama
+  auto-documents: [coding, general]
   auto-video:     [general]
   auto-music:     [general]
   auto-research:  [mlx, reasoning, general]
-  auto-vision:    [mlx, vision, general]
+  auto-vision:    [vision, general]   # No MLX — vision models only on Ollama
   auto-data:      [mlx, reasoning, general]
 
 defaults:
