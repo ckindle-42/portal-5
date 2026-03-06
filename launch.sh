@@ -786,6 +786,10 @@ case "${1:-up}" in
 
         # ── Native Ollama registry (no hf.co/ prefix) ────────────────────────
         if [[ "$model" != hf.co/* ]]; then
+            if _model_exists "$model"; then
+                echo "  ✅ Already pulled: $model — skipping"
+                return 0
+            fi
             $ollama_cmd pull "$model"
             return $?
         fi
@@ -827,9 +831,9 @@ case "${1:-up}" in
                 ;;
             WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF)
                 # Source: https://huggingface.co/dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF
-                # Official repo has no GGUF files; dranger003 has imatrix quants (Q4_K_M = 19.9 GB)
+                # Q4_K_M imatrix quant — 19.9 GB
                 actual_repo="dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF"
-                glob_pattern="*Q4_K_M*"
+                filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
 
@@ -938,7 +942,12 @@ try:
 except Exception as e:
     print(f'ERROR: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>/dev/null)
+" 2>&1)
+        # Strip Python output from gguf_path if it contains an error line
+        if echo "$gguf_path" | grep -q "^ERROR:"; then
+            echo "  ❌ Exact filename download error: $gguf_path"
+            gguf_path=""
+        fi
         elif [ -n "$glob_pattern" ]; then
             echo "  Pattern: $glob_pattern (listing repo to find file)"
             mkdir -p "$_dl_dir"
