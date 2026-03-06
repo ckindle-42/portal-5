@@ -183,15 +183,30 @@ case "${1:-up}" in
 
     set -a; source "$ENV_FILE"; set +a
 
-    # Validate required secrets are set and not placeholder values
+    # Validate required secrets — auto-repair any still set to CHANGEME
+    # (handles interrupted first-run or manual .env edits that left placeholders)
+    local _repair=0
     for var in PIPELINE_API_KEY WEBUI_SECRET_KEY OPENWEBUI_ADMIN_PASSWORD SEARXNG_SECRET_KEY GRAFANA_PASSWORD; do
         val="${!var:-}"
         if [ -z "$val" ] || [ "$val" = "CHANGEME" ]; then
-            echo "ERROR: $var is not set or still CHANGEME in .env"
-            echo "  Run: ./launch.sh up  (secrets are auto-generated)"
-            exit 1
+            local _new_secret
+            _new_secret=$(generate_secret)
+            # Write the new value directly into .env
+            if grep -q "^${var}=" "$ENV_FILE"; then
+                sed -i.bak "s|^${var}=.*|${var}=${_new_secret}|" "$ENV_FILE"
+                rm -f "${ENV_FILE}.bak"
+            else
+                echo "${var}=${_new_secret}" >> "$ENV_FILE"
+            fi
+            echo "[portal-5] Repaired missing secret: $var"
+            _repair=1
         fi
     done
+    if [ "$_repair" -eq 1 ]; then
+        # Re-source .env so the newly written values are in scope
+        set -a; source "$ENV_FILE"; set +a
+        echo "[portal-5] Secrets repaired. Continuing..."
+    fi
 
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
