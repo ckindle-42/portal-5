@@ -72,7 +72,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
-        "model_hint": "minimax-m2:q4_k_m",
+        "model_hint": "qwen3.5:9b",  # MiniMax-M2.1 removed (138 GB, won't fit in 48 GB)
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",

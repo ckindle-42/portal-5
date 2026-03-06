@@ -277,19 +277,21 @@ class TestR17bModelExpansion:
             all_models.extend(b.get("models", []))
 
         required = [
-            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF",
-            "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF",
-            "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF",
+            # R23: dolphin-3-llama3-70b-GGUF → imported as dolphin-llama3:70b-q4_k_m
+            "dolphin-llama3:70b",
+            # R23: meta-llama → imported as llama3.3:70b-q4_k_m (bartowski rehost)
+            "llama3.3:70b",
+            # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
         ]
         for model in required:
             assert any(model in m for m in all_models), (
                 f"FAIL: {model} not found in any backend group in backends.yaml"
             )
 
-    def test_documents_workspace_uses_minimax(self):
-        """auto-documents workspace model_hint is MiniMax-M2.1."""
+    def test_documents_workspace_uses_fast_coding_model(self):
+        """auto-documents workspace model_hint is qwen3.5:9b (MiniMax removed due to 138 GB size)."""
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "MiniMax-M2.1" in hint, f"Expected auto-documents to use MiniMax-M2.1, got: {hint}"
+        assert "qwen3.5:9b" in hint, f"Expected auto-documents to use qwen3.5:9b, got: {hint}"
 
     def test_comfyui_download_script_has_all_image_models(self):
         """download_comfyui_models.py covers all recs.md image models."""
@@ -318,23 +320,23 @@ class TestR18ModelCompleteness:
 
         required = [
             # Security
-            "BaronLLM_Offensive",
-            "Lily-Cybersecurity-7B",
-            "Dolphin3.0-R1-Mistral-24B",
-            "WhiteRabbitNeo-33B",
-            "dolphin-3-llama3-70b",
+            "baronllm:q6_k",  # R23: BaronLLM_Offensive now imported as baronllm:q6_k
+            "lily-cybersecurity:q4_k_m",  # R23: exact import name
+            "dolphin3-r1-mistral:24b-q4_k_m",  # R23: updated to bartowski rehost
+            "whiterabbitneo:33b-v1.5",  # R23: updated from 33b to 33b-v1.5
+            "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b
             # Coding
             # R20: Qwen3-Coder-Next-GGUF replaced with MLX (sharded GGUF incompatible with Ollama)
             "Qwen3-Coder-Next-4bit",
             "GLM-4.7-Flash",
-            "DeepSeek-Coder-V2",
-            "MiniMax-M2.1",
-            "Meta-Llama-3.3-70B",
+            "deepseek-coder-v2-lite",  # R23: updated to bartowski rehost
+            # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
+            "llama3.3:70b-q4_k_m",  # R23: updated to bartowski rehost
             # Reasoning
-            "DeepSeek-R1-32B",
+            "deepseek-r1:32b-q4_k_m",  # R23: DeepSeek-R1-Distill-Qwen-32B
         ]
         for frag in required:
-            found = any(frag in m for m in all_models)
+            found = any(frag.lower() in m.lower() for m in all_models)
             assert found, (
                 f"Model fragment '{frag}' not found in any backend group.\n"
                 f"  All models: {all_models}"
@@ -346,17 +348,19 @@ class TestR18ModelCompleteness:
         assert "mlx-community/Qwen3-Coder-Next-4bit" in WORKSPACES["auto-coding"]["model_hint"], (
             "auto-coding should prefer Qwen3-Coder-Next MLX"
         )
-        assert "MiniMax-M2.1" in WORKSPACES["auto-documents"]["model_hint"], (
-            "auto-documents should use MiniMax-M2.1"
+        # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB); use qwen3.5:9b
+        assert "qwen3.5:9b" in WORKSPACES["auto-documents"]["model_hint"], (
+            "auto-documents should use qwen3.5:9b (MiniMax removed)"
         )
-        assert "BaronLLM" in WORKSPACES["auto-security"]["model_hint"], (
-            "auto-security should use BaronLLM as primary"
+        # R23: baronllm:q6_k is the imported GGUF model
+        assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
+            "auto-security should use baronllm as primary"
         )
-        assert "Lily" in WORKSPACES["auto-blueteam"]["model_hint"], (
-            "auto-blueteam should use Lily-Cybersecurity"
+        assert "lily" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
+            "auto-blueteam should use lily-cybersecurity"
         )
-        assert "DeepSeek-R1" in WORKSPACES["auto-reasoning"]["model_hint"], (
-            "auto-reasoning should use DeepSeek-R1"
+        assert "deepseek-r1" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
+            "auto-reasoning should use deepseek-r1"
         )
 
     def test_all_required_image_models_in_download_script(self):
@@ -451,8 +455,9 @@ class TestR20NativeOllama:
         """pull-models detects native Ollama, not just docker exec portal5-ollama."""
         content = open("launch.sh").read()
         assert "command -v ollama" in content, "pull-models must detect native ollama binary"
-        assert "_do_pull" in content, (
-            "pull-models must use _do_pull() helper that handles both native and Docker"
+        # R23: Uses _pull_model with _ollama_cmd helper for native/Docker detection
+        assert "_pull_model" in content, (
+            "pull-models must use _pull_model() that handles both native and Docker via _ollama_cmd"
         )
 
 
@@ -507,7 +512,7 @@ class TestR22CodingModelUpdates:
         models = coding["models"]
 
         # Llama 3.3 should be present (upgraded from 3.1)
-        assert any("3.3-70B" in m or "Llama-3.3" in m for m in models), (
+        assert any("llama3.3" in m.lower() for m in models), (
             "Llama 3.3-70B missing from coding group — should have replaced 3.1"
         )
 

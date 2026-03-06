@@ -790,140 +790,204 @@ case "${1:-up}" in
             return $?
         fi
 
-        # ── HuggingFace model: use cli download + ollama create ───────────────
-        # Strip the hf.co/ prefix to get the repo_id
+        # ── HuggingFace model: download via Python huggingface_hub + import ──
+        # This bypasses Ollama's broken cross-host auth redirect.
+        # Uses snapshot_download() which correctly returns the actual cache path
+        # regardless of ~/.cache vs --local-dir quirks.
+
         local repo_id="${model#hf.co/}"
 
-        # Look up the spec for this repo — filename and Ollama name
-        local filename=""
+        # ── Per-model spec: actual_repo, filename (or glob), ollama_name ─────
+        local actual_repo=""
+        local filename=""       # exact filename — preferred
+        local glob_pattern=""   # fallback when exact name unverifiable
         local ollama_name=""
-        local glob=""
+        local gated="false"
 
         case "$repo_id" in
+            # ── Security models ──────────────────────────────────────────────
             AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF)
+                # Gated: accept terms at https://huggingface.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF
+                actual_repo="AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
                 filename="baronllm-llama3.1-v1-q6_k.gguf"
                 ollama_name="baronllm:q6_k"
+                gated="true"
                 ;;
             segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF)
+                # Source: https://huggingface.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
+                actual_repo="segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
                 filename="Lily-7B-Instruct-v0.2.Q4_K_M.gguf"
-                ollama_name="lily-cybersecurity:q4_k_m"
+                ollama_name="lily-cybersecurity:7b-q4_k_m"
                 ;;
             cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF)
-                glob="*Q4_K_M*"
+                # Source: https://huggingface.co/bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF/tree/main
+                actual_repo="bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF"
+                filename="cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf"
                 ollama_name="dolphin3-r1-mistral:24b-q4_k_m"
                 ;;
             WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF)
-                glob="*Q4_K_M*"
-                ollama_name="whiterabbitneo:33b-q4_k_m"
+                # Source: https://huggingface.co/dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF
+                # Official repo has no GGUF files; dranger003 has imatrix quants (Q4_K_M = 19.9 GB)
+                actual_repo="dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF"
+                glob_pattern="*Q4_K_M*"
+                ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
+
+            # ── Coding models ────────────────────────────────────────────────
             unsloth/GLM-4.7-Flash-GGUF)
-                glob="*Q4_K_M*"
+                # Source: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/blob/main/GLM-4.7-Flash-Q4_K_M.gguf
+                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
+                filename="GLM-4.7-Flash-Q4_K_M.gguf"
                 ollama_name="glm-4.7-flash:q4_k_m"
                 ;;
             deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
-                glob="*Q4_K_M*"
+                # Source: https://huggingface.co/bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF
+                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
+                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
                 ollama_name="deepseek-coder-v2-lite:q4_k_m"
                 ;;
             MiniMaxAI/MiniMax-M2.1-GGUF)
-                glob="*Q4_K_M*"
-                ollama_name="minimax-m2:q4_k_m"
+                # Q4_K_M = 138 GB — does not fit in 48 GB unified memory
+                echo "  ⚠️  Skipping MiniMax-M2.1: smallest useful quant is 138 GB (requires ~160 GB RAM)"
+                echo "     To pull manually if you have sufficient RAM:"
+                echo "     huggingface-cli download bartowski/MiniMaxAI_MiniMax-M2.1-GGUF --include 'MiniMaxAI_MiniMax-M2.1-Q4_K_M.gguf'"
+                return 0
                 ;;
+
+            # ── Reasoning models ─────────────────────────────────────────────
             deepseek-ai/DeepSeek-R1-32B-GGUF)
-                glob="*Q4_K_M*"
+                # NOTE: deepseek-ai/DeepSeek-R1-32B-GGUF does NOT exist on HuggingFace.
+                # The actual model is DeepSeek-R1-Distill-Qwen-32B.
+                # Source: https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF
+                actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
+                filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
                 ollama_name="deepseek-r1:32b-q4_k_m"
                 ;;
+
+            # ── Heavy 70B models (PULL_HEAVY=true) ───────────────────────────
             cognitivecomputations/dolphin-3-llama3-70b-GGUF)
-                glob="*Q4_K_M*"
-                ollama_name="dolphin3-llama3:70b-q4_k_m"
+                # No reliable GGUF hosting for this exact repo.
+                # Source: https://huggingface.co/bartowski/dolphin-2.9.1-llama-3-70b-GGUF
+                actual_repo="bartowski/dolphin-2.9.1-llama-3-70b-GGUF"
+                filename="dolphin-2.9.1-llama-3-70b-Q4_K_M.gguf"
+                ollama_name="dolphin-llama3:70b-q4_k_m"
                 ;;
             meta-llama/Meta-Llama-3.3-70B-GGUF)
-                glob="*Q4_K_M*"
+                # Gated at meta-llama; use bartowski's public rehost.
+                # Source: https://huggingface.co/bartowski/Llama-3.3-70B-Instruct-GGUF
+                actual_repo="bartowski/Llama-3.3-70B-Instruct-GGUF"
+                filename="Llama-3.3-70B-Instruct-Q4_K_M.gguf"
                 ollama_name="llama3.3:70b-q4_k_m"
                 ;;
+
             *)
-                echo "  ⚠️  No download spec for $repo_id — trying direct ollama pull"
+                echo "  ⚠️  No verified spec for $repo_id — attempting direct ollama pull"
+                echo "     (May fail due to Ollama hf.co auth redirect issue)"
                 $ollama_cmd pull "$model"
                 return $?
                 ;;
         esac
 
-        # Skip if already imported into Ollama
+        # ── Skip if already registered in Ollama ─────────────────────────────
         if _model_exists "$ollama_name"; then
-            echo "  ✅ Already in Ollama as $ollama_name — skipping download"
+            echo "  ✅ Already in Ollama as $ollama_name — skipping"
             return 0
         fi
 
-        # Ensure huggingface-cli is available and authenticated
+        # ── Token check for gated repos ───────────────────────────────────────
+        if [ "$gated" = "true" ] && [ -z "${HF_TOKEN:-}" ]; then
+            echo "  ❌ $actual_repo requires HF_TOKEN (gated repo)"
+            echo "     1. Accept terms: https://huggingface.co/$actual_repo"
+            echo "     2. Create token: https://huggingface.co/settings/tokens (Read scope)"
+            echo "     3. Add to .env:  HF_TOKEN=hf_..."
+            return 1
+        fi
+
+        # ── Ensure huggingface_hub is installed ───────────────────────────────
         _ensure_hf_cli
 
-        # Download directory for this model
-        local dl_dir="$HOME/.portal5/model_downloads/$(echo "$repo_id" | tr '/' '_')"
-        mkdir -p "$dl_dir"
+        # ── Download via Python snapshot_download ─────────────────────────────
+        # snapshot_download returns the actual cached path — works correctly
+        # whether files end up in --local-dir or ~/.cache/huggingface.
+        # This also handles the case where --include glob ignores --local-dir.
 
-        echo "  Downloading from HuggingFace: $repo_id"
-        echo "  Destination: $dl_dir"
+        echo "  Downloading from: https://huggingface.co/$actual_repo"
 
-        # Download: use specific filename or glob pattern
-        local dl_ok=0
+        local gguf_path=""
         if [ -n "$filename" ]; then
             echo "  File: $filename"
-            if huggingface-cli download "$repo_id" "$filename" \
-                --local-dir "$dl_dir" \
-                --local-dir-use-symlinks False \
-                ${HF_TOKEN:+--token "$HF_TOKEN"} 2>/dev/null; then
-                dl_ok=1
-            fi
-        elif [ -n "$glob" ]; then
-            echo "  Pattern: $glob"
-            if huggingface-cli download "$repo_id" \
-                --include "$glob" \
-                --local-dir "$dl_dir" \
-                --local-dir-use-symlinks False \
-                ${HF_TOKEN:+--token "$HF_TOKEN"} 2>/dev/null; then
-                # Find the downloaded file
-                filename=$(find "$dl_dir" -name "*.gguf" -not -name "*.part" 2>/dev/null | head -1 | xargs basename 2>/dev/null)
-                [ -n "$filename" ] && dl_ok=1
-            fi
+            gguf_path=$(python3 -c "
+from huggingface_hub import hf_hub_download
+import os, sys
+token = os.environ.get('HF_TOKEN') or None
+try:
+    path = hf_hub_download(
+        repo_id='$actual_repo',
+        filename='$filename',
+        token=token,
+        local_dir=os.path.expanduser('~/.portal5/model_downloads/\${actual_repo//\//_}'),
+        local_dir_use_symlinks=False,
+    )
+    print(path)
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>/dev/null)
+        elif [ -n "$glob_pattern" ]; then
+            echo "  Pattern: $glob_pattern (listing repo files to find exact name)"
+            gguf_path=$(python3 -c "
+from huggingface_hub import hf_hub_download, list_repo_files
+import os, sys, fnmatch
+token = os.environ.get('HF_TOKEN') or None
+try:
+    files = list(list_repo_files('$actual_repo', token=token))
+    matches = [f for f in files if fnmatch.fnmatch(f, '$glob_pattern') and f.endswith('.gguf')]
+    if not matches:
+        print('ERROR: no files matching $glob_pattern', file=sys.stderr)
+        sys.exit(1)
+    # Prefer exact Q4_K_M, not Q4_K_M_L etc
+    target = next((f for f in matches if 'Q4_K_M.gguf' in f), matches[0])
+    dl_dir = os.path.expanduser('~/.portal5/model_downloads/\${actual_repo//\//_}')
+    path = hf_hub_download(
+        repo_id='$actual_repo',
+        filename=target,
+        token=token,
+        local_dir=dl_dir,
+        local_dir_use_symlinks=False,
+    )
+    print(path)
+except Exception as e:
+    print(f'ERROR: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>/dev/null)
         fi
 
-        if [ "$dl_ok" -eq 0 ] || [ -z "$filename" ]; then
-            echo "  ❌ Download failed for $repo_id"
-            echo "     Try manually:"
-            echo "       huggingface-cli download $repo_id --local-dir ~/models/$(basename "$repo_id")"
-            echo "     Then: ./launch.sh import-gguf ~/models/$(basename "$repo_id")/<file>.gguf $ollama_name"
+        if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
+            echo "  ❌ Download failed for $actual_repo"
+            echo "     Retry manually:"
+            echo "       huggingface-cli download $actual_repo ${filename:-} --local-dir ~/Downloads"
+            echo "     Then import: ./launch.sh import-gguf ~/Downloads/${filename:-model.gguf} $ollama_name"
             return 1
         fi
 
-        local gguf_path="$dl_dir/$filename"
-        if [ ! -f "$gguf_path" ]; then
-            # Try to find it in a subdirectory (huggingface-cli sometimes nests files)
-            gguf_path=$(find "$dl_dir" -name "$filename" 2>/dev/null | head -1)
-        fi
+        echo "  ✅ Downloaded: $(basename "$gguf_path")"
+        echo "  Importing as: $ollama_name"
 
-        if [ ! -f "$gguf_path" ]; then
-            echo "  ❌ Downloaded file not found at expected path: $dl_dir/$filename"
-            return 1
-        fi
+        local modelfile
+        modelfile=$(mktemp)
+        printf 'FROM %s\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n' "$gguf_path" > "$modelfile"
 
-        echo "  Creating Ollama model: $ollama_name"
-
-        # Write a Modelfile pointing to the downloaded GGUF
-        local modelfile="$dl_dir/Modelfile"
-        cat > "$modelfile" << MEOF
-FROM $gguf_path
-PARAMETER temperature 0.7
-PARAMETER num_ctx 8192
-MEOF
-
-        # Import into Ollama
-        if ollama create "$ollama_name" -f "$modelfile"; then
-            echo "  ✅ Imported as: $ollama_name"
-            echo "  ℹ️  Freeing download cache (Ollama has its own copy)..."
-            rm -rf "$dl_dir"
+        # Bug C fix: use _ollama_cmd not bare 'ollama'
+        if $ollama_cmd create "$ollama_name" -f "$modelfile"; then
+            echo "  ✅ Imported: $ollama_name"
+            rm -f "$modelfile"
+            # Clean download cache — Ollama has its own copy in blob store
+            local dl_cache="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
+            [ -d "$dl_cache" ] && rm -rf "$dl_cache" && echo "  ℹ️  Freed download cache"
             return 0
         else
-            echo "  ❌ ollama create failed for $ollama_name"
-            echo "     GGUF file kept at: $gguf_path"
+            echo "  ❌ ollama create failed — GGUF kept at: $gguf_path"
+            rm -f "$modelfile"
             return 1
         fi
     }
@@ -962,7 +1026,6 @@ MEOF
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder:16b-instruct-q4_K_M"
         "devstral:24b"
-        "hf.co/MiniMaxAI/MiniMax-M2.1-GGUF"
         # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "huihui_ai/tongyi-deepresearch-abliterated:30b"

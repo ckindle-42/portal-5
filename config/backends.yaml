@@ -50,7 +50,6 @@ backends:
       - devstral:24b
       - glm-4.7-flash:q4_k_m             # was: hf.co/unsloth/GLM-4.7-Flash-GGUF
       - deepseek-coder-v2-lite:q4_k_m    # was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF
-      - minimax-m2:q4_k_m                # was: hf.co/MiniMaxAI/MiniMax-M2.1-GGUF
       - llama3.3:70b-q4_k_m              # was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY)
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
@@ -67,8 +66,8 @@ backends:
       - baronllm:q6_k                    # was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_...
       - lily-cybersecurity:q4_k_m        # was: hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
       - dolphin3-r1-mistral:24b-q4_k_m   # was: hf.co/cognitivecomputations/Dolphin3.0-R1-...
-      - whiterabbitneo:33b-q4_k_m        # was: hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF
-      - dolphin3-llama3:70b-q4_k_m       # was: hf.co/cognitivecomputations/dolphin-3-llama3-70b (PULL_HEAVY)
+      - whiterabbitneo:33b-v1.5-q4_k_m    # updated to match new import name
+      - dolphin-llama3:70b-q4_k_m         # dolphin-2.9.1-llama-3-70b (PULL_HEAVY)
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
