@@ -536,7 +536,16 @@ async def metrics() -> PlainTextResponse:
         f"portal_workspaces_total {len(WORKSPACES)}",
     ]
     # Combine hand-rolled metrics with prometheus_client metrics
-    prometheus_output = generate_latest(_REGISTRY).decode("utf-8")
+    # Use multiprocess collector when PROMETHEUS_MULTIPROC_DIR is set
+    # (aggregates metrics across all uvicorn workers)
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        from prometheus_client import multiprocess, CollectorRegistry as _CR
+
+        _mp_registry = _CR()
+        multiprocess.MultiProcessCollector(_mp_registry)
+        prometheus_output = generate_latest(_mp_registry).decode("utf-8")
+    else:
+        prometheus_output = generate_latest(_REGISTRY).decode("utf-8")
     return PlainTextResponse("\n".join(lines) + "\n" + prometheus_output)
 
 

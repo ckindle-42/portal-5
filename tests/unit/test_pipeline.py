@@ -614,3 +614,76 @@ class TestR23MLXSupport:
         assert "pull-mlx-models" in content
         assert "mlx_lm" in content
         assert "mlx-community/Qwen3-Coder-Next-4bit" in content
+
+
+class TestRecordUsageMetrics:
+    """Verify _record_usage correctly parses Ollama response fields."""
+
+    def test_record_usage_full_response(self):
+        """Standard Ollama response with all usage fields."""
+        from portal_pipeline.router_pipe import _record_usage
+        # Should not raise
+        _record_usage(
+            model="baronllm:q6_k",
+            workspace="auto-security",
+            data={
+                "eval_count": 312,
+                "eval_duration": 6638000000,  # ~47 tok/s
+                "prompt_eval_count": 48,
+            },
+        )
+
+    def test_record_usage_missing_fields(self):
+        """Incomplete response dict — should not raise."""
+        from portal_pipeline.router_pipe import _record_usage
+        _record_usage(model="test-model", workspace="auto", data={})
+        _record_usage(model="test-model", workspace="auto", data={"eval_count": 0})
+        _record_usage(model="test-model", workspace="auto", data={"eval_duration": 0})
+
+    def test_record_usage_none_values(self):
+        """None values in response fields — should not raise."""
+        from portal_pipeline.router_pipe import _record_usage
+        _record_usage(
+            model="test-model",
+            workspace="auto",
+            data={"eval_count": None, "eval_duration": None, "prompt_eval_count": None},
+        )
+
+    def test_record_usage_tps_calculation(self):
+        """Tokens/sec is calculated correctly from eval_count and eval_duration."""
+        from portal_pipeline import router_pipe
+        # Capture histogram before
+        before = router_pipe._tokens_per_second.labels(
+            model="tps-test-model", workspace="tps-test-ws"
+        )._sum.get()
+        router_pipe._record_usage(
+            model="tps-test-model",
+            workspace="tps-test-ws",
+            data={
+                "eval_count": 100,
+                "eval_duration": 2_000_000_000,  # 2 seconds → 50 tok/s
+                "prompt_eval_count": 20,
+            },
+        )
+        after = router_pipe._tokens_per_second.labels(
+            model="tps-test-model", workspace="tps-test-ws"
+        )._sum.get()
+        tps = after - before
+        assert abs(tps - 50.0) < 0.1, f"Expected ~50 tok/s, got {tps}"
+
+    def test_metrics_endpoint_contains_prometheus_output(self, client):
+        """After a _record_usage call, /metrics includes prometheus_client output."""
+        from portal_pipeline import router_pipe
+        # Trigger a metric emission
+        router_pipe._record_usage(
+            model="metrics-test-model",
+            workspace="auto",
+            data={"eval_count": 10, "eval_duration": 200_000_000, "prompt_eval_count": 5},
+        )
+        resp = client.get("/metrics")
+        assert resp.status_code == 200
+        content = resp.text
+        # The prometheus_client output should be appended to the hand-rolled metrics
+        assert "portal_tokens_per_second" in content
+        assert "portal_output_tokens_total" in content
+        assert "portal_requests_by_model_total" in content

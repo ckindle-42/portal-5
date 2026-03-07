@@ -18,6 +18,16 @@ def main() -> None:
     default_workers = min(multiprocessing.cpu_count(), 4)
     workers = int(os.environ.get("PIPELINE_WORKERS", default_workers))
 
+    # ── Prometheus multiprocess mode ─────────────────────────────────────────
+    # When workers > 1, each process needs a shared directory to write metrics.
+    # Must be set BEFORE prometheus_client is imported (happens in router_pipe).
+    # With workers=1, this is harmless overhead.
+    if not os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        import tempfile
+        _mp_dir = tempfile.mkdtemp(prefix="portal_metrics_")
+        os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp_dir
+        logging.debug("Prometheus multiprocess dir: %s", _mp_dir)
+
     logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
     logging.info("Starting Portal Pipeline on :%d with %d worker(s)", port, workers)
 
