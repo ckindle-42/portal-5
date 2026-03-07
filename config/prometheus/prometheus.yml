@@ -14,7 +14,13 @@ scrape_configs:
   # If scraping fails (older Ollama), Prometheus will retry silently
   - job_name: 'ollama'
     static_configs:
-      - targets: ['ollama:11434']
+      - targets: ['ollama:11434']          # Docker-profile Ollama
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'ollama-native'
+    static_configs:
+      - targets: ['host.docker.internal:11434']   # Native Ollama (default setup)
     metrics_path: '/metrics'
     scrape_interval: 30s
 
