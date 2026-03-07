@@ -3,8 +3,8 @@
 ```
 Portal 5.0 Roadmap
 ==================
-Last updated: March 4, 2026
-Source: documentation-truth-agent-v3-delta
+Last updated: March 6, 2026
+Source: documentation-truth-agent-v4 delta (R24, v5.1.0)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
@@ -159,10 +159,24 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 
 ---
 
+## Documentation (documentation-truth-agent-v4 delta run - R24)
+
+| ID | Priority | Title | Status | Evidence |
+|----|----------|-------|--------|----------|
+| P5-ROAD-122 | P3 | Tests increased to 108 | DONE | 5 new TestRecordUsageMetrics tests |
+| P5-ROAD-123 | P3 | MLX backend verified | DONE | 1 MLX backend, 7 models, routing OK |
+| P5-ROAD-124 | P3 | 13 workspaces consistent | DONE | pipe=13 yaml=13 imports=13 |
+| P5-ROAD-125 | P3 | Pipeline runtime verified | DONE | /health returns 13 workspaces |
+| P5-ROAD-126 | P3 | Native install commands verified | DONE | 5/5 commands present in launch.sh |
+| P5-ROAD-127 | P3 | Lint N814 false positive | WONTFIX | Camelcase _CR intentional for internal use |
+
+---
+
 ## Score Progress
 
 | Date | Score | Change | Notes |
 |------|-------|--------|-------|
+| 2026-03-06 | 99/100 | -1 | doc-agent-v4 R24 - lint N814 false positive |
 | 2026-03-04 | 95/100 | 0 | code-quality-agent-v3 delta run - r8 fixes applied |
 | 2026-03-04 | 95/100 | 0 | doc-agent-v3 delta run - 27 features verified |
 

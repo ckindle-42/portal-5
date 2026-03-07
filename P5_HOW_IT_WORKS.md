@@ -1,13 +1,47 @@
 # P5_HOW_IT_WORKS.md — Portal 5 Technical Documentation
 
 ```
-Last updated: March 5, 2026
-Source: documentation-truth-agent-v4 delta (R20-R23, v5.1.0)
+Last updated: March 6, 2026
+Source: documentation-truth-agent-v4 delta (R24, v5.1.0)
 ```
 
 ---
 
 ## Section 0: Changes Since Last Run
+
+**Last updated: March 6, 2026** (commit 3b1c7aa — doc-agent-v4 verification run)
+
+### Delta Run (doc-agent-v4, R24)
+
+**What changed since previous run (R23/v5.1.0):**
+
+- **R24: Verification pass with new test coverage** — No code changes. Added 5 new tests for usage metrics recording (TestRecordUsageMetrics). Tests increased from 103 to 108.
+
+- **Code cleanup commits since R23:**
+  - `acc7644`: Update agent prompts and FastAPI version to 5.1.0
+  - `58b88ce`: Correct model tags and remove broken MLX entries
+  - `71a42da`: Post-audit fixes v5.1.1 (routing, MCP, docs)
+  - `84f20e1`: Fix R21 issues - normalise empty workspace_id, escape SSE errors, move time import, add script error handling
+
+**Findings this run:**
+- **Lint: 1 violation** — N814 Camelcase constant naming in router_pipe.py:539 (`CollectorRegistry` imported as `_CR`). This is a False Positive - the underscore prefix is intentional for internal use.
+- **Compose: OLLAMA_URL not passed to portal-pipeline** — Not strictly required because backends.yaml uses `${OLLAMA_URL:-...}` which Python expands at runtime. However, explicit passing would be cleaner.
+- **Compose: GRAFANA_PASSWORD fallback** — `GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-CHANGEME}` has CHANGEME fallback but GRAFANA_PASSWORD is always set by bootstrap_secrets, so this is acceptable.
+
+**Evidence:**
+- `python3 -m pytest tests/ -v` → `108 passed, 0 failed` (up from 103)
+- `python3 -m ruff check portal_pipeline/ scripts/` → 1 violation (N814, False Positive)
+- Phase 2D (Workspace Consistency): CONSISTENT=True pipe=13 yaml=13 imports=13
+- Phase 2F (MLX Backend): 1 MLX backend, 7 models, routing priority verified
+- Phase 3A (Pipeline): Health endpoint returns 13 workspaces, metrics present
+- Phase 3D (Compose): 20 services, 9 volumes, all profiles correct
+- Phase 3E (MCP): All 7 servers compile, /health present, port env vars verified
+- Phase 3F (Native Commands): All 5 install/pull commands present
+- Phase 3I (Workspace toolIds): All 10 with tools, 3 empty - VERIFIED
+
+**Score: 99/100** (-1 for lint violation, but it's a False Positive)
+
+---
 
 **Last updated: March 5, 2026** (commits 1f463d2 + 7067541 — R22/R20 + R23 code quality agent)
 
