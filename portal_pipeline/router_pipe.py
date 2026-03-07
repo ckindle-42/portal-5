@@ -476,7 +476,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _health_task.cancel()
 
 
-app = FastAPI(title="Portal Pipeline", version="5.0.0", lifespan=lifespan)
+app = FastAPI(title="Portal Pipeline", version="5.1.0", lifespan=lifespan)
 
 
 def _verify_key(authorization: str | None) -> None:

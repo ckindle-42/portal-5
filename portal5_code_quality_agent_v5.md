@@ -380,6 +380,36 @@ grep "platform: linux/amd64" deploy/portal-5/docker-compose.yml \
     || echo "FAIL: ComfyUI missing platform: linux/amd64 — ARM mismatch warning on M4"
 ```
 
+### 2L — MLX Backend Model Compatibility
+
+```python
+# Verify no mlx-vlm (vision) models are active in MLX backend
+# mlx_lm.server cannot load mlx-vlm conversions
+
+import yaml
+cfg = yaml.safe_load(open("config/backends.yaml"))
+mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
+for b in mlx_backends:
+    for model in b.get("models", []):
+        # Check if model was commented out (shouldn't be here if active)
+        if "Qwen3.5" in model:
+            print(f"  ⚠️  {model} — verify this is an mlx-lm conversion, not mlx-vlm")
+            print(f"     mlx-vlm models will fail to load in mlx_lm.server")
+print("MLX model compatibility check complete")
+```
+
+### 2M — Melody Conditioning Implementation
+
+```python
+# Verify generate_continuation actually uses melody conditioning
+music_src = open("portal_mcp/generation/music_mcp.py").read()
+assert "generate_with_chroma" in music_src, \
+    "FAIL: generate_continuation does not use AudioCraft melody conditioning"
+assert "_generate_with_melody_sync" in music_src, \
+    "FAIL: _generate_with_melody_sync function missing"
+print("OK: Melody conditioning implemented")
+```
+
 ---
 
 ## Phase 3 — Behavioral Verification
@@ -413,7 +443,7 @@ sys.path.insert(0, ".")
 from portal_pipeline.cluster_backends import BackendRegistry, Backend
 
 # Test mlx backend type health URL
-b_mlx = Backend(id="t-mlx", type="mlx", url="http://localhost:8080", group="mlx",
+b_mlx = Backend(id="t-mlx", type="mlx", url="http://localhost:8081", group="mlx",
                 models=["mlx-community/Qwen3-Coder-Next-4bit"])
 assert "/v1/models" in b_mlx.health_url, \
     f"FAIL: MLX health_url should use /v1/models, got: {b_mlx.health_url}"

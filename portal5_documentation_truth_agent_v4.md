@@ -125,7 +125,7 @@ OPENWEBUI_ADMIN_EMAIL        | admin@portal.local                   | .env      
 SEARXNG_SECRET_KEY           | (auto-generated)                     | .env      | searxng           | YES
 GRAFANA_PASSWORD             | (auto-generated)                     | .env      | grafana           | YES
 OLLAMA_URL                   | http://host.docker.internal:11434    | .env      | backends.yaml     | NO (Apple Silicon default)
-MLX_URL                      | http://host.docker.internal:8080     | .env      | backends.yaml     | NO (optional)
+MLX_URL                      | http://host.docker.internal:8081     | .env      | backends.yaml     | NO (optional)
 MLX_MODEL                    | mlx-community/Qwen3-Coder-Next-4bit  | .env      | mlx/start.sh      | NO (optional)
 COMFYUI_URL                  | http://host.docker.internal:8188     | .env      | mcp-comfyui/video | NO (native default)
 IMAGE_MODEL                  | flux-schnell                         | .env      | comfyui-init      | NO
@@ -164,7 +164,7 @@ Port  | Service          | External?  | Purpose                          | Notes
 9090  | prometheus       | localhost  | Metrics scraping                 | Internal only
 3000  | grafana          | YES        | Metrics dashboards               |
 9099  | portal-pipeline  | localhost  | OpenAI-compat routing API        | Portal's core
-8080  | mlx_lm           | localhost  | MLX inference (Apple Silicon)    | Runs on HOST, not Docker
+8081  | mlx_lm           | localhost  | MLX inference (Apple Silicon)    | Runs on HOST, not Docker
 11434 | ollama           | localhost  | LLM inference                    | Runs on HOST (native brew)
 8188  | comfyui          | localhost  | Image/video generation           | Runs on HOST (native)
 8913  | mcp-documents    | localhost  | Word/PPT/Excel MCP               |
@@ -176,7 +176,7 @@ Port  | Service          | External?  | Purpose                          | Notes
 8914  | mcp-sandbox      | localhost  | Code execution sandbox           |
 ```
 
-**Note:** Ollama (:11434), ComfyUI (:8188), and mlx_lm (:8080) run natively on
+**Note:** Ollama (:11434), ComfyUI (:8188), and mlx_lm (:8081) run natively on
 the host (not in Docker) on Apple Silicon. Docker containers reach them via
 `host.docker.internal`. MCP host ports are configurable via env vars.
 
@@ -296,7 +296,7 @@ sys.path.insert(0, ".")
 from portal_pipeline.cluster_backends import BackendRegistry, Backend
 
 # Test mlx backend type
-b_mlx = Backend(id="mlx-test", type="mlx", url="http://localhost:8080",
+b_mlx = Backend(id="mlx-test", type="mlx", url="http://localhost:8081",
                 group="mlx", models=["mlx-community/Qwen3-Coder-Next-4bit"])
 print(f"MLX health_url: {b_mlx.health_url}")  # expect /v1/models
 assert "/v1/models" in b_mlx.health_url
@@ -675,8 +675,8 @@ Three tiers:
 
 *Ollama GGUF Models (pulled via `./launch.sh pull-models`):*
 - Security group: BaronLLM, Lily-7B, Dolphin3.0-R1-Mistral-24B, xploiter, WhiteRabbitNeo-33B, etc.
-- Coding group: qwen3-coder-next:30b, GLM-4.7-Flash, DeepSeek-Coder-V2-Lite, devstral, MiniMax-M2.1
-- Reasoning group: DeepSeek-R1-32B, tongyi-deepresearch-30b
+- Coding group: qwen3-coder:30b (Ollama; MLX-only: qwen3-coder-next), GLM-4.7-Flash, DeepSeek-Coder-V2-Lite, devstral
+- Reasoning group: deepseek-r1:32b-q4_k_m, tongyi-deepresearch-abliterated (MLX-only)
 - PULL_HEAVY (70B): dolphin-3-llama3-70b (security), Llama-3.3-70B (coding)
 - Note which models have no MLX equivalent (security models, MiniMax, tongyi-abliterated)
 
@@ -716,7 +716,7 @@ Feature              | Entry point                  | Key file(s)              |
 Web chat             | open-webui:8080              | (external image)         | compose env
 Web search           | open-webui → searxng:8088    | config/searxng/          | SEARXNG_QUERY_URL
 Routing              | portal-pipeline:9099         | router_pipe.py           | WORKSPACES dict
-MLX inference        | host:8080 (mlx_lm)           | cluster_backends.py      | MLX_URL, MLX_MODEL
+MLX inference        | host:8081 (mlx_lm)           | cluster_backends.py      | MLX_URL, MLX_MODEL
 Ollama inference     | host:11434 (native brew)     | cluster_backends.py      | OLLAMA_URL
 Image generation     | host:8188 → mcp-comfyui:8910 | comfyui_mcp.py           | IMAGE_MODEL
 Video generation     | host:8188 → mcp-video:8911   | video_mcp.py             | VIDEO_MODEL
