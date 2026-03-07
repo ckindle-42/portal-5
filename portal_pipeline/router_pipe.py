@@ -589,7 +589,7 @@ async def chat_completions(
         assert registry is not None
 
         body = await request.json()
-        workspace_id = body.get("model", "auto")
+        workspace_id = body.get("model") or "auto"
         stream = body.get("stream", True)
 
         # Content-aware routing for 'auto' workspace
@@ -691,8 +691,10 @@ async def _stream_from_backend_guarded(
             if resp.status_code != 200:
                 err = await resp.aread()
                 yield (
-                    f'data: {{"error": "Backend {resp.status_code}: '
-                    f'{err[:100].decode(errors="replace")}"}}\n\n'
+                    "data: " + json.dumps({
+                        "error": f"Backend {resp.status_code}: "
+                                 + err[:100].decode(errors="replace")
+                    }) + "\n\n"
                 ).encode()
                 return
             async for chunk in resp.aiter_bytes():
@@ -720,7 +722,7 @@ async def _stream_from_backend_guarded(
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
-        yield f'data: {{"error": "Backend connection error: {e}"}}\n\n'.encode()
+        yield ("data: " + json.dumps({"error": f"Backend connection error: {e}"}) + "\n\n").encode()
     finally:
         sem.release()  # Release AFTER generator is fully exhausted
 

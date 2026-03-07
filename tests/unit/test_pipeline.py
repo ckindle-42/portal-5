@@ -651,7 +651,15 @@ class TestRecordUsageMetrics:
 
     def test_record_usage_tps_calculation(self):
         """Tokens/sec is calculated correctly from eval_count and eval_duration."""
+        import os
+        # Skip if running in prometheus multiprocess mode — ._sum introspection
+        # requires single-process mode (file-based metrics return 0 from ._sum)
+        if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+            import pytest
+            pytest.skip("TPS introspection requires single-process prometheus mode")
+
         from portal_pipeline import router_pipe
+
         # Capture histogram before
         before = router_pipe._tokens_per_second.labels(
             model="tps-test-model", workspace="tps-test-ws"

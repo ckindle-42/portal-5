@@ -11,6 +11,7 @@ import logging
 import os
 import random
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -213,8 +214,6 @@ class BackendRegistry:
 
     async def _check_one(self, backend: Backend) -> None:
         """Check a single backend's health."""
-        import time
-
         try:
             async with httpx.AsyncClient(timeout=self._health_timeout) as client:
                 resp = await client.get(backend.health_url)
