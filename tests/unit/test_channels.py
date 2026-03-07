@@ -19,6 +19,7 @@ sys.path.insert(0, ".")
 
 # ── Telegram ─────────────────────────────────────────────────────────────────
 
+
 class TestTelegramAdapter:
     """Test Telegram bot logic without a real token or API connection."""
 
@@ -26,6 +27,7 @@ class TestTelegramAdapter:
         """Module must be importable without TELEGRAM_BOT_TOKEN set."""
         import importlib
         import os
+
         env_backup = os.environ.pop("TELEGRAM_BOT_TOKEN", None)
         try:
             if "portal_channels.telegram.bot" in sys.modules:
@@ -42,6 +44,7 @@ class TestTelegramAdapter:
         import os
 
         from portal_channels.telegram.bot import build_app
+
         env_backup = os.environ.pop("TELEGRAM_BOT_TOKEN", None)
         try:
             with pytest.raises(RuntimeError, match="TELEGRAM_BOT_TOKEN"):
@@ -53,8 +56,10 @@ class TestTelegramAdapter:
     def test_is_allowed_empty_list_permits_all(self):
         """Empty TELEGRAM_USER_IDS allows everyone."""
         import os
+
         os.environ["TELEGRAM_USER_IDS"] = ""
         from portal_channels.telegram import bot
+
         # Re-read the function since env might be cached
         assert bot._is_allowed(12345) is True
         assert bot._is_allowed(99999) is True
@@ -245,6 +250,7 @@ class TestTelegramAdapter:
 
 # ── Slack ─────────────────────────────────────────────────────────────────────
 
+
 class TestSlackAdapter:
     """Test Slack bot logic without real tokens."""
 
@@ -252,6 +258,7 @@ class TestSlackAdapter:
         """Module must be importable without SLACK_BOT_TOKEN set."""
         import importlib
         import os
+
         for key in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"):
             os.environ.pop(key, None)
         if "portal_channels.slack.bot" in sys.modules:
@@ -290,6 +297,7 @@ class TestSlackAdapter:
     def test_workspace_for_channel_routing(self):
         """Channel names correctly map to workspace IDs."""
         from portal_channels.slack.bot import _workspace_for_channel
+
         assert _workspace_for_channel("coding-help") == "auto-coding"
         assert _workspace_for_channel("security-alerts") == "auto-security"
         assert _workspace_for_channel("images-channel") == "auto-vision"  # NOT auto-images
@@ -307,9 +315,7 @@ class TestSlackAdapter:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "test reply"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "test reply"}}]}
         mock_response.raise_for_status = MagicMock()
 
         with patch("portal_channels.dispatcher.httpx.Client") as mock_client:
@@ -330,6 +336,7 @@ class TestSlackAdapter:
     def test_pipeline_error_returns_error_string(self):
         """_call_pipeline raises exception that callers handle."""
         from portal_channels.slack import bot as slack_bot
+
         with patch("portal_channels.dispatcher.httpx.Client") as mock_client:
             mock_client.return_value.__enter__ = MagicMock(return_value=mock_client.return_value)
             mock_client.return_value.__exit__ = MagicMock(return_value=False)
@@ -342,6 +349,7 @@ class TestSlackAdapter:
         import os
 
         from portal_channels.slack.bot import _get_tokens
+
         os.environ["SLACK_BOT_TOKEN"] = "xoxb-test"
         os.environ.pop("SLACK_APP_TOKEN", None)
         with pytest.raises(RuntimeError, match="SLACK_APP_TOKEN"):
@@ -350,6 +358,7 @@ class TestSlackAdapter:
 
 
 # ── MCP Tools (expanded from test_mcp_endpoints.py) ──────────────────────────
+
 
 class TestDocumentMCPTools:
     """Test document generation tool names and actual file creation."""
@@ -365,8 +374,7 @@ class TestDocumentMCPTools:
         manifest = {t["name"] for t in TOOLS_MANIFEST}
         missing = manifest - registered
         assert not missing, (
-            f"Tools in TOOLS_MANIFEST not registered: {missing}. "
-            f"AI will fail to call these tools."
+            f"Tools in TOOLS_MANIFEST not registered: {missing}. AI will fail to call these tools."
         )
 
     def test_create_powerpoint_creates_file(self, tmp_path, monkeypatch):
@@ -473,26 +481,30 @@ class TestAllMCPServerToolAlignment:
        (otherwise the tool is registered but invisible to the AI — dead code)
     """
 
-    @pytest.mark.parametrize("module_path", [
-        "portal_mcp.documents.document_mcp",
-        "portal_mcp.generation.music_mcp",
-        "portal_mcp.generation.tts_mcp",
-        "portal_mcp.generation.whisper_mcp",
-        "portal_mcp.generation.comfyui_mcp",
-        "portal_mcp.generation.video_mcp",
-        "portal_mcp.execution.code_sandbox_mcp",
-    ])
+    @pytest.mark.parametrize(
+        "module_path",
+        [
+            "portal_mcp.documents.document_mcp",
+            "portal_mcp.generation.music_mcp",
+            "portal_mcp.generation.tts_mcp",
+            "portal_mcp.generation.whisper_mcp",
+            "portal_mcp.generation.comfyui_mcp",
+            "portal_mcp.generation.video_mcp",
+            "portal_mcp.execution.code_sandbox_mcp",
+        ],
+    )
     def test_manifest_and_registered_are_in_sync(self, module_path):
         """TOOLS_MANIFEST and @mcp.tool() must be a perfect bidirectional match."""
         import importlib
         import sys
+
         sys.path.insert(0, ".")
         mod = importlib.import_module(module_path)
         registered = set(mod.mcp._tool_manager._tools.keys())
-        manifest   = {t["name"] for t in mod.TOOLS_MANIFEST}
+        manifest = {t["name"] for t in mod.TOOLS_MANIFEST}
 
         missing_from_manifest = registered - manifest
-        missing_from_code     = manifest - registered
+        missing_from_code = manifest - registered
 
         assert not missing_from_code, (
             f"{module_path}: tools in TOOLS_MANIFEST but NOT registered with @mcp.tool():\n"
@@ -516,6 +528,7 @@ class TestDispatcher:
             call_pipeline_sync,
             is_valid_workspace,
         )
+
         assert callable(call_pipeline_async)
         assert callable(call_pipeline_sync)
         assert callable(is_valid_workspace)
@@ -523,6 +536,7 @@ class TestDispatcher:
     def test_valid_workspaces_covers_all_13(self):
         """Dispatcher knows all 13 canonical workspace IDs."""
         import sys
+
         sys.path.insert(0, ".")
         from portal_channels.dispatcher import VALID_WORKSPACES
         from portal_pipeline.router_pipe import WORKSPACES
@@ -538,14 +552,27 @@ class TestDispatcher:
 
     def test_is_valid_workspace_true_for_known(self):
         from portal_channels.dispatcher import is_valid_workspace
-        for ws in ["auto", "auto-coding", "auto-security", "auto-redteam",
-                   "auto-blueteam", "auto-creative", "auto-reasoning",
-                   "auto-documents", "auto-video", "auto-music",
-                   "auto-research", "auto-vision", "auto-data"]:
+
+        for ws in [
+            "auto",
+            "auto-coding",
+            "auto-security",
+            "auto-redteam",
+            "auto-blueteam",
+            "auto-creative",
+            "auto-reasoning",
+            "auto-documents",
+            "auto-video",
+            "auto-music",
+            "auto-research",
+            "auto-vision",
+            "auto-data",
+        ]:
             assert is_valid_workspace(ws), f"Expected valid: {ws}"
 
     def test_is_valid_workspace_false_for_unknown(self):
         from portal_channels.dispatcher import is_valid_workspace
+
         for ws in ["", "auto-images", "auto-nonexistent", "general", "unknown"]:
             assert not is_valid_workspace(ws), f"Expected invalid: {ws}"
 
@@ -558,9 +585,7 @@ class TestDispatcher:
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "choices": [{"message": {"content": "Test reply"}}]
-        }
+        mock_resp.json.return_value = {"choices": [{"message": {"content": "Test reply"}}]}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_cls:
@@ -587,9 +612,7 @@ class TestDispatcher:
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "choices": [{"message": {"content": "Sync reply"}}]
-        }
+        mock_resp.json.return_value = {"choices": [{"message": {"content": "Sync reply"}}]}
         mock_resp.raise_for_status = MagicMock()
 
         with patch("portal_channels.dispatcher.httpx.Client") as mock_cls:
@@ -618,7 +641,7 @@ class TestDispatcher:
             call_count += 1
             mock_resp = MagicMock()
             if call_count < 2:
-                mock_resp.status_code = 503   # server error on first attempt
+                mock_resp.status_code = 503  # server error on first attempt
             else:
                 mock_resp.status_code = 200
                 mock_resp.raise_for_status = MagicMock()
@@ -627,9 +650,11 @@ class TestDispatcher:
                 }
             return mock_resp
 
-        with patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2), \
-             patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001), \
-             patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_cls:
+        with (
+            patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2),
+            patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001),
+            patch("portal_channels.dispatcher.httpx.AsyncClient") as mock_cls,
+        ):
             mock_client = AsyncMock()
             mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -655,9 +680,11 @@ class TestDispatcher:
             call_count += 1
             raise httpx.ConnectError("Connection refused")
 
-        with patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2), \
-             patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001), \
-             patch("portal_channels.dispatcher.httpx.Client") as mock_cls:
+        with (
+            patch("portal_channels.dispatcher.PIPELINE_RETRIES", 2),
+            patch("portal_channels.dispatcher.PIPELINE_RETRY_BASE", 0.001),
+            patch("portal_channels.dispatcher.httpx.Client") as mock_cls,
+        ):
             mock_client = MagicMock()
             mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
             mock_cls.return_value.__exit__ = MagicMock(return_value=False)

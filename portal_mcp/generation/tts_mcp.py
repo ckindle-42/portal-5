@@ -53,7 +53,9 @@ def _cleanup_stale_audio(max_age_hours: int = 1) -> None:
 _cleanup_stale_audio()
 
 # Kokoro model cache location
-KOKORO_CACHE_DIR = Path(os.getenv("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "kokoro"
+KOKORO_CACHE_DIR = (
+    Path(os.getenv("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "kokoro"
+)
 KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
 KOKORO_VOICES_FILE = "voices-v1.0.bin"
 KOKORO_HF_REPO = "hexgrad/kokoro-onnx"
@@ -71,14 +73,15 @@ def _ensure_kokoro_models() -> tuple[str, str]:
     if not model_path.exists() or not voices_path.exists():
         logger.info("Downloading kokoro-onnx model files (~60 MB)...")
         from huggingface_hub import hf_hub_download
+
         if not model_path.exists():
-            hf_hub_download(repo_id=KOKORO_HF_REPO,
-                            filename=KOKORO_MODEL_FILE,
-                            local_dir=str(KOKORO_CACHE_DIR))
+            hf_hub_download(
+                repo_id=KOKORO_HF_REPO, filename=KOKORO_MODEL_FILE, local_dir=str(KOKORO_CACHE_DIR)
+            )
         if not voices_path.exists():
-            hf_hub_download(repo_id=KOKORO_HF_REPO,
-                            filename=KOKORO_VOICES_FILE,
-                            local_dir=str(KOKORO_CACHE_DIR))
+            hf_hub_download(
+                repo_id=KOKORO_HF_REPO, filename=KOKORO_VOICES_FILE, local_dir=str(KOKORO_CACHE_DIR)
+            )
         logger.info("Kokoro model files ready at %s", KOKORO_CACHE_DIR)
 
     return str(model_path), str(voices_path)
@@ -87,12 +90,14 @@ def _ensure_kokoro_models() -> tuple[str, str]:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     backend = _get_available_backend()
-    return JSONResponse({
-        "status": "ok",
-        "service": "tts-mcp",
-        "backend": backend,
-        "voice_cloning": _check_fish_speech()[0],
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "tts-mcp",
+            "backend": backend,
+            "voice_cloning": _check_fish_speech()[0],
+        }
+    )
 
 
 @mcp.custom_route("/v1/audio/speech", methods=["POST"])
@@ -162,6 +167,7 @@ async def openai_models(request):
 def _check_kokoro() -> tuple[bool, str]:
     try:
         import kokoro_onnx  # noqa: F401
+
         return True, "kokoro-onnx available"
     except ImportError:
         return False, "kokoro-onnx not installed. Run: pip install kokoro-onnx"
@@ -170,6 +176,7 @@ def _check_kokoro() -> tuple[bool, str]:
 def _check_fish_speech() -> tuple[bool, str]:
     try:
         import fish_speech  # noqa: F401
+
         return True, "fish-speech available"
     except ImportError:
         return False, "fish-speech not installed (voice cloning unavailable)"
@@ -197,7 +204,11 @@ TOOLS_MANIFEST = [
                     "description": "Voice name (kokoro: af_heart, af_sky, am_adam, bf_emma, bm_george)",
                     "default": "af_heart",
                 },
-                "speed": {"type": "number", "description": "Speech rate (0.5-2.0, default 1.0)", "default": 1.0},
+                "speed": {
+                    "type": "number",
+                    "description": "Speech rate (0.5-2.0, default 1.0)",
+                    "default": 1.0,
+                },
                 "backend": {
                     "type": "string",
                     "description": "Force specific backend: 'kokoro' or 'fish_speech'",
@@ -213,7 +224,10 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "reference_audio": {"type": "string", "description": "Path to 5-30 second reference audio file"},
+                "reference_audio": {
+                    "type": "string",
+                    "description": "Path to 5-30 second reference audio file",
+                },
                 "text": {"type": "string", "description": "Text to speak with the cloned voice"},
             },
             "required": ["reference_audio", "text"],
@@ -256,15 +270,19 @@ async def speak(
     if use_backend == "fish_speech":
         available, error = _check_fish_speech()
         if not available:
-            return {"error": f"fish-speech not available: {error}. Using kokoro instead.",
-                    "suggestion": "Install fish-speech or use backend='kokoro'"}
+            return {
+                "error": f"fish-speech not available: {error}. Using kokoro instead.",
+                "suggestion": "Install fish-speech or use backend='kokoro'",
+            }
         return await _speak_fish_speech(text, use_voice, use_speed)
 
     # Default: kokoro-onnx
     available, error = _check_kokoro()
     if not available:
-        return {"error": f"kokoro-onnx not available: {error}",
-                "install": "pip install kokoro-onnx"}
+        return {
+            "error": f"kokoro-onnx not available: {error}",
+            "install": "pip install kokoro-onnx",
+        }
 
     return await _speak_kokoro(text, use_voice, use_speed)
 
@@ -380,6 +398,7 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         import soundfile as sf
+
         sf.write(str(output_path), audio, 24000)
         return {"status": "success", "file_path": str(output_path), "backend": "fish_speech"}
     except Exception as e:

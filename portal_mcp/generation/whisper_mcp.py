@@ -59,6 +59,7 @@ async def openai_audio_transcriptions(request):
 
     # Clean up temp file
     import os
+
     with contextlib.suppress(Exception):
         os.unlink(tmp_path)
 
@@ -73,10 +74,10 @@ async def openai_audio_transcriptions(request):
 async def openai_models(request):
     """OpenAI-compatible models list for STT model selection."""
     from starlette.responses import JSONResponse
-    return JSONResponse({
-        "object": "list",
-        "data": [{"id": "whisper-1", "object": "model", "owned_by": "portal-5"}]
-    })
+
+    return JSONResponse(
+        {"object": "list", "data": [{"id": "whisper-1", "object": "model", "owned_by": "portal-5"}]}
+    )
 
 
 # Tool manifest for discovery

@@ -209,7 +209,7 @@ async def execute_python(
 
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
-"""
+    """
     timeout = min(timeout, 120)
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(

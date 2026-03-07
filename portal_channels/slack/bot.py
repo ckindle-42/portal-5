@@ -14,6 +14,7 @@ Optional:
   PIPELINE_API_KEY     default: value from PIPELINE_API_KEY env
   SLACK_DEFAULT_WORKSPACE  default: auto
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,19 +29,19 @@ DEFAULT_WORKSPACE = os.environ.get("SLACK_DEFAULT_WORKSPACE", "auto")
 
 # Channel name → workspace routing (matches current 13 canonical workspace IDs)
 CHANNEL_WORKSPACE_MAP: dict[str, str] = {
-    "coding":     "auto-coding",
-    "security":   "auto-security",
-    "redteam":    "auto-redteam",
-    "blueteam":   "auto-blueteam",
-    "images":     "auto-vision",       # was "auto-images" (invalid)
-    "vision":     "auto-vision",
-    "creative":   "auto-creative",
-    "documents":  "auto-documents",
-    "video":      "auto-video",
-    "music":      "auto-music",
-    "research":   "auto-research",
-    "reasoning":  "auto-reasoning",
-    "data":       "auto-data",
+    "coding": "auto-coding",
+    "security": "auto-security",
+    "redteam": "auto-redteam",
+    "blueteam": "auto-blueteam",
+    "images": "auto-vision",  # was "auto-images" (invalid)
+    "vision": "auto-vision",
+    "creative": "auto-creative",
+    "documents": "auto-documents",
+    "video": "auto-video",
+    "music": "auto-music",
+    "research": "auto-research",
+    "reasoning": "auto-reasoning",
+    "data": "auto-data",
 }
 
 
@@ -58,9 +59,9 @@ def _get_tokens() -> tuple[str, str, str]:
 
     if missing:
         raise RuntimeError(
-            "Slack credentials missing from .env:\n" +
-            "\n".join(f"  {m}" for m in missing) +
-            "\n\nSee: https://api.slack.com/apps → create app → Socket Mode"
+            "Slack credentials missing from .env:\n"
+            + "\n".join(f"  {m}" for m in missing)
+            + "\n\nSee: https://api.slack.com/apps → create app → Socket Mode"
         )
     return bot_token, app_token, signing_secret
 

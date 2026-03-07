@@ -206,6 +206,7 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
     # Ensure workspace toolIds are current before seeding
     try:
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "update_workspace_tools",
             Path(__file__).parent / "update_workspace_tools.py",
@@ -216,6 +217,7 @@ def create_workspaces(client: httpx.Client, token: str) -> None:
             mod.main()
     except Exception as e:
         import logging
+
         logging.getLogger(__name__).warning("Could not update workspace toolIds: %s", e)
 
     if not WORKSPACES_DIR.exists():
@@ -412,7 +414,9 @@ def configure_audio_settings(client: httpx.Client, token: str) -> None:
     AUDIO_TTS_ENGINE, AUDIO_TTS_OPENAI_API_BASE_URL, etc. are set in
     docker-compose.yml. No runtime API call needed.
     """
-    print("\nAudio settings: configured via environment variables (TTS→mcp-tts:8916, STT→mcp-whisper:8915)")
+    print(
+        "\nAudio settings: configured via environment variables (TTS→mcp-tts:8916, STT→mcp-whisper:8915)"
+    )
 
 
 def configure_tool_settings(client: httpx.Client, token: str) -> None:

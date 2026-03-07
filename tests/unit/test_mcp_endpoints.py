@@ -6,6 +6,7 @@ These are the endpoints Open WebUI uses for native TTS and STT.
 Requires: mcp>=1.0.0 (in pyproject.toml [dev] group)
 All tests should PASS after 'pip install -e .[dev,mcp]'
 """
+
 import sys
 
 import pytest
@@ -17,12 +18,14 @@ sys.path.insert(0, ".")
 def get_tts_app():
     """Get the TTS MCP server's Starlette ASGI app."""
     from portal_mcp.generation.tts_mcp import mcp
+
     return mcp.streamable_http_app()
 
 
 def get_whisper_app():
     """Get the Whisper MCP server's Starlette ASGI app."""
     from portal_mcp.generation.whisper_mcp import mcp
+
     return mcp.streamable_http_app()
 
 
@@ -114,16 +117,12 @@ class TestWhisperOpenAIEndpoints:
         data = resp.json()
         assert data.get("object") == "list"
         model_ids = [m["id"] for m in data.get("data", [])]
-        assert "whisper-1" in model_ids, (
-            f"whisper-1 must be in models list, got: {model_ids}"
-        )
+        assert "whisper-1" in model_ids, f"whisper-1 must be in models list, got: {model_ids}"
 
     def test_transcriptions_endpoint_exists(self, client):
         """POST /v1/audio/transcriptions must exist (never return 404)."""
         resp = client.post("/v1/audio/transcriptions", data={})
-        assert resp.status_code != 404, (
-            "CRITICAL: /v1/audio/transcriptions endpoint missing"
-        )
+        assert resp.status_code != 404, "CRITICAL: /v1/audio/transcriptions endpoint missing"
 
     def test_transcriptions_no_file_returns_400(self, client):
         """Missing 'file' field in multipart should return 400."""
@@ -157,6 +156,7 @@ class TestBackendModelHintRouting:
     def test_all_workspaces_have_model_hint(self):
         """Every workspace must specify a model_hint for routing."""
         from portal_pipeline.router_pipe import WORKSPACES
+
         for ws_id, cfg in WORKSPACES.items():
             assert cfg.get("model_hint"), (
                 f"Workspace '{ws_id}' missing model_hint — routing will use backend.models[0]"
@@ -167,7 +167,6 @@ class TestBackendModelHintRouting:
         from pathlib import Path
 
         import yaml
-
 
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
         routing = cfg.get("workspace_routing", {})
@@ -185,6 +184,4 @@ class TestBackendModelHintRouting:
         reg = BackendRegistry(config_path="config/backends.yaml")
         groups = {b.group for b in reg.list_backends()}
         expected = {"general", "coding", "security", "reasoning", "vision", "creative"}
-        assert groups >= expected, (
-            f"Missing backend groups: {expected - groups}"
-        )
+        assert groups >= expected, f"Missing backend groups: {expected - groups}"
