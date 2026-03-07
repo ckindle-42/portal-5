@@ -2,6 +2,32 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [5.1.0] - 2026-03-06
+
+### Fixed
+- Content-aware routing: removed false-positive keywords ("go ", "apt", "attack")
+- Melody conditioning in generate_continuation() was silently dropped — now
+  uses AudioCraft generate_with_chroma() for actual melody conditioning
+- FastAPI app version string: 5.0.0 → 5.1.0
+- CLAUDE.md workspace routing table: 9 stale model_hints updated
+- CLAUDE.md architecture line: MLX port 8080 → 8081
+- BackendRegistry._health_timeout: added defensive default in __init__
+
+### Changed
+- Broken mlx-vlm models (Qwen3.5-35B-A3B-4bit, Qwen3.5-27B-4bit) commented
+  out from MLX backend — only mlx-vlm conversions exist, incompatible with
+  mlx_lm.server. Will uncomment when mlx-lm community quants are published.
+- Added qwen3-coder:30b to Ollama coding group (correct tag, replaces
+  nonexistent qwen3-coder:32b)
+- Added deepseek-r1:32b-q4_k_m to Ollama security group for threat modeling
+- install-mlx now pins mlx-lm>=0.30.5 (required for Qwen3-Coder-Next support)
+- Version bump to 5.1.0 across pyproject.toml, __init__.py files, CLAUDE.md
+
+### Improved
+- Agent prompt v5: added mlx-vlm compatibility check and melody conditioning test
+- Agent prompt v4: corrected all stale port/model references
+- P5_AUDIT_REPORT.md updated for v5.1.0
+
 ## [5.0.2] - 2026-03-05
 
 ### Fixed

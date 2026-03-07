@@ -289,8 +289,7 @@ async def speak(
 
 async def _speak_kokoro(text: str, voice: str, speed: float) -> dict:
     """Generate speech using kokoro-onnx."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _kokoro_sync, text, voice, speed)
+    return await asyncio.to_thread(_kokoro_sync, text, voice, speed)
 
 
 def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
@@ -321,8 +320,7 @@ def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
 
 async def _speak_fish_speech(text: str, voice: str, speed: float) -> dict:
     """Generate speech using fish-speech."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fish_speech_sync, text, voice, speed)
+    return await asyncio.to_thread(_fish_speech_sync, text, voice, speed)
 
 
 def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
@@ -378,8 +376,7 @@ async def clone_voice(
 
 
 async def _clone_fish_speech(text: str, reference_audio_path: str) -> dict:
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _fish_clone_sync, text, reference_audio_path)
+    return await asyncio.to_thread(_fish_clone_sync, text, reference_audio_path)
 
 
 def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:

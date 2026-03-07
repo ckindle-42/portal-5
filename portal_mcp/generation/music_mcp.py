@@ -177,9 +177,7 @@ async def generate_music(
             "error": "model_size must be one of: small, medium, large, stable-audio",
         }
 
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
-        None,
+    result = await asyncio.to_thread(
         _generate_sync,
         prompt,
         duration,
@@ -243,8 +241,7 @@ def _generate_sync(
 
 async def _generate_stable_audio(prompt: str, duration: float) -> dict:
     """Generate music using Stable Audio Open."""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _stable_audio_sync, prompt, duration)
+    return await asyncio.to_thread(_stable_audio_sync, prompt, duration)
 
 
 def _stable_audio_sync(prompt: str, duration: float) -> dict:
@@ -355,10 +352,8 @@ async def _run_music_generation(
     melody_path: str | None = None,
 ) -> dict:
     """Run music generation, optionally with melody conditioning."""
-    loop = asyncio.get_event_loop()
     if melody_path:
-        return await loop.run_in_executor(
-            None,
+        return await asyncio.to_thread(
             _generate_with_melody_sync,
             prompt,
             duration,
@@ -368,8 +363,7 @@ async def _run_music_generation(
             1.0,  # temperature default
             3.0,  # cfg_coef default
         )
-    return await loop.run_in_executor(
-        None,
+    return await asyncio.to_thread(
         _generate_sync,
         prompt,
         duration,
