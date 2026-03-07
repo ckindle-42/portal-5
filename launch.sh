@@ -1083,6 +1083,7 @@ except Exception as e:
         # NOTE: Qwen3-Coder-Next GGUF removed — sharded GGUF incompatible with Ollama
         # Use MLX backend instead: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
         "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
+        "qwen3-coder:30b"              # 30B-A3B MoE (3B active), 19GB
         "hf.co/unsloth/GLM-4.7-Flash-GGUF"
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
@@ -1379,9 +1380,9 @@ PLIST
         exit 1
     fi
 
-    echo "  Installing mlx-lm..."
-    pip3 install mlx-lm --upgrade --quiet 2>/dev/null || \
-        pip3 install mlx-lm --upgrade --quiet --break-system-packages
+    echo "  Installing mlx-lm (>=0.30.5 required for Qwen3-Coder-Next)..."
+    pip3 install "mlx-lm>=0.30.5" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-lm>=0.30.5" --upgrade --quiet --break-system-packages
     echo "  ✅ mlx-lm installed: $(python3 -c 'import mlx_lm; print(mlx_lm.__version__)' 2>/dev/null || echo 'ok')"
 
     # Create start wrapper
