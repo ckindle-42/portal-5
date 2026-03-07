@@ -58,7 +58,11 @@ TOOLS_MANIFEST = [
                     "type": "string",
                     "description": "Path to a WAV/MP3 file to use as melodic conditioning",
                 },
-                "duration": {"type": "number", "description": "Duration in seconds (max 30)", "default": 10},
+                "duration": {
+                    "type": "number",
+                    "description": "Duration in seconds (max 30)",
+                    "default": 10,
+                },
                 "model": {
                     "type": "string",
                     "description": "MusicGen model size — small | medium | large",
@@ -92,6 +96,7 @@ MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
 def _cleanup_old_music_files() -> None:
     """Keep only the MAX_MUSIC_FILES most recently generated music files."""
     import contextlib
+
     if not OUTPUT_DIR.exists():
         return
     music_files = sorted(
@@ -117,6 +122,7 @@ def _check_audiocraft() -> tuple[bool, str]:
 def _check_stable_audio() -> tuple[bool, str]:
     try:
         import stable_audio_tools  # noqa: F401
+
         return True, "stable-audio-tools available"
     except ImportError:
         return False, "stable-audio-tools not installed"
@@ -152,7 +158,10 @@ async def generate_music(
     if model_size == "stable-audio":
         available, error = _check_stable_audio()
         if not available:
-            return {"success": False, "error": f"stable-audio-tools not available: {error}. Use small/medium/large."}
+            return {
+                "success": False,
+                "error": f"stable-audio-tools not available: {error}. Use small/medium/large.",
+            }
         result = await _generate_stable_audio(prompt, duration)
         if result.get("success"):
             _cleanup_old_music_files()
@@ -163,7 +172,10 @@ async def generate_music(
         return {"success": False, "error": error}
 
     if model_size not in ("small", "medium", "large"):
-        return {"success": False, "error": "model_size must be one of: small, medium, large, stable-audio"}
+        return {
+            "success": False,
+            "error": "model_size must be one of: small, medium, large, stable-audio",
+        }
 
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
@@ -281,6 +293,61 @@ def _stable_audio_sync(prompt: str, duration: float) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def _generate_with_melody_sync(
+    prompt: str,
+    duration: float,
+    model_size: str,
+    melody_path: str,
+    top_k: int,
+    temperature: float,
+    cfg_coef: float,
+) -> dict:
+    """Generate music with melody conditioning using AudioCraft."""
+    try:
+        import torch
+        import torchaudio
+        from audiocraft.models import MusicGen
+
+        model_name = f"facebook/musicgen-{model_size}"
+        logger.info("Loading MusicGen %s for melody continuation", model_name)
+        model = MusicGen.get_pretrained(model_name)
+        model.set_generation_params(
+            duration=duration,
+            top_k=top_k,
+            temperature=temperature,
+            cfg_coef=cfg_coef,
+        )
+
+        # Load and resample melody to match model's sample rate
+        melody_waveform, sr = torchaudio.load(melody_path)
+        if sr != model.sample_rate:
+            melody_waveform = torchaudio.functional.resample(melody_waveform, sr, model.sample_rate)
+
+        logger.info("Generating with melody: %s", prompt[:80])
+        with torch.no_grad():
+            wav = model.generate_with_chroma([prompt], melody_waveform.unsqueeze(0), model.sample_rate)
+
+        sample_rate = model.sample_rate
+        audio_data = wav[0].cpu()
+
+        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
+        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
+        torchaudio.save(str(output_file), audio_data, sample_rate)
+
+        actual_duration = audio_data.shape[-1] / sample_rate
+        return {
+            "success": True,
+            "path": str(output_file),
+            "duration_seconds": round(actual_duration, 2),
+            "sample_rate": sample_rate,
+            "prompt": prompt,
+            "model": model_name,
+        }
+    except Exception as e:
+        logger.exception("Melody continuation failed")
+        return {"success": False, "error": str(e)}
+
+
 async def _run_music_generation(
     prompt: str,
     duration: float,
@@ -289,15 +356,27 @@ async def _run_music_generation(
 ) -> dict:
     """Run music generation, optionally with melody conditioning."""
     loop = asyncio.get_event_loop()
+    if melody_path:
+        return await loop.run_in_executor(
+            None,
+            _generate_with_melody_sync,
+            prompt,
+            duration,
+            model_name,
+            melody_path,
+            250,  # top_k default
+            1.0,  # temperature default
+            3.0,  # cfg_coef default
+        )
     return await loop.run_in_executor(
         None,
         _generate_sync,
         prompt,
         duration,
         model_name,
-        250,   # top_k default
-        1.0,   # temperature default
-        3.0,   # cfg_coef default
+        250,  # top_k default
+        1.0,  # temperature default
+        3.0,  # cfg_coef default
     )
 
 
@@ -318,16 +397,15 @@ async def generate_continuation(
     """
     available, error = _check_audiocraft()
     if not available:
-        return {"error": f"AudioCraft not available: {error}",
-                "install": "pip install audiocraft"}
+        return {"error": f"AudioCraft not available: {error}", "install": "pip install audiocraft"}
 
     from pathlib import Path as _Path
+
     if not _Path(melody_path).exists():
         return {"error": f"Melody file not found: {melody_path}"}
 
     result = await _run_music_generation(
-        prompt=prompt, duration=duration, model_name=model,
-        melody_path=melody_path
+        prompt=prompt, duration=duration, model_name=model, melody_path=melody_path
     )
     if result.get("success"):
         _cleanup_old_music_files()
@@ -347,12 +425,19 @@ async def list_music_models() -> dict:
     }
 
     if stable_audio_available:
-        models["stable-audio"] = {"params": "~3GB", "vram_gb": 8, "quality": "high", "note": "Stable Audio Open 1.0"}
+        models["stable-audio"] = {
+            "params": "~3GB",
+            "vram_gb": 8,
+            "quality": "high",
+            "note": "Stable Audio Open 1.0",
+        }
 
     return {
         "audiocraft_installed": audiocraft_available,
         "stable_audio_installed": stable_audio_available,
-        "install_command": "pip install audiocraft stable-audio-tools" if not (audiocraft_available or stable_audio_available) else None,
+        "install_command": "pip install audiocraft stable-audio-tools"
+        if not (audiocraft_available or stable_audio_available)
+        else None,
         "models": models,
         "note": "Models are downloaded automatically from HuggingFace on first use.",
     }

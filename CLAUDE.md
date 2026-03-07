@@ -16,7 +16,7 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
 
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_lm (primary, host:8080) / Ollama (fallback, host:11434) ← local models  
+**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_lm (primary, host:8081) / Ollama (fallback, host:11434) ← local models  
 **Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
@@ -271,18 +271,18 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | Workspace ID | Preferred Backend Group | Default Model |
 |---|---|---|
 | `auto` | general | dolphin-llama3:8b |
-| `auto-coding` | coding → general | qwen3-coder-next:30b-q5 |
-| `auto-security` | security → general | xploiter/the-xploiter |
-| `auto-redteam` | security → general | xploiter/the-xploiter |
-| `auto-blueteam` | security → general | huihui_ai/baronllm-abliterated |
-| `auto-creative` | creative → general | dolphin-llama3:8b |
-| `auto-reasoning` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
-| `auto-documents` | general | dolphin-llama3:8b |
+| `auto-coding` | mlx → coding → general | mlx-community/Qwen3-Coder-Next-4bit |
+| `auto-security` | security → general | baronllm:q6_k |
+| `auto-redteam` | security → general | baronllm:q6_k |
+| `auto-blueteam` | security → general | lily-cybersecurity:7b-q4_k_m |
+| `auto-creative` | mlx → creative → general | dolphin-llama3:8b |
+| `auto-reasoning` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
+| `auto-documents` | coding → general | qwen3.5:9b |
 | `auto-video` | general | dolphin-llama3:8b |
 | `auto-music` | general | dolphin-llama3:8b |
-| `auto-research` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
-| `auto-vision` | vision → general | qwen3-omni:30b |
-| `auto-data` | reasoning → general | huihui_ai/tongyi-deepresearch-abliterated |
+| `auto-research` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
+| `auto-vision` | vision → general | qwen3-vl:32b |
+| `auto-data` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
 
 ---
 

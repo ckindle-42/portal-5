@@ -267,7 +267,6 @@ _SECURITY_KEYWORDS: frozenset[str] = frozenset(
         "rootkit",
         "backdoor",
         "botnet",
-        "apt",
         "threat actor",
         "vulnerability assessment",
         "vulnerability scan",
@@ -307,7 +306,6 @@ _REDTEAM_KEYWORDS: frozenset[str] = frozenset(
         "redteam",
         "pentest",
         "penetration test",
-        "attack",
         "hack",
         "hacking",
         "ctf",
@@ -354,7 +352,6 @@ _CODING_KEYWORDS: frozenset[str] = frozenset(
         "javascript",
         "typescript",
         "rust",
-        "go ",
         "golang",
         "bash script",
         "powershell",
@@ -539,7 +536,8 @@ async def metrics() -> PlainTextResponse:
     # Use multiprocess collector when PROMETHEUS_MULTIPROC_DIR is set
     # (aggregates metrics across all uvicorn workers)
     if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-        from prometheus_client import multiprocess, CollectorRegistry as _CR
+        from prometheus_client import CollectorRegistry as _CR
+        from prometheus_client import multiprocess
 
         _mp_registry = _CR()
         multiprocess.MultiProcessCollector(_mp_registry)

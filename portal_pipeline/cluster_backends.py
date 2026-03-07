@@ -111,6 +111,7 @@ class BackendRegistry:
         self._fallback_group: str = "general"
         self._health_check_interval = 30.0
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
+        self._health_timeout = 10.0  # Defensive default before _load_config() runs
 
         self._load_config()
 
