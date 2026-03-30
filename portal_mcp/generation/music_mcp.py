@@ -319,11 +319,10 @@ def _generate_with_melody_sync(
     try:
         import torch
         import torchaudio
-        from audiocraft.models import MusicGen
 
+        model = _get_musicgen_model(model_size)
         model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Loading MusicGen %s for melody continuation", model_name)
-        model = MusicGen.get_pretrained(model_name)
+        logger.info("Using cached MusicGen %s for melody continuation", model_name)
         model.set_generation_params(
             duration=duration,
             top_k=top_k,

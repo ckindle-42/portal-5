@@ -81,8 +81,8 @@ STATUS: OPEN, IN_PROGRESS, DONE, BLOCKED
 | ID | Priority | Title | Status | Evidence |
 |----|----------|-------|--------|----------|
 | P5-ROAD-070 | P2 | Voice cloning fish-speech optional | DEGRADED | tts_mcp.py has graceful degradation |
-| P5-ROAD-071 | P3 | Telegram adapter STUB | STUB | TELEGRAM_ENABLED=false in .env.example |
-| P5-ROAD-072 | P3 | Slack adapter STUB | STUB | SLACK_ENABLED=false in .env.example |
+| P5-ROAD-071 | P3 | Telegram adapter STUB | DONE | Superseded by R10 delta (P5-ROAD-071 row below) |
+| P5-ROAD-072 | P3 | Slack adapter STUB | DONE | Superseded by R10 delta (P5-ROAD-072 row below) |
 
 ## Documentation (Updated by doc-agent-v3)
 

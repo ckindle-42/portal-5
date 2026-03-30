@@ -420,7 +420,7 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     3. Coding keywords → auto-coding (Qwen3-Coder-Next via MLX)
     4. Reasoning keywords → auto-reasoning (DeepSeek-R1)
     """
-    # Find the last user message
+    # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
     last_user_content = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
@@ -514,57 +514,50 @@ _health_task: asyncio.Task | None = None
 _http_client: httpx.AsyncClient | None = None
 
 
-def _inject_ollama_options(body: dict) -> dict:
-    """Inject Ollama-specific TTFT performance defaults not already in the request.
+async def _warmup_auto_model(registry: BackendRegistry) -> None:
+    """Pre-load the auto workspace's default model on startup.
 
-    Only called for backends with type='ollama'. Skipped for MLX and vLLM which
-    do not recognise these fields.
+    Ollama lazily loads models on first request. A cold load of an 8B model
+    takes 10-30s on HDD, 1-5s on SSD/NFS. By making a minimal generation call
+    during startup, subsequent user requests skip this penalty entirely.
 
-    - keep_alive: top-level Ollama field (not inside 'options'). Prevents model
-      unloading between requests, eliminating cold-start latency.
-    - num_batch: inside 'options'. Larger batch = faster prompt evaluation = lower
-      TTFT on multi-turn conversations with long histories.
+    Runs in the background — startup is not blocked. Errors are logged but
+    swallowed so a failed warmup does not crash the pipeline.
     """
-    body = dict(body)
-    body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
-    opts: dict = dict(body.get("options") or {})
-    opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
-    body["options"] = opts
-    return body
-
-
-async def _warmup_backend(backend: Backend, model: str) -> None:
-    """Pre-load a model into GPU memory before the first real user request.
-
-    Ollama loads models lazily — without warmup the first user request pays
-    a 10-30 s cold-start penalty while the model maps into RAM/VRAM.
-    Sending a 1-token dummy completion during startup eliminates this.
-    Failure is non-fatal: if the model isn't pulled yet, logs a warning.
-    """
-    if _http_client is None:
-        return
-    warmup_body = {
-        "model": model,
-        "messages": [{"role": "user", "content": " "}],
-        "max_tokens": 1,
-        "stream": False,
-        "keep_alive": _OLLAMA_KEEP_ALIVE,
-        "options": {"num_batch": _OLLAMA_NUM_BATCH},
-    }
     try:
-        logger.info("Warming up %s with model %s ...", backend.id, model)
-        resp = await _http_client.post(backend.chat_url, json=warmup_body, timeout=60.0)
-        if resp.status_code == 200:
-            logger.info("Warmup complete — %s loaded on %s", model, backend.id)
-        else:
-            logger.warning(
-                "Warmup HTTP %d for %s on %s — model may not be pulled yet",
-                resp.status_code,
-                model,
-                backend.id,
-            )
-    except httpx.RequestError as exc:
-        logger.warning("Warmup failed for %s on %s: %s", model, backend.id, exc)
+        backend = registry.get_backend_for_workspace("auto")
+        if backend is None:
+            logger.debug("Warmup skipped: no healthy auto backend")
+            return
+
+        # Minimal prompt: one token of output, fastest model already in memory
+        warmup_payload = {
+            "model": backend.models[0] if backend.models else "dolphin-llama3:8b",
+            "prompt": "ok",
+            "stream": False,
+            "options": {"num_predict": 1},
+        }
+
+        client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
+        try:
+            resp = await client.post(backend.chat_url, json=warmup_payload)
+            if resp.status_code == 200:
+                logger.info(
+                    "Warmup complete: %s model '%s' pre-loaded",
+                    backend.type,
+                    warmup_payload["model"],
+                )
+            else:
+                logger.debug(
+                    "Warmup backend %s returned HTTP %d — will load on first use",
+                    backend.id,
+                    resp.status_code,
+                )
+        finally:
+            await client.aclose()
+    except Exception as e:
+        # Never let warmup failure affect pipeline startup
+        logger.debug("Model warmup failed (non-fatal): %s", e)
 
 
 @asynccontextmanager
@@ -573,7 +566,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     # P1: create shared client with a connection pool sized for concurrent inference
     _http_client = httpx.AsyncClient(
-        timeout=120.0,  # matches defaults.request_timeout in backends.yaml
+        timeout=httpx.Timeout(120.0, connect=5.0),
         limits=httpx.Limits(
             max_keepalive_connections=20,
             max_connections=100,
@@ -581,6 +574,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     registry = BackendRegistry()
     await registry.health_check_all()
+    # Pre-warm: load the auto workspace's default model so the first user request
+    # is not penalized by Ollama's model-loading cold-start (10-60s for 8-32B).
+    asyncio.create_task(_warmup_auto_model(registry))
     healthy = registry.list_healthy_backends()
     logger.info("Portal Pipeline started. Healthy backends: %d", len(healthy))
     if not healthy:

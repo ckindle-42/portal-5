@@ -311,18 +311,24 @@ async def generate_video(
         if prompt_id in history:
             outputs = history[prompt_id].get("outputs", {})
             for node_output in outputs.values():
-                gifs = node_output.get("gifs", [])
-                if gifs:
-                    filename = gifs[0]["filename"]
-                    return {
-                        "success": True,
-                        "filename": filename,
-                        "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
-                        "prompt": prompt,
-                        "seed": seed,
-                        "frames": frames,
-                        "fps": fps,
-                    }
+                # Wan2.2 uses "gifs", CogVideoX may use "videos"
+                video_files = node_output.get("gifs") or node_output.get("videos") or []
+                if video_files and isinstance(video_files, list) and len(video_files) > 0:
+                    filename = (
+                        video_files[0].get("filename")
+                        if isinstance(video_files[0], dict)
+                        else str(video_files[0])
+                    )
+                    if filename:
+                        return {
+                            "success": True,
+                            "filename": filename,
+                            "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
+                            "prompt": prompt,
+                            "seed": seed,
+                            "frames": frames,
+                            "fps": fps,
+                        }
             return {
                 "success": False,
                 "error": "Generation completed but no video output found. Check ComfyUI logs.",
