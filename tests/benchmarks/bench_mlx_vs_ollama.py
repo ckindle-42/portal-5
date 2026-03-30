@@ -11,7 +11,6 @@ Matched model pair: mlx-community/Llama-3.2-3B-Instruct-4bit vs llama3.2:3b-inst
 
 import argparse
 import time
-from typing import Optional
 
 import httpx
 
@@ -36,7 +35,7 @@ def _check_backend(url: str, path: str) -> bool:
         return False
 
 
-def _bench_openai_endpoint(base_url: str, model: str, prompt: str, label: str) -> Optional[dict]:
+def _bench_openai_endpoint(base_url: str, model: str, prompt: str, label: str) -> dict | None:
     """Benchmark an OpenAI-compatible /v1/chat/completions endpoint."""
     payload = {
         "model": model,
@@ -68,7 +67,7 @@ def _bench_openai_endpoint(base_url: str, model: str, prompt: str, label: str) -
     }
 
 
-def _get_unified_memory_gb() -> Optional[float]:
+def _get_unified_memory_gb() -> float | None:
     """Return unified memory size on Apple Silicon, or None on other platforms."""
     import subprocess
     import sys

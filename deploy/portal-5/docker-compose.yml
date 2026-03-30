@@ -77,6 +77,7 @@ services:
       - PIPELINE_PORT=9099
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
+      - PROMETHEUS_MULTIPROC_DIR=${PROMETHEUS_MULTIPROC_DIR:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []

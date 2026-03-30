@@ -1,7 +1,7 @@
 # P5_ROADMAP.md — Portal 5.0 Roadmap
 
 ```
-Portal 5.0 Roadmap
+Portal 5.1 Roadmap
 ==================
 Last updated: March 6, 2026
 Source: documentation-truth-agent-v4 delta (R24, v5.1.0)

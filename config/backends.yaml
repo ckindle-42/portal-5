@@ -140,5 +140,5 @@ workspace_routing:
 defaults:
   fallback_group: general
   request_timeout: 120
-  health_timeout: 10
-  health_check_interval: 30
+  health_timeout: 3           # was: 10 — local backends respond in <1s; 3s survives cold Ollama starts
+  health_check_interval: 15  # was: 30 — faster failover detection on single-node (not clusters)

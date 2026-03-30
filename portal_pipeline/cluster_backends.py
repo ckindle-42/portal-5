@@ -190,9 +190,11 @@ class BackendRegistry:
         Returns the cached list populated after each health-check cycle (P8).
         Falls back to a live scan only before the first health check completes.
         """
-        return self._cached_healthy if self._cached_healthy else [
-            b for b in self._backends.values() if b.healthy
-        ]
+        return (
+            self._cached_healthy
+            if self._cached_healthy
+            else [b for b in self._backends.values() if b.healthy]
+        )
 
     def _refresh_healthy_cache(self) -> None:
         """Rebuild the cached healthy-backend list. Called after each health cycle."""

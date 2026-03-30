@@ -1,4 +1,4 @@
-# Portal 5.0 — Fish Speech Setup Guide
+# Portal 5.1 — Fish Speech Setup Guide
 
 Fish Speech is the primary TTS (text-to-speech) engine for Portal 5. It provides high-quality speech synthesis with voice cloning capabilities. Fish Speech runs **outside Docker** on the host machine to access GPU/MPS hardware directly.
 
