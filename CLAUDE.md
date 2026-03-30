@@ -2,8 +2,8 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 5.1.0  
-**Last Updated**: March 5, 2026
+**Version**: 5.2.0
+**Last Updated**: March 30, 2026
 
 ---
 

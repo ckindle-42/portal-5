@@ -341,13 +341,20 @@ async def _speak_fish_speech(text: str, voice: str, speed: float) -> dict:
 
 def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
     try:
+        import torch
         from fish_speech.models import Text2Speech
         from fish_speech.utils import get_audio
 
-        logger.info("Loading Fish Speech model...")
+        if torch.backends.mps.is_available():
+            device = "mps"
+        elif torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        logger.info("Loading Fish Speech model on %s...", device)
         tts = Text2Speech.load_from_checkpoint(
             checkpoint_path="models/fish_speech/fish-speech-1.4",
-            device="mps",
+            device=device,
         )
 
         logger.info("Generating speech for: %s", text[:50])

@@ -5,6 +5,7 @@ These are the endpoints Open WebUI uses for native TTS and STT.
 
 Requires: mcp>=1.0.0 (in pyproject.toml [dev] group)
 All tests should PASS after 'pip install -e .[dev,mcp]'
+Tests SKIP (not ERROR) when mcp/kokoro/faster-whisper are not installed.
 """
 
 import sys
@@ -13,6 +14,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, ".")
+
+# Guard: skip entire module gracefully if MCP SDK or portal_mcp deps are missing.
+# Previously these imports fired inside fixtures, causing ERROR instead of SKIP.
+fastmcp = pytest.importorskip(
+    "fastmcp",
+    reason="fastmcp not installed — run: pip install -e '.[dev,mcp]'",
+)
+portal_mcp_gen = pytest.importorskip(
+    "portal_mcp.generation.tts_mcp",
+    reason="portal_mcp.generation not importable — MCP deps missing",
+)
 
 
 def get_tts_app():
