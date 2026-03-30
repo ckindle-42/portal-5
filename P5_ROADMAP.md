@@ -21,8 +21,8 @@ genuinely open future work beyond the current stable release.
 |----|----------|-------|--------|-------|
 | P5-FUT-001 | P2 | Per-user rate limiting | FUTURE | Open WebUI lacks per-user rate limiting; deploy behind reverse proxy (nginx/Traefik) for now |
 | P5-FUT-002 | P3 | Per-user quota enforcement | FUTURE | Admin controls for per-user quotas |
-| P5-FUT-003 | P3 | Usage analytics dashboard | IN_PROGRESS | Grafana panels added: workspace request trends, top workspaces, model×workspace breakdown. Per-user usage blocked — Open WebUI does not expose user IDs to the Pipeline. |
-| P5-FUT-004 | P3 | Webhook-based event notifications | IN_PROGRESS | Generic WebhookChannel implemented (portal_pipeline/notifications/channels/webhook.py); env vars: WEBHOOK_URL, WEBHOOK_HEADERS. Verbs: POST JSON to arbitrary endpoint on all alert and summary events. |
+| P5-FUT-003 | P3 | Usage analytics dashboard | DONE | Grafana portal5_overview.json v3: 6 new panels — workspace request trends, tokens by workspace, top workspaces, model×workspace breakdown, request rate. All queries use existing Prometheus metrics. Per-user blocked — Open WebUI doesn't expose user IDs to Pipeline. |
+| P5-FUT-004 | P3 | Webhook-based event notifications | DONE | WebhookChannel implemented (portal_pipeline/notifications/channels/webhook.py). Env vars: WEBHOOK_URL, WEBHOOK_HEADERS. POSTs JSON to arbitrary HTTP endpoint on all alert and summary events. Live-verified 2026-03-30. |
 
 ---
 
@@ -42,20 +42,18 @@ Would require either Open WebUI plugin/extension point or reverse proxy layer.
 
 ### P5-FUT-003: Usage Analytics Dashboard
 
-Beyond current Prometheus metrics (request counts, backend health), a usage analytics
-dashboard could provide: per-user usage, per-workspace usage trends, cost estimation,
-model switch frequency.
+IMPLEMENTED: `portal5_overview.json` v3 adds 6 new Usage Analytics panels (ids 13-18):
+workspace request trends, tokens by workspace, top workspaces, model×workspace matrix, and
+current request rate. All use existing Prometheus metrics — no new instrumentation needed.
 
-Current: Prometheus + Grafana at `:3000` with `portal5_overview.json` dashboard.
+Per-user analytics remain blocked: Open WebUI does not expose user IDs to the Pipeline.
 
 ### P5-FUT-004: Webhook-Based Event Notifications
 
-Implemented: `WebhookChannel` sends JSON POST to any user-defined HTTP endpoint on all
-alert events (backend_down, backend_recovered, all_backends_down, config_error) and
-daily_summary events. Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` env vars.
-
-Still TODO (out of scope for this item): new user signup, model pull completion, sandbox
-security events — those would require additional event types and are tracked separately.
+IMPLEMENTED: `WebhookChannel` (`portal_pipeline/notifications/channels/webhook.py`) sends
+JSON POST to any user-defined HTTP endpoint on all alert and daily summary events.
+Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` (JSON object) env vars.
+Live-verified: a `config_error` test event was confirmed delivered to a listening endpoint.
 
 ---
 
@@ -64,6 +62,7 @@ security events — those would require additional event types and are tracked s
 | Date | Score | Notes |
 |------|-------|-------|
 | 2026-03-30 | 100/100 | v5.2.0 — all production items complete |
+| 2026-03-30 | 100/100 | v5.3.0-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
 
 ---
 

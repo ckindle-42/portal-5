@@ -2,6 +2,26 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **portal_pipeline/notifications/channels/webhook.py**: New `WebhookChannel` sends JSON POST
+  to any user-defined `WEBHOOK_URL` on all operational alert and daily summary events.
+  Configure via `WEBHOOK_URL` (required) and optional `WEBHOOK_HEADERS` (JSON object)
+  environment variables. Supports any HTTP endpoint — PagerDuty, custom receivers, SIEM.
+  Wired into `router_pipe.py:_init_notifications()` alongside existing channels.
+- **config/grafana/dashboards/portal5_overview.json** (v2→v3): Added 6 new Usage Analytics
+  panels — Requests by Workspace Over Time, Tokens by Workspace, Top 10 Workspaces by Volume,
+  Model Distribution per Workspace, Current Request Rate. All queries use existing Prometheus
+  metrics; no new instrumentation required.
+
+### Changed
+
+- **notifications/channels/__init__.py**: Refactored to place `NotificationChannel` base class
+  above deferred channel imports, resolving circular import at module load time. Added
+  `noqa: E402` markers for intentional deferred imports.
+
 ## [5.2.0] - 2026-03-30
 
 ### Fixed
