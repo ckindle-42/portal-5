@@ -113,31 +113,47 @@ COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux" or "sdxl"
 
 # FLUX.1-schnell workflow template
+# FLUX.1-schnell workflow
+# Uses VAELoader since FLUX checkpoints don't include VAE
 FLUX_WORKFLOW = {
-    "6": {"inputs": {"text": "", "clip": ["30", 1]}, "class_type": "CLIPTextEncode"},
-    "8": {"inputs": {"samples": ["31", 0], "vae": ["30", 2]}, "class_type": "VAEDecode"},
-    "9": {"inputs": {"filename_prefix": "portal_", "images": ["8", 0]}, "class_type": "SaveImage"},
-    "27": {
-        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
-        "class_type": "EmptySD3LatentImage",
-    },
-    "30": {
+    "1": {
         "inputs": {"ckpt_name": "flux1-schnell.safetensors"},
         "class_type": "CheckpointLoaderSimple",
     },
-    "31": {
+    "2": {
+        "inputs": {"vae_name": "ae.safetensors"},
+        "class_type": "VAELoader",
+    },
+    "3": {
+        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+        "class_type": "EmptyLatentImage",
+    },
+    "4": {
+        "inputs": {"guidance": 3.5, "text": ""},
+        "class_type": "FluxGuidance",
+    },
+    "5": {
         "inputs": {
-            "model": ["30", 0],
-            "conditioning": ["6", 0],
-            "latent_image": ["27", 0],
-            "noise_seed": 42,
+            "seed": 42,
             "steps": 4,
-            "cfg": 1,
+            "cfg": 1.0,
             "sampler_name": "euler",
             "scheduler": "simple",
+            "model": ["1", 0],
+            "positive": ["4", 0],
+            "negative": "",
+            "latent_image": ["3", 0],
             "denoise": 1,
         },
         "class_type": "KSampler",
+    },
+    "6": {
+        "inputs": {"samples": ["5", 0], "vae": ["2", 0]},
+        "class_type": "VAEDecode",
+    },
+    "7": {
+        "inputs": {"filename_prefix": "portal_", "images": ["6", 0]},
+        "class_type": "SaveImage",
     },
 }
 
@@ -219,12 +235,12 @@ async def generate_image(
         workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
     else:
         # FLUX workflow
-        workflow["6"]["inputs"]["text"] = prompt
-        workflow["27"]["inputs"]["width"] = width
-        workflow["27"]["inputs"]["height"] = height
-        workflow["31"]["inputs"]["noise_seed"] = seed
-        workflow["31"]["inputs"]["steps"] = min(max(steps, 1), 20)
-        workflow["31"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["width"] = width
+        workflow["3"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["noise_seed"] = seed
+        workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 20)
+        workflow["5"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
 
     client_id = str(uuid.uuid4())
 
