@@ -765,7 +765,11 @@ async def _stream_from_backend_guarded(
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
-        yield ("data: " + json.dumps({"error": "Backend connection error — check server logs"}) + "\n\n").encode()
+        yield (
+            "data: "
+            + json.dumps({"error": "Backend connection error — check server logs"})
+            + "\n\n"
+        ).encode()
     finally:
         sem.release()  # Release AFTER generator is fully exhausted
 

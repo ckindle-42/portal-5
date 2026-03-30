@@ -84,6 +84,10 @@ line-length = 100
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# SIM115: context-manager-for-open — file handles in tests are cleaned up by process
+"tests/**/*.py" = ["SIM115"]
+
 [tool.mypy]
 python_version = "3.10"
 strict = true

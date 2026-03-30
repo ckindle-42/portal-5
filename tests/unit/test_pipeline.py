@@ -615,7 +615,9 @@ class TestR23MLXSupport:
         assert "mlx_lm" in content
         assert "mlx-community/Qwen3-Coder-Next-4bit" in content
         # ASK-01: speculative decoding support
-        assert "MLX_SPECULATIVE" in content, "launch.sh must contain MLX_SPECULATIVE for speculative decoding"
+        assert "MLX_SPECULATIVE" in content, (
+            "launch.sh must contain MLX_SPECULATIVE for speculative decoding"
+        )
         # ASK-05: mlx-lm version pin asserted after pip install
         assert "0.30.5" in content and "packaging.version" in content, (
             "launch.sh must assert mlx-lm>=0.30.5 after install"
@@ -628,6 +630,7 @@ class TestRecordUsageMetrics:
     def test_record_usage_full_response(self):
         """Standard Ollama response with all usage fields."""
         from portal_pipeline.router_pipe import _record_usage
+
         # Should not raise
         _record_usage(
             model="baronllm:q6_k",
@@ -642,6 +645,7 @@ class TestRecordUsageMetrics:
     def test_record_usage_missing_fields(self):
         """Incomplete response dict — should not raise."""
         from portal_pipeline.router_pipe import _record_usage
+
         _record_usage(model="test-model", workspace="auto", data={})
         _record_usage(model="test-model", workspace="auto", data={"eval_count": 0})
         _record_usage(model="test-model", workspace="auto", data={"eval_duration": 0})
@@ -649,6 +653,7 @@ class TestRecordUsageMetrics:
     def test_record_usage_none_values(self):
         """None values in response fields — should not raise."""
         from portal_pipeline.router_pipe import _record_usage
+
         _record_usage(
             model="test-model",
             workspace="auto",
@@ -658,10 +663,12 @@ class TestRecordUsageMetrics:
     def test_record_usage_tps_calculation(self):
         """Tokens/sec is calculated correctly from eval_count and eval_duration."""
         import os
+
         # Skip if running in prometheus multiprocess mode — ._sum introspection
         # requires single-process mode (file-based metrics return 0 from ._sum)
         if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
             import pytest
+
             pytest.skip("TPS introspection requires single-process prometheus mode")
 
         from portal_pipeline import router_pipe
@@ -688,6 +695,7 @@ class TestRecordUsageMetrics:
     def test_metrics_endpoint_contains_prometheus_output(self, client):
         """After a _record_usage call, /metrics includes prometheus_client output."""
         from portal_pipeline import router_pipe
+
         # Trigger a metric emission
         router_pipe._record_usage(
             model="metrics-test-model",
