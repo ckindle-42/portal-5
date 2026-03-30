@@ -418,6 +418,24 @@ case "${1:-up}" in
     # Port pre-flight check (uses sourced env for port overrides)
     _check_ports
 
+    # Ensure .env is in the compose directory (docker compose auto-loads .env from
+    # the compose file's directory; symlink if not already there)
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+        echo "[portal-5] Linked .env into compose directory"
+    fi
+
+    # Inject SEARXNG_SECRET_KEY into searxng settings.yml (SearXNG reads secret_key
+    # from settings.yml, NOT from env vars — the env var comment in settings.yml was wrong)
+    if [ -n "${SEARXNG_SECRET_KEY:-}" ] && [ -f "$PORTAL_ROOT/config/searxng/settings.yml" ]; then
+        if grep -q "^  secret_key: REPLACE_ME_WITH_SEARXNG_SECRET_KEY" "$PORTAL_ROOT/config/searxng/settings.yml"; then
+            sed -i.bak "s|^  secret_key: REPLACE_ME_WITH_SEARXNG_SECRET_KEY|  secret_key: ${SEARXNG_SECRET_KEY}|" \
+                "$PORTAL_ROOT/config/searxng/settings.yml"
+            rm -f "$PORTAL_ROOT/config/searxng/settings.yml.bak"
+            echo "[portal-5] Injected SEARXNG_SECRET_KEY into settings.yml"
+        fi
+    fi
+
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose up -d
@@ -568,6 +586,9 @@ case "${1:-up}" in
         exit 1
     fi
     set -a; source "$ENV_FILE"; set +a
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
     cd "$COMPOSE_DIR"
     docker compose --profile telegram up -d
     echo "[portal-5] Stack + Telegram started"
@@ -587,6 +608,9 @@ case "${1:-up}" in
             exit 1
         fi
     done
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
     cd "$COMPOSE_DIR"
     docker compose --profile slack up -d
     echo "[portal-5] Stack + Slack started"
@@ -596,6 +620,9 @@ case "${1:-up}" in
   up-channels)
     # Start core stack + both Telegram and Slack
     set -a; source "$ENV_FILE"; set +a
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
     cd "$COMPOSE_DIR"
     docker compose --profile telegram --profile slack up -d
     echo "[portal-5] Stack + all channels started"

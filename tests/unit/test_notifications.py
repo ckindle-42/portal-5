@@ -196,6 +196,7 @@ class TestNotificationDispatcher:
             import importlib
 
             import portal_pipeline.notifications.dispatcher as disp_mod
+
             importlib.reload(disp_mod)
             from portal_pipeline.notifications.dispatcher import (
                 NotificationDispatcher,
@@ -208,10 +209,13 @@ class TestNotificationDispatcher:
             assert len(disp._channels) == 0
 
     def test_threshold_tracking_consecutive_failures(self):
-        with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true", "ALERT_BACKEND_DOWN_THRESHOLD": "3"}):
+        with patch.dict(
+            os.environ, {"NOTIFICATIONS_ENABLED": "true", "ALERT_BACKEND_DOWN_THRESHOLD": "3"}
+        ):
             import importlib
 
             import portal_pipeline.notifications.dispatcher as disp_mod
+
             importlib.reload(disp_mod)
             from portal_pipeline.notifications.dispatcher import (
                 NotificationDispatcher,
@@ -237,10 +241,13 @@ class TestNotificationDispatcher:
             assert disp._failure_counts["test-backend"] == 3
 
     def test_recovery_fires_event(self):
-        with patch.dict(os.environ, {"NOTIFICATIONS_ENABLED": "true", "ALERT_BACKEND_DOWN_THRESHOLD": "2"}):
+        with patch.dict(
+            os.environ, {"NOTIFICATIONS_ENABLED": "true", "ALERT_BACKEND_DOWN_THRESHOLD": "2"}
+        ):
             import importlib
 
             import portal_pipeline.notifications.dispatcher as disp_mod
+
             importlib.reload(disp_mod)
             from portal_pipeline.notifications.dispatcher import (
                 NotificationDispatcher,
@@ -259,8 +266,10 @@ class TestNotificationDispatcher:
             # Now it recovers
             mock_backend.healthy = True
 
-            with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch, \
-                 patch("asyncio.ensure_future"):
+            with (
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+                patch("asyncio.ensure_future"),
+            ):
                 disp.check_thresholds_and_alert(mock_registry)
                 mock_dispatch.assert_called_once()
                 event = mock_dispatch.call_args[0][0]
@@ -271,6 +280,7 @@ class TestNotificationDispatcher:
             import importlib
 
             import portal_pipeline.notifications.dispatcher as disp_mod
+
             importlib.reload(disp_mod)
             from portal_pipeline.notifications.dispatcher import (
                 NotificationDispatcher,
@@ -286,22 +296,28 @@ class TestNotificationDispatcher:
             mock_registry = MagicMock()
             mock_registry._backends = {"b1": backend1, "b2": backend2}
 
-            with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch, \
-                 patch("asyncio.ensure_future"):
+            with (
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+                patch("asyncio.ensure_future"),
+            ):
                 disp.check_thresholds_and_alert(mock_registry)
                 # Should fire ALL_BACKENDS_DOWN
                 all_down_events = [
-                    c[0][0] for c in mock_dispatch.call_args_list
+                    c[0][0]
+                    for c in mock_dispatch.call_args_list
                     if c[0][0].type == EventType.ALL_BACKENDS_DOWN
                 ]
                 assert len(all_down_events) == 1
 
             # Second cycle — should NOT fire again (debounced)
-            with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch, \
-                 patch("asyncio.ensure_future"):
+            with (
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+                patch("asyncio.ensure_future"),
+            ):
                 disp.check_thresholds_and_alert(mock_registry)
                 all_down_events = [
-                    c[0][0] for c in mock_dispatch.call_args_list
+                    c[0][0]
+                    for c in mock_dispatch.call_args_list
                     if c[0][0].type == EventType.ALL_BACKENDS_DOWN
                 ]
                 assert len(all_down_events) == 0
@@ -311,6 +327,7 @@ class TestNotificationDispatcher:
             import importlib
 
             import portal_pipeline.notifications.dispatcher as disp_mod
+
             importlib.reload(disp_mod)
             from portal_pipeline.notifications.dispatcher import (
                 NotificationDispatcher,
@@ -324,8 +341,10 @@ class TestNotificationDispatcher:
             mock_registry = MagicMock()
             mock_registry._backends = {"b1": b1}
 
-            with patch.object(disp, "dispatch", new_callable=AsyncMock), \
-                 patch("asyncio.ensure_future"):
+            with (
+                patch.object(disp, "dispatch", new_callable=AsyncMock),
+                patch("asyncio.ensure_future"),
+            ):
                 disp.check_thresholds_and_alert(mock_registry)
             assert disp._alerted_all_down is False
 
@@ -353,4 +372,3 @@ class TestNotificationChannelInterface:
         names = [c.name for c in channels]
         assert "Slack" in names
         assert "Telegram" in names
-

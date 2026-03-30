@@ -22,6 +22,23 @@ All notable changes to Portal 5 will be documented in this file.
   above deferred channel imports, resolving circular import at module load time. Added
   `noqa: E402` markers for intentional deferred imports.
 
+## [5.2.1] - 2026-03-30
+
+### Fixed
+- **launch.sh**: Docker Compose no longer starts with empty `PIPELINE_API_KEY` — `launch.sh up`
+  now symlinks `.env` into `deploy/portal-5/` so docker compose auto-loads it.
+  Previously the pipeline fell back to the insecure default key on every restart.
+- **launch.sh + config/searxng/settings.yml**: SearXNG no longer crashes on restart with
+  "server.secret_key is not changed" — `launch.sh up` now injects `SEARXNG_SECRET_KEY`
+  from `.env` directly into `settings.yml` before starting the container.
+  (SearXNG reads `secret_key` from settings.yml, not from env vars.)
+
+### Changed
+- **launch.sh**: Added symlink step for `.env` to `deploy/portal-5/` in `up`, `up-telegram`,
+  `up-slack`, and `up-channels` commands.
+- Version bumped 5.2.0 → 5.2.1 across `pyproject.toml`, `portal_pipeline/__init__.py`,
+  `portal_mcp/__init__.py`, `portal_channels/__init__.py`, and `CLAUDE.md`.
+
 ## [5.2.0] - 2026-03-30
 
 ### Fixed
