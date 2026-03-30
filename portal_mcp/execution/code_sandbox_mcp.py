@@ -200,8 +200,7 @@ async def execute_python(
 
     Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
     read-only filesystem, no Linux capabilities, no privilege escalation.
-    Standard library available; no third-party packages by default.
-    Use run_python_with_packages for code requiring external libraries.
+    Python standard library only — no pip, no network, no third-party packages.
 
     Args:
         code: Python code to execute

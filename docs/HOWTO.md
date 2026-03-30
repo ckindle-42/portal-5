@@ -131,7 +131,7 @@ curl -s http://localhost:8080/api/v1/models \
 ### Generate code
 
 1. Select `Portal Code Expert`
-2. Type: `Write a Python script that scrapes the top 10 HN stories and outputs JSON`
+2. Type: `Write a Python script that finds all prime numbers up to 1000 and returns them as JSON`
 3. The AI generates code using Qwen3-Coder-Next
 
 ### Execute code in sandbox
@@ -147,7 +147,12 @@ curl -s http://localhost:8914/health
 # Should return: {"status": "ok"}
 ```
 
-**Security:** Code runs in a disposable Docker container with no host filesystem access. Network is disabled by default. Timeout: 30s (configurable via `SANDBOX_TIMEOUT`).
+**Sandbox constraints:**
+- Network: **disabled** (no internet access, cannot scrape external sites)
+- Filesystem: read-only except `/tmp` (64MB tmpfs)
+- Memory: 256MB, CPU: 0.5 cores, 30s timeout (max 120s)
+- Packages: Python standard library only — no `pip install` possible
+- If you need network access or third-party packages, run code directly on the host instead
 
 ---
 
