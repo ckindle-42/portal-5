@@ -219,6 +219,21 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
 **32GB systems**: Use Llama-3.2-3B (~2GB) or Devstral-Small (~13GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
 
+### MLX Memory Coexistence
+
+`mlx_lm` serves one model at a time. Unified memory is shared across all workloads.
+
+| System RAM | MLX Model | Simultaneously Safe |
+|---|---|---|
+| 32GB | Llama-3.2-3B (~2GB) | ComfyUI flux-schnell + Ollama general |
+| 32GB | DeepSeek-Coder-Lite (~9GB) | Ollama routing only |
+| 32GB | Qwen3-Coder-30B (~17GB) | Ollama routing only — no ComfyUI |
+| 64GB | Qwen3-Coder-Next (~18GB) | ComfyUI Wan2.2 + Ollama general |
+| 64GB | DeepSeek-R1-0528 (~18GB) | ComfyUI flux-schnell + Ollama general |
+| 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
+
+Switch models: `./launch.sh switch-mlx-model <tag>`
+
 ### Generation Models (ComfyUI / HuggingFace)
 
 | Model | Source | Purpose |

@@ -6,13 +6,21 @@ backends:
   # ── MLX — Apple Silicon native (20-40% faster than Ollama GGUF on M-series) ─
   # Requires: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
   # mlx_lm serves ONE model at a time — set MLX_MODEL in .env to switch
-  # When mlx_lm is not running, router falls through to Ollama automatically
+  # Use: ./launch.sh switch-mlx-model <tag>  (updates .env + restarts service)
   #
-  # Memory coexistence guide (Ollama + ComfyUI also running simultaneously):
-  #   64GB system:  Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB ✓
-  #                 Llama-3.3-70B (~40GB) + Ollama only — set OLLAMA_MAX_LOADED_MODELS=1
-  #   32GB system:  Devstral-Small (~13GB) + ComfyUI + Ollama = ~25GB ✓
-  #                 Qwen3-Coder-Next (~18GB) possible but leaves no room for video
+  # MEMORY COEXISTENCE GUIDE (unified memory — all workloads share the same pool)
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 32GB systems — safe combinations:
+  #   Llama-3.2-3B (~2GB)   + ComfyUI flux-schnell (~12GB) + Ollama dolphin (~5GB) = ~19GB ✅
+  #   DeepSeek-Coder-Lite (~9GB) + Ollama routing (~5GB)                           = ~14GB ✅
+  #   Qwen3-Coder-30B (~17GB) — no room for ComfyUI simultaneously                       ⚠️
+  #
+  # 64GB systems — safe combinations:
+  #   Qwen3-Coder-Next (~18GB active) + ComfyUI wan2.2 (~18GB) + Ollama (~5GB)    = ~41GB ✅
+  #   DeepSeek-R1-0528 (~18GB) + ComfyUI flux-schnell (~12GB) + Ollama (~5GB)     = ~35GB ✅
+  #   Llama-3.3-70B (~40GB) — stop ComfyUI and Ollama heavy models first                 ⚠️
+  #
+  # Rule: MLX active weight + ComfyUI model + Ollama loaded models < (total RAM - 8GB OS)
   - id: mlx-apple-silicon
     type: mlx
     url: "${MLX_URL:-http://host.docker.internal:8081}"

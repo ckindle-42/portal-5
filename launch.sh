@@ -1397,18 +1397,16 @@ PLIST
 #!/bin/bash
 # Portal 5 — mlx_lm inference server
 # Usage: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh
-# Optional: MLX_SPECULATIVE=true for ~1.5x throughput (needs mlx-lm>=0.30.5)
 MODEL="${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
 PORT="${MLX_PORT:-8081}"
 SPECULATIVE="${MLX_SPECULATIVE:-false}"
-SPEC_FLAG=""
 if [ "$SPECULATIVE" = "true" ]; then
-    SPEC_FLAG="--speculative-decoding"
-    echo "[portal5-mlx] Speculative decoding: enabled"
+    echo "[portal5-mlx] Speculative decoding: ENABLED"
+    python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0 \
+        --speculative-decoding
+else
+    python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0
 fi
-echo "[portal5-mlx] Starting: $MODEL on :$PORT"
-echo "[portal5-mlx] Logs: ~/.portal5/logs/mlx.log"
-python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0 $SPEC_FLAG
 MLXSTART
     chmod +x "$MLX_DIR/start.sh"
     echo "  ✅ Start wrapper: $MLX_DIR/start.sh"
@@ -1682,23 +1680,38 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "Start inference with:"
     echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
 
-    # ASK-04: Check blocked Qwen3.5 MLX models — report when they become available
+    # ASK-04: Check availability of BLOCKED Qwen3.5 MLX models
+    # These models exist only as mlx-vlm conversions (vision-only, incompatible
+    # with mlx_lm.server). Uncomment in backends.yaml when mlx-lm text quants publish.
+    # See: CHANGELOG [5.1.0]
     echo ""
     echo "=== Checking blocked Qwen3.5 MLX models ==="
-    BLOCKED_MODELS=(
-        "mlx-community/Qwen3.5-35B-A3B-4bit"
-        "mlx-community/Qwen3.5-27B-4bit"
+    BLOCKED_MLX=(
+        "Qwen3.5-35B-A3B-4bit"
+        "Qwen3.5-27B-4bit"
     )
-    for m in "${BLOCKED_MODELS[@]}"; do
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://huggingface.co/api/models/${m#mlx-community/}" \
-            --max-time 5 2>/dev/null)
-        if [ "$STATUS" = "200" ]; then
-            echo "  ⚡ AVAILABLE: $m — uncomment in config/backends.yaml"
+    for model_name in "${BLOCKED_MLX[@]}"; do
+        HF_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://huggingface.co/api/models/mlx-community/${model_name}" \
+            --max-time 8 2>/dev/null || echo "000")
+        if [ "$HF_STATUS" = "200" ]; then
+            # Model page exists — verify it's an mlx-lm (text) conversion
+            # by checking for config.json with model_type (mlx-vlm lacks this)
+            CONFIG_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
+                "https://huggingface.co/mlx-community/${model_name}/resolve/main/config.json" \
+                --max-time 8 2>/dev/null || echo "000")
+            if [ "$CONFIG_CHECK" = "200" ]; then
+                echo "  ⚡ AVAILABLE (text): mlx-community/${model_name}"
+                echo "     → Uncomment in config/backends.yaml mlx group"
+                echo "     → Add to pull-mlx-models MLX_MODELS array"
+            else
+                echo "  ⏳ Still mlx-vlm only: mlx-community/${model_name} (no config.json)"
+            fi
         else
-            echo "  ⏳ Still blocked: $m (mlx-vlm conversion, not mlx-lm compatible)"
+            echo "  ⏳ Not yet published: mlx-community/${model_name}"
         fi
     done
+    echo ""
     ;;
 
   import-gguf)
