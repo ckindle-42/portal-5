@@ -114,7 +114,8 @@ curl -s http://localhost:9099/v1/models | python3 -m json.tool | grep '"id"'
 
 **Verify personas seeded:**
 ```bash
-curl -s http://localhost:8080/api/v1/models \
+# Open WebUI models come through the pipeline at :9099
+curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -c "import sys,json; [print(m['name']) for m in json.load(sys.stdin)['data']]" \
   | grep -i "red.team"
