@@ -29,15 +29,13 @@ backends:
       # ── Coding (primary — best for Splunk, BigFix, PowerShell, Python) ────
       - mlx-community/Qwen3-Coder-Next-4bit              # Primary: 80B MoE (~18GB active, 256k ctx)
       - mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  # Fast: 30B agentic coder (~17GB)
-      # ── Qwen3.5 MLX — BLOCKED: only mlx-vlm conversions exist on HF ──────
-      # mlx-lm v0.30.7 added qwen3.5 text support (PR #869) but no community
-      # mlx-lm quants have been published yet. Uncomment when available:
-      # - mlx-community/Qwen3.5-35B-A3B-4bit              # Needs mlx-lm conversion
+      # ── Qwen3.5 MLX — now available: mlx-lm text quants published on HF ──
+      - mlx-community/Qwen3.5-35B-A3B-4bit                # ~20GB
       - mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx  # SPL specialist (~9GB)
       - mlx-community/Devstral-Small-2505-4bit            # Agentic dev workflows (~13GB)
       # ── Reasoning / Research ──────────────────────────────────────────────
       - mlx-community/DeepSeek-R1-0528-4bit               # Deep reasoning (~18GB)
-      # - mlx-community/Qwen3.5-27B-4bit                   # BLOCKED: mlx-vlm conversion, needs mlx-lm
+      - mlx-community/Qwen3.5-27B-4bit                    # ~15GB
       # ── General / Creative ────────────────────────────────────────────────
       - mlx-community/Llama-3.2-3B-Instruct-4bit          # Ultra-fast routing + quick tasks
       # ── Heavy (unload others first on 64GB) ──────────────────────────────

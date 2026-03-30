@@ -1680,37 +1680,12 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "Start inference with:"
     echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
 
-    # ASK-04: Check availability of BLOCKED Qwen3.5 MLX models
-    # These models exist only as mlx-vlm conversions (vision-only, incompatible
-    # with mlx_lm.server). Uncomment in backends.yaml when mlx-lm text quants publish.
-    # See: CHANGELOG [5.1.0]
+    # ASK-04: Check availability of other Qwen3.5 MLX models that may publish later
+    # Qwen3.5-35B-A3B-4bit and Qwen3.5-27B-4bit are now UNCOMMENTED in backends.yaml
+    # — this block watches for future model publishes only.
     echo ""
-    echo "=== Checking blocked Qwen3.5 MLX models ==="
-    BLOCKED_MLX=(
-        "Qwen3.5-35B-A3B-4bit"
-        "Qwen3.5-27B-4bit"
-    )
-    for model_name in "${BLOCKED_MLX[@]}"; do
-        HF_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://huggingface.co/api/models/mlx-community/${model_name}" \
-            --max-time 8 2>/dev/null || echo "000")
-        if [ "$HF_STATUS" = "200" ]; then
-            # Model page exists — verify it's an mlx-lm (text) conversion
-            # by checking for config.json with model_type (mlx-vlm lacks this)
-            CONFIG_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
-                "https://huggingface.co/mlx-community/${model_name}/resolve/main/config.json" \
-                --max-time 8 2>/dev/null || echo "000")
-            if [ "$CONFIG_CHECK" = "200" ]; then
-                echo "  ⚡ AVAILABLE (text): mlx-community/${model_name}"
-                echo "     → Uncomment in config/backends.yaml mlx group"
-                echo "     → Add to pull-mlx-models MLX_MODELS array"
-            else
-                echo "  ⏳ Still mlx-vlm only: mlx-community/${model_name} (no config.json)"
-            fi
-        else
-            echo "  ⏳ Not yet published: mlx-community/${model_name}"
-        fi
-    done
+    echo "=== Checking Qwen3.5 MLX watch (future publishes) ==="
+    echo "  ℹ️  Qwen3.5-35B-A3B-4bit and Qwen3.5-27B-4bit: enabled (see backends.yaml)"
     echo ""
     ;;
 
