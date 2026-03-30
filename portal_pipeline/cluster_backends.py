@@ -122,8 +122,8 @@ class BackendRegistry:
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
         self._max_concurrent_health_checks = 2  # P3: prevent health-check storm
         # P8: cached healthy-backend list — rebuilt only after each health check
-        # cycle, not on every inference request.
-        self._cached_healthy: list[Backend] = []
+        # cycle, not on every inference request. None = uninitialized (pre-first-cycle).
+        self._cached_healthy: list[Backend] | None = None
 
         self._load_config()
 
@@ -192,7 +192,7 @@ class BackendRegistry:
         """
         return (
             self._cached_healthy
-            if self._cached_healthy
+            if self._cached_healthy is not None
             else [b for b in self._backends.values() if b.healthy]
         )
 
