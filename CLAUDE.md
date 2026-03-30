@@ -143,7 +143,10 @@ print('Workspace IDs consistent')
 | 8915 | MCP: Whisper |
 | 8916 | MCP: TTS |
 | 8188 | ComfyUI |
+| 8088 | SearXNG |
 | 11434 | Ollama |
+| 9090 | Prometheus |
+| 3000 | Grafana |
 
 Do not reassign these. Do not add new services on overlapping ports without updating this table.
 

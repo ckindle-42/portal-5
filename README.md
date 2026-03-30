@@ -214,9 +214,12 @@ lsof -i :8080               # Find what is using port 8080
 
 | Guide | Contents |
 |---|---|
+| [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature |
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
+| [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
+| [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
 | [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |

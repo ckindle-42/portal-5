@@ -16,20 +16,27 @@ import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from portal_pipeline.notifications import NotificationDispatcher, NotificationScheduler
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
 
-from portal_pipeline.cluster_backends import Backend, BackendRegistry
+from portal_pipeline.cluster_backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
 
 # Basic Prometheus-compatible metrics counter
 _request_count: dict[str, int] = {}
 _startup_time = time.time()
+
+# Notification subsystem handles operational alerts and daily summaries
+_notification_dispatcher: NotificationDispatcher | None = None
+_notification_scheduler: NotificationScheduler | None = None
 
 # Cached multiprocess collector registry — rebuilt only when the process
 # directory changes, not on every /metrics scrape.
@@ -494,7 +501,9 @@ try:
     _OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
 except ValueError:
     _OLLAMA_NUM_BATCH = 2048
-    logger.warning("Invalid OLLAMA_NUM_BATCH value — must be an integer. Using default: %d", _OLLAMA_NUM_BATCH)
+    logger.warning(
+        "Invalid OLLAMA_NUM_BATCH value — must be an integer. Using default: %d", _OLLAMA_NUM_BATCH
+    )
 
 # ── Routing visibility ─────────────────────────────────────────────────────────
 # When true, the first line of every streaming response shows which workspace and
@@ -536,6 +545,41 @@ def _inject_ollama_options(body: dict) -> dict:
     return body
 
 
+def _init_notifications(registry: BackendRegistry) -> None:
+    """Initialize the notification dispatcher and scheduler."""
+    global _notification_dispatcher, _notification_scheduler
+    # Late import to avoid circular dependency — notifications imports cluster_backends
+    from portal_pipeline.notifications import NotificationDispatcher, NotificationScheduler
+    from portal_pipeline.notifications.channels import (
+        EmailChannel,
+        PushoverChannel,
+        SlackChannel,
+        TelegramChannel,
+    )
+
+    _notification_dispatcher = NotificationDispatcher()
+
+    # Register configured channels — share the pipeline's HTTP connection pool
+    _notification_dispatcher.add_channel(SlackChannel(_http_client))
+    _notification_dispatcher.add_channel(TelegramChannel(_http_client))
+    _notification_dispatcher.add_channel(EmailChannel(_http_client))
+    _notification_dispatcher.add_channel(PushoverChannel(_http_client))
+
+    # Run threshold check on first health cycle to catch any immediate issues
+    _notification_dispatcher.check_thresholds_and_alert(registry)
+
+    # Schedule daily summary
+    _notification_scheduler = NotificationScheduler(_notification_dispatcher)
+    _notification_scheduler.start()
+
+    # Attach scheduler to pipeline metrics for summary building
+    from portal_pipeline.notifications import scheduler as notif_scheduler
+
+    notif_scheduler._attach_to_pipeline(
+        _notification_dispatcher, _request_count, _startup_time, registry
+    )
+
+
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
     """Pre-load the auto workspace's default model on startup.
 
@@ -546,6 +590,9 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
     Runs in the background — startup is not blocked. Errors are logged but
     swallowed so a failed warmup does not crash the pipeline.
     """
+    if _http_client is None:
+        logger.debug("Warmup skipped: HTTP client not ready")
+        return
     try:
         backend = registry.get_backend_for_workspace("auto")
         if backend is None:
@@ -560,23 +607,19 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             "options": {"num_predict": 1},
         }
 
-        client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))
-        try:
-            resp = await client.post(backend.chat_url, json=warmup_payload)
-            if resp.status_code == 200:
-                logger.info(
-                    "Warmup complete: %s model '%s' pre-loaded",
-                    backend.type,
-                    warmup_payload["model"],
-                )
-            else:
-                logger.debug(
-                    "Warmup backend %s returned HTTP %d — will load on first use",
-                    backend.id,
-                    resp.status_code,
-                )
-        finally:
-            await client.aclose()
+        resp = await _http_client.post(backend.chat_url, json=warmup_payload)
+        if resp.status_code == 200:
+            logger.info(
+                "Warmup complete: %s model '%s' pre-loaded",
+                backend.type,
+                warmup_payload["model"],
+            )
+        else:
+            logger.debug(
+                "Warmup backend %s returned HTTP %d — will load on first use",
+                backend.id,
+                resp.status_code,
+            )
     except Exception as e:
         # Never let warmup failure affect pipeline startup
         logger.debug("Model warmup failed (non-fatal): %s", e)
@@ -585,6 +628,7 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global registry, _health_task, _request_semaphore, _http_client
+    global _notification_dispatcher, _notification_scheduler
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     # P1: create shared client with a connection pool sized for concurrent inference
     _http_client = httpx.AsyncClient(
@@ -606,13 +650,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "No healthy backends on startup — check Ollama is running and "
             "config/backends.yaml URLs are reachable from this container"
         )
-    _health_task = asyncio.create_task(registry.start_health_loop())
+
+    # ── Notifications: alerts + daily summaries ──────────────────────────────
+    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() in ("true", "1", "yes"):
+        _init_notifications(registry)
+
+    _health_task = asyncio.create_task(
+        registry.start_health_loop(
+            on_health_check=(
+                lambda r: (
+                    _notification_dispatcher.check_thresholds_and_alert(r)
+                    if _notification_dispatcher
+                    else None
+                )
+            )
+        )
+    )
 
     yield
     if _health_task:
         _health_task.cancel()
     if _http_client:
         await _http_client.aclose()
+    if _notification_scheduler:
+        _notification_scheduler.stop()
     await BackendRegistry.close_health_client()
 
 
@@ -878,7 +939,9 @@ async def _stream_with_preamble(
     # This closes the window where a client disconnect after the preamble yield but
     # before the backend stream starts would leave sem permanently acquired.
     try:
-        async for chunk in _stream_from_backend_guarded(url, body, sem=None, workspace_id=workspace_id, model=model):
+        async for chunk in _stream_from_backend_guarded(
+            url, body, sem=None, workspace_id=workspace_id, model=model
+        ):
             yield chunk
     finally:
         sem.release()
