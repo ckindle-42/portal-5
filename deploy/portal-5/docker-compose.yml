@@ -22,6 +22,13 @@ services:
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4}     # 4 concurrent LLM requests
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-2}  # Keep 2 models in VRAM
       - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-25}           # Queue up to 25 requests
+    # P7: Memory limits prevent runaway model loads from crashing other services.
+    # OLLAMA_MEMORY_LIMIT defaults to 0 (unlimited) since model sizes vary.
+    # Set OLLAMA_MEMORY_LIMIT=48g in .env to cap VRAM/RAM at 48 GB.
+    deploy:
+      resources:
+        limits:
+          memory: ${OLLAMA_MEMORY_LIMIT:-0}
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 20s
@@ -73,6 +80,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []
+    # P7: CPU/memory limits keep the router isolated from noisy neighbours.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"]
       interval: 15s
@@ -173,6 +186,11 @@ services:
         condition: service_healthy
       searxng:
         condition: service_started
+    # P7: Memory limit prevents Open WebUI from consuming unbounded RAM.
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -312,6 +330,11 @@ services:
       - DOCKER_TLS_CERTDIR=        # Disable TLS — internal network only
     volumes:
       - dind-storage:/var/lib/docker
+    # P7: Memory limit prevents DinD from consuming all system RAM.
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     healthcheck:
       test: ["CMD", "docker", "info"]
       interval: 20s

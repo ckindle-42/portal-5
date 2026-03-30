@@ -13,6 +13,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from starlette.responses import JSONResponse, Response
 
@@ -59,6 +60,23 @@ KOKORO_CACHE_DIR = (
 KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
 KOKORO_VOICES_FILE = "voices-v1.0.bin"
 KOKORO_HF_REPO = "hexgrad/kokoro-onnx"
+
+if TYPE_CHECKING:
+    from kokoro_onnx import Kokoro
+
+# Module-level Kokoro model cache — avoids re-creating ONNX session per call (P2)
+_kokoro_instance: "Kokoro | None" = None
+
+
+def _get_kokoro() -> "Kokoro":
+    """Return cached Kokoro ONNX session, creating it once per process (P2)."""
+    global _kokoro_instance
+    if _kokoro_instance is None:
+        from kokoro_onnx import Kokoro
+
+        model_path, voices_path = _ensure_kokoro_models()
+        _kokoro_instance = Kokoro(model_path, voices_path)
+    return _kokoro_instance
 
 
 def _ensure_kokoro_models() -> tuple[str, str]:
@@ -293,13 +311,11 @@ async def _speak_kokoro(text: str, voice: str, speed: float) -> dict:
 
 
 def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
-    """Generate speech using kokoro-onnx. Downloads model files on first use."""
+    """Generate speech using kokoro-onnx. Uses cached ONNX session (P2)."""
     try:
         import soundfile as sf
-        from kokoro_onnx import Kokoro
 
-        model_path, voices_path = _ensure_kokoro_models()
-        kokoro = Kokoro(model_path, voices_path)
+        kokoro = _get_kokoro()
         samples, sample_rate = kokoro.create(text, voice=voice, speed=speed, lang="en-us")
 
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -12,6 +12,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from starlette.responses import JSONResponse
 
@@ -128,6 +129,22 @@ def _check_stable_audio() -> tuple[bool, str]:
         return False, "stable-audio-tools not installed"
 
 
+# Module-level MusicGen model cache — keyed by model size (small/medium/large).
+# Avoids re-loading the model graph from disk on every call (P2).
+_musicgen_cache: dict[str, Any] = {}  # type: ignore[valid-type]
+
+
+def _get_musicgen_model(model_size: str) -> Any:  # type: ignore[type-arg]
+    """Return cached MusicGen model for the given size, loading once per process (P2)."""
+    if model_size not in _musicgen_cache:
+        from audiocraft.models import MusicGen
+
+        model_name = f"facebook/musicgen-{model_size}"
+        logger.info("Loading MusicGen %s (first-time, cached for subsequent calls)", model_name)
+        _musicgen_cache[model_size] = MusicGen.get_pretrained(model_name)
+    return _musicgen_cache[model_size]
+
+
 @mcp.tool()
 async def generate_music(
     prompt: str,
@@ -202,11 +219,8 @@ def _generate_sync(
     try:
         import torch
         import torchaudio
-        from audiocraft.models import MusicGen
 
-        model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Loading MusicGen %s", model_name)
-        model = MusicGen.get_pretrained(model_name)
+        model = _get_musicgen_model(model_size)
         model.set_generation_params(
             duration=duration,
             top_k=top_k,
@@ -214,6 +228,7 @@ def _generate_sync(
             cfg_coef=cfg_coef,
         )
 
+        model_name = f"facebook/musicgen-{model_size}"
         logger.info("Generating: %s", prompt[:80])
         with torch.no_grad():
             wav = model.generate([prompt])
@@ -322,7 +337,9 @@ def _generate_with_melody_sync(
 
         logger.info("Generating with melody: %s", prompt[:80])
         with torch.no_grad():
-            wav = model.generate_with_chroma([prompt], melody_waveform.unsqueeze(0), model.sample_rate)
+            wav = model.generate_with_chroma(
+                [prompt], melody_waveform.unsqueeze(0), model.sample_rate
+            )
 
         sample_rate = model.sample_rate
         audio_data = wav[0].cpu()

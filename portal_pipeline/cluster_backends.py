@@ -21,16 +21,19 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# Pre-compiled regex — avoid re-compiling on every string expansion (P5)
+_ENV_VAR_RE = re.compile(r"\$\{([^}]+)\}")
+
 
 def _expand_env(val: Any) -> Any:
     """Expand ${VAR:-default} and ${VAR} env var syntax in strings."""
+
+    def _replace(m: re.Match) -> str:
+        var, _, default = m.group(1).partition(":-")
+        return os.environ.get(var, default)
+
     if isinstance(val, str):
-
-        def _replace(m: re.Match) -> str:
-            var, _, default = m.group(1).partition(":-")
-            return os.environ.get(var, default)
-
-        return re.sub(r"\$\{([^}]+)\}", _replace, val)
+        return _ENV_VAR_RE.sub(_replace, val)
     if isinstance(val, dict):
         return {k: _expand_env(v) for k, v in val.items()}
     if isinstance(val, list):
@@ -104,6 +107,11 @@ class Backend:
 class BackendRegistry:
     """Loads backends from YAML, monitors health, routes requests."""
 
+    # Shared httpx client for health checks — single connection pool reused across
+    # all health check cycles. Created lazily on first health check.
+    _health_client: httpx.AsyncClient | None = None
+    _health_semaphore: asyncio.Semaphore | None = None
+
     def __init__(self, config_path: str | None = None) -> None:
         self.config_path = config_path or DEFAULT_CONFIG_PATH
         self._backends: dict[str, Backend] = {}
@@ -112,6 +120,7 @@ class BackendRegistry:
         self._health_check_interval = 30.0
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
+        self._max_concurrent_health_checks = 2  # P3: prevent health-check storm
 
         self._load_config()
 
@@ -205,25 +214,57 @@ class BackendRegistry:
         # Absolute fallback: any healthy backend
         return random.choice(healthy) if healthy else None
 
+    @classmethod
+    def _get_health_semaphore(cls) -> asyncio.Semaphore:
+        """Lazily-create shared semaphore for concurrent health checks (P3)."""
+        if cls._health_semaphore is None:
+            cls._health_semaphore = asyncio.Semaphore(2)
+        return cls._health_semaphore
+
+    @classmethod
+    async def _get_health_client(cls, health_timeout: float) -> httpx.AsyncClient:
+        """Lazily-create shared httpx client for health checks (P1+P4).
+
+        A single client with a connection pool is reused across all health-check
+        cycles, avoiding TCP/TLS handshake overhead on every 30s cycle.
+        """
+        if cls._health_client is None:
+            cls._health_client = httpx.AsyncClient(
+                timeout=health_timeout,
+                limits=httpx.Limits(
+                    max_keepalive_connections=10,
+                    max_connections=20,
+                ),
+            )
+        return cls._health_client
+
     async def health_check_all(self) -> None:
-        """Run async health checks against all backends."""
+        """Run async health checks against all backends, bounded by semaphore (P3)."""
+        sem = self._get_health_semaphore()
+        client = await self._get_health_client(self._health_timeout)
         await asyncio.gather(
-            *[self._check_one(b) for b in self._backends.values()], return_exceptions=True
+            *[self._check_one(b, sem, client) for b in self._backends.values()],
+            return_exceptions=True,
         )
         healthy_count = len([b for b in self._backends.values() if b.healthy])
         logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
 
-    async def _check_one(self, backend: Backend) -> None:
-        """Check a single backend's health."""
-        try:
-            async with httpx.AsyncClient(timeout=self._health_timeout) as client:
+    async def _check_one(
+        self,
+        backend: Backend,
+        sem: asyncio.Semaphore,
+        client: httpx.AsyncClient,
+    ) -> None:
+        """Check a single backend's health using the shared client (P1+P4)."""
+        async with sem:
+            try:
                 resp = await client.get(backend.health_url)
                 backend.healthy = resp.status_code == 200
-        except Exception as e:
-            logger.debug("Health check failed for %s: %s", backend.id, e)
-            backend.healthy = False
-        finally:
-            backend.last_check = time.time()
+            except Exception as e:
+                logger.debug("Health check failed for %s: %s", backend.id, e)
+                backend.healthy = False
+            finally:
+                backend.last_check = time.time()
 
     async def start_health_loop(self) -> None:
         """Background task: run health checks periodically."""

@@ -24,6 +24,7 @@ def main() -> None:
     # With workers=1, this is harmless overhead.
     if not os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         import tempfile
+
         _mp_dir = tempfile.mkdtemp(prefix="portal_metrics_")
         os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp_dir
         logging.debug("Prometheus multiprocess dir: %s", _mp_dir)

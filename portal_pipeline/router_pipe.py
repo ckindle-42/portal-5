@@ -85,7 +85,7 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
         if eval_count > 0 and eval_duration_ns > 0:
             tps = eval_count / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
-            logger.info(
+            logger.debug(
                 "Usage: workspace=%s model=%s tokens=%d tps=%.1f",
                 workspace,
                 model,
@@ -456,11 +456,23 @@ _request_semaphore: asyncio.Semaphore | None = None
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task | None = None
 
+# Shared httpx client for backend inference — P1: connection pool reused across
+# all streaming and completion requests, avoiding TCP/TLS handshake overhead.
+_http_client: httpx.AsyncClient | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    global registry, _health_task, _request_semaphore
+    global registry, _health_task, _request_semaphore, _http_client
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
+    # P1: create shared client with a connection pool sized for concurrent inference
+    _http_client = httpx.AsyncClient(
+        timeout=120.0,  # matches defaults.request_timeout in backends.yaml
+        limits=httpx.Limits(
+            max_keepalive_connections=20,
+            max_connections=100,
+        ),
+    )
     registry = BackendRegistry()
     await registry.health_check_all()
     healthy = registry.list_healthy_backends()
@@ -474,6 +486,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     if _health_task:
         _health_task.cancel()
+    if _http_client:
+        await _http_client.aclose()
 
 
 app = FastAPI(title="Portal Pipeline", version="5.1.0", lifespan=lifespan)
@@ -536,10 +550,9 @@ async def metrics() -> PlainTextResponse:
     # Use multiprocess collector when PROMETHEUS_MULTIPROC_DIR is set
     # (aggregates metrics across all uvicorn workers)
     if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-        from prometheus_client import CollectorRegistry as _CR
-        from prometheus_client import multiprocess
+        from prometheus_client import CollectorRegistry, multiprocess
 
-        _mp_registry = _CR()
+        _mp_registry = CollectorRegistry()
         multiprocess.MultiProcessCollector(_mp_registry)
         prometheus_output = generate_latest(_mp_registry).decode("utf-8")
     else:
@@ -680,29 +693,29 @@ async def _stream_from_backend_guarded(
     This is required because StreamingResponse returns immediately (before the
     generator runs), so the normal finally-block release fires too early.
     """
-    assert registry is not None
+    assert _http_client is not None
     try:
-        async with (
-            httpx.AsyncClient(timeout=registry.request_timeout) as client,
-            client.stream("POST", url, json=body) as resp,
-        ):
+        async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
                 yield (
-                    "data: " + json.dumps({
-                        "error": f"Backend {resp.status_code}: "
-                                 + err[:100].decode(errors="replace")
-                    }) + "\n\n"
+                    "data: "
+                    + json.dumps(
+                        {
+                            "error": f"Backend {resp.status_code}: "
+                            + err[:100].decode(errors="replace")
+                        }
+                    )
+                    + "\n\n"
                 ).encode()
                 return
             async for chunk in resp.aiter_bytes():
                 if chunk:
-                    # Intercept the final "done" chunk to record usage metrics.
-                    # The done chunk is a data: SSE line containing JSON with done=true.
-                    # We parse it but always yield unchanged regardless of parse result.
-                    try:
-                        text = chunk.decode("utf-8", errors="replace")
-                        if '"done":true' in text or '"done": true' in text:
+                    # P6: Check raw bytes for '"done"' before decode+string search.
+                    # Avoids decoding every non-final chunk (~99% of chunks in a long stream).
+                    if b'"done"' in chunk:
+                        try:
+                            text = chunk.decode("utf-8", errors="replace")
                             for line in text.splitlines():
                                 line = line.strip()
                                 if line.startswith("data:") and "done" in line:
@@ -715,8 +728,8 @@ async def _stream_from_backend_guarded(
                                             data=usage_data,
                                         )
                                         break
-                    except Exception:
-                        pass  # Never let metrics parsing break the stream
+                        except Exception:
+                            pass  # Never let metrics parsing break the stream
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
@@ -728,14 +741,13 @@ async def _stream_from_backend_guarded(
 async def _complete_from_backend(
     url: str, body: dict, workspace_id: str = "unknown", model: str = "unknown"
 ) -> JSONResponse:
-    assert registry is not None
+    assert _http_client is not None
     try:
-        async with httpx.AsyncClient(timeout=registry.request_timeout) as client:
-            resp = await client.post(url, json=body)
-            resp.raise_for_status()
-            data = resp.json()
-            _record_usage(model=model, workspace=workspace_id, data=data)
-            return JSONResponse(content=data)
+        resp = await _http_client.post(url, json=body)
+        resp.raise_for_status()
+        data = resp.json()
+        _record_usage(model=model, workspace=workspace_id, data=data)
+        return JSONResponse(content=data)
     except Exception as e:
         logger.error("Completion error from %s: %s", url, e)
         raise HTTPException(status_code=502, detail=f"Backend error: {e}") from e
