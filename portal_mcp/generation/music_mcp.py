@@ -16,6 +16,7 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
+from portal_mcp.generation.utils import get_torch_device
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
 mcp = FastMCP("music-generation")
@@ -262,19 +263,13 @@ async def _generate_stable_audio(prompt: str, duration: float) -> dict:
 def _stable_audio_sync(prompt: str, duration: float) -> dict:
     """Synchronous Stable Audio generation."""
     try:
-        import torch
         import torchaudio
         from stable_audio_tools import get_pretrained_model
         from stable_audio_tools.inference import generate
 
         logger.info("Loading Stable Audio Open model...")
         model, _ = get_pretrained_model("stabilityai/stable-audio-open-1.0")
-        if torch.backends.mps.is_available():
-            device = "mps"
-        elif torch.cuda.is_available():
-            device = "cuda"
-        else:
-            device = "cpu"
+        device = get_torch_device()
         model = model.to(device)
 
         logger.info("Generating: %s", prompt[:80])

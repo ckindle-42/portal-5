@@ -518,7 +518,26 @@ class TestAllMCPServerToolAlignment:
         try:
             mod = importlib.import_module(module_path)
         except ImportError as exc:
-            pytest.skip(f"Optional dep missing for {module_path}: {exc}")
+            # Only skip for genuinely missing optional packages (kokoro, faster-whisper,
+            # docx, audiocraft, etc.). Internal typos, renamed symbols, or broken
+            # internal imports should FAIL — not silently become skips.
+            exc_lower = str(exc).lower()
+            optional_pkgs = (
+                "kokoro_onnx",
+                "kokoro-onnx",
+                "faster_whisper",
+                "faster-whisper",
+                "docx",
+                "openpyxl",
+                "pptx",
+                "audiocraft",
+                "stable_audio_tools",
+                "stable-audio-tools",
+            )
+            if any(pkg in exc_lower for pkg in optional_pkgs):
+                pytest.skip(f"Optional dep missing for {module_path}: {exc}")
+            else:
+                raise  # re-raise — not an optional-package gap, a real breakage
         registered = set(mod.mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in mod.TOOLS_MANIFEST}
 

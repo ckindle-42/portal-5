@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from starlette.responses import JSONResponse, Response
 
+from portal_mcp.generation.utils import get_torch_device
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
@@ -350,16 +351,10 @@ async def _speak_fish_speech(text: str, voice: str, speed: float) -> dict:
 
 def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
     try:
-        import torch
         from fish_speech.models import Text2Speech
         from fish_speech.utils import get_audio
 
-        if torch.backends.mps.is_available():
-            device = "mps"
-        elif torch.cuda.is_available():
-            device = "cuda"
-        else:
-            device = "cpu"
+        device = get_torch_device()
         logger.info("Loading Fish Speech model on %s...", device)
         tts = Text2Speech.load_from_checkpoint(
             checkpoint_path="models/fish_speech/fish-speech-1.4",
@@ -418,7 +413,7 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
 
         model = Text2Speech.from_pretrained(
             "models/fish_speech/fish-speech-1.4",
-            device="mps",
+            device=get_torch_device(),
         )
         ref_audio, ref_sr = load_audio(reference_audio_path)
         audio = get_audio(model, text, reference=ref_audio)
