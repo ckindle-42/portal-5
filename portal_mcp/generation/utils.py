@@ -2,8 +2,6 @@
 Shared utilities for portal_mcp generation servers.
 """
 
-import torch
-
 
 def get_torch_device() -> str:
     """Auto-select the best available torch device.
@@ -12,6 +10,8 @@ def get_torch_device() -> str:
 
     Used by TTS (Fish Speech) and Music (Stable Audio) generation servers.
     """
+    import torch
+
     if torch.backends.mps.is_available():
         return "mps"
     if torch.cuda.is_available():

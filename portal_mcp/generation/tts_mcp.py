@@ -61,7 +61,7 @@ KOKORO_CACHE_DIR = (
 )
 KOKORO_MODEL_FILE = "kokoro-v1.0.onnx"
 KOKORO_VOICES_FILE = "voices-v1.0.bin"
-KOKORO_HF_REPO = "hexgrad/kokoro-onnx"
+KOKORO_HF_REPO = "onnx-community/Kokoro-82M-v1.0-ONNX"
 
 if TYPE_CHECKING:
     from kokoro_onnx import Kokoro
@@ -99,17 +99,18 @@ def _ensure_kokoro_models() -> tuple[str, str]:
     voices_path = KOKORO_CACHE_DIR / KOKORO_VOICES_FILE
 
     if not model_path.exists() or not voices_path.exists():
-        logger.info("Downloading kokoro-onnx model files (~60 MB)...")
-        from huggingface_hub import hf_hub_download
+        import urllib.request
 
         if not model_path.exists():
-            hf_hub_download(
-                repo_id=KOKORO_HF_REPO, filename=KOKORO_MODEL_FILE, local_dir=str(KOKORO_CACHE_DIR)
-            )
+            # Download model from GitHub releases (compatible with voices)
+            logger.info("Downloading kokoro-onnx model from GitHub releases...")
+            model_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx"
+            urllib.request.urlretrieve(model_url, str(model_path))
         if not voices_path.exists():
-            hf_hub_download(
-                repo_id=KOKORO_HF_REPO, filename=KOKORO_VOICES_FILE, local_dir=str(KOKORO_CACHE_DIR)
-            )
+            # Voices come from GitHub releases (not HuggingFace)
+            logger.info("Downloading kokoro-onnx voices from GitHub releases...")
+            voices_url = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
+            urllib.request.urlretrieve(voices_url, str(voices_path))
         logger.info("Kokoro model files ready at %s", KOKORO_CACHE_DIR)
 
     _kokoro_models_checked = True

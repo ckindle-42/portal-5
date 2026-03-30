@@ -280,6 +280,7 @@ services:
       # HuggingFace cache — models download here on first use
       - HF_HOME=/app/data/hf_cache
       - TRANSFORMERS_CACHE=/app/data/hf_cache
+      - HF_TOKEN=${HF_TOKEN:-}
     command: ["python", "-m", "portal_mcp.generation.music_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
@@ -307,6 +308,7 @@ services:
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
       - OUTPUT_DIR=/app/data/generated
       - HF_HOME=/app/data/hf_cache
+      - HF_TOKEN=${HF_TOKEN:-}
     command: ["python", "-m", "portal_mcp.generation.tts_mcp"]
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
@@ -331,6 +333,7 @@ services:
       - WHISPER_MCP_PORT=8915
       - MCP_PORT=8915
       - HF_HOME=/app/data/hf_cache
+      - HF_TOKEN=${HF_TOKEN:-}
     command: ["python", "-m", "portal_mcp.generation.whisper_mcp"]
     volumes:
       - portal5-hf-cache:/app/data/hf_cache
