@@ -124,6 +124,9 @@ class BackendRegistry:
         # P8: cached healthy-backend list — rebuilt only after each health check
         # cycle, not on every inference request. None = uninitialized (pre-first-cycle).
         self._cached_healthy: list[Backend] | None = None
+        # P9: pre-computed workspace → group list cache. Built once in _load_config.
+        # Eliminates dict lookup + list construction on every get_backend_for_workspace call.
+        self._ws_group_cache: dict[str, list[str]] = {}
 
         self._load_config()
 
@@ -165,6 +168,10 @@ class BackendRegistry:
 
         # Load workspace routing
         self._workspace_routes = cfg.get("workspace_routing", {})
+        # P9: pre-compute workspace → group list for O(1) get_backend_for_workspace lookups
+        self._ws_group_cache = {
+            ws_id: groups.copy() for ws_id, groups in self._workspace_routes.items()
+        }
 
         # Load defaults
         defaults = cfg.get("defaults", {})
@@ -209,7 +216,7 @@ class BackendRegistry:
         3. If none found, fall back to any healthy backend in fallback_group
         4. Within a group, randomly select for load balancing
         """
-        groups = self._workspace_routes.get(workspace_id, [self._fallback_group])
+        groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
 
         healthy = self.list_healthy_backends()
         if not healthy:

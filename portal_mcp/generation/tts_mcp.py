@@ -66,6 +66,8 @@ if TYPE_CHECKING:
 
 # Module-level Kokoro model cache — avoids re-creating ONNX session per call (P2)
 _kokoro_instance: "Kokoro | None" = None
+# P6: skip Path.exists() stat calls after download is confirmed complete
+_kokoro_models_checked: bool = False
 
 
 def _get_kokoro() -> "Kokoro":
@@ -83,7 +85,13 @@ def _ensure_kokoro_models() -> tuple[str, str]:
     """Return (model_path, voices_path), downloading from HuggingFace if needed.
 
     ~60 MB total. Downloaded once, then cached at KOKORO_CACHE_DIR.
+    After first download, _kokoro_models_checked flag prevents repeated stat() syscalls.
     """
+    # P6: module-level flag — after download, skip all Path.exists() checks on hot path
+    global _kokoro_models_checked
+    if _kokoro_models_checked:
+        return str(KOKORO_CACHE_DIR / KOKORO_MODEL_FILE), str(KOKORO_CACHE_DIR / KOKORO_VOICES_FILE)
+
     KOKORO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     model_path = KOKORO_CACHE_DIR / KOKORO_MODEL_FILE
     voices_path = KOKORO_CACHE_DIR / KOKORO_VOICES_FILE
@@ -102,6 +110,7 @@ def _ensure_kokoro_models() -> tuple[str, str]:
             )
         logger.info("Kokoro model files ready at %s", KOKORO_CACHE_DIR)
 
+    _kokoro_models_checked = True
     return str(model_path), str(voices_path)
 
 

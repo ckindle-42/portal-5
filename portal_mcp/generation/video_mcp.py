@@ -20,6 +20,24 @@ from portal_mcp.mcp_server.fastmcp import FastMCP
 
 mcp = FastMCP("video-generation")
 
+# Module-level httpx client — created once per process, reused for all requests.
+# Eliminates TCP/TLS handshake overhead on every video generation call (P9).
+_http_client: httpx.AsyncClient | None = None
+
+
+async def _get_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=600.0, limits=httpx.Limits(max_connections=5))
+    return _http_client
+
+
+async def _close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
@@ -266,49 +284,49 @@ async def generate_video(
 
     client_id = str(uuid.uuid4())
 
-    async with httpx.AsyncClient(timeout=600.0) as client:
-        try:
-            resp = await client.post(
-                f"{COMFYUI_URL}/prompt",
-                json={"prompt": workflow, "client_id": client_id},
-            )
-            resp.raise_for_status()
-        except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+    client = await _get_client()
+    try:
+        resp = await client.post(
+            f"{COMFYUI_URL}/prompt",
+            json={"prompt": workflow, "client_id": client_id},
+        )
+        resp.raise_for_status()
+    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+        return {
+            "success": False,
+            "error": (
+                f"ComfyUI not available at {COMFYUI_URL}: {e}. "
+                "Install a video model via ComfyUI Manager (Wan2.2 or CogVideoX)."
+            ),
+        }
+
+    prompt_id = resp.json()["prompt_id"]
+
+    # Poll for completion (video generation takes 2–10 minutes)
+    for _ in range(300):  # 300 × 2s = 10 min max
+        await asyncio.sleep(2)
+        history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
+        history = history_resp.json()
+
+        if prompt_id in history:
+            outputs = history[prompt_id].get("outputs", {})
+            for node_output in outputs.values():
+                gifs = node_output.get("gifs", [])
+                if gifs:
+                    filename = gifs[0]["filename"]
+                    return {
+                        "success": True,
+                        "filename": filename,
+                        "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
+                        "prompt": prompt,
+                        "seed": seed,
+                        "frames": frames,
+                        "fps": fps,
+                    }
             return {
                 "success": False,
-                "error": (
-                    f"ComfyUI not available at {COMFYUI_URL}: {e}. "
-                    "Install a video model via ComfyUI Manager (Wan2.2 or CogVideoX)."
-                ),
+                "error": "Generation completed but no video output found. Check ComfyUI logs.",
             }
-
-        prompt_id = resp.json()["prompt_id"]
-
-        # Poll for completion (video generation takes 2–10 minutes)
-        for _ in range(300):  # 300 × 2s = 10 min max
-            await asyncio.sleep(2)
-            history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
-            history = history_resp.json()
-
-            if prompt_id in history:
-                outputs = history[prompt_id].get("outputs", {})
-                for node_output in outputs.values():
-                    gifs = node_output.get("gifs", [])
-                    if gifs:
-                        filename = gifs[0]["filename"]
-                        return {
-                            "success": True,
-                            "filename": filename,
-                            "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
-                            "prompt": prompt,
-                            "seed": seed,
-                            "frames": frames,
-                            "fps": fps,
-                        }
-                return {
-                    "success": False,
-                    "error": "Generation completed but no video output found. Check ComfyUI logs.",
-                }
 
     return {"success": False, "error": "Video generation timed out after 10 minutes"}
 
@@ -318,51 +336,52 @@ async def list_video_models() -> list[str]:
     """List available video model checkpoints in ComfyUI."""
     video_keywords = ("cogvideo", "mochi", "wan2", "wan_2", "video", "remix")
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    client = await _get_client()
+    try:
+        all_checkpoints: list[str] = []
+
+        # Check for Wan2.2 models (UNETLoader)
         try:
-            all_checkpoints: list[str] = []
+            resp = await client.get(f"{COMFYUI_URL}/object_info/UNETLoader")
+            data = resp.json()
+            checkpoints = (
+                data.get("UNETLoader", {})
+                .get("input", {})
+                .get("required", {})
+                .get("model_name", [[]])[0]
+            )
+            if checkpoints:
+                all_checkpoints.extend(checkpoints)
+        except Exception:
+            pass  # UNETLoader not available
 
-            # Check for Wan2.2 models (UNETLoader)
-            try:
-                resp = await client.get(f"{COMFYUI_URL}/object_info/UNETLoader")
-                data = resp.json()
-                checkpoints = (
-                    data.get("UNETLoader", {})
-                    .get("input", {})
-                    .get("required", {})
-                    .get("model_name", [[]])[0]
-                )
-                if checkpoints:
-                    all_checkpoints.extend(checkpoints)
-            except Exception:
-                pass  # UNETLoader not available
+        # Check for CogVideoX models (CheckpointLoaderSimple)
+        try:
+            resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
+            data = resp.json()
+            checkpoints = (
+                data.get("CheckpointLoaderSimple", {})
+                .get("input", {})
+                .get("required", {})
+                .get("ckpt_name", [[]])[0]
+            )
+            if checkpoints:
+                all_checkpoints.extend(checkpoints)
+        except Exception:
+            pass  # CheckpointLoaderSimple not available
 
-            # Check for CogVideoX models (CheckpointLoaderSimple)
-            try:
-                resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
-                data = resp.json()
-                checkpoints = (
-                    data.get("CheckpointLoaderSimple", {})
-                    .get("input", {})
-                    .get("required", {})
-                    .get("ckpt_name", [[]])[0]
-                )
-                if checkpoints:
-                    all_checkpoints.extend(checkpoints)
-            except Exception:
-                pass  # CheckpointLoaderSimple not available
-
-            # Filter to likely video models
-            video_models = [
-                c for c in all_checkpoints if any(k in c.lower() for k in video_keywords)
-            ]
-            return video_models if video_models else all_checkpoints
-        except Exception as e:
-            return [f"Error listing models: {e}"]
+        # Filter to likely video models
+        video_models = [c for c in all_checkpoints if any(k in c.lower() for k in video_keywords)]
+        return video_models if video_models else all_checkpoints
+    except Exception as e:
+        return [f"Error listing models: {e}"]
 
 
 if __name__ == "__main__":
     port = int(os.getenv("VIDEO_MCP_PORT", "8911"))
     mcp.settings.port = port
     mcp.settings.host = "0.0.0.0"
-    mcp.run(transport="streamable-http")
+    try:
+        mcp.run(transport="streamable-http")
+    finally:
+        asyncio.run(_close_client())

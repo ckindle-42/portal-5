@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -393,6 +394,19 @@ _REASONING_KEYWORDS: frozenset[str] = frozenset(
 )
 
 
+# P9: Pre-compiled regex for security and coding keyword sets.
+# Replaces 80+/35+ substring scans with a single regex match pass.
+# Pattern: \b(word1|word2|...)\b — word boundary prevents partial matches.
+def _make_word_boundary_regex(keywords: frozenset[str]) -> re.Pattern:
+    escaped = [re.escape(kw) for kw in keywords]
+    pattern = r"\b(" + "|".join(escaped) + r")\b"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+_SECURITY_REGEX = _make_word_boundary_regex(_SECURITY_KEYWORDS)
+_CODING_REGEX = _make_word_boundary_regex(_CODING_KEYWORDS)
+
+
 def _detect_workspace(messages: list[dict]) -> str | None:
     """Detect the most appropriate workspace from the last user message.
 
@@ -424,13 +438,13 @@ def _detect_workspace(messages: list[dict]) -> str | None:
             if redteam_hits >= 2:
                 return "auto-redteam"
 
-    # Security check (broader — includes defensive topics). 1 hit is enough;
-    # any() short-circuits on the first match instead of scanning all keywords.
-    if any(kw in last_user_content for kw in _SECURITY_KEYWORDS):
+    # Security check (broader — includes defensive topics). 1 hit is enough.
+    # Pre-compiled regex (P9): single pass instead of 100+ substring scans.
+    if _SECURITY_REGEX.search(last_user_content):
         return "auto-security"
 
-    # Coding check — same single-hit short-circuit.
-    if any(kw in last_user_content for kw in _CODING_KEYWORDS):
+    # Coding check — same single-pass regex (P9).
+    if _CODING_REGEX.search(last_user_content):
         return "auto-coding"
 
     # Reasoning check (requires 2+ signals to avoid false positives).

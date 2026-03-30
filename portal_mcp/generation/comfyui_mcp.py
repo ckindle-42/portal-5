@@ -19,6 +19,24 @@ from portal_mcp.mcp_server.fastmcp import FastMCP
 
 mcp = FastMCP("comfyui-generation")
 
+# Module-level httpx client — created once per process, reused for all requests.
+# Eliminates TCP/TLS handshake overhead on every image generation call (P9).
+_http_client: httpx.AsyncClient | None = None
+
+
+async def _get_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=120.0, limits=httpx.Limits(max_connections=5))
+    return _http_client
+
+
+async def _close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
@@ -210,60 +228,60 @@ async def generate_image(
 
     client_id = str(uuid.uuid4())
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        # Queue the prompt
-        try:
-            resp = await client.post(
-                f"{COMFYUI_URL}/prompt",
-                json={"prompt": workflow, "client_id": client_id},
-            )
-            resp.raise_for_status()
-        except (httpx.ConnectError, httpx.HTTPStatusError) as e:
-            return {
-                "success": False,
-                "error": (
-                    f"ComfyUI not available at {COMFYUI_URL}: {e}. "
-                    "Ensure ComfyUI is running and a model is installed."
-                ),
-            }
-        prompt_id = resp.json()["prompt_id"]
+    client = await _get_client()
+    # Queue the prompt
+    try:
+        resp = await client.post(
+            f"{COMFYUI_URL}/prompt",
+            json={"prompt": workflow, "client_id": client_id},
+        )
+        resp.raise_for_status()
+    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+        return {
+            "success": False,
+            "error": (
+                f"ComfyUI not available at {COMFYUI_URL}: {e}. "
+                "Ensure ComfyUI is running and a model is installed."
+            ),
+        }
+    prompt_id = resp.json()["prompt_id"]
 
-        # Poll for completion
-        for _ in range(120):  # 120 × 1s = 2 min max
-            await asyncio.sleep(1)
-            history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
-            history = history_resp.json()
+    # Poll for completion
+    for _ in range(120):  # 120 × 1s = 2 min max
+        await asyncio.sleep(1)
+        history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
+        history = history_resp.json()
 
-            if prompt_id in history:
-                outputs = history[prompt_id].get("outputs", {})
-                for _node_id, node_output in outputs.items():
-                    images = node_output.get("images", [])
-                    if images:
-                        filename = images[0]["filename"]
-                        return {
-                            "success": True,
-                            "filename": filename,
-                            "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
-                            "prompt": prompt,
-                            "seed": seed,
-                        }
+        if prompt_id in history:
+            outputs = history[prompt_id].get("outputs", {})
+            for _node_id, node_output in outputs.items():
+                images = node_output.get("images", [])
+                if images:
+                    filename = images[0]["filename"]
+                    return {
+                        "success": True,
+                        "filename": filename,
+                        "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
+                        "prompt": prompt,
+                        "seed": seed,
+                    }
 
-        return {"success": False, "error": "Generation timed out after 2 minutes"}
+    return {"success": False, "error": "Generation timed out after 2 minutes"}
 
 
 @mcp.tool()
 async def list_workflows() -> list[str]:
     """List available ComfyUI workflow checkpoints."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
-        data = resp.json()
-        checkpoints = (
-            data.get("CheckpointLoaderSimple", {})
-            .get("input", {})
-            .get("required", {})
-            .get("ckpt_name", [[]])[0]
-        )
-        return checkpoints
+    client = await _get_client()
+    resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
+    data = resp.json()
+    checkpoints = (
+        data.get("CheckpointLoaderSimple", {})
+        .get("input", {})
+        .get("required", {})
+        .get("ckpt_name", [[]])[0]
+    )
+    return checkpoints
 
 
 @mcp.tool()
@@ -273,24 +291,28 @@ async def get_generation_status(job_id: str) -> dict:
     Args:
         job_id: The prompt_id returned by generate_image
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
-            if resp.status_code == 200:
-                history = resp.json()
-                if job_id in history:
-                    return {
-                        "status": "complete",
-                        "job_id": job_id,
-                        "outputs": history[job_id].get("outputs", {}),
-                    }
-                return {"status": "pending", "job_id": job_id}
-            return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
-        except Exception as e:
-            return {"error": str(e), "job_id": job_id}
+    client = await _get_client()
+    try:
+        resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
+        if resp.status_code == 200:
+            history = resp.json()
+            if job_id in history:
+                return {
+                    "status": "complete",
+                    "job_id": job_id,
+                    "outputs": history[job_id].get("outputs", {}),
+                }
+            return {"status": "pending", "job_id": job_id}
+        return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
+    except Exception as e:
+        return {"error": str(e), "job_id": job_id}
 
 
 if __name__ == "__main__":
     port = int(os.getenv("COMFYUI_MCP_PORT", "8910"))
     mcp.settings.port = port
-    mcp.run(transport="streamable-http")
+    try:
+        mcp.run(transport="streamable-http")
+    finally:
+        # Clean up shared httpx client on shutdown
+        asyncio.run(_close_client())
