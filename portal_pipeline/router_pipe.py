@@ -514,6 +514,28 @@ _health_task: asyncio.Task | None = None
 _http_client: httpx.AsyncClient | None = None
 
 
+def _inject_ollama_options(body: dict) -> dict:
+    """Inject Ollama-specific TTFT performance defaults not already in the request.
+
+    Only called for backends with type='ollama'. Skipped for MLX and vLLM which
+    do not recognise these fields.
+
+    - keep_alive: top-level Ollama field. Prevents model unloading between
+      requests, eliminating the 10-30s cold-start on the next request.
+    - num_batch: inside 'options'. Larger batch = faster prompt evaluation = lower
+      TTFT on multi-turn conversations with long histories.
+
+    Uses setdefault() throughout — never overrides an explicit value from the
+    caller (e.g. Open WebUI passing its own keep_alive).
+    """
+    body = dict(body)
+    body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
+    opts: dict = dict(body.get("options") or {})
+    opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
+    body["options"] = opts
+    return body
+
+
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
     """Pre-load the auto workspace's default model on startup.
 
@@ -585,21 +607,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "config/backends.yaml URLs are reachable from this container"
         )
     _health_task = asyncio.create_task(registry.start_health_loop())
-
-    # Pre-load the default general model so the first user request isn't the one
-    # that pays the cold-start penalty. Runs as a background task — startup is not
-    # blocked if Ollama is slow or the model isn't pulled yet.
-    # Use the same model-selection logic as chat_completions() so the warmed model
-    # matches what real traffic will actually use.
-    _general_backend = registry.get_backend_for_workspace("auto")
-    if _general_backend and _general_backend.type == "ollama":
-        _model_hint = WORKSPACES["auto"].get("model_hint", "")
-        if _model_hint and _model_hint in _general_backend.models:
-            _warmup_model = _model_hint
-        else:
-            _warmup_model = _general_backend.models[0] if _general_backend.models else None
-        if _warmup_model:
-            asyncio.create_task(_warmup_backend(_general_backend, _warmup_model))
 
     yield
     if _health_task:
