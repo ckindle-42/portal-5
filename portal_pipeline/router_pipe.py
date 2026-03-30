@@ -490,7 +490,11 @@ _request_semaphore: asyncio.Semaphore | None = None
 #   Safe upper bound: match your model's training context / 8. 2048 fits all
 #   models in the catalog without exceeding their attention window.
 _OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
-_OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
+try:
+    _OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
+except ValueError:
+    _OLLAMA_NUM_BATCH = 2048
+    logger.warning("Invalid OLLAMA_NUM_BATCH value — must be an integer. Using default: %d", _OLLAMA_NUM_BATCH)
 
 # ── Routing visibility ─────────────────────────────────────────────────────────
 # When true, the first line of every streaming response shows which workspace and
@@ -559,7 +563,7 @@ async def _warmup_backend(backend: Backend, model: str) -> None:
                 model,
                 backend.id,
             )
-    except Exception as exc:
+    except httpx.RequestError as exc:
         logger.warning("Warmup failed for %s on %s: %s", model, backend.id, exc)
 
 
@@ -589,13 +593,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Pre-load the default general model so the first user request isn't the one
     # that pays the cold-start penalty. Runs as a background task — startup is not
     # blocked if Ollama is slow or the model isn't pulled yet.
+    # Use the same model-selection logic as chat_completions() so the warmed model
+    # matches what real traffic will actually use.
     _general_backend = registry.get_backend_for_workspace("auto")
     if _general_backend and _general_backend.type == "ollama":
-        _default_model = WORKSPACES["auto"].get("model_hint") or (
-            _general_backend.models[0] if _general_backend.models else None
-        )
-        if _default_model:
-            asyncio.create_task(_warmup_backend(_general_backend, _default_model))
+        _model_hint = WORKSPACES["auto"].get("model_hint", "")
+        if _model_hint and _model_hint in _general_backend.models:
+            _warmup_model = _model_hint
+        else:
+            _warmup_model = _general_backend.models[0] if _general_backend.models else None
+        if _warmup_model:
+            asyncio.create_task(_warmup_backend(_general_backend, _warmup_model))
 
     yield
     if _health_task:
@@ -841,51 +849,58 @@ async def _stream_with_preamble(
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
 
-    # Empty role chunk — starts Open WebUI typing indicator with zero latency.
-    preamble = {
-        "id": request_id,
-        "object": "chat.completion.chunk",
-        "created": ts,
-        "model": workspace_id,
-        "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
-    }
-    yield f"data: {json.dumps(preamble)}\n\n".encode()
-
-    # Optional routing annotation — shows workspace + model at top of response.
-    # Enables SHOW_ROUTING_STATUS=true in .env.
-    if _SHOW_ROUTING_STATUS:
-        ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
-        status_text = f"`⚡ {ws_name} → {model}`\n\n"
-        status_chunk = {
+    def _make_chunk(delta: dict) -> bytes:
+        """Serialise a single OpenAI-compatible SSE chunk."""
+        payload = {
             "id": request_id,
             "object": "chat.completion.chunk",
             "created": ts,
             "model": workspace_id,
-            "choices": [{"index": 0, "delta": {"content": status_text}, "finish_reason": None}],
+            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
         }
-        yield f"data: {json.dumps(status_chunk)}\n\n".encode()
+        return f"data: {json.dumps(payload)}\n\n".encode()
 
-    # Stream from backend — semaphore released by _stream_from_backend_guarded finally.
-    async for chunk in _stream_from_backend_guarded(url, body, sem, workspace_id=workspace_id, model=model):
-        yield chunk
+    # Empty role chunk — starts Open WebUI typing indicator with zero latency.
+    yield _make_chunk({"role": "assistant", "content": ""})
+
+    # Optional routing annotation — shows workspace + model at top of response.
+    if _SHOW_ROUTING_STATUS:
+        ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
+        yield _make_chunk({"content": f"`⚡ {ws_name} → {model}`\n\n"})
+
+    # Stream from backend.
+    # Semaphore ownership: _stream_with_preamble owns sem and releases it in its
+    # own finally block (below). _stream_from_backend_guarded is called with
+    # sem=None so its finally does NOT also release — preventing double-release.
+    # This closes the window where a client disconnect after the preamble yield but
+    # before the backend stream starts would leave sem permanently acquired.
+    try:
+        async for chunk in _stream_from_backend_guarded(url, body, sem=None, workspace_id=workspace_id, model=model):
+            yield chunk
+    finally:
+        sem.release()
 
 
 async def _stream_from_backend_guarded(
     url: str,
     body: dict,
-    sem: asyncio.Semaphore,
+    sem: asyncio.Semaphore | None,
     workspace_id: str = "unknown",
     model: str = "unknown",
 ) -> AsyncIterator[bytes]:
-    """Stream from backend and release semaphore only when stream is complete.
+    """Stream from backend and optionally release semaphore when stream is complete.
 
-    This is required because StreamingResponse returns immediately (before the
-    generator runs), so the normal finally-block release fires too early.
+    sem=None: caller (e.g. _stream_with_preamble) owns semaphore release.
+    sem=Semaphore: this function releases it in its finally block.
+
+    The sem=None path exists so _stream_with_preamble can own the full semaphore
+    lifecycle via its own try/finally, closing the early-disconnect leak window.
     """
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
-        sem.release()
+        if sem is not None:
+            sem.release()
         return
     try:
         async with _http_client.stream("POST", url, json=body) as resp:
@@ -933,7 +948,8 @@ async def _stream_from_backend_guarded(
             + "\n\n"
         ).encode()
     finally:
-        sem.release()  # Release AFTER generator is fully exhausted
+        if sem is not None:
+            sem.release()  # Release AFTER generator is fully exhausted
 
 
 async def _complete_from_backend(
