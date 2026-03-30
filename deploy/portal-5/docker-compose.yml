@@ -407,6 +407,7 @@ services:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      - IMAGE_BACKEND=sdxl
     command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
     depends_on: []
     healthcheck:
