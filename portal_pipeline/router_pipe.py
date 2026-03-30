@@ -559,6 +559,7 @@ def _init_notifications(registry: BackendRegistry) -> None:
         PushoverChannel,
         SlackChannel,
         TelegramChannel,
+        WebhookChannel,
     )
 
     _notification_dispatcher = NotificationDispatcher()
@@ -568,6 +569,7 @@ def _init_notifications(registry: BackendRegistry) -> None:
     _notification_dispatcher.add_channel(TelegramChannel(_http_client))
     _notification_dispatcher.add_channel(EmailChannel(_http_client))
     _notification_dispatcher.add_channel(PushoverChannel(_http_client))
+    _notification_dispatcher.add_channel(WebhookChannel(_http_client))
 
     # Run threshold check on first health cycle to catch any immediate issues
     _notification_dispatcher.check_thresholds_and_alert(registry)

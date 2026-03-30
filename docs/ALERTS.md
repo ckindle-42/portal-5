@@ -1,7 +1,7 @@
 # Portal 5.2 — Alerts & Notifications Guide
 
 Portal 5 can send operational alerts and daily usage summaries to Slack, Telegram,
-Email, and Pushover. Notifications are disabled by default.
+Email, Pushover, and any generic HTTP webhook endpoint. Notifications are disabled by default.
 
 ## Quick Start
 
@@ -82,6 +82,41 @@ echo "PUSHOVER_API_TOKEN=your-app-token" >> .env
 echo "PUSHOVER_USER_KEY=your-user-key" >> .env
 ```
 
+### Webhook
+
+POST JSON to any HTTP endpoint — works with PagerDuty, custom receivers, SIEM systems, or any service that accepts inbound webhooks.
+
+```bash
+echo "WEBHOOK_URL=https://your-endpoint.example.com/portal-events" >> .env
+# Optional: JSON object for additional headers (e.g. auth tokens)
+echo 'WEBHOOK_HEADERS={"Authorization": "Bearer YOUR_TOKEN"}' >> .env
+```
+
+**Alert event payload:**
+```json
+{
+  "event": "backend_down",
+  "message": "Backend 'ollama-general' has been unhealthy for 3 consecutive checks.",
+  "backend_id": "ollama-general",
+  "workspace": null,
+  "timestamp": "2026-03-30T12:00:00+00:00",
+  "metadata": {}
+}
+```
+
+**Summary event payload:**
+```json
+{
+  "event": "daily_summary",
+  "timestamp": "2026-03-30T09:00:00+00:00",
+  "total_requests": 1247,
+  "requests_by_workspace": {"auto": 800, "auto-coding": 312, "auto-security": 135},
+  "healthy_backends": 4,
+  "total_backends": 4,
+  "uptime_seconds": 86400.0
+}
+```
+
 ## Alert Thresholds
 
 ```bash
@@ -135,3 +170,9 @@ Slack/Telegram, use separate bots or filter with channel rules.
 - Check the scheduled hour and timezone match your expectation
 - Summary uses in-memory request counts — if the pipeline restarts between
   midnight and the summary time, counts reset to zero for that day
+
+**Webhook not firing:**
+- Verify `WEBHOOK_URL` is set and the endpoint is reachable from the container
+- Check that the endpoint accepts POST requests with `Content-Type: application/json`
+- If using `WEBHOOK_HEADERS`, ensure it is valid JSON — malformed JSON is logged and ignored
+- Inspect outgoing requests: `docker compose logs portal-pipeline | grep -i webhook`

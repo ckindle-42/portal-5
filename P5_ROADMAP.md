@@ -7,7 +7,7 @@ Last updated: March 30, 2026
 Version: 5.2.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
-STATUS: FUTURE, IN_PROGRESS, DONE
+STATUS: DONE, IN_PROGRESS, FUTURE
 ```
 
 All v5.0–v5.2 items are marked DONE in CHANGELOG.md. This document tracks
@@ -21,8 +21,8 @@ genuinely open future work beyond the current stable release.
 |----|----------|-------|--------|-------|
 | P5-FUT-001 | P2 | Per-user rate limiting | FUTURE | Open WebUI lacks per-user rate limiting; deploy behind reverse proxy (nginx/Traefik) for now |
 | P5-FUT-002 | P3 | Per-user quota enforcement | FUTURE | Admin controls for per-user quotas |
-| P5-FUT-003 | P3 | Usage analytics dashboard | FUTURE | Beyond current Prometheus/Grafana metrics |
-| P5-FUT-004 | P3 | Webhook-based event notifications | FUTURE | Event-driven integrations |
+| P5-FUT-003 | P3 | Usage analytics dashboard | IN_PROGRESS | Grafana panels added: workspace request trends, top workspaces, model×workspace breakdown. Per-user usage blocked — Open WebUI does not expose user IDs to the Pipeline. |
+| P5-FUT-004 | P3 | Webhook-based event notifications | IN_PROGRESS | Generic WebhookChannel implemented (portal_pipeline/notifications/channels/webhook.py); env vars: WEBHOOK_URL, WEBHOOK_HEADERS. Verbs: POST JSON to arbitrary endpoint on all alert and summary events. |
 
 ---
 
@@ -50,10 +50,12 @@ Current: Prometheus + Grafana at `:3000` with `portal5_overview.json` dashboard.
 
 ### P5-FUT-004: Webhook-Based Event Notifications
 
-Enable external systems (Slack, PagerDuty, custom webhooks) to receive events from Portal 5
-such as: new user signup, model pull completion, backend health changes, sandbox security events.
+Implemented: `WebhookChannel` sends JSON POST to any user-defined HTTP endpoint on all
+alert events (backend_down, backend_recovered, all_backends_down, config_error) and
+daily_summary events. Configure via `WEBHOOK_URL` and optional `WEBHOOK_HEADERS` env vars.
 
-Would require an event dispatcher module in `portal_pipeline/` or a new MCP-style service.
+Still TODO (out of scope for this item): new user signup, model pull completion, sandbox
+security events — those would require additional event types and are tracked separately.
 
 ---
 

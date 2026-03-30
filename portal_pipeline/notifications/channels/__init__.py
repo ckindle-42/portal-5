@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationChannel(ABC):
-    """Base class for a notification channel (Slack, Telegram, Email, Pushover)."""
+    """Base class for a notification channel (Slack, Telegram, Email, Pushover, Webhook)."""
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
@@ -47,3 +47,20 @@ class NotificationChannel(ABC):
         except Exception as e:
             # Never let a notification failure bubble up — fire and forget
             logger.warning("%s: notification failed: %s", self.name, e)
+
+
+# Import channel implementations after base class is defined to avoid circular imports
+from portal_pipeline.notifications.channels.email import EmailChannel  # noqa: E402
+from portal_pipeline.notifications.channels.pushover import PushoverChannel  # noqa: E402
+from portal_pipeline.notifications.channels.slack import SlackChannel  # noqa: E402
+from portal_pipeline.notifications.channels.telegram import TelegramChannel  # noqa: E402
+from portal_pipeline.notifications.channels.webhook import WebhookChannel  # noqa: E402
+
+__all__ = [
+    "NotificationChannel",
+    "SlackChannel",
+    "TelegramChannel",
+    "EmailChannel",
+    "PushoverChannel",
+    "WebhookChannel",
+]
