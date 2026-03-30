@@ -6,8 +6,8 @@ This directory contains all importable configurations for Open WebUI. Two setup 
 
 On first launch with a fresh volume, the `openwebui-init` container automatically:
 1. Creates the admin account
-2. Registers all 9 MCP tool servers
-3. Creates all 9 workspace presets
+2. Registers all 7 MCP tool servers
+3. Creates all 13 workspace presets
 
 Default admin credentials:
 - **Email:** `admin@portal.local`
@@ -49,18 +49,16 @@ If automation fails, you can manually import files through the Open WebUI admin 
 
 | File | Type | Import Location | Count |
 |---|---|---|---|
-| `tools/portal_comfyui.json` | MCP Tool Server | Admin > Settings > Tools | 1 of 9 |
-| `tools/portal_video.json` | MCP Tool Server | Admin > Settings > Tools | 2 of 9 |
-| `tools/portal_music.json` | MCP Tool Server | Admin > Settings > Tools | 3 of 9 |
-| `tools/portal_documents.json` | MCP Tool Server | Admin > Settings > Tools | 4 of 9 |
-| `tools/portal_code.json` | MCP Tool Server | Admin > Settings > Tools | 5 of 9 |
-| `tools/portal_whisper.json` | MCP Tool Server | Admin > Settings > Tools | 6 of 9 |
-| `tools/portal_tts.json` | MCP Tool Server | Admin > Settings > Tools | 7 of 9 |
-| `tools/portal_shell.json` | MCP Tool Server | Admin > Settings > Tools | 8 of 9 |
-| `tools/portal_web.json` | MCP Tool Server | Admin > Settings > Tools | 9 of 9 |
-| `workspaces/workspace_auto.json` | Workspace Preset | Workspace > Models > Import | 1 of 9 |
-| `workspaces/workspace_auto_*.json` | Workspace Preset | Workspace > Models > Import | 2-9 of 9 |
-| `workspaces/workspaces_all.json` | Bulk Workspace | Workspace > Models > Import | all 9 |
+| `tools/portal_comfyui.json` | MCP Tool Server | Admin > Settings > Tools | 1 of 7 |
+| `tools/portal_video.json` | MCP Tool Server | Admin > Settings > Tools | 2 of 7 |
+| `tools/portal_music.json` | MCP Tool Server | Admin > Settings > Tools | 3 of 7 |
+| `tools/portal_documents.json` | MCP Tool Server | Admin > Settings > Tools | 4 of 7 |
+| `tools/portal_code.json` | MCP Tool Server | Admin > Settings > Tools | 5 of 7 |
+| `tools/portal_whisper.json` | MCP Tool Server | Admin > Settings > Tools | 6 of 7 |
+| `tools/portal_tts.json` | MCP Tool Server | Admin > Settings > Tools | 7 of 7 |
+| `workspaces/workspace_auto.json` | Workspace Preset | Workspace > Models > Import | 1 of 13 |
+| `workspaces/workspace_auto_*.json` | Workspace Preset | Workspace > Models > Import | 2–13 of 13 |
+| `workspaces/workspaces_all.json` | Bulk Workspace | Workspace > Models > Import | all 13 |
 | `functions/portal_router_pipe.json` | Open WebUI Function | Workspace > Functions > Import | 1 of 1 |
 | `mcp-servers.json` | Config source | Used by setup scripts | — |
 | `portal_import_bundle.json` | Full bundle | Reference / tooling | — |

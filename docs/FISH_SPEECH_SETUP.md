@@ -1,8 +1,13 @@
-# Portal 5.1 — Fish Speech Setup Guide
+# Portal 5.2 — Fish Speech Setup Guide
 
-Fish Speech is the primary TTS (text-to-speech) engine for Portal 5. It provides high-quality speech synthesis with voice cloning capabilities. Fish Speech runs **outside Docker** on the host machine to access GPU/MPS hardware directly.
+Fish Speech is an **optional** TTS backend for Portal 5 that adds high-quality voice
+cloning. It runs outside Docker on the host machine to access GPU/MPS hardware directly.
 
-**Note**: If Fish Speech is not available, the TTS MCP will automatically fall back to CosyVoice.
+**Default (zero-setup)**: Portal 5 ships with **kokoro-onnx** as the primary TTS backend.
+It downloads its model (~60 MB) automatically on first use — no setup required.
+Fish Speech is only needed if you want voice cloning from reference audio.
+
+**Note**: If Fish Speech is not configured, the TTS MCP automatically uses kokoro-onnx.
 
 ## Installation (macOS — Apple Silicon)
 
@@ -58,9 +63,9 @@ Set environment variable in `.env`:
 FISH_SPEECH_URL=http://localhost:5005
 ```
 
-Or switch to CosyVoice fallback in `.env`:
+To switch back to the built-in kokoro-onnx backend, set in `.env`:
 ```
-TTS_BACKEND=cosyvoice
+TTS_BACKEND=kokoro
 ```
 
 ## Available Voices
@@ -76,15 +81,20 @@ TTS_BACKEND=cosyvoice
 | english_marcus | English (Marcus) |
 | japanese_yuki | Japanese (Yuki) |
 
-### CosyVoice Fallback (if Fish Speech unavailable)
+### kokoro-onnx Voices (zero-setup fallback)
 | Voice ID | Description |
 |----------|-------------|
-| 中文女 | Chinese female |
-| 中文男 | Chinese male |
-| 英文女 | English female |
-| 英文男 | English male |
-| 日文女 | Japanese female |
-| 日文男 | Japanese male |
+| af_heart | American English female (default) |
+| af_sky | American English female |
+| af_bella | American English female |
+| af_nicole | American English female |
+| af_sarah | American English female |
+| am_adam | American English male |
+| am_michael | American English male |
+| bf_emma | British English female |
+| bf_isabella | British English female |
+| bm_george | British English male |
+| bm_lewis | British English male |
 
 ## Voice Cloning
 
@@ -109,8 +119,10 @@ curl -X POST http://localhost:8916/tools/speak \
 ## Troubleshooting
 
 ### Fish Speech not installed
-The TTS MCP will automatically use CosyVoice fallback if Fish Speech is not available. Check logs:
+The TTS MCP automatically uses kokoro-onnx when Fish Speech is not configured.
+To confirm which backend is active:
 ```bash
+curl http://localhost:8916/health   # returns {"backend": "kokoro"} or {"backend": "fish_speech"}
 ./launch.sh logs mcp-tts
 ```
 
@@ -127,16 +139,13 @@ git lfs install
 git clone https://huggingface.co/fishaudio/Fish-Speech-1.4 ./models/fish_speech
 ```
 
-## Alternative: CosyVoice
+## Alternative: kokoro-onnx (built-in, no setup)
 
-If Fish Speech doesn't work on your system, set `TTS_BACKEND=cosyvoice` in `.env`:
+If Fish Speech doesn't work on your system, set `TTS_BACKEND=kokoro` in `.env`.
+kokoro-onnx is already installed inside the `mcp-tts` Docker container and requires
+no additional setup. Its model (~60 MB) is downloaded automatically on first use.
 
-```bash
-# Install CosyVoice
-pip install cosyvoice torchaudio
-```
-
-CosyVoice provides:
-- Pre-trained SFT voices
-- Zero-shot voice cloning
-- Multi-language support (Chinese, English, Japanese)
+kokoro-onnx provides:
+- 11 English voices (American and British, male and female)
+- Fast CPU inference via ONNX runtime
+- No GPU required

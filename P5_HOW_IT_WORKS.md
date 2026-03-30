@@ -1,13 +1,49 @@
 # P5_HOW_IT_WORKS.md — Portal 5 Technical Documentation
 
 ```
-Last updated: March 6, 2026
-Source: documentation-truth-agent-v4 delta (R24, v5.1.0)
+Last updated: March 30, 2026
+Source: v5.2.0 production-readiness review
 ```
 
 ---
 
 ## Section 0: Changes Since Last Run
+
+**Last updated: March 30, 2026** (v5.2.0 production-readiness review)
+
+### v5.2.0 Changes
+
+**Production-readiness fixes applied:**
+
+- **router_pipe.py** — 6 `assert` statements in HTTP handlers replaced with
+  `HTTPException(503)`. Assertions are silently dropped under Python `-O`; these
+  would have caused `AssertionError` in optimised Docker deployments.
+- **router_pipe.py** — Backend error internals (URLs, stack traces, response bodies)
+  are now logged server-side only. Clients receive sanitised "Backend returned HTTP NNN"
+  or "check server logs" messages.
+- **router_pipe.py** — `FastAPI(version=...)` now reads from `importlib.metadata`
+  instead of a hardcoded literal. `pyproject.toml` is the single version source.
+- **router_pipe.py** — `BackendRegistry.close_health_client()` wired into lifespan
+  shutdown. Connection pool is properly drained on `docker compose down`.
+- **cluster_backends.py** — `yaml.safe_load()` wrapped in `try/except yaml.YAMLError`.
+  Malformed `backends.yaml` now logs a clear error and returns an empty registry
+  (all requests 503) instead of crashing with an unhandled exception.
+- **tts_mcp.py** — Fish Speech backend device auto-selects `mps → cuda → cpu`.
+  Was hardcoded `device="mps"`, breaking Linux/CUDA and CPU-only deployments.
+- **music_mcp.py** — Stable Audio backend device auto-selects `mps → cuda → cpu`.
+  Was missing Apple Silicon MPS path (`cuda or cpu` only).
+- **test_mcp_endpoints.py** — Module-level `pytest.importorskip` guards added.
+  Tests now SKIP (not ERROR) when MCP dependencies are absent (resolves P5-ROAD-107).
+- **docker-compose.yml** — DinD service gains `cpus: "4.0"` resource limit. Only
+  memory was bounded before; a runaway container could saturate all host CPU.
+- **.env.example** — 8 operator-relevant env vars documented in new
+  "Advanced / Operator Overrides" section: `OPENWEBUI_ADMIN_NAME`, `PIPELINE_PORT`,
+  `PIPELINE_URL`, `PIPELINE_TIMEOUT`, `BACKEND_CONFIG_PATH`,
+  `PROMETHEUS_MULTIPROC_DIR`, `MODELS_DIR` (resolves P5-ROAD-146).
+
+**Score: 100/100** (up from 99/100 in v5.1.0)
+
+---
 
 **Last updated: March 6, 2026** (commit 3b1c7aa — doc-agent-v4 verification run)
 

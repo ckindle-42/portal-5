@@ -8,6 +8,7 @@ Routes by workspace to the appropriate backend + model.
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import json
 import logging
 import os
@@ -513,9 +514,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _health_task.cancel()
     if _http_client:
         await _http_client.aclose()
+    await BackendRegistry.close_health_client()
 
 
-app = FastAPI(title="Portal Pipeline", version="5.1.0", lifespan=lifespan)
+try:
+    _PKG_VERSION = importlib.metadata.version("portal-5")
+except importlib.metadata.PackageNotFoundError:
+    _PKG_VERSION = "dev"
+app = FastAPI(title="Portal Pipeline", version=_PKG_VERSION, lifespan=lifespan)
 
 
 def _verify_key(authorization: str | None) -> None:
@@ -528,7 +534,8 @@ def _verify_key(authorization: str | None) -> None:
 
 @app.get("/health")
 async def health() -> dict:
-    assert registry is not None
+    if registry is None:
+        raise HTTPException(status_code=503, detail="Backend registry not initialised")
     healthy = registry.list_healthy_backends()
     return {
         "status": "ok" if healthy else "degraded",
@@ -553,7 +560,8 @@ async def metrics() -> PlainTextResponse:
     for ws_id, count in _request_count.items():
         lines.append(f'portal_requests_total{{workspace="{ws_id}"}} {count}')
 
-    assert registry is not None
+    if registry is None:
+        raise HTTPException(status_code=503, detail="Backend registry not initialised")
     healthy = len(registry.list_healthy_backends())
     total = len(registry.list_backends())
 
@@ -616,7 +624,8 @@ async def chat_completions(
 ) -> Any:
     _verify_key(authorization)
 
-    assert _request_semaphore is not None
+    if _request_semaphore is None:
+        raise HTTPException(status_code=503, detail="Request semaphore not initialised")
     try:
         await asyncio.wait_for(_request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT)
     except asyncio.TimeoutError:
@@ -628,7 +637,8 @@ async def chat_completions(
 
     _is_streaming = False
     try:
-        assert registry is not None
+        if registry is None:
+            raise HTTPException(status_code=503, detail="Backend registry not initialised")
 
         body = await request.json()
         workspace_id = body.get("model") or "auto"
@@ -724,19 +734,24 @@ async def _stream_from_backend_guarded(
     This is required because StreamingResponse returns immediately (before the
     generator runs), so the normal finally-block release fires too early.
     """
-    assert _http_client is not None
+    if _http_client is None:
+        logger.error("HTTP client not initialised — yielding error chunk")
+        yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
+        sem.release()
+        return
     try:
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
+                logger.error(
+                    "Backend %s returned HTTP %d: %s",
+                    url,
+                    resp.status_code,
+                    err[:200].decode(errors="replace"),
+                )
                 yield (
                     "data: "
-                    + json.dumps(
-                        {
-                            "error": f"Backend {resp.status_code}: "
-                            + err[:100].decode(errors="replace")
-                        }
-                    )
+                    + json.dumps({"error": f"Backend returned HTTP {resp.status_code}"})
                     + "\n\n"
                 ).encode()
                 return
@@ -764,7 +779,11 @@ async def _stream_from_backend_guarded(
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
-        yield ("data: " + json.dumps({"error": f"Backend connection error: {e}"}) + "\n\n").encode()
+        yield (
+            "data: "
+            + json.dumps({"error": "Backend connection error — check server logs"})
+            + "\n\n"
+        ).encode()
     finally:
         sem.release()  # Release AFTER generator is fully exhausted
 
@@ -772,7 +791,8 @@ async def _stream_from_backend_guarded(
 async def _complete_from_backend(
     url: str, body: dict, workspace_id: str = "unknown", model: str = "unknown"
 ) -> JSONResponse:
-    assert _http_client is not None
+    if _http_client is None:
+        raise HTTPException(status_code=503, detail="Pipeline not ready")
     try:
         resp = await _http_client.post(url, json=body)
         resp.raise_for_status()
@@ -781,4 +801,4 @@ async def _complete_from_backend(
         return JSONResponse(content=data)
     except Exception as e:
         logger.error("Completion error from %s: %s", url, e)
-        raise HTTPException(status_code=502, detail=f"Backend error: {e}") from e
+        raise HTTPException(status_code=502, detail="Backend error — check server logs") from e

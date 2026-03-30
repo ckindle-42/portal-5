@@ -137,8 +137,16 @@ class BackendRegistry:
             # Graceful fallback: create empty registry
             return
 
-        with open(self.config_path, encoding="utf-8") as f:
-            cfg: dict[str, Any] = yaml.safe_load(f) or {}
+        try:
+            with open(self.config_path, encoding="utf-8") as f:
+                cfg: dict[str, Any] = yaml.safe_load(f) or {}
+        except yaml.YAMLError as exc:
+            logger.error(
+                "Failed to parse %s: %s — BackendRegistry empty, all requests will 503",
+                self.config_path,
+                exc,
+            )
+            return
 
         # Verify env interpolation
         sample_url = (cfg.get("backends") or [{}])[0].get("url", "")
@@ -301,6 +309,14 @@ class BackendRegistry:
                 break
             except Exception as e:
                 logger.error("Health loop error: %s", e)
+
+    @classmethod
+    async def close_health_client(cls) -> None:
+        """Close the shared health-check HTTP client. Call on app shutdown."""
+        if cls._health_client is not None:
+            await cls._health_client.aclose()
+            cls._health_client = None
+            logger.debug("Health check HTTP client closed")
 
     @property
     def request_timeout(self) -> float:

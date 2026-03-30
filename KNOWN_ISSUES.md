@@ -69,14 +69,27 @@ This document tracks known limitations in Portal 5. These are items that have be
 
 ---
 
+## Testing
+
+### MCP Endpoint Test Skip (Resolved in v5.2.0)
+- **ID**: P5-ROAD-107
+- **Status**: RESOLVED
+- **Description**: MCP endpoint tests (`test_mcp_endpoints.py`) previously ERROR'd
+  instead of SKIP when MCP dependencies were not installed. Fixed by adding
+  `pytest.importorskip` guards at module level.
+- **Resolved**: 2026-03-30 (v5.2.0)
+
+---
+
 ## Future Considerations
 
 - Rate limiting at the API gateway level
 - Per-user quota enforcement
 - Usage analytics dashboard
 - Webhook-based event notifications
+- Docs/LOAD_TESTING.md — Locust scenario for 25 concurrent users
 
 ---
 
-*Last updated: 2026-03-03*
-*Part of Portal 5.1.0 release documentation*
+*Last updated: 2026-03-30*
+*Part of Portal 5.2.0 release documentation*

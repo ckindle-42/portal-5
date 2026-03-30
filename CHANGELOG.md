@@ -2,6 +2,46 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [5.2.0] - 2026-03-30
+
+### Fixed
+- **router_pipe.py**: Replaced all `assert` statements in HTTP handlers with proper
+  `HTTPException(503)` raises — assertions are silently elided by Python `-O` flag,
+  which would cause AssertionError in optimised deployments (lines 517, 542, 605, 617, 713, 761)
+- **router_pipe.py**: Sanitised backend error messages returned to clients — internal
+  URLs, stack traces, and backend response bodies are now logged server-side only;
+  clients receive generic "Backend returned HTTP NNN" / "check server logs" messages
+- **router_pipe.py**: Version string now reads from `importlib.metadata` (single
+  source of truth: `pyproject.toml`) instead of a hardcoded literal
+- **router_pipe.py**: Added `BackendRegistry.close_health_client()` call in lifespan
+  shutdown — previously the shared health-check connection pool was never drained
+- **cluster_backends.py**: `yaml.safe_load()` now wrapped in `try/except yaml.YAMLError`
+  — a malformed backends.yaml previously crashed silently; now logs a clear error and
+  returns an empty registry (all requests return 503 with an actionable message)
+- **cluster_backends.py**: Added `close_health_client()` classmethod — cleans up the
+  shared httpx client on shutdown to prevent connection pool leaks
+- **tts_mcp.py**: Fish Speech backend device detection now auto-selects mps/cuda/cpu
+  instead of hardcoding `device="mps"` (broke on Linux CUDA and CPU-only systems)
+- **music_mcp.py**: Stable Audio backend device detection now auto-selects mps/cuda/cpu
+  using the same priority order (was hardcoded `cuda or cpu`, missing Apple Silicon MPS)
+- **test_mcp_endpoints.py**: Added module-level `pytest.importorskip` guards for
+  `fastmcp` and `portal_mcp.generation.tts_mcp` — MCP endpoint tests now SKIP cleanly
+  instead of ERROR when MCP dependencies are not installed (resolves P5-ROAD-107)
+- **docker-compose.yml**: Added `cpus: "4.0"` limit to DinD service — previously only
+  memory was bounded; an unterminated container process could consume all host CPU
+
+### Added
+- **.env.example**: Documented 8 previously undocumented environment variables used by
+  Python code: `OPENWEBUI_ADMIN_NAME`, `PIPELINE_PORT`, `PIPELINE_URL`,
+  `PIPELINE_TIMEOUT`, `BACKEND_CONFIG_PATH`, `PROMETHEUS_MULTIPROC_DIR`, `MODELS_DIR`
+  (resolves P5-ROAD-146)
+
+### Changed
+- Version bumped 5.1.0 → 5.2.0 across `pyproject.toml`, `portal_pipeline/__init__.py`,
+  `portal_channels/__init__.py`, `CLAUDE.md`
+
+---
+
 ## [5.1.0] - 2026-03-06
 
 ### Fixed

@@ -9,6 +9,7 @@ No real Telegram/Slack tokens required. The adapters are now importable without
 tokens set (tokens are read inside build_app(), not at module level).
 """
 
+import importlib.util
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,6 +23,11 @@ sys.path.insert(0, ".")
 
 class TestTelegramAdapter:
     """Test Telegram bot logic without a real token or API connection."""
+
+    pytestmark = pytest.mark.skipif(
+        importlib.util.find_spec("telegram") is None,
+        reason="python-telegram-bot not installed — run: pip install python-telegram-bot",
+    )
 
     def test_module_imports_without_token(self):
         """Module must be importable without TELEGRAM_BOT_TOKEN set."""
@@ -254,6 +260,11 @@ class TestTelegramAdapter:
 class TestSlackAdapter:
     """Test Slack bot logic without real tokens."""
 
+    pytestmark = pytest.mark.skipif(
+        importlib.util.find_spec("slack_bolt") is None,
+        reason="slack-bolt not installed — run: pip install slack-bolt",
+    )
+
     def test_module_imports_without_tokens(self):
         """Module must be importable without SLACK_BOT_TOKEN set."""
         import importlib
@@ -362,6 +373,11 @@ class TestSlackAdapter:
 
 class TestDocumentMCPTools:
     """Test document generation tool names and actual file creation."""
+
+    pytestmark = pytest.mark.skipif(
+        any(importlib.util.find_spec(pkg) is None for pkg in ("docx", "openpyxl", "pptx")),
+        reason="python-docx / openpyxl / python-pptx not installed — run: pip install -e '.[dev,mcp]'",
+    )
 
     def test_registered_tool_names_match_manifest(self):
         """Tool names used by AI must match @mcp.tool() registered names."""
@@ -499,7 +515,10 @@ class TestAllMCPServerToolAlignment:
         import sys
 
         sys.path.insert(0, ".")
-        mod = importlib.import_module(module_path)
+        try:
+            mod = importlib.import_module(module_path)
+        except ImportError as exc:
+            pytest.skip(f"Optional dep missing for {module_path}: {exc}")
         registered = set(mod.mcp._tool_manager._tools.keys())
         manifest = {t["name"] for t in mod.TOOLS_MANIFEST}
 

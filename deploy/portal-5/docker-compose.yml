@@ -331,11 +331,12 @@ services:
       - DOCKER_TLS_CERTDIR=        # Disable TLS — internal network only
     volumes:
       - dind-storage:/var/lib/docker
-    # P7: Memory limit prevents DinD from consuming all system RAM.
+    # P7: Resource limits prevent DinD from consuming all system RAM/CPU.
     deploy:
       resources:
         limits:
           memory: 2G
+          cpus: "4.0"
     healthcheck:
       test: ["CMD", "docker", "info"]
       interval: 20s

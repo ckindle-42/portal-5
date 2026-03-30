@@ -269,7 +269,13 @@ def _stable_audio_sync(prompt: str, duration: float) -> dict:
 
         logger.info("Loading Stable Audio Open model...")
         model, _ = get_pretrained_model("stabilityai/stable-audio-open-1.0")
-        model = model.to("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.backends.mps.is_available():
+            device = "mps"
+        elif torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        model = model.to(device)
 
         logger.info("Generating: %s", prompt[:80])
         # Generate audio
