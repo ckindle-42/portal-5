@@ -492,6 +492,16 @@ _request_semaphore: asyncio.Semaphore | None = None
 _OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
 _OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
 
+# ── Routing visibility ─────────────────────────────────────────────────────────
+# When true, the first line of every streaming response shows which workspace and
+# model was selected. Set SHOW_ROUTING_STATUS=true in .env to enable.
+# Default false — clean output. Useful for debugging auto-routing decisions.
+_SHOW_ROUTING_STATUS: bool = os.environ.get("SHOW_ROUTING_STATUS", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task | None = None
 
@@ -781,7 +791,7 @@ async def chat_completions(
             # Construct first, mark streaming only after success
             # If StreamingResponse() raises, finally block correctly releases semaphore
             _streaming_response = StreamingResponse(
-                _stream_from_backend_guarded(
+                _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
                     _request_semaphore,
@@ -803,6 +813,61 @@ async def chat_completions(
             # Non-streaming: response fully awaited above, safe to release here
             # Streaming: generator releases after stream completes
             _request_semaphore.release()
+
+
+async def _stream_with_preamble(
+    url: str,
+    body: dict,
+    sem: asyncio.Semaphore,
+    workspace_id: str = "unknown",
+    model: str = "unknown",
+) -> AsyncIterator[bytes]:
+    """Emit an immediate OpenAI role chunk before connecting to the backend.
+
+    Problem: without this, Open WebUI shows nothing (frozen input, no typing
+    indicator) until Ollama returns its first token. That wait includes model
+    load time (10-30s cold start) plus prompt prefill — entirely silent from
+    the user's perspective.
+
+    Fix: yield a valid OpenAI streaming chunk immediately. FastAPI flushes this
+    to the client before the backend connection is even opened, causing Open WebUI
+    to show the typing indicator and mark the response as started. The actual
+    backend response follows as normal.
+
+    The preamble chunk carries an empty delta content — it adds no visible text to
+    the chat. If SHOW_ROUTING_STATUS=true, a second chunk annotates the response
+    with the selected workspace and model name.
+    """
+    ts = int(time.time())
+    request_id = f"chatcmpl-p5-{ts}"
+
+    # Empty role chunk — starts Open WebUI typing indicator with zero latency.
+    preamble = {
+        "id": request_id,
+        "object": "chat.completion.chunk",
+        "created": ts,
+        "model": workspace_id,
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
+    }
+    yield f"data: {json.dumps(preamble)}\n\n".encode()
+
+    # Optional routing annotation — shows workspace + model at top of response.
+    # Enables SHOW_ROUTING_STATUS=true in .env.
+    if _SHOW_ROUTING_STATUS:
+        ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
+        status_text = f"`⚡ {ws_name} → {model}`\n\n"
+        status_chunk = {
+            "id": request_id,
+            "object": "chat.completion.chunk",
+            "created": ts,
+            "model": workspace_id,
+            "choices": [{"index": 0, "delta": {"content": status_text}, "finish_reason": None}],
+        }
+        yield f"data: {json.dumps(status_chunk)}\n\n".encode()
+
+    # Stream from backend — semaphore released by _stream_from_backend_guarded finally.
+    async for chunk in _stream_from_backend_guarded(url, body, sem, workspace_id=workspace_id, model=model):
+        yield chunk
 
 
 async def _stream_from_backend_guarded(
