@@ -23,7 +23,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
 
-from portal_pipeline.cluster_backends import BackendRegistry
+from portal_pipeline.cluster_backends import Backend, BackendRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -479,6 +479,33 @@ _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
 _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
 _request_semaphore: asyncio.Semaphore | None = None
 
+# ── Ollama per-request TTFT tuning ────────────────────────────────────────────
+# keep_alive: how long Ollama keeps the model loaded after a request completes.
+#   "-1" = never unload. Eliminates the 10-30s cold-start on the next request.
+#   Native Ollama default is ~5 min; docker-ollama sets OLLAMA_KEEP_ALIVE=24h
+#   server-wide, but native installs don't get that. Injecting it per-request
+#   covers both cases reliably.
+# num_batch: tokens processed per prompt-evaluation pass (Ollama default: 512).
+#   2048 = 4× throughput during prefill — cuts TTFT on long conversation histories.
+#   Safe upper bound: match your model's training context / 8. 2048 fits all
+#   models in the catalog without exceeding their attention window.
+_OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
+try:
+    _OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
+except ValueError:
+    _OLLAMA_NUM_BATCH = 2048
+    logger.warning("Invalid OLLAMA_NUM_BATCH value — must be an integer. Using default: %d", _OLLAMA_NUM_BATCH)
+
+# ── Routing visibility ─────────────────────────────────────────────────────────
+# When true, the first line of every streaming response shows which workspace and
+# model was selected. Set SHOW_ROUTING_STATUS=true in .env to enable.
+# Default false — clean output. Useful for debugging auto-routing decisions.
+_SHOW_ROUTING_STATUS: bool = os.environ.get("SHOW_ROUTING_STATUS", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task | None = None
 
@@ -558,6 +585,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "config/backends.yaml URLs are reachable from this container"
         )
     _health_task = asyncio.create_task(registry.start_health_loop())
+
+    # Pre-load the default general model so the first user request isn't the one
+    # that pays the cold-start penalty. Runs as a background task — startup is not
+    # blocked if Ollama is slow or the model isn't pulled yet.
+    # Use the same model-selection logic as chat_completions() so the warmed model
+    # matches what real traffic will actually use.
+    _general_backend = registry.get_backend_for_workspace("auto")
+    if _general_backend and _general_backend.type == "ollama":
+        _model_hint = WORKSPACES["auto"].get("model_hint", "")
+        if _model_hint and _model_hint in _general_backend.models:
+            _warmup_model = _model_hint
+        else:
+            _warmup_model = _general_backend.models[0] if _general_backend.models else None
+        if _warmup_model:
+            asyncio.create_task(_warmup_backend(_general_backend, _warmup_model))
+
     yield
     if _health_task:
         _health_task.cancel()
@@ -735,6 +778,11 @@ async def chat_completions(
 
         backend_body = {**body, "model": target_model}
 
+        # Inject keep_alive + num_batch for Ollama backends.
+        # Skipped for MLX (doesn't accept these fields) and vLLM (uses its own config).
+        if backend.type == "ollama":
+            backend_body = _inject_ollama_options(backend_body)
+
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s",
             workspace_id,
@@ -747,7 +795,7 @@ async def chat_completions(
             # Construct first, mark streaming only after success
             # If StreamingResponse() raises, finally block correctly releases semaphore
             _streaming_response = StreamingResponse(
-                _stream_from_backend_guarded(
+                _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
                     _request_semaphore,
@@ -771,22 +819,84 @@ async def chat_completions(
             _request_semaphore.release()
 
 
-async def _stream_from_backend_guarded(
+async def _stream_with_preamble(
     url: str,
     body: dict,
     sem: asyncio.Semaphore,
     workspace_id: str = "unknown",
     model: str = "unknown",
 ) -> AsyncIterator[bytes]:
-    """Stream from backend and release semaphore only when stream is complete.
+    """Emit an immediate OpenAI role chunk before connecting to the backend.
 
-    This is required because StreamingResponse returns immediately (before the
-    generator runs), so the normal finally-block release fires too early.
+    Problem: without this, Open WebUI shows nothing (frozen input, no typing
+    indicator) until Ollama returns its first token. That wait includes model
+    load time (10-30s cold start) plus prompt prefill — entirely silent from
+    the user's perspective.
+
+    Fix: yield a valid OpenAI streaming chunk immediately. FastAPI flushes this
+    to the client before the backend connection is even opened, causing Open WebUI
+    to show the typing indicator and mark the response as started. The actual
+    backend response follows as normal.
+
+    The preamble chunk carries an empty delta content — it adds no visible text to
+    the chat. If SHOW_ROUTING_STATUS=true, a second chunk annotates the response
+    with the selected workspace and model name.
+    """
+    ts = int(time.time())
+    request_id = f"chatcmpl-p5-{ts}"
+
+    def _make_chunk(delta: dict) -> bytes:
+        """Serialise a single OpenAI-compatible SSE chunk."""
+        payload = {
+            "id": request_id,
+            "object": "chat.completion.chunk",
+            "created": ts,
+            "model": workspace_id,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+        }
+        return f"data: {json.dumps(payload)}\n\n".encode()
+
+    # Empty role chunk — starts Open WebUI typing indicator with zero latency.
+    yield _make_chunk({"role": "assistant", "content": ""})
+
+    # Optional routing annotation — shows workspace + model at top of response.
+    if _SHOW_ROUTING_STATUS:
+        ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
+        yield _make_chunk({"content": f"`⚡ {ws_name} → {model}`\n\n"})
+
+    # Stream from backend.
+    # Semaphore ownership: _stream_with_preamble owns sem and releases it in its
+    # own finally block (below). _stream_from_backend_guarded is called with
+    # sem=None so its finally does NOT also release — preventing double-release.
+    # This closes the window where a client disconnect after the preamble yield but
+    # before the backend stream starts would leave sem permanently acquired.
+    try:
+        async for chunk in _stream_from_backend_guarded(url, body, sem=None, workspace_id=workspace_id, model=model):
+            yield chunk
+    finally:
+        sem.release()
+
+
+async def _stream_from_backend_guarded(
+    url: str,
+    body: dict,
+    sem: asyncio.Semaphore | None,
+    workspace_id: str = "unknown",
+    model: str = "unknown",
+) -> AsyncIterator[bytes]:
+    """Stream from backend and optionally release semaphore when stream is complete.
+
+    sem=None: caller (e.g. _stream_with_preamble) owns semaphore release.
+    sem=Semaphore: this function releases it in its finally block.
+
+    The sem=None path exists so _stream_with_preamble can own the full semaphore
+    lifecycle via its own try/finally, closing the early-disconnect leak window.
     """
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
-        sem.release()
+        if sem is not None:
+            sem.release()
         return
     try:
         async with _http_client.stream("POST", url, json=body) as resp:
@@ -834,7 +944,8 @@ async def _stream_from_backend_guarded(
             + "\n\n"
         ).encode()
     finally:
-        sem.release()  # Release AFTER generator is fully exhausted
+        if sem is not None:
+            sem.release()  # Release AFTER generator is fully exhausted
 
 
 async def _complete_from_backend(
