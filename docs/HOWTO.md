@@ -229,7 +229,7 @@ curl -s http://localhost:8913/health
 # Should return: {"status": "ok"}
 
 # List available tools
-curl -s http://localhost:8913/mcp/tools | python3 -m json.tool
+curl -s http://localhost:8913/tools | python3 -m json.tool
 ```
 
 **Output:** Files are returned as downloadable attachments in the chat.
@@ -271,8 +271,11 @@ Generate an image of a futuristic city skyline at sunset, cyberpunk style, neon 
 
 **Verify:**
 ```bash
-curl -s http://localhost:8910/health
-# Returns: {"status": "ok", "comfyui_url": "http://host.docker.internal:8188"}
+# ComfyUI runs natively on host at http://localhost:8188 (not in Docker)
+curl -s http://localhost:8188/system_stats | python3 -c "import sys,json; d=json.load(sys.stdin); print('ComfyUI:', d['system']['comfyui_version'], '| MPS available:', 'mps' in [dev['type'] for dev in d['system']['devices']])"
+
+# ComfyUI MCP bridge health (from inside container):
+docker exec portal5-mcp-comfyui python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8910/health').read().decode())"
 ```
 
 ---
@@ -426,8 +429,8 @@ curl -X POST http://localhost:8915/v1/audio/transcriptions \
 
 **Verify:**
 ```bash
-curl -s http://localhost:8915/health
-# Returns: {"status": "ok", "model": "base"}
+# Whisper MCP health (from inside container):
+docker exec portal5-mcp-whisper python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())"
 ```
 
 **Note:** The first transcription downloads the Whisper model (~150MB). Subsequent calls are instant.
@@ -492,7 +495,7 @@ PDF (with image extraction), DOCX, TXT, Markdown, CSV, HTML
 **Verify:**
 ```bash
 # Embedding model should be pulled
-docker exec ollama ollama list | grep nomic-embed-text
+docker exec portal5-ollama ollama list | grep nomic-embed-text
 ```
 
 ### Cross-session memory
@@ -572,7 +575,7 @@ Write me a Python web scraper   — normal chat (uses current workspace)
 
 ```bash
 # Check container is running
-docker compose -f deploy/portal-5/docker-compose.yml ps telegram-bot
+docker compose -f deploy/portal-5/docker-compose.yml ps portal-telegram
 
 # Message your bot /start on Telegram
 # Should respond with a welcome message
@@ -616,7 +619,7 @@ Direct messages to the bot also work — just message it directly.
 ### Verify
 
 ```bash
-docker compose -f deploy/portal-5/docker-compose.yml ps slack-bot
+docker compose -f deploy/portal-5/docker-compose.yml ps portal-slack
 # Mention @portal in any channel — should respond
 ```
 
