@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 _request_count: dict[str, int] = {}
 _startup_time = time.time()
 
+# Cached multiprocess collector registry — rebuilt only when the process
+# directory changes, not on every /metrics scrape.
+_mp_registry_cache: CollectorRegistry | None = None
+_mp_registry_dir_cache: str | None = None
+
 # ── Prometheus metrics (per-model granularity) ────────────────────────────
 # Use a separate registry to avoid conflicts with default prometheus_client
 # global state when running with multiple uvicorn workers.
@@ -410,25 +415,31 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     if not last_user_content:
         return None
 
-    # Redteam check first — more specific than security
-    redteam_hits = sum(1 for kw in _REDTEAM_KEYWORDS if kw in last_user_content)
-    if redteam_hits >= 2:
-        return "auto-redteam"
+    # Redteam check first — more specific than security (needs 2 hits).
+    # Early-exit loop: stop scanning as soon as threshold is met.
+    redteam_hits = 0
+    for kw in _REDTEAM_KEYWORDS:
+        if kw in last_user_content:
+            redteam_hits += 1
+            if redteam_hits >= 2:
+                return "auto-redteam"
 
-    # Security check (broader — includes defensive topics)
-    security_hits = sum(1 for kw in _SECURITY_KEYWORDS if kw in last_user_content)
-    if security_hits >= 1:
+    # Security check (broader — includes defensive topics). 1 hit is enough;
+    # any() short-circuits on the first match instead of scanning all keywords.
+    if any(kw in last_user_content for kw in _SECURITY_KEYWORDS):
         return "auto-security"
 
-    # Coding check
-    coding_hits = sum(1 for kw in _CODING_KEYWORDS if kw in last_user_content)
-    if coding_hits >= 1:
+    # Coding check — same single-hit short-circuit.
+    if any(kw in last_user_content for kw in _CODING_KEYWORDS):
         return "auto-coding"
 
-    # Reasoning check (requires 2+ signals to avoid false positives)
-    reasoning_hits = sum(1 for kw in _REASONING_KEYWORDS if kw in last_user_content)
-    if reasoning_hits >= 2:
-        return "auto-reasoning"
+    # Reasoning check (requires 2+ signals to avoid false positives).
+    reasoning_hits = 0
+    for kw in _REASONING_KEYWORDS:
+        if kw in last_user_content:
+            reasoning_hits += 1
+            if reasoning_hits >= 2:
+                return "auto-reasoning"
 
     return None
 
@@ -546,15 +557,21 @@ async def metrics() -> PlainTextResponse:
         "# TYPE portal_workspaces_total gauge",
         f"portal_workspaces_total {len(WORKSPACES)}",
     ]
-    # Combine hand-rolled metrics with prometheus_client metrics
+    # Combine hand-rolled metrics with prometheus_client metrics.
     # Use multiprocess collector when PROMETHEUS_MULTIPROC_DIR is set
-    # (aggregates metrics across all uvicorn workers)
-    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-        from prometheus_client import CollectorRegistry, multiprocess
+    # (aggregates metrics across all uvicorn workers).
+    # Cache the registry object — MultiProcessCollector reads from disk files,
+    # so there's no need to reconstruct it on every scrape.
+    global _mp_registry_cache, _mp_registry_dir_cache
+    mp_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+    if mp_dir:
+        if _mp_registry_cache is None or _mp_registry_dir_cache != mp_dir:
+            from prometheus_client import multiprocess
 
-        _mp_registry = CollectorRegistry()
-        multiprocess.MultiProcessCollector(_mp_registry)
-        prometheus_output = generate_latest(_mp_registry).decode("utf-8")
+            _mp_registry_cache = CollectorRegistry()
+            multiprocess.MultiProcessCollector(_mp_registry_cache)
+            _mp_registry_dir_cache = mp_dir
+        prometheus_output = generate_latest(_mp_registry_cache).decode("utf-8")
     else:
         prometheus_output = generate_latest(_REGISTRY).decode("utf-8")
     return PlainTextResponse("\n".join(lines) + "\n" + prometheus_output)

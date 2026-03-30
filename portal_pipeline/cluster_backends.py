@@ -121,6 +121,9 @@ class BackendRegistry:
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
         self._max_concurrent_health_checks = 2  # P3: prevent health-check storm
+        # P8: cached healthy-backend list — rebuilt only after each health check
+        # cycle, not on every inference request.
+        self._cached_healthy: list[Backend] = []
 
         self._load_config()
 
@@ -182,8 +185,18 @@ class BackendRegistry:
         return list(self._backends.values())
 
     def list_healthy_backends(self) -> list[Backend]:
-        """Return only backends passing health checks."""
-        return [b for b in self._backends.values() if b.healthy]
+        """Return only backends passing health checks.
+
+        Returns the cached list populated after each health-check cycle (P8).
+        Falls back to a live scan only before the first health check completes.
+        """
+        return self._cached_healthy if self._cached_healthy else [
+            b for b in self._backends.values() if b.healthy
+        ]
+
+    def _refresh_healthy_cache(self) -> None:
+        """Rebuild the cached healthy-backend list. Called after each health cycle."""
+        self._cached_healthy = [b for b in self._backends.values() if b.healthy]
 
     def get_backend_for_workspace(self, workspace_id: str) -> Backend | None:
         """Select the best healthy backend for a given workspace.
@@ -246,7 +259,8 @@ class BackendRegistry:
             *[self._check_one(b, sem, client) for b in self._backends.values()],
             return_exceptions=True,
         )
-        healthy_count = len([b for b in self._backends.values() if b.healthy])
+        self._refresh_healthy_cache()  # P8: update cache after all checks complete
+        healthy_count = len(self._cached_healthy)
         logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
 
     async def _check_one(
