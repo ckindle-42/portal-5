@@ -1,4 +1,4 @@
-# Portal 5.1 — Backup & Restore Guide
+# Portal 5.2 — Backup & Restore Guide
 
 This guide covers backup and restore procedures for all Portal 5 data.
 

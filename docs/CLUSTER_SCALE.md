@@ -1,4 +1,4 @@
-# Portal 5.1 — Cluster Scale-Out Guide
+# Portal 5.2 — Cluster Scale-Out Guide
 
 Portal 5.1 is designed to grow from a single M4 Mac to a 12-node Mac Studio
 cluster without any code changes. All scaling is done by editing config/backends.yaml.

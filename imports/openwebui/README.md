@@ -9,9 +9,9 @@ On first launch with a fresh volume, the `openwebui-init` container automaticall
 2. Registers all 7 MCP tool servers
 3. Creates all 13 workspace presets
 
-Default admin credentials:
-- **Email:** `admin@portal.local`
-- **Password:** `portal-admin-change-me` (change in `.env` before first launch)
+Admin credentials are auto-generated on first launch and stored in `.env`:
+- **Email:** `admin@portal.local` (default, overridable via `OPENWEBUI_ADMIN_EMAIL`)
+- **Password:** randomly generated 16-char string (see `.env` after first run)
 
 To re-run seeding manually:
 ```bash
@@ -20,9 +20,15 @@ bash launch.sh seed
 
 ## Clean Restart for Testing
 
-To wipe the Open WebUI database (users, tool servers, workspaces, chat history) while preserving Ollama models, Qdrant, and ComfyUI model files:
+To wipe the Open WebUI database (users, tool servers, workspaces, chat history) while preserving Ollama models and ComfyUI model files:
 ```bash
-bash launch.sh clean-ui
+bash launch.sh clean
+bash launch.sh up
+```
+
+To wipe everything including Ollama models:
+```bash
+bash launch.sh clean-all
 bash launch.sh up
 ```
 

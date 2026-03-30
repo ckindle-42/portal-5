@@ -1,4 +1,4 @@
-# Portal 5.1 — User Guide
+# Portal 5.2 — User Guide
 
 ## Getting Access
 
