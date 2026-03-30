@@ -85,10 +85,10 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 
 **Verify workspace routing:**
 ```bash
-curl -s http://localhost:9099/v1/models | python3 -m json.tool | grep '"id"'
-# Expected: 13 workspace IDs: auto, auto-coding, auto-security, auto-redteam,
-#   auto-blueteam, auto-creative, auto-reasoning, auto-documents, auto-video,
-#   auto-music, auto-research, auto-vision, auto-data
+curl -s http://localhost:9099/v1/models \
+  -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
+  | python3 -m json.tool | grep '"id"'
+# Expected: 13 workspace IDs (auto, auto-coding, auto-security, auto-redteam, etc.)
 ```
 
 ---
