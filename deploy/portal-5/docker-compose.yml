@@ -71,13 +71,14 @@ services:
       - "127.0.0.1:9099:9099"
     volumes:
       - ../../config/backends.yaml:/app/config/backends.yaml:ro
+      - pipeline-metrics:/tmp/portal_metrics
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
       - PIPELINE_PORT=9099
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
-      - PROMETHEUS_MULTIPROC_DIR=${PROMETHEUS_MULTIPROC_DIR:-}
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/portal_metrics
       # Notifications
       - NOTIFICATIONS_ENABLED=${NOTIFICATIONS_ENABLED:-false}
       - SLACK_ALERT_WEBHOOK_URL=${SLACK_ALERT_WEBHOOK_URL:-}
@@ -625,3 +626,4 @@ volumes:
   comfyui-output:      # ComfyUI generated images/videos
   prometheus-data:     # Prometheus metrics data
   grafana-data:        # Grafana dashboards/data
+  pipeline-metrics:    # Portal Pipeline prometheus multiprocess dir
