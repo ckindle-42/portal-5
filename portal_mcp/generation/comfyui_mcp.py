@@ -129,10 +129,18 @@ FLUX_WORKFLOW = {
         "class_type": "EmptyLatentImage",
     },
     "4": {
-        "inputs": {"guidance": 3.5, "text": ""},
-        "class_type": "FluxGuidance",
+        "inputs": {"clip_name1": "text_encoder/model.safetensors", "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors", "type": "flux"},
+        "class_type": "DualCLIPLoader",
     },
     "5": {
+        "inputs": {"text": "", "clip": ["4", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "6": {
+        "inputs": {"conditioning": ["5", 0], "guidance": 3.5},
+        "class_type": "FluxGuidance",
+    },
+    "7": {
         "inputs": {
             "seed": 42,
             "steps": 4,
@@ -140,19 +148,19 @@ FLUX_WORKFLOW = {
             "sampler_name": "euler",
             "scheduler": "simple",
             "model": ["1", 0],
-            "positive": ["4", 0],
+            "positive": ["6", 0],
             "negative": "",
             "latent_image": ["3", 0],
             "denoise": 1,
         },
         "class_type": "KSampler",
     },
-    "6": {
-        "inputs": {"samples": ["5", 0], "vae": ["2", 0]},
+    "8": {
+        "inputs": {"samples": ["7", 0], "vae": ["2", 0]},
         "class_type": "VAEDecode",
     },
-    "7": {
-        "inputs": {"filename_prefix": "portal_", "images": ["6", 0]},
+    "9": {
+        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
         "class_type": "SaveImage",
     },
 }
@@ -234,13 +242,13 @@ async def generate_image(
         workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 50)
         workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
     else:
-        # FLUX workflow
-        workflow["4"]["inputs"]["text"] = prompt
+        # FLUX workflow: DualCLIPLoader -> CLIPTextEncode -> FluxGuidance -> KSampler -> VAEDecode
+        workflow["5"]["inputs"]["text"] = prompt  # CLIPTextEncode (node 5)
         workflow["3"]["inputs"]["width"] = width
         workflow["3"]["inputs"]["height"] = height
-        workflow["5"]["inputs"]["noise_seed"] = seed
-        workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 20)
-        workflow["5"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
+        workflow["7"]["inputs"]["seed"] = seed  # KSampler (node 7) uses 'seed'
+        workflow["7"]["inputs"]["steps"] = min(max(steps, 1), 20)
+        workflow["7"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
 
     client_id = str(uuid.uuid4())
 
