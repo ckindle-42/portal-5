@@ -23,7 +23,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
 
-from portal_pipeline.cluster_backends import BackendRegistry
+from portal_pipeline.cluster_backends import Backend, BackendRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -479,12 +479,78 @@ _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
 _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
 _request_semaphore: asyncio.Semaphore | None = None
 
+# ── Ollama per-request TTFT tuning ────────────────────────────────────────────
+# keep_alive: how long Ollama keeps the model loaded after a request completes.
+#   "-1" = never unload. Eliminates the 10-30s cold-start on the next request.
+#   Native Ollama default is ~5 min; docker-ollama sets OLLAMA_KEEP_ALIVE=24h
+#   server-wide, but native installs don't get that. Injecting it per-request
+#   covers both cases reliably.
+# num_batch: tokens processed per prompt-evaluation pass (Ollama default: 512).
+#   2048 = 4× throughput during prefill — cuts TTFT on long conversation histories.
+#   Safe upper bound: match your model's training context / 8. 2048 fits all
+#   models in the catalog without exceeding their attention window.
+_OLLAMA_KEEP_ALIVE: str = os.environ.get("OLLAMA_KEEP_ALIVE_REQUEST", "-1")
+_OLLAMA_NUM_BATCH: int = int(os.environ.get("OLLAMA_NUM_BATCH", "2048"))
+
 registry: BackendRegistry | None = None
 _health_task: asyncio.Task | None = None
 
 # Shared httpx client for backend inference — P1: connection pool reused across
 # all streaming and completion requests, avoiding TCP/TLS handshake overhead.
 _http_client: httpx.AsyncClient | None = None
+
+
+def _inject_ollama_options(body: dict) -> dict:
+    """Inject Ollama-specific TTFT performance defaults not already in the request.
+
+    Only called for backends with type='ollama'. Skipped for MLX and vLLM which
+    do not recognise these fields.
+
+    - keep_alive: top-level Ollama field (not inside 'options'). Prevents model
+      unloading between requests, eliminating cold-start latency.
+    - num_batch: inside 'options'. Larger batch = faster prompt evaluation = lower
+      TTFT on multi-turn conversations with long histories.
+    """
+    body = dict(body)
+    body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
+    opts: dict = dict(body.get("options") or {})
+    opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
+    body["options"] = opts
+    return body
+
+
+async def _warmup_backend(backend: Backend, model: str) -> None:
+    """Pre-load a model into GPU memory before the first real user request.
+
+    Ollama loads models lazily — without warmup the first user request pays
+    a 10-30 s cold-start penalty while the model maps into RAM/VRAM.
+    Sending a 1-token dummy completion during startup eliminates this.
+    Failure is non-fatal: if the model isn't pulled yet, logs a warning.
+    """
+    if _http_client is None:
+        return
+    warmup_body = {
+        "model": model,
+        "messages": [{"role": "user", "content": " "}],
+        "max_tokens": 1,
+        "stream": False,
+        "keep_alive": _OLLAMA_KEEP_ALIVE,
+        "options": {"num_batch": _OLLAMA_NUM_BATCH},
+    }
+    try:
+        logger.info("Warming up %s with model %s ...", backend.id, model)
+        resp = await _http_client.post(backend.chat_url, json=warmup_body, timeout=60.0)
+        if resp.status_code == 200:
+            logger.info("Warmup complete — %s loaded on %s", model, backend.id)
+        else:
+            logger.warning(
+                "Warmup HTTP %d for %s on %s — model may not be pulled yet",
+                resp.status_code,
+                model,
+                backend.id,
+            )
+    except Exception as exc:
+        logger.warning("Warmup failed for %s on %s: %s", model, backend.id, exc)
 
 
 @asynccontextmanager
@@ -509,6 +575,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "config/backends.yaml URLs are reachable from this container"
         )
     _health_task = asyncio.create_task(registry.start_health_loop())
+
+    # Pre-load the default general model so the first user request isn't the one
+    # that pays the cold-start penalty. Runs as a background task — startup is not
+    # blocked if Ollama is slow or the model isn't pulled yet.
+    _general_backend = registry.get_backend_for_workspace("auto")
+    if _general_backend and _general_backend.type == "ollama":
+        _default_model = WORKSPACES["auto"].get("model_hint") or (
+            _general_backend.models[0] if _general_backend.models else None
+        )
+        if _default_model:
+            asyncio.create_task(_warmup_backend(_general_backend, _default_model))
+
     yield
     if _health_task:
         _health_task.cancel()
@@ -685,6 +763,11 @@ async def chat_completions(
                 )
 
         backend_body = {**body, "model": target_model}
+
+        # Inject keep_alive + num_batch for Ollama backends.
+        # Skipped for MLX (doesn't accept these fields) and vLLM (uses its own config).
+        if backend.type == "ollama":
+            backend_body = _inject_ollama_options(backend_body)
 
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s",
