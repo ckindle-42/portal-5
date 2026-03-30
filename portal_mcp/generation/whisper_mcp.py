@@ -29,8 +29,7 @@ async def openai_audio_transcriptions(request):
     """
     import tempfile
 
-    from starlette.responses import JSONResponse
-
+    tmp_path: str | None = None
     try:
         form = await request.form()
         audio_file = form.get("file")
@@ -57,11 +56,10 @@ async def openai_audio_transcriptions(request):
     # Transcribe
     result = await transcribe_audio(file_path=tmp_path)
 
-    # Clean up temp file
-    import os
-
+    # Clean up temp file (only if one was created)
     with contextlib.suppress(Exception):
-        os.unlink(tmp_path)
+        if tmp_path:
+            os.unlink(tmp_path)
 
     if "error" in result:
         return JSONResponse(result, status_code=500)
@@ -171,4 +169,5 @@ async def transcribe_audio(file_path: str, language: str | None = None) -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))
     mcp.settings.port = port
+    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

@@ -533,6 +533,7 @@ class TestAllMCPServerToolAlignment:
                 "audiocraft",
                 "stable_audio_tools",
                 "stable-audio-tools",
+                "torch",
             )
             if any(pkg in exc_lower for pkg in optional_pkgs):
                 pytest.skip(f"Optional dep missing for {module_path}: {exc}")

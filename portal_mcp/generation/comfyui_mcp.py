@@ -273,15 +273,19 @@ async def generate_image(
 async def list_workflows() -> list[str]:
     """List available ComfyUI workflow checkpoints."""
     client = await _get_client()
-    resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
-    data = resp.json()
-    checkpoints = (
-        data.get("CheckpointLoaderSimple", {})
-        .get("input", {})
-        .get("required", {})
-        .get("ckpt_name", [[]])[0]
-    )
-    return checkpoints
+    try:
+        resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
+        resp.raise_for_status()
+        data = resp.json()
+        checkpoints = (
+            data.get("CheckpointLoaderSimple", {})
+            .get("input", {})
+            .get("required", {})
+            .get("ckpt_name", [[]])[0]
+        )
+        return checkpoints if isinstance(checkpoints, list) else []
+    except Exception:
+        return []
 
 
 @mcp.tool()
@@ -311,6 +315,7 @@ async def get_generation_status(job_id: str) -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("COMFYUI_MCP_PORT", "8910"))
     mcp.settings.port = port
+    mcp.settings.host = "0.0.0.0"
     try:
         mcp.run(transport="streamable-http")
     finally:

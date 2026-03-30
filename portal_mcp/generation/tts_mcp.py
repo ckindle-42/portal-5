@@ -12,6 +12,7 @@ import contextlib
 import logging
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -329,7 +330,7 @@ def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
         samples, sample_rate = kokoro.create(text, voice=voice, speed=speed, lang="en-us")
 
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = OUTPUT_DIR / f"tts_{hash(text) & 0xFFFFFF}.wav"
+        output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         sf.write(str(output_path), samples, sample_rate)
 
         return {
@@ -364,7 +365,7 @@ def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
         logger.info("Generating speech for: %s", text[:50])
         audio = tts.generate(text, speaker_id=voice, speed=speed)
 
-        output_path = OUTPUT_DIR / f"tts_{hash(text) & 0xFFFFFF}.wav"
+        output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         get_audio(audio).save(str(output_path))
 
         return {
@@ -418,7 +419,7 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
         ref_audio, ref_sr = load_audio(reference_audio_path)
         audio = get_audio(model, text, reference=ref_audio)
 
-        output_path = OUTPUT_DIR / f"clone_{hash(text) & 0xFFFFFF}.wav"
+        output_path = OUTPUT_DIR / f"clone_{uuid.uuid4().hex[:12]}.wav"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         import soundfile as sf
