@@ -483,7 +483,11 @@ _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
 
 # Semaphore acquisition timeout in milliseconds. Default 50ms survives normal
 # scheduling jitter. Set to 0 to restore original 1ms non-blocking behavior.
-_SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
+try:
+    _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
+except ValueError:
+    _SEMAPHORE_TIMEOUT = 0.050
+    logger.warning("Invalid SEMAPHORE_TIMEOUT_MS value — must be a number. Using default: 50ms")
 _request_semaphore: asyncio.Semaphore | None = None
 
 # ── Ollama per-request TTFT tuning ────────────────────────────────────────────
@@ -1004,7 +1008,7 @@ async def _stream_from_backend_guarded(
                                         )
                                         break
                         except Exception:
-                            pass  # Never let metrics parsing break the stream
+                            logger.debug("Could not parse usage payload from stream: %s", payload)
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)

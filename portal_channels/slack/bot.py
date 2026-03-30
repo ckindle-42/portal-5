@@ -56,6 +56,8 @@ def _get_tokens() -> tuple[str, str, str]:
         missing.append("SLACK_BOT_TOKEN (xoxb-...)")
     if not app_token:
         missing.append("SLACK_APP_TOKEN (xapp-...)")
+    if not signing_secret:
+        missing.append("SLACK_SIGNING_SECRET (from app settings → Basic Information)")
 
     if missing:
         raise RuntimeError(
@@ -113,8 +115,13 @@ def build_app():
         """Handle direct messages to the bot."""
         if event.get("channel_type") != "im":
             return
-        if event.get("subtype"):
-            return  # skip bot messages, edits, etc.
+        if event.get("subtype") in (
+            "bot_message",
+            "message_changed",
+            "message_deleted",
+            "message_replied",
+        ):
+            return  # skip bot messages, edits, and threaded replies
 
         user_text = event.get("text", "").strip()
         if not user_text:

@@ -381,7 +381,11 @@ def convert_document(
                 shutil.move(str(converted), str(out_path))
                 return {"success": True, "path": str(out_path), "method": "libreoffice"}
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # LibreOffice not installed — fall through to copy fallback
+        logger.debug(
+            "LibreOffice conversion failed (not installed or timed out) — using copy fallback"
+        )
+    except OSError as e:
+        logger.debug("LibreOffice subprocess error: %s", e)
 
     # Fallback: copy with new extension (only meaningful for same-family formats)
     same_family = {

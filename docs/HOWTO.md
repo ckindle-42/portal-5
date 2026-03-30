@@ -557,11 +557,11 @@ Future sessions will remember this context.
 
 ```
 /start                          — verify connection
-/workspace coding               — switch to coding workspace
-/workspace security             — switch to security workspace
-/workspace auto                 — switch to auto routing
+/workspace <name>              — switch workspace (see options below)
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
+
+**Available workspaces:** `auto`, `auto-coding`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`
 
 ### Verify
 
@@ -916,6 +916,7 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh pull-models     # Pull all Ollama models (30-90 min)
 ./launch.sh install-mlx     # Install MLX for Apple Silicon
 ./launch.sh switch-mlx-model <tag>  # Switch active MLX model
+./launch.sh import-gguf <path> [name]  # Import a local .gguf file into Ollama
 
 # Users
 ./launch.sh add-user <email> [name] [role]

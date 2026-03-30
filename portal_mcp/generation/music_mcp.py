@@ -89,7 +89,7 @@ async def list_tools(request):
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(os.getenv("GENERATED_FILES_DIR", "data/generated"))
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_MUSIC_FILES = int(os.getenv("MAX_MUSIC_FILES", "20"))
@@ -172,6 +172,9 @@ async def generate_music(
         temperature: Sampling temperature (default 1.0)
         cfg_coef: Classifier-free guidance strength (default 3.0; higher = closer to prompt)
     """
+    # Clamp duration to valid range
+    duration = max(5.0, min(30.0, duration))
+
     # Handle stable-audio separately
     if model_size == "stable-audio":
         available, error = _check_stable_audio()

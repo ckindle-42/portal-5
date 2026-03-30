@@ -9,6 +9,7 @@ Start with: python -m mcp.generation.video_mcp
 """
 
 import asyncio
+import logging
 import os
 import time
 import uuid
@@ -17,6 +18,8 @@ import httpx
 from starlette.responses import JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
+
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP("video-generation")
 
@@ -329,6 +332,11 @@ async def generate_video(
                             "frames": frames,
                             "fps": fps,
                         }
+            logger.debug(
+                "ComfyUI history for prompt_id=%s had no video output. history=%s",
+                prompt_id,
+                history.get(prompt_id),
+            )
             return {
                 "success": False,
                 "error": "Generation completed but no video output found. Check ComfyUI logs.",

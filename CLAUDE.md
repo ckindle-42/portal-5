@@ -198,7 +198,7 @@ These are the Ollama models Portal 5 is designed around. All pulled via `ollama 
 | Qwen3 Coder 30B | `qwen3-coder-next:30b-q5` | Code generation, review | 24GB |
 | Devstral 24B | `devstral:24b` | Code, agentic development | 20GB |
 | DeepSeek Coder 16B | `deepseek-coder-v2:16b-lite-instruct-q4_K_M` | Code, math | 11GB |
-| Qwen3 Omni 30B | `qwen3-omni:30b` | Multimodal, vision, audio | 30GB |
+| Qwen3 VL 32B | `qwen3-vl:32b` | Multimodal, vision, audio | 32GB |
 | LLaVA 7B | `llava:7b` | Vision / image understanding | 8GB |
 | Llama 3.2 3B | `llama3.2:3b-instruct-q4_K_M` | Fast routing classifier | 3GB |
 
@@ -355,6 +355,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 ## ComfyUI Setup (Image/Video Generation)
 
 ComfyUI runs **outside Docker** on the host (Mac bare-metal for MPS, or with GPU passthrough for CUDA). This is intentional — GPU access from Docker is complex and ComfyUI already handles its own model management.
+**Linux with NVIDIA GPU:** use `./launch.sh up --profile docker-comfyui` instead (ComfyUI runs in Docker with CUDA passthrough).
 
 **Mac (MPS):**
 ```bash
@@ -416,7 +417,7 @@ Every feature must work from `./launch.sh up` without manual steps.
 
 | Feature | How it achieves zero-setup |
 |---|---|
-| Image generation | ComfyUI runs in Docker; models auto-downloaded by comfyui-model-init |
+| Image generation | ComfyUI runs natively on host (MPS/CUDA); models auto-downloaded. Optional Docker profile: `./launch.sh up --profile docker-comfyui` |
 | Music generation | AudioCraft/Stable Audio in Dockerfile.mcp; models auto-downloaded |
 | Voice TTS | kokoro-onnx in Dockerfile.mcp; models auto-downloaded on first call |
 | Voice cloning | fish-speech is OPTIONAL; degrade gracefully with helpful message |
