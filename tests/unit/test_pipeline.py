@@ -614,6 +614,12 @@ class TestR23MLXSupport:
         assert "pull-mlx-models" in content
         assert "mlx_lm" in content
         assert "mlx-community/Qwen3-Coder-Next-4bit" in content
+        # ASK-01: speculative decoding support
+        assert "MLX_SPECULATIVE" in content, "launch.sh must contain MLX_SPECULATIVE for speculative decoding"
+        # ASK-05: mlx-lm version pin asserted after pip install
+        assert "0.30.5" in content and "packaging.version" in content, (
+            "launch.sh must assert mlx-lm>=0.30.5 after install"
+        )
 
 
 class TestRecordUsageMetrics:

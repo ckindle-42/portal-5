@@ -199,6 +199,26 @@ These are the Ollama models Portal 5 is designed around. All pulled via `ollama 
 | LLaVA 7B | `llava:7b` | Vision / image understanding | 8GB |
 | Llama 3.2 3B | `llama3.2:3b-instruct-q4_K_M` | Fast routing classifier | 3GB |
 
+### MLX Models (Apple Silicon)
+
+MLX models run via `mlx_lm.server` at `:8081` — 20-40% faster than Ollama GGUF on M-series.
+Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model <tag>`.
+**mlx_lm serves ONE model at a time** — set `MLX_MODEL` in `.env` to switch.
+**Memory Coexistence** assumes Ollama + ComfyUI also running simultaneously.
+
+| Model | Memory | Safe Concurrent With |
+|---|---|---|
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | ComfyUI + Ollama + Wan2.2 video |
+| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Everything — safe baseline |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Ollama only (3B) — unload others first |
+
+**64GB systems**: Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB total — feasible.
+**64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
+**32GB systems**: Use Llama-3.2-3B (~2GB) or Devstral-Small (~13GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
+
 ### Generation Models (ComfyUI / HuggingFace)
 
 | Model | Source | Purpose |

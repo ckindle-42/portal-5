@@ -19,6 +19,7 @@ PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY") or "portal-pipeline"
 if PIPELINE_API_KEY == "portal-pipeline" and not os.environ.get("PIPELINE_API_KEY"):
     import logging as _log
+
     _log.getLogger(__name__).warning(
         "PIPELINE_API_KEY not set — using insecure default. Set in .env."
     )

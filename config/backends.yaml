@@ -7,6 +7,12 @@ backends:
   # Requires: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
   # mlx_lm serves ONE model at a time — set MLX_MODEL in .env to switch
   # When mlx_lm is not running, router falls through to Ollama automatically
+  #
+  # Memory coexistence guide (Ollama + ComfyUI also running simultaneously):
+  #   64GB system:  Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB ✓
+  #                 Llama-3.3-70B (~40GB) + Ollama only — set OLLAMA_MAX_LOADED_MODELS=1
+  #   32GB system:  Devstral-Small (~13GB) + ComfyUI + Ollama = ~25GB ✓
+  #                 Qwen3-Coder-Next (~18GB) possible but leaves no room for video
   - id: mlx-apple-silicon
     type: mlx
     url: "${MLX_URL:-http://host.docker.internal:8081}"

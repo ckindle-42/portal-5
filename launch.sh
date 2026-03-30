@@ -1383,7 +1383,11 @@ PLIST
     echo "  Installing mlx-lm (>=0.30.5 required for Qwen3-Coder-Next)..."
     pip3 install "mlx-lm>=0.30.5" --upgrade --quiet 2>/dev/null || \
         pip3 install "mlx-lm>=0.30.5" --upgrade --quiet --break-system-packages
-    echo "  ✅ mlx-lm installed: $(python3 -c 'import mlx_lm; print(mlx_lm.__version__)' 2>/dev/null || echo 'ok')"
+    # ASK-05: Verify version pin — prevents silent downgrade breaking Qwen3-Coder-Next
+    python3 -c "import mlx_lm; from packaging.version import Version; \
+        v=mlx_lm.__version__; assert Version(v)>=Version('0.30.5'), \
+        f'mlx-lm {v} < 0.30.5 — Qwen3-Coder-Next requires >=0.30.5'; \
+        print(f'  ✅ mlx-lm {v}')"
 
     # Create start wrapper
     MLX_DIR="$HOME/.portal5/mlx"
@@ -1393,11 +1397,18 @@ PLIST
 #!/bin/bash
 # Portal 5 — mlx_lm inference server
 # Usage: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh
+# Optional: MLX_SPECULATIVE=true for ~1.5x throughput (needs mlx-lm>=0.30.5)
 MODEL="${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
 PORT="${MLX_PORT:-8081}"
+SPECULATIVE="${MLX_SPECULATIVE:-false}"
+SPEC_FLAG=""
+if [ "$SPECULATIVE" = "true" ]; then
+    SPEC_FLAG="--speculative-decoding"
+    echo "[portal5-mlx] Speculative decoding: enabled"
+fi
 echo "[portal5-mlx] Starting: $MODEL on :$PORT"
 echo "[portal5-mlx] Logs: ~/.portal5/logs/mlx.log"
-python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0
+python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0 $SPEC_FLAG
 MLXSTART
     chmod +x "$MLX_DIR/start.sh"
     echo "  ✅ Start wrapper: $MLX_DIR/start.sh"
@@ -1449,6 +1460,8 @@ MLXSTART
         <string>${HOME}</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>MLX_SPECULATIVE</key>
+        <string>${MLX_SPECULATIVE:-false}</string>
     </dict>
 </dict>
 </plist>
@@ -1465,11 +1478,118 @@ MLXPLIST
     echo ""
     echo "Next steps:"
     echo "  1. Pull MLX models:  ./launch.sh pull-mlx-models"
-    echo "  2. Start inference:  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+    echo "  2. Start inference:  ~/.portal5/mlx/start.sh"
     echo "  3. Start Portal:     ./launch.sh up"
+    echo ""
+    echo "Speculative decoding (~1.5x throughput):"
+    echo "  MLX_SPECULATIVE=true ~/.portal5/mlx/start.sh"
+    echo "  Or set MLX_SPECULATIVE=true in .env and restart:"
+    echo "    launchctl stop com.portal5.mlx && launchctl start com.portal5.mlx"
     echo ""
     echo "NOTE: mlx_lm serves ONE model at a time."
     echo "      Portal automatically falls back to Ollama when mlx_lm is not running."
+    ;;
+
+  switch-mlx-model)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    MODEL="${2:-}"
+    if [ -z "$MODEL" ]; then
+        echo "Usage: ./launch.sh switch-mlx-model <mlx-community/model-tag>"
+        echo ""
+        echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
+        echo "  mlx-community/Qwen3-Coder-Next-4bit          (~18GB — primary coder)"
+        echo "  mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  (~17GB)"
+        echo "  mlx-community/DeepSeek-R1-0528-4bit         (~18GB — reasoning)"
+        echo "  mlx-community/Llama-3.2-3B-Instruct-4bit    (~2GB — fast routing)"
+        echo "  mlx-community/Llama-3.3-70B-Instruct-4bit   (~40GB — heavy, unload others first)"
+        echo ""
+        echo "Current: ${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
+        exit 1
+    fi
+
+    echo "Switching MLX model to: $MODEL"
+
+    # Update MLX_MODEL in .env (backup original)
+    if [ -f "$ENV_FILE" ]; then
+        cp "$ENV_FILE" "$ENV_FILE.bak"
+        if sed -i.bak "s|^MLX_MODEL=.*|MLX_MODEL=${MODEL}|" "$ENV_FILE" 2>/dev/null; then
+            rm -f "$ENV_FILE.bak"
+            echo "  ✅ Updated MLX_MODEL in .env"
+        else
+            mv "$ENV_FILE.bak" "$ENV_FILE"
+            echo "  ❌ Failed to update .env — check MLX_MODEL=$MODEL is valid"
+            exit 1
+        fi
+    else
+        echo "  ⚠️  .env not found — MLX_MODEL env var only (session-scoped)"
+    fi
+
+    # Regenerate start.sh with new model
+    MLX_DIR="$HOME/.portal5/mlx"
+    if [ -f "$MLX_DIR/start.sh" ]; then
+        sed -i.bak "s|^MODEL=.*|MODEL=\"${MODEL}\"|" "$MLX_DIR/start.sh" 2>/dev/null || \
+            sed "s|^MODEL=.*|MODEL=\"${MODEL}\"|" "$MLX_DIR/start.sh" > "${MLX_DIR/start.sh}.new" && \
+            mv "${MLX_DIR/start.sh}.new" "$MLX_DIR/start.sh"
+        rm -f "$MLX_DIR/start.sh.bak"
+        echo "  ✅ Updated $MLX_DIR/start.sh"
+    fi
+
+    # Regenerate and restart launchd service (macOS)
+    if [ "$(uname -s)" = "Darwin" ]; then
+        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
+        if [ -f "$PLIST_PATH" ]; then
+            PYTHON_PATH=$(python3 -c "import mlx_lm, sys; print(sys.executable)" 2>/dev/null || which python3)
+            MLX_LOG_DIR="$HOME/.portal5/logs"
+            MLX_SPECULATIVE_VAL="${MLX_SPECULATIVE:-false}"
+            cat > "$PLIST_PATH" << MLXPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.mlx</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${PYTHON_PATH}</string>
+        <string>-m</string>
+        <string>mlx_lm.server</string>
+        <string>--model</string>
+        <string>${MODEL}</string>
+        <string>--port</string>
+        <string>8081</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${MLX_LOG_DIR}/mlx.log</string>
+    <key>StandardErrorPath</key>
+    <string>${MLX_LOG_DIR}/mlx-error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>${HOME}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>MLX_SPECULATIVE</key>
+        <string>${MLX_SPECULATIVE_VAL}</string>
+    </dict>
+</dict>
+</plist>
+MLXPLIST
+            launchctl unload "$PLIST_PATH" 2>/dev/null || true
+            launchctl load "$PLIST_PATH" 2>/dev/null || true
+            echo "  ✅ Restarted com.portal5.mlx service"
+        fi
+    fi
+
+    echo ""
+    echo "✅ MLX model switched to: $MODEL"
+    echo "   Allow ~30s for model to load before querying."
+    echo "   Verify: curl -s http://localhost:8081/v1/models | python3 -m json.tool"
     ;;
 
   pull-mlx-models)
@@ -1561,6 +1681,24 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo ""
     echo "Start inference with:"
     echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+
+    # ASK-04: Check blocked Qwen3.5 MLX models — report when they become available
+    echo ""
+    echo "=== Checking blocked Qwen3.5 MLX models ==="
+    BLOCKED_MODELS=(
+        "mlx-community/Qwen3.5-35B-A3B-4bit"
+        "mlx-community/Qwen3.5-27B-4bit"
+    )
+    for m in "${BLOCKED_MODELS[@]}"; do
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://huggingface.co/api/models/${m#mlx-community/}" \
+            --max-time 5 2>/dev/null)
+        if [ "$STATUS" = "200" ]; then
+            echo "  ⚡ AVAILABLE: $m — uncomment in config/backends.yaml"
+        else
+            echo "  ⏳ Still blocked: $m (mlx-vlm conversion, not mlx-lm compatible)"
+        fi
+    done
     ;;
 
   import-gguf)
@@ -1647,7 +1785,7 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -1655,6 +1793,7 @@ MEOF
     echo "  install-mlx           Install mlx_lm for native Apple Silicon inference"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
+    echo "  switch-mlx-model <tag>  Hot-swap MLX inference model (updates .env + restarts service)"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
     echo "  up-channels           Start core stack + both Telegram and Slack"
