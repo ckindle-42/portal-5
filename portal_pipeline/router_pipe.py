@@ -858,13 +858,14 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 
 
 @app.get("/metrics")
-async def metrics(authorization: str | None = Header(None)) -> PlainTextResponse:
+async def metrics() -> PlainTextResponse:
     """Prometheus-compatible metrics endpoint.
 
     Note: request counters are per-worker when PIPELINE_WORKERS > 1.
     For aggregate counts, sum across scrape intervals or set PIPELINE_WORKERS=1.
+
+    Intentionally unauthenticated — Prometheus scrapes without credentials.
     """
-    _verify_key(authorization)
     uptime = time.time() - _startup_time
     lines = [
         "# HELP portal_requests_total Total requests by workspace (per-worker when workers>1)",
