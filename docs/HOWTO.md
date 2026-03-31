@@ -846,6 +846,11 @@ MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit
 ./launch.sh switch-mlx-model mlx-community/DeepSeek-R1-0528-4bit
 ```
 
+```bash
+# Switch to compliance/policy analysis model
+./launch.sh switch-mlx-model mlx-community/Qwen3.5-35B-A3B-4bit
+```
+
 ### Available MLX models
 
 | Model | RAM | Best for |
@@ -855,6 +860,9 @@ MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit
 | `mlx-community/Devstral-Small-2505-4bit` | ~13GB | Code + lightweight |
 | `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Fast baseline |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Maximum quality |
+| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | Long-context compliance, policy analysis, research |
+| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | Reasoning, research |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | Fast agentic coder |
 
 ### Memory coexistence (64GB system)
 

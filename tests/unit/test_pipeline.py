@@ -264,6 +264,112 @@ class TestWorkspaceModelHintUpdated:
         )
 
 
+class TestComplianceWorkspace:
+    """Verify auto-compliance workspace is correctly wired — MLX-first."""
+
+    def test_compliance_workspace_exists_in_router(self):
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        assert "auto-compliance" in WORKSPACES, (
+            "auto-compliance workspace missing from WORKSPACES dict in router_pipe.py"
+        )
+
+    def test_compliance_workspace_uses_mlx_model_hint(self):
+        """auto-compliance must use MLX Qwen3.5-35B as primary — not an Ollama GGUF tag."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-compliance"].get("model_hint", "")
+        assert hint, "auto-compliance workspace missing model_hint"
+        assert "mlx-community" in hint, (
+            f"auto-compliance model_hint must be an mlx-community/ model (Apple Silicon primary), "
+            f"got: {hint}"
+        )
+        assert "Qwen3.5-35B-A3B" in hint, (
+            f"auto-compliance should use Qwen3.5-35B-A3B-4bit for long-context policy analysis, "
+            f"got: {hint}"
+        )
+
+    def test_compliance_workspace_in_backends_yaml(self):
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        routing = cfg.get("workspace_routing", {})
+        assert "auto-compliance" in routing, (
+            "auto-compliance missing from workspace_routing in backends.yaml"
+        )
+        groups = routing["auto-compliance"]
+        assert groups[0] == "mlx", (
+            f"auto-compliance first routing group must be 'mlx' (Apple Silicon primary), got: {groups}"
+        )
+        assert "reasoning" in groups, (
+            f"auto-compliance must include reasoning group for Ollama fallback, got: {groups}"
+        )
+
+    def test_compliance_workspace_json_exists_and_valid(self):
+        import json
+        from pathlib import Path
+
+        ws_json = Path("imports/openwebui/workspaces/workspace_auto_compliance.json")
+        assert ws_json.exists(), f"Workspace JSON not found: {ws_json}"
+        ws = json.loads(ws_json.read_text())
+        assert ws["id"] == "auto-compliance"
+        assert ws["params"]["model"] == "auto-compliance"
+        assert len(ws["params"].get("system", "")) > 100, "System prompt suspiciously short"
+        assert "CIP" in ws["params"]["system"], "System prompt must reference CIP standards"
+
+    def test_compliance_mlx_model_in_mlx_backend(self):
+        """Qwen3.5-35B-A3B-4bit must be in the MLX backend — it's the primary routing target."""
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        mlx = [b for b in cfg["backends"] if b.get("type") == "mlx"]
+        assert mlx, "No MLX backend in backends.yaml"
+        models = mlx[0].get("models", [])
+        assert any("Qwen3.5-35B-A3B-4bit" in m for m in models), (
+            f"mlx-community/Qwen3.5-35B-A3B-4bit not in MLX backend models: {models}\n"
+            "This is the primary model for auto-compliance — must be present."
+        )
+
+    def test_compliance_personas_exist_with_mlx_model(self):
+        from pathlib import Path
+
+        import yaml
+
+        for slug in ["nerccipcomplianceanalyst", "cippolicywriter"]:
+            p = Path(f"config/personas/{slug}.yaml")
+            assert p.exists(), f"Persona file not found: {p}"
+            d = yaml.safe_load(p.read_text())
+            assert d.get("workspace_model"), f"{slug}: workspace_model missing"
+            assert "mlx-community" in d["workspace_model"], (
+                f"{slug}: workspace_model should be mlx-community/ model (Apple Silicon), "
+                f"got: {d['workspace_model']}"
+            )
+            assert "Qwen3.5-35B-A3B" in d["workspace_model"], (
+                f"{slug}: should use Qwen3.5-35B-A3B-4bit, got: {d['workspace_model']}"
+            )
+
+    def test_workspace_count_is_14(self):
+        """Total workspace count is now 14 (was 13)."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        assert len(WORKSPACES) == 14, (
+            f"Expected 14 workspaces after adding auto-compliance, got {len(WORKSPACES)}"
+        )
+
+    def test_compliance_routing_matches_reasoning_pattern(self):
+        """auto-compliance routing must follow the same pattern as other reasoning workspaces."""
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        routing = cfg["workspace_routing"]
+        # All reasoning-class workspaces start with mlx
+        for ws in ["auto-reasoning", "auto-research", "auto-data", "auto-compliance"]:
+            groups = routing.get(ws, [])
+            assert groups and groups[0] == "mlx", (
+                f"{ws} must prefer mlx group first (Apple Silicon primary), got: {groups}"
+            )
+
+
 class TestR17bModelExpansion:
     """Verify R17b model expansion: all recs.md models wired."""
 

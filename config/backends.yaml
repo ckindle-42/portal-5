@@ -136,6 +136,7 @@ workspace_routing:
   auto-research:  [mlx, reasoning, general]
   auto-vision:    [vision, general]   # No MLX — vision models only on Ollama
   auto-data:      [mlx, reasoning, general]
+  auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary, DeepSeek-R1 Ollama fallback
 
 defaults:
   fallback_group: general

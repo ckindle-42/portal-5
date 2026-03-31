@@ -42,6 +42,7 @@ VALID_WORKSPACES = frozenset(
         "auto-research",
         "auto-vision",
         "auto-data",
+        "auto-compliance",
     }
 )
 
