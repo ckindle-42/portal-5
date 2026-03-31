@@ -98,31 +98,37 @@ _response_time_seconds = Histogram(
 
 
 def _record_usage(model: str, workspace: str, data: dict) -> None:
-    """Extract usage fields from an Ollama response dict and record metrics.
+    """Extract usage fields from an Ollama or OpenAI-format response dict and record metrics.
 
     Safe to call with incomplete dicts — missing fields are skipped.
+    Supports both Ollama native format (eval_count, eval_duration, prompt_eval_count)
+    and OpenAI compatibility format (completion_tokens, prompt_tokens).
+    TPS can only be computed from Ollama format since OpenAI omits timing data.
     Updates both Prometheus histograms/counters and module-level aggregates
     used by the daily summary scheduler.
     """
     try:
-        eval_count = int(data.get("eval_count") or 0)
+        # Prefer OpenAI format fields (completion_tokens / prompt_tokens)
+        # Fall back to Ollama native (eval_count / prompt_eval_count)
+        completion_tokens = int(data.get("completion_tokens") or data.get("eval_count") or 0)
+        prompt_tokens = int(data.get("prompt_tokens") or data.get("prompt_eval_count") or 0)
         eval_duration_ns = int(data.get("eval_duration") or 0)
-        prompt_tokens = int(data.get("prompt_eval_count") or 0)
 
         _requests_by_model.labels(model=model, workspace=workspace).inc()
 
-        if eval_count > 0:
-            _output_tokens.labels(model=model, workspace=workspace).inc(eval_count)
+        if completion_tokens > 0:
+            _output_tokens.labels(model=model, workspace=workspace).inc(completion_tokens)
             global _total_output_tokens
-            _total_output_tokens += eval_count
+            _total_output_tokens += completion_tokens
 
         if prompt_tokens > 0:
             _input_tokens.labels(model=model, workspace=workspace).inc(prompt_tokens)
             global _total_input_tokens
             _total_input_tokens += prompt_tokens
 
-        if eval_count > 0 and eval_duration_ns > 0:
-            tps = eval_count / (eval_duration_ns / 1_000_000_000)
+        # TPS requires eval_duration — only available in Ollama native format
+        if completion_tokens > 0 and eval_duration_ns > 0:
+            tps = completion_tokens / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
             # Update running totals for daily summary
             global _total_tps, _request_tps_count
@@ -132,7 +138,7 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
                 "Usage: workspace=%s model=%s tokens=%d tps=%.1f",
                 workspace,
                 model,
-                eval_count,
+                completion_tokens,
                 tps,
             )
 
@@ -1122,25 +1128,29 @@ async def _stream_from_backend_guarded(
                 return
             async for chunk in resp.aiter_bytes():
                 if chunk:
-                    # P6: Check raw bytes for '"done"' before decode+string search.
-                    # Avoids decoding every non-final chunk (~99% of chunks in a long stream).
+                    # P6: Check raw bytes for '"done"' before decode — skip 99% of chunks.
                     if b'"done"' in chunk:
-                        try:
-                            text = chunk.decode("utf-8", errors="replace")
-                            for line in text.splitlines():
-                                line = line.strip()
-                                if line.startswith("data:") and "done" in line:
-                                    payload = line[5:].strip()
-                                    if payload and payload != "[DONE]":
+                        chunk_text = chunk.decode("utf-8", errors="replace")
+                        for line in chunk_text.splitlines():
+                            line = line.strip()
+                            if line.startswith("data:") and "done" in line:
+                                payload = line[5:].strip()
+                                if payload and payload != "[DONE]":
+                                    try:
                                         usage_data = json.loads(payload)
                                         _record_usage(
                                             model=usage_data.get("model", model),
                                             workspace=workspace_id,
                                             data=usage_data,
                                         )
-                                        break
-                        except Exception:
-                            logger.debug("Could not parse usage payload from stream: %s", payload)
+                                    except Exception:
+                                        logger.debug("Could not parse usage payload from stream")
+                                    break
+                    # OpenAI SSE: "data: [DONE]" terminator has no usage data.
+                    # For streaming, record request count at end using the routed model.
+                    # TPS cannot be computed from OpenAI SSE (no duration in stream).
+                    if b"data: [DONE]" in chunk:
+                        _record_usage(model=model, workspace=workspace_id, data={})
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
