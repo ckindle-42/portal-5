@@ -92,9 +92,9 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: reasoning
     models:
-      - dolphin-llama3:8b
+      - deepseek-r1:32b-q4_k_m           # Primary: strong reasoning + chain-of-thought
+      - dolphin-llama3:8b                 # Fast uncensored fallback
       - huihui_ai/tongyi-deepresearch-abliterated
-      - deepseek-r1:32b-q4_k_m           # was: hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
@@ -136,7 +136,7 @@ workspace_routing:
   auto-research:  [mlx, reasoning, general]
   auto-vision:    [vision, general]   # No MLX — vision models only on Ollama
   auto-data:      [mlx, reasoning, general]
-  auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary, DeepSeek-R1 Ollama fallback
+  auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary; reasoning group default (deepseek-r1:32b-q4_k_m) is Ollama fallback
 
 defaults:
   fallback_group: general
