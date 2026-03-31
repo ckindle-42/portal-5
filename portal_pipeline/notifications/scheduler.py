@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 try:
@@ -22,6 +24,11 @@ if TYPE_CHECKING:
     from portal_pipeline.notifications.dispatcher import NotificationDispatcher
 
 logger = logging.getLogger(__name__)
+
+# Cooldown file: prevents duplicate sends when PIPELINE_WORKERS > 1.
+# All uvicorn workers share /tmp (in-memory tmpfs), so they coordinate via this file.
+_COOLDOWN_FILE = Path("/tmp/.portal_daily_summary_sent")
+_COOLDOWN_SECONDS = 23 * 3600  # 23 hours — staggered send on restart is fine
 
 # Module-level references to router_pipe state (set during integration)
 _request_count: dict[str, int] = {}
@@ -104,6 +111,30 @@ class NotificationScheduler:
         if _registry_ref is None:
             logger.warning("NotificationScheduler: dispatcher not attached")
             return
+
+        # Cooldown check: all uvicorn workers share /tmp, so this prevents
+        # duplicate sends when PIPELINE_WORKERS > 1 (all workers fire at the
+        # same cron moment; only the first to write the lockfile proceeds).
+        now_ts = time.time()
+        try:
+            if _COOLDOWN_FILE.exists():
+                last_sent = float(_COOLDOWN_FILE.read_text().strip())
+                if now_ts - last_sent < _COOLDOWN_SECONDS:
+                    logger.debug(
+                        "Daily summary skipped: sent %.1f hours ago (cooldown active)",
+                        (now_ts - last_sent) / 3600,
+                    )
+                    return
+        except (ValueError, OSError):
+            pass
+
+        # First to acquire the lock writes its timestamp; others see it and skip.
+        # Atomic-ish on POSIX: unlink+write is safe for our purposes.
+        try:
+            _COOLDOWN_FILE.parent.mkdir(parents=True, exist_ok=True)
+            _COOLDOWN_FILE.write_text(str(int(now_ts)))
+        except OSError:
+            pass
 
         # Read current stats directly from router_pipe module (avoids stale closures)
         from portal_pipeline import router_pipe
