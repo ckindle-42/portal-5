@@ -101,17 +101,20 @@ _response_time_seconds = Histogram(
 )
 
 
-def _record_usage(model: str, workspace: str, data: dict) -> None:
+def _record_usage(model: str, workspace: str, data: dict, elapsed_seconds: float | None = None) -> None:
     """Extract usage fields from an Ollama or OpenAI-format response dict and record metrics.
 
     Safe to call with incomplete dicts — missing fields are skipped.
     Supports both Ollama native format (eval_count, eval_duration, prompt_eval_count)
     and OpenAI compatibility format (completion_tokens, prompt_tokens).
-    TPS can only be computed from Ollama format since OpenAI omits timing data.
+    TPS computation (fastest available method):
+      1. eval_duration_ns  — Ollama native model compute time (preferred)
+      2. elapsed_seconds    — wall-clock time from stream start (streaming fallback)
     Updates both Prometheus histograms/counters and module-level aggregates
     used by the daily summary scheduler.
     """
     try:
+        global _total_output_tokens, _total_input_tokens, _total_tps, _request_tps_count, _req_count_by_model
         # Prefer OpenAI format fields (completion_tokens / prompt_tokens)
         # Fall back to Ollama native (eval_count / prompt_eval_count)
         completion_tokens = int(data.get("completion_tokens") or data.get("eval_count") or 0)
@@ -122,24 +125,34 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
 
         if completion_tokens > 0:
             _output_tokens.labels(model=model, workspace=workspace).inc(completion_tokens)
-            global _total_output_tokens
             _total_output_tokens += completion_tokens
 
         if prompt_tokens > 0:
             _input_tokens.labels(model=model, workspace=workspace).inc(prompt_tokens)
-            global _total_input_tokens
             _total_input_tokens += prompt_tokens
 
-        # TPS requires eval_duration — only available in Ollama native format
+        # TPS: prefer Ollama's eval_duration; fall back to wall-clock elapsed time (streaming)
         if completion_tokens > 0 and eval_duration_ns > 0:
             tps = completion_tokens / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
             # Update running totals for daily summary
-            global _total_tps, _request_tps_count
             _total_tps += tps
             _request_tps_count += 1
             logger.debug(
-                "Usage: workspace=%s model=%s tokens=%d tps=%.1f",
+                "Usage: workspace=%s model=%s tokens=%d tps=%.1f (model time)",
+                workspace,
+                model,
+                completion_tokens,
+                tps,
+            )
+        elif completion_tokens > 0 and elapsed_seconds and elapsed_seconds > 0:
+            tps = completion_tokens / elapsed_seconds
+            _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
+            # Update running totals for daily summary
+            _total_tps += tps
+            _request_tps_count += 1
+            logger.debug(
+                "Usage: workspace=%s model=%s tokens=%d tps=%.1f (wall clock)",
                 workspace,
                 model,
                 completion_tokens,
@@ -147,7 +160,6 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
             )
 
         # Track per-model request count for summary (plain dict, not the Counter)
-        global _req_count_by_model
         _req_count_by_model[model] = _req_count_by_model.get(model, 0) + 1
 
     except Exception as e:
@@ -1150,19 +1162,20 @@ async def _stream_from_backend_guarded(
                                 if payload and payload != "[DONE]":
                                     try:
                                         usage_data = json.loads(payload)
+                                        elapsed = (time.monotonic() - start_time) if start_time is not None else None
                                         _record_usage(
                                             model=usage_data.get("model", model),
                                             workspace=workspace_id,
                                             data=usage_data,
+                                            elapsed_seconds=elapsed,
                                         )
                                     except Exception:
                                         logger.debug("Could not parse usage payload from stream")
                                     break
-                    # OpenAI SSE: "data: [DONE]" terminator has no usage data.
-                    # For streaming, record request count at end using the routed model.
-                    # TPS cannot be computed from OpenAI SSE (no duration in stream).
+                    # OpenAI SSE: "data: [DONE]" terminator — no usage data, but record with elapsed time.
                     if b"data: [DONE]" in chunk:
-                        _record_usage(model=model, workspace=workspace_id, data={})
+                        elapsed = (time.monotonic() - start_time) if start_time is not None else None
+                        _record_usage(model=model, workspace=workspace_id, data={}, elapsed_seconds=elapsed)
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
