@@ -505,7 +505,7 @@ services:
 
   # ── SearXNG — Self-hosted privacy-respecting web search ──────────────────
   searxng:
-    image: searxng/searxng:2024.11.13-0
+    image: searxng/searxng:latest
     container_name: portal5-searxng
     restart: unless-stopped
     ports:
