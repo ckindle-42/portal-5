@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir \
     "uvicorn[standard]>=0.27.0" \
     "httpx>=0.26.0" \
     "pyyaml>=6.0.1" \
-    "prometheus-client>=0.19.0"
+    "prometheus-client>=0.19.0" \
+    "APScheduler>=3.10.0"
 
 # Copy application code
 COPY portal_pipeline/ ./portal_pipeline/

@@ -96,8 +96,8 @@ services:
       - ALERT_BACKEND_DOWN_THRESHOLD=${ALERT_BACKEND_DOWN_THRESHOLD:-3}
       - ALERT_NO_HEALTHY_BACKENDS=${ALERT_NO_HEALTHY_BACKENDS:-true}
       - ALERT_SUMMARY_ENABLED=${ALERT_SUMMARY_ENABLED:-true}
-      - ALERT_SUMMARY_HOUR=${ALERT_SUMMARY_HOUR:-9}
-      - ALERT_SUMMARY_TIMEZONE=${ALERT_SUMMARY_TIMEZONE:-UTC}
+      - ALERT_SUMMARY_HOUR=${ALERT_SUMMARY_HOUR:-8}
+      - ALERT_SUMMARY_TIMEZONE=${ALERT_SUMMARY_TIMEZONE:-America/Chicago}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []
@@ -168,7 +168,7 @@ services:
       # new signups require admin approval before they can use the system
       # Admin approves at: Admin Panel > Users > set role to 'user'
       # To allow immediate access: change to DEFAULT_USER_ROLE=user
-      - ENABLE_SIGNUP=true
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
       - DEFAULT_USER_ROLE=pending
       - ENABLE_LOGIN_FORM=true
 
