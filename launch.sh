@@ -826,6 +826,149 @@ case "${1:-up}" in
         [ -n "$ollama_cmd" ] && $ollama_cmd list 2>/dev/null | grep -q "^${model_name}"
     }
 
+    # ── Refresh model (force re-pull even if present) ─────────────────────────
+    _refresh_model() {
+        local model="$1"
+        local ollama_cmd
+        ollama_cmd=$(_ollama_cmd)
+
+        if [ -z "$ollama_cmd" ]; then
+            echo "  ❌ No Ollama available. Run: ./launch.sh install-ollama"
+            return 1
+        fi
+
+        # ── Native Ollama registry (no hf.co/ prefix) ────────────────────────
+        if [[ "$model" != hf.co/* ]]; then
+            echo "  Checking: $model"
+            $ollama_cmd pull --force "$model"
+            return $?
+        fi
+
+        # ── HuggingFace model ───────────────────────────────────────────────
+        local repo_id="${model#hf.co/}"
+        local actual_repo=""
+        local filename=""
+        local glob_pattern=""
+        local ollama_name=""
+        local gated="false"
+
+        case "$repo_id" in
+            AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF)
+                actual_repo="AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+                filename="baronllm-llama3.1-v1-q6_k.gguf"
+                ollama_name="baronllm:q6_k"
+                gated="true"
+                ;;
+            segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF)
+                actual_repo="segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+                filename="Lily-7B-Instruct-v0.2.Q4_K_M.gguf"
+                ollama_name="lily-cybersecurity:7b-q4_k_m"
+                ;;
+            cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF)
+                actual_repo="bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF"
+                filename="cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf"
+                ollama_name="dolphin3-r1-mistral:24b-q4_k_m"
+                ;;
+            WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF)
+                actual_repo="dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF"
+                filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
+                ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
+                ;;
+            unsloth/GLM-4.7-Flash-GGUF)
+                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
+                filename="GLM-4.7-Flash-Q4_K_M.gguf"
+                ollama_name="glm-4.7-flash:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
+                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
+                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
+                ollama_name="deepseek-coder-v2-lite:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-R1-32B-GGUF)
+                actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
+                filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+                ollama_name="deepseek-r1:32b-q4_k_m"
+                ;;
+            cognitivecomputations/dolphin-3-llama3-70b-GGUF)
+                actual_repo="bartowski/dolphin-2.9.1-llama3-70b-GGUF"
+                filename="dolphin-2.9.1-llama3-70b-Q4_K_M.gguf"
+                ollama_name="dolphin-llama3:70b-q4_k_m"
+                ;;
+            meta-llama/Meta-Llama-3.3-70B-GGUF)
+                actual_repo="bartowski/Llama-3.3-70B-Instruct-GGUF"
+                filename="Llama-3.3-70B-Instruct-Q4_K_M.gguf"
+                ollama_name="llama3.3:70b-q4_k_m"
+                ;;
+            *)
+                echo "  ⚠️  No verified spec for $repo_id — attempting direct ollama pull"
+                $ollama_cmd pull --force "$model"
+                return $?
+                ;;
+        esac
+
+        if [ "$gated" = "true" ] && [ -z "${HF_TOKEN:-}" ]; then
+            echo "  ❌ $actual_repo requires HF_TOKEN (gated repo)"
+            return 1
+        fi
+
+        _ensure_hf_cli
+
+        echo "  Re-downloading: https://huggingface.co/$actual_repo"
+        local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
+        local _hf_err
+        _hf_err=$(mktemp)
+        local gguf_path=""
+        if [ -n "$filename" ]; then
+            mkdir -p "$_dl_dir"
+            gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
+                DL_REPO="$actual_repo" \
+                DL_FILE="$filename" \
+                DL_DIR="$_dl_dir" \
+                python3 -W ignore -c "
+import os, sys, warnings
+warnings.filterwarnings('ignore')
+from huggingface_hub import hf_hub_download
+token = os.environ.get('HF_TOKEN') or None
+try:
+    path = hf_hub_download(
+        repo_id=os.environ['DL_REPO'],
+        filename=os.environ['DL_FILE'],
+        token=token,
+        local_dir=os.environ['DL_DIR'],
+    )
+    print(path)
+except Exception as e:
+    print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+    sys.exit(1)
+" 2>"$_hf_err")
+        fi
+
+        if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
+            echo "  ❌ Download failed for $actual_repo"
+            [ -s "$_hf_err" ] && echo "  Error detail: $(cat "$_hf_err")"
+            rm -f "$_hf_err"
+            return 1
+        fi
+        rm -f "$_hf_err"
+        echo "  ✅ Downloaded: $(basename "$gguf_path")"
+        echo "  Re-importing as: $ollama_name"
+
+        local modelfile
+        modelfile=$(mktemp)
+        printf 'FROM %s\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n' "$gguf_path" > "$modelfile"
+
+        if $ollama_cmd create --force "$ollama_name" -f "$modelfile"; then
+            echo "  ✅ Refreshed: $ollama_name"
+            rm -f "$modelfile"
+            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir"
+            return 0
+        else
+            echo "  ❌ ollama create --force failed"
+            rm -f "$modelfile"
+            return 1
+        fi
+    }
+
     # ── HuggingFace CLI availability ──────────────────────────────────────────
     _ensure_hf_cli() {
         # Check importability via python3 — avoids PATH issues with the binary
@@ -1165,6 +1308,88 @@ except Exception as e:
 
     echo ""
     echo "=== Pull complete: $((total - failed))/$total succeeded ==="
+    ;;
+
+  refresh-models)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    _ollama_cmd() {
+        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            echo "ollama"
+        elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+            echo "docker exec portal5-ollama ollama"
+        else
+            echo ""
+        fi
+    }
+
+    _ensure_hf_cli() {
+        if ! python3 -c "import huggingface_hub" &>/dev/null 2>&1; then
+            echo "  Installing huggingface_hub..."
+            pip3 install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
+            pip3 install huggingface_hub --quiet
+        fi
+        if [ -n "${HF_TOKEN:-}" ]; then
+            python3 -W ignore -c "
+from huggingface_hub import login
+import warnings; warnings.filterwarnings('ignore')
+try:
+    login(token='${HF_TOKEN}', add_to_git_credential=False)
+except Exception:
+    pass
+" 2>/dev/null || true
+        fi
+    }
+
+    echo "=== Portal 5: Refreshing models (only downloads changes) ==="
+    echo "Each model will be checked — unchanged models will say 'up to date'."
+    echo ""
+
+    MODELS=(
+        "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+        "llama3.2:3b-instruct-q4_K_M"
+        "nomic-embed-text:latest"
+        "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+        "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+        "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF"
+        "xploiter/the-xploiter"
+        "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
+        "huihui_ai/baronllm-abliterated"
+        "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        "qwen3.5:9b"
+        "qwen3-coder:30b"
+        "hf.co/unsloth/GLM-4.7-Flash-GGUF"
+        "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
+        "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+        "devstral:24b"
+        "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+        "huihui_ai/tongyi-deepresearch-abliterated"
+        "qwen3-vl:32b"
+        "llava:7b"
+    )
+
+    if [ "${PULL_HEAVY:-false}" = "true" ]; then
+        MODELS+=(
+            "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
+            "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"
+        )
+    fi
+
+    total=${#MODELS[@]}
+    count=0
+    failed=0
+    for model in "${MODELS[@]}"; do
+        count=$((count + 1))
+        echo "[$count/$total] $model"
+        if _refresh_model "$model"; then
+            echo "  ✅ Done"
+        else
+            failed=$((failed + 1))
+        fi
+        echo ""
+    done
+
+    echo "=== Refresh complete: $((total - failed))/$total succeeded ==="
     ;;
 
   add-user)
@@ -1811,7 +2036,7 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -1832,6 +2057,7 @@ MEOF
     echo "  logs [svc]            Tail logs (default: portal-pipeline)"
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
+    echo "  refresh-models        Check all models for updates (skips unchanged models)"
     echo "  import-gguf <path> [name]  Import a locally downloaded GGUF file into Ollama"
     echo "  add-user <email> [name] [role]  Create a user account"
     echo "  list-users            List all registered users"
