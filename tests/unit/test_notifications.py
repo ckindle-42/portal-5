@@ -76,12 +76,20 @@ class TestSummaryEvent:
             healthy_backends=2,
             total_backends=3,
             uptime_seconds=36000.0,
+            requests_by_model={"dolphin-llama3:8b": 800, "qwen3-coder-next:30b-q5": 434},
+            avg_tokens_per_second=25.5,
+            total_input_tokens=50000,
+            total_output_tokens=150000,
+            avg_response_time_ms=1200.0,
         )
         formatted = event.format_slack()
         assert "Daily Usage Summary" in formatted
         assert "1,234" in formatted  # thousands separator
         assert "auto-coding" in formatted
         assert "2/3" in formatted
+        assert "25.5 tok/s" in formatted  # avg TPS
+        assert "1200ms" in formatted  # avg response time
+        assert "50,000 in" in formatted  # input tokens
 
     def test_format_telegram(self):
         from portal_pipeline.notifications.events import EventType, SummaryEvent
@@ -94,10 +102,13 @@ class TestSummaryEvent:
             healthy_backends=1,
             total_backends=1,
             uptime_seconds=7200.0,
+            avg_tokens_per_second=30.0,
+            avg_response_time_ms=800.0,
         )
         formatted = event.format_telegram()
         assert "Daily Summary" in formatted
         assert "100" in formatted
+        assert "30.0" in formatted  # avg TPS
 
     def test_format_pushover(self):
         from portal_pipeline.notifications.events import EventType, SummaryEvent
@@ -110,10 +121,36 @@ class TestSummaryEvent:
             healthy_backends=2,
             total_backends=2,
             uptime_seconds=86400.0,
+            avg_tokens_per_second=20.0,
+            avg_response_time_ms=1500.0,
         )
         formatted = event.format_pushover()
         assert len(formatted) <= 512
         assert "5,000" in formatted  # thousands separator
+
+    def test_format_slack_top_models(self):
+        """Verify top models section appears in Slack format."""
+        from portal_pipeline.notifications.events import EventType, SummaryEvent
+
+        event = SummaryEvent(
+            type=EventType.DAILY_SUMMARY,
+            timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            total_requests=1000,
+            requests_by_workspace={"auto": 1000},
+            healthy_backends=2,
+            total_backends=2,
+            uptime_seconds=36000.0,
+            requests_by_model={
+                "dolphin-llama3:8b": 500,
+                "qwen3-coder-next:30b-q5": 300,
+                "deepseek-r1:32b-q4_k_m": 200,
+            },
+        )
+        formatted = event.format_slack()
+        assert "Top Models" in formatted
+        assert "dolphin-llama3:8b" in formatted
+        # Should only show top 5 models
+        assert formatted.count("`") <= 12  # 6 models * 2 backticks
 
 
 class TestSlackChannel:
@@ -347,6 +384,180 @@ class TestNotificationDispatcher:
             ):
                 disp.check_thresholds_and_alert(mock_registry)
             assert disp._alerted_all_down is False
+
+
+class TestNotificationScheduler:
+    """NotificationScheduler — timer logic and summary metric gathering."""
+
+    @pytest.mark.asyncio
+    async def test_send_daily_summary_includes_extended_metrics(self):
+        """Verify _send_daily_summary reads router_pipe stats and builds a complete SummaryEvent."""
+        import importlib
+
+        import portal_pipeline.notifications.dispatcher as disp_mod
+
+        importlib.reload(disp_mod)
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.scheduler import NotificationScheduler
+
+        disp = NotificationDispatcher()
+
+        # Mock registry for health counts
+        mock_backend = MagicMock()
+        mock_backend.healthy = True
+        mock_registry = MagicMock()
+        mock_registry._backends = {"ollama-1": mock_backend}
+        mock_registry_instance = MagicMock()
+        mock_registry_instance._backends = {"ollama-1": mock_backend}
+
+        fake_request_count = {"auto": 100, "auto-coding": 50}
+        fake_startup = 1000000000.0
+
+        # Patch router_pipe module so _send_daily_summary reads our fake stats
+        fake_router = MagicMock()
+        fake_router._total_response_time_ms = 50000.0   # 50s total
+        fake_router._request_tps_count = 10
+        fake_router._total_tps = 250.0                   # 25 avg TPS
+        fake_router._total_input_tokens = 10000
+        fake_router._total_output_tokens = 30000
+        fake_router._req_count_by_model = {
+            "dolphin-llama3:8b": 100,
+            "qwen3-coder-next:30b-q5": 50,
+        }
+
+        with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
+            scheduler = NotificationScheduler(disp)
+            from portal_pipeline.notifications import scheduler as sched_module
+
+            sched_module._attach_to_pipeline(
+                disp, fake_request_count, fake_startup, mock_registry_instance
+            )
+
+            with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch:
+                import portal_pipeline.router_pipe as rp_module
+
+                with patch.object(rp_module, "_total_response_time_ms", 50000.0), \
+                     patch.object(rp_module, "_request_tps_count", 10), \
+                     patch.object(rp_module, "_total_tps", 250.0), \
+                     patch.object(rp_module, "_total_input_tokens", 10000), \
+                     patch.object(rp_module, "_total_output_tokens", 30000), \
+                     patch.object(rp_module, "_req_count_by_model", {
+                         "dolphin-llama3:8b": 100,
+                         "qwen3-coder-next:30b-q5": 50,
+                     }):
+                    await scheduler._send_daily_summary()
+
+                # Verify dispatch was called once with a SummaryEvent
+                mock_dispatch.assert_called_once()
+                event = mock_dispatch.call_args[0][0]
+
+                # Check extended metrics are present and correct
+                assert event.requests_by_model == {
+                    "dolphin-llama3:8b": 100,
+                    "qwen3-coder-next:30b-q5": 50,
+                }
+                assert event.avg_tokens_per_second == pytest.approx(25.0)
+                assert event.total_input_tokens == 10000
+                assert event.total_output_tokens == 30000
+                assert abs(event.avg_response_time_ms - 333.33) < 0.1  # 50000/150 ≈ 333.33
+                assert event.total_requests == 150  # 100 + 50
+
+
+class TestSchedulerSettings:
+    """Verify ALERT_SUMMARY_* env vars control scheduler behaviour."""
+
+    def test_scheduler_disabled_when_apscheduler_missing(self):
+        """When APScheduler is not installed the scheduler should not start."""
+        import importlib
+
+        import portal_pipeline.notifications.dispatcher as disp_mod
+
+        importlib.reload(disp_mod)
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+
+        disp = NotificationDispatcher()
+        mock_channel = MagicMock()
+        mock_channel.name = "test"
+        disp.add_channel(mock_channel)
+        # When APScheduler unavailable the channel list stays empty
+        assert disp._channels == [] or disp._enabled is False
+
+
+class TestWebhookSummaryExtendedMetrics:
+    """Webhook channel includes extended metrics in send_summary."""
+
+    @pytest.mark.asyncio
+    async def test_webhook_send_summary_includes_extended_metrics(self):
+        from portal_pipeline.notifications.channels.webhook import WebhookChannel
+        from portal_pipeline.notifications.events import EventType, SummaryEvent
+
+        with patch.dict(os.environ, {"WEBHOOK_URL": "https://example.com/webhook"}):
+            channel = WebhookChannel()
+            event = SummaryEvent(
+                type=EventType.DAILY_SUMMARY,
+                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                total_requests=500,
+                requests_by_workspace={"auto": 300, "auto-coding": 200},
+                healthy_backends=2,
+                total_backends=3,
+                uptime_seconds=86400.0,
+                requests_by_model={"dolphin-llama3:8b": 300, "qwen3-coder-next:30b-q5": 200},
+                avg_tokens_per_second=25.0,
+                total_input_tokens=50000,
+                total_output_tokens=150000,
+                avg_response_time_ms=1200.0,
+            )
+
+            with patch.object(channel, "_post", new_callable=AsyncMock) as mock_post:
+                await channel.send_summary(event)
+                mock_post.assert_called_once()
+                payload = mock_post.call_args[0][0]
+                # Verify extended metrics are present
+                assert payload["requests_by_model"] == {
+                    "dolphin-llama3:8b": 300,
+                    "qwen3-coder-next:30b-q5": 200,
+                }
+                assert payload["avg_tokens_per_second"] == 25.0
+                assert payload["total_input_tokens"] == 50000
+                assert payload["total_output_tokens"] == 150000
+                assert payload["avg_response_time_ms"] == 1200.0
+
+
+class TestPushoverSummaryPriority:
+    """Pushover summary uses normal priority (0), not emergency (2)."""
+
+    @pytest.mark.asyncio
+    async def test_pushover_summary_uses_normal_priority(self):
+        from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.events import EventType, SummaryEvent
+
+        with patch.dict(
+            os.environ,
+            {
+                "PUSHOVER_API_TOKEN": "test-token",
+                "PUSHOVER_USER_KEY": "test-user",
+            },
+        ):
+            channel = PushoverChannel()
+            event = SummaryEvent(
+                type=EventType.DAILY_SUMMARY,
+                timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                total_requests=100,
+                requests_by_workspace={"auto": 100},
+                healthy_backends=1,
+                total_backends=1,
+                uptime_seconds=3600.0,
+                avg_tokens_per_second=20.0,
+                avg_response_time_ms=800.0,
+            )
+
+            with patch.object(channel, "_post", new_callable=AsyncMock) as mock_post:
+                await channel.send_summary(event)
+                mock_post.assert_called_once()
+                payload = mock_post.call_args[0][0]
+                # Summary should be normal priority (0), not emergency (2)
+                assert payload["priority"] == "0"
+                assert payload["title"] == "Portal 5 — Daily Summary"
 
 
 class TestNotificationChannelInterface:

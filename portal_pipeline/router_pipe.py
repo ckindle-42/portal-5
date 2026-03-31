@@ -16,6 +16,7 @@ import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -33,6 +34,16 @@ logger = logging.getLogger(__name__)
 # Basic Prometheus-compatible metrics counter
 _request_count: dict[str, int] = {}
 _startup_time = time.time()
+
+# Extended stats tracked for daily summary (aggregated from Prometheus metrics)
+# These are updated on every request and read by the notification scheduler.
+_stats_lock = asyncio.Lock() if "pytest" not in os.environ else None  # None in prod (not needed)
+_total_response_time_ms: float = 0.0
+_total_tps: float = 0.0
+_request_tps_count: int = 0
+_total_input_tokens: int = 0
+_total_output_tokens: int = 0
+_req_count_by_model: dict[str, int] = {}  # model_name -> count (plain dict for summary)
 
 # Notification subsystem handles operational alerts and daily summaries
 _notification_dispatcher: NotificationDispatcher | None = None
@@ -77,11 +88,21 @@ _requests_by_model = Counter(
     registry=_REGISTRY,
 )
 
+_response_time_seconds = Histogram(
+    "portal_response_time_seconds",
+    "End-to-end response time (request received to last byte) per model and workspace",
+    ["model", "workspace"],
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+    registry=_REGISTRY,
+)
+
 
 def _record_usage(model: str, workspace: str, data: dict) -> None:
     """Extract usage fields from an Ollama response dict and record metrics.
 
     Safe to call with incomplete dicts — missing fields are skipped.
+    Updates both Prometheus histograms/counters and module-level aggregates
+    used by the daily summary scheduler.
     """
     try:
         eval_count = int(data.get("eval_count") or 0)
@@ -92,13 +113,21 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
 
         if eval_count > 0:
             _output_tokens.labels(model=model, workspace=workspace).inc(eval_count)
+            global _total_output_tokens
+            _total_output_tokens += eval_count
 
         if prompt_tokens > 0:
             _input_tokens.labels(model=model, workspace=workspace).inc(prompt_tokens)
+            global _total_input_tokens
+            _total_input_tokens += prompt_tokens
 
         if eval_count > 0 and eval_duration_ns > 0:
             tps = eval_count / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
+            # Update running totals for daily summary
+            global _total_tps, _request_tps_count
+            _total_tps += tps
+            _request_tps_count += 1
             logger.debug(
                 "Usage: workspace=%s model=%s tokens=%d tps=%.1f",
                 workspace,
@@ -106,8 +135,26 @@ def _record_usage(model: str, workspace: str, data: dict) -> None:
                 eval_count,
                 tps,
             )
+
+        # Track per-model request count for summary (plain dict, not the Counter)
+        global _req_count_by_model
+        _req_count_by_model[model] = _req_count_by_model.get(model, 0) + 1
+
     except Exception as e:
         logger.debug("Failed to record usage metrics: %s", e)
+
+
+def _record_response_time(model: str, workspace: str, duration_seconds: float) -> None:
+    """Record end-to-end response time for a request.
+
+    Updates both Prometheus histogram and module-level aggregate for the daily summary.
+    """
+    try:
+        _response_time_seconds.labels(model=model, workspace=workspace).observe(duration_seconds)
+        global _total_response_time_ms
+        _total_response_time_ms += duration_seconds * 1000
+    except Exception as e:
+        logger.debug("Failed to record response time: %s", e)
 
 
 # Canonical workspace definitions — must match backends.yaml workspace_routing keys
@@ -582,7 +629,10 @@ def _init_notifications(registry: BackendRegistry) -> None:
     from portal_pipeline.notifications import scheduler as notif_scheduler
 
     notif_scheduler._attach_to_pipeline(
-        _notification_dispatcher, _request_count, _startup_time, registry
+        _notification_dispatcher,
+        _request_count,
+        _startup_time,
+        registry,
     )
 
 
@@ -711,6 +761,80 @@ async def health() -> dict:
     }
 
 
+@app.post("/notifications/test")
+async def test_notifications(authorization: str | None = Header(None)) -> dict:
+    """Fire a test alert and summary to verify notification channel configuration.
+
+    Returns the status of each configured channel (sent / skipped / error).
+    Requires NOTIFICATIONS_ENABLED=true and at least one channel configured.
+    """
+    _verify_key(authorization)
+
+    if _notification_dispatcher is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Notification dispatcher not initialized (NOTIFICATIONS_ENABLED=false?)",
+        )
+
+    from portal_pipeline.notifications.events import AlertEvent, EventType, SummaryEvent
+
+    results: dict[str, str] = {}
+
+    # Fire a test alert
+    alert = AlertEvent(
+        type=EventType.BACKEND_DOWN,
+        message="This is a test alert — Portal 5 notification test successful!",
+        backend_id="test-backend",
+    )
+    try:
+        await _notification_dispatcher.dispatch(alert)
+        results["alert"] = "dispatched"
+    except Exception as e:
+        results["alert"] = f"error: {e}"
+
+    # Fire a test summary (stats will be zeros/minimal for a test)
+    summary = SummaryEvent(
+        timestamp=datetime.now(timezone.utc),
+        total_requests=sum(_request_count.values()),
+        requests_by_workspace=dict(_request_count),
+        healthy_backends=len(registry.list_healthy_backends()) if registry else 0,
+        total_backends=len(registry.list_backends()) if registry else 0,
+        uptime_seconds=time.time() - _startup_time if _startup_time else 0.0,
+        requests_by_model=dict(_req_count_by_model),
+        avg_tokens_per_second=0.0,
+        total_input_tokens=0,
+        total_output_tokens=0,
+        avg_response_time_ms=0.0,
+    )
+    try:
+        await _notification_dispatcher.dispatch(summary)
+        results["summary"] = "dispatched"
+    except Exception as e:
+        results["summary"] = f"error: {e}"
+
+    # Report per-channel configuration status
+    results["channels"] = {
+        "slack": "configured" if os.environ.get("SLACK_ALERT_WEBHOOK_URL") else "not configured",
+        "telegram": "configured"
+        if os.environ.get("TELEGRAM_ALERT_BOT_TOKEN")
+        else "not configured",
+        "email": "configured" if os.environ.get("SMTP_HOST") else "not configured",
+        "pushover": "configured"
+        if (os.environ.get("PUSHOVER_API_TOKEN") and os.environ.get("PUSHOVER_USER_KEY"))
+        else "not configured",
+        "webhook": "configured" if os.environ.get("WEBHOOK_URL") else "not configured",
+    }
+
+    # Report scheduler settings
+    results["scheduler"] = {
+        "enabled": os.environ.get("ALERT_SUMMARY_ENABLED", "true").lower() in ("true", "1", "yes"),
+        "hour": int(os.environ.get("ALERT_SUMMARY_HOUR", "9")),
+        "timezone": os.environ.get("ALERT_SUMMARY_TIMEZONE", "UTC"),
+    }
+
+    return {"status": "ok", "results": results}
+
+
 @app.get("/metrics")
 async def metrics() -> PlainTextResponse:
     """Prometheus-compatible metrics endpoint.
@@ -802,6 +926,7 @@ async def chat_completions(
         ) from None
 
     _is_streaming = False
+    start_time = time.monotonic()  # Track request start for response time measurement
     try:
         if registry is None:
             raise HTTPException(status_code=503, detail="Backend registry not initialised")
@@ -875,17 +1000,20 @@ async def chat_completions(
                     _request_semaphore,
                     workspace_id=workspace_id,
                     model=target_model,
+                    start_time=start_time,
                 ),
                 media_type="text/event-stream",
             )
             _is_streaming = True  # Only set AFTER successful construction
             return _streaming_response
-        return await _complete_from_backend(
+        response = await _complete_from_backend(
             backend.chat_url,
             backend_body,
             workspace_id=workspace_id,
             model=target_model,
         )
+        _record_response_time(target_model, workspace_id, time.monotonic() - start_time)
+        return response
     finally:
         if not _is_streaming:
             # Non-streaming: response fully awaited above, safe to release here
@@ -899,6 +1027,7 @@ async def _stream_with_preamble(
     sem: asyncio.Semaphore,
     workspace_id: str = "unknown",
     model: str = "unknown",
+    start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
     """Emit an immediate OpenAI role chunk before connecting to the backend.
 
@@ -946,7 +1075,7 @@ async def _stream_with_preamble(
     # before the backend stream starts would leave sem permanently acquired.
     try:
         async for chunk in _stream_from_backend_guarded(
-            url, body, sem=None, workspace_id=workspace_id, model=model
+            url, body, sem=None, workspace_id=workspace_id, model=model, start_time=start_time
         ):
             yield chunk
     finally:
@@ -959,6 +1088,7 @@ async def _stream_from_backend_guarded(
     sem: asyncio.Semaphore | None,
     workspace_id: str = "unknown",
     model: str = "unknown",
+    start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream from backend and optionally release semaphore when stream is complete.
 
@@ -1020,6 +1150,8 @@ async def _stream_from_backend_guarded(
             + "\n\n"
         ).encode()
     finally:
+        if start_time is not None:
+            _record_response_time(model, workspace_id, time.monotonic() - start_time)
         if sem is not None:
             sem.release()  # Release AFTER generator is fully exhausted
 

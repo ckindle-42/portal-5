@@ -90,5 +90,11 @@ class WebhookChannel(NotificationChannel):
                 "healthy_backends": event.healthy_backends,
                 "total_backends": event.total_backends,
                 "uptime_seconds": event.uptime_seconds,
+                # Extended metrics
+                "requests_by_model": event.requests_by_model,
+                "avg_tokens_per_second": event.avg_tokens_per_second,
+                "total_input_tokens": event.total_input_tokens,
+                "total_output_tokens": event.total_output_tokens,
+                "avg_response_time_ms": event.avg_response_time_ms,
             }
         )

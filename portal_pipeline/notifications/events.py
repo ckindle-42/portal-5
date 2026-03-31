@@ -100,6 +100,12 @@ class SummaryEvent:
     healthy_backends: int
     total_backends: int
     uptime_seconds: float
+    # Extended metrics (new)
+    requests_by_model: dict[str, int] = field(default_factory=dict)
+    avg_tokens_per_second: float = 0.0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    avg_response_time_ms: float = 0.0
     type: EventType = field(default=EventType.DAILY_SUMMARY)
 
     def format_slack(self) -> str:
@@ -112,11 +118,19 @@ class SummaryEvent:
             f"*Total Requests:* {self.total_requests:,}",
             f"*Uptime:* {uptime_h:.1f} hours",
             f"*Healthy Backends:* {self.healthy_backends}/{self.total_backends}",
+            f"*Avg TPS:* {self.avg_tokens_per_second:.1f} tok/s",
+            f"*Avg Response Time:* {self.avg_response_time_ms:.0f}ms",
+            f"*Tokens:* {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
             "",
             "*Requests by Workspace:*",
         ]
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"  `{ws:32s}` {count:,}")
+        if self.requests_by_model:
+            lines.append("")
+            lines.append("*Top Models:*")
+            for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"  `{model}` {count:,}")
         return "\n".join(lines)
 
     def format_telegram(self) -> str:
@@ -128,11 +142,18 @@ class SummaryEvent:
             f"Total Requests: {self.total_requests:,}",
             f"Uptime: {uptime_h:.1f}h",
             f"Healthy Backends: {self.healthy_backends}/{self.total_backends}",
+            f"Avg TPS: {self.avg_tokens_per_second:.1f}",
+            f"Avg Response: {self.avg_response_time_ms:.0f}ms",
             "",
             "Requests by Workspace:",
         ]
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"  {ws}: {count:,}")
+        if self.requests_by_model:
+            lines.append("")
+            lines.append("Top Models:")
+            for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"  {model}: {count:,}")
         return "\n".join(lines)
 
     def format_email(self) -> str:
@@ -144,6 +165,10 @@ class SummaryEvent:
             f"<b>Total Requests:</b> {self.total_requests:,}",
             f"<b>Uptime:</b> {uptime_h:.1f} hours",
             f"<b>Healthy Backends:</b> {self.healthy_backends}/{self.total_backends}",
+            f"<b>Avg Tokens/sec:</b> {self.avg_tokens_per_second:.1f}",
+            f"<b>Avg Response Time:</b> {self.avg_response_time_ms:.0f}ms",
+            f"<b>Input Tokens:</b> {self.total_input_tokens:,}",
+            f"<b>Output Tokens:</b> {self.total_output_tokens:,}",
             "",
             "<b>Requests by Workspace:</b>",
             "<ul>",
@@ -151,11 +176,21 @@ class SummaryEvent:
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"<li>{ws}: {count:,}</li>")
         lines.append("</ul>")
+        if self.requests_by_model:
+            lines.append("<b>Top Models:</b><ul>")
+            for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"<li>{model}: {count:,}</li>")
+            lines.append("</ul>")
         lines.append(f"<p>Generated at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>")
         return "\n".join(lines)
 
     def format_pushover(self) -> str:
         """Format for Pushover (max 512 chars)."""
         uptime_h = self.uptime_seconds / 3600
-        msg = f"📊 Portal 5 Summary: {self.total_requests:,} requests, {uptime_h:.0f}h uptime, {self.healthy_backends}/{self.total_backends} backends healthy"
+        # Pushover is compact - include key metrics only
+        msg = (
+            f"📊 Portal 5: {self.total_requests:,} req, {uptime_h:.0f}h uptime, "
+            f"{self.avg_tokens_per_second:.0f} tok/s, {self.avg_response_time_ms:.0f}ms avg, "
+            f"{self.healthy_backends}/{self.total_backends} backends"
+        )
         return msg[:512]

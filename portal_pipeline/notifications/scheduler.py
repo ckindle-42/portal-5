@@ -39,6 +39,10 @@ def _attach_to_pipeline(
     """
     Called during router_pipe lifespan startup to attach scheduler
     to the pipeline's module-level metrics state.
+
+    Note: Extended stats (TPS, response time, tokens, model usage) are read
+    directly from router_pipe module at send time via getattr(), avoiding
+    stale closure issues with scalar values.
     """
     global _registry_ref, _request_count, _startup_time, _registry_instance
     _registry_ref = dispatcher
@@ -101,6 +105,9 @@ class NotificationScheduler:
             logger.warning("NotificationScheduler: dispatcher not attached")
             return
 
+        # Read current stats directly from router_pipe module (avoids stale closures)
+        from portal_pipeline import router_pipe
+
         now = datetime.utcnow()
         total = sum(_request_count.values())
         healthy = 0
@@ -113,6 +120,20 @@ class NotificationScheduler:
             except Exception:
                 pass
 
+        # Read extended stats from router_pipe module directly at send time
+        # This ensures we get the current values, not stale copies
+        rt_ms = getattr(router_pipe, "_total_response_time_ms", 0.0)
+        rt_count = total  # Use total requests as denominator for response time
+        tps_sum = getattr(router_pipe, "_total_tps", 0.0)
+        tps_count = getattr(router_pipe, "_request_tps_count", 0)
+        inp_tokens = getattr(router_pipe, "_total_input_tokens", 0)
+        out_tokens = getattr(router_pipe, "_total_output_tokens", 0)
+        req_by_model: dict = getattr(router_pipe, "_req_count_by_model", {})
+
+        # Compute derived metrics from running totals
+        avg_tps = tps_sum / tps_count if tps_count > 0 else 0.0
+        avg_response_ms = rt_ms / rt_count if rt_count > 0 else 0.0
+
         # Import SummaryEvent here to avoid circular import
         from portal_pipeline.notifications.events import SummaryEvent
 
@@ -123,11 +144,20 @@ class NotificationScheduler:
             healthy_backends=healthy,
             total_backends=total_backends,
             uptime_seconds=now.timestamp() - _startup_time if _startup_time else 0.0,
+            # Extended metrics
+            requests_by_model=dict(req_by_model),
+            avg_tokens_per_second=avg_tps,
+            total_input_tokens=inp_tokens,
+            total_output_tokens=out_tokens,
+            avg_response_time_ms=avg_response_ms,
         )
 
         await _registry_ref.dispatch(event)
         logger.info(
-            "Daily summary dispatched: %d requests across %d workspaces",
+            "Daily summary dispatched: %d requests across %d workspaces, "
+            "avg TPS=%.1f, avg response=%.0fms",
             total,
             len(_request_count),
+            avg_tps,
+            avg_response_ms,
         )
