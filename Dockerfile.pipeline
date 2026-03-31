@@ -20,6 +20,11 @@ COPY config/ ./config/
 
 EXPOSE 9099
 
+# Run as non-root user
+RUN groupadd -r portal && useradd -r -g portal portal \
+    && chown -R portal:portal /app
+USER portal
+
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"
 

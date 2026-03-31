@@ -6,6 +6,13 @@ This document tracks known limitations in Portal 5. These are items that have be
 
 ## Security
 
+### Code Sandbox Requires Privileged Container
+- **ID**: P5-ROAD-SEC-001
+- **Status**: BY DESIGN — required for Docker-in-Docker
+- **Description**: The `dind` service runs with `privileged: true`. Docker-in-Docker cannot function without host kernel capabilities. This is a known, accepted tradeoff for running sandboxed code execution locally.
+- **In hardened environments**: Either disable the code sandbox by removing the `mcp-sandbox` and `dind` services from `docker-compose.yml`, or accept this requirement and apply appropriate host-level controls (AppArmor/seccomp profile on the Docker daemon).
+- **Last verified**: 2026-03-30
+
 ### Multi-User Rate Limiting
 - **ID**: P5-ROAD-031
 - **Status**: KNOWN LIMITATION

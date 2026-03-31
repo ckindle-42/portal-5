@@ -415,7 +415,11 @@ async def generate_continuation(
 
     from pathlib import Path as _Path
 
-    if not _Path(melody_path).exists():
+    melody = _Path(melody_path).resolve()
+    allowed = _Path(OUTPUT_DIR).resolve()
+    if not str(melody).startswith(str(allowed) + os.sep):
+        return {"error": "melody_path must be within the output directory"}
+    if not melody.exists():
         return {"error": f"Melody file not found: {melody_path}"}
 
     result = await _run_music_generation(

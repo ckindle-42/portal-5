@@ -54,6 +54,20 @@ Edit `config/backends.yaml` — see `docs/CLUSTER_SCALE.md`.
 - WEBUI_SECRET_KEY secures user sessions — rotation requires all users to re-login
 - To rotate secrets: edit `.env`, restart stack
 
+## Network Exposure
+
+Portal 5 is designed for single-machine local use. After applying the recommended configuration, Open WebUI binds to `127.0.0.1` and is only accessible from `localhost`.
+
+**To access from other machines on your network (LAN):**
+1. Set up a reverse proxy (Caddy or nginx) on the same machine
+2. Proxy from a public-facing port to `127.0.0.1:8080`
+3. Configure TLS (HTTPS) — never serve Open WebUI over plain HTTP across a network
+4. Consider adding HTTP Basic Auth at the proxy layer for an additional authentication factor
+
+**Never expose port 8080 directly to the internet.**
+
+The pipeline API (port 9099) and all MCP servers (8910–8916) are always bound to 127.0.0.1 and are not reachable externally under any configuration.
+
 ## Backup
 
 Critical data is in Docker volumes:

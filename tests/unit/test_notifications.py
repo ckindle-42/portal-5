@@ -415,9 +415,9 @@ class TestNotificationScheduler:
 
         # Patch router_pipe module so _send_daily_summary reads our fake stats
         fake_router = MagicMock()
-        fake_router._total_response_time_ms = 50000.0   # 50s total
+        fake_router._total_response_time_ms = 50000.0  # 50s total
         fake_router._request_tps_count = 10
-        fake_router._total_tps = 250.0                   # 25 avg TPS
+        fake_router._total_tps = 250.0  # 25 avg TPS
         fake_router._total_input_tokens = 10000
         fake_router._total_output_tokens = 30000
         fake_router._req_count_by_model = {
@@ -436,15 +436,21 @@ class TestNotificationScheduler:
             with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch:
                 import portal_pipeline.router_pipe as rp_module
 
-                with patch.object(rp_module, "_total_response_time_ms", 50000.0), \
-                     patch.object(rp_module, "_request_tps_count", 10), \
-                     patch.object(rp_module, "_total_tps", 250.0), \
-                     patch.object(rp_module, "_total_input_tokens", 10000), \
-                     patch.object(rp_module, "_total_output_tokens", 30000), \
-                     patch.object(rp_module, "_req_count_by_model", {
-                         "dolphin-llama3:8b": 100,
-                         "qwen3-coder-next:30b-q5": 50,
-                     }):
+                with (
+                    patch.object(rp_module, "_total_response_time_ms", 50000.0),
+                    patch.object(rp_module, "_request_tps_count", 10),
+                    patch.object(rp_module, "_total_tps", 250.0),
+                    patch.object(rp_module, "_total_input_tokens", 10000),
+                    patch.object(rp_module, "_total_output_tokens", 30000),
+                    patch.object(
+                        rp_module,
+                        "_req_count_by_model",
+                        {
+                            "dolphin-llama3:8b": 100,
+                            "qwen3-coder-next:30b-q5": 50,
+                        },
+                    ),
+                ):
                     await scheduler._send_daily_summary()
 
                 # Verify dispatch was called once with a SummaryEvent

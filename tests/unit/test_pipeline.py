@@ -223,18 +223,18 @@ class TestPipelineAPI:
 
 class TestMetricsEndpoint:
     def test_metrics_endpoint_returns_200(self, client):
-        resp = client.get("/metrics")
+        resp = client.get("/metrics", headers=HEADERS)
         assert resp.status_code == 200
 
     def test_metrics_contains_required_gauges(self, client):
-        resp = client.get("/metrics")
+        resp = client.get("/metrics", headers=HEADERS)
         content = resp.text
         assert "portal_backends_healthy" in content
         assert "portal_workspaces_total" in content
         assert "portal_uptime_seconds" in content
 
     def test_metrics_workspace_count_correct(self, client):
-        resp = client.get("/metrics")
+        resp = client.get("/metrics", headers=HEADERS)
         assert f"portal_workspaces_total {len(WORKSPACES)}" in resp.text
 
 
@@ -702,7 +702,7 @@ class TestRecordUsageMetrics:
             workspace="auto",
             data={"eval_count": 10, "eval_duration": 200_000_000, "prompt_eval_count": 5},
         )
-        resp = client.get("/metrics")
+        resp = client.get("/metrics", headers=HEADERS)
         assert resp.status_code == 200
         content = resp.text
         # The prometheus_client output should be appended to the hand-rolled metrics

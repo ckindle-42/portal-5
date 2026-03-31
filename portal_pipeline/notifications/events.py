@@ -1,5 +1,6 @@
 """Portal 5 — Notification event types."""
 
+import html as _html
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -65,14 +66,14 @@ class AlertEvent:
         """Format for email notification."""
         sep = "\n" if plaintext else "<br>"
         lines = [
-            f"<b>Portal 5 — {self.type.value.upper()}</b>",
+            f"<b>Portal 5 — {_html.escape(self.type.value.upper())}</b>",
             "",
-            self.message,
+            _html.escape(self.message),
         ]
         if self.backend_id:
-            lines.append(f"{sep}Backend ID: {self.backend_id}")
+            lines.append(f"{sep}Backend ID: {_html.escape(self.backend_id)}")
         if self.workspace:
-            lines.append(f"{sep}Workspace: {self.workspace}")
+            lines.append(f"{sep}Workspace: {_html.escape(self.workspace)}")
         lines.extend(["", f"Sent at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}"])
         return "\n".join(lines)
 
@@ -174,12 +175,12 @@ class SummaryEvent:
             "<ul>",
         ]
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
-            lines.append(f"<li>{ws}: {count:,}</li>")
+            lines.append(f"<li>{_html.escape(ws)}: {count:,}</li>")
         lines.append("</ul>")
         if self.requests_by_model:
             lines.append("<b>Top Models:</b><ul>")
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
-                lines.append(f"<li>{model}: {count:,}</li>")
+                lines.append(f"<li>{_html.escape(model)}: {count:,}</li>")
             lines.append("</ul>")
         lines.append(f"<p>Generated at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>")
         return "\n".join(lines)

@@ -8,6 +8,7 @@ Routes by workspace to the appropriate backend + model.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import importlib.metadata
 import json
 import logging
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 # Basic Prometheus-compatible metrics counter
 _request_count: dict[str, int] = {}
 _startup_time = time.time()
+
+# Maximum request body size (default 4MB)
+_MAX_REQUEST_BYTES: int = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * 1024 * 1024)))
 
 # Extended stats tracked for daily summary (aggregated from Prometheus metrics)
 # These are updated on every request and read by the notification scheduler.
@@ -484,7 +488,7 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     last_user_content = ""
     for msg in reversed(messages):
         if msg.get("role") == "user":
-            last_user_content = str(msg.get("content", "")).lower()
+            last_user_content = str(msg.get("content", ""))[:2000].lower()
             break
 
     if not last_user_content:
@@ -750,7 +754,7 @@ def _verify_key(authorization: str | None) -> None:
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.removeprefix("Bearer ").strip()
-    if token != PIPELINE_API_KEY:
+    if not hmac.compare_digest(token.encode(), PIPELINE_API_KEY.encode()):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -842,12 +846,13 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 
 
 @app.get("/metrics")
-async def metrics() -> PlainTextResponse:
+async def metrics(authorization: str | None = Header(None)) -> PlainTextResponse:
     """Prometheus-compatible metrics endpoint.
 
     Note: request counters are per-worker when PIPELINE_WORKERS > 1.
     For aggregate counts, sum across scrape intervals or set PIPELINE_WORKERS=1.
     """
+    _verify_key(authorization)
     uptime = time.time() - _startup_time
     lines = [
         "# HELP portal_requests_total Total requests by workspace (per-worker when workers>1)",
@@ -919,6 +924,13 @@ async def chat_completions(
     authorization: str | None = Header(None),
 ) -> Any:
     _verify_key(authorization)
+
+    content_length = int(request.headers.get("content-length", 0))
+    if content_length > _MAX_REQUEST_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
+        )
 
     if _request_semaphore is None:
         raise HTTPException(status_code=503, detail="Request semaphore not initialised")

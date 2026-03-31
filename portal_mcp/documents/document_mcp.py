@@ -352,11 +352,23 @@ def convert_document(
     import subprocess
     from pathlib import Path as _Path
 
-    src = _Path(source_path)
+    _allowed_target_formats = frozenset({"pdf", "docx", "pptx", "xlsx"})
+
+    src = _Path(source_path).resolve()
+    allowed_root = _Path(OUTPUT_DIR).resolve()
+    if not str(src).startswith(str(allowed_root) + os.sep):
+        return {"error": "source_path must be a file within the output directory"}
     if not src.exists():
         return {"error": f"Source file not found: {source_path}"}
 
     target_format = target_format.lower().lstrip(".")
+    if target_format not in _allowed_target_formats:
+        return {
+            "error": (
+                f"Unsupported target_format {target_format!r}. "
+                f"Allowed: {sorted(_allowed_target_formats)}"
+            )
+        }
     out_path = _unique_path(src.stem, target_format)
 
     # Attempt LibreOffice conversion for cross-format (best quality)

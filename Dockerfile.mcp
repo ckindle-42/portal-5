@@ -57,6 +57,11 @@ RUN pip install --no-cache-dir \
 COPY portal_mcp/ ./portal_mcp/
 COPY portal_channels/ ./portal_channels/
 
+# Run as non-root user
+RUN groupadd -r portal && useradd -r -g portal portal \
+    && chown -R portal:portal /app
+USER portal
+
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
 
 CMD ["python", "-m", "portal_mcp.documents.document_mcp"]
