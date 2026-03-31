@@ -7,6 +7,7 @@ from pathlib import Path
 WORKSPACE_TOOLS = {
     "auto": [],
     "auto-coding": ["portal_code"],
+    "auto-compliance": [],
     "auto-documents": ["portal_documents", "portal_code"],
     "auto-music": ["portal_music", "portal_tts"],
     "auto-video": ["portal_video", "portal_comfyui"],
