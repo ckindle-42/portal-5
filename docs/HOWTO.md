@@ -139,7 +139,7 @@ curl -s http://localhost:9099/v1/models \
 
 ### Execute code in sandbox
 
-1. In the same chat, click the **+** icon → enable `Portal Code`
+1. Select **Code Expert** from the model dropdown (this enables the Code tool automatically)
 2. Type: `Run this code and show me the output`
 3. The code executes in a Docker-in-Docker container (isolated from host)
 
@@ -198,7 +198,7 @@ curl -s http://localhost:9099/v1/chat/completions \
 
 **What:** Generate Word (.docx), Excel (.xlsx), and PowerPoint (.pptx) files from chat.
 
-**Activate:** Click **+** → enable `Portal Documents`, or select `Portal Document Builder` workspace.
+**Activate:** Select **Document Builder** from the model dropdown. The Documents tool is automatically available when this workspace is selected.
 
 ### Generate a Word document
 
@@ -243,7 +243,7 @@ curl -s http://localhost:8913/tools | python3 -m json.tool
 
 **What:** Generate images using ComfyUI with FLUX.1-schnell or other models.
 
-**Activate:** Click **+** → enable `Portal ComfyUI`.
+**Activate:** Select **Vision** from the model dropdown. The ComfyUI image generation tool is automatically available. ComfyUI must be running on the host (see §8).
 
 ### Prerequisites
 
@@ -287,7 +287,7 @@ docker exec portal5-mcp-comfyui python3 -c "import urllib.request; print(urllib.
 
 **What:** Generate short video clips from text prompts using Wan2.2.
 
-**Activate:** Click **+** → enable `Portal Video`, or select `Portal Video Creator` workspace.
+**Activate:** Select **Video Creator** from the model dropdown. The Video tool is automatically available when this workspace is selected.
 
 ### Prerequisites
 
@@ -322,7 +322,7 @@ curl -s http://localhost:8911/health
 
 **What:** Generate music clips from text descriptions using AudioCraft/MusicGen.
 
-**Activate:** Click **+** → enable `Portal Music`, or select `Portal Music Producer` workspace.
+**Activate:** Select **Music Producer** from the model dropdown. The Music tool is automatically available when this workspace is selected.
 
 ### Generate music
 
@@ -360,7 +360,7 @@ curl -s http://localhost:8912/health
 
 **What:** Convert text to spoken audio using kokoro-onnx (built-in) or Fish Speech (optional).
 
-**Activate:** Click **+** → enable `Portal TTS`.
+**Activate:** Select **Music Producer** from the model dropdown. The TTS (text-to-speech) tool is automatically available in this workspace.
 
 ### Speak text
 
@@ -411,7 +411,7 @@ curl -s http://localhost:8916/health
 
 **What:** Transcribe audio files to text using faster-whisper.
 
-**Activate:** Click **+** → enable `Portal Whisper`.
+**Activate:** Select any workspace from the model dropdown. The Whisper transcription tool is automatically available in all workspaces.
 
 ### Transcribe an audio file
 

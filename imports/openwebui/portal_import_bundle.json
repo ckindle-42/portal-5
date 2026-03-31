@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.2",
   "generator": "scripts/generate_import_bundle.py",
   "tool_servers": [
     {
@@ -188,110 +188,195 @@
   "workspaces": [
     {
       "id": "auto",
-      "name": "Portal Auto Router",
+      "name": "🤖 Portal Auto Router",
       "meta": {
-        "description": "Automatically selects the best model for your task",
-        "profile_image_url": ""
+        "description": "🤖 Portal Auto Router",
+        "profile_image_url": "",
+        "toolIds": []
       },
       "params": {
-        "system": "You are Portal, an AI assistant that intelligently routes requests to specialized models.",
+        "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.",
         "model": "auto"
       }
     },
     {
-      "id": "auto-coding",
-      "name": "Code Expert",
+      "id": "auto-blueteam",
+      "name": "🔵 Portal Blue Team",
       "meta": {
-        "description": "Specialized in code generation and debugging",
-        "profile_image_url": ""
+        "description": "🔵 Portal Blue Team",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
       },
       "params": {
-        "system": "You are an expert programmer. Generate clean, well-documented code. Always prefer idiomatic solutions.",
+        "system": "You are a defensive security analyst. Focus on threat detection, incident response, log analysis, and security hardening. Provide detection rules and SIEM queries where applicable.",
+        "model": "auto-blueteam"
+      }
+    },
+    {
+      "id": "auto-coding",
+      "name": "💻 Portal Code Expert",
+      "meta": {
+        "description": "💻 Portal Code Expert",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. Explain your approach briefly before writing code.",
         "model": "auto-coding"
       }
     },
     {
       "id": "auto-creative",
-      "name": "Creative Writer",
+      "name": "✍️  Portal Creative Writer",
       "meta": {
-        "description": "Creative content generation",
-        "profile_image_url": ""
+        "description": "✍️  Portal Creative Writer",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_tts"
+        ]
       },
       "params": {
-        "system": "You are a creative writer. Generate engaging, imaginative content with vivid descriptions.",
+        "system": "You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.",
         "model": "auto-creative"
       }
     },
     {
-      "id": "auto-documents",
-      "name": "Document Builder",
+      "id": "auto-data",
+      "name": "📊 Portal Data Analyst",
       "meta": {
-        "description": "Create documents, spreadsheets, presentations",
-        "profile_image_url": ""
+        "description": "📊 Portal Data Analyst",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code",
+          "portal_documents"
+        ]
       },
       "params": {
-        "system": "You help create professional documents. Use available tools to generate Word, Excel, and PowerPoint files.",
+        "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",
+        "model": "auto-data"
+      }
+    },
+    {
+      "id": "auto-documents",
+      "name": "📄 Portal Document Builder",
+      "meta": {
+        "description": "📄 Portal Document Builder",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_documents",
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
         "model": "auto-documents"
       }
     },
     {
       "id": "auto-music",
-      "name": "Music Producer",
+      "name": "🎵 Portal Music Producer",
       "meta": {
-        "description": "Generate music with AudioCraft",
-        "profile_image_url": ""
+        "description": "🎵 Portal Music Producer",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_music",
+          "portal_tts"
+        ]
       },
       "params": {
-        "system": "You create music. Use the music generation tool to produce audio clips.",
+        "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
         "model": "auto-music"
       }
     },
     {
       "id": "auto-reasoning",
-      "name": "Deep Reasoner",
+      "name": "🧠 Portal Deep Reasoner",
       "meta": {
-        "description": "Complex reasoning and analysis",
-        "profile_image_url": ""
+        "description": "🧠 Portal Deep Reasoner",
+        "profile_image_url": "",
+        "toolIds": []
       },
       "params": {
-        "system": "You are a deep reasoning AI. Break down complex problems step-by-step and provide thorough analysis.",
+        "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",
         "model": "auto-reasoning"
       }
     },
     {
-      "id": "auto-research",
-      "name": "Research Assistant",
+      "id": "auto-redteam",
+      "name": "🔴 Portal Red Team",
       "meta": {
-        "description": "Web research and information synthesis",
-        "profile_image_url": ""
+        "description": "🔴 Portal Red Team",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
       },
       "params": {
-        "system": "You are a research assistant. Search the web and synthesize information from multiple sources.",
+        "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK.",
+        "model": "auto-redteam"
+      }
+    },
+    {
+      "id": "auto-research",
+      "name": "🔍 Portal Research Assistant",
+      "meta": {
+        "description": "🔍 Portal Research Assistant",
+        "profile_image_url": "",
+        "toolIds": []
+      },
+      "params": {
+        "system": "You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.",
         "model": "auto-research"
       }
     },
     {
       "id": "auto-security",
-      "name": "Security Analyst",
+      "name": "🔒 Portal Security Analyst",
       "meta": {
-        "description": "Security analysis and defensive coding",
-        "profile_image_url": ""
+        "description": "🔒 Portal Security Analyst",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
       },
       "params": {
-        "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, and defensive measures.",
+        "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant.",
         "model": "auto-security"
       }
     },
     {
       "id": "auto-video",
-      "name": "Video Creator",
+      "name": "🎬 Portal Video Creator",
       "meta": {
-        "description": "Generate videos with Wan2.2",
-        "profile_image_url": ""
+        "description": "🎬 Portal Video Creator",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_video",
+          "portal_comfyui"
+        ]
       },
       "params": {
-        "system": "You create videos. Use ComfyUI to generate videos from text prompts.",
+        "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
         "model": "auto-video"
+      }
+    },
+    {
+      "id": "auto-vision",
+      "name": "👁️  Portal Vision",
+      "meta": {
+        "description": "👁️  Portal Vision",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_comfyui"
+        ]
+      },
+      "params": {
+        "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.",
+        "model": "auto-vision"
       }
     }
   ],

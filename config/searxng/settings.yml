@@ -20,7 +20,7 @@ search:
 server:
   bind_address: "0.0.0.0:8080"
   image_proxy: false
-  secret_key: REPLACE_ME_WITH_SEARXNG_SECRET_KEY
+  secret_key: 6HCmosmGtaE3RN88792PlXNcrFqP0cACyxWCt315Sw
   # (SearXNG reads from settings.yml, NOT from env vars)
 
 ui:

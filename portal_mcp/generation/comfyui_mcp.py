@@ -129,7 +129,11 @@ FLUX_WORKFLOW = {
         "class_type": "EmptyLatentImage",
     },
     "4": {
-        "inputs": {"clip_name1": "text_encoder/model.safetensors", "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors", "type": "flux"},
+        "inputs": {
+            "clip_name1": "text_encoder/model.safetensors",
+            "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors",
+            "type": "flux",
+        },
         "class_type": "DualCLIPLoader",
     },
     "5": {
