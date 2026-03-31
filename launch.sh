@@ -750,6 +750,17 @@ case "${1:-up}" in
 
     echo "[portal-5] Restore complete. Run: ./launch.sh up"
     ;;
+  rebuild)
+    # Rebuild and restart portal-pipeline (e.g. after a code update via git pull)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Rebuilding portal-pipeline..."
+    docker compose build portal-pipeline
+    echo "[portal-5] Restarting portal-pipeline..."
+    docker compose up -d --no-deps portal-pipeline
+    echo "[portal-5] Done. Check status: ./launch.sh status"
+    ;;
+
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
@@ -1800,7 +1811,7 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -1809,6 +1820,7 @@ MEOF
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
     echo "  switch-mlx-model <tag>  Hot-swap MLX inference model (updates .env + restarts service)"
+    echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
     echo "  up-channels           Start core stack + both Telegram and Slack"
