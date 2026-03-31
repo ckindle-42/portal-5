@@ -217,6 +217,7 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 | `mlx-community/Devstral-Small-2505-4bit` | ~13GB | ComfyUI + Ollama + Wan2.2 video |
 | `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Everything — safe baseline |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Ollama only (3B) — unload others first |
+| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | Long-context policy/compliance/research |
 
 **64GB systems**: Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB total — feasible.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
@@ -289,6 +290,10 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `itarchitect` → `huihui_ai/tongyi-deepresearch-abliterated`
 - `researchanalyst` → `huihui_ai/tongyi-deepresearch-abliterated`
 
+### Compliance
+- `nerccipcomplianceanalyst` → `mlx-community/Qwen3.5-35B-A3B-4bit`
+- `cippolicywriter` → `mlx-community/Qwen3.5-35B-A3B-4bit`
+
 ### Systems
 - `linuxterminal` → `qwen3-coder-next:30b-q5`
 - `sqlterminal` → `qwen3-coder-next:30b-q5`
@@ -321,6 +326,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-research` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
 | `auto-vision` | vision → general | qwen3-vl:32b |
 | `auto-data` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
+| `auto-compliance` | mlx → reasoning → general | mlx-community/Qwen3.5-35B-A3B-4bit |
 
 ---
 

@@ -251,6 +251,15 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
     },
+    "auto-compliance": {
+        "name": "⚖️  Portal Compliance Analyst",
+        "description": (
+            "NERC CIP gap analysis, policy-to-standard mapping, audit evidence review. "
+            "Cite exact requirement numbers. Flag ambiguous policy language. "
+            "Output structured gap tables with remediation steps."
+        ),
+        "model_hint": "mlx-community/Qwen3.5-35B-A3B-4bit",
+    },
 }
 
 # ── Content-aware routing keyword sets ───────────────────────────────────────

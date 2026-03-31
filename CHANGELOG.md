@@ -15,6 +15,17 @@ All notable changes to Portal 5 will be documented in this file.
   panels — Requests by Workspace Over Time, Tokens by Workspace, Top 10 Workspaces by Volume,
   Model Distribution per Workspace, Current Request Rate. All queries use existing Prometheus
   metrics; no new instrumentation required.
+- **`auto-compliance` workspace**: NERC CIP gap analysis and policy-to-standard mapping
+  - Routes `[mlx, reasoning, general]` — MLX Qwen3.5-35B-A3B-4bit primary,
+    DeepSeek-R1-32B Ollama fallback (no new model pulls required)
+  - System prompt: structured gap table output with CIP requirement citations,
+    compliance status classification, and remediation steps
+  - CIP-003-9 R1 Part 1.2.6 priority flagging built into prompt
+    (standard became enforceable April 1, 2026)
+  - Two new personas: `nerccipcomplianceanalyst`, `cippolicywriter`
+    (both use `mlx-community/Qwen3.5-35B-A3B-4bit`)
+  - 8 new unit tests in `TestComplianceWorkspace`
+  - Workspace count: 13 → 14
 
 ### Changed
 
