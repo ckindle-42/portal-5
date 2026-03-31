@@ -470,16 +470,11 @@ Models that require `./launch.sh pull-models` (large, optional):
 
 ## Git Workflow
 
-### During Stabilization (now)
-- **Work in main only** — no branches until v5.0 stable tag
-- Every commit directly to main via push
+**All work is done directly on `main` during stabilization. Do not create feature branches unless explicitly instructed.**
+
+- **Commit directly to `main`** — no branches, no PRs, until v5.0 stable tag
 - Run tests before every push: `pytest tests/ -q --tb=no`
 - Commit format: `type(scope): description`
-
-### After v5.0 Tagged
-- main = stable releases only (PRs from dev)
-- dev = active work (default branch)
-- feature/* = individual features (PRs to dev)
 
 ### Never
 - Never force push
