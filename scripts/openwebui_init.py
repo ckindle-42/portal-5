@@ -132,10 +132,42 @@ def auth_headers(token: str) -> dict:
 # --- Tool Server Registration -------------------------------------------------
 
 
+async def _register_one_server(
+    client: httpx.AsyncClient, server: dict, token: str, existing_urls: set[str]
+) -> tuple[str, str, bool]:
+    """Register a single tool server. Returns (name, url, success)."""
+    url = server["url"]
+    name = server["name"]
+    key = server.get("api_key", "")
+
+    if url in existing_urls:
+        return (name, url, "skip")
+
+    try:
+        resp = await client.post(
+            f"{OPENWEBUI_URL}/api/v1/tools/server/",
+            json={
+                "url": url,
+                "config": {
+                    "name": name,
+                    "auth_type": "none" if not key else "bearer",
+                    "key": key,
+                },
+            },
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code in (200, 201):
+            return (name, url, "registered")
+        return (name, url, f"fail:{resp.status_code}")
+    except Exception as e:
+        return (name, url, f"error:{e}")
+
+
 async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> None:
     """Register all Portal MCP servers as Tool Servers in Open WebUI.
 
-    P5: uses /api/v1/configs/tool_servers endpoint (Open WebUI v0.6.5+).
+    P5: parallelizes all POSTs via asyncio.gather — ~5s faster seeding with 9 servers.
     """
     print("\nRegistering MCP Tool Servers...")
 
@@ -148,32 +180,43 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
         print("  Skipping - no tool_servers in mcp-servers.json")
         return
 
-    # Build tool server connections in the format expected by Open WebUI
-    connections = []
-    for s in servers:
-        connections.append({
-            "url": s.get("url", ""),
-            "path": "openapi.json",
-            "auth_type": "none" if not s.get("api_key") else "bearer",
-            "key": s.get("api_key", ""),
-            "config": {"enable": True},
-        })
-
+    # Get existing registrations (one GET, serial)
+    existing_urls: set[str] = set()
     try:
-        resp = await client.post(
-            f"{OPENWEBUI_URL}/api/v1/configs/tool_servers",
-            json={"TOOL_SERVER_CONNECTIONS": connections},
+        resp = await client.get(
+            f"{OPENWEBUI_URL}/api/v1/tools/server/",
             headers=auth_headers(token),
-            timeout=15.0,
         )
-        if resp.status_code in (200, 201):
+        if resp.status_code == 200:
             data = resp.json()
-            count = len(data.get("TOOL_SERVER_CONNECTIONS", []))
-            print(f"  Registered: {count} tool server(s)")
-        else:
-            print(f"  Warning: could not register tool servers: HTTP {resp.status_code} - {resp.text[:200]}")
+            for s in data if isinstance(data, list) else data.get("data", []):
+                existing_urls.add(s.get("url", ""))
     except Exception as e:
-        print(f"  Warning: tool server registration failed: {e}")
+        print(f"  Warning: could not check existing tool servers: {e}")
+
+    # POST all servers in parallel
+    results = await asyncio.gather(
+        *[_register_one_server(client, s, token, existing_urls) for s in servers],
+        return_exceptions=True,
+    )
+
+    registered = skipped = failed = 0
+    for result in results:
+        if isinstance(result, Exception):
+            failed += 1
+            continue
+        name, url, status = result
+        if status == "skip":
+            print(f"  Skip (exists): {name}")
+            skipped += 1
+        elif status == "registered":
+            print(f"  Registered: {name}")
+            registered += 1
+        else:
+            print(f"  Failed {name}: {status}")
+            failed += 1
+
+    print(f"  Done: {registered} registered, {skipped} skipped, {failed} failed")
 
 
 # --- Workspace Creation -------------------------------------------------------
@@ -212,7 +255,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
     # Get existing workspaces
     existing_names: set[str] = set()
     try:
-        resp = await client.get(
+        resp = client.get(
             f"{OPENWEBUI_URL}/api/v1/models/",
             headers=auth_headers(token),
         )
@@ -229,30 +272,19 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
         ws = json.loads(ws_file.read_text())
         ws_id = ws.get("id", "")
         ws_name = ws.get("name", ws_id)
-        ws_params = ws.get("params", {})
-        ws_meta = ws.get("meta", {})
-
-        # base_model_id is the actual model to route to (params.model may be "auto")
-        base_model_id = ws_params.get("model", "dolphin-llama3:8b")
-        if base_model_id == "auto":
-            base_model_id = "dolphin-llama3:8b"
 
         payload = {
             "id": ws_id,
             "name": ws_name,
-            "base_model_id": base_model_id,
-            "meta": {
-                "description": ws_meta.get("description", ws_name),
-                "profile_image_url": ws_meta.get("profile_image_url", ""),
-            },
-            "params": ws_params,
+            "meta": ws.get("meta", {}),
+            "params": ws.get("params", {}),
         }
 
         try:
             if ws_id in existing_names:
-                # Update existing workspace via correct endpoint
-                resp = await client.post(
-                    f"{OPENWEBUI_URL}/api/v1/models/model/update?id={ws_id}",
+                # Upsert: update existing workspace to pick up toolIds changes
+                resp = client.post(
+                    f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
                     json=payload,
                     headers=auth_headers(token),
                     timeout=10.0,
@@ -261,10 +293,21 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
                     print(f"  Updated: {ws_name}")
                     updated += 1
                 else:
-                    print(f"  Skip (update failed {resp.status_code}): {ws_name}")
+                    # Some Open WebUI versions use PUT for update
+                    resp = client.put(
+                        f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
+                        json=payload,
+                        headers=auth_headers(token),
+                        timeout=10.0,
+                    )
+                    if resp.status_code in (200, 201):
+                        print(f"  Updated: {ws_name}")
+                        updated += 1
+                    else:
+                        print(f"  Skip (update failed {resp.status_code}): {ws_name}")
             else:
-                resp = await client.post(
-                    f"{OPENWEBUI_URL}/api/v1/models/create",
+                resp = client.post(
+                    f"{OPENWEBUI_URL}/api/v1/models/",
                     json=payload,
                     headers=auth_headers(token),
                     timeout=10.0,
@@ -335,10 +378,10 @@ async def create_persona_presets_async(
                 {
                     "id": slug,
                     "name": name,
-                    "base_model_id": workspace_model,
                     "meta": {
                         "description": f"Portal persona: {name}",
                         "profile_image_url": "",
+                        "tags": [{"name": persona.get("category", "general")}],
                     },
                     "params": {
                         "system": system_prompt,
@@ -353,7 +396,7 @@ async def create_persona_presets_async(
     ) -> tuple[str, str]:
         try:
             resp = await client.post(
-                f"{OPENWEBUI_URL}/api/v1/models/create",
+                f"{OPENWEBUI_URL}/api/v1/models/",
                 json=payload,
                 headers=auth_headers(token),
                 timeout=10.0,
@@ -397,9 +440,27 @@ async def create_persona_presets_async(
 def configure_user_settings(client: httpx.Client, token: str) -> None:
     """Configure Open WebUI user management settings post-bootstrap."""
     print("\nConfiguring user settings...")
-    print(f"  Default user role: {DEFAULT_USER_ROLE}")
+
+    default_role = DEFAULT_USER_ROLE
+
+    try:
+        # Enable/disable signup
+        resp = client.post(
+            f"{OPENWEBUI_URL}/api/v1/auths/signup/enabled",
+            json={"enable_signup": ENABLE_SIGNUP},
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        if resp.status_code in (200, 201):
+            print(f"  Signup enabled: {ENABLE_SIGNUP}")
+        else:
+            print(f"  Warning: could not set signup mode: HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"  Warning: signup config failed: {e}")
+
+    print(f"  Default user role: {default_role}")
     print("  Note: New users with role 'pending' must be approved by admin at:")
-    print(f"        http://localhost:8080/admin/users")
+    print(f"        {OPENWEBUI_URL}/admin/users")
 
 
 def configure_audio_settings(client: httpx.Client, token: str) -> None:
@@ -426,7 +487,7 @@ def configure_tool_settings(client: httpx.Client, token: str) -> None:
 # --- Main ---------------------------------------------------------------------
 
 
-async def main() -> int:
+def main() -> int:
     client = httpx.Client(timeout=30.0)
 
     # Wait for Open WebUI to be ready
@@ -467,4 +528,4 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    sys.exit(main())

@@ -107,16 +107,23 @@ def _get_docker_env() -> dict:
 
 async def _run_in_docker(
     image: str,
-    stdin_cmd: list[str],
+    command: list[str],
     code: str,
     timeout: int,
 ) -> dict:
-    """Run code in a Docker container with isolation constraints via stdin."""
+    """Run code in a Docker container with isolation constraints."""
+    run_id = uuid.uuid4().hex[:8]
+    work_dir = SANDBOX_DIR / run_id
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write code to temp file
+    code_file = work_dir / "code"
+    code_file.write_text(code, encoding="utf-8")
+
     docker_cmd = [
         "docker",
         "run",
         "--rm",
-        "-i",  # stdin
         "--network",
         "none",  # No network access
         "--cpus",
@@ -132,21 +139,20 @@ async def _run_in_docker(
         "--read-only",  # Read-only root filesystem
         "--tmpfs",
         "/tmp:size=64m",  # 64MB /tmp
+        "-v",
+        f"{code_file.absolute()}:/code:ro",
         image,
-    ] + stdin_cmd
+    ] + command
 
     try:
         proc = await asyncio.create_subprocess_exec(
             *docker_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            stdin=asyncio.subprocess.PIPE,
             env=_get_docker_env(),
         )
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=code.encode("utf-8")), timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except TimeoutError:
             proc.kill()
             await proc.communicate()
@@ -175,6 +181,13 @@ async def _run_in_docker(
             "exit_code": -1,
             "timed_out": False,
         }
+    finally:
+        # Clean up temp files
+        try:
+            code_file.unlink(missing_ok=True)
+            work_dir.rmdir()
+        except OSError:
+            pass
 
 
 @mcp.tool()
@@ -197,10 +210,10 @@ async def execute_python(
         dict with success, stdout, stderr, exit_code, timed_out
     """
     timeout = min(timeout, 120)
-    # Use stdin to avoid Linux Docker file-mount limitation
+    # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=PYTHON_IMAGE,
-        stdin_cmd=["python3", "-c", "import sys; exec(sys.stdin.read())"],
+        command=["python", "/code"],
         code=code,
         timeout=timeout,
     )
@@ -226,10 +239,10 @@ async def execute_nodejs(
         dict with success, stdout, stderr, exit_code, timed_out
     """
     timeout = min(timeout, 120)
-    # Use stdin to avoid Linux Docker file-mount limitation
+    # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=NODE_IMAGE,
-        stdin_cmd=["node", "-e", "eval(require('fs').readFileSync('/dev/stdin','utf8'))"],
+        command=["node", "/code"],
         code=code,
         timeout=timeout,
     )
@@ -255,10 +268,10 @@ async def execute_bash(
         dict with success, stdout, stderr, exit_code, timed_out
     """
     timeout = min(timeout, 60)  # Stricter timeout for shell
-    # Use stdin to avoid Linux Docker file-mount limitation
+    # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=BASH_IMAGE,
-        stdin_cmd=["sh"],
+        command=["sh", "/code"],
         code=code,
         timeout=timeout,
     )

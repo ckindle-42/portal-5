@@ -199,9 +199,6 @@ services:
       - AUDIO_STT_ENGINE=openai
       - AUDIO_STT_OPENAI_API_BASE_URL=http://mcp-whisper:8915
       - AUDIO_STT_OPENAI_API_KEY=portal-whisper
-
-      # ── MCP Tool Servers ────────────────────────────────────────────────────
-      - TOOL_SERVER_CONNECTIONS=[{"url":"http://host.docker.internal:8910","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8911","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8912","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8913","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8914","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8915","config":{"enable":true,"auth_type":"none","key":""}},{"url":"http://host.docker.internal:8916","config":{"enable":true,"auth_type":"none","key":""}}]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
