@@ -87,13 +87,14 @@ def _owui_token() -> str:
     if _owui_token_cache:
         return _owui_token_cache
     try:
-        import httpx as _httpx
-        r = _httpx.post("http://localhost:8080/api/v1/auths/signin",
+        r = httpx.post("http://localhost:8080/api/v1/auths/signin",
             json={"email": ADMIN_EMAIL, "password": ADMIN_PASS}, timeout=10)
         if r.status_code == 200:
             _owui_token_cache = r.json().get("token", "")
-    except Exception:
-        pass
+        else:
+            log("WARN", "auth", f"OW signin returned {r.status_code} — authenticated checks will fail")
+    except Exception as e:
+        log("WARN", "auth", f"OW auth failed: {e}")
     return _owui_token_cache
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -455,7 +456,9 @@ async def F_personas():
     async with httpx.AsyncClient(timeout=10) as c:
         r = await c.get("http://localhost:8080/api/v1/models/",
                         headers={"Authorization": f"Bearer {_owui_token()}"})
-        if r.status_code!=200: log("WARN","F-reg",f"Open WebUI /api/v1/models/: {r.status_code}"); model_ids = set()
+        if r.status_code != 200:
+            log("FAIL","F-reg",f"Open WebUI /api/v1/models/ returned {r.status_code} — cannot verify persona registration")
+            return
         else:
             data = r.json()
             model_ids = {m["id"].lower() for m in (data if isinstance(data, list) else data.get("data", []))}
@@ -592,11 +595,10 @@ async def H_gui():
             (ws_found if clean.lower() in body else ws_miss).append(f"{wid}={clean}")
         if len(ws_found) >= len(WS_IDS)-1:
             log("PASS","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown")
-        else:
-            # Dropdown may not open in headless mode — verify via Open WebUI API instead
+        elif not dropdown_opened:
+            # Dropdown did not open in headless mode — verify via Open WebUI API instead
             try:
-                import httpx as _httpx
-                ar = _httpx.get("http://localhost:8080/api/v1/models/",
+                ar = httpx.get("http://localhost:8080/api/v1/models/",
                     headers={"Authorization": f"Bearer {_owui_token()}"}, timeout=5)
                 if ar.status_code == 200:
                     data = ar.json()
@@ -606,19 +608,22 @@ async def H_gui():
                         f"GUI: {len(ws_found)}/{len(WS_IDS)} visible (headless limit) | API: {len(api_ws)}/{len(WS_IDS)} registered")
                 else:
                     log("WARN","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown (headless limit)")
-            except Exception:
-                log("WARN","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown (headless limit)")
-        if ws_miss: log("INFO","H-WS",f"Not visible in GUI (scroll/headless): {ws_miss}")
+            except Exception as e:
+                log("WARN","H-WS",f"API fallback failed: {e}")
+        else:
+            log("FAIL","H-WS",f"Dropdown opened but only {len(ws_found)}/{len(WS_IDS)} workspaces visible: missing {ws_miss}")
+        if ws_miss and dropdown_opened: log("INFO","H-WS",f"Not visible in GUI: {ws_miss}")
+        elif ws_miss: log("INFO","H-WS",f"Not visible in GUI (scroll/headless): {ws_miss}")
 
         # Every persona — GUI check first, API fallback if headless can't see them
         pf = [p["name"] for p in PERSONAS if p["name"].lower() in body]
         pm = [p["name"] for p in PERSONAS if p["name"].lower() not in body]
         if len(pf) >= len(PERSONAS)*0.8:
             log("PASS","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible")
-        else:
+        elif not dropdown_opened:
+            # Dropdown did not open in headless mode — verify via Open WebUI API instead
             try:
-                import httpx as _httpx
-                ar = _httpx.get("http://localhost:8080/api/v1/models/",
+                ar = httpx.get("http://localhost:8080/api/v1/models/",
                     headers={"Authorization": f"Bearer {_owui_token()}"}, timeout=5)
                 if ar.status_code == 200:
                     data = ar.json()
@@ -628,9 +633,12 @@ async def H_gui():
                         f"GUI: {len(pf)}/{len(PERSONAS)} visible (headless limit) | API: {len(api_pf)}/{len(PERSONAS)} registered")
                 else:
                     log("WARN","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible (headless limit)")
-            except Exception:
-                log("WARN","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible (headless limit)")
-        if pm: log("INFO","H-Persona",f"Not visible in GUI (scroll/headless): {pm[:8]}...")
+            except Exception as e:
+                log("WARN","H-Persona",f"API fallback failed: {e}")
+        else:
+            log("FAIL","H-Persona",f"Dropdown opened but only {len(pf)}/{len(PERSONAS)} personas visible")
+        if pm and dropdown_opened: log("INFO","H-Persona",f"Not visible in GUI: {pm[:8]}...")
+        elif pm: log("INFO","H-Persona",f"Not visible in GUI (scroll/headless): {pm[:8]}...")
 
         await page.keyboard.press("Escape")
 

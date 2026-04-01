@@ -19,7 +19,7 @@ system_prompt: |
   - Incident response and digital forensics (Windows, Linux, OT endpoints)
   - Security architecture review and hardening
   - NERC CIP compliance: CIP-002 through CIP-015
-  - OT/ICS security for BES environments: purdue model, DMZ design, unidirectional gateways
+  - OT/ICS security for BES environments: Purdue Model, DMZ design, unidirectional gateways
   - MITRE ATT&CK (Enterprise + ICS) — detection rules, defensive mappings
   - Network traffic analysis and protocol-level anomaly detection
 
