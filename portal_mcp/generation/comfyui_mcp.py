@@ -115,20 +115,21 @@ IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux" or "sdxl"
 # FLUX.1-schnell workflow template
 # FLUX.1-schnell workflow
 # Uses VAELoader since FLUX checkpoints don't include VAE
+# ComfyUI v0.16: node IDs must be integers, connections as [node_id, output_index]
 FLUX_WORKFLOW = {
-    "1": {
+    1: {
         "inputs": {"ckpt_name": "flux1-schnell.safetensors"},
         "class_type": "CheckpointLoaderSimple",
     },
-    "2": {
+    2: {
         "inputs": {"vae_name": "ae.safetensors"},
         "class_type": "VAELoader",
     },
-    "3": {
+    3: {
         "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
         "class_type": "EmptyLatentImage",
     },
-    "4": {
+    4: {
         "inputs": {
             "clip_name1": "text_encoder/model.safetensors",
             "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors",
@@ -136,57 +137,58 @@ FLUX_WORKFLOW = {
         },
         "class_type": "DualCLIPLoader",
     },
-    "5": {
-        "inputs": {"text": "", "clip": ["4", 0]},
+    5: {
+        "inputs": {"text": "", "clip": [4, 0]},
         "class_type": "CLIPTextEncode",
     },
-    "6": {
-        "inputs": {"conditioning": ["5", 0], "guidance": 3.5},
+    6: {
+        "inputs": {"conditioning": [5, 0], "guidance": 3.5},
         "class_type": "FluxGuidance",
     },
-    "7": {
+    7: {
         "inputs": {
             "seed": 42,
             "steps": 4,
             "cfg": 1.0,
             "sampler_name": "euler",
             "scheduler": "simple",
-            "model": ["1", 0],
-            "positive": ["6", 0],
+            "model": [1, 0],
+            "positive": [6, 0],
             "negative": "",
-            "latent_image": ["3", 0],
+            "latent_image": [3, 0],
             "denoise": 1,
         },
         "class_type": "KSampler",
     },
-    "8": {
-        "inputs": {"samples": ["7", 0], "vae": ["2", 0]},
+    8: {
+        "inputs": {"samples": [7, 0], "vae": [2, 0]},
         "class_type": "VAEDecode",
     },
-    "9": {
-        "inputs": {"filename_prefix": "portal_", "images": ["8", 0]},
+    9: {
+        "inputs": {"filename_prefix": "portal_", "images": [8, 0]},
         "class_type": "SaveImage",
     },
 }
 
 # SDXL workflow template - uses EmptyLatentImage and has negative prompt
+# ComfyUI v0.16: node IDs must be integers, connections as [node_id, output_index]
 SDXL_WORKFLOW = {
-    "1": {
+    1: {
         "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"},
         "class_type": "CheckpointLoaderSimple",
     },
-    "2": {"inputs": {"text": "", "clip": ["1", 1]}, "class_type": "CLIPTextEncode"},
-    "3": {"inputs": {"text": "", "clip": ["1", 1]}, "class_type": "CLIPTextEncode"},
-    "4": {
+    2: {"inputs": {"text": "", "clip": [1, 1]}, "class_type": "CLIPTextEncode"},
+    3: {"inputs": {"text": "", "clip": [1, 1]}, "class_type": "CLIPTextEncode"},
+    4: {
         "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
         "class_type": "EmptyLatentImage",
     },
-    "5": {
+    5: {
         "inputs": {
-            "model": ["1", 0],
-            "positive": ["2", 0],
-            "negative": ["3", 0],
-            "latent_image": ["4", 0],
+            "model": [1, 0],
+            "positive": [2, 0],
+            "negative": [3, 0],
+            "latent_image": [4, 0],
             "noise_seed": 42,
             "steps": 25,
             "cfg": 7.5,
@@ -196,8 +198,8 @@ SDXL_WORKFLOW = {
         },
         "class_type": "KSampler",
     },
-    "6": {"inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "class_type": "VAEDecode"},
-    "7": {"inputs": {"filename_prefix": "portal_", "images": ["6", 0]}, "class_type": "SaveImage"},
+    6: {"inputs": {"samples": [5, 0], "vae": [1, 2]}, "class_type": "VAEDecode"},
+    7: {"inputs": {"filename_prefix": "portal_", "images": [6, 0]}, "class_type": "SaveImage"},
 }
 
 
@@ -264,13 +266,23 @@ async def generate_image(
             json={"prompt": workflow, "client_id": client_id},
         )
         resp.raise_for_status()
-    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+    except httpx.ConnectError as e:
         return {
             "success": False,
             "error": (
                 f"ComfyUI not available at {COMFYUI_URL}: {e}. "
                 "Ensure ComfyUI is running and a model is installed."
             ),
+        }
+    except httpx.HTTPStatusError as e:
+        # Return the actual ComfyUI error message for non-2xx responses
+        try:
+            error_detail = e.response.json().get("error", e.response.text[:200])
+        except Exception:
+            error_detail = e.response.text[:200] if e.response.text else str(e)
+        return {
+            "success": False,
+            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
         }
     prompt_id = resp.json()["prompt_id"]
 

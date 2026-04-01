@@ -255,7 +255,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
     # Get existing workspaces
     existing_names: set[str] = set()
     try:
-        resp = client.get(
+        resp = await client.get(
             f"{OPENWEBUI_URL}/api/v1/models/",
             headers=auth_headers(token),
         )
@@ -283,7 +283,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
         try:
             if ws_id in existing_names:
                 # Upsert: update existing workspace to pick up toolIds changes
-                resp = client.post(
+                resp = await client.post(
                     f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
                     json=payload,
                     headers=auth_headers(token),
@@ -294,7 +294,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
                     updated += 1
                 else:
                     # Some Open WebUI versions use PUT for update
-                    resp = client.put(
+                    resp = await client.put(
                         f"{OPENWEBUI_URL}/api/v1/models/{ws_id}",
                         json=payload,
                         headers=auth_headers(token),
@@ -306,7 +306,7 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
                     else:
                         print(f"  Skip (update failed {resp.status_code}): {ws_name}")
             else:
-                resp = client.post(
+                resp = await client.post(
                     f"{OPENWEBUI_URL}/api/v1/models/",
                     json=payload,
                     headers=auth_headers(token),
@@ -487,7 +487,7 @@ def configure_tool_settings(client: httpx.Client, token: str) -> None:
 # --- Main ---------------------------------------------------------------------
 
 
-def main() -> int:
+async def main() -> int:
     client = httpx.Client(timeout=30.0)
 
     # Wait for Open WebUI to be ready
@@ -528,4 +528,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(asyncio.run(main()))
