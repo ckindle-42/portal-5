@@ -104,36 +104,27 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
-# Wan2.2 model filename — set this to match what's in ComfyUI's models/unet/ directory.
-# FX-FeiHou/wan2.2-Remix typically includes files like wan2.2_remix_t2v_5B_fp16.safetensors
-# Run: docker exec portal5-comfyui ls /opt/ComfyUI/models/unet/
-WAN22_MODEL_FILE = os.getenv("WAN22_MODEL_FILE", "wan2.2_ti2v_5B_fp16.safetensors")
-WAN22_CLIP_FILE = os.getenv("WAN22_CLIP_FILE", "clip_l.safetensors")
-WAN22_VAE_FILE = os.getenv("WAN22_VAE_FILE", "wan2.2_vae.safetensors")
+# Wan2.2 model path — set this to match ComfyUI's models/ subdirectory.
+# The FX-FeiHou/wan2.2-Remix model is downloaded to models/video/ in HuggingFace Diffusers format.
+# DiffusersLoader loads the entire model folder and outputs MODEL, CLIP, VAE.
+WAN22_MODEL_PATH = os.getenv("WAN22_MODEL_PATH", "video/")
 
-# Wan2.2 T2V workflow — uses UNETLoader, CLIPLoader, VAELoader, EmptyHunyuanLatentVideo
+# Wan2.2 T2V workflow — uses DiffusersLoader (HuggingFace Diffusers format) + EmptyHunyuanLatentVideo
+# DiffusersLoader outputs: [0]=MODEL, [1]=CLIP, [2]=VAE
 _WAN22_T2V_WORKFLOW: dict = {
     "1": {
-        "inputs": {"model_name": WAN22_MODEL_FILE},
-        "class_type": "UNETLoader",
+        "inputs": {"model_path": WAN22_MODEL_PATH},
+        "class_type": "DiffusersLoader",
     },
     "2": {
-        "inputs": {"model_name": WAN22_CLIP_FILE},
-        "class_type": "CLIPLoader",
+        "inputs": {"text": "", "clip": ["1", 1]},
+        "class_type": "CLIPTextEncode",
     },
     "3": {
-        "inputs": {"model_name": WAN22_VAE_FILE},
-        "class_type": "VAELoader",
+        "inputs": {"text": "", "clip": ["1", 1]},
+        "class_type": "CLIPTextEncode",
     },
     "4": {
-        "inputs": {"text": "", "clip": ["2", 1]},
-        "class_type": "CLIPTextEncode",
-    },
-    "5": {
-        "inputs": {"text": "", "clip": ["2", 1]},
-        "class_type": "CLIPTextEncode",
-    },
-    "6": {
         "inputs": {
             "width": 832,
             "height": 480,
@@ -142,12 +133,12 @@ _WAN22_T2V_WORKFLOW: dict = {
         },
         "class_type": "EmptyHunyuanLatentVideo",
     },
-    "7": {
+    "5": {
         "inputs": {
             "model": ["1", 0],
-            "positive": ["4", 0],
-            "negative": ["5", 0],
-            "latent_image": ["6", 0],
+            "positive": ["2", 0],
+            "negative": ["3", 0],
+            "latent_image": ["4", 0],
             "seed": 42,
             "steps": 20,
             "cfg": 6.0,
@@ -157,18 +148,22 @@ _WAN22_T2V_WORKFLOW: dict = {
         },
         "class_type": "KSampler",
     },
-    "8": {
-        "inputs": {"samples": ["7", 0], "vae": ["3", 0]},
+    "6": {
+        "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
         "class_type": "VAEDecode",
     },
-    "9": {
+    "7": {
+        "inputs": {"images": ["6", 0], "fps": 16.0},
+        "class_type": "CreateVideo",
+    },
+    "8": {
         "inputs": {
+            "video": ["7", 0],
             "filename_prefix": "portal_video_",
-            "images": ["8", 0],
-            "fps": 16,
-            "format": "video/h264-mp4",
+            "format": "mp4",
+            "codec": "h264",
         },
-        "class_type": "VHS_VideoCombine",
+        "class_type": "SaveVideo",
     },
 }
 
@@ -272,18 +267,18 @@ async def generate_video(
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
     else:
-        # Wan2.2 workflow
+        # Wan2.2 workflow — DiffusersLoader (model_path), CLIPTextEncode, EmptyHunyuanLatentVideo, KSampler, VAEDecode, VHS_VideoCombine
         if model:
-            workflow["1"]["inputs"]["model_name"] = model
-        workflow["4"]["inputs"]["text"] = prompt
-        workflow["5"]["inputs"]["text"] = negative_prompt
-        workflow["6"]["inputs"]["width"] = width
-        workflow["6"]["inputs"]["height"] = height
-        workflow["6"]["inputs"]["video_frames"] = frames
-        workflow["7"]["inputs"]["seed"] = seed
-        workflow["7"]["inputs"]["steps"] = steps
-        workflow["7"]["inputs"]["cfg"] = cfg
-        workflow["9"]["inputs"]["fps"] = fps
+            workflow["1"]["inputs"]["model_path"] = model
+        workflow["2"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["text"] = negative_prompt
+        workflow["4"]["inputs"]["width"] = width
+        workflow["4"]["inputs"]["height"] = height
+        workflow["4"]["inputs"]["video_frames"] = frames
+        workflow["5"]["inputs"]["seed"] = seed
+        workflow["5"]["inputs"]["steps"] = steps
+        workflow["5"]["inputs"]["cfg"] = cfg
+        workflow["7"]["inputs"]["fps"] = fps
 
     client_id = str(uuid.uuid4())
 
