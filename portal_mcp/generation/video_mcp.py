@@ -104,27 +104,38 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
-# Wan2.2 model path — set this to match ComfyUI's models/ subdirectory.
-# The FX-FeiHou/wan2.2-Remix model is downloaded to models/video/ in HuggingFace Diffusers format.
-# DiffusersLoader loads the entire model folder and outputs MODEL, CLIP, VAE.
-WAN22_MODEL_PATH = os.getenv("WAN22_MODEL_PATH", "video")
+# Wan2.2 model filenames — must match filenames in ComfyUI's models/ subdirectories.
+# Run: ls ~/ComfyUI/models/unet/ ~/ComfyUI/models/clip/ ~/ComfyUI/models/vae/
+# to find the actual downloaded filenames, then set these in .env.
+WAN22_MODEL_FILE = os.getenv("WAN22_MODEL_FILE", "wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_CLIP_FILE = os.getenv("WAN22_CLIP_FILE", "clip_l.safetensors")
+WAN22_VAE_FILE = os.getenv("WAN22_VAE_FILE", "wan2.2_vae.safetensors")
 
-# Wan2.2 T2V workflow — uses DiffusersLoader (HuggingFace Diffusers format) + EmptyHunyuanLatentVideo
-# DiffusersLoader outputs: [0]=MODEL, [1]=CLIP, [2]=VAE
+# Wan2.2 T2V workflow — uses UNETLoader + CLIPLoader + VAELoader + EmptyHunyuanLatentVideo
+# Output via VHS_VideoCombine (ComfyUI-VideoHelperSuite) — outputs "gifs" key in history.
+# ComfyUI v0.16.3: node IDs are strings; EmptyHunyuanLatentVideo uses "length" (not "video_frames").
 _WAN22_T2V_WORKFLOW: dict = {
     "1": {
-        "inputs": {"model_path": WAN22_MODEL_PATH},
-        "class_type": "DiffusersLoader",
+        "inputs": {"model_name": WAN22_MODEL_FILE},
+        "class_type": "UNETLoader",
     },
     "2": {
-        "inputs": {"text": "", "clip": ["1", 1]},
-        "class_type": "CLIPTextEncode",
+        "inputs": {"model_name": WAN22_CLIP_FILE},
+        "class_type": "CLIPLoader",
     },
     "3": {
-        "inputs": {"text": "", "clip": ["1", 1]},
-        "class_type": "CLIPTextEncode",
+        "inputs": {"model_name": WAN22_VAE_FILE},
+        "class_type": "VAELoader",
     },
     "4": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "5": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "6": {
         "inputs": {
             "width": 832,
             "height": 480,
@@ -133,12 +144,12 @@ _WAN22_T2V_WORKFLOW: dict = {
         },
         "class_type": "EmptyHunyuanLatentVideo",
     },
-    "5": {
+    "7": {
         "inputs": {
             "model": ["1", 0],
-            "positive": ["2", 0],
-            "negative": ["3", 0],
-            "latent_image": ["4", 0],
+            "positive": ["4", 0],
+            "negative": ["5", 0],
+            "latent_image": ["6", 0],
             "seed": 42,
             "steps": 20,
             "cfg": 6.0,
@@ -148,26 +159,26 @@ _WAN22_T2V_WORKFLOW: dict = {
         },
         "class_type": "KSampler",
     },
-    "6": {
-        "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
+    "8": {
+        "inputs": {"samples": ["7", 0], "vae": ["3", 0]},
         "class_type": "VAEDecode",
     },
-    "7": {
-        "inputs": {"images": ["6", 0], "fps": 16.0},
-        "class_type": "CreateVideo",
-    },
-    "8": {
+    "9": {
         "inputs": {
-            "video": ["7", 0],
             "filename_prefix": "portal_video_",
-            "format": "mp4",
-            "codec": "h264",
+            "images": ["8", 0],
+            "fps": 16,
+            "format": "video/h264-mp4",
+            "pingpong": False,
+            "save_output": True,
         },
-        "class_type": "SaveVideo",
+        "class_type": "VHS_VideoCombine",
     },
 }
 
-# CogVideoX fallback workflow — uses EmptyMochiLatentVideo (generic video latent node)
+# CogVideoX fallback workflow — uses CheckpointLoaderSimple + EmptyMochiLatentVideo
+# EmptyMochiLatentVideo uses "length" parameter (v0.16.3).
+# KSampler uses "seed" (not "noise_seed") and "normal" scheduler in v0.16.3.
 _COGVIDEOX_WORKFLOW: dict = {
     "1": {
         "inputs": {"ckpt_name": "cogvideox_5b.safetensors"},
@@ -201,17 +212,15 @@ _COGVIDEOX_WORKFLOW: dict = {
         "class_type": "VAEDecode",
     },
     "6": {
-        "inputs": {"images": ["5", 0], "fps": 8.0},
-        "class_type": "CreateVideo",
-    },
-    "7": {
         "inputs": {
-            "video": ["6", 0],
             "filename_prefix": "portal_video_",
-            "format": "mp4",
-            "codec": "h264",
+            "images": ["5", 0],
+            "fps": 8,
+            "format": "video/h264-mp4",
+            "pingpong": False,
+            "save_output": True,
         },
-        "class_type": "SaveVideo",
+        "class_type": "VHS_VideoCombine",
     },
 }
 
@@ -260,7 +269,8 @@ async def generate_video(
 
     # Apply workflow-specific parameters
     if VIDEO_BACKEND == "cogvideox":
-        # Use model param or default
+        # CogVideoX: CheckpointLoaderSimple(1), CLIPTextEncode(2),
+        # EmptyMochiLatentVideo(3), KSampler(4), VAEDecode(5), VHS_VideoCombine(6)
         model_name = model if model else "cogvideox_5b.safetensors"
         workflow["1"]["inputs"]["ckpt_name"] = model_name
         workflow["2"]["inputs"]["text"] = prompt
@@ -272,18 +282,20 @@ async def generate_video(
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
     else:
-        # Wan2.2 workflow — DiffusersLoader (model_path), CLIPTextEncode, EmptyHunyuanLatentVideo, KSampler, VAEDecode, VHS_VideoCombine
+        # Wan2.2: UNETLoader(1), CLIPLoader(2), VAELoader(3), CLIPTextEncode(4),
+        # CLIPTextEncode(5), EmptyHunyuanLatentVideo(6), KSampler(7),
+        # VAEDecode(8), VHS_VideoCombine(9)
         if model:
-            workflow["1"]["inputs"]["model_path"] = model
-        workflow["2"]["inputs"]["text"] = prompt
-        workflow["3"]["inputs"]["text"] = negative_prompt
-        workflow["4"]["inputs"]["width"] = width
-        workflow["4"]["inputs"]["height"] = height
-        workflow["4"]["inputs"]["length"] = frames
-        workflow["5"]["inputs"]["seed"] = seed
-        workflow["5"]["inputs"]["steps"] = steps
-        workflow["5"]["inputs"]["cfg"] = cfg
-        workflow["7"]["inputs"]["fps"] = fps
+            workflow["1"]["inputs"]["model_name"] = model
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["text"] = negative_prompt
+        workflow["6"]["inputs"]["width"] = width
+        workflow["6"]["inputs"]["height"] = height
+        workflow["6"]["inputs"]["length"] = frames
+        workflow["7"]["inputs"]["seed"] = seed
+        workflow["7"]["inputs"]["steps"] = steps
+        workflow["7"]["inputs"]["cfg"] = cfg
+        workflow["9"]["inputs"]["fps"] = fps
 
     client_id = str(uuid.uuid4())
 

@@ -1609,6 +1609,20 @@ PLIST
 
     mkdir -p "$HOME/.portal5/logs"
 
+    # ── Install ComfyUI-VideoHelperSuite (required for VHS_VideoCombine video output) ──
+    echo "  Installing ComfyUI-VideoHelperSuite (video output node)..."
+    VHS_DIR="$COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite"
+    if [ -d "$VHS_DIR" ]; then
+        echo "  ✅ ComfyUI-VideoHelperSuite already installed — updating"
+        git -C "$VHS_DIR" pull --quiet
+    else
+        git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git "$VHS_DIR"
+        echo "  ✅ ComfyUI-VideoHelperSuite installed"
+    fi
+    if [ -f "$VHS_DIR/requirements.txt" ]; then
+        "$COMFYUI_DIR/.venv/bin/pip" install --quiet -r "$VHS_DIR/requirements.txt"
+    fi
+
     # Load the service
     launchctl load "$PLIST_PATH" 2>/dev/null || true
     launchctl start com.portal5.comfyui 2>/dev/null || true
