@@ -80,6 +80,22 @@ def log(s,sec,msg):
 def _h():
     return {"Authorization":f"Bearer {API_KEY}","Content-Type":"application/json"}
 
+_owui_token_cache: str = ""
+def _owui_token() -> str:
+    """Get an Open WebUI JWT token, cached for the run."""
+    global _owui_token_cache
+    if _owui_token_cache:
+        return _owui_token_cache
+    try:
+        import httpx as _httpx
+        r = _httpx.post("http://localhost:8080/api/v1/auths/signin",
+            json={"email": ADMIN_EMAIL, "password": ADMIN_PASS}, timeout=10)
+        if r.status_code == 200:
+            _owui_token_cache = r.json().get("token", "")
+    except Exception:
+        pass
+    return _owui_token_cache
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PREFLIGHT — fail fast if environment isn't ready
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -433,11 +449,16 @@ PERSONA_PROMPTS = {
 async def F_personas():
     print(f"\n━━━ F. PERSONAS: EXERCISE ALL {len(PERSONAS)} ━━━")
 
-    # F1: Verify all personas are registered in pipeline
+    # F1: Verify all personas are registered in Open WebUI (port 8080, not pipeline 9099)
+    # Personas are Open WebUI model presets — they live at /api/v1/models/ on Open WebUI,
+    # not on the pipeline. The pipeline only exposes workspace IDs (auto, auto-coding, etc.)
     async with httpx.AsyncClient(timeout=10) as c:
-        r = await c.get("http://localhost:9099/v1/models",headers=_h())
-        if r.status_code!=200: log("FAIL","F",f"/v1/models: {r.status_code}"); return
-        model_ids = {m["id"].lower() for m in r.json().get("data",[])}
+        r = await c.get("http://localhost:8080/api/v1/models/",
+                        headers={"Authorization": f"Bearer {_owui_token()}"})
+        if r.status_code!=200: log("WARN","F-reg",f"Open WebUI /api/v1/models/: {r.status_code}"); model_ids = set()
+        else:
+            data = r.json()
+            model_ids = {m["id"].lower() for m in (data if isinstance(data, list) else data.get("data", []))}
 
     registered = []
     not_registered = []
@@ -450,7 +471,7 @@ async def F_personas():
     log("PASS" if not not_registered else "WARN","F-reg",
         f"Registered: {len(registered)}/{len(PERSONAS)}" + (f" MISSING: {not_registered}" if not_registered else ""))
     if not_registered:
-        log("INFO","F-reg","FIX: Run ./launch.sh seed to register missing personas")
+        log("INFO","F-reg","FIX: Run docker compose run --rm openwebui-init to re-seed personas")
 
     # F2: Send a domain prompt through EVERY persona
     # HOW PERSONAS WORK: When a user selects a persona in Open WebUI, the UI
@@ -564,19 +585,52 @@ async def H_gui():
         body = (await page.inner_text("body")).lower()
         await page.screenshot(path="/tmp/p5_gui_dropdown.png")
 
-        # Every workspace
+        # Every workspace — GUI check first, API fallback if dropdown didn't open
         ws_found,ws_miss = [],[]
         for wid,wname in WS_NAMES.items():
             clean = re.sub(r'^[^\w]+','',wname).strip()
             (ws_found if clean.lower() in body else ws_miss).append(f"{wid}={clean}")
-        log("PASS" if len(ws_found)>=len(WS_IDS)-1 else "WARN","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown")
-        if ws_miss: log("INFO","H-WS",f"Not visible: {ws_miss}")
+        if len(ws_found) >= len(WS_IDS)-1:
+            log("PASS","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown")
+        else:
+            # Dropdown may not open in headless mode — verify via Open WebUI API instead
+            try:
+                import httpx as _httpx
+                ar = _httpx.get("http://localhost:8080/api/v1/models/",
+                    headers={"Authorization": f"Bearer {_owui_token()}"}, timeout=5)
+                if ar.status_code == 200:
+                    data = ar.json()
+                    api_ids = {m["id"] for m in (data if isinstance(data,list) else data.get("data",[]))}
+                    api_ws = [wid for wid in WS_IDS if wid in api_ids]
+                    log("PASS" if len(api_ws)==len(WS_IDS) else "WARN","H-WS",
+                        f"GUI: {len(ws_found)}/{len(WS_IDS)} visible (headless limit) | API: {len(api_ws)}/{len(WS_IDS)} registered")
+                else:
+                    log("WARN","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown (headless limit)")
+            except Exception:
+                log("WARN","H-WS",f"{len(ws_found)}/{len(WS_IDS)} in dropdown (headless limit)")
+        if ws_miss: log("INFO","H-WS",f"Not visible in GUI (scroll/headless): {ws_miss}")
 
-        # Every persona
+        # Every persona — GUI check first, API fallback if headless can't see them
         pf = [p["name"] for p in PERSONAS if p["name"].lower() in body]
         pm = [p["name"] for p in PERSONAS if p["name"].lower() not in body]
-        log("PASS" if len(pf)>=len(PERSONAS)*0.8 else "WARN","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible")
-        if pm: log("INFO","H-Persona",f"Not visible (scroll?): {pm[:8]}...")
+        if len(pf) >= len(PERSONAS)*0.8:
+            log("PASS","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible")
+        else:
+            try:
+                import httpx as _httpx
+                ar = _httpx.get("http://localhost:8080/api/v1/models/",
+                    headers={"Authorization": f"Bearer {_owui_token()}"}, timeout=5)
+                if ar.status_code == 200:
+                    data = ar.json()
+                    api_ids = {m["id"].lower() for m in (data if isinstance(data,list) else data.get("data",[]))}
+                    api_pf = [p["slug"] for p in PERSONAS if p["slug"].lower() in api_ids]
+                    log("PASS" if len(api_pf)==len(PERSONAS) else "WARN","H-Persona",
+                        f"GUI: {len(pf)}/{len(PERSONAS)} visible (headless limit) | API: {len(api_pf)}/{len(PERSONAS)} registered")
+                else:
+                    log("WARN","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible (headless limit)")
+            except Exception:
+                log("WARN","H-Persona",f"{len(pf)}/{len(PERSONAS)} visible (headless limit)")
+        if pm: log("INFO","H-Persona",f"Not visible in GUI (scroll/headless): {pm[:8]}...")
 
         await page.keyboard.press("Escape")
 

@@ -39,4 +39,17 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
-*Last updated: 2026-03-30*
+## Models
+
+### Persona workspace_model Values Require Research
+- **ID**: P5-ROAD-MOD-001
+- **Description**: 9 persona YAMLs have `workspace_model` values that differ from the intended models documented in CLAUDE.md. The YAMLs currently use Ollama `hf.co/` HuggingFace pull identifiers while CLAUDE.md documents specific Ollama registry tags. This may be intentional (personas tuned for specific GGUF variants) or unintended drift.
+- **Affected personas**: `redteamoperator`, `blueteamdefender`, `dataanalyst`, `datascientist`, `machinelearningengineer`, `statistician`, `itarchitect`, `researchanalyst`, `excelsheet`
+- **Current values**: `redteamoperator` → `hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF`; `blueteamdefender` → `hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF`; data/research personas → `hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF`
+- **CLAUDE.md intent**: `redteamoperator` → `xploiter/the-xploiter`; `blueteamdefender` → `huihui_ai/baronllm-abliterated`; data/research personas → `huihui_ai/tongyi-deepresearch-abliterated`
+- **Action needed**: Verify whether the GGUF-specific variants are tuned for their persona tasks before aligning to CLAUDE.md or updating CLAUDE.md to match.
+- **Last verified**: 2026-04-01
+
+---
+
+*Last updated: 2026-04-01*

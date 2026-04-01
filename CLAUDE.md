@@ -3,7 +3,7 @@
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
 **Version**: 5.2.1
-**Last Updated**: March 30, 2026
+**Last Updated**: April 1, 2026
 
 ---
 
@@ -18,6 +18,7 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
 **Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_lm (primary, host:8081) / Ollama (fallback, host:11434) ← local models  
 **Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
+**MLX requirement**: `mlx_lm` is **always running** and **required** on Apple Silicon. It is not optional. Coding workspaces and coding personas depend on MLX (Qwen3-Coder-Next) as their primary inference path. Ollama serves as fallback for non-MLX model groups and general routing.  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
 ---
@@ -183,30 +184,66 @@ git push origin feature/your-thing
 
 ## Model Catalog
 
-These are the Ollama models Portal 5 is designed around. All pulled via `ollama pull`. The `DEFAULT_MODEL` in `.env` is pulled automatically on `./launch.sh up`. Others are pulled on demand or via `./launch.sh pull-models`.
+These are the models Portal 5 is designed around. MLX models run via `mlx_lm` (always on). Ollama models are pulled via `ollama pull`. The `DEFAULT_MODEL` in `.env` is pulled automatically on `./launch.sh up`. Others are pulled on demand or via `./launch.sh pull-models`.
+
+**HuggingFace GGUF imports**: Some models use Ollama's `hf.co/` pull format (e.g., `hf.co/org/repo-GGUF`) — this is Ollama's native mechanism for importing GGUF models directly from HuggingFace. These are valid Ollama model identifiers, not URLs, and are part of the intentional Apple Silicon setup.
 
 ### Text Models (Ollama)
+
+**General**
 
 | Model | Ollama Tag | Purpose | RAM |
 |---|---|---|---|
 | Dolphin Llama3 8B | `dolphin-llama3:8b` | Default, general, function calling | 8GB |
-| Dolphin Llama3 70B | `dolphin-llama3:70b` | High-quality general (needs 48GB+) | 48GB |
-| The-Xploiter | `xploiter/the-xploiter` | Red team / security offense | 12GB |
-| WhiteRabbitNeo 8B | `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0` | Security research | 6GB |
-| BaronLLM Abliterated | `huihui_ai/baronllm-abliterated` | Uncensored general | 6GB |
-| Tongyi DeepResearch 30B | `huihui_ai/tongyi-deepresearch-abliterated` | Reasoning, research, analysis | 19GB |
-| Qwen3 Coder 30B | `qwen3-coder-next:30b-q5` | Code generation, review | 24GB |
-| Devstral 24B | `devstral:24b` | Code, agentic development | 20GB |
-| DeepSeek Coder 16B | `deepseek-coder-v2:16b-lite-instruct-q4_K_M` | Code, math | 11GB |
-| Qwen3 VL 32B | `qwen3-vl:32b` | Multimodal, vision, audio | 32GB |
-| LLaVA 7B | `llava:7b` | Vision / image understanding | 8GB |
+| Dolphin Llama3 70B | `dolphin-llama3:70b-q4_k_m` | High-quality general (needs 48GB+) | 48GB |
 | Llama 3.2 3B | `llama3.2:3b-instruct-q4_K_M` | Fast routing classifier | 3GB |
 
-### MLX Models (Apple Silicon)
+**Coding** (Ollama fallback — MLX is primary for coding workspaces)
 
-MLX models run via `mlx_lm.server` at `:8081` — 20-40% faster than Ollama GGUF on M-series.
-Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model <tag>`.
-**mlx_lm serves ONE model at a time** — set `MLX_MODEL` in `.env` to switch.
+| Model | Ollama Tag | Purpose | RAM |
+|---|---|---|---|
+| Qwen3 Coder Next 30B | `qwen3-coder-next:30b-q5` | Code generation, review (persona model) | 24GB |
+| Qwen3 Coder 30B MoE | `qwen3-coder:30b` | Primary Ollama coding fallback (3B active) | 19GB |
+| Qwen3.5 9B | `qwen3.5:9b` | Fast coding / documents | 6GB |
+| Devstral 24B | `devstral:24b` | Code, agentic development | 20GB |
+| DeepSeek Coder V2 16B | `deepseek-coder-v2:16b-lite-instruct-q4_K_M` | Code, math | 11GB |
+| DeepSeek Coder V2 Lite | `deepseek-coder-v2-lite:q4_k_m` | Fast code fallback | 9GB |
+| GLM 4.7 Flash | `glm-4.7-flash:q4_k_m` | Coding, fast reasoning | 5GB |
+| Llama 3.3 70B | `llama3.3:70b-q4_k_m` | Heavy coding (PULL_HEAVY) | 43GB |
+
+**Security**
+
+| Model | Ollama Tag | Purpose | RAM |
+|---|---|---|---|
+| The-Xploiter | `xploiter/the-xploiter` | Red team / security offense | 12GB |
+| WhiteRabbitNeo 8B | `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0` | Security research | 6GB |
+| WhiteRabbitNeo 33B | `whiterabbitneo:33b-v1.5-q4_k_m` | Security research, heavy | 22GB |
+| BaronLLM Abliterated | `huihui_ai/baronllm-abliterated` | Uncensored general / creative | 6GB |
+| BaronLLM Q6K (imported) | `baronllm:q6_k` | Security offensive, higher quality | 8GB |
+| Lily Cybersecurity 7B (imported) | `lily-cybersecurity:7b-q4_k_m` | Blue team defense | 5GB |
+| Dolphin3 R1 Mistral 24B | `dolphin3-r1-mistral:24b-q4_k_m` | Security research with reasoning | 16GB |
+| Dolphin Llama3 70B | `dolphin-llama3:70b-q4_k_m` | Heavy uncensored (PULL_HEAVY) | 48GB |
+
+**Reasoning / Research**
+
+| Model | Ollama Tag | Purpose | RAM |
+|---|---|---|---|
+| DeepSeek R1 32B | `deepseek-r1:32b-q4_k_m` | Primary reasoning + chain-of-thought | 20GB |
+| Tongyi DeepResearch 30B | `huihui_ai/tongyi-deepresearch-abliterated` | Research, analysis | 19GB |
+
+**Vision**
+
+| Model | Ollama Tag | Purpose | RAM |
+|---|---|---|---|
+| Qwen3 VL 32B | `qwen3-vl:32b` | Multimodal, vision, audio | 32GB |
+| LLaVA 7B | `llava:7b` | Vision / image understanding | 8GB |
+
+### MLX Models (Apple Silicon) — Always Running, Required
+
+MLX (`mlx_lm.server` at `:8081`) is **always on** and **required** — it is not optional on Apple Silicon. Coding workspaces (`auto-coding`) and all coding personas route through MLX as their primary inference path. If MLX is not running, coding workspaces fall back to Ollama coding group, but this is degraded operation.
+
+Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model <tag>`.  
+**mlx_lm serves ONE model at a time** — set `MLX_MODEL` in `.env` to select which.  
 **Memory Coexistence** assumes Ollama + ComfyUI also running simultaneously.
 
 | Model | Memory | Safe Concurrent With |
@@ -218,6 +255,7 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 | `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Everything — safe baseline |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Ollama only (3B) — unload others first |
 | `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | Long-context policy/compliance/research |
+| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | Reasoning/research, lighter compliance |
 
 **64GB systems**: Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB total — feasible.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
