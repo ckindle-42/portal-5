@@ -52,4 +52,19 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
+## Seeding / Init
+
+### `openwebui-init` Skips Existing Personas and Workspaces on Re-Seed
+- **ID**: P5-ROAD-INIT-001
+- **Description**: `scripts/openwebui_init.py` detects existing model presets and skips them on subsequent runs. The upsert path (PUT/POST to update) returns HTTP 405 against Open WebUI v0.6.5, meaning updated `system_prompt` content in persona YAMLs is never pushed to the live instance after the first seed. This is the same pattern used for workspace model refreshes.
+- **Impact**: Persona prompt upgrades, workspace toolId changes, and system prompt edits require manual action to take effect in a running Open WebUI instance. `./launch.sh seed` silently no-ops for already-seeded items.
+- **Mitigation options**:
+  1. Delete and re-create: delete the model preset via Open WebUI Admin UI, then re-run `docker compose run --rm openwebui-init`
+  2. Add a `--force` / `--reseed` flag to `openwebui_init.py` that deletes before creating (needs investigation of correct v0.6.5 DELETE endpoint)
+  3. On startup, always re-seed if YAML content hash differs from stored preset (requires storing hashes)
+- **Desired behavior**: Startup seeding should behave like container image pulls — re-apply if content changed, skip if identical. Similar to how `docker compose up --build` rebuilds changed images.
+- **Last verified**: 2026-04-01
+
+---
+
 *Last updated: 2026-04-01*
