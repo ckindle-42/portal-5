@@ -379,6 +379,7 @@ services:
       - SANDBOX_MCP_PORT=8914
       - MCP_PORT=8914
       - SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-30}
+      - SANDBOX_ENABLED=true
       # Point at DinD instead of host Docker
       - DOCKER_HOST=tcp://dind:2375
     command: ["python", "-m", "portal_mcp.execution.code_sandbox_mcp"]
