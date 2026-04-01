@@ -966,4 +966,4 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-*Last updated: 2026-03-30 | Portal 5.2.0*
+*Last updated: 2026-03-31 | Portal 6.0*
