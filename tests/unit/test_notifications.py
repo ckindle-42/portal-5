@@ -435,6 +435,11 @@ class TestNotificationScheduler:
 
             with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch:
                 import portal_pipeline.router_pipe as rp_module
+                from portal_pipeline.notifications import scheduler as sched_module
+
+                # Mock cooldown file so test doesn't skip due to existing lockfile
+                cooldown_file_mock = MagicMock()
+                cooldown_file_mock.exists.return_value = False
 
                 with (
                     patch.object(rp_module, "_total_response_time_ms", 50000.0),
@@ -450,6 +455,7 @@ class TestNotificationScheduler:
                             "qwen3-coder-next:30b-q5": 50,
                         },
                     ),
+                    patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
                 ):
                     await scheduler._send_daily_summary()
 

@@ -101,7 +101,9 @@ _response_time_seconds = Histogram(
 )
 
 
-def _record_usage(model: str, workspace: str, data: dict, elapsed_seconds: float | None = None) -> None:
+def _record_usage(
+    model: str, workspace: str, data: dict, elapsed_seconds: float | None = None
+) -> None:
     """Extract usage fields from an Ollama or OpenAI-format response dict and record metrics.
 
     Safe to call with incomplete dicts — missing fields are skipped.
@@ -114,7 +116,12 @@ def _record_usage(model: str, workspace: str, data: dict, elapsed_seconds: float
     used by the daily summary scheduler.
     """
     try:
-        global _total_output_tokens, _total_input_tokens, _total_tps, _request_tps_count, _req_count_by_model
+        global \
+            _total_output_tokens, \
+            _total_input_tokens, \
+            _total_tps, \
+            _request_tps_count, \
+            _req_count_by_model
         # Prefer OpenAI format fields (completion_tokens / prompt_tokens)
         # Fall back to Ollama native (eval_count / prompt_eval_count)
         completion_tokens = int(data.get("completion_tokens") or data.get("eval_count") or 0)
@@ -1172,7 +1179,11 @@ async def _stream_from_backend_guarded(
                                 if payload and payload != "[DONE]":
                                     try:
                                         usage_data = json.loads(payload)
-                                        elapsed = (time.monotonic() - start_time) if start_time is not None else None
+                                        elapsed = (
+                                            (time.monotonic() - start_time)
+                                            if start_time is not None
+                                            else None
+                                        )
                                         _record_usage(
                                             model=usage_data.get("model", model),
                                             workspace=workspace_id,
@@ -1184,8 +1195,12 @@ async def _stream_from_backend_guarded(
                                     break
                     # OpenAI SSE: "data: [DONE]" terminator — no usage data, but record with elapsed time.
                     if b"data: [DONE]" in chunk:
-                        elapsed = (time.monotonic() - start_time) if start_time is not None else None
-                        _record_usage(model=model, workspace=workspace_id, data={}, elapsed_seconds=elapsed)
+                        elapsed = (
+                            (time.monotonic() - start_time) if start_time is not None else None
+                        )
+                        _record_usage(
+                            model=model, workspace=workspace_id, data={}, elapsed_seconds=elapsed
+                        )
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)

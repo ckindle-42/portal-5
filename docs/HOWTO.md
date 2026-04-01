@@ -351,7 +351,7 @@ Generate music that matches the melody of this reference clip, style: jazz piano
 **Verify:**
 ```bash
 curl -s http://localhost:8912/health
-# Returns: {"status": "ok", "backend": "audiocraft"}
+# Returns: {"status": "ok", "service": "music-mcp"}
 ```
 
 **Output:** WAV file delivered as a chat attachment.
@@ -398,7 +398,7 @@ Read this with a British male voice: The quick brown fox jumps over the lazy dog
 curl -X POST http://localhost:8916/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{"input": "Hello from Portal 5!", "voice": "af_heart"}' \
-  --output hello.mp3
+  --output hello.wav
 ```
 
 **Verify:**
