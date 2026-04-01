@@ -1,11 +1,12 @@
 # Portal 6.0 — Release Acceptance Results
 
-**Run:** 2026-03-31 23:22:40 (296s)
+**Run:** 2026-04-01 01:04:23 (492s)
 **Workspaces:** 14  ·  **Personas:** 37
 
 ## Summary
 
-- **PASS**: 106
+- **PASS**: 105
+- **FAIL**: 1
 - **WARN**: 10
 - **INFO**: 4
 
@@ -19,7 +20,7 @@
 | 4 | PASS | A4 | Workspace JSONs checked (14) |
 | 5 | PASS | A5 | docker-compose syntax |
 | 6 | PASS | B | Open WebUI: {'status': True} |
-| 7 | PASS | B | Pipeline: {'status': 'ok', 'backends_healthy': 6, 'backends_total': 7, 'workspaces': 14} |
+| 7 | PASS | B | Pipeline: {'status': 'ok', 'backends_healthy': 7, 'backends_total': 7, 'workspaces': 14} |
 | 8 | PASS | B | Prometheus: Prometheus Server is Healthy. |
 | 9 | PASS | B | Grafana: {'commit': '701c851be7a930e04fbc6ebb1cd4254da80edd4c', 'database': 'ok', 'version': '10.4.2'} |
 | 10 | PASS | B | MCP Documents: {'status': 'ok', 'service': 'documents-mcp'} |
@@ -32,34 +33,33 @@
 | 17 | PASS | B | SearXNG container |
 | 18 | PASS | B | /metrics unauth: 200 |
 | 19 | PASS | C1 | /v1/models: all {len(WS_IDS)} present |
-| 20 | PASS | C2 | auto: ... |
-| 21 | PASS | C2 | auto-coding: ... |
-| 22 | PASS | C2 | auto-security: The provided Nginx config appears to have a few security concerns:
+| 20 | PASS | C2 | auto: Docker networking uses virtualized network interfaces and Linux namesp... |
+| 21 | PASS | C2 | auto-coding: ```python
+def longest_palindromic_substring(s: str) -> str:
+    """... |
+| 22 | PASS | C2 | auto-security: The given nginx config has a few potential security issues:
 
-1.... |
-| 23 | PASS | C2 | auto-redteam: When implementing JWT authentication in a REST API, several places can... |
-| 24 | PASS | C2 | auto-blueteam: The log entry "Failed password for root from 203.0.113.50 port 22 ssh... |
-| 25 | PASS | C2 | auto-creative: Artificial intelligence,
-Emerges from a synthetic womb,
-Yearning to wi... |
-| 26 | PASS | C2 | auto-reasoning: To determine when two trains moving towards each other will meet, we... |
+1. `liste... |
+| 23 | PASS | C2 | auto-redteam: When designing a REST API with JSON Web Token (JWT) authentication, id... |
+| 24 | PASS | C2 | auto-blueteam: In this log entry, we have an indication of a failed password attempt... |
+| 25 | PASS | C2 | auto-creative: **First Glimpse**
+
+My sensors hummed—a silent hum—  
+Then *green*! A s... |
+| 26 | PASS | C2 | auto-reasoning: Let’s solve this step by step.
+
+We have:
+
+- Distance between Chicago a... |
 | 27 | PASS | C2 | auto-documents: ... |
-| 28 | PASS | C2 | auto-video: The video opens with the golden sun dipping below the horizon, casting... |
-| 29 | PASS | C2 | auto-music: Sure, here's a description:
-
-The beat has a slower tempo, around 90 BP... |
-| 30 | PASS | C2 | auto-research: How do they apply to real-world applications?
-
-</think>
-
-Symmetric an... |
+| 28 | PASS | C2 | auto-video: As the sun begins to dip below the horizon, the sky transforms into a... |
+| 29 | PASS | C2 | auto-music: The beat starts with a slow kick and a crisp snare that snaps into a s... |
+| 30 | FAIL | C2 | auto-research: HTTP 502 |
 | 31 | PASS | C2 | auto-vision: ... |
-| 32 | PASS | C2 | auto-data: The dataset contains the following columns:
-- Employee ID, Age, Gende... |
-| 33 | PASS | C2 | auto-compliance: How often does an assessment occur?
-</think>
+| 32 | PASS | C2 | auto-data: And why?
 
-As an AI assistant, I d... |
+Okay, I need to figure out what statistical analyses I shou... |
+| 33 | PASS | C2 | auto-compliance: What are the findings if the requirements are not met?**CIP-007-6 R2... |
 | 34 | PASS | C3 | Security keyword auto-routing triggered (check logs for auto-redteam) |
 | 35 | PASS | D | Word .docx (real content): ✓ file created |
 | 36 | PASS | D | PowerPoint .pptx (5 slides per HOWTO): ✓ deck created |
@@ -72,8 +72,8 @@ As an AI assistant, I d... |
 | 40 | PASS | D | Sandbox status: {
   "docker_available": true,
   "docker_host": "tcp://dind:2375",
-  "sandbox_enabled": false,
-  "python_image": "python: |
+  "sandbox_enabled": true,
+  "python_image": "python:3 |
 | 41 | PASS | D | Music models: models listed |
 | 42 | PASS | D | Music gen (5s lo-fi per HOWTO §10): ✓ audio generated |
 | 43 | PASS | D | TTS voices: ✓ voices listed |
@@ -82,11 +82,12 @@ As an AI assistant, I d... |
 | 46 | PASS | D | ComfyUI running: v0.16.3 |
 | 47 | PASS | D | Image gen (HOWTO §8 prompt): {
   "success": true,
-  "filename": "portal__00009_.png",
+  "filename": "portal__00013_.png",
   "url": "http://host.docker.internal:8188/view?filename=portal |
 | 48 | PASS | D | Video gen (HOWTO §9 prompt): {
   "success": false,
-  "error": "ComfyUI not available at http://host.docker.internal:8188: Client error '400 Bad Reque |
+  "error": "Generation completed but no video output found. Check ComfyUI logs."
+} |
 | 49 | PASS | E | af_heart (US-F default): 174124 bytes, WAV=True |
 | 50 | PASS | E | bm_george (UK-M): 173100 bytes, WAV=True |
 | 51 | PASS | E | am_adam (US-M): 137260 bytes, WAV=True |
@@ -94,70 +95,74 @@ As an AI assistant, I d... |
 | 53 | PASS | E | am_michael (US-M2): 172076 bytes, WAV=True |
 | 54 | WARN | F-reg | Registered: 0/37 MISSING: ['blueteamdefender', 'bugdiscoverycodeassistant', 'cippolicywriter', 'codebasewikidocumentationskill', 'codereviewassistant', 'codereviewer', 'creativewriter', 'cybersecurity |
 | 55 | INFO | F-reg | FIX: Run ./launch.sh seed to register missing personas |
-| 56 | PASS | F-chat | blueteamdefender: There's no port or protocol mentioned about the unauthorized... |
-| 57 | PASS | F-chat | bugdiscoverycodeassistant: `div` doesn't handle zero division. Here's an improved versi... |
-| 58 | PASS | F-chat | cippolicywriter: "2.1 Patch Management
+| 56 | PASS | F-chat | blueteamdefender: We immediately have a potential intruder's indicator. Here's... |
+| 57 | PASS | F-chat | bugdiscoverycodeassistant: The `div` function will raise a `ZeroDivisionError` if `b` i... |
+| 58 | PASS | F-chat | cippolicywriter: **Security Patch Management Policy**
 
-The BESOC SHALL ensure that all compu... |
-| 59 | PASS | F-chat | codebasewikidocumentationskill: ### `fibonacci(n)`
+**Compliance Reference... |
+| 59 | PASS | F-chat | codebasewikidocumentationskill: ```
+def fibonacci(n):
+    """
+    Compute the nth Fibonacci... |
+| 60 | PASS | F-chat | codereviewassistant: For improving readability and performance, you can use the `... |
+| 61 | PASS | F-chat | codereviewer: The issue with the SQL query is the lack of parameterization... |
+| 62 | PASS | F-chat | creativewriter: As Zeta rotated on its axis, scanning the concrete expanse o... |
+| 63 | PASS | F-chat | cybersecurityspecialist: The OWASP Top 10 #1 vulnerability is "Broken Authentication"... |
+| 64 | PASS | F-chat | dataanalyst: ### Trend Analysis
 
-**Computes the nth Fibonacci number recu... |
-| 60 | PASS | F-chat | codereviewassistant: **Improved Implementation**:
-
-```javascript
-function findInd... |
-| 61 | PASS | F-chat | codereviewer: The query has a syntax error: the single quotes around the n... |
-| 62 | PASS | F-chat | creativewriter: As she traversed the abandoned lot, robot Zeta's photorecept... |
-| 63 | PASS | F-chat | cybersecurityspecialist: According to the OWASP Top 10, the #1 vulnerability is "Brok... |
-| 64 | PASS | F-chat | dataanalyst: I notice a periodic pattern with fluctuations in sales acros... |
-| 65 | PASS | F-chat | datascientist: Here's a general approach to building a churn prediction mod... |
+The given sales data exhibit a seasonal... |
+| 65 | PASS | F-chat | datascientist: Here's a step-by-step approach to building a churn predictio... |
 | 66 | WARN | F-chat | devopsautomator: 200 but empty response |
 | 67 | WARN | F-chat | devopsengineer: 200 but empty response |
-| 68 | PASS | F-chat | ethereumdeveloper: Here is an example Solidity function that transfers ERC-20 t... |
-| 69 | PASS | F-chat | excelsheet: 1. =(A2:A100="Sales") 
-2. =(B2:B100>1000) 
-3. =(C2:C100) 
-4.... |
-| 70 | PASS | F-chat | fullstacksoftwaredeveloper: Here's a design for a todo app REST API:
+| 68 | PASS | F-chat | ethereumdeveloper: Here's an example of a Solidity function with approval check... |
+| 69 | PASS | F-chat | excelsheet: 1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+A    E    F    G
+1    1,000 
+2    Sales... |
+| 70 | PASS | F-chat | fullstacksoftwaredeveloper: Based on standard practices and using the popular Go languag... |
+| 71 | PASS | F-chat | githubexpert: To set up branch protection rules, open the repository setti... |
+| 72 | PASS | F-chat | itarchitect: **HA Architecture**
 
-### Endpoints
 
-**T... |
-| 71 | PASS | F-chat | githubexpert: You can create branch protection rules directly in GitHub re... |
-| 72 | PASS | F-chat | itarchitect: **Architecture Overview**
-
-To achieve high availability, we'... |
+* **Horizontally scalable backend**: D... |
 | 73 | WARN | F-chat | itexpert: 200 but empty response |
-| 74 | PASS | F-chat | javascriptconsole: Sure, I need to evaluate the expression [1,2,3].reduce(...)... |
+| 74 | PASS | F-chat | javascriptconsole: If possible use Lodash or Underscore for alternative soluti... |
 | 75 | WARN | F-chat | kubernetesdockerrpglearningengine: 200 but empty response |
-| 76 | PASS | F-chat | linuxterminal: find . -size +100MB -mtime -7 -type f -print... |
-| 77 | PASS | F-chat | machinelearningengineer: Random Forest and XGBoost are both ensemble classifiers that... |
-| 78 | PASS | F-chat | nerccipcomplianceanalyst: CIP-007-6 R2 Part 2.1 establishes procedures for addressing... |
-| 79 | PASS | F-chat | networkengineer: Here is a VLAN design for the network:
+| 76 | PASS | F-chat | linuxterminal: find . -type f -size +100M -mtime -7 -print... |
+| 77 | PASS | F-chat | machinelearningengineer: Random Forest (RF) and XGBoost (XGB) are both popular ensemb... |
+| 78 | PASS | F-chat | nerccipcomplianceanalyst: For CIP-007-6 R2 Part 2.1, BES CSOs have to establish a proc... |
+| 79 | PASS | F-chat | networkengineer: A secure, scalable VLAN design for the network:
 
-**Segment 1: DMZ (Pu... |
-| 80 | PASS | F-chat | pentester: The penetration tester must follow a controlled approach by... |
+1. **Segmen... |
+| 80 | PASS | F-chat | pentester: Perform the following steps to conduct an authentication byp... |
 | 81 | WARN | F-chat | pythoncodegeneratorcleanoptimizedproduction-ready: 200 but empty response |
-| 82 | PASS | F-chat | pythoninterpreter: [[(1, 3), (2, 2), (3, 1)], [(1, 2, 3), (2, 1, 2), (3, 2, 1),... |
-| 83 | PASS | F-chat | redteamoperator: A REST API with JWT authentication has the following top 3 v... |
-| 84 | PASS | F-chat | researchanalyst: How does each approach align with their respective scalabil... |
-| 85 | PASS | F-chat | seniorfrontenddeveloper: ```javascript
-import React, { useState, useEffect } from 're... |
-| 86 | PASS | F-chat | seniorsoftwareengineersoftwarearchitectrules: **Monolith to Microservices Migration Risks:**
+| 82 | PASS | F-chat | pythoninterpreter: [(3,1),(2,2),(1,3)]... |
+| 83 | PASS | F-chat | redteamoperator: A REST API secured with JWT authentication has several attac... |
+| 84 | PASS | F-chat | researchanalyst: How does the size of the development team affect this choic... |
+| 85 | PASS | F-chat | seniorfrontenddeveloper: import React, { useState, useEffect } from 'react';
+import a... |
+| 86 | PASS | F-chat | seniorsoftwareengineersoftwarearchitectrules: **50 Microservices Overhead**
 
-1. **Complex... |
-| 87 | PASS | F-chat | softwarequalityassurancetester: Here are test cases for a login form:
+While microservices are more... |
+| 87 | PASS | F-chat | softwarequalityassurancetester: Here are some test cases for a login form:
 
-**Case 1: Blank Field... |
+**1. Valid Crede... |
 | 88 | WARN | F-chat | sqlterminal: 200 but empty response |
-| 89 | PASS | F-chat | statistician: Given a p-value of 0.04 and a sample size of 25, the Z-score... |
-| 90 | PASS | F-chat | techreviewer: **System Overview**
+| 89 | PASS | F-chat | statistician: The p-value (0.04) is significant, suggesting that the obser... |
+| 90 | PASS | F-chat | techreviewer: **Mac Mini M4: A High-Capacity Machine for AI Inference Work... |
+| 91 | PASS | F-chat | techwriter: The User Authentication Service API provides secure authenti... |
+| 92 | PASS | F-chat | ux-uideveloper: Password Reset User Flow:
 
-The M4 Mac Mini is equipped with Apple'... |
-| 91 | PASS | F-chat | techwriter: The User Authentication API enables secure user login, passw... |
-| 92 | PASS | F-chat | ux-uideveloper: **User Flow for Password Reset:**
-
-### Step 1: Request Passw... |
+1.  **Initiated Request**: The us... |
 | 93 | PASS | G | portal_requests counter |
 | 94 | PASS | G | portal_workspaces_total=14 (expected 14) |
 | 95 | PASS | G | Prometheus: 1 pipeline target(s) |

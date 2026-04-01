@@ -107,7 +107,7 @@ VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 # Wan2.2 model path — set this to match ComfyUI's models/ subdirectory.
 # The FX-FeiHou/wan2.2-Remix model is downloaded to models/video/ in HuggingFace Diffusers format.
 # DiffusersLoader loads the entire model folder and outputs MODEL, CLIP, VAE.
-WAN22_MODEL_PATH = os.getenv("WAN22_MODEL_PATH", "video/")
+WAN22_MODEL_PATH = os.getenv("WAN22_MODEL_PATH", "video")
 
 # Wan2.2 T2V workflow — uses DiffusersLoader (HuggingFace Diffusers format) + EmptyHunyuanLatentVideo
 # DiffusersLoader outputs: [0]=MODEL, [1]=CLIP, [2]=VAE
@@ -128,7 +128,7 @@ _WAN22_T2V_WORKFLOW: dict = {
         "inputs": {
             "width": 832,
             "height": 480,
-            "video_frames": 81,
+            "length": 81,
             "batch_size": 1,
         },
         "class_type": "EmptyHunyuanLatentVideo",
@@ -167,7 +167,7 @@ _WAN22_T2V_WORKFLOW: dict = {
     },
 }
 
-# CogVideoX fallback workflow — works with cogvideox_5b.safetensors
+# CogVideoX fallback workflow — uses EmptyMochiLatentVideo (generic video latent node)
 _COGVIDEOX_WORKFLOW: dict = {
     "1": {
         "inputs": {"ckpt_name": "cogvideox_5b.safetensors"},
@@ -178,19 +178,20 @@ _COGVIDEOX_WORKFLOW: dict = {
         "class_type": "CLIPTextEncode",
     },
     "3": {
-        "inputs": {"width": 720, "height": 480, "video_frames": 49, "batch_size": 1},
-        "class_type": "EmptyLatentVideo",
+        "inputs": {"width": 720, "height": 480, "length": 49, "batch_size": 1},
+        "class_type": "EmptyMochiLatentVideo",
     },
     "4": {
         "inputs": {
             "model": ["1", 0],
-            "conditioning": ["2", 0],
+            "positive": ["2", 0],
+            "negative": ["2", 0],
             "latent_image": ["3", 0],
-            "noise_seed": 42,
+            "seed": 42,
             "steps": 20,
             "cfg": 6,
             "sampler_name": "euler",
-            "scheduler": "linear",
+            "scheduler": "normal",
             "denoise": 1,
         },
         "class_type": "KSampler",
@@ -200,13 +201,17 @@ _COGVIDEOX_WORKFLOW: dict = {
         "class_type": "VAEDecode",
     },
     "6": {
+        "inputs": {"images": ["5", 0], "fps": 8.0},
+        "class_type": "CreateVideo",
+    },
+    "7": {
         "inputs": {
+            "video": ["6", 0],
             "filename_prefix": "portal_video_",
-            "images": ["5", 0],
-            "fps": 8,
-            "format": "video/h264-mp4",
+            "format": "mp4",
+            "codec": "h264",
         },
-        "class_type": "VHS_VideoCombine",
+        "class_type": "SaveVideo",
     },
 }
 
@@ -261,8 +266,8 @@ async def generate_video(
         workflow["2"]["inputs"]["text"] = prompt
         workflow["3"]["inputs"]["width"] = width
         workflow["3"]["inputs"]["height"] = height
-        workflow["3"]["inputs"]["video_frames"] = frames
-        workflow["4"]["inputs"]["noise_seed"] = seed
+        workflow["3"]["inputs"]["length"] = frames
+        workflow["4"]["inputs"]["seed"] = seed
         workflow["4"]["inputs"]["steps"] = steps
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
@@ -274,7 +279,7 @@ async def generate_video(
         workflow["3"]["inputs"]["text"] = negative_prompt
         workflow["4"]["inputs"]["width"] = width
         workflow["4"]["inputs"]["height"] = height
-        workflow["4"]["inputs"]["video_frames"] = frames
+        workflow["4"]["inputs"]["length"] = frames
         workflow["5"]["inputs"]["seed"] = seed
         workflow["5"]["inputs"]["steps"] = steps
         workflow["5"]["inputs"]["cfg"] = cfg
