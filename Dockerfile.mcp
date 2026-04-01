@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     espeak-ng \
     libespeak-ng1 \
+    docker-cli \
     && rm -rf /var/lib/apt/lists/*
 
 # Core deps
