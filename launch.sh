@@ -78,7 +78,7 @@ _check_hardware() {
         # Check native ComfyUI is running
         if curl -s http://localhost:8188/system_stats &>/dev/null 2>&1; then
             echo "  ✅ ComfyUI: native — Metal GPU active (:8188)"
-        elif pgrep -f "ComfyUI/main.py\|comfyui" &>/dev/null 2>&1; then
+        elif pgrep -f "ComfyUI/main.py|comfyui" &>/dev/null 2>&1; then
             echo "  ⏳ ComfyUI: starting in background (may take 30-60s)"
         else
             echo "  ℹ️  ComfyUI not running (image/video generation unavailable)"
@@ -91,7 +91,7 @@ _check_hardware() {
             MLX_ACTIVE=$(curl -s "http://localhost:${MLX_PORT_CHECK}/v1/models" 2>/dev/null | \
                 python3 -c "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" 2>/dev/null || echo "running")
             echo "  ✅ mlx_lm: active ($MLX_ACTIVE) — native Apple Silicon inference"
-        elif pgrep -f "mlx_lm.server\|mlx_lm server" &>/dev/null 2>&1; then
+        elif pgrep -f "mlx_lm.server|mlx_lm server" &>/dev/null 2>&1; then
             echo "  ⏳ mlx_lm: starting in background (loading model, Ollama used until ready)"
         elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
             echo "  ℹ️  mlx_lm: installed, not running (Ollama will be used)"
@@ -454,7 +454,7 @@ d = json.loads(urllib.request.urlopen('http://localhost:${MLX_PORT_VAL}/v1/model
 print(d['data'][0]['id'].split('/')[-1] if d.get('data') else '?')
 " 2>/dev/null || echo "?")
             printf "    ✅  %-28s %s\n" "MLX (${_MX})" ":${MLX_PORT_VAL}"
-        elif pgrep -f "mlx_lm.server\|mlx_lm server" &>/dev/null 2>&1; then
+        elif pgrep -f "mlx_lm.server|mlx_lm server" &>/dev/null 2>&1; then
             printf "    ⏳  %-28s %s\n" "MLX" "starting (loading model)"
         elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
             printf "    ❌  %-28s %s\n" "MLX" "installed but not running — ./launch.sh up"
@@ -467,7 +467,7 @@ d = json.loads(urllib.request.urlopen('http://localhost:8188/system_stats', time
 print(d.get('system',{}).get('comfyui_version','?'))
 " 2>/dev/null || echo "?")
             printf "    ✅  %-28s %s\n" "ComfyUI (v${_CV})" ":8188"
-        elif pgrep -f "ComfyUI/main.py\|comfyui" &>/dev/null 2>&1; then
+        elif pgrep -f "ComfyUI/main.py|comfyui" &>/dev/null 2>&1; then
             printf "    ⏳  %-28s %s\n" "ComfyUI" "starting"
         else
             printf "    ❌  %-28s %s\n" "ComfyUI" "not running — ~/ComfyUI/start.sh"
@@ -818,8 +818,8 @@ case "${1:-up}" in
         if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
             launchctl stop com.portal5.comfyui 2>/dev/null || true
             echo "[portal-5] ComfyUI service stopped (launchd)."
-        elif pgrep -f "comfyui\|ComfyUI\|main.py.*comfy" &>/dev/null 2>&1; then
-            pkill -f "comfyui\|ComfyUI\|main.py.*comfy" 2>/dev/null || true
+        elif pgrep -f "comfyui|ComfyUI|main.py.*comfy" &>/dev/null 2>&1; then
+            pkill -f "comfyui|ComfyUI|main.py.*comfy" 2>/dev/null || true
             echo "[portal-5] ComfyUI process stopped (pkill)."
         else
             echo "[portal-5] ComfyUI: not running (nothing to stop)."
