@@ -107,6 +107,11 @@ class SummaryEvent:
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     avg_response_time_ms: float = 0.0
+    # New metrics
+    errors_by_type: dict[str, int] = field(default_factory=dict)
+    total_errors: int = 0
+    peak_concurrent: int = 0
+    persona_usage: dict[str, int] = field(default_factory=dict)
     type: EventType = field(default=EventType.DAILY_SUMMARY)
 
     def format_slack(self) -> str:
@@ -117,8 +122,10 @@ class SummaryEvent:
             f"_Generated at {self.timestamp.strftime('%Y-%m-%d %H:%M UTC')}_",
             "",
             f"*Total Requests:* {self.total_requests:,}",
+            f"*Total Errors:* {self.total_errors:,}",
             f"*Uptime:* {uptime_h:.1f} hours",
             f"*Healthy Backends:* {self.healthy_backends}/{self.total_backends}",
+            f"*Peak Concurrent:* {self.peak_concurrent}",
             f"*Avg TPS:* {self.avg_tokens_per_second:.1f} tok/s",
             f"*Avg Response Time:* {self.avg_response_time_ms:.0f}ms",
             f"*Tokens:* {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
@@ -127,11 +134,21 @@ class SummaryEvent:
         ]
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"  `{ws:32s}` {count:,}")
+        if self.errors_by_type:
+            lines.append("")
+            lines.append("*Errors by Type:*")
+            for err_type, count in sorted(self.errors_by_type.items(), key=lambda x: -x[1]):
+                lines.append(f"  `{err_type}` {count:,}")
         if self.requests_by_model:
             lines.append("")
             lines.append("*Top Models:*")
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"  `{model}` {count:,}")
+        if self.persona_usage:
+            lines.append("")
+            lines.append("*Persona Usage:*")
+            for persona, count in sorted(self.persona_usage.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"  `{persona}` {count:,}")
         return "\n".join(lines)
 
     def format_telegram(self) -> str:
@@ -141,13 +158,21 @@ class SummaryEvent:
             "📊 *Portal 5 — Daily Summary*",
             "",
             f"Total Requests: {self.total_requests:,}",
+            f"Total Errors: {self.total_errors:,}",
             f"Uptime: {uptime_h:.1f}h",
             f"Healthy Backends: {self.healthy_backends}/{self.total_backends}",
+            f"Peak Concurrent: {self.peak_concurrent}",
             f"Avg TPS: {self.avg_tokens_per_second:.1f}",
             f"Avg Response: {self.avg_response_time_ms:.0f}ms",
-            "",
-            "Requests by Workspace:",
+            f"Tokens: {self.total_input_tokens:,} in / {self.total_output_tokens:,} out",
         ]
+        if self.errors_by_type:
+            lines.append("")
+            lines.append("Errors by Type:")
+            for err_type, count in sorted(self.errors_by_type.items(), key=lambda x: -x[1]):
+                lines.append(f"  {err_type}: {count:,}")
+        lines.append("")
+        lines.append("Requests by Workspace:")
         for ws, count in sorted(self.requests_by_workspace.items(), key=lambda x: -x[1]):
             lines.append(f"  {ws}: {count:,}")
         if self.requests_by_model:
@@ -155,6 +180,11 @@ class SummaryEvent:
             lines.append("Top Models:")
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"  {model}: {count:,}")
+        if self.persona_usage:
+            lines.append("")
+            lines.append("Persona Usage:")
+            for persona, count in sorted(self.persona_usage.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"  {persona}: {count:,}")
         return "\n".join(lines)
 
     def format_email(self) -> str:

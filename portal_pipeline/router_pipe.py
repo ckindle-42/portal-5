@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
-from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
 
 from portal_pipeline.cluster_backends import BackendRegistry
 
@@ -47,6 +47,16 @@ _request_tps_count: int = 0
 _total_input_tokens: int = 0
 _total_output_tokens: int = 0
 _req_count_by_model: dict[str, int] = {}  # model_name -> count (plain dict for summary)
+_req_count_by_error: dict[str, int] = {}  # error_type -> count (plain dict for summary)
+_peak_concurrent: int = 0
+
+
+def _record_error(workspace: str, error_type: str) -> None:
+    """Record an error in both the Prometheus Counter and the plain dict for summaries."""
+    _errors_total.labels(workspace=workspace, error_type=error_type).inc()
+    global _req_count_by_error
+    _req_count_by_error[error_type] = _req_count_by_error.get(error_type, 0) + 1
+
 
 # Notification subsystem handles operational alerts and daily summaries
 _notification_dispatcher: NotificationDispatcher | None = None
@@ -96,6 +106,33 @@ _response_time_seconds = Histogram(
     "End-to-end response time (request received to last byte) per model and workspace",
     ["model", "workspace"],
     buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+    registry=_REGISTRY,
+)
+
+_requests_total = Counter(
+    "portal_requests_total",
+    "Total requests by workspace (aggregated across workers)",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+
+_errors_total = Counter(
+    "portal_errors_total",
+    "Total failed requests by workspace and error type",
+    ["workspace", "error_type"],
+    registry=_REGISTRY,
+)
+
+_concurrent_requests = Gauge(
+    "portal_concurrent_requests",
+    "Number of requests currently being processed",
+    registry=_REGISTRY,
+)
+
+_persona_usage = Counter(
+    "persona_usage_total",
+    "Total requests by persona/model preset as selected by user",
+    ["persona", "model"],
     registry=_REGISTRY,
 )
 
@@ -163,6 +200,16 @@ def _record_usage(
                 model,
                 completion_tokens,
                 tps,
+            )
+        elif elapsed_seconds and elapsed_seconds > 0:
+            # OpenAI-format streaming with no usage data (data: [DONE] path).
+            # We still know the request completed — record with 0 tokens but
+            # track the elapsed time for response time visibility.
+            logger.debug(
+                "Usage: workspace=%s model=%s no token data (OpenAI stream), elapsed=%.2fs",
+                workspace,
+                model,
+                elapsed_seconds,
             )
 
         # Track per-model request count for summary (plain dict, not the Counter)
@@ -876,25 +923,15 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 async def metrics() -> PlainTextResponse:
     """Prometheus-compatible metrics endpoint.
 
-    Note: request counters are per-worker when PIPELINE_WORKERS > 1.
-    For aggregate counts, sum across scrape intervals or set PIPELINE_WORKERS=1.
-
     Intentionally unauthenticated — Prometheus scrapes without credentials.
     """
     uptime = time.time() - _startup_time
-    lines = [
-        "# HELP portal_requests_total Total requests by workspace (per-worker when workers>1)",
-        "# TYPE portal_requests_total counter",
-    ]
-    for ws_id, count in _request_count.items():
-        lines.append(f'portal_requests_total{{workspace="{ws_id}"}} {count}')
-
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
     healthy = len(registry.list_healthy_backends())
     total = len(registry.list_backends())
 
-    lines += [
+    lines = [
         "# HELP portal_backends_healthy Number of healthy backends",
         "# TYPE portal_backends_healthy gauge",
         f"portal_backends_healthy {healthy}",
@@ -1031,6 +1068,7 @@ async def chat_completions(
         ) from None
 
     _is_streaming = False
+    workspace_id: str = "unknown"
     start_time = time.monotonic()  # Track request start for response time measurement
     try:
         if registry is None:
@@ -1052,6 +1090,16 @@ async def chat_completions(
                 workspace_id = detected
 
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
+        _requests_total.labels(workspace=workspace_id).inc()
+        _concurrent_requests.inc()
+        global _peak_concurrent
+        _peak_concurrent = max(_peak_concurrent, int(_concurrent_requests._value.get()))
+
+        # Track persona usage — the "model" field in the request is the persona
+        # (workspace ID) the user selected in Open WebUI.
+        persona = body.get("model") or "auto"
+        if persona in WORKSPACES:
+            _persona_usage.labels(persona=persona, model="unknown").inc()
 
         candidates = registry.get_backend_candidates(workspace_id)
         if not candidates:
@@ -1074,13 +1122,18 @@ async def chat_completions(
                     backend, body, workspace_id, enforce_hint=not is_last
                 )
                 if result is not None:
+                    resolved_model = backend.models[0] if backend.models else "unknown"
                     _record_response_time(
-                        backend.models[0] if backend.models else "unknown",
+                        resolved_model,
                         workspace_id,
                         time.monotonic() - start_time,
                     )
+                    _persona_usage.labels(persona=persona, model=resolved_model).inc()
+                    _concurrent_requests.dec()
                     return result
             # All backends failed
+            _record_error(workspace_id, "all_backends_failed")
+            _concurrent_requests.dec()
             raise HTTPException(
                 status_code=502,
                 detail="All backends failed — check server logs",
@@ -1114,6 +1167,7 @@ async def chat_completions(
 
         if len(candidates) == 1:
             # Single candidate — no fallback possible, return streaming directly
+            _persona_usage.labels(persona=persona, model=target_model).inc()
             _streaming_response = StreamingResponse(
                 _stream_with_preamble(
                     backend.chat_url,
@@ -1220,8 +1274,16 @@ async def chat_completions(
             _stream_or_fallback(),
             media_type="text/event-stream",
         )
+        _persona_usage.labels(persona=persona, model=target_model).inc()
         _is_streaming = True
         return _streaming_response
+    except HTTPException:
+        _concurrent_requests.dec()
+        raise
+    except Exception:
+        _record_error(workspace_id, "unexpected_error")
+        _concurrent_requests.dec()
+        raise
     finally:
         if not _is_streaming:
             # Non-streaming: response fully awaited above, safe to release here
@@ -1322,6 +1384,10 @@ async def _stream_from_backend_guarded(
                     resp.status_code,
                     err[:200].decode(errors="replace"),
                 )
+                _record_error(
+                    workspace_id,
+                    f"backend_http_{resp.status_code}",
+                )
                 yield (
                     "data: "
                     + json.dumps({"error": f"Backend returned HTTP {resp.status_code}"})
@@ -1365,6 +1431,7 @@ async def _stream_from_backend_guarded(
                     yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
+        _record_error(workspace_id, "stream_error")
         yield (
             "data: "
             + json.dumps({"error": "Backend connection error — check server logs"})

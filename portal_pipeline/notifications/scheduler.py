@@ -160,6 +160,39 @@ class NotificationScheduler:
         inp_tokens = getattr(router_pipe, "_total_input_tokens", 0)
         out_tokens = getattr(router_pipe, "_total_output_tokens", 0)
         req_by_model: dict = getattr(router_pipe, "_req_count_by_model", {})
+        req_by_error: dict = getattr(router_pipe, "_req_count_by_error", {})
+        peak_concurrent: int = getattr(router_pipe, "_peak_concurrent", 0)
+
+        # Read error counts from the Counter (if available)
+        errors_by_type: dict[str, int] = {}
+        total_errors = 0
+        try:
+            error_counter = getattr(router_pipe, "_errors_total", None)
+            if error_counter is not None:
+                # Scrape the counter's internal state
+                for sample in error_counter._metrics.values():
+                    for (labels,), value in sample.items():
+                        err_type = labels.get("error_type", "unknown")
+                        count = int(value)
+                        errors_by_type[err_type] = count
+                        total_errors += count
+        except Exception:
+            # Fallback to plain dict tracking
+            total_errors = sum(req_by_error.values())
+            errors_by_type = dict(req_by_error)
+
+        # Read persona usage
+        persona_usage: dict[str, int] = {}
+        try:
+            persona_counter = getattr(router_pipe, "_persona_usage", None)
+            if persona_counter is not None:
+                for sample in persona_counter._metrics.values():
+                    for (labels,), value in sample.items():
+                        persona = labels.get("persona", "unknown")
+                        count = int(value)
+                        persona_usage[persona] = persona_usage.get(persona, 0) + count
+        except Exception:
+            pass
 
         # Compute derived metrics from running totals
         avg_tps = tps_sum / tps_count if tps_count > 0 else 0.0
@@ -181,6 +214,11 @@ class NotificationScheduler:
             total_input_tokens=inp_tokens,
             total_output_tokens=out_tokens,
             avg_response_time_ms=avg_response_ms,
+            # New metrics
+            errors_by_type=errors_by_type,
+            total_errors=total_errors,
+            peak_concurrent=peak_concurrent,
+            persona_usage=persona_usage,
         )
 
         await _registry_ref.dispatch(event)
