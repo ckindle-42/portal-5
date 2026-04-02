@@ -1,8 +1,8 @@
-# Portal 5.2 — User Guide
+# Portal 5.2.1 — User Guide
 
 ## Getting Access
 
-Portal 5.1 requires an account. Contact your admin or sign up at the login page.
+Portal 5.2 requires an account. Contact your admin or sign up at the login page.
 New accounts require admin approval — you'll see "pending" status until approved.
 
 ## Workspaces
@@ -25,6 +25,7 @@ routes your request to the best-suited AI model for that task.
 | 🔍 Portal Research Assistant | Research and information synthesis |
 | 👁️ Portal Vision | Image analysis, visual tasks |
 | 📊 Portal Data Analyst | Data analysis, statistics |
+| ⚖️ Portal Compliance | NERC CIP gap analysis, policy review, audit prep |
 
 ## Personas
 

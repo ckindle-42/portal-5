@@ -168,7 +168,12 @@ and tools automatically.
 - **Security:** BaronLLM-18B, Lily-Cybersecurity-7B, WhiteRabbitNeo-33B
 - **Coding:** Qwen3-Coder-30B, GLM-4.7-Flash, Devstral-24B
 - **Reasoning:** DeepSeek-R1-32B, Tongyi-DeepResearch-30B
-- **Vision:** Qwen3-Omni-30B, LLaVA-7B
+- **Vision:** Qwen3-VL 32B, LLaVA-7B
+
+### MLX models (Apple Silicon, pulled with `./launch.sh pull-mlx-models`)
+- **Text-only (mlx_lm):** Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama 3.2/3.3
+- **VLM (mlx_vlm):** Qwen3.5-35B-A3B, Qwen3.5-27B (vision + text)
+- The MLX proxy auto-switches between these servers — only one runs at a time
 
 ### Image generation (downloaded automatically on first run, ~12 GB)
 - FLUX.1-schnell — fast, high-quality image generation
@@ -230,36 +235,40 @@ lsof -i :8080               # Find what is using port 8080
 ## Architecture
 
 ```
-                    ┌─────────────────────────────────┐
-                    │         Open WebUI :8080         │
-                    │   (chat, workspaces, personas)   │
-                    └──────────┬──────────────────────┘
-                               │
-                    ┌──────────▼──────────────────────┐
-                    │    Portal Pipeline :9099          │
-                    │  (routing, auth, metrics, MCP)   │
-                    └──┬───┬───┬───┬──────────────────┘
-                       │   │   │   │
-          ┌────────────┘   │   │   └─────────────┐
-          │                │   │                 │
-   ┌──────▼──────┐  ┌──────▼──┐  ┌──────────────▼──┐
-   │  Ollama      │  │SearXNG  │  │  MCP Servers     │
-   │  :11434      │  │  :8088  │  │  :8910–8916      │
-   │  (LLMs)      │  │(search) │  │  (tools)         │
-   └─────────────┘  └─────────┘  └─────────────────┘
-                                          │
-                         ┌────────────────┼──────────────────┐
-                         │                │                  │
-                   ┌─────▼────┐    ┌──────▼──────┐   ┌──────▼──────┐
-                   │ Documents │    │  TTS/Whisper │   │  Code/DinD  │
-                   │  :8913    │    │  :8916/:8915 │   │   :8914     │
-                   └──────────┘    └─────────────┘   └────────────┘
+                     ┌─────────────────────────────────┐
+                     │         Open WebUI :8080         │
+                     │   (chat, workspaces, personas)   │
+                     └──────────┬──────────────────────┘
+                                │
+                     ┌──────────▼──────────────────────┐
+                     │    Portal Pipeline :9099          │
+                     │  (routing, auth, metrics, MCP)   │
+                     └──┬───┬───┬───┬──────────────────┘
+                        │   │   │   │
+           ┌────────────┘   │   │   └─────────────┐
+           │                │   │                 │
+    ┌──────▼──────┐  ┌──────▼──┐  ┌──────────────▼──┐
+    │  MLX Proxy   │  │ Ollama  │  │  MCP Servers     │
+    │  :8081       │  │ :11434  │  │  :8910–8916      │
+    │  (auto-swap) │  │ (LLMs)  │  │  (tools)         │
+    └──┬───────┬──┘  └─────────┘  └─────────────────┘
+       │       │
+┌──────▼──┐ ┌──▼──────┐
+│ mlx_lm  │ │ mlx_vlm │
+│ :18081  │ │ :18082  │
+│(text)   │ │ (VLM)   │
+└─────────┘ └─────────┘
 
-   Telegram Bot ──► Portal Pipeline    Slack Bot ──► Portal Pipeline
-   (profile: telegram)                 (profile: slack)
+    Telegram Bot ──► Portal Pipeline    Slack Bot ──► Portal Pipeline
+    (profile: telegram)                 (profile: slack)
 
-   Grafana :3000 ◄── Prometheus :9090 ◄── /metrics
+    Grafana :3000 ◄── Prometheus :9090 ◄── /metrics
 ```
+
+The MLX proxy (`scripts/mlx-proxy.py`) runs natively on Apple Silicon and
+automatically switches between `mlx_lm` (text-only models like Qwen3-Coder-Next)
+and `mlx_vlm` (VLM models like Qwen3.5 with vision support) based on the
+requested model. Only one server runs at a time due to unified memory constraints.
 
 ---
 

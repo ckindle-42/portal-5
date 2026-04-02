@@ -838,7 +838,12 @@ docker run --rm -v portal-5_open-webui-data:/data -v /path/to/backups:/backup \
 
 ## 21. MLX Acceleration (Apple Silicon)
 
-**What:** 20-40% faster inference than Ollama GGUF on M-series Macs.
+**What:** 20-40% faster inference than Ollama GGUF on M-series Macs. The MLX proxy
+(`scripts/mlx-proxy.py`) auto-switches between two servers based on the requested model:
+- **`mlx_lm`** (port 18081) — text-only models (Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama)
+- **`mlx_vlm`** (port 18082) — VLM models (Qwen3.5 family with vision tower)
+
+Only one server runs at a time due to unified memory constraints. Switching takes ~30s.
 
 ### Install
 
@@ -846,48 +851,56 @@ docker run --rm -v portal-5_open-webui-data:/data -v /path/to/backups:/backup \
 ./launch.sh install-mlx
 ```
 
-### Set the model
+This installs both `mlx-vlm` and `mlx-lm<0.31`, deploys the proxy to
+`~/.portal5/mlx/mlx-proxy.py`, and registers a launchd service (`com.portal5.mlx-proxy`).
 
-Edit `.env`:
+### How it works
+
+The proxy listens on port 8081. When a request arrives:
+1. It extracts the model name from the request body
+2. Determines if the model needs `mlx_vlm` (Qwen3.5 family) or `mlx_lm` (everything else)
+3. Starts the correct server if not already running (kills the other one first)
+4. Forwards the request to the running server
+
+The pipeline routes requests to `MLX_LM_URL=http://host.docker.internal:8081` — the proxy
+handles all model selection automatically. No manual switching needed.
+
+### Pre-warm a model
+
 ```bash
-MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit
-```
-
-### Switch models at runtime
-
-```bash
-./launch.sh switch-mlx-model mlx-community/DeepSeek-R1-0528-4bit
-```
-
-```bash
-# Switch to compliance/policy analysis model
+# Force the proxy to start a specific server (useful before a long session)
 ./launch.sh switch-mlx-model mlx-community/Qwen3.5-35B-A3B-4bit
 ```
 
 ### Available MLX models
 
-| Model | RAM | Best for |
-|-------|-----|----------|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | Code generation |
-| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | Reasoning |
-| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | Code + lightweight |
-| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Fast baseline |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Maximum quality |
-| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | Long-context compliance, policy analysis, research |
-| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | Reasoning, research |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | Fast agentic coder |
+| Model | RAM | Server | Best for |
+|-------|-----|--------|----------|
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | mlx_lm | Code generation |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | mlx_lm | Fast agentic coder |
+| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | mlx_lm | Reasoning |
+| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | mlx_lm | Code + lightweight |
+| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | mlx_lm | Fast baseline |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality |
+| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | mlx_vlm | Long-context compliance, policy |
+| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | mlx_vlm | Reasoning, research |
 
 ### Memory coexistence (64GB system)
 
 ```
 Qwen3-Coder-Next (~18GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 41GB ✓
+Qwen3.5-35B (~20GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 43GB ✓
 ```
 
 ### Verify
 
 ```bash
+# Check proxy health and active server
+curl -s http://localhost:8081/health
+# {"status":"ok","active_server":"lm"}  or  {"status":"ok","active_server":"vlm"}
+
+# List all available MLX models
 curl -s http://localhost:8081/v1/models
-# Lists the loaded MLX model
 
 # Check pipeline logs for MLX routing
 ./launch.sh logs | grep "mlx"
@@ -977,4 +990,4 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-*Last updated: 2026-03-31 | Portal 6.0*
+*Last updated: 2026-04-02 | Portal 5.2.1*
