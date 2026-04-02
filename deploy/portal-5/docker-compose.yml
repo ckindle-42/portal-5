@@ -72,7 +72,10 @@ services:
       - "127.0.0.1:9099:9099"
     volumes:
       - ../../config/backends.yaml:/app/config/backends.yaml:ro
-      - pipeline-metrics:/tmp/portal_metrics
+      - type: tmpfs
+        target: /tmp/portal_metrics
+        tmpfs:
+          size: 10485760
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
@@ -645,4 +648,3 @@ volumes:
   comfyui-output:      # ComfyUI generated images/videos
   prometheus-data:     # Prometheus metrics data
   grafana-data:        # Grafana dashboards/data
-  pipeline-metrics:    # Portal Pipeline prometheus multiprocess dir

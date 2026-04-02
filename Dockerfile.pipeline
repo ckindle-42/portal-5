@@ -18,15 +18,17 @@ RUN pip install --no-cache-dir \
 # Copy application code
 COPY portal_pipeline/ ./portal_pipeline/
 COPY config/ ./config/
+COPY scripts/pipeline-entrypoint.sh /app/scripts/pipeline-entrypoint.sh
+RUN chmod +x /app/scripts/pipeline-entrypoint.sh
 
 EXPOSE 9099
 
 # Run as non-root user
 RUN groupadd -r portal && useradd -r -g portal portal \
     && chown -R portal:portal /app
-USER portal
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9099/health')"
 
-CMD ["python", "-m", "portal_pipeline"]
+# Entrypoint fixes tmpfs mount ownership then drops to portal user
+ENTRYPOINT ["/app/scripts/pipeline-entrypoint.sh"]
