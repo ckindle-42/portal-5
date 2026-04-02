@@ -1,0 +1,16 @@
+{
+  "id": "auto-music",
+  "name": "🎵 Portal Music Producer",
+  "meta": {
+    "description": "🎵 Portal Music Producer",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_music",
+      "portal_tts"
+    ]
+  },
+  "params": {
+    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
+    "model": "auto-music"
+  }
+}

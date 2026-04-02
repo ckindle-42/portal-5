@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Portal Pipeline — exposes /metrics with workspace counters, backend health
+  - job_name: 'portal-pipeline'
+    bearer_token: '${PIPELINE_API_KEY}'
+    static_configs:
+      - targets: ['portal-pipeline:9099']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Ollama — exposes /metrics in versions >= 0.3.0
+  # If scraping fails (older Ollama), Prometheus will retry silently
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']          # Docker-profile Ollama
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'ollama-native'
+    static_configs:
+      - targets: ['host.docker.internal:11434']   # Native Ollama (default setup)
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 60s

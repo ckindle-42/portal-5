@@ -1,0 +1,15 @@
+{
+  "id": "auto-vision",
+  "name": "👁️  Portal Vision",
+  "meta": {
+    "description": "👁️  Portal Vision",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_comfyui"
+    ]
+  },
+  "params": {
+    "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.",
+    "model": "auto-vision"
+  }
+}

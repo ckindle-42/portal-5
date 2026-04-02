@@ -1,0 +1,49 @@
+# Portal 5.0 — SearXNG configuration
+# Enables JSON output for Open WebUI web search integration
+
+use_default_settings: true
+
+general:
+  instance_name: "Portal5 Search"
+  privacypolicy_url: false
+  contact_url: false
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json            # REQUIRED for Open WebUI integration
+
+server:
+  bind_address: "0.0.0.0:8080"
+  image_proxy: false
+  secret_key: 6HCmosmGtaE3RN88792PlXNcrFqP0cACyxWCt315Sw
+  # (SearXNG reads from settings.yml, NOT from env vars)
+
+ui:
+  static_use_hash: true
+
+enabled_plugins:
+  - 'Hash plugin'
+  - 'Self Information'
+
+engines:
+  - name: google
+    engine: google
+    categories: general
+    use_mobile_ui: false
+  - name: duckduckgo
+    engine: duckduckgo
+    categories: general
+  - name: bing
+    engine: bing
+    categories: general
+  - name: github
+    engine: github
+    categories: it
+  - name: stackoverflow
+    engine: stackoverflow
+    categories: it

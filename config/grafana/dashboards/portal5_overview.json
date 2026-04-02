@@ -1,0 +1,581 @@
+{
+  "id": null,
+  "uid": "portal5-overview",
+  "title": "Portal 5 Overview",
+  "tags": [
+    "portal5"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 5,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Healthy Backends",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "portal_backends_healthy",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Backends",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "portal_backends_total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Workspaces",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "portal_workspaces_total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Pipeline Uptime",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "portal_uptime_seconds",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Pipeline Uptime Over Time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "portal_uptime_seconds",
+          "legendFormat": "Uptime (s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Backend Health Over Time",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "portal_backends_healthy",
+          "legendFormat": "Healthy",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "portal_backends_total",
+          "legendFormat": "Total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Model Performance",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
+      "collapsed": false
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Tokens Per Second by Model",
+      "description": "Rolling average tokens/sec for each model. Higher = faster inference.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "expr": "rate(portal_tokens_per_second_sum[5m]) / rate(portal_tokens_per_second_count[5m])",
+          "legendFormat": "{{model}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "lineWidth": 2 },
+          "displayName": "${__field.labels.model}"
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Requests by Model (rate/min)",
+      "description": "Which models are being called and how often.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        {
+          "expr": "rate(portal_requests_by_model_total[1m]) * 60",
+          "legendFormat": "{{model}} ({{workspace}})",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["sum", "last"] }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Total Output Tokens (session)",
+      "description": "Cumulative output tokens since pipeline last restarted.",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 21 },
+      "targets": [
+        {
+          "expr": "sum(portal_output_tokens_total)",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Total Input Tokens (session)",
+      "description": "Cumulative prompt tokens processed since pipeline last restarted.",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 21 },
+      "targets": [
+        {
+          "expr": "sum(portal_input_tokens_total)",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Top Models by Output Tokens",
+      "description": "Which models have generated the most tokens this session.",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 21 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by(model) (portal_output_tokens_total))",
+          "legendFormat": "{{model}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 13,
+      "type": "row",
+      "title": "Usage Analytics",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "collapsed": false
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Requests by Workspace Over Time",
+      "description": "Request rate (req/min) per workspace over time.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "targets": [
+        {
+          "expr": "rate(portal_requests_total[5m]) * 60",
+          "legendFormat": "{{workspace}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Tokens by Workspace",
+      "description": "Output token generation rate per workspace (tokens/sec).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "targets": [
+        {
+          "expr": "sum by(workspace) (rate(portal_output_tokens_total[5m]))",
+          "legendFormat": "{{workspace}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }
+      }
+    },
+    {
+      "id": 16,
+      "type": "barchart",
+      "title": "Top 10 Workspaces by Volume",
+      "description": "Top 10 workspaces by total request count this session.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 34 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by(workspace) (rate(portal_requests_total[5m])) * 60)",
+          "legendFormat": "{{workspace}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqpm" }
+      },
+      "options": {
+        "orientation": "auto",
+        "displayLabels": ["name", "value"],
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Model Distribution per Workspace",
+      "description": "Which models are handling each workspace — shows model switching behavior.",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 34 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by(workspace, model) (rate(portal_requests_by_model_total[5m])) * 60)",
+          "legendFormat": "{{workspace}} → {{model}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] }
+      }
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Latency & Throughput",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Avg Response Time by Model",
+      "description": "Average end-to-end response time (request received to last byte) per model. Lower is better.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 43 },
+      "targets": [
+        {
+          "expr": "rate(portal_response_time_seconds_sum[5m]) / rate(portal_response_time_seconds_count[5m]) * 1000",
+          "legendFormat": "{{model}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Response Time Percentiles (p50 / p95 / p99)",
+      "description": "End-to-end latency distribution across all requests.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 43 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(portal_response_time_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p50",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(portal_response_time_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p95",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(portal_response_time_seconds_bucket[5m])) * 1000",
+          "legendFormat": "p99",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] }
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Avg Tokens/sec (Aggregate)",
+      "description": "Average tokens generated per second across all models. Higher = faster inference.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 51 },
+      "targets": [
+        {
+          "expr": "sum(rate(portal_tokens_per_second_sum[5m])) / sum(rate(portal_tokens_per_second_count[5m]))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "barchart",
+      "title": "Top 10 Models by Request Count",
+      "description": "Which models are handling the most requests this session.",
+      "gridPos": { "h": 4, "w": 9, "x": 6, "y": 51 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by(model) (portal_requests_by_model_total))",
+          "legendFormat": "{{model}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "Token Ratio (out/in)",
+      "description": "Output tokens per input token. Higher = more verbose models.",
+      "gridPos": { "h": 4, "w": 9, "x": 15, "y": 51 },
+      "targets": [
+        {
+          "expr": "sum(portal_output_tokens_total) / sum(portal_input_tokens_total)",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        }
+      }
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Tokens Per Second by Workspace",
+      "description": "Rolling average tokens/sec per workspace. Shows which workspaces are driving inference load.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 55 },
+      "targets": [
+        {
+          "expr": "sum by(workspace) (rate(portal_tokens_per_second_sum[5m])) / sum by(workspace) (rate(portal_tokens_per_second_count[5m]))",
+          "legendFormat": "{{workspace}}",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] }
+      }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Current Request Rate",
+      "description": "Aggregate request throughput across all workspaces (req/min).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 55 },
+      "targets": [
+        {
+          "expr": "sum(rate(portal_requests_total[5m])) * 60",
+          "datasource": { "type": "prometheus", "uid": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+  }
+}

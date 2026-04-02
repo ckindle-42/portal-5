@@ -1,0 +1,15 @@
+{
+  "id": "portal_whisper",
+  "name": "Portal Whisper",
+  "type": "mcp",
+  "meta": {
+    "description": "Transcribe audio and video files to text",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8915/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

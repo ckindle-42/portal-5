@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "portal-5"
+version = "5.2.1"
+description = "Portal 5.0 — Open WebUI Enhancement Layer"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.26.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0.1",
+    "prometheus-client>=0.19.0",
+]
+
+[project.optional-dependencies]
+channels = [
+    "python-telegram-bot>=20.7",
+    "slack-bolt>=1.18.0",
+]
+notifications = [
+    "aiosmtplib>=3.0.0",
+    "APScheduler>=3.10.0",
+]
+mcp = [
+    "mcp>=1.0.0",          # MCP Python SDK (required by fastmcp)
+    "fastmcp>=0.4.0",
+    "requests>=2.31.0",
+    # Document generation
+    "python-docx>=1.1.0",
+    "python-pptx>=0.6.23",
+    "openpyxl>=3.1.0",
+    "markdown>=3.6",
+    # Audio — TTS (kokoro primary, fish-speech optional)
+    "kokoro-onnx>=0.4.0",
+    "soundfile>=0.12.1",
+    "huggingface_hub>=0.20.0",
+    # Audio — transcription
+    "faster-whisper>=1.0.0",
+    # HTTP for ComfyUI/video bridge
+    "httpx>=0.26.0",
+]
+generation = [
+    # Heavy optional deps — may fail on some platforms
+    "audiocraft>=1.3.0",
+    "stable-audio-tools>=0.1.0",
+]
+apple-silicon = [
+    # mlx-lm: native Apple Silicon inference (20-40% faster than Ollama GGUF on M4).
+    # Must be >=0.30.5 for Qwen3-Coder-Next support.
+    "mlx-lm>=0.30.5",
+]
+dev = [
+    "mcp>=1.0.0",          # needed to run MCP endpoint tests
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[project.scripts]
+portal-pipeline = "portal_pipeline.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["portal_pipeline", "portal_channels", "portal_mcp"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# SIM115: context-manager-for-open — file handles in tests are cleaned up by process
+"tests/**/*.py" = ["SIM115"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

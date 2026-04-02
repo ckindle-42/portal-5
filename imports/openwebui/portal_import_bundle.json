@@ -1,0 +1,407 @@
+{
+  "version": "1.2",
+  "generator": "scripts/generate_import_bundle.py",
+  "tool_servers": [
+    {
+      "name": "Portal ComfyUI",
+      "url": "http://host.docker.internal:8910/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Video",
+      "url": "http://host.docker.internal:8911/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Music",
+      "url": "http://host.docker.internal:8912/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Documents",
+      "url": "http://host.docker.internal:8913/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Code",
+      "url": "http://host.docker.internal:8914/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Whisper",
+      "url": "http://host.docker.internal:8915/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal TTS",
+      "url": "http://host.docker.internal:8916/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Shell",
+      "url": "http://host.docker.internal:8091/mcp",
+      "api_key": ""
+    },
+    {
+      "name": "Portal Web",
+      "url": "http://host.docker.internal:8092/mcp",
+      "api_key": ""
+    }
+  ],
+  "tools": [
+    {
+      "id": "portal_code",
+      "name": "Portal Code",
+      "type": "mcp",
+      "meta": {
+        "description": "Execute Python, Node.js, and Bash code in an isolated sandbox",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8914/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_comfyui",
+      "name": "Portal ComfyUI",
+      "type": "mcp",
+      "meta": {
+        "description": "Generate images and videos via ComfyUI workflows",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8910/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_documents",
+      "name": "Portal Documents",
+      "type": "mcp",
+      "meta": {
+        "description": "Create Word, PowerPoint, and Excel documents",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8913/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_music",
+      "name": "Portal Music",
+      "type": "mcp",
+      "meta": {
+        "description": "Generate music using AudioCraft/MusicGen",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8912/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_shell",
+      "name": "Portal Shell",
+      "type": "mcp",
+      "meta": {
+        "description": "Execute shell commands in a sandboxed environment",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8091/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_tts",
+      "name": "Portal TTS",
+      "type": "mcp",
+      "meta": {
+        "description": "Text-to-speech using Fish Speech or CosyVoice",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8916/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_video",
+      "name": "Portal Video",
+      "type": "mcp",
+      "meta": {
+        "description": "Generate video clips using Wan2.2",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8911/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_web",
+      "name": "Portal Web",
+      "type": "mcp",
+      "meta": {
+        "description": "Scrape and search the web for current information",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8092/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    },
+    {
+      "id": "portal_whisper",
+      "name": "Portal Whisper",
+      "type": "mcp",
+      "meta": {
+        "description": "Transcribe audio and video files to text",
+        "manifest": {
+          "type": "mcp",
+          "url": "http://host.docker.internal:8915/mcp"
+        }
+      },
+      "settings": {
+        "api_key": ""
+      }
+    }
+  ],
+  "workspaces": [
+    {
+      "id": "auto",
+      "name": "🤖 Portal Auto Router",
+      "meta": {
+        "description": "🤖 Portal Auto Router",
+        "profile_image_url": "",
+        "toolIds": []
+      },
+      "params": {
+        "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.",
+        "model": "auto"
+      }
+    },
+    {
+      "id": "auto-blueteam",
+      "name": "🔵 Portal Blue Team",
+      "meta": {
+        "description": "🔵 Portal Blue Team",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You are a defensive security analyst. Focus on threat detection, incident response, log analysis, and security hardening. Provide detection rules and SIEM queries where applicable.",
+        "model": "auto-blueteam"
+      }
+    },
+    {
+      "id": "auto-coding",
+      "name": "💻 Portal Code Expert",
+      "meta": {
+        "description": "💻 Portal Code Expert",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. Explain your approach briefly before writing code.",
+        "model": "auto-coding"
+      }
+    },
+    {
+      "id": "auto-compliance",
+      "name": "⚖️  Portal Compliance Analyst",
+      "meta": {
+        "description": "⚖️  Portal Compliance Analyst",
+        "profile_image_url": "",
+        "toolIds": []
+      },
+      "params": {
+        "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap — what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
+        "model": "auto-compliance"
+      }
+    },
+    {
+      "id": "auto-creative",
+      "name": "✍️  Portal Creative Writer",
+      "meta": {
+        "description": "✍️  Portal Creative Writer",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_tts"
+        ]
+      },
+      "params": {
+        "system": "You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.",
+        "model": "auto-creative"
+      }
+    },
+    {
+      "id": "auto-data",
+      "name": "📊 Portal Data Analyst",
+      "meta": {
+        "description": "📊 Portal Data Analyst",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code",
+          "portal_documents"
+        ]
+      },
+      "params": {
+        "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",
+        "model": "auto-data"
+      }
+    },
+    {
+      "id": "auto-documents",
+      "name": "📄 Portal Document Builder",
+      "meta": {
+        "description": "📄 Portal Document Builder",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_documents",
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
+        "model": "auto-documents"
+      }
+    },
+    {
+      "id": "auto-music",
+      "name": "🎵 Portal Music Producer",
+      "meta": {
+        "description": "🎵 Portal Music Producer",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_music",
+          "portal_tts"
+        ]
+      },
+      "params": {
+        "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
+        "model": "auto-music"
+      }
+    },
+    {
+      "id": "auto-reasoning",
+      "name": "🧠 Portal Deep Reasoner",
+      "meta": {
+        "description": "🧠 Portal Deep Reasoner",
+        "profile_image_url": "",
+        "toolIds": []
+      },
+      "params": {
+        "system": "You are a deep reasoning AI. Break down complex problems step-by-step. Show your work. Acknowledge uncertainty. Distinguish between facts and inferences.",
+        "model": "auto-reasoning"
+      }
+    },
+    {
+      "id": "auto-redteam",
+      "name": "🔴 Portal Red Team",
+      "meta": {
+        "description": "🔴 Portal Red Team",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK.",
+        "model": "auto-redteam"
+      }
+    },
+    {
+      "id": "auto-research",
+      "name": "🔍 Portal Research Assistant",
+      "meta": {
+        "description": "🔍 Portal Research Assistant",
+        "profile_image_url": "",
+        "toolIds": []
+      },
+      "params": {
+        "system": "You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.",
+        "model": "auto-research"
+      }
+    },
+    {
+      "id": "auto-security",
+      "name": "🔒 Portal Security Analyst",
+      "meta": {
+        "description": "🔒 Portal Security Analyst",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_code"
+        ]
+      },
+      "params": {
+        "system": "You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant.",
+        "model": "auto-security"
+      }
+    },
+    {
+      "id": "auto-video",
+      "name": "🎬 Portal Video Creator",
+      "meta": {
+        "description": "🎬 Portal Video Creator",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_video",
+          "portal_comfyui"
+        ]
+      },
+      "params": {
+        "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
+        "model": "auto-video"
+      }
+    },
+    {
+      "id": "auto-vision",
+      "name": "👁️  Portal Vision",
+      "meta": {
+        "description": "👁️  Portal Vision",
+        "profile_image_url": "",
+        "toolIds": [
+          "portal_comfyui"
+        ]
+      },
+      "params": {
+        "system": "You analyze images and handle multimodal tasks. Describe what you observe in detail. For image generation requests, use the ComfyUI MCP tool.",
+        "model": "auto-vision"
+      }
+    }
+  ],
+  "functions": [
+    {
+      "id": "portal_router_pipe",
+      "name": "Portal Workspace Router",
+      "type": "pipe",
+      "meta": {
+        "description": "Routes requests to Portal workspace endpoints. Exposes auto, auto-coding, auto-security, etc. as selectable models in the chat header."
+      },
+      "content": "\n# Portal Workspace Router - Open WebUI Pipe Function\n# Routes requests to Portal workspace endpoints (auto-coding, auto-security, etc.)\n# Install via: Open WebUI > Workspace > Functions > Import\nfrom pydantic import BaseModel\nfrom typing import Optional\n\n\nclass Pipe:\n    class Valves(BaseModel):\n        portal_base_url: str = \"http://host.docker.internal:8081/v1\"\n        portal_api_key: str = \"portal\"\n        timeout_seconds: int = 120\n\n    def __init__(self):\n        self.valves = self.Valves()\n\n    def pipes(self) -> list[dict]:\n        return [\n            {\"id\": \"auto\",           \"name\": \"Portal Auto Router\"},\n            {\"id\": \"auto-coding\",    \"name\": \"Portal Code Expert\"},\n            {\"id\": \"auto-security\",  \"name\": \"Portal Security Analyst\"},\n            {\"id\": \"auto-creative\",  \"name\": \"Portal Creative Writer\"},\n            {\"id\": \"auto-reasoning\", \"name\": \"Portal Deep Reasoner\"},\n            {\"id\": \"auto-documents\", \"name\": \"Portal Document Builder\"},\n            {\"id\": \"auto-video\",     \"name\": \"Portal Video Creator\"},\n            {\"id\": \"auto-music\",     \"name\": \"Portal Music Producer\"},\n            {\"id\": \"auto-research\",  \"name\": \"Portal Research Assistant\"},\n        ]\n\n    async def pipe(self, body: dict, __user=None):\n        import httpx\n        model_id = body.get(\"model\", \"auto\")\n        if \".\" in model_id:\n            model_id = model_id.split(\".\", 1)[1]\n        body = {**body, \"model\": model_id}\n        try:\n            async with httpx.AsyncClient() as client:\n                resp = await client.post(\n                    f\"{self.valves.portal_base_url}/chat/completions\",\n                    json=body,\n                    headers={\"Authorization\": f\"Bearer {self.valves.portal_api_key}\"},\n                    timeout=self.valves.timeout_seconds,\n                )\n                resp.raise_for_status()\n                return resp.json()\n        except Exception as e:\n            return {\"error\": str(e)}\n"
+    }
+  ]
+}

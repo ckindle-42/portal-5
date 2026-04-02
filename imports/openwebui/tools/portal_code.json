@@ -1,0 +1,15 @@
+{
+  "id": "portal_code",
+  "name": "Portal Code",
+  "type": "mcp",
+  "meta": {
+    "description": "Execute Python, Node.js, and Bash code in an isolated sandbox",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8914/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}

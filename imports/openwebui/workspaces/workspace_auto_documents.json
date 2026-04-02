@@ -1,0 +1,16 @@
+{
+  "id": "auto-documents",
+  "name": "📄 Portal Document Builder",
+  "meta": {
+    "description": "📄 Portal Document Builder",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_documents",
+      "portal_code"
+    ]
+  },
+  "params": {
+    "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
+    "model": "auto-documents"
+  }
+}

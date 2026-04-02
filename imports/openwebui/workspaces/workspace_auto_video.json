@@ -1,0 +1,16 @@
+{
+  "id": "auto-video",
+  "name": "🎬 Portal Video Creator",
+  "meta": {
+    "description": "🎬 Portal Video Creator",
+    "profile_image_url": "",
+    "toolIds": [
+      "portal_video",
+      "portal_comfyui"
+    ]
+  },
+  "params": {
+    "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
+    "model": "auto-video"
+  }
+}
