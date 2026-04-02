@@ -41,7 +41,6 @@ _MAX_REQUEST_BYTES: int = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * 1024 *
 
 # Extended stats tracked for daily summary (aggregated from Prometheus metrics)
 # These are updated on every request and read by the notification scheduler.
-_stats_lock = asyncio.Lock() if "pytest" not in os.environ else None  # None in prod (not needed)
 _total_response_time_ms: float = 0.0
 _total_tps: float = 0.0
 _request_tps_count: int = 0

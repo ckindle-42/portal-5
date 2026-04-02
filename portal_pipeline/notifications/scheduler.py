@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -139,7 +139,7 @@ class NotificationScheduler:
         # Read current stats directly from router_pipe module (avoids stale closures)
         from portal_pipeline import router_pipe
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         total = sum(_request_count.values())
         healthy = 0
         total_backends = 0

@@ -640,7 +640,7 @@ case "${1:-up}" in
         || echo "  ℹ️  Ollama: no backends healthy yet — run: ./launch.sh pull-models"
 
     WS_COUNT=$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null)
-    _check "all 13 workspaces exposed" "$WS_COUNT" "13"
+    _check "all 14 workspaces exposed" "$WS_COUNT" "14"
 
     METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
     [ "$METRICS" -ge 4 ] && echo "  ✅ Prometheus metrics ($METRICS gauges)" && PASS=$((PASS+1)) || { echo "  ❌ Metrics missing"; FAIL=$((FAIL+1)); }
