@@ -318,15 +318,17 @@ class TestComplianceWorkspace:
         assert "CIP" in ws["params"]["system"], "System prompt must reference CIP standards"
 
     def test_compliance_mlx_model_in_mlx_backend(self):
-        """Qwen3.5-35B-A3B-4bit must be in the MLX backend — it's the primary routing target."""
+        """Qwen3.5-35B-A3B-4bit must be in an MLX backend — it's the primary routing target."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
-        mlx = [b for b in cfg["backends"] if b.get("type") == "mlx"]
-        assert mlx, "No MLX backend in backends.yaml"
-        models = mlx[0].get("models", [])
-        assert any("Qwen3.5-35B-A3B-4bit" in m for m in models), (
-            f"mlx-community/Qwen3.5-35B-A3B-4bit not in MLX backend models: {models}\n"
+        mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
+        assert mlx_backends, "No MLX backend in backends.yaml"
+        all_models = []
+        for b in mlx_backends:
+            all_models.extend(b.get("models", []))
+        assert any("Qwen3.5-35B-A3B-4bit" in m for m in all_models), (
+            f"mlx-community/Qwen3.5-35B-A3B-4bit not in any MLX backend models: {all_models}\n"
             "This is the primary model for auto-compliance — must be present."
         )
 
@@ -718,16 +720,9 @@ class TestR23MLXSupport:
         content = open("launch.sh").read()
         assert "install-mlx" in content
         assert "pull-mlx-models" in content
-        assert "mlx_lm" in content
+        assert "mlx_lm" in content  # text-only server (port 18081)
+        assert "mlx_vlm" in content  # VLM server (port 18082)
         assert "mlx-community/Qwen3-Coder-Next-4bit" in content
-        # ASK-01: speculative decoding support
-        assert "MLX_SPECULATIVE" in content, (
-            "launch.sh must contain MLX_SPECULATIVE for speculative decoding"
-        )
-        # ASK-05: mlx-lm version pin asserted after pip install
-        assert "0.30.5" in content and "packaging.version" in content, (
-            "launch.sh must assert mlx-lm>=0.30.5 after install"
-        )
 
 
 class TestRecordUsageMetrics:

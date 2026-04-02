@@ -5,45 +5,30 @@
 backends:
   # ── MLX — Apple Silicon native (20-40% faster than Ollama GGUF on M-series) ─
   # Requires: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
-  # mlx_lm serves ONE model at a time — set MLX_MODEL in .env to switch
-  # Use: ./launch.sh switch-mlx-model <tag>  (updates .env + restarts service)
+  # Only ONE MLX server runs at a time (memory constraint). The pipeline automatically
+  # switches between mlx_lm (text-only: Qwen3-Coder, DeepSeek, Devstral) and
+  # mlx_vlm (VLM: Qwen3.5 family) based on the requested model.
+  # Switching has ~30s load penalty on first request after switch.
   #
-  # MEMORY COEXISTENCE GUIDE (unified memory — all workloads share the same pool)
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 32GB systems — safe combinations:
-  #   Llama-3.2-3B (~2GB)   + ComfyUI flux-schnell (~12GB) + Ollama dolphin (~5GB) = ~19GB ✅
-  #   DeepSeek-Coder-Lite (~9GB) + Ollama routing (~5GB)                           = ~14GB ✅
-  #   Qwen3-Coder-30B (~17GB) — no room for ComfyUI simultaneously                       ⚠️
-  #
-  # 64GB systems — safe combinations:
-  #   Qwen3-Coder-Next (~18GB active) + ComfyUI wan2.2 (~18GB) + Ollama (~5GB)    = ~41GB ✅
-  #   DeepSeek-R1-0528 (~18GB) + ComfyUI flux-schnell (~12GB) + Ollama (~5GB)     = ~35GB ✅
-  #   Llama-3.3-70B (~40GB) — stop ComfyUI and Ollama heavy models first                 ⚠️
-  #
+  # MEMORY: One model in memory at a time (~2-40GB depending on model).
   # Rule: MLX active weight + ComfyUI model + Ollama loaded models < (total RAM - 8GB OS)
+
   - id: mlx-apple-silicon
     type: mlx
-    url: "${MLX_URL:-http://host.docker.internal:8081}"
+    url: "${MLX_LM_URL:-http://host.docker.internal:8081}"
     group: mlx
     models:
-      # ── Coding (primary — best for Splunk, BigFix, PowerShell, Python) ────
-      - mlx-community/Qwen3-Coder-Next-4bit              # Primary: 80B MoE (~18GB active, 256k ctx)
-      - mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  # Fast: 30B agentic coder (~17GB)
-      # ── Qwen3.5 MLX — now available: mlx-lm text quants published on HF ──
-      - mlx-community/Qwen3.5-35B-A3B-4bit                # ~20GB
+      # ── Text-only (served by mlx_lm on port 8081) ──────────────────────────
+      - mlx-community/Qwen3-Coder-Next-4bit              # Primary coder: 80B MoE (~18GB, 256k ctx)
+      - mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  # Fast agentic coder (~17GB)
       - mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx  # SPL specialist (~9GB)
       - mlx-community/Devstral-Small-2505-4bit            # Agentic dev workflows (~13GB)
-      # ── Reasoning / Research ──────────────────────────────────────────────
       - mlx-community/DeepSeek-R1-0528-4bit               # Deep reasoning (~18GB)
-      - mlx-community/Qwen3.5-27B-4bit                    # ~15GB
-      # ── General / Creative ────────────────────────────────────────────────
-      - mlx-community/Llama-3.2-3B-Instruct-4bit          # Ultra-fast routing + quick tasks
-      # ── Heavy (unload others first on 64GB) ──────────────────────────────
-      - mlx-community/Llama-3.3-70B-Instruct-4bit         # ~40GB — heavy coding + reasoning
-      # ── NOT INCLUDED (reasons): ───────────────────────────────────────────
-      # mlx-community/MiniMax-M2-4bit      → 129GB, doesn't fit in 64GB
-      # BaronLLM, WhiteRabbitNeo, Lily     → No MLX versions exist, use Ollama GGUF
-      # Dolphin3.0-R1-Mistral-24B MLX      → Community fork only, use Ollama GGUF
+      - mlx-community/Llama-3.2-3B-Instruct-4bit          # Ultra-fast routing (~2GB)
+      - mlx-community/Llama-3.3-70B-Instruct-4bit         # Heavy coding + reasoning (~40GB)
+      # ── VLM (served by mlx_vlm on port 8082 — auto-switched) ──────────────
+      - mlx-community/Qwen3.5-35B-A3B-4bit                # Compliance, policy, reasoning (~20GB)
+      - mlx-community/Qwen3.5-27B-4bit                    # Reasoning, research (~15GB)
 
   # ── General (fast default, function calling, creative) ─────────────────────
   - id: ollama-general

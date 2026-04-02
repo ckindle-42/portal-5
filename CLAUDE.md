@@ -16,9 +16,9 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
 
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_lm (primary, host:8081) / Ollama (fallback, host:11434) ← local models  
+**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_vlm (primary, host:8081) / Ollama (fallback, host:11434) ← local models  
 **Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
-**MLX requirement**: `mlx_lm` is **always running** and **required** on Apple Silicon. It is not optional. Coding workspaces and coding personas depend on MLX (Qwen3-Coder-Next) as their primary inference path. Ollama serves as fallback for non-MLX model groups and general routing.  
+**MLX requirement**: `mlx_vlm` is **always running** and **required** on Apple Silicon. It is not optional. Coding workspaces and coding personas depend on MLX as their primary inference path. Ollama serves as fallback for non-MLX model groups and general routing. `mlx_vlm` natively serves VLM models (Qwen3.5 family) including vision tower parameters, and text-only models — on-demand model loading per request.  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
 ---
@@ -184,7 +184,7 @@ git push origin feature/your-thing
 
 ## Model Catalog
 
-These are the models Portal 5 is designed around. MLX models run via `mlx_lm` (always on). Ollama models are pulled via `ollama pull`. The `DEFAULT_MODEL` in `.env` is pulled automatically on `./launch.sh up`. Others are pulled on demand or via `./launch.sh pull-models`.
+These are the models Portal 5 is designed around. MLX models run via `mlx_vlm` (always on). Ollama models are pulled via `ollama pull`. The `DEFAULT_MODEL` in `.env` is pulled automatically on `./launch.sh up`. Others are pulled on demand or via `./launch.sh pull-models`.
 
 **HuggingFace GGUF imports**: Some models use Ollama's `hf.co/` pull format (e.g., `hf.co/org/repo-GGUF`) — this is Ollama's native mechanism for importing GGUF models directly from HuggingFace. These are valid Ollama model identifiers, not URLs, and are part of the intentional Apple Silicon setup.
 
@@ -240,10 +240,10 @@ These are the models Portal 5 is designed around. MLX models run via `mlx_lm` (a
 
 ### MLX Models (Apple Silicon) — Always Running, Required
 
-MLX (`mlx_lm.server` at `:8081`) is **always on** and **required** — it is not optional on Apple Silicon. Coding workspaces (`auto-coding`) and all coding personas route through MLX as their primary inference path. If MLX is not running, coding workspaces fall back to Ollama coding group, but this is degraded operation.
+MLX (`mlx_vlm.server` at `:8081`) is **always on** and **required** — it is not optional on Apple Silicon. Coding workspaces (`auto-coding`) and all coding personas route through MLX as their primary inference path. If MLX is not running, coding workspaces fall back to Ollama coding group, but this is degraded operation.
 
 Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model <tag>`.  
-**mlx_lm serves ONE model at a time** — set `MLX_MODEL` in `.env` to select which.  
+**mlx_vlm loads models on-demand per request** — the `model` field in the request body determines which model loads. First request per model has ~30s load time.  
 **Memory Coexistence** assumes Ollama + ComfyUI also running simultaneously.
 
 | Model | Memory | Safe Concurrent With |
@@ -263,7 +263,7 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 
 ### MLX Memory Coexistence
 
-`mlx_lm` serves one model at a time. Unified memory is shared across all workloads.
+`mlx_vlm` loads models on-demand per request. Unified memory is shared across all workloads.
 
 | System RAM | MLX Model | Simultaneously Safe |
 |---|---|---|

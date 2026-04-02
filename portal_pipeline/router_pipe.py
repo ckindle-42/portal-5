@@ -946,6 +946,65 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
     return {"object": "list", "data": models}
 
 
+async def _try_non_streaming(
+    backend: Any,
+    body: dict,
+    workspace_id: str,
+    *,
+    enforce_hint: bool = True,
+) -> JSONResponse | None:
+    """Try non-streaming completion from a single backend.
+
+    Returns JSONResponse on success, None on failure (caller tries next backend).
+    When enforce_hint=True and the workspace has a model_hint, backends that
+    don't carry the hinted model are skipped (returns None) so the loop tries
+    the next backend. Set enforce_hint=False on the last candidate to accept
+    any model as fallback.
+    """
+    if _http_client is None:
+        return None
+    ws_cfg = WORKSPACES.get(workspace_id, {})
+    model_hint = ws_cfg.get("model_hint", "")
+    if model_hint and model_hint in backend.models:
+        target_model = model_hint
+    elif model_hint and enforce_hint and backend.type != "mlx":
+        # Non-MLX backend doesn't have the hinted model — skip to try next backend.
+        # MLX backends are never skipped: server switching ensures the right model loads.
+        logger.debug(
+            "Backend %s lacks hinted model %s for workspace=%s — skipping",
+            backend.id,
+            model_hint,
+            workspace_id,
+        )
+        return None
+    else:
+        target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+    req_body = {**body, "model": target_model, "stream": False}
+    if backend.type == "ollama":
+        req_body = _inject_ollama_options(req_body)
+
+    try:
+        resp = await _http_client.post(backend.chat_url, json=req_body)
+        resp.raise_for_status()
+        data = resp.json()
+        _record_usage(model=target_model, workspace=workspace_id, data=data)
+        logger.info(
+            "Backend %s succeeded for workspace=%s model=%s",
+            backend.id,
+            workspace_id,
+            target_model,
+        )
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.warning(
+            "Backend %s failed for workspace=%s: %s — trying next candidate",
+            backend.id,
+            workspace_id,
+            e,
+        )
+        return None
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(
     request: Request,
@@ -994,8 +1053,8 @@ async def chat_completions(
 
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
 
-        backend = registry.get_backend_for_workspace(workspace_id)
-        if not backend:
+        candidates = registry.get_backend_candidates(workspace_id)
+        if not candidates:
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -1005,21 +1064,37 @@ async def chat_completions(
                 ),
             )
 
+        if not stream:
+            # Non-streaming: try each backend in priority order until one succeeds.
+            # Model hint is enforced (skip backends without the hinted model) for
+            # all but the last candidate, where we accept any model as fallback.
+            for i, backend in enumerate(candidates):
+                is_last = i == len(candidates) - 1
+                result = await _try_non_streaming(
+                    backend, body, workspace_id, enforce_hint=not is_last
+                )
+                if result is not None:
+                    _record_response_time(
+                        backend.models[0] if backend.models else "unknown",
+                        workspace_id,
+                        time.monotonic() - start_time,
+                    )
+                    return result
+            # All backends failed
+            raise HTTPException(
+                status_code=502,
+                detail="All backends failed — check server logs",
+            )
+
+        # Streaming: try first backend. If the stream yields an error chunk early,
+        # fall back to non-streaming with remaining candidates.
+        backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
         if model_hint and model_hint in backend.models:
             target_model = model_hint
         else:
             target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
-            if model_hint and target_model != model_hint:
-                logger.debug(
-                    "Workspace %s wants %s but backend %s only has %s — using %s",
-                    workspace_id,
-                    model_hint,
-                    backend.id,
-                    backend.models,
-                    target_model,
-                )
 
         backend_body = {**body, "model": target_model}
 
@@ -1029,16 +1104,16 @@ async def chat_completions(
             backend_body = _inject_ollama_options(backend_body)
 
         logger.info(
-            "Routing workspace=%s → backend=%s model=%s stream=%s",
+            "Routing workspace=%s → backend=%s model=%s stream=%s (1/%d candidates)",
             workspace_id,
             backend.id,
             target_model,
             stream,
+            len(candidates),
         )
 
-        if stream:
-            # Construct first, mark streaming only after success
-            # If StreamingResponse() raises, finally block correctly releases semaphore
+        if len(candidates) == 1:
+            # Single candidate — no fallback possible, return streaming directly
             _streaming_response = StreamingResponse(
                 _stream_with_preamble(
                     backend.chat_url,
@@ -1050,16 +1125,103 @@ async def chat_completions(
                 ),
                 media_type="text/event-stream",
             )
-            _is_streaming = True  # Only set AFTER successful construction
+            _is_streaming = True
             return _streaming_response
-        response = await _complete_from_backend(
-            backend.chat_url,
-            backend_body,
-            workspace_id=workspace_id,
-            model=target_model,
+
+        # Multiple candidates — streaming with non-streaming fallback.
+        # Try streaming from first backend; if it fails, fall back to non-streaming
+        # from the remaining candidates.
+        remaining = candidates[1:]
+
+        async def _stream_or_fallback() -> AsyncIterator[bytes]:
+            stream_failed = False
+            try:
+                async for chunk in _stream_with_preamble(
+                    backend.chat_url,
+                    backend_body,
+                    _request_semaphore,
+                    workspace_id=workspace_id,
+                    model=target_model,
+                    start_time=start_time,
+                ):
+                    if b'"error"' in chunk:
+                        stream_failed = True
+                    yield chunk
+            except Exception:
+                stream_failed = True
+
+            if stream_failed and remaining:
+                logger.info(
+                    "Stream from %s failed, falling back to non-streaming for workspace=%s",
+                    backend.id,
+                    workspace_id,
+                )
+                fallback_body = {**body, "stream": False}
+                for j, fb in enumerate(remaining):
+                    fb_last = j == len(remaining) - 1
+                    result = await _try_non_streaming(
+                        fb, fallback_body, workspace_id, enforce_hint=not fb_last
+                    )
+                    if result is not None:
+                        # Wrap non-streaming response as SSE for Open WebUI
+                        import json as _json
+
+                        data = _json.loads(result.body)
+                        ts = int(time.time())
+                        rid = f"chatcmpl-p5-{ts}"
+                        # Emit role chunk
+                        role_payload = {
+                            "id": rid,
+                            "object": "chat.completion.chunk",
+                            "created": ts,
+                            "model": workspace_id,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"role": "assistant", "content": ""},
+                                    "finish_reason": None,
+                                }
+                            ],
+                        }
+                        yield f"data: {_json.dumps(role_payload)}\n\n".encode()
+                        # Emit content chunk
+                        content = ""
+                        if "choices" in data and data["choices"]:
+                            msg = data["choices"][0].get("message", {})
+                            content = msg.get("content", "")
+                        if content:
+                            content_payload = {
+                                "id": rid,
+                                "object": "chat.completion.chunk",
+                                "created": ts,
+                                "model": workspace_id,
+                                "choices": [
+                                    {
+                                        "index": 0,
+                                        "delta": {"content": content},
+                                        "finish_reason": None,
+                                    }
+                                ],
+                            }
+                            yield f"data: {_json.dumps(content_payload)}\n\n".encode()
+                        # Emit done
+                        done_payload = {
+                            "id": rid,
+                            "object": "chat.completion.chunk",
+                            "created": ts,
+                            "model": workspace_id,
+                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        }
+                        yield f"data: {_json.dumps(done_payload)}\n\n".encode()
+                        yield b"data: [DONE]\n\n"
+                        return
+
+        _streaming_response = StreamingResponse(
+            _stream_or_fallback(),
+            media_type="text/event-stream",
         )
-        _record_response_time(target_model, workspace_id, time.monotonic() - start_time)
-        return response
+        _is_streaming = True
+        return _streaming_response
     finally:
         if not _is_streaming:
             # Non-streaming: response fully awaited above, safe to release here

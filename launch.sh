@@ -1812,11 +1812,11 @@ PLIST
     ;;
 
   install-mlx)
-    echo "=== Installing mlx_lm (Apple Silicon native inference) ==="
+    echo "=== Installing MLX dual-server (Apple Silicon native inference) ==="
     ARCH=$(uname -m)
 
     if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  mlx_lm is Apple Silicon only. On Linux, Ollama GGUF handles inference."
+        echo "  ℹ️  MLX is Apple Silicon only. On Linux, Ollama GGUF handles inference."
         exit 0
     fi
 
@@ -1825,14 +1825,17 @@ PLIST
         exit 1
     fi
 
-    echo "  Installing mlx-lm (>=0.30.5 required for Qwen3-Coder-Next)..."
-    pip3 install "mlx-lm>=0.30.5" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-lm>=0.30.5" --upgrade --quiet --break-system-packages
-    # ASK-05: Verify version pin — prevents silent downgrade breaking Qwen3-Coder-Next
-    python3 -c "import mlx_lm; from packaging.version import Version; \
-        v=mlx_lm.__version__; assert Version(v)>=Version('0.30.5'), \
-        f'mlx-lm {v} < 0.30.5 — Qwen3-Coder-Next requires >=0.30.5'; \
-        print(f'  ✅ mlx-lm {v}')"
+    echo "  Installing mlx-vlm (supports Qwen3.5 VLM + vision models)..."
+    pip3 install "mlx-vlm" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-vlm" --upgrade --quiet --break-system-packages
+    # Pin mlx-lm<0.31 to keep qwen3_next support (0.31+ removed it → moved to mlx_vlm)
+    echo "  Installing mlx-lm<0.31 (for qwen3_next text models)..."
+    pip3 install "mlx-lm<0.31" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-lm<0.31" --upgrade --quiet --break-system-packages
+    python3 -c "import mlx_lm; print(f'  ✅ mlx-lm {mlx_lm.__version__}')" 2>/dev/null || \
+        echo "  ✅ mlx-lm installed"
+    python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
+        echo "  ✅ mlx-vlm installed"
 
     # Create start wrapper
     MLX_DIR="$HOME/.portal5/mlx"

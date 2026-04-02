@@ -355,6 +355,7 @@ services:
       - DOCKER_TLS_CERTDIR=        # Disable TLS — internal network only
     volumes:
       - dind-storage:/var/lib/docker
+      - sandbox-work:/app/data/sandbox  # Shared with mcp-sandbox for code files
     # P7: Resource limits prevent DinD from consuming all system RAM/CPU.
     deploy:
       resources:
@@ -382,12 +383,17 @@ services:
       - MCP_PORT=8914
       - SANDBOX_TIMEOUT=${SANDBOX_TIMEOUT:-30}
       - SANDBOX_ENABLED=true
+      - SANDBOX_DIR=/app/data/sandbox
       # Point at DinD instead of host Docker
       - DOCKER_HOST=tcp://dind:2375
-    command: ["python", "-m", "portal_mcp.execution.code_sandbox_mcp"]
+    # Run as root to chown shared volume on startup, then drop to portal
+    user: root
+    entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal_mcp.execution.code_sandbox_mcp'"]
     depends_on:
       dind:
         condition: service_healthy
+    volumes:
+      - sandbox-work:/app/data/sandbox  # Shared with dind for code execution
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8914/health"]
       interval: 30s
@@ -633,6 +639,7 @@ volumes:
   open-webui-data:     # Open WebUI database — wipe with ./launch.sh clean
   portal5-hf-cache:    # HuggingFace model cache (music, TTS, whisper)
   dind-storage:        # DinD persistent storage
+  sandbox-work:        # Shared sandbox code files (mcp-sandbox ↔ dind)
   searxng-data:        # SearXNG data
   comfyui-models:      # ComfyUI model weights
   comfyui-output:      # ComfyUI generated images/videos

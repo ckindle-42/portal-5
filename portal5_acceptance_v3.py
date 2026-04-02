@@ -42,7 +42,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
 
 import httpx
 import yaml
@@ -2071,7 +2070,7 @@ async def main() -> int:
     rpt = ROOT / "ACCEPTANCE_RESULTS.md"
     with open(rpt, "w") as f:
         f.write("# Portal 5 — End-to-End Acceptance Test Results\n\n")
-        f.write(f"**Suite:** v3 (full end-to-end)  \n")
+        f.write("**Suite:** v3 (full end-to-end)  \n")
         f.write(f"**Run:** {time.strftime('%Y-%m-%d %H:%M:%S')} ({elapsed}s)  \n")
         f.write(f"**Git SHA:** {_git_sha()}  \n")
         f.write(f"**Workspaces:** {len(WS_IDS)}  ·  **Personas:** {len(PERSONAS)}\n\n")
@@ -2101,7 +2100,7 @@ async def main() -> int:
             f.write("*No blocked items — all failures diagnosed as environmental "
                     "or test-configuration issues.*\n")
 
-        f.write(f"\n---\n*Screenshots: /tmp/p5_gui_*.png*\n")
+        f.write("\n---\n*Screenshots: /tmp/p5_gui_*.png*\n")
 
     print(f"\nReport written → {rpt}")
     print("Screenshots: /tmp/p5_gui_*.png")

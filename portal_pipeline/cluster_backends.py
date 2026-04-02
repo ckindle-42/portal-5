@@ -101,7 +101,7 @@ class Backend:
         if self.type == "ollama":
             return f"{self.url.rstrip('/')}/api/tags"  # Ollama: list models
         if self.type == "mlx":
-            return f"{self.url.rstrip('/')}/v1/models"  # mlx_lm: OpenAI-compatible
+            return f"{self.url.rstrip('/')}/v1/models"  # mlx_vlm: OpenAI-compatible
         return f"{self.url.rstrip('/')}/health"  # vLLM: /health
 
 
@@ -216,6 +216,44 @@ class BackendRegistry:
         """Rebuild the cached healthy-backend list. Called after each health cycle."""
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
 
+    def get_backend_candidates(self, workspace_id: str) -> list[Backend]:
+        """Return all healthy backends for a workspace, ordered by priority.
+
+        Each group's backends are shuffled (load balancing within group),
+        then concatenated in group-priority order. This enables request-level
+        fallback: if the first backend fails, try the next in this list.
+        """
+        groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
+        healthy = self.list_healthy_backends()
+        if not healthy:
+            return []
+
+        result: list[Backend] = []
+        seen: set[str] = set()
+
+        # Collect backends by group priority, shuffled within each group
+        for group in groups:
+            group_backends = [b for b in healthy if b.group == group and b.id not in seen]
+            if group_backends:
+                random.shuffle(group_backends)
+                result.extend(group_backends)
+                seen.update(b.id for b in group_backends)
+
+        # Append fallback group backends if not already included
+        fallback = [b for b in healthy if b.group == self._fallback_group and b.id not in seen]
+        if fallback:
+            random.shuffle(fallback)
+            result.extend(fallback)
+            seen.update(b.id for b in fallback)
+
+        # Append any remaining healthy backends as absolute fallback
+        remaining = [b for b in healthy if b.id not in seen]
+        if remaining:
+            random.shuffle(remaining)
+            result.extend(remaining)
+
+        return result
+
     def get_backend_for_workspace(self, workspace_id: str) -> Backend | None:
         """Select the best healthy backend for a given workspace.
 
@@ -225,25 +263,8 @@ class BackendRegistry:
         3. If none found, fall back to any healthy backend in fallback_group
         4. Within a group, randomly select for load balancing
         """
-        groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
-
-        healthy = self.list_healthy_backends()
-        if not healthy:
-            return None
-
-        # Try each routed group in order
-        for group in groups:
-            candidates = [b for b in healthy if b.group == group]
-            if candidates:
-                return random.choice(candidates)
-
-        # Final fallback: any healthy backend from fallback group
-        fallback = [b for b in healthy if b.group == self._fallback_group]
-        if fallback:
-            return random.choice(fallback)
-
-        # Absolute fallback: any healthy backend
-        return random.choice(healthy) if healthy else None
+        candidates = self.get_backend_candidates(workspace_id)
+        return candidates[0] if candidates else None
 
     @classmethod
     def _get_health_semaphore(cls) -> asyncio.Semaphore:
