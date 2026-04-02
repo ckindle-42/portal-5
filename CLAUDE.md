@@ -16,9 +16,9 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
 
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← mlx_vlm (primary, host:8081) / Ollama (fallback, host:11434) ← local models  
+**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← MLX proxy (host:8081) → mlx_lm (18081) / mlx_vlm (18082) / Ollama (fallback, host:11434) ← local models  
 **Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
-**MLX requirement**: `mlx_vlm` is **always running** and **required** on Apple Silicon. It is not optional. Coding workspaces and coding personas depend on MLX as their primary inference path. Ollama serves as fallback for non-MLX model groups and general routing. `mlx_vlm` natively serves VLM models (Qwen3.5 family) including vision tower parameters, and text-only models — on-demand model loading per request.  
+**MLX requirement**: The MLX proxy (`scripts/mlx-proxy.py`) is **always running** and **required** on Apple Silicon. It auto-switches between `mlx_lm` (text-only models) and `mlx_vlm` (VLM models including Qwen3.5 family) based on the requested model. Only one server runs at a time due to unified memory constraints. Coding workspaces and coding personas depend on MLX as their primary inference path. Ollama serves as fallback for non-MLX model groups and general routing.  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
 ---
@@ -136,6 +136,9 @@ print('Workspace IDs consistent')
 |---|---|
 | 8080 | Open WebUI |
 | 9099 | Portal Pipeline |
+| 8081 | MLX proxy (auto-switches mlx_lm ↔ mlx_vlm) |
+| 18081 | mlx_lm server (text-only, managed by proxy) |
+| 18082 | mlx_vlm server (VLM, managed by proxy) |
 | 8910 | MCP: ComfyUI |
 | 8911 | MCP: Video |
 | 8912 | MCP: Music |
@@ -240,22 +243,26 @@ These are the models Portal 5 is designed around. MLX models run via `mlx_vlm` (
 
 ### MLX Models (Apple Silicon) — Always Running, Required
 
-MLX (`mlx_vlm.server` at `:8081`) is **always on** and **required** — it is not optional on Apple Silicon. Coding workspaces (`auto-coding`) and all coding personas route through MLX as their primary inference path. If MLX is not running, coding workspaces fall back to Ollama coding group, but this is degraded operation.
+The MLX proxy (`scripts/mlx-proxy.py` at `:8081`) is **always on** and **required** — it is not optional on Apple Silicon. Coding workspaces (`auto-coding`) and all coding personas route through MLX as their primary inference path. If MLX is not running, coding workspaces fall back to Ollama coding group, but this is degraded operation.
 
-Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model <tag>`.  
-**mlx_vlm loads models on-demand per request** — the `model` field in the request body determines which model loads. First request per model has ~30s load time.  
-**Memory Coexistence** assumes Ollama + ComfyUI also running simultaneously.
+The proxy auto-switches between two servers based on the requested model:
+- **`mlx_lm.server`** (port 18081) — text-only models (Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama)
+- **`mlx_vlm.server`** (port 18082) — VLM models (Qwen3.5 family with vision tower)
 
-| Model | Memory | Safe Concurrent With |
-|---|---|---|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | ComfyUI + Ollama + Wan2.2 video |
-| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | Everything — safe baseline |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | Ollama only (3B) — unload others first |
-| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | Long-context policy/compliance/research |
-| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | Reasoning/research, lighter compliance |
+Only one server runs at a time due to unified memory constraints. Switching takes ~30s on first request after a switch.
+
+Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-model <tag>`.
+
+| Model | Memory | Server | Safe Concurrent With |
+|---|---|---|---|
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
+| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | mlx_lm | Everything — safe baseline |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
+| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
 **64GB systems**: Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB total — feasible.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
@@ -263,7 +270,7 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 
 ### MLX Memory Coexistence
 
-`mlx_vlm` loads models on-demand per request. Unified memory is shared across all workloads.
+Unified memory is shared across all workloads. The proxy ensures only one MLX server runs at a time.
 
 | System RAM | MLX Model | Simultaneously Safe |
 |---|---|---|
@@ -274,7 +281,7 @@ Install: `./launch.sh install-mlx`. Switch models: `./launch.sh switch-mlx-model
 | 64GB | DeepSeek-R1-0528 (~18GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
 
-Switch models: `./launch.sh switch-mlx-model <tag>`
+Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
 
 ### Generation Models (ComfyUI / HuggingFace)
 
@@ -373,7 +380,8 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 ```
 1. Copy .env.example → .env (if .env doesn't exist)
 2. Source .env
-3. docker compose up -d (from deploy/portal-5/)
+3. Auto-start native services (Ollama, ComfyUI, MLX proxy)
+4. docker compose up -d (from deploy/portal-5/)
    ├── ollama starts, healthchecked on /api/tags
    ├── ollama-init pulls DEFAULT_MODEL (skips if already present)
    ├── portal-pipeline builds + starts (depends on ollama healthy)
@@ -388,7 +396,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
    ├── mcp-tts starts (:8916)
    ├── mcp-sandbox starts (:8914)
    └── [ComfyUI: run separately, see docs/COMFYUI_SETUP.md]
-4. Print access URLs
+5. Print access URLs
 ```
 
 **First run time**: 5-15 min depending on model size and internet speed.  
