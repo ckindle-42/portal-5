@@ -1,6 +1,6 @@
-# Portal 5.2 — Cluster Scale-Out Guide
+# Portal 5.2.1 — Cluster Scale-Out Guide
 
-Portal 5.2 is designed to grow from a single M4 Mac to a 12-node Mac Studio
+Portal 5.2.1 is designed to grow from a single M4 Mac to a 12-node Mac Studio
 cluster without any code changes. All scaling is done by editing config/backends.yaml.
 
 ## Stage 1 → Stage 2: Add a Second Mac Studio

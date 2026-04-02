@@ -1,4 +1,4 @@
-"""Portal 5.0 — Slack Channel Adapter
+"""Portal 5.2.1 — Slack Channel Adapter
 
 Listens via Socket Mode (no public webhook required).
 Handles @mentions in channels and direct messages.

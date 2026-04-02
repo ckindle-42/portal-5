@@ -1,4 +1,4 @@
-# Portal 5.2 — Admin Guide
+# Portal 5.2.1 — Admin Guide
 
 ## First Login
 

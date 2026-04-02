@@ -1,4 +1,4 @@
-"""Portal 5.0 Pipeline unit tests — no live backends required."""
+"""Portal 5.2.1 Pipeline unit tests — no live backends required."""
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,4 +1,4 @@
-"""Portal 5.0 — Backend Registry with health checks and workspace routing.
+"""Portal 5.2.1 — Backend Registry with health checks and workspace routing.
 
 Config-driven backend selection. No hardcoded URLs. Supports Ollama and
 OpenAI-compatible backends (vLLM, etc.).

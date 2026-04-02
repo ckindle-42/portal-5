@@ -1,4 +1,4 @@
-# Portal 5.2 — How-To Guide
+# Portal 5.2.1 — How-To Guide
 
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.
 

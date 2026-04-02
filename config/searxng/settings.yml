@@ -1,4 +1,4 @@
-# Portal 5.0 — SearXNG configuration
+# Portal 5.2.1 — SearXNG configuration
 # Enables JSON output for Open WebUI web search integration
 
 use_default_settings: true

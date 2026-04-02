@@ -1,4 +1,4 @@
-"""Portal 5.2.0 MCP Tool Servers."""
+"""Portal 5.2.1 MCP Tool Servers."""
 
 __version__ = "5.2.1"
 

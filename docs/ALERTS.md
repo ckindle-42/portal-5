@@ -1,4 +1,4 @@
-# Portal 5.2 — Alerts & Notifications Guide
+# Portal 5.2.1 — Alerts & Notifications Guide
 
 Portal 5 can send operational alerts and daily usage summaries to Slack, Telegram,
 Email, Pushover, and any generic HTTP webhook endpoint. Notifications are disabled by default.

@@ -1,4 +1,4 @@
-"""Portal 5.0 — Intelligent Router Pipeline.
+"""Portal 5.2.1 — Intelligent Router Pipeline.
 
 Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
 Open WebUI connects here as its sole model source.

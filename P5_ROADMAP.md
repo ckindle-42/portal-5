@@ -1,7 +1,7 @@
 # P5_ROADMAP.md — Portal 5 Future Enhancements
 
 ```
-Portal 5.2+ Roadmap
+Portal 5.2.1+ Roadmap
 ==================
 Last updated: March 30, 2026
 Version: 5.2.0 (production-ready)
@@ -67,4 +67,4 @@ Live-verified: a `config_error` test event was confirmed delivered to a listenin
 ---
 
 *Last updated: 2026-03-30*
-*Part of Portal 5.2.0 release documentation*
+*Part of Portal 5.2.1 release documentation*

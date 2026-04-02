@@ -1,4 +1,4 @@
-"""Portal 5.0 — Telegram Channel Adapter
+"""Portal 5.2.1 — Telegram Channel Adapter
 
 Receives Telegram updates, forwards to Portal Pipeline, streams response back.
 Thin adapter: no routing logic — all intelligence is in portal_pipeline/.
@@ -44,7 +44,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_message:
         return
     await update.effective_message.reply_text(
-        "🤖 Portal 5.0 — Local AI Assistant\n\n"
+        "🤖 Portal 5.2.1 — Local AI Assistant\n\n"
         "Send any message to chat.\n"
         "Commands:\n"
         "/workspace [name] — switch workspace\n"

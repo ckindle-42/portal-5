@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "description": "Portal 5.2.0 MCP Tool Server configurations",
+  "description": "Portal 5.2.1 MCP Tool Server configurations",
   "tool_servers": [
     { "name": "Portal ComfyUI",   "url": "http://host.docker.internal:8910/mcp", "api_key": "" },
     { "name": "Portal Video",     "url": "http://host.docker.internal:8911/mcp", "api_key": "" },

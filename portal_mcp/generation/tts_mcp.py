@@ -1,5 +1,5 @@
 """
-TTS MCP Server — Portal 5.0
+TTS MCP Server — Portal 5.2.1
 
 Primary backend: kokoro-onnx (zero-setup, pip-installable, Apache 2.0)
 Optional backend: fish-speech (higher quality voice cloning, manual install)

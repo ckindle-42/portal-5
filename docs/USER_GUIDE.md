@@ -2,7 +2,7 @@
 
 ## Getting Access
 
-Portal 5.2 requires an account. Contact your admin or sign up at the login page.
+Portal 5.2.1 requires an account. Contact your admin or sign up at the login page.
 New accounts require admin approval — you'll see "pending" status until approved.
 
 ## Workspaces
