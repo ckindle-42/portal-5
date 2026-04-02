@@ -254,8 +254,13 @@ _check_ports() {
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
 
     # MLX proxy (port 8081) — only check if installed
+    # Skip the check if proxy is already responding (started by _ensure_native_services)
     if [ -f "$HOME/.portal5/mlx/mlx-proxy.py" ] || python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
-        _port_check 8081   "MLX proxy (mlx_lm/vlm auto-switch)"
+        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
+            echo "  ✅ Port 8081 (MLX proxy) — already responding"
+        else
+            _port_check 8081   "MLX proxy (mlx_lm/vlm auto-switch)"
+        fi
     fi
 
     # Ollama (Docker profile) — only check if explicitly using docker-ollama
