@@ -85,19 +85,18 @@ _check_hardware() {
             echo "     Install: ./launch.sh install-comfyui"
             echo "     Start:   ~/ComfyUI/start.sh"
         fi
-        # Check mlx_lm server
-        local MLX_PORT_CHECK="${MLX_PORT:-8081}"
-        if curl -s "http://localhost:${MLX_PORT_CHECK}/v1/models" &>/dev/null 2>&1; then
-            MLX_ACTIVE=$(curl -s "http://localhost:${MLX_PORT_CHECK}/v1/models" 2>/dev/null | \
-                python3 -c "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" 2>/dev/null || echo "running")
-            echo "  ✅ mlx_lm: active ($MLX_ACTIVE) — native Apple Silicon inference"
-        elif pgrep -f "mlx_lm.server|mlx_lm server" &>/dev/null 2>&1; then
-            echo "  ⏳ mlx_lm: starting in background (loading model, Ollama used until ready)"
-        elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-            echo "  ℹ️  mlx_lm: installed, not running (Ollama will be used)"
-            echo "     Start: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+        # Check MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on 8081)
+        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
+            MLX_ACTIVE=$(curl -s "http://localhost:8081/health" 2>/dev/null | \
+                python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('active_server','?'))" 2>/dev/null || echo "?")
+            echo "  ✅ MLX proxy: active (server=$MLX_ACTIVE) — dual-server Apple Silicon inference"
+        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
+            echo "  ⏳ MLX: starting in background (Ollama used until ready)"
+        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
+            echo "  ℹ️  MLX proxy: installed, not running (Ollama will be used)"
+            echo "     Start: ~/.portal5/mlx/mlx-proxy.py"
         else
-            echo "  ℹ️  mlx_lm: not installed (optional, 20-40% faster than Ollama on M4)"
+            echo "  ℹ️  MLX: not installed (optional, 20-40% faster than Ollama on M4)"
             echo "     Install: ./launch.sh install-mlx"
         fi
     elif [ "$ARCH" = "x86_64" ]; then
@@ -175,30 +174,23 @@ _ensure_native_services() {
         fi
     fi
 
-    # ── MLX inference server (Apple Silicon native only) ─────────────────────
+    # ── MLX proxy (Apple Silicon native only) ────────────────────────────────
     if [ "$ARCH" = "arm64" ]; then
-        local MLX_PORT_VAL="${MLX_PORT:-8081}"
-        local MLX_START_SCRIPT="$HOME/.portal5/mlx/start.sh"
-        if [ -f "$MLX_START_SCRIPT" ]; then
-            if ! curl -s "http://localhost:${MLX_PORT_VAL}/v1/models" &>/dev/null 2>&1; then
-                echo "[portal-5]   MLX server installed but not running — starting..."
+        local MLX_PROXY_SCRIPT="$HOME/.portal5/mlx/mlx-proxy.py"
+        if [ -f "$MLX_PROXY_SCRIPT" ]; then
+            if ! curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
+                echo "[portal-5]   MLX proxy installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
-                if launchctl list com.portal5.mlx &>/dev/null 2>&1; then
-                    launchctl start com.portal5.mlx 2>/dev/null || true
+                if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
+                    launchctl start com.portal5.mlx-proxy 2>/dev/null || true
                 else
-                    MLX_PORT="$MLX_PORT_VAL" nohup "$MLX_START_SCRIPT" \
-                        > "$HOME/.portal5/logs/mlx.log" 2>&1 &
+                    nohup python3 "$MLX_PROXY_SCRIPT" \
+                        > "$HOME/.portal5/logs/mlx-proxy.log" 2>&1 &
                 fi
-                echo "[portal-5]   ⏳ MLX starting in background (first run downloads model ~18GB)"
-                echo "[portal-5]      Logs: $HOME/.portal5/logs/mlx.log"
-                echo "[portal-5]      API:  http://localhost:${MLX_PORT_VAL}/v1"
+                echo "[portal-5]   ⏳ MLX proxy starting on :8081 (auto-switches mlx_lm ↔ mlx_vlm)"
+                echo "[portal-5]      Logs: $HOME/.portal5/logs/mlx-proxy.log"
             else
-                local MLX_MODEL_NAME
-                MLX_MODEL_NAME=$(curl -s "http://localhost:${MLX_PORT_VAL}/v1/models" 2>/dev/null | \
-                    python3 -c "import json,sys; d=json.load(sys.stdin); \
-                    print(d['data'][0]['id'].split('/')[-1] if d.get('data') else 'running')" \
-                    2>/dev/null || echo "running")
-                echo "[portal-5]   ✅ MLX: running ($MLX_MODEL_NAME)"
+                echo "[portal-5]   ✅ MLX proxy: running"
             fi
         fi
     fi
@@ -261,10 +253,9 @@ _check_ports() {
     _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
 
-    # MLX inference server — only check if MLX is installed
-    # Avoids false "port conflict" errors on Linux or Mac systems without MLX
-    if [ -f "$HOME/.portal5/mlx/start.sh" ] || python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-        _port_check "${MLX_PORT:-8081}"   "MLX inference server"
+    # MLX proxy (port 8081) — only check if installed
+    if [ -f "$HOME/.portal5/mlx/mlx-proxy.py" ] || python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
+        _port_check 8081   "MLX proxy (mlx_lm/vlm auto-switch)"
     fi
 
     # Ollama (Docker profile) — only check if explicitly using docker-ollama
@@ -446,17 +437,16 @@ for key, label, url in rows:
             printf "    ❌  %-28s %s\n" "Ollama" "not running — brew services start ollama"
         fi
 
-        local MLX_PORT_VAL="${MLX_PORT:-8081}"
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MLX_PORT_VAL}/v1/models', timeout=2)" &>/dev/null 2>&1; then
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8081/health', timeout=2)" &>/dev/null 2>&1; then
             _MX=$(python3 -c "
 import urllib.request, json
-d = json.loads(urllib.request.urlopen('http://localhost:${MLX_PORT_VAL}/v1/models', timeout=3).read())
-print(d['data'][0]['id'].split('/')[-1] if d.get('data') else '?')
+d = json.loads(urllib.request.urlopen('http://localhost:8081/health', timeout=3).read())
+print(d.get('active_server','?'))
 " 2>/dev/null || echo "?")
-            printf "    ✅  %-28s %s\n" "MLX (${_MX})" ":${MLX_PORT_VAL}"
-        elif pgrep -f "mlx_lm.server|mlx_lm server" &>/dev/null 2>&1; then
-            printf "    ⏳  %-28s %s\n" "MLX" "starting (loading model)"
-        elif python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s  (%s server)\n" "MLX proxy" ":8081" "${_MX:-?}"
+        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
+            printf "    ⏳  %-28s %s\n" "MLX" "starting"
+        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
             printf "    ❌  %-28s %s\n" "MLX" "installed but not running — ./launch.sh up"
         fi
 
@@ -803,15 +793,24 @@ case "${1:-up}" in
     # These run outside Docker and must be stopped explicitly.
     # Uses launchctl if the service is registered, falls back to pkill.
     if [ "$(uname -s)" = "Darwin" ]; then
-        # MLX inference server (:8081)
-        if launchctl list com.portal5.mlx &>/dev/null 2>&1; then
-            launchctl stop com.portal5.mlx 2>/dev/null || true
-            echo "[portal-5] MLX inference service stopped (launchd)."
-        elif pgrep -f "mlx_lm.server" &>/dev/null 2>&1; then
+        # MLX proxy (:8081) + underlying servers (:18081, :18082)
+        if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
+            launchctl stop com.portal5.mlx-proxy 2>/dev/null || true
+            echo "[portal-5] MLX proxy service stopped (launchd)."
+        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
+            pkill -f "mlx-proxy" 2>/dev/null || true
             pkill -f "mlx_lm.server" 2>/dev/null || true
-            echo "[portal-5] MLX inference process stopped (pkill)."
+            pkill -f "mlx_vlm.server" 2>/dev/null || true
+            echo "[portal-5] MLX processes stopped (pkill)."
         else
-            echo "[portal-5] MLX inference: not running (nothing to stop)."
+            echo "[portal-5] MLX proxy: not running (nothing to stop)."
+        fi
+
+        # Remove stale single-server plist if present
+        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
+            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
+            echo "[portal-5] Removed stale com.portal5.mlx plist."
         fi
 
         # ComfyUI (:8188)
@@ -1837,39 +1836,36 @@ PLIST
     python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
         echo "  ✅ mlx-vlm installed"
 
-    # Create start wrapper
+    # Deploy MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on port 8081)
     MLX_DIR="$HOME/.portal5/mlx"
     mkdir -p "$MLX_DIR" "$HOME/.portal5/logs"
 
-    cat > "$MLX_DIR/start.sh" << 'MLXSTART'
-#!/bin/bash
-# Portal 5 — mlx_lm inference server
-# Usage: MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh
-MODEL="${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
-PORT="${MLX_PORT:-8081}"
-SPECULATIVE="${MLX_SPECULATIVE:-false}"
-if [ "$SPECULATIVE" = "true" ]; then
-    echo "[portal5-mlx] Speculative decoding: ENABLED"
-    python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0 \
-        --speculative-decoding
-else
-    python3 -m mlx_lm.server --model "$MODEL" --port "$PORT" --host 0.0.0.0
-fi
-MLXSTART
-    chmod +x "$MLX_DIR/start.sh"
-    echo "  ✅ Start wrapper: $MLX_DIR/start.sh"
+    # Copy proxy from repo to local runtime directory
+    if [ -f "$PORTAL_ROOT/scripts/mlx-proxy.py" ]; then
+        cp "$PORTAL_ROOT/scripts/mlx-proxy.py" "$MLX_DIR/mlx-proxy.py"
+        chmod +x "$MLX_DIR/mlx-proxy.py"
+        echo "  ✅ Proxy deployed: $MLX_DIR/mlx-proxy.py"
+    else
+        echo "  ⚠️  scripts/mlx-proxy.py not found — proxy not deployed"
+        echo "     Run from the portal-5 repo directory, or copy manually."
+    fi
 
-    # ── Register MLX as a launchd service (auto-start on login) ──────────────
+    # Remove stale single-server scripts
+    [ -f "$MLX_DIR/start.sh" ] && rm -f "$MLX_DIR/start.sh" && echo "  🧹 Removed stale start.sh"
+    [ -f "$MLX_DIR/start-lm.sh" ] && rm -f "$MLX_DIR/start-lm.sh" && echo "  🧹 Removed stale start-lm.sh"
+    [ -f "$MLX_DIR/start-vlm.sh" ] && rm -f "$MLX_DIR/start-vlm.sh" && echo "  🧹 Removed stale start-vlm.sh"
+
+    # ── Register mlx-proxy as a launchd service (auto-start on login) ────────
     if [ "$(uname -s)" = "Darwin" ]; then
-        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-        # Find the Python that actually has mlx_lm installed
-        # Falls back to system python3 if detection fails
-        PYTHON_PATH=$(python3 -c "import mlx_lm, sys; print(sys.executable)" 2>/dev/null || which python3)
-        if [ -z "$PYTHON_PATH" ]; then
-            echo "  ❌ Cannot find Python with mlx_lm — install mlx-lm first"
-            exit 1
+        # Remove stale single-server plist
+        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
+            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
+            echo "  🧹 Removed stale com.portal5.mlx plist"
         fi
-        echo "  ✅ Using Python: $PYTHON_PATH"
+
+        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx-proxy.plist"
+        PYTHON_PATH=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || which python3)
         MLX_LOG_DIR="$HOME/.portal5/logs"
         mkdir -p "$MLX_LOG_DIR"
 
@@ -1879,61 +1875,52 @@ MLXSTART
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.portal5.mlx</string>
+    <string>com.portal5.mlx-proxy</string>
     <key>ProgramArguments</key>
     <array>
         <string>${PYTHON_PATH}</string>
-        <string>-m</string>
-        <string>mlx_lm.server</string>
-        <string>--model</string>
-        <string>mlx-community/Qwen3-Coder-Next-4bit</string>
-        <string>--port</string>
-        <string>8081</string>
-        <string>--host</string>
-        <string>0.0.0.0</string>
+        <string>${MLX_DIR}/mlx-proxy.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>${MLX_LOG_DIR}/mlx.log</string>
+    <string>${MLX_LOG_DIR}/mlx-proxy.log</string>
     <key>StandardErrorPath</key>
-    <string>${MLX_LOG_DIR}/mlx-error.log</string>
+    <string>${MLX_LOG_DIR}/mlx-proxy-error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key>
         <string>${HOME}</string>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>MLX_SPECULATIVE</key>
-        <string>${MLX_SPECULATIVE:-false}</string>
     </dict>
 </dict>
 </plist>
 MLXPLIST
 
         launchctl load "$PLIST_PATH" 2>/dev/null || true
-        echo "  ✅ launchd service registered: com.portal5.mlx"
-        echo "  ✅ Auto-starts on login (will start after pull-mlx-models completes)"
-        echo "  ℹ️  Start now:  launchctl start com.portal5.mlx"
-        echo "  ℹ️  Stop:       launchctl stop com.portal5.mlx"
-        echo "  ℹ️  Logs:       $MLX_LOG_DIR/mlx.log"
+        launchctl start com.portal5.mlx-proxy 2>/dev/null || true
+        sleep 3
+        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
+            echo "  ✅ launchd service registered: com.portal5.mlx-proxy"
+            echo "  ✅ MLX proxy running on :8081 (auto-switches mlx_lm :18081 ↔ mlx_vlm :18082)"
+        else
+            echo "  ✅ launchd service registered: com.portal5.mlx-proxy"
+            echo "  ⚠️  Proxy not yet responding — logs: $MLX_LOG_DIR/mlx-proxy.log"
+        fi
     fi
 
     echo ""
     echo "Next steps:"
     echo "  1. Pull MLX models:  ./launch.sh pull-mlx-models"
-    echo "  2. Start inference:  ~/.portal5/mlx/start.sh"
-    echo "  3. Start Portal:     ./launch.sh up"
+    echo "  2. Start Portal:     ./launch.sh up"
     echo ""
-    echo "Speculative decoding (~1.5x throughput):"
-    echo "  MLX_SPECULATIVE=true ~/.portal5/mlx/start.sh"
-    echo "  Or set MLX_SPECULATIVE=true in .env and restart:"
-    echo "    launchctl stop com.portal5.mlx && launchctl start com.portal5.mlx"
-    echo ""
-    echo "NOTE: mlx_lm serves ONE model at a time."
-    echo "      Portal automatically falls back to Ollama when mlx_lm is not running."
+    echo "The proxy auto-switches between mlx_lm (text-only, port 18081) and mlx_vlm"
+    echo "(VLM models including Qwen3.5, port 18082) based on the requested model."
+    echo "Only one server runs at a time — switching takes ~30s on first request."
+    echo "Portal automatically falls back to Ollama during MLX model switches."
     ;;
 
   switch-mlx-model)
@@ -1942,100 +1929,59 @@ MLXPLIST
     if [ -z "$MODEL" ]; then
         echo "Usage: ./launch.sh switch-mlx-model <mlx-community/model-tag>"
         echo ""
-        echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
-        echo "  mlx-community/Qwen3-Coder-Next-4bit          (~18GB — primary coder)"
-        echo "  mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  (~17GB)"
-        echo "  mlx-community/DeepSeek-R1-0528-4bit         (~18GB — reasoning)"
-        echo "  mlx-community/Llama-3.2-3B-Instruct-4bit    (~2GB — fast routing)"
-        echo "  mlx-community/Llama-3.3-70B-Instruct-4bit   (~40GB — heavy, unload others first)"
+        echo "The MLX proxy auto-switches between mlx_lm (text-only) and mlx_vlm (VLM)"
+        echo "based on the model in each request. This command forces a pre-warm switch."
         echo ""
-        echo "Current: ${MLX_MODEL:-mlx-community/Qwen3-Coder-Next-4bit}"
+        echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
+        echo "  Text-only (mlx_lm, port 18081):"
+        echo "    mlx-community/Qwen3-Coder-Next-4bit          (~18GB — primary coder)"
+        echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  (~17GB)"
+        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx  (~9GB)"
+        echo "    mlx-community/Devstral-Small-2505-4bit       (~13GB)"
+        echo "    mlx-community/DeepSeek-R1-0528-4bit          (~18GB — reasoning)"
+        echo "    mlx-community/Llama-3.2-3B-Instruct-4bit     (~2GB — fast routing)"
+        echo "    mlx-community/Llama-3.3-70B-Instruct-4bit    (~40GB — heavy)"
+        echo "  VLM models (mlx_vlm, port 18082):"
+        echo "    mlx-community/Qwen3.5-35B-A3B-4bit           (~20GB — compliance)"
+        echo "    mlx-community/Qwen3.5-27B-4bit               (~15GB — reasoning)"
+        echo ""
+        echo "Current status:"
+        curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
+            echo "  MLX proxy not running"
+        exit 0
+    fi
+
+    echo "Pre-warming MLX server for: $MODEL"
+
+    # Send a dummy request to the proxy — it will switch servers if needed
+    MLX_PROXY="$HOME/.portal5/mlx/mlx-proxy.py"
+    if [ ! -f "$MLX_PROXY" ]; then
+        echo "  ❌ MLX proxy not found at $MLX_PROXY"
+        echo "     Run: ./launch.sh install-mlx"
         exit 1
     fi
 
-    echo "Switching MLX model to: $MODEL"
+    # Start proxy if not running
+    if ! curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
+        echo "  Starting MLX proxy..."
+        mkdir -p "$HOME/.portal5/logs"
+        nohup python3 "$MLX_PROXY" > "$HOME/.portal5/logs/mlx-proxy.log" 2>&1 &
+        sleep 3
+    fi
 
-    # Update MLX_MODEL in .env (backup original)
-    if [ -f "$ENV_FILE" ]; then
-        cp "$ENV_FILE" "$ENV_FILE.bak"
-        if sed -i.bak "s|^MLX_MODEL=.*|MLX_MODEL=${MODEL}|" "$ENV_FILE" 2>/dev/null; then
-            rm -f "$ENV_FILE.bak"
-            echo "  ✅ Updated MLX_MODEL in .env"
-        else
-            mv "$ENV_FILE.bak" "$ENV_FILE"
-            echo "  ❌ Failed to update .env — check MLX_MODEL=$MODEL is valid"
-            exit 1
-        fi
+    # Send a minimal request to trigger server switch
+    echo "  Triggering server switch (this may take ~30s)..."
+    RESP=$(curl -s -X POST "http://localhost:8081/v1/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"${MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false}" \
+        --max-time 120 2>/dev/null)
+
+    if echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'choices' in d" 2>/dev/null; then
+        echo "  ✅ Server switched and responding for $MODEL"
     else
-        echo "  ⚠️  .env not found — MLX_MODEL env var only (session-scoped)"
+        echo "  ⚠️  Request completed (may have fallen back to Ollama)"
+        echo "     Response: $(echo "$RESP" | head -c 200)"
     fi
-
-    # Regenerate start.sh with new model
-    MLX_DIR="$HOME/.portal5/mlx"
-    if [ -f "$MLX_DIR/start.sh" ]; then
-        sed -i.bak "s|^MODEL=.*|MODEL=\"${MODEL}\"|" "$MLX_DIR/start.sh" 2>/dev/null || \
-            sed "s|^MODEL=.*|MODEL=\"${MODEL}\"|" "$MLX_DIR/start.sh" > "${MLX_DIR/start.sh}.new" && \
-            mv "${MLX_DIR/start.sh}.new" "$MLX_DIR/start.sh"
-        rm -f "$MLX_DIR/start.sh.bak"
-        echo "  ✅ Updated $MLX_DIR/start.sh"
-    fi
-
-    # Regenerate and restart launchd service (macOS)
-    if [ "$(uname -s)" = "Darwin" ]; then
-        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-        if [ -f "$PLIST_PATH" ]; then
-            PYTHON_PATH=$(python3 -c "import mlx_lm, sys; print(sys.executable)" 2>/dev/null || which python3)
-            MLX_LOG_DIR="$HOME/.portal5/logs"
-            MLX_SPECULATIVE_VAL="${MLX_SPECULATIVE:-false}"
-            cat > "$PLIST_PATH" << MLXPLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.portal5.mlx</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${PYTHON_PATH}</string>
-        <string>-m</string>
-        <string>mlx_lm.server</string>
-        <string>--model</string>
-        <string>${MODEL}</string>
-        <string>--port</string>
-        <string>8081</string>
-        <string>--host</string>
-        <string>0.0.0.0</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>${MLX_LOG_DIR}/mlx.log</string>
-    <key>StandardErrorPath</key>
-    <string>${MLX_LOG_DIR}/mlx-error.log</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>HOME</key>
-        <string>${HOME}</string>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>MLX_SPECULATIVE</key>
-        <string>${MLX_SPECULATIVE_VAL}</string>
-    </dict>
-</dict>
-</plist>
-MLXPLIST
-            launchctl unload "$PLIST_PATH" 2>/dev/null || true
-            launchctl load "$PLIST_PATH" 2>/dev/null || true
-            echo "  ✅ Restarted com.portal5.mlx service"
-        fi
-    fi
-
-    echo ""
-    echo "✅ MLX model switched to: $MODEL"
-    echo "   Allow ~30s for model to load before querying."
-    echo "   Verify: curl -s http://localhost:8081/v1/models | python3 -m json.tool"
     ;;
 
   pull-mlx-models)
@@ -2226,10 +2172,10 @@ MEOF
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
-    echo "  install-mlx           Install mlx_lm for native Apple Silicon inference"
+    echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
-    echo "  switch-mlx-model <tag>  Hot-swap MLX inference model (updates .env + restarts service)"
+    echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"

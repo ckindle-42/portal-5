@@ -716,13 +716,24 @@ class TestR23MLXSupport:
             )
 
     def test_launch_sh_has_mlx_commands(self):
-        """launch.sh has install-mlx and pull-mlx-models commands."""
+        """launch.sh has install-mlx, pull-mlx-models, and proxy references."""
         content = open("launch.sh").read()
         assert "install-mlx" in content
         assert "pull-mlx-models" in content
         assert "mlx_lm" in content  # text-only server (port 18081)
         assert "mlx_vlm" in content  # VLM server (port 18082)
+        assert "mlx-proxy" in content  # auto-switching proxy
         assert "mlx-community/Qwen3-Coder-Next-4bit" in content
+
+    def test_mlx_proxy_script_exists(self):
+        """scripts/mlx-proxy.py exists and has the expected structure."""
+        content = open("scripts/mlx-proxy.py").read()
+        assert "LM_PORT" in content
+        assert "VLM_PORT" in content
+        assert "PROXY_PORT" in content
+        assert "detect_server" in content
+        assert "ensure_server" in content
+        assert "Qwen3.5-35B-A3B-4bit" in content
 
 
 class TestRecordUsageMetrics:
