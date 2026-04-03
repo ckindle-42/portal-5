@@ -54,7 +54,17 @@ _check_hardware() {
     fi
 
     # Docker check (with timeout — Docker Desktop can hang in zombie state)
-    if timeout 5 docker info &>/dev/null; then
+    local _docker_ok=0
+    if command -v timeout &>/dev/null; then
+        timeout 5 docker info &>/dev/null && _docker_ok=1
+    else
+        # macOS has no `timeout` — use bash background process with kill
+        ( docker info &>/dev/null ) & local _dpid=$!
+        ( sleep 5 && kill -9 $_dpid &>/dev/null ) & local _kpid=$!
+        wait $_dpid 2>/dev/null && _docker_ok=1
+        kill -9 $_kpid 2>/dev/null; wait $_kpid 2>/dev/null || true
+    fi
+    if [ "$_docker_ok" -eq 1 ]; then
         echo "  ✅ Docker: running"
     else
         # Check if Docker process exists but is unresponsive (zombie/hung state)
@@ -219,6 +229,30 @@ _ensure_native_services() {
                 echo "[portal-5]      Logs: $HOME/.portal5/logs/mlx-proxy.log"
             else
                 echo "[portal-5]   ✅ MLX proxy: running"
+            fi
+        fi
+    fi
+
+    # ── MLX Watchdog (Apple Silicon native only) ─────────────────────────────
+    if [ "$ARCH" = "arm64" ]; then
+        if [ "${MLX_WATCHDOG_ENABLED:-true}" != "false" ]; then
+            local WATCHDOG_SCRIPT="$PORTAL_ROOT/scripts/mlx-watchdog.py"
+            if [ -f "$WATCHDOG_SCRIPT" ]; then
+                if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+                    echo "[portal-5]   ✅ MLX watchdog: running (PID $(cat /tmp/mlx-watchdog.pid))"
+                else
+                    echo "[portal-5]   MLX watchdog not running — starting..."
+                    mkdir -p "$HOME/.portal5/logs"
+                    nohup python3 "$WATCHDOG_SCRIPT" \
+                        > "$HOME/.portal5/logs/mlx-watchdog.log" 2>&1 &
+                    echo $! > /tmp/mlx-watchdog.pid
+                    sleep 2
+                    if kill -0 "$!" 2>/dev/null; then
+                        echo "[portal-5]   ✅ MLX watchdog started (PID $!)"
+                    else
+                        echo "[portal-5]   ⚠️  MLX watchdog failed to start — check: $HOME/.portal5/logs/mlx-watchdog.log"
+                    fi
+                fi
             fi
         fi
     fi
@@ -494,6 +528,13 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ⏳  %-28s %s\n" "ComfyUI" "starting"
         else
             printf "    ❌  %-28s %s\n" "ComfyUI" "not running — ~/ComfyUI/start.sh"
+        fi
+
+        # Watchdog
+        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+            printf "    ✅  %-28s %s\n" "MLX Watchdog" "running (PID $(cat /tmp/mlx-watchdog.pid))"
+        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
+            printf "    ❌  %-28s %s\n" "MLX Watchdog" "not running — ./launch.sh start-mlx-watchdog"
         fi
         echo ""
     fi

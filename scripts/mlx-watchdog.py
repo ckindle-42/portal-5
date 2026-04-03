@@ -21,18 +21,42 @@ Usage: python3 mlx-watchdog.py
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+
+
+def _load_dotenv() -> None:
+    """Load .env file from project root if env vars are missing.
+
+    Finds .env by walking up from this script's location (up to 3 levels).
+    Only sets vars that are not already in the environment — respects caller's env.
+    """
+    script = Path(__file__).resolve()
+    for candidate in [script.parent, script.parent.parent, script.parent.parent.parent]:
+        env_file = candidate / ".env"
+        if env_file.is_file():
+            for line in env_file.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip("'\"")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+            return
+
+
+_load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
