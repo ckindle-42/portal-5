@@ -836,13 +836,13 @@ class TestSPLWorkspace:
             f"auto-spl model_hint should be deepseek-coder-v2 variant, got: {hint}"
         )
 
-    def test_auto_spl_uses_deepseek_coder_mlx_hint(self):
-        """auto-spl mlx_model_hint must point to DeepSeek-Coder-V2-Lite MLX."""
+    def test_auto_spl_uses_qwen3_coder_mlx_hint(self):
+        """auto-spl mlx_model_hint must point to Qwen3-Coder-30B MLX."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-spl"].get("mlx_model_hint", "")
-        assert "DeepSeek-Coder-V2-Lite" in hint, (
-            f"auto-spl mlx_model_hint should be DeepSeek-Coder-V2-Lite-Instruct-8bit, got: {hint}"
+        assert "Qwen3-Coder-30B" in hint, (
+            f"auto-spl mlx_model_hint should be Qwen3-Coder-30B-A3B-Instruct-8bit, got: {hint}"
         )
 
     def test_auto_spl_in_backends_yaml(self):
@@ -887,16 +887,16 @@ class TestSPLWorkspace:
         for field in ("name", "slug", "category", "workspace_model", "system_prompt", "tags"):
             assert field in data, f"SPL persona YAML missing required field: {field}"
 
-    def test_spl_persona_workspace_model_is_mlx_deepseek(self):
-        """Persona workspace_model must be the MLX DeepSeek-Coder-V2-Lite model."""
+    def test_spl_persona_workspace_model_is_mlx_qwen3_coder(self):
+        """Persona workspace_model must be the MLX Qwen3-Coder-30B model."""
         from pathlib import Path
 
         import yaml
 
         data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
         wm = data.get("workspace_model", "")
-        assert "DeepSeek-Coder-V2-Lite" in wm, (
-            f"SPL persona workspace_model should be DeepSeek-Coder-V2-Lite-Instruct-8bit, got: {wm}"
+        assert "Qwen3-Coder-30B" in wm, (
+            f"SPL persona workspace_model should be Qwen3-Coder-30B-A3B-Instruct-8bit, got: {wm}"
         )
 
     def test_workspace_json_exists(self):

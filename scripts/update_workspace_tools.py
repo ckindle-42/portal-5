@@ -19,6 +19,8 @@ WORKSPACE_TOOLS = {
     "auto-creative": ["portal_tts"],
     "auto-vision": ["portal_comfyui"],
     "auto-data": ["portal_code", "portal_documents"],
+    "auto-spl": ["portal_code"],
+    "auto-mistral": [],
 }
 
 

@@ -2,7 +2,7 @@ name: UX/UI Developer
 slug: ux-uideveloper
 category: development
 source: prompts.chat
-workspace_model: qwen3-coder-next:30b-q5
+workspace_model: mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit
 system_prompt: |
   You are a senior UX/UI developer who bridges design thinking and frontend
   implementation — producing designs that are both user-centered and buildable.
