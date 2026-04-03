@@ -83,7 +83,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 **Example — coding:**
 1. Select `Portal Code Expert`
 2. Type: `Write a Python function that finds the longest palindromic substring`
-3. The pipeline routes to `mlx-community/Qwen3-Coder-Next-8bit` via MLX (or Ollama fallback)
+3. The pipeline routes to `mlx-community/Qwen3-Coder-Next-4bit` via MLX (or Ollama fallback)
 4. The code sandbox MCP is auto-activated
 
 **Verify workspace routing:**
@@ -882,7 +882,7 @@ handles all model selection automatically. No manual switching needed.
 
 | Model | RAM | Server | Best for |
 |-------|-----|--------|----------|
-| `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | Code generation |
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | Code generation (80B MoE, 4bit required on 64GB) |
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder |
 | `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | SPL specialist |
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
@@ -901,7 +901,7 @@ handles all model selection automatically. No manual switching needed.
 ### Memory coexistence (64GB system)
 
 ```
-Qwen3-Coder-Next (~18GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 41GB ✓
+Qwen3-Coder-Next-4bit (~46GB) + Ollama general (~5GB) + OS (~8GB) = 59GB — run without ComfyUI/Wan2.2 ✓
 Qwen3.5-35B (~20GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 43GB ✓
 Gemma-4-26B-A4B (~14GB) + ComfyUI Wan2.2 (~18GB) + Ollama general (~5GB) = 37GB ✓
 Magistral-Small-8bit (~24GB) + ComfyUI flux-schnell (~8GB) + Ollama general (~5GB) = 37GB ✓

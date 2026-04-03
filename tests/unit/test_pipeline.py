@@ -427,7 +427,7 @@ class TestR18ModelCompleteness:
             "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b
             # Coding
             # R20: Qwen3-Coder-Next-GGUF replaced with MLX (sharded GGUF incompatible with Ollama)
-            "Qwen3-Coder-Next-8bit",
+            "Qwen3-Coder-Next-4bit",
             "GLM-4.7-Flash",
             "deepseek-coder-v2-lite",  # R23: updated to bartowski rehost
             # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
@@ -653,7 +653,7 @@ class TestR23MLXSupport:
             type="mlx",
             url="http://localhost:8080",
             group="mlx",
-            models=["mlx-community/Qwen3-Coder-Next-8bit"],
+            models=["mlx-community/Qwen3-Coder-Next-4bit"],
         )
         assert "/v1/models" in b.health_url, (
             "MLX backend health_url must use /v1/models (OpenAI-compatible)"
@@ -668,7 +668,7 @@ class TestR23MLXSupport:
         assert len(mlx_backends) >= 1, "No MLX backend in backends.yaml"
         models = mlx_backends[0]["models"]
         assert any("Qwen3-Coder-Next" in m for m in models), (
-            "MLX primary model (Qwen3-Coder-Next-8bit) not in mlx backend"
+            "MLX primary model (Qwen3-Coder-Next-4bit) not in mlx backend"
         )
 
     def test_mlx_workspace_routing_priority(self):
@@ -715,7 +715,7 @@ class TestR23MLXSupport:
         assert "mlx_lm" in content  # text-only server (port 18081)
         assert "mlx_vlm" in content  # VLM server (port 18082)
         assert "mlx-proxy" in content  # auto-switching proxy
-        assert "Qwen3-Coder-Next-8bit" in content
+        assert "Qwen3-Coder-Next-4bit" in content
 
     def test_mlx_proxy_script_exists(self):
         """scripts/mlx-proxy.py exists and has the expected structure."""

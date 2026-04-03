@@ -32,7 +32,7 @@ VLM_MODELS = {
 
 ALL_MODELS = [
     # Text-only models (served by mlx_lm on port 18081)
-    "mlx-community/Qwen3-Coder-Next-8bit",
+    "mlx-community/Qwen3-Coder-Next-4bit",
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
     "mlx-community/Devstral-Small-2505-8bit",

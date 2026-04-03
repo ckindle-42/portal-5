@@ -20,8 +20,9 @@ backends:
     models:
       # ── Text-only (served by mlx_lm on port 8081) ──────────────────────────
       # 8bit quants used on 64GB M4 Mac — one model at a time, max quality.
-      # 64GB budget: 8bit model + ComfyUI (~18GB) + Ollama 3B (~3GB) + OS (~8GB) ≈ 55GB
-      - mlx-community/Qwen3-Coder-Next-8bit              # Primary coder: 80B MoE (~32GB, 256k ctx)
+      # Exception: Qwen3-Coder-Next uses 4bit (~46GB) — 80B total params, 8bit would require ~85GB.
+      # 64GB budget: Coder-Next-4bit (~46GB) + Ollama 3B (~3GB) + OS (~8GB) ≈ 57GB (no ComfyUI concurrent)
+      - mlx-community/Qwen3-Coder-Next-4bit              # Primary coder: 80B MoE, 3B active (~46GB, 256k ctx)
       - mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  # Fast agentic coder (~22GB)
       - mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit  # auto-spl primary: SPL specialist (~12GB)
       - mlx-community/Devstral-Small-2505-8bit            # Agentic dev workflows (~18GB)

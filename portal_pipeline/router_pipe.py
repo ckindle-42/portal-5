@@ -385,7 +385,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
         "model_hint": "qwen3-coder-next:30b-q5",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-8bit",
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
     },
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
@@ -756,7 +756,7 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     1. Redteam keywords → auto-redteam (most permissive security model)
     2. Security keywords → auto-security (defensive + offensive analysis)
     3. SPL keywords → auto-spl (Splunk SPL queries, DeepSeek-Coder-V2-Lite)
-    4. Coding keywords → auto-coding (Qwen3-Coder-Next via MLX)
+    4. Coding keywords → auto-coding (Qwen3-Coder-Next-4bit via MLX)
     5. Reasoning keywords → auto-reasoning (DeepSeek-R1)
     """
     # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)

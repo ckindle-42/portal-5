@@ -255,7 +255,7 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 
 | Model | Memory | Server | Safe Concurrent With |
 |---|---|---|---|
-| `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | No concurrent ComfyUI — 46GB + 8GB OS = 54GB |
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
@@ -269,7 +269,7 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
-**64GB systems**: Qwen3-Coder-Next (~32GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 55GB total — feasible but tight.
+**64GB systems**: Qwen3-Coder-Next-4bit (~46GB) + Ollama (~5GB) + OS (~8GB) = 59GB — no concurrent ComfyUI/Wan2.2.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
 **64GB systems**: Gemma-4-26B-A4B (~14GB) + Magistral-Small (~24GB) = 38GB combined — coexist safely.
 **64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
@@ -284,7 +284,7 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | 32GB | Llama-3.2-3B (~3GB) | ComfyUI flux-schnell + Ollama general |
 | 32GB | DeepSeek-Coder-Lite (~12GB) | Ollama routing only |
 | 32GB | Qwen3-Coder-30B (~22GB) | Ollama routing only — no ComfyUI |
-| 64GB | Qwen3-Coder-Next (~32GB) | ComfyUI Wan2.2 + Ollama general |
+| 64GB | Qwen3-Coder-Next-4bit (~46GB) | Ollama general only — unload before ComfyUI |
 | 64GB | Claude-Opus-27B (~22GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Gemma-4-26B-A4B (~14GB) | ComfyUI Wan2.2 + Ollama general |
 | 64GB | Magistral-Small-8bit (~24GB) | ComfyUI flux-schnell + Ollama general |
@@ -369,7 +369,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | Workspace ID | Preferred Backend Group | Default Model |
 |---|---|---|
 | `auto` | general | dolphin-llama3:8b |
-| `auto-coding` | mlx → coding → general | mlx-community/Qwen3-Coder-Next-8bit |
+| `auto-coding` | mlx → coding → general | mlx-community/Qwen3-Coder-Next-4bit |
 | `auto-security` | security → general | baronllm:q6_k |
 | `auto-redteam` | security → general | baronllm:q6_k |
 | `auto-blueteam` | security → general | lily-cybersecurity:7b-q4_k_m |

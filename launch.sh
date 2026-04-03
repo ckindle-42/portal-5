@@ -1960,7 +1960,7 @@ MLXPLIST
         echo ""
         echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
         echo "  Text-only (mlx_lm, port 18081):"
-        echo "    mlx-community/Qwen3-Coder-Next-8bit              (~32GB — primary coder)"
+        echo "    mlx-community/Qwen3-Coder-Next-4bit              (~46GB — primary coder, 80B MoE)"
         echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (~22GB)"
         echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit  (~12GB)"
         echo "    mlx-community/Devstral-Small-2505-8bit           (~18GB)"
@@ -2127,7 +2127,7 @@ MLXPLIST
     # Standard MLX models (8bit quants for 64GB M4 Mac — one at a time)
     MLX_MODELS=(
         # Coding — primary workspace models
-        "mlx-community/Qwen3-Coder-Next-8bit"              # ~32GB active
+        "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
         "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"  # ~9GB
         "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
@@ -2204,7 +2204,7 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "=== MLX download complete: $((total - failed))/$total succeeded ==="
     echo ""
     echo "Start inference with:"
-    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-8bit ~/.portal5/mlx/start.sh"
+    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
 
     # ASK-04: Check availability of other Qwen3.5 MLX models that may publish later
     # Claude-distilled models are now in backends.yaml — this block watches for future publishes.
