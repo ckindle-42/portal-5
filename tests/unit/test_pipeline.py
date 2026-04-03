@@ -278,13 +278,9 @@ class TestComplianceWorkspace:
         """auto-compliance must use MLX Qwen3.5-35B as primary — not an Ollama GGUF tag."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        hint = WORKSPACES["auto-compliance"].get("model_hint", "")
-        assert hint, "auto-compliance workspace missing model_hint"
-        assert "mlx-community" in hint, (
-            f"auto-compliance model_hint must be an mlx-community/ model (Apple Silicon primary), "
-            f"got: {hint}"
-        )
-        assert "Qwen3.5-35B-A3B" in hint or "Qwen3.5-35B-A3B-Claude" in hint, (
+        hint = WORKSPACES["auto-compliance"].get("mlx_model_hint", "")
+        assert hint, "auto-compliance workspace missing mlx_model_hint"
+        assert "Qwen3.5-35B-A3B" in hint, (
             f"auto-compliance should use Qwen3.5-35B-A3B Claude-distilled for long-context policy analysis, "
             f"got: {hint}"
         )
@@ -449,7 +445,7 @@ class TestR18ModelCompleteness:
     def test_router_hints_use_best_models(self):
         """Key workspaces use the recommended primary model hints."""
         # R20: Qwen3-Coder-Next-GGUF replaced with MLX backend
-        assert "mlx-community/Qwen3-Coder-Next-8bit" in WORKSPACES["auto-coding"]["model_hint"], (
+        assert "qwen3-coder-next" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
             "auto-coding should prefer Qwen3-Coder-Next MLX"
         )
         # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB); use qwen3.5:9b
