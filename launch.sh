@@ -1311,8 +1311,6 @@ except Exception:
 
         local gguf_path=""
         local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
-        local _hf_err
-        _hf_err=$(mktemp)
         if [ -n "$filename" ]; then
             echo "  File: $filename"
             mkdir -p "$_dl_dir"
@@ -1336,7 +1334,7 @@ try:
 except Exception as e:
     print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>"$_hf_err")
+")
         elif [ -n "$glob_pattern" ]; then
             echo "  Pattern: $glob_pattern (listing repo to find file)"
             mkdir -p "$_dl_dir"
@@ -1368,22 +1366,16 @@ try:
 except Exception as e:
     print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-" 2>"$_hf_err")
+")
         fi
 
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
             echo "  ❌ Download failed for $actual_repo"
-            # Show the actual Python error — critical for diagnosing auth/network/version issues
-            if [ -s "$_hf_err" ]; then
-                echo "  Error detail: $(cat "$_hf_err")"
-            fi
-            rm -f "$_hf_err"
             echo "     Retry manually:"
             echo "       huggingface-cli download $actual_repo ${filename:-} --local-dir ~/Downloads"
             echo "     Then import: ./launch.sh import-gguf ~/Downloads/${filename:-model.gguf} $ollama_name"
             return 1
         fi
-        rm -f "$_hf_err"
 
         echo "  ✅ Downloaded: $(basename "$gguf_path")"
         echo "  Importing as: $ollama_name"
@@ -2057,20 +2049,17 @@ MLXPLIST
     for model in "${MLX_MODELS[@]}"; do
         count=$((count + 1))
         echo "[$count/$total] $model"
-        _mlx_err=$(mktemp)
         if python3 -W ignore -c "
 import warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
-" 2>"$_mlx_err"; then
+"; then
             echo "  ✅ Downloaded"
         else
             echo "  ❌ Failed"
-            [ -s "$_mlx_err" ] && echo "  Error: $(cat "$_mlx_err" | tail -1)"
             echo "  Retry: huggingface-cli download $model"
             failed=$((failed + 1))
         fi
-        rm -f "$_mlx_err"
         echo ""
     done
 
@@ -2078,16 +2067,14 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
             echo "  Downloading: $model (~40GB)"
-            _mlx_err=$(mktemp)
             if python3 -W ignore -c "
 import warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
-" 2>"$_mlx_err"; then
+"; then
                 echo "  ✅ Done"
             else
                 echo "  ❌ Failed"
-                [ -s "$_mlx_err" ] && echo "  Error: $(cat "$_mlx_err" | tail -1)"
                 failed=$((failed + 1))
             fi
             rm -f "$_mlx_err"
