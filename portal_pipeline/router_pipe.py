@@ -434,7 +434,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -446,7 +446,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",

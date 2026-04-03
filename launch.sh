@@ -2018,7 +2018,8 @@ MLXPLIST
         # Claude 4.6 Opus Reasoning Distilled
         "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit"  # ~22GB
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
-        "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit"          # ~18GB
+        "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit"          # ~18GB (fallback)
+        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
         # Creative / general (uncensored)
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing
