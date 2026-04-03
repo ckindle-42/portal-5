@@ -370,6 +370,7 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
 
 # Canonical workspace definitions — must match backends.yaml workspace_routing keys
 # model_hint: preferred Ollama model tag within the routed backend group
+# mlx_model_hint: preferred MLX model tag (HF path) for workspaces that route through MLX
 WORKSPACES: dict[str, dict[str, str]] = {
     "auto": {
         "name": "🤖 Portal Auto Router",
@@ -383,7 +384,8 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
+        "model_hint": "qwen3-coder-next:30b-q5",
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-8bit",
     },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
@@ -404,16 +406,19 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
         "model_hint": "dolphin-llama3:8b",
+        "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     },
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit",
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
-        "model_hint": "qwen3.5:9b",  # MiniMax-M2.1 removed (138 GB, won't fit in 48 GB)
+        "model_hint": "qwen3.5:9b",
+        "mlx_model_hint": "mlx-community/Qwen3.5-9B-8bit",
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",
@@ -429,25 +434,25 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "mlx-community/Qwen3.5-27B-8bit",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks",
         "model_hint": "qwen3-vl:32b",
+        "mlx_model_hint": "mlx-community/Qwen3-VL-32B-Instruct-8bit",
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit",
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
-        "description": (
-            "NERC CIP gap analysis, policy-to-standard mapping, audit evidence review. "
-            "Cite exact requirement numbers. Flag ambiguous policy language. "
-            "Output structured gap tables with remediation steps."
-        ),
-        "model_hint": "mlx-community/Qwen3.5-35B-A3B-4bit",
+        "description": "NERC CIP compliance, policy analysis, regulatory guidance",
+        "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "mlx-community/Qwen3.5-35B-A3B-8bit",
     },
 }
 
@@ -1149,11 +1154,24 @@ async def _try_non_streaming(
         return None
     ws_cfg = WORKSPACES.get(workspace_id, {})
     model_hint = ws_cfg.get("model_hint", "")
-    if model_hint and model_hint in backend.models:
+    mlx_hint = ws_cfg.get("mlx_model_hint", "")
+
+    # Pick the right hint for the backend type
+    if backend.type == "mlx" and mlx_hint:
+        target_model = mlx_hint if mlx_hint in backend.models else ""
+        if not target_model and enforce_hint:
+            logger.debug(
+                "MLX backend %s lacks hinted model %s for workspace=%s — skipping",
+                backend.id,
+                mlx_hint,
+                workspace_id,
+            )
+            return None
+        if not target_model:
+            target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+    elif model_hint and model_hint in backend.models:
         target_model = model_hint
     elif model_hint and enforce_hint and backend.type != "mlx":
-        # Non-MLX backend doesn't have the hinted model — skip to try next backend.
-        # MLX backends are never skipped: server switching ensures the right model loads.
         logger.debug(
             "Backend %s lacks hinted model %s for workspace=%s — skipping",
             backend.id,
@@ -1296,7 +1314,14 @@ async def chat_completions(
         backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
-        if model_hint and model_hint in backend.models:
+        mlx_hint = ws_cfg.get("mlx_model_hint", "")
+
+        # Pick the right hint for the backend type
+        if backend.type == "mlx" and mlx_hint:
+            target_model = mlx_hint if mlx_hint in backend.models else ""
+            if not target_model:
+                target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+        elif model_hint and model_hint in backend.models:
             target_model = model_hint
         else:
             target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
