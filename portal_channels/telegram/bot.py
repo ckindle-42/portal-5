@@ -104,67 +104,76 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user_text.strip():
         return
 
-    # user_data is always a dict in PTB; None guard is incorrect (assignment doesn't persist)
-    # Use safe .get() throughout instead
-    workspace = (context.user_data or {}).get("workspace", DEFAULT_WORKSPACE)
-
-    # Bounded conversation history with time-based eviction (P11).
-    # - Sliding window: last 20 messages
-    # - Eviction: messages older than 24h, even if under the 20-msg window
-    #   (prevents unbounded memory growth for always-on bot with sparse users)
-    history_max_msgs = 20
-    history_max_age_sec = 24 * 3600
-
-    now = time.time()
-    raw_history: list[dict] = list((context.user_data or {}).get("history", []))
-    raw_timestamps: list[float] = list((context.user_data or {}).get("history_timestamps", []))
-
-    raw_history.append({"role": "user", "content": user_text})
-    raw_timestamps.append(now)
-
-    # Apply both constraints: newest 20 messages, then drop any older than 24h.
-    # If timestamps list is shorter (old session without timestamps), fall back to
-    # count-based eviction only — prevents ValueError from strict zip mismatch.
-    cutoff = now - history_max_age_sec
-    if len(raw_timestamps) >= len(raw_history):
-        # Timestamps are complete — use time + count eviction
-        zipped = list(zip(raw_history, raw_timestamps, strict=True))
-        zipped.sort(key=lambda x: x[1], reverse=True)
-        zipped = zipped[:history_max_msgs]
-        zipped = [(msg, ts) for msg, ts in zipped if ts > cutoff]
-        zipped.sort(key=lambda x: x[1])
-        raw_history, raw_timestamps = zip(*zipped, strict=True) if zipped else ([], [])
-        raw_history, raw_timestamps = list(raw_history), list(raw_timestamps)
-    else:
-        # Timestamps incomplete (e.g. old session) — count-based only
-        raw_history = raw_history[-history_max_msgs:]
-
-    await update.effective_message.chat.send_action("typing")
-
     try:
-        from portal_channels.dispatcher import call_pipeline_async
+        # user_data is always a dict in PTB; None guard is incorrect (assignment doesn't persist)
+        # Use safe .get() throughout instead
+        workspace = (context.user_data or {}).get("workspace", DEFAULT_WORKSPACE)
 
-        reply = await call_pipeline_async(user_text, workspace, history=raw_history[:-1])
+        # Bounded conversation history with time-based eviction (P11).
+        # - Sliding window: last 20 messages
+        # - Eviction: messages older than 24h, even if under the 20-msg window
+        #   (prevents unbounded memory growth for always-on bot with sparse users)
+        history_max_msgs = 20
+        history_max_age_sec = 24 * 3600
+
+        now = time.time()
+        raw_history: list[dict] = list((context.user_data or {}).get("history", []))
+        raw_timestamps: list[float] = list((context.user_data or {}).get("history_timestamps", []))
+
+        raw_history.append({"role": "user", "content": user_text})
+        raw_timestamps.append(now)
+
+        # Apply both constraints: newest 20 messages, then drop any older than 24h.
+        # If timestamps list is shorter (old session without timestamps), fall back to
+        # count-based eviction only — prevents ValueError from strict zip mismatch.
+        cutoff = now - history_max_age_sec
+        if len(raw_timestamps) >= len(raw_history):
+            # Timestamps are complete — use time + count eviction
+            zipped = list(zip(raw_history, raw_timestamps, strict=True))
+            zipped.sort(key=lambda x: x[1], reverse=True)
+            zipped = zipped[:history_max_msgs]
+            zipped = [(msg, ts) for msg, ts in zipped if ts > cutoff]
+            zipped.sort(key=lambda x: x[1])
+            raw_history, raw_timestamps = zip(*zipped, strict=True) if zipped else ([], [])
+            raw_history, raw_timestamps = list(raw_history), list(raw_timestamps)
+        else:
+            # Timestamps incomplete (e.g. old session) — count-based only
+            raw_history = raw_history[-history_max_msgs:]
+
+        await update.effective_message.chat.send_action("typing")
+
+        try:
+            from portal_channels.dispatcher import call_pipeline_async
+
+            reply = await call_pipeline_async(user_text, workspace, history=raw_history[:-1])
+        except Exception as e:
+            logger.error("Pipeline error: %s", e)
+            reply = f"⚠️ Pipeline error: {e}"
+
+        raw_history.append({"role": "assistant", "content": reply})
+        raw_timestamps.append(now)
+        if context.user_data is not None:
+            context.user_data["history"] = raw_history
+            context.user_data["history_timestamps"] = raw_timestamps
+
+        # Telegram 4096-char message limit
+        # Try Markdown first; fall back to plain text on parse errors (e.g. unmatched *, _, `)
+        chunks = [reply[i : i + 4000] for i in range(0, len(reply), 4000)]
+        try:
+            for chunk in chunks:
+                await update.effective_message.reply_text(chunk, parse_mode="Markdown")
+        except Exception as e:
+            logger.warning("Markdown send failed, falling back to plain text: %s", e)
+            for chunk in chunks:
+                await update.effective_message.reply_text(chunk)
     except Exception as e:
-        logger.error("Pipeline error: %s", e)
-        reply = f"⚠️ Pipeline error: {e}"
-
-    raw_history.append({"role": "assistant", "content": reply})
-    raw_timestamps.append(now)
-    if context.user_data is not None:
-        context.user_data["history"] = raw_history
-        context.user_data["history_timestamps"] = raw_timestamps
-
-    # Telegram 4096-char message limit
-    # Try Markdown first; fall back to plain text on parse errors (e.g. unmatched *, _, `)
-    chunks = [reply[i : i + 4000] for i in range(0, len(reply), 4000)]
-    try:
-        for chunk in chunks:
-            await update.effective_message.reply_text(chunk, parse_mode="Markdown")
-    except Exception as e:
-        logger.warning("Markdown send failed, falling back to plain text: %s", e)
-        for chunk in chunks:
-            await update.effective_message.reply_text(chunk)
+        logger.error("Unexpected error in handle_message: %s", e, exc_info=True)
+        try:
+            await update.effective_message.reply_text(
+                f"⚠️ Unexpected error: {e}\n\nCheck bot logs for details."
+            )
+        except Exception:
+            logger.error("Failed to send error message to user", exc_info=True)
 
 
 def build_app() -> Application:
