@@ -87,6 +87,7 @@ and tools automatically.
 | `auto-research` | Web research and synthesis | — |
 | `auto-reasoning` | Deep reasoning, complex analysis | — |
 | `auto-data` | Data analysis, statistics | Code + Documents |
+| `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
 | `⚖️ auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
 
 ---

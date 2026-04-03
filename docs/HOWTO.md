@@ -90,7 +90,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 15 workspace IDs (auto, auto-coding, auto-compliance, auto-mistral, auto-security, auto-redteam, etc.)
+# Expected: 16 workspace IDs (auto, auto-coding, auto-compliance, auto-mistral, auto-security, auto-redteam, auto-spl, etc.)
 ```
 
 ---
@@ -101,16 +101,20 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (37 total):**
+**Available personas (40 total):**
 
 | Category | Personas |
 |----------|----------|
 | Development (17) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
-| Security (5) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester |
-| Data/Research (6) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst |
+| Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
+| Data (6) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst |
 | Compliance (2) | NERC CIP Compliance Analyst, CIP Policy Writer |
 | Systems (2) | Linux Terminal, SQL Terminal |
-| General/Writing (5) | IT Expert, Tech Reviewer, Tech Writer, Creative Writer, Excel Sheet |
+| General (2) | IT Expert, Tech Reviewer |
+| Writing (2) | Creative Writer, Tech Writer |
+| Reasoning (1) | Magistral Strategist |
+| Research (1) | Gemma Research Analyst |
+| Architecture (1) | IT Architect |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
@@ -586,7 +590,7 @@ Future sessions will remember this context.
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
 
-**Available workspaces:** `auto`, `auto-coding`, `auto-compliance`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`
+**Available workspaces:** `auto`, `auto-coding`, `auto-compliance`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`
 
 ### Verify
 

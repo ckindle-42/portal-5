@@ -6,6 +6,19 @@ All notable changes to Portal 5 will be documented in this file.
 
 ### Added
 
+- **`auto-spl` workspace**: Splunk SPL query authoring, pipeline explanation, detection search
+  - Routes `[mlx, coding, general]` — MLX DeepSeek-Coder-V2-Lite-Instruct-8bit primary (~12GB),
+    deepseek-coder-v2:16b-lite-instruct-q4_K_M Ollama fallback
+  - `_SPL_KEYWORDS` frozenset + `_SPL_REGEX` for content-aware routing from `auto` workspace
+  - SPL detection inserted between security and coding in `_detect_workspace` priority chain
+  - `'splunk'` and `'spl query'` removed from `_CODING_KEYWORDS` (now owned by SPL workspace)
+  - New `splunksplgineer` persona with hardened SPL constraints:
+    - eval function hallucination guards (no `is_numeric()`, `indexof()`, `contains()`)
+    - `tonumber()` enforcement before arithmetic operations
+    - filter-first rules (index, sourcetype, time range before first pipe)
+    - Splunk Enterprise 9.x assumption, deprecated command avoidance
+  - 16 new unit tests in `TestSPLWorkspace`
+  - Workspace count: 15 → 16
 - **portal_pipeline/notifications/channels/webhook.py**: New `WebhookChannel` sends JSON POST
   to any user-defined `WEBHOOK_URL` on all operational alert and daily summary events.
   Configure via `WEBHOOK_URL` (required) and optional `WEBHOOK_HEADERS` (JSON object)

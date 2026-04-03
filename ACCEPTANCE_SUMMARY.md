@@ -28,14 +28,14 @@
 - Open WebUI, Pipeline, Prometheus, Grafana, all 6 MCP services, ComfyUI bridge, SearXNG, Ollama, `/metrics` endpoint, MLX proxy — all responding correctly.
 
 ### Static Config Consistency (S1) — ALL PASS
-- `router_pipe.py` WORKSPACES ↔ `backends.yaml` workspace_routing: 15 IDs match
-- All 39 persona YAMLs have required fields
+- `router_pipe.py` WORKSPACES ↔ `backends.yaml` workspace_routing: 16 IDs match
+- All 40 persona YAMLs have required fields
 - docker-compose.yml valid
 - mlx-proxy.py: Gemma 4 and Magistral routing correct
 
-### Workspace Routing (S3) — 10/15 PASS
-- **PASS:** auto, auto-video, auto-music, auto-creative, auto-coding, auto-security, auto-redteam, auto-blueteam, auto-reasoning, auto-data, auto-compliance, auto-mistral
-- `/v1/models` exposes all 15 workspace IDs
+### Workspace Routing (S3) — 10/16 PASS
+- **PASS:** auto, auto-video, auto-music, auto-creative, auto-coding, auto-security, auto-redteam, auto-blueteam, auto-reasoning, auto-data, auto-compliance, auto-mistral, auto-spl
+- `/v1/models` exposes all 16 workspace IDs
 - Content-aware routing logs present
 
 ### Document Generation MCP (S4) — 4/5 PASS
@@ -155,9 +155,9 @@ These are NOT test bugs. The test assertions are correct; the product code needs
 
 **Affected Tests:** S14-04 (Persona count claim matches YAML file count)
 
-**Evidence:** HOWTO claims "37 total" personas, filesystem has 39 YAML files
+**Evidence:** HOWTO claims "40 total" personas, filesystem has 40 YAML files
 
-**Protected file that needs change:** `docs/HOWTO.md` — update persona count from 37 to 39, update category breakdown (added `gemmaresearchanalyst` and `magistralstrategist`).
+**Protected file that needs change:** `docs/HOWTO.md` — update persona count from 37 to 40, update category breakdown (added `splunksplgineer` to Security, now 6 personas).
 
 ---
 
@@ -175,8 +175,8 @@ These are NOT test bugs. The test assertions are correct; the product code needs
 
 1. **S11 crash fix** — 6 persona test calls used `duration=` kwarg instead of `t0=` (function signature mismatch)
 2. **S2-03 Prometheus fix** — `/health` returns plain text, not JSON; separated from JSON-expecting checks
-3. **Workspace model grouping** — 15 workspaces grouped into 6 model groups to minimize load/unload thrashing
-4. **Persona model grouping** — 39 personas grouped into 10 model groups by workspace_model
+3. **Workspace model grouping** — 16 workspaces grouped into 7 model groups to minimize load/unload thrashing
+4. **Persona model grouping** — 40 personas grouped into 11 model groups by workspace_model
 5. **Real prompts** — All workspace and persona prompts generate substantial responses (100+ words)
 6. **Signal validation** — Per-workspace and per-persona signal word lists for domain-relevant output validation
 7. **Optimized delays** — Intra-group: 1-2s, Inter-group: 15s, MLX switch: 25-30s

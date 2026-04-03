@@ -7,7 +7,7 @@ This directory contains all importable configurations for Open WebUI. Two setup 
 On first launch with a fresh volume, the `openwebui-init` container automatically:
 1. Creates the admin account
 2. Registers all 7 MCP tool servers
-3. Creates all 13 workspace presets
+3. Creates all 16 workspace presets
 
 Admin credentials are auto-generated on first launch and stored in `.env`:
 - **Email:** `admin@portal.local` (default, overridable via `OPENWEBUI_ADMIN_EMAIL`)

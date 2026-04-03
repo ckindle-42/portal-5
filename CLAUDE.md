@@ -335,6 +335,7 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `redteamoperator` → `baronllm:q6_k` (imported from `hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF`); alt: `xploiter/the-xploiter`
 - `blueteamdefender` → `lily-cybersecurity:7b-q4_k_m` (imported from `hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF`); alt: `huihui_ai/baronllm-abliterated`
 - `pentester` → `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0`
+- `splunksplgineer` → `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit`
 
 ### Data / Research
 - `dataanalyst` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
@@ -381,6 +382,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-vision` | vision → general | qwen3-vl:32b |
 | `auto-data` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit |
 | `auto-compliance` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
+| `auto-spl` | mlx → coding → general | mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit |
 
 ---
 
