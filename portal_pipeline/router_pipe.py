@@ -387,6 +387,12 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "qwen3-coder-next:30b-q5",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-8bit",
     },
+    "auto-spl": {
+        "name": "🔍 Portal SPL Engineer",
+        "description": "Splunk SPL queries, pipeline explanation, detection search authoring",
+        "model_hint": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+        "mlx_model_hint": "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
+    },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
@@ -652,11 +658,54 @@ _CODING_KEYWORDS: frozenset[str] = frozenset(
         "powershell",
         "ansible",
         "terraform",
-        "splunk",
-        "spl query",
         "bigfix",
         "bes xml",
         "relevance",
+    }
+)
+
+_SPL_KEYWORDS: frozenset[str] = frozenset(
+    {
+        # Direct SPL / Splunk language references
+        "splunk",
+        "spl",
+        "spl query",
+        "search processing language",
+        # SPL commands (common ones users type in natural language)
+        "tstats",
+        "eval field",
+        "rex field",
+        "lookup command",
+        "inputlookup",
+        "outputlookup",
+        "makeresults",
+        "mvexpand",
+        "streamstats",
+        "eventstats",
+        "transaction command",
+        "| stats",
+        "| timechart",
+        "| table",
+        "| eval",
+        "| rex",
+        "| dedup",
+        "| sort",
+        "| rename",
+        # SPL-specific diagnostic language
+        "correlation search",
+        "notable event",
+        "splunk es",
+        "splunk enterprise security",
+        "datamodel",
+        "data model acceleration",
+        "summary index",
+        "saved search",
+        "dashboard panel spl",
+        "detection search",
+        "splunk query",
+        "write me a splunk",
+        "write a splunk",
+        "build a splunk",
     }
 )
 
@@ -694,6 +743,7 @@ def _make_word_boundary_regex(keywords: frozenset[str]) -> re.Pattern:
 
 _SECURITY_REGEX = _make_word_boundary_regex(_SECURITY_KEYWORDS)
 _CODING_REGEX = _make_word_boundary_regex(_CODING_KEYWORDS)
+_SPL_REGEX = _make_word_boundary_regex(_SPL_KEYWORDS)
 
 
 def _detect_workspace(messages: list[dict]) -> str | None:
@@ -705,8 +755,9 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     Routing priority (highest to lowest):
     1. Redteam keywords → auto-redteam (most permissive security model)
     2. Security keywords → auto-security (defensive + offensive analysis)
-    3. Coding keywords → auto-coding (Qwen3-Coder-Next via MLX)
-    4. Reasoning keywords → auto-reasoning (DeepSeek-R1)
+    3. SPL keywords → auto-spl (Splunk SPL queries, DeepSeek-Coder-V2-Lite)
+    4. Coding keywords → auto-coding (Qwen3-Coder-Next via MLX)
+    5. Reasoning keywords → auto-reasoning (DeepSeek-R1)
     """
     # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
     last_user_content = ""
@@ -731,6 +782,12 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     # Pre-compiled regex (P9): single pass instead of 100+ substring scans.
     if _SECURITY_REGEX.search(last_user_content):
         return "auto-security"
+
+    # SPL check — must come before coding (SPL is a strict subset, needs dedicated routing).
+    # Single hit is sufficient — SPL vocabulary is specific enough that false positives
+    # are rare. Splunk-related terms are no longer in _CODING_KEYWORDS.
+    if _SPL_REGEX.search(last_user_content):
+        return "auto-spl"
 
     # Coding check — same single-pass regex (P9).
     if _CODING_REGEX.search(last_user_content):

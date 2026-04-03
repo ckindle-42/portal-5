@@ -343,11 +343,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 15 (was 14 after auto-compliance, now 15 with auto-mistral)."""
+        """Total workspace count is now 16 (was 14 after auto-compliance, 15 with auto-mistral, 16 with auto-spl)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 15, (
-            f"Expected 15 workspaces after adding auto-mistral, got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 16, (
+            f"Expected 16 workspaces after adding auto-spl, got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):
@@ -813,3 +813,196 @@ class TestRecordUsageMetrics:
         assert "portal_tokens_per_second" in content
         assert "portal_output_tokens_total" in content
         assert "portal_requests_by_model_total" in content
+
+
+class TestSPLWorkspace:
+    """Verify auto-spl workspace wiring across all four required files."""
+
+    def test_auto_spl_in_workspaces_dict(self):
+        """auto-spl must exist in WORKSPACES dict in router_pipe.py."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        assert "auto-spl" in WORKSPACES, (
+            "auto-spl missing from WORKSPACES in router_pipe.py — "
+            "add it with model_hint and mlx_model_hint"
+        )
+
+    def test_auto_spl_uses_deepseek_coder_model_hint(self):
+        """auto-spl model_hint must be deepseek-coder-v2 (Ollama fallback)."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-spl"]["model_hint"]
+        assert "deepseek-coder-v2" in hint.lower(), (
+            f"auto-spl model_hint should be deepseek-coder-v2 variant, got: {hint}"
+        )
+
+    def test_auto_spl_uses_deepseek_coder_mlx_hint(self):
+        """auto-spl mlx_model_hint must point to DeepSeek-Coder-V2-Lite MLX."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-spl"].get("mlx_model_hint", "")
+        assert "DeepSeek-Coder-V2-Lite" in hint, (
+            f"auto-spl mlx_model_hint should be DeepSeek-Coder-V2-Lite-Instruct-8bit, got: {hint}"
+        )
+
+    def test_auto_spl_in_backends_yaml(self):
+        """auto-spl must exist in workspace_routing in backends.yaml."""
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        routing = cfg.get("workspace_routing", {})
+        assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
+
+    def test_auto_spl_routing_starts_with_mlx(self):
+        """auto-spl routing must prefer mlx group first (Apple Silicon primary)."""
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        groups = cfg["workspace_routing"].get("auto-spl", [])
+        assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
+
+    def test_workspace_count_is_16(self):
+        """Total workspace count must be 16 after adding auto-spl (was 15)."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        assert len(WORKSPACES) == 16, (
+            f"Expected 16 workspaces after adding auto-spl, got {len(WORKSPACES)}. "
+            "Update this test if workspaces are intentional added or removed."
+        )
+
+    def test_spl_persona_yaml_exists(self):
+        """Persona YAML file must exist at the canonical path."""
+        from pathlib import Path
+
+        persona_path = Path("config/personas/splunksplgineer.yaml")
+        assert persona_path.exists(), f"SPL Engineer persona YAML not found at {persona_path}"
+
+    def test_spl_persona_yaml_has_required_fields(self):
+        """Persona YAML must have all fields read by openwebui_init.py."""
+        from pathlib import Path
+
+        import yaml
+
+        data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
+        for field in ("name", "slug", "category", "workspace_model", "system_prompt", "tags"):
+            assert field in data, f"SPL persona YAML missing required field: {field}"
+
+    def test_spl_persona_workspace_model_is_mlx_deepseek(self):
+        """Persona workspace_model must be the MLX DeepSeek-Coder-V2-Lite model."""
+        from pathlib import Path
+
+        import yaml
+
+        data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
+        wm = data.get("workspace_model", "")
+        assert "DeepSeek-Coder-V2-Lite" in wm, (
+            f"SPL persona workspace_model should be DeepSeek-Coder-V2-Lite-Instruct-8bit, got: {wm}"
+        )
+
+    def test_workspace_json_exists(self):
+        """Workspace JSON file must exist for GUI import."""
+        from pathlib import Path
+
+        ws_path = Path("imports/openwebui/workspaces/workspace_auto_spl.json")
+        assert ws_path.exists(), f"Workspace JSON not found at {ws_path}"
+
+    def test_workspace_json_has_correct_id(self):
+        """Workspace JSON id must be 'auto-spl'."""
+        import json
+        from pathlib import Path
+
+        data = json.loads(Path("imports/openwebui/workspaces/workspace_auto_spl.json").read_text())
+        assert data.get("id") == "auto-spl", (
+            f"workspace_auto_spl.json id should be 'auto-spl', got: {data.get('id')}"
+        )
+
+    def test_workspaces_all_json_includes_spl(self):
+        """workspaces_all.json bulk import must include auto-spl entry."""
+        import json
+        from pathlib import Path
+
+        all_ws = json.loads(Path("imports/openwebui/workspaces/workspaces_all.json").read_text())
+        ids = [ws.get("id") for ws in all_ws]
+        assert "auto-spl" in ids, (
+            "auto-spl not found in workspaces_all.json — append the workspace object to the array"
+        )
+
+    def test_splunk_not_in_coding_keywords(self):
+        """'splunk' must be removed from _CODING_KEYWORDS — SPL workspace owns it now."""
+        from portal_pipeline.router_pipe import _CODING_KEYWORDS
+
+        assert "splunk" not in _CODING_KEYWORDS, (
+            "'splunk' must be removed from _CODING_KEYWORDS after adding _SPL_KEYWORDS. "
+            "Leaving it causes SPL queries to route to auto-coding instead of auto-spl."
+        )
+
+    def test_spl_query_not_in_coding_keywords(self):
+        """'spl query' must be removed from _CODING_KEYWORDS — SPL workspace owns it now."""
+        from portal_pipeline.router_pipe import _CODING_KEYWORDS
+
+        assert "spl query" not in _CODING_KEYWORDS, (
+            "'spl query' must be removed from _CODING_KEYWORDS after adding _SPL_KEYWORDS."
+        )
+
+    def test_spl_keywords_frozenset_exists(self):
+        """_SPL_KEYWORDS frozenset must be importable from router_pipe."""
+        from portal_pipeline.router_pipe import _SPL_KEYWORDS
+
+        assert isinstance(_SPL_KEYWORDS, frozenset), (
+            "_SPL_KEYWORDS must be a frozenset in router_pipe.py"
+        )
+        assert len(_SPL_KEYWORDS) >= 10, (
+            f"_SPL_KEYWORDS seems too small ({len(_SPL_KEYWORDS)} entries) — check the definition"
+        )
+        assert "splunk" in _SPL_KEYWORDS, "'splunk' must be in _SPL_KEYWORDS"
+
+    def test_spl_detect_workspace_routes_splunk_query(self):
+        """_detect_workspace must return 'auto-spl' for an SPL-flavored message."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [
+            {"role": "user", "content": "Write a splunk query to count failed logins by host"}
+        ]
+        result = _detect_workspace(messages)
+        assert result == "auto-spl", (
+            f"_detect_workspace should return 'auto-spl' for SPL content, got: {result!r}"
+        )
+
+    def test_spl_detect_workspace_routes_tstats_query(self):
+        """_detect_workspace must return 'auto-spl' when user asks about tstats."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [
+            {"role": "user", "content": "How do I use tstats with a data model acceleration?"}
+        ]
+        result = _detect_workspace(messages)
+        assert result == "auto-spl", (
+            f"_detect_workspace should return 'auto-spl' for tstats content, got: {result!r}"
+        )
+
+    def test_spl_does_not_route_generic_coding(self):
+        """Generic Python/code requests must NOT route to auto-spl."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [{"role": "user", "content": "Write a Python function to parse JSON logs"}]
+        result = _detect_workspace(messages)
+        assert result != "auto-spl", (
+            f"Python-only request should not route to auto-spl, got: {result!r}"
+        )
+
+    def test_auto_spl_routing_consistent_across_files(self):
+        """auto-spl key must exist in both WORKSPACES and backends.yaml workspace_routing."""
+        import yaml
+
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        pipe_ids = set(WORKSPACES.keys())
+        yaml_ids = set(cfg["workspace_routing"].keys())
+        assert "auto-spl" in pipe_ids, "auto-spl missing from WORKSPACES in router_pipe.py"
+        assert "auto-spl" in yaml_ids, "auto-spl missing from workspace_routing in backends.yaml"
+        assert pipe_ids == yaml_ids, (
+            f"WORKSPACES / workspace_routing mismatch after adding auto-spl. "
+            f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
+            f"In yaml but not pipe: {yaml_ids - pipe_ids}."
+        )

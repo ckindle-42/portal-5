@@ -154,5 +154,18 @@
       "system": "You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.",
       "model": "auto-data"
     }
+  },
+  {
+    "id": "auto-spl",
+    "name": "\ud83d\udd0d Portal SPL Engineer",
+    "meta": {
+      "description": "\ud83d\udd0d Portal SPL Engineer \u2014 Splunk query authoring, pipeline explanation, detection search",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.",
+      "model": "auto-spl"
+    }
   }
 ]
