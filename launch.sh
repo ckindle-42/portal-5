@@ -2007,19 +2007,27 @@ MLXPLIST
     echo "Models download to: ~/.cache/huggingface/hub/"
     echo ""
 
-    # Standard MLX models (confirmed on mlx-community)
+    # Standard MLX models (8bit quants for 64GB M4 Mac — one at a time)
     MLX_MODELS=(
         # Coding — primary workspace models
-        "mlx-community/Qwen3-Coder-Next-4bit"              # ~18GB active
-        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"  # ~17GB
-        "mlx-community/Qwen3.5-35B-A3B-4bit"               # ~20GB
-        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx"  # ~9GB
-        "mlx-community/Devstral-Small-2505-4bit"            # ~13GB
+        "mlx-community/Qwen3-Coder-Next-8bit"              # ~32GB active
+        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
+        "mlx-community/Qwen3.5-9B-8bit"                    # ~10GB
+        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx"  # ~12GB
+        "mlx-community/Devstral-Small-2505-8bit"            # ~18GB
         # Reasoning
-        "mlx-community/DeepSeek-R1-0528-4bit"              # ~18GB
-        "mlx-community/Qwen3.5-27B-4bit"                   # ~15GB
+        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit"           # ~34GB
+        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"  # ~18GB (uncensored)
+        "mlx-community/Qwen3.5-27B-8bit"                   # ~22GB
+        # Creative / general (uncensored)
+        "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing
-        "mlx-community/Llama-3.2-3B-Instruct-4bit"         # ~2GB — ultra-fast
+        "mlx-community/Llama-3.2-3B-Instruct-8bit"         # ~3GB — ultra-fast
+        # Vision
+        "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
+        "mlx-community/llava-1.5-7b-8bit"                  # ~8GB
+        # Compliance
+        "mlx-community/Qwen3.5-35B-A3B-8bit"               # ~28GB
     )
 
     # Heavy models — gated behind PULL_HEAVY=true

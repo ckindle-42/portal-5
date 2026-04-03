@@ -433,8 +433,8 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-research": {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
-        "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Qwen3.5-27B-8bit",
+        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
