@@ -76,6 +76,7 @@ services:
         target: /tmp/portal_metrics
         tmpfs:
           size: 10485760
+      - pipeline-metrics-state:/app/data
     environment:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_WORKERS=${PIPELINE_WORKERS:-2}
@@ -648,3 +649,4 @@ volumes:
   comfyui-output:      # ComfyUI generated images/videos
   prometheus-data:     # Prometheus metrics data
   grafana-data:        # Grafana dashboards/data
+  pipeline-metrics-state:  # Persistent metrics state (JSON, survives restarts)

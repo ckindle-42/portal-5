@@ -16,8 +16,9 @@ import os
 import re
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -31,6 +32,10 @@ from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, gene
 from portal_pipeline.cluster_backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
+
+# Persistent state file — survives pipeline restarts.
+# Mounted as a Docker volume so it persists across container lifecycle.
+_STATE_FILE = Path(os.environ.get("METRICS_STATE_FILE", "/app/data/metrics_state.json"))
 
 # Basic Prometheus-compatible metrics counter
 _request_count: dict[str, int] = {}
@@ -49,6 +54,10 @@ _total_output_tokens: int = 0
 _req_count_by_model: dict[str, int] = {}  # model_name -> count (plain dict for summary)
 _req_count_by_error: dict[str, int] = {}  # error_type -> count (plain dict for summary)
 _peak_concurrent: int = 0
+_persona_usage_raw: dict[str, dict[str, int]] = {}  # persona -> {model -> count}
+
+# Background task that periodically persists state to disk
+_state_save_task: asyncio.Task | None = None
 
 
 def _record_error(workspace: str, error_type: str) -> None:
@@ -56,6 +65,119 @@ def _record_error(workspace: str, error_type: str) -> None:
     _errors_total.labels(workspace=workspace, error_type=error_type).inc()
     global _req_count_by_error
     _req_count_by_error[error_type] = _req_count_by_error.get(error_type, 0) + 1
+
+
+def _record_persona(persona: str, model: str) -> None:
+    """Record persona usage in both the Prometheus Counter and the raw dict for persistence."""
+    _persona_usage.labels(persona=persona, model=model).inc()
+    global _persona_usage_raw
+    if persona not in _persona_usage_raw:
+        _persona_usage_raw[persona] = {}
+    _persona_usage_raw[persona][model] = _persona_usage_raw[persona].get(model, 0) + 1
+
+
+def _load_state() -> None:
+    """Restore persisted metrics state from disk (survives restarts)."""
+    global \
+        _request_count, \
+        _total_response_time_ms, \
+        _total_tps, \
+        _request_tps_count, \
+        _total_input_tokens, \
+        _total_output_tokens, \
+        _req_count_by_model, \
+        _req_count_by_error, \
+        _peak_concurrent, \
+        _persona_usage_raw
+
+    if not _STATE_FILE.exists():
+        logger.info("No persisted metrics state found at %s — starting fresh", _STATE_FILE)
+        return
+
+    try:
+        state = json.loads(_STATE_FILE.read_text())
+        _request_count = state.get("request_count", {})
+        _total_response_time_ms = float(state.get("total_response_time_ms", 0.0))
+        _total_tps = float(state.get("total_tps", 0.0))
+        _request_tps_count = int(state.get("request_tps_count", 0))
+        _total_input_tokens = int(state.get("total_input_tokens", 0))
+        _total_output_tokens = int(state.get("total_output_tokens", 0))
+        _req_count_by_model = state.get("req_count_by_model", {})
+        _req_count_by_error = state.get("req_count_by_error", {})
+        _peak_concurrent = int(state.get("peak_concurrent", 0))
+        _persona_usage_raw = state.get("persona_usage_raw", {})
+        logger.info(
+            "Loaded persisted metrics state: %d requests, %d output tokens, peak concurrent=%d",
+            sum(_request_count.values()),
+            _total_output_tokens,
+            _peak_concurrent,
+        )
+    except Exception as e:
+        logger.warning("Failed to load persisted metrics state: %s — starting fresh", e)
+
+
+def _save_state() -> None:
+    """Persist current metrics state to disk.
+
+    With multiple workers, each process has its own in-memory counters.
+    On save we read the existing file, merge our counters into it (sum for
+    accumulators, max for peak), and write back atomically.
+    """
+    try:
+        _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        # Read existing state (may have been written by another worker)
+        existing: dict = {}
+        if _STATE_FILE.exists():
+            with suppress(json.JSONDecodeError, OSError):
+                existing = json.loads(_STATE_FILE.read_text())
+
+        # Merge: sum accumulators, max for peak
+        merged = {
+            "request_count": dict(existing.get("request_count", {})),
+            "total_response_time_ms": float(existing.get("total_response_time_ms", 0.0))
+            + _total_response_time_ms,
+            "total_tps": float(existing.get("total_tps", 0.0)) + _total_tps,
+            "request_tps_count": int(existing.get("request_tps_count", 0)) + _request_tps_count,
+            "total_input_tokens": int(existing.get("total_input_tokens", 0)) + _total_input_tokens,
+            "total_output_tokens": int(existing.get("total_output_tokens", 0))
+            + _total_output_tokens,
+            "req_count_by_model": dict(existing.get("req_count_by_model", {})),
+            "req_count_by_error": dict(existing.get("req_count_by_error", {})),
+            "peak_concurrent": max(int(existing.get("peak_concurrent", 0)), _peak_concurrent),
+            "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
+        }
+
+        # Merge nested dicts
+        for ws, count in _request_count.items():
+            merged["request_count"][ws] = merged["request_count"].get(ws, 0) + count
+        for model, count in _req_count_by_model.items():
+            merged["req_count_by_model"][model] = merged["req_count_by_model"].get(model, 0) + count
+        for err_type, count in _req_count_by_error.items():
+            merged["req_count_by_error"][err_type] = (
+                merged["req_count_by_error"].get(err_type, 0) + count
+            )
+        for persona, models in _persona_usage_raw.items():
+            if persona not in merged["persona_usage_raw"]:
+                merged["persona_usage_raw"][persona] = {}
+            for model, count in models.items():
+                merged["persona_usage_raw"][persona][model] = (
+                    merged["persona_usage_raw"][persona].get(model, 0) + count
+                )
+
+        # Atomic write
+        tmp = _STATE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(merged))
+        tmp.rename(_STATE_FILE)
+    except Exception as e:
+        logger.debug("Failed to persist metrics state: %s", e)
+
+
+async def _state_save_loop(interval: int = 60) -> None:
+    """Background task: save state to disk every N seconds."""
+    while True:
+        await asyncio.sleep(interval)
+        _save_state()
 
 
 # Notification subsystem handles operational alerts and daily summaries
@@ -768,7 +890,7 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global registry, _health_task, _request_semaphore, _http_client
-    global _notification_dispatcher, _notification_scheduler
+    global _notification_dispatcher, _notification_scheduler, _state_save_task
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     # P1: create shared client with a connection pool sized for concurrent inference
     _http_client = httpx.AsyncClient(
@@ -780,6 +902,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     registry = BackendRegistry()
     await registry.health_check_all()
+    # Load persisted metrics state from disk (survives restarts)
+    _load_state()
     # Pre-warm: load the auto workspace's default model so the first user request
     # is not penalized by Ollama's model-loading cold-start (10-60s for 8-32B).
     asyncio.create_task(_warmup_auto_model(registry))
@@ -807,7 +931,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     )
 
+    # Background task: persist metrics state to disk every 60s
+    _state_save_task = asyncio.create_task(_state_save_loop(interval=60))
+
     yield
+
+    # Final state save on shutdown
+    _save_state()
+    if _state_save_task:
+        _state_save_task.cancel()
     if _health_task:
         _health_task.cancel()
     if _http_client:
@@ -1099,7 +1231,7 @@ async def chat_completions(
         # (workspace ID) the user selected in Open WebUI.
         persona = body.get("model") or "auto"
         if persona in WORKSPACES:
-            _persona_usage.labels(persona=persona, model="unknown").inc()
+            _record_persona(persona, "unknown")
 
         candidates = registry.get_backend_candidates(workspace_id)
         if not candidates:
@@ -1128,7 +1260,7 @@ async def chat_completions(
                         workspace_id,
                         time.monotonic() - start_time,
                     )
-                    _persona_usage.labels(persona=persona, model=resolved_model).inc()
+                    _record_persona(persona, resolved_model)
                     _concurrent_requests.dec()
                     return result
             # All backends failed
@@ -1167,7 +1299,7 @@ async def chat_completions(
 
         if len(candidates) == 1:
             # Single candidate — no fallback possible, return streaming directly
-            _persona_usage.labels(persona=persona, model=target_model).inc()
+            _record_persona(persona, target_model)
             _streaming_response = StreamingResponse(
                 _stream_with_preamble(
                     backend.chat_url,
@@ -1274,7 +1406,7 @@ async def chat_completions(
             _stream_or_fallback(),
             media_type="text/event-stream",
         )
-        _persona_usage.labels(persona=persona, model=target_model).inc()
+        _record_persona(persona, target_model)
         _is_streaming = True
         return _streaming_response
     except HTTPException:
