@@ -930,42 +930,66 @@ async def S3() -> None:
     )
 
     # Streaming mode delivers NDJSON chunks
+    # Use curl for reliable SSE consumption (httpx hangs on long-lived SSE connections)
+    # Timeout 300s: cold model load can take 2-4 min before first token
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=60) as c:
-            r = await c.post(
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "-m",
+                "300",
+                "-X",
+                "POST",
                 f"{PIPELINE_URL}/v1/chat/completions",
-                headers=AUTH,
-                json={
-                    "model": "auto",
-                    "messages": [{"role": "user", "content": "Say 'ok' and nothing else."}],
-                    "stream": True,
-                    "max_tokens": 5,
-                },
+                "-H",
+                f"Authorization: Bearer {API_KEY}",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                json.dumps(
+                    {
+                        "model": "auto",
+                        "messages": [{"role": "user", "content": "Say 'ok' and nothing else."}],
+                        "stream": True,
+                        "max_tokens": 5,
+                    }
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=310,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().splitlines()
+            chunks = [ln for ln in lines if ln.startswith("data: ") and ln != "data: [DONE]"]
+            record(
+                sec,
+                "S3-18",
+                "Streaming response delivers NDJSON chunks",
+                "PASS" if chunks else "FAIL",
+                f"{len(chunks)} data chunks received",
+                t0=t0,
             )
-            if r.status_code == 200:
-                chunks = [
-                    ln
-                    for ln in r.text.splitlines()
-                    if ln.startswith("data: ") and ln != "data: [DONE]"
-                ]
-                record(
-                    sec,
-                    "S3-18",
-                    "Streaming response delivers NDJSON chunks",
-                    "PASS" if chunks else "FAIL",
-                    f"{len(chunks)} data chunks received",
-                    t0=t0,
-                )
-            else:
-                record(
-                    sec,
-                    "S3-18",
-                    "Streaming response delivers NDJSON chunks",
-                    "FAIL",
-                    f"HTTP {r.status_code}",
-                    t0=t0,
-                )
+        else:
+            record(
+                sec,
+                "S3-18",
+                "Streaming response delivers NDJSON chunks",
+                "FAIL",
+                f"curl exit={result.returncode}: {result.stderr[:120]}",
+                t0=t0,
+            )
+    except subprocess.TimeoutExpired:
+        record(
+            sec,
+            "S3-18",
+            "Streaming response delivers NDJSON chunks",
+            "WARN",
+            "timeout after 310s",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S3-18", "Streaming response delivers NDJSON chunks", "FAIL", str(e), t0=t0)
 
