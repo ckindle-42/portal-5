@@ -156,8 +156,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data["history_timestamps"] = raw_timestamps
 
     # Telegram 4096-char message limit
-    for chunk in [reply[i : i + 4000] for i in range(0, len(reply), 4000)]:
-        await update.effective_message.reply_text(chunk, parse_mode="Markdown")
+    # Try Markdown first; fall back to plain text on parse errors (e.g. unmatched *, _, `)
+    chunks = [reply[i : i + 4000] for i in range(0, len(reply), 4000)]
+    try:
+        for chunk in chunks:
+            await update.effective_message.reply_text(chunk, parse_mode="Markdown")
+    except Exception as e:
+        logger.warning("Markdown send failed, falling back to plain text: %s", e)
+        for chunk in chunks:
+            await update.effective_message.reply_text(chunk)
 
 
 def build_app() -> Application:
