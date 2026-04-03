@@ -1133,6 +1133,7 @@ async def _try_non_streaming(
     backend: Any,
     body: dict,
     workspace_id: str,
+    start_time: float,
     *,
     enforce_hint: bool = True,
 ) -> JSONResponse | None:
@@ -1170,7 +1171,12 @@ async def _try_non_streaming(
         resp = await _http_client.post(backend.chat_url, json=req_body)
         resp.raise_for_status()
         data = resp.json()
-        _record_usage(model=target_model, workspace=workspace_id, data=data)
+        _record_usage(
+            model=target_model,
+            workspace=workspace_id,
+            data=data,
+            elapsed_seconds=time.monotonic() - start_time,
+        )
         logger.info(
             "Backend %s succeeded for workspace=%s model=%s",
             backend.id,
@@ -1265,7 +1271,7 @@ async def chat_completions(
             for i, backend in enumerate(candidates):
                 is_last = i == len(candidates) - 1
                 result = await _try_non_streaming(
-                    backend, body, workspace_id, enforce_hint=not is_last
+                    backend, body, workspace_id, start_time, enforce_hint=not is_last
                 )
                 if result is not None:
                     resolved_model = backend.models[0] if backend.models else "unknown"
@@ -1360,7 +1366,7 @@ async def chat_completions(
                 for j, fb in enumerate(remaining):
                     fb_last = j == len(remaining) - 1
                     result = await _try_non_streaming(
-                        fb, fallback_body, workspace_id, enforce_hint=not fb_last
+                        fb, fallback_body, workspace_id, start_time, enforce_hint=not fb_last
                     )
                     if result is not None:
                         # Wrap non-streaming response as SSE for Open WebUI
