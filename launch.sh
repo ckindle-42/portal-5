@@ -53,12 +53,40 @@ _check_hardware() {
         echo "  ✅ Disk: ${DISK_FREE}GB free"
     fi
 
-    # Docker check
-    if ! docker info &>/dev/null; then
-        echo "  ❌ Docker: not running — start Docker Desktop and retry"
-        exit 1
-    else
+    # Docker check (with timeout — Docker Desktop can hang in zombie state)
+    if timeout 5 docker info &>/dev/null; then
         echo "  ✅ Docker: running"
+    else
+        # Check if Docker process exists but is unresponsive (zombie/hung state)
+        if pgrep -f "com.docker.backend|Docker.app" &>/dev/null; then
+            echo "  ❌ Docker: process running but unresponsive (hung daemon)"
+            echo ""
+            echo "  This happens when Docker Desktop enters a zombie state."
+            echo "  Fix: kill Docker and restart from /Applications"
+            echo ""
+            printf "  Kill hung Docker processes now? [y/N] "
+            read -r confirm
+            if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                echo "  Killing Docker processes..."
+                pkill -f "com.docker.backend" 2>/dev/null || true
+                pkill -f "com.docker.driver.amd" 2>/dev/null || true
+                pkill -f "com.docker.qemu" 2>/dev/null || true
+                pkill -f "com.docker.hyperkit" 2>/dev/null || true
+                pkill -f "com.docker.vmnetd" 2>/dev/null || true
+                pkill -f "Docker.app" 2>/dev/null || true
+                echo "  ✅ Docker processes killed."
+                echo ""
+                echo "  Now open Docker Desktop from /Applications and wait for it to start."
+                echo "  Then run: ./launch.sh up"
+                exit 1
+            else
+                echo "  Aborted. Restart Docker Desktop manually and retry."
+                exit 1
+            fi
+        else
+            echo "  ❌ Docker: not running — start Docker Desktop and retry"
+            exit 1
+        fi
     fi
 
     # Apple Silicon detection (helpful context)
