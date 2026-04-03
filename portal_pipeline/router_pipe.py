@@ -282,9 +282,23 @@ def _record_usage(
             _req_count_by_model
         # Prefer OpenAI format fields (completion_tokens / prompt_tokens)
         # Fall back to Ollama native (eval_count / prompt_eval_count)
-        completion_tokens = int(data.get("completion_tokens") or data.get("eval_count") or 0)
-        prompt_tokens = int(data.get("prompt_tokens") or data.get("prompt_eval_count") or 0)
-        eval_duration_ns = int(data.get("eval_duration") or 0)
+        # MLX server nests tokens inside "usage" dict — check both levels.
+        usage = data.get("usage") or {}
+        completion_tokens = int(
+            data.get("completion_tokens")
+            or usage.get("completion_tokens")
+            or data.get("eval_count")
+            or usage.get("eval_count")
+            or 0
+        )
+        prompt_tokens = int(
+            data.get("prompt_tokens")
+            or usage.get("prompt_tokens")
+            or data.get("prompt_eval_count")
+            or usage.get("prompt_eval_count")
+            or 0
+        )
+        eval_duration_ns = int(data.get("eval_duration") or usage.get("eval_duration") or 0)
 
         _requests_by_model.labels(model=model, workspace=workspace).inc()
 
