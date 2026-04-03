@@ -15,7 +15,7 @@ import json
 import subprocess
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
 
@@ -198,4 +198,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"[mlx-proxy] Listening on :{PROXY_PORT}", flush=True)
-    HTTPServer(("0.0.0.0", PROXY_PORT), Handler).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", PROXY_PORT), Handler).serve_forever()

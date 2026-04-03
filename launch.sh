@@ -628,6 +628,7 @@ case "${1:-up}" in
     # Run end-to-end smoke tests against the live stack
     # Usage: ./launch.sh up && sleep 30 && ./launch.sh test
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    export MLX_WATCHDOG_ENABLED=false
     OWUI="${OPENWEBUI_URL:-http://localhost:8080}"
     PIPE="http://localhost:9099"
     PASS=0; FAIL=0

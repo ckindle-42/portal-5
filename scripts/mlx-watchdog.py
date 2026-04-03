@@ -49,6 +49,7 @@ VLM_PORT = int(os.environ.get("MLX_VLM_PORT", "18082"))
 CHECK_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "30"))
 RECOVERY_THRESHOLD = int(os.environ.get("MLX_RECOVERY_THRESHOLD", "2"))
 MAX_RECOVERY_ATTEMPTS = int(os.environ.get("MLX_MAX_RECOVERY_ATTEMPTS", "3"))
+WATCHDOG_ENABLED = os.environ.get("MLX_WATCHDOG_ENABLED", "true").lower() != "false"
 
 PROXY_PID_FILE = Path(os.environ.get("MLX_PROXY_PID_FILE", "/tmp/mlx-proxy.pid"))
 WATCHDOG_PID_FILE = Path("/tmp/mlx-watchdog.pid")
@@ -391,6 +392,10 @@ def cleanup(signum=None, frame=None):
 
 
 def main() -> None:
+    if not WATCHDOG_ENABLED:
+        logger.info("MLX Watchdog disabled via MLX_WATCHDOG_ENABLED=false — exiting")
+        sys.exit(0)
+
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
 
