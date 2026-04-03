@@ -1939,16 +1939,21 @@ MLXPLIST
         echo ""
         echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
         echo "  Text-only (mlx_lm, port 18081):"
-        echo "    mlx-community/Qwen3-Coder-Next-4bit          (~18GB — primary coder)"
-        echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit  (~17GB)"
-        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx  (~9GB)"
-        echo "    mlx-community/Devstral-Small-2505-4bit       (~13GB)"
-        echo "    mlx-community/DeepSeek-R1-0528-4bit          (~18GB — reasoning)"
-        echo "    mlx-community/Llama-3.2-3B-Instruct-4bit     (~2GB — fast routing)"
-        echo "    mlx-community/Llama-3.3-70B-Instruct-4bit    (~40GB — heavy)"
+        echo "    mlx-community/Qwen3-Coder-Next-8bit              (~32GB — primary coder)"
+        echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (~22GB)"
+        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx  (~12GB)"
+        echo "    mlx-community/Devstral-Small-2505-8bit           (~18GB)"
+        echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
+        echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
+        echo "    mlx-community/Llama-3.3-70B-Instruct-4bit        (~40GB — heavy, 4bit only)"
+        echo "  Claude 4.6 Opus Reasoning Distilled:"
+        echo "    Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  (~22GB)"
+        echo "    Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      (~10GB)"
+        echo "    Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit (~28GB)"
+        echo "    mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           (~18GB — uncensored)"
         echo "  VLM models (mlx_vlm, port 18082):"
-        echo "    mlx-community/Qwen3.5-35B-A3B-4bit           (~20GB — compliance)"
-        echo "    mlx-community/Qwen3.5-27B-4bit               (~15GB — reasoning)"
+        echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
+        echo "    mlx-community/llava-1.5-7b-8bit                  (~8GB — vision fallback)"
         echo ""
         echo "Current status:"
         curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
@@ -2018,7 +2023,7 @@ MLXPLIST
         # Claude 4.6 Opus Reasoning Distilled
         "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit"  # ~22GB
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
-        "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit"          # ~18GB (fallback)
+        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit"                       # ~34GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
         # Creative / general (uncensored)
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
@@ -2089,7 +2094,7 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "=== MLX download complete: $((total - failed))/$total succeeded ==="
     echo ""
     echo "Start inference with:"
-    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
+    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-8bit ~/.portal5/mlx/start.sh"
 
     # ASK-04: Check availability of other Qwen3.5 MLX models that may publish later
     # Qwen3.5-35B-A3B-4bit and Qwen3.5-27B-4bit are now UNCOMMENTED in backends.yaml

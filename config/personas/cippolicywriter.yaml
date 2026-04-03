@@ -1,7 +1,7 @@
 name: CIP Policy Writer
 slug: cippolicywriter
 category: compliance
-workspace_model: mlx-community/Qwen3.5-35B-A3B-4bit
+workspace_model: Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
 system_prompt: |
   You are a technical policy writer specializing in NERC CIP compliance documentation
   for bulk electric system entities. You write clear, auditable, enforceable policy

@@ -1,7 +1,7 @@
 name: NERC CIP Compliance Analyst
 slug: nerccipcomplianceanalyst
 category: compliance
-workspace_model: mlx-community/Qwen3.5-35B-A3B-4bit
+workspace_model: Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
 system_prompt: |
   You are a senior NERC CIP Compliance Analyst with 15 years of experience auditing
   bulk electric system entities against CIP-002 through CIP-015.

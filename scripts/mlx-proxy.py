@@ -23,18 +23,29 @@ LM_PORT = 18081
 VLM_PORT = 18082
 PROXY_PORT = 8081
 
-VLM_MODELS = {"Qwen3.5-35B-A3B-4bit", "Qwen3.5-27B-4bit"}
+VLM_MODELS = {
+    "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    "MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
+    "Qwen3-VL-32B-Instruct-8bit",
+}
 
 ALL_MODELS = [
-    "mlx-community/Qwen3-Coder-Next-4bit",
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit-mlx",
-    "mlx-community/Devstral-Small-2505-4bit",
-    "mlx-community/DeepSeek-R1-0528-4bit",
-    "mlx-community/Llama-3.2-3B-Instruct-4bit",
+    # Text-only models (served by mlx_lm on port 18081)
+    "mlx-community/Qwen3-Coder-Next-8bit",
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx",
+    "mlx-community/Devstral-Small-2505-8bit",
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+    "mlx-community/Llama-3.2-3B-Instruct-8bit",
     "mlx-community/Llama-3.3-70B-Instruct-4bit",
-    "mlx-community/Qwen3.5-35B-A3B-4bit",
-    "mlx-community/Qwen3.5-27B-4bit",
+    # Claude 4.6 Opus Reasoning Distilled
+    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+    # VLM models (served by mlx_vlm on port 18082)
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit",
+    "mlx-community/llava-1.5-7b-8bit",
 ]
 
 lock = threading.Lock()

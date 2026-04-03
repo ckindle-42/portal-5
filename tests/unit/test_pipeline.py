@@ -284,8 +284,8 @@ class TestComplianceWorkspace:
             f"auto-compliance model_hint must be an mlx-community/ model (Apple Silicon primary), "
             f"got: {hint}"
         )
-        assert "Qwen3.5-35B-A3B" in hint, (
-            f"auto-compliance should use Qwen3.5-35B-A3B-4bit for long-context policy analysis, "
+        assert "Qwen3.5-35B-A3B" in hint or "Qwen3.5-35B-A3B-Claude" in hint, (
+            f"auto-compliance should use Qwen3.5-35B-A3B Claude-distilled for long-context policy analysis, "
             f"got: {hint}"
         )
 
@@ -318,7 +318,7 @@ class TestComplianceWorkspace:
         assert "CIP" in ws["params"]["system"], "System prompt must reference CIP standards"
 
     def test_compliance_mlx_model_in_mlx_backend(self):
-        """Qwen3.5-35B-A3B-4bit must be in an MLX backend — it's the primary routing target."""
+        """Qwen3.5-35B-A3B Claude-distilled must be in an MLX backend — it's the primary routing target."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
@@ -327,8 +327,8 @@ class TestComplianceWorkspace:
         all_models = []
         for b in mlx_backends:
             all_models.extend(b.get("models", []))
-        assert any("Qwen3.5-35B-A3B-4bit" in m for m in all_models), (
-            f"mlx-community/Qwen3.5-35B-A3B-4bit not in any MLX backend models: {all_models}\n"
+        assert any("Qwen3.5-35B-A3B" in m for m in all_models), (
+            f"Qwen3.5-35B-A3B Claude-distilled not in any MLX backend models: {all_models}\n"
             "This is the primary model for auto-compliance — must be present."
         )
 
@@ -342,12 +342,8 @@ class TestComplianceWorkspace:
             assert p.exists(), f"Persona file not found: {p}"
             d = yaml.safe_load(p.read_text())
             assert d.get("workspace_model"), f"{slug}: workspace_model missing"
-            assert "mlx-community" in d["workspace_model"], (
-                f"{slug}: workspace_model should be mlx-community/ model (Apple Silicon), "
-                f"got: {d['workspace_model']}"
-            )
             assert "Qwen3.5-35B-A3B" in d["workspace_model"], (
-                f"{slug}: should use Qwen3.5-35B-A3B-4bit, got: {d['workspace_model']}"
+                f"{slug}: should use Qwen3.5-35B-A3B Claude-distilled, got: {d['workspace_model']}"
             )
 
     def test_workspace_count_is_14(self):
@@ -435,7 +431,7 @@ class TestR18ModelCompleteness:
             "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b
             # Coding
             # R20: Qwen3-Coder-Next-GGUF replaced with MLX (sharded GGUF incompatible with Ollama)
-            "Qwen3-Coder-Next-4bit",
+            "Qwen3-Coder-Next-8bit",
             "GLM-4.7-Flash",
             "deepseek-coder-v2-lite",  # R23: updated to bartowski rehost
             # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
@@ -453,7 +449,7 @@ class TestR18ModelCompleteness:
     def test_router_hints_use_best_models(self):
         """Key workspaces use the recommended primary model hints."""
         # R20: Qwen3-Coder-Next-GGUF replaced with MLX backend
-        assert "mlx-community/Qwen3-Coder-Next-4bit" in WORKSPACES["auto-coding"]["model_hint"], (
+        assert "mlx-community/Qwen3-Coder-Next-8bit" in WORKSPACES["auto-coding"]["model_hint"], (
             "auto-coding should prefer Qwen3-Coder-Next MLX"
         )
         # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB); use qwen3.5:9b
@@ -661,7 +657,7 @@ class TestR23MLXSupport:
             type="mlx",
             url="http://localhost:8080",
             group="mlx",
-            models=["mlx-community/Qwen3-Coder-Next-4bit"],
+            models=["mlx-community/Qwen3-Coder-Next-8bit"],
         )
         assert "/v1/models" in b.health_url, (
             "MLX backend health_url must use /v1/models (OpenAI-compatible)"
@@ -676,7 +672,7 @@ class TestR23MLXSupport:
         assert len(mlx_backends) >= 1, "No MLX backend in backends.yaml"
         models = mlx_backends[0]["models"]
         assert any("Qwen3-Coder-Next" in m for m in models), (
-            "MLX primary model (Qwen3-Coder-Next-4bit) not in mlx backend"
+            "MLX primary model (Qwen3-Coder-Next-8bit) not in mlx backend"
         )
 
     def test_mlx_workspace_routing_priority(self):
@@ -723,7 +719,7 @@ class TestR23MLXSupport:
         assert "mlx_lm" in content  # text-only server (port 18081)
         assert "mlx_vlm" in content  # VLM server (port 18082)
         assert "mlx-proxy" in content  # auto-switching proxy
-        assert "mlx-community/Qwen3-Coder-Next-4bit" in content
+        assert "Qwen3-Coder-Next-8bit" in content
 
     def test_mlx_proxy_script_exists(self):
         """scripts/mlx-proxy.py exists and has the expected structure."""
@@ -733,7 +729,7 @@ class TestR23MLXSupport:
         assert "PROXY_PORT" in content
         assert "detect_server" in content
         assert "ensure_server" in content
-        assert "Qwen3.5-35B-A3B-4bit" in content
+        assert "Qwen3.5-35B-A3B" in content or "Qwen3.5-35B-A3B-Claude" in content
 
 
 class TestRecordUsageMetrics:

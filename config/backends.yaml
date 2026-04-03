@@ -32,7 +32,8 @@ backends:
       - Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  # Reasoning (~22GB, 428k downloads)
       - Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      # Documents (~9GB)
       - Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit # Compliance (~28GB, MoE 3B active)
-      - Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  # Data + reasoning (~22GB)
+      - Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  # Reasoning (~22GB)
+      - mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit                       # Data analysis (~34GB)
       - mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           # Uncensored reasoning (~18GB)
       # ── VLM (served by mlx_vlm on port 8082 — auto-switched) ──────────────
       - mlx-community/Qwen3-VL-32B-Instruct-8bit          # Vision / multimodal (~36GB)
