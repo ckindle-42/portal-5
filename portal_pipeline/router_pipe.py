@@ -446,7 +446,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",

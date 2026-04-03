@@ -379,7 +379,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-music` | general | dolphin-llama3:8b |
 | `auto-research` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit |
 | `auto-vision` | vision → general | qwen3-vl:32b |
-| `auto-data` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit |
+| `auto-data` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit |
 | `auto-compliance` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
 
 ---
