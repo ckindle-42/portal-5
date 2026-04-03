@@ -978,8 +978,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     # P1: create shared client with a connection pool sized for concurrent inference
+    # Timeout raised to 300s: cold-loading 32B models under memory pressure takes
+    # 2-4 min before the first token. 120s was causing S3-18 streaming timeouts.
+    # connect stays 5s — local backends should bind immediately.
     _http_client = httpx.AsyncClient(
-        timeout=httpx.Timeout(120.0, connect=5.0),
+        timeout=httpx.Timeout(300.0, connect=5.0),
         limits=httpx.Limits(
             max_keepalive_connections=20,
             max_connections=100,
@@ -1255,6 +1258,25 @@ async def _try_non_streaming(
         resp = await _http_client.post(backend.chat_url, json=req_body)
         resp.raise_for_status()
         data = resp.json()
+
+        # Reasoning model normalisation: DeepSeek-R1, Qwen3 thinking mode, and Magistral
+        # populate message.reasoning instead of message.content when the thinking chain
+        # exhausts max_tokens. Promote reasoning→content so Open WebUI and all callers
+        # always find the response in the standard OpenAI content field.
+        try:
+            for choice in data.get("choices") or []:
+                msg = choice.get("message") or {}
+                if not msg.get("content") and msg.get("reasoning"):
+                    logger.debug(
+                        "Backend %s: reasoning→content promotion for workspace=%s "
+                        "(thinking chain consumed all tokens)",
+                        backend.id,
+                        workspace_id,
+                    )
+                    msg["content"] = msg["reasoning"]
+        except Exception:
+            pass  # Never let normalisation break a valid response
+
         _record_usage(
             model=target_model,
             workspace=workspace_id,
@@ -1324,6 +1346,24 @@ async def chat_completions(
             if detected:
                 logger.info("Auto-routing: detected workspace '%s' from message content", detected)
                 workspace_id = detected
+
+        # auto-vision text-only fallback: vision-language models (qwen3-vl:32b, Gemma 4)
+        # return empty content when no image is provided. Detect absence of image_url
+        # content parts and reroute to auto-reasoning for text-only queries, so users
+        # always receive a meaningful response from the auto-vision workspace.
+        if workspace_id == "auto-vision":
+            messages = body.get("messages", [])
+            has_image = any(
+                isinstance(part, dict) and part.get("type") == "image_url"
+                for msg in messages
+                for part in (msg.get("content", []) if isinstance(msg.get("content"), list) else [])
+            )
+            if not has_image:
+                logger.info(
+                    "auto-vision: no image_url in request — rerouting to auto-reasoning "
+                    "for text-only query"
+                )
+                workspace_id = "auto-reasoning"
 
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
         _requests_total.labels(workspace=workspace_id).inc()
@@ -1485,7 +1525,8 @@ async def chat_completions(
                         content = ""
                         if "choices" in data and data["choices"]:
                             msg = data["choices"][0].get("message", {})
-                            content = msg.get("content", "")
+                            # Reasoning model fallback: promote reasoning→content
+                            content = msg.get("content", "") or msg.get("reasoning", "")
                         if content:
                             content_payload = {
                                 "id": rid,
@@ -1637,41 +1678,107 @@ async def _stream_from_backend_guarded(
                     + "\n\n"
                 ).encode()
                 return
+            # Detect Ollama native NDJSON format (bare JSON lines, no "data:" prefix)
+            _is_ollama_native = "/api/chat" in url and "/v1/" not in url
+            rid = f"chatcmpl-p5-{int(time.time())}"
+            ts = int(time.time())
             async for chunk in resp.aiter_bytes():
                 if chunk:
-                    # P6: Check raw bytes for '"done"' before decode — skip 99% of chunks.
-                    if b'"done"' in chunk:
+                    if _is_ollama_native:
+                        # Ollama native NDJSON: translate to SSE for Open WebUI
                         chunk_text = chunk.decode("utf-8", errors="replace")
                         for line in chunk_text.splitlines():
                             line = line.strip()
-                            if line.startswith("data:") and "done" in line:
-                                payload = line[5:].strip()
-                                if payload and payload != "[DONE]":
-                                    try:
-                                        usage_data = json.loads(payload)
-                                        elapsed = (
-                                            (time.monotonic() - start_time)
-                                            if start_time is not None
-                                            else None
-                                        )
-                                        _record_usage(
-                                            model=usage_data.get("model", model),
-                                            workspace=workspace_id,
-                                            data=usage_data,
-                                            elapsed_seconds=elapsed,
-                                        )
-                                    except Exception:
-                                        logger.debug("Could not parse usage payload from stream")
-                                    break
-                    # OpenAI SSE: "data: [DONE]" terminator — no usage data, but record with elapsed time.
-                    if b"data: [DONE]" in chunk:
-                        elapsed = (
-                            (time.monotonic() - start_time) if start_time is not None else None
-                        )
-                        _record_usage(
-                            model=model, workspace=workspace_id, data={}, elapsed_seconds=elapsed
-                        )
-                    yield chunk
+                            if not line:
+                                continue
+                            try:
+                                obj = json.loads(line)
+                            except Exception:
+                                continue
+                            msg = obj.get("message") or {}
+                            content_delta = msg.get("content", "") or msg.get("reasoning", "")
+                            if content_delta:
+                                sse_chunk = {
+                                    "id": rid,
+                                    "object": "chat.completion.chunk",
+                                    "created": ts,
+                                    "model": workspace_id,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": content_delta},
+                                            "finish_reason": None,
+                                        }
+                                    ],
+                                }
+                                yield f"data: {json.dumps(sse_chunk)}\n\n".encode()
+                            if obj.get("done") is True:
+                                elapsed = (
+                                    (time.monotonic() - start_time)
+                                    if start_time is not None
+                                    else None
+                                )
+                                _record_usage(
+                                    model=obj.get("model", model),
+                                    workspace=workspace_id,
+                                    data=obj,
+                                    elapsed_seconds=elapsed,
+                                )
+                                done_chunk = {
+                                    "id": rid,
+                                    "object": "chat.completion.chunk",
+                                    "created": ts,
+                                    "model": workspace_id,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {},
+                                            "finish_reason": "stop",
+                                        }
+                                    ],
+                                }
+                                yield f"data: {json.dumps(done_chunk)}\n\n".encode()
+                                yield b"data: [DONE]\n\n"
+                    else:
+                        # Non-native path (MLX, vLLM, /v1/ Ollama compat): keep existing logic
+                        # P6: Check raw bytes for '"done"' before decode — skip 99% of chunks.
+                        if b'"done"' in chunk:
+                            chunk_text = chunk.decode("utf-8", errors="replace")
+                            for line in chunk_text.splitlines():
+                                line = line.strip()
+                                if line.startswith("data:") and "done" in line:
+                                    payload = line[5:].strip()
+                                    if payload and payload != "[DONE]":
+                                        try:
+                                            usage_data = json.loads(payload)
+                                            elapsed = (
+                                                (time.monotonic() - start_time)
+                                                if start_time is not None
+                                                else None
+                                            )
+                                            _record_usage(
+                                                model=usage_data.get("model", model),
+                                                workspace=workspace_id,
+                                                data=usage_data,
+                                                elapsed_seconds=elapsed,
+                                            )
+                                        except Exception:
+                                            logger.debug(
+                                                "Could not parse usage payload from stream"
+                                            )
+                                        break
+                        # OpenAI SSE: "data: [DONE]" terminator — no usage data, but record with elapsed time.
+                        if b"data: [DONE]" in chunk:
+                            elapsed = (
+                                (time.monotonic() - start_time) if start_time is not None else None
+                            )
+                            _record_usage(
+                                model=model,
+                                workspace=workspace_id,
+                                data={},
+                                elapsed_seconds=elapsed,
+                            )
+                        yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")

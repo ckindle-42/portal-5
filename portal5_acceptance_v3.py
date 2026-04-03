@@ -285,7 +285,8 @@ async def _chat(
                         except Exception:
                             pass
                 return 200, text
-            return 200, (r.json().get("choices", [{}])[0].get("message", {}).get("content", ""))
+            msg = r.json().get("choices", [{}])[0].get("message", {})
+            return 200, (msg.get("content", "") or msg.get("reasoning", ""))
     except httpx.ReadTimeout:
         return 408, "timeout"
     except Exception as e:
@@ -667,6 +668,11 @@ _WS_PROMPT: dict[str, str] = {
     "auto-mistral": "A software team is deciding between rewriting a legacy monolith in microservices "
     "or incrementally strangling it. Walk through the key decision factors, trade-offs, "
     "and what additional context would change your recommendation.",
+    "auto-spl": (
+        "Write a Splunk SPL search that detects brute-force SSH login attempts: "
+        "more than 10 failed logins from the same source IP within 5 minutes. "
+        "Use tstats where possible. Explain each pipe in the pipeline."
+    ),
 }
 
 _WS_SIGNALS: dict[str, list[str]] = {
@@ -694,6 +700,7 @@ _WS_SIGNALS: dict[str, list[str]] = {
         "sequen",
         "strang",
     ],
+    "auto-spl": ["tstats", "index=", "sourcetype", "stats", "count", "threshold", "spl"],
 }
 
 
@@ -723,6 +730,13 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
         "mlx/coding",
         [
             "auto-coding",
+        ],
+    ),
+    # DeepSeek-Coder-V2-Lite (MLX) — SPL specialist
+    (
+        "mlx/spl",
+        [
+            "auto-spl",
         ],
     ),
     # security models (baronllm, lily-cybersecurity)
@@ -845,7 +859,7 @@ async def S3() -> None:
             record(
                 sec,
                 "S3-01",
-                f"/v1/models exposes workspace IDs",
+                "/v1/models exposes workspace IDs",
                 "FAIL",
                 f"HTTP {r.status_code}",
                 t0=t0,
@@ -891,6 +905,27 @@ async def S3() -> None:
         if matches
         else f"HTTP {code} OK but routing log entry not found — check pipeline logs",
         matches[:2] if matches else [],
+        t0=t0,
+    )
+
+    # Content-aware routing: SPL keywords → auto-spl logged
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "write a splunk tstats search using index= and sourcetype= to count events",
+        max_tokens=5,
+        timeout=30,
+    )
+    spl_matches = _grep_logs("portal5-pipeline", r"Auto-routing.*auto-spl|auto-spl.*detected")
+    record(
+        sec,
+        "S3-17b",
+        "Content-aware routing: SPL keywords → auto-spl in pipeline logs",
+        "PASS" if spl_matches else "WARN",
+        "confirmed in logs"
+        if spl_matches
+        else f"HTTP {code} OK but auto-spl routing log not found — check pipeline logs",
+        spl_matches[:2] if spl_matches else [],
         t0=t0,
     )
 
@@ -1743,6 +1778,13 @@ _PERSONA_PROMPT: dict[str, str] = {
     "boundary value analysis (max length email/password), usability tests (tab order, enter key), "
     "security tests (brute force protection, password visibility toggle), and accessibility tests. "
     "Specify expected results for each case.",
+    "splunksplgineer": (
+        "Write a complete Splunk ES correlation search that detects lateral movement: "
+        "a user authenticating to more than 5 distinct hosts within 10 minutes. "
+        "Use tstats with the Authentication data model. Include: the full SPL, "
+        "a pipe-by-pipe explanation, required data model accelerations, and a "
+        "one-line performance verdict (FAST / ACCEPTABLE / SLOW)."
+    ),
     "sqlterminal": "Analyze and optimize this SQL query: SELECT TOP 5 u.Username, SUM(o.Total) AS Total "
     "FROM Orders o JOIN Users u ON o.UserID=u.UserID GROUP BY u.Username ORDER BY Total DESC. "
     "Explain the execution plan, identify potential performance bottlenecks, suggest index strategies, "
@@ -1812,6 +1854,11 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
             "ux-uideveloper",
         ],
         "auto-coding",
+    ),
+    (
+        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
+        ["splunksplgineer"],
+        "auto-spl",
     ),
     (
         "deepseek-r1:32b-q4_k_m",
@@ -1913,6 +1960,7 @@ _PERSONA_SIGNALS: dict[str, list[str]] = {
         "consistency",
     ],
     "softwarequalityassurancetester": ["test case", "valid", "invalid", "boundary", "error"],
+    "splunksplgineer": ["tstats", "authentication", "datamodel", "stats", "distinct", "lateral"],
     "sqlterminal": ["join", "group by", "order by", "index", "pagination"],
     "statistician": ["p-value", "power", "sample size", "effect size", "type i"],
     "techreviewer": ["m4", "mlx", "memory", "inference", "performance"],
@@ -1948,7 +1996,8 @@ async def _persona_test_with_retry(
                 json={"model": workspace, "messages": msgs, "stream": False, "max_tokens": 150},
             )
         if r.status_code == 200:
-            text = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            msg = r.json().get("choices", [{}])[0].get("message", {})
+            text = msg.get("content", "") or msg.get("reasoning", "")
             if text.strip():
                 matched = [s for s in signals if s in text.lower()]
                 record(
@@ -2058,7 +2107,7 @@ async def S11() -> None:
             persona = persona_map.get(slug)
             if not persona:
                 record(
-                    sec, f"P:{slug}", f"persona {slug}", "WARN", f"not found in persona YAML files"
+                    sec, f"P:{slug}", f"persona {slug}", "WARN", "not found in persona YAML files"
                 )
                 warned += 1
                 continue
@@ -2087,16 +2136,6 @@ async def S11() -> None:
             await asyncio.sleep(1)
         # Between model groups: delay for model switch
         await asyncio.sleep(30 if is_mlx else 15)
-
-    record(
-        sec,
-        "S11-sum",
-        f"Persona suite summary ({len(PERSONAS)} total)",
-        "PASS"
-        if failed == 0 and warned < len(PERSONAS) // 4
-        else ("WARN" if failed == 0 else "FAIL"),
-        f"{passed} PASS | {warned} WARN | {failed} FAIL",
-    )
 
     record(
         sec,

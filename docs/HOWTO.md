@@ -78,6 +78,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
 | Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | DeepSeek-Coder-V2 (MLX) |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
@@ -590,7 +591,7 @@ Future sessions will remember this context.
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
 
-**Available workspaces:** `auto`, `auto-coding`, `auto-compliance`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`
+**Available workspaces:** `auto`, `auto-coding`, `auto-compliance`, `auto-mistral`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`
 
 ### Verify
 
