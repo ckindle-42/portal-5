@@ -6,7 +6,7 @@ Usage:
     python3 tests/benchmarks/bench_mlx_vs_ollama.py --runs 5
 
 Requires both backends running. Skips gracefully if either is unavailable.
-Matched model pair: mlx-community/Llama-3.2-3B-Instruct-4bit vs llama3.2:3b-instruct-q4_K_M
+Matched model pair: mlx-community/Llama-3.2-3B-Instruct-8bit vs llama3.2:3b-instruct-q4_K_M
 """
 
 import argparse
@@ -18,7 +18,7 @@ MLX_URL = "http://localhost:8081"
 OLLAMA_URL = "http://localhost:11434"
 
 # Matched pair — same architecture, different backend
-MLX_MODEL = "mlx-community/Llama-3.2-3B-Instruct-4bit"
+MLX_MODEL = "mlx-community/Llama-3.2-3B-Instruct-8bit"
 OLLAMA_MODEL = "llama3.2:3b-instruct-q4_K_M"
 
 TEST_PROMPT = (

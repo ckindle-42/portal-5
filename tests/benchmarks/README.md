@@ -5,7 +5,7 @@
 Measures tokens/sec and request latency for matched model pairs.
 
 ### Requirements
-- MLX running: `MLX_MODEL=mlx-community/Llama-3.2-3B-Instruct-4bit ~/.portal5/mlx/start.sh`
+- MLX running: `MLX_MODEL=mlx-community/Llama-3.2-3B-Instruct-8bit ~/.portal5/mlx/start.sh`
 - Ollama running with: `ollama pull llama3.2:3b-instruct-q4_K_M`
 
 ### Run

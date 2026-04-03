@@ -81,7 +81,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 **Example — coding:**
 1. Select `Portal Code Expert`
 2. Type: `Write a Python function that finds the longest palindromic substring`
-3. The pipeline routes to `mlx-community/Qwen3-Coder-Next-4bit` via MLX (or Ollama fallback)
+3. The pipeline routes to `mlx-community/Qwen3-Coder-Next-8bit` via MLX (or Ollama fallback)
 4. The code sandbox MCP is auto-activated
 
 **Verify workspace routing:**
@@ -869,21 +869,26 @@ handles all model selection automatically. No manual switching needed.
 
 ```bash
 # Force the proxy to start a specific server (useful before a long session)
-./launch.sh switch-mlx-model mlx-community/Qwen3.5-35B-A3B-4bit
+./launch.sh switch-mlx-model Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
 ```
 
 ### Available MLX models
 
 | Model | RAM | Server | Best for |
 |-------|-----|--------|----------|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | mlx_lm | Code generation |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | mlx_lm | Fast agentic coder |
-| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | mlx_lm | Reasoning |
-| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | mlx_lm | Code + lightweight |
-| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | mlx_lm | Fast baseline |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality |
-| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | mlx_vlm | Long-context compliance, policy |
-| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | mlx_vlm | Reasoning, research |
+| `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | Code generation |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx` | ~12GB | mlx_lm | SPL specialist |
+| `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
+| `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
+| `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (4bit only) |
+| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | Reasoning, data analysis |
+| `Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~10GB | mlx_lm | Documents, fast reasoning |
+| `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | Compliance, policy (MoE) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning |
+| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Vision / multimodal |
+| `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | Vision fallback |
 
 ### Memory coexistence (64GB system)
 

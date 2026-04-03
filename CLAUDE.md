@@ -255,18 +255,22 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 
 | Model | Memory | Server | Safe Concurrent With |
 |---|---|---|---|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit` | ~17GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/DeepSeek-R1-0528-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Devstral-Small-2505-4bit` | ~13GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
-| `mlx-community/Llama-3.2-3B-Instruct-4bit` | ~2GB | mlx_lm | Everything — safe baseline |
+| `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
+| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Everything — safe baseline |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
-| `mlx-community/Qwen3.5-35B-A3B-4bit` | ~20GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Qwen3.5-27B-4bit` | ~15GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
+| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
-**64GB systems**: Qwen3-Coder-Next (~18GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 41GB total — feasible.
+**64GB systems**: Qwen3-Coder-Next (~32GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 55GB total — feasible but tight.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
-**32GB systems**: Use Llama-3.2-3B (~2GB) or Devstral-Small (~13GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
+**64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
+**32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~18GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
 
 ### MLX Memory Coexistence
 
@@ -274,11 +278,11 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 
 | System RAM | MLX Model | Simultaneously Safe |
 |---|---|---|
-| 32GB | Llama-3.2-3B (~2GB) | ComfyUI flux-schnell + Ollama general |
-| 32GB | DeepSeek-Coder-Lite (~9GB) | Ollama routing only |
-| 32GB | Qwen3-Coder-30B (~17GB) | Ollama routing only — no ComfyUI |
-| 64GB | Qwen3-Coder-Next (~18GB) | ComfyUI Wan2.2 + Ollama general |
-| 64GB | DeepSeek-R1-0528 (~18GB) | ComfyUI flux-schnell + Ollama general |
+| 32GB | Llama-3.2-3B (~3GB) | ComfyUI flux-schnell + Ollama general |
+| 32GB | DeepSeek-Coder-Lite (~12GB) | Ollama routing only |
+| 32GB | Qwen3-Coder-30B (~22GB) | Ollama routing only — no ComfyUI |
+| 64GB | Qwen3-Coder-Next (~32GB) | ComfyUI Wan2.2 + Ollama general |
+| 64GB | Claude-Opus-27B (~22GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
 
 Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
@@ -336,8 +340,8 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `researchanalyst` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
 
 ### Compliance
-- `nerccipcomplianceanalyst` → `mlx-community/Qwen3.5-35B-A3B-4bit`
-- `cippolicywriter` → `mlx-community/Qwen3.5-35B-A3B-4bit`
+- `nerccipcomplianceanalyst` → `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit`
+- `cippolicywriter` → `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit`
 
 ### Systems
 - `linuxterminal` → `qwen3-coder-next:30b-q5`
@@ -359,19 +363,19 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | Workspace ID | Preferred Backend Group | Default Model |
 |---|---|---|
 | `auto` | general | dolphin-llama3:8b |
-| `auto-coding` | mlx → coding → general | mlx-community/Qwen3-Coder-Next-4bit |
+| `auto-coding` | mlx → coding → general | mlx-community/Qwen3-Coder-Next-8bit |
 | `auto-security` | security → general | baronllm:q6_k |
 | `auto-redteam` | security → general | baronllm:q6_k |
 | `auto-blueteam` | security → general | lily-cybersecurity:7b-q4_k_m |
-| `auto-creative` | mlx → creative → general | dolphin-llama3:8b |
-| `auto-reasoning` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
-| `auto-documents` | coding → general | qwen3.5:9b |
+| `auto-creative` | mlx → creative → general | mlx-community/Dolphin3.0-Llama3.1-8B-8bit |
+| `auto-reasoning` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit |
+| `auto-documents` | coding → general | Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
 | `auto-video` | general | dolphin-llama3:8b |
 | `auto-music` | general | dolphin-llama3:8b |
-| `auto-research` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
+| `auto-research` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit |
 | `auto-vision` | vision → general | qwen3-vl:32b |
-| `auto-data` | mlx → reasoning → general | deepseek-r1:32b-q4_k_m |
-| `auto-compliance` | mlx → reasoning → general | mlx-community/Qwen3.5-35B-A3B-4bit |
+| `auto-data` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit |
+| `auto-compliance` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
 
 ---
 

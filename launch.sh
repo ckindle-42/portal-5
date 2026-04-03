@@ -2097,11 +2097,10 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-8bit ~/.portal5/mlx/start.sh"
 
     # ASK-04: Check availability of other Qwen3.5 MLX models that may publish later
-    # Qwen3.5-35B-A3B-4bit and Qwen3.5-27B-4bit are now UNCOMMENTED in backends.yaml
-    # — this block watches for future model publishes only.
+    # Claude-distilled models are now in backends.yaml — this block watches for future publishes.
     echo ""
     echo "=== Checking Qwen3.5 MLX watch (future publishes) ==="
-    echo "  ℹ️  Qwen3.5-35B-A3B-4bit and Qwen3.5-27B-4bit: enabled (see backends.yaml)"
+    echo "  ℹ️  Claude-distilled models: enabled (see backends.yaml)"
     echo ""
     ;;
 
