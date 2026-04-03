@@ -27,6 +27,7 @@ VLM_MODELS = {
     "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     "MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
     "Qwen3-VL-32B-Instruct-8bit",
+    "gemma-4-26b-a4b-4bit",  # Google Gemma 4 MoE — uses mlx_vlm (vision tower)
 }
 
 ALL_MODELS = [
@@ -37,6 +38,9 @@ ALL_MODELS = [
     "mlx-community/Devstral-Small-2505-8bit",
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     "mlx-community/Llama-3.2-3B-Instruct-8bit",
+    # Model diversity additions
+    "mlx-community/gemma-4-26b-a4b-4bit",
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit",
     "mlx-community/Llama-3.3-70B-Instruct-4bit",
     # Claude 4.6 Opus Reasoning Distilled
     "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",

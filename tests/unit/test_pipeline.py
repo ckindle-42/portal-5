@@ -343,11 +343,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 14 (was 13)."""
+        """Total workspace count is now 15 (was 14 after auto-compliance, now 15 with auto-mistral)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 14, (
-            f"Expected 14 workspaces after adding auto-compliance, got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 15, (
+            f"Expected 15 workspaces after adding auto-mistral, got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):

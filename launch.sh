@@ -635,7 +635,7 @@ case "${1:-up}" in
         || echo "  ℹ️  Ollama: no backends healthy yet — run: ./launch.sh pull-models"
 
     WS_COUNT=$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null)
-    _check "all 14 workspaces exposed" "$WS_COUNT" "14"
+    _check "all 15 workspaces exposed" "$WS_COUNT" "15"
 
     METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
     [ "$METRICS" -ge 4 ] && echo "  ✅ Prometheus metrics ($METRICS gauges)" && PASS=$((PASS+1)) || { echo "  ❌ Metrics missing"; FAIL=$((FAIL+1)); }
@@ -1945,6 +1945,9 @@ MLXPLIST
         echo "    mlx-community/Devstral-Small-2505-8bit           (~18GB)"
         echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
         echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
+        echo "  Model Diversity (Google / Mistral):"
+        echo "    mlx-community/gemma-4-26b-a4b-4bit               (~14GB — Google Gemma 4, thinking+vision, VLM)"
+        echo "    lmstudio-community/Magistral-Small-2509-MLX-8bit  (~24GB — Mistral reasoning, [THINK] mode)"
         echo "    mlx-community/Llama-3.3-70B-Instruct-4bit        (~40GB — heavy, 4bit only)"
         echo "  Claude 4.6 Opus Reasoning Distilled:"
         echo "    Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  (~22GB)"
@@ -2029,6 +2032,9 @@ MLXPLIST
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing
         "mlx-community/Llama-3.2-3B-Instruct-8bit"         # ~3GB — ultra-fast
+        # Model diversity (non-Qwen families)
+        "mlx-community/gemma-4-26b-a4b-4bit"               # ~14GB — Google Gemma 4 MoE, thinking+vision
+        "lmstudio-community/Magistral-Small-2509-MLX-8bit"  # ~24GB — Mistral reasoning, [THINK] mode
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
         "mlx-community/llava-1.5-7b-8bit"                  # ~8GB

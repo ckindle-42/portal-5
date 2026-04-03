@@ -77,6 +77,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Portal Vision | Image analysis | Qwen3-VL |
 | Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
+| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
@@ -89,7 +90,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 14 workspace IDs (auto, auto-coding, auto-compliance, auto-security, auto-redteam, etc.)
+# Expected: 15 workspace IDs (auto, auto-coding, auto-compliance, auto-mistral, auto-security, auto-redteam, etc.)
 ```
 
 ---
@@ -882,6 +883,8 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
 | `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline |
+| `mlx-community/gemma-4-26b-a4b-4bit` | ~14GB | mlx_vlm | Google Gemma 4 MoE, thinking+vision, 256K ctx |
+| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode, vision |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (4bit only) |
 | `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | Reasoning, data analysis |
 | `Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~10GB | mlx_lm | Documents, fast reasoning |
@@ -895,6 +898,8 @@ handles all model selection automatically. No manual switching needed.
 ```
 Qwen3-Coder-Next (~18GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 41GB ✓
 Qwen3.5-35B (~20GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 43GB ✓
+Gemma-4-26B-A4B (~14GB) + ComfyUI Wan2.2 (~18GB) + Ollama general (~5GB) = 37GB ✓
+Magistral-Small-8bit (~24GB) + ComfyUI flux-schnell (~8GB) + Ollama general (~5GB) = 37GB ✓
 ```
 
 ### Verify

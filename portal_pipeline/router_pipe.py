@@ -440,7 +440,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks",
         "model_hint": "qwen3-vl:32b",
-        "mlx_model_hint": "mlx-community/Qwen3-VL-32B-Instruct-8bit",
+        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-4bit",  # Updated: Gemma 4 replaces Qwen3-VL as primary MLX VLM (Google family, #6 open LMArena)
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
@@ -453,6 +453,15 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "description": "NERC CIP compliance, policy analysis, regulatory guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    },
+    "auto-mistral": {
+        "name": "🧪 Portal Mistral Reasoner",
+        "description": (
+            "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, "
+            "[THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models."
+        ),
+        "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
     },
 }
 

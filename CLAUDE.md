@@ -263,12 +263,15 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Everything — safe baseline |
+| `mlx-community/gemma-4-26b-a4b-4bit` | ~14GB | mlx_vlm | ComfyUI + Ollama general (~5GB) |
+| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
 **64GB systems**: Qwen3-Coder-Next (~32GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 55GB total — feasible but tight.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
+**64GB systems**: Gemma-4-26B-A4B (~14GB) + Magistral-Small (~24GB) = 38GB combined — coexist safely.
 **64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
 **32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~18GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
 
@@ -283,6 +286,8 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | 32GB | Qwen3-Coder-30B (~22GB) | Ollama routing only — no ComfyUI |
 | 64GB | Qwen3-Coder-Next (~32GB) | ComfyUI Wan2.2 + Ollama general |
 | 64GB | Claude-Opus-27B (~22GB) | ComfyUI flux-schnell + Ollama general |
+| 64GB | Gemma-4-26B-A4B (~14GB) | ComfyUI Wan2.2 + Ollama general |
+| 64GB | Magistral-Small-8bit (~24GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
 
 Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
