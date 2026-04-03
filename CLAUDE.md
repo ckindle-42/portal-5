@@ -257,7 +257,7 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 |---|---|---|---|
 | `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
 | `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |

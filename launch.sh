@@ -1933,7 +1933,7 @@ MLXPLIST
         echo "  Text-only (mlx_lm, port 18081):"
         echo "    mlx-community/Qwen3-Coder-Next-8bit              (~32GB — primary coder)"
         echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (~22GB)"
-        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx  (~12GB)"
+        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit  (~12GB)"
         echo "    mlx-community/Devstral-Small-2505-8bit           (~18GB)"
         echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
         echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
@@ -2013,7 +2013,7 @@ MLXPLIST
         "mlx-community/Qwen3-Coder-Next-8bit"              # ~32GB active
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
         "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"  # ~9GB
-        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx"  # ~12GB
+        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
         "mlx-community/Devstral-Small-2505-8bit"            # ~18GB
         # Claude 4.6 Opus Reasoning Distilled
         "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit"  # ~22GB

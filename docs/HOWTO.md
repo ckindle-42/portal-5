@@ -879,7 +879,7 @@ handles all model selection automatically. No manual switching needed.
 |-------|-----|--------|----------|
 | `mlx-community/Qwen3-Coder-Next-8bit` | ~32GB | mlx_lm | Code generation |
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder |
-| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx` | ~12GB | mlx_lm | SPL specialist |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | SPL specialist |
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
 | `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline |
