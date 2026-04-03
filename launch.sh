@@ -2012,13 +2012,13 @@ MLXPLIST
         # Coding — primary workspace models
         "mlx-community/Qwen3-Coder-Next-8bit"              # ~32GB active
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
-        "mlx-community/Qwen3.5-9B-8bit"                    # ~10GB
+        "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"  # ~9GB
         "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit-mlx"  # ~12GB
         "mlx-community/Devstral-Small-2505-8bit"            # ~18GB
-        # Reasoning
-        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit"           # ~34GB
-        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"  # ~18GB (uncensored)
-        "mlx-community/Qwen3.5-27B-8bit"                   # ~22GB
+        # Claude 4.6 Opus Reasoning Distilled
+        "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit"  # ~22GB
+        "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
+        "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit"          # ~18GB
         # Creative / general (uncensored)
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing
@@ -2026,8 +2026,11 @@ MLXPLIST
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
         "mlx-community/llava-1.5-7b-8bit"                  # ~8GB
-        # Compliance
-        "mlx-community/Qwen3.5-35B-A3B-8bit"               # ~28GB
+    )
+
+    # Heavy models — gated behind PULL_HEAVY=true
+    HEAVY_MLX_MODELS=(
+        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
     )
 
     # Heavy models — gated behind PULL_HEAVY=true

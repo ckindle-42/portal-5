@@ -412,13 +412,13 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/Qwen3.5-9B-8bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",
@@ -434,7 +434,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -446,13 +446,13 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-8bit",
+        "mlx_model_hint": "mlx-community/Qwen3.5-27B-Claude-4.6-Opus-Distilled-MLX-6bit",
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
         "description": "NERC CIP compliance, policy analysis, regulatory guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Qwen3.5-35B-A3B-8bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     },
 }
 
