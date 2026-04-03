@@ -2017,6 +2017,94 @@ MLXPLIST
     fi
     ;;
 
+  start-mlx-watchdog)
+    ARCH=$(uname -m)
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  MLX watchdog is Apple Silicon only."
+        exit 0
+    fi
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    WATCHDOG_SCRIPT="$PORTAL_ROOT/scripts/mlx-watchdog.py"
+    if [ ! -f "$WATCHDOG_SCRIPT" ]; then
+        echo "  ❌ mlx-watchdog.py not found at $WATCHDOG_SCRIPT"
+        exit 1
+    fi
+
+    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+        echo "  ℹ️  MLX watchdog already running (PID $(cat /tmp/mlx-watchdog.pid))"
+        exit 0
+    fi
+
+    mkdir -p "$HOME/.portal5/logs"
+    echo "  Starting MLX watchdog..."
+    nohup python3 "$WATCHDOG_SCRIPT" > "$HOME/.portal5/logs/mlx-watchdog.log" 2>&1 &
+    echo $! > /tmp/mlx-watchdog.pid
+    sleep 2
+    if kill -0 "$!" 2>/dev/null; then
+        echo "  ✅ MLX watchdog started (PID $!)"
+        echo "     Logs: $HOME/.portal5/logs/mlx-watchdog.log"
+    else
+        echo "  ❌ MLX watchdog failed to start"
+        exit 1
+    fi
+    ;;
+
+  stop-mlx-watchdog)
+    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+        kill "$(cat /tmp/mlx-watchdog.pid)"
+        rm -f /tmp/mlx-watchdog.pid
+        echo "  ✅ MLX watchdog stopped"
+    else
+        echo "  ℹ️  MLX watchdog not running"
+    fi
+    ;;
+
+  mlx-status)
+    ARCH=$(uname -m)
+    echo "=== MLX Component Status ==="
+    echo ""
+
+    # Proxy
+    echo -n "  MLX Proxy (:8081):     "
+    if curl -s --connect-timeout 3 http://localhost:8081/health &>/dev/null; then
+        echo "✅ healthy"
+        curl -s http://localhost:8081/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
+    else
+        echo "❌ down"
+    fi
+
+    # mlx_lm
+    echo -n "  mlx_lm server (:18081): "
+    if curl -s --connect-timeout 3 http://localhost:18081/health &>/dev/null; then
+        echo "✅ healthy"
+        curl -s http://localhost:18081/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
+    else
+        echo "❌ down"
+    fi
+
+    # mlx_vlm
+    echo -n "  mlx_vlm server (:18082): "
+    if curl -s --connect-timeout 3 http://localhost:18082/health &>/dev/null; then
+        echo "✅ healthy"
+        curl -s http://localhost:18082/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
+    else
+        echo "❌ down"
+    fi
+
+    # Watchdog
+    echo -n "  MLX Watchdog:          "
+    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+        echo "✅ running (PID $(cat /tmp/mlx-watchdog.pid))"
+    else
+        echo "❌ not running (start with: ./launch.sh start-mlx-watchdog)"
+    fi
+
+    echo ""
+    echo "=== Pipeline Backend Health ==="
+    curl -s http://localhost:9099/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/  /' || echo "  Pipeline not responding"
+    ;;
+
   pull-mlx-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     ARCH=$(uname -m)
@@ -2209,7 +2297,7 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -2218,6 +2306,9 @@ MEOF
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
     echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
+    echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
+    echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
+    echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm)"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
