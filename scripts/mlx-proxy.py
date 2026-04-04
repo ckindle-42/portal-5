@@ -9,19 +9,31 @@ Starts the correct MLX server based on the requested model:
 
 Only one server runs at a time due to unified memory constraints on Apple Silicon.
 Switching takes ~30s for the new server to load.
+
+Concurrency protection: bounded thread pool prevents kernel panic under load.
+  - MAX_WORKERS: max concurrent requests (default 4)
+  - MAX_QUEUE: max queued requests before 503 (default 8)
+  - REQUEST_TIMEOUT: max seconds per request (default 300s)
 """
 
 import json
+import os
 import subprocess
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from concurrent.futures import ThreadPoolExecutor
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 
 import httpx
 
 LM_PORT = 18081
 VLM_PORT = 18082
 PROXY_PORT = 8081
+
+MAX_WORKERS = int(os.environ.get("MLX_PROXY_MAX_WORKERS", "4"))
+MAX_QUEUE = int(os.environ.get("MLX_PROXY_MAX_QUEUE", "8"))
+REQUEST_TIMEOUT = int(os.environ.get("MLX_PROXY_REQUEST_TIMEOUT", "300"))
 
 VLM_MODELS = {
     "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
@@ -53,6 +65,7 @@ ALL_MODELS = [
 ]
 
 lock = threading.Lock()
+_request_semaphore = threading.Semaphore(MAX_WORKERS + MAX_QUEUE)
 
 
 def needs_vlm(model: str) -> bool:
@@ -127,77 +140,109 @@ def ensure_server(model: str) -> int:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def do_POST(self):
+    def _send_json(self, code: int, data: dict):
+        body = json.dumps(data).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_post(self):
         clen = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(clen)
         try:
             model = json.loads(body).get("model", "")
         except Exception:
             model = ""
-        try:
-            bp = ensure_server(model)
-            url = f"http://127.0.0.1:{bp}{self.path}"
-            hdrs = {
-                k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")
-            }
-            hdrs["Content-Type"] = "application/json"
-            with httpx.Client(timeout=300) as c:
-                resp = c.post(url, content=body, headers=hdrs)
+        bp = ensure_server(model)
+        url = f"http://127.0.0.1:{bp}{self.path}"
+        hdrs = {
+            k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")
+        }
+        hdrs["Content-Type"] = "application/json"
+        with httpx.Client(timeout=REQUEST_TIMEOUT) as c:
+            resp = c.post(url, content=body, headers=hdrs)
+        self.send_response(resp.status_code)
+        for k, v in resp.headers.items():
+            if k.lower() not in ("transfer-encoding", "content-encoding"):
+                self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(resp.content)
+
+    def _handle_get_forward(self):
+        active = detect_server()
+        if active:
+            port = VLM_PORT if active == "vlm" else LM_PORT
+            with httpx.Client(timeout=30) as c:
+                resp = c.get(f"http://127.0.0.1:{port}{self.path}")
             self.send_response(resp.status_code)
             for k, v in resp.headers.items():
-                if k.lower() not in ("transfer-encoding", "content-encoding"):
+                if k.lower() != "transfer-encoding":
                     self.send_header(k, v)
             self.end_headers()
             self.wfile.write(resp.content)
+            return True
+        return False
+
+    def do_POST(self):
+        if not _request_semaphore.acquire(blocking=False):
+            self._send_json(503, {"error": "MLX proxy overloaded — too many concurrent requests"})
+            return
+        try:
+            self._handle_post()
         except Exception as e:
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            self._send_json(502, {"error": str(e)})
+        finally:
+            _request_semaphore.release()
 
     def do_GET(self):
         if self.path == "/health":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(
-                json.dumps({"status": "ok", "active_server": detect_server() or "none"}).encode()
-            )
+            self._send_json(200, {"status": "ok", "active_server": detect_server() or "none"})
             return
         if self.path == "/v1/models":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
             data = {
                 "object": "list",
                 "data": [{"id": m, "object": "model", "created": 0} for m in ALL_MODELS],
             }
-            self.wfile.write(json.dumps(data).encode())
+            self._send_json(200, data)
             return
-        # Forward to active server
-        active = detect_server()
-        if active:
-            port = VLM_PORT if active == "vlm" else LM_PORT
-            try:
-                with httpx.Client(timeout=30) as c:
-                    resp = c.get(f"http://127.0.0.1:{port}{self.path}")
-                self.send_response(resp.status_code)
-                for k, v in resp.headers.items():
-                    if k.lower() != "transfer-encoding":
-                        self.send_header(k, v)
-                self.end_headers()
-                self.wfile.write(resp.content)
-                return
-            except Exception:
-                pass
-        self.send_response(503)
-        self.end_headers()
-        self.wfile.write(b'{"error":"no server"}')
+        if not self._handle_get_forward():
+            self._send_json(503, {"error": "no server"})
 
-    def log_message(self, *a):
+    def log_message(self, format, *args):
         pass
 
 
+class BoundedThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    """HTTP server that delegates request handling to a bounded thread pool."""
+
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(self, *args, max_workers=MAX_WORKERS, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="mlx-proxy",
+        )
+
+    def process_request(self, request, client_address):
+        self.executor.submit(self.process_request_thread, request, client_address)
+
+    def shutdown(self):
+        self.executor.shutdown(wait=False)
+        super().shutdown()
+
+
 if __name__ == "__main__":
-    print(f"[mlx-proxy] Listening on :{PROXY_PORT}", flush=True)
-    ThreadingHTTPServer(("0.0.0.0", PROXY_PORT), Handler).serve_forever()
+    print(
+        f"[mlx-proxy] Listening on :{PROXY_PORT} (workers={MAX_WORKERS}, queue={MAX_QUEUE})",
+        flush=True,
+    )
+    server = BoundedThreadingHTTPServer(("0.0.0.0", PROXY_PORT), Handler, max_workers=MAX_WORKERS)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[mlx-proxy] Shutting down...", flush=True)
+        server.shutdown()
