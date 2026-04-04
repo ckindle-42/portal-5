@@ -231,9 +231,7 @@ async def _mcp(
         async with streamablehttp_client(url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await asyncio.wait_for(
-                    session.call_tool(tool, args), timeout=timeout
-                )
+                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
                 text = ""
                 for block in result.content:
                     if hasattr(block, "text"):
@@ -291,21 +289,33 @@ async def _chat(
 
 
 # ── Streaming test via curl (avoids httpx SSE hang) ───────────────────────────
-def _curl_stream(workspace: str, prompt: str, max_tokens: int = 5, timeout_s: int = 300) -> tuple[bool, str]:
+def _curl_stream(
+    workspace: str, prompt: str, max_tokens: int = 5, timeout_s: int = 300
+) -> tuple[bool, str]:
     """Returns (got_chunks, detail). Uses curl for reliable SSE consumption."""
     try:
         result = subprocess.run(
             [
-                "curl", "-s", "-m", str(timeout_s),
-                "-X", "POST", f"{PIPELINE_URL}/v1/chat/completions",
-                "-H", f"Authorization: Bearer {API_KEY}",
-                "-H", "Content-Type: application/json",
-                "-d", json.dumps({
-                    "model": workspace,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True,
-                    "max_tokens": max_tokens,
-                }),
+                "curl",
+                "-s",
+                "-m",
+                str(timeout_s),
+                "-X",
+                "POST",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                "-H",
+                f"Authorization: Bearer {API_KEY}",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                json.dumps(
+                    {
+                        "model": workspace,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": True,
+                        "max_tokens": max_tokens,
+                    }
+                ),
             ],
             capture_output=True,
             text=True,
@@ -353,13 +363,21 @@ async def S17() -> None:
             timeout=60,
         )
         record(
-            sec, "S17-00", "git pull origin main (--rebuild)",
+            sec,
+            "S17-00",
+            "git pull origin main (--rebuild)",
             "PASS" if pull.returncode == 0 else "WARN",
             pull.stdout.strip()[:120] or pull.stderr.strip()[:120],
             t0=t0,
         )
     else:
-        record(sec, "S17-00", "git pull skipped (no --rebuild flag)", "INFO", "use --rebuild to auto-pull")
+        record(
+            sec,
+            "S17-00",
+            "git pull skipped (no --rebuild flag)",
+            "INFO",
+            "use --rebuild to auto-pull",
+        )
 
     # ── S17-01: Dockerfile.mcp hash ──────────────────────────────────────────
     dh = subprocess.run(["md5sum", str(ROOT / "Dockerfile.mcp")], capture_output=True, text=True)
@@ -371,7 +389,9 @@ async def S17() -> None:
     hash_changed = current_hash != stored_hash and stored_hash != ""
 
     record(
-        sec, "S17-01", "Dockerfile.mcp hash",
+        sec,
+        "S17-01",
+        "Dockerfile.mcp hash",
         "INFO",
         f"hash={current_hash} {'(CHANGED from last run)' if hash_changed else '(unchanged)'}",
     )
@@ -379,11 +399,11 @@ async def S17() -> None:
     # ── S17-02: MCP health check — restart if unhealthy ──────────────────────
     mcp_checks = [
         ("mcp-documents", f"http://localhost:{MCP['documents']}/health"),
-        ("mcp-music",     f"http://localhost:{MCP['music']}/health"),
-        ("mcp-tts",       f"http://localhost:{MCP['tts']}/health"),
-        ("mcp-whisper",   f"http://localhost:{MCP['whisper']}/health"),
-        ("mcp-sandbox",   f"http://localhost:{MCP['sandbox']}/health"),
-        ("mcp-video",     f"http://localhost:{MCP['video']}/health"),
+        ("mcp-music", f"http://localhost:{MCP['music']}/health"),
+        ("mcp-tts", f"http://localhost:{MCP['tts']}/health"),
+        ("mcp-whisper", f"http://localhost:{MCP['whisper']}/health"),
+        ("mcp-sandbox", f"http://localhost:{MCP['sandbox']}/health"),
+        ("mcp-video", f"http://localhost:{MCP['video']}/health"),
     ]
     needs_restart: list[str] = []
     async with httpx.AsyncClient(timeout=6) as c:
@@ -398,13 +418,21 @@ async def S17() -> None:
     # ── S17-03: Rebuild MCPs if hash changed or --rebuild forced ──────────────
     should_rebuild = _FORCE_REBUILD or hash_changed
     if should_rebuild:
-        print(f"  🔨 Rebuilding MCP containers (force={_FORCE_REBUILD} hash_changed={hash_changed})...")
+        print(
+            f"  🔨 Rebuilding MCP containers (force={_FORCE_REBUILD} hash_changed={hash_changed})..."
+        )
         t0 = time.time()
         build_result = subprocess.run(
-            DC + [
-                "build", "--no-cache",
-                "portal-mcp-documents", "portal-mcp-music", "portal-mcp-tts",
-                "portal-mcp-whisper", "portal-mcp-sandbox", "portal-mcp-video",
+            DC
+            + [
+                "build",
+                "--no-cache",
+                "portal-mcp-documents",
+                "portal-mcp-music",
+                "portal-mcp-tts",
+                "portal-mcp-whisper",
+                "portal-mcp-sandbox",
+                "portal-mcp-video",
             ],
             capture_output=True,
             text=True,
@@ -412,11 +440,12 @@ async def S17() -> None:
             timeout=600,
         )
         record(
-            sec, "S17-03a", "MCP containers rebuilt from source",
+            sec,
+            "S17-03a",
+            "MCP containers rebuilt from source",
             "PASS" if build_result.returncode == 0 else "FAIL",
-            f"exit={build_result.returncode}" + (
-                f" stderr: {build_result.stderr[-200:]}" if build_result.returncode != 0 else ""
-            ),
+            f"exit={build_result.returncode}"
+            + (f" stderr: {build_result.stderr[-200:]}" if build_result.returncode != 0 else ""),
             t0=t0,
         )
         if build_result.returncode == 0:
@@ -437,7 +466,9 @@ async def S17() -> None:
             timeout=300,
         )
         record(
-            sec, "S17-04", "Pipeline container rebuilt",
+            sec,
+            "S17-04",
+            "Pipeline container rebuilt",
             "PASS" if pipeline_build.returncode == 0 else "FAIL",
             f"exit={pipeline_build.returncode}",
             t0=t0,
@@ -452,7 +483,9 @@ async def S17() -> None:
                 timeout=120,
             )
             record(
-                sec, "S17-04b", "Pipeline container restarted",
+                sec,
+                "S17-04b",
+                "Pipeline container restarted",
                 "PASS" if up_result.returncode == 0 else "WARN",
                 f"exit={up_result.returncode}",
                 t0=t0,
@@ -463,7 +496,9 @@ async def S17() -> None:
     # ── S17-05: Restart unhealthy MCPs ────────────────────────────────────────
     if needs_restart:
         record(
-            sec, "S17-05", f"Starting/restarting {len(needs_restart)} MCP services",
+            sec,
+            "S17-05",
+            f"Starting/restarting {len(needs_restart)} MCP services",
             "INFO",
             f"services: {needs_restart}",
         )
@@ -487,7 +522,9 @@ async def S17() -> None:
                 except Exception:
                     pass
         record(
-            sec, "S17-05b", "MCP recovery after restart",
+            sec,
+            "S17-05b",
+            "MCP recovery after restart",
             "PASS" if recovered == len(mcp_checks) else "WARN",
             f"{recovered}/{len(mcp_checks)} healthy",
             t0=t0,
@@ -524,7 +561,9 @@ async def S17() -> None:
         ]
         missing = [p for p in expected if not any(p in c for c in running)]
         record(
-            sec, "S17-06", "All expected containers running",
+            sec,
+            "S17-06",
+            "All expected containers running",
             "PASS" if not missing else "WARN",
             f"missing: {missing}" if missing else f"{len(running)} containers up",
             t0=t0,
@@ -539,10 +578,16 @@ async def S17() -> None:
         d = hd.json()
         ws_count = d.get("workspaces", 0)
         record(
-            sec, "S17-07", "Pipeline /health workspace count matches codebase",
+            sec,
+            "S17-07",
+            "Pipeline /health workspace count matches codebase",
             "PASS" if ws_count == len(WS_IDS) else "WARN",
             f"pipeline reports {ws_count}, code has {len(WS_IDS)}"
-            + ("" if ws_count == len(WS_IDS) else " — rebuild pipeline: docker compose up -d --build portal-pipeline"),
+            + (
+                ""
+                if ws_count == len(WS_IDS)
+                else " — rebuild pipeline: docker compose up -d --build portal-pipeline"
+            ),
             t0=t0,
         )
     except Exception as e:
@@ -606,6 +651,7 @@ async def S0() -> None:
 
     try:
         import importlib.metadata
+
         v = importlib.metadata.version("portal-5")
         record(sec, "S0-04", "Installed package version (portal-5)", "INFO", f"v{v}")
     except Exception:
@@ -755,16 +801,16 @@ async def S2() -> None:
     sec = "S2"
 
     services = [
-        ("Open WebUI",    OPENWEBUI_URL,                 {}),
-        ("Pipeline",      f"{PIPELINE_URL}/health",      {}),
-        ("Grafana",       f"{GRAFANA_URL}/api/health",   {}),
+        ("Open WebUI", OPENWEBUI_URL, {}),
+        ("Pipeline", f"{PIPELINE_URL}/health", {}),
+        ("Grafana", f"{GRAFANA_URL}/api/health", {}),
         ("MCP Documents", f"http://localhost:{MCP['documents']}/health", {}),
-        ("MCP Sandbox",   f"http://localhost:{MCP['sandbox']}/health",   {}),
-        ("MCP Music",     f"http://localhost:{MCP['music']}/health",     {}),
-        ("MCP TTS",       f"http://localhost:{MCP['tts']}/health",       {}),
-        ("MCP Whisper",   f"http://localhost:{MCP['whisper']}/health",   {}),
-        ("MCP Video",     f"http://localhost:{MCP['video']}/health",     {}),
-        ("Prometheus",    f"{PROMETHEUS_URL}/-/ready",   {}),
+        ("MCP Sandbox", f"http://localhost:{MCP['sandbox']}/health", {}),
+        ("MCP Music", f"http://localhost:{MCP['music']}/health", {}),
+        ("MCP TTS", f"http://localhost:{MCP['tts']}/health", {}),
+        ("MCP Whisper", f"http://localhost:{MCP['whisper']}/health", {}),
+        ("MCP Video", f"http://localhost:{MCP['video']}/health", {}),
+        ("Prometheus", f"{PROMETHEUS_URL}/-/ready", {}),
     ]
 
     async with httpx.AsyncClient(timeout=6) as c:
@@ -773,7 +819,9 @@ async def S2() -> None:
             try:
                 r = await c.get(url, headers=hdrs)
                 record(
-                    sec, f"S2-{i:02d}", name,
+                    sec,
+                    f"S2-{i:02d}",
+                    name,
                     "PASS" if r.status_code == 200 else "WARN",
                     f"HTTP {r.status_code}" if r.status_code != 200 else "",
                     t0=t0,
@@ -786,9 +834,14 @@ async def S2() -> None:
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"http://localhost:{MCP['comfyui_mcp']}/health")
-            record(sec, "S2-11", "MCP ComfyUI bridge",
-                   "PASS" if r.status_code == 200 else "WARN",
-                   f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec,
+                "S2-11",
+                "MCP ComfyUI bridge",
+                "PASS" if r.status_code == 200 else "WARN",
+                f"HTTP {r.status_code}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S2-11", "MCP ComfyUI bridge", "WARN", str(e)[:80], t0=t0)
 
@@ -802,9 +855,14 @@ async def S2() -> None:
             else:
                 # Fallback: try search endpoint
                 r2 = await c.get(f"{SEARXNG_URL}/search?q=test&format=json")
-                record(sec, "S2-12", "SearXNG container",
-                       "PASS" if r2.status_code == 200 else "WARN",
-                       f"HTTP {r2.status_code}", t0=t0)
+                record(
+                    sec,
+                    "S2-12",
+                    "SearXNG container",
+                    "PASS" if r2.status_code == 200 else "WARN",
+                    f"HTTP {r2.status_code}",
+                    t0=t0,
+                )
     except Exception as e:
         record(sec, "S2-12", "SearXNG container", "WARN", str(e)[:60], t0=t0)
 
@@ -812,9 +870,14 @@ async def S2() -> None:
     t0 = time.time()
     try:
         models = _ollama_models()
-        record(sec, "S2-13", "Ollama responding with pulled models",
-               "PASS" if models else "WARN",
-               f"{len(models)} models pulled", t0=t0)
+        record(
+            sec,
+            "S2-13",
+            "Ollama responding with pulled models",
+            "PASS" if models else "WARN",
+            f"{len(models)} models pulled",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S2-13", "Ollama", "FAIL", str(e)[:80], t0=t0)
 
@@ -823,9 +886,14 @@ async def S2() -> None:
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"{PIPELINE_URL}/metrics")
-            record(sec, "S2-14", "/metrics endpoint is unauthenticated (HOWTO §22)",
-                   "PASS" if r.status_code == 200 else "FAIL",
-                   f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec,
+                "S2-14",
+                "/metrics endpoint is unauthenticated (HOWTO §22)",
+                "PASS" if r.status_code == 200 else "FAIL",
+                f"HTTP {r.status_code}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S2-14", "/metrics unauthenticated", "FAIL", str(e)[:80], t0=t0)
 
@@ -836,8 +904,14 @@ async def S2() -> None:
             r = await c.get(f"{MLX_URL}/v1/models")
             if r.status_code == 200:
                 mlx_models = r.json().get("data", [])
-                record(sec, "S2-15", "MLX proxy :8081",
-                       "INFO", f"{len(mlx_models)} models listed", t0=t0)
+                record(
+                    sec,
+                    "S2-15",
+                    "MLX proxy :8081",
+                    "INFO",
+                    f"{len(mlx_models)} models listed",
+                    t0=t0,
+                )
             else:
                 record(sec, "S2-15", "MLX proxy :8081", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
@@ -923,22 +997,22 @@ _WS_PROMPT: dict[str, str] = {
 }
 
 _WS_SIGNALS: dict[str, list[str]] = {
-    "auto":           ["docker", "network", "container", "bridge", "communic"],
-    "auto-coding":    ["def ", "str", "return", "palindrome", "complexity"],
-    "auto-security":  ["autoindex", "security", "misconfiguration", "expose", "cors"],
-    "auto-redteam":   ["injection", "jwt", "sql", "attack", "vector", "exploit"],
-    "auto-blueteam":  ["mitre", "brute", "attack", "indicator", "t1110", "contain"],
-    "auto-creative":  ["robot", "flower", "garden", "wonder"],
+    "auto": ["docker", "network", "container", "bridge", "communic"],
+    "auto-coding": ["def ", "str", "return", "palindrome", "complexity"],
+    "auto-security": ["autoindex", "security", "misconfiguration", "expose", "cors"],
+    "auto-redteam": ["injection", "jwt", "sql", "attack", "vector", "exploit"],
+    "auto-blueteam": ["mitre", "brute", "attack", "indicator", "t1110", "contain"],
+    "auto-creative": ["robot", "flower", "garden", "wonder"],
     "auto-reasoning": ["meet", "hour", "miles", "train", "mph", "790"],
     "auto-documents": ["purpose", "scope", "patch", "procedure", "responsibilit"],
-    "auto-video":     ["wave", "ocean", "camera", "light", "golden", "lens"],
-    "auto-music":     ["tempo", "bpm", "piano", "beat", "hip", "lo-fi"],
-    "auto-research":  ["aes", "rsa", "symmetric", "asymmetric", "key", "encrypt"],
-    "auto-vision":    ["image", "visual", "diagram", "detect", "analyz"],
-    "auto-data":      ["statistic", "mean", "correlation", "visual", "salary", "equity"],
+    "auto-video": ["wave", "ocean", "camera", "light", "golden", "lens"],
+    "auto-music": ["tempo", "bpm", "piano", "beat", "hip", "lo-fi"],
+    "auto-research": ["aes", "rsa", "symmetric", "asymmetric", "key", "encrypt"],
+    "auto-vision": ["image", "visual", "diagram", "detect", "analyz"],
+    "auto-data": ["statistic", "mean", "correlation", "visual", "salary", "equity"],
     "auto-compliance": ["cip-007", "patch", "evidence", "audit", "nerc", "asset"],
-    "auto-mistral":   ["trade-off", "risk", "decision", "monolith", "microservice", "strang"],
-    "auto-spl":       ["tstats", "index=", "sourcetype", "stats", "count", "threshold"],
+    "auto-mistral": ["trade-off", "risk", "decision", "monolith", "microservice", "strang"],
+    "auto-spl": ["tstats", "index=", "sourcetype", "stats", "count", "threshold"],
 }
 
 
@@ -948,18 +1022,20 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
     # dolphin-llama3:8b (general, creative, video, music)
     ("general/dolphin-llama3:8b", ["auto", "auto-video", "auto-music", "auto-creative"]),
     # qwen3.5:9b (documents)
-    ("coding/qwen3.5:9b",         ["auto-documents"]),
+    ("coding/qwen3.5:9b", ["auto-documents"]),
     # Qwen3-Coder-Next-4bit (MLX — coding)
-    ("mlx/coding",                ["auto-coding"]),
+    ("mlx/coding", ["auto-coding"]),
     # Qwen3-Coder-30B-A3B-Instruct-8bit (MLX — SPL)
-    ("mlx/spl",                   ["auto-spl"]),
+    ("mlx/spl", ["auto-spl"]),
     # security models
-    ("security",                  ["auto-security", "auto-redteam", "auto-blueteam"]),
+    ("security", ["auto-security", "auto-redteam", "auto-blueteam"]),
     # reasoning/compliance/research/data (deepseek-r1 family + MLX)
-    ("mlx/reasoning",             ["auto-reasoning", "auto-research", "auto-data",
-                                   "auto-compliance", "auto-mistral"]),
+    (
+        "mlx/reasoning",
+        ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"],
+    ),
     # vision (MLX gemma-4)
-    ("mlx/vision",                ["auto-vision"]),
+    ("mlx/vision", ["auto-vision"]),
 ]
 
 _INTRA_GROUP_DELAY = 2
@@ -981,7 +1057,8 @@ async def _workspace_test_with_retry(
         if code == 200 and text.strip():
             matched = [s for s in signals if s in text.lower()]
             record(
-                sec, tid,
+                sec,
+                tid,
                 f"workspace {ws}: domain response",
                 "PASS" if matched or not signals else "WARN",
                 "" if matched else "no domain signals — generic answer",
@@ -990,19 +1067,37 @@ async def _workspace_test_with_retry(
             )
             return
         elif code == 503:
-            record(sec, tid, f"workspace {ws}: domain response", "WARN",
-                   f"503 — model not pulled for {ws} (environmental)", t0=t0)
+            record(
+                sec,
+                tid,
+                f"workspace {ws}: domain response",
+                "WARN",
+                f"503 — model not pulled for {ws} (environmental)",
+                t0=t0,
+            )
             return
         elif code == 408:
-            record(sec, tid, f"workspace {ws}: domain response", "WARN",
-                   "timeout — cold model load", t0=t0)
+            record(
+                sec,
+                tid,
+                f"workspace {ws}: domain response",
+                "WARN",
+                "timeout — cold model load",
+                t0=t0,
+            )
             return
         elif code == 200 and attempt == 0:
             await asyncio.sleep(10)
             continue
         else:
-            record(sec, tid, f"workspace {ws}: domain response", "FAIL",
-                   f"HTTP {code}: {text[:80]}", t0=t0)
+            record(
+                sec,
+                tid,
+                f"workspace {ws}: domain response",
+                "FAIL",
+                f"HTTP {code}: {text[:80]}",
+                t0=t0,
+            )
             return
 
 
@@ -1018,15 +1113,23 @@ async def S3() -> None:
             ids = {m["id"] for m in r.json().get("data", [])}
             missing = sorted(set(WS_IDS) - ids)
             record(
-                sec, "S3-01", f"/v1/models exposes all {len(WS_IDS)} workspace IDs",
+                sec,
+                "S3-01",
+                f"/v1/models exposes all {len(WS_IDS)} workspace IDs",
                 "PASS" if not missing else "FAIL",
                 f"MISSING: {missing}" if missing else "",
                 [f"{len(ids)} total IDs in response"],
                 t0=t0,
             )
         else:
-            record(sec, "S3-01", "/v1/models exposes workspace IDs", "FAIL",
-                   f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec,
+                "S3-01",
+                "/v1/models exposes workspace IDs",
+                "FAIL",
+                f"HTTP {r.status_code}",
+                t0=t0,
+            )
 
     # Test workspaces grouped by backend model
     test_num = 2
@@ -1061,11 +1164,13 @@ async def S3() -> None:
         lines=600,
     )
     record(
-        sec, "S3-17",
+        sec,
+        "S3-17",
         "Content-aware routing: security keywords → auto-redteam pipeline log",
         "PASS" if rt_matches else "WARN",
-        "confirmed in logs" if rt_matches else
-        f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        "confirmed in logs"
+        if rt_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
         rt_matches[:2] if rt_matches else [],
         t0=t0,
     )
@@ -1084,11 +1189,13 @@ async def S3() -> None:
         lines=600,
     )
     record(
-        sec, "S3-17b",
+        sec,
+        "S3-17b",
         "Content-aware routing: SPL keywords → auto-spl pipeline log",
         "PASS" if spl_matches else "WARN",
-        "confirmed in logs" if spl_matches else
-        f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        "confirmed in logs"
+        if spl_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
         spl_matches[:2] if spl_matches else [],
         t0=t0,
     )
@@ -1097,9 +1204,12 @@ async def S3() -> None:
     # Note: httpx hangs on long-lived SSE connections; use curl subprocess instead.
     # Timeout 300s: cold model load can take 2-4 min before first token.
     t0 = time.time()
-    got_chunks, detail = _curl_stream("auto", "Say 'ok' and nothing else.", max_tokens=5, timeout_s=300)
+    got_chunks, detail = _curl_stream(
+        "auto", "Say 'ok' and nothing else.", max_tokens=5, timeout_s=300
+    )
     record(
-        sec, "S3-18",
+        sec,
+        "S3-18",
         "Streaming response delivers NDJSON chunks (SSE)",
         "PASS" if got_chunks else "WARN",
         detail,
@@ -1117,12 +1227,13 @@ async def S3() -> None:
     )
     routed_ws = set(re.findall(r"workspace[=:\s]+(auto[\w-]*)", " ".join(log_lines)))
     record(
-        sec, "S3-19",
+        sec,
+        "S3-19",
         "Pipeline logs contain routing activity for workspaces exercised above",
         "PASS" if len(routed_ws) >= 2 else "WARN",
         f"found routing evidence for: {sorted(routed_ws)}"
-        if routed_ws else
-        "no routing log lines found — non-streaming path may not emit routing logs (known limitation)",
+        if routed_ws
+        else "no routing log lines found — non-streaming path may not emit routing logs (known limitation)",
         [f"{len(log_lines)} routing-related log lines"],
         t0=t0,
     )
@@ -1137,7 +1248,8 @@ async def S4() -> None:
     port = MCP["documents"]
 
     await _mcp(
-        port, "create_word_document",
+        port,
+        "create_word_document",
         {
             "title": "Monolith to Microservices Migration Proposal",
             "content": (
@@ -1148,14 +1260,17 @@ async def S4() -> None:
                 "|------|--------|------------|\n| Data consistency | High | Event sourcing |"
             ),
         },
-        section=sec, tid="S4-01", name="create_word_document → .docx",
+        section=sec,
+        tid="S4-01",
+        name="create_word_document → .docx",
         ok_fn=lambda t: "success" in t and ".docx" in t,
         detail_fn=lambda t: "✓ .docx created" if ".docx" in t else t[:100],
         timeout=60,
     )
 
     await _mcp(
-        port, "create_powerpoint",
+        port,
+        "create_powerpoint",
         {
             "title": "Container Security Best Practices",
             "slides": [
@@ -1166,14 +1281,17 @@ async def S4() -> None:
                 {"title": "Q&A", "content": "Questions and discussion"},
             ],
         },
-        section=sec, tid="S4-02", name="create_powerpoint → .pptx (5 slides)",
+        section=sec,
+        tid="S4-02",
+        name="create_powerpoint → .pptx (5 slides)",
         ok_fn=lambda t: "success" in t and ".pptx" in t,
         detail_fn=lambda t: "✓ 5-slide deck created" if ".pptx" in t else t[:100],
         timeout=60,
     )
 
     await _mcp(
-        port, "create_excel",
+        port,
+        "create_excel",
         {
             "title": "Q1-Q2 Budget",
             "data": [
@@ -1183,15 +1301,21 @@ async def S4() -> None:
                 ["Personnel", 20000, 20000, 40000],
             ],
         },
-        section=sec, tid="S4-03", name="create_excel → .xlsx with data",
+        section=sec,
+        tid="S4-03",
+        name="create_excel → .xlsx with data",
         ok_fn=lambda t: "success" in t and ".xlsx" in t,
         detail_fn=lambda t: "✓ spreadsheet created" if ".xlsx" in t else t[:100],
         timeout=60,
     )
 
     await _mcp(
-        port, "list_generated_files", {},
-        section=sec, tid="S4-04", name="list_generated_files shows created files",
+        port,
+        "list_generated_files",
+        {},
+        section=sec,
+        tid="S4-04",
+        name="list_generated_files shows created files",
         ok_fn=lambda t: "filename" in t or "[]" in t or len(t) > 5,
         detail_fn=lambda t: f"files listed: {t[:120]}",
         timeout=15,
@@ -1216,7 +1340,8 @@ async def S4() -> None:
         )
     has_kw = any(k in text.lower() for k in ["cip", "patch", "procedure", "scope", "purpose"])
     record(
-        sec, "S4-05",
+        sec,
+        "S4-05",
         "auto-documents pipeline round-trip (CIP-007 outline)",
         "PASS" if code == 200 and has_kw else ("WARN" if code in (503, 408) else "FAIL"),
         f"preview: {text[:100].strip()}" if text else f"HTTP {code}",
@@ -1251,7 +1376,8 @@ async def S5() -> None:
         )
     has_code = "def " in text or "```python" in text.lower() or "```" in text
     record(
-        sec, "S5-01",
+        sec,
+        "S5-01",
         "auto-coding workspace returns Python code",
         "PASS" if code == 200 and has_code else ("WARN" if code in (503, 408) else "FAIL"),
         f"preview: {text[:80].strip()}" if text else f"HTTP {code}",
@@ -1259,7 +1385,8 @@ async def S5() -> None:
     )
 
     await _mcp(
-        port, "execute_python",
+        port,
+        "execute_python",
         {
             "code": (
                 "primes=[n for n in range(2,100) "
@@ -1268,11 +1395,15 @@ async def S5() -> None:
             ),
             "timeout": 30,
         },
-        section=sec, tid="S5-02", name="execute_python: primes to 100 (count=25 sum=1060)",
+        section=sec,
+        tid="S5-02",
+        name="execute_python: primes to 100 (count=25 sum=1060)",
         ok_fn=lambda t: "success" in t.lower() and "25" in t and "1060" in t,
         detail_fn=lambda t: (
-            "✓ count=25 sum=1060" if "25" in t and "1060" in t
-            else "executed but wrong output" if "success" in t.lower()
+            "✓ count=25 sum=1060"
+            if "25" in t and "1060" in t
+            else "executed but wrong output"
+            if "success" in t.lower()
             else t[:120]
         ),
         warn_if=["docker", "Docker", "dind", "DinD", "sandbox"],
@@ -1280,7 +1411,8 @@ async def S5() -> None:
     )
 
     await _mcp(
-        port, "execute_python",
+        port,
+        "execute_python",
         {
             "code": (
                 "fib=[0,1]\n"
@@ -1289,7 +1421,9 @@ async def S5() -> None:
             ),
             "timeout": 20,
         },
-        section=sec, tid="S5-03", name="execute_python: Fibonacci sequence",
+        section=sec,
+        tid="S5-03",
+        name="execute_python: Fibonacci sequence",
         ok_fn=lambda t: "fib10" in t and "success" in t.lower(),
         detail_fn=lambda t: "✓ Fibonacci executed" if "fib10" in t else t[:100],
         warn_if=["docker", "Docker", "dind"],
@@ -1297,9 +1431,12 @@ async def S5() -> None:
     )
 
     await _mcp(
-        port, "execute_nodejs",
+        port,
+        "execute_nodejs",
         {"code": "const a=[1,2,3,4,5];console.log('sum:',a.reduce((x,y)=>x+y,0));", "timeout": 20},
-        section=sec, tid="S5-04", name="execute_nodejs: array sum = 15",
+        section=sec,
+        tid="S5-04",
+        name="execute_nodejs: array sum = 15",
         ok_fn=lambda t: "success" in t.lower() and "15" in t,
         detail_fn=lambda t: "✓ Node.js sum=15" if "15" in t else t[:100],
         warn_if=["docker", "Docker", "dind"],
@@ -1307,9 +1444,12 @@ async def S5() -> None:
     )
 
     await _mcp(
-        port, "execute_bash",
+        port,
+        "execute_bash",
         {"code": "echo 'bash_ok' && printf '%d\\n' $((3 + 4))", "timeout": 10},
-        section=sec, tid="S5-05", name="execute_bash: echo + arithmetic",
+        section=sec,
+        tid="S5-05",
+        name="execute_bash: echo + arithmetic",
         ok_fn=lambda t: "bash_ok" in t and "success" in t.lower(),
         detail_fn=lambda t: "✓ bash executed" if "bash_ok" in t else t[:100],
         warn_if=["docker", "Docker", "dind"],
@@ -1317,15 +1457,20 @@ async def S5() -> None:
     )
 
     await _mcp(
-        port, "sandbox_status", {},
-        section=sec, tid="S5-06", name="sandbox_status reports DinD connectivity",
+        port,
+        "sandbox_status",
+        {},
+        section=sec,
+        tid="S5-06",
+        name="sandbox_status reports DinD connectivity",
         ok_fn=lambda t: "sandbox_enabled" in t or "docker" in t.lower(),
         detail_fn=lambda t: t[:150],
         timeout=15,
     )
 
     await _mcp(
-        port, "execute_python",
+        port,
+        "execute_python",
         {
             "code": (
                 "import socket\ntry:\n"
@@ -1335,11 +1480,15 @@ async def S5() -> None:
             ),
             "timeout": 10,
         },
-        section=sec, tid="S5-07", name="Sandbox network isolation (outbound blocked)",
+        section=sec,
+        tid="S5-07",
+        name="Sandbox network isolation (outbound blocked)",
         ok_fn=lambda t: "NETWORK_BLOCKED" in t,
         detail_fn=lambda t: (
-            "✓ network correctly isolated" if "NETWORK_BLOCKED" in t
-            else "⚠ sandbox has outbound network — isolation violated" if "NETWORK_ACCESSIBLE" in t
+            "✓ network correctly isolated"
+            if "NETWORK_BLOCKED" in t
+            else "⚠ sandbox has outbound network — isolation violated"
+            if "NETWORK_ACCESSIBLE" in t
             else t[:100]
         ),
         warn_if=["docker", "Docker", "dind"],
@@ -1356,19 +1505,22 @@ async def S6() -> None:
 
     cases = [
         (
-            "S6-01", "auto-security",
+            "S6-01",
+            "auto-security",
             "Review this nginx config for misconfigurations: "
             "server { listen 80; root /var/www; autoindex on; server_tokens on; }",
             ["autoindex", "security", "vulnerability", "misconfiguration"],
         ),
         (
-            "S6-02", "auto-redteam",
+            "S6-02",
+            "auto-redteam",
             "For an authorized pentest: enumerate injection vectors in a GraphQL API. "
             "Focus on introspection abuse and query depth attacks.",
             ["injection", "graphql", "introspection", "attack", "depth"],
         ),
         (
-            "S6-03", "auto-blueteam",
+            "S6-03",
+            "auto-blueteam",
             "Analyze these firewall logs for IoCs: "
             "DENY TCP 203.0.113.0/24:4444->10.0.0.5:445 (200 times in 60s)",
             ["445", "smb", "lateral", "mitre", "attack", "deny"],
@@ -1381,15 +1533,21 @@ async def S6() -> None:
         if code == 200 and text.strip():
             matched = [s for s in signals if s in text.lower()]
             record(
-                sec, tid, f"{ws}: domain-relevant security response",
+                sec,
+                tid,
+                f"{ws}: domain-relevant security response",
                 "PASS" if matched else "WARN",
-                f"signals matched: {matched}" if matched else f"generic — no domain signals: {text[:80]}",
+                f"signals matched: {matched}"
+                if matched
+                else f"generic — no domain signals: {text[:80]}",
                 [f"preview: {text[:80]}"],
                 t0=t0,
             )
         else:
             record(
-                sec, tid, f"{ws}: domain-relevant security response",
+                sec,
+                tid,
+                f"{ws}: domain-relevant security response",
                 "WARN" if code in (503, 408) else "FAIL",
                 f"HTTP {code}",
                 t0=t0,
@@ -1406,18 +1564,27 @@ async def S7() -> None:
     port = MCP["music"]
 
     await _mcp(
-        port, "list_music_models", {},
-        section=sec, tid="S7-01", name="list_music_models returns available models",
+        port,
+        "list_music_models",
+        {},
+        section=sec,
+        tid="S7-01",
+        name="list_music_models returns available models",
         ok_fn=lambda t: len(t) > 2,
         detail_fn=lambda t: f"models: {t[:80]}",
         timeout=15,
     )
 
     await _mcp(
-        port, "generate_music",
+        port,
+        "generate_music",
         {"prompt": "lo-fi hip hop chill beat", "duration": 5},
-        section=sec, tid="S7-02", name="generate_music: 5s lo-fi",
-        ok_fn=lambda t: "success" in t.lower() or "audiocraft" in t.lower() or "not installed" in t.lower(),
+        section=sec,
+        tid="S7-02",
+        name="generate_music: 5s lo-fi",
+        ok_fn=lambda t: (
+            "success" in t.lower() or "audiocraft" in t.lower() or "not installed" in t.lower()
+        ),
         detail_fn=lambda t: t[:120],
         timeout=120,
     )
@@ -1433,7 +1600,9 @@ async def S7() -> None:
     signals = ["tempo", "bpm", "piano", "beat", "hip", "lo"]
     matched = [s for s in signals if s in text.lower()]
     record(
-        sec, "S7-03", "auto-music workspace pipeline round-trip",
+        sec,
+        "S7-03",
+        "auto-music workspace pipeline round-trip",
         "PASS" if code == 200 and matched else ("WARN" if code in (503, 408) else "FAIL"),
         f"preview: {text[:80]}" if text else f"HTTP {code}",
         [f"matched signals: {matched}"],
@@ -1456,17 +1625,24 @@ async def S8() -> None:
     port = MCP["tts"]
 
     await _mcp(
-        port, "list_voices", {},
-        section=sec, tid="S8-01", name="list_voices includes af_heart (default voice)",
+        port,
+        "list_voices",
+        {},
+        section=sec,
+        tid="S8-01",
+        name="list_voices includes af_heart (default voice)",
         ok_fn=lambda t: "af_heart" in t,
         detail_fn=lambda t: "✓ voices listed" if "af_heart" in t else t[:80],
         timeout=15,
     )
 
     await _mcp(
-        port, "speak",
+        port,
+        "speak",
         {"text": _TTS_TEXT, "voice": "af_heart"},
-        section=sec, tid="S8-02", name="speak af_heart → file_path returned",
+        section=sec,
+        tid="S8-02",
+        name="speak af_heart → file_path returned",
         ok_fn=lambda t: "file_path" in t or "path" in t or "success" in t,
         detail_fn=lambda t: "✓ speech generated" if "path" in t else t[:80],
         timeout=60,
@@ -1475,8 +1651,8 @@ async def S8() -> None:
     voices = [
         ("af_heart", "US-F default"),
         ("bm_george", "British male"),
-        ("am_adam",   "US male"),
-        ("bf_emma",   "British female"),
+        ("am_adam", "US male"),
+        ("bf_emma", "British female"),
     ]
     async with httpx.AsyncClient(timeout=60) as c:
         for voice, desc in voices:
@@ -1489,7 +1665,8 @@ async def S8() -> None:
                 if r.status_code == 200:
                     is_wav = _is_wav(r.content)
                     record(
-                        sec, "S8-03",
+                        sec,
+                        "S8-03",
                         f"TTS REST /v1/audio/speech: {voice} ({desc})",
                         "PASS" if is_wav else "FAIL",
                         f"{'✓ valid WAV' if is_wav else 'not WAV'} {len(r.content):,} bytes",
@@ -1497,7 +1674,9 @@ async def S8() -> None:
                         t0=t0,
                     )
                 else:
-                    record(sec, "S8-03", f"TTS REST: {voice}", "FAIL", f"HTTP {r.status_code}", t0=t0)
+                    record(
+                        sec, "S8-03", f"TTS REST: {voice}", "FAIL", f"HTTP {r.status_code}", t0=t0
+                    )
             except Exception as e:
                 record(sec, "S8-03", f"TTS REST: {voice}", "FAIL", str(e), t0=t0)
 
@@ -1513,24 +1692,32 @@ async def S9() -> None:
     # HOWTO §12 exact docker exec command
     r = subprocess.run(
         [
-            "docker", "exec", "portal5-mcp-whisper",
-            "python3", "-c",
+            "docker",
+            "exec",
+            "portal5-mcp-whisper",
+            "python3",
+            "-c",
             "import urllib.request; "
             "print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())",
         ],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
     record(
-        sec, "S9-01",
+        sec,
+        "S9-01",
         "Whisper health via docker exec (HOWTO §12 exact command)",
         "PASS" if r.returncode == 0 and "ok" in r.stdout.lower() else "FAIL",
         r.stdout.strip()[:80] or r.stderr.strip()[:80],
     )
 
     await _mcp(
-        port, "transcribe_audio",
+        port,
+        "transcribe_audio",
         {"file_path": "/nonexistent_portal5_test.wav"},
-        section=sec, tid="S9-02",
+        section=sec,
+        tid="S9-02",
         name="transcribe_audio tool reachable (file-not-found confirms connectivity)",
         ok_fn=lambda t: True,
         detail_fn=lambda t: (
@@ -1554,15 +1741,20 @@ async def S9() -> None:
             wav.write_bytes(tts.content)
             cp = subprocess.run(
                 ["docker", "cp", str(wav), "portal5-mcp-whisper:/tmp/stt_roundtrip.wav"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             if cp.returncode == 0:
                 await _mcp(
-                    port, "transcribe_audio",
+                    port,
+                    "transcribe_audio",
                     {"file_path": "/tmp/stt_roundtrip.wav"},
-                    section=sec, tid="S9-03",
+                    section=sec,
+                    tid="S9-03",
                     name="STT round-trip: TTS → WAV → Whisper transcription",
-                    ok_fn=lambda t: any(x in t.lower() for x in ["hello", "portal", "five", "text"]),
+                    ok_fn=lambda t: any(
+                        x in t.lower() for x in ["hello", "portal", "five", "text"]
+                    ),
                     detail_fn=lambda t: (
                         f"✓ transcribed: {t[:80]}"
                         if any(x in t.lower() for x in ["hello", "portal", "five"])
@@ -1571,11 +1763,23 @@ async def S9() -> None:
                     timeout=60,
                 )
             else:
-                record(sec, "S9-03", "STT round-trip", "FAIL",
-                       f"docker cp failed: {cp.stderr[:80]}", t0=t0)
+                record(
+                    sec,
+                    "S9-03",
+                    "STT round-trip",
+                    "FAIL",
+                    f"docker cp failed: {cp.stderr[:80]}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S9-03", "STT round-trip", "WARN",
-                   f"TTS HTTP {tts.status_code} or non-WAV — skipping STT", t0=t0)
+            record(
+                sec,
+                "S9-03",
+                "STT round-trip",
+                "WARN",
+                f"TTS HTTP {tts.status_code} or non-WAV — skipping STT",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S9-03", "STT round-trip", "FAIL", str(e), t0=t0)
 
@@ -1592,7 +1796,9 @@ async def S10() -> None:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"http://localhost:{MCP['video']}/health")
             record(
-                sec, "S10-01", "Video MCP health",
+                sec,
+                "S10-01",
+                "Video MCP health",
                 "PASS" if r.status_code == 200 else "FAIL",
                 str(r.json() if r.status_code == 200 else r.status_code),
                 t0=t0,
@@ -1601,8 +1807,12 @@ async def S10() -> None:
         record(sec, "S10-01", "Video MCP health", "FAIL", str(e), t0=t0)
 
     await _mcp(
-        MCP["video"], "list_video_models", {},
-        section=sec, tid="S10-02", name="list_video_models returns model list",
+        MCP["video"],
+        "list_video_models",
+        {},
+        section=sec,
+        tid="S10-02",
+        name="list_video_models returns model list",
         ok_fn=lambda t: len(t) > 2,
         detail_fn=lambda t: f"models: {t[:100]}",
         timeout=15,
@@ -1619,7 +1829,9 @@ async def S10() -> None:
     signals = ["wave", "ocean", "camera", "light", "golden", "lens"]
     matched = [s for s in signals if s in text.lower()]
     record(
-        sec, "S10-03", "auto-video workspace: domain-relevant video description",
+        sec,
+        "S10-03",
+        "auto-video workspace: domain-relevant video description",
         "PASS" if code == 200 and matched else ("WARN" if code in (503, 408) else "FAIL"),
         f"preview: {text[:80]}" if text else f"HTTP {code}",
         t0=t0,
@@ -1631,21 +1843,31 @@ async def S10() -> None:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"{COMFYUI_URL}/system_stats")
             record(
-                sec, "S10-04", f"ComfyUI host at {COMFYUI_URL}",
+                sec,
+                "S10-04",
+                f"ComfyUI host at {COMFYUI_URL}",
                 "PASS" if r.status_code == 200 else "WARN",
                 f"HTTP {r.status_code}",
                 t0=t0,
             )
     except Exception:
-        record(sec, "S10-04", f"ComfyUI host at {COMFYUI_URL}", "WARN",
-               "not reachable — per KNOWN_LIMITATIONS.md: host-native, optional", t0=t0)
+        record(
+            sec,
+            "S10-04",
+            f"ComfyUI host at {COMFYUI_URL}",
+            "WARN",
+            "not reachable — per KNOWN_LIMITATIONS.md: host-native, optional",
+            t0=t0,
+        )
 
     t0 = time.time()
     try:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"http://localhost:{MCP['comfyui_mcp']}/health")
             record(
-                sec, "S10-05", "ComfyUI MCP bridge health",
+                sec,
+                "S10-05",
+                "ComfyUI MCP bridge health",
                 "PASS" if r.status_code == 200 else "WARN",
                 str(r.json() if r.status_code == 200 else r.status_code),
                 t0=t0,
@@ -1740,7 +1962,7 @@ _PERSONA_PROMPT: dict[str, str] = {
     ),
     "excelsheet": (
         "Explain this Excel formula in detail: "
-        "=SUMPRODUCT((A2:A100=\"Sales\")*(B2:B100>1000)*(C2:C100)). "
+        '=SUMPRODUCT((A2:A100="Sales")*(B2:B100>1000)*(C2:C100)). '
         "Break down how SUMPRODUCT works with boolean arrays, explain what each condition "
         "filters, and provide three practical business use cases."
     ),
@@ -1985,46 +2207,57 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
 ]
 
 _PERSONA_SIGNALS: dict[str, list[str]] = {
-    "blueteamdefender":           ["mitre", "ssh", "brute", "incident", "containment"],
-    "bugdiscoverycodeassistant":  ["def ", "error", "exception", "type", "fix"],
-    "cippolicywriter":            ["shall", "patch", "cip-007", "compliance", "audit"],
+    "blueteamdefender": ["mitre", "ssh", "brute", "incident", "containment"],
+    "bugdiscoverycodeassistant": ["def ", "error", "exception", "type", "fix"],
+    "cippolicywriter": ["shall", "patch", "cip-007", "compliance", "audit"],
     "codebasewikidocumentationskill": ["fibonacci", "recursive", "complexity", "memoization"],
-    "codereviewassistant":        ["pythonic", "enumerate", "readability", "improve"],
-    "codereviewer":               ["sql injection", "parameterized", "vulnerability", "sanitize"],
-    "creativewriter":             ["robot", "flower", "space", "wonder"],
-    "cybersecurityspecialist":    ["access control", "owasp", "idor", "privilege"],
-    "dataanalyst":                ["growth", "quarter", "trend", "analysis", "visualization"],
-    "datascientist":              ["feature", "algorithm", "churn", "model", "accuracy"],
-    "devopsautomator":            ["github", "actions", "deploy", "docker", "pytest"],
-    "devopsengineer":             ["kubernetes", "helm", "pipeline", "canary", "argo"],
-    "ethereumdeveloper":          ["solidity", "erc-20", "transfer", "approve", "reentrancy"],
-    "excelsheet":                 ["sumproduct", "array", "filter", "criteria"],
+    "codereviewassistant": ["pythonic", "enumerate", "readability", "improve"],
+    "codereviewer": ["sql injection", "parameterized", "vulnerability", "sanitize"],
+    "creativewriter": ["robot", "flower", "space", "wonder"],
+    "cybersecurityspecialist": ["access control", "owasp", "idor", "privilege"],
+    "dataanalyst": ["growth", "quarter", "trend", "analysis", "visualization"],
+    "datascientist": ["feature", "algorithm", "churn", "model", "accuracy"],
+    "devopsautomator": ["github", "actions", "deploy", "docker", "pytest"],
+    "devopsengineer": ["kubernetes", "helm", "pipeline", "canary", "argo"],
+    "ethereumdeveloper": ["solidity", "erc-20", "transfer", "approve", "reentrancy"],
+    "excelsheet": ["sumproduct", "array", "filter", "criteria"],
     "fullstacksoftwaredeveloper": ["endpoint", "get", "post", "schema", "json"],
-    "githubexpert":               ["branch protection", "reviewer", "ci", "signed"],
-    "itarchitect":                ["load balanc", "replication", "cache", "disaster", "availability"],
-    "itexpert":                   ["memory", "oom", "pandas", "container", "profile"],
-    "javascriptconsole":          ["reduce", "accumulator", "pi", "3.141"],
+    "githubexpert": ["branch protection", "reviewer", "ci", "signed"],
+    "itarchitect": ["load balanc", "replication", "cache", "disaster", "availability"],
+    "itexpert": ["memory", "oom", "pandas", "container", "profile"],
+    "javascriptconsole": ["reduce", "accumulator", "pi", "3.141"],
     "kubernetesdockerrpglearningengine": ["mission", "container", "game", "briefing"],
-    "linuxterminal":              ["find", "size", "modified", "exclude", "archive"],
-    "machinelearningengineer":    ["random forest", "xgboost", "hyperparameter", "tabular"],
-    "nerccipcomplianceanalyst":   ["cip-007", "patch", "evidence", "audit", "nerc"],
-    "networkengineer":            ["vlan", "subnet", "dmz", "firewall", "segmentation"],
-    "pentester":                  ["authentication", "bypass", "jwt", "session", "vulnerability"],
-    "pythoncodegeneratorcleanoptimizedproduction-ready": ["def ", "retry", "backoff", "type hint", "docstring"],
-    "pythoninterpreter":          ["zip", "reverse", "output", "slice"],
-    "redteamoperator":            ["jwt", "sql injection", "attack", "idor", "token"],
-    "researchanalyst":            ["microservices", "monolith", "deployment", "complexity"],
-    "seniorfrontenddeveloper":    ["react", "hook", "useeffect", "loading", "error"],
-    "seniorsoftwareengineersoftwarearchitectrules": ["risk", "migration", "distributed", "consistency"],
+    "linuxterminal": ["find", "size", "modified", "exclude", "archive"],
+    "machinelearningengineer": ["random forest", "xgboost", "hyperparameter", "tabular"],
+    "nerccipcomplianceanalyst": ["cip-007", "patch", "evidence", "audit", "nerc"],
+    "networkengineer": ["vlan", "subnet", "dmz", "firewall", "segmentation"],
+    "pentester": ["authentication", "bypass", "jwt", "session", "vulnerability"],
+    "pythoncodegeneratorcleanoptimizedproduction-ready": [
+        "def ",
+        "retry",
+        "backoff",
+        "type hint",
+        "docstring",
+    ],
+    "pythoninterpreter": ["zip", "reverse", "output", "slice"],
+    "redteamoperator": ["jwt", "sql injection", "attack", "idor", "token"],
+    "researchanalyst": ["microservices", "monolith", "deployment", "complexity"],
+    "seniorfrontenddeveloper": ["react", "hook", "useeffect", "loading", "error"],
+    "seniorsoftwareengineersoftwarearchitectrules": [
+        "risk",
+        "migration",
+        "distributed",
+        "consistency",
+    ],
     "softwarequalityassurancetester": ["test case", "valid", "invalid", "boundary", "error"],
-    "splunksplgineer":            ["tstats", "authentication", "datamodel", "stats", "distinct", "lateral"],
-    "sqlterminal":                ["join", "group by", "order by", "index", "pagination"],
-    "statistician":               ["p-value", "power", "sample size", "effect size", "type i"],
-    "techreviewer":               ["m4", "mlx", "memory", "inference", "performance"],
-    "techwriter":                 ["api", "authentication", "endpoint", "curl", "jwt"],
-    "ux-uideveloper":             ["password", "reset", "error", "accessibility", "flow"],
-    "gemmaresearchanalyst":       ["evidence", "benchmark", "open source", "proprietary", "coding"],
-    "magistralstrategist":        ["runway", "enterprise", "plg", "acv", "assumption"],
+    "splunksplgineer": ["tstats", "authentication", "datamodel", "stats", "distinct", "lateral"],
+    "sqlterminal": ["join", "group by", "order by", "index", "pagination"],
+    "statistician": ["p-value", "power", "sample size", "effect size", "type i"],
+    "techreviewer": ["m4", "mlx", "memory", "inference", "performance"],
+    "techwriter": ["api", "authentication", "endpoint", "curl", "jwt"],
+    "ux-uideveloper": ["password", "reset", "error", "accessibility", "flow"],
+    "gemmaresearchanalyst": ["evidence", "benchmark", "open source", "proprietary", "coding"],
+    "magistralstrategist": ["runway", "enterprise", "plg", "acv", "assumption"],
 }
 
 
@@ -2059,10 +2292,13 @@ async def _persona_test_with_retry(
                 if text.strip():
                     matched = [s for s in signals if s in text.lower()]
                     record(
-                        sec, tid,
+                        sec,
+                        tid,
                         f"persona {slug} ({name})",
                         "PASS" if matched or not signals else "WARN",
-                        f"signals: {matched}" if matched else f"no signals in: '{text[:70].strip()}'",
+                        f"signals: {matched}"
+                        if matched
+                        else f"no signals in: '{text[:70].strip()}'",
                         [f"preview: {text[:100].strip()}"],
                         t0=t0,
                     )
@@ -2072,11 +2308,19 @@ async def _persona_test_with_retry(
                     await asyncio.sleep(12)
                     continue
                 else:
-                    record(sec, tid, f"persona {slug} ({name})", "WARN",
-                           "200 but empty content after retry", t0=t0)
+                    record(
+                        sec,
+                        tid,
+                        f"persona {slug} ({name})",
+                        "WARN",
+                        "200 but empty content after retry",
+                        t0=t0,
+                    )
                     return "WARN"
             elif r.status_code == 503:
-                record(sec, tid, f"persona {slug} ({name})", "WARN", "503 — no healthy backend", t0=t0)
+                record(
+                    sec, tid, f"persona {slug} ({name})", "WARN", "503 — no healthy backend", t0=t0
+                )
                 return "WARN"
             else:
                 record(sec, tid, f"persona {slug} ({name})", "FAIL", f"HTTP {r.status_code}", t0=t0)
@@ -2115,7 +2359,8 @@ async def S11() -> None:
                 }
                 missing_ow = [p["slug"] for p in PERSONAS if p["slug"].lower() not in api_ids]
                 record(
-                    sec, "S11-01",
+                    sec,
+                    "S11-01",
                     f"All {len(PERSONAS)} personas registered in Open WebUI",
                     "PASS" if not missing_ow else "WARN",
                     f"MISSING: {missing_ow}" if missing_ow else "",
@@ -2123,16 +2368,32 @@ async def S11() -> None:
                     t0=t0,
                 )
                 if missing_ow:
-                    record(sec, "S11-01b", "FIX for missing personas", "INFO",
-                           "run: ./launch.sh reseed")
+                    record(
+                        sec,
+                        "S11-01b",
+                        "FIX for missing personas",
+                        "INFO",
+                        "run: ./launch.sh reseed",
+                    )
             else:
-                record(sec, "S11-01", "Personas registered in Open WebUI", "WARN",
-                       f"OW /api/v1/models/ HTTP {r.status_code}", t0=t0)
+                record(
+                    sec,
+                    "S11-01",
+                    "Personas registered in Open WebUI",
+                    "WARN",
+                    f"OW /api/v1/models/ HTTP {r.status_code}",
+                    t0=t0,
+                )
         except Exception as e:
             record(sec, "S11-01", "Personas registered in Open WebUI", "WARN", str(e), t0=t0)
     else:
-        record(sec, "S11-01", "Personas registered in Open WebUI", "WARN",
-               "no OW token — set OPENWEBUI_ADMIN_PASSWORD in .env")
+        record(
+            sec,
+            "S11-01",
+            "Personas registered in Open WebUI",
+            "WARN",
+            "no OW token — set OPENWEBUI_ADMIN_PASSWORD in .env",
+        )
 
     persona_map = {p["slug"]: p for p in PERSONAS}
     passed = warned = failed = 0
@@ -2143,8 +2404,9 @@ async def S11() -> None:
         for slug in slugs:
             persona = persona_map.get(slug)
             if not persona:
-                record(sec, f"P:{slug}", f"persona {slug}", "WARN",
-                       "not found in persona YAML files")
+                record(
+                    sec, f"P:{slug}", f"persona {slug}", "WARN", "not found in persona YAML files"
+                )
                 warned += 1
                 continue
             name = persona["name"]
@@ -2167,9 +2429,11 @@ async def S11() -> None:
         await asyncio.sleep(30 if is_mlx else 15)
 
     record(
-        sec, "S11-sum",
+        sec,
+        "S11-sum",
         f"Persona suite summary ({len(PERSONAS)} total)",
-        "PASS" if failed == 0 and warned < len(PERSONAS) // 4
+        "PASS"
+        if failed == 0 and warned < len(PERSONAS) // 4
         else ("WARN" if failed == 0 else "FAIL"),
         f"{passed} PASS | {warned} WARN | {failed} FAIL",
     )
@@ -2192,32 +2456,46 @@ async def S12() -> None:
             if ws_m:
                 n = int(ws_m.group(1))
                 record(
-                    sec, "S12-01", "portal_workspaces_total matches code count",
+                    sec,
+                    "S12-01",
+                    "portal_workspaces_total matches code count",
                     "PASS" if n == len(WS_IDS) else "FAIL",
                     f"metric={n}, code={len(WS_IDS)}",
                     t0=t0,
                 )
             else:
-                record(sec, "S12-01", "portal_workspaces_total gauge present", "WARN",
-                       "not found in /metrics output", t0=t0)
+                record(
+                    sec,
+                    "S12-01",
+                    "portal_workspaces_total gauge present",
+                    "WARN",
+                    "not found in /metrics output",
+                    t0=t0,
+                )
 
             record(
-                sec, "S12-02", "portal_backends gauge present",
+                sec,
+                "S12-02",
+                "portal_backends gauge present",
                 "PASS" if "portal_backends" in txt else "WARN",
                 "present" if "portal_backends" in txt else "not in /metrics",
             )
 
             record(
-                sec, "S12-03", "portal_requests counter present (after S3 traffic)",
+                sec,
+                "S12-03",
+                "portal_requests counter present (after S3 traffic)",
                 "PASS" if "portal_requests" in txt else "WARN",
                 "present" if "portal_requests" in txt else "not yet recorded — run S3 first",
             )
 
             record(
-                sec, "S12-04", "Prometheus histogram metrics (tokens_per_second)",
+                sec,
+                "S12-04",
+                "Prometheus histogram metrics (tokens_per_second)",
                 "INFO",
-                "present" if any(x in txt for x in
-                                 ["portal_tokens_per_second", "portal_output_tokens"])
+                "present"
+                if any(x in txt for x in ["portal_tokens_per_second", "portal_output_tokens"])
                 else "not yet recorded",
             )
         else:
@@ -2229,7 +2507,9 @@ async def S12() -> None:
             targets = r.json().get("data", {}).get("activeTargets", [])
             pt = [t for t in targets if "9099" in str(t.get("scrapeUrl", ""))]
             record(
-                sec, "S12-05", "Prometheus scraping pipeline target",
+                sec,
+                "S12-05",
+                "Prometheus scraping pipeline target",
                 "PASS" if pt else "WARN",
                 f"{len(pt)} pipeline targets in {len(targets)} total",
                 t0=t0,
@@ -2243,14 +2523,22 @@ async def S12() -> None:
             if r.status_code == 200:
                 titles = [d.get("title", "") for d in r.json()]
                 record(
-                    sec, "S12-06", "Grafana portal5_overview dashboard provisioned",
+                    sec,
+                    "S12-06",
+                    "Grafana portal5_overview dashboard provisioned",
                     "PASS" if any("portal" in (t or "").lower() for t in titles) else "WARN",
                     f"dashboards: {titles}",
                     t0=t0,
                 )
             else:
-                record(sec, "S12-06", "Grafana dashboard provisioned", "WARN",
-                       f"HTTP {r.status_code}", t0=t0)
+                record(
+                    sec,
+                    "S12-06",
+                    "Grafana dashboard provisioned",
+                    "WARN",
+                    f"HTTP {r.status_code}",
+                    t0=t0,
+                )
         except Exception as e:
             record(sec, "S12-06", "Grafana dashboard provisioned", "FAIL", str(e), t0=t0)
 
@@ -2263,15 +2551,21 @@ async def S13() -> None:
     sec = "S13"
 
     if not ADMIN_PASS:
-        record(sec, "S13-skip", "GUI tests skipped", "WARN",
-               "OPENWEBUI_ADMIN_PASSWORD not set in .env")
+        record(
+            sec, "S13-skip", "GUI tests skipped", "WARN", "OPENWEBUI_ADMIN_PASSWORD not set in .env"
+        )
         return
 
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        record(sec, "S13-skip", "Playwright not installed", "FAIL",
-               "pip install playwright && python3 -m playwright install chromium")
+        record(
+            sec,
+            "S13-skip",
+            "Playwright not installed",
+            "FAIL",
+            "pip install playwright && python3 -m playwright install chromium",
+        )
         return
 
     async with async_playwright() as p:
@@ -2318,8 +2612,13 @@ async def S13() -> None:
         ]
 
         if len(ws_visible) >= len(WS_IDS) - 1:
-            record(sec, "S13-02", "Model dropdown shows workspace names",
-                   "PASS", f"{len(ws_visible)}/{len(WS_IDS)} visible")
+            record(
+                sec,
+                "S13-02",
+                "Model dropdown shows workspace names",
+                "PASS",
+                f"{len(ws_visible)}/{len(WS_IDS)} visible",
+            )
         else:
             token = _owui_token()
             try:
@@ -2330,25 +2629,44 @@ async def S13() -> None:
                 )
                 if ar.status_code == 200:
                     data = ar.json()
-                    api_ids = {m["id"] for m in (data if isinstance(data, list) else data.get("data", []))}
+                    api_ids = {
+                        m["id"] for m in (data if isinstance(data, list) else data.get("data", []))
+                    }
                     api_ws = [ws for ws in WS_IDS if ws in api_ids]
                     record(
-                        sec, "S13-02", "Model dropdown shows workspace names",
+                        sec,
+                        "S13-02",
+                        "Model dropdown shows workspace names",
                         "PASS" if len(api_ws) == len(WS_IDS) else "WARN",
                         f"GUI: {len(ws_visible)}/{len(WS_IDS)} (headless scroll limit) | "
                         f"API confirmed: {len(api_ws)}/{len(WS_IDS)}",
                     )
                 else:
-                    record(sec, "S13-02", "Model dropdown shows workspace names", "WARN",
-                           f"GUI: {len(ws_visible)}/{len(WS_IDS)}, API {ar.status_code}")
+                    record(
+                        sec,
+                        "S13-02",
+                        "Model dropdown shows workspace names",
+                        "WARN",
+                        f"GUI: {len(ws_visible)}/{len(WS_IDS)}, API {ar.status_code}",
+                    )
             except Exception as e:
-                record(sec, "S13-02", "Model dropdown shows workspace names", "WARN",
-                       f"API fallback: {e}")
+                record(
+                    sec,
+                    "S13-02",
+                    "Model dropdown shows workspace names",
+                    "WARN",
+                    f"API fallback: {e}",
+                )
 
         p_visible = [p["name"] for p in PERSONAS if p["name"].lower() in body]
         if len(p_visible) >= len(PERSONAS) * 0.8:
-            record(sec, "S13-03", "Personas visible in dropdown",
-                   "PASS", f"{len(p_visible)}/{len(PERSONAS)}")
+            record(
+                sec,
+                "S13-03",
+                "Personas visible in dropdown",
+                "PASS",
+                f"{len(p_visible)}/{len(PERSONAS)}",
+            )
         else:
             token = _owui_token()
             try:
@@ -2365,7 +2683,9 @@ async def S13() -> None:
                     }
                     api_p = [p for p in PERSONAS if p["slug"].lower() in api_ids]
                     record(
-                        sec, "S13-03", "Personas visible in dropdown",
+                        sec,
+                        "S13-03",
+                        "Personas visible in dropdown",
                         "PASS" if len(api_p) == len(PERSONAS) else "WARN",
                         f"GUI: {len(p_visible)}/{len(PERSONAS)} (headless) | "
                         f"API: {len(api_p)}/{len(PERSONAS)}",
@@ -2384,28 +2704,63 @@ async def S13() -> None:
             await ta.first.fill("")
             record(sec, "S13-04", "Chat textarea accepts and clears input", "PASS", "", t0=t0)
         else:
-            record(sec, "S13-04", "Chat textarea present", "FAIL",
-                   "no textarea or contenteditable found", t0=t0)
+            record(
+                sec,
+                "S13-04",
+                "Chat textarea present",
+                "FAIL",
+                "no textarea or contenteditable found",
+                t0=t0,
+            )
 
         t0 = time.time()
         await page.goto(f"{OPENWEBUI_URL}/admin", wait_until="networkidle", timeout=10000)
         admin_body = await page.inner_text("body")
         await page.screenshot(path="/tmp/p5_gui_admin.png")
         record(
-            sec, "S13-05", "Admin panel accessible",
-            "PASS" if any(w in admin_body.lower() for w in ["admin", "settings", "users"]) else "WARN",
-            "", t0=t0,
+            sec,
+            "S13-05",
+            "Admin panel accessible",
+            "PASS"
+            if any(w in admin_body.lower() for w in ["admin", "settings", "users"])
+            else "WARN",
+            "",
+            t0=t0,
         )
 
-        found_tools = [
-            t for t in ["documents", "code", "music", "tts", "whisper", "video"]
-            if t in admin_body.lower()
-        ]
-        record(
-            sec, "S13-06", "MCP tool servers visible in admin panel",
-            "PASS" if len(found_tools) >= 4 else "INFO",
-            f"{len(found_tools)}/6 visible: {found_tools}",
-        )
+        # MCP tool servers are registered via API, not on /admin page.
+        # Verify via /api/v1/configs/tool_servers instead of HTML scraping.
+        try:
+            token = _owui_token()
+            ts_resp = httpx.get(
+                f"{OPENWEBUI_URL}/api/v1/configs/tool_servers",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=5,
+            )
+            if ts_resp.status_code == 200:
+                connections = ts_resp.json().get("TOOL_SERVER_CONNECTIONS", [])
+                expected_ports = {str(MCP[k]) for k in MCP}
+                found_ports = {
+                    u.split(":")[-1].split("/")[0] for c in connections if (u := c.get("url", ""))
+                }
+                matched = expected_ports & found_ports
+                record(
+                    sec,
+                    "S13-06",
+                    "MCP tool servers registered in Open WebUI",
+                    "PASS" if len(matched) >= 6 else "WARN",
+                    f"{len(matched)}/{len(expected_ports)} registered: {sorted(matched)}",
+                )
+            else:
+                record(
+                    sec,
+                    "S13-06",
+                    "MCP tool servers registered in Open WebUI",
+                    "WARN",
+                    f"API returned HTTP {ts_resp.status_code}",
+                )
+        except Exception as e:
+            record(sec, "S13-06", "MCP tool servers registered in Open WebUI", "WARN", str(e)[:120])
 
         await browser.close()
 
@@ -2419,28 +2774,40 @@ async def S14() -> None:
     howto = (ROOT / "docs/HOWTO.md").read_text()
 
     bad = [l for l in howto.splitlines() if "Click **+**" in l and "enable" in l.lower()]
-    record(sec, "S14-01", "No stale 'Click + enable' instructions",
-           "PASS" if not bad else "FAIL",
-           f"{len(bad)} stale lines" if bad else "")
+    record(
+        sec,
+        "S14-01",
+        "No stale 'Click + enable' instructions",
+        "PASS" if not bad else "FAIL",
+        f"{len(bad)} stale lines" if bad else "",
+    )
 
     rows = len(re.findall(r"^\| Portal", howto, re.MULTILINE))
     record(
-        sec, "S14-02", f"§3 workspace table has {len(WS_IDS)} rows",
+        sec,
+        "S14-02",
+        f"§3 workspace table has {len(WS_IDS)} rows",
         "PASS" if rows == len(WS_IDS) else "FAIL",
         f"table rows={rows}, code has {len(WS_IDS)}",
     )
 
-    record(sec, "S14-03", "auto-compliance workspace documented in §3",
-           "PASS" if "auto-compliance" in howto else "FAIL")
+    record(
+        sec,
+        "S14-03",
+        "auto-compliance workspace documented in §3",
+        "PASS" if "auto-compliance" in howto else "FAIL",
+    )
 
     pm = re.search(
         r"(\d+)\s*total",
-        howto[howto.lower().find("persona"):] if "persona" in howto.lower() else "",
+        howto[howto.lower().find("persona") :] if "persona" in howto.lower() else "",
     )
     if pm:
         n = int(pm.group(1))
         record(
-            sec, "S14-04", "Persona count claim matches YAML file count",
+            sec,
+            "S14-04",
+            "Persona count claim matches YAML file count",
             "PASS" if n == len(PERSONAS) else "FAIL",
             f"claimed={n}, yaml files={len(PERSONAS)}",
         )
@@ -2450,20 +2817,29 @@ async def S14() -> None:
         listed = set(re.findall(r"auto(?:-\w+)?", howto[start : start + 600]))
         miss = sorted(set(WS_IDS) - listed)
         record(
-            sec, "S14-05", "§16 Telegram workspace list complete",
+            sec,
+            "S14-05",
+            "§16 Telegram workspace list complete",
             "PASS" if not miss else "FAIL",
             f"MISSING: {miss}" if miss else "all IDs listed",
         )
     except ValueError:
-        record(sec, "S14-05", "§16 Telegram workspace list", "WARN",
-               "'Available workspaces' section not found")
+        record(
+            sec,
+            "S14-05",
+            "§16 Telegram workspace list",
+            "WARN",
+            "'Available workspaces' section not found",
+        )
 
     async with httpx.AsyncClient(timeout=5) as c:
         t0 = time.time()
         r = await c.get(f"http://localhost:{MCP['tts']}/health")
         actual = r.json() if r.status_code == 200 else {}
         record(
-            sec, "S14-06", "§11 TTS backend is kokoro as documented",
+            sec,
+            "S14-06",
+            "§11 TTS backend is kokoro as documented",
             "PASS" if actual.get("backend") == "kokoro" else "WARN",
             f"actual: {actual}",
             t0=t0,
@@ -2471,15 +2847,17 @@ async def S14() -> None:
 
     async with httpx.AsyncClient(timeout=10) as c:
         for ref, url, hdrs in [
-            ("§3",  f"{PIPELINE_URL}/v1/models", AUTH),
-            ("§5",  f"http://localhost:{MCP['sandbox']}/health", {}),
-            ("§7",  f"http://localhost:{MCP['documents']}/health", {}),
+            ("§3", f"{PIPELINE_URL}/v1/models", AUTH),
+            ("§5", f"http://localhost:{MCP['sandbox']}/health", {}),
+            ("§7", f"http://localhost:{MCP['documents']}/health", {}),
             ("§22", f"{PIPELINE_URL}/metrics", {}),
         ]:
             t0 = time.time()
             r = await c.get(url, headers=hdrs)
             record(
-                sec, f"S14-07{ref}", f"HOWTO {ref} curl command works",
+                sec,
+                f"S14-07{ref}",
+                f"HOWTO {ref} curl command works",
                 "PASS" if r.status_code == 200 else "FAIL",
                 f"HTTP {r.status_code}",
                 t0=t0,
@@ -2487,15 +2865,22 @@ async def S14() -> None:
 
     wr = subprocess.run(
         [
-            "docker", "exec", "portal5-mcp-whisper",
-            "python3", "-c",
+            "docker",
+            "exec",
+            "portal5-mcp-whisper",
+            "python3",
+            "-c",
             "import urllib.request; "
             "print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())",
         ],
-        capture_output=True, text=True, timeout=10,
+        capture_output=True,
+        text=True,
+        timeout=10,
     )
     record(
-        sec, "S14-08", "§12 whisper health via docker exec (exact HOWTO command)",
+        sec,
+        "S14-08",
+        "§12 whisper health via docker exec (exact HOWTO command)",
         "PASS" if wr.returncode == 0 and "ok" in wr.stdout.lower() else "WARN",
         wr.stdout.strip()[:80] or wr.stderr.strip()[:60],
     )
@@ -2504,28 +2889,38 @@ async def S14() -> None:
     version_m = re.search(r'version\s*=\s*"([^"]+)"', (ROOT / "pyproject.toml").read_text())
     expected_version = version_m.group(1) if version_m else "5.2.1"
     record(
-        sec, "S14-09", f"HOWTO footer version matches pyproject.toml ({expected_version})",
+        sec,
+        "S14-09",
+        f"HOWTO footer version matches pyproject.toml ({expected_version})",
         "PASS" if expected_version in howto else "FAIL",
         f"expected {expected_version} in HOWTO footer",
     )
 
     record(
-        sec, "S14-10", "HOWTO MLX table documents gemma-4-26b-a4b-4bit",
+        sec,
+        "S14-10",
+        "HOWTO MLX table documents gemma-4-26b-a4b-4bit",
         "PASS" if "gemma-4-26b-a4b-4bit" in howto else "FAIL",
-        "found" if "gemma-4-26b-a4b-4bit" in howto
+        "found"
+        if "gemma-4-26b-a4b-4bit" in howto
         else "missing — add Gemma 4 row to MLX models table in docs/HOWTO.md",
     )
 
     record(
-        sec, "S14-11", "HOWTO MLX table documents Magistral-Small-2509-MLX-8bit",
+        sec,
+        "S14-11",
+        "HOWTO MLX table documents Magistral-Small-2509-MLX-8bit",
         "PASS" if "Magistral-Small-2509" in howto else "FAIL",
-        "found" if "Magistral-Small-2509" in howto
+        "found"
+        if "Magistral-Small-2509" in howto
         else "missing — add Magistral row to MLX models table in docs/HOWTO.md",
     )
 
     # S14-12: auto-spl workspace documented
     record(
-        sec, "S14-12", "HOWTO documents auto-spl workspace",
+        sec,
+        "S14-12",
+        "HOWTO documents auto-spl workspace",
         "PASS" if "auto-spl" in howto else "FAIL",
         "found" if "auto-spl" in howto else "missing — add auto-spl to workspace table",
     )
@@ -2545,7 +2940,9 @@ async def S15() -> None:
             if r.status_code == 200:
                 results = r.json().get("results", [])
                 record(
-                    sec, "S15-01", "SearXNG /search?format=json returns results",
+                    sec,
+                    "S15-01",
+                    "SearXNG /search?format=json returns results",
                     "PASS" if results else "WARN",
                     f"{len(results)} results for 'NERC CIP'",
                     t0=t0,
@@ -2565,7 +2962,9 @@ async def S15() -> None:
     signals = ["aes", "rsa", "symmetric", "asymmetric", "key"]
     matched = [s for s in signals if s in text.lower()]
     record(
-        sec, "S15-02", "auto-research workspace: technical comparison response",
+        sec,
+        "S15-02",
+        "auto-research workspace: technical comparison response",
         "PASS" if code == 200 and matched else ("WARN" if code in (503, 408) else "FAIL"),
         f"signals: {matched}" if matched else f"HTTP {code}: {text[:60]}",
         t0=t0,
@@ -2586,7 +2985,9 @@ async def S16() -> None:
         t0 = time.time()
         r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT), timeout=30)
         record(
-            sec, tid, name,
+            sec,
+            tid,
+            name,
             "PASS" if r.returncode == 0 else "FAIL",
             f"exit={r.returncode}" if r.returncode != 0 else "",
             t0=t0,
@@ -2597,25 +2998,38 @@ async def S16() -> None:
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 SECTIONS = {
-    "S0": S0, "S1": S1, "S2": S2, "S3": S3,
-    "S4": S4, "S5": S5, "S6": S6, "S7": S7,
-    "S8": S8, "S9": S9, "S10": S10, "S11": S11,
-    "S12": S12, "S13": S13, "S14": S14, "S15": S15,
-    "S16": S16, "S17": S17,
+    "S0": S0,
+    "S1": S1,
+    "S2": S2,
+    "S3": S3,
+    "S4": S4,
+    "S5": S5,
+    "S6": S6,
+    "S7": S7,
+    "S8": S8,
+    "S9": S9,
+    "S10": S10,
+    "S11": S11,
+    "S12": S12,
+    "S13": S13,
+    "S14": S14,
+    "S15": S15,
+    "S16": S16,
+    "S17": S17,
 }
 
 ALL_ORDER = [
     "S17",  # Rebuild & restart first
-    "S0",   # Version state
-    "S1",   # Static config
-    "S2",   # Service health
-    "S3",   # Workspace routing (largest, most time)
-    "S4",   # Document MCP
-    "S5",   # Code + sandbox
-    "S6",   # Security workspaces
-    "S7",   # Music
-    "S8",   # TTS
-    "S9",   # STT
+    "S0",  # Version state
+    "S1",  # Static config
+    "S2",  # Service health
+    "S3",  # Workspace routing (largest, most time)
+    "S4",  # Document MCP
+    "S5",  # Code + sandbox
+    "S6",  # Security workspaces
+    "S7",  # Music
+    "S8",  # TTS
+    "S9",  # STT
     "S10",  # Video/image
     "S11",  # All 40 personas (longest section)
     "S12",  # Metrics
@@ -2653,11 +3067,15 @@ async def main() -> int:
     global _verbose, _FORCE_REBUILD
 
     parser = argparse.ArgumentParser(description="Portal 5 — End-to-End Acceptance Test Suite v4")
-    parser.add_argument("--section", "-s", default="ALL",
-                        help="Run one section (S0-S17) or ALL (default)")
+    parser.add_argument(
+        "--section", "-s", default="ALL", help="Run one section (S0-S17) or ALL (default)"
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
-    parser.add_argument("--rebuild", action="store_true",
-                        help="Force git pull + MCP + pipeline rebuild before testing")
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Force git pull + MCP + pipeline rebuild before testing",
+    )
     args = parser.parse_args()
     _verbose = args.verbose
     _FORCE_REBUILD = args.rebuild
@@ -2699,8 +3117,9 @@ async def main() -> int:
         try:
             await SECTIONS[sid]()
         except Exception as e:
-            record(sid, f"{sid}-crash", f"Section {sid} crashed", "FAIL",
-                   f"{type(e).__name__}: {e}")
+            record(
+                sid, f"{sid}-crash", f"Section {sid} crashed", "FAIL", f"{type(e).__name__}: {e}"
+            )
         print()
 
     elapsed = int(time.time() - t0)

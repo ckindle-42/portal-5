@@ -93,21 +93,22 @@ class AlertEvent:
 
 @dataclass
 class SummaryEvent:
-    """A daily usage summary — built from pipeline metrics."""
+    """A daily usage summary — built from pipeline metrics deltas."""
 
     timestamp: datetime
+    report_date: str  # "YYYY-MM-DD" of the day being reported
     total_requests: int
     requests_by_workspace: dict[str, int]
     healthy_backends: int
     total_backends: int
     uptime_seconds: float
-    # Extended metrics (new)
+    # Extended metrics
     requests_by_model: dict[str, int] = field(default_factory=dict)
     avg_tokens_per_second: float = 0.0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     avg_response_time_ms: float = 0.0
-    # New metrics
+    # Error metrics
     errors_by_type: dict[str, int] = field(default_factory=dict)
     total_errors: int = 0
     peak_concurrent: int = 0
@@ -116,14 +117,12 @@ class SummaryEvent:
 
     def format_slack(self) -> str:
         """Format for Slack."""
-        uptime_h = self.uptime_seconds / 3600
         lines = [
-            ":chart_with_upwards_trend: *Portal 5 — Daily Usage Summary*",
-            f"_Generated at {self.timestamp.strftime('%Y-%m-%d %H:%M UTC')}_",
+            ":chart_with_upwards_trend: *Portal 5 — Daily Summary*",
+            f"_Report for {self.report_date}_",
             "",
-            f"*Total Requests:* {self.total_requests:,}",
-            f"*Total Errors:* {self.total_errors:,}",
-            f"*Uptime:* {uptime_h:.1f} hours",
+            f"*Requests:* {self.total_requests:,}",
+            f"*Errors:* {self.total_errors:,}",
             f"*Healthy Backends:* {self.healthy_backends}/{self.total_backends}",
             f"*Peak Concurrent:* {self.peak_concurrent}",
             f"*Avg TPS:* {self.avg_tokens_per_second:.1f} tok/s",
@@ -153,13 +152,11 @@ class SummaryEvent:
 
     def format_telegram(self) -> str:
         """Format for Telegram."""
-        uptime_h = self.uptime_seconds / 3600
         lines = [
-            "📊 *Portal 5 — Daily Summary*",
+            f"📊 *Portal 5 — Daily Summary ({self.report_date})*",
             "",
-            f"Total Requests: {self.total_requests:,}",
-            f"Total Errors: {self.total_errors:,}",
-            f"Uptime: {uptime_h:.1f}h",
+            f"Requests: {self.total_requests:,}",
+            f"Errors: {self.total_errors:,}",
             f"Healthy Backends: {self.healthy_backends}/{self.total_backends}",
             f"Peak Concurrent: {self.peak_concurrent}",
             f"Avg TPS: {self.avg_tokens_per_second:.1f}",
@@ -189,12 +186,10 @@ class SummaryEvent:
 
     def format_email(self) -> str:
         """Format for email."""
-        uptime_h = self.uptime_seconds / 3600
         lines = [
-            "<b>Portal 5 — Daily Usage Summary</b>",
+            f"<b>Portal 5 — Daily Summary ({_html.escape(self.report_date)})</b>",
             "",
-            f"<b>Total Requests:</b> {self.total_requests:,}",
-            f"<b>Uptime:</b> {uptime_h:.1f} hours",
+            f"<b>Requests:</b> {self.total_requests:,}",
             f"<b>Healthy Backends:</b> {self.healthy_backends}/{self.total_backends}",
             f"<b>Avg Tokens/sec:</b> {self.avg_tokens_per_second:.1f}",
             f"<b>Avg Response Time:</b> {self.avg_response_time_ms:.0f}ms",
@@ -212,15 +207,12 @@ class SummaryEvent:
             for model, count in sorted(self.requests_by_model.items(), key=lambda x: -x[1])[:5]:
                 lines.append(f"<li>{_html.escape(model)}: {count:,}</li>")
             lines.append("</ul>")
-        lines.append(f"<p>Generated at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}</p>")
         return "\n".join(lines)
 
     def format_pushover(self) -> str:
         """Format for Pushover (max 512 chars)."""
-        uptime_h = self.uptime_seconds / 3600
-        # Pushover is compact - include key metrics only
         msg = (
-            f"📊 Portal 5: {self.total_requests:,} req, {uptime_h:.0f}h uptime, "
+            f"📊 Portal 5 ({self.report_date}): {self.total_requests:,} req, "
             f"{self.avg_tokens_per_second:.0f} tok/s, {self.avg_response_time_ms:.0f}ms avg, "
             f"{self.healthy_backends}/{self.total_backends} backends"
         )

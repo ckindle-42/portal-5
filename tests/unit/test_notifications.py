@@ -71,6 +71,7 @@ class TestSummaryEvent:
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
             timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            report_date="2026-03-29",
             total_requests=1234,
             requests_by_workspace={"auto": 500, "auto-coding": 734},
             healthy_backends=2,
@@ -83,7 +84,8 @@ class TestSummaryEvent:
             avg_response_time_ms=1200.0,
         )
         formatted = event.format_slack()
-        assert "Daily Usage Summary" in formatted
+        assert "Daily Summary" in formatted
+        assert "2026-03-29" in formatted  # report date
         assert "1,234" in formatted  # thousands separator
         assert "auto-coding" in formatted
         assert "2/3" in formatted
@@ -97,6 +99,7 @@ class TestSummaryEvent:
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
             timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            report_date="2026-03-29",
             total_requests=100,
             requests_by_workspace={"auto": 100},
             healthy_backends=1,
@@ -116,6 +119,7 @@ class TestSummaryEvent:
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
             timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            report_date="2026-03-29",
             total_requests=5000,
             requests_by_workspace={"auto": 3000, "auto-coding": 2000},
             healthy_backends=2,
@@ -135,6 +139,7 @@ class TestSummaryEvent:
         event = SummaryEvent(
             type=EventType.DAILY_SUMMARY,
             timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+            report_date="2026-03-29",
             total_requests=1000,
             requests_by_workspace={"auto": 1000},
             healthy_backends=2,
@@ -456,12 +461,16 @@ class TestNotificationScheduler:
                         },
                     ),
                     patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
+                    patch.object(sched_module, "_SNAPSHOT_FILE", cooldown_file_mock),
                 ):
                     await scheduler._send_daily_summary()
 
                 # Verify dispatch was called once with a SummaryEvent
                 mock_dispatch.assert_called_once()
                 event = mock_dispatch.call_args[0][0]
+
+                # With no previous snapshot, deltas = current values
+                assert event.report_date  # date string is set
 
                 # Check extended metrics are present and correct
                 assert event.requests_by_model == {
@@ -508,6 +517,7 @@ class TestWebhookSummaryExtendedMetrics:
             event = SummaryEvent(
                 type=EventType.DAILY_SUMMARY,
                 timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                report_date="2026-03-29",
                 total_requests=500,
                 requests_by_workspace={"auto": 300, "auto-coding": 200},
                 healthy_backends=2,
@@ -554,6 +564,7 @@ class TestPushoverSummaryPriority:
             event = SummaryEvent(
                 type=EventType.DAILY_SUMMARY,
                 timestamp=datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc),
+                report_date="2026-03-29",
                 total_requests=100,
                 requests_by_workspace={"auto": 100},
                 healthy_backends=1,

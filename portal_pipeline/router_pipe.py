@@ -32,6 +32,15 @@ from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, gene
 from portal_pipeline.cluster_backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
+# Ensure the logger has its own stderr handler — survives uvicorn multi-worker fork().
+# Without this, logger.info() output is silently dropped when workers > 1 because
+# logging.basicConfig() from __main__.py doesn't propagate to forked child processes.
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    logger.addHandler(_handler)
+_log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logger.setLevel(getattr(logging, _log_level, logging.INFO))
 
 # Persistent state file — survives pipeline restarts.
 # Mounted as a Docker volume so it persists across container lifecycle.
@@ -1065,6 +1074,7 @@ async def health() -> dict:
     healthy = registry.list_healthy_backends()
     return {
         "status": "ok" if healthy else "degraded",
+        "version": _PKG_VERSION,
         "backends_healthy": len(healthy),
         "backends_total": len(registry.list_backends()),
         "workspaces": len(WORKSPACES),
@@ -1105,6 +1115,7 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
     # Fire a test summary (stats will be zeros/minimal for a test)
     summary = SummaryEvent(
         timestamp=datetime.now(timezone.utc),
+        report_date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         total_requests=sum(_request_count.values()),
         requests_by_workspace=dict(_request_count),
         healthy_backends=len(registry.list_healthy_backends()) if registry else 0,
