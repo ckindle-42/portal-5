@@ -891,8 +891,8 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/gemma-4-26b-a4b-4bit` | ~14GB | mlx_vlm | Google Gemma 4 MoE, thinking+vision, 256K ctx |
 | `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode, vision |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (4bit only) |
-| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | Reasoning, data analysis |
-| `Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~10GB | mlx_lm | Documents, fast reasoning |
+| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | Reasoning, data analysis (v3 structural alignment) |
+| `Jackrong/MLX-Qwopus3.5-9B-v3-8bit` | ~10GB | mlx_lm | Documents, fast reasoning (v3) |
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | Compliance, policy (MoE) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning |
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Vision / multimodal |

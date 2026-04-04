@@ -427,13 +427,13 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+        "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",

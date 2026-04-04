@@ -259,7 +259,7 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
-| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Everything — safe baseline |
@@ -374,8 +374,8 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-redteam` | security → general | baronllm:q6_k |
 | `auto-blueteam` | security → general | lily-cybersecurity:7b-q4_k_m |
 | `auto-creative` | mlx → creative → general | mlx-community/Dolphin3.0-Llama3.1-8B-8bit |
-| `auto-reasoning` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit |
-| `auto-documents` | coding → general | Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
+| `auto-reasoning` | mlx → reasoning → general | Jackrong/MLX-Qwopus3.5-27B-v3-8bit |
+| `auto-documents` | coding → general | Jackrong/MLX-Qwopus3.5-9B-v3-8bit |
 | `auto-video` | general | dolphin-llama3:8b |
 | `auto-music` | general | dolphin-llama3:8b |
 | `auto-research` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit |

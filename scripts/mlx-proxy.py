@@ -41,8 +41,6 @@ REQUEST_TIMEOUT = int(os.environ.get("MLX_PROXY_REQUEST_TIMEOUT", "300"))
 WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 
 VLM_MODELS = {
-    "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
-    "MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-26b-a4b-4bit",
 }
@@ -57,8 +55,8 @@ ALL_MODELS = [
     "mlx-community/gemma-4-26b-a4b-4bit",
     "lmstudio-community/Magistral-Small-2509-MLX-8bit",
     "mlx-community/Llama-3.3-70B-Instruct-4bit",
-    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit",
-    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",

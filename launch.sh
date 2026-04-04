@@ -2011,9 +2011,9 @@ MLXPLIST
         echo "    mlx-community/gemma-4-26b-a4b-4bit               (~14GB — Google Gemma 4, thinking+vision, VLM)"
         echo "    lmstudio-community/Magistral-Small-2509-MLX-8bit  (~24GB — Mistral reasoning, [THINK] mode)"
         echo "    mlx-community/Llama-3.3-70B-Instruct-4bit        (~40GB — heavy, 4bit only)"
-        echo "  Claude 4.6 Opus Reasoning Distilled:"
-        echo "    Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit  (~22GB)"
-        echo "    Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      (~10GB)"
+        echo "  Qwopus3.5 v3 Reasoning (Claude Opus distillation):"
+        echo "    Jackrong/MLX-Qwopus3.5-27B-v3-8bit                      (~22GB)"
+        echo "    Jackrong/MLX-Qwopus3.5-9B-v3-8bit                       (~10GB)"
         echo "    Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit (~28GB)"
         echo "    mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           (~18GB — uncensored)"
         echo "  VLM models (mlx_vlm, port 18082):"
@@ -2170,11 +2170,11 @@ MLXPLIST
         # Coding — primary workspace models
         "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
-        "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"  # ~9GB
+        "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"               # ~9GB
         "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
         "mlx-community/Devstral-Small-2505-8bit"            # ~18GB
-        # Claude 4.6 Opus Reasoning Distilled
-        "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-8bit"  # ~22GB
+        # Qwopus3.5 v3 Reasoning
+        "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                # ~22GB
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"                   # ~34GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
