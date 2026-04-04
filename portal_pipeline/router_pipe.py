@@ -13,7 +13,6 @@ import importlib.metadata
 import json
 import logging
 import os
-import re
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
@@ -480,299 +479,340 @@ WORKSPACES: dict[str, dict[str, str]] = {
     },
 }
 
-# ── Content-aware routing keyword sets ───────────────────────────────────────
+# ── Content-aware routing: weighted keyword scoring ──────────────────────────
 # Applied only when the user selects the 'auto' workspace.
-# Each set maps to a workspace. Order matters — security before coding
-# so "write an exploit in Python" routes to security, not coding.
+# Each workspace defines weighted keywords and an activation threshold.
+# Weights: 3 = strong/clear intent, 2 = medium signal, 1 = weak/broad term.
+# The workspace with the highest score above its threshold wins.
+# This replaces the old regex-based approach — same O(n) complexity but
+# handles overlapping signals naturally (highest score wins, not arbitrary order).
 
-_SECURITY_KEYWORDS: frozenset[str] = frozenset(
-    {
-        # Offensive / redteam
-        "exploit",
-        "payload",
-        "shellcode",
-        "privilege escalation",
-        "privesc",
-        "reverse shell",
-        "bind shell",
-        "command injection",
-        "sql injection",
-        "sqli",
-        "xss",
-        "csrf",
-        "buffer overflow",
-        "rop chain",
-        "heap spray",
-        "use after free",
-        "uaf",
-        "zero day",
-        "0day",
-        "cve-",
-        "metasploit",
-        "msfvenom",
-        "meterpreter",
-        "cobalt strike",
-        "c2 server",
-        "c&c",
-        "lateral movement",
-        "persistence mechanism",
-        "evasion",
-        "obfuscation",
-        "antivirus bypass",
-        "edr bypass",
-        "av evasion",
-        "defense evasion",
-        "exfiltration",
-        "data exfiltration",
-        "lolbas",
-        "living off the land",
-        "pentesting",
-        "pentest",
-        "penetration test",
-        "red team",
-        "redteam",
-        "offensive security",
-        "bug bounty",
-        "ctf",
-        "capture the flag",
-        "nmap",
-        "masscan",
-        "gobuster",
-        "nikto",
-        "burp suite",
-        "sqlmap",
-        "hydra",
-        "hashcat",
-        "mimikatz",
-        "bloodhound",
-        "crackmapexec",
-        "pass the hash",
-        "pass the ticket",
-        "kerberoasting",
-        "asreproasting",
-        "golden ticket",
-        "silver ticket",
-        "dcsync",
-        # Defensive / blue team
-        "incident response",
-        "threat hunting",
-        "threat intelligence",
-        "ioc",
-        "indicator of compromise",
-        "malware analysis",
-        "reverse engineering",
-        "yara rule",
-        "sigma rule",
-        "siem alert",
-        "splunk detection",
-        "ids rule",
-        "snort rule",
-        "suricata",
-        "network forensics",
-        "memory forensics",
-        "volatility",
-        "malware",
-        "ransomware",
-        "trojan",
-        "rootkit",
-        "backdoor",
-        "botnet",
-        "threat actor",
-        "vulnerability assessment",
-        "vulnerability scan",
-        "nessus",
-        "openvas",
-        "security audit",
-        "hardening",
-        "cis benchmark",
-        "mitre att&ck",
-        "attack framework",
-        "kill chain",
-        "diamond model",
-    }
-)
+# Redteam keywords — clearly offensive intent
+_REDTEAM_KEYWORDS: dict[str, int] = {
+    # Strong (3) — unambiguous offensive intent
+    "exploit": 3,
+    "payload": 3,
+    "shellcode": 3,
+    "reverse shell": 3,
+    "bind shell": 3,
+    "privilege escalation": 3,
+    "privesc": 3,
+    "metasploit": 3,
+    "msfvenom": 3,
+    "cobalt strike": 3,
+    "mimikatz": 3,
+    "golden ticket": 3,
+    "dcsync": 3,
+    "pass the hash": 3,
+    "antivirus bypass": 3,
+    "edr bypass": 3,
+    "av evasion": 3,
+    # Medium (2) — offensive context
+    "bypass": 2,
+    "evasion": 2,
+    "obfuscate": 2,
+    "c2": 2,
+    "c2 server": 2,
+    "command and control": 2,
+    "offensive": 2,
+    "red team": 2,
+    "redteam": 2,
+    "pentest": 2,
+    "penetration test": 2,
+    "hack": 2,
+    "hacking": 2,
+    "ctf": 2,
+    "lolbas": 2,
+    "living off": 2,
+    "lateral movement": 2,
+    "bloodhound": 2,
+    "kerberoast": 2,
+}
 
-_REDTEAM_KEYWORDS: frozenset[str] = frozenset(
-    {
-        # Clearly offensive intent — route to redteam (more permissive model)
-        "exploit",
-        "payload",
-        "shellcode",
-        "bypass",
-        "evasion",
-        "obfuscate",
-        "reverse shell",
-        "bind shell",
-        "privilege escalation",
-        "privesc",
-        "c2",
-        "c2 server",
-        "command and control",
-        "metasploit",
-        "msfvenom",
-        "cobalt strike",
-        "offensive",
-        "red team",
-        "redteam",
-        "pentest",
-        "penetration test",
-        "hack",
-        "hacking",
-        "ctf",
-        "lolbas",
-        "living off",
-        "lateral movement",
-        "mimikatz",
-        "bloodhound",
-        "dcsync",
-        "kerberoast",
-        "pass the hash",
-        "golden ticket",
-        "edr bypass",
-        "av evasion",
-        "antivirus bypass",
-    }
-)
+# Security keywords — broader (defensive + offensive analysis)
+_SECURITY_KEYWORDS: dict[str, int] = {
+    # Strong (3) — unambiguous security intent
+    "exploit": 3,
+    "payload": 3,
+    "shellcode": 3,
+    "privilege escalation": 3,
+    "privesc": 3,
+    "reverse shell": 3,
+    "bind shell": 3,
+    "command injection": 3,
+    "sql injection": 3,
+    "sqli": 3,
+    "xss": 3,
+    "csrf": 3,
+    "buffer overflow": 3,
+    "rop chain": 3,
+    "heap spray": 3,
+    "use after free": 3,
+    "uaf": 3,
+    "zero day": 3,
+    "0day": 3,
+    "cve-": 3,
+    "metasploit": 3,
+    "msfvenom": 3,
+    "meterpreter": 3,
+    "cobalt strike": 3,
+    "c2 server": 3,
+    "c&c": 3,
+    "lateral movement": 3,
+    "persistence mechanism": 3,
+    "antivirus bypass": 3,
+    "edr bypass": 3,
+    "av evasion": 3,
+    "defense evasion": 3,
+    "exfiltration": 3,
+    "data exfiltration": 3,
+    "pentesting": 3,
+    "pentest": 3,
+    "penetration test": 3,
+    "red team": 3,
+    "redteam": 3,
+    "offensive security": 3,
+    "mimikatz": 3,
+    "crackmapexec": 3,
+    "pass the hash": 3,
+    "pass the ticket": 3,
+    "kerberoasting": 3,
+    "asreproasting": 3,
+    "golden ticket": 3,
+    "silver ticket": 3,
+    "dcsync": 3,
+    "ransomware": 3,
+    "rootkit": 3,
+    "backdoor": 3,
+    "botnet": 3,
+    "incident response": 3,
+    "threat hunting": 3,
+    "malware analysis": 3,
+    "network forensics": 3,
+    "memory forensics": 3,
+    "mitre att&ck": 3,
+    # Medium (2) — clear security context
+    "evasion": 2,
+    "obfuscation": 2,
+    "lolbas": 2,
+    "living off the land": 2,
+    "bug bounty": 2,
+    "ctf": 2,
+    "capture the flag": 2,
+    "nmap": 3,
+    "masscan": 2,
+    "gobuster": 2,
+    "nikto": 2,
+    "burp suite": 2,
+    "sqlmap": 2,
+    "hydra": 2,
+    "hashcat": 2,
+    "bloodhound": 2,
+    "threat intelligence": 2,
+    "ioc": 2,
+    "indicator of compromise": 2,
+    "reverse engineering": 2,
+    "yara rule": 2,
+    "sigma rule": 2,
+    "siem alert": 2,
+    "splunk detection": 2,
+    "ids rule": 2,
+    "snort rule": 2,
+    "suricata": 2,
+    "volatility": 2,
+    "malware": 3,
+    "trojan": 2,
+    "threat actor": 2,
+    "vulnerability assessment": 2,
+    "vulnerability scan": 2,
+    "nessus": 2,
+    "openvas": 2,
+    "hardening": 2,
+    "cis benchmark": 2,
+    "attack framework": 2,
+    "kill chain": 2,
+    "diamond model": 2,
+    # Weak (1) — broad terms that need corroboration
+    "security audit": 1,
+    "vulnerability": 1,
+    "security": 1,
+    "implications": 1,
+}
 
-_CODING_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "write a function",
-        "write a script",
-        "write a program",
-        "write code",
-        "debug this",
-        "fix this code",
-        "fix the bug",
-        "code review",
-        "refactor",
-        "implement",
-        "class definition",
-        "api endpoint",
-        "unit test",
-        "pytest",
-        "unittest",
-        "docker",
-        "kubernetes",
-        "ci/cd",
-        "sql query",
-        "regex",
-        "algorithm",
-        "data structure",
-        "python",
-        "javascript",
-        "typescript",
-        "rust",
-        "golang",
-        "bash script",
-        "powershell",
-        "ansible",
-        "terraform",
-        "bigfix",
-        "bes xml",
-        "relevance",
-        # Persona-specific: pythoninterpreter, sqlterminal
-        "sql",
-        "interpreter",
-        "simulator",
-        "execute",
-        "run this code",
-    }
-)
+# SPL keywords — Splunk-specific vocabulary (low false positive rate)
+_SPL_KEYWORDS: dict[str, int] = {
+    # Strong (3) — unambiguous SPL intent
+    "splunk": 3,
+    "spl query": 3,
+    "search processing language": 3,
+    "tstats": 3,
+    "inputlookup": 3,
+    "outputlookup": 3,
+    "makeresults": 3,
+    "mvexpand": 3,
+    "streamstats": 3,
+    "eventstats": 3,
+    "correlation search": 3,
+    "notable event": 3,
+    "splunk es": 3,
+    "splunk enterprise security": 3,
+    "data model acceleration": 3,
+    "summary index": 3,
+    "detection search": 3,
+    "splunk query": 3,
+    "write me a splunk": 3,
+    "write a splunk": 3,
+    "build a splunk": 3,
+    # Medium (2) — SPL commands in natural language
+    "eval field": 2,
+    "rex field": 2,
+    "lookup command": 2,
+    "transaction command": 2,
+    "| stats": 2,
+    "| timechart": 2,
+    "| eval": 2,
+    "| rex": 2,
+    "datamodel": 2,
+    "saved search": 2,
+    "dashboard panel spl": 2,
+    # Weak (1) — short terms that need corroboration
+    "spl": 1,
+    "| table": 1,
+    "| dedup": 1,
+    "| sort": 1,
+    "| rename": 1,
+}
 
-_SPL_KEYWORDS: frozenset[str] = frozenset(
-    {
-        # Direct SPL / Splunk language references
-        "splunk",
-        "spl",
-        "spl query",
-        "search processing language",
-        # SPL commands (common ones users type in natural language)
-        "tstats",
-        "eval field",
-        "rex field",
-        "lookup command",
-        "inputlookup",
-        "outputlookup",
-        "makeresults",
-        "mvexpand",
-        "streamstats",
-        "eventstats",
-        "transaction command",
-        "| stats",
-        "| timechart",
-        "| table",
-        "| eval",
-        "| rex",
-        "| dedup",
-        "| sort",
-        "| rename",
-        # SPL-specific diagnostic language
-        "correlation search",
-        "notable event",
-        "splunk es",
-        "splunk enterprise security",
-        "datamodel",
-        "data model acceleration",
-        "summary index",
-        "saved search",
-        "dashboard panel spl",
-        "detection search",
-        "splunk query",
-        "write me a splunk",
-        "write a splunk",
-        "build a splunk",
-    }
-)
+# Coding keywords — software development intent
+_CODING_KEYWORDS: dict[str, int] = {
+    # Strong (3) — clear coding intent
+    "write a function": 3,
+    "write a script": 3,
+    "write a program": 3,
+    "write code": 3,
+    "debug this": 3,
+    "fix this code": 3,
+    "fix the bug": 3,
+    "code review": 3,
+    "run this code": 3,
+    # Medium (2) — development activities
+    "refactor": 2,
+    "implement": 2,
+    "class definition": 2,
+    "api endpoint": 2,
+    "unit test": 2,
+    "pytest": 2,
+    "unittest": 2,
+    "sql query": 2,
+    "algorithm": 2,
+    "data structure": 2,
+    "bash script": 2,
+    "powershell": 2,
+    "ansible": 2,
+    "terraform": 2,
+    "bigfix": 2,
+    "bes xml": 2,
+    "relevance": 2,
+    "interpreter": 2,
+    "simulator": 2,
+    "execute": 2,
+    # Weak (1) — broad terms that need corroboration
+    "docker": 1,
+    "kubernetes": 1,
+    "ci/cd": 1,
+    "regex": 1,
+    "python": 1,
+    "javascript": 1,
+    "typescript": 1,
+    "rust": 1,
+    "golang": 1,
+    "sql": 1,
+    "function": 1,
+    "script": 1,
+    "review": 2,
+    "bug": 2,
+    "bash": 2,
+    "networking": 2,
+    "write function": 2,
+    "write script": 2,
+    "write a python": 2,
+    "write a javascript": 2,
+    "write a typescript": 2,
+    "write a rust": 2,
+    "write a golang": 2,
+    "write a sql": 2,
+    "write a bash": 2,
+    "write a docker": 2,
+    "write a kubernetes": 2,
+    "docker compose": 2,
+    "dockerfile": 2,
+    "pipeline": 1,
+}
 
-_REASONING_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "analyze",
-        "compare",
-        "evaluate",
-        "pros and cons",
-        "trade-off",
-        "research",
-        "summarize",
-        "explain in depth",
-        "step by step",
-        "break down",
-        "how does",
-        "why does",
-        "what is the difference",
-        "deep dive",
-        "comprehensive",
-        "thorough",
-        "detailed analysis",
-    }
-)
+# Reasoning keywords — analytical/deep thinking intent
+_REASONING_KEYWORDS: dict[str, int] = {
+    # Strong (3) — clear analytical intent
+    "pros and cons": 3,
+    "trade-off": 3,
+    "explain in depth": 3,
+    "step by step": 3,
+    "break down": 3,
+    "what is the difference": 3,
+    "deep dive": 3,
+    "detailed analysis": 3,
+    # Medium (2) — analytical activities
+    "analyze": 2,
+    "compare": 2,
+    "evaluate": 2,
+    "research": 2,
+    # Weak (1) — broad terms that need corroboration
+    "summarize": 1,
+    "how does": 1,
+    "why does": 1,
+    "comprehensive": 1,
+    "thorough": 1,
+}
 
-
-# P9: Pre-compiled regex for security and coding keyword sets.
-# Replaces 80+/35+ substring scans with a single regex match pass.
-# Pattern: \b(word1|word2|...)\b — word boundary prevents partial matches.
-def _make_word_boundary_regex(keywords: frozenset[str]) -> re.Pattern:
-    escaped = [re.escape(kw) for kw in keywords]
-    pattern = r"\b(" + "|".join(escaped) + r")\b"
-    return re.compile(pattern, re.IGNORECASE)
-
-
-_SECURITY_REGEX = _make_word_boundary_regex(_SECURITY_KEYWORDS)
-_CODING_REGEX = _make_word_boundary_regex(_CODING_KEYWORDS)
-_SPL_REGEX = _make_word_boundary_regex(_SPL_KEYWORDS)
+# Workspace routing configuration: keywords + activation threshold
+# Thresholds tuned so a single strong signal (weight 3) triggers routing,
+# or a combination of medium signals (2+2=4) reaches the bar.
+_WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
+    "auto-redteam": {
+        "keywords": _REDTEAM_KEYWORDS,
+        "threshold": 4,
+    },
+    "auto-security": {
+        "keywords": _SECURITY_KEYWORDS,
+        "threshold": 3,
+    },
+    "auto-spl": {
+        "keywords": _SPL_KEYWORDS,
+        "threshold": 3,
+    },
+    "auto-coding": {
+        "keywords": _CODING_KEYWORDS,
+        "threshold": 3,
+    },
+    "auto-reasoning": {
+        "keywords": _REASONING_KEYWORDS,
+        "threshold": 3,
+    },
+}
 
 
 def _detect_workspace(messages: list[dict]) -> str | None:
     """Detect the most appropriate workspace from the last user message.
 
+    Uses weighted keyword scoring: each keyword has a weight (1-3) reflecting
+    signal strength. The workspace with the highest score above its threshold wins.
+
     Returns a workspace ID string, or None if no strong signal found
     (caller should use the default 'auto' routing in that case).
 
-    Routing priority (highest to lowest):
-    1. Redteam keywords → auto-redteam (most permissive security model)
-    2. Security keywords → auto-security (defensive + offensive analysis)
-    3. SPL keywords → auto-spl (Splunk SPL queries, DeepSeek-Coder-V2-Lite)
-    4. Coding keywords → auto-coding (Qwen3-Coder-Next-4bit via MLX)
-    5. Reasoning keywords → auto-reasoning (DeepSeek-R1)
+    Routing is determined by score, not arbitrary priority order:
+    - "write an exploit in Python" → security wins (exploit=3 + python=1=4 vs coding=3)
+    - "analyze this malware" → security wins (malware=2 + analyze=2=4 vs reasoning=2)
+    - "step by step comparison of frameworks" → reasoning wins (step by step=3 + compare=2=5)
     """
     # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
     last_user_content = ""
@@ -784,39 +824,22 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     if not last_user_content:
         return None
 
-    # Redteam check first — more specific than security (needs 2 hits).
-    # Early-exit loop: stop scanning as soon as threshold is met.
-    redteam_hits = 0
-    for kw in _REDTEAM_KEYWORDS:
-        if kw in last_user_content:
-            redteam_hits += 1
-            if redteam_hits >= 2:
-                return "auto-redteam"
+    # Score each workspace — return the highest above threshold
+    scores: dict[str, int] = {}
+    for workspace_id, config in _WORKSPACE_ROUTING.items():
+        score = sum(weight for kw, weight in config["keywords"].items() if kw in last_user_content)
+        if score >= config["threshold"]:
+            scores[workspace_id] = score
 
-    # Security check (broader — includes defensive topics). 1 hit is enough.
-    # Pre-compiled regex (P9): single pass instead of 100+ substring scans.
-    if _SECURITY_REGEX.search(last_user_content):
-        return "auto-security"
+    if not scores:
+        return None
 
-    # SPL check — must come before coding (SPL is a strict subset, needs dedicated routing).
-    # Single hit is sufficient — SPL vocabulary is specific enough that false positives
-    # are rare. Splunk-related terms are no longer in _CODING_KEYWORDS.
-    if _SPL_REGEX.search(last_user_content):
-        return "auto-spl"
+    # Redteam takes priority over security when both exceed threshold
+    # (same model family, but redteam is more permissive)
+    if "auto-redteam" in scores and "auto-security" in scores and scores["auto-redteam"] >= 5:
+        return "auto-redteam"
 
-    # Coding check — same single-pass regex (P9).
-    if _CODING_REGEX.search(last_user_content):
-        return "auto-coding"
-
-    # Reasoning check (requires 2+ signals to avoid false positives).
-    reasoning_hits = 0
-    for kw in _REASONING_KEYWORDS:
-        if kw in last_user_content:
-            reasoning_hits += 1
-            if reasoning_hits >= 2:
-                return "auto-reasoning"
-
-    return None
+    return max(scores, key=lambda k: scores[k])
 
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")

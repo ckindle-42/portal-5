@@ -193,7 +193,7 @@ curl -s http://localhost:8914/health
 1. Select `Portal Red Team`
 2. Type: `Enumerate potential injection points in this GraphQL schema: [paste schema]`
 3. Routes to BaronLLM with red team perspective
-4. Requires 2+ security keywords in the message to trigger auto-routing
+4. Weighted keyword scoring determines routing — strong signals (exploit, payload, shellcode) carry weight 3, medium (bypass, evasion) carry weight 2. Threshold of 5+ triggers auto-redteam
 
 ### Blue Team (auto-blueteam)
 
@@ -203,7 +203,7 @@ curl -s http://localhost:8914/health
 
 **Verify security routing:**
 ```bash
-# Content-aware routing: messages with 2+ red team keywords auto-route
+# Content-aware routing: weighted keyword scoring — strong signals route to specialist workspaces
 curl -s http://localhost:9099/v1/chat/completions \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   -H "Content-Type: application/json" \

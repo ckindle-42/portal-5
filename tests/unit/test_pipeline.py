@@ -944,17 +944,18 @@ class TestSPLWorkspace:
             "'spl query' must be removed from _CODING_KEYWORDS after adding _SPL_KEYWORDS."
         )
 
-    def test_spl_keywords_frozenset_exists(self):
-        """_SPL_KEYWORDS frozenset must be importable from router_pipe."""
+    def test_spl_keywords_weighted_dict_exists(self):
+        """_SPL_KEYWORDS must be a weighted dict in router_pipe."""
         from portal_pipeline.router_pipe import _SPL_KEYWORDS
 
-        assert isinstance(_SPL_KEYWORDS, frozenset), (
-            "_SPL_KEYWORDS must be a frozenset in router_pipe.py"
+        assert isinstance(_SPL_KEYWORDS, dict), (
+            "_SPL_KEYWORDS must be a dict[str, int] in router_pipe.py"
         )
         assert len(_SPL_KEYWORDS) >= 10, (
             f"_SPL_KEYWORDS seems too small ({len(_SPL_KEYWORDS)} entries) — check the definition"
         )
         assert "splunk" in _SPL_KEYWORDS, "'splunk' must be in _SPL_KEYWORDS"
+        assert _SPL_KEYWORDS["splunk"] == 3, "'splunk' must have weight 3 (strong signal)"
 
     def test_spl_detect_workspace_routes_splunk_query(self):
         """_detect_workspace must return 'auto-spl' for an SPL-flavored message."""

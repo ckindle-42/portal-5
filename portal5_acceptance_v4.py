@@ -51,7 +51,6 @@ import os
 import re
 import subprocess
 import sys
-import textwrap
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -1162,9 +1161,8 @@ async def S3() -> None:
         await asyncio.sleep(_MLX_SWITCH_DELAY if is_mlx else _INTER_GROUP_DELAY)
 
     # ── Content-aware routing: security keywords → auto-redteam ──────────────
-    # Note: The pipeline logs "Routing workspace=" only on the streaming code path.
-    # Non-streaming requests are confirmed by HTTP 200 + log presence of "auto-redteam".
-    # If log is absent, downgrade to WARN (not FAIL) — routing worked but log path differs.
+    # Weighted scoring: exploit(3) + payload(3) + shellcode(3) + reverse shell(3) + bypass(2) + evasion(2) = 16
+    # Threshold for auto-redteam is 4, so this easily exceeds it.
     t0 = time.time()
     code, _ = await _chat(
         "auto",
@@ -1172,7 +1170,6 @@ async def S3() -> None:
         max_tokens=5,
         timeout=30,
     )
-    # Broader pattern: catches any of the log formats the pipeline uses
     rt_matches = _grep_logs(
         "portal5-pipeline",
         r"auto-redteam|redteam|content.aware|security.*rout|rout.*security",
@@ -1191,6 +1188,7 @@ async def S3() -> None:
     )
 
     # ── Content-aware routing: SPL keywords → auto-spl ───────────────────────
+    # Weighted scoring: splunk(3) + tstats(3) + splunk query(3) = 9, threshold 3.
     t0 = time.time()
     code, _ = await _chat(
         "auto",
@@ -1212,6 +1210,262 @@ async def S3() -> None:
         if spl_matches
         else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
         spl_matches[:2] if spl_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: coding keywords → auto-coding ─────────────────
+    # Weighted scoring: write a function(3) + python(1) + function(1) = 5, threshold 3.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "Write a Python function to sort a list and include type hints",
+        max_tokens=5,
+        timeout=30,
+    )
+    coding_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-coding|coding.*rout|rout.*coding|content.aware.*coding",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17c",
+        "Content-aware routing: coding keywords → auto-coding pipeline log",
+        "PASS" if coding_matches else "WARN",
+        "confirmed in logs"
+        if coding_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        coding_matches[:2] if coding_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: reasoning keywords → auto-reasoning ───────────
+    # Weighted scoring: analyze(2) + trade-offs(3) = 5, threshold 3.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "Analyze the trade-offs of microservices vs monolith architecture",
+        max_tokens=5,
+        timeout=30,
+    )
+    reasoning_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-reasoning|reasoning.*rout|rout.*reasoning|content.aware.*reasoning",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17d",
+        "Content-aware routing: reasoning keywords → auto-reasoning pipeline log",
+        "PASS" if reasoning_matches else "WARN",
+        "confirmed in logs"
+        if reasoning_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        reasoning_matches[:2] if reasoning_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: overlapping signals resolve correctly ───────────
+    # "exploit in Python" → security/redteam wins (exploit=3 + python=1=4)
+    # over coding (python=1=1). Tests that weighted scoring handles ambiguity
+    # better than the old regex priority chain.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "how to write an exploit in Python for a penetration test",
+        max_tokens=5,
+        timeout=30,
+    )
+    overlap_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-redteam|auto-security",
+        lines=200,
+    )
+    record(
+        sec,
+        "S3-17e",
+        "Content-aware routing: overlapping signals (exploit+Python) → security/redteam wins",
+        "PASS" if overlap_matches else "WARN",
+        "confirmed in logs"
+        if overlap_matches
+        else f"HTTP {code} OK but routing not confirmed — check pipeline logs",
+        overlap_matches[:2] if overlap_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: weak signals alone should NOT trigger routing ──
+    # "python" (weight=1) and "docker" (weight=1) are both weak coding signals.
+    # Threshold for auto-coding is 3, so these two alone (score=2) should NOT trigger.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "I use python and docker for my work",
+        max_tokens=5,
+        timeout=30,
+    )
+    weak_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-coding",
+        lines=200,
+    )
+    record(
+        sec,
+        "S3-17f",
+        "Content-aware routing: weak signals alone (python+docker) do NOT trigger auto-coding",
+        "PASS" if not weak_matches else "FAIL",
+        "correctly stayed on auto (no auto-coding in logs)"
+        if not weak_matches
+        else f"incorrectly routed to auto-coding: {weak_matches[:2]}",
+        [],
+        t0=t0,
+    )
+    rt_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-redteam|redteam|content.aware|security.*rout|rout.*security",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17",
+        "Content-aware routing: security keywords → auto-redteam pipeline log",
+        "PASS" if rt_matches else "WARN",
+        "confirmed in logs"
+        if rt_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        rt_matches[:2] if rt_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: SPL keywords → auto-spl ───────────────────────
+    # Weighted scoring: splunk(3) + tstats(3) + splunk query(3) = 9, threshold 3.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "write a splunk tstats search using index= and sourcetype= to count events by host",
+        max_tokens=5,
+        timeout=45,
+    )
+    spl_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-spl|spl.*rout|rout.*spl|content.aware.*spl|splunk",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17b",
+        "Content-aware routing: SPL keywords → auto-spl pipeline log",
+        "PASS" if spl_matches else "WARN",
+        "confirmed in logs"
+        if spl_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        spl_matches[:2] if spl_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: coding keywords → auto-coding ─────────────────
+    # Weighted scoring: write a function(3) + python(1) + function(1) = 5, threshold 3.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "Write a Python function to sort a list and include type hints",
+        max_tokens=5,
+        timeout=30,
+    )
+    coding_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-coding|coding.*rout|rout.*coding|content.aware.*coding",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17c",
+        "Content-aware routing: coding keywords → auto-coding pipeline log",
+        "PASS" if coding_matches else "WARN",
+        "confirmed in logs"
+        if coding_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        coding_matches[:2] if coding_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: reasoning keywords → auto-reasoning ───────────
+    # Weighted scoring: analyze(2) + trade-offs(3) = 5, threshold 3.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "Analyze the trade-offs of microservices vs monolith architecture",
+        max_tokens=5,
+        timeout=30,
+    )
+    reasoning_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-reasoning|reasoning.*rout|rout.*reasoning|content.aware.*reasoning",
+        lines=600,
+    )
+    record(
+        sec,
+        "S3-17d",
+        "Content-aware routing: reasoning keywords → auto-reasoning pipeline log",
+        "PASS" if reasoning_matches else "WARN",
+        "confirmed in logs"
+        if reasoning_matches
+        else f"HTTP {code} (routing may have worked but log not emitted for non-streaming path)",
+        reasoning_matches[:2] if reasoning_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: overlapping signals resolve correctly ───────────
+    # "exploit in Python" → security/redteam wins (exploit=3 + python=1=4)
+    # over coding (python=1=1). Tests that weighted scoring handles ambiguity
+    # better than the old regex priority chain.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "how to write an exploit in Python for a penetration test",
+        max_tokens=5,
+        timeout=30,
+    )
+    overlap_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-redteam|auto-security",
+        lines=200,
+    )
+    record(
+        sec,
+        "S3-17e",
+        "Content-aware routing: overlapping signals (exploit+Python) → security/redteam wins",
+        "PASS" if overlap_matches else "WARN",
+        "confirmed in logs"
+        if overlap_matches
+        else f"HTTP {code} OK but routing not confirmed — check pipeline logs",
+        overlap_matches[:2] if overlap_matches else [],
+        t0=t0,
+    )
+
+    # ── Content-aware routing: weak signals alone should NOT trigger routing ──
+    # "python" (weight=1) and "docker" (weight=1) are both weak coding signals.
+    # Threshold for auto-coding is 3, so these two alone (score=2) should NOT trigger.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "I use python and docker for my work",
+        max_tokens=5,
+        timeout=30,
+    )
+    weak_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-coding",
+        lines=200,
+    )
+    record(
+        sec,
+        "S3-17f",
+        "Content-aware routing: weak signals alone (python+docker) do NOT trigger auto-coding",
+        "PASS" if not weak_matches else "FAIL",
+        "correctly stayed on auto (no auto-coding in logs)"
+        if not weak_matches
+        else f"incorrectly routed to auto-coding: {weak_matches[:2]}",
+        [],
         t0=t0,
     )
 

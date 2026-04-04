@@ -9,9 +9,13 @@ All notable changes to Portal 5 will be documented in this file.
 - **`auto-spl` workspace**: Splunk SPL query authoring, pipeline explanation, detection search
   - Routes `[mlx, coding, general]` — MLX DeepSeek-Coder-V2-Lite-Instruct-8bit primary (~12GB),
     deepseek-coder-v2:16b-lite-instruct-q4_K_M Ollama fallback
-  - `_SPL_KEYWORDS` frozenset + `_SPL_REGEX` for content-aware routing from `auto` workspace
-  - SPL detection inserted between security and coding in `_detect_workspace` priority chain
+  - `_SPL_KEYWORDS` weighted dict + scoring for content-aware routing from `auto` workspace
+  - SPL detection inserted between security and coding in `_detect_workspace` scoring chain
   - `'splunk'` and `'spl query'` removed from `_CODING_KEYWORDS` (now owned by SPL workspace)
+  - `_detect_workspace` replaced regex priority chain with weighted keyword scoring:
+    each keyword carries weight 1-3 (weak/medium/strong), workspaces have activation thresholds,
+    highest score above threshold wins. Handles overlapping signals naturally (e.g. "exploit in Python"
+    → security wins, not coding).
   - New `splunksplgineer` persona with hardened SPL constraints:
     - eval function hallucination guards (no `is_numeric()`, `indexof()`, `contains()`)
     - `tonumber()` enforcement before arithmetic operations
