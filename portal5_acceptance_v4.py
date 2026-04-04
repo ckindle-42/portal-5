@@ -1023,24 +1023,34 @@ _WS_SIGNALS: dict[str, list[str]] = {
 
 # Model groups for batched execution — workspaces sharing the same backend model
 # are tested consecutively to minimize model load/unload thrashing.
+#
+# Ordering strategy:
+#   Phase 1: Ollama models (no MLX loaded, no memory pressure)
+#   Phase 2: MLX models (one contiguous block, minimize switches)
+#   Phase 3: Image/Video (ComfyUI/Wan2.2 need max unified memory headroom)
 _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
-    # dolphin-llama3:8b (general, creative, video, music)
-    ("general/dolphin-llama3:8b", ["auto", "auto-video", "auto-music", "auto-creative"]),
+    # ── Phase 1: Ollama models ──────────────────────────────────────────────
+    # dolphin-llama3:8b (general, creative)
+    ("ollama/general", ["auto", "auto-creative"]),
     # qwen3.5:9b (documents)
-    ("coding/qwen3.5:9b", ["auto-documents"]),
+    ("ollama/coding", ["auto-documents"]),
+    # security models (Ollama)
+    ("ollama/security", ["auto-security", "auto-redteam", "auto-blueteam"]),
+    # ── Phase 2: MLX models (contiguous block) ──────────────────────────────
     # Qwen3-Coder-Next-4bit (MLX — coding)
     ("mlx/coding", ["auto-coding"]),
     # Qwen3-Coder-30B-A3B-Instruct-8bit (MLX — SPL)
     ("mlx/spl", ["auto-spl"]),
-    # security models
-    ("security", ["auto-security", "auto-redteam", "auto-blueteam"]),
-    # reasoning/compliance/research/data (deepseek-r1 family + MLX)
+    # reasoning/compliance/research/data (MLX models: Qwen3.5, Magistral, DeepSeek-R1)
     (
         "mlx/reasoning",
         ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"],
     ),
     # vision (MLX gemma-4)
     ("mlx/vision", ["auto-vision"]),
+    # ── Phase 3: Image/Video LAST (unload MLX, max memory headroom) ─────────
+    # video and music — ComfyUI/Wan2.2 and AudioCraft need unified memory
+    ("media/video-music", ["auto-video", "auto-music"]),
 ]
 
 _INTRA_GROUP_DELAY = 2
@@ -2108,10 +2118,18 @@ _PERSONA_PROMPT: dict[str, str] = {
 }
 
 # Personas grouped by workspace_model for batched testing.
-# v4 FIX: fullstacksoftwaredeveloper, ux-uideveloper, splunksplgineer all use
-# mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit (auto-spl workspace),
-# NOT qwen3-coder-next:30b-q5 (Ollama). Corrected grouping below.
+# Ordering strategy:
+#   Phase 1: Ollama models (no MLX loaded, no memory pressure)
+#   Phase 2: MLX models (contiguous block, minimize switches)
+#   Phase 3: Image/Video LAST (ComfyUI/Wan2.2 need max unified memory headroom)
 _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
+    # ── Phase 1: Ollama models ──────────────────────────────────────────────
+    # Ollama: dolphin-llama3:8b (general)
+    (
+        "dolphin-llama3:8b",
+        ["creativewriter", "itexpert", "techreviewer", "techwriter"],
+        "auto",
+    ),
     # Ollama: qwen3-coder-next:30b-q5 (coding, auto-coding workspace)
     (
         "qwen3-coder-next:30b-q5",
@@ -2136,17 +2154,6 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
         ],
         "auto-coding",
     ),
-    # MLX: Qwen3-Coder-30B-A3B-Instruct-8bit (auto-spl workspace)
-    # fullstacksoftwaredeveloper, ux-uideveloper, splunksplgineer were migrated to MLX
-    (
-        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-        [
-            "fullstacksoftwaredeveloper",
-            "splunksplgineer",
-            "ux-uideveloper",
-        ],
-        "auto-spl",
-    ),
     # Ollama: deepseek-r1:32b-q4_k_m (reasoning)
     (
         "deepseek-r1:32b-q4_k_m",
@@ -2160,12 +2167,6 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
             "statistician",
         ],
         "auto-reasoning",
-    ),
-    # Ollama: dolphin-llama3:8b (general)
-    (
-        "dolphin-llama3:8b",
-        ["creativewriter", "itexpert", "techreviewer", "techwriter"],
-        "auto",
     ),
     # Ollama: xploiter/the-xploiter (security)
     (
@@ -2190,6 +2191,17 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
         "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
         ["pentester"],
         "auto-security",
+    ),
+    # ── Phase 2: MLX models (contiguous block) ──────────────────────────────
+    # MLX: Qwen3-Coder-30B-A3B-Instruct-8bit (auto-spl workspace)
+    (
+        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        [
+            "fullstacksoftwaredeveloper",
+            "splunksplgineer",
+            "ux-uideveloper",
+        ],
+        "auto-spl",
     ),
     # MLX: Jackrong compliance model (auto-compliance)
     (
