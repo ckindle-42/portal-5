@@ -374,18 +374,23 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/health":
             state_info = mlx_state.to_dict()
             state = state_info["state"]
-            code = 200 if state in ("ready", "switching", "degraded") else 503
+            code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)
             return
         if self.path == "/v1/models":
-            if mlx_state.state in ("ready", "switching", "degraded"):
+            if mlx_state.state in ("ready", "switching"):
                 data = {
                     "object": "list",
                     "data": [{"id": m, "object": "model", "created": 0} for m in ALL_MODELS],
                 }
                 self._send_json(200, data)
             else:
-                self._send_json(503, {"error": "no MLX server running"})
+                self._send_json(
+                    503,
+                    {
+                        "error": f"MLX server {mlx_state.state} — {mlx_state.last_error or 'no server running'}"
+                    },
+                )
             return
         if not self._handle_get_forward():
             self._send_json(503, {"error": "no server"})

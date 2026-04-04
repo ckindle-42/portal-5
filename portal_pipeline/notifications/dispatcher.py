@@ -13,10 +13,19 @@ if TYPE_CHECKING:
     from portal_pipeline.notifications.channels import NotificationChannel
     from portal_pipeline.notifications.events import AlertEvent, SummaryEvent
 else:
-    # Late imports to avoid circular dependency at runtime
     from portal_pipeline.notifications.events import AlertEvent, EventType
 
+import httpx
+
 logger = logging.getLogger(__name__)
+
+_MLX_PROXY_HEALTH_URL = os.environ.get(
+    "MLX_PROXY_HEALTH_URL", "http://host.docker.internal:8081/health"
+)
+
+_MLX_PROXY_HEALTH_URL = os.environ.get(
+    "MLX_PROXY_HEALTH_URL", "http://host.docker.internal:8081/health"
+)
 
 
 class NotificationDispatcher:
@@ -91,7 +100,6 @@ class NotificationDispatcher:
         for backend_id, backend in registry._backends.items():
             if backend.healthy:
                 currently_healthy.add(backend_id)
-                # State transition: was failing, now healthy
                 if self._failure_counts.get(backend_id, 0) >= down_threshold:
                     self._failure_counts[backend_id] = 0
                     event = AlertEvent(
@@ -106,8 +114,10 @@ class NotificationDispatcher:
             else:
                 self._failure_counts[backend_id] += 1
                 count = self._failure_counts[backend_id]
-                # State transition: crossed threshold
                 if count == down_threshold:
+                    metadata: dict = {}
+                    if backend.type == "mlx":
+                        metadata = self._fetch_mlx_context()
                     event = AlertEvent(
                         type=EventType.BACKEND_DOWN,
                         message=(
@@ -115,11 +125,11 @@ class NotificationDispatcher:
                             f"{down_threshold} consecutive checks."
                         ),
                         backend_id=backend_id,
+                        metadata=metadata,
                     )
                     self._schedule(self.dispatch(event))
                     logger.warning("Backend down threshold reached: %s", backend_id)
 
-        # All-backends-down event (debounced — fire once, not every cycle)
         if (
             alert_all_down
             and not currently_healthy
@@ -127,16 +137,43 @@ class NotificationDispatcher:
             and not self._alerted_all_down
         ):
             self._alerted_all_down = True
+            metadata: dict = {}
+            mlx_backend = registry._backends.get("mlx-apple-silicon")
+            if mlx_backend and not mlx_backend.healthy:
+                metadata = self._fetch_mlx_context()
             event = AlertEvent(
                 type=EventType.ALL_BACKENDS_DOWN,
                 message="All backends are unhealthy. Portal 5 cannot serve requests.",
+                metadata=metadata,
             )
             self._schedule(self.dispatch(event))
             logger.error("ALL BACKENDS DOWN — alert fired")
 
-        # Clear debounce when at least one backend recovers
         if currently_healthy and self._alerted_all_down:
             self._alerted_all_down = False
+
+    def _fetch_mlx_context(self) -> dict:
+        """Fetch detailed MLX proxy state for alert enrichment.
+
+        Makes a synchronous HTTP call to the MLX proxy /health endpoint.
+        Returns context dict or empty dict on failure.
+        """
+        try:
+            resp = httpx.get(_MLX_PROXY_HEALTH_URL, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "mlx_server": data.get("active_server", "unknown"),
+                    "mlx_model": data.get("loaded_model", "none"),
+                    "mlx_state": data.get("state", "unknown"),
+                    "mlx_error": data.get("last_error") or "none",
+                    "mlx_consecutive_failures": data.get("consecutive_failures", 0),
+                    "mlx_switch_count": data.get("switch_count", 0),
+                    "mlx_state_duration": f"{data.get('state_duration_sec', 0)}s",
+                }
+        except Exception as e:
+            logger.debug("Failed to fetch MLX context for alert: %s", e)
+        return {}
 
     def check_config_error(self, error_message: str) -> None:
         """Fire a CONFIG_ERROR alert."""
