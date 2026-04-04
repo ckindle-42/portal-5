@@ -732,10 +732,10 @@ async def S1() -> None:
     # mlx-proxy.py model routing consistency
     proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
 
-    gemma_in_all = "mlx-community/gemma-4-26b-a4b-4bit" in proxy_src
+    gemma_in_all = "mlx-community/gemma-4-31b-it-4bit" in proxy_src
     magistral_in_all = "lmstudio-community/Magistral-Small-2509-MLX-8bit" in proxy_src
     gemma_basename_in_vlm = (
-        "gemma-4-26b-a4b-4bit"
+        "gemma-4-31b-it-4bit"
         in proxy_src[proxy_src.index("VLM_MODELS") : proxy_src.index("ALL_MODELS")]
         if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src
         else False
@@ -750,16 +750,16 @@ async def S1() -> None:
     record(
         sec,
         "S1-06",
-        "mlx-proxy.py: Gemma 4 in ALL_MODELS and VLM_MODELS (uses mlx_vlm)",
+        "mlx-proxy.py: Gemma 4 31B dense in ALL_MODELS and VLM_MODELS (uses mlx_vlm)",
         "PASS" if gemma_in_all and gemma_basename_in_vlm else "FAIL",
         (
             "✓ present in both"
             if gemma_in_all and gemma_basename_in_vlm
             else f"ALL_MODELS={gemma_in_all} VLM_MODELS={gemma_basename_in_vlm} "
-            "— fix: add gemma-4-26b-a4b-4bit to VLM_MODELS set in scripts/mlx-proxy.py"
+            "— fix: add gemma-4-31b-it-4bit to VLM_MODELS set in scripts/mlx-proxy.py"
         ),
         fix=(
-            "Add 'gemma-4-26b-a4b-4bit' to VLM_MODELS in scripts/mlx-proxy.py"
+            "Add 'gemma-4-31b-it-4bit' to VLM_MODELS in scripts/mlx-proxy.py"
             if not (gemma_in_all and gemma_basename_in_vlm)
             else ""
         ),
@@ -2215,9 +2215,9 @@ _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
         ["magistralstrategist"],
         "auto-mistral",
     ),
-    # MLX: Gemma 4 (auto-vision)
+    # MLX: Gemma 4 31B dense (auto-vision)
     (
-        "mlx-community/gemma-4-26b-a4b-4bit",
+        "mlx-community/gemma-4-31b-it-4bit",
         ["gemmaresearchanalyst"],
         "auto-vision",
     ),
@@ -2916,10 +2916,10 @@ async def S14() -> None:
     record(
         sec,
         "S14-10",
-        "HOWTO MLX table documents gemma-4-26b-a4b-4bit",
-        "PASS" if "gemma-4-26b-a4b-4bit" in howto else "FAIL",
+        "HOWTO MLX table documents gemma-4-31b-it-4bit",
+        "PASS" if "gemma-4-31b-it-4bit" in howto else "FAIL",
         "found"
-        if "gemma-4-26b-a4b-4bit" in howto
+        if "gemma-4-31b-it-4bit" in howto
         else "missing — add Gemma 4 row to MLX models table in docs/HOWTO.md",
     )
 

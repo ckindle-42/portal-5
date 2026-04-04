@@ -888,7 +888,7 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
 | `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline |
-| `mlx-community/gemma-4-26b-a4b-4bit` | ~14GB | mlx_vlm | Google Gemma 4 MoE, thinking+vision, 256K ctx |
+| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Google Gemma 4 dense 31B, thinking+vision, 256K ctx |
 | `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode, vision |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (4bit only) |
 | `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | Reasoning, data analysis (v3 structural alignment) |

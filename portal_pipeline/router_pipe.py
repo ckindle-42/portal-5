@@ -455,7 +455,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks",
         "model_hint": "qwen3-vl:32b",
-        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-4bit",  # Updated: Gemma 4 replaces Qwen3-VL as primary MLX VLM (Google family, #6 open LMArena)
+        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B replaces 26B MoE (more capable, ~18GB)
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
