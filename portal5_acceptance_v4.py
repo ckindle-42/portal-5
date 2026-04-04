@@ -1027,26 +1027,26 @@ _WS_SIGNALS: dict[str, list[str]] = {
 # Ordering strategy:
 #   Phase 1: Ollama models (no MLX loaded, no memory pressure)
 #   Phase 2: MLX models (one contiguous block, minimize switches)
-#   Phase 3: Image/Video (ComfyUI/Wan2.2 need max unified memory headroom)
+#   Phase 3: Image/Video LAST (ComfyUI/Wan2.2 need max unified memory headroom)
 _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
     # ── Phase 1: Ollama models ──────────────────────────────────────────────
     # dolphin-llama3:8b (general, creative)
     ("ollama/general", ["auto", "auto-creative"]),
-    # qwen3.5:9b (documents)
+    # qwen3.5:9b (documents — Ollama, routing chain is [coding, general])
     ("ollama/coding", ["auto-documents"]),
-    # security models (Ollama)
+    # security models (Ollama: baronllm, the-xploiter, WhiteRabbitNeo)
     ("ollama/security", ["auto-security", "auto-redteam", "auto-blueteam"]),
     # ── Phase 2: MLX models (contiguous block) ──────────────────────────────
     # Qwen3-Coder-Next-4bit (MLX — coding)
     ("mlx/coding", ["auto-coding"]),
     # Qwen3-Coder-30B-A3B-Instruct-8bit (MLX — SPL)
     ("mlx/spl", ["auto-spl"]),
-    # reasoning/compliance/research/data (MLX models: Qwen3.5, Magistral, DeepSeek-R1)
+    # reasoning/compliance/research/data (MLX: Qwopus3.5-27B-v3, Magistral, DeepSeek-R1-abliterated, Qwen3.5-35B-A3B)
     (
         "mlx/reasoning",
         ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"],
     ),
-    # vision (MLX gemma-4)
+    # vision (MLX gemma-4-31b-it-4bit)
     ("mlx/vision", ["auto-vision"]),
     # ── Phase 3: Image/Video LAST (unload MLX, max memory headroom) ─────────
     # video and music — ComfyUI/Wan2.2 and AudioCraft need unified memory
@@ -2121,7 +2121,6 @@ _PERSONA_PROMPT: dict[str, str] = {
 # Ordering strategy:
 #   Phase 1: Ollama models (no MLX loaded, no memory pressure)
 #   Phase 2: MLX models (contiguous block, minimize switches)
-#   Phase 3: Image/Video LAST (ComfyUI/Wan2.2 need max unified memory headroom)
 _PERSONAS_BY_MODEL: list[tuple[str, list[str], str]] = [
     # ── Phase 1: Ollama models ──────────────────────────────────────────────
     # Ollama: dolphin-llama3:8b (general)
