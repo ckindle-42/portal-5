@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import json
 import os
 import re
@@ -60,6 +61,10 @@ import httpx
 import yaml
 
 ROOT = Path(__file__).parent.resolve()
+_LOCK_FILE = ROOT / ".mlx_test_lock"
+_lock_fd = None
+_LOCK_FILE = ROOT / ".mlx_test_lock"
+_lock_fd = None
 
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
@@ -3040,6 +3045,73 @@ ALL_ORDER = [
 ]
 
 
+async def _acquire_test_lock() -> None:
+    """File-based lock to prevent concurrent test runs that would exceed MLX proxy limits.
+
+    The MLX proxy has bounded concurrency (default 4 workers + 8 queue = 12).
+    Running multiple acceptance test processes simultaneously would exceed this,
+    causing 503 responses and potentially triggering kernel panics from memory pressure.
+    """
+    global _lock_fd
+    try:
+        _lock_fd = open(_LOCK_FILE, "w")
+        fcntl.flock(_lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _lock_fd.write(f"pid={os.getpid()} started={datetime.now().isoformat()}\n")
+        _lock_fd.flush()
+    except OSError:
+        if _lock_fd:
+            _lock_fd.close()
+            _lock_fd = None
+        sys.exit(
+            "❌ Another acceptance test is already running.\n"
+            "   Remove .mlx_test_lock if the previous run crashed."
+        )
+
+
+def _release_test_lock() -> None:
+    global _lock_fd
+    if _lock_fd:
+        try:
+            fcntl.flock(_lock_fd.fileno(), fcntl.LOCK_UN)
+            _lock_fd.close()
+        except Exception:
+            pass
+        _lock_fd = None
+        try:
+            _LOCK_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+async def _check_mlx_proxy_capacity() -> None:
+    """Verify the MLX proxy is healthy and report its concurrency limits.
+
+    Warns if the proxy is in a non-ready state (switching, degraded, down).
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{MLX_URL}/health")
+            if r.status_code == 200:
+                state = r.json()
+                active = state.get("active_server", "none")
+                st = state.get("state", "unknown")
+                workers = int(os.environ.get("MLX_PROXY_MAX_WORKERS", "4"))
+                queue = int(os.environ.get("MLX_PROXY_MAX_QUEUE", "8"))
+                print(f"  MLX proxy: {st} (server={active}, limits={workers}w+{queue}q)")
+                if st in ("down", "none"):
+                    print(
+                        "  ⚠️  MLX proxy is not ready — MLX-routed workspaces will fail.\n"
+                        "     Run: ./launch.sh switch-mlx-model <model-tag> to pre-warm."
+                    )
+                elif st == "switching":
+                    dur = state.get("state_duration_sec", "?")
+                    print(f"  ⚠️  MLX proxy is switching models ({dur}s so far) — delays expected.")
+            else:
+                print(f"  ⚠️  MLX proxy returned HTTP {r.status_code} — degraded or down.")
+    except Exception:
+        print("  ⚠️  MLX proxy not reachable at :8081 — MLX workspaces will fall back to Ollama.")
+
+
 async def _preflight() -> None:
     for f in [
         "launch.sh",
@@ -3104,6 +3176,10 @@ async def main() -> int:
     )
 
     await _preflight()
+    await _acquire_test_lock()
+    await _check_mlx_proxy_capacity()
+    await _acquire_test_lock()
+    await _check_mlx_proxy_capacity()
 
     run = (
         ALL_ORDER
@@ -3178,6 +3254,7 @@ async def main() -> int:
     print(f"\nReport → {rpt}")
     print("Screenshots → /tmp/p5_gui_*.png")
 
+    _release_test_lock()
     return 1 if counts.get("FAIL", 0) or counts.get("BLOCKED", 0) else 0
 
 
