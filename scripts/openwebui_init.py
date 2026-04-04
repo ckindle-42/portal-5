@@ -241,18 +241,25 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
     # Get existing workspaces
     # Use /export (not /list) — /list is paginated (30/page) and would miss models beyond page 1
     existing_names: set[str] = set()
-    try:
-        resp = await client.get(
-            f"{OPENWEBUI_URL}/api/v1/models/export",
-            headers=auth_headers(token),
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            models = data if isinstance(data, list) else data.get("items", data.get("data", []))
-            for m in models:
-                existing_names.add(m.get("id", ""))
-    except Exception as e:
-        print(f"  Warning: could not check existing models: {e}")
+    for attempt in range(3):
+        try:
+            resp = await client.get(
+                f"{OPENWEBUI_URL}/api/v1/models/export",
+                headers=auth_headers(token),
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                # Handle both list and dict response formats safely
+                models = data if isinstance(data, list) else (data.get("items") or data.get("data") or [])
+                for m in models:
+                    if isinstance(m, dict):
+                        existing_names.add(m.get("id", ""))
+                break  # Success — exit retry loop
+        except Exception as e:
+            if attempt == 2:
+                print(f"  Warning: could not check existing models after 3 attempts: {e}")
+            else:
+                await asyncio.sleep(1)
 
     created = updated = failed = 0
     for ws_file in ws_files:
@@ -351,15 +358,24 @@ async def create_persona_presets_async(
 
     # Get existing models to avoid duplicates
     # Use /export (not /list) — /list is paginated (30/page) and would miss models beyond page 1
+    # Retry up to 3 times to handle race conditions during OW bootstrap.
     existing_ids: set[str] = set()
-    try:
-        resp = await client.get(f"{OPENWEBUI_URL}/api/v1/models/export", headers=auth_headers(token))
-        if resp.status_code == 200:
-            data = resp.json()
-            for m in data if isinstance(data, list) else data.get("items", data.get("data", [])):
-                existing_ids.add(m.get("id", ""))
-    except Exception as e:
-        print(f"  Warning: could not fetch existing models: {e}")
+    for attempt in range(3):
+        try:
+            resp = await client.get(f"{OPENWEBUI_URL}/api/v1/models/export", headers=auth_headers(token))
+            if resp.status_code == 200:
+                data = resp.json()
+                # Handle both list and dict response formats safely
+                items = data if isinstance(data, list) else (data.get("items") or data.get("data") or [])
+                for m in items:
+                    if isinstance(m, dict):
+                        existing_ids.add(m.get("id", ""))
+                break  # Success — exit retry loop
+        except Exception as e:
+            if attempt == 2:
+                print(f"  Warning: could not fetch existing models after 3 attempts: {e}")
+            else:
+                await asyncio.sleep(1)
 
     # Build persona payloads first (file reads, not network I/O)
     persona_payloads = []

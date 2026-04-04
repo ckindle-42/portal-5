@@ -99,7 +99,9 @@ def start_server(stype: str) -> int:
     port = LM_PORT if stype == "lm" else VLM_PORT
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(45):
+    # 100 retries × 2s = 200s max startup time — cold-loading large models
+    # (Qwen3-Coder-Next-4bit at 46GB, Llama-3.3-70B at 40GB) can take 2-3 min.
+    for _ in range(100):
         time.sleep(2)
         try:
             if httpx.get(f"http://127.0.0.1:{port}/health", timeout=3).status_code == 200:

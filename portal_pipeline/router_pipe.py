@@ -661,6 +661,12 @@ _CODING_KEYWORDS: frozenset[str] = frozenset(
         "bigfix",
         "bes xml",
         "relevance",
+        # Persona-specific: pythoninterpreter, sqlterminal
+        "sql",
+        "interpreter",
+        "simulator",
+        "execute",
+        "run this code",
     }
 )
 
