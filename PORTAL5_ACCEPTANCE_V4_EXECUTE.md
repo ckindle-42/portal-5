@@ -22,9 +22,9 @@ cd portal-5
 ```
 
 Read these files before doing anything else:
-- `PORTAL5_ACCEPTANCE_EXECUTE.md` — full methodology and failure classification rules
+- `PORTAL5_ACCEPTANCE_V4_EXECUTE.md` — this file, full methodology and failure classification rules
 - `ACCEPTANCE_RESULTS.md` — most recent prior run results (if present)
-- `portal5_acceptance_v4.py` — the test suite you will execute
+- `portal5_acceptance_v4.py` — the test suite you will execute (23 sections: S0-S22)
 - `KNOWN_LIMITATIONS.md` — architectural constraints (ComfyUI, fish-speech, etc.)
 
 ---
@@ -69,8 +69,12 @@ python3 portal5_acceptance_v4.py 2>&1 | tee /tmp/portal5_acceptance_run.log
 echo "Exit: $?"
 ```
 
-This will take 90-120 minutes for a warm system. Cold model loads add time.
-Do NOT interrupt. Let it complete.
+This will take 120-180 minutes for a warm system. Cold model loads add time.
+Do NOT interrupt. Let it complete. The suite has 23 sections (S0-S22):
+- Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20
+- Phase 2 (MLX): S5, S11, S22
+- Phase 3 (ComfyUI, MLX unloaded): S18, S19
+- No LLM dependency: S8, S9, S12, S13, S14, S16, S21
 
 If the system has not been run recently (models cold), add --rebuild to also
 git pull and rebuild containers from the current codebase:
@@ -130,7 +134,7 @@ Most WARNs are environmental. Do NOT spend time trying to fix:
 - Cold model load timeouts (408) — the model just wasn't warmed
 - 503 — model not pulled
 - ComfyUI unreachable — per KNOWN_LIMITATIONS.md, host-native and optional
-- S3-17/17b/19 routing log WARNs — non-streaming pipeline path doesn't emit these logs
+- S3-17 through S3-17f routing log WARNs — non-streaming pipeline path doesn't emit these logs
 - OW API empty response — race condition on auth; re-run S11 if needed
 
 If a WARN is suspicious (unexpected 503, unexpected empty response, wrong model
@@ -248,12 +252,16 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 | Symptom | Root cause | Fix in test |
 |---|---|---|
 | Persona test returns empty content | Reasoning model puts all output in `message.reasoning` | Check `msg.get("content","") or msg.get("reasoning","")` — v4 already handles this |
-| S3-17/17b WARN routing log not found | Non-streaming path doesn't emit "Routing workspace=" log | Accept as WARN — known pipeline limitation |
+| S3-17 through S3-17f routing log WARNs | Non-streaming path doesn't emit "Routing workspace=" log | Accept as WARN — known pipeline limitation |
 | S11 persona timeout | qwen3-coder-next:30b cold start >120s | Accept as WARN; first request in group loads model |
 | fullstacksoftwaredeveloper WARN | Was tested via auto-coding (Ollama) in v3; YAML says MLX | v4 routes it via auto-spl (Qwen3-Coder-30B MLX) |
 | S3-18 streaming hangs | httpx can't handle long-lived SSE | v4 uses curl subprocess — verify curl is available |
 | OW API returns empty JSON | Auth race condition | Re-run S11 section alone after 30s |
 | ComfyUI 10-04 WARN | ComfyUI is host-native, not in docker | Accept per KNOWN_LIMITATIONS.md |
+| S18-03 / S19-03 WARN | ComfyUI image/video model not installed or ComfyUI not running | Accept as WARN — per KNOWN_LIMITATIONS.md, ComfyUI is host-native and optional |
+| S20-01 / S20-04 INFO | Telegram or Slack not enabled in .env | Expected INFO status — feature not configured |
+| S21-01 INFO | Notifications not enabled in .env | Expected INFO status — feature not configured |
+| S22-01 WARN | MLX proxy not running or switching models | Check `./launch.sh status` — if MLX is down, accept WARN |
 
 ---
 
