@@ -1314,25 +1314,27 @@ async def S3() -> None:
     # "python" (weight=1) and "docker" (weight=1) are both weak coding signals.
     # Threshold for auto-coding is 3, so these two alone (score=2) should NOT trigger.
     t0 = time.time()
+    # Capture log tail BEFORE the request to establish baseline
+    pre_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    pre_count = len(pre_tail) if pre_tail else 0
     code, _ = await _chat(
         "auto",
         "I use python and docker for my work",
         max_tokens=5,
         timeout=30,
     )
-    weak_matches = _grep_logs(
-        "portal5-pipeline",
-        r"auto-coding",
-        lines=200,
-    )
+    # Capture log tail AFTER the request — only new lines matter
+    post_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    post_count = len(post_tail) if post_tail else 0
+    new_auto_coding = post_count - pre_count
     record(
         sec,
         "S3-17f",
         "Content-aware routing: weak signals alone (python+docker) do NOT trigger auto-coding",
-        "PASS" if not weak_matches else "FAIL",
-        "correctly stayed on auto (no auto-coding in logs)"
-        if not weak_matches
-        else f"incorrectly routed to auto-coding: {weak_matches[:2]}",
+        "PASS" if new_auto_coding <= 0 else "FAIL",
+        "correctly stayed on auto (no new auto-coding routing)"
+        if new_auto_coding <= 0
+        else f"incorrectly routed to auto-coding: {new_auto_coding} new entries",
         [],
         t0=t0,
     )
@@ -1463,25 +1465,56 @@ async def S3() -> None:
     # "python" (weight=1) and "docker" (weight=1) are both weak coding signals.
     # Threshold for auto-coding is 3, so these two alone (score=2) should NOT trigger.
     t0 = time.time()
+    # Capture log tail BEFORE the request to establish baseline
+    pre_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    pre_count = len(pre_tail) if pre_tail else 0
     code, _ = await _chat(
         "auto",
         "I use python and docker for my work",
         max_tokens=5,
         timeout=30,
     )
-    weak_matches = _grep_logs(
-        "portal5-pipeline",
-        r"auto-coding",
-        lines=200,
-    )
+    # Capture log tail AFTER the request — only new lines matter
+    post_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    post_count = len(post_tail) if post_tail else 0
+    new_auto_coding = post_count - pre_count
     record(
         sec,
         "S3-17f",
         "Content-aware routing: weak signals alone (python+docker) do NOT trigger auto-coding",
-        "PASS" if not weak_matches else "FAIL",
-        "correctly stayed on auto (no auto-coding in logs)"
-        if not weak_matches
-        else f"incorrectly routed to auto-coding: {weak_matches[:2]}",
+        "PASS" if new_auto_coding <= 0 else "FAIL",
+        "correctly stayed on auto (no new auto-coding routing)"
+        if new_auto_coding <= 0
+        else f"incorrectly routed to auto-coding: {new_auto_coding} new entries",
+        [],
+        t0=t0,
+    )
+    rt_matches = _grep_logs(
+        "portal5-pipeline",
+        r"auto-redteam|redteam|content.aware|security.*rout|rout.*security",
+        lines=600,
+    )
+    # Capture log tail BEFORE the request to establish baseline
+    pre_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    pre_count = len(pre_tail) if pre_tail else 0
+    code, _ = await _chat(
+        "auto",
+        "I use python and docker for my work",
+        max_tokens=5,
+        timeout=30,
+    )
+    # Capture log tail AFTER the request — only new lines matter
+    post_tail = _grep_logs("portal5-pipeline", r"auto-coding", lines=50)
+    post_count = len(post_tail) if post_tail else 0
+    new_auto_coding = post_count - pre_count
+    record(
+        sec,
+        "S3-17f",
+        "Content-aware routing: weak signals alone (python+docker) do NOT trigger auto-coding",
+        "PASS" if new_auto_coding <= 0 else "FAIL",
+        "correctly stayed on auto (no new auto-coding routing)"
+        if new_auto_coding <= 0
+        else f"incorrectly routed to auto-coding: {new_auto_coding} new entries",
         [],
         t0=t0,
     )
