@@ -108,6 +108,9 @@ def _send_notification(message: str) -> None:
         print(f"  ⚠️  Notification failed: {e}")
 
 
+WATCHDOG_PID_FILE = Path("/tmp/mlx-watchdog.pid")
+
+
 def _kill_port(port: int) -> None:
     try:
         res = subprocess.run(
@@ -121,6 +124,44 @@ def _kill_port(port: int) -> None:
                 subprocess.run(["kill", "-9", pid], capture_output=True, timeout=5)
     except Exception:
         pass
+
+
+def _stop_watchdog() -> bool:
+    """Stop the MLX watchdog if running. Returns True if watchdog was stopped."""
+    if WATCHDOG_PID_FILE.exists():
+        try:
+            pid = int(WATCHDOG_PID_FILE.read_text().strip())
+            subprocess.run(["kill", str(pid)], capture_output=True, timeout=5)
+            # Wait for it to die
+            for _ in range(10):
+                try:
+                    os.kill(pid, 0)
+                    time.sleep(0.5)
+                except ProcessLookupError:
+                    break
+            else:
+                subprocess.run(["kill", "-9", str(pid)], capture_output=True, timeout=5)
+            WATCHDOG_PID_FILE.unlink(missing_ok=True)
+            print("  ⏸️  MLX watchdog stopped")
+            return True
+        except (ProcessLookupError, ValueError, FileNotFoundError):
+            WATCHDOG_PID_FILE.unlink(missing_ok=True)
+    return False
+
+
+def _start_watchdog() -> None:
+    """Restart the MLX watchdog if it was running before the benchmark."""
+    script_dir = Path(__file__).parent
+    watchdog_script = script_dir / "mlx-watchdog.py"
+    if watchdog_script.exists():
+        subprocess.Popen(
+            ["python3", str(watchdog_script)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(2)
+        if WATCHDOG_PID_FILE.exists():
+            print("  ▶️  MLX watchdog restarted")
 
 
 def _wait_for_server(port: int, timeout: int = 300) -> tuple[bool, float, dict]:
@@ -360,26 +401,55 @@ def benchmark_proxy(model: str, dry_run: bool = False, kill_proxy_before: bool =
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
+def _print_progress(current, total, mode, model, elapsed, server_type=""):
+    """Print a rich progress indicator with mode, percentage, and ETA."""
+    pct = (current / total) * 100
+    bar_width = 40
+    filled = int(bar_width * current / total)
+    bar = "█" * filled + "░" * (bar_width - filled)
+    eta = (elapsed / current * (total - current)) if current > 0 else 0
+    eta_str = f"{eta:.0f}s" if eta < 60 else f"{eta / 60:.1f}m"
+    mode_label = {"raw": "RAW", "proxy": "PROXY", "both": "BOTH"}.get(mode, mode.upper())
+    short_model = model.split("/")[-1]
+    print(f"\n  [{bar}] {pct:5.1f}% | {mode_label:>5} | {short_model:<45} | ETA: {eta_str}")
+    if server_type:
+        print(f"  {'':>6}({server_type})")
+
+
 def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dict], float]:
     results = []
     t0 = time.time()
 
+    # Calculate total individual runs for progress tracking
+    runs_per_model = 2 if mode == "both" else 1
+    total_runs = len(models) * runs_per_model
+    run_counter = 0
+
     for i, model in enumerate(models, 1):
-        print(f"\n[{i}/{len(models)}]")
+        vlm = _is_vlm(model)
+        server_type = "mlx_vlm" if vlm else "mlx_lm"
 
         if mode == "raw":
+            run_counter += 1
+            _print_progress(run_counter, total_runs, mode, model, time.time() - t0, server_type)
             r = benchmark_raw(model, dry_run=dry_run)
+            results.append(r)
         elif mode == "proxy":
-            # Kill proxy servers before first model to start cold
+            run_counter += 1
+            _print_progress(run_counter, total_runs, mode, model, time.time() - t0, server_type)
             r = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=(i == 1))
+            results.append(r)
         else:
             # both: run raw first, then proxy
+            run_counter += 1
+            _print_progress(run_counter, total_runs, "raw", model, time.time() - t0, server_type)
             r_raw = benchmark_raw(model, dry_run=dry_run)
             results.append(r_raw)
+
+            run_counter += 1
+            _print_progress(run_counter, total_runs, "proxy", model, time.time() - t0, server_type)
             r_proxy = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=False)
             results.append(r_proxy)
-
-        results.append(r) if mode != "both" else None
 
         if not dry_run and i < len(models):
             print("    Waiting 10s for memory to settle...")
@@ -427,7 +497,7 @@ def print_summary(results: list[dict]) -> None:
                 if proxy.get("switch_time_s") is not None
                 else "N/A"
             )
-            proxy_type = proxy.get("switch_type", "N/A")
+            proxy_type = proxy.get("switch_type") or "N/A"
 
             # Gap
             if raw.get("load_time_s") and proxy.get("response_time_s"):
@@ -510,6 +580,9 @@ def main() -> None:
     print(f"║  Mode: {mode_label[args.mode]:<52}║")
     print("╚═══════════════════════════════════════════════════════════════════╝")
 
+    # Stop watchdog to prevent it from interfering with benchmark
+    watchdog_was_running = _stop_watchdog()
+
     # Kill any existing MLX servers
     print("  Clearing existing MLX servers...")
     _kill_port(LM_PORT)
@@ -545,6 +618,10 @@ def main() -> None:
         f"Benchmark ({args.mode}) complete: {success}/{len(results)} tested in {total_time / 60:.0f}min. "
         f"Results: {args.output}"
     )
+
+    # Restart watchdog if it was running before
+    if watchdog_was_running:
+        _start_watchdog()
 
 
 if __name__ == "__main__":

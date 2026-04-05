@@ -43,6 +43,7 @@ WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
+    "llava-1.5-7b-8bit",
 }
 
 ALL_MODELS = [
@@ -230,16 +231,18 @@ def stop_all():
     time.sleep(2)
 
 
-def start_server(stype: str) -> int:
+def start_server(stype: str, model: str = "") -> int:
     """Start mlx_lm.server or mlx_vlm.server and wait for it to be healthy."""
     port = LM_PORT if stype == "lm" else VLM_PORT
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
+    if model:
+        cmd.extend(["--model", model])
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(100):
         time.sleep(2)
-        healthy, model = _probe_server(stype)
+        healthy, model_loaded = _probe_server(stype)
         if healthy:
-            mlx_state.set_ready(stype, model)
+            mlx_state.set_ready(stype, model_loaded)
             return port
     raise TimeoutError(f"mlx_{stype} failed to start on port {port}")
 
@@ -259,7 +262,7 @@ def ensure_server(model: str) -> int:
         mlx_state.set_switching(target)
         try:
             stop_all()
-            port = start_server(target)
+            port = start_server(target, model)
             print(f"[proxy] mlx_{target} ready on :{port}", flush=True)
             return port
         except Exception as e:

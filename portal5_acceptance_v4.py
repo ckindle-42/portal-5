@@ -417,7 +417,7 @@ async def _chat(
     prompt: str,
     system: str = "",
     max_tokens: int = 400,
-    timeout: int = 180,
+    timeout: int = 240,
     stream: bool = False,
 ) -> tuple[int, str]:
     code, text, _ = await _chat_with_model(workspace, prompt, system, max_tokens, timeout, stream)
@@ -429,7 +429,7 @@ async def _chat_with_model(
     prompt: str,
     system: str = "",
     max_tokens: int = 400,
-    timeout: int = 180,
+    timeout: int = 240,
     stream: bool = False,
 ) -> tuple[int, str, str]:
     """Like _chat but also returns the model field from the response.
@@ -490,7 +490,7 @@ async def _chat_with_model(
 
 # ── Streaming test via curl (avoids httpx SSE hang) ───────────────────────────
 def _curl_stream(
-    workspace: str, prompt: str, max_tokens: int = 5, timeout_s: int = 300
+    workspace: str, prompt: str, max_tokens: int = 5, timeout_s: int = 360
 ) -> tuple[bool, str]:
     """Returns (got_chunks, detail). Uses curl for reliable SSE consumption."""
     try:
@@ -1250,7 +1250,8 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
 
 _INTRA_GROUP_DELAY = 2
 _INTER_GROUP_DELAY = 15
-_MLX_SWITCH_DELAY = 25
+_MLX_SWITCH_DELAY = 30
+_VLM_SWITCH_DELAY = 60
 
 
 async def _workspace_test_with_retry(
@@ -1297,7 +1298,7 @@ async def _workspace_test_with_retry(
             )
             return
         elif code == 200 and attempt == 0:
-            await asyncio.sleep(10)
+            await asyncio.sleep(15)
             continue
         else:
             record(
@@ -1354,7 +1355,11 @@ async def S3() -> None:
             await _workspace_test_with_retry(sec, f"S3-{test_num:02d}", ws, prompt, signals)
             test_num += 1
             await asyncio.sleep(_INTRA_GROUP_DELAY)
-        await asyncio.sleep(_MLX_SWITCH_DELAY if is_mlx else _INTER_GROUP_DELAY)
+        await asyncio.sleep(
+            _VLM_SWITCH_DELAY
+            if "vision" in group_name.lower()
+            else (_MLX_SWITCH_DELAY if is_mlx else _INTER_GROUP_DELAY)
+        )
 
     # ── Content-aware routing: security keywords → auto-redteam ──────────────
     # Weighted scoring: exploit(3) + payload(3) + shellcode(3) + reverse shell(3) + bypass(2) + evasion(2) = 16
@@ -1828,7 +1833,7 @@ async def S4() -> None:
         timeout=180,
     )
     if code == 200 and not text.strip():
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
         code, text = await _chat(
             "auto-documents",
             "Create an outline for a NERC CIP-007 patch management procedure. "
@@ -1864,7 +1869,7 @@ async def S5() -> None:
         timeout=180,
     )
     if code == 200 and not text.strip():
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
         code, text = await _chat(
             "auto-coding",
             "Write ONLY Python code — no explanation. Use the Sieve of Eratosthenes to find all primes "
@@ -2925,7 +2930,7 @@ async def S11() -> None:
                 failed += 1
             await asyncio.sleep(2)
         # Between model groups: longer delay for model switch
-        await asyncio.sleep(30 if is_mlx else 15)
+        await asyncio.sleep(45 if is_mlx else 15)
 
     record(
         sec,
@@ -4366,7 +4371,7 @@ async def _workspace_fallback_test(
     expected_fallback_group: str,
     kill_fn,
     restore_fn,
-    timeout: int = 180,
+    timeout: int = 240,
 ) -> None:
     """Generic fallback test helper.
 
