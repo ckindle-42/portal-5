@@ -260,8 +260,28 @@ def recover_proxy() -> None:
 
 
 def recover_server(stype: str, port: int) -> None:
-    """Kill and restart mlx_lm or mlx_vlm server."""
-    # Kill anything on the port
+    """Kill and restart mlx_lm or mlx_vlm server.
+
+    Kills ALL processes matching the server module name (not just the port listener)
+    to prevent zombie children from contending for Metal GPU resources.
+    """
+    module_name = f"mlx_{stype}.server"
+
+    # Kill by process name — catches zombies that aren't listening on the port
+    result = subprocess.run(
+        ["pgrep", "-f", module_name],
+        capture_output=True,
+        text=True,
+    )
+    for pid in result.stdout.strip().split("\n"):
+        if pid:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+                logger.info("Killed %s process %d (by name)", module_name, int(pid))
+            except ProcessLookupError:
+                pass
+
+    # Also kill anything still on the port (belt-and-suspenders)
     result = subprocess.run(
         ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
         capture_output=True,
@@ -418,10 +438,32 @@ def cleanup(signum=None, frame=None):
     sys.exit(0)
 
 
+def _acquire_singleton_lock() -> bool:
+    """Check PID file and exit if another watchdog is already running.
+
+    Returns True if lock acquired, False (and exits) if another instance holds it.
+    Also cleans up stale PID files from crashed watchdogs.
+    """
+    if WATCHDOG_PID_FILE.exists():
+        try:
+            old_pid = int(WATCHDOG_PID_FILE.read_text().strip())
+            # Check if process is alive by sending signal 0
+            os.kill(old_pid, 0)
+            logger.error("Another watchdog is already running (PID %d) — exiting", old_pid)
+            sys.exit(0)
+        except (ProcessLookupError, ValueError):
+            # Stale PID file from crashed watchdog — clean it up
+            logger.info("Cleaning stale watchdog PID file (old PID dead)")
+            WATCHDOG_PID_FILE.unlink(missing_ok=True)
+    return True
+
+
 def main() -> None:
     if not WATCHDOG_ENABLED:
         logger.info("MLX Watchdog disabled via MLX_WATCHDOG_ENABLED=false — exiting")
         sys.exit(0)
+
+    _acquire_singleton_lock()
 
     signal.signal(signal.SIGINT, cleanup)
     signal.signal(signal.SIGTERM, cleanup)
