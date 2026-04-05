@@ -1,26 +1,31 @@
 #!/usr/bin/env python3
-"""MLX Raw Model Load/Unload Benchmark — direct server timing, no proxy.
+"""MLX Model Switch Benchmark — two modes: raw server vs proxy.
 
 Usage:
-    python3 scripts/mlx-switch-benchmark.py              # benchmark all models
-    python3 scripts/mlx-switch-benchmark.py --model mlx-community/Qwen3-Coder-Next-4bit  # single
-    python3 scripts/mlx-switch-benchmark.py --dry-run    # show plan without executing
+    python3 scripts/mlx-switch-benchmark.py --mode raw        # direct server start/stop
+    python3 scripts/mlx-switch-benchmark.py --mode proxy      # through the MLX proxy (like acceptance tests)
+    python3 scripts/mlx-switch-benchmark.py --mode both       # run both, compare results
+    python3 scripts/mlx-switch-benchmark.py --model mlx-community/Qwen3-Coder-Next-4bit  # single model
+    python3 scripts/mlx-switch-benchmark.py --dry-run          # show plan without executing
 
-What this measures:
-    1. START time: how long from `python3 -m mlx_lm.server` (or mlx_vlm.server)
-       to the server responding on its port — this is the raw model load time
-    2. STOP time: how long from sending SIGTERM to the server process exiting
-    3. Memory: peak memory usage during load (via `memory_pressure` on macOS)
+Mode: raw
+    Direct mlx_lm.server / mlx_vlm.server start/stop timing.
+    Measures what the machine is capable of — baseline.
 
-    This is NOT through the proxy. This is raw server start/stop timing.
-    The data is used to set accurate timeouts in acceptance tests and
-    diagnose why MLX crashes under sustained load.
+Mode: proxy
+    Sends requests through the MLX proxy at :8081 (exactly like acceptance tests).
+    Measures what actually happens in production — includes proxy overhead,
+    server switching (kill old, start new), and model warmup.
+
+Comparison (both):
+    Runs both modes and outputs a side-by-side table showing the gap
+    between raw capability and proxy reality. This gap identifies
+    where the proxy or switching logic adds overhead.
 """
 
 import argparse
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -31,9 +36,9 @@ import httpx
 
 LM_PORT = 18081
 VLM_PORT = 18082
+PROXY_PORT = 8081
 RESULTS_FILE = "/tmp/mlx_switch_benchmark.json"
 
-# All MLX models — grouped by server type
 LM_MODELS = [
     "mlx-community/Qwen3-Coder-Next-4bit",
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
@@ -104,7 +109,6 @@ def _send_notification(message: str) -> None:
 
 
 def _kill_port(port: int) -> None:
-    """Kill any process listening on the given port."""
     try:
         res = subprocess.run(
             ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
@@ -120,18 +124,13 @@ def _kill_port(port: int) -> None:
 
 
 def _wait_for_server(port: int, timeout: int = 300) -> tuple[bool, float, dict]:
-    """Wait for server on port to respond to /health.
-
-    Returns (success, elapsed_seconds, health_data).
-    """
     start = time.time()
     deadline = start + timeout
     while time.time() < deadline:
         try:
             r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=3)
             if r.status_code == 200:
-                elapsed = time.time() - start
-                return True, round(elapsed, 1), r.json()
+                return True, round(time.time() - start, 1), r.json()
         except Exception:
             pass
         time.sleep(1)
@@ -139,14 +138,8 @@ def _wait_for_server(port: int, timeout: int = 300) -> tuple[bool, float, dict]:
 
 
 def _get_memory_pressure() -> str | None:
-    """Get current memory pressure level on macOS."""
     try:
-        r = subprocess.run(
-            ["memory_pressure"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
+        r = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=5)
         for line in r.stdout.splitlines():
             if "System-wide memory free percentage" in line:
                 return line.strip()
@@ -154,27 +147,28 @@ def _get_memory_pressure() -> str | None:
         return None
 
 
-def benchmark_model(model: str, dry_run: bool = False) -> dict:
-    """Benchmark raw load/unload time for a single model.
-
-    1. Kill anything on the port
-    2. Start the server with the model
-    3. Measure time until /health responds (load time)
-    4. Kill the server
-    5. Measure time until port is free (unload time)
-    """
-    is_vlm = model.split("/")[-1] in {
+def _is_vlm(model: str) -> bool:
+    return model.split("/")[-1] in {
         "gemma-4-31b-it-4bit",
         "Qwen3-VL-32B-Instruct-8bit",
         "llava-1.5-7b-8bit",
     }
-    server_type = "mlx_vlm" if is_vlm else "mlx_lm"
-    port = VLM_PORT if is_vlm else LM_PORT
+
+
+# ── RAW mode: direct server start/stop ────────────────────────────────────────
+
+
+def benchmark_raw(model: str, dry_run: bool = False) -> dict:
+    """Benchmark raw server start/stop — no proxy."""
+    vlm = _is_vlm(model)
+    server_type = "mlx_vlm" if vlm else "mlx_lm"
+    port = VLM_PORT if vlm else LM_PORT
 
     result = {
         "model": model,
         "server_type": server_type,
         "port": port,
+        "mode": "raw",
         "load_time_s": None,
         "unload_time_s": None,
         "load_success": False,
@@ -190,18 +184,14 @@ def benchmark_model(model: str, dry_run: bool = False) -> dict:
         print(f"  [DRY RUN] {model} ({server_type} on :{port})")
         return result
 
-    print(f"\n  ── {model} ({server_type} on :{port}) ──")
-
-    # Memory before
+    print(f"\n  ── RAW: {model} ({server_type} on :{port}) ──")
     result["memory_before"] = _get_memory_pressure()
 
-    # Step 1: Ensure port is free
-    print(f"    Clearing port :{port}...")
+    # Ensure port is free
     _kill_port(port)
     time.sleep(2)
 
-    # Step 2: Start server and measure load time
-    print(f"    Starting {server_type} with {model}...")
+    # Start server
     cmd = [
         "python3",
         "-m",
@@ -213,12 +203,7 @@ def benchmark_model(model: str, dry_run: bool = False) -> dict:
         "--model",
         model,
     ]
-    proc_start = time.time()
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     healthy, load_time, health_data = _wait_for_server(port, timeout=300)
     result["load_time_s"] = load_time
@@ -226,60 +211,303 @@ def benchmark_model(model: str, dry_run: bool = False) -> dict:
 
     if healthy:
         result["health_data"] = health_data
-        loaded = health_data.get("loaded_model", model)
-        print(f"    ✅ Loaded in {load_time:.1f}s (reported: {loaded})")
+        print(f"    ✅ Loaded in {load_time:.1f}s")
     else:
-        result["error"] = f"server did not respond within 300s (PID {proc.pid})"
-        print(f"    ❌ Failed to start after {load_time:.1f}s")
+        result["error"] = f"no response in 300s (PID {proc.pid})"
+        print(f"    ❌ Failed after {load_time:.1f}s")
         proc.kill()
         _kill_port(port)
         return result
 
-    # Step 3: Kill server and measure unload time
-    print(f"    Stopping server (PID {proc.pid})...")
+    # Stop server
     stop_start = time.time()
     proc.terminate()
-
-    # Wait for process to exit
     try:
         proc.wait(timeout=30)
-        unload_time = time.time() - stop_start
-        result["unload_time_s"] = round(unload_time, 1)
+        result["unload_time_s"] = round(time.time() - stop_start, 1)
         result["unload_success"] = True
-        print(f"    ✅ Unloaded in {unload_time:.1f}s")
+        print(f"    ✅ Unloaded in {result['unload_time_s']:.1f}s")
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait(timeout=10)
-        unload_time = time.time() - stop_start
-        result["unload_time_s"] = round(unload_time, 1)
+        result["unload_time_s"] = round(time.time() - stop_start, 1)
         result["unload_success"] = False
-        result["error"] = "required SIGKILL to stop"
-        print(f"    ⚠️  Required SIGKILL after {unload_time:.1f}s")
+        result["error"] = "required SIGKILL"
+        print(f"    ⚠️  SIGKILL after {result['unload_time_s']:.1f}s")
 
-    # Ensure port is free
     _kill_port(port)
     time.sleep(2)
-
-    # Memory after
     result["memory_after"] = _get_memory_pressure()
-
     return result
 
 
+# ── PROXY mode: through the MLX proxy ─────────────────────────────────────────
+
+
+def benchmark_proxy(model: str, dry_run: bool = False, kill_proxy_before: bool = False) -> dict:
+    """Benchmark through the MLX proxy — exactly like acceptance tests.
+
+    Measures:
+    - switch_type: cold_start, same_server, cross_server
+    - switch_time: time proxy spends switching (state change to ready)
+    - response_time: total time from request to first response byte
+    """
+    vlm = _is_vlm(model)
+    server_type = "mlx_vlm" if vlm else "mlx_lm"
+
+    result = {
+        "model": model,
+        "server_type": server_type,
+        "mode": "proxy",
+        "switch_type": None,
+        "switch_time_s": None,
+        "response_time_s": None,
+        "success": False,
+        "error": None,
+        "proxy_before": None,
+        "proxy_after": None,
+        "memory_before": None,
+        "memory_after": None,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if dry_run:
+        print(f"  [DRY RUN] {model} ({server_type}) via proxy :{PROXY_PORT}")
+        return result
+
+    print(f"\n  ── PROXY: {model} ({server_type}) via :{PROXY_PORT} ──")
+    result["memory_before"] = _get_memory_pressure()
+
+    # Kill proxy servers if requested (forces cold start)
+    if kill_proxy_before:
+        print("    Killing proxy servers...")
+        _kill_port(LM_PORT)
+        _kill_port(VLM_PORT)
+        time.sleep(3)
+
+    # Capture proxy state before
+    try:
+        r = httpx.get(f"http://127.0.0.1:{PROXY_PORT}/health", timeout=5)
+        result["proxy_before"] = r.json() if r.status_code == 200 else None
+    except Exception:
+        result["proxy_before"] = None
+
+    before = result["proxy_before"] or {}
+    server_before = before.get("active_server")
+    model_before = before.get("loaded_model")
+
+    # Determine switch type
+    if server_before is None:
+        result["switch_type"] = "cold_start"
+    elif vlm and server_before != "vlm":
+        result["switch_type"] = "cross_server"
+    elif not vlm and server_before != "lm":
+        result["switch_type"] = "cross_server"
+    else:
+        result["switch_type"] = "same_server"
+
+    print(f"    Before: server={server_before}, model={model_before}")
+    print(f"    Switch: {result['switch_type']}")
+
+    # Send request through proxy
+    req_start = time.time()
+    try:
+        r = httpx.post(
+            f"http://127.0.0.1:{PROXY_PORT}/v1/chat/completions",
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "Say PONG"}],
+                "max_tokens": 5,
+                "stream": False,
+            },
+            timeout=300,
+        )
+        result["response_time_s"] = round(time.time() - req_start, 1)
+
+        if r.status_code == 200:
+            result["success"] = True
+            print(f"    ✅ Response in {result['response_time_s']:.1f}s")
+        else:
+            result["error"] = f"HTTP {r.status_code}: {r.text[:100]}"
+            print(f"    ❌ HTTP {r.status_code}: {r.text[:100]}")
+    except httpx.ReadTimeout:
+        result["error"] = "timeout (300s)"
+        result["response_time_s"] = 300.0
+        print(f"    ❌ Timeout after 300s")
+    except Exception as e:
+        result["error"] = str(e)[:100]
+        result["response_time_s"] = round(time.time() - req_start, 1)
+        print(f"    ❌ Error: {e}")
+
+    # Capture proxy state after
+    try:
+        r = httpx.get(f"http://127.0.0.1:{PROXY_PORT}/health", timeout=5)
+        result["proxy_after"] = r.json() if r.status_code == 200 else None
+    except Exception:
+        result["proxy_after"] = None
+
+    after = result["proxy_after"] or {}
+    print(f"    After: server={after.get('active_server')}, model={after.get('loaded_model')}")
+
+    # Estimate switch time from proxy state_duration
+    if after.get("state") == "ready" and after.get("state_duration_sec") is not None:
+        result["switch_time_s"] = round(after["state_duration_sec"], 1)
+
+    result["memory_after"] = _get_memory_pressure()
+    return result
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dict], float]:
+    results = []
+    t0 = time.time()
+
+    for i, model in enumerate(models, 1):
+        print(f"\n[{i}/{len(models)}]")
+
+        if mode == "raw":
+            r = benchmark_raw(model, dry_run=dry_run)
+        elif mode == "proxy":
+            # Kill proxy servers before first model to start cold
+            r = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=(i == 1))
+        else:
+            # both: run raw first, then proxy
+            r_raw = benchmark_raw(model, dry_run=dry_run)
+            results.append(r_raw)
+            r_proxy = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=False)
+            results.append(r_proxy)
+
+        results.append(r) if mode != "both" else None
+
+        if not dry_run and i < len(models):
+            print("    Waiting 10s for memory to settle...")
+            time.sleep(10)
+
+    return results, time.time() - t0
+
+
+def print_summary(results: list[dict]) -> None:
+    # Group by mode
+    raw_results = [r for r in results if r.get("mode") == "raw"]
+    proxy_results = [r for r in results if r.get("mode") == "proxy"]
+
+    if raw_results and proxy_results:
+        # Side-by-side comparison
+        print("\n" + "=" * 130)
+        print(
+            f"{'Model':<55} {'Raw Load':<12} {'Raw Unload':<12} {'Proxy Resp':<12} {'Proxy Switch':<12} {'Proxy Type':<12}"
+        )
+        print("=" * 130)
+
+        # Build lookup by model
+        raw_by_model = {r["model"]: r for r in raw_results}
+        proxy_by_model = {r["model"]: r for r in proxy_results}
+
+        for model in sorted(set(list(raw_by_model.keys()) + list(proxy_by_model.keys()))):
+            raw = raw_by_model.get(model, {})
+            proxy = proxy_by_model.get(model, {})
+
+            raw_load = (
+                f"{raw.get('load_time_s', '?')}s" if raw.get("load_time_s") is not None else "N/A"
+            )
+            raw_unload = (
+                f"{raw.get('unload_time_s', '?')}s"
+                if raw.get("unload_time_s") is not None
+                else "N/A"
+            )
+            proxy_resp = (
+                f"{proxy.get('response_time_s', '?')}s"
+                if proxy.get("response_time_s") is not None
+                else "N/A"
+            )
+            proxy_switch = (
+                f"{proxy.get('switch_time_s', '?')}s"
+                if proxy.get("switch_time_s") is not None
+                else "N/A"
+            )
+            proxy_type = proxy.get("switch_type", "N/A")
+
+            # Gap
+            if raw.get("load_time_s") and proxy.get("response_time_s"):
+                gap = proxy["response_time_s"] - raw["load_time_s"]
+                if gap > 5:
+                    proxy_resp += f" (+{gap:.0f}s)"
+
+            print(
+                f"{model:<55} {raw_load:<12} {raw_unload:<12} {proxy_resp:<12} {proxy_switch:<12} {proxy_type:<12}"
+            )
+
+        print("=" * 130)
+
+    # Per-mode stats
+    for mode_name, mode_results in [("raw", raw_results), ("proxy", proxy_results)]:
+        if not mode_results:
+            continue
+        times_key = "load_time_s" if mode_name == "raw" else "response_time_s"
+        times = [
+            r[times_key]
+            for r in mode_results
+            if r.get(times_key) and r.get("load_success" if mode_name == "raw" else "success")
+        ]
+        if times:
+            print(f"\n  {mode_name.upper()} ({len(times)} models):")
+            print(
+                f"    {'Load' if mode_name == 'raw' else 'Response'}:  min={min(times):.1f}s  max={max(times):.1f}s  avg={sum(times) / len(times):.1f}s"
+            )
+
+        if mode_name == "raw":
+            unload_times = [
+                r["unload_time_s"]
+                for r in mode_results
+                if r.get("unload_time_s") and r.get("unload_success")
+            ]
+            if unload_times:
+                print(
+                    f"    Unload: min={min(unload_times):.1f}s  max={max(unload_times):.1f}s  avg={sum(unload_times) / len(unload_times):.1f}s"
+                )
+        else:
+            by_switch = {}
+            for r in mode_results:
+                st = r.get("switch_type", "unknown")
+                if st not in by_switch:
+                    by_switch[st] = []
+                if r.get("response_time_s") and r.get("success"):
+                    by_switch[st].append(r["response_time_s"])
+            if by_switch:
+                print(f"    By switch type:")
+                for st, times in by_switch.items():
+                    if times:
+                        print(
+                            f"      {st}: {len(times)} requests, avg={sum(times) / len(times):.1f}s, range={min(times):.1f}-{max(times):.1f}s"
+                        )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="MLX Raw Model Load/Unload Benchmark")
+    parser = argparse.ArgumentParser(description="MLX Model Switch Benchmark")
+    parser.add_argument(
+        "--mode",
+        choices=["raw", "proxy", "both"],
+        default="raw",
+        help="Benchmark mode: raw (direct server), proxy (through MLX proxy), both (compare)",
+    )
     parser.add_argument("--model", help="Benchmark a single model (default: all)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
     parser.add_argument("--output", default=RESULTS_FILE, help="Output JSON file path")
     args = parser.parse_args()
 
+    mode_label = {
+        "raw": "Raw server start/stop",
+        "proxy": "Through MLX proxy",
+        "both": "Both modes — comparison",
+    }
     print("╔═══════════════════════════════════════════════════════════════════╗")
-    print("║  MLX Raw Model Load/Unload Benchmark                              ║")
+    print("║  MLX Model Switch Benchmark                                       ║")
     print(
         f"║  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}                                     ║"
     )
-    print("║                                                                   ║")
-    print("║  Direct server start/stop timing — no proxy                       ║")
+    print(f"║  Mode: {mode_label[args.mode]:<52}║")
     print("╚═══════════════════════════════════════════════════════════════════╝")
 
     # Kill any existing MLX servers
@@ -289,122 +517,32 @@ def main() -> None:
     time.sleep(3)
 
     models = [args.model] if args.model else LM_MODELS + VLM_MODELS
-    if not models:
-        print("❌ No models specified")
-        sys.exit(1)
-
     print(f"  Models to benchmark: {len(models)}")
     if args.dry_run:
         print("  [DRY RUN — no actual loading/unloading]")
 
-    results = []
-    t0_total = time.time()
+    results, total_time = run_benchmark(args.mode, models, args.dry_run)
 
-    for i, model in enumerate(models, 1):
-        print(f"\n[{i}/{len(models)}]")
-        result = benchmark_model(model, dry_run=args.dry_run)
-        results.append(result)
-
-        # Pause between models to let memory settle
-        if not args.dry_run and i < len(models):
-            print("    Waiting 10s for memory to settle...")
-            time.sleep(10)
-
-    total_time = time.time() - t0_total
-
-    # Print summary table
-    print("\n" + "=" * 110)
-    print(f"{'Model':<60} {'Server':<10} {'Load':<10} {'Unload':<10} {'Status':<10}")
-    print("=" * 110)
-
-    for r in results:
-        load_s = f"{r['load_time_s']:.1f}s" if r["load_time_s"] else "N/A"
-        unload_s = f"{r['unload_time_s']:.1f}s" if r["unload_time_s"] else "N/A"
-        if r["load_success"] and r["unload_success"]:
-            status = "✅"
-        elif r["load_success"]:
-            status = "⚠️ load-ok"
-        else:
-            status = f"❌ {r.get('error', '')[:12]}"
-        print(f"{r['model']:<60} {r['server_type']:<10} {load_s:<10} {unload_s:<10} {status}")
-
-    print("=" * 110)
-    print(f"Total wall time: {total_time:.0f}s ({total_time / 60:.1f} min)")
-
-    # Statistics by server type
-    for stype in ["mlx_lm", "mlx_vlm"]:
-        times = [
-            r["load_time_s"] for r in results if r["server_type"] == stype and r["load_success"]
-        ]
-        if times:
-            print(f"\n  {stype} ({len(times)} models):")
-            print(
-                f"    Load:  min={min(times):.1f}s  max={max(times):.1f}s  avg={sum(times) / len(times):.1f}s"
-            )
-        unload_times = [
-            r["unload_time_s"] for r in results if r["server_type"] == stype and r["unload_success"]
-        ]
-        if unload_times:
-            print(
-                f"    Unload: min={min(unload_times):.1f}s  max={max(unload_times):.1f}s  avg={sum(unload_times) / len(unload_times):.1f}s"
-            )
+    print_summary(results)
+    print(f"\nTotal wall time: {total_time:.0f}s ({total_time / 60:.1f} min)")
 
     # Save results
     output = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "mode": args.mode,
         "total_wall_time_s": round(total_time, 1),
-        "models_benchmarked": len(results),
+        "models_benchmarked": len(models),
         "dry_run": args.dry_run,
         "results": results,
-        "statistics": {
-            stype: {
-                "count": len(
-                    [r for r in results if r["server_type"] == stype and r["load_success"]]
-                ),
-                "load_times": {
-                    "min": min(
-                        (
-                            r["load_time_s"]
-                            for r in results
-                            if r["server_type"] == stype and r["load_success"]
-                        ),
-                        default=None,
-                    ),
-                    "max": max(
-                        (
-                            r["load_time_s"]
-                            for r in results
-                            if r["server_type"] == stype and r["load_success"]
-                        ),
-                        default=None,
-                    ),
-                    "avg": sum(
-                        r["load_time_s"]
-                        for r in results
-                        if r["server_type"] == stype and r["load_success"]
-                    )
-                    / max(
-                        len(
-                            [r for r in results if r["server_type"] == stype and r["load_success"]]
-                        ),
-                        1,
-                    ),
-                }
-                if any(r["server_type"] == stype and r["load_success"] for r in results)
-                else None,
-            }
-            for stype in ["mlx_lm", "mlx_vlm"]
-        },
     }
     with open(args.output, "w") as f:
         json.dump(output, f, indent=2)
 
     print(f"\nResults saved to: {args.output}")
 
-    # Notification
-    success = sum(1 for r in results if r["load_success"])
+    success = sum(1 for r in results if r.get("load_success") or r.get("success"))
     _send_notification(
-        f"Raw benchmark complete: {success}/{len(results)} models tested in {total_time / 60:.0f}min. "
+        f"Benchmark ({args.mode}) complete: {success}/{len(results)} tested in {total_time / 60:.0f}min. "
         f"Results: {args.output}"
     )
 
