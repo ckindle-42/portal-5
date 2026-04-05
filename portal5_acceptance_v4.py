@@ -49,6 +49,7 @@ import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -3934,6 +3935,128 @@ def _model_matches_group(model: str, group: str) -> bool:
     return any(re.search(p, model, re.IGNORECASE) for p in patterns)
 
 
+def _stop_mlx_watchdog() -> bool:
+    """Stop the MLX watchdog daemon to prevent false alerts during fallback testing."""
+    pid_file = Path("/tmp/mlx-watchdog.pid")
+    try:
+        if pid_file.exists():
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(2)
+            # Verify it's stopped
+            try:
+                os.kill(pid, 0)
+                return False  # Still running
+            except OSError:
+                return True
+        return True  # Not running
+    except (ProcessLookupError, ValueError, OSError):
+        pid_file.unlink(missing_ok=True)
+        return True
+    except Exception:
+        return False
+
+
+def _start_mlx_watchdog() -> bool:
+    """Restart the MLX watchdog daemon after fallback testing."""
+    pid_file = Path("/tmp/mlx-watchdog.pid")
+    watchdog_script = ROOT / "scripts" / "mlx-watchdog.py"
+    try:
+        if pid_file.exists():
+            pid = int(pid_file.read_text().strip())
+            try:
+                os.kill(pid, 0)
+                return True  # Already running
+            except OSError:
+                pass  # Dead PID file, continue to restart
+
+        if not watchdog_script.exists():
+            return False
+
+        log_dir = Path.home() / ".portal5" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(log_dir / "mlx-watchdog.log", "a") as log:
+            proc = subprocess.Popen(
+                ["python3", str(watchdog_script)],
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+            )
+        pid_file.write_text(str(proc.pid))
+        time.sleep(3)
+
+        # Verify it's running
+        try:
+            os.kill(proc.pid, 0)
+            return True
+        except OSError:
+            return False
+    except Exception:
+        return False
+
+
+def _stop_mlx_watchdog() -> bool:
+    """Stop the MLX watchdog daemon to prevent false alerts during fallback testing."""
+    pid_file = Path("/tmp/mlx-watchdog.pid")
+    try:
+        if pid_file.exists():
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(2)
+            # Verify it's stopped
+            try:
+                os.kill(pid, 0)
+                return False  # Still running
+            except OSError:
+                return True
+        return True  # Not running
+    except (ProcessLookupError, ValueError, OSError):
+        pid_file.unlink(missing_ok=True)
+        return True
+    except Exception:
+        return False
+
+
+def _start_mlx_watchdog() -> bool:
+    """Restart the MLX watchdog daemon after fallback testing."""
+    pid_file = Path("/tmp/mlx-watchdog.pid")
+    watchdog_script = ROOT / "scripts" / "mlx-watchdog.py"
+    try:
+        if pid_file.exists():
+            pid = int(pid_file.read_text().strip())
+            try:
+                os.kill(pid, 0)
+                return True  # Already running
+            except OSError:
+                pass  # Dead PID file, continue to restart
+
+        if not watchdog_script.exists():
+            return False
+
+        log_dir = Path.home() / ".portal5" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(log_dir / "mlx-watchdog.log", "a") as log:
+            proc = subprocess.Popen(
+                ["python3", str(watchdog_script)],
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+            )
+        pid_file.write_text(str(proc.pid))
+        time.sleep(3)
+
+        # Verify it's running
+        try:
+            os.kill(proc.pid, 0)
+            return True
+        except OSError:
+            return False
+    except Exception:
+        return False
+
+
 def _kill_mlx_proxy() -> bool:
     """Kill the MLX proxy process (runs natively, not in Docker)."""
     try:
@@ -4188,6 +4311,21 @@ async def _workspace_fallback_test(
 async def S23() -> None:
     print("\n━━━ S23. FALLBACK CHAIN VERIFICATION ━━━")
     sec = "S23"
+
+    # Disable MLX watchdog to prevent false alerts and race conditions
+    # during intentional kill/restore cycles
+    t0_wd = time.time()
+    watchdog_was_running = _stop_mlx_watchdog()
+    record(
+        sec,
+        "S23-00",
+        "MLX watchdog disabled for testing",
+        "PASS" if watchdog_was_running else "INFO",
+        "watchdog stopped — no false alerts during fallback tests"
+        if watchdog_was_running
+        else "watchdog was not running",
+        t0=t0_wd,
+    )
 
     # S23-01: Verify /health endpoint shows all backends
     t0 = time.time()
@@ -4531,6 +4669,34 @@ async def S23() -> None:
             "pipeline health unreachable — backends may still be recovering",
             t0=t0,
         )
+
+    # Re-enable MLX watchdog before smoke test
+    t0_wd = time.time()
+    watchdog_restarted = _start_mlx_watchdog()
+    record(
+        sec,
+        "S23-14b",
+        "MLX watchdog re-enabled",
+        "PASS" if watchdog_restarted else "WARN",
+        "watchdog restarted — monitoring resumed"
+        if watchdog_restarted
+        else "watchdog failed to restart",
+        t0=t0_wd,
+    )
+
+    # Re-enable MLX watchdog before smoke test
+    t0_wd = time.time()
+    watchdog_restarted = _start_mlx_watchdog()
+    record(
+        sec,
+        "S23-14b",
+        "MLX watchdog re-enabled",
+        "PASS" if watchdog_restarted else "WARN",
+        "watchdog restarted — monitoring resumed"
+        if watchdog_restarted
+        else "watchdog failed to restart",
+        t0=t0_wd,
+    )
 
     # S23-15: Every workspace survives at least one backend failure (smoke)
     # Quick smoke: kill MLX, hit every MLX-routed workspace, verify each responds
