@@ -182,6 +182,140 @@ class MLXState:
 mlx_state = MLXState()
 
 
+class MemoryMonitor:
+    """Track system memory usage over time. Samples every POLL_INTERVAL seconds.
+
+    Exposes current stats and history for /health endpoint and logging.
+    Detects memory pressure changes and logs warnings.
+    """
+
+    POLL_INTERVAL = 30  # seconds between samples
+    MAX_HISTORY = 2880  # 24 hours at 30s intervals
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._current: dict = {}
+        self._history: list[dict] = []
+        self._last_pressure: str = ""
+        self._peak_used_pct: float = 0.0
+
+    def sample(self) -> dict:
+        """Take a memory snapshot. Returns the sample dict."""
+        sample = _get_memory_stats()
+        sample["timestamp"] = time.time()
+        with self._lock:
+            self._current = sample
+            self._history.append(sample)
+            if len(self._history) > self.MAX_HISTORY:
+                self._history = self._history[-self.MAX_HISTORY :]
+            used = sample.get("used_pct", 0)
+            if used > self._peak_used_pct:
+                self._peak_used_pct = used
+        # Log pressure changes
+        pressure = sample.get("pressure", "unknown")
+        if pressure != self._last_pressure:
+            if self._last_pressure:  # skip first sample
+                print(
+                    f"[memory] pressure changed: {self._last_pressure} -> {pressure} "
+                    f"({sample.get('free_gb', 0):.1f}GB free, {sample.get('used_pct', 0)}% used)",
+                    flush=True,
+                )
+            self._last_pressure = pressure
+        # Warn on high memory
+        if used > 90:
+            print(
+                f"[memory] CRITICAL: {used}% used, only {sample.get('free_gb', 0):.1f}GB free",
+                flush=True,
+            )
+        return sample
+
+    def to_dict(self) -> dict:
+        with self._lock:
+            return {
+                "current": self._current,
+                "peak_used_pct": round(self._peak_used_pct, 1),
+                "samples": len(self._history),
+                "history_minutes": round(len(self._history) * self.POLL_INTERVAL / 60, 1),
+            }
+
+    def get_recent(self, n: int = 20) -> list[dict]:
+        with self._lock:
+            return self._history[-n:]
+
+
+def _get_memory_stats() -> dict:
+    """Get current memory statistics from vm_stat and memory_pressure."""
+    stats: dict = {}
+    page_size = 16384  # Apple Silicon
+    try:
+        result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
+        for line in result.stdout.splitlines():
+            for key, label in [
+                ("free", "Pages free:"),
+                ("active", "Pages active:"),
+                ("inactive", "Pages inactive:"),
+                ("speculative", "Pages speculative:"),
+                ("wired", "Pages wired down:"),
+                ("purgeable", "Pages purgeable:"),
+            ]:
+                if label in line:
+                    try:
+                        stats[key] = int(line.split(":")[-1].strip().rstrip(".")) * page_size
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    free = stats.get("free", 0)
+    active = stats.get("active", 0)
+    inactive = stats.get("inactive", 0)
+    speculative = stats.get("speculative", 0)
+    wired = stats.get("wired", 0)
+    total = free + active + inactive + speculative + wired
+    used = active + wired + speculative
+
+    free_gb = free / (1024**3)
+    total_gb = total / (1024**3) if total > 0 else 64
+    used_pct = round((used / total) * 100) if total > 0 else 0
+
+    # Get pressure level
+    pressure = "unknown"
+    try:
+        result = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if "free percentage" in line.lower():
+                    pct_str = line.split(":")[-1].strip().replace("%", "")
+                    try:
+                        free_pct = int(pct_str)
+                        if free_pct < 10:
+                            pressure = "critical"
+                        elif free_pct < 20:
+                            pressure = "high"
+                        elif free_pct < 30:
+                            pressure = "moderate"
+                        else:
+                            pressure = "normal"
+                    except ValueError:
+                        pass
+    except Exception:
+        pass
+
+    return {
+        "free_gb": round(free_gb, 1),
+        "total_gb": round(total_gb, 1),
+        "used_pct": used_pct,
+        "pressure": pressure,
+        "wired_gb": round(wired / (1024**3), 1),
+        "active_gb": round(active / (1024**3), 1),
+        "inactive_gb": round(inactive / (1024**3), 1),
+        "purgeable_gb": round(stats.get("purgeable", 0) / (1024**3), 2),
+    }
+
+
+memory_monitor = MemoryMonitor()
+
+
 def needs_vlm(model: str) -> bool:
     return model.split("/")[-1] in VLM_MODELS
 
@@ -364,7 +498,8 @@ def ensure_server(model: str) -> int:
 
 
 def _watchdog_loop():
-    """Background thread: probe both MLX servers periodically to detect crashes."""
+    """Background thread: probe both MLX servers and sample memory."""
+    mem_sample_counter = 0
     while True:
         time.sleep(WATCHDOG_INTERVAL)
         try:
@@ -403,6 +538,12 @@ def _watchdog_loop():
                 elif vlm_healthy:
                     mlx_state.set_ready("vlm", vlm_model)
                     print("[watchdog] detected mlx_vlm running, updating state", flush=True)
+
+            # Sample memory every ~60s (every 4th watchdog cycle at 15s interval)
+            mem_sample_counter += 1
+            if mem_sample_counter >= max(1, 60 // WATCHDOG_INTERVAL):
+                memory_monitor.sample()
+                mem_sample_counter = 0
         except Exception as e:
             print(f"[watchdog] error: {e}", flush=True)
 
@@ -467,9 +608,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/health":
             state_info = mlx_state.to_dict()
+            state_info["memory"] = memory_monitor.to_dict()
             state = state_info["state"]
             code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)
+            return
+        if self.path == "/health/memory":
+            self._send_json(
+                200,
+                {
+                    "current": memory_monitor.to_dict(),
+                    "recent": memory_monitor.get_recent(30),
+                },
+            )
             return
         if self.path == "/v1/models":
             if mlx_state.state in ("ready", "switching"):

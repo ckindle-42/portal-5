@@ -5128,9 +5128,43 @@ async def main() -> int:
     # Notify start of test run
     _notify_test_start(args.section.upper(), len(run))
 
+    # Memory monitoring — sample before each section for diagnostics
+    _memory_log: list[dict] = []
+
+    def _sample_memory(label: str) -> dict:
+        """Capture current memory state. Returns sample dict."""
+        sample = {"label": label, "time": time.time()}
+        try:
+            result = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    if "free percentage" in line.lower():
+                        pct = line.split(":")[-1].strip().replace("%", "")
+                        try:
+                            sample["free_pct"] = int(pct)
+                            sample["used_pct"] = 100 - int(pct)
+                        except ValueError:
+                            pass
+            # Also try to get MLX proxy memory stats
+            try:
+                r = httpx.get(f"{MLX_URL}/health/memory", timeout=3)
+                if r.status_code == 200:
+                    sample["mlx_memory"] = r.json().get("current", {})
+            except Exception:
+                pass
+        except Exception:
+            pass
+        _memory_log.append(sample)
+        used = sample.get("used_pct", "?")
+        free = sample.get("free_pct", "?")
+        print(f"  📊 Memory: {free}% free ({used}% used) [{label}]")
+        return sample
+
     for sid in run:
         if sid not in SECTIONS:
             sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
+        # Sample memory before each section
+        _sample_memory(f"pre-{sid}")
         # Pre-section MLX health check — detect GPU crashes from prior sections
         if sid not in ("S17", "S0", "S1", "S2"):
             try:
@@ -5240,10 +5274,37 @@ async def main() -> int:
                 )
         else:
             f.write("\n## Blocked Items Register\n\n*No blocked items.*\n")
+        # Memory usage log
+        if _memory_log:
+            f.write("\n## Memory Usage Log\n\n")
+            f.write("| Section | Free % | Used % | Notes |\n")
+            f.write("|---------|--------|--------|-------|\n")
+            for m in _memory_log:
+                label = m.get("label", "?")
+                free = m.get("free_pct", "?")
+                used = m.get("used_pct", "?")
+                notes = ""
+                mlx_mem = m.get("mlx_memory", {})
+                if mlx_mem:
+                    cur = mlx_mem.get("current", {})
+                    if cur:
+                        notes = f"MLX: {cur.get('free_gb', '?')}GB free, {cur.get('pressure', '?')}"
+                f.write(f"| {label} | {free}% | {used}% | {notes} |\n")
         f.write("\n---\n*Screenshots: /tmp/p5_gui_*.png*\n")
 
     print(f"\nReport → {rpt}")
     print("Screenshots → /tmp/p5_gui_*.png")
+
+    # Print memory summary
+    if _memory_log:
+        peak_used = max((m.get("used_pct", 0) for m in _memory_log), default=0)
+        print(f"Peak memory usage: {peak_used}%")
+        # Print samples where memory was high
+        high = [m for m in _memory_log if m.get("used_pct", 0) > 80]
+        if high:
+            print(f"⚠️  High memory (>80%) at {len(high)} checkpoints:")
+            for m in high:
+                print(f"   {m.get('label', '?')}: {m.get('used_pct', '?')}% used")
 
     return 1 if counts.get("FAIL", 0) or counts.get("BLOCKED", 0) else 0
 
