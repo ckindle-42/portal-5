@@ -27,6 +27,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from socketserver import ThreadingMixIn
 
 import httpx
@@ -893,6 +894,12 @@ class BoundedThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 if __name__ == "__main__":
+    os.makedirs(_server_log_dir, exist_ok=True)
+
+    # Write PID file so external watchdog can track and recover us
+    pid_file = Path("/tmp/mlx-proxy.pid")
+    pid_file.write_text(str(os.getpid()))
+
     print(
         f"[mlx-proxy] Listening on :{PROXY_PORT} (workers={MAX_WORKERS}, queue={MAX_QUEUE}, watchdog={WATCHDOG_INTERVAL}s)",
         flush=True,
@@ -903,3 +910,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n[mlx-proxy] Shutting down...", flush=True)
         server.shutdown()
+    finally:
+        pid_file.unlink(missing_ok=True)

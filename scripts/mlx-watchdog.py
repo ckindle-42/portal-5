@@ -114,16 +114,46 @@ def init_components() -> None:
 
 
 def check_component(state: ComponentState) -> bool:
-    """Check if a component is responding on its port."""
+    """Check if a component is responding on its port.
+
+    For the proxy (:8081), any HTTP response means it's alive — even 503
+    (state=none or down). The proxy's state machine handles its own health
+    and server lifecycle. We only care if the proxy process is alive and
+    listening. The proxy manages mlx_lm/mlx_vlm servers internally.
+
+    For servers (:18081/:18082), only 200 means healthy. However, server
+    monitoring is informational only — the watchdog does NOT attempt server
+    recovery because the proxy's ensure_server() manages server lifecycle
+    including model loading, GPU memory reclamation, and readiness detection.
+    """
     try:
         r = httpx.get(f"http://127.0.0.1:{state.port}/health", timeout=5)
+        if state.port == PROXY_PORT:
+            # Proxy: any response = alive (state managed internally)
+            return True
         return r.status_code == 200
     except Exception:
         return False
 
 
+def _check_proxy_state() -> dict:
+    """Get detailed proxy state for diagnostics."""
+    try:
+        r = httpx.get(f"http://127.0.0.1:{PROXY_PORT}/health", timeout=5)
+        if r.status_code in (200, 503):
+            return r.json()
+    except Exception:
+        pass
+    return {}
+
+
 def run_health_checks() -> None:
-    """Check all components and track failures."""
+    """Check all components and track failures.
+
+    Only the proxy component triggers recovery. Server components are
+    informational — alerts are sent but no recovery is attempted because
+    the proxy manages server lifecycle internally.
+    """
     for name, state in COMPONENTS.items():
         is_healthy = check_component(state)
 
@@ -149,14 +179,26 @@ def run_health_checks() -> None:
 
             # Alert on first failure
             if state.consecutive_failures == 1:
+                # Include proxy state info for diagnostics
+                extra = ""
+                if name == "proxy":
+                    proxy_state = _check_proxy_state()
+                    if proxy_state:
+                        extra = f" (state={proxy_state.get('state', '?')}, error={proxy_state.get('last_error', 'none')})"
                 send_notification(
                     "DOWN",
-                    f"{state.name} is not responding on :{state.port}",
+                    f"{state.name} is not responding on :{state.port}{extra}",
                 )
 
-            # Attempt recovery after threshold
-            if state.consecutive_failures >= RECOVERY_THRESHOLD:
+            # Only attempt recovery for the proxy — servers are managed by the proxy
+            if name == "proxy" and state.consecutive_failures >= RECOVERY_THRESHOLD:
                 attempt_recovery(name, state)
+            elif name != "proxy" and state.consecutive_failures >= RECOVERY_THRESHOLD:
+                # Server down — notify but don't recover (proxy manages servers)
+                logger.warning(
+                    "%s down — proxy will recover it on next request",
+                    state.name,
+                )
 
 
 # ── Recovery ─────────────────────────────────────────────────────────────────
@@ -207,34 +249,47 @@ def attempt_recovery(name: str, state: ComponentState) -> None:
 
 
 def recover_proxy() -> None:
-    """Kill hung proxy and restart it."""
-    # Kill existing proxy
-    if PROXY_PID_FILE.exists():
-        try:
-            pid = int(PROXY_PID_FILE.read_text().strip())
-            os.kill(pid, signal.SIGKILL)
-            logger.info("Killed stale proxy PID %d", pid)
-        except (ProcessLookupError, ValueError):
-            pass
-        PROXY_PID_FILE.unlink(missing_ok=True)
+    """Kill hung proxy and restart it.
 
-    # Also kill anything on the port
-    result = subprocess.run(
-        ["lsof", "-ti", f":{PROXY_PORT}", "-sTCP:LISTEN"],
-        capture_output=True,
-        text=True,
-    )
-    for pid in result.stdout.strip().split("\n"):
-        if pid:
-            try:
-                os.kill(int(pid), signal.SIGKILL)
-                logger.info("Killed process %d on port %d", int(pid), PROXY_PORT)
-            except ProcessLookupError:
-                pass
+    Uses the same approach as mlx-proxy.py's ensure_server():
+    kill all MLX processes, wait for GPU memory reclamation, restart proxy,
+    verify it responds on /health.
+    """
+    # Kill all MLX processes — proxy and any servers it was managing
+    for pattern in ["mlx-proxy.py", "mlx_lm.server", "mlx_vlm.server"]:
+        result = subprocess.run(
+            ["pgrep", "-f", pattern],
+            capture_output=True,
+            text=True,
+        )
+        for pid in result.stdout.strip().split("\n"):
+            if pid:
+                try:
+                    os.kill(int(pid), signal.SIGTERM)
+                    logger.info("Sent SIGTERM to %s (PID %s)", pattern, pid)
+                except ProcessLookupError:
+                    pass
 
-    time.sleep(2)
+    # Also kill anything on the ports
+    for port in [PROXY_PORT, LM_PORT, VLM_PORT]:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True,
+            text=True,
+        )
+        for pid in result.stdout.strip().split("\n"):
+            if pid:
+                try:
+                    os.kill(int(pid), signal.SIGKILL)
+                    logger.info("Force-killed PID %s on port %d", pid, port)
+                except ProcessLookupError:
+                    pass
 
-    # Restart proxy
+    # Wait for GPU memory reclamation (critical on Apple Silicon)
+    logger.info("Waiting 15s for GPU memory reclamation...")
+    time.sleep(15)
+
+    # Restart proxy — it will handle server lifecycle on demand
     script_dir = Path(__file__).parent
     proxy_script = script_dir / "mlx-proxy.py"
     if not proxy_script.exists():
@@ -245,83 +300,44 @@ def recover_proxy() -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    logger.info("Restarted MLX proxy")
+    logger.info("Restarted MLX proxy — it will load models on demand")
 
-    # Wait for it to come up
-    time.sleep(5)
-    state = COMPONENTS["proxy"]
-    if check_component(state):
-        state.healthy = True
-        state.consecutive_failures = 0
-        state.recovery_attempts = 0
-        send_notification("RECOVERED", f"{state.name} recovered on :{state.port}")
-    else:
-        raise RuntimeError("Proxy did not come up after restart")
-
-
-def recover_server(stype: str, port: int) -> None:
-    """Kill and restart mlx_lm or mlx_vlm server.
-
-    Kills ALL processes matching the server module name (not just the port listener)
-    to prevent zombie children from contending for Metal GPU resources.
-    """
-    module_name = f"mlx_{stype}.server"
-
-    # Kill by process name — catches zombies that aren't listening on the port
-    result = subprocess.run(
-        ["pgrep", "-f", module_name],
-        capture_output=True,
-        text=True,
-    )
-    for pid in result.stdout.strip().split("\n"):
-        if pid:
-            try:
-                os.kill(int(pid), signal.SIGKILL)
-                logger.info("Killed %s process %d (by name)", module_name, int(pid))
-            except ProcessLookupError:
-                pass
-
-    # Also kill anything still on the port (belt-and-suspenders)
-    result = subprocess.run(
-        ["lsof", "-ti", f":{port}", "-sTCP:LISTEN"],
-        capture_output=True,
-        text=True,
-    )
-    for pid in result.stdout.strip().split("\n"):
-        if pid:
-            try:
-                os.kill(int(pid), signal.SIGKILL)
-                logger.info("Killed %s process %d on port %d", stype, int(pid), port)
-            except ProcessLookupError:
-                pass
-
-    time.sleep(2)
-
-    # Restart server
-    subprocess.Popen(
-        ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    logger.info("Restarted mlx_%s server on :%d", stype, port)
-
-    # Wait for it to come up
-    for _ in range(30):
+    # Wait for proxy to respond (any response = alive)
+    for attempt in range(30):
         time.sleep(2)
         try:
-            r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=3)
-            if r.status_code == 200:
-                name = "mlx_lm server" if stype == "lm" else "mlx_vlm server"
-                state_key = "mlx_lm" if stype == "lm" else "mlx_vlm"
-                COMPONENTS[state_key].healthy = True
-                COMPONENTS[state_key].consecutive_failures = 0
-                COMPONENTS[state_key].recovery_attempts = 0
-                send_notification("RECOVERED", f"{name} recovered on :{port}")
+            r = httpx.get(f"http://127.0.0.1:{PROXY_PORT}/health", timeout=5)
+            if r.status_code in (200, 503):
+                name = "MLX Proxy"
+                COMPONENTS["proxy"].healthy = True
+                COMPONENTS["proxy"].consecutive_failures = 0
+                COMPONENTS["proxy"].recovery_attempts = 0
+                send_notification("RECOVERED", f"{name} recovered on :{PROXY_PORT}")
                 return
         except Exception:
             pass
 
-    raise RuntimeError(f"mlx_{stype} did not come up on :{port}")
+    raise RuntimeError("MLX proxy did not come up after restart")
+
+
+def recover_server(stype: str, port: int) -> None:
+    """Server recovery is handled by the proxy's ensure_server().
+
+    The watchdog no longer attempts server recovery because:
+    1. The proxy manages server lifecycle (start/stop/model loading)
+    2. Starting a server without --model loads no model
+    3. The proxy's ensure_server() handles GPU memory reclamation
+    4. Log-based readiness detection requires proxy-level coordination
+
+    Instead, we just log that the server is down — the proxy will recover
+    it on the next incoming request.
+    """
+    module = f"mlx_{stype}"
+    logger.info(
+        "%s server down on :%d — proxy will recover on next request",
+        module,
+        port,
+    )
 
 
 # ── Notifications ────────────────────────────────────────────────────────────
@@ -447,6 +463,9 @@ def _acquire_singleton_lock() -> bool:
     if WATCHDOG_PID_FILE.exists():
         try:
             old_pid = int(WATCHDOG_PID_FILE.read_text().strip())
+            if old_pid == os.getpid():
+                # launch.sh wrote our PID before we started — that's us
+                return True
             # Check if process is alive by sending signal 0
             os.kill(old_pid, 0)
             logger.error("Another watchdog is already running (PID %d) — exiting", old_pid)
