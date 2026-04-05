@@ -622,6 +622,46 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if self.path == "/metrics":
+            mem = memory_monitor.to_dict()
+            cur = mem.get("current", {}) or {}
+            state = mlx_state.to_dict()
+            lines = [
+                "# HELP mlx_memory_free_gb Free memory in GB",
+                "# TYPE mlx_memory_free_gb gauge",
+                f"mlx_memory_free_gb {cur.get('free_gb', 0)}",
+                "# HELP mlx_memory_used_pct Memory usage percentage",
+                "# TYPE mlx_memory_used_pct gauge",
+                f"mlx_memory_used_pct {cur.get('used_pct', 0)}",
+                "# HELP mlx_memory_wired_gb Wired memory in GB",
+                "# TYPE mlx_memory_wired_gb gauge",
+                f"mlx_memory_wired_gb {cur.get('wired_gb', 0)}",
+                "# HELP mlx_memory_active_gb Active memory in GB",
+                "# TYPE mlx_memory_active_gb gauge",
+                f"mlx_memory_active_gb {cur.get('active_gb', 0)}",
+                "# HELP mlx_memory_peak_used_pct Peak memory usage percentage",
+                "# TYPE mlx_memory_peak_used_pct gauge",
+                f"mlx_memory_peak_used_pct {mem.get('peak_used_pct', 0)}",
+                "# HELP mlx_proxy_state Proxy state (1=ready, 0=other)",
+                "# TYPE mlx_proxy_state gauge",
+                f'mlx_proxy_state{{state="{state.get("state", "unknown")}"}} 1',
+                "# HELP mlx_proxy_switch_count Model switch count",
+                "# TYPE mlx_proxy_switch_count counter",
+                f"mlx_proxy_switch_count {state.get('switch_count', 0)}",
+                "# HELP mlx_proxy_consecutive_failures Consecutive health check failures",
+                "# TYPE mlx_proxy_consecutive_failures gauge",
+                f"mlx_proxy_consecutive_failures {state.get('consecutive_failures', 0)}",
+                "# HELP mlx_memory_samples_total Total memory samples taken",
+                "# TYPE mlx_memory_samples_total counter",
+                f"mlx_memory_samples_total {mem.get('samples', 0)}",
+            ]
+            body = "\n".join(lines) + "\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body.encode())
+            return
         if self.path == "/v1/models":
             if mlx_state.state in ("ready", "switching"):
                 data = {
