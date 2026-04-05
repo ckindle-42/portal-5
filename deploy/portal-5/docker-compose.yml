@@ -69,7 +69,7 @@ services:
     container_name: portal5-pipeline
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9099:9099"
+      - "0.0.0.0:9099:9099"
     volumes:
       - ../../config/backends.yaml:/app/config/backends.yaml:ro
       - type: tmpfs
