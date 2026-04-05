@@ -108,14 +108,13 @@ curl -s http://localhost:9099/v1/models \
 |----------|----------|
 | Development (17) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
 | Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
-| Data (6) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst |
+| Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst, Excel Sheet |
 | Compliance (2) | NERC CIP Compliance Analyst, CIP Policy Writer |
 | Systems (2) | Linux Terminal, SQL Terminal |
 | General (2) | IT Expert, Tech Reviewer |
 | Writing (2) | Creative Writer, Tech Writer |
 | Reasoning (1) | Magistral Strategist |
 | Research (1) | Gemma Research Analyst |
-| Architecture (1) | IT Architect |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
@@ -262,7 +261,7 @@ curl -s http://localhost:8913/tools | python3 -m json.tool
 
 **What:** Generate images using ComfyUI with FLUX.1-schnell or other models.
 
-**Activate:** Select **Vision** from the model dropdown. The ComfyUI image generation tool is automatically available. ComfyUI must be running on the host (see §8).
+**Activate:** Image generation is available through the ComfyUI MCP tool server. ComfyUI must be running on the host (see [ComfyUI Setup](COMFYUI_SETUP.md)).
 
 ### Prerequisites
 

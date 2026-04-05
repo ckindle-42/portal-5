@@ -43,6 +43,23 @@ All notable changes to Portal 5 will be documented in this file.
     (both use `mlx-community/Qwen3.5-35B-A3B-4bit`)
   - 8 new unit tests in `TestComplianceWorkspace`
   - Workspace count: 13 → 14
+- **`auto-mistral` workspace**: Strategic analysis, business reasoning
+  - Routes `[mlx, reasoning, general]` — MLX Magistral-Small-2509-8bit primary
+  - New `magistralstrategist` persona (category: reasoning)
+- **`gemma-4-31b-it-4bit` MLX model**: Vision and research tasks
+  - New `gemmaresearchanalyst` persona (category: research)
+  - Replaces older `gemma-4-26B-A4B` reference in documentation
+
+### Acceptance Test Suite (v4)
+
+- **5 new test sections** (S18-S22): image/video MCP tool calls, Telegram/Slack channel adapters,
+  notifications/alerts, MLX proxy model switching
+- **S18/S19**: Unload MLX models before ComfyUI tests to free 18-46GB unified memory
+- **Execution order**: Reordered `ALL_ORDER` to group by backend (Ollama → MLX → ComfyUI → no-LLM)
+  — reduces backend transitions from ~20 to 12
+- **7 prompt/signal fixes**: Fixed signal words that wouldn't appear in valid responses
+  (devopsengineer, linuxterminal, sqlterminal, techwriter, auto-music, auto-vision, codereviewassistant)
+- **Removed** `portal5_acceptance_v3.py` (orphaned, not referenced anywhere)
 
 ### Changed
 

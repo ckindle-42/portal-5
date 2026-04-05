@@ -60,7 +60,7 @@ Everything runs with a single command. No manual configuration.
 | Portal Pipeline | Intelligent routing to models | (internal) |
 | Ollama | Runs local language models | (internal) |
 | SearXNG | Private web search for research | (internal) |
-| ComfyUI | Image and video generation | http://localhost:8188 |
+| ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
 | 7 MCP Servers | Documents, music, voice, code, images | (internal) |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
@@ -89,6 +89,8 @@ and tools automatically.
 | `auto-data` | Data analysis, statistics | Code + Documents |
 | `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
 | `⚖️ auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
+| `🧠 auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
+| `🧠 auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
 
 ---
 
@@ -172,8 +174,8 @@ and tools automatically.
 - **Vision:** Qwen3-VL 32B, LLaVA-7B
 
 ### MLX models (Apple Silicon, pulled with `./launch.sh pull-mlx-models`)
-- **Text-only (mlx_lm):** Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama 3.2/3.3
-- **VLM (mlx_vlm):** Qwen3.5-35B-A3B, Qwen3.5-27B (vision + text)
+- **Text-only (mlx_lm):** Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama 3.2/3.3, Qwopus3.5-27B, Magistral-Small
+- **VLM (mlx_vlm):** Qwen3-VL-32B, LLaVA-7b, Gemma-4-31B
 - The MLX proxy auto-switches between these servers — only one runs at a time
 
 ### Image generation (downloaded automatically on first run, ~12 GB)

@@ -271,7 +271,7 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 
 **64GB systems**: Qwen3-Coder-Next-4bit (~46GB) + Ollama (~5GB) + OS (~8GB) = 59GB — no concurrent ComfyUI/Wan2.2.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
-**64GB systems**: Gemma-4-26B-A4B (~14GB) + Magistral-Small (~24GB) = 38GB combined — coexist safely.
+**64GB systems**: Gemma-4-31B (~18GB) + Magistral-Small (~24GB) = 42GB combined — coexist safely.
 **64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
 **32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~18GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
 
@@ -286,7 +286,7 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | 32GB | Qwen3-Coder-30B (~22GB) | Ollama routing only — no ComfyUI |
 | 64GB | Qwen3-Coder-Next-4bit (~46GB) | Ollama general only — unload before ComfyUI |
 | 64GB | Claude-Opus-27B (~22GB) | ComfyUI flux-schnell + Ollama general |
-| 64GB | Gemma-4-26B-A4B (~14GB) | ComfyUI Wan2.2 + Ollama general |
+| 64GB | Gemma-4-31B (~18GB) | ComfyUI Wan2.2 + Ollama general |
 | 64GB | Magistral-Small-8bit (~24GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
 

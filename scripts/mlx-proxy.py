@@ -5,7 +5,7 @@ Usage: python3 mlx-proxy.py
 
 Starts the correct MLX server based on the requested model:
   - mlx_lm.server  (port 18081) → text-only models (Qwen3-Coder-Next, DeepSeek-R1, etc.)
-  - mlx_vlm.server (port 18082) → VLM models (Qwen3.5 family with vision tower)
+  - mlx_vlm.server (port 18082) → VLM models (Gemma 4, Qwen3-VL, LLaVA with vision tower)
 
 Only one server runs at a time due to unified memory constraints on Apple Silicon.
 Switching takes ~30s for the new server to load.

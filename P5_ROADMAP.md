@@ -3,8 +3,8 @@
 ```
 Portal 5.2.1+ Roadmap
 ==================
-Last updated: March 30, 2026
-Version: 5.2.0 (production-ready)
+Last updated: April 4, 2026
+Version: 5.2.1 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: DONE, IN_PROGRESS, FUTURE
@@ -66,9 +66,10 @@ Live-verified: a `config_error` test event was confirmed delivered to a listenin
 | Date | Score | Notes |
 |------|-------|-------|
 | 2026-03-30 | 100/100 | v5.2.0 — all production items complete |
-| 2026-03-30 | 100/100 | v5.3.0-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
+| 2026-03-30 | 100/100 | v5.2.1-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
+| 2026-04-04 | 100/100 | v5.2.1 — P5-FUT-005 (weighted keyword routing), S18-S22 acceptance tests, persona prompt/signal fixes, documentation updates |
 
 ---
 
-*Last updated: 2026-03-30*
+*Last updated: 2026-04-04*
 *Part of Portal 5.2.1 release documentation*
