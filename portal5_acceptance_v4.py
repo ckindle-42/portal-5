@@ -5442,4 +5442,33 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    # Stop external watchdog before testing — it interferes by trying to
+    # "recover" the proxy during model switches. Restarted in finally block.
+    _wd_pid_file = Path("/tmp/mlx-watchdog.pid")
+    _wd_was_running = False
+    try:
+        if _wd_pid_file.exists():
+            _wd_pid = int(_wd_pid_file.read_text().strip())
+            os.kill(_wd_pid, 0)  # signal 0 = check if alive
+            _wd_was_running = True
+    except (ProcessLookupError, ValueError, Exception):
+        pass
+
+    if _wd_was_running:
+        print("  Stopping external watchdog (interferes with testing)...")
+        subprocess.run(
+            ["./launch.sh", "stop-mlx-watchdog"],
+            capture_output=True,
+        )
+        print("  Watchdog stopped.\n")
+
+    try:
+        sys.exit(asyncio.run(main()))
+    finally:
+        if _wd_was_running:
+            print("\n  Restarting external watchdog...")
+            subprocess.run(
+                ["./launch.sh", "start-mlx-watchdog"],
+                capture_output=True,
+            )
+            print("  Watchdog restarted.")
