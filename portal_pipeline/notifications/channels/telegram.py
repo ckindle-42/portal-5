@@ -20,17 +20,30 @@ class TelegramChannel(NotificationChannel):
     name = "Telegram"
 
     def _is_configured(self) -> bool:
-        token = os.environ.get("TELEGRAM_ALERT_BOT_TOKEN", "")
-        chat_id = os.environ.get("TELEGRAM_ALERT_CHANNEL_ID", "")
+        # Support both dedicated alert vars and the main Telegram bot vars
+        token = os.environ.get("TELEGRAM_ALERT_BOT_TOKEN") or os.environ.get(
+            "TELEGRAM_BOT_TOKEN", ""
+        )
+        chat_id = os.environ.get("TELEGRAM_ALERT_CHANNEL_ID") or os.environ.get(
+            "TELEGRAM_USER_IDS", ""
+        )
+        # TELEGRAM_USER_IDS is comma-separated; use the first one
+        if chat_id and "," in chat_id:
+            chat_id = chat_id.split(",")[0].strip()
         return bool(token and chat_id)
 
     def _bot_url(self, method: str) -> str:
-        token = os.environ["TELEGRAM_ALERT_BOT_TOKEN"]
+        token = os.environ.get("TELEGRAM_ALERT_BOT_TOKEN") or os.environ["TELEGRAM_BOT_TOKEN"]
         return f"https://api.telegram.org/bot{token}/{method}"
 
     async def _send_message(self, text: str) -> None:
+        chat_id = os.environ.get("TELEGRAM_ALERT_CHANNEL_ID") or os.environ.get(
+            "TELEGRAM_USER_IDS", ""
+        )
+        if chat_id and "," in chat_id:
+            chat_id = chat_id.split(",")[0].strip()
         payload = {
-            "chat_id": os.environ["TELEGRAM_ALERT_CHANNEL_ID"],
+            "chat_id": chat_id,
             "text": text,
             "parse_mode": "Markdown",
         }

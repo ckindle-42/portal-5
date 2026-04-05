@@ -221,7 +221,7 @@ def _send_notification(event_type: str, message: str, metadata: dict | None = No
             dispatcher.add_channel(ch())
 
         event = AlertEvent(
-            type=EventType(event_type),
+            type=EventType(event_type.lower()),
             message=message,
             workspace="acceptance-test",
             metadata=metadata or {},
