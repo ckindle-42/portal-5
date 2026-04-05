@@ -16,6 +16,7 @@ class EventType(Enum):
     DAILY_SUMMARY = "daily_summary"
     TEST_START = "test_start"
     TEST_END = "test_end"
+    TEST_SUMMARY = "test_summary"
 
 
 @dataclass
@@ -38,6 +39,7 @@ class AlertEvent:
             EventType.CONFIG_ERROR: ":x:",
             EventType.TEST_START: ":rocket:",
             EventType.TEST_END: ":flag_checkered:",
+            EventType.TEST_SUMMARY: ":clipboard:",
         }.get(self.type, ":bell:")
 
         lines = [f"{emoji} *Portal 5 Alert — {self.type.value}*"]
@@ -64,6 +66,7 @@ class AlertEvent:
             EventType.CONFIG_ERROR: "[ERROR]",
             EventType.TEST_START: "[TEST START]",
             EventType.TEST_END: "[TEST END]",
+            EventType.TEST_SUMMARY: "[TEST SUMMARY]",
         }.get(self.type, "[ALERT]")
 
         lines = [f"{prefix} Portal 5 — {self.type.value}", "", self.message]
@@ -109,6 +112,7 @@ class AlertEvent:
             EventType.CONFIG_ERROR: "[ERROR]",
             EventType.TEST_START: "[TEST]",
             EventType.TEST_END: "[DONE]",
+            EventType.TEST_SUMMARY: "[SUMMARY]",
         }.get(self.type, "[ALERT]")
         msg = f"{prefix} {self.message}"
         if self.backend_id:

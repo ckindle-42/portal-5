@@ -421,7 +421,7 @@ def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dic
     t0 = time.time()
 
     # Calculate total individual runs for progress tracking
-    runs_per_model = 2 if mode == "both" else 1
+    runs_per_model = {"raw": 1, "proxy": 1, "cold_start": 1, "both": 3}.get(mode, 1)
     total_runs = len(models) * runs_per_model
     run_counter = 0
 
@@ -435,12 +435,19 @@ def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dic
             r = benchmark_raw(model, dry_run=dry_run)
             results.append(r)
         elif mode == "proxy":
+            # Original proxy mode — kill only for first model (warm switches after)
             run_counter += 1
             _print_progress(run_counter, total_runs, mode, model, time.time() - t0, server_type)
             r = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=(i == 1))
             results.append(r)
+        elif mode == "cold_start":
+            # Cold-start mode — kill proxy before EVERY model (S23 acceptance test path)
+            run_counter += 1
+            _print_progress(run_counter, total_runs, mode, model, time.time() - t0, server_type)
+            r = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=True)
+            results.append(r)
         else:
-            # both: run raw first, then proxy
+            # both: run raw, proxy (warm), and cold_start for every model
             run_counter += 1
             _print_progress(run_counter, total_runs, "raw", model, time.time() - t0, server_type)
             r_raw = benchmark_raw(model, dry_run=dry_run)
@@ -448,8 +455,13 @@ def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dic
 
             run_counter += 1
             _print_progress(run_counter, total_runs, "proxy", model, time.time() - t0, server_type)
-            r_proxy = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=False)
+            r_proxy = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=(i == 1))
             results.append(r_proxy)
+
+            run_counter += 1
+            _print_progress(run_counter, total_runs, "cold", model, time.time() - t0, server_type)
+            r_cold = benchmark_proxy(model, dry_run=dry_run, kill_proxy_before=True)
+            results.append(r_cold)
 
         if not dry_run and i < len(models):
             print("    Waiting 10s for memory to settle...")
@@ -462,22 +474,29 @@ def print_summary(results: list[dict]) -> None:
     # Group by mode
     raw_results = [r for r in results if r.get("mode") == "raw"]
     proxy_results = [r for r in results if r.get("mode") == "proxy"]
+    cold_results = [r for r in results if r.get("mode") == "cold_start"]
 
-    if raw_results and proxy_results:
+    if raw_results and (proxy_results or cold_results):
         # Side-by-side comparison
-        print("\n" + "=" * 130)
+        print("\n" + "=" * 170)
         print(
-            f"{'Model':<55} {'Raw Load':<12} {'Raw Unload':<12} {'Proxy Resp':<12} {'Proxy Switch':<12} {'Proxy Type':<12}"
+            f"{'Model':<55} {'Raw Load':<12} {'Raw Unload':<12} {'Proxy (warm)':<14} {'Cold Start':<14} {'Cold Gap':<12} {'Proxy Gap':<12} {'Cold Type':<12}"
         )
-        print("=" * 130)
+        print("=" * 170)
 
         # Build lookup by model
         raw_by_model = {r["model"]: r for r in raw_results}
         proxy_by_model = {r["model"]: r for r in proxy_results}
+        cold_by_model = {r["model"]: r for r in cold_results}
 
-        for model in sorted(set(list(raw_by_model.keys()) + list(proxy_by_model.keys()))):
+        for model in sorted(
+            set(
+                list(raw_by_model.keys()) + list(proxy_by_model.keys()) + list(cold_by_model.keys())
+            )
+        ):
             raw = raw_by_model.get(model, {})
             proxy = proxy_by_model.get(model, {})
+            cold = cold_by_model.get(model, {})
 
             raw_load = (
                 f"{raw.get('load_time_s', '?')}s" if raw.get("load_time_s") is not None else "N/A"
@@ -492,24 +511,327 @@ def print_summary(results: list[dict]) -> None:
                 if proxy.get("response_time_s") is not None
                 else "N/A"
             )
-            proxy_switch = (
-                f"{proxy.get('switch_time_s', '?')}s"
-                if proxy.get("switch_time_s") is not None
+            cold_resp = (
+                f"{cold.get('response_time_s', '?')}s"
+                if cold.get("response_time_s") is not None
                 else "N/A"
             )
-            proxy_type = proxy.get("switch_type") or "N/A"
+            cold_type = cold.get("switch_type", "N/A")
 
-            # Gap
+            # Gaps vs raw load
+            cold_gap = ""
+            if raw.get("load_time_s") and cold.get("response_time_s"):
+                g = cold["response_time_s"] - raw["load_time_s"]
+                cold_gap = f"+{g:.0f}s" if g > 0 else f"{g:.0f}s"
+
+            proxy_gap = ""
             if raw.get("load_time_s") and proxy.get("response_time_s"):
-                gap = proxy["response_time_s"] - raw["load_time_s"]
-                if gap > 5:
-                    proxy_resp += f" (+{gap:.0f}s)"
+                g = proxy["response_time_s"] - raw["load_time_s"]
+                proxy_gap = f"+{g:.0f}s" if g > 0 else f"{g:.0f}s"
 
             print(
-                f"{model:<55} {raw_load:<12} {raw_unload:<12} {proxy_resp:<12} {proxy_switch:<12} {proxy_type:<12}"
+                f"{model:<55} {raw_load:<12} {raw_unload:<12} {proxy_resp:<14} {cold_resp:<14} {cold_gap:<12} {proxy_gap:<12} {cold_type:<12}"
             )
 
-        print("=" * 130)
+        print("=" * 170)
+
+    # Per-mode stats
+    for mode_name, mode_results in [
+        ("raw", raw_results),
+        ("proxy", proxy_results),
+        ("cold_start", cold_results),
+    ]:
+        if not mode_results:
+            continue
+        times_key = "load_time_s" if mode_name == "raw" else "response_time_s"
+        times = [
+            r[times_key]
+            for r in mode_results
+            if r.get(times_key) and r.get("load_success" if mode_name == "raw" else "success")
+        ]
+        if times:
+            print(f"\n  {mode_name.upper()} ({len(times)} models):")
+            print(
+                f"    {'Load' if mode_name == 'raw' else 'Response'}:  min={min(times):.1f}s  max={max(times):.1f}s  avg={sum(times) / len(times):.1f}s"
+            )
+
+        if mode_name == "raw":
+            unload_times = [
+                r["unload_time_s"]
+                for r in mode_results
+                if r.get("unload_time_s") and r.get("unload_success")
+            ]
+            if unload_times:
+                print(
+                    f"    Unload: min={min(unload_times):.1f}s  max={max(unload_times):.1f}s  avg={sum(unload_times) / len(unload_times):.1f}s"
+                )
+        elif mode_name == "proxy":
+            by_switch = {}
+            for r in mode_results:
+                st = r.get("switch_type", "unknown")
+                if st not in by_switch:
+                    by_switch[st] = []
+                if r.get("response_time_s") and r.get("success"):
+                    by_switch[st].append(r["response_time_s"])
+            if by_switch:
+                print(f"    By switch type:")
+                for st, times in by_switch.items():
+                    if times:
+                        print(
+                            f"      {st}: {len(times)} requests, avg={sum(times) / len(times):.1f}s, range={min(times):.1f}-{max(times):.1f}s"
+                        )
+        print("=" * 170)
+
+        # Build lookup by model
+        raw_by_model = {r["model"]: r for r in raw_results}
+        proxy_by_model = {r["model"]: r for r in proxy_results}
+        cold_by_model = {r["model"]: r for r in cold_results}
+
+        for model in sorted(
+            set(
+                list(raw_by_model.keys()) + list(proxy_by_model.keys()) + list(cold_by_model.keys())
+            )
+        ):
+            raw = raw_by_model.get(model, {})
+            proxy = proxy_by_model.get(model, {})
+            cold = cold_by_model.get(model, {})
+
+            raw_load = (
+                f"{raw.get('load_time_s', '?')}s" if raw.get("load_time_s") is not None else "N/A"
+            )
+            raw_unload = (
+                f"{raw.get('unload_time_s', '?')}s"
+                if raw.get("unload_time_s") is not None
+                else "N/A"
+            )
+            proxy_resp = (
+                f"{proxy.get('response_time_s', '?')}s"
+                if proxy.get("response_time_s") is not None
+                else "N/A"
+            )
+            cold_resp = (
+                f"{cold.get('response_time_s', '?')}s"
+                if cold.get("response_time_s") is not None
+                else "N/A"
+            )
+            cold_type = cold.get("switch_type", "N/A")
+
+            # Gaps vs raw load
+            cold_gap = ""
+            if raw.get("load_time_s") and cold.get("response_time_s"):
+                g = cold["response_time_s"] - raw["load_time_s"]
+                cold_gap = f"+{g:.0f}s" if g > 0 else f"{g:.0f}s"
+
+            proxy_gap = ""
+            if raw.get("load_time_s") and proxy.get("response_time_s"):
+                g = proxy["response_time_s"] - raw["load_time_s"]
+                proxy_gap = f"+{g:.0f}s" if g > 0 else f"{g:.0f}s"
+
+            print(
+                f"{model:<55} {raw_load:<12} {raw_unload:<12} {proxy_resp:<14} {cold_resp:<14} {cold_gap:<12} {proxy_gap:<12} {cold_type:<12}"
+            )
+
+        print("=" * 170)
+
+    # Per-mode stats
+    for mode_name, mode_results in [
+        ("raw", raw_results),
+        ("proxy", proxy_results),
+        ("cold_start", cold_results),
+    ]:
+        if not mode_results:
+            continue
+        times_key = "load_time_s" if mode_name == "raw" else "response_time_s"
+        times = [
+            r[times_key]
+            for r in mode_results
+            if r.get(times_key) and r.get("load_success" if mode_name == "raw" else "success")
+        ]
+        if times:
+            print(f"\n  {mode_name.upper()} ({len(times)} models):")
+            print(
+                f"    {'Load' if mode_name == 'raw' else 'Response'}:  min={min(times):.1f}s  max={max(times):.1f}s  avg={sum(times) / len(times):.1f}s"
+            )
+
+        if mode_name == "raw":
+            unload_times = [
+                r["unload_time_s"]
+                for r in mode_results
+                if r.get("unload_time_s") and r.get("unload_success")
+            ]
+            if unload_times:
+                print(
+                    f"    Unload: min={min(unload_times):.1f}s  max={max(unload_times):.1f}s  avg={sum(unload_times) / len(unload_times):.1f}s"
+                )
+        elif mode_name == "proxy":
+            by_switch = {}
+            for r in mode_results:
+                st = r.get("switch_type", "unknown")
+                if st not in by_switch:
+                    by_switch[st] = []
+                if r.get("response_time_s") and r.get("success"):
+                    by_switch[st].append(r["response_time_s"])
+            if by_switch:
+                print(f"    By switch type:")
+                for st, times in by_switch.items():
+                    if times:
+                        print(
+                            f"      {st}: {len(times)} requests, avg={sum(times) / len(times):.1f}s, range={min(times):.1f}-{max(times):.1f}s"
+                        )
+        print("=" * 150)
+
+        # Build lookup by model — separate cold vs warm proxy runs
+        raw_by_model = {r["model"]: r for r in raw_results}
+        cold_by_model = {}
+        warm_by_model = {}
+        for r in proxy_results:
+            st = r.get("switch_type", "")
+            if st == "cold_start":
+                cold_by_model[r["model"]] = r
+            else:
+                warm_by_model[r["model"]] = r
+
+        for model in sorted(
+            set(list(raw_by_model.keys()) + list(cold_by_model.keys()) + list(warm_by_model.keys()))
+        ):
+            raw = raw_by_model.get(model, {})
+            cold = cold_by_model.get(model, {})
+            warm = warm_by_model.get(model, {})
+
+            raw_load = (
+                f"{raw.get('load_time_s', '?')}s" if raw.get("load_time_s") is not None else "N/A"
+            )
+            raw_unload = (
+                f"{raw.get('unload_time_s', '?')}s"
+                if raw.get("unload_time_s") is not None
+                else "N/A"
+            )
+            cold_resp = (
+                f"{cold.get('response_time_s', '?')}s"
+                if cold.get("response_time_s") is not None
+                else "N/A"
+            )
+            warm_resp = (
+                f"{warm.get('response_time_s', '?')}s"
+                if warm.get("response_time_s") is not None
+                else "N/A"
+            )
+            cold_type = cold.get("switch_type", "N/A")
+
+            # Gap: cold_start vs raw_load
+            gap = ""
+            if raw.get("load_time_s") and cold.get("response_time_s"):
+                g = cold["response_time_s"] - raw["load_time_s"]
+                if g > 5:
+                    gap = f"+{g:.0f}s"
+                elif g < -5:
+                    gap = f"{g:.0f}s"
+                else:
+                    gap = f"{g:+.0f}s"
+
+            print(
+                f"{model:<55} {raw_load:<12} {raw_unload:<12} {cold_resp:<14} {warm_resp:<14} {gap:<12} {cold_type:<12}"
+            )
+
+        print("=" * 150)
+
+    # Per-mode stats
+    for mode_name, mode_results in [("raw", raw_results), ("proxy", proxy_results)]:
+        if not mode_results:
+            continue
+        times_key = "load_time_s" if mode_name == "raw" else "response_time_s"
+        times = [
+            r[times_key]
+            for r in mode_results
+            if r.get(times_key) and r.get("load_success" if mode_name == "raw" else "success")
+        ]
+        if times:
+            print(f"\n  {mode_name.upper()} ({len(times)} models):")
+            print(
+                f"    {'Load' if mode_name == 'raw' else 'Response'}:  min={min(times):.1f}s  max={max(times):.1f}s  avg={sum(times) / len(times):.1f}s"
+            )
+
+        if mode_name == "raw":
+            unload_times = [
+                r["unload_time_s"]
+                for r in mode_results
+                if r.get("unload_time_s") and r.get("unload_success")
+            ]
+            if unload_times:
+                print(
+                    f"    Unload: min={min(unload_times):.1f}s  max={max(unload_times):.1f}s  avg={sum(unload_times) / len(unload_times):.1f}s"
+                )
+        else:
+            by_switch = {}
+            for r in mode_results:
+                st = r.get("switch_type", "unknown")
+                if st not in by_switch:
+                    by_switch[st] = []
+                if r.get("response_time_s") and r.get("success"):
+                    by_switch[st].append(r["response_time_s"])
+            if by_switch:
+                print(f"    By switch type:")
+                for st, times in by_switch.items():
+                    if times:
+                        print(
+                            f"      {st}: {len(times)} requests, avg={sum(times) / len(times):.1f}s, range={min(times):.1f}-{max(times):.1f}s"
+                        )
+        print("=" * 150)
+
+        # Build lookup by model — separate cold vs warm proxy runs
+        raw_by_model = {r["model"]: r for r in raw_results}
+        cold_by_model = {}
+        warm_by_model = {}
+        for r in proxy_results:
+            st = r.get("switch_type", "")
+            if st == "cold_start":
+                cold_by_model[r["model"]] = r
+            else:
+                warm_by_model[r["model"]] = r
+
+        for model in sorted(
+            set(list(raw_by_model.keys()) + list(cold_by_model.keys()) + list(warm_by_model.keys()))
+        ):
+            raw = raw_by_model.get(model, {})
+            cold = cold_by_model.get(model, {})
+            warm = warm_by_model.get(model, {})
+
+            raw_load = (
+                f"{raw.get('load_time_s', '?')}s" if raw.get("load_time_s") is not None else "N/A"
+            )
+            raw_unload = (
+                f"{raw.get('unload_time_s', '?')}s"
+                if raw.get("unload_time_s") is not None
+                else "N/A"
+            )
+            cold_resp = (
+                f"{cold.get('response_time_s', '?')}s"
+                if cold.get("response_time_s") is not None
+                else "N/A"
+            )
+            warm_resp = (
+                f"{warm.get('response_time_s', '?')}s"
+                if warm.get("response_time_s") is not None
+                else "N/A"
+            )
+            cold_type = cold.get("switch_type", "N/A")
+
+            # Gap: cold_start vs raw_load
+            gap = ""
+            if raw.get("load_time_s") and cold.get("response_time_s"):
+                g = cold["response_time_s"] - raw["load_time_s"]
+                if g > 5:
+                    gap = f"+{g:.0f}s"
+                elif g < -5:
+                    gap = f"{g:.0f}s"
+                else:
+                    gap = f"{g:+.0f}s"
+
+            print(
+                f"{model:<55} {raw_load:<12} {raw_unload:<12} {cold_resp:<14} {warm_resp:<14} {gap:<12} {cold_type:<12}"
+            )
+
+        print("=" * 150)
 
     # Per-mode stats
     for mode_name, mode_results in [("raw", raw_results), ("proxy", proxy_results)]:
@@ -558,9 +880,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="MLX Model Switch Benchmark")
     parser.add_argument(
         "--mode",
-        choices=["raw", "proxy", "both"],
+        choices=["raw", "proxy", "cold_start", "both"],
         default="raw",
-        help="Benchmark mode: raw (direct server), proxy (through MLX proxy), both (compare)",
+        help=(
+            "Benchmark mode: "
+            "raw (direct server start/stop), "
+            "proxy (through MLX proxy — first model cold, rest warm), "
+            "cold_start (through MLX proxy — kill before EVERY model, matches S23 acceptance tests), "
+            "both (all three modes — raw + proxy + cold_start, compare)"
+        ),
     )
     parser.add_argument("--model", help="Benchmark a single model (default: all)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
@@ -569,8 +897,9 @@ def main() -> None:
 
     mode_label = {
         "raw": "Raw server start/stop",
-        "proxy": "Through MLX proxy",
-        "both": "Both modes — comparison",
+        "proxy": "Through MLX proxy (warm after first)",
+        "cold_start": "Through MLX proxy (cold start every model)",
+        "both": "All three modes — full comparison",
     }
     print("╔═══════════════════════════════════════════════════════════════════╗")
     print("║  MLX Model Switch Benchmark                                       ║")

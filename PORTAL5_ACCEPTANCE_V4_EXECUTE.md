@@ -14,56 +14,6 @@ report. This is a single-user lab — test serially, never concurrently.
 
 ---
 
-## ⚠️ CRITICAL: Run only ONE test instance at a time
-
-**NEVER spawn a second acceptance test process while one is already running.**
-
-The MLX proxy has bounded concurrency (4 workers + 8 queue). Running two test
-instances simultaneously will:
-- Cause 503 responses and false test failures
-- Potentially trigger Metal/MLX crashes from memory pressure
-- Corrupt test results
-
-Before running `python3 portal5_acceptance_v4.py`, verify no other instance is running:
-```bash
-ps aux | grep portal5_acceptance | grep -v grep
-```
-If you see a running process, **wait for it to finish**. Do not kill it. Do not start another.
-
-This rule applies to:
-- The main suite run (`python3 portal5_acceptance_v4.py`)
-- Targeted section re-runs (`python3 portal5_acceptance_v4.py --section S3`)
-- Any subprocess or background task you might spawn
-
-**One process. One at a time. Always.**
-
----
-
-## ⚠️ CRITICAL: Run only ONE test instance at a time
-
-**NEVER spawn a second acceptance test process while one is already running.**
-
-The MLX proxy has bounded concurrency (4 workers + 8 queue). Running two test
-instances simultaneously will:
-- Cause 503 responses and false test failures
-- Potentially trigger Metal/MLX crashes from memory pressure
-- Corrupt test results
-
-Before running `python3 portal5_acceptance_v4.py`, verify no other instance is running:
-```bash
-ps aux | grep portal5_acceptance | grep -v grep
-```
-If you see a running process, **wait for it to finish**. Do not kill it. Do not start another.
-
-This rule applies to:
-- The main suite run (`python3 portal5_acceptance_v4.py`)
-- Targeted section re-runs (`python3 portal5_acceptance_v4.py --section S3`)
-- Any subprocess or background task you might spawn
-
-**One process. One at a time. Always.**
-
----
-
 ## Step 1 — Clone and orient
 
 ```bash
@@ -298,6 +248,36 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 
 ---
 
+## Most recent run
+
+**Date:** 2026-04-05 04:04:52
+**Git SHA:** bd5516d
+**Duration:** 4090s (68 minutes)
+**Results:** PASS=179, FAIL=2, WARN=11, INFO=10, Total=202
+
+**FAILs (both BLOCKED — require protected file changes):**
+- S23-04: auto-coding fallback routes to reasoning instead of coding group
+- S23-09: auto-vision fallback routes to reasoning instead of vision group
+
+**Key finding:** MLX proxy crashes under sustained rapid model switching. Fixed test suite with health checks, recovery waits, and memory pressure monitoring. See ACCEPTANCE_EVIDENCE.md for full analysis.
+
+---
+
+## Most recent run
+
+**Date:** 2026-04-05 04:04:52
+**Git SHA:** bd5516d
+**Duration:** 4090s (68 minutes)
+**Results:** PASS=179, FAIL=2, WARN=11, INFO=10, Total=202
+
+**FAILs (both BLOCKED — require protected file changes):**
+- S23-04: auto-coding fallback routes to reasoning instead of coding group
+- S23-09: auto-vision fallback routes to reasoning instead of vision group
+
+**Key finding:** MLX proxy crashes under sustained rapid model switching. Fixed test suite with health checks, recovery waits, and memory pressure monitoring. See ACCEPTANCE_EVIDENCE.md for full analysis.
+
+---
+
 ## Quick reference: common issues from prior runs
 
 | Symptom | Root cause | Fix in test |
@@ -332,32 +312,7 @@ This means: zero FAIL, zero BLOCKED. WARNs are accepted if all are environmental
 
 S23 runs last and intentionally breaks things. It:
 
-1. **Disables the MLX watchdog** (S23-00) to prevent false DOWN alerts and race conditions
-2. **Verifies model identity** in responses (S23-02) — uses `_chat_with_model()` helper
-3. **Tests three fallback chains** by killing the MLX proxy:
-   - `auto-coding`: MLX → Ollama coding → general (S23-03/04/05)
-   - `auto-vision`: MLX → Ollama vision → general (S23-08/09/10)
-   - `auto-reasoning`: MLX → Ollama reasoning → general (S23-11/12/13)
-4. **Verifies full health recovery** after all kill/restore cycles (S23-14)
-5. **Re-enables the MLX watchdog** (S23-14b) before the smoke test
-6. **Smoke tests all 8 MLX workspaces** survive MLX failure (S23-15)
-
-Each kill/restore test is self-healing — the killed backend is restored before the next test runs.
-
-**Expected S23 WARNs:**
-- S23-03/08/11: MLX may be switching models (cold start after watchdog stop)
-- S23-04/09/12: Fallback may timeout on first request (cold Ollama model load)
-- S23-15: Some MLX workspaces may time out during smoke test (Ollama fallback cold loads)
-
-**If S23-02 returns BLOCKED:** The pipeline's `/v1/chat/completions` response doesn't include a `model` field. This is expected — the OpenAI-compatible API spec includes it, but the pipeline may not propagate it. If BLOCKED, fallback model verification degrades to WARN (can't confirm which backend served the request, but can still verify the response is non-empty).
-
----
-
-## S23 — Fallback chain verification (new)
-
-S23 runs last and intentionally breaks things. It:
-
-1. **Disables the MLX watchdog** (S23-00) to prevent false DOWN alerts and race conditions
+1. **Disables the MLX watchdog** (S23-00) to prevent false DOWN alerts and race conditions. The watchdog sends a STOPPED notification when disabled and STARTED when re-enabled.
 2. **Verifies model identity** in responses (S23-02) — uses `_chat_with_model()` helper
 3. **Tests three fallback chains** by killing the MLX proxy:
    - `auto-coding`: MLX → Ollama coding → general (S23-03/04/05)
