@@ -212,8 +212,71 @@ def detect_server() -> str | None:
     return None
 
 
+def _graceful_kill(pid: int, timeout: float = 10.0) -> None:
+    """Send SIGTERM first, wait for graceful exit, then SIGKILL if needed."""
+    try:
+        os.kill(pid, 15)  # SIGTERM — lets Metal release GPU memory
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                os.kill(pid, 0)  # check if still alive
+                time.sleep(0.5)
+            except ProcessLookupError:
+                return  # process exited cleanly
+        # Still alive after SIGTERM timeout — force kill
+        subprocess.run(["kill", "-9", str(pid)], capture_output=True)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
+def _get_free_memory_gb() -> float:
+    """Get current free memory in GB via vm_stat (macOS)."""
+    try:
+        result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
+        page_size = 16384
+        free_pages = 0
+        for line in result.stdout.splitlines():
+            if "Pages free:" in line:
+                free_pages = int(line.split(":")[-1].strip().rstrip("."))
+                break
+        return (free_pages * page_size) / (1024**3)
+    except Exception:
+        return 0.0
+
+
+def _wait_for_gpu_memory_reclaim(min_wait: float = 5.0, max_wait: float = 20.0) -> None:
+    """Wait for Metal GPU memory to be reclaimed after server shutdown.
+
+    On Apple Silicon, Metal GPU memory is reclaimed asynchronously after a
+    process exits. Starting a new model before the old memory is released
+    causes command buffer errors (crash). We actively poll free memory
+    and wait until it stabilizes, indicating reclamation is complete.
+    """
+    time.sleep(min_wait)  # Minimum wait for process teardown
+    free_before = _get_free_memory_gb()
+    stable_count = 0
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        time.sleep(2)
+        free_now = _get_free_memory_gb()
+        if free_now >= free_before - 0.5:  # memory stable or increasing
+            stable_count += 1
+            if stable_count >= 2:
+                return  # Memory has been stable for 4+ seconds — reclamation done
+        else:
+            stable_count = 0
+            free_before = free_now
+    # Timed out but don't block forever — proceed with best effort
+    print(f"[proxy] memory reclaim wait timed out ({max_wait}s) — proceeding", flush=True)
+
+
 def stop_all():
-    """Kill any running MLX server on LM_PORT or VLM_PORT."""
+    """Gracefully stop any running MLX server on LM_PORT or VLM_PORT.
+
+    Uses SIGTERM (not SIGKILL) to let Metal release GPU memory properly.
+    Waits for process exit, then waits for GPU memory reclamation.
+    """
+    pids_to_kill = []
     for port in [LM_PORT, VLM_PORT]:
         try:
             r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=3)
@@ -225,10 +288,16 @@ def stop_all():
                 )
                 for pid in res.stdout.strip().split("\n"):
                     if pid:
-                        subprocess.run(["kill", "-9", pid], capture_output=True)
+                        pids_to_kill.append(int(pid))
         except Exception:
             pass
-    time.sleep(2)
+
+    # Graceful kill all — SIGTERM first, then wait
+    for pid in pids_to_kill:
+        _graceful_kill(pid)
+
+    # Wait for Metal GPU memory reclamation
+    _wait_for_gpu_memory_reclaim()
 
 
 def start_server(stype: str, model: str = "") -> int:
@@ -248,22 +317,46 @@ def start_server(stype: str, model: str = "") -> int:
 
 
 def ensure_server(model: str) -> int:
-    """Ensure the correct server is running for the given model. Returns the backend port."""
+    """Ensure the correct server is running for the requested model.
+
+    Tracks which model is loaded and restarts the server when the model changes.
+    Returns the backend port.
+    """
     target = "vlm" if needs_vlm(model) else "lm"
-    healthy, loaded = _probe_server(target)
-    if healthy:
-        mlx_state.set_ready(target, loaded)
-        return VLM_PORT if target == "vlm" else LM_PORT
-    with lock:
-        healthy, loaded = _probe_server(target)
+    current_model = mlx_state.loaded_model
+
+    # Check if the right model is already loaded
+    if current_model and model and current_model != model:
+        # Model change requested — need to restart server
+        print(f"[proxy] model switch: {current_model} -> {model}", flush=True)
+    elif current_model and model and current_model == model:
+        # Same model — check server is healthy
+        healthy, _ = _probe_server(target)
         if healthy:
+            mlx_state.set_ready(target, current_model)
+            return VLM_PORT if target == "vlm" else LM_PORT
+        # Server died — need to restart below
+    else:
+        # No current model tracked — check if server is running
+        healthy, loaded = _probe_server(target)
+        if healthy and not model:
             mlx_state.set_ready(target, loaded)
             return VLM_PORT if target == "vlm" else LM_PORT
+
+    # Need to start or restart the server
+    with lock:
+        # Double-check under lock
+        healthy, loaded = _probe_server(target)
+        if healthy and current_model == model:
+            mlx_state.set_ready(target, current_model or loaded)
+            return VLM_PORT if target == "vlm" else LM_PORT
+
         mlx_state.set_switching(target)
         try:
             stop_all()
             port = start_server(target, model)
-            print(f"[proxy] mlx_{target} ready on :{port}", flush=True)
+            mlx_state.set_ready(target, model)
+            print(f"[proxy] mlx_{target} ready on :{port} model={model}", flush=True)
             return port
         except Exception as e:
             mlx_state.set_down(str(e))

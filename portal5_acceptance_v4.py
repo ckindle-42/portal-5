@@ -1367,37 +1367,15 @@ async def S3() -> None:
                 t0=t0,
             )
 
-    # Test workspaces grouped by backend model
+    # Test workspaces grouped by backend model — OLLAMA ONLY here.
+    # MLX workspaces are tested in model-grouped sections (S30-S39) to minimize
+    # model switching: workspace + persona tests for each model run together.
     test_num = 2
     for group_name, ws_list in _WS_MODEL_GROUPS:
         is_mlx = "mlx" in group_name.lower()
-        print(f"  ── Group: {group_name} ({len(ws_list)} workspaces) ──")
-
-        # Before MLX groups, verify MLX proxy is ready and memory is OK
         if is_mlx:
-            mem = _check_memory_pressure()
-            print(f"     Memory pressure: {mem}")
-            if "CRITICAL" in mem:
-                print(f"     ⚠️  Memory critical — waiting 30s for memory to stabilize")
-                await asyncio.sleep(30)
-
-            ready = await _wait_for_mlx_ready(timeout=60)
-            if not ready:
-                print(f"     ⚠️  MLX proxy not ready after 60s — recording WARNs for this group")
-                for ws in ws_list:
-                    if ws not in set(WS_IDS):
-                        continue
-                    record(
-                        sec,
-                        f"S3-{test_num:02d}",
-                        f"workspace {ws}: domain response",
-                        "WARN",
-                        "MLX proxy not ready — skipped",
-                        t0=time.time(),
-                    )
-                    test_num += 1
-                await asyncio.sleep(_MLX_SWITCH_DELAY)
-                continue
+            continue  # MLX groups tested in model-grouped sections
+        print(f"  ── Group: {group_name} ({len(ws_list)} workspaces) ──")
         for ws in ws_list:
             if ws not in set(WS_IDS):
                 continue
@@ -1406,11 +1384,7 @@ async def S3() -> None:
             await _workspace_test_with_retry(sec, f"S3-{test_num:02d}", ws, prompt, signals)
             test_num += 1
             await asyncio.sleep(_INTRA_GROUP_DELAY)
-        await asyncio.sleep(
-            _VLM_SWITCH_DELAY
-            if "vision" in group_name.lower()
-            else (_MLX_SWITCH_DELAY if is_mlx else _INTER_GROUP_DELAY)
-        )
+        await asyncio.sleep(_INTER_GROUP_DELAY)
 
     # ── Content-aware routing: security keywords → auto-redteam ──────────────
     # Weighted scoring: exploit(3) + payload(3) + shellcode(3) + reverse shell(3) + bypass(2) + evasion(2) = 16
@@ -2621,8 +2595,12 @@ async def S11() -> None:
     persona_map = {p["slug"]: p for p in PERSONAS}
     passed = warned = failed = 0
 
+    # Test OLLAMA personas only here. MLX personas are tested in model-grouped
+    # sections (S30-S39) to minimize model switching.
     for model_name, slugs, workspace in _PERSONAS_BY_MODEL:
         is_mlx = "/" in model_name  # MLX models always have a HF-style path with /
+        if is_mlx:
+            continue  # MLX personas tested in model-grouped sections
         print(f"  ── Model: {model_name} ({len(slugs)} personas via {workspace}) ──")
         for slug in slugs:
             persona = persona_map.get(slug)
@@ -2648,8 +2626,7 @@ async def S11() -> None:
             else:
                 failed += 1
             await asyncio.sleep(2)
-        # Between model groups: longer delay for model switch
-        await asyncio.sleep(45 if is_mlx else 15)
+        await asyncio.sleep(15)
 
     record(
         sec,
@@ -2659,6 +2636,223 @@ async def S11() -> None:
         if failed == 0 and warned < len(PERSONAS) // 4
         else ("WARN" if failed == 0 else "FAIL"),
         f"{passed} PASS | {warned} WARN | {failed} FAIL",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MODEL-GROUPED MLX SECTIONS (S30-S38)
+#
+# Each section loads one MLX model ONCE, then tests both the workspace AND
+# personas that use that model. This prevents model switching within a group
+# and keeps switching to a minimum (only between groups).
+#
+# Order: largest/most complex model first, simplest last.
+# S22 (model switching) runs after all groups to intentionally force switches.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _mlx_group(
+    sec: str,
+    model_label: str,
+    ws_ids: list[str],
+    persona_entries: list[tuple[str, str, str]],  # (slug, name, workspace)
+    is_vlm: bool = False,
+) -> None:
+    """Load one MLX model, test its workspaces + personas, no switching.
+
+    Args:
+        sec: Section ID (e.g. "S30")
+        model_label: Human label (e.g. "Qwen3-Coder-Next-4bit")
+        ws_ids: Workspace IDs to test (e.g. ["auto-coding"])
+        persona_entries: List of (slug, name, workspace) tuples
+        is_vlm: Whether this is a VLM model (longer switch delay)
+    """
+    persona_map = {p["slug"]: p for p in PERSONAS}
+    switch_delay = _VLM_SWITCH_DELAY if is_vlm else _MLX_SWITCH_DELAY
+
+    # ── Pre-warm: send one request to force the proxy to load this model ──
+    if ws_ids:
+        pre_ws = ws_ids[0]
+        print(f"  ── Pre-loading model for {pre_ws} ({model_label}) ──")
+        code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
+        if code != 200:
+            print(f"  ⚠️  Pre-load returned HTTP {code} — model may not be available")
+        ready = await _wait_for_mlx_ready(timeout=120)
+        if not ready:
+            print(f"  ⚠️  MLX proxy not ready after 120s — recording WARNs for all tests")
+            test_num = 1
+            for ws in ws_ids:
+                record(
+                    sec,
+                    f"{sec}-{test_num:02d}",
+                    f"workspace {ws}",
+                    "WARN",
+                    "MLX proxy not ready",
+                    t0=time.time(),
+                )
+                test_num += 1
+            for slug, name, workspace in persona_entries:
+                record(
+                    sec,
+                    f"P:{slug}",
+                    f"persona {slug} ({name})",
+                    "WARN",
+                    "MLX proxy not ready",
+                    t0=time.time(),
+                )
+            return
+
+    # ── Test workspaces for this model ──
+    test_num = 1
+    for ws in ws_ids:
+        if ws not in set(WS_IDS):
+            continue
+        prompt = _WS_PROMPT.get(ws, f"Describe your role as the {ws} workspace.")
+        signals = _WS_SIGNALS.get(ws, [])
+        await _workspace_test_with_retry(sec, f"{sec}-{test_num:02d}", ws, prompt, signals)
+        test_num += 1
+        await asyncio.sleep(_INTRA_GROUP_DELAY)
+
+    # ── Test personas for this model ──
+    for slug, name, workspace in persona_entries:
+        persona = persona_map.get(slug)
+        if not persona:
+            record(sec, f"P:{slug}", f"persona {slug}", "WARN", "not found in persona YAML files")
+            continue
+        system = persona.get("system_prompt", "")
+        prompt = _PERSONA_PROMPT.get(
+            slug, f"As {name}, give a detailed description of your expertise and approach."
+        )
+        signals = _PERSONA_SIGNALS.get(slug, [])
+        await _persona_test_with_retry(
+            sec, f"P:{slug}", slug, name, system, prompt, signals, workspace
+        )
+        await asyncio.sleep(2)
+
+
+# ── S30: Qwen3-Coder-Next-4bit (auto-coding + coding personas) ─────────────
+async def S30() -> None:
+    print("\n━━━ S30. MLX: Qwen3-Coder-Next-4bit (coding) ━━━")
+    await _mlx_group(
+        "S30",
+        "Qwen3-Coder-Next-4bit",
+        ["auto-coding"],
+        [
+            ("bugdiscoverycodeassistant", "Bug Discovery Code Assistant", "auto-coding"),
+            ("codebasewikidocumentationskill", "Codebase WIKI Documentation", "auto-coding"),
+            ("codereviewassistant", "Code Review Assistant", "auto-coding"),
+            ("codereviewer", "Code Reviewer", "auto-coding"),
+            ("devopsautomator", "DevOps Automator", "auto-coding"),
+            ("devopsengineer", "DevOps Engineer", "auto-coding"),
+            ("ethereumdeveloper", "Ethereum Developer", "auto-coding"),
+            ("githubexpert", "GitHub Expert", "auto-coding"),
+            ("javascriptconsole", "JavaScript Console", "auto-coding"),
+            ("kubernetesdockerrpglearningengine", "Kubernetes & Docker RPG", "auto-coding"),
+            ("linuxterminal", "Linux Terminal", "auto-coding"),
+            (
+                "pythoncodegeneratorcleanoptimizedproduction-ready",
+                "Python Code Generator",
+                "auto-coding",
+            ),
+            ("pythoninterpreter", "Python Interpreter", "auto-coding"),
+            ("seniorfrontenddeveloper", "Senior Frontend Developer", "auto-coding"),
+            (
+                "seniorsoftwareengineersoftwarearchitectrules",
+                "Senior Software Engineer",
+                "auto-coding",
+            ),
+            ("softwarequalityassurancetester", "Software QA Tester", "auto-coding"),
+            ("sqlterminal", "SQL Terminal", "auto-coding"),
+        ],
+    )
+
+
+# ── S31: Qwen3-Coder-30B-A3B-Instruct-8bit (auto-spl + SPL/fullstack personas) ──
+async def S31() -> None:
+    print("\n━━━ S31. MLX: Qwen3-Coder-30B-A3B-Instruct-8bit (SPL) ━━━")
+    await _mlx_group(
+        "S31",
+        "Qwen3-Coder-30B-A3B-Instruct-8bit",
+        ["auto-spl"],
+        [
+            ("fullstacksoftwaredeveloper", "Fullstack Software Developer", "auto-spl"),
+            ("splunksplgineer", "Splunk SPL Engineer", "auto-spl"),
+            ("ux-uideveloper", "UX/UI Developer", "auto-spl"),
+        ],
+    )
+
+
+# ── S32: DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit (reasoning/research/data) ──
+async def S32() -> None:
+    print("\n━━━ S32. MLX: DeepSeek-R1-Distill-Qwen-32B (reasoning) ━━━")
+    await _mlx_group(
+        "S32",
+        "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+        ["auto-reasoning", "auto-research", "auto-data"],
+        [],  # No personas use this model directly — they use the Ollama deepseek-r1:32b-q4_k_m
+    )
+
+
+# ── S33: Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit (compliance) ──
+async def S33() -> None:
+    print("\n━━━ S33. MLX: Qwen3.5-35B-Claude-Opus (compliance) ━━━")
+    await _mlx_group(
+        "S33",
+        "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+        ["auto-compliance"],
+        [
+            ("cippolicywriter", "CIP Policy Writer", "auto-compliance"),
+            ("nerccipcomplianceanalyst", "NERC CIP Compliance Analyst", "auto-compliance"),
+        ],
+    )
+
+
+# ── S34: Magistral-Small-2509-MLX-8bit (mistral/strategy) ──
+async def S34() -> None:
+    print("\n━━━ S34. MLX: Magistral-Small-2509-MLX-8bit (mistral) ━━━")
+    await _mlx_group(
+        "S34",
+        "Magistral-Small-2509-MLX-8bit",
+        ["auto-mistral"],
+        [
+            ("magistralstrategist", "Magistral Strategist", "auto-mistral"),
+        ],
+    )
+
+
+# ── S35: Qwopus3.5-27B-v3-8bit (documents) ──
+async def S35() -> None:
+    print("\n━━━ S35. MLX: Qwopus3.5-27B-v3-8bit (documents) ━━━")
+    await _mlx_group(
+        "S35",
+        "Qwopus3.5-27B-v3-8bit",
+        ["auto-documents"],
+        [],
+    )
+
+
+# ── S36: Dolphin3.0-Llama3.1-8B-8bit (creative) ──
+async def S36() -> None:
+    print("\n━━━ S36. MLX: Dolphin3.0-Llama3.1-8B-8bit (creative) ━━━")
+    await _mlx_group(
+        "S36",
+        "Dolphin3.0-Llama3.1-8B-8bit",
+        ["auto-creative"],
+        [],
+    )
+
+
+# ── S37: gemma-4-31b-it-4bit (vision + Gemma persona) ──
+async def S37() -> None:
+    print("\n━━━ S37. MLX: gemma-4-31b-it-4bit (vision) ━━━")
+    await _mlx_group(
+        "S37",
+        "gemma-4-31b-it-4bit",
+        ["auto-vision"],
+        [
+            ("gemmaresearchanalyst", "Gemma Research Analyst", "auto-vision"),
+        ],
+        is_vlm=True,
     )
 
 
@@ -4013,16 +4207,54 @@ def _start_mlx_watchdog() -> bool:
 
 
 def _kill_mlx_proxy() -> bool:
-    """Kill the MLX proxy process (runs natively, not in Docker)."""
+    """Kill the MLX proxy and its server, ensuring GPU memory is released."""
     try:
-        result = subprocess.run(
-            ["pkill", "-f", "mlx-proxy"],
+        # Find and kill the MLX proxy process
+        proxy_pids = []
+        res = subprocess.run(
+            ["pgrep", "-f", "mlx-proxy"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        time.sleep(2)
-        # Verify it's actually down
+        for pid in res.stdout.strip().split("\n"):
+            if pid:
+                proxy_pids.append(int(pid))
+
+        # Find and kill any orphaned mlx_lm/mlx_vlm server processes
+        server_pids = []
+        for pattern in ["mlx_lm.server", "mlx_vlm.server"]:
+            res = subprocess.run(
+                ["pgrep", "-f", pattern],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for pid in res.stdout.strip().split("\n"):
+                if pid:
+                    server_pids.append(int(pid))
+
+        # Graceful kill all — SIGTERM first
+        all_pids = proxy_pids + server_pids
+        for pid in all_pids:
+            try:
+                os.kill(pid, 15)  # SIGTERM
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        # Wait for processes to exit, then SIGKILL stragglers
+        time.sleep(5)
+        for pid in all_pids:
+            try:
+                os.kill(pid, 0)  # check if alive
+                os.kill(pid, 9)  # SIGKILL stragglers
+            except (ProcessLookupError, PermissionError):
+                pass
+
+        # Wait for GPU memory reclamation
+        time.sleep(8)
+
+        # Verify proxy is actually down
         try:
             r = httpx.get(f"{MLX_URL}/health", timeout=3)
             return r.status_code != 200
@@ -4053,15 +4285,20 @@ def _kill_ollama_backend() -> bool:
 
 
 def _restore_mlx_proxy() -> bool:
-    """Restart the MLX proxy."""
+    """Restart the MLX proxy and wait for it to be fully healthy."""
     try:
+        # Kill any orphaned proxy or server processes first
+        for pattern in ["mlx-proxy", "mlx_lm.server", "mlx_vlm.server"]:
+            subprocess.run(["pkill", "-f", pattern], capture_output=True, timeout=5)
+        time.sleep(3)
+
         # Try the repo scripts/ path first, then fallback to ~/.portal5/
         proxy_script = ROOT / "scripts" / "mlx-proxy.py"
         if not proxy_script.exists():
             proxy_script = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
         if not proxy_script.exists():
             return False
-        subprocess.run(
+        subprocess.Popen(
             ["python3", str(proxy_script)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -4725,6 +4962,14 @@ SECTIONS = {
     "S21": S21,
     "S22": S22,
     "S23": S23,
+    "S30": S30,
+    "S31": S31,
+    "S32": S32,
+    "S33": S33,
+    "S34": S34,
+    "S35": S35,
+    "S36": S36,
+    "S37": S37,
 }
 
 ALL_ORDER = [
@@ -4732,22 +4977,7 @@ ALL_ORDER = [
     "S0",  # Version state
     "S1",  # Static config
     "S2",  # Service health
-    # ── Phase 1: Ollama models (contiguous — minimize Ollama model swaps) ──
-    "S3",  # Workspace routing (all 16, internally grouped by model)
-    "S4",  # Document MCP (auto-documents → Ollama qwen3.5:9b)
-    "S6",  # Security workspaces (auto-security/redteam/blueteam → Ollama)
-    "S7",  # Music (auto-music → Ollama dolphin-llama3:8b)
-    "S10",  # Video/image health (auto-video → Ollama dolphin-llama3:8b)
-    "S15",  # Web search (auto-research → Ollama)
-    "S20",  # Channel adapters (dispatcher → Ollama dolphin-llama3:8b)
-    # ── Phase 2: MLX models (contiguous — minimize MLX switches) ─────────
-    "S5",  # Code + sandbox (auto-coding → MLX Qwen3-Coder)
-    "S11",  # All 40 personas (internally grouped by model, MLX-heavy)
-    "S22",  # MLX proxy model switching (health + auto-coding request)
-    # ── Phase 3: MLX unloaded, max memory for ComfyUI ─────────────────────
-    "S18",  # Image generation MCP (ComfyUI) — unloads MLX first
-    "S19",  # Video generation MCP — MLX already unloaded
-    # ── No model dependency (can run anytime, placed after heavy phases) ───
+    # ── No LLM dependency (can run anytime) ────────────────────────────────
     "S8",  # TTS (kokoro-onnx, no LLM)
     "S9",  # STT (Whisper, no LLM)
     "S12",  # Metrics (Prometheus/Grafana)
@@ -4755,7 +4985,33 @@ ALL_ORDER = [
     "S14",  # HOWTO audit (static file checks)
     "S16",  # CLI commands (launch.sh)
     "S21",  # Notifications & alerts (module imports + event formatting)
-    "S23",  # Fallback chain verification (kill/restore backends)
+    # ── Ollama workspaces + personas (no MLX needed) ───────────────────────
+    "S3",  # Ollama workspace routing (auto, creative, documents, security, video, music)
+    "S4",  # Document MCP (auto-documents → Ollama qwen3.5:9b)
+    "S6",  # Security workspace MCP tools
+    "S7",  # Music MCP tools
+    "S10",  # Video MCP tools
+    "S15",  # Web search (SearXNG)
+    "S20",  # Channel adapters (Telegram/Slack)
+    "S11",  # Ollama personas (grouped by model)
+    # ── MLX models — grouped by model (workspace + persona together) ───────
+    # Each section loads ONE model and runs all its tests before switching.
+    # S22 (intentional model switch test) runs after all groups.
+    "S30",  # Qwen3-Coder-Next-4bit: auto-coding + 17 coding personas
+    "S5",  # Code sandbox (auto-coding → already loaded from S30)
+    "S31",  # Qwen3-Coder-30B-A3B: auto-spl + 3 SPL/fullstack personas (SWITCH)
+    "S32",  # DeepSeek-R1-abliterated-4bit: auto-reasoning/research/data (SWITCH)
+    "S33",  # Qwen3.5-35B-Claude-Opus: auto-compliance + 2 personas (SWITCH)
+    "S34",  # Magistral-Small: auto-mistral + 1 persona (SWITCH)
+    "S35",  # Qwopus3.5-27B: auto-documents (SWITCH)
+    "S36",  # Dolphin3.0-Llama3.1-8B: auto-creative (SWITCH)
+    "S37",  # gemma-4-31b-it-4bit: auto-vision + Gemma persona (SWITCH, VLM)
+    "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
+    # ── Fallback chain verification (kill/restore backends) ─────────────────
+    "S23",  # Fallback chain (kill MLX, verify Ollama fallback, restore)
+    # ── Image/Video LAST (ComfyUI needs max unified memory headroom) ────────
+    "S18",  # Image generation MCP (ComfyUI) — MLX should be unloaded by S23
+    "S19",  # Video generation MCP — ComfyUI still running
 ]
 
 
