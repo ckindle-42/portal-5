@@ -307,6 +307,70 @@
       "targets": [{ "expr": "sum by(workspace) (rate(portal_tokens_per_second_sum[5m])) / sum by(workspace) (rate(portal_tokens_per_second_count[5m]))", "legendFormat": "{{workspace}}", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "none", "custom": { "lineWidth": 2 } } },
       "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "last"] } }
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "MLX Free Memory",
+      "description": "Current free memory reported by MLX proxy.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 57 },
+      "targets": [{ "expr": "mlx_memory_free_gb", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "decgbytes", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 25 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "MLX Memory Used %",
+      "description": "System memory usage percentage from MLX proxy.",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 57 },
+      "targets": [{ "expr": "mlx_memory_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "MLX Peak Memory",
+      "description": "Peak memory usage since proxy started.",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 57 },
+      "targets": [{ "expr": "mlx_memory_peak_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "MLX Model Switches",
+      "description": "Total model switch count since proxy started.",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 57 },
+      "targets": [{ "expr": "mlx_proxy_switch_count", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "MLX Proxy State",
+      "description": "Current MLX proxy state.",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 57 },
+      "targets": [{ "expr": "mlx_proxy_state", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "System Memory Over Time",
+      "description": "Memory usage tracked by MLX proxy watchdog. Shows pressure during model switches.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 61 },
+      "targets": [
+        { "expr": "mlx_memory_free_gb", "legendFormat": "Free (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "mlx_memory_wired_gb", "legendFormat": "Wired (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "expr": "mlx_memory_active_gb", "legendFormat": "Active (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ],
+      "fieldConfig": { "defaults": { "unit": "decgbytes", "custom": { "lineWidth": 2, "fillOpacity": 10 } } },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "min", "max", "last"] } }
     }
   ],
   "time": { "from": "now-1h", "to": "now" },
