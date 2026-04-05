@@ -128,6 +128,10 @@ Document with full evidence:
 | S6-01 | 0-1 | Cold auto-security model |
 | S10-04 | 0-1 | ComfyUI host-native |
 | S11 personas | 0-12 | Cold 30B model loads; first-in-group timeout |
+| S23-00 | 0-1 | MLX watchdog may not have been running |
+| S23-02 | 0-1 | Pipeline may not include model field in response |
+| S23-04/09/12 | 0-3 | Cold Ollama model load during MLX fallback |
+| S23-15 | 0-8 | MLX workspace smoke test — Ollama fallback cold loads |
 
 **Exit code 0** = zero FAILs and zero BLOCKEDs. WARNs do not affect exit code.
 
@@ -145,7 +149,7 @@ Workspaces are tested in model-group order to minimize load/unload thrashing:
 | mlx/spl | auto-spl | Qwen3-Coder-30B-8bit (MLX) |
 | security | auto-security, auto-redteam, auto-blueteam | baronllm, lily-cyber |
 | mlx/reasoning | auto-reasoning, auto-research, auto-data, auto-compliance, auto-mistral | deepseek-r1 + MLX |
-| mlx/vision | auto-vision | gemma-4-26b-4bit (MLX) |
+| mlx/vision | auto-vision | gemma-4-31b-it-4bit (MLX) |
 
 Intra-group delay: 2s | Inter-group delay: 15s | MLX switch delay: 25s
 
@@ -167,7 +171,7 @@ Personas tested in workspace_model group order (40 total):
 | WhiteRabbitNeo | pentester | auto-security | 1 |
 | Jackrong MLX compliance | cippolicywriter, nerccipcomplianceanalyst | auto-compliance | 2 |
 | Magistral MLX | magistralstrategist | auto-mistral | 1 |
-| Gemma 4 MLX | gemmaresearchanalyst | auto-vision | 1 |
+| Gemma 4 MLX (31B dense) | gemmaresearchanalyst | auto-vision | 1 |
 
 **v4 fix**: fullstacksoftwaredeveloper, ux-uideveloper, splunksplgineer now correctly
 grouped under `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` (auto-spl workspace),
@@ -237,7 +241,11 @@ Target state:
 | S14-09 | Dynamic version from pyproject.toml | Works across version bumps |
 | S14-12 | New: auto-spl documented in HOWTO | Missing in some HOWTO versions |
 | _WS_SIGNALS | Expanded signal lists | More robust with longer responses |
-| Persona retry | Retry on timeout (not just empty) | First attempt may time out under load |
+| S23 | New: fallback chain verification (15 tests) | Tests primary→secondary→tertiary backend failover |
+| S23 | MLX watchdog disabled during testing | Prevents false alerts and race conditions |
+| _chat_with_model | Returns (code, text, model_used) | Enables model identity verification |
+| Gemma 4 | Upgraded from 26B MoE to 31B dense | More capable vision model |
+| Qwopus3.5 | Upgraded from v2 to v3 | Improved reasoning distillation |
 
 ---
 

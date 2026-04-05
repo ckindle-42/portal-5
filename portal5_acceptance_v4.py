@@ -4798,7 +4798,6 @@ ALL_ORDER = [
     "S14",  # HOWTO audit (static file checks)
     "S16",  # CLI commands (launch.sh)
     "S21",  # Notifications & alerts (module imports + event formatting)
-    "S22",  # MLX proxy model switching (health + auto-coding request)
     "S23",  # Fallback chain verification (kill/restore backends)
 ]
 

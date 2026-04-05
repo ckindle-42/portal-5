@@ -24,7 +24,7 @@ cd portal-5
 Read these files before doing anything else:
 - `PORTAL5_ACCEPTANCE_V4_EXECUTE.md` — this file, full methodology and failure classification rules
 - `ACCEPTANCE_RESULTS.md` — most recent prior run results (if present)
-- `portal5_acceptance_v4.py` — the test suite you will execute (23 sections: S0-S22)
+- `portal5_acceptance_v4.py` — the test suite you will execute (24 sections: S0-S23)
 - `KNOWN_LIMITATIONS.md` — architectural constraints (ComfyUI, fish-speech, etc.)
 
 ---
@@ -70,10 +70,11 @@ echo "Exit: $?"
 ```
 
 This will take 120-180 minutes for a warm system. Cold model loads add time.
-Do NOT interrupt. Let it complete. The suite has 23 sections (S0-S22):
+Do NOT interrupt. Let it complete. The suite has 24 sections (S0-S23):
 - Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20
 - Phase 2 (MLX): S5, S11, S22
 - Phase 3 (ComfyUI, MLX unloaded): S18, S19
+- Fallback chain verification: S23 (kill/restore backends — disables MLX watchdog)
 - No LLM dependency: S8, S9, S12, S13, S14, S16, S21
 
 If the system has not been run recently (models cold), add --rebuild to also
@@ -274,3 +275,53 @@ echo "Exit: $?"
 ```
 
 This means: zero FAIL, zero BLOCKED. WARNs are accepted if all are environmental.
+
+---
+
+## S23 — Fallback chain verification (new)
+
+S23 runs last and intentionally breaks things. It:
+
+1. **Disables the MLX watchdog** (S23-00) to prevent false DOWN alerts and race conditions
+2. **Verifies model identity** in responses (S23-02) — uses `_chat_with_model()` helper
+3. **Tests three fallback chains** by killing the MLX proxy:
+   - `auto-coding`: MLX → Ollama coding → general (S23-03/04/05)
+   - `auto-vision`: MLX → Ollama vision → general (S23-08/09/10)
+   - `auto-reasoning`: MLX → Ollama reasoning → general (S23-11/12/13)
+4. **Verifies full health recovery** after all kill/restore cycles (S23-14)
+5. **Re-enables the MLX watchdog** (S23-14b) before the smoke test
+6. **Smoke tests all 8 MLX workspaces** survive MLX failure (S23-15)
+
+Each kill/restore test is self-healing — the killed backend is restored before the next test runs.
+
+**Expected S23 WARNs:**
+- S23-03/08/11: MLX may be switching models (cold start after watchdog stop)
+- S23-04/09/12: Fallback may timeout on first request (cold Ollama model load)
+- S23-15: Some MLX workspaces may time out during smoke test (Ollama fallback cold loads)
+
+**If S23-02 returns BLOCKED:** The pipeline's `/v1/chat/completions` response doesn't include a `model` field. This is expected — the OpenAI-compatible API spec includes it, but the pipeline may not propagate it. If BLOCKED, fallback model verification degrades to WARN (can't confirm which backend served the request, but can still verify the response is non-empty).
+
+---
+
+## S23 — Fallback chain verification (new)
+
+S23 runs last and intentionally breaks things. It:
+
+1. **Disables the MLX watchdog** (S23-00) to prevent false DOWN alerts and race conditions
+2. **Verifies model identity** in responses (S23-02) — uses `_chat_with_model()` helper
+3. **Tests three fallback chains** by killing the MLX proxy:
+   - `auto-coding`: MLX → Ollama coding → general (S23-03/04/05)
+   - `auto-vision`: MLX → Ollama vision → general (S23-08/09/10)
+   - `auto-reasoning`: MLX → Ollama reasoning → general (S23-11/12/13)
+4. **Verifies full health recovery** after all kill/restore cycles (S23-14)
+5. **Re-enables the MLX watchdog** (S23-14b) before the smoke test
+6. **Smoke tests all 8 MLX workspaces** survive MLX failure (S23-15)
+
+Each kill/restore test is self-healing — the killed backend is restored before the next test runs.
+
+**Expected S23 WARNs:**
+- S23-03/08/11: MLX may be switching models (cold start after watchdog stop)
+- S23-04/09/12: Fallback may timeout on first request (cold Ollama model load)
+- S23-15: Some MLX workspaces may time out during smoke test (Ollama fallback cold loads)
+
+**If S23-02 returns BLOCKED:** The pipeline's `/v1/chat/completions` response doesn't include a `model` field. This is expected — the OpenAI-compatible API spec includes it, but the pipeline may not propagate it. If BLOCKED, fallback model verification degrades to WARN (can't confirm which backend served the request, but can still verify the response is non-empty).
