@@ -410,6 +410,9 @@ def write_pid_file() -> None:
 
 def cleanup(signum=None, frame=None):
     """Clean up on exit."""
+    sig_name = signal.Signals(signum).name if signum else "UNKNOWN"
+    logger.info("Watchdog shutting down (signal: %s)", sig_name)
+    send_notification("STOPPED", f"MLX Watchdog shutting down (signal: {sig_name})")
     WATCHDOG_PID_FILE.unlink(missing_ok=True)
     logger.info("Watchdog stopped")
     sys.exit(0)
@@ -454,6 +457,11 @@ def main() -> None:
         logger.warning(
             "No notification channels configured — set TELEGRAM_BOT_TOKEN, PUSHOVER_TOKEN, etc."
         )
+
+    send_notification(
+        "STARTED",
+        f"MLX Watchdog started — monitoring proxy :{PROXY_PORT}, mlx_lm :{LM_PORT}, mlx_vlm :{VLM_PORT}. Channels: {', '.join(channels) if channels else 'none configured'}",
+    )
 
     while True:
         try:

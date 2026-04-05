@@ -53,7 +53,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -111,7 +111,6 @@ MCP = {
 DC = ["docker", "compose", "-f", "deploy/portal-5/docker-compose.yml"]
 
 
-# ── Notification helpers for test start/end ───────────────────────────────────
 def _notify_test_start(section: str, total_sections: int) -> None:
     """Send a notification that acceptance testing has started."""
     _send_notification(
@@ -141,83 +140,52 @@ def _notify_test_end(
     )
 
 
-def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
-    """Fire a notification via the Portal 5 notification dispatcher.
-
-    Works from both async and sync contexts. Gracefully handles missing
-    dependencies or disabled notifications — never crashes the test suite.
-    """
-    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
-        return
-    try:
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.events import AlertEvent, EventType
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
-        from portal_pipeline.notifications.channels.email import EmailChannel
-        from portal_pipeline.notifications.channels.pushover import PushoverChannel
-        from portal_pipeline.notifications.channels.webhook import WebhookChannel
-
-        dispatcher = NotificationDispatcher()
-        for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
-            dispatcher.add_channel(ch())
-
-        event = AlertEvent(
-            type=EventType(event_type),
-            message=message,
-            workspace="acceptance-test",
-            metadata=metadata or {},
-        )
-
-        # Try async dispatch first, fall back to sync
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(dispatcher.dispatch(event))
-        except RuntimeError:
-            import asyncio as _asyncio
-
-            _asyncio.run(dispatcher.dispatch(event))
-    except Exception as e:
-        print(f"  ⚠️  Notification failed: {e}")
-
-
-def _git_sha() -> str:
-    """Get current git SHA."""
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=str(ROOT)
-        ).stdout.strip()
-    except Exception:
-        return "unknown"
-
-
-# ── Notification helpers for test start/end ───────────────────────────────────
-def _notify_test_start(section: str, total_sections: int) -> None:
-    """Send a notification that acceptance testing has started."""
-    _send_notification(
-        "TEST_START",
-        f"Acceptance test suite started — section {section} ({total_sections} total)\n"
-        f"Git: {_git_sha()[:7]}  |  Host: {os.uname().nodename}",
-        metadata={"section": section, "total_sections": total_sections},
-    )
-
-
-def _notify_test_end(
-    section: str, elapsed: int, counts: dict[str, int], total_sections: int
+def _notify_test_summary(
+    counts: dict[str, int], elapsed: int, section: str, total_sections: int
 ) -> None:
-    """Send a notification that acceptance testing has completed."""
-    summary_parts = [
-        f"PASS={counts.get('PASS', 0)}",
-        f"FAIL={counts.get('FAIL', 0)}",
-        f"WARN={counts.get('WARN', 0)}",
-        f"INFO={counts.get('INFO', 0)}",
+    """Send the narrative summary + formatted table via all enabled notification channels."""
+    total = sum(counts.values())
+    passed = counts.get("PASS", 0)
+    failed = counts.get("FAIL", 0)
+    blocked = counts.get("BLOCKED", 0)
+    warned = counts.get("WARN", 0)
+
+    # Narrative summary — what I'd normally say out loud
+    if failed:
+        narrative = f"{failed} test{'s' if failed > 1 else ''} failed"
+    elif blocked:
+        narrative = f"{blocked} test{'s' if blocked > 1 else ''} blocked (require code changes)"
+    elif warned:
+        narrative = f"All {total} tests passed with {warned} warning{'s' if warned > 1 else ''}"
+    else:
+        narrative = f"All {total} tests passed"
+
+    lines = [
+        narrative,
+        "",
+        f"Portal 5 Acceptance Test — {section}",
+        f"Duration: {elapsed}s  |  Sections: {total_sections}",
+        f"Git: {_git_sha()[:7]}  |  Host: {os.uname().nodename}",
+        "",
     ]
+    for s in ["PASS", "FAIL", "BLOCKED", "WARN", "INFO"]:
+        if s in counts:
+            icon = _ICON.get(s, "  ")
+            lines.append(f"  {icon} {s}: {counts[s]}")
+    lines.append(f"  Total: {total}")
+
+    if failed or blocked:
+        lines.append("")
+        label = "Failed" if failed else "Blocked"
+        lines.append(f"{label} checks:")
+        for r in _log:
+            if r.status in ("FAIL", "BLOCKED"):
+                lines.append(f"  [{r.status}] {r.section}/{r.name}: {r.detail[:120]}")
+
     _send_notification(
-        "TEST_END",
-        f"Acceptance test suite completed — section {section} in {elapsed}s\n"
-        f"Results: {', '.join(summary_parts)}\n"
-        f"Git: {_git_sha()[:7]}",
-        metadata={"elapsed_s": elapsed, "counts": counts},
+        "TEST_SUMMARY",
+        "\n".join(lines),
+        metadata={"counts": counts, "elapsed_s": elapsed, "section": section},
     )
 
 
@@ -4208,67 +4176,6 @@ def _start_mlx_watchdog() -> bool:
         return False
 
 
-def _stop_mlx_watchdog() -> bool:
-    """Stop the MLX watchdog daemon to prevent false alerts during fallback testing."""
-    pid_file = Path("/tmp/mlx-watchdog.pid")
-    try:
-        if pid_file.exists():
-            pid = int(pid_file.read_text().strip())
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(2)
-            # Verify it's stopped
-            try:
-                os.kill(pid, 0)
-                return False  # Still running
-            except OSError:
-                return True
-        return True  # Not running
-    except (ProcessLookupError, ValueError, OSError):
-        pid_file.unlink(missing_ok=True)
-        return True
-    except Exception:
-        return False
-
-
-def _start_mlx_watchdog() -> bool:
-    """Restart the MLX watchdog daemon after fallback testing."""
-    pid_file = Path("/tmp/mlx-watchdog.pid")
-    watchdog_script = ROOT / "scripts" / "mlx-watchdog.py"
-    try:
-        if pid_file.exists():
-            pid = int(pid_file.read_text().strip())
-            try:
-                os.kill(pid, 0)
-                return True  # Already running
-            except OSError:
-                pass  # Dead PID file, continue to restart
-
-        if not watchdog_script.exists():
-            return False
-
-        log_dir = Path.home() / ".portal5" / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-
-        with open(log_dir / "mlx-watchdog.log", "a") as log:
-            proc = subprocess.Popen(
-                ["python3", str(watchdog_script)],
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-            )
-        pid_file.write_text(str(proc.pid))
-        time.sleep(3)
-
-        # Verify it's running
-        try:
-            os.kill(proc.pid, 0)
-            return True
-        except OSError:
-            return False
-    except Exception:
-        return False
-
-
 def _kill_mlx_proxy() -> bool:
     """Kill the MLX proxy process (runs natively, not in Docker)."""
     try:
@@ -5127,9 +5034,6 @@ async def main() -> int:
     # Notify start of test run
     _notify_test_start(args.section.upper(), len(run))
 
-    # Notify start of test run
-    _notify_test_start(args.section.upper(), len(run))
-
     for sid in run:
         if sid not in SECTIONS:
             sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
@@ -5193,9 +5097,6 @@ async def main() -> int:
     # Notify end of test run
     _notify_test_end(args.section.upper(), elapsed, counts, len(run))
 
-    # Notify end of test run
-    _notify_test_end(args.section.upper(), elapsed, counts, len(run))
-
     print("╔═══════════════════════════════════════════════════════════════════╗")
     print(f"║  RESULTS  ({elapsed}s)                                              ║")
     print("╠═══════════════════════════════════════════════════════════════════╣")
@@ -5205,6 +5106,9 @@ async def main() -> int:
             print(f"║  {icon} {s:8s}: {counts[s]:4d}                                             ║")
     print(f"║  Total    : {sum(counts.values()):4d}                                             ║")
     print("╚═══════════════════════════════════════════════════════════════════╝")
+
+    # Send full summary to notification channels
+    _notify_test_summary(counts, elapsed, args.section.upper(), len(run))
 
     rpt = ROOT / "ACCEPTANCE_RESULTS.md"
     with open(rpt, "w") as f:
