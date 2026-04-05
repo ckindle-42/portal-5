@@ -121,9 +121,9 @@ MCP = {
 DC = ["docker", "compose", "-f", "deploy/portal-5/docker-compose.yml"]
 
 
-def _notify_test_start(section: str, total_sections: int) -> None:
+async def _notify_test_start(section: str, total_sections: int) -> None:
     """Send a notification that acceptance testing has started."""
-    _send_notification(
+    await _send_notification(
         "TEST_START",
         f"Acceptance test suite started — section {section} ({total_sections} total)\n"
         f"Git: {_git_sha()[:7]}  |  Host: {os.uname().nodename}",
@@ -131,7 +131,7 @@ def _notify_test_start(section: str, total_sections: int) -> None:
     )
 
 
-def _notify_test_end(
+async def _notify_test_end(
     section: str, elapsed: int, counts: dict[str, int], total_sections: int
 ) -> None:
     """Send a notification that acceptance testing has completed."""
@@ -141,7 +141,7 @@ def _notify_test_end(
         f"WARN={counts.get('WARN', 0)}",
         f"INFO={counts.get('INFO', 0)}",
     ]
-    _send_notification(
+    await _send_notification(
         "TEST_END",
         f"Acceptance test suite completed — section {section} in {elapsed}s\n"
         f"Results: {', '.join(summary_parts)}\n"
@@ -150,7 +150,7 @@ def _notify_test_end(
     )
 
 
-def _notify_test_summary(
+async def _notify_test_summary(
     counts: dict[str, int], elapsed: int, section: str, total_sections: int
 ) -> None:
     """Send the narrative summary + formatted table via all enabled notification channels."""
@@ -192,14 +192,14 @@ def _notify_test_summary(
             if r.status in ("FAIL", "BLOCKED"):
                 lines.append(f"  [{r.status}] {r.section}/{r.name}: {r.detail[:120]}")
 
-    _send_notification(
+    await _send_notification(
         "TEST_SUMMARY",
         "\n".join(lines),
         metadata={"counts": counts, "elapsed_s": elapsed, "section": section},
     )
 
 
-def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
+async def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
     """Fire a notification via the Portal 5 notification dispatcher.
 
     Works from both async and sync contexts. Gracefully handles missing
@@ -227,14 +227,7 @@ def _send_notification(event_type: str, message: str, metadata: dict | None = No
             metadata=metadata or {},
         )
 
-        # Try async dispatch first, fall back to sync
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(dispatcher.dispatch(event))
-        except RuntimeError:
-            import asyncio as _asyncio
-
-            _asyncio.run(dispatcher.dispatch(event))
+        await dispatcher.dispatch(event)
     except Exception as e:
         print(f"  ⚠️  Notification failed: {e}")
 
@@ -5126,7 +5119,7 @@ async def main() -> int:
     )
 
     # Notify start of test run
-    _notify_test_start(args.section.upper(), len(run))
+    await _notify_test_start(args.section.upper(), len(run))
 
     # Memory monitoring — sample before each section for diagnostics
     _memory_log: list[dict] = []
@@ -5223,7 +5216,7 @@ async def main() -> int:
         counts[r.status] = counts.get(r.status, 0) + 1
 
     # Notify end of test run
-    _notify_test_end(args.section.upper(), elapsed, counts, len(run))
+    await _notify_test_end(args.section.upper(), elapsed, counts, len(run))
 
     print("╔═══════════════════════════════════════════════════════════════════╗")
     print(f"║  RESULTS  ({elapsed}s)                                              ║")
@@ -5236,7 +5229,7 @@ async def main() -> int:
     print("╚═══════════════════════════════════════════════════════════════════╝")
 
     # Send full summary to notification channels
-    _notify_test_summary(counts, elapsed, args.section.upper(), len(run))
+    await _notify_test_summary(counts, elapsed, args.section.upper(), len(run))
 
     rpt = ROOT / "ACCEPTANCE_RESULTS.md"
     with open(rpt, "w") as f:
