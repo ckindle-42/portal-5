@@ -14,6 +14,56 @@ report. This is a single-user lab — test serially, never concurrently.
 
 ---
 
+## ⚠️ CRITICAL: Run only ONE test instance at a time
+
+**NEVER spawn a second acceptance test process while one is already running.**
+
+The MLX proxy has bounded concurrency (4 workers + 8 queue). Running two test
+instances simultaneously will:
+- Cause 503 responses and false test failures
+- Potentially trigger Metal/MLX crashes from memory pressure
+- Corrupt test results
+
+Before running `python3 portal5_acceptance_v4.py`, verify no other instance is running:
+```bash
+ps aux | grep portal5_acceptance | grep -v grep
+```
+If you see a running process, **wait for it to finish**. Do not kill it. Do not start another.
+
+This rule applies to:
+- The main suite run (`python3 portal5_acceptance_v4.py`)
+- Targeted section re-runs (`python3 portal5_acceptance_v4.py --section S3`)
+- Any subprocess or background task you might spawn
+
+**One process. One at a time. Always.**
+
+---
+
+## ⚠️ CRITICAL: Run only ONE test instance at a time
+
+**NEVER spawn a second acceptance test process while one is already running.**
+
+The MLX proxy has bounded concurrency (4 workers + 8 queue). Running two test
+instances simultaneously will:
+- Cause 503 responses and false test failures
+- Potentially trigger Metal/MLX crashes from memory pressure
+- Corrupt test results
+
+Before running `python3 portal5_acceptance_v4.py`, verify no other instance is running:
+```bash
+ps aux | grep portal5_acceptance | grep -v grep
+```
+If you see a running process, **wait for it to finish**. Do not kill it. Do not start another.
+
+This rule applies to:
+- The main suite run (`python3 portal5_acceptance_v4.py`)
+- Targeted section re-runs (`python3 portal5_acceptance_v4.py --section S3`)
+- Any subprocess or background task you might spawn
+
+**One process. One at a time. Always.**
+
+---
+
 ## Step 1 — Clone and orient
 
 ```bash
