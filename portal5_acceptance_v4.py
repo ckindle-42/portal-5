@@ -49,6 +49,14 @@ Changes from v4 (this run):
     - Fixed _GROUP_MODEL_PATTERNS to match actual model names returned by pipeline
     - Added pre-section MLX health recovery wait (30s) when proxy is degraded
     - _chat_with_model: added 3rd retry with increased timeout for cold MLX model loads
+    - _wait_for_mlx_ready: now verifies loaded_model from /health (no more accepting "none" as ready)
+    - Added _check_mlx_server_log() — reads /tmp/mlx-proxy-logs/mlx_{stype}.log for "Starting httpd"
+      (the deterministic signal that model is loaded and serving, same as proxy's own _wait_for_model_loaded)
+    - _mlx_group: passes expected model_label to _wait_for_mlx_ready for model verification
+    - _mlx_group: removed dead switch_delay variable (was defined but never used)
+    - _mlx_group: checks if model already loaded before sending pre-warm request
+    - _restore_mlx_proxy: now requires "ready" state + log confirmation (was accepting "switching")
+    - Pre-flight MLX check now shows loaded_model in output
 """
 
 from __future__ import annotations
@@ -1221,27 +1229,118 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
 
 _INTRA_GROUP_DELAY = 2
 _INTER_GROUP_DELAY = 15
-_MLX_SWITCH_DELAY = 30
-_VLM_SWITCH_DELAY = 60
 
 
-async def _wait_for_mlx_ready(timeout: int = 60) -> bool:
-    """Wait for MLX proxy to report ready state. Returns True if ready, False if timed out."""
+def _check_mlx_server_log(stype: str = "lm") -> tuple[bool, str]:
+    """Check the MLX server log for the 'Starting httpd' readiness signal.
+
+    The MLX proxy writes server stderr to /tmp/mlx-proxy-logs/mlx_{stype}.log.
+    The server prints 'Starting httpd' AFTER the model finishes loading into
+    GPU memory — this is the deterministic signal, not a timer guess.
+
+    Returns (is_ready, detail).
+    """
+    log_file = f"/tmp/mlx-proxy-logs/mlx_{stype}.log"
+    try:
+        if os.path.exists(log_file):
+            with open(log_file) as f:
+                content = f.read()
+            if "Starting httpd" in content:
+                # Extract the timestamp of the last 'Starting httpd' line
+                for line in reversed(content.strip().splitlines()):
+                    if "Starting httpd" in line:
+                        return True, line.strip()[:120]
+                return True, "Starting httpd found in log"
+            if "Traceback" in content:
+                return False, "server log has Traceback — model may have crashed"
+            return False, "log exists but no 'Starting httpd' yet"
+    except Exception as e:
+        return False, f"log read error: {e}"
+    return False, "log file not found"
+
+
+async def _wait_for_mlx_ready(timeout: int = 60, expected_model: str | None = None) -> bool:
+    """Wait for MLX proxy to report ready state with the expected model loaded.
+
+    Uses THREE signals (no timers):
+    1. /health loaded_model field — confirms which model the proxy thinks is loaded
+    2. /tmp/mlx-proxy-logs/mlx_{stype}.log "Starting httpd" — confirms model is
+       actually serving inference (deterministic, same signal the proxy's own
+       _wait_for_model_loaded() uses internally)
+    3. /health state field — catches "degraded"/"down" immediately
+
+    Args:
+        timeout: Max seconds to wait.
+        expected_model: If set, verify loaded_model matches this value (substring match
+            against the /health loaded_model field). If None, only checks state=="ready".
+
+    Returns:
+        True if ready (and model matches if specified), False if timed out.
+    """
     deadline = time.time() + timeout
+    last_state = "unknown"
+    last_loaded = ""
+    log_checked = False
+
     while time.time() < deadline:
         try:
             async with httpx.AsyncClient(timeout=5) as c:
                 r = await c.get(f"{MLX_URL}/health")
                 if r.status_code == 200:
-                    state = r.json().get("state", "")
-                    if state in ("ready", "none"):
-                        return True
-                    if state == "switching":
+                    data = r.json()
+                    state = data.get("state", "")
+                    loaded = data.get("loaded_model") or ""
+                    active = data.get("active_server") or ""
+                    last_state = state
+                    last_loaded = loaded
+
+                    # Check for terminal failure states
+                    if state in ("degraded", "down"):
+                        print(f"  ❌ MLX proxy state={state}: {data.get('last_error', '')}")
+                        return False
+
+                    # Verify via server log (deterministic signal — no guessing)
+                    if active in ("lm", "vlm") and not log_checked:
+                        log_ready, log_detail = _check_mlx_server_log(active)
+                        if log_ready:
+                            log_checked = True
+                            print(f"  📋 Server log confirms: {log_detail}")
+                        elif "Traceback" in log_detail:
+                            print(f"  ❌ Server log: {log_detail}")
+                            return False
+
+                    # Must be "ready" — "none" means no model loaded yet
+                    if state == "ready":
+                        if expected_model:
+                            if expected_model in loaded:
+                                print(
+                                    f"  ✅ MLX ready: model={loaded} "
+                                    f"server={active} (log={'✓' if log_checked else 'pending'})"
+                                )
+                                return True
+                            else:
+                                print(
+                                    f"  ⏳ MLX ready but model mismatch: "
+                                    f"expected={expected_model} loaded={loaded}"
+                                )
+                        else:
+                            print(f"  ✅ MLX ready: model={loaded or '(default)'} server={active}")
+                            return True
+
+                    elif state == "switching":
+                        print(f"  🔄 MLX switching to {active}... (loaded={loaded or 'loading'})")
                         await asyncio.sleep(5)
                         continue
+
+                    # state == "none" — not loaded yet, keep polling
         except Exception:
             pass
         await asyncio.sleep(3)
+
+    print(
+        f"  ⏰ MLX proxy not ready after {timeout}s "
+        f"(last state: {last_state}, loaded: {last_loaded})"
+    )
     return False
 
 
@@ -1672,6 +1771,9 @@ async def S5() -> None:
     print("\n━━━ S5. CODE GENERATION & SANDBOX EXECUTION ━━━")
     sec = "S5"
     port = MCP["sandbox"]
+
+    # Verify MLX model is loaded (S30 pre-loaded Qwen3-Coder-Next for auto-coding)
+    await _wait_for_mlx_ready(timeout=60, expected_model="Qwen3-Coder-Next")
 
     t0 = time.time()
     code, text = await _chat(
@@ -2788,16 +2890,24 @@ async def _mlx_group(
         is_vlm: Whether this is a VLM model (longer switch delay)
     """
     persona_map = {p["slug"]: p for p in PERSONAS}
-    switch_delay = _VLM_SWITCH_DELAY if is_vlm else _MLX_SWITCH_DELAY
 
     # ── Pre-warm: send one request to force the proxy to load this model ──
     if ws_ids:
         pre_ws = ws_ids[0]
         print(f"  ── Pre-loading model for {pre_ws} ({model_label}) ──")
-        code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
-        if code != 200:
-            print(f"  ⚠️  Pre-load returned HTTP {code} — model may not be available")
-        ready = await _wait_for_mlx_ready(timeout=120)
+
+        # Check if the expected model is already loaded before sending pre-warm
+        already_ready = await _wait_for_mlx_ready(timeout=5, expected_model=model_label)
+        if already_ready:
+            print(f"  ✅ Model {model_label} already loaded — skipping pre-warm")
+        else:
+            code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
+            if code != 200:
+                print(f"  ⚠️  Pre-load returned HTTP {code} — model may not be available")
+
+        # Wait for the correct model to be loaded (verify via /health loaded_model)
+        ready_timeout = 300 if is_vlm else 180
+        ready = await _wait_for_mlx_ready(timeout=ready_timeout, expected_model=model_label)
         if not ready:
             # ── Crash detection: check if MLX crashed, attempt remediation ──
             crash_info = await _detect_mlx_crash()
@@ -2808,7 +2918,9 @@ async def _mlx_group(
                     # Retry the pre-load after recovery
                     print(f"  ── Retrying pre-load after crash recovery ──")
                     code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
-                    ready = await _wait_for_mlx_ready(timeout=120)
+                    ready = await _wait_for_mlx_ready(
+                        timeout=ready_timeout, expected_model=model_label
+                    )
 
             if not ready:
                 print(f"  ⚠️  MLX proxy not ready after remediation — recording WARNs for all tests")
@@ -4435,16 +4547,28 @@ def _restore_mlx_proxy() -> bool:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        # Wait up to 120s for proxy to become healthy.
+        # Wait up to 180s for proxy to become healthy.
         # 31B+ MLX models (gemma-4-31b, Qwen3.5-35B) take 45-90s to cold-load
         # on Apple Silicon with unified memory.
-        for _ in range(120):
+        for _ in range(180):
             try:
                 r = httpx.get(f"{MLX_URL}/health", timeout=5)
                 if r.status_code == 200:
-                    state = r.json().get("state", "")
-                    if state in ("ready", "switching"):
-                        return True
+                    data = r.json()
+                    state = data.get("state", "")
+                    if state == "ready":
+                        # Verify via server log (deterministic — "Starting httpd")
+                        active = data.get("active_server", "lm") or "lm"
+                        log_ready, log_detail = _check_mlx_server_log(active)
+                        if log_ready:
+                            print(f"  📋 Restore confirmed: {log_detail}")
+                            return True
+                        # Proxy says ready but log not confirmed yet — keep polling
+                    elif state == "switching":
+                        pass  # Still loading, keep polling
+                    elif state in ("degraded", "down"):
+                        print(f"  ❌ MLX proxy entered {state} during restore")
+                        return False
             except Exception:
                 pass
             time.sleep(1)
@@ -4739,6 +4863,8 @@ async def S23() -> None:
         )
 
     # S23-03: auto-coding — primary (MLX) path verified
+    # Ensure MLX is ready before baseline (may be recovering from prior section)
+    await _wait_for_mlx_ready(timeout=120, expected_model="Qwen3-Coder-Next")
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-coding", _WS_PROMPT["auto-coding"], max_tokens=200, timeout=180
@@ -4777,8 +4903,8 @@ async def S23() -> None:
         timeout=180,
     )
 
-    # Wait for MLX to fully recover before next test
-    time.sleep(10)
+    # Wait for MLX to fully recover before next test (log-based, not timer)
+    await _wait_for_mlx_ready(timeout=120)
 
     # S23-05: auto-coding — MLX + coding killed → falls to general
     # This is a two-tier kill: MLX proxy + all Ollama coding models
@@ -4865,6 +4991,8 @@ async def S23() -> None:
         )
 
     # S23-08: auto-vision — primary (MLX gemma-4) path verified
+    # gemma-4-31b is a VLM model — wait for log-confirmed readiness
+    await _wait_for_mlx_ready(timeout=300, expected_model="gemma-4")
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-vision", _WS_PROMPT["auto-vision"], max_tokens=200, timeout=180
@@ -4903,8 +5031,8 @@ async def S23() -> None:
         timeout=180,
     )
 
-    # Wait for MLX to recover
-    time.sleep(10)
+    # Wait for MLX to recover (log-based)
+    await _wait_for_mlx_ready(timeout=180, expected_model="gemma-4")
 
     # S23-10: auto-vision — MLX + vision killed → falls to general
     t0 = time.time()
@@ -4931,6 +5059,8 @@ async def S23() -> None:
         )
 
     # S23-11: auto-reasoning — primary (MLX) path verified
+    # Wait for whichever model the proxy has after S23-10 restore
+    await _wait_for_mlx_ready(timeout=180)
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-reasoning", _WS_PROMPT["auto-reasoning"], max_tokens=200, timeout=180
@@ -4969,8 +5099,8 @@ async def S23() -> None:
         timeout=180,
     )
 
-    # Wait for MLX to recover
-    time.sleep(10)
+    # Wait for MLX to recover (log-based)
+    await _wait_for_mlx_ready(timeout=180)
 
     # S23-13: auto-reasoning — MLX + reasoning killed → falls to general
     t0 = time.time()
@@ -5169,7 +5299,10 @@ async def _check_mlx_proxy_capacity() -> None:
                 st = state.get("state", "unknown")
                 workers = int(os.environ.get("MLX_PROXY_MAX_WORKERS", "4"))
                 queue = int(os.environ.get("MLX_PROXY_MAX_QUEUE", "8"))
-                print(f"  MLX proxy: {st} (server={active}, limits={workers}w+{queue}q)")
+                loaded = state.get("loaded_model", "") or "(none)"
+                print(
+                    f"  MLX proxy: {st} (server={active}, model={loaded}, limits={workers}w+{queue}q)"
+                )
                 if st in ("down", "none"):
                     print(
                         "  ⚠️  MLX proxy is not ready — MLX-routed workspaces will fail.\n"

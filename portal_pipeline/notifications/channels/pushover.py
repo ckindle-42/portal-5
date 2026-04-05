@@ -44,16 +44,23 @@ class PushoverChannel(NotificationChannel):
     async def send_alert(self, event: "AlertEvent") -> None:
         if not self._is_configured():
             return
-        # Pushover priority 2 (emergency) requires expire and retry parameters.
-        # Use priority 1 (high) instead — still bypasses quiet hours but doesn't
-        # require the extra fields that cause 400 errors when missing.
+        # Priority 1 (high) only for operational alerts that need immediate attention.
+        # Priority 0 (normal) for test events, recoveries, and summaries.
+        from portal_pipeline.notifications.events import EventType
+
+        high_priority_types = {
+            EventType.BACKEND_DOWN,
+            EventType.ALL_BACKENDS_DOWN,
+            EventType.CONFIG_ERROR,
+        }
+        priority = "1" if event.type in high_priority_types else "0"
         await self._post(
             {
                 "token": os.environ["PUSHOVER_API_TOKEN"],
                 "user": os.environ["PUSHOVER_USER_KEY"],
                 "message": event.format_pushover(),
                 "title": f"Portal 5 — {event.type.value}",
-                "priority": "1",
+                "priority": priority,
             }
         )
 
