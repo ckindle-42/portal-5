@@ -1245,6 +1245,133 @@ async def _wait_for_mlx_ready(timeout: int = 60) -> bool:
     return False
 
 
+async def _detect_mlx_crash() -> dict:
+    """Detect if MLX proxy or underlying server has crashed.
+
+    Returns dict with:
+        crashed: bool — True if crash detected
+        proxy_alive: bool — whether proxy process is responding
+        proxy_state: str — current proxy state
+        error: str — error message if crashed
+        mlx_server_alive: bool — whether mlx_lm/vlm server is running
+    """
+    result = {
+        "crashed": False,
+        "proxy_alive": False,
+        "proxy_state": "unknown",
+        "error": "",
+        "mlx_server_alive": False,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{MLX_URL}/health")
+            if r.status_code == 200:
+                state = r.json()
+                result["proxy_alive"] = True
+                result["proxy_state"] = state.get("state", "unknown")
+                result["error"] = state.get("last_error", "") or ""
+                if state.get("state") == "down":
+                    result["crashed"] = True
+            elif r.status_code == 503:
+                result["proxy_alive"] = True
+                result["proxy_state"] = "degraded"
+                result["crashed"] = True
+                result["error"] = f"HTTP 503 from proxy"
+    except Exception as e:
+        result["proxy_alive"] = False
+        result["crashed"] = True
+        result["error"] = f"Proxy not reachable: {e}"
+
+    # Check if mlx_lm/vlm server processes exist
+    try:
+        ps = subprocess.run(
+            ["pgrep", "-f", "mlx_lm.server|mlx_vlm.server"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        result["mlx_server_alive"] = ps.returncode == 0 and bool(ps.stdout.strip())
+    except Exception:
+        pass
+
+    return result
+
+
+async def _remediate_mlx_crash(reason: str) -> bool:
+    """Attempt to recover from an MLX crash by killing and restarting everything.
+
+    Steps:
+    1. Kill all mlx_lm/vlm server processes
+    2. Kill the MLX proxy
+    3. Wait for GPU memory reclamation
+    4. Restart the proxy
+    5. Wait for proxy to report ready
+
+    Returns True if remediation succeeded.
+    """
+    print(f"  🔧 MLX crash remediation: {reason}")
+    print(f"     Step 1/5: Killing MLX server processes...")
+    subprocess.run(["pkill", "-f", "mlx_lm.server"], capture_output=True)
+    subprocess.run(["pkill", "-f", "mlx_vlm.server"], capture_output=True)
+    subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True)
+    time.sleep(5)
+
+    # Force kill any survivors on the ports
+    for port in [18081, 18082, 8081]:
+        try:
+            r = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for pid in r.stdout.strip().split("\n"):
+                if pid:
+                    try:
+                        os.kill(int(pid), 9)
+                    except (ProcessLookupError, ValueError):
+                        pass
+        except Exception:
+            pass
+
+    print(f"     Step 2/5: Waiting for GPU memory reclamation (15s)...")
+    time.sleep(15)
+
+    # Check memory
+    try:
+        result = subprocess.run(
+            ["vm_stat"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        page_size = 16384
+        for line in result.stdout.splitlines():
+            if "Pages free:" in line:
+                free_pages = int(line.split(":")[-1].strip().rstrip("."))
+                free_gb = (free_pages * page_size) / (1024**3)
+                print(f"     Step 3/5: {free_gb:.1f}GB free after reclaim")
+                break
+    except Exception:
+        print(f"     Step 3/5: Could not read memory stats")
+
+    print(f"     Step 4/5: Restarting MLX proxy...")
+    proxy_script = ROOT / "scripts" / "mlx-proxy.py"
+    subprocess.Popen(
+        ["python3", str(proxy_script)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    print(f"     Step 5/5: Waiting for proxy to be ready...")
+    ready = await _wait_for_mlx_ready(timeout=120)
+    if ready:
+        print(f"     ✅ MLX proxy recovered and ready")
+    else:
+        print(f"     ❌ MLX proxy failed to recover within 120s")
+    return ready
+
+
 def _check_memory_pressure() -> str:
     """Return memory pressure status for diagnostics."""
     try:
@@ -2672,7 +2799,19 @@ async def _mlx_group(
             print(f"  ⚠️  Pre-load returned HTTP {code} — model may not be available")
         ready = await _wait_for_mlx_ready(timeout=120)
         if not ready:
-            print(f"  ⚠️  MLX proxy not ready after 120s — recording WARNs for all tests")
+            # ── Crash detection: check if MLX crashed, attempt remediation ──
+            crash_info = await _detect_mlx_crash()
+            if crash_info["crashed"]:
+                print(f"  ⚠️  MLX crash detected: {crash_info['error']}")
+                recovered = await _remediate_mlx_crash(crash_info["error"])
+                if recovered:
+                    # Retry the pre-load after recovery
+                    print(f"  ── Retrying pre-load after crash recovery ──")
+                    code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
+                    ready = await _wait_for_mlx_ready(timeout=120)
+
+            if not ready:
+                print(f"  ⚠️  MLX proxy not ready after remediation — recording WARNs for all tests")
             test_num = 1
             for ws in ws_ids:
                 record(

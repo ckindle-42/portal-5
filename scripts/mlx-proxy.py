@@ -363,8 +363,43 @@ def _graceful_kill(pid: int, timeout: float = 10.0) -> None:
         pass
 
 
+def _get_available_memory_gb() -> float:
+    """Get available memory in GB via vm_stat (macOS).
+
+    On macOS/Apple Silicon, "available" = free + inactive + purgeable.
+    Inactive pages are reclaimable but not yet freed — only counting
+    "Pages free" underestimates available memory and can cause premature
+    rejection of model loads. However, after a process exits, inactive
+    pages must be reclaimed by Metal before a new model can use them.
+    """
+    try:
+        result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
+        page_size = 16384
+        pages = {}
+        for line in result.stdout.splitlines():
+            for key, label in [
+                ("free", "Pages free:"),
+                ("inactive", "Pages inactive:"),
+                ("purgeable", "Pages purgeable:"),
+            ]:
+                if label in line:
+                    try:
+                        pages[key] = int(line.split(":")[-1].strip().rstrip("."))
+                    except ValueError:
+                        pass
+                    break
+        available = pages.get("free", 0) + pages.get("inactive", 0) + pages.get("purgeable", 0)
+        return (available * page_size) / (1024**3)
+    except Exception:
+        return 0.0
+
+
 def _get_free_memory_gb() -> float:
-    """Get current free memory in GB via vm_stat (macOS)."""
+    """Get current free memory in GB via vm_stat (macOS).
+
+    Returns ONLY strictly free pages — used for GPU memory reclamation
+    detection (inactive pages may still hold Metal GPU allocations).
+    """
     try:
         result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
         page_size = 16384
@@ -378,30 +413,97 @@ def _get_free_memory_gb() -> float:
         return 0.0
 
 
-def _wait_for_gpu_memory_reclaim(min_wait: float = 5.0, max_wait: float = 20.0) -> None:
+def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0) -> None:
     """Wait for Metal GPU memory to be reclaimed after server shutdown.
 
     On Apple Silicon, Metal GPU memory is reclaimed asynchronously after a
     process exits. Starting a new model before the old memory is released
     causes command buffer errors (crash). We actively poll free memory
     and wait until it stabilizes, indicating reclamation is complete.
+
+    Uses STRICT free pages (not available) because inactive pages may still
+    hold Metal GPU allocations that haven't been released yet.
     """
-    time.sleep(min_wait)  # Minimum wait for process teardown
+    time.sleep(min_wait)  # Minimum wait for process teardown + Metal reclaim
     free_before = _get_free_memory_gb()
     stable_count = 0
     deadline = time.time() + max_wait
     while time.time() < deadline:
-        time.sleep(2)
+        time.sleep(3)
         free_now = _get_free_memory_gb()
         if free_now >= free_before - 0.5:  # memory stable or increasing
             stable_count += 1
             if stable_count >= 2:
-                return  # Memory has been stable for 4+ seconds — reclamation done
+                print(
+                    f"[proxy] GPU memory reclaimed: {free_now:.1f}GB free (stable)",
+                    flush=True,
+                )
+                return
         else:
             stable_count = 0
             free_before = free_now
-    # Timed out but don't block forever — proceed with best effort
-    print(f"[proxy] memory reclaim wait timed out ({max_wait}s) — proceeding", flush=True)
+    print(
+        f"[proxy] WARNING: memory reclaim wait timed out ({max_wait}s) — "
+        f"free={_get_free_memory_gb():.1f}GB, proceeding anyway",
+        flush=True,
+    )
+
+
+_server_log_dir = "/tmp/mlx-proxy-logs"
+
+
+def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) -> bool:
+    """Wait for the MLX server to actually be serving inference requests.
+
+    Monitors the server's stderr log for "Starting httpd" which appears
+    AFTER the model finishes loading into GPU memory. This is deterministic —
+    no guessing with timers or HTTP probes.
+    """
+    log_file = os.path.join(_server_log_dir, f"mlx_{stype}.log")
+    deadline = time.time() + timeout
+    last_size = 0
+    last_log = 0
+
+    while time.time() < deadline:
+        try:
+            if os.path.exists(log_file):
+                with open(log_file, "r") as f:
+                    content = f.read()
+                # "Starting httpd" means model loaded and HTTP server ready
+                if "Starting httpd" in content:
+                    elapsed = time.time() - (deadline - timeout)
+                    print(f"[proxy] model loaded (log confirmed, {elapsed:.0f}s)", flush=True)
+                    return True
+                # Check for errors
+                if "Error" in content or "Traceback" in content:
+                    # Don't fail immediately — might be a warning, not fatal
+                    if "Traceback" in content and time.time() - last_log > 15:
+                        print(f"[proxy] server log has errors, continuing to wait...", flush=True)
+                        last_log = time.time()
+                # Log progress
+                size = len(content)
+                if size != last_size and time.time() - last_log > 15:
+                    elapsed = time.time() - (deadline - timeout)
+                    remaining = deadline - time.time()
+                    print(
+                        f"[proxy] model loading... ({elapsed:.0f}s elapsed, "
+                        f"{remaining:.0f}s remaining, log active)",
+                        flush=True,
+                    )
+                    last_size = size
+                    last_log = time.time()
+        except Exception:
+            pass
+        time.sleep(2)
+
+    # Timeout — check one more time
+    try:
+        with open(log_file, "r") as f:
+            if "Starting httpd" in f.read():
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def stop_all():
@@ -426,6 +528,20 @@ def stop_all():
         except Exception:
             pass
 
+    # Also kill by process name (handles case where port is not responding)
+    for pattern in ["mlx_lm.server", "mlx_vlm.server"]:
+        try:
+            res = subprocess.run(
+                ["pgrep", "-f", pattern],
+                capture_output=True,
+                text=True,
+            )
+            for pid in res.stdout.strip().split("\n"):
+                if pid and int(pid) not in pids_to_kill:
+                    pids_to_kill.append(int(pid))
+        except Exception:
+            pass
+
     # Graceful kill all — SIGTERM first, then wait
     for pid in pids_to_kill:
         _graceful_kill(pid)
@@ -435,19 +551,45 @@ def stop_all():
 
 
 def start_server(stype: str, model: str = "") -> int:
-    """Start mlx_lm.server or mlx_vlm.server and wait for it to be healthy."""
+    """Start mlx_lm.server or mlx_vlm.server and wait for it to be serving.
+
+    Captures server stderr to a log file and monitors for "Starting httpd"
+    which means the model has finished loading. This is deterministic —
+    the mlx_lm server loads the model synchronously before starting HTTP.
+    """
     port = LM_PORT if stype == "lm" else VLM_PORT
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
     if model:
         cmd.extend(["--model", model])
-    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(100):
-        time.sleep(2)
-        healthy, model_loaded = _probe_server(stype)
-        if healthy:
-            mlx_state.set_ready(stype, model_loaded)
-            return port
-    raise TimeoutError(f"mlx_{stype} failed to start on port {port}")
+
+    # Ensure log directory exists
+    os.makedirs(_server_log_dir, exist_ok=True)
+    log_file = os.path.join(_server_log_dir, f"mlx_{stype}.log")
+    # Truncate old log
+    with open(log_file, "w") as f:
+        f.write("")
+
+    log_fh = open(log_file, "a")
+    proc = subprocess.Popen(cmd, stdout=log_fh, stderr=log_fh)
+    print(
+        f"[proxy] started mlx_{stype} (PID {proc.pid}) model={model or '(default)'} log={log_file}",
+        flush=True,
+    )
+
+    # Wait for model to load — monitor log for "Starting httpd"
+    print(f"[proxy] waiting for model to load (monitoring server log)...", flush=True)
+    if _wait_for_model_loaded(stype, model):
+        mlx_state.set_ready(stype, model or None)
+        print(f"[proxy] mlx_{stype} ready on :{port} model={model or '(default)'}", flush=True)
+        return port
+    else:
+        # Model didn't load in time — kill the server
+        print(f"[proxy] model load timeout — killing server PID {proc.pid}", flush=True)
+        try:
+            _graceful_kill(proc.pid)
+        except Exception:
+            pass
+        raise TimeoutError(f"mlx_{stype} model failed to load within timeout")
 
 
 def ensure_server(model: str) -> int:
@@ -487,7 +629,26 @@ def ensure_server(model: str) -> int:
 
         mlx_state.set_switching(target)
         try:
+            # Pre-flight: check available memory before loading new model
+            avail = _get_available_memory_gb()
+            if avail < 10:
+                print(
+                    f"[proxy] WARNING: only {avail:.1f}GB available before model load — "
+                    f"forcing aggressive memory reclaim",
+                    flush=True,
+                )
+
             stop_all()
+
+            # Post-reclaim check
+            free_post = _get_free_memory_gb()
+            if free_post < 8:
+                print(
+                    f"[proxy] WARNING: only {free_post:.1f}GB free after reclaim — "
+                    f"model load may fail on 64GB system",
+                    flush=True,
+                )
+
             port = start_server(target, model)
             mlx_state.set_ready(target, model)
             print(f"[proxy] mlx_{target} ready on :{port} model={model}", flush=True)
@@ -503,6 +664,10 @@ def _watchdog_loop():
     while True:
         time.sleep(WATCHDOG_INTERVAL)
         try:
+            # Don't interfere with active model switches
+            if mlx_state.state == "switching":
+                continue
+
             lm_healthy, lm_model = _probe_server("lm")
             vlm_healthy, vlm_model = _probe_server("vlm")
             active = mlx_state.active_server
@@ -532,12 +697,28 @@ def _watchdog_loop():
                             flush=True,
                         )
             else:
+                # No active server tracked — only update if server is responding
+                # AND has a known model. Don't set ready with unknown model —
+                # let ensure_server() handle the model selection.
+                if lm_healthy and lm_model:
+                    mlx_state.set_ready("lm", lm_model)
+                    print(
+                        "[watchdog] detected mlx_lm running with model, updating state", flush=True
+                    )
+                elif vlm_healthy and vlm_model:
+                    mlx_state.set_ready("vlm", vlm_model)
+                    print(
+                        "[watchdog] detected mlx_vlm running with model, updating state", flush=True
+                    )
+
+            # Recovery: if proxy is "down" but a server is healthy, recover
+            if mlx_state.state == "down":
                 if lm_healthy:
                     mlx_state.set_ready("lm", lm_model)
-                    print("[watchdog] detected mlx_lm running, updating state", flush=True)
+                    print("[watchdog] recovered: mlx_lm healthy, clearing down state", flush=True)
                 elif vlm_healthy:
                     mlx_state.set_ready("vlm", vlm_model)
-                    print("[watchdog] detected mlx_vlm running, updating state", flush=True)
+                    print("[watchdog] recovered: mlx_vlm healthy, clearing down state", flush=True)
 
             # Sample memory every ~60s (every 4th watchdog cycle at 15s interval)
             mem_sample_counter += 1
