@@ -60,10 +60,6 @@ import httpx
 import yaml
 
 ROOT = Path(__file__).parent.resolve()
-_LOCK_FILE = ROOT / ".mlx_test_lock"
-_lock_fd = None
-_LOCK_FILE = ROOT / ".mlx_test_lock"
-_lock_fd = None
 
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
@@ -4801,41 +4797,12 @@ ALL_ORDER = [
 ]
 
 
-async def _acquire_test_lock() -> None:
-    """PID-based lock to prevent concurrent test runs that would exceed MLX proxy limits.
-
-    The MLX proxy has bounded concurrency (default 4 workers + 8 queue = 12).
-    Running multiple acceptance test processes simultaneously would exceed this,
-    causing 503 responses and potentially triggering kernel panics from memory pressure.
-    """
-    if _LOCK_FILE.exists():
-        try:
-            content = _LOCK_FILE.read_text().strip()
-            pid_match = re.search(r"pid=(\d+)", content)
-            if pid_match:
-                old_pid = int(pid_match.group(1))
-                # Check if the process is still alive
-                try:
-                    os.kill(old_pid, 0)
-                    sys.exit(
-                        "❌ Another acceptance test is already running "
-                        f"(PID {old_pid}).\n"
-                        "   Remove .mlx_test_lock if the previous run crashed."
-                    )
-                except OSError:
-                    # Stale lock — process is dead, remove it
-                    _LOCK_FILE.unlink(missing_ok=True)
-        except Exception:
-            _LOCK_FILE.unlink(missing_ok=True)
-
-    _LOCK_FILE.write_text(f"pid={os.getpid()} started={datetime.now().isoformat()}\n")
-
-
-def _release_test_lock() -> None:
-    try:
-        _LOCK_FILE.unlink(missing_ok=True)
-    except Exception:
-        pass
+def _warn_single_instance() -> None:
+    """Warn that only one test instance should run at a time."""
+    print(
+        "  ⚠️  Run only ONE acceptance test instance at a time.\n"
+        "     Concurrent tests will overload the MLX proxy and cause false failures.\n"
+    )
 
 
 async def _check_mlx_proxy_capacity() -> None:
@@ -4931,96 +4898,87 @@ async def main() -> int:
     )
 
     await _preflight()
-    await _acquire_test_lock()
-    try:
-        await _check_mlx_proxy_capacity()
+    _warn_single_instance()
+    await _check_mlx_proxy_capacity()
 
-        run = (
-            ALL_ORDER
-            if args.section.upper() == "ALL"
-            else (["S17", args.section.upper()] if args.section.upper() != "S17" else ["S17"])
-        )
+    run = (
+        ALL_ORDER
+        if args.section.upper() == "ALL"
+        else (["S17", args.section.upper()] if args.section.upper() != "S17" else ["S17"])
+    )
 
-        for sid in run:
-            if sid not in SECTIONS:
-                sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
-            try:
-                await SECTIONS[sid]()
-            except Exception as e:
-                record(
-                    sid,
-                    f"{sid}-crash",
-                    f"Section {sid} crashed",
-                    "FAIL",
-                    f"{type(e).__name__}: {e}",
-                )
-            print()
+    for sid in run:
+        if sid not in SECTIONS:
+            sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
+        try:
+            await SECTIONS[sid]()
+        except Exception as e:
+            record(
+                sid,
+                f"{sid}-crash",
+                f"Section {sid} crashed",
+                "FAIL",
+                f"{type(e).__name__}: {e}",
+            )
+        print()
 
-        elapsed = int(time.time() - t0)
-        counts: dict[str, int] = {}
-        for r in _log:
-            counts[r.status] = counts.get(r.status, 0) + 1
+    elapsed = int(time.time() - t0)
+    counts: dict[str, int] = {}
+    for r in _log:
+        counts[r.status] = counts.get(r.status, 0) + 1
 
-        print("╔═══════════════════════════════════════════════════════════════════╗")
-        print(f"║  RESULTS  ({elapsed}s)                                              ║")
-        print("╠═══════════════════════════════════════════════════════════════════╣")
+    print("╔═══════════════════════════════════════════════════════════════════╗")
+    print(f"║  RESULTS  ({elapsed}s)                                              ║")
+    print("╠═══════════════════════════════════════════════════════════════════╣")
+    for s in ["PASS", "FAIL", "BLOCKED", "WARN", "INFO"]:
+        if s in counts:
+            icon = _ICON.get(s, "  ")
+            print(f"║  {icon} {s:8s}: {counts[s]:4d}                                             ║")
+    print(f"║  Total    : {sum(counts.values()):4d}                                             ║")
+    print("╚═══════════════════════════════════════════════════════════════════╝")
+
+    rpt = ROOT / "ACCEPTANCE_RESULTS.md"
+    with open(rpt, "w") as f:
+        f.write("# Portal 5 — Acceptance Test Results (v4)\n\n")
+        f.write(f"**Run:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ({elapsed}s)  \n")
+        f.write(f"**Git SHA:** {sha}  \n")
+        f.write(f"**Version:** {version}  \n")
+        f.write(f"**Workspaces:** {len(WS_IDS)}  ·  **Personas:** {len(PERSONAS)}\n\n")
+        f.write("## Summary\n\n")
         for s in ["PASS", "FAIL", "BLOCKED", "WARN", "INFO"]:
             if s in counts:
-                icon = _ICON.get(s, "  ")
-                print(
-                    f"║  {icon} {s:8s}: {counts[s]:4d}                                             ║"
-                )
-        print(
-            f"║  Total    : {sum(counts.values()):4d}                                             ║"
+                f.write(f"- **{s}**: {counts[s]}\n")
+        f.write("\n## All Results\n\n")
+        f.write(
+            "| # | Status | Section | Test | Detail | Duration |\n"
+            "|---|--------|---------|------|--------|----------|\n"
         )
-        print("╚═══════════════════════════════════════════════════════════════════╝")
-
-        rpt = ROOT / "ACCEPTANCE_RESULTS.md"
-        with open(rpt, "w") as f:
-            f.write("# Portal 5 — Acceptance Test Results (v4)\n\n")
-            f.write(f"**Run:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ({elapsed}s)  \n")
-            f.write(f"**Git SHA:** {sha}  \n")
-            f.write(f"**Version:** {version}  \n")
-            f.write(f"**Workspaces:** {len(WS_IDS)}  ·  **Personas:** {len(PERSONAS)}\n\n")
-            f.write("## Summary\n\n")
-            for s in ["PASS", "FAIL", "BLOCKED", "WARN", "INFO"]:
-                if s in counts:
-                    f.write(f"- **{s}**: {counts[s]}\n")
-            f.write("\n## All Results\n\n")
+        for i, r in enumerate(_log, 1):
+            det = (r.detail or "")[:160].replace("|", "∣")
             f.write(
-                "| # | Status | Section | Test | Detail | Duration |\n"
-                "|---|--------|---------|------|--------|----------|\n"
+                f"| {i} | {r.status} | {r.section} | {r.name[:60]} | {det} | {r.duration:.1f}s |\n"
             )
-            for i, r in enumerate(_log, 1):
-                det = (r.detail or "")[:160].replace("|", "∣")
+        if _blocked:
+            f.write("\n## Blocked Items Register\n\n")
+            f.write("These require changes to protected files. The test assertion is correct.\n\n")
+            f.write(
+                "| # | Section | Test | Evidence | Required Fix |\n"
+                "|---|---------|------|----------|---------------|\n"
+            )
+            for i, r in enumerate(_blocked, 1):
                 f.write(
-                    f"| {i} | {r.status} | {r.section} | {r.name[:60]} | {det} | {r.duration:.1f}s |\n"
+                    f"| {i} | {r.section} | {r.name[:60]} "
+                    f"| {r.detail[:120].replace('|', '∣')} "
+                    f"| {r.fix[:120].replace('|', '∣')} |\n"
                 )
-            if _blocked:
-                f.write("\n## Blocked Items Register\n\n")
-                f.write(
-                    "These require changes to protected files. The test assertion is correct.\n\n"
-                )
-                f.write(
-                    "| # | Section | Test | Evidence | Required Fix |\n"
-                    "|---|---------|------|----------|---------------|\n"
-                )
-                for i, r in enumerate(_blocked, 1):
-                    f.write(
-                        f"| {i} | {r.section} | {r.name[:60]} "
-                        f"| {r.detail[:120].replace('|', '∣')} "
-                        f"| {r.fix[:120].replace('|', '∣')} |\n"
-                    )
-            else:
-                f.write("\n## Blocked Items Register\n\n*No blocked items.*\n")
-            f.write("\n---\n*Screenshots: /tmp/p5_gui_*.png*\n")
+        else:
+            f.write("\n## Blocked Items Register\n\n*No blocked items.*\n")
+        f.write("\n---\n*Screenshots: /tmp/p5_gui_*.png*\n")
 
-        print(f"\nReport → {rpt}")
-        print("Screenshots → /tmp/p5_gui_*.png")
+    print(f"\nReport → {rpt}")
+    print("Screenshots → /tmp/p5_gui_*.png")
 
-        return 1 if counts.get("FAIL", 0) or counts.get("BLOCKED", 0) else 0
-    finally:
-        _release_test_lock()
+    return 1 if counts.get("FAIL", 0) or counts.get("BLOCKED", 0) else 0
 
 
 if __name__ == "__main__":
