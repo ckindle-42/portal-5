@@ -124,6 +124,12 @@ class NotificationScheduler:
                 logger.info("NotificationScheduler: daily summaries disabled via env")
             return
 
+        # Initialize the baseline snapshot on startup.
+        # Without this, the first daily summary computes deltas against zero,
+        # showing cumulative totals since the container started instead of
+        # just the previous day's activity.
+        self._init_baseline_snapshot()
+
         hour = int(os.environ.get("ALERT_SUMMARY_HOUR", "9"))
         timezone = os.environ.get("ALERT_SUMMARY_TIMEZONE", "UTC")
 
@@ -139,6 +145,45 @@ class NotificationScheduler:
             hour,
             timezone,
         )
+
+    def _init_baseline_snapshot(self) -> None:
+        """Capture current cumulative metrics as the baseline for delta computation.
+
+        Called once at startup. The first daily summary will compute deltas
+        from this baseline, showing only activity since the pipeline started
+        (or since the last summary, if one already ran).
+        """
+        if _SNAPSHOT_FILE.exists():
+            logger.info(
+                "NotificationScheduler: baseline snapshot already exists on disk — skipping init"
+            )
+            return
+
+        try:
+            from portal_pipeline import router_pipe
+
+            baseline: dict[str, Any] = {
+                "request_count": dict(_request_count),
+                "total_response_time_ms": getattr(router_pipe, "_total_response_time_ms", 0.0),
+                "total_tps": getattr(router_pipe, "_total_tps", 0.0),
+                "request_tps_count": getattr(router_pipe, "_request_tps_count", 0),
+                "total_input_tokens": getattr(router_pipe, "_total_input_tokens", 0),
+                "total_output_tokens": getattr(router_pipe, "_total_output_tokens", 0),
+                "req_count_by_model": dict(getattr(router_pipe, "_req_count_by_model", {})),
+                "req_count_by_error": dict(getattr(router_pipe, "_req_count_by_error", {})),
+                "peak_concurrent": getattr(router_pipe, "_peak_concurrent", 0),
+            }
+            _save_snapshot(baseline)
+            logger.info(
+                "NotificationScheduler: baseline snapshot initialized at startup "
+                "(%d total requests across %d workspaces)",
+                sum(_request_count.values()) if _request_count else 0,
+                len(_request_count),
+            )
+        except Exception:
+            logger.warning(
+                "NotificationScheduler: failed to initialize baseline snapshot", exc_info=True
+            )
 
     def stop(self) -> None:
         if self._scheduler is not None and self._scheduler.running:  # type: ignore[union-attr]

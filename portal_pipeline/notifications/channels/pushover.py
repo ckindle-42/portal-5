@@ -44,13 +44,16 @@ class PushoverChannel(NotificationChannel):
     async def send_alert(self, event: "AlertEvent") -> None:
         if not self._is_configured():
             return
+        # Pushover priority 2 (emergency) requires expire and retry parameters.
+        # Use priority 1 (high) instead — still bypasses quiet hours but doesn't
+        # require the extra fields that cause 400 errors when missing.
         await self._post(
             {
                 "token": os.environ["PUSHOVER_API_TOKEN"],
                 "user": os.environ["PUSHOVER_USER_KEY"],
                 "message": event.format_pushover(),
                 "title": f"Portal 5 — {event.type.value}",
-                "priority": "2",
+                "priority": "1",
             }
         )
 
