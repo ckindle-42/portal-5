@@ -14,6 +14,8 @@ class EventType(Enum):
     ALL_BACKENDS_DOWN = "all_backends_down"
     CONFIG_ERROR = "config_error"
     DAILY_SUMMARY = "daily_summary"
+    TEST_START = "test_start"
+    TEST_END = "test_end"
 
 
 @dataclass
@@ -34,6 +36,8 @@ class AlertEvent:
             EventType.BACKEND_RECOVERED: ":white_check_mark:",
             EventType.ALL_BACKENDS_DOWN: ":rotating_light:",
             EventType.CONFIG_ERROR: ":x:",
+            EventType.TEST_START: ":rocket:",
+            EventType.TEST_END: ":flag_checkered:",
         }.get(self.type, ":bell:")
 
         lines = [f"{emoji} *Portal 5 Alert — {self.type.value}*"]
@@ -58,6 +62,8 @@ class AlertEvent:
             EventType.BACKEND_RECOVERED: "[RECOVERED]",
             EventType.ALL_BACKENDS_DOWN: "[CRITICAL]",
             EventType.CONFIG_ERROR: "[ERROR]",
+            EventType.TEST_START: "[TEST START]",
+            EventType.TEST_END: "[TEST END]",
         }.get(self.type, "[ALERT]")
 
         lines = [f"{prefix} Portal 5 — {self.type.value}", "", self.message]
@@ -101,6 +107,8 @@ class AlertEvent:
             EventType.BACKEND_RECOVERED: "[OK]",
             EventType.ALL_BACKENDS_DOWN: "[CRITICAL]",
             EventType.CONFIG_ERROR: "[ERROR]",
+            EventType.TEST_START: "[TEST]",
+            EventType.TEST_END: "[DONE]",
         }.get(self.type, "[ALERT]")
         msg = f"{prefix} {self.message}"
         if self.backend_id:

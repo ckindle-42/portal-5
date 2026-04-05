@@ -111,6 +111,166 @@ MCP = {
 DC = ["docker", "compose", "-f", "deploy/portal-5/docker-compose.yml"]
 
 
+# ── Notification helpers for test start/end ───────────────────────────────────
+def _notify_test_start(section: str, total_sections: int) -> None:
+    """Send a notification that acceptance testing has started."""
+    _send_notification(
+        "TEST_START",
+        f"Acceptance test suite started — section {section} ({total_sections} total)\n"
+        f"Git: {_git_sha()[:7]}  |  Host: {os.uname().nodename}",
+        metadata={"section": section, "total_sections": total_sections},
+    )
+
+
+def _notify_test_end(
+    section: str, elapsed: int, counts: dict[str, int], total_sections: int
+) -> None:
+    """Send a notification that acceptance testing has completed."""
+    summary_parts = [
+        f"PASS={counts.get('PASS', 0)}",
+        f"FAIL={counts.get('FAIL', 0)}",
+        f"WARN={counts.get('WARN', 0)}",
+        f"INFO={counts.get('INFO', 0)}",
+    ]
+    _send_notification(
+        "TEST_END",
+        f"Acceptance test suite completed — section {section} in {elapsed}s\n"
+        f"Results: {', '.join(summary_parts)}\n"
+        f"Git: {_git_sha()[:7]}",
+        metadata={"elapsed_s": elapsed, "counts": counts},
+    )
+
+
+def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
+    """Fire a notification via the Portal 5 notification dispatcher.
+
+    Works from both async and sync contexts. Gracefully handles missing
+    dependencies or disabled notifications — never crashes the test suite.
+    """
+    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+    try:
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal_pipeline.notifications.channels.slack import SlackChannel
+        from portal_pipeline.notifications.channels.telegram import TelegramChannel
+        from portal_pipeline.notifications.channels.email import EmailChannel
+        from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.channels.webhook import WebhookChannel
+
+        dispatcher = NotificationDispatcher()
+        for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
+            dispatcher.add_channel(ch())
+
+        event = AlertEvent(
+            type=EventType(event_type),
+            message=message,
+            workspace="acceptance-test",
+            metadata=metadata or {},
+        )
+
+        # Try async dispatch first, fall back to sync
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(dispatcher.dispatch(event))
+        except RuntimeError:
+            import asyncio as _asyncio
+
+            _asyncio.run(dispatcher.dispatch(event))
+    except Exception as e:
+        print(f"  ⚠️  Notification failed: {e}")
+
+
+def _git_sha() -> str:
+    """Get current git SHA."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=str(ROOT)
+        ).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+# ── Notification helpers for test start/end ───────────────────────────────────
+def _notify_test_start(section: str, total_sections: int) -> None:
+    """Send a notification that acceptance testing has started."""
+    _send_notification(
+        "TEST_START",
+        f"Acceptance test suite started — section {section} ({total_sections} total)\n"
+        f"Git: {_git_sha()[:7]}  |  Host: {os.uname().nodename}",
+        metadata={"section": section, "total_sections": total_sections},
+    )
+
+
+def _notify_test_end(
+    section: str, elapsed: int, counts: dict[str, int], total_sections: int
+) -> None:
+    """Send a notification that acceptance testing has completed."""
+    summary_parts = [
+        f"PASS={counts.get('PASS', 0)}",
+        f"FAIL={counts.get('FAIL', 0)}",
+        f"WARN={counts.get('WARN', 0)}",
+        f"INFO={counts.get('INFO', 0)}",
+    ]
+    _send_notification(
+        "TEST_END",
+        f"Acceptance test suite completed — section {section} in {elapsed}s\n"
+        f"Results: {', '.join(summary_parts)}\n"
+        f"Git: {_git_sha()[:7]}",
+        metadata={"elapsed_s": elapsed, "counts": counts},
+    )
+
+
+def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
+    """Fire a notification via the Portal 5 notification dispatcher.
+
+    Works from both async and sync contexts. Gracefully handles missing
+    dependencies or disabled notifications — never crashes the test suite.
+    """
+    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+    try:
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.events import AlertEvent, EventType
+        from portal_pipeline.notifications.channels.slack import SlackChannel
+        from portal_pipeline.notifications.channels.telegram import TelegramChannel
+        from portal_pipeline.notifications.channels.email import EmailChannel
+        from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.channels.webhook import WebhookChannel
+
+        dispatcher = NotificationDispatcher()
+        for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
+            dispatcher.add_channel(ch())
+
+        event = AlertEvent(
+            type=EventType(event_type),
+            message=message,
+            workspace="acceptance-test",
+            metadata=metadata or {},
+        )
+
+        # Try async dispatch first, fall back to sync
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(dispatcher.dispatch(event))
+        except RuntimeError:
+            import asyncio as _asyncio
+
+            _asyncio.run(dispatcher.dispatch(event))
+    except Exception as e:
+        print(f"  ⚠️  Notification failed: {e}")
+
+
+def _git_sha() -> str:
+    """Get current git SHA."""
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=str(ROOT)
+        ).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
 # ── Workspace and persona discovery (live from source) ────────────────────────
 def _load_workspaces() -> tuple[list[str], dict[str, str]]:
     src = (ROOT / "portal_pipeline/router_pipe.py").read_text()
@@ -4959,6 +5119,12 @@ async def main() -> int:
         else (["S17", args.section.upper()] if args.section.upper() != "S17" else ["S17"])
     )
 
+    # Notify start of test run
+    _notify_test_start(args.section.upper(), len(run))
+
+    # Notify start of test run
+    _notify_test_start(args.section.upper(), len(run))
+
     for sid in run:
         if sid not in SECTIONS:
             sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
@@ -5018,6 +5184,12 @@ async def main() -> int:
     counts: dict[str, int] = {}
     for r in _log:
         counts[r.status] = counts.get(r.status, 0) + 1
+
+    # Notify end of test run
+    _notify_test_end(args.section.upper(), elapsed, counts, len(run))
+
+    # Notify end of test run
+    _notify_test_end(args.section.upper(), elapsed, counts, len(run))
 
     print("╔═══════════════════════════════════════════════════════════════════╗")
     print(f"║  RESULTS  ({elapsed}s)                                              ║")
