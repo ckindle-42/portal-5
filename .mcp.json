@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${HOME}/projects/portal-5",
+        "${HOME}/projects/portal-5/config",
+        "${HOME}/projects/portal-5/portal_pipeline",
+        "${HOME}/projects/portal-5/portal_mcp",
+        "${HOME}/projects/portal-5/portal_channels",
+        "${HOME}/projects/portal-5/tests",
+        "${HOME}/.portal5/logs",
+        "/tmp"
+      ]
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-fetch"]
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-git", "--repository", "."]
+    },
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-docker"]
+    }
+  }
+}
