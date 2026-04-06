@@ -104,29 +104,48 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
-# Video model filename — first shard for sharded models (UNETLoader picks up remaining shards).
-# Default: HunyuanVideo sharded model in models/diffusion_models/hunyuan-video/.
+# Video model filename — single-file model in models/diffusion_models/.
+# Default: HunyuanVideo merged single-file (hunyuanvideo_comfyui.safetensors symlink →
+# models/video/diffusion_pytorch_model_comfyui.safetensors).
 # Override with VIDEO_MODEL_FILE env var to use a different model.
+#
+# Required ComfyUI model files for HunyuanVideo T2V:
+#   models/diffusion_models/hunyuanvideo_comfyui.safetensors  (~24GB transformer)
+#   models/text_encoders/llava_llama3_fp8_scaled.safetensors  (~8.9GB text encoder)
+#   models/text_encoders/clip_l.safetensors                   (~235MB CLIP-L)
+#   models/vae/hunyuan_video_vae_bf16.safetensors             (~200MB VAE)
+#
+# Download missing models from:
+#   huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
+#     --include "split_files/text_encoders/llava_llama3_fp8_scaled.safetensors" \
+#     --local-dir ~/ComfyUI/models
+#   huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
+#     --include "split_files/vae/hunyuan_video_vae_bf16.safetensors" \
+#     --local-dir ~/ComfyUI/models
 VIDEO_MODEL_FILE = os.getenv(
     "VIDEO_MODEL_FILE",
-    "hunyuan-video/diffusion_pytorch_model-00001-of-00006.safetensors",
+    "hunyuanvideo_comfyui.safetensors",
 )
 
-# Wan2.2 / HunyuanVideo T2V workflow — UNETLoader approach.
-# Uses UNETLoader for the video diffusion model (looks in models/diffusion_models/).
-# CLIPTextEncode with DualCLIPLoader is used for text encoding.
-# Output pipeline: KSampler → VAEDecode (IMAGE batch) → CreateVideo → SaveVideo.
-# Node layout (ComfyUI v0.16+):
-#   1: UNETLoader(unet_name) → model[0]
-#   2: DualCLIPLoader(text_encoder, text_encoder_2, type="hunyuan_video") → clip[0]
-#   3: VAELoader(ae.safetensors) → vae[0]
-#   4: CLIPTextEncode (positive) → conditioning[0]
-#   5: CLIPTextEncode (negative) → conditioning[0]
-#   6: EmptyHunyuanLatentVideo → latent[0]
-#   7: KSampler → latent[0]
-#   8: VAEDecode → image[0]  (batch of frames)
-#   9: CreateVideo → video[0]
-#  10: SaveVideo
+# HunyuanVideo T2V workflow — official ComfyUI node layout.
+# Matches the ComfyUI example workflow for HunyuanVideo T2V.
+# KSampler is NOT compatible with HunyuanVideo; use SamplerCustomAdvanced + FluxGuidance.
+# Node layout:
+#   1: UNETLoader → model[0]
+#   2: DualCLIPLoader(clip_l, llava_llama3, type="hunyuan_video") → clip[0]
+#   3: VAELoader → vae[0]
+#   4: CLIPTextEncode (positive prompt) → conditioning[0]
+#   5: EmptyHunyuanLatentVideo → latent[0]
+#   6: ModelSamplingSD3(shift=7) → model[0]
+#   7: KSamplerSelect(euler) → sampler[0]
+#   8: BasicScheduler(simple, steps, denoise) → sigmas[0]
+#   9: RandomNoise(seed) → noise[0]
+#  10: FluxGuidance(guidance) → conditioning[0]
+#  11: BasicGuider(model, conditioning) → guider[0]
+#  12: SamplerCustomAdvanced → latent[0]
+#  13: VAEDecodeTiled(tile_size=256) → image[0]  (batch of frames)
+#  14: CreateVideo → video[0]
+#  15: SaveVideo
 _WAN22_T2V_WORKFLOW: dict = {
     "1": {
         "inputs": {"unet_name": VIDEO_MODEL_FILE, "weight_dtype": "default"},
@@ -134,14 +153,16 @@ _WAN22_T2V_WORKFLOW: dict = {
     },
     "2": {
         "inputs": {
-            "clip_name1": "hunyuan-clip/model.safetensors",
-            "clip_name2": "hunyuan-clip-2/model-00001-of-00002.safetensors",
+            # clip_name1: CLIP-L (already present as hunyuan-clip/model.safetensors)
+            # clip_name2: LLaVA LLaMA3 (download from Comfy-Org/HunyuanVideo_repackaged)
+            "clip_name1": os.getenv("HUNYUAN_CLIP_L", "hunyuan-clip/model.safetensors"),
+            "clip_name2": os.getenv("HUNYUAN_LLAVA", "llava_llama3_fp8_scaled.safetensors"),
             "type": "hunyuan_video",
         },
         "class_type": "DualCLIPLoader",
     },
     "3": {
-        "inputs": {"vae_name": "ae.safetensors"},
+        "inputs": {"vae_name": os.getenv("HUNYUAN_VAE", "hunyuan_video_vae_bf16.safetensors")},
         "class_type": "VAELoader",
     },
     "4": {
@@ -149,47 +170,74 @@ _WAN22_T2V_WORKFLOW: dict = {
         "class_type": "CLIPTextEncode",
     },
     "5": {
-        "inputs": {"text": "", "clip": ["2", 0]},
-        "class_type": "CLIPTextEncode",
-    },
-    "6": {
         "inputs": {
-            "width": 832,
+            "width": 848,
             "height": 480,
-            "length": 16,
+            "length": 73,
             "batch_size": 1,
         },
         "class_type": "EmptyHunyuanLatentVideo",
     },
+    "6": {
+        "inputs": {"model": ["1", 0], "shift": 7.0},
+        "class_type": "ModelSamplingSD3",
+    },
     "7": {
-        "inputs": {
-            "model": ["1", 0],
-            "positive": ["4", 0],
-            "negative": ["5", 0],
-            "latent_image": ["6", 0],
-            "seed": 42,
-            "steps": 20,
-            "cfg": 6.0,
-            "sampler_name": "euler",
-            "scheduler": "normal",
-            "denoise": 1.0,
-        },
-        "class_type": "KSampler",
+        "inputs": {"sampler_name": "euler"},
+        "class_type": "KSamplerSelect",
     },
     "8": {
-        "inputs": {"samples": ["7", 0], "vae": ["3", 0]},
-        "class_type": "VAEDecode",
+        "inputs": {
+            "model": ["6", 0],
+            "scheduler": "simple",
+            "steps": 20,
+            "denoise": 1.0,
+        },
+        "class_type": "BasicScheduler",
     },
     "9": {
-        "inputs": {"images": ["8", 0], "fps": 16.0},
-        "class_type": "CreateVideo",
+        "inputs": {"noise_seed": 1},
+        "class_type": "RandomNoise",
     },
     "10": {
+        "inputs": {"conditioning": ["4", 0], "guidance": 6.0},
+        "class_type": "FluxGuidance",
+    },
+    "11": {
+        "inputs": {"model": ["6", 0], "conditioning": ["10", 0]},
+        "class_type": "BasicGuider",
+    },
+    "12": {
         "inputs": {
-            "video": ["9", 0],
+            "noise": ["9", 0],
+            "guider": ["11", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["8", 0],
+            "latent_image": ["5", 0],
+        },
+        "class_type": "SamplerCustomAdvanced",
+    },
+    "13": {
+        "inputs": {
+            "samples": ["12", 0],
+            "vae": ["3", 0],
+            "tile_size": 256,
+            "overlap": 64,
+            "temporal_size": 64,
+            "temporal_overlap": 8,
+        },
+        "class_type": "VAEDecodeTiled",
+    },
+    "14": {
+        "inputs": {"images": ["13", 0], "fps": 24.0},
+        "class_type": "CreateVideo",
+    },
+    "15": {
+        "inputs": {
+            "video": ["14", 0],
             "filename_prefix": "portal_video_",
-            "format": "mp4",
-            "codec": "h264",
+            "format": "auto",
+            "codec": "auto",
         },
         "class_type": "SaveVideo",
     },
@@ -302,20 +350,21 @@ async def generate_video(
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
     else:
-        # Wan2.2/HunyuanVideo: UNETLoader(1), DualCLIPLoader(2), VAELoader(3),
-        # CLIPTextEncode+(4), CLIPTextEncode-(5), EmptyHunyuanLatentVideo(6),
-        # KSampler(7), VAEDecode(8), CreateVideo(9), SaveVideo(10)
+        # HunyuanVideo: UNETLoader(1), DualCLIPLoader(2), VAELoader(3),
+        # CLIPTextEncode(4), EmptyHunyuanLatentVideo(5), ModelSamplingSD3(6),
+        # KSamplerSelect(7), BasicScheduler(8), RandomNoise(9), FluxGuidance(10),
+        # BasicGuider(11), SamplerCustomAdvanced(12), VAEDecodeTiled(13),
+        # CreateVideo(14), SaveVideo(15)
         if model:
             workflow["1"]["inputs"]["unet_name"] = model
         workflow["4"]["inputs"]["text"] = prompt
-        workflow["5"]["inputs"]["text"] = negative_prompt
-        workflow["6"]["inputs"]["width"] = width
-        workflow["6"]["inputs"]["height"] = height
-        workflow["6"]["inputs"]["length"] = frames
-        workflow["7"]["inputs"]["seed"] = seed
-        workflow["7"]["inputs"]["steps"] = steps
-        workflow["7"]["inputs"]["cfg"] = cfg
-        workflow["9"]["inputs"]["fps"] = float(fps)
+        workflow["5"]["inputs"]["width"] = width
+        workflow["5"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["length"] = frames
+        workflow["8"]["inputs"]["steps"] = steps
+        workflow["9"]["inputs"]["noise_seed"] = seed
+        workflow["10"]["inputs"]["guidance"] = cfg
+        workflow["14"]["inputs"]["fps"] = float(fps)
 
     client_id = str(uuid.uuid4())
 
@@ -353,7 +402,26 @@ async def generate_video(
         history = history_resp.json()
 
         if prompt_id in history:
-            outputs = history[prompt_id].get("outputs", {})
+            entry = history[prompt_id]
+            status_str = entry.get("status", {}).get("status_str", "unknown")
+
+            # Surface ComfyUI error messages directly
+            if status_str == "error":
+                msgs = entry.get("status", {}).get("messages", [])
+                for msg in reversed(msgs):
+                    if isinstance(msg, list) and msg[0] == "execution_error":
+                        err = msg[1] if len(msg) > 1 else {}
+                        return {
+                            "success": False,
+                            "error": (
+                                f"ComfyUI error in {err.get('node_type','?')} "
+                                f"(node {err.get('node_id','?')}): "
+                                f"{err.get('exception_message','unknown error')}"
+                            ),
+                        }
+                return {"success": False, "error": "ComfyUI workflow failed (unknown error)"}
+
+            outputs = entry.get("outputs", {})
             for node_output in outputs.values():
                 # SaveVideo outputs "videos"; VHS_VideoCombine uses "gifs"
                 video_files = (

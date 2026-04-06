@@ -105,10 +105,25 @@ Architectural and design constraints that cannot be resolved without significant
 
 ### Video Generation — HunyuanVideo Model Loading Unsupported
 - **ID**: P5-VIDEO-001
+- **Status**: **RESOLVED** (2026-04-06)
+- **Description**: The HunyuanVideo sharded model in `models/diffusion_models/hunyuan-video/` could not be loaded by ComfyUI's `UNETLoader`. The merged single-file version (`models/video/diffusion_pytorch_model_comfyui.safetensors`) existed but was in a non-standard path that `UNETLoader` does not scan.
+- **Resolution**: Created symlink `models/diffusion_models/hunyuanvideo_comfyui.safetensors` → `../video/diffusion_pytorch_model_comfyui.safetensors`. Updated `VIDEO_MODEL_FILE` default in `video_mcp.py` and `docker-compose.yml` to `hunyuanvideo_comfyui.safetensors`. `UNETLoader` now discovers and loads the model.
+- **Last verified**: 2026-04-06
+
+### Video Generation — Missing HunyuanVideo Text Encoder and VAE
+- **ID**: P5-VIDEO-002
 - **Status**: **ACTIVE**
-- **Description**: The HunyuanVideo sharded model in `models/diffusion_models/hunyuan-video/` cannot be loaded by ComfyUI's `UNETLoader` — it returns "Could not detect model type". The `DiffusersLoader` (deprecated) also fails on the HunyuanVideo diffusers-format directory. End-to-end video generation via `portal_mcp/generation/video_mcp.py` is blocked until ComfyUI adds native HunyuanVideo support or the required custom nodes are installed.
-- **Impact**: C8 acceptance tests (video generation via MCP) submit workflows that execute and complete but produce no video output. The MCP tool returns `success: false, error: "Generation completed but no video output found"`.
-- **Mitigation**: Video generation workflows (auto-video workspace, `generate_video` MCP tool) gracefully degrade to returning descriptive failure messages. Pipeline round-trips (C9) remain fully functional for video description and planning tasks. To enable video generation, install the HunyuanVideo ComfyUI custom nodes package.
+- **Description**: HunyuanVideo T2V requires three supporting models not currently present: (1) `llava_llama3_fp8_scaled.safetensors` (~8.9GB LLaVA LLaMA 3 text encoder), (2) `clip_l.safetensors` (~235MB CLIP-L), and (3) `hunyuan_video_vae_bf16.safetensors` (~200MB HunyuanVideo VAE). The FLUX CLIP-L and FLUX T5 XXL currently in `models/clip/` are incompatible — T5 XXL's output tensors do not match HunyuanVideo's expected conditioning shape, causing a dimension mismatch in `SamplerCustomAdvanced`.
+- **Impact**: Video generation via `generate_video` MCP tool fails with a ComfyUI tensor mismatch error.
+- **Resolution**: Download the missing models:
+  ```
+  huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
+    --include "split_files/text_encoders/llava_llama3_fp8_scaled.safetensors" \
+    --include "split_files/text_encoders/clip_l.safetensors" \
+    --include "split_files/vae/hunyuan_video_vae_bf16.safetensors" \
+    --local-dir ~/ComfyUI/models
+  ```
+  Then set the `HUNYUAN_*` env vars in `.env` to point to the downloaded files. The workflow node layout is already correct (P5-VIDEO-001 resolved).
 - **Last verified**: 2026-04-06
 
 ### SDXL Image Generation — Slow on Apple Silicon MPS
