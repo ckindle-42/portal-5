@@ -127,6 +127,14 @@ VIDEO_MODEL_FILE = os.getenv(
     "hunyuan_video_t2v_720p_bf16.safetensors",
 )
 
+# NSFW LoRA — applied when HUNYUAN_NSFW_LORA is set (non-empty).
+# Default: nsfw-e7.safetensors (TheYuriLover/HunyuanVideo_nfsw_lora, trigger: "nsfwsks")
+# Download: hf download TheYuriLover/HunyuanVideo_nfsw_lora nsfw-e7.safetensors \
+#             --local-dir ~/ComfyUI/models/loras/
+# Set HUNYUAN_NSFW_LORA="" to disable LoRA entirely.
+HUNYUAN_NSFW_LORA = os.getenv("HUNYUAN_NSFW_LORA", "nsfw-e7.safetensors")
+HUNYUAN_NSFW_LORA_STRENGTH = float(os.getenv("HUNYUAN_NSFW_LORA_STRENGTH", "0.85"))
+
 # HunyuanVideo T2V workflow — official ComfyUI node layout.
 # Matches the ComfyUI example workflow for HunyuanVideo T2V.
 # KSampler is NOT compatible with HunyuanVideo; use SamplerCustomAdvanced + FluxGuidance.
@@ -293,11 +301,34 @@ _COGVIDEOX_WORKFLOW: dict = {
 
 
 def _get_workflow() -> dict:
-    """Get a deep copy of the workflow based on VIDEO_BACKEND env var."""
+    """Get a deep copy of the workflow based on VIDEO_BACKEND env var.
+
+    For HunyuanVideo: if HUNYUAN_NSFW_LORA is set, injects a LoraLoaderModelOnly
+    node (16) between UNETLoader (1) and ModelSamplingSD3 (6) to enable uncensored
+    content generation. Trigger word for default LoRA: 'nsfwsks'.
+    """
     import copy
     if VIDEO_BACKEND == "cogvideox":
         return copy.deepcopy(_COGVIDEOX_WORKFLOW)
-    return copy.deepcopy(_WAN22_T2V_WORKFLOW)
+
+    wf = copy.deepcopy(_WAN22_T2V_WORKFLOW)
+
+    # Inject NSFW LoRA if configured
+    if HUNYUAN_NSFW_LORA:
+        # Insert LoraLoaderModelOnly between UNETLoader(1) and ModelSamplingSD3(6)
+        wf["16"] = {
+            "inputs": {
+                "model": ["1", 0],
+                "lora_name": HUNYUAN_NSFW_LORA,
+                "strength_model": HUNYUAN_NSFW_LORA_STRENGTH,
+            },
+            "class_type": "LoraLoaderModelOnly",
+        }
+        # Rewire: ModelSamplingSD3(6) takes model from LoRA node(16) instead of UNETLoader(1)
+        wf["6"]["inputs"]["model"] = ["16", 0]
+        # BasicGuider(11) already takes from ModelSamplingSD3(6) — no rewire needed
+
+    return wf
 
 
 @mcp.tool()

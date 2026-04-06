@@ -427,6 +427,8 @@ services:
       - HUNYUAN_CLIP_L=${HUNYUAN_CLIP_L:-hunyuan-clip/model.safetensors}
       - HUNYUAN_LLAVA=${HUNYUAN_LLAVA:-llava_llama3_fp8_scaled.safetensors}
       - HUNYUAN_VAE=${HUNYUAN_VAE:-hunyuan_video_vae_bf16.safetensors}
+      - HUNYUAN_NSFW_LORA=${HUNYUAN_NSFW_LORA:-nsfw-e7.safetensors}
+      - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-0.85}
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
     volumes:
