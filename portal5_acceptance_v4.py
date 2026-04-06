@@ -69,6 +69,31 @@ Changes from v4 (this run):
     - _workspace_test_with_retry: empty response retry is immediate (no sleep)
     - KNOWN_LIMITATIONS.md: added P5-ROAD-MLX-001/002/003 for MLX startup behavior
 
+Test coverage improvements (2026-04-05):
+    - S4-01b/02b/03b: Added file existence + content validation for generated documents.
+      .docx: python-docx reads paragraphs, checks for expected keywords in text.
+      .pptx: python-pptx checks slide count (5) and expected title keywords.
+      .xlsx: openpyxl reads rows, checks header/data keywords and presence of numeric values.
+      Falls back to file-size check if libraries unavailable (graceful degradation).
+    - S7-02: Tightened ok_fn — now requires "success" + "path" in response (rejects
+      "not available" as PASS). Uses musicgen-large explicitly (now the default).
+      Prompt upgraded to "upbeat jazz piano solo" for a real domain signal.
+    - S7-02b: Added WAV file validation for generated music — checks file exists on host
+      bind-mount, reads WAV header, verifies duration >= 4.5s for a 5s clip.
+    - S7-01: Updated ok_fn to verify small/medium/large all reported (not just non-empty).
+    - S8-03: Upgraded to use _wav_info() — now validates sample_rate, channels, and
+      duration (>= 1s for the _TTS_TEXT input). Reports full WAV metadata in detail line.
+    - S15-01: Added result structure validation (title + url required) and keyword
+      relevance check (nerc/cip/electric/reliability in title+content). Reports
+      structured count and relevant count separately.
+    - Added _mcp_raw(): variant of _mcp that also returns response text for post-call
+      validation (file path extraction, content inspection).
+    - Added _wav_info(): parses WAV header via wave module — returns channels,
+      sample_rate, frames, duration_s (or None if invalid).
+    - Added AI_OUTPUT_DIR constant: reads AI_OUTPUT_DIR from .env (default ~/AI_Output),
+      used for host-side file existence checks on document/music output.
+    - Added import io, import wave for WAV header parsing.
+
 Post-run assertion fixes (2026-04-05):
     - _load_mlx_model: record log_mtime_before at entry; only treat "Traceback" in
       server log as a crash signal if the log was modified AFTER function entry.
@@ -116,10 +141,12 @@ import asyncio
 import json
 import os
 import re
+import io
 import signal
 import subprocess
 import sys
 import time
+import wave
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -388,9 +415,29 @@ def _owui_token() -> str:
         return ""
 
 
+# ── Output directory (shared bind-mount between host and MCP containers) ─────
+AI_OUTPUT_DIR = Path(os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
+
+
 # ── WAV validity ──────────────────────────────────────────────────────────────
 def _is_wav(data: bytes) -> bool:
     return len(data) > 44 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+
+
+def _wav_info(data: bytes) -> dict | None:
+    """Parse WAV header — returns {channels, sample_rate, frames, duration_s} or None."""
+    if not _is_wav(data):
+        return None
+    try:
+        with wave.open(io.BytesIO(data)) as wf:
+            return {
+                "channels": wf.getnchannels(),
+                "sample_rate": wf.getframerate(),
+                "frames": wf.getnframes(),
+                "duration_s": round(wf.getnframes() / wf.getframerate(), 2),
+            }
+    except Exception:
+        return None
 
 
 # ── MCP SDK call (real SDK — same path as Open WebUI) ─────────────────────────
@@ -434,6 +481,50 @@ async def _mcp(
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
     except Exception as e:
         record(section, tid, name, "FAIL", str(e)[:200], t0=t0)
+
+
+async def _mcp_raw(
+    port: int,
+    tool: str,
+    args: dict,
+    *,
+    section: str,
+    tid: str,
+    name: str,
+    ok_fn,
+    detail_fn=None,
+    warn_if: list[str] | None = None,
+    timeout: int = 30,
+) -> str:
+    """Like _mcp but also returns the raw response text (empty string on error)."""
+    t0 = time.time()
+    text = ""
+    try:
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        url = f"http://localhost:{port}/mcp"
+        async with streamablehttp_client(url) as (read, write, _):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
+                for block in result.content:
+                    if hasattr(block, "text"):
+                        text += block.text
+
+        is_ok = ok_fn(text)
+        is_warn = warn_if and any(w.lower() in text.lower() for w in warn_if)
+        status = "WARN" if is_warn and not is_ok else ("PASS" if is_ok else "FAIL")
+        detail = (detail_fn(text) if detail_fn else text[:120]) if text else "(empty)"
+        record(section, tid, name, status, detail, t0=t0)
+
+    except asyncio.TimeoutError:
+        record(section, tid, name, "WARN", f"timeout after {timeout}s", t0=t0)
+    except ImportError:
+        record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
+    except Exception as e:
+        record(section, tid, name, "FAIL", str(e)[:200], t0=t0)
+    return text
 
 
 # ── Pipeline chat (simulates Open WebUI exactly) ──────────────────────────────
@@ -2102,7 +2193,8 @@ async def S4() -> None:
     sec = "S4"
     port = MCP["documents"]
 
-    await _mcp(
+    # S4-01: Word document — capture response to validate file on disk
+    docx_resp = await _mcp_raw(
         port,
         "create_word_document",
         {
@@ -2123,7 +2215,45 @@ async def S4() -> None:
         timeout=60,
     )
 
-    await _mcp(
+    # S4-01b: Verify .docx file exists on host AND contains expected content
+    t0 = time.time()
+    try:
+        resp_data = json.loads(docx_resp) if docx_resp else {}
+        fname = resp_data.get("filename") or resp_data.get("path", "").split("/")[-1]
+        if fname:
+            fpath = AI_OUTPUT_DIR / fname
+            if fpath.exists():
+                size = fpath.stat().st_size
+                # Validate content using python-docx
+                try:
+                    from docx import Document as DocxDocument
+                    doc = DocxDocument(str(fpath))
+                    all_text = "\n".join(p.text for p in doc.paragraphs).lower()
+                    expected = ["microservices", "migration", "timeline", "risk"]
+                    found = [kw for kw in expected if kw in all_text]
+                    record(
+                        sec, "S4-01b", "create_word_document: file on disk with content",
+                        "PASS" if found else "WARN",
+                        f"✓ {fname} {size:,} bytes; keywords found: {found}" if found
+                        else f"file exists {size:,} bytes but expected keywords not found",
+                        t0=t0,
+                    )
+                except ImportError:
+                    record(sec, "S4-01b", "create_word_document: file on disk with content",
+                           "PASS" if size > 1000 else "WARN",
+                           f"✓ {fname} {size:,} bytes (python-docx not installed — size only)",
+                           t0=t0)
+            else:
+                record(sec, "S4-01b", "create_word_document: file on disk with content",
+                       "FAIL", f"file not found: {fpath}", t0=t0)
+        else:
+            record(sec, "S4-01b", "create_word_document: file on disk with content", "WARN",
+                   "path not in response — skipped", t0=t0)
+    except Exception as e:
+        record(sec, "S4-01b", "create_word_document: file on disk with content", "WARN", str(e), t0=t0)
+
+    # S4-02: PowerPoint — capture response to validate file on disk
+    pptx_resp = await _mcp_raw(
         port,
         "create_powerpoint",
         {
@@ -2144,7 +2274,48 @@ async def S4() -> None:
         timeout=60,
     )
 
-    await _mcp(
+    # S4-02b: Verify .pptx exists on disk AND has 5 slides with expected titles
+    t0 = time.time()
+    try:
+        resp_data = json.loads(pptx_resp) if pptx_resp else {}
+        fname = resp_data.get("filename") or resp_data.get("path", "").split("/")[-1]
+        if fname:
+            fpath = AI_OUTPUT_DIR / fname
+            if fpath.exists():
+                size = fpath.stat().st_size
+                try:
+                    from pptx import Presentation
+                    prs = Presentation(str(fpath))
+                    slide_count = len(prs.slides)
+                    # Collect all text from slides
+                    slide_text = " ".join(
+                        shape.text for slide in prs.slides
+                        for shape in slide.shapes if hasattr(shape, "text")
+                    ).lower()
+                    expected = ["container security", "threat", "best practices", "implementation"]
+                    found = [kw for kw in expected if kw in slide_text]
+                    record(
+                        sec, "S4-02b", "create_powerpoint: file on disk with 5 slides + content",
+                        "PASS" if slide_count == 5 and found else "WARN",
+                        f"✓ {fname} {size:,} bytes; {slide_count} slides; keywords: {found}",
+                        t0=t0,
+                    )
+                except ImportError:
+                    record(sec, "S4-02b", "create_powerpoint: file on disk with content",
+                           "PASS" if size > 1000 else "WARN",
+                           f"✓ {fname} {size:,} bytes (python-pptx not installed — size only)",
+                           t0=t0)
+            else:
+                record(sec, "S4-02b", "create_powerpoint: file on disk with content",
+                       "FAIL", f"file not found: {fpath}", t0=t0)
+        else:
+            record(sec, "S4-02b", "create_powerpoint: file on disk with content", "WARN",
+                   "path not in response — skipped", t0=t0)
+    except Exception as e:
+        record(sec, "S4-02b", "create_powerpoint: file on disk with content", "WARN", str(e), t0=t0)
+
+    # S4-03: Excel spreadsheet — capture response to validate file on disk
+    xlsx_resp = await _mcp_raw(
         port,
         "create_excel",
         {
@@ -2163,6 +2334,50 @@ async def S4() -> None:
         detail_fn=lambda t: "✓ spreadsheet created" if ".xlsx" in t else t[:100],
         timeout=60,
     )
+
+    # S4-03b: Verify .xlsx exists on disk AND contains expected data rows
+    t0 = time.time()
+    try:
+        resp_data = json.loads(xlsx_resp) if xlsx_resp else {}
+        fname = resp_data.get("filename") or resp_data.get("path", "").split("/")[-1]
+        if fname:
+            fpath = AI_OUTPUT_DIR / fname
+            if fpath.exists():
+                size = fpath.stat().st_size
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(str(fpath), read_only=True, data_only=True)
+                    ws = wb.active
+                    rows = list(ws.iter_rows(values_only=True))
+                    wb.close()
+                    # Check header row and data values
+                    flat = [str(v).lower() for row in rows for v in row if v is not None]
+                    expected_keys = ["category", "hardware", "software", "personnel"]
+                    found = [k for k in expected_keys if k in flat]
+                    # Verify numeric data present (budget values)
+                    has_numbers = any(
+                        isinstance(v, (int, float)) for row in rows for v in row if v is not None
+                    )
+                    record(
+                        sec, "S4-03b", "create_excel: file on disk with data rows",
+                        "PASS" if found and has_numbers else "WARN",
+                        f"✓ {fname} {size:,} bytes; {len(rows)} rows; "
+                        f"keys: {found}; numbers: {has_numbers}",
+                        t0=t0,
+                    )
+                except ImportError:
+                    record(sec, "S4-03b", "create_excel: file on disk with content",
+                           "PASS" if size > 500 else "WARN",
+                           f"✓ {fname} {size:,} bytes (openpyxl not installed — size only)",
+                           t0=t0)
+            else:
+                record(sec, "S4-03b", "create_excel: file on disk with content",
+                       "FAIL", f"file not found: {fpath}", t0=t0)
+        else:
+            record(sec, "S4-03b", "create_excel: file on disk with content", "WARN",
+                   "path not in response — skipped", t0=t0)
+    except Exception as e:
+        record(sec, "S4-03b", "create_excel: file on disk with content", "WARN", str(e), t0=t0)
 
     await _mcp(
         port,
@@ -2427,25 +2642,58 @@ async def S7() -> None:
         {},
         section=sec,
         tid="S7-01",
-        name="list_music_models returns available models",
-        ok_fn=lambda t: len(t) > 2,
+        name="list_music_models: small/medium/large reported",
+        ok_fn=lambda t: "small" in t and "medium" in t and "large" in t,
         detail_fn=lambda t: f"models: {t[:80]}",
         timeout=15,
     )
 
-    await _mcp(
+    # S7-02: Generate music with musicgen-large (now the default) — verify WAV produced
+    music_resp = await _mcp_raw(
         port,
         "generate_music",
-        {"prompt": "lo-fi hip hop chill beat", "duration": 5},
+        {"prompt": "upbeat jazz piano solo with walking bass line", "duration": 5, "model_size": "large"},
         section=sec,
         tid="S7-02",
-        name="generate_music: 5s lo-fi",
-        ok_fn=lambda t: (
-            "success" in t.lower() or "missing" in t.lower() or "not available" in t.lower()
-        ),
+        name="generate_music: 5s jazz (musicgen-large) → success",
+        ok_fn=lambda t: '"success": true' in t or ("success" in t and "path" in t),
         detail_fn=lambda t: t[:120],
-        timeout=120,
+        timeout=180,
     )
+
+    # S7-02b: Verify the generated WAV file exists on the host and has audio content
+    t0 = time.time()
+    try:
+        resp_data = json.loads(music_resp) if music_resp else {}
+        fpath_str = resp_data.get("path", "")
+        if resp_data.get("success") and fpath_str:
+            # Music MCP runs natively — path is a host path under AI_OUTPUT_DIR
+            fpath = Path(fpath_str)
+            if fpath.exists():
+                wav_data = fpath.read_bytes()
+                info = _wav_info(wav_data)
+                if info:
+                    record(
+                        sec, "S7-02b", "generate_music WAV file valid (RIFF, correct duration)",
+                        "PASS" if info["duration_s"] >= 4.5 else "WARN",
+                        f"✓ {fpath.name} {len(wav_data):,} bytes "
+                        f"{info['duration_s']}s {info['sample_rate']}Hz",
+                        t0=t0,
+                    )
+                else:
+                    record(sec, "S7-02b", "generate_music WAV file valid", "FAIL",
+                           f"not a valid WAV: {fpath.name}", t0=t0)
+            else:
+                record(sec, "S7-02b", "generate_music WAV file valid", "FAIL",
+                       f"file not found on host: {fpath_str}", t0=t0)
+        elif not resp_data.get("success"):
+            record(sec, "S7-02b", "generate_music WAV file valid", "WARN",
+                   f"generation did not succeed: {music_resp[:80]}", t0=t0)
+        else:
+            record(sec, "S7-02b", "generate_music WAV file valid", "WARN",
+                   "path not in response", t0=t0)
+    except Exception as e:
+        record(sec, "S7-02b", "generate_music WAV file valid", "WARN", str(e), t0=t0)
 
     # Pipeline round-trip: auto-music workspace should describe a composition
     t0 = time.time()
@@ -2521,13 +2769,21 @@ async def S8() -> None:
                     json={"input": _TTS_TEXT, "voice": voice, "model": "kokoro"},
                 )
                 if r.status_code == 200:
-                    is_wav = _is_wav(r.content)
+                    info = _wav_info(r.content)
+                    is_wav = info is not None
+                    # _TTS_TEXT is ~80 chars — expect at least 1s of audio at any sample rate
+                    duration_ok = is_wav and info["duration_s"] >= 1.0
                     record(
                         sec,
                         "S8-03",
                         f"TTS REST /v1/audio/speech: {voice} ({desc})",
-                        "PASS" if is_wav else "FAIL",
-                        f"{'✓ valid WAV' if is_wav else 'not WAV'} {len(r.content):,} bytes",
+                        "PASS" if is_wav and duration_ok else ("WARN" if is_wav else "FAIL"),
+                        (
+                            f"✓ valid WAV {len(r.content):,} bytes "
+                            f"{info['duration_s']}s {info['sample_rate']}Hz {info['channels']}ch"
+                            if info
+                            else f"not WAV {len(r.content):,} bytes"
+                        ),
                         [f"Content-Type: {r.headers.get('content-type', '?')}"],
                         t0=t0,
                     )
@@ -4094,13 +4350,30 @@ async def S15() -> None:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.get(f"{SEARXNG_URL}/search?q=NERC+CIP&format=json")
             if r.status_code == 200:
-                results = r.json().get("results", [])
+                data = r.json()
+                results = data.get("results", [])
+                # Validate result structure: each result should have title and url
+                structured = [
+                    res for res in results if res.get("title") and res.get("url")
+                ]
+                # Check keyword relevance: at least one result mentions NERC or CIP
+                relevant = [
+                    res for res in structured
+                    if any(kw in (res.get("title", "") + res.get("content", "")).lower()
+                           for kw in ["nerc", "cip", "electric", "reliability"])
+                ]
                 record(
                     sec,
                     "S15-01",
-                    "SearXNG /search?format=json returns results",
-                    "PASS" if results else "WARN",
-                    f"{len(results)} results for 'NERC CIP'",
+                    "SearXNG /search returns structured, relevant results",
+                    "PASS" if relevant else ("WARN" if structured else "WARN"),
+                    (
+                        f"✓ {len(results)} results, {len(structured)} structured, "
+                        f"{len(relevant)} relevant to 'NERC CIP'"
+                        if results
+                        else "no results returned"
+                    ),
+                    [f"sample: {results[0].get('title', '')[:60]}" if results else ""],
                     t0=t0,
                 )
             else:
