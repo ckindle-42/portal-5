@@ -4,7 +4,10 @@ Portal 5 — End-to-End Acceptance Test Suite  v4
 ================================================
 Run from the repo root:
     python3 portal5_acceptance_v4.py
-    python3 portal5_acceptance_v4.py --section S3   # single section
+    python3 portal5_acceptance_v4.py --section S3         # single section
+    python3 portal5_acceptance_v4.py --section S3,S11,S22  # comma-separated
+    python3 portal5_acceptance_v4.py --section S3-S11      # range (inclusive)
+    python3 portal5_acceptance_v4.py --skip-passing         # skip all-PASS sections from prior run
     python3 portal5_acceptance_v4.py --rebuild       # force MCP + pipeline rebuild first
     python3 portal5_acceptance_v4.py --verbose
 
@@ -95,6 +98,15 @@ Post-run assertion fixes (2026-04-05):
       by resident Ollama models (e.g. dolphin-llama3:8b from S3 staying loaded in
       unified memory alongside a 46GB MLX model). Ollama keep_alive=-1 was keeping
       models hot indefinitely — eviction recovers 5-48GB before each MLX section.
+    - --section: extended to accept comma-separated list (S3,S11,S22) and range syntax
+      (S3-S11). S17 (infra check) is always prepended unless it is the only section
+      requested.
+    - --skip-passing: new flag. When combined with --section ALL (or no --section),
+      reads ACCEPTANCE_RESULTS.md from the prior run, identifies sections where every
+      result was PASS or INFO, and skips those sections. Useful for targeted re-runs
+      after a partial fix without re-running already-green sections.
+    - _passing_sections_from_results(): parses ACCEPTANCE_RESULTS.md results table to
+      determine which section prefixes had zero WARN/FAIL/BLOCKED in the prior run.
 """
 
 from __future__ import annotations
@@ -5981,18 +5993,86 @@ async def _preflight() -> None:
         sys.exit(f"❌ Pipeline unreachable at {PIPELINE_URL}: {e}")
 
 
+def _passing_sections_from_results(results_path: str = "ACCEPTANCE_RESULTS.md") -> set[str]:
+    """Parse ACCEPTANCE_RESULTS.md and return section IDs where every result is PASS or INFO.
+
+    Reads the results table produced by the suite (rows like "| S3-01 | ... | PASS | ... |")
+    and returns section prefixes (e.g. "S3") that have no WARN, FAIL, or BLOCKED rows.
+    Sections with zero rows are not included (avoids skipping sections that weren't run).
+    """
+    import os
+
+    if not os.path.exists(results_path):
+        return set()
+
+    try:
+        content = open(results_path).read()
+    except OSError:
+        return set()
+
+    # Collect per-section status counts
+    section_counts: dict[str, dict[str, int]] = {}
+    for line in content.splitlines():
+        # Table rows look like: | S3-01 | Description | PASS | detail |
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 5:
+            continue
+        test_id = parts[1]  # e.g. "S3-01" or "S3-01a"
+        status = parts[3]   # e.g. "PASS", "WARN", "FAIL", "INFO", "BLOCKED"
+        if status not in ("PASS", "WARN", "FAIL", "INFO", "BLOCKED"):
+            continue
+        # Extract section prefix: "S3" from "S3-01", "S22" from "S22-01", etc.
+        m = re.match(r"^(S\d+)-", test_id)
+        if not m:
+            continue
+        sec = m.group(1)
+        counts = section_counts.setdefault(sec, {"PASS": 0, "INFO": 0, "bad": 0})
+        if status in ("WARN", "FAIL", "BLOCKED"):
+            counts["bad"] += 1
+        elif status == "PASS":
+            counts["PASS"] += 1
+        elif status == "INFO":
+            counts["INFO"] += 1
+
+    passing = set()
+    for sec, counts in section_counts.items():
+        if counts["bad"] == 0 and (counts["PASS"] + counts["INFO"]) > 0:
+            passing.add(sec)
+    return passing
+
+
 async def main() -> int:
     global _verbose, _FORCE_REBUILD
 
     parser = argparse.ArgumentParser(description="Portal 5 — End-to-End Acceptance Test Suite v4")
     parser.add_argument(
-        "--section", "-s", default="ALL", help="Run one section (S0-S17) or ALL (default)"
+        "--section",
+        "-s",
+        default="ALL",
+        help=(
+            "Sections to run. Options:\n"
+            "  ALL           — full suite (default)\n"
+            "  S3            — single section (S17 always prepended)\n"
+            "  S3,S5,S11     — comma-separated list (S17 always prepended)\n"
+            "  S3-S11        — inclusive range (S17 always prepended)\n"
+            "Valid section IDs: " + ", ".join(sorted(SECTIONS))
+        ),
     )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument(
         "--rebuild",
         action="store_true",
         help="Force git pull + MCP + pipeline rebuild before testing",
+    )
+    parser.add_argument(
+        "--skip-passing",
+        action="store_true",
+        help=(
+            "Read ACCEPTANCE_RESULTS.md from the last run and skip any section "
+            "where every result was PASS or INFO. Sections with WARN, FAIL, or "
+            "BLOCKED are always re-run. S17 always runs. Only applies when "
+            "--section is ALL."
+        ),
     )
     args = parser.parse_args()
     _verbose = args.verbose
@@ -6025,14 +6105,64 @@ async def main() -> int:
     _warn_single_instance()
     await _check_mlx_proxy_capacity()
 
-    run = (
-        ALL_ORDER
-        if args.section.upper() == "ALL"
-        else (["S17", args.section.upper()] if args.section.upper() != "S17" else ["S17"])
-    )
+    # ── Build the section run list ──────────────────────────────────────────
+    section_arg = args.section.strip().upper()
+
+    def _parse_section_arg(arg: str) -> list[str]:
+        """Parse section argument into an ordered list of section IDs.
+
+        Supports:
+          ALL          → full ALL_ORDER
+          S3           → ["S17", "S3"]
+          S3,S5,S11    → ["S17", "S3", "S5", "S11"]  (order preserved)
+          S3-S11       → ["S17", ...sections in ALL_ORDER from S3 to S11 inclusive...]
+        S17 is always prepended unless already the only/first entry.
+        """
+        if arg == "ALL":
+            return list(ALL_ORDER)
+
+        # Range: S3-S11
+        if re.match(r"^S\d+-S\d+$", arg):
+            start, end = arg.split("-")
+            try:
+                si = ALL_ORDER.index(start)
+                ei = ALL_ORDER.index(end)
+            except ValueError as e:
+                sys.exit(f"Unknown section in range: {e}. Valid: {sorted(SECTIONS)}")
+            if si > ei:
+                si, ei = ei, si
+            requested = ALL_ORDER[si : ei + 1]
+        else:
+            # Single or comma-separated
+            requested = [s.strip() for s in arg.split(",") if s.strip()]
+            for sid in requested:
+                if sid not in SECTIONS:
+                    sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
+
+        # Always prepend S17 for infrastructure check
+        if requested and requested[0] != "S17":
+            return ["S17"] + requested
+        return requested
+
+    run = _parse_section_arg(section_arg)
+
+    # ── --skip-passing: drop sections that were all-PASS/INFO in last run ──
+    if args.skip_passing:
+        if section_arg != "ALL":
+            print("⚠️  --skip-passing only applies to ALL runs — ignoring for targeted section run\n")
+        else:
+            passing = _passing_sections_from_results()
+            # Never skip S17 (infra check) or sections not in passing set
+            skipped = [s for s in run if s != "S17" and s in passing]
+            run = [s for s in run if s not in skipped or s == "S17"]
+            if skipped:
+                print(f"⏭️  --skip-passing: skipping {len(skipped)} all-PASS sections: {', '.join(skipped)}")
+                print(f"   Re-running {len(run)} section(s): {', '.join(run)}\n")
+            else:
+                print("⏭️  --skip-passing: no fully-passing sections to skip — running all\n")
 
     # Notify start of test run
-    await _notify_test_start(args.section.upper(), len(run))
+    await _notify_test_start(args.section, len(run))
 
     # Memory monitoring — sample before each section for diagnostics
     _memory_log: list[dict] = []
