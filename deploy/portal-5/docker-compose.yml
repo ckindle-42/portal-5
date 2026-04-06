@@ -423,8 +423,8 @@ services:
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
       - OUTPUT_DIR=/app/data/generated
       - VIDEO_BACKEND=${VIDEO_BACKEND:-wan22}
-      - VIDEO_MODEL_FILE=${VIDEO_MODEL_FILE:-hunyuanvideo_comfyui.safetensors}
-      - HUNYUAN_CLIP_L=${HUNYUAN_CLIP_L:-clip_l.safetensors}
+      - VIDEO_MODEL_FILE=${VIDEO_MODEL_FILE:-hunyuan_video_t2v_720p_bf16.safetensors}
+      - HUNYUAN_CLIP_L=${HUNYUAN_CLIP_L:-hunyuan-clip/model.safetensors}
       - HUNYUAN_LLAVA=${HUNYUAN_LLAVA:-llava_llama3_fp8_scaled.safetensors}
       - HUNYUAN_VAE=${HUNYUAN_VAE:-hunyuan_video_vae_bf16.safetensors}
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]

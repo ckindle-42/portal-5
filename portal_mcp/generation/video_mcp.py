@@ -124,7 +124,7 @@ VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 #     --local-dir ~/ComfyUI/models
 VIDEO_MODEL_FILE = os.getenv(
     "VIDEO_MODEL_FILE",
-    "hunyuanvideo_comfyui.safetensors",
+    "hunyuan_video_t2v_720p_bf16.safetensors",
 )
 
 # HunyuanVideo T2V workflow — official ComfyUI node layout.
@@ -423,10 +423,16 @@ async def generate_video(
 
             outputs = entry.get("outputs", {})
             for node_output in outputs.values():
-                # SaveVideo outputs "videos"; VHS_VideoCombine uses "gifs"
+                # SaveVideo → "images" key with animated=True (ComfyUI ≥0.16)
+                # VHS_VideoCombine → "gifs" key
+                # Legacy SaveVideo → "videos" key
+                images = node_output.get("images", [])
+                animated = node_output.get("animated", [])
                 video_files = (
                     node_output.get("videos")
                     or node_output.get("gifs")
+                    # animated images from SaveVideo (ComfyUI native node)
+                    or (images if any(animated) else [])
                     or []
                 )
                 if video_files and isinstance(video_files, list) and len(video_files) > 0:
