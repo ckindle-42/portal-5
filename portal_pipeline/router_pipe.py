@@ -392,7 +392,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder-next:30b-q5",
+        "model_hint": "qwen3-coder:30b",  # Primary Ollama coding fallback; qwen3-coder-next is MLX-only
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
     },
     "auto-spl": {

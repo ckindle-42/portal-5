@@ -148,6 +148,22 @@ Post-run assertion fixes (2026-04-05):
     - _passing_sections_from_results(): parses ACCEPTANCE_RESULTS.md results table to
       determine which section prefixes had zero WARN/FAIL/BLOCKED in the prior run.
 
+Post-run assertion fixes (2026-04-06):
+    - S35: Rewrote section. auto-documents workspace routes to Ollama [coding, general] by design
+      (backends.yaml: auto-documents: [coding, general] — no MLX in chain). Previous S35 called
+      _mlx_workspace_test on auto-documents which always WARNed when pipeline correctly routed to
+      Ollama. New S35 has two checks:
+        S35-01: Direct MLX proxy test of Qwopus3.5-9B-v3-8bit (the actual documents MLX model,
+                mlx_model_hint for auto-documents). Verifies model capability independently.
+        S35-02: Pipeline workspace test of auto-documents → verifies routing + content quality
+                without requiring MLX (Ollama response is the correct/expected outcome).
+      Also updated model_label from 27B (which is auto-reasoning's model, already tested in S32)
+      to 9B (the documents-domain model that was never independently tested).
+    - _MLX_MODEL_FULL_PATHS: added Qwopus3.5-9B-v3-8bit → Jackrong/MLX-Qwopus3.5-9B-v3-8bit
+    - S11-01 OW API personas: increased retries 5→10, timeout 10s→15s, extended wait on HTML
+      response. OW race condition returns HTTP 200 with HTML body; more retries reduces WARN rate.
+    - S13-03 Personas visible: same retry increase 5→10 applied to GUI fallback path.
+
 Post-run assertion fixes (2026-04-05 v2):
     - S11-01 OW API personas check: increased retries 3→5, added inner JSONDecodeError
       catch with retry. Prevents WARN from OW returning HTTP 200 with non-JSON body
@@ -1487,6 +1503,7 @@ _MLX_MODEL_FULL_PATHS: dict[str, str] = {
     "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     "Magistral-Small-2509-MLX-8bit": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
     "Qwopus3.5-27B-v3-8bit": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+    "Qwopus3.5-9B-v3-8bit": "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
     "Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     "gemma-4-31b-it-4bit": "mlx-community/gemma-4-31b-it-4bit",
 }
@@ -3686,22 +3703,23 @@ async def S11() -> None:
         t0 = time.time()
         try:
             data = None
-            for attempt in range(5):
+            for attempt in range(10):
                 r = httpx.get(
                     f"{OPENWEBUI_URL}/api/v1/models",
                     headers={"Authorization": f"Bearer {token}"},
-                    timeout=10,
+                    timeout=15,
                 )
                 if r.status_code == 200 and r.text.strip():
                     try:
                         data = r.json()
                         break
                     except Exception:
-                        # Non-JSON body (OW auth race) — retry
-                        if attempt < 4:
-                            await asyncio.sleep(3)
+                        # Non-JSON body (OW auth race) — retry with longer wait
+                        wait = 5 if attempt < 3 else 3
+                        if attempt < 9:
+                            await asyncio.sleep(wait)
                         continue
-                if attempt < 4:
+                if attempt < 9:
                     await asyncio.sleep(3)
             if data is not None:
                 api_ids = {
@@ -3858,7 +3876,9 @@ async def _mlx_group(
                             print(f"  ✅ Model {model_label} loaded after recovery")
 
         # Verify via /health that the expected model is loaded
-        ready = await _wait_for_mlx_ready(timeout=60, expected_model=model_label)
+        # VLM switches (lm→vlm or vlm→vlm) take longer due to 30GB+ weight loads
+        _ready_timeout = 180 if is_vlm else 90
+        ready = await _wait_for_mlx_ready(timeout=_ready_timeout, expected_model=model_label)
         if ready:
             # Poll pipeline health until it detects MLX as a healthy backend.
             # The pipeline runs a health check loop every 30s — a fixed 10s sleep
@@ -4018,14 +4038,82 @@ async def S34() -> None:
     )
 
 
-# ── S35: Qwopus3.5-27B-v3-8bit (documents) ──
+# ── S35: Qwopus3.5-9B-v3-8bit (documents model) ──
+# auto-documents workspace routes to Ollama [coding, general] by design
+# (backends.yaml workspace_routing: auto-documents: [coding, general]).
+# S35 does two things:
+#   S35-01: Load Qwopus3.5-9B-v3-8bit and test it DIRECTLY via the MLX proxy —
+#           verifies the model is functional and responds with document-relevant content.
+#   S35-02: Test the auto-documents WORKSPACE via the pipeline —
+#           verifies the workspace routes correctly to Ollama and returns relevant content.
+#           Ollama routing is the correct/expected result here; no MLX model check.
 async def S35() -> None:
-    print("\n━━━ S35. MLX: Qwopus3.5-27B-v3-8bit (documents) ━━━")
-    await _mlx_group(
-        "S35",
-        "Qwopus3.5-27B-v3-8bit",
-        ["auto-documents"],
-        [],
+    print("\n━━━ S35. MLX: Qwopus3.5-9B-v3-8bit (documents model) ━━━")
+    sec = "S35"
+    model_label = "Qwopus3.5-9B-v3-8bit"
+    full_model = _MLX_MODEL_FULL_PATHS.get(model_label, "Jackrong/MLX-Qwopus3.5-9B-v3-8bit")
+    prompt = _WS_PROMPT.get(
+        "auto-documents",
+        "Create a structured outline for a NERC CIP-007 patch management procedure. "
+        "Include purpose, scope, roles and responsibilities, and at least 4 procedure steps.",
+    )
+    signals = _WS_SIGNALS.get("auto-documents", ["purpose", "scope", "patch", "procedure"])
+
+    # ── S35-01: Direct MLX proxy test — verify model capability ──────────────
+    print(f"  ── S35-01: Loading model {model_label} (direct MLX proxy test) ──")
+    await _unload_ollama_models()
+    loaded, detail = await _load_mlx_model(model_label)
+    if not loaded:
+        record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
+               f"model load failed: {detail}")
+    else:
+        ready = await _wait_for_mlx_ready(timeout=180, expected_model=model_label)
+        if not ready:
+            record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN", "MLX proxy not ready (timeout 180s)")
+        else:
+            t0 = time.time()
+            body = {
+                "model": full_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "max_tokens": 400,
+            }
+            try:
+                async with httpx.AsyncClient(timeout=300) as c:
+                    r = await c.post(f"{MLX_URL}/v1/chat/completions", json=body)
+                if r.status_code == 200:
+                    data = r.json()
+                    msg = data.get("choices", [{}])[0].get("message", {})
+                    text = msg.get("content", "") or msg.get("reasoning", "")
+                    if not text.strip():
+                        record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
+                               f"empty response", t0=t0)
+                    else:
+                        matched = [s for s in signals if s in text.lower()]
+                        record(
+                            sec, "S35-01", f"MLX model {model_label} (direct)",
+                            "PASS" if matched else "WARN",
+                            f"model={full_model[:60]}, signals={matched}",
+                            [text[:200]],
+                            t0=t0,
+                        )
+                else:
+                    record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
+                           f"HTTP {r.status_code}", t0=t0)
+            except Exception as e:
+                record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
+                       str(e)[:80], t0=t0)
+
+    # ── S35-02: Pipeline workspace test — verify auto-documents routing ───────
+    # auto-documents routes to Ollama [coding, general] by design.
+    # This test verifies the workspace returns domain-relevant content (any model).
+    print(f"  ── S35-02: Pipeline workspace test (auto-documents → Ollama routing) ──")
+    await _workspace_test_with_retry(
+        sec,
+        "S35-02",
+        "auto-documents",
+        prompt,
+        signals,
     )
 
 
@@ -4287,22 +4375,23 @@ async def S13() -> None:
             try:
                 ar = None
                 api_data = None
-                for attempt in range(5):
+                for attempt in range(10):
                     ar = httpx.get(
                         f"{OPENWEBUI_URL}/api/v1/models",
                         headers={"Authorization": f"Bearer {token}"},
-                        timeout=5,
+                        timeout=15,
                     )
                     if ar.status_code == 200 and ar.text.strip():
                         try:
                             api_data = ar.json()
                             break
                         except Exception:
-                            # Non-JSON body (OW auth race) — retry
-                            if attempt < 4:
-                                time.sleep(3)
+                            # Non-JSON body (OW auth race) — retry with longer wait
+                            wait = 5 if attempt < 3 else 3
+                            if attempt < 9:
+                                time.sleep(wait)
                             continue
-                    if attempt < 4:
+                    if attempt < 9:
                         time.sleep(3)
                 if api_data is not None:
                     api_ids = {
@@ -5045,7 +5134,8 @@ async def S22() -> None:
         try:
             async with httpx.AsyncClient(timeout=5) as c:
                 r = await c.get(f"{MLX_URL}/health")
-                if r.status_code == 200:
+                if r.status_code in (200, 503):
+                    # state=none returns HTTP 503 (no model loaded) — proxy IS running
                     state = r.json()
                     active_server = state.get("active_server", "none")
                     proxy_state = state.get("state", "unknown")
@@ -5068,9 +5158,9 @@ async def S22() -> None:
                         s22_restart_attempted = True
                 else:
                     s22_state_detail = f"HTTP {r.status_code}"
-                    # 503 means proxy is down or degraded — restart if not yet tried
-                    if r.status_code == 503 and not s22_restart_attempted:
-                        print(f"  🔄 S22: proxy 503, attempting restart...")
+                    # Non-200/503 (connection error, unexpected status) — restart once
+                    if not s22_restart_attempted:
+                        print(f"  🔄 S22: proxy HTTP {r.status_code}, attempting restart...")
                         _restore_mlx_proxy()
                         s22_restart_attempted = True
         except Exception as e:
@@ -5116,7 +5206,16 @@ async def S22() -> None:
         record(sec, "S22-02", "MLX proxy /v1/models", "WARN", str(e), t0=t0)
 
     # Verify MLX-routed workspace can complete a request
-    # auto-coding uses MLX (Qwen3-Coder-Next or Qwen3-Coder-30B)
+    # auto-coding uses MLX (Qwen3-Coder-Next or Qwen3-Coder-30B).
+    # S22 runs after S37 (VLM). The proxy may still be switching after S37's Gemma load.
+    # Wait up to 180s for it to reach a stable state before sending the auto-coding request.
+    print("  ── S22-03: waiting for MLX proxy to stabilize after S37 VLM section ──")
+    _s22_ready = await _wait_for_mlx_ready(timeout=180)
+    if not _s22_ready:
+        # Proxy didn't settle — try loading the coding model directly
+        await _unload_ollama_models()
+        await _load_mlx_model("Qwen3-Coder-Next-4bit")
+        await _wait_for_mlx_ready(timeout=120, expected_model="Qwen3-Coder-Next")
     t0 = time.time()
     code, text = await _chat(
         "auto-coding",
@@ -5374,6 +5473,9 @@ def _kill_mlx_proxy() -> bool:
             if ports_clear:
                 break
             time.sleep(0.5)
+        # Extra sleep after port clear — macOS TIME_WAIT state persists briefly
+        # even after lsof shows no listeners, causing EADDRINUSE on new server startup
+        time.sleep(3)
 
         # Verify proxy is actually down
         try:
@@ -5410,8 +5512,24 @@ def _restore_mlx_proxy() -> bool:
     try:
         # Kill any orphaned proxy or server processes first
         for pattern in ["mlx-proxy", "mlx_lm.server", "mlx_vlm.server"]:
-            subprocess.run(["pkill", "-f", pattern], capture_output=True, timeout=5)
-        time.sleep(3)
+            subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True, timeout=5)
+        time.sleep(2)
+
+        # Force-clear ports 8081, 18081, 18082 — pkill may leave sockets in TIME_WAIT
+        # which prevents the new server from binding. Use lsof+kill to ensure port release.
+        for port in [8081, 18081, 18082]:
+            try:
+                r = subprocess.run(
+                    ["lsof", "-ti", f":{port}"],
+                    capture_output=True, text=True, timeout=5
+                )
+                for pid_str in r.stdout.strip().split("\n"):
+                    if pid_str.strip():
+                        subprocess.run(["kill", "-9", pid_str.strip()], capture_output=True, timeout=3)
+            except Exception:
+                pass
+        # Wait for OS to release ports (TIME_WAIT state can persist briefly)
+        time.sleep(5)
 
         # Try the repo scripts/ path first, then fallback to ~/.portal5/
         proxy_script = ROOT / "scripts" / "mlx-proxy.py"
@@ -5427,10 +5545,16 @@ def _restore_mlx_proxy() -> bool:
         # Wait up to 240s for proxy to become healthy.
         # 31B+ MLX models (gemma-4-31b, Qwen3.5-35B) take 45-90s to cold-load
         # on Apple Silicon with unified memory. Prior runs showed restores at 185s.
-        for _ in range(240):
+        # NOTE: Accept state=switching after 10s — the proxy may immediately enter
+        # switching if a queued request (e.g. from a prior timed-out pipeline request)
+        # triggers a model load right after startup. The proxy IS running in that case.
+        # 300s: prior run showed S23-12-restore at 250.5s — 240s was too tight.
+        _switching_start: float | None = None
+        for i in range(300):
             try:
                 r = httpx.get(f"{MLX_URL}/health", timeout=5)
-                if r.status_code == 200:
+                if r.status_code in (200, 503):
+                    # state=none returns HTTP 503 (proxy running, no model loaded) — valid
                     data = r.json()
                     state = data.get("state", "")
                     if state == "ready":
@@ -5442,17 +5566,22 @@ def _restore_mlx_proxy() -> bool:
                             return True
                         # Proxy says ready but log not confirmed yet — keep polling
                     elif state == "none":
-                        # Proxy is running with no model loaded — this IS a valid
-                        # restored state. The proxy will load a model on first request.
+                        # Proxy is running with no model loaded — valid restored state.
                         print(f"  ✅ Proxy restored (state=none — will load model on demand)")
                         return True
                     elif state == "switching":
-                        pass  # Still loading, keep polling
+                        # Proxy is alive and loading a model. After 10s in switching state
+                        # we accept this as a valid restored state — the proxy is running.
+                        if _switching_start is None:
+                            _switching_start = time.time()
+                        elif time.time() - _switching_start >= 10:
+                            print(f"  ✅ Proxy restored (state=switching — model loading in progress)")
+                            return True
                     elif state in ("degraded", "down"):
                         print(f"  ❌ MLX proxy entered {state} during restore")
                         return False
             except Exception:
-                pass
+                _switching_start = None  # Reset on connection error
             time.sleep(1)
         return False
     except Exception:
@@ -5729,7 +5858,9 @@ async def S23() -> None:
 
     # S23-02: Verify _chat_with_model captures model identity
     t0 = time.time()
-    code, text, model = await _chat_with_model("auto", "Say PONG", max_tokens=20, timeout=30)
+    # 'auto' workspace uses Ollama general; timeout=120 to allow Ollama model reload
+    # after _unload_ollama_models() was called in earlier MLX sections (e.g. S35)
+    code, text, model = await _chat_with_model("auto", "Say PONG", max_tokens=20, timeout=120)
     if code == 200 and model:
         record(
             sec,
@@ -5769,7 +5900,8 @@ async def S23() -> None:
         try:
             async with httpx.AsyncClient(timeout=5) as _hc:
                 _hr = await _hc.get(f"{MLX_URL}/health")
-                _s = _hr.json().get("state", "unknown") if _hr.status_code == 200 else "unreachable"
+                # state=none returns HTTP 503 (no model loaded, can't serve) — still running
+                _s = _hr.json().get("state", "unknown") if _hr.status_code in (200, 503) else "unreachable"
         except Exception:
             _s = "unreachable"
         if _s in ("down", "unreachable"):
@@ -5777,14 +5909,15 @@ async def S23() -> None:
             _restore_mlx_proxy()
             await asyncio.sleep(2)
         # Trigger LM model load (Qwen3-Coder-Next is the default coding model)
-        print("  📡 S23 setup: triggering Qwen3-Coder-Next load...")
+        # Qwen3-Coder-Next-4bit is 46GB — cold load takes ~300s on M4 64GB.
+        # Use _prewarm_mlx_proxy which sends an inference request (triggers load)
+        # and then poll until state=ready. _load_mlx_model's background request
+        # returns 408 immediately (proxy rejects during switch), so use prewarm instead.
+        print("  📡 S23 setup: triggering Qwen3-Coder-Next load via prewarm...")
         await _unload_ollama_models()
-        _loaded, _detail = await _load_mlx_model("Qwen3-Coder-Next")
-        if _loaded:
-            print("  ✅ S23 setup: Qwen3-Coder-Next loaded")
-        else:
-            print(f"  ⚠️  S23 setup: load failed: {_detail}")
-    await _wait_for_mlx_ready(timeout=120, expected_model="Qwen3-Coder-Next")
+        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=360)
+    # 360s: 46GB model cold-load takes ~300s; allow margin for model verification
+    await _wait_for_mlx_ready(timeout=360, expected_model="Qwen3-Coder-Next")
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-coding", _WS_PROMPT["auto-coding"], max_tokens=200, timeout=180
@@ -5914,14 +6047,23 @@ async def S23() -> None:
     # Wait for whichever MLX model is currently loaded (any model, not specifically
     # gemma-4 — the VLM may not have loaded due to memory constraints after many
     # model switches in S30-S37). The test checks for any MLX model response.
-    # If the proxy is in state=none (no model), trigger a load of the current coding
-    # model (LM) rather than waiting 300s for gemma-4 that may have OOMed.
-    _s23_08_check = await _wait_for_mlx_ready(timeout=10)
+    # If the proxy is in state=none (no model loaded at all), trigger a LM load.
+    # If state=switching, wait for the current switch to finish — do NOT interrupt it.
+    _s23_08_check = await _wait_for_mlx_ready(timeout=180)
     if not _s23_08_check:
-        # No model loaded — try to trigger any LM load (faster than VLM)
-        print("  📡 S23-08: no MLX model loaded, triggering LM load...")
-        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
-    await _wait_for_mlx_ready(timeout=120)
+        # Still not ready after 180s — check if state=none (no load in progress)
+        try:
+            async with httpx.AsyncClient(timeout=5) as _hc:
+                _hr = await _hc.get(f"{MLX_URL}/health")
+                _s08_state = _hr.json().get("state", "") if _hr.status_code in (200, 503) else ""
+        except Exception:
+            _s08_state = ""
+        if _s08_state == "none":
+            # Proxy is idle — trigger a LM load (faster than VLM)
+            print("  📡 S23-08: proxy state=none, triggering LM load...")
+            await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
+            await _wait_for_mlx_ready(timeout=180)
+        # else: still switching — send request anyway, pipeline will fallback if needed
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-vision", _WS_PROMPT["auto-vision"], max_tokens=200, timeout=180
@@ -5960,8 +6102,19 @@ async def S23() -> None:
         timeout=180,
     )
 
-    # Wait for MLX to recover (log-based)
-    await _wait_for_mlx_ready(timeout=180, expected_model="gemma-4")
+    # After restore, proxy may be in state=none (HTTP 503, no model loaded).
+    # Prewarm if needed so the pipeline marks MLX healthy and S23-10 gets a real response.
+    _s09_post_state = ""
+    try:
+        async with httpx.AsyncClient(timeout=5) as _hc:
+            _hr = await _hc.get(f"{MLX_URL}/health")
+            _s09_post_state = _hr.json().get("state", "") if _hr.status_code in (200, 503) else ""
+    except Exception:
+        _s09_post_state = ""
+    if _s09_post_state == "none":
+        print("  📡 S23-09 post-restore: proxy state=none, prewarming LM for S23-10...")
+        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
+    await _wait_for_mlx_ready(timeout=180)
 
     # S23-10: auto-vision — MLX + vision killed → falls to general
     t0 = time.time()
@@ -5988,13 +6141,22 @@ async def S23() -> None:
         )
 
     # S23-11: auto-reasoning — primary (MLX) path verified
-    # After S23-09/10 restore, the proxy may be in state=none. Actively trigger
-    # a model load if no model is currently ready, rather than waiting 180s passively.
-    _s23_11_check = await _wait_for_mlx_ready(timeout=10)
+    # After S23-09/10 restore, the proxy may be in state=none or state=switching.
+    # Wait for the current switch to complete before triggering any new loads.
+    # Only prewarm if state=none (proxy idle with no model loading).
+    _s23_11_check = await _wait_for_mlx_ready(timeout=180)
     if not _s23_11_check:
-        print("  📡 S23-11: no MLX model loaded, triggering LM load...")
-        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
-    await _wait_for_mlx_ready(timeout=120)
+        try:
+            async with httpx.AsyncClient(timeout=5) as _hc:
+                _hr = await _hc.get(f"{MLX_URL}/health")
+                _s11_state = _hr.json().get("state", "") if _hr.status_code in (200, 503) else ""
+        except Exception:
+            _s11_state = ""
+        if _s11_state == "none":
+            print("  📡 S23-11: proxy state=none, triggering LM load...")
+            await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
+            await _wait_for_mlx_ready(timeout=180)
+        # else: still switching — send request anyway
     t0 = time.time()
     code, text, model = await _chat_with_model(
         "auto-reasoning", _WS_PROMPT["auto-reasoning"], max_tokens=200, timeout=180
@@ -6033,7 +6195,18 @@ async def S23() -> None:
         timeout=180,
     )
 
-    # Wait for MLX to recover (log-based)
+    # After restore, proxy may be in state=none (HTTP 503, no model loaded).
+    # Prewarm if needed so S23-13 gets an MLX response (not just Ollama).
+    _s12_post_state = ""
+    try:
+        async with httpx.AsyncClient(timeout=5) as _hc:
+            _hr = await _hc.get(f"{MLX_URL}/health")
+            _s12_post_state = _hr.json().get("state", "") if _hr.status_code in (200, 503) else ""
+    except Exception:
+        _s12_post_state = ""
+    if _s12_post_state == "none":
+        print("  📡 S23-12 post-restore: proxy state=none, prewarming LM for S23-13...")
+        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=180)
     await _wait_for_mlx_ready(timeout=180)
 
     # S23-13: auto-reasoning — MLX + reasoning killed → falls to general
@@ -6064,10 +6237,23 @@ async def S23() -> None:
     t0 = time.time()
     _restore_mlx_proxy()
     _restore_ollama_backend()
+    # Prewarm MLX so it enters state=ready (not state=none which returns 503).
+    # The pipeline health check marks MLX unhealthy when it returns 503 (state=none),
+    # so we must trigger a model load before the pipeline poll loop starts.
+    _s14_mlx_state = ""
+    try:
+        async with httpx.AsyncClient(timeout=5) as _hc:
+            _hr = await _hc.get(f"{MLX_URL}/health")
+            _s14_mlx_state = _hr.json().get("state", "") if _hr.status_code in (200, 503) else ""
+    except Exception:
+        _s14_mlx_state = ""
+    if _s14_mlx_state == "none":
+        print("  📡 S23-14: proxy state=none, triggering LM prewarm so pipeline marks MLX healthy...")
+        await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=240)
+        await _wait_for_mlx_ready(timeout=180)
     # Wait for pipeline health check cycle — poll until all backends healthy.
-    # Allow up to 90s (the pipeline health check interval may take a full cycle
-    # to register a restored backend; prior runs showed recovery at ~60-70s).
-    for _ in range(90):
+    # Allow up to 120s: pipeline health_check_interval=15s means up to 8 full cycles.
+    for _ in range(120):
         health = _pipeline_health()
         if health:
             bh = health.get("backends_healthy", 0)
@@ -6224,7 +6410,7 @@ ALL_ORDER = [
     "S32",  # DeepSeek-R1-abliterated-4bit: auto-reasoning/research/data (SWITCH)
     "S33",  # Qwen3.5-35B-Claude-Opus: auto-compliance + 2 personas (SWITCH)
     "S34",  # Magistral-Small: auto-mistral + 1 persona (SWITCH)
-    "S35",  # Qwopus3.5-27B: auto-documents (SWITCH)
+    "S35",  # Qwopus3.5-9B: auto-documents — direct MLX test + pipeline workspace (SWITCH)
     "S36",  # Dolphin3.0-Llama3.1-8B: auto-creative (SWITCH)
     "S37",  # gemma-4-31b-it-4bit: auto-vision + Gemma persona (SWITCH, VLM)
     "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
