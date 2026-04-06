@@ -94,10 +94,10 @@ Post-run assertion fixes (2026-04-05):
       without org is a cache miss, not a download trigger.
     - Added _unload_ollama_models(): queries Ollama /api/ps for loaded models, then
       sends keep_alive=0 to evict each. Called by _mlx_group() before every large MLX
-      model load and by S18/S19 before ComfyUI. Prevents Metal GPU OOM crashes caused
-      by resident Ollama models (e.g. dolphin-llama3:8b from S3 staying loaded in
-      unified memory alongside a 46GB MLX model). Ollama keep_alive=-1 was keeping
-      models hot indefinitely — eviction recovers 5-48GB before each MLX section.
+      model load. Prevents Metal GPU OOM crashes caused by resident Ollama models
+      (e.g. dolphin-llama3:8b from S3 staying loaded in unified memory alongside a
+      46GB MLX model). Ollama keep_alive=-1 was keeping models hot indefinitely —
+      eviction recovers 5-48GB before each MLX section.
     - --section: extended to accept comma-separated list (S3,S11,S22) and range syntax
       (S3-S11). S17 (infra check) is always prepended unless it is the only section
       requested.
@@ -154,9 +154,6 @@ MLX_URL = os.environ.get("MLX_LM_URL", "http://localhost:8081").replace(
 SEARXNG_URL = "http://localhost:8088"
 PROMETHEUS_URL = "http://localhost:9090"
 GRAFANA_URL = "http://localhost:3000"
-COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://localhost:8188").replace(
-    "host.docker.internal", "localhost"
-)
 
 API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
@@ -172,7 +169,6 @@ MCP = {
     "tts": int(os.environ.get("TTS_HOST_PORT", "8916")),
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
-    "comfyui_mcp": int(os.environ.get("COMFYUI_MCP_HOST_PORT", "8910")),
     "video": int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911")),
 }
 
@@ -1066,22 +1062,6 @@ async def S2() -> None:
                 )
             except Exception as e:
                 record(sec, f"S2-{i:02d}", name, "FAIL", str(e)[:80], t0=t0)
-
-    # ComfyUI MCP bridge
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"http://localhost:{MCP['comfyui_mcp']}/health")
-            record(
-                sec,
-                "S2-11",
-                "MCP ComfyUI bridge",
-                "PASS" if r.status_code == 200 else "WARN",
-                f"HTTP {r.status_code}",
-                t0=t0,
-            )
-    except Exception as e:
-        record(sec, "S2-11", "MCP ComfyUI bridge", "WARN", str(e)[:80], t0=t0)
 
     # SearXNG
     t0 = time.time()
@@ -2663,10 +2643,10 @@ async def S9() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# S10 — VIDEO & IMAGE GENERATION MCP
+# S10 — VIDEO MCP (service health + routing)
 # ═══════════════════════════════════════════════════════════════════════════════
 async def S10() -> None:
-    print("\n━━━ S10. VIDEO & IMAGE GENERATION MCP ━━━")
+    print("\n━━━ S10. VIDEO MCP ━━━")
     sec = "S10"
 
     t0 = time.time()
@@ -2714,44 +2694,6 @@ async def S10() -> None:
         f"preview: {text[:80]}" if text else f"HTTP {code}",
         t0=t0,
     )
-
-    # ComfyUI host (optional per KNOWN_LIMITATIONS.md)
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"{COMFYUI_URL}/system_stats")
-            record(
-                sec,
-                "S10-04",
-                f"ComfyUI host at {COMFYUI_URL}",
-                "PASS" if r.status_code == 200 else "WARN",
-                f"HTTP {r.status_code}",
-                t0=t0,
-            )
-    except Exception:
-        record(
-            sec,
-            "S10-04",
-            f"ComfyUI host at {COMFYUI_URL}",
-            "WARN",
-            "not reachable — per KNOWN_LIMITATIONS.md: host-native, optional",
-            t0=t0,
-        )
-
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"http://localhost:{MCP['comfyui_mcp']}/health")
-            record(
-                sec,
-                "S10-05",
-                "ComfyUI MCP bridge health",
-                "PASS" if r.status_code == 200 else "WARN",
-                str(r.json() if r.status_code == 200 else r.status_code),
-                t0=t0,
-            )
-    except Exception as e:
-        record(sec, "S10-05", "ComfyUI MCP bridge health", "WARN", str(e), t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4222,7 +4164,7 @@ async def _unload_ollama_models() -> None:
     Metal GPU OOM crashes. Sending keep_alive=0 to Ollama immediately unloads
     without affecting model availability — the model reloads on the next request.
 
-    Called by _mlx_group() before each model load, and before S18/S19.
+    Called by _mlx_group() before each model load.
     """
     ollama_base = "http://localhost:11434"
     try:
@@ -4247,207 +4189,6 @@ async def _unload_ollama_models() -> None:
             print("  ✅ Ollama models evicted")
     except Exception:
         pass  # Ollama unreachable — not a test blocker
-
-
-# S18 — IMAGE GENERATION MCP (ComfyUI) — Phase 3 (MLX unloaded for max memory)
-# ═══════════════════════════════════════════════════════════════════════════════
-async def _unload_mlx_for_comfyui() -> None:
-    """Unload MLX models before running ComfyUI image/video tests.
-
-    MLX models consume 18-46GB of unified memory. ComfyUI needs max headroom
-    for FLUX/Wan2.2. This sends a signal to the MLX proxy to unload the
-    current model, freeing memory for ComfyUI.
-    """
-    print("  ── Unloading MLX models for ComfyUI tests ──")
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.post(f"{MLX_URL}/unload")
-            if r.status_code == 200:
-                print("  ✅ MLX models unloaded")
-            else:
-                print(f"  ⚠️  MLX unload returned HTTP {r.status_code} (may already be unloaded)")
-    except Exception:
-        print("  ⚠️  MLX proxy not reachable — skipping unload (models may not be loaded)")
-
-
-async def S18() -> None:
-    print("\n━━━ S18. IMAGE GENERATION MCP (ComfyUI) — Phase 3 ━━━")
-    sec = "S18"
-    port = MCP["comfyui_mcp"]
-
-    # Unload MLX + Ollama models to maximise memory headroom for ComfyUI
-    await _unload_mlx_for_comfyui()
-    await _unload_ollama_models()
-
-    # Health check
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"http://localhost:{port}/health")
-            record(
-                sec,
-                "S18-01",
-                "ComfyUI MCP bridge health",
-                "PASS" if r.status_code == 200 else "WARN",
-                str(r.json() if r.status_code == 200 else r.status_code),
-                t0=t0,
-            )
-    except Exception as e:
-        record(sec, "S18-01", "ComfyUI MCP bridge health", "WARN", str(e), t0=t0)
-
-    # list_workflows tool
-    await _mcp(
-        port,
-        "list_workflows",
-        {},
-        section=sec,
-        tid="S18-02",
-        name="list_workflows returns checkpoint list",
-        ok_fn=lambda t: len(t) > 2 or "error" in t.lower() or "[]" in t,
-        detail_fn=lambda t: f"checkpoints: {t[:120]}",
-        timeout=15,
-    )
-
-    # generate_image tool call — actual ComfyUI generation
-    t0 = time.time()
-    try:
-        await _mcp(
-            port,
-            "generate_image",
-            {"prompt": "a red apple on a wooden table, photorealistic", "steps": 4, "seed": 42},
-            section=sec,
-            tid="S18-03",
-            name="generate_image: photorealistic apple",
-            ok_fn=lambda t: (
-                "success" in t.lower()
-                or "url" in t.lower()
-                or "not available" in t.lower()
-                or "timed out" in t.lower()
-                or "rejected" in t.lower()
-            ),
-            detail_fn=lambda t: t[:200],
-            timeout=180,
-        )
-    except Exception as e:
-        record(sec, "S18-03", "generate_image tool call", "FAIL", str(e), t0=t0)
-
-    # ComfyUI host reachability
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"{COMFYUI_URL}/system_stats")
-            record(
-                sec,
-                "S18-04",
-                f"ComfyUI host at {COMFYUI_URL}",
-                "PASS" if r.status_code == 200 else "WARN",
-                f"HTTP {r.status_code}",
-                t0=t0,
-            )
-    except Exception:
-        record(
-            sec,
-            "S18-04",
-            f"ComfyUI host at {COMFYUI_URL}",
-            "WARN",
-            "not reachable — per KNOWN_LIMITATIONS.md: host-native, optional",
-            t0=t0,
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# S19 — VIDEO GENERATION MCP — Phase 3 (MLX unloaded for max memory)
-# ═══════════════════════════════════════════════════════════════════════════════
-async def S19() -> None:
-    print("\n━━━ S19. VIDEO GENERATION MCP — Phase 3 ━━━")
-    sec = "S19"
-    port = MCP["video"]
-
-    # MLX + Ollama should already be unloaded from S18, but verify
-    await _unload_mlx_for_comfyui()
-    await _unload_ollama_models()
-
-    # Health check
-    t0 = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"http://localhost:{port}/health")
-            record(
-                sec,
-                "S19-01",
-                "Video MCP health",
-                "PASS" if r.status_code == 200 else "FAIL",
-                str(r.json() if r.status_code == 200 else r.status_code),
-                t0=t0,
-            )
-    except Exception as e:
-        record(sec, "S19-01", "Video MCP health", "FAIL", str(e), t0=t0)
-
-    # list_video_models tool
-    await _mcp(
-        port,
-        "list_video_models",
-        {},
-        section=sec,
-        tid="S19-02",
-        name="list_video_models returns model list",
-        ok_fn=lambda t: len(t) > 2,
-        detail_fn=lambda t: f"models: {t[:120]}",
-        timeout=15,
-    )
-
-    # generate_video tool call — actual ComfyUI video generation
-    # Video generation takes 2-10 minutes, so we use a generous timeout.
-    # If ComfyUI is not available or no video model is installed, the tool
-    # returns a graceful error message — that's acceptable (WARN, not FAIL).
-    t0 = time.time()
-    try:
-        await _mcp(
-            port,
-            "generate_video",
-            {
-                "prompt": "ocean waves crashing on rocks at sunset",
-                "width": 832,
-                "height": 480,
-                "frames": 16,
-                "steps": 4,
-                "seed": 42,
-            },
-            section=sec,
-            tid="S19-03",
-            name="generate_video: ocean waves at sunset",
-            ok_fn=lambda t: (
-                "success" in t.lower()
-                or "url" in t.lower()
-                or "not available" in t.lower()
-                or "timed out" in t.lower()
-                or "not installed" in t.lower()
-            ),
-            detail_fn=lambda t: t[:200],
-            timeout=300,
-        )
-    except Exception as e:
-        record(sec, "S19-03", "generate_video tool call", "FAIL", str(e), t0=t0)
-
-    # Pipeline round-trip: auto-video workspace
-    t0 = time.time()
-    code, text = await _chat(
-        "auto-video",
-        "Describe a 5-second cinematic shot of ocean waves at golden hour. "
-        "Specify camera angle, lens, lighting, and motion.",
-        max_tokens=300,
-        timeout=120,
-    )
-    signals = ["wave", "ocean", "camera", "light", "golden", "lens"]
-    matched = [s for s in signals if s in text.lower()]
-    record(
-        sec,
-        "S19-04",
-        "auto-video workspace: domain-relevant video description",
-        "PASS" if code == 200 and matched else ("WARN" if code in (503, 408) else "FAIL"),
-        f"preview: {text[:80]}" if text else f"HTTP {code}",
-        t0=t0,
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5871,8 +5612,6 @@ SECTIONS = {
     "S15": S15,
     "S16": S16,
     "S17": S17,
-    "S18": S18,
-    "S19": S19,
     "S20": S20,
     "S21": S21,
     "S22": S22,
@@ -5924,11 +5663,8 @@ ALL_ORDER = [
     "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
     # ── Fallback chain verification (kill/restore backends) ─────────────────
     "S23",  # Fallback chain (kill MLX, verify Ollama fallback, restore)
-    # S18 (Image/ComfyUI) and S19 (Video/ComfyUI) are NOT in the default run.
-    # They live in portal5_acceptance_comfyui.py — a dedicated script for
-    # image/video generation testing. Run that script separately:
-    #   python3 portal5_acceptance_comfyui.py
-    # To target them here: --section S18,S19
+    # Image/video generation (ComfyUI) is in portal5_acceptance_comfyui.py.
+    # Run that script separately: python3 portal5_acceptance_comfyui.py
 ]
 
 
