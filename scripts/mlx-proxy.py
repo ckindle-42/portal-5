@@ -470,10 +470,15 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
             if os.path.exists(log_file):
                 with open(log_file, "r") as f:
                     content = f.read()
-                # "Starting httpd" means model loaded and HTTP server ready
-                if "Starting httpd" in content:
+                # Readiness signals differ by server type:
+                # - mlx_lm.server prints "Starting httpd" (OpenAI-compatible HTTP server)
+                # - mlx_vlm.server (uvicorn/FastAPI) prints "Uvicorn running on" and
+                #   "Application startup complete"
+                _ready_signals = ["Starting httpd", "Uvicorn running on", "Application startup complete"]
+                if any(sig in content for sig in _ready_signals):
                     elapsed = time.time() - (deadline - timeout)
-                    print(f"[proxy] model loaded (log confirmed, {elapsed:.0f}s)", flush=True)
+                    matched = next(sig for sig in _ready_signals if sig in content)
+                    print(f"[proxy] model loaded (log confirmed: '{matched}', {elapsed:.0f}s)", flush=True)
                     return True
                 # Check for errors
                 if "Error" in content or "Traceback" in content:
@@ -500,7 +505,8 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
     # Timeout — check one more time
     try:
         with open(log_file, "r") as f:
-            if "Starting httpd" in f.read():
+            content = f.read()
+            if any(sig in content for sig in ["Starting httpd", "Uvicorn running on", "Application startup complete"]):
                 return True
     except Exception:
         pass
