@@ -40,8 +40,15 @@ RUN pip install --no-cache-dir \
     "numpy>=1.24.0" \
     "huggingface_hub>=0.20.0"
 
-# AudioCraft + Stable Audio — NOT supported on aarch64 Linux (missing torchtext==0.16.0, xformers build failures).
-# music_mcp degrades gracefully with a helpful error message. Install on x86_64+CUDA host if needed.
+# Music generation via HuggingFace transformers (MusicGen — facebook/musicgen-*)
+# Works on aarch64 Linux (CPU), macOS (MPS), and Linux x86_64 (CUDA).
+# AudioCraft is NOT used — it requires torchtext==0.16.0 and xformers which have no aarch64 wheels.
+# torch CPU wheels for aarch64 Linux are available from PyPI since PyTorch 2.1.
+RUN pip install --no-cache-dir \
+    "torch>=2.1.0" \
+    "torchaudio>=2.1.0" \
+    "transformers>=4.40.0" \
+    "scipy>=1.11.0"
 
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \

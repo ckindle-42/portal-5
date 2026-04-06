@@ -1262,7 +1262,7 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
     # vision (MLX gemma-4-31b-it-4bit)
     ("mlx/vision", ["auto-vision"]),
     # ── Phase 3: Image/Video LAST (unload MLX, max memory headroom) ─────────
-    # video and music — ComfyUI/Wan2.2 and AudioCraft need unified memory
+    # video and music — Wan2.2 and MusicGen need unified memory headroom
     ("media/video-music", ["auto-video", "auto-music"]),
 ]
 
@@ -2441,7 +2441,7 @@ async def S7() -> None:
         tid="S7-02",
         name="generate_music: 5s lo-fi",
         ok_fn=lambda t: (
-            "success" in t.lower() or "audiocraft" in t.lower() or "not installed" in t.lower()
+            "success" in t.lower() or "missing" in t.lower() or "not available" in t.lower()
         ),
         detail_fn=lambda t: t[:120],
         timeout=120,

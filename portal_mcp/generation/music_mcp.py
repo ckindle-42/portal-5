@@ -1,11 +1,14 @@
 """
 Music Generation MCP Server
-Wraps Meta AudioCraft/MusicGen for local music generation.
-Exposes: generate_music, generate_continuation
+Wraps HuggingFace MusicGen (facebook/musicgen-*) for local music generation.
+Exposes: generate_music, generate_continuation, list_music_models
 
-Requires: pip install audiocraft
-Models are downloaded automatically on first use from HuggingFace.
-Start with: python -m mcp.generation.music_mcp
+Uses the `transformers` library instead of AudioCraft — same models, same quality,
+works on aarch64 Linux (Docker on Apple Silicon), macOS MPS, and CUDA.
+AudioCraft is NOT used: its torchtext/xformers dependencies have no aarch64 wheels.
+
+Models are downloaded automatically on first use from HuggingFace (via HF_HOME).
+Start with: python -m portal_mcp.generation.music_mcp
 """
 
 import asyncio
@@ -16,7 +19,6 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
-from portal_mcp.generation.utils import get_torch_device
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
 mcp = FastMCP("music-generation")
@@ -31,15 +33,15 @@ async def health_check(request):
 TOOLS_MANIFEST = [
     {
         "name": "generate_music",
-        "description": "Generate music using Meta AudioCraft/MusicGen or Stable Audio",
+        "description": "Generate music using HuggingFace MusicGen (facebook/musicgen-*)",
         "parameters": {
             "type": "object",
             "properties": {
                 "prompt": {"type": "string", "description": "Description of the music to generate"},
-                "duration": {"type": "number", "description": "Duration in seconds", "default": 10},
+                "duration": {"type": "number", "description": "Duration in seconds (5-30)", "default": 10},
                 "model": {
                     "type": "string",
-                    "description": "Model size (small, medium, large, stable-audio)",
+                    "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB)",
                     "default": "medium",
                 },
             },
@@ -48,7 +50,7 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "generate_continuation",
-        "description": "Continue or extend a piece of music using a melody as input",
+        "description": "Continue or extend a piece of music using a melody WAV as input",
         "parameters": {
             "type": "object",
             "properties": {
@@ -58,7 +60,7 @@ TOOLS_MANIFEST = [
                 },
                 "melody_path": {
                     "type": "string",
-                    "description": "Path to a WAV/MP3 file to use as melodic conditioning",
+                    "description": "Path to a WAV file to use as melodic conditioning",
                 },
                 "duration": {
                     "type": "number",
@@ -104,7 +106,7 @@ def _cleanup_old_music_files() -> None:
     music_files = sorted(
         OUTPUT_DIR.glob("music_*.wav"),
         key=lambda f: f.stat().st_mtime,
-        reverse=True,  # newest first
+        reverse=True,
     )
     for old_file in music_files[MAX_MUSIC_FILES:]:
         with contextlib.suppress(OSError):
@@ -112,41 +114,201 @@ def _cleanup_old_music_files() -> None:
             logger.info("Cleaned up old music file: %s", old_file.name)
 
 
-def _check_audiocraft() -> tuple[bool, str]:
+def _check_musicgen() -> tuple[bool, str]:
+    """Check that transformers, torch, and scipy are importable."""
+    missing = []
+    for pkg in ("transformers", "torch", "scipy"):
+        try:
+            __import__(pkg)
+        except ImportError:
+            missing.append(pkg)
+    if missing:
+        return False, f"Missing: {', '.join(missing)}. Run: pip install torch transformers scipy"
+    return True, ""
+
+
+def _get_device() -> str:
+    """Select best available torch device: MPS → CUDA → CPU."""
     try:
-        import audiocraft  # noqa: F401
-
-        return True, ""
-    except ImportError:
-        return (
-            False,
-            "AudioCraft is not available on this platform (aarch64 Linux). Music generation requires an x86_64+CUDA host or running mcp-music on a compatible node.",
-        )
-
-
-def _check_stable_audio() -> tuple[bool, str]:
-    try:
-        import stable_audio_tools  # noqa: F401
-
-        return True, "stable-audio-tools available"
-    except ImportError:
-        return False, "stable-audio-tools not installed"
+        import torch
+        if torch.backends.mps.is_available():
+            return "mps"
+        if torch.cuda.is_available():
+            return "cuda"
+    except Exception:
+        pass
+    return "cpu"
 
 
-# Module-level MusicGen model cache — keyed by model size (small/medium/large).
-# Avoids re-loading the model graph from disk on every call (P2).
-_musicgen_cache: dict[str, Any] = {}  # type: ignore[valid-type]
+# Module-level cache: model_size → (processor, model)
+# Loaded once per process, kept in memory for subsequent calls.
+_musicgen_cache: dict[str, tuple[Any, Any]] = {}
 
 
-def _get_musicgen_model(model_size: str) -> Any:  # type: ignore[type-arg]
-    """Return cached MusicGen model for the given size, loading once per process (P2)."""
+def _load_musicgen(model_size: str) -> tuple[Any, Any]:
+    """Return cached (processor, model) for the given size, loading once per process."""
     if model_size not in _musicgen_cache:
-        from audiocraft.models import MusicGen
+        from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
         model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Loading MusicGen %s (first-time, cached for subsequent calls)", model_name)
-        _musicgen_cache[model_size] = MusicGen.get_pretrained(model_name)
+        logger.info("Loading MusicGen %s (first-time load, cached for subsequent calls)", model_name)
+        processor = AutoProcessor.from_pretrained(model_name)
+        model = MusicgenForConditionalGeneration.from_pretrained(model_name)
+        device = _get_device()
+        logger.info("MusicGen using device: %s", device)
+        model = model.to(device)
+        _musicgen_cache[model_size] = (processor, model)
+        logger.info("MusicGen %s loaded successfully", model_name)
     return _musicgen_cache[model_size]
+
+
+def _tokens_for_duration(duration: float) -> int:
+    """MusicGen generates audio tokens at 50 Hz — convert seconds to token count."""
+    return int(duration * 50)
+
+
+def _generate_sync(
+    prompt: str,
+    duration: float,
+    model_size: str,
+    top_k: int,
+    temperature: float,
+    guidance_scale: float,
+) -> dict:
+    """Synchronous MusicGen generation via transformers."""
+    try:
+        import numpy as np
+        import scipy.io.wavfile as wavfile
+        import torch
+
+        processor, model = _load_musicgen(model_size)
+        device = next(model.parameters()).device
+
+        inputs = processor(text=[prompt], padding=True, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        max_new_tokens = _tokens_for_duration(duration)
+        logger.info("Generating %.1fs of music: %s", duration, prompt[:80])
+
+        gen_kwargs: dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "guidance_scale": guidance_scale,
+        }
+        if temperature != 1.0 or top_k != 250:
+            gen_kwargs["do_sample"] = True
+            gen_kwargs["temperature"] = temperature
+            gen_kwargs["top_k"] = top_k
+
+        with torch.no_grad():
+            audio_values = model.generate(**inputs, **gen_kwargs)
+
+        sampling_rate = model.config.audio_encoder.sampling_rate  # 32000 Hz
+        audio_data = audio_values[0, 0].cpu().float().numpy()
+
+        # Normalize and convert to int16 for WAV
+        peak = np.abs(audio_data).max()
+        if peak > 0:
+            audio_data = audio_data / peak
+        audio_int16 = (audio_data * 32767).astype(np.int16)
+
+        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
+        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
+        wavfile.write(str(output_file), sampling_rate, audio_int16)
+
+        actual_duration = len(audio_data) / sampling_rate
+        return {
+            "success": True,
+            "path": str(output_file),
+            "duration_seconds": round(actual_duration, 2),
+            "sample_rate": sampling_rate,
+            "prompt": prompt,
+            "model": f"facebook/musicgen-{model_size}",
+            "device": str(device),
+        }
+    except Exception as e:
+        logger.exception("Music generation failed")
+        return {"success": False, "error": str(e)}
+
+
+def _generate_with_melody_sync(
+    prompt: str,
+    duration: float,
+    model_size: str,
+    melody_path: str,
+    top_k: int,
+    temperature: float,
+    guidance_scale: float,
+) -> dict:
+    """Synchronous MusicGen melody-conditioned generation via transformers."""
+    try:
+        import numpy as np
+        import scipy.io.wavfile as wavfile
+        import torch
+        import torchaudio
+
+        processor, model = _load_musicgen(model_size)
+        device = next(model.parameters()).device
+
+        # Load melody and resample to processor's expected rate (32000 Hz)
+        waveform, sr = torchaudio.load(melody_path)
+        target_sr = processor.feature_extractor.sampling_rate
+        if sr != target_sr:
+            waveform = torchaudio.functional.resample(waveform, sr, target_sr)
+        # Mix to mono if stereo
+        if waveform.shape[0] > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+
+        melody_np = waveform.numpy()
+
+        inputs = processor(
+            audio=melody_np,
+            sampling_rate=target_sr,
+            text=[prompt],
+            padding=True,
+            return_tensors="pt",
+        )
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        max_new_tokens = _tokens_for_duration(duration)
+        logger.info("Generating %.1fs with melody conditioning: %s", duration, prompt[:80])
+
+        gen_kwargs: dict[str, Any] = {
+            "max_new_tokens": max_new_tokens,
+            "guidance_scale": guidance_scale,
+        }
+        if temperature != 1.0 or top_k != 250:
+            gen_kwargs["do_sample"] = True
+            gen_kwargs["temperature"] = temperature
+            gen_kwargs["top_k"] = top_k
+
+        with torch.no_grad():
+            audio_values = model.generate(**inputs, **gen_kwargs)
+
+        sampling_rate = model.config.audio_encoder.sampling_rate
+        audio_data = audio_values[0, 0].cpu().float().numpy()
+
+        peak = np.abs(audio_data).max()
+        if peak > 0:
+            audio_data = audio_data / peak
+        audio_int16 = (audio_data * 32767).astype(np.int16)
+
+        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
+        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
+        wavfile.write(str(output_file), sampling_rate, audio_int16)
+
+        actual_duration = len(audio_data) / sampling_rate
+        return {
+            "success": True,
+            "path": str(output_file),
+            "duration_seconds": round(actual_duration, 2),
+            "sample_rate": sampling_rate,
+            "prompt": prompt,
+            "model": f"facebook/musicgen-{model_size}",
+            "device": str(device),
+        }
+    except Exception as e:
+        logger.exception("Melody continuation failed")
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
@@ -159,242 +321,39 @@ async def generate_music(
     cfg_coef: float = 3.0,
 ) -> dict:
     """
-    Generate music from a text description using Meta MusicGen or Stable Audio.
+    Generate music from a text description using HuggingFace MusicGen.
 
-    Models are downloaded automatically on first use:
-    - small: ~300MB (fast, lower quality)
-    - medium: ~1.5GB (recommended, good quality)
-    - large: ~3.3GB (best quality, needs 16GB+ VRAM or 32GB+ unified memory)
-    - stable-audio: uses Stable Audio Open 1.0 (~3GB, higher quality)
+    Models are downloaded from HuggingFace on first use (cached in HF_HOME):
+    - small:  ~300MB  — fast, lower quality, good for quick tests
+    - medium: ~1.5GB  — recommended, good quality (default)
+    - large:  ~3.3GB  — best quality, slower, needs 16GB+ RAM
+
+    Device priority: MPS (Apple Silicon) → CUDA → CPU.
+    On CPU (Docker/aarch64): ~3-5x realtime (10s clip takes ~30-50s).
 
     Args:
-        prompt: Description of music to generate (e.g., "upbeat jazz piano solo", "dark orchestral")
-        duration: Duration in seconds (default 10.0, max ~30s per generation)
-        model_size: Model size — small, medium, large, or stable-audio (default medium)
-        top_k: Top-k sampling parameter (default 250)
-        temperature: Sampling temperature (default 1.0)
-        cfg_coef: Classifier-free guidance strength (default 3.0; higher = closer to prompt)
+        prompt:      Description of the music (e.g. "upbeat jazz piano solo")
+        duration:    Duration in seconds (5–30, default 10)
+        model_size:  small | medium | large (default medium)
+        top_k:       Top-k sampling (default 250; lower = more focused)
+        temperature: Sampling temperature (default 1.0; lower = more conservative)
+        cfg_coef:    Classifier-free guidance scale (default 3.0; higher = more prompt-faithful)
     """
-    # Clamp duration to valid range
-    duration = max(5.0, min(30.0, duration))
+    duration = max(5.0, min(30.0, float(duration)))
 
-    # Handle stable-audio separately
-    if model_size == "stable-audio":
-        available, error = _check_stable_audio()
-        if not available:
-            return {
-                "success": False,
-                "error": f"stable-audio-tools not available: {error}. Use small/medium/large.",
-            }
-        result = await _generate_stable_audio(prompt, duration)
-        if result.get("success"):
-            _cleanup_old_music_files()
-        return result
+    if model_size not in ("small", "medium", "large"):
+        return {"success": False, "error": "model_size must be: small, medium, or large"}
 
-    available, error = _check_audiocraft()
+    available, error = _check_musicgen()
     if not available:
         return {"success": False, "error": error}
 
-    if model_size not in ("small", "medium", "large"):
-        return {
-            "success": False,
-            "error": "model_size must be one of: small, medium, large, stable-audio",
-        }
-
     result = await asyncio.to_thread(
-        _generate_sync,
-        prompt,
-        duration,
-        model_size,
-        top_k,
-        temperature,
-        cfg_coef,
+        _generate_sync, prompt, duration, model_size, top_k, temperature, cfg_coef
     )
     if result.get("success"):
         _cleanup_old_music_files()
     return result
-
-
-def _generate_sync(
-    prompt: str,
-    duration: float,
-    model_size: str,
-    top_k: int,
-    temperature: float,
-    cfg_coef: float,
-) -> dict:
-    try:
-        import torch
-        import torchaudio
-
-        model = _get_musicgen_model(model_size)
-        model.set_generation_params(
-            duration=duration,
-            top_k=top_k,
-            temperature=temperature,
-            cfg_coef=cfg_coef,
-        )
-
-        model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Generating: %s", prompt[:80])
-        with torch.no_grad():
-            wav = model.generate([prompt])
-
-        sample_rate = model.sample_rate
-        audio_data = wav[0].cpu()
-
-        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
-        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
-        torchaudio.save(str(output_file), audio_data, sample_rate)
-
-        actual_duration = audio_data.shape[-1] / sample_rate
-        return {
-            "success": True,
-            "path": str(output_file),
-            "duration_seconds": round(actual_duration, 2),
-            "sample_rate": sample_rate,
-            "prompt": prompt,
-            "model": model_name,
-        }
-    except Exception as e:
-        logger.exception("Music generation failed")
-        return {"success": False, "error": str(e)}
-
-
-async def _generate_stable_audio(prompt: str, duration: float) -> dict:
-    """Generate music using Stable Audio Open."""
-    return await asyncio.to_thread(_stable_audio_sync, prompt, duration)
-
-
-def _stable_audio_sync(prompt: str, duration: float) -> dict:
-    """Synchronous Stable Audio generation."""
-    try:
-        import torchaudio
-        from stable_audio_tools import get_pretrained_model
-        from stable_audio_tools.inference import generate
-
-        logger.info("Loading Stable Audio Open model...")
-        model, _ = get_pretrained_model("stabilityai/stable-audio-open-1.0")
-        device = get_torch_device()
-        model = model.to(device)
-
-        logger.info("Generating: %s", prompt[:80])
-        # Generate audio
-        output = generate(
-            model=model,
-            prompts=[prompt],
-            duration=duration,
-            cfg_scale=7.5,
-            steps=50,
-        )
-
-        # Extract audio tensor
-        audio = output["audio"][0]  # [channels, samples]
-        if audio.shape[0] > 1:
-            audio = audio.mean(dim=0)  # Mono
-
-        sample_rate = 48000  # Stable Audio uses 48kHz
-        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
-        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
-        torchaudio.save(str(output_file), audio.unsqueeze(0), sample_rate)
-
-        actual_duration = audio.shape[-1] / sample_rate
-        return {
-            "success": True,
-            "path": str(output_file),
-            "duration_seconds": round(actual_duration, 2),
-            "sample_rate": sample_rate,
-            "prompt": prompt,
-            "model": "stabilityai/stable-audio-open-1.0",
-        }
-    except Exception as e:
-        logger.exception("Stable Audio generation failed")
-        return {"success": False, "error": str(e)}
-
-
-def _generate_with_melody_sync(
-    prompt: str,
-    duration: float,
-    model_size: str,
-    melody_path: str,
-    top_k: int,
-    temperature: float,
-    cfg_coef: float,
-) -> dict:
-    """Generate music with melody conditioning using AudioCraft."""
-    try:
-        import torch
-        import torchaudio
-
-        model = _get_musicgen_model(model_size)
-        model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Using cached MusicGen %s for melody continuation", model_name)
-        model.set_generation_params(
-            duration=duration,
-            top_k=top_k,
-            temperature=temperature,
-            cfg_coef=cfg_coef,
-        )
-
-        # Load and resample melody to match model's sample rate
-        melody_waveform, sr = torchaudio.load(melody_path)
-        if sr != model.sample_rate:
-            melody_waveform = torchaudio.functional.resample(melody_waveform, sr, model.sample_rate)
-
-        logger.info("Generating with melody: %s", prompt[:80])
-        with torch.no_grad():
-            wav = model.generate_with_chroma(
-                [prompt], melody_waveform.unsqueeze(0), model.sample_rate
-            )
-
-        sample_rate = model.sample_rate
-        audio_data = wav[0].cpu()
-
-        safe_name = "".join(c if c.isalnum() or c == "_" else "_" for c in prompt[:40]).strip("_")
-        output_file = OUTPUT_DIR / f"music_{safe_name}_{int(duration)}s.wav"
-        torchaudio.save(str(output_file), audio_data, sample_rate)
-
-        actual_duration = audio_data.shape[-1] / sample_rate
-        return {
-            "success": True,
-            "path": str(output_file),
-            "duration_seconds": round(actual_duration, 2),
-            "sample_rate": sample_rate,
-            "prompt": prompt,
-            "model": model_name,
-        }
-    except Exception as e:
-        logger.exception("Melody continuation failed")
-        return {"success": False, "error": str(e)}
-
-
-async def _run_music_generation(
-    prompt: str,
-    duration: float,
-    model_name: str,
-    melody_path: str | None = None,
-) -> dict:
-    """Run music generation, optionally with melody conditioning."""
-    if melody_path:
-        return await asyncio.to_thread(
-            _generate_with_melody_sync,
-            prompt,
-            duration,
-            model_name,
-            melody_path,
-            250,  # top_k default
-            1.0,  # temperature default
-            3.0,  # cfg_coef default
-        )
-    return await asyncio.to_thread(
-        _generate_sync,
-        prompt,
-        duration,
-        model_name,
-        250,  # top_k default
-        1.0,  # temperature default
-        3.0,  # cfg_coef default
-    )
 
 
 @mcp.tool()
@@ -404,29 +363,34 @@ async def generate_continuation(
     duration: int = 10,
     model: str = "medium",
 ) -> dict:
-    """Continue or extend a piece of music using a melody as input.
+    """Continue or extend a piece of music using a melody WAV as input.
 
     Args:
-        prompt: Description of how to continue the music
-        melody_path: Path to a WAV/MP3 file to use as melodic conditioning
-        duration: Duration in seconds (max 30)
-        model: MusicGen model size — small | medium | large
+        prompt:      Description of how to continue the music
+        melody_path: Path to a WAV file to use as melodic conditioning
+        duration:    Duration in seconds (max 30)
+        model:       MusicGen model size — small | medium | large
     """
-    available, error = _check_audiocraft()
+    available, error = _check_musicgen()
     if not available:
-        return {"error": f"AudioCraft not available: {error}", "install": "pip install audiocraft"}
+        return {"error": f"MusicGen not available: {error}"}
 
-    from pathlib import Path as _Path
-
-    melody = _Path(melody_path).resolve()
-    allowed = _Path(OUTPUT_DIR).resolve()
+    melody = Path(melody_path).resolve()
+    allowed = OUTPUT_DIR.resolve()
     if not str(melody).startswith(str(allowed) + os.sep):
         return {"error": "melody_path must be within the output directory"}
     if not melody.exists():
         return {"error": f"Melody file not found: {melody_path}"}
 
-    result = await _run_music_generation(
-        prompt=prompt, duration=duration, model_name=model, melody_path=melody_path
+    result = await asyncio.to_thread(
+        _generate_with_melody_sync,
+        prompt,
+        float(duration),
+        model,
+        str(melody),
+        250,
+        1.0,
+        3.0,
     )
     if result.get("success"):
         _cleanup_old_music_files()
@@ -436,31 +400,24 @@ async def generate_continuation(
 @mcp.tool()
 async def list_music_models() -> dict:
     """List available MusicGen model sizes and their requirements."""
-    audiocraft_available, _ = _check_audiocraft()
-    stable_audio_available, _ = _check_stable_audio()
-
-    models = {
-        "small": {"params": "300M", "vram_gb": 4, "quality": "fast"},
-        "medium": {"params": "1.5B", "vram_gb": 8, "quality": "recommended"},
-        "large": {"params": "3.3B", "vram_gb": 16, "quality": "best"},
-    }
-
-    if stable_audio_available:
-        models["stable-audio"] = {
-            "params": "~3GB",
-            "vram_gb": 8,
-            "quality": "high",
-            "note": "Stable Audio Open 1.0",
-        }
+    available, err = _check_musicgen()
+    device = _get_device() if available else "unavailable"
 
     return {
-        "audiocraft_installed": audiocraft_available,
-        "stable_audio_installed": stable_audio_available,
-        "install_command": "pip install audiocraft stable-audio-tools"
-        if not (audiocraft_available or stable_audio_available)
-        else None,
-        "models": models,
-        "note": "Models are downloaded automatically from HuggingFace on first use.",
+        "backend": "HuggingFace transformers (MusicGen)",
+        "available": available,
+        "error": err if not available else None,
+        "device": device,
+        "models": {
+            "small":  {"params": "300M",  "ram_gb": 2,  "quality": "fast"},
+            "medium": {"params": "1.5B",  "ram_gb": 6,  "quality": "recommended"},
+            "large":  {"params": "3.3B",  "ram_gb": 12, "quality": "best"},
+        },
+        "note": (
+            "Models auto-download from HuggingFace on first use. "
+            "CPU inference: ~3-5x realtime (10s clip ≈ 30-50s on Docker/aarch64). "
+            "MPS inference: ~1-2x realtime on Apple Silicon."
+        ),
     }
 
 
