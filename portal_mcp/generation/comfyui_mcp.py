@@ -117,46 +117,57 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored", or "sdxl"
 
-# FLUX.1 workflow — uses CheckpointLoaderSimple for bundled checkpoints.
-# CheckpointLoaderSimple loads a bundled .safetensors that contains the full
-# FLUX model (UNet + CLIP encoders in one file). This is the standard format
-# for official FLUX.1 models on HuggingFace.
-# Node layout (ComfyUI v0.16):
-#   1: CheckpointLoaderSimple → model[0], clip[1], vae[2]
-#   2: CLIPTextEncode (positive) → conditioning[0]  ← clip from [1,1]
-#   3: CLIPTextEncode (negative) → conditioning[0]  ← clip from [1,1]; empty text
-#   4: EmptyLatentImage  → latent[0]
-#   5: FluxGuidance     → conditioning[0]  ← takes positive conditioning + guidance value
-#   6: KSampler        → latent[0]  ← uses model[0], positive=[5,0], negative=[3,0]
-#   7: VAEDecode       → image[0]  ← samples from [6,0], vae from [1,2]
-#   8: SaveImage
-# ComfyUI v0.16: node IDs must be strings; connections as [node_id, output_index].
+# FLUX.1 workflow — split-loader approach.
+# The official FLUX.1-schnell model from black-forest-labs is UNet-only (no embedded
+# CLIP or VAE). CheckpointLoaderSimple returns None for clip/vae on these files.
+# We use separate DualCLIPLoader (CLIP-L + T5-XXL) and VAELoader (ae.safetensors).
+# Node layout (ComfyUI v0.16+):
+#   1: CheckpointLoaderSimple(ckpt_name) → model[0]  (UNet; clip/vae slots are None)
+#   2: DualCLIPLoader(clip_name1, clip_name2, type="flux") → clip[0]
+#   3: VAELoader(vae_name) → vae[0]
+#   4: CLIPTextEncode (positive) → conditioning[0]  ← clip from [2,0]
+#   5: CLIPTextEncode (negative) → conditioning[0]  ← clip from [2,0]
+#   6: EmptyLatentImage → latent[0]
+#   7: FluxGuidance → conditioning[0]  ← conditioning from [4,0]
+#   8: KSampler → latent[0]  ← model[1,0], positive[7,0], negative[5,0], latent[6,0]
+#   9: VAEDecode → image[0]  ← samples[8,0], vae[3,0]
+#  10: SaveImage
+# All filenames are set dynamically at runtime from env vars (see generate_image).
 FLUX_WORKFLOW = {
     "1": {
-        # ckpt_name is set dynamically at runtime via _get_checkpoint()
-        "inputs": {"ckpt_name": "__FLUX_CKPT__"},
+        "inputs": {"ckpt_name": "flux1-schnell.safetensors"},
         "class_type": "CheckpointLoaderSimple",
     },
     "2": {
-        "inputs": {"text": "", "clip": ["1", 1]},
-        "class_type": "CLIPTextEncode",
+        "inputs": {
+            "clip_name1": "text_encoder/model.safetensors",
+            "clip_name2": "text_encoder_2/model-00001-of-00002.safetensors",
+            "type": "flux",
+        },
+        "class_type": "DualCLIPLoader",
     },
     "3": {
-        # Empty negative conditioning — KSampler requires a conditioning tensor,
-        # not a raw string or empty string. FLUX processes negative conditioning
-        # differently from SD but the node graph must wire a valid CLIPTextEncode output.
-        "inputs": {"text": "", "clip": ["1", 1]},
-        "class_type": "CLIPTextEncode",
+        "inputs": {"vae_name": "ae.safetensors"},
+        "class_type": "VAELoader",
     },
     "4": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "5": {
+        # Empty negative — KSampler requires a conditioning tensor, not empty string.
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "6": {
         "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
         "class_type": "EmptyLatentImage",
     },
-    "5": {
-        "inputs": {"conditioning": ["2", 0], "guidance": 3.5},
+    "7": {
+        "inputs": {"conditioning": ["4", 0], "guidance": 3.5},
         "class_type": "FluxGuidance",
     },
-    "6": {
+    "8": {
         "inputs": {
             "seed": 42,
             "steps": 4,
@@ -164,19 +175,19 @@ FLUX_WORKFLOW = {
             "sampler_name": "euler",
             "scheduler": "simple",
             "model": ["1", 0],
-            "positive": ["5", 0],
-            "negative": ["3", 0],
-            "latent_image": ["4", 0],
+            "positive": ["7", 0],
+            "negative": ["5", 0],
+            "latent_image": ["6", 0],
             "denoise": 1,
         },
         "class_type": "KSampler",
     },
-    "7": {
-        "inputs": {"samples": ["6", 0], "vae": ["1", 2]},
+    "9": {
+        "inputs": {"samples": ["8", 0], "vae": ["3", 0]},
         "class_type": "VAEDecode",
     },
-    "8": {
-        "inputs": {"filename_prefix": "portal_", "images": ["7", 0]},
+    "10": {
+        "inputs": {"filename_prefix": "portal_", "images": ["9", 0]},
         "class_type": "SaveImage",
     },
 }
@@ -222,15 +233,16 @@ _MODEL_CKPT_MAP = {
 
 
 def _get_workflow(model: str | None = None) -> dict:
-    """Get the workflow based on model selection.
+    """Get a deep copy of the workflow for the selected model.
 
     Args:
         model: Model name ('flux', 'flux-uncensored', 'sdxl') or None to use IMAGE_BACKEND env var.
     """
+    import copy
     selected = model or IMAGE_BACKEND
     if selected == "sdxl":
-        return SDXL_WORKFLOW.copy()
-    return FLUX_WORKFLOW.copy()
+        return copy.deepcopy(SDXL_WORKFLOW)
+    return copy.deepcopy(FLUX_WORKFLOW)
 
 
 def _get_checkpoint(model: str | None = None) -> str:
@@ -281,7 +293,9 @@ async def generate_image(
     selected_model = model or IMAGE_BACKEND
 
     if selected_model == "sdxl":
-        # SDXL uses different node IDs and has negative prompt
+        # SDXL: bundled checkpoint — CheckpointLoaderSimple provides model+clip+vae.
+        # Node map: 1=CheckpointLoaderSimple, 2=CLIPTextEncode+, 3=CLIPTextEncode-,
+        #           4=EmptyLatentImage, 5=KSampler, 6=VAEDecode, 7=SaveImage
         workflow["2"]["inputs"]["text"] = prompt
         workflow["3"]["inputs"]["text"] = negative_prompt
         workflow["4"]["inputs"]["width"] = width
@@ -290,18 +304,26 @@ async def generate_image(
         workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 50)
         workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
     else:
-        # FLUX / flux-uncensored node map (see FLUX_WORKFLOW definition):
-        #   2 = CLIPTextEncode (positive), 3 = CLIPTextEncode (negative),
-        #   4 = EmptyLatentImage, 5 = FluxGuidance, 6 = KSampler
-        workflow["2"]["inputs"]["text"] = prompt   # positive CLIPTextEncode
-        workflow["3"]["inputs"]["text"] = negative_prompt or ""
-        workflow["4"]["inputs"]["width"] = width
-        workflow["4"]["inputs"]["height"] = height
-        workflow["6"]["inputs"]["seed"] = seed
-        workflow["6"]["inputs"]["steps"] = min(max(steps, 1), 20)
-        workflow["6"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
-        # Set checkpoint filename based on selected model
+        # FLUX / flux-uncensored: split-loader node map (see FLUX_WORKFLOW definition):
+        #   1=CheckpointLoaderSimple(UNet), 2=DualCLIPLoader, 3=VAELoader,
+        #   4=CLIPTextEncode+, 5=CLIPTextEncode-, 6=EmptyLatentImage,
+        #   7=FluxGuidance, 8=KSampler, 9=VAEDecode, 10=SaveImage
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["text"] = negative_prompt or ""
+        workflow["6"]["inputs"]["width"] = width
+        workflow["6"]["inputs"]["height"] = height
+        workflow["8"]["inputs"]["seed"] = seed
+        workflow["8"]["inputs"]["steps"] = min(max(steps, 1), 20)
+        workflow["8"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
+        # Checkpoint (UNet), CLIP, and VAE filenames from env vars with installed defaults
         workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
+        workflow["2"]["inputs"]["clip_name1"] = os.getenv(
+            "FLUX_CLIP_L_FILE", "text_encoder/model.safetensors"
+        )
+        workflow["2"]["inputs"]["clip_name2"] = os.getenv(
+            "FLUX_CLIP_T5_FILE", "text_encoder_2/model-00001-of-00002.safetensors"
+        )
+        workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
 
     client_id = str(uuid.uuid4())
 
@@ -333,8 +355,8 @@ async def generate_image(
         }
     prompt_id = resp.json()["prompt_id"]
 
-    # Poll for completion
-    for _ in range(120):  # 120 × 1s = 2 min max
+    # Poll for completion (SDXL at 25 steps can take 5+ min on MPS)
+    for _ in range(600):  # 600 × 1s = 10 min max
         await asyncio.sleep(1)
         history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
         history = history_resp.json()
@@ -353,7 +375,7 @@ async def generate_image(
                         "seed": seed,
                     }
 
-    return {"success": False, "error": "Generation timed out after 2 minutes"}
+    return {"success": False, "error": "Generation timed out after 10 minutes"}
 
 
 @mcp.tool()

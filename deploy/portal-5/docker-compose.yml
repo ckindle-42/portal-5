@@ -395,9 +395,9 @@ services:
       - MCP_PORT=8910
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
       - IMAGE_BACKEND=${IMAGE_BACKEND:-flux}
-      - FLUX_UNET_FILE=${FLUX_UNET_FILE:-flux1-schnell.safetensors}
-      - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-clip_l.safetensors}
-      - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-t5xxl_fp8_e4m3fn.safetensors}
+      - FLUX_CKPT_FILE=${FLUX_CKPT_FILE:-flux1-schnell.safetensors}
+      - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-text_encoder/model.safetensors}
+      - FLUX_CLIP_T5_FILE=${FLUX_CLIP_T5_FILE:-text_encoder_2/model-00001-of-00002.safetensors}
       - FLUX_VAE_FILE=${FLUX_VAE_FILE:-ae.safetensors}
     command: ["python", "-m", "portal_mcp.generation.comfyui_mcp"]
     depends_on: []
@@ -423,9 +423,7 @@ services:
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
       - OUTPUT_DIR=/app/data/generated
       - VIDEO_BACKEND=${VIDEO_BACKEND:-wan22}
-      - WAN22_MODEL_FILE=${WAN22_MODEL_FILE:-wan2.2_ti2v_5B_fp16.safetensors}
-      - WAN22_CLIP_FILE=${WAN22_CLIP_FILE:-clip_l.safetensors}
-      - WAN22_VAE_FILE=${WAN22_VAE_FILE:-wan2.2_vae.safetensors}
+      - VIDEO_MODEL_FILE=${VIDEO_MODEL_FILE:-hunyuan-video/diffusion_pytorch_model-00001-of-00006.safetensors}
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
     volumes:

@@ -104,27 +104,44 @@ async def list_tools(request):
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
-# Wan2.2 model filenames — must match filenames in ComfyUI's models/ subdirectories.
-# Run: ls ~/ComfyUI/models/unet/ ~/ComfyUI/models/clip/ ~/ComfyUI/models/vae/
-# to find the actual downloaded filenames, then set these in .env.
-WAN22_MODEL_FILE = os.getenv("WAN22_MODEL_FILE", "wan2.2_ti2v_5B_fp16.safetensors")
-WAN22_CLIP_FILE = os.getenv("WAN22_CLIP_FILE", "clip_l.safetensors")
-WAN22_VAE_FILE = os.getenv("WAN22_VAE_FILE", "wan2.2_vae.safetensors")
+# Video model filename — first shard for sharded models (UNETLoader picks up remaining shards).
+# Default: HunyuanVideo sharded model in models/diffusion_models/hunyuan-video/.
+# Override with VIDEO_MODEL_FILE env var to use a different model.
+VIDEO_MODEL_FILE = os.getenv(
+    "VIDEO_MODEL_FILE",
+    "hunyuan-video/diffusion_pytorch_model-00001-of-00006.safetensors",
+)
 
-# Wan2.2 T2V workflow — uses UNETLoader + CLIPLoader + VAELoader + EmptyHunyuanLatentVideo
-# Output via VHS_VideoCombine (ComfyUI-VideoHelperSuite) — outputs "gifs" key in history.
-# ComfyUI v0.16.3: node IDs are strings; EmptyHunyuanLatentVideo uses "length" (not "video_frames").
+# Wan2.2 / HunyuanVideo T2V workflow — UNETLoader approach.
+# Uses UNETLoader for the video diffusion model (looks in models/diffusion_models/).
+# CLIPTextEncode with DualCLIPLoader is used for text encoding.
+# Output pipeline: KSampler → VAEDecode (IMAGE batch) → CreateVideo → SaveVideo.
+# Node layout (ComfyUI v0.16+):
+#   1: UNETLoader(unet_name) → model[0]
+#   2: DualCLIPLoader(text_encoder, text_encoder_2, type="hunyuan_video") → clip[0]
+#   3: VAELoader(ae.safetensors) → vae[0]
+#   4: CLIPTextEncode (positive) → conditioning[0]
+#   5: CLIPTextEncode (negative) → conditioning[0]
+#   6: EmptyHunyuanLatentVideo → latent[0]
+#   7: KSampler → latent[0]
+#   8: VAEDecode → image[0]  (batch of frames)
+#   9: CreateVideo → video[0]
+#  10: SaveVideo
 _WAN22_T2V_WORKFLOW: dict = {
     "1": {
-        "inputs": {"model_name": WAN22_MODEL_FILE},
+        "inputs": {"unet_name": VIDEO_MODEL_FILE, "weight_dtype": "default"},
         "class_type": "UNETLoader",
     },
     "2": {
-        "inputs": {"model_name": WAN22_CLIP_FILE},
-        "class_type": "CLIPLoader",
+        "inputs": {
+            "clip_name1": "hunyuan-clip/model.safetensors",
+            "clip_name2": "hunyuan-clip-2/model-00001-of-00002.safetensors",
+            "type": "hunyuan_video",
+        },
+        "class_type": "DualCLIPLoader",
     },
     "3": {
-        "inputs": {"model_name": WAN22_VAE_FILE},
+        "inputs": {"vae_name": "ae.safetensors"},
         "class_type": "VAELoader",
     },
     "4": {
@@ -139,7 +156,7 @@ _WAN22_T2V_WORKFLOW: dict = {
         "inputs": {
             "width": 832,
             "height": 480,
-            "length": 81,
+            "length": 16,
             "batch_size": 1,
         },
         "class_type": "EmptyHunyuanLatentVideo",
@@ -164,15 +181,17 @@ _WAN22_T2V_WORKFLOW: dict = {
         "class_type": "VAEDecode",
     },
     "9": {
+        "inputs": {"images": ["8", 0], "fps": 16.0},
+        "class_type": "CreateVideo",
+    },
+    "10": {
         "inputs": {
+            "video": ["9", 0],
             "filename_prefix": "portal_video_",
-            "images": ["8", 0],
-            "fps": 16,
-            "format": "video/h264-mp4",
-            "pingpong": False,
-            "save_output": True,
+            "format": "mp4",
+            "codec": "h264",
         },
-        "class_type": "VHS_VideoCombine",
+        "class_type": "SaveVideo",
     },
 }
 
@@ -226,10 +245,11 @@ _COGVIDEOX_WORKFLOW: dict = {
 
 
 def _get_workflow() -> dict:
-    """Get the workflow based on VIDEO_BACKEND env var."""
+    """Get a deep copy of the workflow based on VIDEO_BACKEND env var."""
+    import copy
     if VIDEO_BACKEND == "cogvideox":
-        return _COGVIDEOX_WORKFLOW.copy()
-    return _WAN22_T2V_WORKFLOW.copy()
+        return copy.deepcopy(_COGVIDEOX_WORKFLOW)
+    return copy.deepcopy(_WAN22_T2V_WORKFLOW)
 
 
 @mcp.tool()
@@ -282,11 +302,11 @@ async def generate_video(
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
     else:
-        # Wan2.2: UNETLoader(1), CLIPLoader(2), VAELoader(3), CLIPTextEncode(4),
-        # CLIPTextEncode(5), EmptyHunyuanLatentVideo(6), KSampler(7),
-        # VAEDecode(8), VHS_VideoCombine(9)
+        # Wan2.2/HunyuanVideo: UNETLoader(1), DualCLIPLoader(2), VAELoader(3),
+        # CLIPTextEncode+(4), CLIPTextEncode-(5), EmptyHunyuanLatentVideo(6),
+        # KSampler(7), VAEDecode(8), CreateVideo(9), SaveVideo(10)
         if model:
-            workflow["1"]["inputs"]["model_name"] = model
+            workflow["1"]["inputs"]["unet_name"] = model
         workflow["4"]["inputs"]["text"] = prompt
         workflow["5"]["inputs"]["text"] = negative_prompt
         workflow["6"]["inputs"]["width"] = width
@@ -295,7 +315,7 @@ async def generate_video(
         workflow["7"]["inputs"]["seed"] = seed
         workflow["7"]["inputs"]["steps"] = steps
         workflow["7"]["inputs"]["cfg"] = cfg
-        workflow["9"]["inputs"]["fps"] = fps
+        workflow["9"]["inputs"]["fps"] = float(fps)
 
     client_id = str(uuid.uuid4())
 
@@ -306,13 +326,22 @@ async def generate_video(
             json={"prompt": workflow, "client_id": client_id},
         )
         resp.raise_for_status()
-    except (httpx.ConnectError, httpx.HTTPStatusError) as e:
+    except httpx.ConnectError as e:
         return {
             "success": False,
             "error": (
                 f"ComfyUI not available at {COMFYUI_URL}: {e}. "
-                "Install a video model via ComfyUI Manager (Wan2.2 or CogVideoX)."
+                "Ensure ComfyUI is running."
             ),
+        }
+    except httpx.HTTPStatusError as e:
+        try:
+            error_detail = e.response.json().get("error", e.response.text[:200])
+        except Exception:
+            error_detail = e.response.text[:200] if e.response.text else str(e)
+        return {
+            "success": False,
+            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
         }
 
     prompt_id = resp.json()["prompt_id"]
@@ -326,8 +355,12 @@ async def generate_video(
         if prompt_id in history:
             outputs = history[prompt_id].get("outputs", {})
             for node_output in outputs.values():
-                # Wan2.2 uses "gifs", CogVideoX may use "videos"
-                video_files = node_output.get("gifs") or node_output.get("videos") or []
+                # SaveVideo outputs "videos"; VHS_VideoCombine uses "gifs"
+                video_files = (
+                    node_output.get("videos")
+                    or node_output.get("gifs")
+                    or []
+                )
                 if video_files and isinstance(video_files, list) and len(video_files) > 0:
                     filename = (
                         video_files[0].get("filename")
@@ -360,45 +393,51 @@ async def generate_video(
 @mcp.tool()
 async def list_video_models() -> list[str]:
     """List available video model checkpoints in ComfyUI."""
-    video_keywords = ("cogvideo", "mochi", "wan2", "wan_2", "video", "remix")
+    video_keywords = ("cogvideo", "mochi", "wan2", "wan_2", "hunyuan", "video", "remix", "ltxv")
 
     client = await _get_client()
     try:
-        all_checkpoints: list[str] = []
+        all_models: list[str] = []
 
-        # Check for Wan2.2 models (UNETLoader)
+        # UNETLoader: HunyuanVideo, Wan2.2 etc. (models/diffusion_models/)
         try:
             resp = await client.get(f"{COMFYUI_URL}/object_info/UNETLoader")
             data = resp.json()
-            checkpoints = (
+            models = (
                 data.get("UNETLoader", {})
                 .get("input", {})
                 .get("required", {})
                 .get("model_name", [[]])[0]
             )
-            if checkpoints:
-                all_checkpoints.extend(checkpoints)
+            if models:
+                # Return unique directory prefixes (model names, not shard filenames)
+                seen = set()
+                for m in models:
+                    name = m.split("/")[0] if "/" in m else m
+                    if name not in seen:
+                        seen.add(name)
+                        all_models.append(name)
         except Exception:
-            pass  # UNETLoader not available
+            pass
 
-        # Check for CogVideoX models (CheckpointLoaderSimple)
+        # DiffusersLoader: video/wan2.2 paths (models/diffusers/ subdirs)
         try:
-            resp = await client.get(f"{COMFYUI_URL}/object_info/CheckpointLoaderSimple")
+            resp = await client.get(f"{COMFYUI_URL}/object_info/DiffusersLoader")
             data = resp.json()
-            checkpoints = (
-                data.get("CheckpointLoaderSimple", {})
+            paths = (
+                data.get("DiffusersLoader", {})
                 .get("input", {})
                 .get("required", {})
-                .get("ckpt_name", [[]])[0]
+                .get("model_path", [[]])[0]
             )
-            if checkpoints:
-                all_checkpoints.extend(checkpoints)
+            if paths:
+                all_models.extend(p for p in paths if any(k in p.lower() for k in video_keywords))
         except Exception:
-            pass  # CheckpointLoaderSimple not available
+            pass
 
         # Filter to likely video models
-        video_models = [c for c in all_checkpoints if any(k in c.lower() for k in video_keywords)]
-        return video_models if video_models else all_checkpoints
+        video_models = [m for m in all_models if any(k in m.lower() for k in video_keywords)]
+        return video_models if video_models else all_models
     except Exception as e:
         return [f"Error listing models: {e}"]
 

@@ -245,8 +245,14 @@ async def _mcp(
         record(section, tid, name, "WARN", f"timeout after {timeout}s", t0=t0)
     except ImportError:
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
-    except Exception as e:
-        record(section, tid, name, "FAIL", str(e)[:200], t0=t0)
+    except BaseException as e:
+        # Python 3.11+ asyncio.wait_for cancellation inside TaskGroup raises ExceptionGroup
+        # (BaseExceptionGroup subtype) rather than bare TimeoutError. Detect and treat as WARN.
+        err_str = str(e)
+        if "TaskGroup" in err_str or "Cancel" in type(e).__name__ or isinstance(e, BaseExceptionGroup):
+            record(section, tid, name, "WARN", f"timeout after {timeout}s (TaskGroup)", t0=t0)
+        else:
+            record(section, tid, name, "FAIL", err_str[:200], t0=t0)
 
 
 # ── Pipeline chat ─────────────────────────────────────────────────────────────

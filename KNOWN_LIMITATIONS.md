@@ -103,4 +103,22 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
-*Last updated: 2026-04-05*
+### Video Generation — HunyuanVideo Model Loading Unsupported
+- **ID**: P5-VIDEO-001
+- **Status**: **ACTIVE**
+- **Description**: The HunyuanVideo sharded model in `models/diffusion_models/hunyuan-video/` cannot be loaded by ComfyUI's `UNETLoader` — it returns "Could not detect model type". The `DiffusersLoader` (deprecated) also fails on the HunyuanVideo diffusers-format directory. End-to-end video generation via `portal_mcp/generation/video_mcp.py` is blocked until ComfyUI adds native HunyuanVideo support or the required custom nodes are installed.
+- **Impact**: C8 acceptance tests (video generation via MCP) submit workflows that execute and complete but produce no video output. The MCP tool returns `success: false, error: "Generation completed but no video output found"`.
+- **Mitigation**: Video generation workflows (auto-video workspace, `generate_video` MCP tool) gracefully degrade to returning descriptive failure messages. Pipeline round-trips (C9) remain fully functional for video description and planning tasks. To enable video generation, install the HunyuanVideo ComfyUI custom nodes package.
+- **Last verified**: 2026-04-06
+
+### SDXL Image Generation — Slow on Apple Silicon MPS
+- **ID**: P5-COMFY-001
+- **Status**: **ACTIVE**
+- **Description**: SDXL generation at 25 steps, 1024×1024 exceeds 5 minutes on Apple M4 MPS. The acceptance test C6 timeout (300s) fires before generation completes, and cascading C7 tests time out while SDXL is still running in the ComfyUI queue.
+- **Impact**: C6-02 and C7-02/03/04 acceptance tests report WARN (timeout). The images ARE generated eventually; the issue is test timeout, not generation failure.
+- **Mitigation**: FLUX schnell (4 steps) and SDXL with fewer steps work within timeout. Reduce SDXL steps to ≤8 in test parameters for faster validation.
+- **Last verified**: 2026-04-06
+
+---
+
+*Last updated: 2026-04-06*
