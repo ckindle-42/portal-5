@@ -5924,9 +5924,11 @@ ALL_ORDER = [
     "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
     # ── Fallback chain verification (kill/restore backends) ─────────────────
     "S23",  # Fallback chain (kill MLX, verify Ollama fallback, restore)
-    # ── Image/Video LAST (ComfyUI needs max unified memory headroom) ────────
-    "S18",  # Image generation MCP (ComfyUI) — MLX should be unloaded by S23
-    "S19",  # Video generation MCP — ComfyUI still running
+    # S18 (Image/ComfyUI) and S19 (Video/ComfyUI) are NOT in the default run.
+    # They live in portal5_acceptance_comfyui.py — a dedicated script for
+    # image/video generation testing. Run that script separately:
+    #   python3 portal5_acceptance_comfyui.py
+    # To target them here: --section S18,S19
 ]
 
 
