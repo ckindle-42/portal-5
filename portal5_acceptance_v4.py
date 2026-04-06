@@ -89,6 +89,12 @@ Post-run assertion fixes (2026-04-05):
       directory (stored as models--org--name) and falls back to a network download — which
       should never happen during testing. Models must be pre-downloaded; a bare name
       without org is a cache miss, not a download trigger.
+    - Added _unload_ollama_models(): queries Ollama /api/ps for loaded models, then
+      sends keep_alive=0 to evict each. Called by _mlx_group() before every large MLX
+      model load and by S18/S19 before ComfyUI. Prevents Metal GPU OOM crashes caused
+      by resident Ollama models (e.g. dolphin-llama3:8b from S3 staying loaded in
+      unified memory alongside a 46GB MLX model). Ollama keep_alive=-1 was keeping
+      models hot indefinitely — eviction recovers 5-48GB before each MLX section.
 """
 
 from __future__ import annotations
@@ -3426,6 +3432,11 @@ async def _mlx_group(
         if already_ready:
             print(f"  ✅ Model {model_label} already loaded")
         else:
+            # Evict Ollama models before loading MLX — reclaim unified memory.
+            # Ollama's keep_alive=-1 keeps models resident indefinitely; without
+            # eviction a model used in S3 (e.g. dolphin-llama3:8b, 8GB) stays
+            # loaded alongside a 46GB MLX model, creating Metal GPU OOM pressure.
+            await _unload_ollama_models()
             # Load model — monitor server log for "Starting httpd" signal
             loaded, detail = await _load_mlx_model(model_label)
             if not loaded:
@@ -3437,6 +3448,7 @@ async def _mlx_group(
                     recovered = await _remediate_mlx_crash(crash_info["error"])
                     if recovered:
                         print(f"  ── Retrying model load after crash recovery ──")
+                        await _unload_ollama_models()  # reclaim memory before retry
                         loaded, detail = await _load_mlx_model(model_label)
                         if loaded:
                             print(f"  ✅ Model {model_label} loaded after recovery")
@@ -4185,6 +4197,46 @@ async def S16() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+async def _unload_ollama_models() -> None:
+    """Evict all currently loaded Ollama models from unified memory.
+
+    Ollama keeps models hot for OLLAMA_KEEP_ALIVE (24h by default) and the
+    pipeline sets keep_alive=-1 on every request. This means a model used in
+    S3 (e.g. dolphin-llama3:8b, 8GB) stays resident through all subsequent
+    sections unless explicitly evicted.
+
+    Before loading a large MLX model (e.g. Qwen3-Coder-Next-4bit at 46GB),
+    evicting Ollama models recovers 5-48GB of unified memory and prevents
+    Metal GPU OOM crashes. Sending keep_alive=0 to Ollama immediately unloads
+    without affecting model availability — the model reloads on the next request.
+
+    Called by _mlx_group() before each model load, and before S18/S19.
+    """
+    ollama_base = "http://localhost:11434"
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{ollama_base}/api/ps")
+            if r.status_code != 200:
+                return
+            loaded = r.json().get("models", [])
+            if not loaded:
+                return
+            names = [m["name"] for m in loaded]
+            print(f"  ── Evicting {len(names)} Ollama model(s) from memory: {', '.join(names)} ──")
+            for name in names:
+                try:
+                    await c.post(
+                        f"{ollama_base}/api/generate",
+                        json={"model": name, "keep_alive": 0},
+                        timeout=10,
+                    )
+                except Exception:
+                    pass
+            print("  ✅ Ollama models evicted")
+    except Exception:
+        pass  # Ollama unreachable — not a test blocker
+
+
 # S18 — IMAGE GENERATION MCP (ComfyUI) — Phase 3 (MLX unloaded for max memory)
 # ═══════════════════════════════════════════════════════════════════════════════
 async def _unload_mlx_for_comfyui() -> None:
@@ -4211,8 +4263,9 @@ async def S18() -> None:
     sec = "S18"
     port = MCP["comfyui_mcp"]
 
-    # Unload MLX models to free memory for ComfyUI
+    # Unload MLX + Ollama models to maximise memory headroom for ComfyUI
     await _unload_mlx_for_comfyui()
+    await _unload_ollama_models()
 
     # Health check
     t0 = time.time()
@@ -4298,8 +4351,9 @@ async def S19() -> None:
     sec = "S19"
     port = MCP["video"]
 
-    # MLX should already be unloaded from S18, but verify
+    # MLX + Ollama should already be unloaded from S18, but verify
     await _unload_mlx_for_comfyui()
+    await _unload_ollama_models()
 
     # Health check
     t0 = time.time()
