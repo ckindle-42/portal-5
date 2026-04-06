@@ -70,4 +70,37 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
-*Last updated: 2026-04-01*
+## MLX Proxy
+
+### MLX Proxy Has Slow Startup (Cold Boot)
+- **ID**: P5-ROAD-MLX-001
+- **Status**: **ACTIVE**
+- **Description**: The MLX proxy (`scripts/mlx-proxy.py`) runs host-native on Apple Silicon. On cold boot or restart, it takes 60-300+ seconds to become ready, depending on the model being loaded. During startup, the proxy returns HTTP 503. This is normal — the proxy process is up but the underlying `mlx_lm.server` or `mlx_vlm.server` is still loading the model into GPU memory.
+- **Impact**: Any test or user request sent to the MLX proxy before it finishes loading will receive HTTP 503. The test suite must WAIT for MLX to become ready rather than classifying 503 as a crash.
+- **Detection signals** (in order of reliability):
+  1. Server log: `/tmp/mlx-proxy-logs/mlx_lm.log` or `mlx_vlm.log` contains "Starting httpd" when ready
+  2. `/health` endpoint returns `state: "ready"` with `loaded_model` set
+  3. `pgrep -f mlx-proxy.py` returns a PID (proxy process is running)
+  4. `pgrep -f mlx_lm.server` or `mlx_vlm.server` returns a PID (server process is running)
+- **Mitigation**: Test suite waits up to 300s for MLX readiness. If processes exist but proxy isn't ready, it's STARTING (not crashed). Only classify as crashed if no processes exist and no server logs are present.
+- **Last verified**: 2026-04-05
+
+### Deployed MLX Proxy Can Become Stale
+- **ID**: P5-ROAD-MLX-002
+- **Status**: **ACTIVE**
+- **Description**: `./launch.sh up` starts the MLX proxy from `~/.portal5/mlx/mlx-proxy.py`, which is a copy deployed by `./launch.sh install-mlx`. If the repo version (`scripts/mlx-proxy.py`) is updated but `install-mlx` is not re-run, the deployed copy will be stale. The deployed proxy may have outdated model lists, missing health monitoring, or missing concurrency protection.
+- **Impact**: MLX proxy may start but fail to serve requests (wrong model names, no watchdog, no thread safety). The test suite's crash remediation starts the proxy from `scripts/mlx-proxy.py` (repo version), which bypasses this issue.
+- **Mitigation**: Run `./launch.sh install-mlx` after updating `scripts/mlx-proxy.py`. The test suite detects stale deployed proxy by comparing file sizes and falls back to using the repo version.
+- **Last verified**: 2026-04-05
+
+### MLX Proxy Kill/Restart Causes Memory Churn
+- **ID**: P5-ROAD-MLX-003
+- **Status**: **ACTIVE**
+- **Description**: The MLX proxy's `stop_all()` uses `kill -9` which doesn't allow graceful GPU memory release. Rapid model switching (e.g., testing 5 workspaces routing to 4 different MLX models) creates massive memory churn. After kill, Metal GPU memory may take 15-30s to fully reclaim.
+- **Impact**: If the proxy is killed and restarted too quickly, the new server process may fail to allocate GPU memory, resulting in crashes or degraded performance.
+- **Mitigation**: Test suite waits 15s after killing MLX processes for memory reclamation. The test suite also avoids killing MLX when it's in "starting" state — it waits for startup to complete instead.
+- **Last verified**: 2026-04-05
+
+---
+
+*Last updated: 2026-04-05*

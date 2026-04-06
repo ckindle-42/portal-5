@@ -40,13 +40,8 @@ RUN pip install --no-cache-dir \
     "numpy>=1.24.0" \
     "huggingface_hub>=0.20.0"
 
-# AudioCraft for music generation (may fail on some platforms — graceful fallback)
-RUN pip install --no-cache-dir "audiocraft>=1.3.0" || \
-    echo "WARNING: audiocraft install failed — music_mcp will degrade gracefully"
-
-# Stable Audio for music generation (alternative to AudioCraft)
-RUN pip install --no-cache-dir "stable-audio-tools>=0.1.0" || \
-    echo "WARNING: stable-audio-tools install failed — using audiocraft only"
+# AudioCraft + Stable Audio — NOT supported on aarch64 Linux (missing torchtext==0.16.0, xformers build failures).
+# music_mcp degrades gracefully with a helpful error message. Install on x86_64+CUDA host if needed.
 
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \

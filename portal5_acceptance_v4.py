@@ -24,7 +24,7 @@ Status model:
     PASS    — verified working exactly as documented
     FAIL    — product is running but behavior does not match documentation
     BLOCKED — correct assertion, confirmed product code change required
-    WARN    — environmental (model not pulled, ComfyUI not running, etc.) — not a code bug
+    WARN    — soft failure: request served but response does not fully match assertion
     INFO    — informational, no assertion
 
 Changes from v3:
@@ -41,22 +41,54 @@ Changes from v3:
     - Workspace signal lists expanded for longer/richer responses
 
 Changes from v4 (this run):
-    - Fixed duplicate S3-17 through S3-17f routing tests (were duplicated in code)
-    - Added _wait_for_mlx_ready() helper with retry loop before MLX workspace tests
-    - Fixed _restore_mlx_proxy() to use scripts/mlx-proxy.py instead of ~/.portal5/mlx/
-    - Added MLX memory pressure monitoring — records WARN if memory > 80% before MLX tests
-    - Fixed S20 dispatcher tests to handle host.docker.internal DNS from native context
-    - Fixed _GROUP_MODEL_PATTERNS to match actual model names returned by pipeline
-    - Added pre-section MLX health recovery wait (30s) when proxy is degraded
-    - _chat_with_model: added 3rd retry with increased timeout for cold MLX model loads
-    - _wait_for_mlx_ready: now verifies loaded_model from /health (no more accepting "none" as ready)
-    - Added _check_mlx_server_log() — reads /tmp/mlx-proxy-logs/mlx_{stype}.log for "Starting httpd"
-      (the deterministic signal that model is loaded and serving, same as proxy's own _wait_for_model_loaded)
-    - _mlx_group: passes expected model_label to _wait_for_mlx_ready for model verification
-    - _mlx_group: removed dead switch_delay variable (was defined but never used)
-    - _mlx_group: checks if model already loaded before sending pre-warm request
-    - _restore_mlx_proxy: now requires "ready" state + log confirmation (was accepting "switching")
-    - Pre-flight MLX check now shows loaded_model in output
+    - Added _load_mlx_model() — log-driven model loading: sends request to proxy,
+      monitors server log for "Starting httpd" (deterministic signal, no timers)
+    - Added _mlx_workspace_test() — MLX workspace tests verify response model field
+      matches MLX (not Ollama fallback). Single request, no retry on failure.
+    - Added _mlx_persona_test() — same model verification for MLX persona tests
+    - Added _wait_for_docker_log() — watches docker container logs for startup signals
+    - Added _wait_for_log_file() — watches log files for signal patterns
+    - Added _process_running() — checks if process is running via pgrep
+    - _detect_mlx_crash: distinguishes "starting" (processes exist) from "crashed"
+      (no processes, no logs). Does not kill a starting proxy.
+    - Pre-section MLX check: simplified to log state only, does not try to fix.
+      Non-MLX sections skip MLX check silently when no processes running.
+    - _remediate_mlx_crash: waits for proxy log "Listening on" signal after restart.
+      Does not send blind pre-warm — caller (_mlx_group) triggers model load.
+    - All blind waits replaced with signal-driven checks:
+      pipeline rebuild → docker log "Portal Pipeline started"
+      MCP restart → docker log "Application startup complete"
+      MLX kill → pgrep for process absence
+      port release → lsof for port absence
+      pipeline fallback → retry immediately (response IS the signal)
+      post-restore → pipeline /health backends count
+    - S11-01/S13-03: 3x retry with empty body check for Open WebUI race condition
+    - _workspace_test_with_retry: empty response retry is immediate (no sleep)
+    - KNOWN_LIMITATIONS.md: added P5-ROAD-MLX-001/002/003 for MLX startup behavior
+
+Post-run assertion fixes (2026-04-05):
+    - _load_mlx_model: record log_mtime_before at entry; only treat "Traceback" in
+      server log as a crash signal if the log was modified AFTER function entry.
+      A stale Traceback from a prior crash (log unchanged) is ignored — the function
+      continues waiting for the new server's "Starting httpd" signal. Previously,
+      any Traceback (even pre-existing) caused immediate False return, blocking all
+      MLX sections after a Metal GPU crash during S3.
+    - _detect_mlx_crash: when proxy /health returns state="switching" with
+      consecutive_failures > 20 AND a Traceback is present in the server log,
+      classify as crashed=True (not starting=True). This triggers _remediate_mlx_crash
+      and actual recovery. Previously, state="switching" always returned starting=True
+      regardless of failure count, preventing remediation after a crash.
+    - Pre-section MLX check: when state="switching" AND consecutive_failures > 20
+      AND Traceback in server log, record an explicit WARN with "PROBABLE CRASH"
+      details even for non-MLX sections. Previously this scenario was silent (no
+      record written), making it impossible to detect the crash from test output alone.
+    - Added _MLX_MODEL_FULL_PATHS dict mapping short labels (e.g. "Qwen3-Coder-Next-4bit")
+      to full HuggingFace paths (e.g. "mlx-community/Qwen3-Coder-Next-4bit").
+      _load_mlx_model now resolves the full path before sending to the proxy. Without
+      the org prefix, mlx_lm's snapshot_download cannot locate the locally cached model
+      directory (stored as models--org--name) and falls back to a network download — which
+      should never happen during testing. Models must be pre-downloaded; a bare name
+      without org is a cache miss, not a download trigger.
 """
 
 from __future__ import annotations
@@ -432,9 +464,8 @@ async def _chat_with_model(
                 r = await c.post(f"{PIPELINE_URL}/v1/chat/completions", headers=AUTH, json=body)
                 if r.status_code != 200:
                     # If MLX proxy crashed (502/503) and this is first attempt,
-                    # wait for pipeline to detect and fall back to Ollama
+                    # retry immediately — pipeline will fall back to healthy backend
                     if r.status_code in (502, 503) and attempt == 0:
-                        await asyncio.sleep(15)
                         continue
                     return r.status_code, r.text[:200], ""
                 if stream:
@@ -460,7 +491,7 @@ async def _chat_with_model(
             if attempt == 0 and any(
                 x in str(e).lower() for x in ["502", "connection refused", "connection aborted"]
             ):
-                await asyncio.sleep(15)
+                # Connection error — retry immediately, pipeline will route to healthy backend
                 continue
             return 0, str(e)[:100], ""
     return 503, "MLX proxy down, fallback not available", ""
@@ -669,8 +700,12 @@ async def S17() -> None:
                 f"exit={up_result.returncode}",
                 t0=t0,
             )
-            # Wait for pipeline to become healthy
-            await asyncio.sleep(15)
+            # Wait for pipeline to become healthy — watch docker logs for startup signal
+            found, line = await _wait_for_docker_log(
+                "portal5-pipeline", r"Portal Pipeline started", timeout=120
+            )
+            if found:
+                print(f"  📋 Pipeline started: {line}")
 
     # ── S17-05: Restart unhealthy MCPs ────────────────────────────────────────
     if needs_restart:
@@ -688,7 +723,13 @@ async def S17() -> None:
                 cwd=str(ROOT),
                 timeout=60,
             )
-        await asyncio.sleep(15)
+        # Wait for MCP services to become healthy — watch docker logs
+        for svc in needs_restart:
+            found, line = await _wait_for_docker_log(
+                f"portal5-{svc}", r"Application startup complete|Uvicorn running", timeout=60
+            )
+            if found:
+                print(f"  📋 {svc} started: {line[:80]}")
         # Verify recovery
         recovered = 0
         t0 = time.time()
@@ -1230,6 +1271,228 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
 _INTRA_GROUP_DELAY = 2
 _INTER_GROUP_DELAY = 15
 
+# Maps short model labels (used as human-readable section names) to their full
+# HuggingFace paths. mlx_lm resolves models via HF hub cache using the full path
+# (models--org--name directory). Sending a bare name without org prefix causes
+# snapshot_download to attempt a network download, which is wrong — models must
+# be pre-downloaded. This map ensures _load_mlx_model always sends the correct
+# full path to the proxy.
+_MLX_MODEL_FULL_PATHS: dict[str, str] = {
+    "Qwen3-Coder-Next-4bit": "mlx-community/Qwen3-Coder-Next-4bit",
+    "Qwen3-Coder-30B-A3B-Instruct-8bit": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+    "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+    "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+    "Magistral-Small-2509-MLX-8bit": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
+    "Qwopus3.5-27B-v3-8bit": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+    "Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+    "gemma-4-31b-it-4bit": "mlx-community/gemma-4-31b-it-4bit",
+}
+
+
+async def _load_mlx_model(model: str) -> tuple[bool, str]:
+    """Trigger MLX model load and wait using the server log as signal.
+
+    The proxy's ensure_server() loads the model when it receives a request.
+    The server log at /tmp/mlx-proxy-logs/mlx_{stype}.log is truncated on
+    server start and prints 'Starting httpd' when the model is loaded.
+    This is the deterministic signal — no timers, no guessing.
+
+    Sends the request in a background thread so we can monitor the log
+    without blocking on an HTTP timeout.
+
+    Returns (success, detail).
+    """
+    # Resolve short label to full HF path — mlx_lm resolves models via HF hub cache
+    # using the full "org/name" identifier. A bare name without org causes snapshot_download
+    # to attempt a network download rather than finding the pre-downloaded local cache.
+    full_model = _MLX_MODEL_FULL_PATHS.get(model, model)
+
+    # Determine which server type this model uses
+    stype = "vlm" if any(v in full_model for v in ("gemma-4", "Qwen3-VL", "llava")) else "lm"
+    log_file = f"/tmp/mlx-proxy-logs/mlx_{stype}.log"
+
+    # Record current log state so we can detect when it's truncated (new server start)
+    log_existed_before = os.path.exists(log_file)
+    log_size_before = os.path.getsize(log_file) if log_existed_before else 0
+    # Record mtime so we can distinguish stale Tracebacks (pre-existing crash) from
+    # new Tracebacks (crash during this load attempt)
+    log_mtime_before = os.path.getmtime(log_file) if log_existed_before else 0.0
+
+    # Send request to proxy in background — ensure_server() blocks until model loads
+    import concurrent.futures
+
+    body = {
+        "model": full_model,
+        "messages": [{"role": "user", "content": "Say hello."}],
+        "max_tokens": 5,
+    }
+
+    def _send_request():
+        try:
+            with httpx.Client(timeout=600) as c:
+                c.post(f"{MLX_URL}/v1/chat/completions", json=body)
+        except Exception:
+            pass  # We use the log as signal, not the HTTP response
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_send_request)
+
+    print(f"  📡 Request sent to MLX proxy for {full_model} — monitoring server log...")
+
+    # Wait for the log to be truncated (indicates new server process started)
+    for _ in range(30):
+        await asyncio.sleep(2)
+        if os.path.exists(log_file):
+            current_size = os.path.getsize(log_file)
+            # Log was truncated or new content appeared — server is starting
+            if current_size != log_size_before or not log_existed_before:
+                break
+        if future.done():
+            # Request completed before log appeared — check if it was an error
+            break
+
+    # Now monitor the log for "Starting httpd" — the model-is-loaded signal
+    print(f"  📋 Monitoring {log_file} for 'Starting httpd'...")
+    last_log_check = ""
+    while not future.done() or True:  # Keep checking even if request finished
+        await asyncio.sleep(3)
+        ready, detail = _check_mlx_server_log(stype)
+        if ready:
+            print(f"  📋 Server log confirms: {detail}")
+            executor.shutdown(wait=False)
+            return True, detail
+        # Check for errors — only exit on NEW Tracebacks (written after we started)
+        # A stale Traceback from a prior crash should not block waiting for the new server
+        if "Traceback" in detail:
+            current_mtime = os.path.getmtime(log_file) if os.path.exists(log_file) else 0.0
+            if current_mtime > log_mtime_before:
+                # Log was modified after we started — this is a new crash
+                print(f"  ❌ Server log (new crash): {detail}")
+                executor.shutdown(wait=False)
+                return False, detail
+            # else: stale Traceback from a previous run — fall through normally
+            # (future.done() check below will still fire when request completes)
+            if detail != last_log_check:
+                print(f"  ⏳ Stale Traceback in log (pre-existing crash, ignoring) — waiting for new server...")
+                last_log_check = detail
+            # Don't return False here; let the loop continue watching for log truncation
+        # Print progress if log status changed
+        if detail != last_log_check:
+            print(f"  ⏳ {detail}")
+            last_log_check = detail
+        # If request finished and log still not ready, something went wrong
+        if future.done():
+            # Give it a few more cycles in case log lags behind response
+            for _ in range(5):
+                await asyncio.sleep(2)
+                ready, detail = _check_mlx_server_log(stype)
+                if ready:
+                    print(f"  📋 Server log confirms: {detail}")
+                    return True, detail
+            print(f"  ⚠️  Request completed but server log never showed 'Starting httpd'")
+            executor.shutdown(wait=False)
+            return False, "request completed but model not confirmed via log"
+
+    executor.shutdown(wait=False)
+    return False, "model load did not complete"
+
+
+async def _prewarm_mlx_proxy(model: str = "", timeout: int = 60) -> tuple[int, str]:
+    """Send a request directly to the MLX proxy to trigger model loading.
+
+    The proxy starts with state="none" and won't load a model until it receives
+    a request. This bypasses the pipeline and talks to the proxy directly.
+
+    Returns (status_code, response_text).
+    """
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": "Say hello."}],
+        "max_tokens": 5,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as c:
+            r = await c.post(
+                f"{MLX_URL}/v1/chat/completions",
+                json=body,
+            )
+            return r.status_code, r.text[:200]
+    except Exception as e:
+        return 0, str(e)[:200]
+
+
+def _process_running(pattern: str) -> bool:
+    """Check if a process matching pattern is running via pgrep."""
+    try:
+        r = subprocess.run(
+            ["pgrep", "-f", pattern],
+            capture_output=True,
+            timeout=3,
+        )
+        return r.returncode == 0 and r.stdout.strip() != ""
+    except Exception:
+        return False
+
+
+async def _wait_for_docker_log(
+    container: str, pattern: str, timeout: int = 120
+) -> tuple[bool, str]:
+    """Watch a Docker container's logs for a signal pattern.
+
+    Polls `docker logs --tail` for the pattern. Returns when the signal appears.
+    This is the source of truth — the service itself logs when it's ready.
+
+    Returns (found, matching_line).
+    """
+    import re as _re
+
+    seen_lines: set[str] = set()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = subprocess.run(
+                ["docker", "logs", "--tail", "50", container],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for line in (r.stdout + r.stderr).splitlines():
+                if _re.search(pattern, line, _re.IGNORECASE) and line not in seen_lines:
+                    return True, line.strip()[:120]
+                seen_lines.add(line)
+        except Exception:
+            pass
+        await asyncio.sleep(2)
+    return False, f"pattern '{pattern}' not found in {container} logs after {timeout}s"
+
+
+async def _wait_for_log_file(path: str, pattern: str, timeout: int = 120) -> tuple[bool, str]:
+    """Watch a log file for a signal pattern.
+
+    Polls the file for the pattern. Returns when the signal appears.
+    The log file is the source of truth for host-native processes.
+
+    Returns (found, matching_line).
+    """
+    import re as _re
+
+    deadline = time.time() + timeout
+    last_size = 0
+    while time.time() < deadline:
+        try:
+            if os.path.exists(path):
+                with open(path) as f:
+                    content = f.read()
+                if len(content) != last_size:
+                    last_size = len(content)
+                    for line in reversed(content.strip().splitlines()):
+                        if _re.search(pattern, line, _re.IGNORECASE):
+                            return True, line.strip()[:120]
+        except Exception:
+            pass
+        await asyncio.sleep(2)
+    return False, f"pattern '{pattern}' not found in {path} after {timeout}s"
+
 
 def _check_mlx_server_log(stype: str = "lm") -> tuple[bool, str]:
     """Check the MLX server log for the 'Starting httpd' readiness signal.
@@ -1281,6 +1544,7 @@ async def _wait_for_mlx_ready(timeout: int = 60, expected_model: str | None = No
     last_state = "unknown"
     last_loaded = ""
     log_checked = False
+    startup_logged = False
 
     while time.time() < deadline:
         try:
@@ -1329,11 +1593,36 @@ async def _wait_for_mlx_ready(timeout: int = 60, expected_model: str | None = No
 
                     elif state == "switching":
                         print(f"  🔄 MLX switching to {active}... (loaded={loaded or 'loading'})")
-                        await asyncio.sleep(5)
+                        # Switching — check log for completion signal
+                        log_ready, log_detail = _check_mlx_server_log(active or "lm")
+                        if log_ready:
+                            print(f"  📋 Server log confirms: {log_detail}")
+                        await asyncio.sleep(2)
                         continue
 
                     # state == "none" — not loaded yet, keep polling
+                else:
+                    # Non-200 — check if processes are running (starting vs crashed)
+                    if not startup_logged:
+                        proxy_up = _process_running("mlx-proxy.py")
+                        server_up = _process_running("mlx_lm.server") or _process_running(
+                            "mlx_vlm.server"
+                        )
+                        log_ready, log_detail = _check_mlx_server_log("lm")
+                        if not log_ready:
+                            log_ready, log_detail = _check_mlx_server_log("vlm")
+                        print(
+                            f"  ⏳ MLX proxy HTTP {r.status_code} "
+                            f"(proxy={proxy_up}, server={server_up}, log={'✓' if log_ready else log_detail[:60]})"
+                        )
+                        startup_logged = True
         except Exception:
+            # Connection refused — check processes
+            if not startup_logged:
+                proxy_up = _process_running("mlx-proxy.py")
+                server_up = _process_running("mlx_lm.server") or _process_running("mlx_vlm.server")
+                print(f"  ⏳ MLX proxy unreachable (proxy={proxy_up}, server={server_up})")
+                startup_logged = True
             pass
         await asyncio.sleep(3)
 
@@ -1345,14 +1634,15 @@ async def _wait_for_mlx_ready(timeout: int = 60, expected_model: str | None = No
 
 
 async def _detect_mlx_crash() -> dict:
-    """Detect if MLX proxy or underlying server has crashed.
+    """Detect if MLX proxy or underlying server has crashed vs just starting.
 
     Returns dict with:
-        crashed: bool — True if crash detected
+        crashed: bool — True if genuinely crashed (not just starting)
         proxy_alive: bool — whether proxy process is responding
         proxy_state: str — current proxy state
         error: str — error message if crashed
         mlx_server_alive: bool — whether mlx_lm/vlm server is running
+        starting: bool — True if proxy is responding but server still loading
     """
     result = {
         "crashed": False,
@@ -1360,6 +1650,7 @@ async def _detect_mlx_crash() -> dict:
         "proxy_state": "unknown",
         "error": "",
         "mlx_server_alive": False,
+        "starting": False,
     }
     try:
         async with httpx.AsyncClient(timeout=5) as c:
@@ -1371,15 +1662,63 @@ async def _detect_mlx_crash() -> dict:
                 result["error"] = state.get("last_error", "") or ""
                 if state.get("state") == "down":
                     result["crashed"] = True
+                elif state.get("state") == "switching":
+                    # "switching" with many consecutive failures + Traceback in log
+                    # means the server crashed and is stuck in a retry loop — treat as crash
+                    consecutive_failures = state.get("consecutive_failures", 0)
+                    if consecutive_failures > 20:
+                        _, lm_log = _check_mlx_server_log("lm")
+                        _, vlm_log = _check_mlx_server_log("vlm")
+                        has_traceback = "Traceback" in lm_log or "Traceback" in vlm_log
+                        if has_traceback:
+                            result["crashed"] = True
+                            result["error"] = (
+                                f"state=switching consecutive_failures={consecutive_failures} "
+                                f"with Traceback in server log — treating as crash"
+                            )
+                        else:
+                            result["starting"] = True
+                    else:
+                        result["starting"] = True
             elif r.status_code == 503:
                 result["proxy_alive"] = True
                 result["proxy_state"] = "degraded"
-                result["crashed"] = True
-                result["error"] = f"HTTP 503 from proxy"
+                # 503 can mean "starting" — check logs and process state
+                # before classifying as crashed
+                log_ready, log_detail = _check_mlx_server_log("lm")
+                if not log_ready:
+                    log_ready, log_detail = _check_mlx_server_log("vlm")
+                # Check if proxy or server processes exist
+                proxy_running = _process_running("mlx-proxy.py")
+                server_running = _process_running("mlx_lm.server") or _process_running(
+                    "mlx_vlm.server"
+                )
+                if (
+                    proxy_running
+                    or server_running
+                    or (not log_ready and "not found" not in log_detail)
+                ):
+                    # Process is alive or logs exist — it's starting, not crashed
+                    result["starting"] = True
+                    result["error"] = (
+                        f"HTTP 503 — proxy/server starting (proxy={proxy_running}, server={server_running}, log={log_detail[:80]})"
+                    )
+                else:
+                    result["crashed"] = True
+                    result["error"] = f"HTTP 503 — no processes running, logs: {log_detail[:80]}"
     except Exception as e:
         result["proxy_alive"] = False
-        result["crashed"] = True
-        result["error"] = f"Proxy not reachable: {e}"
+        # Connection refused — check if process exists (might be starting)
+        proxy_running = _process_running("mlx-proxy.py")
+        server_running = _process_running("mlx_lm.server") or _process_running("mlx_vlm.server")
+        if proxy_running or server_running:
+            result["starting"] = True
+            result["error"] = (
+                f"Proxy not reachable but processes exist (proxy={proxy_running}, server={server_running})"
+            )
+        else:
+            result["crashed"] = True
+            result["error"] = f"Proxy not reachable and no processes running: {e}"
 
     # Check if mlx_lm/vlm server processes exist
     try:
@@ -1413,7 +1752,16 @@ async def _remediate_mlx_crash(reason: str) -> bool:
     subprocess.run(["pkill", "-f", "mlx_lm.server"], capture_output=True)
     subprocess.run(["pkill", "-f", "mlx_vlm.server"], capture_output=True)
     subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True)
-    time.sleep(5)
+
+    # Wait for processes to actually exit — pgrep is the factual signal
+    for _ in range(20):
+        if (
+            not _process_running("mlx_lm.server")
+            and not _process_running("mlx_vlm.server")
+            and not _process_running("mlx-proxy.py")
+        ):
+            break
+        await asyncio.sleep(0.5)
 
     # Force kill any survivors on the ports
     for port in [18081, 18082, 8081]:
@@ -1433,8 +1781,21 @@ async def _remediate_mlx_crash(reason: str) -> bool:
         except Exception:
             pass
 
-    print(f"     Step 2/5: Waiting for GPU memory reclamation (15s)...")
-    time.sleep(15)
+    print(f"     Step 2/5: Waiting for GPU memory reclamation...")
+    # Wait for ports to be released — lsof is the factual signal
+    for _ in range(30):
+        ports_clear = True
+        for port in [18081, 18082, 8081]:
+            try:
+                r = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, timeout=3)
+                if r.stdout.strip():
+                    ports_clear = False
+            except Exception:
+                pass
+        if ports_clear:
+            print(f"     Ports 18081/18082/8081 released")
+            break
+        await asyncio.sleep(0.5)
 
     # Check memory
     try:
@@ -1462,8 +1823,27 @@ async def _remediate_mlx_crash(reason: str) -> bool:
         stderr=subprocess.DEVNULL,
     )
 
-    print(f"     Step 5/5: Waiting for proxy to be ready...")
-    ready = await _wait_for_mlx_ready(timeout=120)
+    # Wait for proxy process to start listening
+    print(f"     Step 5/5: Waiting for proxy process to start...")
+    # Watch proxy log for startup signal — "[mlx-proxy] Listening on :8081"
+    proxy_log = os.path.expanduser("~/.portal5/logs/mlx-proxy.log")
+    found, line = await _wait_for_log_file(
+        proxy_log, r"\[mlx-proxy\] Listening on|Listening on :8081", timeout=60
+    )
+    if found:
+        print(f"     Proxy log confirms: {line}")
+        return True
+    # Fallback: check if proxy is responding to HTTP
+    try:
+        async with httpx.AsyncClient(timeout=3) as c:
+            r = await c.get(f"{MLX_URL}/health")
+            if r.status_code in (200, 503):
+                print(f"     Proxy responding (HTTP {r.status_code})")
+                return True
+    except Exception:
+        pass
+    print(f"     ❌ MLX proxy failed to start")
+    return False
     if ready:
         print(f"     ✅ MLX proxy recovered and ready")
     else:
@@ -1542,7 +1922,7 @@ async def _workspace_test_with_retry(
             )
             return
         elif code == 200 and attempt == 0:
-            await asyncio.sleep(15)
+            # Empty response on first attempt — retry immediately
             continue
         else:
             record(
@@ -1554,6 +1934,68 @@ async def _workspace_test_with_retry(
                 t0=t0,
             )
             return
+
+
+async def _mlx_workspace_test(
+    sec: str,
+    tid: str,
+    ws: str,
+    prompt: str,
+    signals: list[str],
+    expected_model_prefix: str,
+) -> None:
+    """Test an MLX workspace — verify the response came from MLX, not Ollama fallback.
+
+    This is for S30-S37 MLX sections. Makes a SINGLE request to the pipeline.
+    If MLX fails, that's the result — no fallback, no retry.
+    Verifies the model field in the response matches MLX.
+    """
+    t0 = time.time()
+    msgs = [{"role": "user", "content": prompt}]
+    body = {"model": ws, "messages": msgs, "stream": False, "max_tokens": 400}
+
+    try:
+        async with httpx.AsyncClient(timeout=300) as c:
+            r = await c.post(f"{PIPELINE_URL}/v1/chat/completions", headers=AUTH, json=body)
+        code = r.status_code
+        if code != 200:
+            record(sec, tid, f"MLX workspace {ws}", "WARN", f"HTTP {code}", t0=t0)
+            return
+        data = r.json()
+        msg = data.get("choices", [{}])[0].get("message", {})
+        text = msg.get("content", "") or msg.get("reasoning", "")
+        model = data.get("model", "")
+    except Exception as e:
+        record(sec, tid, f"MLX workspace {ws}", "WARN", str(e), t0=t0)
+        return
+
+    if not text.strip():
+        record(sec, tid, f"MLX workspace {ws}", "WARN", f"empty response (model={model})", t0=t0)
+        return
+
+    # Verify the response came from MLX, not Ollama fallback
+    if model and ":" in model and "mlx" not in model.lower() and "lmstudio" not in model.lower():
+        record(
+            sec,
+            tid,
+            f"MLX workspace {ws}",
+            "WARN",
+            f"pipeline fell back to Ollama: {model} (expected MLX model)",
+            t0=t0,
+        )
+        return
+
+    # MLX served the request — verify domain signals
+    matched = [s for s in signals if s in text.lower()]
+    record(
+        sec,
+        tid,
+        f"MLX workspace {ws}",
+        "PASS" if matched else "WARN",
+        f"model={model[:60] or 'unknown'}, signals={matched or 'none'}",
+        [text[:200]],
+        t0=t0,
+    )
 
 
 async def S3() -> None:
@@ -1745,7 +2187,7 @@ async def S4() -> None:
         timeout=180,
     )
     if code == 200 and not text.strip():
-        await asyncio.sleep(15)
+        # Empty response — retry immediately (auth race or reasoning model)
         code, text = await _chat(
             "auto-documents",
             "Create an outline for a NERC CIP-007 patch management procedure. "
@@ -1784,7 +2226,7 @@ async def S5() -> None:
         timeout=180,
     )
     if code == 200 and not text.strip():
-        await asyncio.sleep(15)
+        # Empty response — retry immediately (auth race or reasoning model)
         code, text = await _chat(
             "auto-coding",
             "Write ONLY Python code — no explanation. Use the Sieve of Eratosthenes to find all primes "
@@ -2680,6 +3122,82 @@ _PERSONA_SIGNALS: dict[str, list[str]] = {
 }
 
 
+async def _mlx_persona_test(
+    sec: str,
+    tid: str,
+    slug: str,
+    name: str,
+    system: str,
+    prompt: str,
+    signals: list[str],
+    workspace: str,
+    expected_model_prefix: str,
+) -> str:
+    """Test an MLX persona — verify the response came from MLX, not Ollama fallback.
+
+    No retries — if MLX fails, that's the test result.
+    """
+    t0 = time.time()
+    msgs: list[dict] = []
+    if system:
+        msgs.append({"role": "system", "content": system[:800]})
+    msgs.append({"role": "user", "content": prompt})
+
+    try:
+        async with httpx.AsyncClient(timeout=300) as c:
+            r = await c.post(
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=AUTH,
+                json={"model": workspace, "messages": msgs, "stream": False, "max_tokens": 300},
+            )
+        if r.status_code != 200:
+            record(sec, tid, f"MLX persona {slug} ({name})", "WARN", f"HTTP {r.status_code}", t0=t0)
+            return "WARN"
+
+        data = r.json()
+        msg = data.get("choices", [{}])[0].get("message", {})
+        text = msg.get("content", "") or msg.get("reasoning", "")
+        model = data.get("model", "")
+
+        # Verify the response came from MLX, not Ollama fallback
+        if (
+            model
+            and ":" in model
+            and "mlx" not in model.lower()
+            and "lmstudio" not in model.lower()
+        ):
+            record(
+                sec,
+                tid,
+                f"MLX persona {slug} ({name})",
+                "WARN",
+                f"pipeline fell back to Ollama: {model} (expected MLX)",
+                t0=t0,
+            )
+            return "WARN"
+
+        if not text.strip():
+            record(sec, tid, f"MLX persona {slug} ({name})", "WARN", "empty response", t0=t0)
+            return "WARN"
+
+        matched = [s for s in signals if s in text.lower()]
+        record(
+            sec,
+            tid,
+            f"MLX persona {slug} ({name})",
+            "PASS" if matched or not signals else "WARN",
+            f"model={model[:40]}, signals={matched}"
+            if matched
+            else f"model={model[:40]}, no signals in: '{text[:70].strip()}'",
+            [f"preview: {text[:100].strip()}"],
+            t0=t0,
+        )
+        return "PASS" if matched or not signals else "WARN"
+    except Exception as e:
+        record(sec, tid, f"MLX persona {slug} ({name})", "FAIL", str(e), t0=t0)
+        return "FAIL"
+
+
 async def _persona_test_with_retry(
     sec: str,
     tid: str,
@@ -2723,8 +3241,7 @@ async def _persona_test_with_retry(
                     )
                     return "PASS"
                 elif attempt == 0:
-                    # Empty on first attempt — retry after pause
-                    await asyncio.sleep(12)
+                    # Empty on first attempt — retry immediately
                     continue
                 else:
                     record(
@@ -2746,7 +3263,7 @@ async def _persona_test_with_retry(
                 return "FAIL"
         except httpx.ReadTimeout:
             if attempt == 0:
-                await asyncio.sleep(5)
+                # Timeout — model may be loading, retry immediately
                 continue
             record(sec, tid, f"persona {slug} ({name})", "WARN", "timeout — model loading", t0=t0)
             return "WARN"
@@ -2765,12 +3282,17 @@ async def S11() -> None:
     if token:
         t0 = time.time()
         try:
-            r = httpx.get(
-                f"{OPENWEBUI_URL}/api/v1/models/",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=10,
-            )
-            if r.status_code == 200:
+            for attempt in range(3):
+                r = httpx.get(
+                    f"{OPENWEBUI_URL}/api/v1/models/",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=10,
+                )
+                if r.status_code == 200 and r.text.strip():
+                    break
+                if attempt < 2:
+                    await asyncio.sleep(3)
+            if r.status_code == 200 and r.text.strip():
                 data = r.json()
                 api_ids = {
                     m["id"].lower()
@@ -2848,7 +3370,7 @@ async def S11() -> None:
             else:
                 failed += 1
             await asyncio.sleep(2)
-        await asyncio.sleep(15)
+        # Suite complete — no delay needed between sections
 
     record(
         sec,
@@ -2891,39 +3413,38 @@ async def _mlx_group(
     """
     persona_map = {p["slug"]: p for p in PERSONAS}
 
-    # ── Pre-warm: send one request to force the proxy to load this model ──
+    # ── Ensure MLX proxy has this model loaded ──
+    # The proxy loads models on-demand via ensure_server(). We send one request
+    # DIRECTLY to the proxy (not through the pipeline) and monitor the server
+    # log for 'Starting httpd' — the deterministic signal that the model is loaded.
     if ws_ids:
         pre_ws = ws_ids[0]
-        print(f"  ── Pre-loading model for {pre_ws} ({model_label}) ──")
+        print(f"  ── Loading model {model_label} ──")
 
-        # Check if the expected model is already loaded before sending pre-warm
+        # Check if the expected model is already loaded
         already_ready = await _wait_for_mlx_ready(timeout=5, expected_model=model_label)
         if already_ready:
-            print(f"  ✅ Model {model_label} already loaded — skipping pre-warm")
+            print(f"  ✅ Model {model_label} already loaded")
         else:
-            code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
-            if code != 200:
-                print(f"  ⚠️  Pre-load returned HTTP {code} — model may not be available")
+            # Load model — monitor server log for "Starting httpd" signal
+            loaded, detail = await _load_mlx_model(model_label)
+            if not loaded:
+                print(f"  ⚠️  Model load failed: {detail}")
+                # Check if proxy process is even running
+                crash_info = await _detect_mlx_crash()
+                if crash_info["crashed"]:
+                    print(f"  ⚠️  MLX crashed: {crash_info['error']}")
+                    recovered = await _remediate_mlx_crash(crash_info["error"])
+                    if recovered:
+                        print(f"  ── Retrying model load after crash recovery ──")
+                        loaded, detail = await _load_mlx_model(model_label)
+                        if loaded:
+                            print(f"  ✅ Model {model_label} loaded after recovery")
 
-        # Wait for the correct model to be loaded (verify via /health loaded_model)
-        ready_timeout = 300 if is_vlm else 180
-        ready = await _wait_for_mlx_ready(timeout=ready_timeout, expected_model=model_label)
+        # Verify via /health that the expected model is loaded
+        ready = await _wait_for_mlx_ready(timeout=30, expected_model=model_label)
         if not ready:
-            # ── Crash detection: check if MLX crashed, attempt remediation ──
-            crash_info = await _detect_mlx_crash()
-            if crash_info["crashed"]:
-                print(f"  ⚠️  MLX crash detected: {crash_info['error']}")
-                recovered = await _remediate_mlx_crash(crash_info["error"])
-                if recovered:
-                    # Retry the pre-load after recovery
-                    print(f"  ── Retrying pre-load after crash recovery ──")
-                    code, text = await _chat(pre_ws, "Say hello.", max_tokens=5, timeout=300)
-                    ready = await _wait_for_mlx_ready(
-                        timeout=ready_timeout, expected_model=model_label
-                    )
-
-            if not ready:
-                print(f"  ⚠️  MLX proxy not ready after remediation — recording WARNs for all tests")
+            print(f"  ⚠️  MLX proxy /health doesn't confirm {model_label} loaded")
             test_num = 1
             for ws in ws_ids:
                 record(
@@ -2947,17 +3468,19 @@ async def _mlx_group(
             return
 
     # ── Test workspaces for this model ──
+    # Use _mlx_workspace_test — verifies response came from MLX, not Ollama fallback
     test_num = 1
     for ws in ws_ids:
         if ws not in set(WS_IDS):
             continue
         prompt = _WS_PROMPT.get(ws, f"Describe your role as the {ws} workspace.")
         signals = _WS_SIGNALS.get(ws, [])
-        await _workspace_test_with_retry(sec, f"{sec}-{test_num:02d}", ws, prompt, signals)
+        await _mlx_workspace_test(sec, f"{sec}-{test_num:02d}", ws, prompt, signals, model_label)
         test_num += 1
         await asyncio.sleep(_INTRA_GROUP_DELAY)
 
     # ── Test personas for this model ──
+    # Use _mlx_persona_test — verifies response came from MLX, not Ollama fallback
     for slug, name, workspace in persona_entries:
         persona = persona_map.get(slug)
         if not persona:
@@ -2968,8 +3491,8 @@ async def _mlx_group(
             slug, f"As {name}, give a detailed description of your expertise and approach."
         )
         signals = _PERSONA_SIGNALS.get(slug, [])
-        await _persona_test_with_retry(
-            sec, f"P:{slug}", slug, name, system, prompt, signals, workspace
+        await _mlx_persona_test(
+            sec, f"P:{slug}", slug, name, system, prompt, signals, workspace, model_label
         )
         await asyncio.sleep(2)
 
@@ -3331,12 +3854,18 @@ async def S13() -> None:
         else:
             token = _owui_token()
             try:
-                ar = httpx.get(
-                    f"{OPENWEBUI_URL}/api/v1/models/",
-                    headers={"Authorization": f"Bearer {token}"},
-                    timeout=5,
-                )
-                if ar.status_code == 200:
+                ar = None
+                for attempt in range(3):
+                    ar = httpx.get(
+                        f"{OPENWEBUI_URL}/api/v1/models/",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=5,
+                    )
+                    if ar.status_code == 200 and ar.text.strip():
+                        break
+                    if attempt < 2:
+                        time.sleep(3)
+                if ar and ar.status_code == 200 and ar.text.strip():
                     data = ar.json()
                     api_ids = {
                         m["id"].lower()
@@ -4486,8 +5015,18 @@ def _kill_mlx_proxy() -> bool:
             except (ProcessLookupError, PermissionError):
                 pass
 
-        # Wait for processes to exit, then SIGKILL stragglers
-        time.sleep(5)
+        # Wait for processes to exit — poll, don't guess. Then SIGKILL stragglers.
+        for _ in range(10):
+            all_gone = True
+            for pid in all_pids:
+                try:
+                    os.kill(pid, 0)  # check if alive
+                    all_gone = False
+                except (ProcessLookupError, PermissionError):
+                    pass
+            if all_gone:
+                break
+            time.sleep(0.5)
         for pid in all_pids:
             try:
                 os.kill(pid, 0)  # check if alive
@@ -4495,8 +5034,19 @@ def _kill_mlx_proxy() -> bool:
             except (ProcessLookupError, PermissionError):
                 pass
 
-        # Wait for GPU memory reclamation
-        time.sleep(8)
+        # Wait for GPU memory reclamation — check ports are released
+        for _ in range(20):
+            ports_clear = True
+            for port in [18081, 18082, 8081]:
+                try:
+                    r = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, timeout=3)
+                    if r.stdout.strip():
+                        ports_clear = False
+                except Exception:
+                    pass
+            if ports_clear:
+                break
+            time.sleep(0.5)
 
         # Verify proxy is actually down
         try:
@@ -4660,7 +5210,12 @@ async def _workspace_fallback_test(
     # Step 2: Kill primary backend
     t0_kill = time.time()
     killed = kill_fn()
-    time.sleep(5)  # Let pipeline detect the failure
+    # Verify kill via process check — pgrep is the factual signal
+    if "mlx" in kill_primary.lower():
+        for _ in range(20):
+            if not _process_running("mlx-proxy.py") and not _process_running("mlx_lm.server"):
+                break
+            await asyncio.sleep(0.5)
 
     if not killed:
         record(
@@ -4782,8 +5337,18 @@ async def _workspace_fallback_test(
             t0=t0_restore,
         )
 
-    # Wait for pipeline to re-detect healthy backends
-    time.sleep(10)
+    # Wait for pipeline to re-detect healthy backends — poll, don't guess
+    for _ in range(20):
+        try:
+            async with httpx.AsyncClient(timeout=3) as hc:
+                hr = await hc.get(f"{PIPELINE_URL}/health")
+                if hr.status_code == 200:
+                    health = hr.json()
+                    if health.get("backends_healthy", 0) >= health.get("backends_total", 999) - 1:
+                        break
+        except Exception:
+            pass
+        await asyncio.sleep(1)
 
 
 async def S23() -> None:
@@ -4863,7 +5428,7 @@ async def S23() -> None:
         )
 
     # S23-03: auto-coding — primary (MLX) path verified
-    # Ensure MLX is ready before baseline (may be recovering from prior section)
+    # MLX must be loaded before we can test the primary path
     await _wait_for_mlx_ready(timeout=120, expected_model="Qwen3-Coder-Next")
     t0 = time.time()
     code, text, model = await _chat_with_model(
@@ -5130,7 +5695,12 @@ async def S23() -> None:
     t0 = time.time()
     _restore_mlx_proxy()
     _restore_ollama_backend()
-    time.sleep(15)  # Wait for pipeline health check cycle
+    # Wait for pipeline health check cycle — poll until backends healthy
+    for _ in range(30):
+        health = _pipeline_health()
+        if health and health.get("backends_healthy", 0) >= health.get("backends_total", 999) - 1:
+            break
+        await asyncio.sleep(1)
 
     health = _pipeline_health()
     if health:
@@ -5158,7 +5728,16 @@ async def S23() -> None:
     # Quick smoke: kill MLX, hit every MLX-routed workspace, verify each responds
     t0 = time.time()
     _kill_mlx_proxy()
-    time.sleep(5)
+    # Wait until MLX is confirmed down
+    for _ in range(10):
+        try:
+            async with httpx.AsyncClient(timeout=2) as c:
+                r = await c.get(f"{MLX_URL}/health")
+                if r.status_code != 200:
+                    break
+        except Exception:
+            break  # Connection refused = down
+        await asyncio.sleep(1)
 
     mlx_workspaces = [
         "auto-coding",
@@ -5182,9 +5761,17 @@ async def S23() -> None:
         else:
             failed += 1
 
-    # Restore MLX
+    # Restore MLX — wait until responding
     _restore_mlx_proxy()
-    time.sleep(5)
+    for _ in range(15):
+        try:
+            async with httpx.AsyncClient(timeout=2) as c:
+                r = await c.get(f"{MLX_URL}/health")
+                if r.status_code == 200:
+                    break
+        except Exception:
+            pass
+        await asyncio.sleep(1)
 
     record(
         sec,
@@ -5430,33 +6017,67 @@ async def main() -> int:
             sys.exit(f"Unknown section: {sid}. Valid: {sorted(SECTIONS)}")
         # Sample memory before each section
         _sample_memory(f"pre-{sid}")
-        # Pre-section MLX health check — detect GPU crashes from prior sections
+        # Pre-section MLX health check — log state for diagnostics
+        # MLX model loading is handled by _mlx_group() for MLX sections.
+        # This check just records MLX state; it does NOT try to fix anything.
         if sid not in ("S17", "S0", "S1", "S2"):
+            mlx_sections = {"S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S22", "S23"}
             try:
                 async with httpx.AsyncClient(timeout=5) as c:
                     r = await c.get(f"{MLX_URL}/health")
-                    if r.status_code != 200:
-                        print(
-                            f"  ⚠️  MLX proxy unhealthy before {sid} (HTTP {r.status_code}) — recording WARN"
-                        )
-                        record(
-                            sid,
-                            f"{sid}-mlx-pre",
-                            "MLX proxy health before section",
-                            "WARN",
-                            f"HTTP {r.status_code} — may be recovering from GPU crash",
-                        )
+                    if r.status_code == 200:
+                        data = r.json()
+                        state = data.get("state", "unknown")
+                        loaded = data.get("loaded_model") or "none"
+                        if state != "ready":
+                            # Check for crash symptom: switching + high failures + Traceback
+                            # This pattern means the server crashed and is stuck in a retry loop
+                            consecutive_failures = data.get("consecutive_failures", 0)
+                            if state == "switching" and consecutive_failures > 20:
+                                _, lm_log = _check_mlx_server_log("lm")
+                                _, vlm_log = _check_mlx_server_log("vlm")
+                                has_traceback = "Traceback" in lm_log or "Traceback" in vlm_log
+                                if has_traceback:
+                                    record(
+                                        sid,
+                                        f"{sid}-mlx-pre",
+                                        "MLX proxy health before section",
+                                        "WARN",
+                                        f"PROBABLE CRASH: state=switching consecutive_failures={consecutive_failures} with Traceback in server log — remediation needed",
+                                    )
+                                    print(
+                                        f"  ⚠️  MLX CRASH DETECTED before {sid}: state=switching failures={consecutive_failures} — Traceback in server log"
+                                    )
+                                elif sid in mlx_sections:
+                                    print(
+                                        f"  ℹ️  MLX proxy state={state} loaded={loaded} before {sid} (section will handle load)"
+                                    )
+                            elif sid in mlx_sections:
+                                print(
+                                    f"  ℹ️  MLX proxy state={state} loaded={loaded} before {sid} (section will handle load)"
+                                )
+                            # Don't record WARN for normal not-ready states — section handles it
+                        # else: healthy, no message needed
+                    else:
+                        # 503 or other — proxy is up but not ready
+                        if sid in mlx_sections:
+                            print(
+                                f"  ℹ️  MLX proxy HTTP {r.status_code} before {sid} (section will handle load)"
+                            )
+                        elif _process_running("mlx-proxy.py") or _process_running("mlx_lm.server"):
+                            # Non-MLX section but MLX processes exist and are unhealthy — diagnostic only
+                            record(
+                                sid,
+                                f"{sid}-mlx-pre",
+                                "MLX proxy health before section",
+                                "INFO",
+                                f"HTTP {r.status_code} — MLX processes running but not ready",
+                            )
             except Exception:
-                print(
-                    f"  ⚠️  MLX proxy unreachable before {sid} — may have crashed from prior section"
-                )
-                record(
-                    sid,
-                    f"{sid}-mlx-pre",
-                    "MLX proxy health before section",
-                    "WARN",
-                    "unreachable — likely GPU crash from sustained test load",
-                )
+                # Connection refused — proxy not running
+                if sid in mlx_sections:
+                    print(f"  ℹ️  MLX proxy not reachable before {sid} (section will attempt load)")
+                # Non-MLX section with no MLX: perfectly normal, skip silently
         try:
             await SECTIONS[sid]()
         except Exception as e:

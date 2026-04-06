@@ -118,7 +118,10 @@ def _check_audiocraft() -> tuple[bool, str]:
 
         return True, ""
     except ImportError:
-        return False, "AudioCraft not installed. Run: pip install audiocraft"
+        return (
+            False,
+            "AudioCraft is not available on this platform (aarch64 Linux). Music generation requires an x86_64+CUDA host or running mcp-music on a compatible node.",
+        )
 
 
 def _check_stable_audio() -> tuple[bool, str]:
