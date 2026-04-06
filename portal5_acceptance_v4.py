@@ -11,8 +11,8 @@ Run from the repo root:
     python3 portal5_acceptance_v4.py --rebuild       # force MCP + pipeline rebuild first
     python3 portal5_acceptance_v4.py --verbose
 
-Dependencies (install once):
-    pip install mcp httpx pyyaml playwright --break-system-packages
+Dependencies (auto-installed on first run via _ensure_packages()):
+    mcp httpx pyyaml playwright python-docx python-pptx openpyxl
     python3 -m playwright install chromium
 
 PROTECTED — never modify these files:
@@ -917,6 +917,38 @@ async def S17() -> None:
         )
     except Exception as e:
         record(sec, "S17-07", "Pipeline /health reachable", "FAIL", str(e), t0=t0)
+
+
+# ── Preflight: ensure all required Python packages are installed ──────────────
+def _ensure_packages() -> None:
+    """Install any missing test-dependency packages before the suite runs.
+
+    These packages are required for full test coverage — if missing, install
+    them automatically rather than silently degrading to weaker checks.
+    """
+    required = {
+        "mcp": "mcp",
+        "httpx": "httpx",
+        "yaml": "pyyaml",
+        "docx": "python-docx",
+        "pptx": "python-pptx",
+        "openpyxl": "openpyxl",
+    }
+    missing_pkgs: list[str] = []
+    for module, pkg in required.items():
+        try:
+            __import__(module)
+        except ImportError:
+            missing_pkgs.append(pkg)
+
+    if missing_pkgs:
+        print(f"[preflight] Installing missing packages: {', '.join(missing_pkgs)}")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--break-system-packages"]
+            + missing_pkgs,
+            check=True,
+        )
+        print("[preflight] Packages installed.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2224,25 +2256,18 @@ async def S4() -> None:
             fpath = AI_OUTPUT_DIR / fname
             if fpath.exists():
                 size = fpath.stat().st_size
-                # Validate content using python-docx
-                try:
-                    from docx import Document as DocxDocument
-                    doc = DocxDocument(str(fpath))
-                    all_text = "\n".join(p.text for p in doc.paragraphs).lower()
-                    expected = ["microservices", "migration", "timeline", "risk"]
-                    found = [kw for kw in expected if kw in all_text]
-                    record(
-                        sec, "S4-01b", "create_word_document: file on disk with content",
-                        "PASS" if found else "WARN",
-                        f"✓ {fname} {size:,} bytes; keywords found: {found}" if found
-                        else f"file exists {size:,} bytes but expected keywords not found",
-                        t0=t0,
-                    )
-                except ImportError:
-                    record(sec, "S4-01b", "create_word_document: file on disk with content",
-                           "PASS" if size > 1000 else "WARN",
-                           f"✓ {fname} {size:,} bytes (python-docx not installed — size only)",
-                           t0=t0)
+                from docx import Document as DocxDocument
+                doc = DocxDocument(str(fpath))
+                all_text = "\n".join(p.text for p in doc.paragraphs).lower()
+                expected = ["microservices", "migration", "timeline", "risk"]
+                found = [kw for kw in expected if kw in all_text]
+                record(
+                    sec, "S4-01b", "create_word_document: file on disk with content",
+                    "PASS" if found else "WARN",
+                    f"✓ {fname} {size:,} bytes; keywords found: {found}" if found
+                    else f"file exists {size:,} bytes but expected keywords not found",
+                    t0=t0,
+                )
             else:
                 record(sec, "S4-01b", "create_word_document: file on disk with content",
                        "FAIL", f"file not found: {fpath}", t0=t0)
@@ -2283,28 +2308,21 @@ async def S4() -> None:
             fpath = AI_OUTPUT_DIR / fname
             if fpath.exists():
                 size = fpath.stat().st_size
-                try:
-                    from pptx import Presentation
-                    prs = Presentation(str(fpath))
-                    slide_count = len(prs.slides)
-                    # Collect all text from slides
-                    slide_text = " ".join(
-                        shape.text for slide in prs.slides
-                        for shape in slide.shapes if hasattr(shape, "text")
-                    ).lower()
-                    expected = ["container security", "threat", "best practices", "implementation"]
-                    found = [kw for kw in expected if kw in slide_text]
-                    record(
-                        sec, "S4-02b", "create_powerpoint: file on disk with 5 slides + content",
-                        "PASS" if slide_count == 5 and found else "WARN",
-                        f"✓ {fname} {size:,} bytes; {slide_count} slides; keywords: {found}",
-                        t0=t0,
-                    )
-                except ImportError:
-                    record(sec, "S4-02b", "create_powerpoint: file on disk with content",
-                           "PASS" if size > 1000 else "WARN",
-                           f"✓ {fname} {size:,} bytes (python-pptx not installed — size only)",
-                           t0=t0)
+                from pptx import Presentation
+                prs = Presentation(str(fpath))
+                slide_count = len(prs.slides)
+                slide_text = " ".join(
+                    shape.text for slide in prs.slides
+                    for shape in slide.shapes if hasattr(shape, "text")
+                ).lower()
+                expected = ["container security", "threat", "best practices", "implementation"]
+                found = [kw for kw in expected if kw in slide_text]
+                record(
+                    sec, "S4-02b", "create_powerpoint: file on disk with 5 slides + content",
+                    "PASS" if slide_count == 5 and found else "WARN",
+                    f"✓ {fname} {size:,} bytes; {slide_count} slides; keywords: {found}",
+                    t0=t0,
+                )
             else:
                 record(sec, "S4-02b", "create_powerpoint: file on disk with content",
                        "FAIL", f"file not found: {fpath}", t0=t0)
@@ -2344,32 +2362,24 @@ async def S4() -> None:
             fpath = AI_OUTPUT_DIR / fname
             if fpath.exists():
                 size = fpath.stat().st_size
-                try:
-                    import openpyxl
-                    wb = openpyxl.load_workbook(str(fpath), read_only=True, data_only=True)
-                    ws = wb.active
-                    rows = list(ws.iter_rows(values_only=True))
-                    wb.close()
-                    # Check header row and data values
-                    flat = [str(v).lower() for row in rows for v in row if v is not None]
-                    expected_keys = ["category", "hardware", "software", "personnel"]
-                    found = [k for k in expected_keys if k in flat]
-                    # Verify numeric data present (budget values)
-                    has_numbers = any(
-                        isinstance(v, (int, float)) for row in rows for v in row if v is not None
-                    )
-                    record(
-                        sec, "S4-03b", "create_excel: file on disk with data rows",
-                        "PASS" if found and has_numbers else "WARN",
-                        f"✓ {fname} {size:,} bytes; {len(rows)} rows; "
-                        f"keys: {found}; numbers: {has_numbers}",
-                        t0=t0,
-                    )
-                except ImportError:
-                    record(sec, "S4-03b", "create_excel: file on disk with content",
-                           "PASS" if size > 500 else "WARN",
-                           f"✓ {fname} {size:,} bytes (openpyxl not installed — size only)",
-                           t0=t0)
+                import openpyxl
+                wb = openpyxl.load_workbook(str(fpath), read_only=True, data_only=True)
+                ws = wb.active
+                rows = list(ws.iter_rows(values_only=True))
+                wb.close()
+                flat = [str(v).lower() for row in rows for v in row if v is not None]
+                expected_keys = ["category", "hardware", "software", "personnel"]
+                found = [k for k in expected_keys if k in flat]
+                has_numbers = any(
+                    isinstance(v, (int, float)) for row in rows for v in row if v is not None
+                )
+                record(
+                    sec, "S4-03b", "create_excel: file on disk with data rows",
+                    "PASS" if found and has_numbers else "WARN",
+                    f"✓ {fname} {size:,} bytes; {len(rows)} rows; "
+                    f"keys: {found}; numbers: {has_numbers}",
+                    t0=t0,
+                )
             else:
                 record(sec, "S4-03b", "create_excel: file on disk with content",
                        "FAIL", f"file not found: {fpath}", t0=t0)
@@ -6088,6 +6098,9 @@ async def main() -> int:
     args = parser.parse_args()
     _verbose = args.verbose
     _FORCE_REBUILD = args.rebuild
+
+    # Install missing test dependencies before any section runs
+    _ensure_packages()
 
     t0 = time.time()
     sha = subprocess.run(

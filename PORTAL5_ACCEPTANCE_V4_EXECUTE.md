@@ -30,7 +30,8 @@ cd portal-5
 Read these files before doing anything else:
 - `PORTAL5_ACCEPTANCE_V4_EXECUTE.md` — this file, full methodology and failure classification rules
 - `ACCEPTANCE_RESULTS.md` — most recent prior run results (if present)
-- `portal5_acceptance_v4.py` — the test suite you will execute (24 sections: S0-S23)
+- `portal5_acceptance_v4.py` — the main test suite (S0-S23, no ComfyUI)
+- `portal5_acceptance_comfyui.py` — standalone ComfyUI/image/video test suite (C0-C10)
 - `KNOWN_LIMITATIONS.md` — architectural constraints (ComfyUI, fish-speech, etc.)
 
 ---
@@ -62,9 +63,13 @@ sleep 10
 ## Step 3 — Install dependencies
 
 ```bash
-pip install mcp httpx pyyaml playwright --break-system-packages
+pip install mcp httpx pyyaml playwright python-docx python-pptx openpyxl --break-system-packages
 python3 -m playwright install chromium
 ```
+
+`python-docx`, `python-pptx`, and `openpyxl` are required for S4 document content validation
+(S4-01b/02b/03b open the generated files and verify expected keywords/data are present).
+If missing, those checks degrade to file-size validation and record WARN instead of PASS.
 
 ---
 
@@ -76,12 +81,16 @@ echo "Exit: $?"
 ```
 
 This will take 120-180 minutes for a warm system. Cold model loads add time.
-Do NOT interrupt. Let it complete. The suite has 24 sections (S0-S23):
+Do NOT interrupt. Let it complete. The suite has 22 sections (S0-S23, ComfyUI removed):
 - Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20
 - Phase 2 (MLX): S5, S11, S22
-- Phase 3 (ComfyUI, MLX unloaded): S18, S19
 - Fallback chain verification: S23 (kill/restore backends — disables MLX watchdog)
 - No LLM dependency: S8, S9, S12, S13, S14, S16, S21
+
+**ComfyUI/image/video tests** are in a separate suite — run independently when ComfyUI is active:
+```bash
+python3 portal5_acceptance_comfyui.py 2>&1 | tee /tmp/portal5_acceptance_comfyui.log
+```
 
 If the system has not been run recently (models cold), add --rebuild to also
 git pull and rebuild containers from the current codebase:
@@ -295,6 +304,12 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 - `_load_mlx_model()`: record `log_mtime_before` at entry; only exit on Traceback if log was modified after entry (new crash). Stale Tracebacks from prior crashes are ignored.
 - `_detect_mlx_crash()`: state="switching" + consecutive_failures>20 + Traceback in log → crashed=True → triggers `_remediate_mlx_crash()`. Previously state="switching" always returned starting=True.
 - Pre-section check: state="switching" + failures>20 + Traceback → record WARN with "PROBABLE CRASH" detail. Previously this scenario was silent.
+- **S4-01b/02b/03b**: Added document content validation — python-docx/python-pptx/openpyxl open generated files and verify expected keywords and data values are present.
+- **S7-02**: Tightened ok_fn (requires success+path, rejects "not available" as PASS); S7-02b validates generated WAV file (RIFF header + duration ≥ 4.5s); musicgen-large used explicitly.
+- **S7-01**: Verifies all three sizes (small/medium/large) reported by list_music_models.
+- **S8-03**: Upgraded to `_wav_info()` — validates sample_rate, channels, duration ≥ 1s per voice.
+- **S15-01**: Validates result structure (title+url required) and keyword relevance (nerc/cip/electric/reliability).
+- **ComfyUI sections (S18/S19) removed** from main suite → moved to `portal5_acceptance_comfyui.py`.
 
 **Key WARN causes:**
 - 38 WARNs in S30–S37: Metal GPU crash (EXC_CRASH/SIGABRT in com.Metal.CompletionQueueDispatch) at ~18:10 during S3. Stale Traceback in mlx_lm.log + no crash detection → no remediation. All fixed by post-run assertion fixes above.
@@ -314,8 +329,6 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 | fullstacksoftwaredeveloper WARN | Was tested via auto-coding (Ollama) in v3; YAML says MLX | v4 routes it via auto-spl (Qwen3-Coder-30B MLX) |
 | S3-18 streaming hangs | httpx can't handle long-lived SSE | v4 uses curl subprocess — verify curl is available |
 | OW API returns empty JSON | Auth race condition | Re-run S11 section alone after 30s |
-| ComfyUI 10-04 WARN | ComfyUI is host-native, not in docker | Accept per KNOWN_LIMITATIONS.md |
-| S18-03 / S19-03 WARN | ComfyUI image/video model not installed or ComfyUI not running | Accept as WARN — per KNOWN_LIMITATIONS.md, ComfyUI is host-native and optional |
 | S20-01 / S20-04 INFO | Telegram or Slack not enabled in .env | Expected INFO status — feature not configured |
 | S21-01 INFO | Notifications not enabled in .env | Expected INFO status — feature not configured |
 | S22-01 WARN | MLX proxy not running or switching models | Check `./launch.sh status` — if MLX is down, accept WARN |
