@@ -41,8 +41,8 @@ TOOLS_MANIFEST = [
                 "duration": {"type": "number", "description": "Duration in seconds (5-30)", "default": 10},
                 "model": {
                     "type": "string",
-                    "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB)",
-                    "default": "medium",
+                    "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB, default)",
+                    "default": "large",
                 },
             },
             "required": ["prompt"],
@@ -315,7 +315,7 @@ def _generate_with_melody_sync(
 async def generate_music(
     prompt: str,
     duration: float = 10.0,
-    model_size: str = "medium",
+    model_size: str = "large",
     top_k: int = 250,
     temperature: float = 1.0,
     cfg_coef: float = 3.0,
@@ -325,8 +325,8 @@ async def generate_music(
 
     Models are downloaded from HuggingFace on first use (cached in HF_HOME):
     - small:  ~300MB  — fast, lower quality, good for quick tests
-    - medium: ~1.5GB  — recommended, good quality (default)
-    - large:  ~3.3GB  — best quality, slower, needs 16GB+ RAM
+    - medium: ~1.5GB  — good quality
+    - large:  ~3.3GB  — best quality (default)
 
     Device priority: MPS (Apple Silicon) → CUDA → CPU.
     On CPU (Docker/aarch64): ~3-5x realtime (10s clip takes ~30-50s).
