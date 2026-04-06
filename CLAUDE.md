@@ -158,7 +158,7 @@ Do not reassign these. Do not add new services on overlapping ports without upda
 
 All text models run through Ollama. HuggingFace is only used for:
 - ComfyUI image/video model weights (downloaded into ComfyUI's `models/` directory)
-- Music generation models (downloaded by AudioCraft on first use)
+- Music generation models (downloaded by HuggingFace `transformers` MusicGen on first use)
 - Whisper models (downloaded by faster-whisper on first use)
 
 Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean.
@@ -300,7 +300,7 @@ Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
 | FLUX.1-dev | `black-forest-labs/FLUX.1-dev` | High-quality image generation |
 | SDXL Base 1.0 | `stabilityai/stable-diffusion-xl-base-1.0` | Image generation alternative |
 | Wan2.2 T2V 5B | `Wan-AI/Wan2.2-T2V-5B` | Text-to-video generation |
-| MusicGen Small/Medium/Large | HuggingFace (auto via AudioCraft) | Music generation |
+| MusicGen Small/Medium/Large | HuggingFace (auto via transformers) | Music generation |
 | Fish Speech | GitHub (fish-speech repo) | Text-to-speech |
 | Faster-Whisper | HuggingFace (auto via faster-whisper) | Speech-to-text |
 
@@ -403,10 +403,10 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
    │   ├── Creates all workspace model presets
    │   └── Creates persona model presets from config/personas/
    ├── mcp-documents starts (:8913)
-   ├── mcp-music starts (:8912)
    ├── mcp-tts starts (:8916)
    ├── mcp-sandbox starts (:8914)
    └── [ComfyUI: run separately, see docs/COMFYUI_SETUP.md]
+   └── [Music MCP: runs natively on host — ./launch.sh install-music first]
 5. Print access URLs
 ```
 
@@ -481,7 +481,7 @@ Every feature must work from `./launch.sh up` without manual steps.
 | Feature | How it achieves zero-setup |
 |---|---|
 | Image generation | ComfyUI runs natively on host (MPS/CUDA); models auto-downloaded. Optional Docker profile: `./launch.sh up --profile docker-comfyui` |
-| Music generation | AudioCraft/Stable Audio in Dockerfile.mcp; models auto-downloaded |
+| Music generation | MusicGen via `transformers`, runs natively (host) for MPS; `./launch.sh install-music` |
 | Voice TTS | kokoro-onnx in Dockerfile.mcp; models auto-downloaded on first call |
 | Voice cloning | fish-speech is OPTIONAL; degrade gracefully with helpful message |
 | Web search | SearXNG in Docker; configured automatically via Open WebUI env vars |
@@ -505,7 +505,7 @@ Models that are downloaded on first use (auto, via HuggingFace):
 - FLUX.1-schnell (images) — pulled by comfyui-model-init
 - faster-whisper base (transcription) — downloaded on first use
 - kokoro-onnx voices (~200MB) — downloaded on first call
-- AudioCraft MusicGen — downloaded on first call
+- MusicGen (via transformers) — downloaded on first call, cached in `~/.portal5/music/hf_cache`
 
 Models that require `./launch.sh pull-models` (large, optional):
 - All specialized LLM models (security, coding, reasoning, vision)

@@ -233,6 +233,33 @@ _ensure_native_services() {
         fi
     fi
 
+    # ── Music MCP (native on macOS for MPS; skip on non-arm64) ──────────────
+    if [ "$ARCH" = "arm64" ]; then
+        local MUSIC_VENV="$HOME/.portal5/music/.venv"
+        if [ -f "$MUSIC_VENV/bin/python" ]; then
+            if ! curl -s "http://localhost:${MUSIC_HOST_PORT:-8912}/health" &>/dev/null 2>&1; then
+                echo "[portal-5]   Music MCP installed but not running — starting..."
+                mkdir -p "$HOME/.portal5/logs"
+                if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
+                    launchctl start com.portal5.music-mcp 2>/dev/null || true
+                else
+                    PYTHONPATH="$PORTAL_ROOT" \
+                    HF_HOME="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
+                    TRANSFORMERS_CACHE="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
+                    OUTPUT_DIR="${AI_OUTPUT_DIR:-$HOME/AI_Output}" \
+                    MUSIC_MCP_PORT="${MUSIC_HOST_PORT:-8912}" \
+                    nohup "$MUSIC_VENV/bin/python" -m portal_mcp.generation.music_mcp \
+                        > "$HOME/.portal5/logs/music-mcp.log" 2>&1 &
+                    echo $! > /tmp/music-mcp.pid
+                fi
+                echo "[portal-5]   ⏳ Music MCP starting on :${MUSIC_HOST_PORT:-8912}"
+                echo "[portal-5]      Logs: $HOME/.portal5/logs/music-mcp.log"
+            else
+                echo "[portal-5]   ✅ Music MCP: running"
+            fi
+        fi
+    fi
+
     # ── MLX Watchdog (Apple Silicon native only) ─────────────────────────────
     if [ "$ARCH" = "arm64" ]; then
         if [ "${MLX_WATCHDOG_ENABLED:-true}" != "false" ]; then
@@ -308,7 +335,10 @@ _check_ports() {
 
     # MCP servers — use env overrides if set
     _port_check "${DOCUMENTS_HOST_PORT:-8913}"  "MCP Documents"
-    _port_check "${MUSIC_HOST_PORT:-8912}"      "MCP Music"
+    # Music MCP runs natively on macOS — skip Docker port conflict check
+    if [ "$(uname -m)" != "arm64" ]; then
+        _port_check "${MUSIC_HOST_PORT:-8912}"  "MCP Music"
+    fi
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
@@ -476,7 +506,6 @@ rows = [
     ('portal5-prometheus',    'Prometheus',           'http://localhost:9090'),
     ('portal5-grafana',       'Grafana',              'http://localhost:3000'),
     ('portal5-mcp-documents', 'MCP Documents',        ':8913'),
-    ('portal5-mcp-music',     'MCP Music',            ':8912'),
     ('portal5-mcp-tts',       'MCP TTS',              ':8916'),
     ('portal5-mcp-whisper',   'MCP Whisper',          ':8915'),
     ('portal5-mcp-sandbox',   'MCP Code Sandbox',     ':8914'),
@@ -528,6 +557,14 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ⏳  %-28s %s\n" "ComfyUI" "starting"
         else
             printf "    ❌  %-28s %s\n" "ComfyUI" "not running — ~/ComfyUI/start.sh"
+        fi
+
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${MUSIC_HOST_PORT:-8912}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Music MCP" ":${MUSIC_HOST_PORT:-8912}"
+        elif [ -f "$HOME/.portal5/music/.venv/bin/python" ]; then
+            printf "    ❌  %-28s %s\n" "Music MCP" "installed but not running — ./launch.sh up"
+        else
+            printf "    ℹ️   %-28s %s\n" "Music MCP" "not installed — ./launch.sh install-music"
         fi
 
         # Watchdog
@@ -897,6 +934,21 @@ case "${1:-up}" in
             echo "[portal-5] ComfyUI process stopped (pkill)."
         else
             echo "[portal-5] ComfyUI: not running (nothing to stop)."
+        fi
+
+        # Music MCP (:8912)
+        if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
+            launchctl stop com.portal5.music-mcp 2>/dev/null || true
+            echo "[portal-5] Music MCP service stopped (launchd)."
+        elif [ -f /tmp/music-mcp.pid ] && kill -0 "$(cat /tmp/music-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/music-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/music-mcp.pid
+            echo "[portal-5] Music MCP process stopped."
+        elif pgrep -f "music_mcp|music-mcp" &>/dev/null 2>&1; then
+            pkill -f "music_mcp|music-mcp" 2>/dev/null || true
+            echo "[portal-5] Music MCP process stopped (pkill)."
+        else
+            echo "[portal-5] Music MCP: not running (nothing to stop)."
         fi
     fi
     ;;
@@ -1877,6 +1929,134 @@ PLIST
     echo "  ./launch.sh up                        — start Portal 5 stack"
     ;;
 
+  install-music)
+    echo "=== Installing Music MCP natively (Apple Silicon / MPS) ==="
+    ARCH=$(uname -m)
+    MUSIC_DIR="$HOME/.portal5/music"
+    MUSIC_VENV="$MUSIC_DIR/.venv"
+    MUSIC_LOG="$HOME/.portal5/logs/music-mcp.log"
+    MUSIC_PORT="${MUSIC_HOST_PORT:-8912}"
+
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  Non-Apple-Silicon detected ($ARCH)."
+        echo "  Music MCP is designed for native macOS/MPS. On x86_64+CUDA, it can"
+        echo "  still run natively but Docker is also an option."
+        echo "  Continuing anyway..."
+    fi
+
+    if ! command -v python3 &>/dev/null; then
+        echo "  ❌ python3 not found. Install via brew: brew install python"
+        exit 1
+    fi
+
+    # ── Create venv ───────────────────────────────────────────────────────────
+    mkdir -p "$MUSIC_DIR"
+    mkdir -p "$HOME/.portal5/logs"
+    if [ ! -d "$MUSIC_VENV" ]; then
+        echo "  Creating Python venv at $MUSIC_VENV..."
+        python3 -m venv "$MUSIC_VENV"
+    else
+        echo "  ✅ Venv already exists at $MUSIC_VENV"
+    fi
+
+    # ── Install dependencies ──────────────────────────────────────────────────
+    echo "  Installing dependencies (torch, transformers, mcp — this may take a few minutes)..."
+    "$MUSIC_VENV/bin/pip" install --quiet --upgrade pip
+    "$MUSIC_VENV/bin/pip" install --quiet \
+        "torch>=2.1.0" \
+        "torchaudio>=2.1.0" \
+        "transformers>=4.40.0" \
+        "scipy>=1.11.0" \
+        "fastapi>=0.109.0" \
+        "uvicorn[standard]>=0.27.0" \
+        "httpx>=0.26.0" \
+        "pyyaml>=6.0.1" \
+        "starlette>=0.35.0" \
+        "mcp>=1.0.0" \
+        "fastmcp>=0.4.0"
+    echo "  ✅ Dependencies installed"
+
+    # ── HuggingFace cache dir ─────────────────────────────────────────────────
+    HF_CACHE="${HF_HOME:-$MUSIC_DIR/hf_cache}"
+    mkdir -p "$HF_CACHE"
+    echo "  HuggingFace cache: $HF_CACHE"
+    echo "  (MusicGen models download here on first generate_music call)"
+
+    # ── Create start script ───────────────────────────────────────────────────
+    cat > "$MUSIC_DIR/start.sh" << MUSIC_START
+#!/bin/bash
+# Start Music MCP natively for MPS acceleration on Apple Silicon
+PORTAL_ROOT="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/../../projects/portal-5" 2>/dev/null && pwd)"
+# Fallback: walk up to find portal_mcp
+if [ ! -d "\$PORTAL_ROOT/portal_mcp" ]; then
+    PORTAL_ROOT="\$(python3 -c "import subprocess, os; r=subprocess.run(['git','-C',os.path.dirname(os.path.abspath('\$0')),  'rev-parse','--show-toplevel'],capture_output=True,text=True); print(r.stdout.strip())" 2>/dev/null)"
+fi
+export PYTHONPATH="\$PORTAL_ROOT"
+export HF_HOME="${HF_CACHE}"
+export TRANSFORMERS_CACHE="${HF_CACHE}"
+export OUTPUT_DIR="\${AI_OUTPUT_DIR:-\$HOME/AI_Output}"
+export MUSIC_MCP_PORT="${MUSIC_PORT}"
+mkdir -p "\$OUTPUT_DIR"
+exec "$MUSIC_VENV/bin/python" -m portal_mcp.generation.music_mcp
+MUSIC_START
+    chmod +x "$MUSIC_DIR/start.sh"
+    echo "  ✅ Start script: $MUSIC_DIR/start.sh"
+
+    # ── Register launchd plist (auto-start on login) ──────────────────────────
+    PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.music-mcp.plist"
+    cat > "$PLIST_PATH" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.music-mcp</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$MUSIC_DIR/start.sh</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>$PORTAL_ROOT</string>
+        <key>HF_HOME</key>
+        <string>$HF_CACHE</string>
+        <key>TRANSFORMERS_CACHE</key>
+        <string>$HF_CACHE</string>
+        <key>OUTPUT_DIR</key>
+        <string>${AI_OUTPUT_DIR:-$HOME/AI_Output}</string>
+        <key>MUSIC_MCP_PORT</key>
+        <string>$MUSIC_PORT</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>$PORTAL_ROOT</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$MUSIC_LOG</string>
+    <key>StandardErrorPath</key>
+    <string>$MUSIC_LOG</string>
+</dict>
+</plist>
+PLIST
+    launchctl load "$PLIST_PATH" 2>/dev/null || true
+    echo "  ✅ Registered as launchd service: com.portal5.music-mcp"
+
+    echo ""
+    echo "=== Music MCP installed ==="
+    echo "  Port:    :$MUSIC_PORT"
+    echo "  Venv:    $MUSIC_VENV"
+    echo "  Cache:   $HF_CACHE"
+    echo "  Log:     $MUSIC_LOG"
+    echo "  Start:   ./launch.sh up  (auto-started)"
+    echo "  Models download on first call (~300MB small, ~1.5GB medium)"
+    echo ""
+    echo "Next steps:"
+    echo "  ./launch.sh up   — start Portal 5 (Music MCP starts automatically)"
+    ;;
+
   install-mlx)
     echo "=== Installing MLX dual-server (Apple Silicon native inference) ==="
     ARCH=$(uname -m)
@@ -2339,11 +2519,12 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
+    echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
     echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"

@@ -56,9 +56,13 @@ mcp = [
     "httpx>=0.26.0",
 ]
 generation = [
-    # Heavy optional deps — may fail on some platforms
-    "audiocraft>=1.3.0",
-    "stable-audio-tools>=0.1.0",
+    # MusicGen via HuggingFace transformers — works on aarch64/MPS/CUDA/CPU.
+    # AudioCraft removed: torchtext/xformers have no aarch64 Linux wheels.
+    # music_mcp runs natively on macOS (MPS) via ./launch.sh install-music.
+    "torch>=2.1.0",
+    "torchaudio>=2.1.0",
+    "transformers>=4.40.0",
+    "scipy>=1.11.0",
 ]
 apple-silicon = [
     # MLX dual-server: mlx-lm for text-only models, mlx-vlm for VLM models.
