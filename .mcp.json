@@ -20,12 +20,12 @@
       "args": ["mcp-fetch"]
     },
     "git": {
-      "command": "uvx",
-      "args": ["mcp-git", "--repository", "."]
+      "command": "/Users/chris/.local/bin/uvx",
+      "args": ["mcp-server-git", "--repository", "/Users/chris/projects/portal-5"]
     },
     "docker": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-docker"]
+      "command": "/opt/homebrew/bin/npx",
+      "args": ["-y", "mcp-docker-server"]
     }
   }
 }
