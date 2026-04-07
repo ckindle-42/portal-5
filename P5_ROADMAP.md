@@ -46,33 +46,17 @@ Live-verified: a `config_error` test event was confirmed delivered to a listenin
 
 ### P5-FUT-006: LLM-Based Intent Routing
 
-Use llama3.2:3b-instruct (already in Ollama) as an intent router. Replaces keyword-based
-workspace detection with semantic understanding of user intent.
+IMPLEMENTED in v6.0.0 (`portal_pipeline/router_pipe.py`). `_route_with_llm()` uses
+`llama3.2:3b-instruct-q4_K_M` as a semantic intent classifier, replacing keyword-based
+workspace detection for the primary routing path.
 
-**Architecture:**
-- System prompt: workspace descriptions (grounds the model in what each workspace does)
-- Few-shot examples: 3-5 edge cases per workspace (handles "Splunk query" → auto-spl vs auto-coding)
-- JSON schema constraint: Ollama grammar-enforced decoding — output is guaranteed valid workspace ID + confidence
-- `temperature: 0`, `num_predict: 20`, `num_ctx: 512` — deterministic, fast
-- `keep_alive: "-1"` — model stays loaded, no cold-start penalty
-- Falls back to existing `_detect_workspace()` keywords on `confidence < 0.5` or timeout
-
-**Expected accuracy:**
-
-| Workspace | + 3 few-shot | + 5 few-shot |
-|---|---|---|
-| auto-coding | ~95% | ~95% |
-| auto-security | ~92% | ~93% |
-| auto-spl | ~90% | ~92% |
-| auto-reasoning | ~90% | ~91% |
-| auto (fallback) | ~97% | ~97% |
-| **Overall** | **~93%** | **~94%** |
-
-**Training data loop:**
-- Log every routing decision: user message, LLM choice, keyword choice, confidence
-- Disagreements between LLM and keywords = labeled training data
-- Periodically update few-shot examples from confirmed correct routes
-- Fine-tuning path (6+ months): export logs as JSONL, LoRA fine-tune with mlx_lm on Apple Silicon
+**What was built:**
+- `_route_with_llm()` in `router_pipe.py` — Ollama grammar-enforced JSON output (guaranteed valid workspace ID + confidence)
+- `temperature: 0`, `num_predict: 20`, `num_ctx: 512` — deterministic, fast; `keep_alive: "-1"` keeps model loaded
+- Falls back to `_detect_workspace()` on `confidence < 0.5` or timeout
+- `config/routing_descriptions.json` — operator-editable workspace capability descriptions
+- `config/routing_examples.json` — 25 few-shot routing examples (operator-editable)
+- 16 unit tests in `tests/unit/test_routing.py` (mocked Ollama)
 
 **Configuration (`.env`):**
 ```
@@ -80,30 +64,28 @@ LLM_ROUTER_ENABLED=true
 LLM_ROUTER_MODEL=llama3.2:3b-instruct-q4_K_M
 LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
 LLM_ROUTER_TIMEOUT_MS=500
+LLM_ROUTER_OLLAMA_URL=http://localhost:11434
 ```
-
-**Files changed:**
-- `portal_pipeline/router_pipe.py` — add `_route_with_llm()`, keep `_detect_workspace()` as fallback
-- `config/routing_examples.json` — few-shot examples (operator-editable)
-- `config/routing_descriptions.json` — workspace capability descriptions (operator-editable)
-- `tests/unit/test_routing.py` — LLM routing tests with mocked Ollama
 
 ### P5-FUT-009: Model-Size-Aware Admission Control (MLX Proxy)
 
-FUTURE: Self-enforcing memory coexistence rules in `scripts/mlx-proxy.py`.
-Currently CLAUDE.md coexistence table (e.g. "Qwen3-Coder-Next-4bit (~46GB) + Ollama only —
-no concurrent ComfyUI") is documentation only — nothing prevents loading a 46GB model while
-ComfyUI is using 18GB, causing OOM.
+IMPLEMENTED in v6.0.0 (`scripts/mlx-proxy.py`). The CLAUDE.md coexistence table is now
+self-enforcing — the proxy rejects model loads that would exceed available memory before
+evicting the current model.
 
-Implementation:
-- `MODEL_MEMORY` dict: model tag → estimated GB (sourced from CLAUDE.md catalog)
-- `ensure_server()` pre-flight: `_get_available_memory_gb()` vs `MODEL_MEMORY[model] + headroom`
-- Reject with HTTP 503 + actionable message ("Model X needs ~46GB, only 30GB free — stop ComfyUI or unload Ollama first")
-- Log rejection as structured event for notification pipeline (P5-027)
-- Optional: enrich `/v1/models` response with `memory_estimate_gb` and `safe_concurrent_with`
+**What was built:**
+- `MODEL_MEMORY` dict: 16 model tags → estimated GB (sourced from CLAUDE.md catalog)
+- `_check_memory_for_model()`: pre-flight check in `ensure_server()` before any model switch
+- Rejects with HTTP 503 + actionable message (e.g. "Model needs ~46GB, only 30GB free — stop ComfyUI or unload Ollama first")
+- `MEMORY_HEADROOM_GB` env var replaces the hardcoded 10GB floor
+- `MLX_MEMORY_UNKNOWN_DEFAULT_GB` env var controls the assumed size for unrecognized models
+- 9 unit tests in `tests/unit/test_mlx_proxy.py` (mocked memory reads)
 
-The existing 10GB generic floor remains as secondary safety net. This replaces ad-hoc
-"operator knows" with deterministic admission control.
+**Configuration (`.env`):**
+```
+MLX_MEMORY_HEADROOM_GB=10
+MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
+```
 
 ---
 
