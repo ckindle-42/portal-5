@@ -52,6 +52,23 @@ sleep 15
 curl -s http://localhost:9099/health | python3 -m json.tool
 ```
 
+Verify Open WebUI bind address matches `ENABLE_REMOTE_ACCESS`:
+```bash
+docker inspect --format \
+  '{{range $p, $c := .NetworkSettings.Ports}}{{$p}}={{range $c}}{{.HostIp}}:{{.HostPort}}{{end}} {{end}}' \
+  portal5-open-webui
+# Default (ENABLE_REMOTE_ACCESS=false): 127.0.0.1:8080
+# Remote enabled:                       0.0.0.0:8080
+```
+If wrong, the stack was started with `docker compose up` directly. Fix:
+`./launch.sh down && ./launch.sh up`.
+
+Verify LLM router model is available (required for S22-06 PASS):
+```bash
+ollama list | grep llama3.2
+# If missing: ollama pull llama3.2:3b-instruct-q4_K_M
+```
+
 If any MCP service is down:
 ```bash
 docker compose -f deploy/portal-5/docker-compose.yml up -d
@@ -300,11 +317,26 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 **Result:** 204 PASS · 1 WARN · 9 INFO · 0 FAIL · 0 BLOCKED  
 **Runtime:** ~63 min (3785s)
 
-**Post-run fixes applied (not yet re-run):**
-*None — test suite ran cleanly with no assertion fixes required.*
+**Post-run fixes applied (target for Run 8 — requires TASK_V6_RELEASE.md first):**
+- `13db076`: dispatcher default `portal-pipeline:9099` → `localhost:9099`.
+  S20-02/S20-05 DNS-fallback dead code removed. 1 WARN (S20-02) eliminated.
+- `13db076`: 6 INFO records converted to PASS/FAIL/WARN. INFO count 9 → 3.
+- S3-17: record() restored on dead content-aware routing call.
+- S3-20 added: SPL keyword routing boundary test (auto-spl, not auto-coding).
+- S2-16 added: Open WebUI bind address / ENABLE_REMOTE_ACCESS check.
+- S1-08/09 added: routing config JSON files present and well-formed (P5-FUT-006).
+- S1-10 added: MODEL_MEMORY covers all ALL_MODELS entries (P5-FUT-009).
+- S1-11 added: LLM router wired into router_pipe.py.
+- S14-13/14 added: .env.example documents ENABLE_REMOTE_ACCESS and LLM_ROUTER_ENABLED.
+- S22-05 added: admission control source + /health/memory live (P5-FUT-009).
+- S22-06 added: LLM router live classification via llama3.2:3b (P5-FUT-006).
 
-**Key WARN causes:**
-- 1 WARN (S20-02): Telegram dispatcher `call_pipeline_async` uses Docker-internal URL `portal-pipeline:9099`; DNS fails from test host → 3rd retry times out and returns 7-char response. Environmental limitation — dispatcher is designed for Docker-internal use. Not fixable without protected file changes.
+**Run 8 target: 222 PASS · 0 WARN · 0 INFO · 0 FAIL · 0 BLOCKED**
+
+*Pre-run: pull the LLM router model or S22-06 will WARN instead of PASS:*
+```bash
+ollama pull llama3.2:3b-instruct-q4_K_M
+```
 
 ---
 
@@ -318,11 +350,15 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 | fullstacksoftwaredeveloper WARN | Was tested via auto-coding (Ollama) in v3; YAML says MLX | v4 routes it via auto-spl (Qwen3-Coder-30B MLX) |
 | S3-18 streaming hangs | httpx can't handle long-lived SSE | v4 uses curl subprocess — verify curl is available |
 | OW API returns empty JSON | Auth race condition | Re-run S11 section alone after 30s |
-| S20-01 / S20-04 INFO | Telegram or Slack not enabled in .env | Expected INFO status — feature not configured |
+| S20-01 / S20-04 skip | Telegram or Slack not enabled in .env | Expected — silently skipped when not configured |
 | S21-01 INFO | Notifications not enabled in .env | Expected INFO status — feature not configured |
 | S22-01 WARN | MLX proxy not running or switching models | Check `./launch.sh status` — if MLX is down, accept WARN |
 | S30–S37 all WARN "MLX proxy not ready" | Metal GPU crash during prior section left stale Traceback in `mlx_lm.log`; `_load_mlx_model` exited early; no remediation ran | Check `/tmp/mlx-proxy-logs/mlx_lm.log` for Traceback; post-run fixes to `_detect_mlx_crash` and `_load_mlx_model` will auto-remediate in future runs |
 | S30–S37 crash not visible in output | pre-section check was silent about state="switching" + high failures | Post-run fix: pre-section check now records WARN "PROBABLE CRASH" when switching+failures>20+Traceback |
+| S22-06 WARN | llama3.2:3b-instruct-q4_K_M not pulled | `ollama pull llama3.2:3b-instruct-q4_K_M` then re-run S22 |
+| S2-16 FAIL | Open WebUI bound to 0.0.0.0 with ENABLE_REMOTE_ACCESS=false | Stack not launched via ./launch.sh. Fix: `./launch.sh down && ./launch.sh up` |
+| S1-10 FAIL | Model in ALL_MODELS missing from MODEL_MEMORY | Add `"model/path": GB_estimate` to MODEL_MEMORY in scripts/mlx-proxy.py |
+| S1-08/S1-09 FAIL | routing_descriptions.json or routing_examples.json missing | TASK_V6_RELEASE.md not applied — apply it first |
 
 ---
 

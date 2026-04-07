@@ -164,6 +164,29 @@ Post-run assertion fixes (2026-04-06):
       response. OW race condition returns HTTP 200 with HTML body; more retries reduces WARN rate.
     - S13-03 Personas visible: same retry increase 5→10 applied to GUI fallback path.
 
+Run 8 fixes (2026-04-07):
+    - S20-02/S20-05: Removed stale DNS-fallback exception branches. dispatcher.py
+      default changed from portal-pipeline:9099 to localhost:9099 (commit 13db076).
+      Real failures now surface as FAIL rather than silently downgrading to PASS.
+    - S3-17: Restored missing record() on content-aware routing dead call. Request was
+      firing but result never recorded. Now asserts pipeline log confirms security routing.
+    - S3-20: New test — SPL keyword prompt sent to auto workspace must route to auto-spl
+      (not auto-coding). Validates _CODING_KEYWORDS/SPL boundary from commit 42fecfd.
+    - S2-16: New test — Open WebUI bind address matches ENABLE_REMOTE_ACCESS setting.
+      Inspects live container port via docker inspect (commit c01485f).
+    - S1-08/S1-09: routing_descriptions.json and routing_examples.json present and
+      well-formed (P5-FUT-006, TASK_V6_RELEASE.md).
+    - S1-10: MODEL_MEMORY covers all ALL_MODELS entries (P5-FUT-009). Fails immediately
+      when new models are added to ALL_MODELS without corresponding memory estimates.
+    - S1-11: _route_with_llm wired into router_pipe.py; keyword fallback retained;
+      LLM_ROUTER_ENABLED documented in .env.example.
+    - S14-13: .env.example documents ENABLE_REMOTE_ACCESS.
+    - S14-14: .env.example documents LLM_ROUTER_ENABLED.
+    - S22-05: MODEL_MEMORY present in proxy source + /health/memory endpoint live (P5-FUT-009).
+    - S22-06: LLM router live classification via llama3.2:3b (P5-FUT-006). WARN (not FAIL)
+      if model not pulled, so suite does not fail on environments without the model.
+    - PORTAL5_ACCEPTANCE_V4_EXECUTE.md: target 215+ P/0W/0F, step 2/3 notes, quick-ref.
+
 Post-run assertion fixes (2026-04-05 v2):
     - S11-01 OW API personas check: increased retries 3→5, added inner JSONDecodeError
       catch with retry. Prevents WARN from OW returning HTTP 200 with non-JSON body
@@ -1348,7 +1371,113 @@ async def S1() -> None:
         ),
     )
 
-    # S1-08: removed — MLX/Ollama persona distribution is metadata, not a testable assertion.
+    # S1-08: config/routing_descriptions.json — present and covers routable workspaces (P5-FUT-006)
+    t0 = time.time()
+    desc_path = ROOT / "config" / "routing_descriptions.json"
+    if desc_path.exists():
+        try:
+            desc_data = json.loads(desc_path.read_text())
+            desc_ws = {k for k in desc_data if not k.startswith("_")}
+            routable = {"auto-coding", "auto-spl", "auto-security", "auto-redteam",
+                        "auto-reasoning", "auto-compliance"}
+            missing_descs = routable - desc_ws
+            record(
+                sec, "S1-08",
+                f"config/routing_descriptions.json — {len(desc_ws)} workspaces described",
+                "PASS" if not missing_descs else "WARN",
+                "all routable workspaces described"
+                if not missing_descs
+                else f"missing descriptions for: {missing_descs}",
+                t0=t0,
+            )
+        except Exception as e:
+            record(sec, "S1-08", "config/routing_descriptions.json valid JSON",
+                   "FAIL", str(e)[:80], t0=t0)
+    else:
+        record(sec, "S1-08", "config/routing_descriptions.json present",
+               "FAIL", "not found — TASK_V6_RELEASE.md must run first", t0=t0)
+
+    # S1-09: config/routing_examples.json — present, non-empty, well-formed (P5-FUT-006)
+    t0 = time.time()
+    ex_path = ROOT / "config" / "routing_examples.json"
+    if ex_path.exists():
+        try:
+            ex_data = json.loads(ex_path.read_text())
+            examples = ex_data.get("examples", [])
+            malformed = [i for i, e in enumerate(examples)
+                         if not all(k in e for k in ("message", "workspace", "confidence"))]
+            record(
+                sec, "S1-09",
+                f"config/routing_examples.json — {len(examples)} examples",
+                "PASS" if examples and not malformed else ("WARN" if examples else "FAIL"),
+                f"{len(examples)} examples, all well-formed"
+                if not malformed
+                else f"malformed entries at indices: {malformed[:5]}",
+                t0=t0,
+            )
+        except Exception as e:
+            record(sec, "S1-09", "config/routing_examples.json valid JSON",
+                   "FAIL", str(e)[:80], t0=t0)
+    else:
+        record(sec, "S1-09", "config/routing_examples.json present",
+               "FAIL", "not found — TASK_V6_RELEASE.md must run first", t0=t0)
+
+    # S1-10: MODEL_MEMORY in mlx-proxy.py covers all models in ALL_MODELS (P5-FUT-009)
+    t0 = time.time()
+    proxy_src = (ROOT / "scripts" / "mlx-proxy.py").read_text()
+    has_model_memory = "MODEL_MEMORY" in proxy_src
+    has_headroom = "MEMORY_HEADROOM_GB" in proxy_src
+    has_check_fn = "_check_memory_for_model" in proxy_src
+    if has_model_memory and has_headroom and has_check_fn:
+        import re as _re2
+        all_models_m = _re2.search(r"ALL_MODELS\s*=\s*\[(.*?)\]", proxy_src, _re2.DOTALL)
+        model_memory_m = _re2.search(
+            r"MODEL_MEMORY\s*:\s*dict.*?=\s*\{(.*?)\n\}", proxy_src, _re2.DOTALL
+        )
+        if all_models_m and model_memory_m:
+            all_listed = _re2.findall(r'"([^"]+)"', all_models_m.group(1))
+            mem_text = model_memory_m.group(1)
+            missing_from_dict = [m for m in all_listed if m not in mem_text]
+            record(
+                sec, "S1-10",
+                f"mlx-proxy.py MODEL_MEMORY covers all {len(all_listed)} models in ALL_MODELS",
+                "PASS" if not missing_from_dict else "FAIL",
+                "all models have memory estimates"
+                if not missing_from_dict
+                else f"missing from MODEL_MEMORY: {missing_from_dict}",
+                t0=t0,
+            )
+        else:
+            record(sec, "S1-10", "mlx-proxy.py MODEL_MEMORY structure parseable",
+                   "WARN", "could not parse ALL_MODELS or MODEL_MEMORY block", t0=t0)
+    else:
+        missing_pieces = [x for x, ok in [
+            ("MODEL_MEMORY", has_model_memory),
+            ("MEMORY_HEADROOM_GB", has_headroom),
+            ("_check_memory_for_model", has_check_fn),
+        ] if not ok]
+        record(sec, "S1-10", "mlx-proxy.py MODEL_MEMORY admission control present",
+               "FAIL", f"missing: {missing_pieces} — run TASK_V6_RELEASE.md", t0=t0)
+
+    # S1-11: LLM intent router wired into router_pipe.py auto-routing path (P5-FUT-006)
+    t0 = time.time()
+    router_src = (ROOT / "portal_pipeline" / "router_pipe.py").read_text()
+    has_fn = "_route_with_llm" in router_src
+    has_await = "await _route_with_llm" in router_src
+    has_fallback = "_detect_workspace" in router_src
+    env_example = (ROOT / ".env.example").read_text() \
+        if (ROOT / ".env.example").exists() else ""
+    has_env_doc = "LLM_ROUTER_ENABLED" in env_example
+    all_ok = has_fn and has_await and has_fallback and has_env_doc
+    record(
+        sec, "S1-11",
+        "LLM intent router wired into router_pipe.py (P5-FUT-006)",
+        "PASS" if all_ok else "FAIL",
+        "LLM router present, wired, keyword fallback retained, env var documented"
+        if all_ok
+        else f"missing: fn={has_fn} await={has_await} fallback={has_fallback} env={has_env_doc}",
+        t0=t0,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1460,6 +1589,47 @@ async def S2() -> None:
     except Exception:
         # MLX proxy loads on-demand — not running at test start is expected; skip record
         pass
+
+    # S2-16: ENABLE_REMOTE_ACCESS / WEBUI_LISTEN_ADDR — default must be localhost-only.
+    # docker-compose binds Open WebUI to ${WEBUI_LISTEN_ADDR:-127.0.0.1}:8080:8080.
+    t0 = time.time()
+    try:
+        env_val = os.environ.get("ENABLE_REMOTE_ACCESS", "").lower()
+        if not env_val:
+            dot_env = ROOT / ".env"
+            if dot_env.exists():
+                for line in dot_env.read_text().splitlines():
+                    if line.strip().startswith("ENABLE_REMOTE_ACCESS"):
+                        env_val = line.split("=", 1)[-1].strip().lower()
+                        break
+
+        insp = subprocess.run(
+            ["docker", "inspect", "--format",
+             "{{range $p, $c := .NetworkSettings.Ports}}{{$p}}={{range $c}}{{.HostIp}}:{{.HostPort}}{{end}} {{end}}",
+             "portal5-open-webui"],
+            capture_output=True, text=True, timeout=10,
+        )
+        binding_raw = insp.stdout.strip()
+
+        if env_val in ("", "false"):
+            if "0.0.0.0:8080" in binding_raw:
+                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                       "FAIL",
+                       "bound to 0.0.0.0:8080 but ENABLE_REMOTE_ACCESS is false — "
+                       "restart: ./launch.sh down && ./launch.sh up",
+                       t0=t0)
+            elif "127.0.0.1:8080" in binding_raw:
+                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                       "PASS", "correctly bound to 127.0.0.1:8080 (localhost-only)", t0=t0)
+            else:
+                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                       "WARN", f"unexpected binding: {binding_raw[:80]}", t0=t0)
+        else:
+            record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=true)",
+                   "PASS" if "0.0.0.0:8080" in binding_raw else "WARN",
+                   f"binding: {binding_raw[:80]}", t0=t0)
+    except Exception as e:
+        record(sec, "S2-16", "Open WebUI bind address check", "WARN", str(e)[:80], t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2465,9 +2635,9 @@ async def S3() -> None:
             await asyncio.sleep(_INTRA_GROUP_DELAY)
         await asyncio.sleep(_INTER_GROUP_DELAY)
 
-    # ── Content-aware routing: security keywords → auto-redteam ──────────────
-    # Weighted scoring: exploit(3) + payload(3) + shellcode(3) + reverse shell(3) + bypass(2) + evasion(2) = 16
-    # Threshold for auto-redteam is 4, so this easily exceeds it.
+    # ── S3-17: Content-aware routing — weighted keyword scoring → auto-redteam ──
+    # exploit(3)+payload(3)+shellcode(3)+reverse shell(3)+bypass(2)+evasion(2)=16
+    # Threshold for auto-redteam is 4. Verify pipeline log shows security workspace.
     t0 = time.time()
     code, _ = await _chat(
         "auto",
@@ -2475,6 +2645,23 @@ async def S3() -> None:
         max_tokens=5,
         timeout=30,
     )
+    _s3_17_logs = _grep_logs(
+        "portal5-pipeline",
+        r"Auto-routing.*auto-redteam|Auto-routing.*auto-security|"
+        r"detected workspace.*auto-redteam|detected workspace.*auto-security",
+        lines=50,
+    )
+    record(
+        sec,
+        "S3-17",
+        "Content-aware routing (keyword): security prompt → auto-redteam or auto-security",
+        "PASS" if code == 200 and _s3_17_logs else "WARN",
+        "pipeline log confirmed routing to security workspace"
+        if _s3_17_logs
+        else f"HTTP {code} — no routing log match (non-streaming may not emit log)",
+        t0=t0,
+    )
+
     # ── Streaming: SSE chunks delivered reliably ──────────────────────────────
     # Note: httpx hangs on long-lived SSE connections; use curl subprocess instead.
     # Timeout 300s: cold model load can take 2-4 min before first token.
@@ -2512,6 +2699,41 @@ async def S3() -> None:
         [f"{len(log_lines)} routing-related log lines"],
         t0=t0,
     )
+
+    # ── S3-20: Content-aware routing — SPL prompt must route to auto-spl not auto-coding ──
+    # tstats(3) + correlation search(3) = 6, exceeds auto-spl threshold (3).
+    # 'splunk' and 'spl query' removed from _CODING_KEYWORDS in commit 42fecfd.
+    t0 = time.time()
+    code, _ = await _chat(
+        "auto",
+        "write a tstats correlation search to detect brute force in Splunk ES",
+        max_tokens=5,
+        timeout=30,
+    )
+    _s3_20_spl_logs = _grep_logs(
+        "portal5-pipeline",
+        r"Auto-routing.*auto-spl|detected workspace.*auto-spl",
+        lines=50,
+    )
+    _s3_20_coding_logs = _grep_logs(
+        "portal5-pipeline",
+        r"Auto-routing.*auto-coding|detected workspace.*auto-coding",
+        lines=50,
+    )
+    if _s3_20_spl_logs and not _s3_20_coding_logs:
+        _s3_20_status, _s3_20_detail = "PASS", "pipeline log confirmed routing to auto-spl"
+    elif _s3_20_coding_logs:
+        _s3_20_status = "FAIL"
+        _s3_20_detail = "routed to auto-coding — 'tstats'/'splunk' must not match _CODING_KEYWORDS"
+    else:
+        _s3_20_status = "WARN"
+        _s3_20_detail = (
+            f"HTTP {code} — no routing log match "
+            "(non-streaming may not emit log; response served)"
+        )
+    record(sec, "S3-20",
+           "Content-aware routing (keyword): SPL prompt → auto-spl, not auto-coding",
+           _s3_20_status, _s3_20_detail, t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4742,6 +4964,26 @@ async def S14() -> None:
         "found" if "auto-spl" in howto else "missing — add auto-spl to workspace table",
     )
 
+    # S14-13: .env.example documents ENABLE_REMOTE_ACCESS (commit c01485f)
+    env_example_text = (ROOT / ".env.example").read_text() \
+        if (ROOT / ".env.example").exists() else ""
+    record(
+        sec, "S14-13",
+        ".env.example documents ENABLE_REMOTE_ACCESS",
+        "PASS" if "ENABLE_REMOTE_ACCESS" in env_example_text else "FAIL",
+        "found" if "ENABLE_REMOTE_ACCESS" in env_example_text
+        else "missing — add ENABLE_REMOTE_ACCESS to .env.example",
+    )
+
+    # S14-14: .env.example documents LLM_ROUTER_ENABLED (P5-FUT-006)
+    record(
+        sec, "S14-14",
+        ".env.example documents LLM_ROUTER_ENABLED (P5-FUT-006)",
+        "PASS" if "LLM_ROUTER_ENABLED" in env_example_text else "FAIL",
+        "found" if "LLM_ROUTER_ENABLED" in env_example_text
+        else "missing — add LLM router env block (see TASK_V6_RELEASE.md)",
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # S15 — WEB SEARCH (SearXNG)
@@ -4903,26 +5145,24 @@ async def S20() -> None:
                 sec, "S20-01", "Telegram bot: module imports and build_app()", "FAIL", str(e), t0=t0
             )
 
-        # Verify dispatcher call_pipeline_async works with Telegram workspace
-        # Note: dispatcher uses Docker-internal PIPELINE_URL (portal-pipeline:9099),
-        # so we test the module imports and validation, then call pipeline directly
-        # via localhost to verify the channel adapter logic works end-to-end.
+        # dispatcher.py uses localhost:9099 by default (fixed in commit 13db076).
+        # Direct pipeline call — same path the dispatcher uses at runtime.
         t0 = time.time()
         try:
-            from portal_channels.dispatcher import VALID_WORKSPACES
+            from portal_channels.dispatcher import VALID_WORKSPACES, _build_payload
 
-            # Verify workspace validation is correct
             assert "auto" in VALID_WORKSPACES
             assert "auto-coding" in VALID_WORKSPACES
+            payload = _build_payload([{"role": "user", "content": "test"}], "auto")
+            assert "model" in payload and "messages" in payload
 
-            # Call pipeline directly (simulating what dispatcher would do)
             code, text = await _chat(
                 "auto", "Say 'ok' and nothing else.", max_tokens=20, timeout=30
             )
             record(
                 sec,
                 "S20-02",
-                "Telegram dispatcher: call_pipeline_async returns response",
+                "Telegram dispatcher: pipeline reachable via localhost",
                 "PASS"
                 if code == 200 and text.strip()
                 else ("WARN" if code in (503, 408) else "FAIL"),
@@ -4930,42 +5170,14 @@ async def S20() -> None:
                 t0=t0,
             )
         except Exception as e:
-            err_str = str(e)
-            # DNS resolution failure is expected when running natively — dispatcher
-            # uses Docker-internal hostname. Test module imports instead.
-            if "nodename" in err_str or "servname" in err_str:
-                try:
-                    from portal_channels.dispatcher import (
-                        VALID_WORKSPACES,
-                        _build_payload,
-                        _auth_headers,
-                    )
-
-                    # Verify the payload builder works correctly
-                    payload = _build_payload([{"role": "user", "content": "test"}], "auto")
-                    assert "model" in payload
-                    assert "messages" in payload
-                    record(
-                        sec,
-                        "S20-02",
-                        "Telegram dispatcher: module imports and payload builder work",
-                        "PASS",
-                        "dispatcher uses Docker-internal URL — tested modules natively, pipeline via localhost",
-                        t0=t0,
-                    )
-                except Exception as e2:
-                    record(
-                        sec, "S20-02", "Telegram dispatcher: module imports", "FAIL", str(e2), t0=t0
-                    )
-            else:
-                record(
-                    sec,
-                    "S20-02",
-                    "Telegram dispatcher: call_pipeline_async",
-                    "FAIL",
-                    err_str,
-                    t0=t0,
-                )
+            record(
+                sec,
+                "S20-02",
+                "Telegram dispatcher: pipeline reachable via localhost",
+                "FAIL",
+                str(e)[:120],
+                t0=t0,
+            )
 
         # Verify workspace validation
         t0 = time.time()
@@ -5012,9 +5224,7 @@ async def S20() -> None:
                 sec, "S20-04", "Slack bot: module imports and _get_tokens()", "FAIL", str(e), t0=t0
             )
 
-        # Verify dispatcher works with Slack workspace routing
-        # Note: dispatcher uses Docker-internal PIPELINE_URL (portal-pipeline:9099),
-        # so we test the module imports and validation, then call pipeline directly
+        # dispatcher.py uses localhost:9099 by default (fixed in commit 13db076).
         t0 = time.time()
         try:
             from portal_channels.dispatcher import call_pipeline_sync
@@ -5029,33 +5239,14 @@ async def S20() -> None:
                 t0=t0,
             )
         except Exception as e:
-            err_str = str(e)
-            # DNS resolution failure is expected when running natively — dispatcher
-            # uses Docker-internal hostname. Test module imports instead.
-            if "nodename" in err_str or "servname" in err_str:
-                try:
-                    from portal_channels.dispatcher import VALID_WORKSPACES, _build_payload
-
-                    # Verify the payload builder works correctly
-                    payload = _build_payload([{"role": "user", "content": "test"}], "auto")
-                    assert "model" in payload
-                    assert "messages" in payload
-                    record(
-                        sec,
-                        "S20-05",
-                        "Slack dispatcher: module imports and payload builder work",
-                        "PASS",
-                        "dispatcher uses Docker-internal URL — tested modules natively, pipeline via localhost",
-                        t0=t0,
-                    )
-                except Exception as e2:
-                    record(
-                        sec, "S20-05", "Slack dispatcher: module imports", "FAIL", str(e2), t0=t0
-                    )
-            else:
-                record(
-                    sec, "S20-05", "Slack dispatcher: call_pipeline_sync", "FAIL", err_str, t0=t0
-                )
+            record(
+                sec,
+                "S20-05",
+                "Slack dispatcher: call_pipeline_sync",
+                "FAIL",
+                str(e)[:120],
+                t0=t0,
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5321,6 +5512,96 @@ async def S22() -> None:
     else:
         record(sec, "S22-04", "MLX watchdog not running (correct for testing)",
                "PASS", "watchdog absent — no interference with MLX model switching", t0=t0)
+
+    # S22-05: MODEL_MEMORY admission control — source present + /health/memory live (P5-FUT-009)
+    t0 = time.time()
+    _proxy_src_22 = (ROOT / "scripts" / "mlx-proxy.py").read_text()
+    _has_admission = all(
+        tok in _proxy_src_22
+        for tok in ("MODEL_MEMORY", "MEMORY_HEADROOM_GB", "_check_memory_for_model")
+    )
+    if _has_admission:
+        try:
+            async with httpx.AsyncClient(timeout=5) as c:
+                r = await c.get(f"{MLX_URL}/health/memory")
+            if r.status_code == 200:
+                mem = r.json()
+                free_gb = mem.get("current", {}).get("free_gb", -1)
+                record(
+                    sec, "S22-05",
+                    "MLX proxy admission control present + /health/memory live",
+                    "PASS",
+                    f"MODEL_MEMORY dict present, /health/memory reachable, free={free_gb:.1f}GB",
+                    t0=t0,
+                )
+            else:
+                record(sec, "S22-05", "MLX proxy admission control present",
+                       "WARN", f"source OK but /health/memory returned HTTP {r.status_code}",
+                       t0=t0)
+        except Exception as e:
+            record(sec, "S22-05", "MLX proxy admission control (proxy offline)",
+                   "WARN", f"source has MODEL_MEMORY but proxy unreachable: {str(e)[:60]}",
+                   t0=t0)
+    else:
+        record(sec, "S22-05", "MLX proxy admission control (P5-FUT-009)",
+               "FAIL",
+               "MODEL_MEMORY or _check_memory_for_model missing from mlx-proxy.py "
+               "— run TASK_V6_RELEASE.md", t0=t0)
+
+    # S22-06: LLM router live — llama3.2:3b responds with valid workspace ID (P5-FUT-006)
+    t0 = time.time()
+    _llm_router_enabled = os.environ.get("LLM_ROUTER_ENABLED", "true").lower()
+    if _llm_router_enabled == "false":
+        print("  ⏭  LLM_ROUTER_ENABLED=false — skipping S22-06")
+    else:
+        _llm_model = os.environ.get("LLM_ROUTER_MODEL", "llama3.2:3b-instruct-q4_K_M")
+        _llm_url = os.environ.get("LLM_ROUTER_OLLAMA_URL", "http://localhost:11434")
+        _valid_ws_ids = {
+            "auto", "auto-coding", "auto-spl", "auto-security", "auto-redteam",
+            "auto-blueteam", "auto-creative", "auto-reasoning", "auto-documents",
+            "auto-video", "auto-music", "auto-research", "auto-vision",
+            "auto-data", "auto-compliance", "auto-mistral",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=8) as c:
+                r = await c.post(
+                    f"{_llm_url}/api/generate",
+                    json={
+                        "model": _llm_model,
+                        "prompt": (
+                            "You are an intent router. Classify: "
+                            "'write a tstats query to count failed logins by user in Splunk ES' "
+                            'Respond ONLY with JSON: {"workspace": "<id>", "confidence": <0-1>}'
+                        ),
+                        "stream": False,
+                        "options": {"temperature": 0, "num_predict": 40},
+                    },
+                )
+            if r.status_code == 200:
+                raw = r.json().get("response", "").strip()
+                try:
+                    parsed = json.loads(raw)
+                    ws = parsed.get("workspace", "")
+                    conf = float(parsed.get("confidence", 0))
+                    record(
+                        sec, "S22-06",
+                        f"LLM router ({_llm_model}) returns valid workspace",
+                        "PASS" if ws in _valid_ws_ids and conf >= 0.5 else "WARN",
+                        f"workspace={ws!r} confidence={conf:.2f}"
+                        + ("" if ws in _valid_ws_ids else " — unknown workspace ID"),
+                        t0=t0,
+                    )
+                except (json.JSONDecodeError, ValueError):
+                    record(sec, "S22-06", "LLM router response parseable",
+                           "WARN", f"non-JSON response: {raw[:80]}", t0=t0)
+            else:
+                record(sec, "S22-06", "LLM router reachable",
+                       "WARN",
+                       f"Ollama HTTP {r.status_code} — pull: ollama pull {_llm_model}",
+                       t0=t0)
+        except Exception as e:
+            record(sec, "S22-06", "LLM router reachable",
+                   "WARN", f"Ollama unreachable at {_llm_url}: {str(e)[:80]}", t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
