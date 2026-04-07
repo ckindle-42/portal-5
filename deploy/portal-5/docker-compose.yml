@@ -55,7 +55,7 @@ services:
       sh -c "
         echo '=== Portal 5: Pulling core models ===' &&
         ollama pull ${DEFAULT_MODEL:-dolphin-llama3:8b} &&
-        ollama pull llama3.2:3b-instruct-q4_K_M &&
+        ollama pull hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF &&
         ollama pull nomic-embed-text:latest &&
         echo '=== Core models ready ===' &&
         echo 'Run: ./launch.sh pull-models  to pull all specialized models'

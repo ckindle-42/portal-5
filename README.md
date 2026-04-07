@@ -163,7 +163,7 @@ and tools automatically.
 
 ### Core models (pulled automatically on first run, ~4 GB)
 - `dolphin-llama3:8b` — general purpose default
-- `llama3.2:3b` — fast small model
+- `llama3.2:3b-abliterated` — fast small model (uncensored, used for routing)
 - `nomic-embed-text` — document embeddings for RAG
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)

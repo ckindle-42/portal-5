@@ -480,7 +480,9 @@ def _emit(r: R) -> R:
         ts = time.strftime("%H:%M:%S")
         counts = _progress_counts()
         with open(_PROGRESS_LOG, "a") as _pf:
-            _pf.write(f"[{ts}] {icon} [{r.section}/{r.tid}] {r.name[:60]}  {r.detail[:60]}  {dur}  {counts}\n")
+            _pf.write(
+                f"[{ts}] {icon} [{r.section}/{r.tid}] {r.name[:60]}  {r.detail[:60]}  {dur}  {counts}\n"
+            )
     except Exception:
         pass
     return r
@@ -814,21 +816,35 @@ async def S17() -> None:
     _src_commit_ts: int = 0
     try:
         git_ts = subprocess.run(
-            ["git", "-C", str(ROOT), "log", "-1", "--format=%ct",
-             "--", "Dockerfile.mcp", "portal_mcp/", "portal_channels/"],
-            capture_output=True, text=True, timeout=10,
+            [
+                "git",
+                "-C",
+                str(ROOT),
+                "log",
+                "-1",
+                "--format=%ct",
+                "--",
+                "Dockerfile.mcp",
+                "portal_mcp/",
+                "portal_channels/",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
-        _src_commit_ts = int(git_ts.stdout.strip()) if git_ts.returncode == 0 and git_ts.stdout.strip() else 0
+        _src_commit_ts = (
+            int(git_ts.stdout.strip()) if git_ts.returncode == 0 and git_ts.stdout.strip() else 0
+        )
     except Exception:
         pass
 
     # Map service → container name
     _svc_containers = {
         "mcp-documents": "portal5-mcp-documents",
-        "mcp-tts":       "portal5-mcp-tts",
-        "mcp-whisper":   "portal5-mcp-whisper",
-        "mcp-sandbox":   "portal5-mcp-sandbox",
-        "mcp-video":     "portal5-mcp-video",
+        "mcp-tts": "portal5-mcp-tts",
+        "mcp-whisper": "portal5-mcp-whisper",
+        "mcp-sandbox": "portal5-mcp-sandbox",
+        "mcp-video": "portal5-mcp-video",
     }
     stale_images: list[str] = []
     image_details: list[str] = []
@@ -837,15 +853,18 @@ async def S17() -> None:
             try:
                 insp = subprocess.run(
                     ["docker", "inspect", "--format", "{{.Created}}", cname],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 created_str = insp.stdout.strip()
                 if created_str:
                     # Docker returns ISO 8601: 2026-04-05T21:13:07.123456789Z
                     from datetime import timezone
                     import re as _re
+
                     # Truncate nanoseconds to microseconds for fromisoformat
-                    created_str_trunc = _re.sub(r'(\.\d{6})\d*(Z?)$', r'\1\2', created_str)
+                    created_str_trunc = _re.sub(r"(\.\d{6})\d*(Z?)$", r"\1\2", created_str)
                     created_str_trunc = created_str_trunc.replace("Z", "+00:00")
                     img_ts = int(datetime.fromisoformat(created_str_trunc).timestamp())
                     if img_ts < _src_commit_ts:
@@ -856,22 +875,46 @@ async def S17() -> None:
 
     if stale_images:
         print(f"  ⚠️  Stale MCP images detected: {stale_images} — will rebuild")
-        record(sec, "S17-01", "MCP image staleness check",
-               "WARN", f"stale: {stale_images} — forcing rebuild", t0=t0)
+        record(
+            sec,
+            "S17-01",
+            "MCP image staleness check",
+            "WARN",
+            f"stale: {stale_images} — forcing rebuild",
+            t0=t0,
+        )
     else:
         last_commit_human = ""
         if _src_commit_ts:
             try:
                 lc = subprocess.run(
-                    ["git", "-C", str(ROOT), "log", "-1", "--format=%h %ai",
-                     "--", "Dockerfile.mcp", "portal_mcp/", "portal_channels/"],
-                    capture_output=True, text=True, timeout=5,
+                    [
+                        "git",
+                        "-C",
+                        str(ROOT),
+                        "log",
+                        "-1",
+                        "--format=%h %ai",
+                        "--",
+                        "Dockerfile.mcp",
+                        "portal_mcp/",
+                        "portal_channels/",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 last_commit_human = lc.stdout.strip()[:60]
             except Exception:
                 pass
-        record(sec, "S17-01", "MCP image staleness check",
-               "PASS", f"all images newer than last source commit ({last_commit_human})", t0=t0)
+        record(
+            sec,
+            "S17-01",
+            "MCP image staleness check",
+            "PASS",
+            f"all images newer than last source commit ({last_commit_human})",
+            t0=t0,
+        )
 
     # Dockerfile.mcp hash — still track for rebuild trigger
     dh = subprocess.run(["md5sum", str(ROOT / "Dockerfile.mcp")], capture_output=True, text=True)
@@ -894,15 +937,14 @@ async def S17() -> None:
         dh_deployed = subprocess.run(
             ["md5sum", str(deployed_proxy)], capture_output=True, text=True
         )
-        dh_repo = subprocess.run(
-            ["md5sum", str(repo_proxy)], capture_output=True, text=True
-        )
+        dh_repo = subprocess.run(["md5sum", str(repo_proxy)], capture_output=True, text=True)
         h_deployed = dh_deployed.stdout.split()[0] if dh_deployed.returncode == 0 else ""
         h_repo = dh_repo.stdout.split()[0] if dh_repo.returncode == 0 else ""
         if h_deployed != h_repo and h_deployed and h_repo:
             proxy_stale = True
             print(f"  ⚠️  MLX proxy stale — syncing from scripts/mlx-proxy.py")
             import shutil
+
             shutil.copy2(str(repo_proxy), str(deployed_proxy))
             # Restart the proxy
             subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True)
@@ -911,7 +953,8 @@ async def S17() -> None:
             with open(log_path, "a") as lf:
                 subprocess.Popen(
                     ["python3", str(deployed_proxy)],
-                    stdout=lf, stderr=lf,
+                    stdout=lf,
+                    stderr=lf,
                     start_new_session=True,
                 )
             time.sleep(3)
@@ -924,9 +967,12 @@ async def S17() -> None:
         proxy_detail = "repo proxy not found"
 
     record(
-        sec, "S17-01b", "MLX proxy deployed vs repo",
+        sec,
+        "S17-01b",
+        "MLX proxy deployed vs repo",
         "WARN" if proxy_stale else "PASS",
-        proxy_detail, t0=t0,
+        proxy_detail,
+        t0=t0,
     )
 
     # ── S17-02: MCP health check — restart if unhealthy ──────────────────────
@@ -1378,11 +1424,18 @@ async def S1() -> None:
         try:
             desc_data = json.loads(desc_path.read_text())
             desc_ws = {k for k in desc_data if not k.startswith("_")}
-            routable = {"auto-coding", "auto-spl", "auto-security", "auto-redteam",
-                        "auto-reasoning", "auto-compliance"}
+            routable = {
+                "auto-coding",
+                "auto-spl",
+                "auto-security",
+                "auto-redteam",
+                "auto-reasoning",
+                "auto-compliance",
+            }
             missing_descs = routable - desc_ws
             record(
-                sec, "S1-08",
+                sec,
+                "S1-08",
                 f"config/routing_descriptions.json — {len(desc_ws)} workspaces described",
                 "PASS" if not missing_descs else "WARN",
                 "all routable workspaces described"
@@ -1391,11 +1444,23 @@ async def S1() -> None:
                 t0=t0,
             )
         except Exception as e:
-            record(sec, "S1-08", "config/routing_descriptions.json valid JSON",
-                   "FAIL", str(e)[:80], t0=t0)
+            record(
+                sec,
+                "S1-08",
+                "config/routing_descriptions.json valid JSON",
+                "FAIL",
+                str(e)[:80],
+                t0=t0,
+            )
     else:
-        record(sec, "S1-08", "config/routing_descriptions.json present",
-               "FAIL", "not found — TASK_V6_RELEASE.md must run first", t0=t0)
+        record(
+            sec,
+            "S1-08",
+            "config/routing_descriptions.json present",
+            "FAIL",
+            "not found — TASK_V6_RELEASE.md must run first",
+            t0=t0,
+        )
 
     # S1-09: config/routing_examples.json — present, non-empty, well-formed (P5-FUT-006)
     t0 = time.time()
@@ -1404,10 +1469,14 @@ async def S1() -> None:
         try:
             ex_data = json.loads(ex_path.read_text())
             examples = ex_data.get("examples", [])
-            malformed = [i for i, e in enumerate(examples)
-                         if not all(k in e for k in ("message", "workspace", "confidence"))]
+            malformed = [
+                i
+                for i, e in enumerate(examples)
+                if not all(k in e for k in ("message", "workspace", "confidence"))
+            ]
             record(
-                sec, "S1-09",
+                sec,
+                "S1-09",
                 f"config/routing_examples.json — {len(examples)} examples",
                 "PASS" if examples and not malformed else ("WARN" if examples else "FAIL"),
                 f"{len(examples)} examples, all well-formed"
@@ -1416,11 +1485,18 @@ async def S1() -> None:
                 t0=t0,
             )
         except Exception as e:
-            record(sec, "S1-09", "config/routing_examples.json valid JSON",
-                   "FAIL", str(e)[:80], t0=t0)
+            record(
+                sec, "S1-09", "config/routing_examples.json valid JSON", "FAIL", str(e)[:80], t0=t0
+            )
     else:
-        record(sec, "S1-09", "config/routing_examples.json present",
-               "FAIL", "not found — TASK_V6_RELEASE.md must run first", t0=t0)
+        record(
+            sec,
+            "S1-09",
+            "config/routing_examples.json present",
+            "FAIL",
+            "not found — TASK_V6_RELEASE.md must run first",
+            t0=t0,
+        )
 
     # S1-10: MODEL_MEMORY in mlx-proxy.py covers all models in ALL_MODELS (P5-FUT-009)
     t0 = time.time()
@@ -1430,6 +1506,7 @@ async def S1() -> None:
     has_check_fn = "_check_memory_for_model" in proxy_src
     if has_model_memory and has_headroom and has_check_fn:
         import re as _re2
+
         all_models_m = _re2.search(r"ALL_MODELS\s*=\s*\[(.*?)\]", proxy_src, _re2.DOTALL)
         model_memory_m = _re2.search(
             r"MODEL_MEMORY\s*:\s*dict.*?=\s*\{(.*?)\n\}", proxy_src, _re2.DOTALL
@@ -1439,7 +1516,8 @@ async def S1() -> None:
             mem_text = model_memory_m.group(1)
             missing_from_dict = [m for m in all_listed if m not in mem_text]
             record(
-                sec, "S1-10",
+                sec,
+                "S1-10",
                 f"mlx-proxy.py MODEL_MEMORY covers all {len(all_listed)} models in ALL_MODELS",
                 "PASS" if not missing_from_dict else "FAIL",
                 "all models have memory estimates"
@@ -1448,16 +1526,32 @@ async def S1() -> None:
                 t0=t0,
             )
         else:
-            record(sec, "S1-10", "mlx-proxy.py MODEL_MEMORY structure parseable",
-                   "WARN", "could not parse ALL_MODELS or MODEL_MEMORY block", t0=t0)
+            record(
+                sec,
+                "S1-10",
+                "mlx-proxy.py MODEL_MEMORY structure parseable",
+                "WARN",
+                "could not parse ALL_MODELS or MODEL_MEMORY block",
+                t0=t0,
+            )
     else:
-        missing_pieces = [x for x, ok in [
-            ("MODEL_MEMORY", has_model_memory),
-            ("MEMORY_HEADROOM_GB", has_headroom),
-            ("_check_memory_for_model", has_check_fn),
-        ] if not ok]
-        record(sec, "S1-10", "mlx-proxy.py MODEL_MEMORY admission control present",
-               "FAIL", f"missing: {missing_pieces} — run TASK_V6_RELEASE.md", t0=t0)
+        missing_pieces = [
+            x
+            for x, ok in [
+                ("MODEL_MEMORY", has_model_memory),
+                ("MEMORY_HEADROOM_GB", has_headroom),
+                ("_check_memory_for_model", has_check_fn),
+            ]
+            if not ok
+        ]
+        record(
+            sec,
+            "S1-10",
+            "mlx-proxy.py MODEL_MEMORY admission control present",
+            "FAIL",
+            f"missing: {missing_pieces} — run TASK_V6_RELEASE.md",
+            t0=t0,
+        )
 
     # S1-11: LLM intent router wired into router_pipe.py auto-routing path (P5-FUT-006)
     t0 = time.time()
@@ -1465,12 +1559,12 @@ async def S1() -> None:
     has_fn = "_route_with_llm" in router_src
     has_await = "await _route_with_llm" in router_src
     has_fallback = "_detect_workspace" in router_src
-    env_example = (ROOT / ".env.example").read_text() \
-        if (ROOT / ".env.example").exists() else ""
+    env_example = (ROOT / ".env.example").read_text() if (ROOT / ".env.example").exists() else ""
     has_env_doc = "LLM_ROUTER_ENABLED" in env_example
     all_ok = has_fn and has_await and has_fallback and has_env_doc
     record(
-        sec, "S1-11",
+        sec,
+        "S1-11",
         "LLM intent router wired into router_pipe.py (P5-FUT-006)",
         "PASS" if all_ok else "FAIL",
         "LLM router present, wired, keyword fallback retained, env var documented"
@@ -1584,8 +1678,14 @@ async def S2() -> None:
                     t0=t0,
                 )
             else:
-                record(sec, "S2-15", "MLX proxy :8081", "PASS",
-                       f"proxy up (HTTP {r.status_code}) — no model loaded yet", t0=t0)
+                record(
+                    sec,
+                    "S2-15",
+                    "MLX proxy :8081",
+                    "PASS",
+                    f"proxy up (HTTP {r.status_code}) — no model loaded yet",
+                    t0=t0,
+                )
     except Exception:
         # MLX proxy loads on-demand — not running at test start is expected; skip record
         pass
@@ -1604,30 +1704,57 @@ async def S2() -> None:
                         break
 
         insp = subprocess.run(
-            ["docker", "inspect", "--format",
-             "{{range $p, $c := .NetworkSettings.Ports}}{{$p}}={{range $c}}{{.HostIp}}:{{.HostPort}}{{end}} {{end}}",
-             "portal5-open-webui"],
-            capture_output=True, text=True, timeout=10,
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range $p, $c := .NetworkSettings.Ports}}{{$p}}={{range $c}}{{.HostIp}}:{{.HostPort}}{{end}} {{end}}",
+                "portal5-open-webui",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         binding_raw = insp.stdout.strip()
 
         if env_val in ("", "false"):
             if "0.0.0.0:8080" in binding_raw:
-                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
-                       "FAIL",
-                       "bound to 0.0.0.0:8080 but ENABLE_REMOTE_ACCESS is false — "
-                       "restart: ./launch.sh down && ./launch.sh up",
-                       t0=t0)
+                record(
+                    sec,
+                    "S2-16",
+                    "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                    "FAIL",
+                    "bound to 0.0.0.0:8080 but ENABLE_REMOTE_ACCESS is false — "
+                    "restart: ./launch.sh down && ./launch.sh up",
+                    t0=t0,
+                )
             elif "127.0.0.1:8080" in binding_raw:
-                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
-                       "PASS", "correctly bound to 127.0.0.1:8080 (localhost-only)", t0=t0)
+                record(
+                    sec,
+                    "S2-16",
+                    "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                    "PASS",
+                    "correctly bound to 127.0.0.1:8080 (localhost-only)",
+                    t0=t0,
+                )
             else:
-                record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
-                       "WARN", f"unexpected binding: {binding_raw[:80]}", t0=t0)
+                record(
+                    sec,
+                    "S2-16",
+                    "Open WebUI bind address (ENABLE_REMOTE_ACCESS=false)",
+                    "WARN",
+                    f"unexpected binding: {binding_raw[:80]}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S2-16", "Open WebUI bind address (ENABLE_REMOTE_ACCESS=true)",
-                   "PASS" if "0.0.0.0:8080" in binding_raw else "WARN",
-                   f"binding: {binding_raw[:80]}", t0=t0)
+            record(
+                sec,
+                "S2-16",
+                "Open WebUI bind address (ENABLE_REMOTE_ACCESS=true)",
+                "PASS" if "0.0.0.0:8080" in binding_raw else "WARN",
+                f"binding: {binding_raw[:80]}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S2-16", "Open WebUI bind address check", "WARN", str(e)[:80], t0=t0)
 
@@ -1868,7 +1995,9 @@ async def _load_mlx_model(model: str) -> tuple[bool, str]:
             # else: stale Traceback from a previous run — fall through normally
             # (future.done() check below will still fire when request completes)
             if detail != last_log_check:
-                print(f"  ⏳ Stale Traceback in log (pre-existing crash, ignoring) — waiting for new server...")
+                print(
+                    f"  ⏳ Stale Traceback in log (pre-existing crash, ignoring) — waiting for new server..."
+                )
                 last_log_check = detail
             # Don't return False here; let the loop continue watching for log truncation
         # Print progress if log status changed
@@ -2010,10 +2139,7 @@ async def _wait_for_docker_recovery(
             print(f"  ✅ Docker recovered after {elapsed}s — continuing")
             return True, elapsed
         remaining = int(deadline - time.time())
-        print(
-            f"  ⏳ [{elapsed:>3}s elapsed / {remaining:>3}s remain] "
-            f"attempt {attempt}: {detail}"
-        )
+        print(f"  ⏳ [{elapsed:>3}s elapsed / {remaining:>3}s remain] attempt {attempt}: {detail}")
         await asyncio.sleep(poll_interval)
     return False, int(time.time() - start)
 
@@ -2728,12 +2854,16 @@ async def S3() -> None:
     else:
         _s3_20_status = "WARN"
         _s3_20_detail = (
-            f"HTTP {code} — no routing log match "
-            "(non-streaming may not emit log; response served)"
+            f"HTTP {code} — no routing log match (non-streaming may not emit log; response served)"
         )
-    record(sec, "S3-20",
-           "Content-aware routing (keyword): SPL prompt → auto-spl, not auto-coding",
-           _s3_20_status, _s3_20_detail, t0=t0)
+    record(
+        sec,
+        "S3-20",
+        "Content-aware routing (keyword): SPL prompt → auto-spl, not auto-coding",
+        _s3_20_status,
+        _s3_20_detail,
+        t0=t0,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2776,25 +2906,43 @@ async def S4() -> None:
             if fpath.exists():
                 size = fpath.stat().st_size
                 from docx import Document as DocxDocument
+
                 doc = DocxDocument(str(fpath))
                 all_text = "\n".join(p.text for p in doc.paragraphs).lower()
                 expected = ["microservices", "migration", "timeline", "risk"]
                 found = [kw for kw in expected if kw in all_text]
                 record(
-                    sec, "S4-01b", "create_word_document: file on disk with content",
+                    sec,
+                    "S4-01b",
+                    "create_word_document: file on disk with content",
                     "PASS" if found else "WARN",
-                    f"✓ {fname} {size:,} bytes; keywords found: {found}" if found
+                    f"✓ {fname} {size:,} bytes; keywords found: {found}"
+                    if found
                     else f"file exists {size:,} bytes but expected keywords not found",
                     t0=t0,
                 )
             else:
-                record(sec, "S4-01b", "create_word_document: file on disk with content",
-                       "FAIL", f"file not found: {fpath}", t0=t0)
+                record(
+                    sec,
+                    "S4-01b",
+                    "create_word_document: file on disk with content",
+                    "FAIL",
+                    f"file not found: {fpath}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S4-01b", "create_word_document: file on disk with content", "WARN",
-                   "path not in response — skipped", t0=t0)
+            record(
+                sec,
+                "S4-01b",
+                "create_word_document: file on disk with content",
+                "WARN",
+                "path not in response — skipped",
+                t0=t0,
+            )
     except Exception as e:
-        record(sec, "S4-01b", "create_word_document: file on disk with content", "WARN", str(e), t0=t0)
+        record(
+            sec, "S4-01b", "create_word_document: file on disk with content", "WARN", str(e), t0=t0
+        )
 
     # S4-02: PowerPoint — capture response to validate file on disk
     pptx_resp = await _mcp_raw(
@@ -2828,28 +2976,55 @@ async def S4() -> None:
             if fpath.exists():
                 size = fpath.stat().st_size
                 from pptx import Presentation
+
                 prs = Presentation(str(fpath))
                 slide_count = len(prs.slides)
                 slide_text = " ".join(
-                    shape.text for slide in prs.slides
-                    for shape in slide.shapes if hasattr(shape, "text")
+                    shape.text
+                    for slide in prs.slides
+                    for shape in slide.shapes
+                    if hasattr(shape, "text")
                 ).lower()
                 # Broad keyword list — any 1 match confirms content is domain-relevant
-                expected = ["container", "security", "threat", "best practice", "implementation",
-                            "docker", "kubernetes", "vulnerabilit", "protect", "network"]
+                expected = [
+                    "container",
+                    "security",
+                    "threat",
+                    "best practice",
+                    "implementation",
+                    "docker",
+                    "kubernetes",
+                    "vulnerabilit",
+                    "protect",
+                    "network",
+                ]
                 found = [kw for kw in expected if kw in slide_text]
                 record(
-                    sec, "S4-02b", "create_powerpoint: file on disk with 5 slides + content",
+                    sec,
+                    "S4-02b",
+                    "create_powerpoint: file on disk with 5 slides + content",
                     "PASS" if slide_count >= 3 and found else "WARN",
                     f"✓ {fname} {size:,} bytes; {slide_count} slides; keywords: {found[:4]}",
                     t0=t0,
                 )
             else:
-                record(sec, "S4-02b", "create_powerpoint: file on disk with content",
-                       "FAIL", f"file not found: {fpath}", t0=t0)
+                record(
+                    sec,
+                    "S4-02b",
+                    "create_powerpoint: file on disk with content",
+                    "FAIL",
+                    f"file not found: {fpath}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S4-02b", "create_powerpoint: file on disk with content", "WARN",
-                   "path not in response — skipped", t0=t0)
+            record(
+                sec,
+                "S4-02b",
+                "create_powerpoint: file on disk with content",
+                "WARN",
+                "path not in response — skipped",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S4-02b", "create_powerpoint: file on disk with content", "WARN", str(e), t0=t0)
 
@@ -2884,6 +3059,7 @@ async def S4() -> None:
             if fpath.exists():
                 size = fpath.stat().st_size
                 import openpyxl
+
                 wb = openpyxl.load_workbook(str(fpath), read_only=True, data_only=True)
                 ws = wb.active
                 rows = list(ws.iter_rows(values_only=True))
@@ -2895,18 +3071,32 @@ async def S4() -> None:
                     isinstance(v, (int, float)) for row in rows for v in row if v is not None
                 )
                 record(
-                    sec, "S4-03b", "create_excel: file on disk with data rows",
+                    sec,
+                    "S4-03b",
+                    "create_excel: file on disk with data rows",
                     "PASS" if found and has_numbers else "WARN",
                     f"✓ {fname} {size:,} bytes; {len(rows)} rows; "
                     f"keys: {found}; numbers: {has_numbers}",
                     t0=t0,
                 )
             else:
-                record(sec, "S4-03b", "create_excel: file on disk with content",
-                       "FAIL", f"file not found: {fpath}", t0=t0)
+                record(
+                    sec,
+                    "S4-03b",
+                    "create_excel: file on disk with content",
+                    "FAIL",
+                    f"file not found: {fpath}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S4-03b", "create_excel: file on disk with content", "WARN",
-                   "path not in response — skipped", t0=t0)
+            record(
+                sec,
+                "S4-03b",
+                "create_excel: file on disk with content",
+                "WARN",
+                "path not in response — skipped",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S4-03b", "create_excel: file on disk with content", "WARN", str(e), t0=t0)
 
@@ -3183,7 +3373,11 @@ async def S7() -> None:
     music_resp = await _mcp_raw(
         port,
         "generate_music",
-        {"prompt": "upbeat jazz piano solo with walking bass line", "duration": 5, "model_size": "large"},
+        {
+            "prompt": "upbeat jazz piano solo with walking bass line",
+            "duration": 5,
+            "model_size": "large",
+        },
         section=sec,
         tid="S7-02",
         name="generate_music: 5s jazz (musicgen-large) → success",
@@ -3205,24 +3399,50 @@ async def S7() -> None:
                 info = _wav_info(wav_data)
                 if info:
                     record(
-                        sec, "S7-02b", "generate_music WAV file valid (RIFF, correct duration)",
+                        sec,
+                        "S7-02b",
+                        "generate_music WAV file valid (RIFF, correct duration)",
                         "PASS" if info["duration_s"] >= 4.5 else "WARN",
                         f"✓ {fpath.name} {len(wav_data):,} bytes "
                         f"{info['duration_s']}s {info['sample_rate']}Hz",
                         t0=t0,
                     )
                 else:
-                    record(sec, "S7-02b", "generate_music WAV file valid", "FAIL",
-                           f"not a valid WAV: {fpath.name}", t0=t0)
+                    record(
+                        sec,
+                        "S7-02b",
+                        "generate_music WAV file valid",
+                        "FAIL",
+                        f"not a valid WAV: {fpath.name}",
+                        t0=t0,
+                    )
             else:
-                record(sec, "S7-02b", "generate_music WAV file valid", "FAIL",
-                       f"file not found on host: {fpath_str}", t0=t0)
+                record(
+                    sec,
+                    "S7-02b",
+                    "generate_music WAV file valid",
+                    "FAIL",
+                    f"file not found on host: {fpath_str}",
+                    t0=t0,
+                )
         elif not resp_data.get("success"):
-            record(sec, "S7-02b", "generate_music WAV file valid", "WARN",
-                   f"generation did not succeed: {music_resp[:80]}", t0=t0)
+            record(
+                sec,
+                "S7-02b",
+                "generate_music WAV file valid",
+                "WARN",
+                f"generation did not succeed: {music_resp[:80]}",
+                t0=t0,
+            )
         else:
-            record(sec, "S7-02b", "generate_music WAV file valid", "WARN",
-                   "path not in response", t0=t0)
+            record(
+                sec,
+                "S7-02b",
+                "generate_music WAV file valid",
+                "WARN",
+                "path not in response",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S7-02b", "generate_music WAV file valid", "WARN", str(e), t0=t0)
 
@@ -4384,12 +4604,23 @@ async def S35() -> None:
     await _unload_ollama_models()
     loaded, detail = await _load_mlx_model(model_label)
     if not loaded:
-        record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
-               f"model load failed: {detail}")
+        record(
+            sec,
+            "S35-01",
+            f"MLX model {model_label} (direct)",
+            "WARN",
+            f"model load failed: {detail}",
+        )
     else:
         ready = await _wait_for_mlx_ready(timeout=180, expected_model=model_label)
         if not ready:
-            record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN", "MLX proxy not ready (timeout 180s)")
+            record(
+                sec,
+                "S35-01",
+                f"MLX model {model_label} (direct)",
+                "WARN",
+                "MLX proxy not ready (timeout 180s)",
+            )
         else:
             t0 = time.time()
             body = {
@@ -4406,23 +4637,38 @@ async def S35() -> None:
                     msg = data.get("choices", [{}])[0].get("message", {})
                     text = msg.get("content", "") or msg.get("reasoning", "")
                     if not text.strip():
-                        record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
-                               f"empty response", t0=t0)
+                        record(
+                            sec,
+                            "S35-01",
+                            f"MLX model {model_label} (direct)",
+                            "WARN",
+                            f"empty response",
+                            t0=t0,
+                        )
                     else:
                         matched = [s for s in signals if s in text.lower()]
                         record(
-                            sec, "S35-01", f"MLX model {model_label} (direct)",
+                            sec,
+                            "S35-01",
+                            f"MLX model {model_label} (direct)",
                             "PASS" if matched else "WARN",
                             f"model={full_model[:60]}, signals={matched}",
                             [text[:200]],
                             t0=t0,
                         )
                 else:
-                    record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
-                           f"HTTP {r.status_code}", t0=t0)
+                    record(
+                        sec,
+                        "S35-01",
+                        f"MLX model {model_label} (direct)",
+                        "WARN",
+                        f"HTTP {r.status_code}",
+                        t0=t0,
+                    )
             except Exception as e:
-                record(sec, "S35-01", f"MLX model {model_label} (direct)", "WARN",
-                       str(e)[:80], t0=t0)
+                record(
+                    sec, "S35-01", f"MLX model {model_label} (direct)", "WARN", str(e)[:80], t0=t0
+                )
 
     # ── S35-02: Pipeline workspace test — verify auto-documents routing ───────
     # auto-documents routes to Ollama [coding, general] by design.
@@ -4520,7 +4766,9 @@ async def S12() -> None:
                 "S12-04",
                 "Prometheus histogram metrics (tokens_per_second)",
                 "PASS" if has_histogram else "WARN",
-                "present" if has_histogram else "not yet recorded — run S3 first to generate traffic",
+                "present"
+                if has_histogram
+                else "not yet recorded — run S3 first to generate traffic",
             )
         else:
             record(sec, "S12-01", "/metrics reachable", "FAIL", f"HTTP {r.status_code}", t0=t0)
@@ -4717,7 +4965,9 @@ async def S13() -> None:
                 if api_data is not None:
                     api_ids = {
                         m["id"].lower()
-                        for m in (api_data if isinstance(api_data, list) else api_data.get("data", []))
+                        for m in (
+                            api_data if isinstance(api_data, list) else api_data.get("data", [])
+                        )
                     }
                     api_p = [p for p in PERSONAS if p["slug"].lower() in api_ids]
                     record(
@@ -4729,8 +4979,13 @@ async def S13() -> None:
                         f"API: {len(api_p)}/{len(PERSONAS)}",
                     )
                 else:
-                    record(sec, "S13-03", "Personas visible", "WARN",
-                           f"API {ar.status_code if ar else 'no response'} — no valid JSON after 5 attempts")
+                    record(
+                        sec,
+                        "S13-03",
+                        "Personas visible",
+                        "WARN",
+                        f"API {ar.status_code if ar else 'no response'} — no valid JSON after 5 attempts",
+                    )
             except Exception as e:
                 record(sec, "S13-03", "Personas visible", "WARN", str(e))
 
@@ -4965,22 +5220,27 @@ async def S14() -> None:
     )
 
     # S14-13: .env.example documents ENABLE_REMOTE_ACCESS (commit c01485f)
-    env_example_text = (ROOT / ".env.example").read_text() \
-        if (ROOT / ".env.example").exists() else ""
+    env_example_text = (
+        (ROOT / ".env.example").read_text() if (ROOT / ".env.example").exists() else ""
+    )
     record(
-        sec, "S14-13",
+        sec,
+        "S14-13",
         ".env.example documents ENABLE_REMOTE_ACCESS",
         "PASS" if "ENABLE_REMOTE_ACCESS" in env_example_text else "FAIL",
-        "found" if "ENABLE_REMOTE_ACCESS" in env_example_text
+        "found"
+        if "ENABLE_REMOTE_ACCESS" in env_example_text
         else "missing — add ENABLE_REMOTE_ACCESS to .env.example",
     )
 
     # S14-14: .env.example documents LLM_ROUTER_ENABLED (P5-FUT-006)
     record(
-        sec, "S14-14",
+        sec,
+        "S14-14",
         ".env.example documents LLM_ROUTER_ENABLED (P5-FUT-006)",
         "PASS" if "LLM_ROUTER_ENABLED" in env_example_text else "FAIL",
-        "found" if "LLM_ROUTER_ENABLED" in env_example_text
+        "found"
+        if "LLM_ROUTER_ENABLED" in env_example_text
         else "missing — add LLM router env block (see TASK_V6_RELEASE.md)",
     )
 
@@ -5000,14 +5260,15 @@ async def S15() -> None:
                 data = r.json()
                 results = data.get("results", [])
                 # Validate result structure: each result should have title and url
-                structured = [
-                    res for res in results if res.get("title") and res.get("url")
-                ]
+                structured = [res for res in results if res.get("title") and res.get("url")]
                 # Check keyword relevance: at least one result mentions NERC or CIP
                 relevant = [
-                    res for res in structured
-                    if any(kw in (res.get("title", "") + res.get("content", "")).lower()
-                           for kw in ["nerc", "cip", "electric", "reliability"])
+                    res
+                    for res in structured
+                    if any(
+                        kw in (res.get("title", "") + res.get("content", "")).lower()
+                        for kw in ["nerc", "cip", "electric", "reliability"]
+                    )
                 ]
                 record(
                     sec,
@@ -5507,11 +5768,23 @@ async def S22() -> None:
         # Still running — kill it
         subprocess.run(["pkill", "-f", "mlx-watchdog"], capture_output=True)
         _stop_mlx_watchdog()
-        record(sec, "S22-04", "MLX watchdog — found running, killed",
-               "WARN", f"PIDs {r.stdout.strip()} killed — watchdog must not run during tests", t0=t0)
+        record(
+            sec,
+            "S22-04",
+            "MLX watchdog — found running, killed",
+            "WARN",
+            f"PIDs {r.stdout.strip()} killed — watchdog must not run during tests",
+            t0=t0,
+        )
     else:
-        record(sec, "S22-04", "MLX watchdog not running (correct for testing)",
-               "PASS", "watchdog absent — no interference with MLX model switching", t0=t0)
+        record(
+            sec,
+            "S22-04",
+            "MLX watchdog not running (correct for testing)",
+            "PASS",
+            "watchdog absent — no interference with MLX model switching",
+            t0=t0,
+        )
 
     # S22-05: MODEL_MEMORY admission control — source present + /health/memory live (P5-FUT-009)
     t0 = time.time()
@@ -5528,25 +5801,41 @@ async def S22() -> None:
                 mem = r.json()
                 free_gb = mem.get("current", {}).get("free_gb", -1)
                 record(
-                    sec, "S22-05",
+                    sec,
+                    "S22-05",
                     "MLX proxy admission control present + /health/memory live",
                     "PASS",
                     f"MODEL_MEMORY dict present, /health/memory reachable, free={free_gb:.1f}GB",
                     t0=t0,
                 )
             else:
-                record(sec, "S22-05", "MLX proxy admission control present",
-                       "WARN", f"source OK but /health/memory returned HTTP {r.status_code}",
-                       t0=t0)
+                record(
+                    sec,
+                    "S22-05",
+                    "MLX proxy admission control present",
+                    "WARN",
+                    f"source OK but /health/memory returned HTTP {r.status_code}",
+                    t0=t0,
+                )
         except Exception as e:
-            record(sec, "S22-05", "MLX proxy admission control (proxy offline)",
-                   "WARN", f"source has MODEL_MEMORY but proxy unreachable: {str(e)[:60]}",
-                   t0=t0)
+            record(
+                sec,
+                "S22-05",
+                "MLX proxy admission control (proxy offline)",
+                "WARN",
+                f"source has MODEL_MEMORY but proxy unreachable: {str(e)[:60]}",
+                t0=t0,
+            )
     else:
-        record(sec, "S22-05", "MLX proxy admission control (P5-FUT-009)",
-               "FAIL",
-               "MODEL_MEMORY or _check_memory_for_model missing from mlx-proxy.py "
-               "— run TASK_V6_RELEASE.md", t0=t0)
+        record(
+            sec,
+            "S22-05",
+            "MLX proxy admission control (P5-FUT-009)",
+            "FAIL",
+            "MODEL_MEMORY or _check_memory_for_model missing from mlx-proxy.py "
+            "— run TASK_V6_RELEASE.md",
+            t0=t0,
+        )
 
     # S22-06: LLM router live — llama3.2:3b responds with valid workspace ID (P5-FUT-006)
     t0 = time.time()
@@ -5554,13 +5843,27 @@ async def S22() -> None:
     if _llm_router_enabled == "false":
         print("  ⏭  LLM_ROUTER_ENABLED=false — skipping S22-06")
     else:
-        _llm_model = os.environ.get("LLM_ROUTER_MODEL", "llama3.2:3b-instruct-q4_K_M")
+        _llm_model = os.environ.get(
+            "LLM_ROUTER_MODEL", "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+        )
         _llm_url = os.environ.get("LLM_ROUTER_OLLAMA_URL", "http://localhost:11434")
         _valid_ws_ids = {
-            "auto", "auto-coding", "auto-spl", "auto-security", "auto-redteam",
-            "auto-blueteam", "auto-creative", "auto-reasoning", "auto-documents",
-            "auto-video", "auto-music", "auto-research", "auto-vision",
-            "auto-data", "auto-compliance", "auto-mistral",
+            "auto",
+            "auto-coding",
+            "auto-spl",
+            "auto-security",
+            "auto-redteam",
+            "auto-blueteam",
+            "auto-creative",
+            "auto-reasoning",
+            "auto-documents",
+            "auto-video",
+            "auto-music",
+            "auto-research",
+            "auto-vision",
+            "auto-data",
+            "auto-compliance",
+            "auto-mistral",
         }
         try:
             async with httpx.AsyncClient(timeout=8) as c:
@@ -5584,7 +5887,8 @@ async def S22() -> None:
                     ws = parsed.get("workspace", "")
                     conf = float(parsed.get("confidence", 0))
                     record(
-                        sec, "S22-06",
+                        sec,
+                        "S22-06",
                         f"LLM router ({_llm_model}) returns valid workspace",
                         "PASS" if ws in _valid_ws_ids and conf >= 0.5 else "WARN",
                         f"workspace={ws!r} confidence={conf:.2f}"
@@ -5592,16 +5896,32 @@ async def S22() -> None:
                         t0=t0,
                     )
                 except (json.JSONDecodeError, ValueError):
-                    record(sec, "S22-06", "LLM router response parseable",
-                           "WARN", f"non-JSON response: {raw[:80]}", t0=t0)
+                    record(
+                        sec,
+                        "S22-06",
+                        "LLM router response parseable",
+                        "WARN",
+                        f"non-JSON response: {raw[:80]}",
+                        t0=t0,
+                    )
             else:
-                record(sec, "S22-06", "LLM router reachable",
-                       "WARN",
-                       f"Ollama HTTP {r.status_code} — pull: ollama pull {_llm_model}",
-                       t0=t0)
+                record(
+                    sec,
+                    "S22-06",
+                    "LLM router reachable",
+                    "WARN",
+                    f"Ollama HTTP {r.status_code} — pull: ollama pull {_llm_model}",
+                    t0=t0,
+                )
         except Exception as e:
-            record(sec, "S22-06", "LLM router reachable",
-                   "WARN", f"Ollama unreachable at {_llm_url}: {str(e)[:80]}", t0=t0)
+            record(
+                sec,
+                "S22-06",
+                "LLM router reachable",
+                "WARN",
+                f"Ollama unreachable at {_llm_url}: {str(e)[:80]}",
+                t0=t0,
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5861,12 +6181,13 @@ def _restore_mlx_proxy() -> bool:
         for port in [8081, 18081, 18082]:
             try:
                 r = subprocess.run(
-                    ["lsof", "-ti", f":{port}"],
-                    capture_output=True, text=True, timeout=5
+                    ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
                 )
                 for pid_str in r.stdout.strip().split("\n"):
                     if pid_str.strip():
-                        subprocess.run(["kill", "-9", pid_str.strip()], capture_output=True, timeout=3)
+                        subprocess.run(
+                            ["kill", "-9", pid_str.strip()], capture_output=True, timeout=3
+                        )
             except Exception:
                 pass
         # Wait for OS to release ports (TIME_WAIT state can persist briefly)
@@ -5916,7 +6237,9 @@ def _restore_mlx_proxy() -> bool:
                         if _switching_start is None:
                             _switching_start = time.time()
                         elif time.time() - _switching_start >= 10:
-                            print(f"  ✅ Proxy restored (state=switching — model loading in progress)")
+                            print(
+                                f"  ✅ Proxy restored (state=switching — model loading in progress)"
+                            )
                             return True
                     elif state in ("degraded", "down"):
                         print(f"  ❌ MLX proxy entered {state} during restore")
@@ -6241,7 +6564,11 @@ async def S23() -> None:
             async with httpx.AsyncClient(timeout=5) as _hc:
                 _hr = await _hc.get(f"{MLX_URL}/health")
                 # state=none returns HTTP 503 (no model loaded, can't serve) — still running
-                _s = _hr.json().get("state", "unknown") if _hr.status_code in (200, 503) else "unreachable"
+                _s = (
+                    _hr.json().get("state", "unknown")
+                    if _hr.status_code in (200, 503)
+                    else "unreachable"
+                )
         except Exception:
             _s = "unreachable"
         if _s in ("down", "unreachable"):
@@ -6588,7 +6915,9 @@ async def S23() -> None:
     except Exception:
         _s14_mlx_state = ""
     if _s14_mlx_state == "none":
-        print("  📡 S23-14: proxy state=none, triggering LM prewarm so pipeline marks MLX healthy...")
+        print(
+            "  📡 S23-14: proxy state=none, triggering LM prewarm so pipeline marks MLX healthy..."
+        )
         await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-Next-4bit", timeout=240)
         await _wait_for_mlx_ready(timeout=180)
     # Wait for pipeline health check cycle — poll until all backends healthy.
@@ -6849,7 +7178,7 @@ def _passing_sections_from_results(results_path: str = "ACCEPTANCE_RESULTS.md") 
         if len(parts) < 5:
             continue
         test_id = parts[1]  # e.g. "S3-01" or "S3-01a"
-        status = parts[3]   # e.g. "PASS", "WARN", "FAIL", "INFO", "BLOCKED"
+        status = parts[3]  # e.g. "PASS", "WARN", "FAIL", "INFO", "BLOCKED"
         if status not in ("PASS", "WARN", "FAIL", "INFO", "BLOCKED"):
             continue
         # Extract section prefix: "S3" from "S3-01", "S22" from "S22-01", etc.
@@ -6993,14 +7322,18 @@ async def main() -> int:
     # ── --skip-passing: drop sections that were all-PASS/INFO in last run ──
     if args.skip_passing:
         if section_arg != "ALL":
-            print("⚠️  --skip-passing only applies to ALL runs — ignoring for targeted section run\n")
+            print(
+                "⚠️  --skip-passing only applies to ALL runs — ignoring for targeted section run\n"
+            )
         else:
             passing = _passing_sections_from_results()
             # Never skip S17 (infra check) or sections not in passing set
             skipped = [s for s in run if s != "S17" and s in passing]
             run = [s for s in run if s not in skipped or s == "S17"]
             if skipped:
-                print(f"⏭️  --skip-passing: skipping {len(skipped)} all-PASS sections: {', '.join(skipped)}")
+                print(
+                    f"⏭️  --skip-passing: skipping {len(skipped)} all-PASS sections: {', '.join(skipped)}"
+                )
                 print(f"   Re-running {len(run)} section(s): {', '.join(run)}\n")
             else:
                 print("⏭️  --skip-passing: no fully-passing sections to skip — running all\n")
@@ -7113,8 +7446,8 @@ async def main() -> int:
                             f"{sid}-docker-pre",
                             "Pipeline health after Docker recovery",
                             "PASS",
-                            f"backends_healthy={pd.get('backends_healthy','?')} "
-                            f"workspaces={pd.get('workspaces','?')}",
+                            f"backends_healthy={pd.get('backends_healthy', '?')} "
+                            f"workspaces={pd.get('workspaces', '?')}",
                         )
                     else:
                         record(
@@ -7232,8 +7565,8 @@ async def main() -> int:
         with open(_PROGRESS_LOG, "a") as _pf:
             _pf.write(
                 f"\n[{ts}] ✅ RUN COMPLETE ({elapsed}s)  "
-                f"PASS={counts.get('PASS',0)} WARN={counts.get('WARN',0)} "
-                f"FAIL={counts.get('FAIL',0)} BLOCKED={counts.get('BLOCKED',0)}\n"
+                f"PASS={counts.get('PASS', 0)} WARN={counts.get('WARN', 0)} "
+                f"FAIL={counts.get('FAIL', 0)} BLOCKED={counts.get('BLOCKED', 0)}\n"
             )
     except Exception:
         pass

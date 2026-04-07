@@ -22,7 +22,7 @@ genuinely open future work beyond the current stable release.
 | P5-FUT-003 | P3 | Usage analytics dashboard | DONE | Grafana portal5_overview.json v3: 6 new panels — workspace request trends, tokens by workspace, top workspaces, model×workspace breakdown, request rate. All queries use existing Prometheus metrics. Per-user blocked — Open WebUI doesn't expose user IDs to Pipeline. |
 | P5-FUT-004 | P3 | Webhook-based event notifications | DONE | WebhookChannel implemented (portal_pipeline/notifications/channels/webhook.py). Env vars: WEBHOOK_URL, WEBHOOK_HEADERS. POSTs JSON to arbitrary HTTP endpoint on all alert and summary events. Live-verified 2026-03-30. |
 | P5-FUT-005 | P2 | Weighted keyword scoring for content-aware routing | DONE | Replaced regex-based `_detect_workspace` with weighted keyword scoring. Each keyword carries weight 1-3 (weak/medium/strong), workspaces have activation thresholds, highest score above threshold wins. Handles overlapping signals naturally (e.g. "exploit in Python" → security wins, not coding). Implemented in v5.2.1. |
-| P5-FUT-006 | P1 | LLM-based intent routing (replaces keyword matching) | DONE | DONE in v6.0.0. llama3.2:3b-instruct-q4_K_M, JSON schema enforcement, keyword fallback on confidence < 0.5 or timeout. |
+| P5-FUT-006 | P1 | LLM-based intent routing (replaces keyword matching) | DONE | DONE in v6.0.0. hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF (uncensored), JSON schema enforcement, keyword fallback on confidence < 0.5 or timeout. |
 | P5-FUT-009 | P2 | Model-size-aware admission control (MLX proxy) | DONE | DONE in v6.0.0. MODEL_MEMORY dict (16 entries), MEMORY_HEADROOM_GB (10GB), HTTP 503 with actionable message, unknown-model default. |
 
 ---
@@ -47,7 +47,7 @@ Live-verified: a `config_error` test event was confirmed delivered to a listenin
 ### P5-FUT-006: LLM-Based Intent Routing
 
 IMPLEMENTED in v6.0.0 (`portal_pipeline/router_pipe.py`). `_route_with_llm()` uses
-`llama3.2:3b-instruct-q4_K_M` as a semantic intent classifier, replacing keyword-based
+`hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` as a semantic intent classifier, replacing keyword-based
 workspace detection for the primary routing path.
 
 **What was built:**
@@ -61,7 +61,7 @@ workspace detection for the primary routing path.
 **Configuration (`.env`):**
 ```
 LLM_ROUTER_ENABLED=true
-LLM_ROUTER_MODEL=llama3.2:3b-instruct-q4_K_M
+LLM_ROUTER_MODEL=hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
 LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5
 LLM_ROUTER_TIMEOUT_MS=500
 LLM_ROUTER_OLLAMA_URL=http://localhost:11434

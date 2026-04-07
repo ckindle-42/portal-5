@@ -49,7 +49,7 @@ backends:
     group: general
     models:
       - dolphin-llama3:8b              # Default: fast, uncensored, strong function calling
-      - llama3.2:3b-instruct-q4_K_M   # Ultra-fast fallback for routing
+      - hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF  # Ultra-fast fallback (uncensored)
 
   # ── Coding (code generation, debugging, architecture) ─────────────────────
   - id: ollama-coding

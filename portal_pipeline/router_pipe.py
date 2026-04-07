@@ -801,11 +801,14 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
 
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
-# Uses llama3.2:3b-instruct as a fast semantic intent classifier.
+# Uses an uncensored Llama 3.2 3B abliterated as a fast semantic intent classifier.
+# Abliterated (surgical refusal removal) so red-team/security queries aren't refused.
 # Falls back to keyword scoring on low confidence or timeout.
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
-_LLM_ROUTER_MODEL: str = os.environ.get("LLM_ROUTER_MODEL", "llama3.2:3b-instruct-q4_K_M")
+_LLM_ROUTER_MODEL: str = os.environ.get(
+    "LLM_ROUTER_MODEL", "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+)
 _LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
     os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")
 )
@@ -837,11 +840,32 @@ _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
 )
 
 # JSON schema enforced by Ollama grammar decoding — guarantees parseable output
+# Enum constrains workspace to valid IDs (no hallucinated values possible)
 _ROUTER_JSON_SCHEMA: dict = {
     "type": "object",
     "properties": {
-        "workspace": {"type": "string"},
-        "confidence": {"type": "number"},
+        "workspace": {
+            "type": "string",
+            "enum": [
+                "auto",
+                "auto-coding",
+                "auto-spl",
+                "auto-security",
+                "auto-redteam",
+                "auto-blueteam",
+                "auto-creative",
+                "auto-reasoning",
+                "auto-documents",
+                "auto-video",
+                "auto-music",
+                "auto-research",
+                "auto-vision",
+                "auto-data",
+                "auto-compliance",
+                "auto-mistral",
+            ],
+        },
+        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
     },
     "required": ["workspace", "confidence"],
 }
@@ -881,7 +905,7 @@ def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
 
 
 def _build_router_prompt(user_message: str) -> str:
-    """Build the classification prompt sent to llama3.2:3b-instruct.
+    """Build the classification prompt sent to the uncensored LLM router model.
 
     Includes workspace descriptions and few-shot examples for in-context learning.
     Kept under 512 tokens by design (fast, cheap inference).
@@ -891,10 +915,10 @@ def _build_router_prompt(user_message: str) -> str:
     # Workspace descriptions block
     desc_lines = "\n".join(f"- {ws_id}: {desc}" for ws_id, desc in descriptions.items())
 
-    # Few-shot examples block (cap at 8 to stay under ctx budget)
+    # Few-shot examples block (cap at 9 to stay under 512-token ctx budget)
     example_lines = "\n".join(
         f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\nConfidence: {ex["confidence"]}'
-        for ex in (examples or [])[:8]
+        for ex in (examples or [])[:9]
     )
 
     return f"""You are an intent router for an AI platform. Classify the user message into exactly one workspace.
@@ -913,7 +937,7 @@ The workspace must be one of the valid IDs listed above."""
 
 
 async def _route_with_llm(messages: list[dict]) -> str | None:
-    """Use llama3.2:3b-instruct to classify user intent into a workspace ID.
+    """Use the uncensored LLM router model to classify user intent into a workspace ID.
 
     Returns a workspace ID string if confidence >= threshold, else None
     (caller falls back to keyword scoring).

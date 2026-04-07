@@ -9,7 +9,7 @@ All notable changes to Portal 5 will be documented in this file.
 
 ### Added
 - **P5-FUT-006: LLM-based intent routing** (`portal_pipeline/router_pipe.py`)
-  - `_route_with_llm()`: Uses `llama3.2:3b-instruct-q4_K_M` (existing Ollama model) as
+  - `_route_with_llm()`: Uses `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` (uncensored abliterated) as
     primary semantic intent classifier for the `auto` workspace. Temperature=0, 40 tokens,
     512-token context, `keep_alive=-1` (always warm).
   - Falls back to existing `_detect_workspace()` keyword scoring on low confidence

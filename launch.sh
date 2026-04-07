@@ -1558,7 +1558,7 @@ except Exception as e:
     MODELS=(
         # ── Core ──────────────────────────────────────────────────────────
         "${DEFAULT_MODEL:-dolphin-llama3:8b}"
-        "llama3.2:3b-instruct-q4_K_M"
+        "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
         "nomic-embed-text:latest"
         # ── Security ─────────────────────────────────────────────────────
         "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
@@ -1655,7 +1655,7 @@ except Exception:
 
     MODELS=(
         "${DEFAULT_MODEL:-dolphin-llama3:8b}"
-        "llama3.2:3b-instruct-q4_K_M"
+        "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
         "nomic-embed-text:latest"
         "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
         "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"

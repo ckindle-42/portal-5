@@ -178,7 +178,7 @@ Do not reassign these. Do not add new services on overlapping ports without upda
 ### 8 — Models Pull From Ollama or HuggingFace GGUF Imports
 
 All text models run through Ollama. HuggingFace is used for:
-- **GGUF model imports** via Ollama's `hf.co/` pull format (e.g., `hf.co/org/repo-GGUF`) — used for BaronLLM, Lily Cybersecurity, Dolphin3 R1 Mistral, WhiteRabbitNeo, GLM 4.7 Flash, DeepSeek Coder V2 Lite, DeepSeek R1 32B, Llama 3.3 70B, Dolphin Llama3 70B
+- **GGUF model imports** via Ollama's `hf.co/` pull format (e.g., `hf.co/org/repo-GGUF`) — used for Llama 3.2 3B Abliterated (router), BaronLLM, Lily Cybersecurity, Dolphin3 R1 Mistral, WhiteRabbitNeo, GLM 4.7 Flash, DeepSeek Coder V2 Lite, DeepSeek R1 32B, Llama 3.3 70B, Dolphin Llama3 70B
 - ComfyUI image/video model weights (downloaded into ComfyUI's `models/` directory)
 - MLX model weights (downloaded by `huggingface_hub.snapshot_download` via `./launch.sh pull-mlx-models`)
 - Music generation models (downloaded by HuggingFace `transformers` MusicGen on first use)
@@ -222,7 +222,7 @@ These are the models Portal 5 is designed around. MLX models run via `mlx_vlm` (
 |---|---|---|---|
 | Dolphin Llama3 8B | `dolphin-llama3:8b` | Default, general, function calling | 8GB |
 | Dolphin Llama3 70B | `dolphin-llama3:70b-q4_k_m` | High-quality general (needs 48GB+) | 48GB |
-| Llama 3.2 3B | `llama3.2:3b-instruct-q4_K_M` | Fast routing classifier | 3GB |
+| Llama 3.2 3B Abliterated | `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` | Fast routing classifier, uncensored | 3GB |
 
 **Coding** (Ollama fallback — MLX is primary for coding workspaces)
 
@@ -422,7 +422,7 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 
 When a user selects the `auto` workspace, the Pipeline automatically routes to the best specialist workspace based on message content. This is a two-layer system:
 
-**Layer 1: LLM-Based Intent Router** — Uses `llama3.2:3b-instruct-q4_K_M` as a fast semantic classifier (~100ms). Configured in `router_pipe.py` via env vars:
+**Layer 1: LLM-Based Intent Router** — Uses `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` as a fast semantic classifier (~100ms). Abliterated (surgical refusal removal) so red-team/security queries are never refused by the router. Configured in `router_pipe.py` via env vars:
 - `LLM_ROUTER_ENABLED=true` (default)
 - `LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5`
 - `LLM_ROUTER_TIMEOUT_MS=500`

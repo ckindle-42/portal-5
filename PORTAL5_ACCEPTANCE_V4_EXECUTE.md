@@ -65,8 +65,8 @@ If wrong, the stack was started with `docker compose up` directly. Fix:
 
 Verify LLM router model is available (required for S22-06 PASS):
 ```bash
-ollama list | grep llama3.2
-# If missing: ollama pull llama3.2:3b-instruct-q4_K_M
+ollama list | grep QuantFactory
+# If missing: ollama pull hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
 ```
 
 If any MCP service is down:
@@ -329,13 +329,13 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 - S1-11 added: LLM router wired into router_pipe.py.
 - S14-13/14 added: .env.example documents ENABLE_REMOTE_ACCESS and LLM_ROUTER_ENABLED.
 - S22-05 added: admission control source + /health/memory live (P5-FUT-009).
-- S22-06 added: LLM router live classification via llama3.2:3b (P5-FUT-006).
+- S22-06 added: LLM router live classification via hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF (P5-FUT-006).
 
 **Run 8 target: 222 PASS · 0 WARN · 0 INFO · 0 FAIL · 0 BLOCKED**
 
 *Pre-run: pull the LLM router model or S22-06 will WARN instead of PASS:*
 ```bash
-ollama pull llama3.2:3b-instruct-q4_K_M
+ollama pull hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
 ```
 
 ---
@@ -355,7 +355,7 @@ ollama pull llama3.2:3b-instruct-q4_K_M
 | S22-01 WARN | MLX proxy not running or switching models | Check `./launch.sh status` — if MLX is down, accept WARN |
 | S30–S37 all WARN "MLX proxy not ready" | Metal GPU crash during prior section left stale Traceback in `mlx_lm.log`; `_load_mlx_model` exited early; no remediation ran | Check `/tmp/mlx-proxy-logs/mlx_lm.log` for Traceback; post-run fixes to `_detect_mlx_crash` and `_load_mlx_model` will auto-remediate in future runs |
 | S30–S37 crash not visible in output | pre-section check was silent about state="switching" + high failures | Post-run fix: pre-section check now records WARN "PROBABLE CRASH" when switching+failures>20+Traceback |
-| S22-06 WARN | llama3.2:3b-instruct-q4_K_M not pulled | `ollama pull llama3.2:3b-instruct-q4_K_M` then re-run S22 |
+| S22-06 WARN | hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF not pulled | `ollama pull hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` then re-run S22 |
 | S2-16 FAIL | Open WebUI bound to 0.0.0.0 with ENABLE_REMOTE_ACCESS=false | Stack not launched via ./launch.sh. Fix: `./launch.sh down && ./launch.sh up` |
 | S1-10 FAIL | Model in ALL_MODELS missing from MODEL_MEMORY | Add `"model/path": GB_estimate` to MODEL_MEMORY in scripts/mlx-proxy.py |
 | S1-08/S1-09 FAIL | routing_descriptions.json or routing_examples.json missing | TASK_V6_RELEASE.md not applied — apply it first |
