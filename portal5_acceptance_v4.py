@@ -780,14 +780,7 @@ async def S17() -> None:
             pull.stdout.strip()[:120] or pull.stderr.strip()[:120],
             t0=t0,
         )
-    else:
-        record(
-            sec,
-            "S17-00",
-            "git pull skipped (no --rebuild flag)",
-            "INFO",
-            "use --rebuild to auto-pull",
-        )
+    # else: --rebuild not passed, git pull skipped — no record needed
 
     # ── S17-01: MCP image staleness — compare image build time vs last git commit ─
     # A changed Dockerfile hash alone doesn't catch cases where portal_mcp/ Python
@@ -1169,7 +1162,13 @@ async def S0() -> None:
         ["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     )
     sha = r.stdout.strip() if r.returncode == 0 else "unknown"
-    record(sec, "S0-01", "Git SHA", "INFO", f"local={sha}")
+    record(
+        sec,
+        "S0-01",
+        "Git repo reachable and HEAD resolved",
+        "PASS" if sha != "unknown" else "FAIL",
+        f"sha={sha}",
+    )
 
     try:
         subprocess.run(
@@ -1201,11 +1200,12 @@ async def S0() -> None:
     try:
         r = httpx.get(f"{PIPELINE_URL}/health", timeout=5)
         d = r.json()
+        has_fields = all(k in d for k in ("version", "workspaces", "backends_healthy"))
         record(
             sec,
             "S0-03",
             "Pipeline /health version fields",
-            "INFO",
+            "PASS" if has_fields else "FAIL",
             f"version={d.get('version', '?')} workspaces={d.get('workspaces', '?')} "
             f"backends_healthy={d.get('backends_healthy', '?')}",
             t0=t0,
@@ -1217,15 +1217,16 @@ async def S0() -> None:
         import importlib.metadata
 
         v = importlib.metadata.version("portal-5")
-        record(sec, "S0-04", "Installed package version (portal-5)", "INFO", f"v{v}")
+        record(sec, "S0-04", "portal-5 package installed", "PASS", f"v{v}")
     except Exception:
         m = re.search(r'version\s*=\s*"([^"]+)"', (ROOT / "pyproject.toml").read_text())
         record(
             sec,
             "S0-04",
-            "pyproject.toml version",
-            "INFO",
-            f"version={m.group(1) if m else 'unknown'}",
+            "portal-5 package installed",
+            "WARN",
+            f"not installed via pip — pyproject.toml says {m.group(1) if m else 'unknown'} "
+            "(run: uv pip install -e '.[dev]')",
         )
 
 
@@ -1280,13 +1281,17 @@ async def S1() -> None:
     )
 
     mcp_json = ROOT / "imports/openwebui/mcp-servers.json"
-    record(
-        sec,
-        "S1-05",
-        "imports/openwebui/mcp-servers.json present",
-        "INFO",
-        f"{len(json.loads(mcp_json.read_text()))} entries" if mcp_json.exists() else "not found",
-    )
+    if mcp_json.exists():
+        entries = json.loads(mcp_json.read_text())
+        record(
+            sec,
+            "S1-05",
+            "imports/openwebui/mcp-servers.json present and non-empty",
+            "PASS" if entries else "FAIL",
+            f"{len(entries)} entries",
+        )
+    else:
+        record(sec, "S1-05", "imports/openwebui/mcp-servers.json present", "FAIL", "not found")
 
     # mlx-proxy.py model routing consistency
     proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
@@ -1343,18 +1348,7 @@ async def S1() -> None:
         ),
     )
 
-    # S1-08: Persona workspace_model values — verify they match pulled models or MLX paths
-    # This is a static consistency check, not a live query
-    mlx_personas = [p["slug"] for p in PERSONAS if "/" in p.get("workspace_model", "")]
-    ollama_personas = [p["slug"] for p in PERSONAS if "/" not in p.get("workspace_model", "")]
-    record(
-        sec,
-        "S1-08",
-        f"Persona model type distribution ({len(PERSONAS)} personas)",
-        "INFO",
-        f"MLX-routed: {len(mlx_personas)} | Ollama-routed: {len(ollama_personas)}",
-        [f"mlx: {mlx_personas}", f"ollama: {ollama_personas[:5]}..."],
-    )
+    # S1-08: removed — MLX/Ollama persona distribution is metadata, not a testable assertion.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1456,17 +1450,16 @@ async def S2() -> None:
                     sec,
                     "S2-15",
                     "MLX proxy :8081",
-                    "INFO",
+                    "PASS",
                     f"{len(mlx_models)} models listed",
                     t0=t0,
                 )
             else:
-                record(sec, "S2-15", "MLX proxy :8081", "INFO",
-                       f"HTTP {r.status_code} — proxy up but no model loaded yet", t0=t0)
-    except Exception as e:
-        # MLX proxy loads on-demand — not running at test start is normal
-        record(sec, "S2-15", "MLX proxy :8081", "INFO",
-               f"not reachable (loads on-demand) — MLX sections will start it", t0=t0)
+                record(sec, "S2-15", "MLX proxy :8081", "PASS",
+                       f"proxy up (HTTP {r.status_code}) — no model loaded yet", t0=t0)
+    except Exception:
+        # MLX proxy loads on-demand — not running at test start is expected; skip record
+        pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3848,14 +3841,7 @@ async def S11() -> None:
                     [f"{len(PERSONAS) - len(missing_ow)}/{len(PERSONAS)} registered"],
                     t0=t0,
                 )
-                if missing_ow:
-                    record(
-                        sec,
-                        "S11-01b",
-                        "FIX for missing personas",
-                        "INFO",
-                        "run: ./launch.sh reseed",
-                    )
+                # S11-01 already records WARN with details; no separate fix-hint record needed
             else:
                 record(
                     sec,
@@ -4304,14 +4290,15 @@ async def S12() -> None:
                 "present" if "portal_requests" in txt else "not yet recorded — run S3 first",
             )
 
+            has_histogram = any(
+                x in txt for x in ["portal_tokens_per_second", "portal_output_tokens"]
+            )
             record(
                 sec,
                 "S12-04",
                 "Prometheus histogram metrics (tokens_per_second)",
-                "INFO",
-                "present"
-                if any(x in txt for x in ["portal_tokens_per_second", "portal_output_tokens"])
-                else "not yet recorded",
+                "PASS" if has_histogram else "WARN",
+                "present" if has_histogram else "not yet recorded — run S3 first to generate traffic",
             )
         else:
             record(sec, "S12-01", "/metrics reachable", "FAIL", f"HTTP {r.status_code}", t0=t0)
@@ -4894,13 +4881,7 @@ async def S20() -> None:
     tg_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
     if not tg_enabled or not tg_token:
-        record(
-            sec,
-            "S20-01",
-            "Telegram bot — not enabled in .env",
-            "INFO",
-            "TELEGRAM_ENABLED=false or TELEGRAM_BOT_TOKEN not set — skipped",
-        )
+        print("  ⏭  Telegram not enabled — skipping S20-01..S20-03")
     else:
         # Verify the module imports and builds without errors
         t0 = time.time()
@@ -5010,13 +4991,7 @@ async def S20() -> None:
     slack_app_token = os.environ.get("SLACK_APP_TOKEN", "")
 
     if not slack_enabled or not slack_bot_token or not slack_app_token:
-        record(
-            sec,
-            "S20-04",
-            "Slack bot — not enabled in .env",
-            "INFO",
-            "SLACK_ENABLED=false or tokens not set — skipped",
-        )
+        print("  ⏭  Slack not enabled — skipping S20-04..S20-06")
     else:
         # Verify the module imports and validates tokens correctly
         t0 = time.time()
@@ -5093,13 +5068,7 @@ async def S21() -> None:
     notifications_enabled = os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() == "true"
 
     if not notifications_enabled:
-        record(
-            sec,
-            "S21-01",
-            "Notifications — not enabled in .env",
-            "INFO",
-            "NOTIFICATIONS_ENABLED=false — skipped",
-        )
+        print("  ⏭  Notifications not enabled — skipping S21")
         return
 
     # Verify notification dispatcher module imports
@@ -5216,14 +5185,7 @@ async def S21() -> None:
             t0=t0,
         )
     else:
-        record(
-            sec,
-            "S21-04",
-            "Notification channels — none configured",
-            "INFO",
-            "No notification channel env vars set (SLACK_ALERT_WEBHOOK_URL, etc.)",
-            t0=t0,
-        )
+        print("  ⏭  No notification channels configured — skipping S21-04 channel tests")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

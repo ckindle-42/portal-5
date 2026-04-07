@@ -15,7 +15,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099")
+PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY") or "portal-pipeline"
 if PIPELINE_API_KEY == "portal-pipeline" and not os.environ.get("PIPELINE_API_KEY"):
     import logging as _log
