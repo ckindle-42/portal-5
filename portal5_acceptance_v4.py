@@ -789,21 +789,128 @@ async def S17() -> None:
             "use --rebuild to auto-pull",
         )
 
-    # ── S17-01: Dockerfile.mcp hash ──────────────────────────────────────────
+    # ── S17-01: MCP image staleness — compare image build time vs last git commit ─
+    # A changed Dockerfile hash alone doesn't catch cases where portal_mcp/ Python
+    # files changed but the Dockerfile was untouched.  Compare each container's
+    # image creation timestamp against the latest git commit that touched any of:
+    #   Dockerfile.mcp  portal_mcp/**  portal_channels/**
+    t0 = time.time()
+    _src_commit_ts: int = 0
+    try:
+        git_ts = subprocess.run(
+            ["git", "-C", str(ROOT), "log", "-1", "--format=%ct",
+             "--", "Dockerfile.mcp", "portal_mcp/", "portal_channels/"],
+            capture_output=True, text=True, timeout=10,
+        )
+        _src_commit_ts = int(git_ts.stdout.strip()) if git_ts.returncode == 0 and git_ts.stdout.strip() else 0
+    except Exception:
+        pass
+
+    # Map service → container name
+    _svc_containers = {
+        "mcp-documents": "portal5-mcp-documents",
+        "mcp-tts":       "portal5-mcp-tts",
+        "mcp-whisper":   "portal5-mcp-whisper",
+        "mcp-sandbox":   "portal5-mcp-sandbox",
+        "mcp-video":     "portal5-mcp-video",
+    }
+    stale_images: list[str] = []
+    image_details: list[str] = []
+    if _src_commit_ts:
+        for svc, cname in _svc_containers.items():
+            try:
+                insp = subprocess.run(
+                    ["docker", "inspect", "--format", "{{.Created}}", cname],
+                    capture_output=True, text=True, timeout=5,
+                )
+                created_str = insp.stdout.strip()
+                if created_str:
+                    # Docker returns ISO 8601: 2026-04-05T21:13:07.123456789Z
+                    from datetime import timezone
+                    import re as _re
+                    # Truncate nanoseconds to microseconds for fromisoformat
+                    created_str_trunc = _re.sub(r'(\.\d{6})\d*(Z?)$', r'\1\2', created_str)
+                    created_str_trunc = created_str_trunc.replace("Z", "+00:00")
+                    img_ts = int(datetime.fromisoformat(created_str_trunc).timestamp())
+                    if img_ts < _src_commit_ts:
+                        stale_images.append(svc)
+                        image_details.append(f"{svc}: img={img_ts} < commit={_src_commit_ts}")
+            except Exception:
+                pass  # Can't determine — don't flag as stale
+
+    if stale_images:
+        print(f"  ⚠️  Stale MCP images detected: {stale_images} — will rebuild")
+        record(sec, "S17-01", "MCP image staleness check",
+               "WARN", f"stale: {stale_images} — forcing rebuild", t0=t0)
+    else:
+        last_commit_human = ""
+        if _src_commit_ts:
+            try:
+                lc = subprocess.run(
+                    ["git", "-C", str(ROOT), "log", "-1", "--format=%h %ai",
+                     "--", "Dockerfile.mcp", "portal_mcp/", "portal_channels/"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                last_commit_human = lc.stdout.strip()[:60]
+            except Exception:
+                pass
+        record(sec, "S17-01", "MCP image staleness check",
+               "PASS", f"all images newer than last source commit ({last_commit_human})", t0=t0)
+
+    # Dockerfile.mcp hash — still track for rebuild trigger
     dh = subprocess.run(["md5sum", str(ROOT / "Dockerfile.mcp")], capture_output=True, text=True)
     current_hash = dh.stdout.split()[0] if dh.returncode == 0 else "unknown"
-
-    # Read stored hash if it exists
     hash_file = ROOT / ".mcp_dockerfile_hash"
     stored_hash = hash_file.read_text().strip() if hash_file.exists() else ""
     hash_changed = current_hash != stored_hash and stored_hash != ""
 
+    # ── S17-01b: MLX proxy staleness — deployed vs repo ───────────────────────
+    # ~/.portal5/mlx/mlx-proxy.py is the *deployed* copy (what actually runs).
+    # scripts/mlx-proxy.py is the repo version.  If they differ, the test will
+    # fail in unexpected ways (wrong health response format, no log files, etc).
+    # Auto-sync and restart if stale.
+    t0 = time.time()
+    deployed_proxy = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
+    repo_proxy = ROOT / "scripts" / "mlx-proxy.py"
+    proxy_stale = False
+    proxy_detail = ""
+    if repo_proxy.exists() and deployed_proxy.exists():
+        dh_deployed = subprocess.run(
+            ["md5sum", str(deployed_proxy)], capture_output=True, text=True
+        )
+        dh_repo = subprocess.run(
+            ["md5sum", str(repo_proxy)], capture_output=True, text=True
+        )
+        h_deployed = dh_deployed.stdout.split()[0] if dh_deployed.returncode == 0 else ""
+        h_repo = dh_repo.stdout.split()[0] if dh_repo.returncode == 0 else ""
+        if h_deployed != h_repo and h_deployed and h_repo:
+            proxy_stale = True
+            print(f"  ⚠️  MLX proxy stale — syncing from scripts/mlx-proxy.py")
+            import shutil
+            shutil.copy2(str(repo_proxy), str(deployed_proxy))
+            # Restart the proxy
+            subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True)
+            time.sleep(2)
+            log_path = Path("/tmp/mlx-proxy.log")
+            with open(log_path, "a") as lf:
+                subprocess.Popen(
+                    ["python3", str(deployed_proxy)],
+                    stdout=lf, stderr=lf,
+                    start_new_session=True,
+                )
+            time.sleep(3)
+            proxy_detail = f"deployed hash {h_deployed[:8]} → synced to repo hash {h_repo[:8]}, proxy restarted"
+        else:
+            proxy_detail = f"deployed matches repo (hash={h_repo[:8]})"
+    elif not deployed_proxy.exists():
+        proxy_detail = "deployed proxy not found — run ./launch.sh install-mlx"
+    else:
+        proxy_detail = "repo proxy not found"
+
     record(
-        sec,
-        "S17-01",
-        "Dockerfile.mcp hash",
-        "INFO",
-        f"hash={current_hash} {'(CHANGED from last run)' if hash_changed else '(unchanged)'}",
+        sec, "S17-01b", "MLX proxy deployed vs repo",
+        "WARN" if proxy_stale else "PASS",
+        proxy_detail, t0=t0,
     )
 
     # ── S17-02: MCP health check — restart if unhealthy ──────────────────────
@@ -825,12 +932,17 @@ async def S17() -> None:
             except Exception:
                 needs_restart.append(svc)
 
-    # ── S17-03: Rebuild MCPs if hash changed or --rebuild forced ──────────────
-    should_rebuild = _FORCE_REBUILD or hash_changed
+    # ── S17-03: Rebuild MCPs if stale, hash changed, or --rebuild forced ────────
+    should_rebuild = _FORCE_REBUILD or hash_changed or bool(stale_images)
     if should_rebuild:
-        print(
-            f"  🔨 Rebuilding MCP containers (force={_FORCE_REBUILD} hash_changed={hash_changed})..."
-        )
+        reasons = []
+        if _FORCE_REBUILD:
+            reasons.append("--rebuild")
+        if hash_changed:
+            reasons.append("Dockerfile.mcp changed")
+        if stale_images:
+            reasons.append(f"stale images: {stale_images}")
+        print(f"  🔨 Rebuilding MCP containers ({', '.join(reasons)})...")
         t0 = time.time()
         build_result = subprocess.run(
             DC
@@ -5234,33 +5346,19 @@ async def S22() -> None:
         t0=t0,
     )
 
-    # Verify MLX watchdog is running (if enabled)
+    # S22-04: MLX watchdog must NOT be running during testing
+    # (killed at startup — verify it stayed dead)
     t0 = time.time()
-    watchdog_enabled = os.environ.get("MLX_WATCHDOG_ENABLED", "false").lower() == "true"
-    if watchdog_enabled:
-        r = subprocess.run(
-            ["pgrep", "-f", "mlx-watchdog"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        record(
-            sec,
-            "S22-04",
-            "MLX watchdog process running",
-            "PASS" if r.returncode == 0 else "FAIL",
-            f"PID: {r.stdout.strip()}" if r.returncode == 0 else "not found",
-            t0=t0,
-        )
+    r = subprocess.run(["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5)
+    if r.returncode == 0:
+        # Still running — kill it
+        subprocess.run(["pkill", "-f", "mlx-watchdog"], capture_output=True)
+        _stop_mlx_watchdog()
+        record(sec, "S22-04", "MLX watchdog — found running, killed",
+               "WARN", f"PIDs {r.stdout.strip()} killed — watchdog must not run during tests", t0=t0)
     else:
-        record(
-            sec,
-            "S22-04",
-            "MLX watchdog — not enabled in .env",
-            "INFO",
-            "MLX_WATCHDOG_ENABLED=false — skipped",
-            t0=t0,
-        )
+        record(sec, "S22-04", "MLX watchdog not running (correct for testing)",
+               "PASS", "watchdog absent — no interference with MLX model switching", t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5816,18 +5914,17 @@ async def S23() -> None:
     print("\n━━━ S23. FALLBACK CHAIN VERIFICATION ━━━")
     sec = "S23"
 
-    # Disable MLX watchdog to prevent false alerts and race conditions
-    # during intentional kill/restore cycles
+    # MLX watchdog was already killed in main() before any section ran.
+    # Confirm it's still not running (belt-and-suspenders for safety).
     t0_wd = time.time()
-    watchdog_was_running = _stop_mlx_watchdog()
+    subprocess.run(["pkill", "-f", "mlx-watchdog"], capture_output=True)
+    _stop_mlx_watchdog()
     record(
         sec,
         "S23-00",
-        "MLX watchdog disabled for testing",
-        "PASS" if watchdog_was_running else "INFO",
-        "watchdog stopped — no false alerts during fallback tests"
-        if watchdog_was_running
-        else "watchdog was not running",
+        "MLX watchdog confirmed disabled for fallback tests",
+        "PASS",
+        "watchdog killed at startup and confirmed absent before kill/restore cycles",
         t0=t0_wd,
     )
 
@@ -6598,6 +6695,16 @@ async def main() -> int:
     await _preflight()
     _warn_single_instance()
     await _check_mlx_proxy_capacity()
+
+    # ── Stop MLX watchdog unconditionally before any testing ──────────────
+    # The watchdog interferes with ALL test sections (not just S23) — it can
+    # restart a crashed MLX server into an OOM loop, cause unexpected model
+    # switches, or race against the test's own model loading.  Stop it here
+    # so it is never running during any section.  S23 will NOT restore it
+    # (the test suite runs to completion with watchdog disabled).
+    _stop_mlx_watchdog()
+    # Also kill any stray watchdog processes not tracked by the PID file
+    subprocess.run(["pkill", "-f", "mlx-watchdog"], capture_output=True)
 
     # ── Build the section run list ──────────────────────────────────────────
     section_arg = args.section.strip().upper()

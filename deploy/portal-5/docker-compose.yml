@@ -126,7 +126,9 @@ services:
     container_name: portal5-open-webui
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # Default: localhost-only (127.0.0.1:8080).
+      # Set ENABLE_REMOTE_ACCESS=true in .env to expose on all interfaces (0.0.0.0:8080).
+      - "${WEBUI_LISTEN_ADDR:-127.0.0.1}:8080:8080"
     volumes:
       - open-webui-data:/app/backend/data
     environment:

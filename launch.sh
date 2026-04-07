@@ -685,6 +685,15 @@ case "${1:-up}" in
         fi
     fi
 
+    # Derive WEBUI_LISTEN_ADDR from ENABLE_REMOTE_ACCESS (set in .env).
+    # Default: localhost-only. Set ENABLE_REMOTE_ACCESS=true to expose on all interfaces.
+    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
+        export WEBUI_LISTEN_ADDR="0.0.0.0"
+        echo "[portal-5] Remote access enabled — Open WebUI will listen on 0.0.0.0:8080"
+    else
+        export WEBUI_LISTEN_ADDR="127.0.0.1"
+    fi
+
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose up -d
@@ -696,7 +705,11 @@ case "${1:-up}" in
     [ -n "$_PRUNED" ] && echo "[portal-5] 🧹 $_PRUNED" || true
 
     echo "[portal-5] Stack started."
-    echo "  Open WebUI:  http://localhost:8080"
+    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
+        echo "  Open WebUI:  http://$(hostname -f 2>/dev/null || hostname):8080  (remote access enabled)"
+    else
+        echo "  Open WebUI:  http://localhost:8080"
+    fi
     echo "  SearXNG:     http://localhost:8088"
     echo "  ComfyUI:     http://localhost:8188"
     echo "  Grafana:     http://localhost:3000  (admin / check .env)"
