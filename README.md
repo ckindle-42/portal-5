@@ -88,9 +88,8 @@ and tools automatically.
 | `auto-reasoning` | Deep reasoning, complex analysis | — |
 | `auto-data` | Data analysis, statistics | Code + Documents |
 | `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
-| `⚖️ auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
-| `🧠 auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
-| `🧠 auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
+| `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
+| `auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
 
 ---
 

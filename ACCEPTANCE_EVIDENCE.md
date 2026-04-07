@@ -1,5 +1,111 @@
 # Portal 5 — Acceptance Test Evidence Report (v4)
 
+## Run 6 (Current) — 2026-04-06 19:04:34
+
+**Git SHA:** 11b2144
+**Version:** 5.2.1
+**Duration:** 3955s (~66 minutes)
+**Exit Code:** 0
+
+### Summary
+
+| Status | Count |
+|--------|-------|
+| PASS   | 197   |
+| WARN   | 5     |
+| INFO   | 25    |
+| FAIL   | 0     |
+| BLOCKED| 0     |
+| **Total** | **227** |
+
+**Verdict:** 197/197 tests passed. Zero FAILs, zero BLOCKEDs. 5 WARNs — all S5 sandbox DinD connectivity (expected, external dependency).
+
+---
+
+## WARN Classification (Run 6)
+
+### All 5 WARNs: S5 Code Sandbox — DinD Not Available
+
+**Affected tests:** S5 execute_python (×2), execute_nodejs, execute_bash, network isolation
+
+**Root cause:** The code sandbox container connects to DinD (Docker-in-Docker) at `tcp://dind:2375`. DinD is an optional sidecar — the sandbox MCP server itself is healthy (`sandbox_status` PASS), but code execution requires DinD which is not started in the default deployment.
+
+**Why this is expected:** DinD is documented as an optional dependency. The sandbox health endpoint correctly reports `docker_available: false`. All 5 WARNs are the same root cause. The sandbox container, MCP registration, and health check all pass — only the execution backend is unavailable.
+
+---
+
+## Pre-Run Issues Resolved (Run 6)
+
+### 1. Old MLX Proxy Replaced
+
+The installed proxy (`~/.portal5/mlx/mlx-proxy.py`) was the old version (Apr 2, 6KB) with no state tracking and no log file output. The test suite requires the new proxy (`scripts/mlx-proxy.py`, Apr 6, 35KB) for:
+- `state` field in `/health` response (old returns `{"status": "ok", ...}`)
+- Log files at `/tmp/mlx-proxy-logs/mlx_{lm,vlm}.log` (old used `subprocess.DEVNULL`)
+- Full MLXState machine tracking `loaded_model`, `consecutive_failures`, `last_error`
+
+**Fix:** `cp scripts/mlx-proxy.py ~/.portal5/mlx/mlx-proxy.py`
+
+### 2. Stale Docker Images Rebuilt
+
+Four MCP images predated the Apr 2 commit (`e5ba52d`) touching all `portal_mcp/` files and the Apr 5 `Dockerfile.mcp` change:
+- mcp-documents: built Mar 6 → rebuilt
+- mcp-tts: built Mar 30 → rebuilt
+- mcp-whisper: built Mar 31 → rebuilt
+- mcp-sandbox: built Apr 1 → rebuilt
+
+### 3. mlx-watchdog Stopped
+
+The mlx-watchdog was running at test start and created an infinite crash loop: when MLX crashed due to memory pressure (46GB MLX + 33GB Ollama on 64GB system), the watchdog immediately restarted it → crash again → 8+ consecutive Metal GPU crashes (EXC_CRASH/SIGABRT in `mlx::core::gpu::check_error`). Watchdog stopped before test run; `MLX_WATCHDOG_ENABLED=false` in `.env`.
+
+---
+
+## Evidence for PASS Results (Key Tests)
+
+### Workspace Routing (S3) — 16/16 PASS
+All 16 workspaces returned domain-relevant responses. Streaming (SSE) confirmed: 3 data chunks + [DONE].
+
+### MLX Sections (S30–S37) — All PASS
+- S30: Qwen3-Coder-Next-4bit — 18 personas (coding) all PASS
+- S31: Qwen3-Coder-30B — 3 personas PASS
+- S32: DeepSeek-R1/Qwopus3.5 — reasoning/research/data workspaces PASS
+- S33: Qwen3.5-35B-A3B-Claude — compliance workspace + 2 personas PASS
+- S34: Magistral-Small-2509 — auto-mistral workspace + magistralstrategist persona PASS
+- S35: Qwopus3.5-9B — direct model + auto-documents PASS
+- S36: Dolphin3.0-Llama3.1-8B — auto-creative PASS
+- S37: gemma-4-31b-it-4bit (VLM) — auto-vision + gemmaresearchanalyst PASS
+
+### MLX Proxy Model Switching (S22)
+- Health endpoint returns correct state/active_server
+- /v1/models lists 15 models
+- auto-coding request routed and completed via MLX
+
+### Fallback Chain Verification (S23) — 27/27 PASS
+- auto-coding: kill proxy → fallback to qwen3-coder:30b → restore → recovery confirmed
+- auto-vision: kill proxy → fallback to deepseek-r1:32b → restore → recovery confirmed
+- auto-reasoning: kill proxy → fallback to deepseek-r1:32b → restore → recovery confirmed
+- All 8 MLX workspaces survived proxy failure (8/8 responded via Ollama fallback)
+
+### Persona Tests (S11) — 40/40 PASS
+All 40 personas registered in Open WebUI; 30 tested via S11 (0 WARN 0 FAIL), 10 MLX-routed personas tested in S30-S37.
+
+### MCP Services
+- Documents: .docx (36,896 bytes), .pptx (5-slide, 32,616 bytes), .xlsx (4,997 bytes) generated
+- TTS: 4 voices (af_heart, bm_george, am_adam, bf_emma) → valid WAV 319-392KB each
+- Whisper STT round-trip: "Hello from Portal 5." transcribed correctly
+- Music: 5s jazz WAV (316,204 bytes, 4.94s @ 32kHz) via musicgen-large
+- Video MCP: health OK, model list returns `videowan2.2`
+- SearXNG: 43 results, 41 relevant for 'NERC CIP'
+
+---
+
+## Run 5 — 2026-04-05 19:29:12
+
+**Git SHA:** 4b26ba0  
+**Result:** 161 PASS · 45 WARN · 16 INFO · 0 FAIL · 0 BLOCKED  
+**Runtime:** 5172s (~86 min)
+
+*(See previous evidence section for Run 5 details)*
+
 ## Run 4 (Current) — 2026-04-05 16:49:26
 
 **Git SHA:** 4b26ba0

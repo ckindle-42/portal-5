@@ -122,7 +122,11 @@ class MLXState:
         with self._lock:
             old = self._active_server
             self._active_server = server
-            self._loaded_model = model
+            # Preserve existing loaded_model if probe didn't return one (mlx_lm.server
+            # health endpoint doesn't expose which model is loaded, so _probe_server
+            # returns None for lm-type servers — don't clobber the known model).
+            if model is not None:
+                self._loaded_model = model
             self._state = "ready"
             self._consecutive_failures = 0
             self._last_error = None
