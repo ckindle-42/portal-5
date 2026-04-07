@@ -256,9 +256,9 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | Model | Memory | Server | Safe Concurrent With |
 |---|---|---|---|
 | `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | No concurrent ComfyUI — 46GB + 8GB OS = 54GB |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI + Ollama + Wan2.2 video |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~32GB | mlx_lm | Ollama general (3B) only — no ComfyUI on 64GB |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~14GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Devstral-Small-2505-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
@@ -266,14 +266,15 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
-| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~31GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
 **64GB systems**: Qwen3-Coder-Next-4bit (~46GB) + Ollama (~5GB) + OS (~8GB) = 59GB — no concurrent ComfyUI/Wan2.2.
+**64GB systems**: Qwen3-Coder-30B-8bit (~32GB) + Ollama (~5GB) + OS (~8GB) = 45GB — no ComfyUI headroom; Ollama routing only.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
 **64GB systems**: Gemma-4-31B (~18GB) + Magistral-Small (~24GB) = 42GB combined — coexist safely.
 **64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
-**32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~18GB). Heavy models (70B, Qwen3-Coder-Next) will OOM.
+**32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~22GB). Heavy models (70B, Qwen3-Coder-Next, Qwen3-Coder-30B-8bit) will OOM.
 
 ### MLX Memory Coexistence
 
@@ -282,8 +283,8 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | System RAM | MLX Model | Simultaneously Safe |
 |---|---|---|
 | 32GB | Llama-3.2-3B (~3GB) | ComfyUI flux-schnell + Ollama general |
-| 32GB | DeepSeek-Coder-Lite (~12GB) | Ollama routing only |
-| 32GB | Qwen3-Coder-30B (~22GB) | Ollama routing only — no ComfyUI |
+| 32GB | DeepSeek-Coder-Lite (~14GB) | Ollama routing only |
+| 32GB | Qwen3-Coder-30B-8bit (~32GB) | Will OOM on 32GB — use 4-bit variant instead |
 | 64GB | Qwen3-Coder-Next-4bit (~46GB) | Ollama general only — unload before ComfyUI |
 | 64GB | Claude-Opus-27B (~22GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Gemma-4-31B (~18GB) | ComfyUI Wan2.2 + Ollama general |
