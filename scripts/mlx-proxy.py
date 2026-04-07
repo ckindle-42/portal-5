@@ -65,6 +65,42 @@ ALL_MODELS = [
     "mlx-community/llava-1.5-7b-8bit",
 ]
 
+# ── Model-Size-Aware Admission Control (P5-FUT-009) ──────────────────────────
+# Maps each MLX model HuggingFace path → estimated peak memory in GB.
+# Sourced from CLAUDE.md model catalog and mlx-community model cards.
+# Values are conservative estimates including KV cache at default context.
+#
+# Rule: MODEL_MEMORY[model] + MEMORY_HEADROOM_GB <= _get_available_memory_gb()
+# If the check fails, ensure_server() returns HTTP 503 instead of loading
+# a model that would OOM — making CLAUDE.md coexistence rules self-enforcing.
+MODEL_MEMORY: dict[str, float] = {
+    # ── Text-only (mlx_lm) ────────────────────────────────────────────────
+    "mlx-community/Qwen3-Coder-Next-4bit": 46.0,              # 80B MoE, 4bit (~46GB)
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
+    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,  # Lite 8bit (~12GB)
+    "mlx-community/Devstral-Small-2505-8bit": 18.0,            # Devstral 8bit (~18GB)
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,         # Dolphin 8B 8bit (~9GB)
+    "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,           # Ultra-fast routing (~3GB)
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)
+    "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,         # Llama 70B 4bit (~40GB)
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,               # Qwopus 27B 8bit (~22GB)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,                 # Qwopus 9B 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
+    # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
+    "mlx-community/gemma-4-31b-it-4bit": 18.0,                 # Gemma 4 dense 31B 4bit (~18GB)
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,          # Qwen3-VL 32B 8bit (~36GB)
+    "mlx-community/llava-1.5-7b-8bit": 8.0,                    # LLaVA 7B 8bit (~8GB)
+}
+
+# Safety headroom reserved for OS, Ollama sidecar, and KV cache spikes.
+# Operator may override via env var.
+MEMORY_HEADROOM_GB: float = float(os.environ.get("MLX_MEMORY_HEADROOM_GB", "10.0"))
+
+# Unknown models get this conservative default rather than being blocked
+MEMORY_UNKNOWN_DEFAULT_GB: float = float(os.environ.get("MLX_MEMORY_UNKNOWN_DEFAULT_GB", "20.0"))
+
 lock = threading.Lock()
 _request_semaphore = threading.Semaphore(MAX_WORKERS + MAX_QUEUE)
 
@@ -603,6 +639,47 @@ def start_server(stype: str, model: str = "") -> int:
         raise TimeoutError(f"mlx_{stype} model failed to load within timeout")
 
 
+def _check_memory_for_model(model: str) -> tuple[bool, str]:
+    """Pre-flight memory admission check for a model load request.
+
+    Returns (ok: bool, message: str).
+    - ok=True: sufficient memory available, proceed with load.
+    - ok=False: insufficient memory; message is operator-actionable 503 detail.
+
+    Uses MODEL_MEMORY dict for known models; falls back to MEMORY_UNKNOWN_DEFAULT_GB
+    for unknown models (conservative, not blocking unless truly constrained).
+    """
+    estimated_gb = MODEL_MEMORY.get(model, MEMORY_UNKNOWN_DEFAULT_GB)
+    available_gb = _get_available_memory_gb()
+    required_gb = estimated_gb + MEMORY_HEADROOM_GB
+
+    if available_gb >= required_gb:
+        print(
+            f"[proxy] memory check OK: model={model!r} needs ~{estimated_gb:.0f}GB + "
+            f"{MEMORY_HEADROOM_GB:.0f}GB headroom = {required_gb:.0f}GB, "
+            f"available={available_gb:.1f}GB",
+            flush=True,
+        )
+        return True, ""
+
+    # Insufficient — build actionable message
+    deficit = required_gb - available_gb
+    is_known = model in MODEL_MEMORY
+
+    model_label = model.split("/")[-1] if "/" in model else model
+    msg = (
+        f"Insufficient memory to load {model_label!r}: "
+        f"needs ~{estimated_gb:.0f}GB"
+        + (" (estimated)" if not is_known else "")
+        + f" + {MEMORY_HEADROOM_GB:.0f}GB headroom = {required_gb:.0f}GB, "
+        f"only {available_gb:.1f}GB available ({deficit:.1f}GB short). "
+        f"Free memory by stopping ComfyUI, unloading Ollama models "
+        f"(`ollama stop <model>`), or closing other GPU workloads, then retry."
+    )
+    print(f"[proxy] ADMISSION REJECTED: {msg}", flush=True)
+    return False, msg
+
+
 def ensure_server(model: str) -> int:
     """Ensure the correct server is running for the requested model.
 
@@ -640,20 +717,19 @@ def ensure_server(model: str) -> int:
 
         mlx_state.set_switching(target)
         try:
-            # Pre-flight: check available memory before loading new model
-            avail = _get_available_memory_gb()
-            if avail < 10:
-                print(
-                    f"[proxy] WARNING: only {avail:.1f}GB available before model load — "
-                    f"forcing aggressive memory reclaim",
-                    flush=True,
-                )
+            # ── Admission control (P5-FUT-009) ──────────────────────────────
+            # Check memory BEFORE stop_all() so we don't evict a healthy model
+            # for a request that will be rejected anyway.
+            ok, rejection_msg = _check_memory_for_model(model)
+            if not ok:
+                mlx_state.set_down(rejection_msg)
+                raise RuntimeError(rejection_msg)
 
             stop_all()
 
-            # Post-reclaim check
+            # Post-reclaim check — secondary safety net after eviction
             free_post = _get_free_memory_gb()
-            if free_post < 8:
+            if free_post < MEMORY_HEADROOM_GB:
                 print(
                     f"[proxy] WARNING: only {free_post:.1f}GB free after reclaim — "
                     f"model load may fail on 64GB system",
@@ -792,6 +868,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             self._handle_post()
+        except RuntimeError as e:
+            # Admission control rejection (P5-FUT-009) — 503 Service Unavailable
+            self._send_json(
+                503,
+                {"error": {"message": str(e), "type": "capacity_error", "code": 503}},
+            )
         except Exception as e:
             self._send_json(502, {"error": str(e)})
         finally:
