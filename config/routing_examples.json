@@ -1,0 +1,31 @@
+{
+  "_version": "1.0",
+  "_note": "Few-shot routing examples for the LLM intent router (P5-FUT-006). Add examples to improve accuracy for edge cases.",
+  "examples": [
+    {"message": "write me a Python script to parse JSON logs", "workspace": "auto-coding", "confidence": 0.95},
+    {"message": "how do I reverse a linked list in Go?", "workspace": "auto-coding", "confidence": 0.97},
+    {"message": "write a Splunk tstats query to count failed logins by user", "workspace": "auto-spl", "confidence": 0.99},
+    {"message": "explain how inputlookup works in SPL", "workspace": "auto-spl", "confidence": 0.97},
+    {"message": "create a correlation search for brute force detection in Splunk ES", "workspace": "auto-spl", "confidence": 0.98},
+    {"message": "write a metasploit module for CVE-2024-12345", "workspace": "auto-redteam", "confidence": 0.99},
+    {"message": "generate a reverse shell payload in Python", "workspace": "auto-redteam", "confidence": 0.99},
+    {"message": "analyze this YARA rule for false positives", "workspace": "auto-security", "confidence": 0.93},
+    {"message": "what does this CVE mean for my network?", "workspace": "auto-security", "confidence": 0.91},
+    {"message": "explain the pros and cons of microservices vs monolith", "workspace": "auto-reasoning", "confidence": 0.92},
+    {"message": "do a deep dive on transformer attention mechanisms", "workspace": "auto-reasoning", "confidence": 0.90},
+    {"message": "is my environment compliant with NERC CIP-007-6 R4?", "workspace": "auto-compliance", "confidence": 0.98},
+    {"message": "map our patch management process to CIP-007 requirements", "workspace": "auto-compliance", "confidence": 0.97},
+    {"message": "analyze the distribution of this dataset and suggest visualizations", "workspace": "auto-data", "confidence": 0.93},
+    {"message": "what are the latest AI developments this month?", "workspace": "auto-research", "confidence": 0.90},
+    {"message": "what does this image show?", "workspace": "auto-vision", "confidence": 0.95},
+    {"message": "write a short story about a robot detective", "workspace": "auto-creative", "confidence": 0.95},
+    {"message": "create a Word document summarizing our Q3 results", "workspace": "auto-documents", "confidence": 0.97},
+    {"message": "generate a 30-second jazz track", "workspace": "auto-music", "confidence": 0.98},
+    {"message": "generate a video of a sunset over mountains", "workspace": "auto-video", "confidence": 0.97},
+    {"message": "use Magistral to reason through this strategic decision", "workspace": "auto-mistral", "confidence": 0.96},
+    {"message": "hello, how are you?", "workspace": "auto", "confidence": 0.99},
+    {"message": "what is the capital of France?", "workspace": "auto", "confidence": 0.97},
+    {"message": "write an exploit for this Splunk vulnerability", "workspace": "auto-redteam", "confidence": 0.97},
+    {"message": "write a Splunk search to detect lateral movement", "workspace": "auto-spl", "confidence": 0.96}
+  ]
+}

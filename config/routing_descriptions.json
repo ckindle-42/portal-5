@@ -1,0 +1,19 @@
+{
+  "_version": "1.0",
+  "_note": "Workspace capability descriptions used by the LLM intent router (P5-FUT-006). Edit to tune routing accuracy.",
+  "auto-redteam": "Offensive security, penetration testing, exploit development, reverse shells, C2 frameworks, privilege escalation, AV/EDR bypass, CTF challenges, red team operations.",
+  "auto-security": "Defensive and offensive security analysis, vulnerability assessment, threat hunting, incident response, malware analysis, MITRE ATT&CK, YARA/Sigma rules, CVEs, security hardening, IDS/IPS rules.",
+  "auto-spl": "Splunk SPL queries, search processing language, tstats, inputlookup, outputlookup, correlation searches, notable events, data model acceleration, Splunk Enterprise Security, detection search authoring.",
+  "auto-coding": "Code generation and debugging in any language, code review, refactoring, unit tests, APIs, algorithms, data structures, Dockerfiles, CI/CD, BigFix relevance, PowerShell, Python, Bash, Terraform, Ansible.",
+  "auto-reasoning": "Complex multi-step analysis, research synthesis, pros/cons evaluation, trade-off comparison, detailed breakdowns, deep dives, step-by-step explanations of complex topics.",
+  "auto-compliance": "NERC CIP compliance, regulatory gap analysis, policy mapping to standards, CIP requirement citations, remediation steps, audit preparation, control evidence collection.",
+  "auto-data": "Data analysis, statistics, visualization guidance, exploratory data analysis, data cleaning strategies, metric interpretation, business intelligence.",
+  "auto-research": "Web research, information synthesis, fact-checking, literature review, summarising external sources, current events research.",
+  "auto-vision": "Image understanding, visual analysis, multimodal tasks with attached images, diagram interpretation, object recognition, screenshot analysis.",
+  "auto-creative": "Creative writing, fiction, storytelling, poetry, worldbuilding, content generation, marketing copy.",
+  "auto-documents": "Creating Word documents, Excel spreadsheets, PowerPoint presentations using MCP tool servers.",
+  "auto-music": "Generating music and audio via AudioCraft/MusicGen, describing musical ideas.",
+  "auto-video": "Generating videos via ComfyUI/Wan2.2, describing video concepts.",
+  "auto-mistral": "Structured strategic reasoning, business analysis, planning with explicit thinking mode, Mistral-lineage model requests.",
+  "auto": "General conversation, questions that do not clearly fit any specialist workspace, greetings, casual chat."
+}

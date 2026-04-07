@@ -1,4 +1,4 @@
-"""Portal 5.2.1 — Intelligent Router Pipeline.
+"""Portal 6.0.0 — Intelligent Router Pipeline.
 
 Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
 Open WebUI connects here as its sole model source.
@@ -392,7 +392,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder:30b",  # Primary Ollama coding fallback; qwen3-coder-next is MLX-only
+        "model_hint": "qwen3-coder-next:30b-q5",  # Primary Ollama coding fallback (Qwen3-Coder-Next GGUF)
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
     },
     "auto-spl": {
@@ -798,6 +798,214 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "threshold": 3,
     },
 }
+
+
+# ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
+# Uses llama3.2:3b-instruct as a fast semantic intent classifier.
+# Falls back to keyword scoring on low confidence or timeout.
+
+_LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
+_LLM_ROUTER_MODEL: str = os.environ.get("LLM_ROUTER_MODEL", "llama3.2:3b-instruct-q4_K_M")
+_LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
+    os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")
+)
+_LLM_ROUTER_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "500"))
+_LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
+    "LLM_ROUTER_OLLAMA_URL", "http://host.docker.internal:11434"
+)
+
+# Valid workspace IDs the LLM router may return
+_VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
+    [
+        "auto",
+        "auto-coding",
+        "auto-spl",
+        "auto-security",
+        "auto-redteam",
+        "auto-blueteam",
+        "auto-creative",
+        "auto-reasoning",
+        "auto-documents",
+        "auto-video",
+        "auto-music",
+        "auto-research",
+        "auto-vision",
+        "auto-data",
+        "auto-compliance",
+        "auto-mistral",
+    ]
+)
+
+# JSON schema enforced by Ollama grammar decoding — guarantees parseable output
+_ROUTER_JSON_SCHEMA: dict = {
+    "type": "object",
+    "properties": {
+        "workspace": {"type": "string"},
+        "confidence": {"type": "number"},
+    },
+    "required": ["workspace", "confidence"],
+}
+
+_routing_descriptions: dict[str, str] | None = None
+_routing_examples: list[dict] | None = None
+
+
+def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
+    """Load workspace descriptions and few-shot examples from config files.
+
+    Returns cached copies after first load. Falls back to empty dicts/lists
+    if files are missing so the LLM router degrades gracefully.
+    """
+    global _routing_descriptions, _routing_examples
+    if _routing_descriptions is not None and _routing_examples is not None:
+        return _routing_descriptions, _routing_examples
+
+    desc_path = Path("config/routing_descriptions.json")
+    ex_path = Path("config/routing_examples.json")
+
+    try:
+        raw = json.loads(desc_path.read_text()) if desc_path.exists() else {}
+        _routing_descriptions = {k: v for k, v in raw.items() if not k.startswith("_")}
+    except Exception as e:
+        logger.warning("LLM router: failed to load routing_descriptions.json: %s", e)
+        _routing_descriptions = {}
+
+    try:
+        raw = json.loads(ex_path.read_text()) if ex_path.exists() else {}
+        _routing_examples = raw.get("examples", [])
+    except Exception as e:
+        logger.warning("LLM router: failed to load routing_examples.json: %s", e)
+        _routing_examples = []
+
+    return _routing_descriptions, _routing_examples
+
+
+def _build_router_prompt(user_message: str) -> str:
+    """Build the classification prompt sent to llama3.2:3b-instruct.
+
+    Includes workspace descriptions and few-shot examples for in-context learning.
+    Kept under 512 tokens by design (fast, cheap inference).
+    """
+    descriptions, examples = _load_routing_config()
+
+    # Workspace descriptions block
+    desc_lines = "\n".join(f"- {ws_id}: {desc}" for ws_id, desc in descriptions.items())
+
+    # Few-shot examples block (cap at 8 to stay under ctx budget)
+    example_lines = "\n".join(
+        f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\nConfidence: {ex["confidence"]}'
+        for ex in (examples or [])[:8]
+    )
+
+    return f"""You are an intent router for an AI platform. Classify the user message into exactly one workspace.
+
+WORKSPACES:
+{desc_lines}
+
+EXAMPLES:
+{example_lines}
+
+Now classify this message:
+Message: "{user_message}"
+
+Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": <0.0-1.0>}}
+The workspace must be one of the valid IDs listed above."""
+
+
+async def _route_with_llm(messages: list[dict]) -> str | None:
+    """Use llama3.2:3b-instruct to classify user intent into a workspace ID.
+
+    Returns a workspace ID string if confidence >= threshold, else None
+    (caller falls back to keyword scoring).
+
+    Safety properties:
+    - Hard timeout (LLM_ROUTER_TIMEOUT_MS, default 500ms)
+    - JSON schema constraint enforced via Ollama grammar (guaranteed parseable)
+    - Workspace ID validated against _VALID_WORKSPACE_IDS allowlist
+    - Never raises — all exceptions return None (graceful fallback)
+    - Returns None for 'auto' workspace (no-op, no point routing to default)
+    """
+    if not _LLM_ROUTER_ENABLED:
+        return None
+
+    # Extract last user message
+    last_user_content = ""
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            content = msg.get("content", "")
+            last_user_content = (str(content) if isinstance(content, str) else str(content))[:500]
+            break
+
+    if not last_user_content:
+        return None
+
+    prompt = _build_router_prompt(last_user_content)
+    timeout_s = _LLM_ROUTER_TIMEOUT_MS / 1000.0
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            payload = {
+                "model": _LLM_ROUTER_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0,
+                    "num_predict": 40,
+                    "num_ctx": 512,
+                    "keep_alive": "-1",  # Keep model warm — no cold-start penalty
+                },
+                "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
+            }
+            resp = await client.post(
+                f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            raw_response = data.get("response", "").strip()
+
+        # Parse and validate
+        parsed = json.loads(raw_response)
+        workspace = str(parsed.get("workspace", "")).strip()
+        confidence = float(parsed.get("confidence", 0.0))
+
+        # Validate workspace ID against allowlist
+        if workspace not in _VALID_WORKSPACE_IDS:
+            logger.warning(
+                "LLM router returned unknown workspace '%s' — falling back to keywords",
+                workspace,
+            )
+            return None
+
+        # Don't return 'auto' — it's the default, no routing gain
+        if workspace == "auto":
+            return None
+
+        if confidence < _LLM_ROUTER_CONFIDENCE_THRESHOLD:
+            logger.debug(
+                "LLM router low confidence %.2f for '%s' — falling back to keywords",
+                confidence,
+                workspace,
+            )
+            return None
+
+        logger.info(
+            "LLM router: '%s' → workspace='%s' confidence=%.2f",
+            last_user_content[:60],
+            workspace,
+            confidence,
+        )
+        return workspace
+
+    except httpx.TimeoutException:
+        logger.debug(
+            "LLM router timed out after %dms — falling back to keywords",
+            _LLM_ROUTER_TIMEOUT_MS,
+        )
+        return None
+    except Exception as e:
+        logger.debug("LLM router error (non-fatal): %s — falling back to keywords", e)
+        return None
 
 
 def _detect_workspace(messages: list[dict]) -> str | None:
@@ -1379,15 +1587,28 @@ async def chat_completions(
         stream = body.get("stream", True)
 
         # Content-aware routing for 'auto' workspace
-        # Inspect message content to pick the most specialized backend.
+        # Primary path: LLM-based intent classification (P5-FUT-006).
+        # Fallback: weighted keyword scoring (_detect_workspace).
         # This lets users ask security/coding/reasoning questions through 'auto'
         # and get the right specialist model without manually switching workspaces.
         if workspace_id == "auto":
             messages = body.get("messages", [])
-            detected = _detect_workspace(messages)
+            # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
+            detected = await _route_with_llm(messages)
             if detected:
-                logger.info("Auto-routing: detected workspace '%s' from message content", detected)
+                logger.info(
+                    "Auto-routing (LLM): detected workspace '%s' from message content", detected
+                )
                 workspace_id = detected
+            else:
+                # Keyword fallback — deterministic, zero-latency
+                detected = _detect_workspace(messages)
+                if detected:
+                    logger.info(
+                        "Auto-routing (keywords): detected workspace '%s' from message content",
+                        detected,
+                    )
+                    workspace_id = detected
 
         # auto-vision text-only fallback: vision-language models (qwen3-vl:32b, Gemma 4)
         # return empty content when no image is provided. Detect absence of image_url
