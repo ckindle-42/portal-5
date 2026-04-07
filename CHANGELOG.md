@@ -2,6 +2,48 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.0.0] — 2026-04-07
+
+### Breaking Changes
+- None. All existing workspace IDs, personas, and API contracts are unchanged.
+
+### Added
+- **P5-FUT-006: LLM-based intent routing** (`portal_pipeline/router_pipe.py`)
+  - `_route_with_llm()`: Uses `llama3.2:3b-instruct-q4_K_M` (existing Ollama model) as
+    primary semantic intent classifier for the `auto` workspace. Temperature=0, 40 tokens,
+    512-token context, `keep_alive=-1` (always warm).
+  - Falls back to existing `_detect_workspace()` keyword scoring on low confidence
+    (`LLM_ROUTER_CONFIDENCE_THRESHOLD`, default 0.5) or timeout
+    (`LLM_ROUTER_TIMEOUT_MS`, default 500ms).
+  - Ollama grammar-enforced JSON schema guarantees parseable output.
+  - Workspace ID validated against `_VALID_WORKSPACE_IDS` allowlist — unknown IDs
+    trigger keyword fallback rather than routing errors.
+  - `config/routing_descriptions.json`: Operator-editable workspace capability descriptions
+    used as the LLM's grounding context.
+  - `config/routing_examples.json`: Operator-editable few-shot examples (25 included;
+    add domain-specific examples to improve accuracy for your use cases).
+  - `tests/unit/test_routing.py`: 16 new unit tests (mock-only, no Ollama required).
+  - Env vars: `LLM_ROUTER_ENABLED`, `LLM_ROUTER_MODEL`, `LLM_ROUTER_CONFIDENCE_THRESHOLD`,
+    `LLM_ROUTER_TIMEOUT_MS`, `LLM_ROUTER_OLLAMA_URL`.
+  - Expected accuracy: 93-94% (see P5_ROADMAP.md for workspace-level breakdown).
+
+- **P5-FUT-009: Model-size-aware admission control** (`scripts/mlx-proxy.py`)
+  - `MODEL_MEMORY` dict: 16 entries mapping each MLX model → estimated peak GB.
+  - `_check_memory_for_model()`: Pre-flight check in `ensure_server()` comparing
+    `MODEL_MEMORY[model] + MEMORY_HEADROOM_GB` against `_get_available_memory_gb()`.
+  - Rejects with HTTP 503 and operator-actionable message before evicting any loaded model,
+    preventing OOM from conflicting model+ComfyUI loads.
+  - Unknown models use `MEMORY_UNKNOWN_DEFAULT_GB` (default 20GB) — conservative but not blocking.
+  - CLAUDE.md coexistence rules are now self-enforcing rather than documentation-only.
+  - `tests/unit/test_mlx_proxy.py`: 9 new unit tests (mocked memory reads, no MLX runtime).
+  - Env vars: `MLX_MEMORY_HEADROOM_GB` (default 10.0), `MLX_MEMORY_UNKNOWN_DEFAULT_GB` (default 20.0).
+
+### Changed
+- Version: 5.2.1 → 6.0.0
+- `router_pipe.py` auto-routing path: LLM router is primary; keywords are fallback.
+- `ensure_server()`: memory check now model-specific (replaces generic 10GB floor).
+- `MEMORY_HEADROOM_GB` replaces hardcoded `8`/`10` constants in post-reclaim warning.
+
 ## [Unreleased]
 
 ### Added

@@ -1,10 +1,10 @@
 # P5_ROADMAP.md — Portal 5 Future Enhancements
 
 ```
-Portal 5.2.1+ Roadmap
+Portal 6.0.0 Roadmap
 ==================
 Last updated: April 7, 2026
-Version: 5.2.1 (production-ready)
+Version: 6.0.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: DONE, IN_PROGRESS, FUTURE
@@ -22,8 +22,8 @@ genuinely open future work beyond the current stable release.
 | P5-FUT-003 | P3 | Usage analytics dashboard | DONE | Grafana portal5_overview.json v3: 6 new panels — workspace request trends, tokens by workspace, top workspaces, model×workspace breakdown, request rate. All queries use existing Prometheus metrics. Per-user blocked — Open WebUI doesn't expose user IDs to Pipeline. |
 | P5-FUT-004 | P3 | Webhook-based event notifications | DONE | WebhookChannel implemented (portal_pipeline/notifications/channels/webhook.py). Env vars: WEBHOOK_URL, WEBHOOK_HEADERS. POSTs JSON to arbitrary HTTP endpoint on all alert and summary events. Live-verified 2026-03-30. |
 | P5-FUT-005 | P2 | Weighted keyword scoring for content-aware routing | DONE | Replaced regex-based `_detect_workspace` with weighted keyword scoring. Each keyword carries weight 1-3 (weak/medium/strong), workspaces have activation thresholds, highest score above threshold wins. Handles overlapping signals naturally (e.g. "exploit in Python" → security wins, not coding). Implemented in v5.2.1. |
-| P5-FUT-006 | P1 | LLM-based intent routing (replaces keyword matching) | FUTURE | Use llama3.2:3b-instruct (already in Ollama) as an intent router. Workspace descriptions + few-shot examples + JSON schema constraint. ~100ms latency, 93-94% accuracy, falls back to keywords on low confidence. See implementation notes. |
-| P5-FUT-009 | P2 | Model-size-aware admission control (MLX proxy) | FUTURE | Add `MODEL_MEMORY` dict to `mlx-proxy.py` mapping each model → estimated GB. In `ensure_server()`, compare against `_get_available_memory_gb()` before load. Reject with clear 503 if insufficient. Makes CLAUDE.md coexistence rules self-enforcing — prevents OOM from conflicting model+ComfyUI loads. |
+| P5-FUT-006 | P1 | LLM-based intent routing (replaces keyword matching) | DONE | DONE in v6.0.0. llama3.2:3b-instruct-q4_K_M, JSON schema enforcement, keyword fallback on confidence < 0.5 or timeout. |
+| P5-FUT-009 | P2 | Model-size-aware admission control (MLX proxy) | DONE | DONE in v6.0.0. MODEL_MEMORY dict (16 entries), MEMORY_HEADROOM_GB (10GB), HTTP 503 with actionable message, unknown-model default. |
 
 ---
 
@@ -115,8 +115,9 @@ The existing 10GB generic floor remains as secondary safety net. This replaces a
 | 2026-03-30 | 100/100 | v5.2.1-unreleased — P5-FUT-003 (analytics dashboard) + P5-FUT-004 (webhook channel) implemented, verified live |
 | 2026-04-04 | 100/100 | v5.2.1 — P5-FUT-005 (weighted keyword routing), S18-S22 acceptance tests, persona prompt/signal fixes, documentation updates |
 | 2026-04-07 | 100/100 | P5-FUT-009 (model-size-aware admission control) + P5-FUT-006 (LLM-based intent routing) added to roadmap. P5-FUT-001/002 removed. |
+| 2026-04-07 | 100/100 | v6.0.0 — P5-FUT-006 (LLM intent routing) + P5-FUT-009 (MLX admission control) implemented |
 
 ---
 
 *Last updated: 2026-04-07*
-*Part of Portal 5.2.1 release documentation*
+*Part of Portal 6.0.0 release documentation*

@@ -2,7 +2,7 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 5.2.1
+**Version**: 6.0.0
 **Last Updated**: April 7, 2026
 
 ---
@@ -292,6 +292,8 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
 
 Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
+
+> **Note (v6.0.0):** Memory coexistence rules are now self-enforcing via MLX proxy admission control (P5-FUT-009). See `MODEL_MEMORY` dict in `scripts/mlx-proxy.py`. The proxy will reject model loads with HTTP 503 and an actionable message if available memory is insufficient.
 
 ### Generation Models (ComfyUI / HuggingFace)
 
