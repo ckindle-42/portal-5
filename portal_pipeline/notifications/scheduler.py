@@ -41,6 +41,23 @@ _registry_ref: NotificationDispatcher | None = None
 _registry_instance: BackendRegistry | None = None
 
 
+def _load_aggregated_state() -> dict[str, Any]:
+    """Read the merged metrics state file (aggregated across all workers).
+
+    With PIPELINE_WORKERS > 1 each worker has its own in-memory counters.
+    The state file on disk is the only place where all workers' counters are
+    merged together, so the daily summary must read from it.
+    """
+    try:
+        from portal_pipeline.router_pipe import _STATE_FILE
+
+        if _STATE_FILE.exists():
+            return json.loads(_STATE_FILE.read_text())
+    except (json.JSONDecodeError, OSError, ImportError):
+        pass
+    return {}
+
+
 def _attach_to_pipeline(
     dispatcher: NotificationDispatcher,
     request_count: dict[str, int],
@@ -152,6 +169,9 @@ class NotificationScheduler:
         Called once at startup. The first daily summary will compute deltas
         from this baseline, showing only activity since the pipeline started
         (or since the last summary, if one already ran).
+
+        Reads from the aggregated state file (merged across all workers)
+        rather than per-worker in-memory counters.
         """
         if _SNAPSHOT_FILE.exists():
             logger.info(
@@ -160,25 +180,25 @@ class NotificationScheduler:
             return
 
         try:
-            from portal_pipeline import router_pipe
-
+            state = _load_aggregated_state()
             baseline: dict[str, Any] = {
-                "request_count": dict(_request_count),
-                "total_response_time_ms": getattr(router_pipe, "_total_response_time_ms", 0.0),
-                "total_tps": getattr(router_pipe, "_total_tps", 0.0),
-                "request_tps_count": getattr(router_pipe, "_request_tps_count", 0),
-                "total_input_tokens": getattr(router_pipe, "_total_input_tokens", 0),
-                "total_output_tokens": getattr(router_pipe, "_total_output_tokens", 0),
-                "req_count_by_model": dict(getattr(router_pipe, "_req_count_by_model", {})),
-                "req_count_by_error": dict(getattr(router_pipe, "_req_count_by_error", {})),
-                "peak_concurrent": getattr(router_pipe, "_peak_concurrent", 0),
+                "request_count": state.get("request_count", {}),
+                "total_response_time_ms": float(state.get("total_response_time_ms", 0.0)),
+                "total_tps": float(state.get("total_tps", 0.0)),
+                "request_tps_count": int(state.get("request_tps_count", 0)),
+                "total_input_tokens": int(state.get("total_input_tokens", 0)),
+                "total_output_tokens": int(state.get("total_output_tokens", 0)),
+                "req_count_by_model": state.get("req_count_by_model", {}),
+                "req_count_by_error": state.get("req_count_by_error", {}),
+                "peak_concurrent": int(state.get("peak_concurrent", 0)),
             }
             _save_snapshot(baseline)
+            req_count = baseline.get("request_count", {})
             logger.info(
                 "NotificationScheduler: baseline snapshot initialized at startup "
                 "(%d total requests across %d workspaces)",
-                sum(_request_count.values()) if _request_count else 0,
-                len(_request_count),
+                sum(req_count.values()) if req_count else 0,
+                len(req_count),
             )
         except Exception:
             logger.warning(
@@ -224,8 +244,10 @@ class NotificationScheduler:
         except OSError:
             pass
 
-        # Read current stats directly from router_pipe module (avoids stale closures)
-        from portal_pipeline import router_pipe
+        # Read current stats from the aggregated state file (merged across all
+        # workers). In-memory counters are per-worker and would miss requests
+        # handled by sibling workers.
+        state = _load_aggregated_state()
 
         now = datetime.now(timezone.utc)
         report_date = (now - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -242,15 +264,15 @@ class NotificationScheduler:
                 pass
 
         current_snapshot: dict[str, Any] = {
-            "request_count": dict(_request_count),
-            "total_response_time_ms": getattr(router_pipe, "_total_response_time_ms", 0.0),
-            "total_tps": getattr(router_pipe, "_total_tps", 0.0),
-            "request_tps_count": getattr(router_pipe, "_request_tps_count", 0),
-            "total_input_tokens": getattr(router_pipe, "_total_input_tokens", 0),
-            "total_output_tokens": getattr(router_pipe, "_total_output_tokens", 0),
-            "req_count_by_model": dict(getattr(router_pipe, "_req_count_by_model", {})),
-            "req_count_by_error": dict(getattr(router_pipe, "_req_count_by_error", {})),
-            "peak_concurrent": getattr(router_pipe, "_peak_concurrent", 0),
+            "request_count": state.get("request_count", {}),
+            "total_response_time_ms": float(state.get("total_response_time_ms", 0.0)),
+            "total_tps": float(state.get("total_tps", 0.0)),
+            "request_tps_count": int(state.get("request_tps_count", 0)),
+            "total_input_tokens": int(state.get("total_input_tokens", 0)),
+            "total_output_tokens": int(state.get("total_output_tokens", 0)),
+            "req_count_by_model": state.get("req_count_by_model", {}),
+            "req_count_by_error": state.get("req_count_by_error", {}),
+            "peak_concurrent": int(state.get("peak_concurrent", 0)),
         }
 
         # Load previous snapshot and compute deltas
@@ -265,30 +287,22 @@ class NotificationScheduler:
         prev_by_model: dict[str, int] = prev.get("req_count_by_model", {})
         prev_by_error: dict[str, int] = prev.get("req_count_by_error", {})
 
-        daily_requests = _delta_dict(dict(_request_count), prev_request_count)
+        daily_requests = _delta_dict(current_snapshot["request_count"], prev_request_count)
         daily_total = sum(daily_requests.values())
-        daily_rt_ms = _delta(getattr(router_pipe, "_total_response_time_ms", 0.0), prev_rt_ms)
-        daily_tps_sum = _delta(getattr(router_pipe, "_total_tps", 0.0), prev_tps_sum)
-        daily_tps_count = _delta(getattr(router_pipe, "_request_tps_count", 0), prev_tps_count)
-        daily_inp = _delta(getattr(router_pipe, "_total_input_tokens", 0), prev_inp)
-        daily_out = _delta(getattr(router_pipe, "_total_output_tokens", 0), prev_out)
-        daily_by_model = _delta_dict(
-            dict(getattr(router_pipe, "_req_count_by_model", {})), prev_by_model
-        )
-        daily_by_error = _delta_dict(
-            dict(getattr(router_pipe, "_req_count_by_error", {})), prev_by_error
-        )
+        daily_rt_ms = _delta(current_snapshot["total_response_time_ms"], prev_rt_ms)
+        daily_tps_sum = _delta(current_snapshot["total_tps"], prev_tps_sum)
+        daily_tps_count = _delta(current_snapshot["request_tps_count"], prev_tps_count)
+        daily_inp = _delta(current_snapshot["total_input_tokens"], prev_inp)
+        daily_out = _delta(current_snapshot["total_output_tokens"], prev_out)
+        daily_by_model = _delta_dict(current_snapshot["req_count_by_model"], prev_by_model)
+        daily_by_error = _delta_dict(current_snapshot["req_count_by_error"], prev_by_error)
 
-        # Read persona usage (Prometheus Counter — compute delta via scrape)
+        # Read persona usage from aggregated state file
         persona_usage: dict[str, int] = {}
         try:
-            persona_counter = getattr(router_pipe, "_persona_usage", None)
-            if persona_counter is not None:
-                for sample in persona_counter._metrics.values():
-                    for (labels,), value in sample.items():
-                        persona = labels.get("persona", "unknown")
-                        count = int(value)
-                        persona_usage[persona] = persona_usage.get(persona, 0) + count
+            persona_raw = state.get("persona_usage_raw", {})
+            for persona, models in persona_raw.items():
+                persona_usage[persona] = sum(models.values())
         except Exception:
             pass
 

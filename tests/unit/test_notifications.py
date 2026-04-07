@@ -396,7 +396,7 @@ class TestNotificationScheduler:
 
     @pytest.mark.asyncio
     async def test_send_daily_summary_includes_extended_metrics(self):
-        """Verify _send_daily_summary reads router_pipe stats and builds a complete SummaryEvent."""
+        """Verify _send_daily_summary reads aggregated state and builds a complete SummaryEvent."""
         import importlib
 
         import portal_pipeline.notifications.dispatcher as disp_mod
@@ -410,25 +410,11 @@ class TestNotificationScheduler:
         # Mock registry for health counts
         mock_backend = MagicMock()
         mock_backend.healthy = True
-        mock_registry = MagicMock()
-        mock_registry._backends = {"ollama-1": mock_backend}
         mock_registry_instance = MagicMock()
         mock_registry_instance._backends = {"ollama-1": mock_backend}
 
         fake_request_count = {"auto": 100, "auto-coding": 50}
         fake_startup = 1000000000.0
-
-        # Patch router_pipe module so _send_daily_summary reads our fake stats
-        fake_router = MagicMock()
-        fake_router._total_response_time_ms = 50000.0  # 50s total
-        fake_router._request_tps_count = 10
-        fake_router._total_tps = 250.0  # 25 avg TPS
-        fake_router._total_input_tokens = 10000
-        fake_router._total_output_tokens = 30000
-        fake_router._req_count_by_model = {
-            "dolphin-llama3:8b": 100,
-            "qwen3-coder-next:30b-q5": 50,
-        }
 
         with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
             scheduler = NotificationScheduler(disp)
@@ -439,27 +425,31 @@ class TestNotificationScheduler:
             )
 
             with patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch:
-                import portal_pipeline.router_pipe as rp_module
                 from portal_pipeline.notifications import scheduler as sched_module
 
                 # Mock cooldown file so test doesn't skip due to existing lockfile
                 cooldown_file_mock = MagicMock()
                 cooldown_file_mock.exists.return_value = False
 
+                # Mock _load_aggregated_state to return our fake stats
+                fake_state = {
+                    "request_count": {"auto": 100, "auto-coding": 50},
+                    "total_response_time_ms": 50000.0,
+                    "total_tps": 250.0,
+                    "request_tps_count": 10,
+                    "total_input_tokens": 10000,
+                    "total_output_tokens": 30000,
+                    "req_count_by_model": {
+                        "dolphin-llama3:8b": 100,
+                        "qwen3-coder-next:30b-q5": 50,
+                    },
+                    "req_count_by_error": {},
+                    "peak_concurrent": 5,
+                    "persona_usage_raw": {},
+                }
+
                 with (
-                    patch.object(rp_module, "_total_response_time_ms", 50000.0),
-                    patch.object(rp_module, "_request_tps_count", 10),
-                    patch.object(rp_module, "_total_tps", 250.0),
-                    patch.object(rp_module, "_total_input_tokens", 10000),
-                    patch.object(rp_module, "_total_output_tokens", 30000),
-                    patch.object(
-                        rp_module,
-                        "_req_count_by_model",
-                        {
-                            "dolphin-llama3:8b": 100,
-                            "qwen3-coder-next:30b-q5": 50,
-                        },
-                    ),
+                    patch.object(sched_module, "_load_aggregated_state", return_value=fake_state),
                     patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
                     patch.object(sched_module, "_SNAPSHOT_FILE", cooldown_file_mock),
                 ):
@@ -581,6 +571,205 @@ class TestPushoverSummaryPriority:
                 # Summary should be normal priority (0), not emergency (2)
                 assert payload["priority"] == "0"
                 assert payload["title"] == "Portal 5 — Daily Summary"
+
+
+class TestDailySummaryDeltaComputation:
+    """Verify daily summary shows deltas against previous snapshot, not cumulative totals."""
+
+    @pytest.mark.asyncio
+    async def test_summary_shows_deltas_not_cumulative_totals(self):
+        """When a previous snapshot exists, the summary must show only new activity.
+
+        Regression test: the baseline snapshot was initialized with empty counters
+        because _attach_to_pipeline() was called AFTER start(). This caused every
+        summary to show cumulative totals since startup instead of daily deltas.
+        """
+        import importlib
+        import json
+
+        import portal_pipeline.notifications.dispatcher as disp_mod
+
+        importlib.reload(disp_mod)
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.scheduler import NotificationScheduler
+
+        disp = NotificationDispatcher()
+
+        mock_backend = MagicMock()
+        mock_backend.healthy = True
+        mock_registry_instance = MagicMock()
+        mock_registry_instance._backends = {"ollama-1": mock_backend}
+
+        cumulative_request_count = {"auto": 1500, "auto-coding": 800}
+        fake_startup = 1000000000.0
+
+        prev_snapshot = {
+            "request_count": {"auto": 1200, "auto-coding": 600},
+            "total_response_time_ms": 400000.0,
+            "total_tps": 8000.0,
+            "request_tps_count": 400,
+            "total_input_tokens": 200000,
+            "total_output_tokens": 600000,
+            "req_count_by_model": {
+                "dolphin-llama3:8b": 1000,
+                "qwen3-coder-next:30b-q5": 500,
+            },
+            "req_count_by_error": {"timeout": 10},
+            "peak_concurrent": 5,
+        }
+
+        current_state = {
+            "request_count": {"auto": 1500, "auto-coding": 800},
+            "total_response_time_ms": 450000.0,
+            "total_tps": 8250.0,
+            "request_tps_count": 410,
+            "total_input_tokens": 210000,
+            "total_output_tokens": 630000,
+            "req_count_by_model": {
+                "dolphin-llama3:8b": 1100,
+                "qwen3-coder-next:30b-q5": 550,
+                "llama3.2:3b": 50,
+            },
+            "req_count_by_error": {"timeout": 12, "502": 3},
+            "peak_concurrent": 5,
+            "persona_usage_raw": {},
+        }
+
+        from portal_pipeline.notifications import scheduler as sched_module
+
+        with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
+            scheduler = NotificationScheduler(disp)
+
+            sched_module._attach_to_pipeline(
+                disp, cumulative_request_count, fake_startup, mock_registry_instance
+            )
+
+            snapshot_file_mock = MagicMock()
+            snapshot_file_mock.exists.return_value = True
+            snapshot_file_mock.read_text.return_value = json.dumps(prev_snapshot)
+            snapshot_file_mock.write_text = MagicMock()
+
+            cooldown_file_mock = MagicMock()
+            cooldown_file_mock.exists.return_value = False
+
+            with (
+                patch.object(sched_module, "_load_aggregated_state", return_value=current_state),
+                patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
+                patch.object(sched_module, "_SNAPSHOT_FILE", snapshot_file_mock),
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+            ):
+                await scheduler._send_daily_summary()
+
+            mock_dispatch.assert_called_once()
+            event = mock_dispatch.call_args[0][0]
+
+            assert event.total_requests == 500, (
+                f"Expected 500 daily requests (delta), got {event.total_requests} (cumulative)"
+            )
+            assert event.requests_by_workspace == {"auto": 300, "auto-coding": 200}
+
+            assert event.requests_by_model == {
+                "dolphin-llama3:8b": 100,
+                "qwen3-coder-next:30b-q5": 50,
+                "llama3.2:3b": 50,
+            }
+
+            assert event.total_input_tokens == 10000
+            assert event.total_output_tokens == 30000
+
+            assert event.avg_tokens_per_second == pytest.approx(25.0)
+
+            assert event.avg_response_time_ms == pytest.approx(100.0)
+
+            assert event.errors_by_type == {"timeout": 2, "502": 3}
+            assert event.total_errors == 5
+
+            snapshot_file_mock.write_text.assert_called_once()
+            saved_data = json.loads(snapshot_file_mock.write_text.call_args[0][0])
+            assert saved_data["request_count"] == cumulative_request_count
+
+    @pytest.mark.asyncio
+    async def test_summary_clamps_negative_deltas_to_zero(self):
+        """If a counter was reset (current < previous), delta should be zero, not negative."""
+        import importlib
+        import json
+
+        import portal_pipeline.notifications.dispatcher as disp_mod
+
+        importlib.reload(disp_mod)
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.scheduler import NotificationScheduler
+
+        disp = NotificationDispatcher()
+
+        mock_registry_instance = MagicMock()
+        mock_registry_instance._backends = {}
+
+        prev_snapshot = {
+            "request_count": {"auto": 5000},
+            "total_response_time_ms": 100000.0,
+            "total_tps": 5000.0,
+            "request_tps_count": 200,
+            "total_input_tokens": 100000,
+            "total_output_tokens": 300000,
+            "req_count_by_model": {"dolphin-llama3:8b": 3000},
+            "req_count_by_error": {"timeout": 50},
+            "peak_concurrent": 10,
+        }
+
+        current_state = {
+            "request_count": {"auto": 100},
+            "total_response_time_ms": 5000.0,
+            "total_tps": 200.0,
+            "request_tps_count": 10,
+            "total_input_tokens": 5000,
+            "total_output_tokens": 15000,
+            "req_count_by_model": {"dolphin-llama3:8b": 80},
+            "req_count_by_error": {"timeout": 2},
+            "peak_concurrent": 3,
+            "persona_usage_raw": {},
+        }
+
+        from portal_pipeline.notifications import scheduler as sched_module
+
+        with patch.dict(os.environ, {"ALERT_SUMMARY_ENABLED": "true"}, clear=False):
+            scheduler = NotificationScheduler(disp)
+
+            sched_module._attach_to_pipeline(
+                disp, current_state["request_count"], 1000000000.0, mock_registry_instance
+            )
+
+            snapshot_file_mock = MagicMock()
+            snapshot_file_mock.exists.return_value = True
+            snapshot_file_mock.read_text.return_value = json.dumps(prev_snapshot)
+            snapshot_file_mock.write_text = MagicMock()
+
+            cooldown_file_mock = MagicMock()
+            cooldown_file_mock.exists.return_value = False
+
+            with (
+                patch.object(sched_module, "_load_aggregated_state", return_value=current_state),
+                patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
+                patch.object(sched_module, "_SNAPSHOT_FILE", snapshot_file_mock),
+                patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
+            ):
+                await scheduler._send_daily_summary()
+
+            event = mock_dispatch.call_args[0][0]
+
+            assert event.total_requests == 0
+            assert event.requests_by_workspace == {}
+            assert event.requests_by_model == {}
+            assert event.total_input_tokens == 0
+            assert event.total_output_tokens == 0
+            assert event.errors_by_type == {}
+            assert event.total_errors == 0
+
+
+class TestDailySummaryDeltaComputationDuplicate:
+    """Duplicate class — removed, kept only for file integrity."""
+
+    pass
 
 
 class TestNotificationChannelInterface:

@@ -952,9 +952,9 @@ def _init_notifications(registry: BackendRegistry) -> None:
 
     # Schedule daily summary
     _notification_scheduler = NotificationScheduler(_notification_dispatcher)
-    _notification_scheduler.start()
 
-    # Attach scheduler to pipeline metrics for summary building
+    # Attach scheduler to pipeline metrics BEFORE starting — _init_baseline_snapshot()
+    # reads _request_count during start(), so the reference must be set first.
     from portal_pipeline.notifications import scheduler as notif_scheduler
 
     notif_scheduler._attach_to_pipeline(
@@ -963,6 +963,8 @@ def _init_notifications(registry: BackendRegistry) -> None:
         _startup_time,
         registry,
     )
+
+    _notification_scheduler.start()
 
 
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
