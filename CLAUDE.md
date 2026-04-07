@@ -41,33 +41,52 @@ Do not add these — they are explicitly out of scope:
 
 ```
 portal-5/
-├── portal_pipeline/          # FastAPI Pipeline server (:9099)
-│   ├── cluster_backends.py   # BackendRegistry — Ollama + vLLM, health-aware
-│   └── router_pipe.py        # /v1/models + /v1/chat/completions routing
-├── portal_mcp/               # MCP Tool Servers (registered in Open WebUI)
-│   ├── documents/            # Word, PowerPoint, Excel generation (:8913)
-│   ├── generation/           # Music (:8912), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910)
-│   └── execution/            # Code sandbox (:8914)
-├── portal_channels/          # Optional push interfaces
-│   ├── telegram/bot.py       # Telegram → Pipeline adapter
-│   └── slack/bot.py          # Slack → Pipeline adapter
+├── portal_pipeline/              # FastAPI Pipeline server (:9099)
+│   ├── cluster_backends.py       # BackendRegistry — Ollama + vLLM + MLX, health-aware
+│   ├── router_pipe.py            # /v1/models + /v1/chat/completions routing
+│   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
+│   └── notifications/            # Operational alerts + daily summaries
+│       ├── dispatcher.py         # Event bus: fans out to all configured channels
+│       ├── events.py             # AlertEvent / SummaryEvent / EventType
+│       ├── scheduler.py          # APScheduler daily summary
+│       └── channels/             # Slack, Telegram, Email, Pushover, Webhook
+├── portal_mcp/                   # MCP Tool Servers (registered in Open WebUI)
+│   ├── documents/                # Word, PowerPoint, Excel generation (:8913)
+│   ├── generation/               # Music (:8912), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910)
+│   ├── execution/                # Code sandbox (:8914)
+│   └── mcp_server/               # Vendored FastMCP implementation
+├── portal_channels/              # Optional push interfaces
+│   ├── telegram/bot.py           # Telegram → Pipeline adapter
+│   └── slack/bot.py              # Slack → Pipeline adapter
 ├── config/
-│   ├── backends.yaml         # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   └── personas/             # Persona YAML files → Open WebUI model presets
+│   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
+│   ├── personas/                 # 40 persona YAML files → Open WebUI model presets
+│   ├── routing_descriptions.json # LLM router workspace descriptions
+│   ├── routing_examples.json     # LLM router few-shot examples
+│   ├── searxng/                  # SearXNG search engine config
+│   ├── prometheus/               # Prometheus scrape config
+│   └── grafana/                  # Grafana dashboards + datasources
 ├── deploy/portal-5/
-│   └── docker-compose.yml    # THE launch definition — all services
+│   └── docker-compose.yml        # THE launch definition — all services
 ├── scripts/
-│   └── openwebui_init.py     # Auto-seeds Open WebUI on first fresh volume
-├── imports/openwebui/        # Pre-built JSON files for Open WebUI GUI import
-│   ├── tools/                # MCP Tool Server registration JSONs
-│   ├── workspaces/           # Workspace preset JSONs
-│   └── functions/            # Open WebUI Function (pipe) JSONs
+│   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
+│   ├── mlx-proxy.py              # MLX dual-server proxy (auto-switches mlx_lm ↔ mlx_vlm, admission control)
+│   ├── mlx-watchdog.py           # MLX component health monitor with auto-recovery
+│   ├── mlx-switch-benchmark.py   # MLX model switch timing benchmark
+│   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
+│   ├── download_comfyui_models.py # ComfyUI model download helper
+│   └── update_workspace_tools.py # Workspace tool ID sync helper
+├── imports/openwebui/            # Pre-built JSON files for Open WebUI GUI import
+│   ├── tools/                    # MCP Tool Server registration JSONs
+│   ├── workspaces/               # Workspace preset JSONs
+│   └── functions/                # Open WebUI Function (pipe) JSONs
 ├── tests/
-│   └── unit/                 # pytest unit tests — no Docker required
-├── Dockerfile.pipeline       # Lean image for portal-pipeline service
-├── Dockerfile.mcp            # Image for all portal_mcp services
-├── launch.sh                 # Single entry point: up/down/clean/seed/status/logs
-└── .env.example              # All configurable values with defaults
+│   ├── unit/                     # pytest unit tests — no Docker required
+│   └── benchmarks/               # MLX vs Ollama performance benchmarks
+├── Dockerfile.pipeline           # Lean image for portal-pipeline service
+├── Dockerfile.mcp                # Image for all portal_mcp services
+├── launch.sh                     # Single entry point (30+ commands, see below)
+└── .env.example                  # All configurable values with defaults
 ```
 
 ---
@@ -80,11 +99,11 @@ portal-5/
 | **Install** | `uv pip install -e ".[dev]"` | Installs all extras + dev deps |
 | **Linter** | `ruff check . --fix` | Ruff handles lint AND format |
 | **Formatter** | `ruff format .` | NOT Black |
-| **Type check** | `mypy portal_pipeline/ portal_mcp/` | strict=false currently |
+| **Type check** | `mypy portal_pipeline/ portal_mcp/` | strict=true currently |
 | **Tests** | `pytest tests/ -v --tb=short` | Must pass before any commit |
-| **Python** | 3.11+ required | |
+| **Python** | 3.10+ required | pyproject.toml requires-python >= 3.10 |
 | **Framework** | FastAPI + Pydantic v2 | Async throughout |
-| **Launch** | `./launch.sh up` | Never `docker compose up` directly |
+| **Launch** | `./launch.sh up` | Never `docker compose up` directly. 30+ commands (see below) |
 
 ---
 
@@ -107,9 +126,11 @@ If something seems to require modifying Open WebUI internals, find the extension
 
 Each `portal_mcp/` server is a standalone FastAPI+FastMCP app. They have zero imports from `portal_pipeline/` or `portal_channels/`. They are registered in Open WebUI as Tool Servers. They do not know about each other.
 
-### 4 — The Pipeline Is Stateless
+### 4 — The Pipeline Is Stateless (with metrics persistence)
 
-`portal_pipeline/router_pipe.py` is stateless. It reads `backends.yaml`, routes requests, streams responses. No database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
+`portal_pipeline/router_pipe.py` is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
+
+However, the pipeline **does persist operational metrics** to a JSON state file (`/app/data/metrics_state.json`) that survives restarts. This includes request counts, token totals, TPS aggregates, error counts, and persona usage. The state is written every 60 seconds and merged atomically across multiple uvicorn workers. This is operational telemetry only — it does not affect routing decisions.
 
 ### 5 — Personas Live in config/personas/
 
@@ -154,10 +175,12 @@ print('Workspace IDs consistent')
 
 Do not reassign these. Do not add new services on overlapping ports without updating this table.
 
-### 8 — Models Pull From Ollama, Not HuggingFace Directly
+### 8 — Models Pull From Ollama or HuggingFace GGUF Imports
 
-All text models run through Ollama. HuggingFace is only used for:
+All text models run through Ollama. HuggingFace is used for:
+- **GGUF model imports** via Ollama's `hf.co/` pull format (e.g., `hf.co/org/repo-GGUF`) — used for BaronLLM, Lily Cybersecurity, Dolphin3 R1 Mistral, WhiteRabbitNeo, GLM 4.7 Flash, DeepSeek Coder V2 Lite, DeepSeek R1 32B, Llama 3.3 70B, Dolphin Llama3 70B
 - ComfyUI image/video model weights (downloaded into ComfyUI's `models/` directory)
+- MLX model weights (downloaded by `huggingface_hub.snapshot_download` via `./launch.sh pull-mlx-models`)
 - Music generation models (downloaded by HuggingFace `transformers` MusicGen on first use)
 - Whisper models (downloaded by faster-whisper on first use)
 
@@ -256,17 +279,20 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | Model | Memory | Server | Safe Concurrent With |
 |---|---|---|---|
 | `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | No concurrent ComfyUI — 46GB + 8GB OS = 54GB |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~32GB | mlx_lm | Ollama general (3B) only — no ComfyUI on 64GB |
-| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~14GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
-| `mlx-community/Devstral-Small-2505-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `Jackrong/MLX-Qwopus3.5-9B-v3-8bit` | ~9GB | mlx_lm | Everything — safe baseline |
 | `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit` | ~34GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Everything — safe baseline |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Everything — safe baseline |
 | `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
-| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~31GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
+| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
 
 **64GB systems**: Qwen3-Coder-Next-4bit (~46GB) + Ollama (~5GB) + OS (~8GB) = 59GB — no concurrent ComfyUI/Wan2.2.
@@ -315,22 +341,22 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 
 ### Development
 - `bugdiscoverycodeassistant` → `qwen3-coder-next:30b-q5`
-- `codebasewikidocumentation` → `qwen3-coder-next:30b-q5`
+- `codebasewikidocumentationskill` → `qwen3-coder-next:30b-q5`
 - `codereviewassistant` → `qwen3-coder-next:30b-q5`
 - `codereviewer` → `qwen3-coder-next:30b-q5`
 - `devopsautomator` → `qwen3-coder-next:30b-q5`
 - `devopsengineer` → `qwen3-coder-next:30b-q5`
 - `ethereumdeveloper` → `qwen3-coder-next:30b-q5`
-- `fullstacksoftwaredeveloper` → `qwen3-coder-next:30b-q5`
+- `fullstacksoftwaredeveloper` → `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit`
 - `githubexpert` → `qwen3-coder-next:30b-q5`
 - `javascriptconsole` → `qwen3-coder-next:30b-q5`
-- `kubernetesdockerlearning` → `qwen3-coder-next:30b-q5`
-- `pythoncodegenerator` → `qwen3-coder-next:30b-q5`
+- `kubernetesdockerrpglearningengine` → `qwen3-coder-next:30b-q5`
+- `pythoncodegeneratorcleanoptimizedproduction-ready` → `qwen3-coder-next:30b-q5`
 - `pythoninterpreter` → `qwen3-coder-next:30b-q5`
 - `seniorfrontenddeveloper` → `qwen3-coder-next:30b-q5`
-- `seniorsoftwareengineer` → `qwen3-coder-next:30b-q5`
-- `softwareqatester` → `qwen3-coder-next:30b-q5`
-- `ux-uideveloper` → `qwen3-coder-next:30b-q5`
+- `seniorsoftwareengineersoftwarearchitectrules` → `qwen3-coder-next:30b-q5`
+- `softwarequalityassurancetester` → `qwen3-coder-next:30b-q5`
+- `ux-uideveloper` → `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit`
 
 ### Security
 - `cybersecurityspecialist` → `xploiter/the-xploiter`
@@ -338,7 +364,7 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `redteamoperator` → `baronllm:q6_k` (imported from `hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF`); alt: `xploiter/the-xploiter`
 - `blueteamdefender` → `lily-cybersecurity:7b-q4_k_m` (imported from `hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF`); alt: `huihui_ai/baronllm-abliterated`
 - `pentester` → `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0`
-- `splunksplgineer` → `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit`
+- `splunksplgineer` → `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit`
 
 ### Data / Research
 - `dataanalyst` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
@@ -347,10 +373,14 @@ Personas live in `config/personas/*.yaml`. Each becomes a model preset in Open W
 - `statistician` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
 - `itarchitect` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
 - `researchanalyst` → `deepseek-r1:32b-q4_k_m`; alt: `huihui_ai/tongyi-deepresearch-abliterated`
+- `gemmaresearchanalyst` → `mlx-community/gemma-4-31b-it-4bit` (Google Gemma 4, vision-capable)
 
 ### Compliance
 - `nerccipcomplianceanalyst` → `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit`
 - `cippolicywriter` → `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit`
+
+### Reasoning
+- `magistralstrategist` → `lmstudio-community/Magistral-Small-2509-MLX-8bit` (Mistral reasoning)
 
 ### Systems
 - `linuxterminal` → `qwen3-coder-next:30b-q5`
@@ -382,10 +412,30 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
 | `auto-video` | general | dolphin-llama3:8b |
 | `auto-music` | general | dolphin-llama3:8b |
 | `auto-research` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit |
-| `auto-vision` | vision → general | qwen3-vl:32b |
+| `auto-vision` | mlx → vision → general | mlx-community/gemma-4-31b-it-4bit |
 | `auto-data` | mlx → reasoning → general | mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit |
 | `auto-compliance` | mlx → reasoning → general | Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit |
-| `auto-spl` | mlx → coding → general | mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit |
+| `auto-spl` | mlx → coding → general | mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit |
+| `auto-mistral` | mlx → reasoning → general | lmstudio-community/Magistral-Small-2509-MLX-8bit |
+
+### Auto-Routing (Content-Aware Intent Detection)
+
+When a user selects the `auto` workspace, the Pipeline automatically routes to the best specialist workspace based on message content. This is a two-layer system:
+
+**Layer 1: LLM-Based Intent Router** — Uses `llama3.2:3b-instruct-q4_K_M` as a fast semantic classifier (~100ms). Configured in `router_pipe.py` via env vars:
+- `LLM_ROUTER_ENABLED=true` (default)
+- `LLM_ROUTER_CONFIDENCE_THRESHOLD=0.5`
+- `LLM_ROUTER_TIMEOUT_MS=500`
+- JSON schema enforced via Ollama grammar decoding (guaranteed parseable output)
+- Falls back to Layer 2 on low confidence or timeout
+
+**Layer 2: Weighted Keyword Scoring** — Deterministic, zero-latency. Each workspace defines weighted keywords (1=weak, 2=medium, 3=strong) and an activation threshold. The workspace with the highest score above its threshold wins. Tuned so a single strong signal or a combination of medium signals triggers routing.
+
+Workspace descriptions for the LLM router are loaded from `config/routing_descriptions.json` and few-shot examples from `config/routing_examples.json`.
+
+### vision Text-Only Fallback
+
+When `auto-vision` is selected but no `image_url` content parts are present in the messages, the Pipeline automatically reroutes to `auto-reasoning` with a vision-domain system context injected. This prevents empty responses from vision-language models when given text-only queries.
 
 ---
 
@@ -406,7 +456,10 @@ These are the routing workspace IDs exposed by the Pipeline. Every key here must
    │   ├── Creates all workspace model presets
    │   └── Creates persona model presets from config/personas/
    ├── mcp-documents starts (:8913)
+   ├── mcp-comfyui starts (:8910)
+   ├── mcp-video starts (:8911)
    ├── mcp-tts starts (:8916)
+   ├── mcp-whisper starts (:8915)
    ├── mcp-sandbox starts (:8914)
    └── [ComfyUI: run separately, see docs/COMFYUI_SETUP.md]
    └── [Music MCP: runs natively on host — ./launch.sh install-music first]
@@ -437,6 +490,52 @@ python main.py --listen 0.0.0.0 --port 8188
 - Wan2.2 (video): `huggingface-cli download Wan-AI/Wan2.2-T2V-5B --local-dir models/checkpoints`
 
 Open WebUI points to ComfyUI at `http://host.docker.internal:8188` by default.
+
+---
+
+## Notification System
+
+The pipeline includes an operational alerting and daily summary system. It is **opt-in** — disabled by default via `NOTIFICATIONS_ENABLED=false`.
+
+### Features
+- **Backend health alerts**: Fires when a backend crosses a consecutive failure threshold (`ALERT_BACKEND_DOWN_THRESHOLD`, default 3)
+- **All-backends-down alert**: Fires immediately when no healthy backends remain
+- **Backend recovery alert**: Fires when a previously-down backend recovers
+- **Daily usage summary**: Scheduled report (configurable hour/timezone) with request counts, token totals, TPS averages, per-model breakdown, and persona usage
+
+### Configuration (env vars)
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `NOTIFICATIONS_ENABLED` | Master switch | `false` |
+| `SLACK_ALERT_WEBHOOK_URL` | Slack Incoming Webhook URL | (empty) |
+| `TELEGRAM_ALERT_BOT_TOKEN` | Dedicated alert bot token | (empty) |
+| `TELEGRAM_ALERT_CHANNEL_ID` | Target channel/group ID | (empty) |
+| `SMTP_HOST` | Email SMTP server | (empty) |
+| `PUSHOVER_API_TOKEN` | Pushover application token | (empty) |
+| `PUSHOVER_USER_KEY` | Pushover user key | (empty) |
+| `WEBHOOK_URL` | Generic webhook POST endpoint | (empty) |
+| `ALERT_BACKEND_DOWN_THRESHOLD` | Consecutive failures before alert | `3` |
+| `ALERT_NO_HEALTHY_BACKENDS` | Alert when all backends fail | `true` |
+| `ALERT_SUMMARY_ENABLED` | Enable daily summary | `true` |
+| `ALERT_SUMMARY_HOUR` | Summary hour (0-23) | `8` |
+| `ALERT_SUMMARY_TIMEZONE` | Summary timezone | `America/Chicago` |
+
+Each channel is independently optional — configure only the ones you want. All channels share the pipeline's HTTP connection pool.
+
+Test notifications: `curl -X POST http://localhost:9099/notifications/test -H "Authorization: Bearer $PIPELINE_API_KEY"`
+
+### Architecture
+
+```
+router_pipe.py  →  NotificationDispatcher  →  SlackChannel
+               →  NotificationScheduler     →  TelegramChannel
+                                              →  EmailChannel
+                                              →  PushoverChannel
+                                              →  WebhookChannel
+```
+
+Events are dispatched asynchronously. The scheduler runs as a background task inside the pipeline process, reading metrics from the pipeline's in-memory counters.
 
 ---
 
