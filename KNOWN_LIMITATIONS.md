@@ -11,7 +11,7 @@ Architectural and design constraints that cannot be resolved without significant
 - **Description**: The `dind` (Docker-in-Docker) service runs with `privileged: true`. Docker-in-Docker cannot function without host kernel capabilities.
 - **Impact**: In hardened environments, a compromised sandbox container could potentially escape to host.
 - **Mitigation**: Either disable the code sandbox by removing `mcp-sandbox` and `dind` services from `docker-compose.yml`, or apply host-level controls (AppArmor/seccomp profile on the Docker daemon).
-- **Last verified**: 2026-03-30
+- **Last verified**: 2026-04-06
 
 ### No Built-in Multi-User Rate Limiting
 - **ID**: P5-ROAD-031
@@ -91,7 +91,7 @@ Architectural and design constraints that cannot be resolved without significant
 - **Description**: `./launch.sh up` starts the MLX proxy from `~/.portal5/mlx/mlx-proxy.py`, which is a copy deployed by `./launch.sh install-mlx`. If the repo version (`scripts/mlx-proxy.py`) is updated but `install-mlx` is not re-run, the deployed copy will be stale. The deployed proxy may have outdated model lists, missing health monitoring, or missing concurrency protection.
 - **Impact**: MLX proxy may start but fail to serve requests (wrong model names, no watchdog, no thread safety). The test suite's crash remediation starts the proxy from `scripts/mlx-proxy.py` (repo version), which bypasses this issue.
 - **Mitigation**: Run `./launch.sh install-mlx` after updating `scripts/mlx-proxy.py`. The test suite detects stale deployed proxy by comparing file sizes and falls back to using the repo version.
-- **Last verified**: 2026-04-05
+- **Last verified**: 2026-04-06
 
 ### MLX Proxy Kill/Restart Causes Memory Churn
 - **ID**: P5-ROAD-MLX-003
