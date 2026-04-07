@@ -963,6 +963,15 @@ case "${1:-up}" in
         else
             echo "[portal-5] Music MCP: not running (nothing to stop)."
         fi
+
+        # MLX Watchdog
+        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null || true
+            rm -f /tmp/mlx-watchdog.pid
+            echo "[portal-5] MLX watchdog stopped."
+        else
+            echo "[portal-5] MLX watchdog: not running (nothing to stop)."
+        fi
     fi
     ;;
   backup)
