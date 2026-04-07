@@ -295,27 +295,16 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 
 ## Most recent run
 
-**Date:** 2026-04-05 19:29:12  
-**Git SHA:** 4b26ba0  
-**Result:** 161 PASS · 45 WARN · 16 INFO · 0 FAIL · 0 BLOCKED  
-**Runtime:** ~86 min
+**Date:** 2026-04-07 14:08:14  
+**Git SHA:** 9ae765a  
+**Result:** 204 PASS · 1 WARN · 9 INFO · 0 FAIL · 0 BLOCKED  
+**Runtime:** ~63 min (3785s)
 
 **Post-run fixes applied (not yet re-run):**
-- `_load_mlx_model()`: record `log_mtime_before` at entry; only exit on Traceback if log was modified after entry (new crash). Stale Tracebacks from prior crashes are ignored.
-- `_detect_mlx_crash()`: state="switching" + consecutive_failures>20 + Traceback in log → crashed=True → triggers `_remediate_mlx_crash()`. Previously state="switching" always returned starting=True.
-- Pre-section check: state="switching" + failures>20 + Traceback → record WARN with "PROBABLE CRASH" detail. Previously this scenario was silent.
-- **S4-01b/02b/03b**: Added document content validation — python-docx/python-pptx/openpyxl open generated files and verify expected keywords and data values are present.
-- **S7-02**: Tightened ok_fn (requires success+path, rejects "not available" as PASS); S7-02b validates generated WAV file (RIFF header + duration ≥ 4.5s); musicgen-large used explicitly.
-- **S7-01**: Verifies all three sizes (small/medium/large) reported by list_music_models.
-- **S8-03**: Upgraded to `_wav_info()` — validates sample_rate, channels, duration ≥ 1s per voice.
-- **S15-01**: Validates result structure (title+url required) and keyword relevance (nerc/cip/electric/reliability).
-- **ComfyUI sections (S18/S19) removed** from main suite → moved to `portal5_acceptance_comfyui.py`.
+*None — test suite ran cleanly with no assertion fixes required.*
 
 **Key WARN causes:**
-- 38 WARNs in S30–S37: Metal GPU crash (EXC_CRASH/SIGABRT in com.Metal.CompletionQueueDispatch) at ~18:10 during S3. Stale Traceback in mlx_lm.log + no crash detection → no remediation. All fixed by post-run assertion fixes above.
-- RepositoryNotFoundError: test's `_load_mlx_model` was sending the short label `Qwen3-Coder-Next-4bit` (no `mlx-community/` prefix) to the proxy; `mlx_lm.server` couldn't locate the local cache and attempted a download → 115 consecutive failures. Fixed in test: `_load_mlx_model` now resolves short labels to full HF paths via `_MLX_MODEL_FULL_PATHS`.
-- 6 WARNs in S23: expected per S23 documentation (proxy restore timeouts, primary path using Ollama when MLX is down)
-- 2 WARNs (S11-01, S13-03): OW API race condition on persona list endpoint — known issue
+- 1 WARN (S20-02): Telegram dispatcher `call_pipeline_async` uses Docker-internal URL `portal-pipeline:9099`; DNS fails from test host → 3rd retry times out and returns 7-char response. Environmental limitation — dispatcher is designed for Docker-internal use. Not fixable without protected file changes.
 
 ---
 
