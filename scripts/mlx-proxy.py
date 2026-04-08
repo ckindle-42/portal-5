@@ -52,6 +52,7 @@ ALL_MODELS = [
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
     "mlx-community/Devstral-Small-2505-8bit",
+    "lmstudio-community/Devstral-Small-2507-4bit",
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     "mlx-community/Llama-3.2-3B-Instruct-8bit",
     "mlx-community/gemma-4-31b-it-4bit",
@@ -65,6 +66,29 @@ ALL_MODELS = [
     "mlx-community/llava-1.5-7b-8bit",
 ]
 
+# ── Big-Model Mode (P5-BIG-001) ───────────────────────────────────────────────
+# Models that require a full-evict load sequence:
+#   1. Stop current MLX server + wait for Metal reclaim
+#   2. Kill all Ollama loaded models (ollama stop --all)
+#   3. Load the big model with a reduced context cap
+#   4. On next non-big-model request, restore normal warm model
+#
+# Trigger: any model whose HF path is in this set is treated as big-model.
+# The `auto-agentic` workspace is the intended entry point.
+BIG_MODEL_SET: set[str] = {
+    "mlx-community/Qwen3-Coder-Next-4bit",
+}
+
+# Context ceiling for big-model requests — suppresses KV cache spike.
+# 256K default context + KV cache can push memory over the edge.
+# At 32K the KV cache is ~2 GB instead of ~16 GB.
+# Override via env: MLX_BIG_MODEL_CTX (e.g. "65536" if you want 64K).
+BIG_MODEL_CTX: int = int(os.environ.get("MLX_BIG_MODEL_CTX", "32768"))
+
+# Minimum strictly-free GB required after full-evict before allowing a big-model load.
+# Protects against proceeding into a guaranteed OOM.
+BIG_MODEL_MIN_FREE_GB: float = float(os.environ.get("MLX_BIG_MODEL_MIN_FREE_GB", "6.0"))
+
 # ── Model-Size-Aware Admission Control (P5-FUT-009) ──────────────────────────
 # Maps each MLX model HuggingFace path → estimated peak memory in GB.
 # Sourced from CLAUDE.md model catalog and mlx-community model cards.
@@ -75,23 +99,24 @@ ALL_MODELS = [
 # a model that would OOM — making CLAUDE.md coexistence rules self-enforcing.
 MODEL_MEMORY: dict[str, float] = {
     # ── Text-only (mlx_lm) ────────────────────────────────────────────────
-    "mlx-community/Qwen3-Coder-Next-4bit": 46.0,              # 80B MoE, 4bit (~46GB)
+    "mlx-community/Qwen3-Coder-Next-4bit": 46.0,  # 80B MoE, 4bit (~46GB)
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,  # Lite 8bit (~12GB)
-    "mlx-community/Devstral-Small-2505-8bit": 18.0,            # Devstral 8bit (~18GB)
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,         # Dolphin 8B 8bit (~9GB)
-    "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,           # Ultra-fast routing (~3GB)
+    "mlx-community/Devstral-Small-2505-8bit": 18.0,  # Devstral 8bit (~18GB)
+    "lmstudio-community/Devstral-Small-2507-4bit": 15.0,  # Devstral Small 2507 4bit (~15GB, 53.6% SWE-bench)
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,  # Dolphin 8B 8bit (~9GB)
+    "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)
-    "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,         # Llama 70B 4bit (~40GB)
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,               # Qwopus 27B 8bit (~22GB)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,                 # Qwopus 9B 8bit (~9GB)
+    "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,  # Llama 70B 4bit (~40GB)
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,  # Qwopus 27B 8bit (~22GB)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,  # Qwopus 9B 8bit (~9GB)
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
-    "mlx-community/gemma-4-31b-it-4bit": 18.0,                 # Gemma 4 dense 31B 4bit (~18GB)
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,          # Qwen3-VL 32B 8bit (~36GB)
-    "mlx-community/llava-1.5-7b-8bit": 8.0,                    # LLaVA 7B 8bit (~8GB)
+    "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
+    "mlx-community/llava-1.5-7b-8bit": 8.0,  # LLaVA 7B 8bit (~8GB)
 }
 
 # Safety headroom reserved for OS, Ollama sidecar, and KV cache spikes.
@@ -454,6 +479,54 @@ def _get_free_memory_gb() -> float:
         return 0.0
 
 
+def _evict_ollama_models() -> None:
+    """Send keep_alive=0 to all known-loaded Ollama models to free unified memory.
+
+    Ollama holds loaded models in unified memory indefinitely when keep_alive=-1.
+    For big-model mode we must evict them before loading a 46 GB MLX model.
+
+    Strategy: GET /api/tags to find currently-loaded models, then POST a
+    generate request with keep_alive=0 and an empty prompt for each one.
+    This is the documented Ollama mechanism for explicit unloading.
+
+    Errors are suppressed — if Ollama is unreachable the load may still succeed
+    if memory happens to be sufficient.
+    """
+    ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    try:
+        with httpx.Client(timeout=10) as c:
+            resp = c.get(f"{ollama_url}/api/tags")
+            if resp.status_code != 200:
+                print("[big-model] could not list Ollama models — skipping evict", flush=True)
+                return
+            models = [m["name"] for m in resp.json().get("models", [])]
+    except Exception as e:
+        print(f"[big-model] Ollama unreachable during evict ({e}) — skipping", flush=True)
+        return
+
+    if not models:
+        print("[big-model] no Ollama models loaded — nothing to evict", flush=True)
+        return
+
+    print(f"[big-model] evicting {len(models)} Ollama model(s): {models}", flush=True)
+    with httpx.Client(timeout=30) as c:
+        for model_name in models:
+            try:
+                c.post(
+                    f"{ollama_url}/api/generate",
+                    json={"model": model_name, "keep_alive": 0, "prompt": ""},
+                    timeout=15,
+                )
+                print(f"[big-model] evicted Ollama model: {model_name}", flush=True)
+            except Exception as e:
+                print(f"[big-model] failed to evict {model_name!r}: {e}", flush=True)
+
+    # Brief settle time for Ollama to release unified memory pages
+    time.sleep(3)
+    free_after = _get_free_memory_gb()
+    print(f"[big-model] post-Ollama-evict free memory: {free_after:.1f} GB", flush=True)
+
+
 def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0) -> None:
     """Wait for Metal GPU memory to be reclaimed after server shutdown.
 
@@ -514,11 +587,18 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
                 # - mlx_lm.server prints "Starting httpd" (OpenAI-compatible HTTP server)
                 # - mlx_vlm.server (uvicorn/FastAPI) prints "Uvicorn running on" and
                 #   "Application startup complete"
-                _ready_signals = ["Starting httpd", "Uvicorn running on", "Application startup complete"]
+                _ready_signals = [
+                    "Starting httpd",
+                    "Uvicorn running on",
+                    "Application startup complete",
+                ]
                 if any(sig in content for sig in _ready_signals):
                     elapsed = time.time() - (deadline - timeout)
                     matched = next(sig for sig in _ready_signals if sig in content)
-                    print(f"[proxy] model loaded (log confirmed: '{matched}', {elapsed:.0f}s)", flush=True)
+                    print(
+                        f"[proxy] model loaded (log confirmed: '{matched}', {elapsed:.0f}s)",
+                        flush=True,
+                    )
                     return True
                 # Check for errors
                 if "Error" in content or "Traceback" in content:
@@ -546,7 +626,10 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
     try:
         with open(log_file, "r") as f:
             content = f.read()
-            if any(sig in content for sig in ["Starting httpd", "Uvicorn running on", "Application startup complete"]):
+            if any(
+                sig in content
+                for sig in ["Starting httpd", "Uvicorn running on", "Application startup complete"]
+            ):
                 return True
     except Exception:
         pass
@@ -685,6 +768,79 @@ def _check_memory_for_model(model: str, freed_by_stop_gb: float = 0.0) -> tuple[
     return False, msg
 
 
+def _big_model_pre_load(model: str) -> None:
+    """Full-evict sequence before loading a big model.
+
+    Order:
+    1. Stop current MLX server (frees GPU allocation, waits for Metal reclaim)
+    2. Evict all Ollama models from unified memory
+    3. Assert minimum free memory — abort if below floor
+    4. Log final headroom
+
+    Called by ensure_server() when model is in BIG_MODEL_SET.
+    """
+    print(
+        f"[big-model] PRE-LOAD sequence for {model!r} "
+        f"(ctx_cap={BIG_MODEL_CTX}, min_free={BIG_MODEL_MIN_FREE_GB} GB)",
+        flush=True,
+    )
+    # Step 1: stop any running MLX server
+    stop_all()
+    # Step 2: evict Ollama
+    _evict_ollama_models()
+    # Step 3: assert floor
+    free_gb = _get_free_memory_gb()
+    if free_gb < BIG_MODEL_MIN_FREE_GB:
+        raise RuntimeError(
+            f"Big-model pre-load aborted: only {free_gb:.1f} GB strictly free after full evict "
+            f"(floor={BIG_MODEL_MIN_FREE_GB} GB). Close ComfyUI or other GPU workloads and retry."
+        )
+    # Step 4: log
+    estimated = MODEL_MEMORY.get(model, MEMORY_UNKNOWN_DEFAULT_GB)
+    print(
+        f"[big-model] pre-load complete: {free_gb:.1f} GB free, "
+        f"model needs ~{estimated:.0f} GB — proceeding",
+        flush=True,
+    )
+
+
+_warm_model: str = os.environ.get("MLX_WARM_MODEL", "mlx-community/Llama-3.2-3B-Instruct-8bit")
+_big_model_active: bool = False
+_big_model_lock = threading.Lock()
+
+
+def _big_model_post_restore() -> None:
+    """Restore normal operation after a big-model session ends.
+
+    Called by ensure_server() when a non-big-model request arrives and
+    _big_model_active is True. Reloads the warm model so normal workspaces
+    resume without cold-start penalty.
+
+    Warm-model identity: MLX_WARM_MODEL env var (default: Llama-3.2-3B-Instruct-8bit).
+    If the caller requests the warm model directly this is a no-op.
+    """
+    global _big_model_active
+    with _big_model_lock:
+        if not _big_model_active:
+            return
+        print(
+            f"[big-model] POST-RESTORE: reloading warm model {_warm_model!r}",
+            flush=True,
+        )
+        try:
+            # stop big model first (it should still be loaded)
+            stop_all()
+            start_server("lm", _warm_model)
+            _big_model_active = False
+            print("[big-model] warm model restored — big-model mode deactivated", flush=True)
+        except Exception as e:
+            _big_model_active = False  # don't block future requests
+            print(
+                f"[big-model] post-restore failed ({e}) — proxy will cold-start on next request",
+                flush=True,
+            )
+
+
 def ensure_server(model: str) -> int:
     """Ensure the correct server is running for the requested model.
 
@@ -722,19 +878,34 @@ def ensure_server(model: str) -> int:
 
         mlx_state.set_switching(target)
         try:
-            # ── Admission control (P5-FUT-009) ──────────────────────────────
-            # Check memory BEFORE stop_all() so we don't evict a healthy model
-            # for a request that will be rejected anyway.
-            # When switching models, credit the memory freed by unloading the
-            # current model — it WILL be released by stop_all() below.
-            current_loaded = mlx_state.loaded_model
-            freed_by_stop_gb = MODEL_MEMORY.get(current_loaded, 0.0) if current_loaded else 0.0
-            ok, rejection_msg = _check_memory_for_model(model, freed_by_stop_gb=freed_by_stop_gb)
-            if not ok:
-                mlx_state.set_down(rejection_msg)
-                raise RuntimeError(rejection_msg)
+            # ── Big-model mode (P5-BIG-001) ─────────────────────────────────
+            # If this is a big model: full-evict (MLX + Ollama) before load.
+            # Skip standard admission check — big_model_pre_load() handles it.
+            global _big_model_active
+            if model in BIG_MODEL_SET:
+                _big_model_pre_load(model)
+                with _big_model_lock:
+                    _big_model_active = True
+            else:
+                # Non-big-model request — restore warm model if big-model was active
+                if _big_model_active:
+                    _big_model_post_restore()
 
-            stop_all()
+                # ── Admission control (P5-FUT-009) ───────────────────────────
+                # Check memory BEFORE stop_all() so we don't evict a healthy model
+                # for a request that will be rejected anyway.
+                # When switching models, credit the memory freed by unloading the
+                # current model — it WILL be released by stop_all() below.
+                current_loaded = mlx_state.loaded_model
+                freed_by_stop_gb = MODEL_MEMORY.get(current_loaded, 0.0) if current_loaded else 0.0
+                ok, rejection_msg = _check_memory_for_model(
+                    model, freed_by_stop_gb=freed_by_stop_gb
+                )
+                if not ok:
+                    mlx_state.set_down(rejection_msg)
+                    raise RuntimeError(rejection_msg)
+
+                stop_all()
 
             # Post-reclaim check — secondary safety net after eviction
             free_post = _get_free_memory_gb()
@@ -892,6 +1063,8 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/health":
             state_info = mlx_state.to_dict()
             state_info["memory"] = memory_monitor.to_dict()
+            state_info["big_model_active"] = _big_model_active
+            state_info["big_model_ctx_cap"] = BIG_MODEL_CTX if _big_model_active else None
             state = state_info["state"]
             code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)

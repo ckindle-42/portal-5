@@ -395,6 +395,18 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "qwen3-coder-next:30b-q5",  # Primary Ollama coding fallback (Qwen3-Coder-Next GGUF)
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
     },
+    "auto-agentic": {
+        "name": "⚡ Portal Agentic Coder (Heavy)",
+        "description": (
+            "Full-power agentic coding via Qwen3-Coder-Next-4bit (80B MoE, 3B active, 256K ctx). "
+            "Triggers big-model mode: unloads all Ollama + MLX models before loading. "
+            "Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. "
+            "Not for interactive chat — load time ~60s, context capped at 32K."
+        ),
+        "model_hint": "qwen3-coder-next:30b-q5",
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
+        "context_limit": 32768,  # KV cache suppression — see P5-BIG-001
+    },
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
         "description": "Splunk SPL queries, pipeline explanation, detection search authoring",
@@ -793,6 +805,22 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "keywords": _CODING_KEYWORDS,
         "threshold": 3,
     },
+    "auto-agentic": {
+        "keywords": {
+            "agentic": 3,
+            "swe-agent": 3,
+            "openhands": 3,
+            "multi-file": 3,
+            "long-horizon": 3,
+            "codebase refactor": 3,
+            "full codebase": 3,
+            "repository-wide": 3,
+            "heavy coder": 2,
+            "big model": 2,
+            "qwen3 coder next": 2,
+        },
+        "threshold": 3,
+    },
     "auto-reasoning": {
         "keywords": _REASONING_KEYWORDS,
         "threshold": 3,
@@ -821,6 +849,7 @@ _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
 _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
     [
         "auto",
+        "auto-agentic",
         "auto-coding",
         "auto-spl",
         "auto-security",
@@ -848,6 +877,7 @@ _ROUTER_JSON_SCHEMA: dict = {
             "type": "string",
             "enum": [
                 "auto",
+                "auto-agentic",
                 "auto-coding",
                 "auto-spl",
                 "auto-security",
@@ -1135,7 +1165,7 @@ _health_task: asyncio.Task | None = None
 _http_client: httpx.AsyncClient | None = None
 
 
-def _inject_ollama_options(body: dict) -> dict:
+def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Inject Ollama-specific TTFT performance defaults not already in the request.
 
     Only called for backends with type='ollama'. Skipped for MLX and vLLM which
@@ -1150,6 +1180,12 @@ def _inject_ollama_options(body: dict) -> dict:
     caller (e.g. Open WebUI passing its own keep_alive).
     """
     body = dict(body)
+    # Big-model context cap (P5-BIG-001): if workspace defines context_limit, enforce it.
+    ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+    ctx_limit = ws_cfg_local.get("context_limit")
+    if ctx_limit:
+        body.setdefault("options", {})
+        body["options"].setdefault("num_ctx", ctx_limit)
     body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
     opts: dict = dict(body.get("options") or {})
     opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
@@ -1526,7 +1562,7 @@ async def _try_non_streaming(
         target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
     req_body = {**body, "model": target_model, "stream": False}
     if backend.type == "ollama":
-        req_body = _inject_ollama_options(req_body)
+        req_body = _inject_ollama_options(req_body, workspace_id)
 
     try:
         resp = await _http_client.post(backend.chat_url, json=req_body)
@@ -1752,7 +1788,7 @@ async def chat_completions(
         # Inject keep_alive + num_batch for Ollama backends.
         # Skipped for MLX (doesn't accept these fields) and vLLM (uses its own config).
         if backend.type == "ollama":
-            backend_body = _inject_ollama_options(backend_body)
+            backend_body = _inject_ollama_options(backend_body, workspace_id)
 
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s (1/%d candidates)",

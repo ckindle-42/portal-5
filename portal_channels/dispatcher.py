@@ -30,6 +30,7 @@ PIPELINE_RETRY_BASE = float(os.environ.get("PIPELINE_RETRY_BASE", "1.0"))
 VALID_WORKSPACES = frozenset(
     {
         "auto",
+        "auto-agentic",
         "auto-coding",
         "auto-spl",
         "auto-security",

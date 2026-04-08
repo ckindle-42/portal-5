@@ -343,11 +343,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 16 (was 14 after auto-compliance, 15 with auto-mistral, 16 with auto-spl)."""
+        """Total workspace count is now 17 (was 14 after auto-compliance, 15 with auto-mistral, 16 with auto-spl, 17 with auto-agentic)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 16, (
-            f"Expected 16 workspaces after adding auto-spl, got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 17, (
+            f"Expected 17 workspaces after adding auto-agentic, got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):
@@ -862,11 +862,11 @@ class TestSPLWorkspace:
         assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 16 after adding auto-spl (was 15)."""
+        """Total workspace count must be 17 after adding auto-agentic (was 16)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 16, (
-            f"Expected 16 workspaces after adding auto-spl, got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 17, (
+            f"Expected 17 workspaces after adding auto-agentic, got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentional added or removed."
         )
 
