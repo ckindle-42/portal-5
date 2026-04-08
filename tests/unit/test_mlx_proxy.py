@@ -118,3 +118,58 @@ class TestCheckMemoryForModel:
         with patch.object(proxy_module, "_get_available_memory_gb", return_value=just_short):
             ok, _ = proxy_module._check_memory_for_model(model)
         assert ok is False
+
+
+class TestBigModelMode:
+    """Verify big-model mode constants and set (P5-BIG-001)."""
+
+    def test_big_model_set_exists(self, proxy_module):
+        assert hasattr(proxy_module, "BIG_MODEL_SET")
+        assert isinstance(proxy_module.BIG_MODEL_SET, set)
+
+    def test_qwen3_coder_next_is_in_big_model_set(self, proxy_module):
+        """Qwen3-Coder-Next-4bit (46GB) must be in BIG_MODEL_SET."""
+        assert "mlx-community/Qwen3-Coder-Next-4bit" in proxy_module.BIG_MODEL_SET
+
+    def test_big_model_set_models_have_memory_entries(self, proxy_module):
+        """Every model in BIG_MODEL_SET must have a MODEL_MEMORY entry."""
+        for model in proxy_module.BIG_MODEL_SET:
+            assert model in proxy_module.MODEL_MEMORY, (
+                f"Big model '{model}' missing from MODEL_MEMORY"
+            )
+
+    def test_big_model_ctx_exists_and_is_reasonable(self, proxy_module):
+        """BIG_MODEL_CTX must exist and be a reasonable context cap (4K–256K)."""
+        assert hasattr(proxy_module, "BIG_MODEL_CTX")
+        ctx = proxy_module.BIG_MODEL_CTX
+        assert isinstance(ctx, int)
+        assert 4096 <= ctx <= 262144, f"BIG_MODEL_CTX={ctx} out of expected range [4096, 262144]"
+
+    def test_big_model_ctx_default_is_32k(self, proxy_module):
+        """Default BIG_MODEL_CTX must be 32768 (suppresses KV cache spike at 46GB)."""
+        import os
+        if "MLX_BIG_MODEL_CTX" not in os.environ:
+            assert proxy_module.BIG_MODEL_CTX == 32768, (
+                f"Default BIG_MODEL_CTX should be 32768, got: {proxy_module.BIG_MODEL_CTX}"
+            )
+
+    def test_big_model_min_free_gb_exists(self, proxy_module):
+        """BIG_MODEL_MIN_FREE_GB must exist and be > 0."""
+        assert hasattr(proxy_module, "BIG_MODEL_MIN_FREE_GB")
+        assert proxy_module.BIG_MODEL_MIN_FREE_GB > 0
+
+    def test_big_model_min_free_gb_is_sane(self, proxy_module):
+        """BIG_MODEL_MIN_FREE_GB must require at least a few GB free post-evict."""
+        assert proxy_module.BIG_MODEL_MIN_FREE_GB >= 4.0, (
+            f"BIG_MODEL_MIN_FREE_GB={proxy_module.BIG_MODEL_MIN_FREE_GB} is too low — "
+            "need at least 4GB free after eviction to avoid OOM"
+        )
+
+    def test_big_model_active_flag_exists(self, proxy_module):
+        """_big_model_active module-level flag must be defined."""
+        assert hasattr(proxy_module, "_big_model_active")
+        assert isinstance(proxy_module._big_model_active, bool)
+
+    def test_devstral_2507_not_in_big_model_set(self, proxy_module):
+        """Devstral-Small-2507-MLX-4bit (~15GB) must NOT be in BIG_MODEL_SET — it fits normally."""
+        assert "lmstudio-community/Devstral-Small-2507-MLX-4bit" not in proxy_module.BIG_MODEL_SET

@@ -1007,3 +1007,145 @@ class TestSPLWorkspace:
             f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
             f"In yaml but not pipe: {yaml_ids - pipe_ids}."
         )
+
+
+class TestAgenticWorkspace:
+    """Verify auto-agentic workspace (P5-BIG-001) — big-model mode entry point."""
+
+    def test_agentic_workspace_exists(self):
+        """auto-agentic must be registered in WORKSPACES."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        assert "auto-agentic" in WORKSPACES, (
+            "auto-agentic workspace missing from WORKSPACES in router_pipe.py"
+        )
+
+    def test_agentic_workspace_mlx_model_hint_is_qwen3_coder_next(self):
+        """auto-agentic mlx_model_hint must point to Qwen3-Coder-Next-4bit (big model)."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-agentic"].get("mlx_model_hint", "")
+        assert "Qwen3-Coder-Next-4bit" in hint, (
+            f"auto-agentic mlx_model_hint should be Qwen3-Coder-Next-4bit, got: {hint}"
+        )
+
+    def test_agentic_workspace_has_context_limit(self):
+        """auto-agentic must have context_limit=32768 for KV cache suppression (P5-BIG-001)."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        ctx = WORKSPACES["auto-agentic"].get("context_limit")
+        assert ctx == 32768, (
+            f"auto-agentic context_limit should be 32768, got: {ctx}"
+        )
+
+    def test_agentic_workspace_has_model_hint(self):
+        """auto-agentic must have an Ollama model_hint as fallback."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-agentic"].get("model_hint", "")
+        assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
+
+    def test_agentic_backends_yaml_routing_prefers_mlx(self):
+        """backends.yaml auto-agentic routing must prefer mlx group first."""
+        import yaml
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        groups = cfg["workspace_routing"].get("auto-agentic", [])
+        assert groups and groups[0] == "mlx", (
+            f"auto-agentic must prefer mlx group first, got: {groups}"
+        )
+
+    def test_agentic_workspace_json_exists(self):
+        """Workspace JSON for GUI import must exist."""
+        from pathlib import Path
+
+        ws_path = Path("imports/openwebui/workspaces/workspace_auto_agentic.json")
+        assert ws_path.exists(), f"Workspace JSON not found at {ws_path}"
+
+    def test_agentic_workspace_json_has_correct_id(self):
+        """Workspace JSON id field must be 'auto-agentic'."""
+        import json
+        from pathlib import Path
+
+        data = json.loads(
+            Path("imports/openwebui/workspaces/workspace_auto_agentic.json").read_text()
+        )
+        assert data.get("id") == "auto-agentic", (
+            f"workspace_auto_agentic.json id should be 'auto-agentic', got: {data.get('id')}"
+        )
+
+    def test_agentic_detect_workspace_routes_agentic_query(self):
+        """_detect_workspace must return 'auto-agentic' for agentic-flagged messages."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [
+            {"role": "user", "content": "Use an agentic workflow to refactor the full codebase"}
+        ]
+        result = _detect_workspace(messages)
+        assert result == "auto-agentic", (
+            f"_detect_workspace should return 'auto-agentic' for agentic content, got: {result!r}"
+        )
+
+    def test_agentic_detect_workspace_routes_swe_agent_query(self):
+        """_detect_workspace must return 'auto-agentic' for SWE-agent-style queries."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [
+            {"role": "user", "content": "Run a swe-agent workflow to fix the failing tests"}
+        ]
+        result = _detect_workspace(messages)
+        assert result == "auto-agentic", (
+            f"_detect_workspace should return 'auto-agentic' for swe-agent content, got: {result!r}"
+        )
+
+    def test_agentic_does_not_route_simple_code(self):
+        """Simple coding requests must NOT route to auto-agentic (route to auto-coding instead)."""
+        from portal_pipeline.router_pipe import _detect_workspace
+
+        messages = [{"role": "user", "content": "Write a Python function to parse JSON"}]
+        result = _detect_workspace(messages)
+        assert result != "auto-agentic", (
+            f"Simple code request should not route to auto-agentic, got: {result!r}"
+        )
+
+    def test_agentic_routing_consistent_across_files(self):
+        """auto-agentic must exist in both WORKSPACES and backends.yaml workspace_routing."""
+        import yaml
+
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        cfg = yaml.safe_load(open("config/backends.yaml"))
+        pipe_ids = set(WORKSPACES.keys())
+        yaml_ids = set(cfg["workspace_routing"].keys())
+        assert "auto-agentic" in pipe_ids, "auto-agentic missing from WORKSPACES in router_pipe.py"
+        assert "auto-agentic" in yaml_ids, (
+            "auto-agentic missing from workspace_routing in backends.yaml"
+        )
+        assert pipe_ids == yaml_ids, (
+            f"WORKSPACES / workspace_routing mismatch. "
+            f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
+            f"In yaml but not pipe: {yaml_ids - pipe_ids}."
+        )
+
+
+class TestAutoCodingDevstralUpgrade:
+    """Verify auto-coding uses Devstral-Small-2507-MLX-4bit (b180374)."""
+
+    def test_auto_coding_mlx_hint_is_devstral_2507(self):
+        """auto-coding mlx_model_hint must be the upgraded Devstral-Small-2507-MLX-4bit."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
+        assert "Devstral-Small-2507" in hint, (
+            f"auto-coding mlx_model_hint should be Devstral-Small-2507-MLX-4bit (53.6% SWE-bench), "
+            f"got: {hint!r}. If reverting, update this test."
+        )
+
+    def test_auto_coding_mlx_hint_is_4bit_not_8bit(self):
+        """auto-coding must use 4bit Devstral (15GB, not 18GB 8bit variant) for memory savings."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
+        assert "4bit" in hint or "MLX-4bit" in hint, (
+            f"auto-coding mlx_model_hint should be 4bit variant for 3GB memory savings, got: {hint!r}"
+        )
