@@ -52,7 +52,7 @@ ALL_MODELS = [
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
     "mlx-community/Devstral-Small-2505-8bit",
-    "lmstudio-community/Devstral-Small-2507-4bit",
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit",
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     "mlx-community/Llama-3.2-3B-Instruct-8bit",
     "mlx-community/gemma-4-31b-it-4bit",
@@ -103,7 +103,7 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,  # Lite 8bit (~12GB)
     "mlx-community/Devstral-Small-2505-8bit": 18.0,  # Devstral 8bit (~18GB)
-    "lmstudio-community/Devstral-Small-2507-4bit": 15.0,  # Devstral Small 2507 4bit (~15GB, 53.6% SWE-bench)
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15.0,  # Devstral Small 2507 MLX 4bit (~15GB, 53.6% SWE-bench)
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,  # Dolphin 8B 8bit (~9GB)
     "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)

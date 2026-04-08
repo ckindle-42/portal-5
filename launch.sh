@@ -2206,8 +2206,7 @@ MLXPLIST
         echo "    mlx-community/Qwen3-Coder-Next-4bit              (~46GB — primary coder, 80B MoE)"
         echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (~22GB)"
         echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit  (~12GB)"
-        echo "    mlx-community/Devstral-Small-2505-8bit           (~18GB)"
-        echo "    lmstudio-community/Devstral-Small-2507-4bit      (~15GB — Devstral v1.1, best open-source SWE-bench)"
+        echo "    lmstudio-community/Devstral-Small-2507-MLX-4bit      (~15GB — Devstral v1.1, 53.6% SWE-bench, Mistral lineage)"
         echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
         echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
         echo "  Model Diversity (Google / Mistral):"
@@ -2375,8 +2374,7 @@ MLXPLIST
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
         "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"               # ~9GB
         "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
-        "mlx-community/Devstral-Small-2505-8bit"            # ~18GB
-        "lmstudio-community/Devstral-Small-2507-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
+        "lmstudio-community/Devstral-Small-2507-MLX-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
         # Qwopus3.5 v3 Reasoning
         "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                # ~22GB
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB

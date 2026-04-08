@@ -393,7 +393,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
         "model_hint": "qwen3-coder-next:30b-q5",  # Primary Ollama coding fallback (Qwen3-Coder-Next GGUF)
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
+        "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 — 53.6% SWE-bench, best open-source agentic coder <40GB
     },
     "auto-agentic": {
         "name": "⚡ Portal Agentic Coder (Heavy)",
