@@ -1,4 +1,4 @@
-# Portal 5.2.1 — ComfyUI Setup Guide
+# Portal 6.0.0 — ComfyUI Setup Guide
 
 ComfyUI handles image and video generation. It runs natively on the host
 for Metal GPU access on Apple Silicon.

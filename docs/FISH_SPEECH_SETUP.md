@@ -1,4 +1,4 @@
-# Portal 5.2.1 — Fish Speech Setup Guide
+# Portal 6.0.0 — Fish Speech Setup Guide
 
 Fish Speech is an **optional** TTS backend for Portal 5 that adds high-quality voice
 cloning. It runs outside Docker on the host machine to access GPU/MPS hardware directly.

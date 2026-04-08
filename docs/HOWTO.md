@@ -1,4 +1,4 @@
-# Portal 5.2.1 — How-To Guide
+# Portal 6.0.0 — How-To Guide
 
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.
 
@@ -1004,4 +1004,4 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-*Last updated: 2026-04-02 | Portal 5.2.1*
+*Last updated: 2026-04-07 | Portal 6.0.0*

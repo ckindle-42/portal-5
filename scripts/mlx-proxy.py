@@ -639,7 +639,7 @@ def start_server(stype: str, model: str = "") -> int:
         raise TimeoutError(f"mlx_{stype} model failed to load within timeout")
 
 
-def _check_memory_for_model(model: str) -> tuple[bool, str]:
+def _check_memory_for_model(model: str, freed_by_stop_gb: float = 0.0) -> tuple[bool, str]:
     """Pre-flight memory admission check for a model load request.
 
     Returns (ok: bool, message: str).
@@ -648,9 +648,14 @@ def _check_memory_for_model(model: str) -> tuple[bool, str]:
 
     Uses MODEL_MEMORY dict for known models; falls back to MEMORY_UNKNOWN_DEFAULT_GB
     for unknown models (conservative, not blocking unless truly constrained).
+
+    Args:
+        freed_by_stop_gb: Memory (GB) that will be freed by unloading the current model
+            before the new model loads. Caller should pass MODEL_MEMORY[current_model]
+            when switching models so the admission check doesn't reject valid switches.
     """
     estimated_gb = MODEL_MEMORY.get(model, MEMORY_UNKNOWN_DEFAULT_GB)
-    available_gb = _get_available_memory_gb()
+    available_gb = _get_available_memory_gb() + freed_by_stop_gb
     required_gb = estimated_gb + MEMORY_HEADROOM_GB
 
     if available_gb >= required_gb:
@@ -720,7 +725,11 @@ def ensure_server(model: str) -> int:
             # ── Admission control (P5-FUT-009) ──────────────────────────────
             # Check memory BEFORE stop_all() so we don't evict a healthy model
             # for a request that will be rejected anyway.
-            ok, rejection_msg = _check_memory_for_model(model)
+            # When switching models, credit the memory freed by unloading the
+            # current model — it WILL be released by stop_all() below.
+            current_loaded = mlx_state.loaded_model
+            freed_by_stop_gb = MODEL_MEMORY.get(current_loaded, 0.0) if current_loaded else 0.0
+            ok, rejection_msg = _check_memory_for_model(model, freed_by_stop_gb=freed_by_stop_gb)
             if not ok:
                 mlx_state.set_down(rejection_msg)
                 raise RuntimeError(rejection_msg)

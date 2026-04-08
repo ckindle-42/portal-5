@@ -1,4 +1,4 @@
-# Portal 5.2.1 — Backup & Restore Guide
+# Portal 6.0.0 — Backup & Restore Guide
 
 This guide covers backup and restore procedures for all Portal 5 data.
 
@@ -55,7 +55,7 @@ set -e
 BACKUP_DIR="${BACKUP_DIR:-.}"
 DATE=$(date +%Y%m%d-%H%M%S)
 
-echo "Backing up Portal 5.2.1..."
+echo "Backing up Portal 6.0.0..."
 
 # Open WebUI data
 docker run --rm -v portal-5_open-webui-data:/data -v ${BACKUP_DIR}:/backup \
