@@ -94,6 +94,82 @@ TOOLS_MANIFEST = [
             "required": [],
         },
     },
+    {
+        "name": "read_word_document",
+        "description": "Extract text content and structure from an existing Word (.docx) file. "
+        "Returns headings, paragraphs, and table data.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to the .docx file to read",
+                },
+                "include_tables": {
+                    "type": "boolean",
+                    "description": "Whether to include table cell content (default true)",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
+        "name": "read_excel",
+        "description": "Extract data from an existing Excel (.xlsx) spreadsheet. "
+        "Returns sheet names and row data for each sheet.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to the .xlsx file to read",
+                },
+                "max_rows": {
+                    "type": "integer",
+                    "description": "Maximum rows to return per sheet (default 500)",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
+        "name": "read_powerpoint",
+        "description": "Extract text and speaker notes from an existing PowerPoint (.pptx) file. "
+        "Returns slide titles, content, and notes.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to the .pptx file to read",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+    {
+        "name": "read_pdf",
+        "description": "Extract text content from an existing PDF file page by page. "
+        "Also extracts tables when present. Requires pdfplumber.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to the .pdf file to read",
+                },
+                "max_pages": {
+                    "type": "integer",
+                    "description": "Maximum pages to extract (default 50, 0 = all)",
+                },
+                "include_tables": {
+                    "type": "boolean",
+                    "description": "Whether to extract table data alongside text (default true)",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
 ]
 
 
@@ -442,6 +518,271 @@ def list_generated_files() -> list[dict]:
                 }
             )
     return files
+
+
+@mcp.tool()
+def read_word_document(
+    file_path: str,
+    include_tables: bool = True,
+) -> dict:
+    """Extract text content and structure from an existing Word (.docx) file.
+
+    Returns headings, paragraphs, and table data.
+
+    Args:
+        file_path:      Absolute path to the .docx file to read
+        include_tables: Whether to include table cell content (default True)
+
+    Returns:
+        dict with success, metadata, content (list of blocks), and optional tables
+    """
+    try:
+        from docx import Document as _Document
+    except ImportError:
+        return {
+            "success": False,
+            "error": "python-docx not installed. Run: pip install python-docx",
+        }
+
+    src = Path(file_path).resolve()
+    if not src.exists():
+        return {"success": False, "error": f"File not found: {file_path}"}
+    if src.suffix.lower() != ".docx":
+        return {"success": False, "error": f"Expected .docx file, got: {src.suffix}"}
+
+    try:
+        doc = _Document(str(src))
+        blocks: list[dict] = []
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if not text:
+                continue
+            style = para.style.name if para.style else "Normal"
+            blocks.append({"type": style, "text": text})
+
+        result: dict = {
+            "success": True,
+            "filename": src.name,
+            "author": doc.core_properties.author or "",
+            "title": doc.core_properties.title or "",
+            "paragraph_count": len(blocks),
+            "content": blocks,
+        }
+
+        if include_tables and doc.tables:
+            tables_data = []
+            for i, table in enumerate(doc.tables):
+                rows = []
+                for row in table.rows:
+                    rows.append([cell.text.strip() for cell in row.cells])
+                tables_data.append({"table_index": i, "rows": rows})
+            result["tables"] = tables_data
+
+        return result
+    except Exception as e:
+        logger.exception("Word document read failed")
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def read_excel(
+    file_path: str,
+    max_rows: int = 500,
+) -> dict:
+    """Extract data from an existing Excel (.xlsx) spreadsheet.
+
+    Returns sheet names and row data for each sheet.
+
+    Args:
+        file_path: Absolute path to the .xlsx file to read
+        max_rows:  Maximum rows to return per sheet (default 500)
+
+    Returns:
+        dict with success, filename, sheet_count, and sheets (list of sheet dicts)
+    """
+    try:
+        import openpyxl as _openpyxl
+    except ImportError:
+        return {"success": False, "error": "openpyxl not installed. Run: pip install openpyxl"}
+
+    src = Path(file_path).resolve()
+    if not src.exists():
+        return {"success": False, "error": f"File not found: {file_path}"}
+    if src.suffix.lower() not in {".xlsx", ".xlsm"}:
+        return {"success": False, "error": f"Expected .xlsx/.xlsm file, got: {src.suffix}"}
+
+    try:
+        wb = _openpyxl.load_workbook(str(src), read_only=True, data_only=True)
+        sheets_data = []
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            rows: list[list] = []
+            for i, row in enumerate(ws.iter_rows(values_only=True)):
+                if max_rows and i >= max_rows:
+                    break
+                rows.append([str(cell) if cell is not None else "" for cell in row])
+            sheets_data.append(
+                {
+                    "name": sheet_name,
+                    "row_count": len(rows),
+                    "truncated": max_rows > 0 and len(rows) >= max_rows,
+                    "rows": rows,
+                }
+            )
+        wb.close()
+
+        return {
+            "success": True,
+            "filename": src.name,
+            "sheet_count": len(sheets_data),
+            "sheets": sheets_data,
+        }
+    except Exception as e:
+        logger.exception("Excel read failed")
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def read_powerpoint(
+    file_path: str,
+) -> dict:
+    """Extract text and speaker notes from an existing PowerPoint (.pptx) file.
+
+    Returns slide titles, content blocks, and notes.
+
+    Args:
+        file_path: Absolute path to the .pptx file to read
+
+    Returns:
+        dict with success, filename, slide_count, and slides (list of slide dicts)
+    """
+    try:
+        from pptx import Presentation as _Presentation
+    except ImportError:
+        return {
+            "success": False,
+            "error": "python-pptx not installed. Run: pip install python-pptx",
+        }
+
+    src = Path(file_path).resolve()
+    if not src.exists():
+        return {"success": False, "error": f"File not found: {file_path}"}
+    if src.suffix.lower() != ".pptx":
+        return {"success": False, "error": f"Expected .pptx file, got: {src.suffix}"}
+
+    try:
+        prs = _Presentation(str(src))
+        slides_data = []
+        for i, slide in enumerate(prs.slides):
+            title = ""
+            content_blocks: list[str] = []
+            for shape in slide.shapes:
+                if not shape.has_text_frame:
+                    continue
+                shape_text = shape.text_frame.text.strip()
+                if not shape_text:
+                    continue
+                if shape.shape_id == 1 or (
+                    hasattr(slide.shapes, "title") and shape == slide.shapes.title
+                ):
+                    title = shape_text
+                else:
+                    content_blocks.append(shape_text)
+
+            notes = ""
+            if slide.has_notes_slide:
+                notes = slide.notes_slide.notes_text_frame.text.strip()
+
+            slides_data.append(
+                {
+                    "slide_number": i + 1,
+                    "title": title,
+                    "content": content_blocks,
+                    "notes": notes,
+                }
+            )
+
+        return {
+            "success": True,
+            "filename": src.name,
+            "author": prs.core_properties.author or "",
+            "slide_count": len(slides_data),
+            "slides": slides_data,
+        }
+    except Exception as e:
+        logger.exception("PowerPoint read failed")
+        return {"success": False, "error": str(e)}
+
+
+@mcp.tool()
+def read_pdf(
+    file_path: str,
+    max_pages: int = 50,
+    include_tables: bool = True,
+) -> dict:
+    """Extract text content from an existing PDF file page by page.
+
+    Also extracts tables when present. Requires pdfplumber.
+
+    Args:
+        file_path:      Absolute path to the .pdf file to read
+        max_pages:      Maximum pages to extract (default 50, 0 = all pages)
+        include_tables: Whether to extract table data alongside text (default True)
+
+    Returns:
+        dict with success, filename, page_count, pages (list of page dicts),
+        and optional tables per page
+    """
+    try:
+        import pdfplumber as _pdfplumber
+    except ImportError:
+        return {
+            "success": False,
+            "error": "pdfplumber not installed. Run: pip install pdfplumber",
+        }
+
+    src = Path(file_path).resolve()
+    if not src.exists():
+        return {"success": False, "error": f"File not found: {file_path}"}
+    if src.suffix.lower() != ".pdf":
+        return {"success": False, "error": f"Expected .pdf file, got: {src.suffix}"}
+
+    try:
+        pages_data = []
+        with _pdfplumber.open(str(src)) as pdf:
+            total_pages = len(pdf.pages)
+            limit = total_pages if max_pages == 0 else min(max_pages, total_pages)
+
+            for i in range(limit):
+                page = pdf.pages[i]
+                text = (page.extract_text() or "").strip()
+                page_dict: dict = {
+                    "page_number": i + 1,
+                    "text": text,
+                    "char_count": len(text),
+                }
+
+                if include_tables:
+                    raw_tables = page.extract_tables()
+                    if raw_tables:
+                        page_dict["tables"] = [
+                            [[str(cell) if cell is not None else "" for cell in row] for row in tbl]
+                            for tbl in raw_tables
+                        ]
+
+                pages_data.append(page_dict)
+
+        return {
+            "success": True,
+            "filename": src.name,
+            "total_pages": total_pages,
+            "pages_extracted": len(pages_data),
+            "truncated": len(pages_data) < total_pages,
+            "pages": pages_data,
+        }
+    except Exception as e:
+        logger.exception("PDF read failed")
+        return {"success": False, "error": str(e)}
 
 
 if __name__ == "__main__":
