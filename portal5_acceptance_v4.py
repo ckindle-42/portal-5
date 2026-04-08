@@ -275,6 +275,32 @@ Post-run assertion fixes (2026-04-05 v2):
     - Live progress log: _emit() now appends each result to /tmp/portal5_progress.log
       with timestamp and running PASS/WARN/FAIL/BLOCKED counts. Section start entries
       written at loop start. `tail -f /tmp/portal5_progress.log` shows live status.
+
+Run 10 fixes (2026-04-08):
+    - S5: expected_model updated "Qwen3-Coder-Next" → "Devstral" after auto-coding
+      workspace upgraded to Devstral-Small-2507-MLX-4bit (commit b180374). Previous
+      90s wait was wasted polling for a model that never loads — S5 now correctly
+      detects Devstral in 1-2 polls.
+    - S30 section title updated: "MLX: Qwen3-Coder-Next-4bit (coding)" →
+      "MLX: Devstral-Small-2507-MLX-4bit (coding)" to reflect the Devstral upgrade.
+    - PERSONA_SIGNALS[javascriptconsole]: added "6.283" and "18.84". Devstral-Small-2507
+      in console mode outputs bare execution results (e.g. "6.283185307179586") without
+      explanation. Previous signals (reduce, accumulator, 3.141) required explanation-style
+      output and always WARNed on Devstral.
+    - PERSONA_SIGNALS[pythoninterpreter]: added "3, 2, 1". When auto-coding falls back to
+      Ollama/Qwen3 (MLX at 503 during S11), the response contains "[3, 2, 1]" as a list.
+      Also covers Devstral fallback output from S30. Previous signals only matched
+      explanation-style tuple output.
+    - update_workspace_tools.py: added "auto-agentic": ["portal_code"] to WORKSPACE_TOOLS.
+      auto-agentic workspace (P5-BIG-001, big-model mode, commit 4c0665d) was missing
+      from the script, causing S1-03 WARN on every run.
+    - docs/HOWTO.md: added "Portal Agentic Coder (Heavy)" row to §3 workspace table.
+      Updated workspace count comment §3 (16 → 17). Added auto-agentic to §16 Telegram
+      available workspaces list.
+    - S23-03: added 10s stabilization sleep after _wait_for_mlx_ready before firing
+      the primary-path probe. After a fresh MLX model load, the pipeline's health-checker
+      needs ~10s to re-poll the MLX backend and update its routing table. Without the
+      sleep, the first S23-03 request hit a stale Ollama backend (baronllm).
 """
 
 from __future__ import annotations
@@ -3269,8 +3295,9 @@ async def S5() -> None:
     sec = "S5"
     port = MCP["sandbox"]
 
-    # Verify MLX model is loaded (S30 pre-loaded Qwen3-Coder-Next for auto-coding)
-    mlx_ready = await _wait_for_mlx_ready(timeout=90, expected_model="Qwen3-Coder-Next")
+    # Verify MLX model is loaded (S30 pre-loaded Devstral for auto-coding)
+    # auto-coding uses Devstral-Small-2507 since the b180374 upgrade
+    mlx_ready = await _wait_for_mlx_ready(timeout=90, expected_model="Devstral")
 
     t0 = time.time()
     code, text = await _chat(
@@ -4185,7 +4212,7 @@ _PERSONA_SIGNALS: dict[str, list[str]] = {
     "githubexpert": ["branch protection", "reviewer", "ci", "signed"],
     "itarchitect": ["load balanc", "replication", "cache", "disaster", "availability"],
     "itexpert": ["memory", "oom", "oomkill", "pandas", "container", "profile", "ram", "limit"],
-    "javascriptconsole": ["reduce", "accumulator", "pi", "3.141"],
+    "javascriptconsole": ["reduce", "accumulator", "pi", "3.141", "6.283", "18.84"],
     "kubernetesdockerrpglearningengine": ["mission", "container", "game", "briefing"],
     "linuxterminal": ["find", "size", "modified", "exclude", "human"],
     "machinelearningengineer": ["random forest", "xgboost", "hyperparameter", "tabular"],
@@ -4199,7 +4226,7 @@ _PERSONA_SIGNALS: dict[str, list[str]] = {
         "type hint",
         "docstring",
     ],
-    "pythoninterpreter": ["zip", "reverse", "output", "slice", "tuple", "[(1, 3)", "(2, 2)"],
+    "pythoninterpreter": ["zip", "reverse", "output", "slice", "tuple", "[(1, 3)", "(2, 2)", "3, 2, 1"],
     "redteamoperator": ["jwt", "sql injection", "attack", "idor", "token"],
     "researchanalyst": ["microservices", "monolith", "deployment", "complexity"],
     "seniorfrontenddeveloper": ["react", "hook", "useeffect", "loading", "error"],
@@ -4654,9 +4681,9 @@ async def _mlx_group(
         await asyncio.sleep(2)
 
 
-# ── S30: Qwen3-Coder-Next-4bit (auto-coding + coding personas) ─────────────
+# ── S30: Devstral-Small-2507 (auto-coding + coding personas) ───────────────
 async def S30() -> None:
-    print("\n━━━ S30. MLX: Qwen3-Coder-Next-4bit (coding) ━━━")
+    print("\n━━━ S30. MLX: Devstral-Small-2507-MLX-4bit (coding) ━━━")
     await _mlx_group(
         "S30",
         "Qwen3-Coder-Next-4bit",
@@ -6819,6 +6846,10 @@ async def S23() -> None:
         await _prewarm_mlx_proxy("mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit", timeout=360)
     # 360s: 32GB model cold-load takes ~180s; allow margin for model verification
     await _wait_for_mlx_ready(timeout=360, expected_model="Qwen3-Coder-30B")
+    # Brief stabilization: pipeline health-checker polls backends on its own schedule.
+    # After a fresh MLX load, give the pipeline ~10s to re-poll and mark MLX healthy
+    # before firing S23-03, otherwise the first request may hit a stale Ollama backend.
+    await asyncio.sleep(10)
     # Check if admission control rejected MLX due to memory — correct Ollama fallback behavior
     _s23_03_admission = await _mlx_admission_rejected()
     t0 = time.time()
@@ -7316,7 +7347,7 @@ ALL_ORDER = [
     # ── MLX models — grouped by model (workspace + persona together) ───────
     # Each section loads ONE model and runs all its tests before switching.
     # S22 (intentional model switch test) runs after all groups.
-    "S30",  # Qwen3-Coder-Next-4bit: auto-coding + 17 coding personas
+    "S30",  # Devstral-Small-2507: auto-coding + 17 coding personas
     "S5",  # Code sandbox (auto-coding → already loaded from S30)
     "S31",  # Qwen3-Coder-30B-A3B: auto-spl + 3 SPL/fullstack personas (SWITCH)
     "S32",  # DeepSeek-R1-abliterated-4bit: auto-reasoning/research/data (SWITCH)

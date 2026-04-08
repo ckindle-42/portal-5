@@ -21,6 +21,7 @@ WORKSPACE_TOOLS = {
     "auto-data": ["portal_code", "portal_documents"],
     "auto-spl": ["portal_code"],
     "auto-mistral": [],
+    "auto-agentic": ["portal_code"],
 }
 
 

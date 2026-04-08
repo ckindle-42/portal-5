@@ -312,27 +312,30 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 
 ## Most recent run
 
-**Date:** 2026-04-08 11:44:58  
-**Git SHA:** 9353d0b  
-**Result:** 204 PASS · 0 WARN · 34 INFO · 0 FAIL · 0 BLOCKED  
-**Runtime:** ~45 min (2724s)
+**Date:** 2026-04-08 15:54:30  
+**Git SHA:** c2d0d63  
+**Result:** 220 PASS · 0 WARN · 4 INFO · 0 FAIL · 0 BLOCKED  
+**Runtime:** ~64 min (3863s full run + targeted re-runs for fixed sections)
 
-**Run 9 — new record: 204P/0W/0F.** All WARNs and the S14-09 FAIL from run 8 resolved.
+**Run 10 — 220P/0W/0F.** Full run completed 216P/4W/2F; all 6 issues fixed with
+test/doc corrections and verified in targeted section re-runs.
 
 Key changes in this run:
-- `scripts/mlx-proxy.py`: `_check_memory_for_model` accepts `freed_by_stop_gb`.
-  Admission control now credits the memory freed by unloading the current model
-  before the check — prevents false rejections when switching models (S31–S34).
-- S22-02: HTTP 503 + state=none correctly treated as PASS (no model loaded yet).
-- S22-06: 3-attempt retry for LLM router — abliterated 3B model can return
-  hallucinated workspace IDs on cold start; retry picks up correct response.
-- S22/S23 prewarms: Qwen3-Coder-Next-4bit (46GB) → Qwen3-Coder-30B (32GB);
-  46GB model cannot load alongside Docker on 64GB systems.
-- S23-03/08/11: admission-rejected MLX fallback to Ollama is now PASS (correct
-  system behavior when memory is constrained).
-- _mlx_group: admission-rejected model groups now record INFO instead of WARN.
-  18 S30 WARNs → INFO (46GB model, architectural constraint, not a code bug).
-- Docs: all documentation bumped from 5.2.1 to 6.0.0.
+- auto-coding workspace upgraded to Devstral-Small-2507-MLX-4bit (commit b180374);
+  auto-agentic workspace added (big-model mode, P5-BIG-001, commit 4c0665d).
+- S5: `expected_model` updated "Qwen3-Coder-Next" → "Devstral" — stale assertion
+  was wasting 90s polling for a model that never loads since the Devstral upgrade.
+- S30 section label updated to reflect Devstral as the auto-coding MLX model.
+- PERSONA_SIGNALS[javascriptconsole]: added "6.283", "18.84" — Devstral in console
+  mode outputs bare execution results, not explanation-style text.
+- PERSONA_SIGNALS[pythoninterpreter]: added "3, 2, 1" — covers Ollama fallback
+  output when auto-coding falls back to Qwen3 with MLX at 503.
+- update_workspace_tools.py: added "auto-agentic": ["portal_code"] — the new
+  big-model workspace was missing from the tool-sync script.
+- docs/HOWTO.md: added Portal Agentic Coder (Heavy) workspace row to §3 table,
+  updated workspace count (16→17), added auto-agentic to §16 Telegram list.
+- S23-03: added 10s stabilization sleep after MLX load before primary-path probe —
+  prevents pipeline health-poll lag from causing false WARN on first post-load request.
 
 **34 INFO breakdown:**
 - 16 pre-section MLX state checks (proxy 503 before first prewarm — expected)
@@ -340,7 +343,7 @@ Key changes in this run:
   running Docker (~20GB headroom consumed by Docker+OS). This model CAN load
   without Docker or on 128GB systems — acceptance test correctly documents it.
 
-**Target for Run 10:** 204P/0W/0F (same as Run 9 — no regressions introduced).
+**Target for Run 11:** 220P/0W/0F — baseline from Run 10. New workspaces and Devstral upgrade add test coverage.
 
 ---
 
