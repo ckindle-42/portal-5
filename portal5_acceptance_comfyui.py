@@ -206,6 +206,67 @@ async def _free_memory_for_comfyui() -> None:
     await _unload_ollama_models()
 
 
+async def _clear_comfyui_queue() -> None:
+    """Interrupt running tasks and clear pending queue — prevents stuck jobs from blocking tests."""
+    print("  ── Clearing ComfyUI queue ──")
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            # Check queue state first
+            r = await c.get(f"{COMFYUI_URL}/queue")
+            if r.status_code == 200:
+                q = r.json()
+                running = len(q.get("queue_running", []))
+                pending = len(q.get("queue_pending", []))
+                if running == 0 and pending == 0:
+                    print("    Queue already empty — nothing to clear")
+                    return
+                print(f"    Found {running} running + {pending} pending tasks — clearing")
+
+            # Interrupt any running task
+            await c.post(f"{COMFYUI_URL}/interrupt")
+            # Free models and clear queue
+            await c.post(
+                f"{COMFYUI_URL}/free",
+                json={"unload_models": False, "free_memory": False},
+            )
+            # Verify cleared
+            r2 = await c.get(f"{COMFYUI_URL}/queue")
+            if r2.status_code == 200:
+                q2 = r2.json()
+                remaining = len(q2.get("queue_running", [])) + len(q2.get("queue_pending", []))
+                if remaining == 0:
+                    print("    Queue cleared successfully")
+                else:
+                    print(f"    Warning: {remaining} tasks still in queue after clear")
+    except Exception as e:
+        print(f"    Warning: queue clear failed: {e}")
+
+
+async def _wait_for_comfyui_idle(max_wait: int = 300) -> bool:
+    """Wait for ComfyUI queue to be empty before proceeding.
+
+    Returns True if idle, False if still busy after max_wait.
+    Prevents piling up MCP requests behind slow-loading models.
+    If the MCP client timed out but ComfyUI is still processing the old job,
+    we wait for it to finish instead of stacking another one.
+    """
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        try:
+            async with httpx.AsyncClient(timeout=5) as c:
+                r = await c.get(f"{COMFYUI_URL}/queue")
+                if r.status_code == 200:
+                    q = r.json()
+                    running = len(q.get("queue_running", []))
+                    pending = len(q.get("queue_pending", []))
+                    if running == 0 and pending == 0:
+                        return True
+        except Exception:
+            pass
+        await asyncio.sleep(5)
+    return False
+
+
 # ── MCP SDK call ──────────────────────────────────────────────────────────────
 async def _mcp(
     port: int,
@@ -249,7 +310,11 @@ async def _mcp(
         # Python 3.11+ asyncio.wait_for cancellation inside TaskGroup raises ExceptionGroup
         # (BaseExceptionGroup subtype) rather than bare TimeoutError. Detect and treat as WARN.
         err_str = str(e)
-        if "TaskGroup" in err_str or "Cancel" in type(e).__name__ or isinstance(e, BaseExceptionGroup):
+        if (
+            "TaskGroup" in err_str
+            or "Cancel" in type(e).__name__
+            or isinstance(e, BaseExceptionGroup)
+        ):
             record(section, tid, name, "WARN", f"timeout after {timeout}s (TaskGroup)", t0=t0)
         else:
             record(section, tid, name, "FAIL", err_str[:200], t0=t0)
@@ -308,9 +373,7 @@ async def _comfyui_post(path: str, body: dict, timeout: int = 30) -> tuple[int, 
         return 0, str(e)
 
 
-async def _wait_for_comfyui_queue(
-    prompt_id: str, timeout: int = 600
-) -> tuple[bool, str]:
+async def _wait_for_comfyui_queue(prompt_id: str, timeout: int = 600) -> tuple[bool, str]:
     """Poll ComfyUI /history until the prompt_id appears (generation complete).
 
     Returns (success, detail_message).
@@ -346,11 +409,13 @@ async def _wait_for_comfyui_queue(
         code, queue = await _comfyui_get("/queue")
         if code == 200 and isinstance(queue, dict):
             running = [
-                item for item in queue.get("queue_running", [])
+                item
+                for item in queue.get("queue_running", [])
                 if len(item) > 1 and item[1] == prompt_id
             ]
             pending = [
-                item for item in queue.get("queue_pending", [])
+                item
+                for item in queue.get("queue_pending", [])
                 if len(item) > 1 and item[1] == prompt_id
             ]
             if running or pending:
@@ -384,7 +449,9 @@ async def C0() -> None:
         except ImportError:
             missing.append(pkg)
     record(
-        sec, "C0-01", "Python dependencies available",
+        sec,
+        "C0-01",
+        "Python dependencies available",
         "PASS" if not missing else "FAIL",
         f"missing: {missing}" if missing else "httpx, mcp, yaml all present",
         t0=t0,
@@ -396,7 +463,9 @@ async def C0() -> None:
         async with httpx.AsyncClient(timeout=5) as c:
             r = await c.get(f"{PIPELINE_URL}/health")
             record(
-                sec, "C0-02", f"Portal pipeline reachable ({PIPELINE_URL})",
+                sec,
+                "C0-02",
+                f"Portal pipeline reachable ({PIPELINE_URL})",
                 "PASS" if r.status_code == 200 else "FAIL",
                 f"HTTP {r.status_code}",
                 t0=t0,
@@ -408,13 +477,17 @@ async def C0() -> None:
     t0 = time.time()
     result = subprocess.run(
         ["pgrep", "-f", "comfy.*main.py|python.*main.py.*8188"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     comfyui_process_running = result.returncode == 0
     record(
-        sec, "C0-03", "ComfyUI process running on host",
+        sec,
+        "C0-03",
+        "ComfyUI process running on host",
         "PASS" if comfyui_process_running else "WARN",
-        f"PIDs: {result.stdout.strip()}" if comfyui_process_running
+        f"PIDs: {result.stdout.strip()}"
+        if comfyui_process_running
         else "not found — start: cd ~/ComfyUI && python main.py --listen 0.0.0.0 --port 8188",
         t0=t0,
     )
@@ -423,7 +496,9 @@ async def C0() -> None:
     t0 = time.time()
     code, data = await _comfyui_get("/system_stats")
     record(
-        sec, "C0-04", f"ComfyUI API reachable ({COMFYUI_URL})",
+        sec,
+        "C0-04",
+        f"ComfyUI API reachable ({COMFYUI_URL})",
         "PASS" if code == 200 else "WARN",
         f"HTTP {code}" + (f" — {str(data)[:80]}" if code != 200 else ""),
         t0=t0,
@@ -432,6 +507,9 @@ async def C0() -> None:
     # Free unified memory
     print("  ── Freeing unified memory before tests ──")
     await _free_memory_for_comfyui()
+
+    # Clear ComfyUI queue — stuck tasks from previous runs block all generation tests
+    await _clear_comfyui_queue()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -452,8 +530,14 @@ async def C1() -> None:
         )
         record(sec, "C1-01", "ComfyUI system_stats", "PASS", detail, t0=t0)
     else:
-        record(sec, "C1-01", "ComfyUI system_stats", "WARN",
-               f"HTTP {code}" if code != 0 else str(data)[:80], t0=t0)
+        record(
+            sec,
+            "C1-01",
+            "ComfyUI system_stats",
+            "WARN",
+            f"HTTP {code}" if code != 0 else str(data)[:80],
+            t0=t0,
+        )
 
     # Prompt queue state
     t0 = time.time()
@@ -461,11 +545,23 @@ async def C1() -> None:
     if code == 200 and isinstance(data, dict):
         running = len(data.get("queue_running", []))
         pending = len(data.get("queue_pending", []))
-        record(sec, "C1-02", "ComfyUI /queue reachable",
-               "PASS", f"running={running} pending={pending}", t0=t0)
+        record(
+            sec,
+            "C1-02",
+            "ComfyUI /queue reachable",
+            "PASS",
+            f"running={running} pending={pending}",
+            t0=t0,
+        )
     else:
-        record(sec, "C1-02", "ComfyUI /queue reachable", "WARN",
-               f"HTTP {code}: {str(data)[:80]}", t0=t0)
+        record(
+            sec,
+            "C1-02",
+            "ComfyUI /queue reachable",
+            "WARN",
+            f"HTTP {code}: {str(data)[:80]}",
+            t0=t0,
+        )
 
     # Object info (node catalogue)
     t0 = time.time()
@@ -476,15 +572,23 @@ async def C1() -> None:
         required_nodes = ["KSampler", "CLIPTextEncode", "VAEDecode", "SaveImage"]
         missing_nodes = [n for n in required_nodes if n not in data]
         record(
-            sec, "C1-03", "ComfyUI /object_info (node catalogue)",
+            sec,
+            "C1-03",
+            "ComfyUI /object_info (node catalogue)",
             "PASS" if not missing_nodes else "WARN",
             f"{node_count} nodes registered"
             + (f" — missing: {missing_nodes}" if missing_nodes else ""),
             t0=t0,
         )
     else:
-        record(sec, "C1-03", "ComfyUI /object_info (node catalogue)", "WARN",
-               f"HTTP {code}: {str(data)[:80]}", t0=t0)
+        record(
+            sec,
+            "C1-03",
+            "ComfyUI /object_info (node catalogue)",
+            "WARN",
+            f"HTTP {code}: {str(data)[:80]}",
+            t0=t0,
+        )
 
     # Checkpoint model discovery via /object_info
     t0 = time.time()
@@ -496,10 +600,13 @@ async def C1() -> None:
         if ckpt_entry and isinstance(ckpt_entry[0], list):
             checkpoints = ckpt_entry[0]
     record(
-        sec, "C1-04", "Checkpoint models installed",
+        sec,
+        "C1-04",
+        "Checkpoint models installed",
         "PASS" if checkpoints else "WARN",
         f"{len(checkpoints)} checkpoint(s): {', '.join(checkpoints[:5])}"
-        if checkpoints else "none found — check ComfyUI models/checkpoints/",
+        if checkpoints
+        else "none found — check ComfyUI models/checkpoints/",
         t0=t0,
     )
 
@@ -513,9 +620,13 @@ async def C1() -> None:
         if vae_entry and isinstance(vae_entry[0], list):
             vaes = vae_entry[0]
     record(
-        sec, "C1-05", "VAE models installed",
+        sec,
+        "C1-05",
+        "VAE models installed",
         "INFO",
-        f"{len(vaes)} VAE(s): {', '.join(vaes[:5])}" if vaes else "none (using checkpoint-embedded VAE)",
+        f"{len(vaes)} VAE(s): {', '.join(vaes[:5])}"
+        if vaes
+        else "none (using checkpoint-embedded VAE)",
         t0=t0,
     )
 
@@ -529,7 +640,9 @@ async def C1() -> None:
         if lora_entry and isinstance(lora_entry[0], list):
             loras = lora_entry[0]
     record(
-        sec, "C1-06", "LoRA models installed",
+        sec,
+        "C1-06",
+        "LoRA models installed",
         "INFO",
         f"{len(loras)} LoRA(s): {', '.join(loras[:5])}" if loras else "none installed",
         t0=t0,
@@ -545,9 +658,13 @@ async def C1() -> None:
         if up_entry and isinstance(up_entry[0], list):
             upscalers = up_entry[0]
     record(
-        sec, "C1-07", "Upscale models installed",
+        sec,
+        "C1-07",
+        "Upscale models installed",
         "INFO",
-        f"{len(upscalers)} upscaler(s): {', '.join(upscalers[:5])}" if upscalers else "none installed",
+        f"{len(upscalers)} upscaler(s): {', '.join(upscalers[:5])}"
+        if upscalers
+        else "none installed",
         t0=t0,
     )
 
@@ -564,14 +681,16 @@ async def C2() -> None:
 
     for tid, port, name in [
         ("C2-01", COMFYUI_MCP_PORT, "ComfyUI MCP bridge"),
-        ("C2-02", VIDEO_MCP_PORT,   "Video MCP bridge"),
+        ("C2-02", VIDEO_MCP_PORT, "Video MCP bridge"),
     ]:
         t0 = time.time()
         try:
             async with httpx.AsyncClient(timeout=8) as c:
                 r = await c.get(f"http://localhost:{port}/health")
                 record(
-                    sec, tid, f"{name} (:{ port})",
+                    sec,
+                    tid,
+                    f"{name} (:{port})",
                     "PASS" if r.status_code == 200 else "WARN",
                     str(r.json()) if r.status_code == 200 else f"HTTP {r.status_code}",
                     t0=t0,
@@ -583,7 +702,8 @@ async def C2() -> None:
     t0 = time.time()
     result = subprocess.run(
         DC + ["ps", "--format", "json"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     containers: list[str] = []
     if result.returncode == 0:
@@ -599,7 +719,9 @@ async def C2() -> None:
             except Exception:
                 pass
     record(
-        sec, "C2-03", "ComfyUI+video containers in docker compose",
+        sec,
+        "C2-03",
+        "ComfyUI+video containers in docker compose",
         "INFO",
         ", ".join(containers) if containers else "none matched — check docker compose ps",
         t0=t0,
@@ -667,29 +789,50 @@ async def C4() -> None:
     has_flux = False
     if code == 200 and isinstance(data, dict):
         ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = (ckpt_node.get("input", {}).get("required", {})
-                 .get("ckpt_name", [[]])[0])
+        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
         flux_ckpts = [c for c in ckpts if "flux" in c.lower() and "schnell" in c.lower()]
         has_flux = bool(flux_ckpts)
         record(
-            sec, "C4-01", "FLUX schnell checkpoint installed",
+            sec,
+            "C4-01",
+            "FLUX schnell checkpoint installed",
             "PASS" if has_flux else "INFO",
-            f"{flux_ckpts[0]}" if flux_ckpts else
-            "not installed — download: huggingface-cli download black-forest-labs/FLUX.1-schnell",
+            f"{flux_ckpts[0]}"
+            if flux_ckpts
+            else "not installed — download: huggingface-cli download black-forest-labs/FLUX.1-schnell",
             t0=t0,
         )
     else:
-        record(sec, "C4-01", "FLUX schnell checkpoint installed",
-               "WARN", f"ComfyUI not reachable (HTTP {code})", t0=t0)
+        record(
+            sec,
+            "C4-01",
+            "FLUX schnell checkpoint installed",
+            "WARN",
+            f"ComfyUI not reachable (HTTP {code})",
+            t0=t0,
+        )
 
     if not has_flux:
-        record(sec, "C4-02", "FLUX schnell generation via MCP",
-               "INFO", "skipped — checkpoint not installed", t0=None)
-        record(sec, "C4-03", "FLUX schnell output accessible via ComfyUI",
-               "INFO", "skipped — checkpoint not installed", t0=None)
+        record(
+            sec,
+            "C4-02",
+            "FLUX schnell generation via MCP",
+            "INFO",
+            "skipped — checkpoint not installed",
+            t0=None,
+        )
+        record(
+            sec,
+            "C4-03",
+            "FLUX schnell output accessible via ComfyUI",
+            "INFO",
+            "skipped — checkpoint not installed",
+            t0=None,
+        )
         return
 
     # Generate via MCP
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
@@ -710,7 +853,7 @@ async def C4() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected", "not available"],
-        timeout=120,
+        timeout=600,
     )
 
     # Verify output accessible from ComfyUI /view endpoint
@@ -733,18 +876,32 @@ async def C4() -> None:
                 img_code, _ = await _comfyui_get(f"/view?{params}", timeout=10)
                 found_image = img_code == 200
                 record(
-                    sec, "C4-03", "FLUX schnell output accessible via /view",
+                    sec,
+                    "C4-03",
+                    "FLUX schnell output accessible via /view",
                     "PASS" if found_image else "WARN",
                     f"{fname} — HTTP {img_code}" if fname else "no filename in history",
                     t0=t0,
                 )
                 break
         if not found_image:
-            record(sec, "C4-03", "FLUX schnell output accessible via /view",
-                   "WARN", "no image outputs found in ComfyUI history", t0=t0)
+            record(
+                sec,
+                "C4-03",
+                "FLUX schnell output accessible via /view",
+                "WARN",
+                "no image outputs found in ComfyUI history",
+                t0=t0,
+            )
     else:
-        record(sec, "C4-03", "FLUX schnell output accessible via /view",
-               "WARN", f"ComfyUI /history returned HTTP {code}", t0=t0)
+        record(
+            sec,
+            "C4-03",
+            "FLUX schnell output accessible via /view",
+            "WARN",
+            f"ComfyUI /history returned HTTP {code}",
+            t0=t0,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -760,26 +917,40 @@ async def C5() -> None:
     flux_dev_ckpt = ""
     if code == 200 and isinstance(data, dict):
         ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = (ckpt_node.get("input", {}).get("required", {})
-                 .get("ckpt_name", [[]])[0])
+        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
         flux_dev_ckpts = [c for c in ckpts if "flux" in c.lower() and "dev" in c.lower()]
         has_flux_dev = bool(flux_dev_ckpts)
         flux_dev_ckpt = flux_dev_ckpts[0] if flux_dev_ckpts else ""
         record(
-            sec, "C5-01", "FLUX dev checkpoint installed",
+            sec,
+            "C5-01",
+            "FLUX dev checkpoint installed",
             "PASS" if has_flux_dev else "INFO",
-            flux_dev_ckpt if has_flux_dev else
-            "not installed (optional) — download: huggingface-cli download black-forest-labs/FLUX.1-dev",
+            flux_dev_ckpt
+            if has_flux_dev
+            else "not installed (optional) — download: huggingface-cli download black-forest-labs/FLUX.1-dev",
             t0=t0,
         )
     else:
-        record(sec, "C5-01", "FLUX dev checkpoint installed",
-               "WARN", f"ComfyUI not reachable (HTTP {code})", t0=t0)
+        record(
+            sec,
+            "C5-01",
+            "FLUX dev checkpoint installed",
+            "WARN",
+            f"ComfyUI not reachable (HTTP {code})",
+            t0=t0,
+        )
         return
 
     if not has_flux_dev:
-        record(sec, "C5-02", "FLUX dev generation via MCP",
-               "INFO", "skipped — checkpoint not installed", t0=None)
+        record(
+            sec,
+            "C5-02",
+            "FLUX dev generation via MCP",
+            "INFO",
+            "skipped — checkpoint not installed",
+            t0=None,
+        )
         return
 
     await _mcp(
@@ -795,9 +966,7 @@ async def C5() -> None:
         section=sec,
         tid="C5-02",
         name="FLUX dev: generate_image (20 steps, cfg=3.5)",
-        ok_fn=lambda t: (
-            "success" in t.lower() or "url" in t.lower() or "filename" in t.lower()
-        ),
+        ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
         timeout=300,
@@ -816,29 +985,44 @@ async def C6() -> None:
     sdxl_ckpt = ""
     if code == 200 and isinstance(data, dict):
         ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = (ckpt_node.get("input", {}).get("required", {})
-                 .get("ckpt_name", [[]])[0])
-        sdxl_ckpts = [c for c in ckpts
-                      if "xl" in c.lower() or "sdxl" in c.lower()
-                      and "flux" not in c.lower()]
+        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
+        sdxl_ckpts = [
+            c for c in ckpts if "xl" in c.lower() or "sdxl" in c.lower() and "flux" not in c.lower()
+        ]
         sdxl_ckpt = sdxl_ckpts[0] if sdxl_ckpts else ""
         record(
-            sec, "C6-01", "SDXL checkpoint installed",
+            sec,
+            "C6-01",
+            "SDXL checkpoint installed",
             "PASS" if sdxl_ckpt else "INFO",
-            sdxl_ckpt if sdxl_ckpt else
-            "not installed (optional) — download: huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0",
+            sdxl_ckpt
+            if sdxl_ckpt
+            else "not installed (optional) — download: huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0",
             t0=t0,
         )
     else:
-        record(sec, "C6-01", "SDXL checkpoint installed",
-               "WARN", f"ComfyUI not reachable (HTTP {code})", t0=t0)
+        record(
+            sec,
+            "C6-01",
+            "SDXL checkpoint installed",
+            "WARN",
+            f"ComfyUI not reachable (HTTP {code})",
+            t0=t0,
+        )
         return
 
     if not sdxl_ckpt:
-        record(sec, "C6-02", "SDXL generation via MCP",
-               "INFO", "skipped — checkpoint not installed", t0=None)
+        record(
+            sec,
+            "C6-02",
+            "SDXL generation via MCP",
+            "INFO",
+            "skipped — checkpoint not installed",
+            t0=None,
+        )
         return
 
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
@@ -855,12 +1039,10 @@ async def C6() -> None:
         section=sec,
         tid="C6-02",
         name="SDXL: generate_image (25 steps, cfg=7, 1024x1024)",
-        ok_fn=lambda t: (
-            "success" in t.lower() or "url" in t.lower() or "filename" in t.lower()
-        ),
+        ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
-        timeout=300,
+        timeout=1200,
     )
 
 
@@ -882,64 +1064,85 @@ async def C7() -> None:
     test_ckpt = ""
     if code == 200 and isinstance(data, dict):
         ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = (ckpt_node.get("input", {}).get("required", {})
-                 .get("ckpt_name", [[]])[0])
+        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
         # Prefer schnell (fastest) → sdxl → anything
         for candidate_pattern in ["schnell", "sdxl", "xl", ""]:
-            matches = [c for c in ckpts if candidate_pattern in c.lower()] if candidate_pattern else ckpts
+            matches = (
+                [c for c in ckpts if candidate_pattern in c.lower()] if candidate_pattern else ckpts
+            )
             if matches:
                 test_ckpt = matches[0]
                 break
 
     if not test_ckpt:
-        record(sec, "C7-01", "Parameter sweep: no checkpoint available",
-               "INFO", "skipped — no checkpoint installed", t0=t0)
+        record(
+            sec,
+            "C7-01",
+            "Parameter sweep: no checkpoint available",
+            "INFO",
+            "skipped — no checkpoint installed",
+            t0=t0,
+        )
         for tid in ["C7-02", "C7-03", "C7-04"]:
             record(sec, tid, "Parameter sweep test", "INFO", "skipped", t0=None)
         return
 
-    record(sec, "C7-01", "Parameter sweep using checkpoint",
-           "INFO", f"using: {test_ckpt}", t0=t0)
+    record(sec, "C7-01", "Parameter sweep using checkpoint", "INFO", f"using: {test_ckpt}", t0=t0)
 
     # Seed determinism: same seed → same output filename/hash
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
-        {"prompt": "a blue cube on white background", "steps": 4, "seed": 1234,
-         "checkpoint": test_ckpt},
-        section=sec, tid="C7-02",
+        {
+            "prompt": "a blue cube on white background",
+            "steps": 4,
+            "seed": 1234,
+            "checkpoint": test_ckpt,
+        },
+        section=sec,
+        tid="C7-02",
         name="Seed determinism: seed=1234 run 1",
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=120,
+        timeout=600,
     )
 
     # Different step count — fast vs quality
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
-        {"prompt": "a blue cube on white background", "steps": 8, "seed": 1234,
-         "checkpoint": test_ckpt},
-        section=sec, tid="C7-03",
+        {
+            "prompt": "a blue cube on white background",
+            "steps": 8,
+            "seed": 1234,
+            "checkpoint": test_ckpt,
+        },
+        section=sec,
+        tid="C7-03",
         name="Step variation: 8 steps (same seed)",
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=180,
+        timeout=600,
     )
 
     # Negative prompt support
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
         {
             "prompt": "portrait of a person, photorealistic",
             "negative_prompt": "cartoon, anime, sketch, blurry",
-            "steps": 4, "seed": 99,
+            "steps": 4,
+            "seed": 99,
             "checkpoint": test_ckpt,
         },
-        section=sec, tid="C7-04",
+        section=sec,
+        tid="C7-04",
         name="Negative prompt: portrait with exclusions",
         ok_fn=lambda t: (
             "success" in t.lower()
@@ -949,7 +1152,7 @@ async def C7() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=120,
+        timeout=600,
     )
 
 
@@ -978,13 +1181,19 @@ async def C8() -> None:
     has_models = last and last.status == "PASS" and last.tid == "C8-01"
 
     if not has_models:
-        record(sec, "C8-02", "Wan2.2 video generation",
-               "INFO", "skipped — no video models available", t0=None)
-        record(sec, "C8-03", "Video output accessible",
-               "INFO", "skipped", t0=None)
+        record(
+            sec,
+            "C8-02",
+            "Wan2.2 video generation",
+            "INFO",
+            "skipped — no video models available",
+            t0=None,
+        )
+        record(sec, "C8-03", "Video output accessible", "INFO", "skipped", t0=None)
         return
 
     # Short clip: 16 frames, 832x480 (Wan2.2 native resolution)
+    await _wait_for_comfyui_idle()
     await _mcp(
         VIDEO_MCP_PORT,
         "generate_video",
@@ -1008,13 +1217,14 @@ async def C8() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-        timeout=600,  # Video generation is slow — up to 10 min on CPU
+        timeout=1200,  # Video generation: match MCP bridge COMFYUI_TIMEOUT
     )
 
     # Longer clip quality test (optional — skip if previous failed)
     last = _log[-1] if _log else None
     prev_passed = last and last.status == "PASS" and last.tid == "C8-02"
     if prev_passed:
+        await _wait_for_comfyui_idle()
         await _mcp(
             VIDEO_MCP_PORT,
             "generate_video",
@@ -1029,18 +1239,20 @@ async def C8() -> None:
             section=sec,
             tid="C8-03",
             name="Wan2.2: longer clip (32 frames, 8 steps)",
-            ok_fn=lambda t: (
-                "success" in t.lower()
-                or "url" in t.lower()
-                or "filename" in t.lower()
-            ),
+            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed"],
-            timeout=900,
+            timeout=1200,
         )
     else:
-        record(sec, "C8-03", "Wan2.2: longer clip",
-               "INFO", "skipped — previous video generation did not fully pass", t0=None)
+        record(
+            sec,
+            "C8-03",
+            "Wan2.2: longer clip",
+            "INFO",
+            "skipped — previous video generation did not fully pass",
+            t0=None,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1067,10 +1279,12 @@ async def C9() -> None:
     signals = ["wave", "ocean", "camera", "light", "golden", "lens", "focal", "shot"]
     matched = [s for s in signals if s in text.lower()]
     record(
-        sec, "C9-01", "auto-video workspace: cinematic shot description",
-        "PASS" if code == 200 and len(matched) >= 3 else (
-            "WARN" if code == 200 and matched else "FAIL"
-        ),
+        sec,
+        "C9-01",
+        "auto-video workspace: cinematic shot description",
+        "PASS"
+        if code == 200 and len(matched) >= 3
+        else ("WARN" if code == 200 and matched else "FAIL"),
         f"matched {len(matched)}/{len(signals)} signals: {matched} | preview: {text[:80]}",
         t0=t0,
     )
@@ -1084,14 +1298,28 @@ async def C9() -> None:
         max_tokens=400,
         timeout=120,
     )
-    signals = ["workflow", "comfyui", "frame", "step", "resolution", "parameter",
-               "fps", "motion", "denoise", "sampler", "width", "height"]
+    signals = [
+        "workflow",
+        "comfyui",
+        "frame",
+        "step",
+        "resolution",
+        "parameter",
+        "fps",
+        "motion",
+        "denoise",
+        "sampler",
+        "width",
+        "height",
+    ]
     matched = [s for s in signals if s in text.lower()]
     record(
-        sec, "C9-02", "auto-video workspace: ComfyUI workflow parameter question",
-        "PASS" if code == 200 and len(matched) >= 3 else (
-            "WARN" if code == 200 and matched else "FAIL"
-        ),
+        sec,
+        "C9-02",
+        "auto-video workspace: ComfyUI workflow parameter question",
+        "PASS"
+        if code == 200 and len(matched) >= 3
+        else ("WARN" if code == 200 and matched else "FAIL"),
         f"matched {len(matched)}/{len(signals)}: {matched[:6]} | preview: {text[:80]}",
         t0=t0,
     )
@@ -1112,8 +1340,14 @@ async def C10() -> None:
     t0 = time.time()
     code, history = await _comfyui_get("/history?max_items=10")
     if code != 200 or not isinstance(history, dict) or not history:
-        record(sec, "C10-01", "ComfyUI /history has recent outputs",
-               "WARN", f"HTTP {code} or empty history", t0=t0)
+        record(
+            sec,
+            "C10-01",
+            "ComfyUI /history has recent outputs",
+            "WARN",
+            f"HTTP {code} or empty history",
+            t0=t0,
+        )
         return
 
     # Collect all outputs from recent history
@@ -1127,7 +1361,9 @@ async def C10() -> None:
                 videos_found.append(vid)
 
     record(
-        sec, "C10-01", "Recent outputs in ComfyUI /history",
+        sec,
+        "C10-01",
+        "Recent outputs in ComfyUI /history",
         "PASS" if (images_found or videos_found) else "WARN",
         f"{len(images_found)} image(s), {len(videos_found)} video(s) in recent history",
         t0=t0,
@@ -1148,17 +1384,24 @@ async def C10() -> None:
                 content_type = r.headers.get("content-type", "unknown")
                 is_image = "image" in content_type or fname.endswith((".png", ".jpg", ".webp"))
                 record(
-                    sec, "C10-02", f"Latest image accessible and valid",
+                    sec,
+                    "C10-02",
+                    f"Latest image accessible and valid",
                     "PASS" if r.status_code == 200 and size_kb > 1 and is_image else "WARN",
                     f"{fname}: {size_kb:.1f}KB, {content_type}",
                     t0=t0,
                 )
         except Exception as e:
-            record(sec, "C10-02", "Latest image accessible and valid",
-                   "WARN", str(e)[:120], t0=t0)
+            record(sec, "C10-02", "Latest image accessible and valid", "WARN", str(e)[:120], t0=t0)
     else:
-        record(sec, "C10-02", "Latest image accessible and valid",
-               "INFO", "no images in recent history", t0=None)
+        record(
+            sec,
+            "C10-02",
+            "Latest image accessible and valid",
+            "INFO",
+            "no images in recent history",
+            t0=None,
+        )
 
     # Validate most recent video
     if videos_found:
@@ -1175,17 +1418,24 @@ async def C10() -> None:
                 content_type = r.headers.get("content-type", "unknown")
                 is_video = "video" in content_type or fname.endswith((".mp4", ".webm", ".gif"))
                 record(
-                    sec, "C10-03", "Latest video accessible and valid",
+                    sec,
+                    "C10-03",
+                    "Latest video accessible and valid",
                     "PASS" if r.status_code == 200 and size_mb > 0.05 and is_video else "WARN",
                     f"{fname}: {size_mb:.2f}MB, {content_type}",
                     t0=t0,
                 )
         except Exception as e:
-            record(sec, "C10-03", "Latest video accessible and valid",
-                   "WARN", str(e)[:120], t0=t0)
+            record(sec, "C10-03", "Latest video accessible and valid", "WARN", str(e)[:120], t0=t0)
     else:
-        record(sec, "C10-03", "Latest video accessible and valid",
-               "INFO", "no videos in recent history", t0=None)
+        record(
+            sec,
+            "C10-03",
+            "Latest video accessible and valid",
+            "INFO",
+            "no videos in recent history",
+            t0=None,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1308,11 +1558,11 @@ async def main() -> int:
 
     sha = _git_sha()
     start = time.time()
-    print(f"\n{'═'*65}")
+    print(f"\n{'═' * 65}")
     print(f"  Portal 5 — ComfyUI / Image & Video Acceptance Tests")
     print(f"  Git: {sha}  |  Sections: {', '.join(run)}")
     print(f"  ComfyUI: {COMFYUI_URL}")
-    print(f"{'═'*65}\n")
+    print(f"{'═' * 65}\n")
 
     for sid in run:
         fn = SECTIONS[sid]
@@ -1324,14 +1574,14 @@ async def main() -> int:
     counts = _write_results(elapsed, sha)
 
     # Print summary
-    print(f"\n{'─'*65}")
+    print(f"\n{'─' * 65}")
     total = sum(counts.values())
     print(f"  Completed {len(run)} section(s) in {elapsed}s — {total} results")
     for s in ["PASS", "FAIL", "BLOCKED", "WARN", "INFO"]:
         if s in counts:
             icon = _ICON.get(s, "  ")
             print(f"  {icon} {s}: {counts[s]}")
-    print(f"{'─'*65}\n")
+    print(f"{'─' * 65}\n")
 
     return 1 if counts.get("FAIL", 0) or counts.get("BLOCKED", 0) else 0
 
