@@ -301,6 +301,24 @@ Run 10 fixes (2026-04-08):
       the primary-path probe. After a fresh MLX model load, the pipeline's health-checker
       needs ~10s to re-poll the MLX backend and update its routing table. Without the
       sleep, the first S23-03 request hit a stale Ollama backend (baronllm).
+
+Run 11 fixes (2026-04-08):
+    - S23-04: Fixed `is_ollama` check in _workspace_fallback_test to recognize
+      slash-notation Ollama models (e.g. huihui_ai/baronllm-abliterated,
+      xploiter/the-xploiter, hf.co/QuantFactory/...). These are HuggingFace-imported
+      Ollama models that use `org/name` format instead of `name:tag`. The pipeline's
+      absolute fallback (append any remaining healthy backends) can serve from these
+      models. The fix: `is_ollama = ":" in model or ("/" in model and not any(
+      model.startswith(p) for p in _MLX_ORGS))` where _MLX_ORGS are the known MLX
+      org prefixes (mlx-community/, lmstudio-community/, Jackrong/). Without this fix,
+      S23-04 FAILed because baronllm-abliterated has no `:` and was not recognized as
+      an Ollama model, even though the pipeline correctly served it as an absolute
+      fallback when MLX was killed.
+    - S7-02: Increased generate_music timeout from 180s → 300s. MusicGen-large
+      inference on MPS can exceed 180s under memory pressure (64GB system with Docker
+      containers + MLX proxy resident consuming ~30GB). The MCP call succeeds within
+      ~175s normally, but the 180s timeout had no headroom. Result: TaskGroup error
+      at exactly 180.1s. Increased to 300s to provide adequate margin.
 """
 
 from __future__ import annotations
@@ -3317,6 +3335,7 @@ async def S5() -> None:
             timeout=180,
         )
     import re as _re
+
     text_clean = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL).strip()
     has_code = "def " in text_clean or "```python" in text_clean.lower() or "```" in text_clean
     # Degrade to WARN (not FAIL) when MLX unavailable and Ollama fallback doesn't produce code
@@ -3542,7 +3561,7 @@ async def S7() -> None:
         name="generate_music: 5s jazz (musicgen-large) → success",
         ok_fn=lambda t: '"success": true' in t or ("success" in t and "path" in t),
         detail_fn=lambda t: t[:120],
-        timeout=180,
+        timeout=300,
     )
 
     # S7-02b: Verify the generated WAV file exists on the host and has audio content
@@ -4226,7 +4245,16 @@ _PERSONA_SIGNALS: dict[str, list[str]] = {
         "type hint",
         "docstring",
     ],
-    "pythoninterpreter": ["zip", "reverse", "output", "slice", "tuple", "[(1, 3)", "(2, 2)", "3, 2, 1"],
+    "pythoninterpreter": [
+        "zip",
+        "reverse",
+        "output",
+        "slice",
+        "tuple",
+        "[(1, 3)",
+        "(2, 2)",
+        "3, 2, 1",
+    ],
     "redteamoperator": ["jwt", "sql injection", "attack", "idor", "token"],
     "researchanalyst": ["microservices", "monolith", "deployment", "complexity"],
     "seniorfrontenddeveloper": ["react", "hook", "useeffect", "loading", "error"],
@@ -4577,7 +4605,9 @@ async def _mlx_group(
                     # Admission control rejection — proxy may need time for memory reclaim.
                     # macOS inactive pages from prior loads are freed over 30-120s after eviction.
                     # Wait 90s then retry once before giving up.
-                    print(f"  ⏳ Admission rejection detected — waiting 90s for memory reclaim, then retrying...")
+                    print(
+                        f"  ⏳ Admission rejection detected — waiting 90s for memory reclaim, then retrying..."
+                    )
                     await asyncio.sleep(90)
                     await _unload_ollama_models()
                     loaded, detail = await _load_mlx_model(model_label)
@@ -4620,7 +4650,9 @@ async def _mlx_group(
                 async with httpx.AsyncClient(timeout=3) as _c:
                     _hr = await _c.get(f"{MLX_URL}/health")
                     _hd = _hr.json()
-                    if _hd.get("state") == "down" and "Insufficient memory" in (_hd.get("last_error") or ""):
+                    if _hd.get("state") == "down" and "Insufficient memory" in (
+                        _hd.get("last_error") or ""
+                    ):
                         _warn_reason = f"admission rejected: {_hd['last_error'][:80]}"
                         _admission_rejected = True
             except Exception:
@@ -5946,7 +5978,12 @@ async def S22() -> None:
                     )
                 else:
                     record(
-                        sec, "S22-02", "MLX proxy /v1/models", "WARN", f"HTTP 503 state={body_state}", t0=t0
+                        sec,
+                        "S22-02",
+                        "MLX proxy /v1/models",
+                        "WARN",
+                        f"HTTP 503 state={body_state}",
+                        t0=t0,
                     )
             else:
                 record(
@@ -6648,7 +6685,13 @@ async def _workspace_fallback_test(
         # Any healthy model serving the request is acceptable — the pipeline's
         # "remaining backends as absolute fallback" ensures no 503.
         # Preferred: matches expected group. Acceptable: any Ollama model.
-        is_ollama = ":" in model_fallback  # Ollama models use colon notation
+        # Ollama models use colon notation (e.g. dolphin-llama3:8b) OR slash notation
+        # for HF imports (e.g. huihui_ai/baronllm-abliterated). MLX models also use
+        # slash but are identified by known MLX org prefixes.
+        _MLX_ORGS = ("mlx-community/", "lmstudio-community/", "Jackrong/")
+        is_ollama = ":" in model_fallback or (
+            "/" in model_fallback and not any(model_fallback.startswith(p) for p in _MLX_ORGS)
+        )
         if matches_group or not model_fallback or is_ollama:
             detail = f"model={model_fallback[:80] or 'unknown'}"
             if matched_signals:
@@ -6864,7 +6907,11 @@ async def S23() -> None:
             "auto-coding: primary MLX path",
             "PASS" if is_mlx or not model or _s23_03_admission else "WARN",
             f"model={model[:80] or 'unknown'}"
-            + (" (admission rejected — memory constrained, Ollama fallback correct)" if _s23_03_admission and not is_mlx else ""),
+            + (
+                " (admission rejected — memory constrained, Ollama fallback correct)"
+                if _s23_03_admission and not is_mlx
+                else ""
+            ),
             t0=t0,
         )
     else:
@@ -7013,7 +7060,11 @@ async def S23() -> None:
             "auto-vision: primary MLX path",
             "PASS" if is_vision_mlx or not model or _s23_08_admission else "WARN",
             f"model={model[:80] or 'unknown'}"
-            + (" (admission rejected — memory constrained, Ollama fallback correct)" if _s23_08_admission and not is_vision_mlx else ""),
+            + (
+                " (admission rejected — memory constrained, Ollama fallback correct)"
+                if _s23_08_admission and not is_vision_mlx
+                else ""
+            ),
             t0=t0,
         )
     else:
@@ -7109,7 +7160,11 @@ async def S23() -> None:
             "auto-reasoning: primary MLX path",
             "PASS" if is_mlx or not model or _s23_11_admission else "WARN",
             f"model={model[:80] or 'unknown'}"
-            + (" (admission rejected — memory constrained, Ollama fallback correct)" if _s23_11_admission and not is_mlx else ""),
+            + (
+                " (admission rejected — memory constrained, Ollama fallback correct)"
+                if _s23_11_admission and not is_mlx
+                else ""
+            ),
             t0=t0,
         )
     else:
