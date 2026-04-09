@@ -64,6 +64,7 @@ ALL_MODELS = [
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",
     "mlx-community/llava-1.5-7b-8bit",
+    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
 ]
 
 # ── Big-Model Mode (P5-BIG-001) ───────────────────────────────────────────────
@@ -117,6 +118,7 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
     "mlx-community/llava-1.5-7b-8bit": 8.0,  # LLaVA 7B 8bit (~8GB)
+    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
 }
 
 # Safety headroom reserved for OS, Ollama sidecar, and KV cache spikes.
@@ -581,7 +583,7 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
     while time.time() < deadline:
         try:
             if os.path.exists(log_file):
-                with open(log_file, "r") as f:
+                with open(log_file) as f:
                     content = f.read()
                 # Readiness signals differ by server type:
                 # - mlx_lm.server prints "Starting httpd" (OpenAI-compatible HTTP server)
@@ -604,7 +606,7 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
                 if "Error" in content or "Traceback" in content:
                     # Don't fail immediately — might be a warning, not fatal
                     if "Traceback" in content and time.time() - last_log > 15:
-                        print(f"[proxy] server log has errors, continuing to wait...", flush=True)
+                        print("[proxy] server log has errors, continuing to wait...", flush=True)
                         last_log = time.time()
                 # Log progress
                 size = len(content)
@@ -624,7 +626,7 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
 
     # Timeout — check one more time
     try:
-        with open(log_file, "r") as f:
+        with open(log_file) as f:
             content = f.read()
             if any(
                 sig in content
@@ -707,7 +709,7 @@ def start_server(stype: str, model: str = "") -> int:
     )
 
     # Wait for model to load — monitor log for "Starting httpd"
-    print(f"[proxy] waiting for model to load (monitoring server log)...", flush=True)
+    print("[proxy] waiting for model to load (monitoring server log)...", flush=True)
     if _wait_for_model_loaded(stype, model):
         mlx_state.set_ready(stype, model or None)
         print(f"[proxy] mlx_{stype} ready on :{port} model={model or '(default)'}", flush=True)
