@@ -623,7 +623,7 @@ async def C1() -> None:
         sec,
         "C1-05",
         "VAE models installed",
-        "INFO",
+        "PASS" if vaes else "INFO",
         f"{len(vaes)} VAE(s): {', '.join(vaes[:5])}"
         if vaes
         else "none (using checkpoint-embedded VAE)",
@@ -643,8 +643,10 @@ async def C1() -> None:
         sec,
         "C1-06",
         "LoRA models installed",
-        "INFO",
-        f"{len(loras)} LoRA(s): {', '.join(loras[:5])}" if loras else "none installed",
+        "PASS" if loras else "WARN",
+        f"{len(loras)} LoRA(s): {', '.join(loras[:5])}"
+        if loras
+        else "none installed — download at least one LoRA",
         t0=t0,
     )
 
@@ -655,16 +657,20 @@ async def C1() -> None:
         up_node = data.get("UpscaleModelLoader", {})
         input_types = up_node.get("input", {}).get("required", {})
         up_entry = input_types.get("model_name", [])
-        if up_entry and isinstance(up_entry[0], list):
-            upscalers = up_entry[0]
+        # ComfyUI returns ['COMBO', {'options': ['model1', 'model2']}] for upscale
+        if up_entry and isinstance(up_entry, list) and len(up_entry) > 1:
+            if isinstance(up_entry[1], dict):
+                upscalers = up_entry[1].get("options", [])
+            elif isinstance(up_entry[0], list):
+                upscalers = up_entry[0]
     record(
         sec,
         "C1-07",
         "Upscale models installed",
-        "INFO",
+        "PASS" if upscalers else "WARN",
         f"{len(upscalers)} upscaler(s): {', '.join(upscalers[:5])}"
         if upscalers
-        else "none installed",
+        else "none installed — download an upscale model (e.g. RealESRGAN_x4.pth)",
         t0=t0,
     )
 
@@ -721,8 +727,8 @@ async def C2() -> None:
     record(
         sec,
         "C2-03",
-        "ComfyUI+video containers in docker compose",
-        "INFO",
+        "ComfyUI+video MCP containers running",
+        "PASS" if containers else "WARN",
         ", ".join(containers) if containers else "none matched — check docker compose ps",
         t0=t0,
     )
@@ -953,6 +959,7 @@ async def C5() -> None:
         )
         return
 
+    await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
@@ -969,8 +976,71 @@ async def C5() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
-        timeout=300,
+        timeout=1200,
     )
+
+    # LoRA tests — verify both regular and NSFW LoRAs work with image generation
+    code, lora_data = await _comfyui_get("/object_info/LoraLoader", timeout=15)
+    loras: list[str] = []
+    if code == 200 and isinstance(lora_data, dict):
+        lora_node = lora_data.get("LoraLoader", {})
+        entries = lora_node.get("input", {}).get("required", {}).get("lora_name", [])
+        if entries and isinstance(entries[0], list):
+            loras = entries[0]
+
+    # Regular LoRA test
+    regular_loras = [l for l in loras if "nsfw" not in l.lower()]
+    if regular_loras:
+        await _wait_for_comfyui_idle()
+        await _mcp(
+            COMFYUI_MCP_PORT,
+            "generate_image",
+            {
+                "prompt": "portrait of a woman, detailed face, studio lighting",
+                "steps": 4,
+                "seed": 42,
+                "checkpoint": "flux1-schnell.safetensors",
+                "lora": regular_loras[0],
+                "lora_strength": 0.8,
+            },
+            section=sec,
+            tid="C5-03",
+            name=f"LoRA generation: {regular_loras[0]} (regular)",
+            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+            detail_fn=lambda t: t[:200],
+            warn_if=["error", "failed", "rejected"],
+            timeout=600,
+        )
+    else:
+        record(
+            sec, "C5-03", "LoRA generation (regular)", "WARN", "no regular LoRA installed", t0=None
+        )
+
+    # NSFW LoRA test
+    nsfw_loras = [l for l in loras if "nsfw" in l.lower()]
+    if nsfw_loras:
+        await _wait_for_comfyui_idle()
+        await _mcp(
+            COMFYUI_MCP_PORT,
+            "generate_image",
+            {
+                "prompt": "portrait of a person, detailed, nsfwsks",
+                "steps": 4,
+                "seed": 42,
+                "checkpoint": "flux1-schnell.safetensors",
+                "lora": nsfw_loras[0],
+                "lora_strength": 0.85,
+            },
+            section=sec,
+            tid="C5-04",
+            name=f"LoRA generation: {nsfw_loras[0]} (NSFW)",
+            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+            detail_fn=lambda t: t[:200],
+            warn_if=["error", "failed", "rejected"],
+            timeout=600,
+        )
+    else:
+        record(sec, "C5-04", "LoRA generation (NSFW)", "INFO", "no NSFW LoRA installed", t0=None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1353,12 +1423,19 @@ async def C10() -> None:
     # Collect all outputs from recent history
     images_found: list[dict] = []
     videos_found: list[dict] = []
+    video_extensions = {".mp4", ".webm", ".gif", ".avi", ".mov"}
     for entry in history.values():
         for node_outputs in entry.get("outputs", {}).values():
-            for img in node_outputs.get("images", []):
-                images_found.append(img)
-            for vid in node_outputs.get("videos", node_outputs.get("gifs", [])):
-                videos_found.append(vid)
+            # ComfyUI stores images in "images" key
+            for item in node_outputs.get("images", []):
+                fname = item.get("filename", "")
+                if any(fname.lower().endswith(ext) for ext in video_extensions):
+                    videos_found.append(item)
+                else:
+                    images_found.append(item)
+            # Some nodes store videos in "videos" or "gifs" keys
+            for item in node_outputs.get("videos", node_outputs.get("gifs", [])):
+                videos_found.append(item)
 
     record(
         sec,

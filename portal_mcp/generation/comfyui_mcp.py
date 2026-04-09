@@ -277,6 +277,9 @@ async def generate_image(
     negative_prompt: str = "",
     seed: int = -1,
     model: str = "flux",
+    checkpoint: str = "",
+    lora: str = "",
+    lora_strength: float = 1.0,
 ) -> dict:
     """
     Generate an image using FLUX.1 or SDXL via ComfyUI.
@@ -292,6 +295,9 @@ async def generate_image(
         seed: Random seed, -1 for random
         model: Model to use - 'flux' (fast), 'flux-uncensored' (uncensored),
                'sdxl' (high quality). Defaults to 'flux'.
+        checkpoint: Override checkpoint filename (optional)
+        lora: LoRA filename to apply (optional, from models/loras/)
+        lora_strength: LoRA strength 0.0-2.0 (default 1.0)
     """
     if seed == -1:
         seed = int(time.time() * 1000) % (2**32)
@@ -331,6 +337,45 @@ async def generate_image(
             "FLUX_CLIP_T5_FILE", "text_encoder_2/model-00001-of-00002.safetensors"
         )
         workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
+        if checkpoint:
+            workflow["1"]["inputs"]["ckpt_name"] = checkpoint
+
+    # Inject LoRA if requested — insert LoraLoaderModelOnly between checkpoint and KSampler
+    if lora:
+        import copy
+
+        wf = copy.deepcopy(workflow)
+        if selected_model == "sdxl":
+            # SDXL: LoraLoader sits between CheckpointLoader(1) and KSampler(5)
+            # KSampler(5) already references model from [1,0] — rewire through LoRA
+            wf["10"] = {
+                "inputs": {
+                    "model": ["1", 0],
+                    "clip": ["1", 1],
+                    "lora_name": lora,
+                    "strength_model": lora_strength,
+                    "strength_clip": lora_strength,
+                },
+                "class_type": "LoraLoader",
+            }
+            # Rewire KSampler to use LoRA output
+            wf["5"]["inputs"]["model"] = ["10", 0]
+            # Rewire CLIPTextEncode to use LoRA clip output
+            wf["2"]["inputs"]["clip"] = ["10", 1]
+            wf["3"]["inputs"]["clip"] = ["10", 1]
+        else:
+            # FLUX: LoraLoaderModelOnly between CheckpointLoader(1) and KSampler(8)
+            wf["11"] = {
+                "inputs": {
+                    "model": ["1", 0],
+                    "lora_name": lora,
+                    "strength_model": lora_strength,
+                },
+                "class_type": "LoraLoaderModelOnly",
+            }
+            # KSampler(8) model input → LoRA output
+            wf["8"]["inputs"]["model"] = ["11", 0]
+        workflow = wf
 
     client_id = str(uuid.uuid4())
 
