@@ -51,6 +51,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 # Check pipeline logs for routing decision
 ./launch.sh logs | grep "Routing workspace="
 # Should show: Routing workspace=auto → backend=ollama-local model=dolphin-llama3:8b stream=True
+# LLM router is primary; keyword scoring is fallback if LLM is low confidence or times out
 ```
 
 ---
@@ -78,7 +79,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
 | Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | DeepSeek-Coder-V2 (MLX) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (MLX) |
 | Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next (MLX big-model) |
 
 **Example — coding:**
@@ -193,7 +194,7 @@ curl -s http://localhost:8914/health
 1. Select `Portal Red Team`
 2. Type: `Enumerate potential injection points in this GraphQL schema: [paste schema]`
 3. Routes to BaronLLM with red team perspective
-4. Weighted keyword scoring determines routing — strong signals (exploit, payload, shellcode) carry weight 3, medium (bypass, evasion) carry weight 2. Threshold of 5+ triggers auto-redteam
+4. LLM-based intent classifier routes offensive content to `auto-redteam`; keyword scoring provides fallback (strong signals like "exploit", "payload", "shellcode" carry weight 3). Threshold of 4+ triggers auto-redteam
 
 ### Blue Team (auto-blueteam)
 
@@ -203,7 +204,7 @@ curl -s http://localhost:8914/health
 
 **Verify security routing:**
 ```bash
-# Content-aware routing: weighted keyword scoring — strong signals route to specialist workspaces
+# Content-aware routing: LLM-based intent classification (primary) with keyword scoring fallback
 curl -s http://localhost:9099/v1/chat/completions \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   -H "Content-Type: application/json" \
@@ -971,12 +972,19 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh down            # Stop (data preserved)
 ./launch.sh status          # Health check
 ./launch.sh logs [service]  # View logs
+./launch.sh rebuild         # Rebuild portal-pipeline Docker image after git pull
+./launch.sh prune           # Prune Docker resources
 
 # Models
 ./launch.sh pull-models     # Pull all Ollama models (30-90 min)
-./launch.sh install-mlx     # Install MLX for Apple Silicon
-./launch.sh switch-mlx-model <tag>  # Switch active MLX model
+./launch.sh refresh-models  # Re-pull models (update existing)
 ./launch.sh import-gguf <path> [name]  # Import a local .gguf file into Ollama
+./launch.sh install-mlx     # Install MLX for Apple Silicon
+./launch.sh pull-mlx-models # Download MLX model weights
+./launch.sh switch-mlx-model <tag>  # Switch active MLX model
+./launch.sh start-mlx-watchdog  # Start MLX health watchdog daemon
+./launch.sh stop-mlx-watchdog   # Stop MLX watchdog daemon
+./launch.sh mlx-status      # Show MLX component status
 
 # Users
 ./launch.sh add-user <email> [name] [role]
@@ -991,12 +999,16 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh backup          # Backup all data
 ./launch.sh restore <file>  # Restore from backup
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
+./launch.sh reseed          # Force-refresh all presets (delete + recreate)
 ./launch.sh clean           # Wipe Open WebUI data (keep models)
 ./launch.sh clean-all       # Wipe everything including models
 
 # ComfyUI
 ./launch.sh install-comfyui              # Install ComfyUI
 ./launch.sh download-comfyui-models      # Download image/video models
+
+# Music
+./launch.sh install-music                # Install Music MCP natively
 
 # Testing
 ./launch.sh test            # Run live smoke tests

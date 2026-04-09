@@ -61,7 +61,8 @@ Everything runs with a single command. No manual configuration.
 | Ollama | Runs local language models | (internal) |
 | SearXNG | Private web search for research | (internal) |
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| 7 MCP Servers | Documents, music, voice, code, images | (internal) |
+| 6 MCP Servers | Documents, voice, code, images, video, whisper | (internal, Docker) |
+| Music MCP | Music generation (host-native, via `install-music`) | (internal) |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
@@ -76,6 +77,7 @@ and tools automatically.
 |---|---|---|
 | `auto` | General — routes to best model | — |
 | `auto-coding` | Code generation and review | Code sandbox |
+| `auto-agentic` | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) | Code sandbox |
 | `auto-security` | Security analysis and hardening | Code sandbox |
 | `auto-redteam` | Offensive security research | Code sandbox |
 | `auto-blueteam` | Defensive security, incident response | Code sandbox |
@@ -87,7 +89,7 @@ and tools automatically.
 | `auto-research` | Web research and synthesis | — |
 | `auto-reasoning` | Deep reasoning, complex analysis | — |
 | `auto-data` | Data analysis, statistics | Code + Documents |
-| `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
+| `auto-spl` | Splunk SPL queries, pipeline explanation | Qwen3-Coder-30B (MLX) |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
 | `auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
 
@@ -107,6 +109,14 @@ and tools automatically.
 # Pull specialized models (security, coding, reasoning — 30–90 min)
 ./launch.sh pull-models
 
+# MLX (Apple Silicon)
+./launch.sh install-mlx               # Install MLX dual-server proxy
+./launch.sh pull-mlx-models           # Download MLX model weights
+./launch.sh switch-mlx-model <tag>    # Pre-warm a specific MLX model
+./launch.sh mlx-status                # Show MLX component status
+./launch.sh start-mlx-watchdog        # Start MLX health watchdog
+./launch.sh stop-mlx-watchdog         # Stop MLX watchdog
+
 # User management
 ./launch.sh add-user alice@example.com "Alice Smith"
 ./launch.sh list-users
@@ -120,9 +130,14 @@ and tools automatically.
 ./launch.sh backup          # Save all data to ./backups/
 ./launch.sh restore <file>  # Restore from backup
 
+# Seeding
+./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
+./launch.sh reseed          # Force-refresh all presets (delete + recreate)
+
 # Cleanup
 ./launch.sh clean           # Remove containers (keeps model weights)
 ./launch.sh clean-all       # Remove everything including models
+./launch.sh rebuild         # Rebuild portal-pipeline Docker image after git pull
 ```
 
 ---
@@ -163,18 +178,18 @@ and tools automatically.
 
 ### Core models (pulled automatically on first run, ~4 GB)
 - `dolphin-llama3:8b` — general purpose default
-- `llama3.2:3b-abliterated` — fast small model (uncensored, used for routing)
+- `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` — fast routing classifier (uncensored)
 - `nomic-embed-text` — document embeddings for RAG
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
-- **Security:** BaronLLM-18B, Lily-Cybersecurity-7B, WhiteRabbitNeo-33B
-- **Coding:** Qwen3-Coder-30B, GLM-4.7-Flash, Devstral-24B
+- **Security:** BaronLLM-6B, Lily-Cybersecurity-7B, WhiteRabbitNeo-33B, The-Xploiter
+- **Coding:** Qwen3-Coder-30B, GLM-4.7-Flash, Devstral-24B, DeepSeek-Coder-V2
 - **Reasoning:** DeepSeek-R1-32B, Tongyi-DeepResearch-30B
 - **Vision:** Qwen3-VL 32B, LLaVA-7B
 
 ### MLX models (Apple Silicon, pulled with `./launch.sh pull-mlx-models`)
-- **Text-only (mlx_lm):** Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama 3.2/3.3, Qwopus3.5-27B, Magistral-Small
-- **VLM (mlx_vlm):** Qwen3-VL-32B, LLaVA-7b, Gemma-4-31B
+- **Text-only (mlx_lm):** Qwen3-Coder-Next-4bit, Qwen3-Coder-30B-8bit, DeepSeek-R1-32B, Devstral-Small-2507, Llama 3.2/3.3, Qwopus3.5-27B, Qwopus3.5-9B, Magistral-Small, DeepSeek-Coder-V2-Lite, Dolphin3-Llama3.1-8B, Qwen3.5-35B-A3B-Claude
+- **VLM (mlx_vlm):** Qwen3-VL-32B, LLaVA-7B, Gemma-4-31B
 - The MLX proxy auto-switches between these servers — only one runs at a time
 
 ### Image generation (downloaded automatically on first run, ~12 GB)

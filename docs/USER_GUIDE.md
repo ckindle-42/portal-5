@@ -14,6 +14,7 @@ routes your request to the best-suited AI model for that task.
 |---|---|
 | 🤖 Portal Auto Router | Not sure which to use — routes automatically |
 | 💻 Portal Code Expert | Writing code, debugging, code review |
+| ⚡ Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) |
 | 🔒 Portal Security Analyst | Security questions, hardening guidance |
 | 🔴 Portal Red Team | Offensive security, penetration testing |
 | 🔵 Portal Blue Team | Incident response, threat detection, defense |
@@ -25,7 +26,9 @@ routes your request to the best-suited AI model for that task.
 | 🔍 Portal Research Assistant | Research and information synthesis |
 | 👁️ Portal Vision | Image analysis, visual tasks |
 | 📊 Portal Data Analyst | Data analysis, statistics |
-| ⚖️ Portal Compliance | NERC CIP gap analysis, policy review, audit prep |
+| 🔍 Portal SPL Engineer | Splunk SPL queries and detection searches |
+| ⚖️ Portal Compliance Analyst | NERC CIP gap analysis, policy review, audit prep |
+| 🧪 Portal Mistral Reasoner | Structured reasoning, strategic planning |
 
 ## Personas
 

@@ -785,6 +785,77 @@ _REASONING_KEYWORDS: dict[str, int] = {
     "thorough": 1,
 }
 
+# Compliance keywords — NERC CIP and regulatory intent
+_COMPLIANCE_KEYWORDS: dict[str, int] = {
+    # Strong (3) — unambiguous compliance intent
+    "nerc cip": 3,
+    "cip-002": 3,
+    "cip-003": 3,
+    "cip-004": 3,
+    "cip-005": 3,
+    "cip-006": 3,
+    "cip-007": 3,
+    "cip-008": 3,
+    "cip-009": 3,
+    "cip-010": 3,
+    "cip-011": 3,
+    "cip-013": 3,
+    "cip-014": 3,
+    "compliance gap": 3,
+    "gap analysis": 3,
+    "regulatory compliance": 3,
+    "audit preparation": 3,
+    "policy mapping": 3,
+    "policy-to-standard": 3,
+    "control evidence": 3,
+    "compliance status": 3,
+    # Medium (2) — regulatory context
+    "nerc": 2,
+    "bulk electric": 2,
+    "bes cyber": 2,
+    "critical asset": 2,
+    "low impact": 2,
+    "medium impact": 2,
+    "high impact": 2,
+    "electronic security": 2,
+    "physical security": 2,
+    "access management": 2,
+    "security management": 2,
+    "incident response plan": 2,
+    "recovery plan": 2,
+    "configuration change": 2,
+    "patch management": 2,
+    # Weak (1) — broad regulatory terms
+    "compliance": 1,
+    "regulation": 1,
+    "audit": 1,
+    "standard": 1,
+    "policy review": 1,
+}
+
+# Mistral/Magistral keywords — structured reasoning with Mistral lineage
+_MISTRAL_KEYWORDS: dict[str, int] = {
+    # Strong (3) — explicit Mistral/Magistral requests
+    "magistral": 3,
+    "mistral reasoning": 3,
+    "mistral model": 3,
+    "think mode": 3,
+    "[think]": 3,
+    "strategic reasoning": 3,
+    "structured reasoning": 3,
+    # Medium (2) — strategic/planning context
+    "strategic analysis": 2,
+    "strategic planning": 2,
+    "business reasoning": 2,
+    "decision framework": 2,
+    "decision analysis": 2,
+    "trade-off analysis": 2,
+    "risk assessment": 2,
+    # Weak (1) — broad planning terms
+    "strategy": 1,
+    "planning": 1,
+}
+
 # Workspace routing configuration: keywords + activation threshold
 # Thresholds tuned so a single strong signal (weight 3) triggers routing,
 # or a combination of medium signals (2+2=4) reaches the bar.
@@ -823,6 +894,14 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
     },
     "auto-reasoning": {
         "keywords": _REASONING_KEYWORDS,
+        "threshold": 3,
+    },
+    "auto-compliance": {
+        "keywords": _COMPLIANCE_KEYWORDS,
+        "threshold": 3,
+    },
+    "auto-mistral": {
+        "keywords": _MISTRAL_KEYWORDS,
         "threshold": 3,
     },
 }

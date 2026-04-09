@@ -38,76 +38,61 @@ All notable changes to Portal 5 will be documented in this file.
   - `tests/unit/test_mlx_proxy.py`: 9 new unit tests (mocked memory reads, no MLX runtime).
   - Env vars: `MLX_MEMORY_HEADROOM_GB` (default 10.0), `MLX_MEMORY_UNKNOWN_DEFAULT_GB` (default 20.0).
 
-### Changed
-- Version: 5.2.1 → 6.0.0
-- `router_pipe.py` auto-routing path: LLM router is primary; keywords are fallback.
-- `ensure_server()`: memory check now model-specific (replaces generic 10GB floor).
-- `MEMORY_HEADROOM_GB` replaces hardcoded `8`/`10` constants in post-reclaim warning.
-
-## [Unreleased]
-
-### Added
-
 - **`auto-spl` workspace**: Splunk SPL query authoring, pipeline explanation, detection search
-  - Routes `[mlx, coding, general]` — MLX DeepSeek-Coder-V2-Lite-Instruct-8bit primary (~12GB),
+  - Routes `[mlx, coding, general]` — MLX Qwen3-Coder-30B-A3B-Instruct-8bit primary,
     deepseek-coder-v2:16b-lite-instruct-q4_K_M Ollama fallback
   - `_SPL_KEYWORDS` weighted dict + scoring for content-aware routing from `auto` workspace
-  - SPL detection inserted between security and coding in `_detect_workspace` scoring chain
-  - `'splunk'` and `'spl query'` removed from `_CODING_KEYWORDS` (now owned by SPL workspace)
-  - `_detect_workspace` replaced regex priority chain with weighted keyword scoring:
-    each keyword carries weight 1-3 (weak/medium/strong), workspaces have activation thresholds,
-    highest score above threshold wins. Handles overlapping signals naturally (e.g. "exploit in Python"
-    → security wins, not coding).
-  - New `splunksplgineer` persona with hardened SPL constraints:
-    - eval function hallucination guards (no `is_numeric()`, `indexof()`, `contains()`)
-    - `tonumber()` enforcement before arithmetic operations
-    - filter-first rules (index, sourcetype, time range before first pipe)
-    - Splunk Enterprise 9.x assumption, deprecated command avoidance
+  - New `splunksplgineer` persona with hardened SPL constraints
   - 16 new unit tests in `TestSPLWorkspace`
   - Workspace count: 15 → 16
-- **portal_pipeline/notifications/channels/webhook.py**: New `WebhookChannel` sends JSON POST
-  to any user-defined `WEBHOOK_URL` on all operational alert and daily summary events.
-  Configure via `WEBHOOK_URL` (required) and optional `WEBHOOK_HEADERS` (JSON object)
-  environment variables. Supports any HTTP endpoint — PagerDuty, custom receivers, SIEM.
-  Wired into `router_pipe.py:_init_notifications()` alongside existing channels.
-- **config/grafana/dashboards/portal5_overview.json** (v2→v3): Added 6 new Usage Analytics
-  panels — Requests by Workspace Over Time, Tokens by Workspace, Top 10 Workspaces by Volume,
-  Model Distribution per Workspace, Current Request Rate. All queries use existing Prometheus
-  metrics; no new instrumentation required.
+
+- **`auto-agentic` workspace**: Long-horizon agentic coding via Qwen3-Coder-Next-4bit (80B MoE)
+  - Routes `[mlx, coding, general]` — `mlx-community/Qwen3-Coder-Next-4bit` MLX primary
+  - `context_limit: 32768` for KV cache suppression (P5-BIG-001)
+  - Keyword triggers: agentic, swe-agent, openhands, multi-file, long-horizon
+  - Workspace count: 16 → 17
+
 - **`auto-compliance` workspace**: NERC CIP gap analysis and policy-to-standard mapping
-  - Routes `[mlx, reasoning, general]` — MLX Qwen3.5-35B-A3B-4bit primary,
-    DeepSeek-R1-32B Ollama fallback (no new model pulls required)
-  - System prompt: structured gap table output with CIP requirement citations,
-    compliance status classification, and remediation steps
+  - Routes `[mlx, reasoning, general]` — MLX Qwen3.5-35B-A3B-8bit primary,
+    DeepSeek-R1-32B Ollama fallback
+  - `_COMPLIANCE_KEYWORDS` weighted dict + scoring for content-aware routing
+  - System prompt: structured gap table output with CIP requirement citations
   - CIP-003-9 R1 Part 1.2.6 priority flagging built into prompt
-    (standard became enforceable April 1, 2026)
   - Two new personas: `nerccipcomplianceanalyst`, `cippolicywriter`
-    (both use `mlx-community/Qwen3.5-35B-A3B-4bit`)
   - 8 new unit tests in `TestComplianceWorkspace`
-  - Workspace count: 13 → 14
+  - Workspace count: 14 → 15 (after SPL at 16, after agentic at 17)
+
 - **`auto-mistral` workspace**: Strategic analysis, business reasoning
   - Routes `[mlx, reasoning, general]` — MLX Magistral-Small-2509-8bit primary
+  - `_MISTRAL_KEYWORDS` weighted dict + scoring for content-aware routing
   - New `magistralstrategist` persona (category: reasoning)
+
 - **`gemma-4-31b-it-4bit` MLX model**: Vision and research tasks
   - New `gemmaresearchanalyst` persona (category: research)
-  - Replaces older `gemma-4-26B-A4B` reference in documentation
+  - Replaces older `gemma-4-26B-A4B` reference
+
+- **portal_pipeline/notifications/channels/webhook.py**: New `WebhookChannel` sends JSON POST
+  to any user-defined `WEBHOOK_URL` on all operational alert and daily summary events.
+  Configure via `WEBHOOK_URL` (required) and optional `WEBHOOK_HEADERS` (JSON object).
+
+- **config/grafana/dashboards/portal5_overview.json** (v2→v3): Added 6 new Usage Analytics
+  panels — Requests by Workspace Over Time, Tokens by Workspace, Top 10 Workspaces by Volume,
+  Model Distribution per Workspace, Current Request Rate.
+
+- **`auto-mistral` and `auto-compliance` keyword routing** (`router_pipe.py`):
+  Added `_COMPLIANCE_KEYWORDS` and `_MISTRAL_KEYWORDS` to `_WORKSPACE_ROUTING` —
+  previously these workspaces were only reachable via LLM router; keyword fallback now works.
 
 ### Acceptance Test Suite (v4)
 
 - **5 new test sections** (S18-S22): image/video MCP tool calls, Telegram/Slack channel adapters,
   notifications/alerts, MLX proxy model switching
-- **S18/S19**: Unload MLX models before ComfyUI tests to free 18-46GB unified memory
 - **Execution order**: Reordered `ALL_ORDER` to group by backend (Ollama → MLX → ComfyUI → no-LLM)
   — reduces backend transitions from ~20 to 12
 - **7 prompt/signal fixes**: Fixed signal words that wouldn't appear in valid responses
-  (devopsengineer, linuxterminal, sqlterminal, techwriter, auto-music, auto-vision, codereviewassistant)
 - **Removed** `portal5_acceptance_v3.py` (orphaned, not referenced anywhere)
 
 ### Changed
-
-- **notifications/channels/__init__.py**: Refactored to place `NotificationChannel` base class
-  above deferred channel imports, resolving circular import at module load time. Added
-  `noqa: E402` markers for intentional deferred imports.
 
 ## [5.2.1] - 2026-03-30
 
