@@ -1593,6 +1593,10 @@ async def _try_non_streaming(
             data=data,
             elapsed_seconds=time.monotonic() - start_time,
         )
+        # Inject model field — ensures callers can always identify which backend
+        # served the request (Ollama includes it, MLX may not).
+        if "model" not in data or not data["model"]:
+            data["model"] = target_model
         logger.info(
             "Backend %s succeeded for workspace=%s model=%s",
             backend.id,
