@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("video-generation")
 
+# Configurable timeout: VIDEO_TIMEOUT env var (seconds, default 1200 = 20 min).
+# Video generation can be very slow on CPU/MPS — 32 frames at 8 steps can exceed 10 min.
+VIDEO_TIMEOUT = int(os.environ.get("VIDEO_TIMEOUT", "1200"))
+
 # Module-level httpx client — created once per process, reused for all requests.
 # Eliminates TCP/TLS handshake overhead on every video generation call (P9).
 _http_client: httpx.AsyncClient | None = None
@@ -31,7 +35,9 @@ _http_client: httpx.AsyncClient | None = None
 async def _get_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=600.0, limits=httpx.Limits(max_connections=5))
+        _http_client = httpx.AsyncClient(
+            timeout=float(VIDEO_TIMEOUT), limits=httpx.Limits(max_connections=5)
+        )
     return _http_client
 
 
@@ -308,6 +314,7 @@ def _get_workflow() -> dict:
     content generation. Trigger word for default LoRA: 'nsfwsks'.
     """
     import copy
+
     if VIDEO_BACKEND == "cogvideox":
         return copy.deepcopy(_COGVIDEOX_WORKFLOW)
 
@@ -409,10 +416,7 @@ async def generate_video(
     except httpx.ConnectError as e:
         return {
             "success": False,
-            "error": (
-                f"ComfyUI not available at {COMFYUI_URL}: {e}. "
-                "Ensure ComfyUI is running."
-            ),
+            "error": (f"ComfyUI not available at {COMFYUI_URL}: {e}. Ensure ComfyUI is running."),
         }
     except httpx.HTTPStatusError as e:
         try:
@@ -426,9 +430,11 @@ async def generate_video(
 
     prompt_id = resp.json()["prompt_id"]
 
-    # Poll for completion (video generation takes 2–10 minutes)
-    for _ in range(300):  # 300 × 2s = 10 min max
-        await asyncio.sleep(2)
+    # Poll for completion (video generation can take 5–20 minutes depending on hardware)
+    poll_interval = 2
+    max_polls = VIDEO_TIMEOUT // poll_interval
+    for _ in range(max_polls):
+        await asyncio.sleep(poll_interval)
         history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
         history = history_resp.json()
 
@@ -445,9 +451,9 @@ async def generate_video(
                         return {
                             "success": False,
                             "error": (
-                                f"ComfyUI error in {err.get('node_type','?')} "
-                                f"(node {err.get('node_id','?')}): "
-                                f"{err.get('exception_message','unknown error')}"
+                                f"ComfyUI error in {err.get('node_type', '?')} "
+                                f"(node {err.get('node_id', '?')}): "
+                                f"{err.get('exception_message', 'unknown error')}"
                             ),
                         }
                 return {"success": False, "error": "ComfyUI workflow failed (unknown error)"}
@@ -492,7 +498,10 @@ async def generate_video(
                 "error": "Generation completed but no video output found. Check ComfyUI logs.",
             }
 
-    return {"success": False, "error": "Video generation timed out after 10 minutes"}
+    return {
+        "success": False,
+        "error": f"Video generation timed out after {VIDEO_TIMEOUT // 60} minutes",
+    }
 
 
 @mcp.tool()

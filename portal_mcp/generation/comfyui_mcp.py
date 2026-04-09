@@ -19,6 +19,10 @@ from portal_mcp.mcp_server.fastmcp import FastMCP
 
 mcp = FastMCP("comfyui-generation")
 
+# Configurable timeout: COMFYUI_TIMEOUT env var (seconds, default 1200 = 20 min).
+# SDXL at 25 steps can take 5+ min on MPS; FLUX schnell is faster but still variable.
+COMFYUI_TIMEOUT = int(os.environ.get("COMFYUI_TIMEOUT", "1200"))
+
 # Module-level httpx client — created once per process, reused for all requests.
 # Eliminates TCP/TLS handshake overhead on every image generation call (P9).
 _http_client: httpx.AsyncClient | None = None
@@ -27,7 +31,9 @@ _http_client: httpx.AsyncClient | None = None
 async def _get_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None:
-        _http_client = httpx.AsyncClient(timeout=120.0, limits=httpx.Limits(max_connections=5))
+        _http_client = httpx.AsyncClient(
+            timeout=float(COMFYUI_TIMEOUT), limits=httpx.Limits(max_connections=5)
+        )
     return _http_client
 
 
@@ -239,6 +245,7 @@ def _get_workflow(model: str | None = None) -> dict:
         model: Model name ('flux', 'flux-uncensored', 'sdxl') or None to use IMAGE_BACKEND env var.
     """
     import copy
+
     selected = model or IMAGE_BACKEND
     if selected == "sdxl":
         return copy.deepcopy(SDXL_WORKFLOW)
@@ -356,8 +363,10 @@ async def generate_image(
     prompt_id = resp.json()["prompt_id"]
 
     # Poll for completion (SDXL at 25 steps can take 5+ min on MPS)
-    for _ in range(600):  # 600 × 1s = 10 min max
-        await asyncio.sleep(1)
+    poll_interval = 1
+    max_polls = COMFYUI_TIMEOUT // poll_interval
+    for _ in range(max_polls):
+        await asyncio.sleep(poll_interval)
         history_resp = await client.get(f"{COMFYUI_URL}/history/{prompt_id}")
         history = history_resp.json()
 
@@ -375,7 +384,10 @@ async def generate_image(
                         "seed": seed,
                     }
 
-    return {"success": False, "error": "Generation timed out after 10 minutes"}
+    return {
+        "success": False,
+        "error": f"Generation timed out after {COMFYUI_TIMEOUT // 60} minutes",
+    }
 
 
 @mcp.tool()
