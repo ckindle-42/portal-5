@@ -425,8 +425,8 @@ async def _wait_for_comfyui_queue(prompt_id: str, timeout: int = 600) -> tuple[b
                 await asyncio.sleep(0.5)
                 code2, history2 = await _comfyui_get(f"/history/{prompt_id}")
                 if code2 == 200 and isinstance(history2, dict) and prompt_id in history2:
-                    return True, f"completed (dequeued)"
-                return False, f"left queue without appearing in history"
+                    return True, "completed (dequeued)"
+                return False, "left queue without appearing in history"
 
         await asyncio.sleep(2)
 
@@ -1016,31 +1016,48 @@ async def C5() -> None:
             sec, "C5-03", "LoRA generation (regular)", "WARN", "no regular LoRA installed", t0=None
         )
 
-    # NSFW LoRA test
-    nsfw_loras = [l for l in loras if "nsfw" in l.lower()]
-    if nsfw_loras:
+    # NSFW image test — use the uncensored Flux_v8-NSFW checkpoint (not the video LoRA)
+    code_ckpt, data_ckpt = await _comfyui_get("/object_info/CheckpointLoaderSimple", timeout=15)
+    all_ckpts: list[str] = []
+    if code_ckpt == 200 and isinstance(data_ckpt, dict):
+        entries = (
+            data_ckpt.get("CheckpointLoaderSimple", {})
+            .get("input", {})
+            .get("required", {})
+            .get("ckpt_name", [])
+        )
+        if entries and isinstance(entries[0], list):
+            all_ckpts = entries[0]
+    nsfw_image_ckpts = [c for c in all_ckpts if "nsfw" in c.lower()]
+
+    if nsfw_image_ckpts:
         await _wait_for_comfyui_idle()
         await _mcp(
             COMFYUI_MCP_PORT,
             "generate_image",
             {
-                "prompt": "portrait of a person, detailed, nsfwsks",
+                "prompt": "nsfwsks, artistic portrait, dramatic lighting",
                 "steps": 4,
                 "seed": 42,
-                "checkpoint": "flux1-schnell.safetensors",
-                "lora": nsfw_loras[0],
-                "lora_strength": 0.85,
+                "checkpoint": nsfw_image_ckpts[0],
             },
             section=sec,
             tid="C5-04",
-            name=f"LoRA generation: {nsfw_loras[0]} (NSFW)",
+            name=f"NSFW checkpoint: {nsfw_image_ckpts[0]}",
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
             timeout=600,
         )
     else:
-        record(sec, "C5-04", "LoRA generation (NSFW)", "INFO", "no NSFW LoRA installed", t0=None)
+        record(
+            sec,
+            "C5-04",
+            "NSFW checkpoint generation",
+            "WARN",
+            "no NSFW checkpoint installed (e.g. Flux_v8-NSFW.safetensors)",
+            t0=None,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1324,6 +1341,28 @@ async def C8() -> None:
             t0=None,
         )
 
+    # NSFW video test — HunyuanVideo with nsfw-e7 LoRA (trigger: nsfwsks)
+    await _wait_for_comfyui_idle()
+    await _mcp(
+        VIDEO_MCP_PORT,
+        "generate_video",
+        {
+            "prompt": "nsfwsks, a woman sunbathing on a beach, golden hour, cinematic",
+            "width": 832,
+            "height": 480,
+            "frames": 16,
+            "steps": 4,
+            "seed": 42,
+        },
+        section=sec,
+        tid="C8-04",
+        name="NSFW video: HunyuanVideo + nsfw-e7 LoRA (trigger: nsfwsks)",
+        ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+        detail_fn=lambda t: t[:200],
+        warn_if=["error", "failed", "not installed", "not available"],
+        timeout=1200,
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # C9 — PIPELINE ROUND-TRIPS
@@ -1463,7 +1502,7 @@ async def C10() -> None:
                 record(
                     sec,
                     "C10-02",
-                    f"Latest image accessible and valid",
+                    "Latest image accessible and valid",
                     "PASS" if r.status_code == 200 and size_kb > 1 and is_image else "WARN",
                     f"{fname}: {size_kb:.1f}KB, {content_type}",
                     t0=t0,
@@ -1636,7 +1675,7 @@ async def main() -> int:
     sha = _git_sha()
     start = time.time()
     print(f"\n{'═' * 65}")
-    print(f"  Portal 5 — ComfyUI / Image & Video Acceptance Tests")
+    print("  Portal 5 — ComfyUI / Image & Video Acceptance Tests")
     print(f"  Git: {sha}  |  Sections: {', '.join(run)}")
     print(f"  ComfyUI: {COMFYUI_URL}")
     print(f"{'═' * 65}\n")
