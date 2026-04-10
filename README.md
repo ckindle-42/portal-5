@@ -134,6 +134,11 @@ and tools automatically.
 ./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
 ./launch.sh reseed          # Force-refresh all presets (delete + recreate)
 
+# Update (single command: git pull + rebuild + model refresh + re-seed)
+./launch.sh update                  # Full update of all components
+./launch.sh update --skip-models    # Skip Ollama + MLX model refresh (faster)
+./launch.sh update --models-only    # Only refresh models
+
 # Cleanup
 ./launch.sh clean           # Remove containers (keeps model weights)
 ./launch.sh clean-all       # Remove everything including models

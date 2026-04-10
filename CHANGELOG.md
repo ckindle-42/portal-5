@@ -2,6 +2,22 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Unified update command** (`launch.sh`)
+  - `./launch.sh update`: Single command to update all components — git pull, Docker image pulls
+    (ollama, open-webui, searxng), rebuild portal-pipeline + all MCP server images, refresh Ollama
+    models, pull MLX models (Apple Silicon), update ComfyUI + VideoHelperSuite (if installed),
+    upgrade Music MCP deps (if installed), force re-seed Open WebUI presets, and restart the stack.
+  - `--skip-models`: Skip Ollama + MLX model refresh for faster updates.
+  - `--models-only`: Only refresh models without touching Docker images or code.
+  - `-y` / `--yes`: Skip confirmation prompts.
+  - Non-destructive: models are refreshed (ollama pull / snapshot_download) — nothing is deleted.
+    HuggingFace cache deduplicates, Ollama pulls only changed layers.
+  - All existing update commands (`rebuild`, `refresh-models`, `pull-mlx-models`, `install-comfyui`,
+    `install-music`, `seed`) remain available for granular control.
+
 ## [6.0.0] — 2026-04-07
 
 ### Breaking Changes

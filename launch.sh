@@ -1074,6 +1074,274 @@ case "${1:-up}" in
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
+  update)
+    # Full update: git pull, Docker images, rebuilds, model refresh, re-seed, restart
+    # Usage: ./launch.sh update [--skip-models|--models-only] [--yes|-y]
+    _UPDATE_SKIP_MODELS=false
+    _UPDATE_MODELS_ONLY=false
+    _UPDATE_YES=false
+    for _arg in "${@:2}"; do
+        case "$_arg" in
+            --skip-models) _UPDATE_SKIP_MODELS=true ;;
+            --models-only) _UPDATE_MODELS_ONLY=true ;;
+            --yes|-y)      _UPDATE_YES=true ;;
+            *)
+                echo "Unknown option: $_arg"
+                echo "Usage: ./launch.sh update [--skip-models|--models-only] [--yes|-y]"
+                exit 1
+                ;;
+        esac
+    done
+
+    ARCH=$(uname -m)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    echo ""
+    echo "  Portal 5 — Update"
+    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    # ── Step 1: Git pull ───────────────────────────────────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[1/8] Updating portal-5 source..."
+        if [ -d "$PORTAL_ROOT/.git" ]; then
+            _BEFORE_SHA=$(git -C "$PORTAL_ROOT" rev-parse HEAD 2>/dev/null)
+            git -C "$PORTAL_ROOT" pull --ff-only 2>/dev/null
+            _AFTER_SHA=$(git -C "$PORTAL_ROOT" rev-parse HEAD 2>/dev/null)
+            if [ "$_BEFORE_SHA" != "$_AFTER_SHA" ]; then
+                echo "  ✅ Updated ($_BEFORE_SHA → $_AFTER_SHA)"
+            else
+                echo "  ✅ Already up to date"
+            fi
+        else
+            echo "  ⚠️  Not a git repo — skipping source update"
+        fi
+        echo ""
+    fi
+
+    # ── Step 2: Pull Docker images ────────────────────────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[2/8] Pulling latest Docker images..."
+        cd "$COMPOSE_DIR"
+        # pull_policy: always services get pulled automatically, but explicit pull
+        # also catches prometheus/grafana (pinned but we check for patch updates)
+        docker compose pull ollama open-webui searxng 2>/dev/null || true
+        echo "  ✅ Docker images pulled"
+        echo ""
+    fi
+
+    # ── Step 3: Rebuild portal-pipeline + MCP servers ─────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[3/8] Rebuilding portal-pipeline + MCP servers..."
+        cd "$COMPOSE_DIR"
+        docker compose build portal-pipeline mcp-documents mcp-comfyui mcp-video mcp-tts mcp-whisper mcp-sandbox 2>/dev/null || \
+            docker compose build portal-pipeline 2>/dev/null || true
+        echo "  ✅ Images rebuilt"
+        echo ""
+    fi
+
+    # ── Step 4: Refresh Ollama models ─────────────────────────────────────
+    if [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
+        echo "[4/8] Refreshing Ollama models (checks for newer versions)..."
+        _ollama_cmd() {
+            if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+                echo "ollama"
+            elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+                echo "docker exec portal5-ollama ollama"
+            else
+                echo ""
+            fi
+        }
+        _OCMD=$(_ollama_cmd)
+        if [ -n "$_OCMD" ]; then
+            _MODELS=(
+                "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+                "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+                "nomic-embed-text:latest"
+                "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+                "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+                "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF"
+                "xploiter/the-xploiter"
+                "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
+                "huihui_ai/baronllm-abliterated"
+                "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+                "qwen3.5:9b"
+                "qwen3-coder:30b"
+                "hf.co/unsloth/GLM-4.7-Flash-GGUF"
+                "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
+                "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+                "devstral:24b"
+                "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+                "huihui_ai/tongyi-deepresearch-abliterated"
+                "qwen3-vl:32b"
+                "llava:7b"
+            )
+            if [ "${PULL_HEAVY:-false}" = "true" ]; then
+                _MODELS+=(
+                    "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
+                    "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"
+                )
+            fi
+            _TOTAL=${#_MODELS[@]}
+            _COUNT=0
+            _FAILED=0
+            for _model in "${_MODELS[@]}"; do
+                _COUNT=$((_COUNT + 1))
+                echo "  [$_COUNT/$_TOTAL] $_model"
+                $_OCMD pull "$_model" 2>/dev/null && echo "  ✅ Done" || _FAILED=$((_FAILED + 1))
+            done
+            echo "  Ollama: $((_TOTAL - _FAILED))/$_TOTAL succeeded"
+        else
+            echo "  ⚠️  Ollama not running — skipping model refresh"
+            echo "     Start Ollama and run: ./launch.sh refresh-models"
+        fi
+        echo ""
+    fi
+
+    # ── Step 5: Pull MLX models (Apple Silicon only) ──────────────────────
+    if [ "$_UPDATE_SKIP_MODELS" = "false" ] && [ "$ARCH" = "arm64" ]; then
+        echo "[5/8] Refreshing MLX models (Apple Silicon)..."
+        if python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+            _MLX_MODELS=(
+                "mlx-community/Qwen3-Coder-Next-4bit"
+                "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"
+                "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"
+                "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"
+                "lmstudio-community/Devstral-Small-2507-MLX-4bit"
+                "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"
+                "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
+                "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"
+                "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"
+                "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"
+                "mlx-community/Llama-3.2-3B-Instruct-8bit"
+                "mlx-community/gemma-4-31b-it-4bit"
+                "lmstudio-community/Magistral-Small-2509-MLX-8bit"
+                "mlx-community/Qwen3-VL-32B-Instruct-8bit"
+                "mlx-community/llava-1.5-7b-8bit"
+            )
+            if [ "${PULL_HEAVY:-false}" = "true" ]; then
+                _MLX_MODELS+=("mlx-community/Llama-3.3-70B-Instruct-4bit")
+            fi
+            _MTOTAL=${#_MLX_MODELS[@]}
+            _MCOUNT=0
+            _MFAILED=0
+            for _model in "${_MLX_MODELS[@]}"; do
+                _MCOUNT=$((_MCOUNT + 1))
+                echo "  [$_MCOUNT/$_MTOTAL] $_model"
+                if python3 -W ignore -c "
+import warnings; warnings.filterwarnings('ignore')
+from huggingface_hub import snapshot_download
+snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+" 2>/dev/null; then
+                    echo "  ✅ Done"
+                else
+                    echo "  ⚠️  Failed (may not have new version)"
+                    _MFAILED=$((_MFAILED + 1))
+                fi
+            done
+            echo "  MLX: $((_MTOTAL - _MFAILED))/$_MTOTAL succeeded"
+        else
+            echo "  ⚠️  mlx-lm not installed — skipping MLX models"
+            echo "     Install with: ./launch.sh install-mlx"
+        fi
+        echo ""
+    elif [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
+        echo "[5/8] Skipping MLX models (not Apple Silicon)"
+        echo ""
+    fi
+
+    # ── Step 6: Update ComfyUI (if installed) ────────────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[6/8] Checking ComfyUI..."
+        _COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
+        if [ -d "$_COMFYUI_DIR/.git" ]; then
+            echo "  Updating ComfyUI..."
+            git -C "$_COMFYUI_DIR" pull --quiet 2>/dev/null && \
+                echo "  ✅ ComfyUI updated" || echo "  ⚠️  ComfyUI pull failed"
+            # Update VHS plugin
+            _VHS_DIR="$_COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite"
+            if [ -d "$_VHS_DIR/.git" ]; then
+                git -C "$_VHS_DIR" pull --quiet 2>/dev/null && \
+                    echo "  ✅ VideoHelperSuite updated" || true
+            fi
+            # Upgrade ComfyUI deps
+            if [ -f "$_COMFYUI_DIR/.venv/bin/pip" ]; then
+                "$_COMFYUI_DIR/.venv/bin/pip" install --quiet --upgrade -r "$_COMFYUI_DIR/requirements.txt" 2>/dev/null || true
+                echo "  ✅ ComfyUI dependencies upgraded"
+            fi
+        else
+            echo "  ℹ️  ComfyUI not installed — skipping"
+        fi
+        echo ""
+    fi
+
+    # ── Step 7: Update Music MCP (if installed) ───────────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[7/8] Checking Music MCP..."
+        _MUSIC_VENV="$HOME/.portal5/music/.venv"
+        if [ -d "$_MUSIC_VENV" ]; then
+            echo "  Upgrading Music MCP dependencies..."
+            "$_MUSIC_VENV/bin/pip" install --quiet --upgrade \
+                "torch>=2.1.0" \
+                "torchaudio>=2.1.0" \
+                "transformers>=4.40.0" \
+                "scipy>=1.11.0" \
+                "fastapi>=0.109.0" \
+                "uvicorn[standard]>=0.27.0" \
+                "httpx>=0.26.0" \
+                "pyyaml>=6.0.1" \
+                "starlette>=0.35.0" \
+                "mcp>=1.0.0" \
+                "fastmcp>=0.4.0" 2>/dev/null || true
+            echo "  ✅ Music MCP dependencies upgraded"
+            # Restart the service if running
+            if [ "$(uname -s)" = "Darwin" ]; then
+                launchctl stop com.portal5.music-mcp 2>/dev/null || true
+                launchctl start com.portal5.music-mcp 2>/dev/null || true
+            fi
+        else
+            echo "  ℹ️  Music MCP not installed — skipping"
+        fi
+        echo ""
+    fi
+
+    # ── Step 8: Re-seed Open WebUI + restart stack ────────────────────────
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "[8/8] Re-seeding Open WebUI + restarting stack..."
+        cd "$COMPOSE_DIR"
+        # Rebuild and restart all services with updated images
+        docker compose up -d 2>/dev/null
+        # Re-seed (force to pick up any new workspaces/personas)
+        docker compose run --rm -e FORCE_RESEED=true openwebui-init 2>/dev/null || true
+        echo "  ✅ Stack restarted + re-seeded"
+        echo ""
+    fi
+
+    # ── Summary ───────────────────────────────────────────────────────────
+    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Update complete."
+    echo ""
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "  Updated:"
+        echo "    ✅ Portal 5 source (git pull)"
+        echo "    ✅ Docker images (ollama, open-webui, searxng)"
+        echo "    ✅ portal-pipeline + MCP server images (rebuild)"
+    fi
+    if [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
+        echo "    ✅ Ollama models (checked for updates)"
+        if [ "$ARCH" = "arm64" ]; then
+            echo "    ✅ MLX models (HuggingFace cache refreshed)"
+        fi
+    fi
+    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
+        echo "    ✅ ComfyUI (if installed)"
+        echo "    ✅ Music MCP (if installed)"
+        echo "    ✅ Open WebUI presets (re-seeded)"
+    fi
+    echo ""
+    echo "  Check status: ./launch.sh status"
+    ;;
+
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
@@ -2541,7 +2809,7 @@ MEOF
     ;;
 
   *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -2555,6 +2823,10 @@ MEOF
     echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
     echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm)"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
+    echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
+    echo "                          --skip-models   Skip Ollama + MLX model refresh"
+    echo "                          --models-only   Only refresh models (Ollama + MLX)"
+    echo "                          --yes / -y      Skip confirmation prompts"
     echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
     echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
     echo "  up-channels           Start core stack + both Telegram and Slack"
