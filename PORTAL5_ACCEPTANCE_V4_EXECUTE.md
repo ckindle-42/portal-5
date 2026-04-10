@@ -30,7 +30,7 @@ cd portal-5
 Read these files before doing anything else:
 - `PORTAL5_ACCEPTANCE_V4_EXECUTE.md` — this file, full methodology and failure classification rules
 - `ACCEPTANCE_RESULTS.md` — most recent prior run results (if present)
-- `portal5_acceptance_v4.py` — the main test suite (S0-S38, no ComfyUI)
+- `portal5_acceptance_v4.py` — the main test suite (S0-S40, no ComfyUI)
 - `portal5_acceptance_comfyui.py` — standalone ComfyUI/image/video test suite (C0-C10)
 - `KNOWN_LIMITATIONS.md` — architectural constraints (ComfyUI, fish-speech, etc.)
 
@@ -97,10 +97,10 @@ python3 portal5_acceptance_v4.py 2>&1 | tee /tmp/portal5_acceptance_run.log
 echo "Exit: $?"
 ```
 
-This will take 120-180 minutes for a warm system. Cold model loads add time.
-Do NOT interrupt. Let it complete. The suite has 26 sections (S0-S38, ComfyUI removed):
-- Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20
-- Phase 2 (MLX): S5, S11, S30-S38
+This will take 150-210 minutes for a warm system. Cold model loads add time.
+Do NOT interrupt. Let it complete. The suite has 28 sections (S0-S40, ComfyUI removed):
+- Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20, S11, S39
+- Phase 2 (MLX): S5, S30-S38, S40
 - Fallback chain verification: S23 (kill/restore backends — disables MLX watchdog)
 - No LLM dependency: S8, S9, S12, S13, S14, S16, S21, S24
 
@@ -382,8 +382,11 @@ or documented limitations).
 | S8-03/04 INFO | Qwen3-TTS skipped | MLX speech server not running — start with `./launch.sh start-speech` |
 | S24-01 FAIL | Embedding service down | `docker compose restart portal5-embedding` |
 | S24-02 INFO | Skipped (service not healthy) | Fix S24-01 first |
-| S38-01 INFO | GLM-5.1 not cached | `PULL_HEAVY=true ./launch.sh pull-mlx-models` (~38GB download) |
-| S38-04 INFO | Inference skipped | Set `TEST_HEAVY_MLX=true` to enable (unloads current MLX model) |
+| S38-01 WARN | GLM-5.1 not cached | `PULL_HEAVY=true ./launch.sh pull-mlx-models` (~38GB download) |
+| S38-04 WARN | Inference skipped | Set `TEST_HEAVY_MLX=true` to enable (unloads current MLX model) |
+| S39-* WARN | Ollama model not pulled | `ollama pull <model>` — model exists in backends.yaml but wasn't downloaded |
+| S40-* WARN | MLX model not downloaded | Models need pre-download via `./launch.sh pull-mlx-models` or `./launch.sh switch-mlx-model <tag>` |
+| S40-09 WARN | Llama-3.3-70B skipped | Set `TEST_HEAVY_MLX=true` to enable (~40GB, will unload current MLX model) |
 
 ---
 
