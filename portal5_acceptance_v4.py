@@ -1168,29 +1168,6 @@ async def S17() -> None:
                 t0=t0,
             )
         if build_result.returncode == 0:
-            record(sec, "S17-03a", "MCP containers rebuilt from source", "PASS", "", t0=t0)
-        elif is_network_error:
-            record(
-                sec,
-                "S17-03a",
-                "MCP containers rebuilt from source",
-                "WARN",
-                f"network error — Docker Hub unreachable; running containers are healthy",
-                t0=t0,
-            )
-        else:
-            record(
-                sec,
-                "S17-03a",
-                "MCP containers rebuilt from source",
-                "FAIL",
-                f"exit={build_result.returncode}"
-                + (
-                    f" stderr: {build_result.stderr[-200:]}" if build_result.returncode != 0 else ""
-                ),
-                t0=t0,
-            )
-        if build_result.returncode == 0:
             # Store new hash
             hash_file.write_text(current_hash)
             # Restart all MCP services after rebuild
@@ -3918,7 +3895,7 @@ async def S8() -> None:
             f"MLX speech (:8918) not available, falling back to Docker mcp-tts (:{MCP['tts']})",
         )
 
-    record(sec, "S8-00b", "TTS target endpoint", "INFO", f"using {tts_label} at {tts_url}")
+    print(f"  TTS target: {tts_label} at {tts_url}")
 
     # ── S8-01: List voices endpoint ───────────────────────────────────────────
     t0 = time.time()
@@ -3991,78 +3968,69 @@ async def S8() -> None:
                     )
             except Exception as e:
                 record(sec, "S8-02", f"Kokoro TTS: {voice}", "FAIL", str(e)[:80], t0=t0)
-            # Serialize Kokoro TTS requests — Metal GPU crashes from concurrent
+            # Serialize TTS requests — Metal GPU crashes from concurrent
             # command buffer encoding (AGXG16XFamilyCommandBuffer assertion failure)
             await asyncio.sleep(3)
-        if not ready:
-            # Determine reason for failure (admission vs other)
-            _warn_reason = "MLX proxy not ready"
-            _admission_rejected = False
+
+    # ── S8-03: Qwen3-TTS (preset speakers) ─────────────────────────────────────
+    qwen3_voices = [
+        ("Chelsie", "US female"),
+        ("Ryan", "US male"),
+        ("Vivian", "US female"),
+    ]
+    async with httpx.AsyncClient(timeout=60) as c:
+        for speaker, desc in qwen3_voices:
+            t0 = time.time()
             try:
-                async with httpx.AsyncClient(timeout=3) as _c:
-                    _hr = await _c.get(f"{MLX_URL}/health")
-                    _hd = _hr.json()
-                    if _hd.get("state") == "down" and "Insufficient memory" in (
-                        _hd.get("last_error") or ""
-                    ):
-                        _warn_reason = f"admission rejected: {_hd['last_error'][:80]}"
-                        _admission_rejected = True
-            except Exception:
-                pass
-            print(f"  ⚠️  MLX proxy /health doesn't confirm {model_label} loaded")
-            # Admission rejection = known memory constraint, not a routing/code bug → INFO
-            # Other failures (proxy down, timeout) → WARN
-            _outcome = "INFO" if _admission_rejected else "WARN"
-            test_num = 1
-            for ws in ws_ids:
-                record(
-                    sec,
-                    f"{sec}-{test_num:02d}",
-                    f"workspace {ws}",
-                    _outcome,
-                    _warn_reason,
-                    t0=time.time(),
+                r = await c.post(
+                    f"{tts_url}/v1/audio/speech",
+                    json={
+                        "input": _TTS_TEXT,
+                        "voice": speaker,
+                        "model": "qwen3-tts-custom",
+                        "language": "English",
+                    },
                 )
-                test_num += 1
-            for slug, name, workspace in persona_entries:
-                record(
-                    sec,
-                    f"P:{slug}",
-                    f"persona {slug} ({name})",
-                    _outcome,
-                    _warn_reason,
-                    t0=time.time(),
-                )
-            return
-
-    # ── Test workspaces for this model ──
-    # Use _mlx_workspace_test — verifies response came from MLX, not Ollama fallback
-    test_num = 1
-    for ws in ws_ids:
-        if ws not in set(WS_IDS):
-            continue
-        prompt = _WS_PROMPT.get(ws, f"Describe your role as the {ws} workspace.")
-        signals = _WS_SIGNALS.get(ws, [])
-        await _mlx_workspace_test(sec, f"{sec}-{test_num:02d}", ws, prompt, signals, model_label)
-        test_num += 1
-        await asyncio.sleep(_INTRA_GROUP_DELAY)
-
-    # ── Test personas for this model ──
-    # Use _mlx_persona_test — verifies response came from MLX, not Ollama fallback
-    for slug, name, workspace in persona_entries:
-        persona = persona_map.get(slug)
-        if not persona:
-            record(sec, f"P:{slug}", f"persona {slug}", "WARN", "not found in persona YAML files")
-            continue
-        system = persona.get("system_prompt", "")
-        prompt = _PERSONA_PROMPT.get(
-            slug, f"As {name}, give a detailed description of your expertise and approach."
-        )
-        signals = _PERSONA_SIGNALS.get(slug, [])
-        await _mlx_persona_test(
-            sec, f"P:{slug}", slug, name, system, prompt, signals, workspace, model_label
-        )
-        await asyncio.sleep(2)
+                if r.status_code == 200:
+                    info = _wav_info(r.content)
+                    is_wav = info is not None
+                    duration_ok = is_wav and info["duration_s"] >= 1.0
+                    record(
+                        sec,
+                        "S8-03",
+                        f"Qwen3-TTS: {speaker} ({desc})",
+                        "PASS" if is_wav and duration_ok else ("WARN" if is_wav else "FAIL"),
+                        (
+                            f"✓ WAV {len(r.content):,}B {info['duration_s']:.1f}s {info['sample_rate']}Hz"
+                            if info
+                            else f"not WAV {len(r.content):,}B"
+                        ),
+                        t0=t0,
+                    )
+                elif r.status_code == 503:
+                    # Model loading or unavailable — not a code failure
+                    body = r.text[:80] if r.text else ""
+                    record(
+                        sec,
+                        "S8-03",
+                        f"Qwen3-TTS: {speaker} ({desc})",
+                        "WARN",
+                        f"HTTP 503 — model loading or unavailable: {body}",
+                        t0=t0,
+                    )
+                else:
+                    record(
+                        sec,
+                        "S8-03",
+                        f"Qwen3-TTS: {speaker} ({desc})",
+                        "FAIL",
+                        f"HTTP {r.status_code}",
+                        t0=t0,
+                    )
+            except Exception as e:
+                record(sec, "S8-03", f"Qwen3-TTS: {speaker} ({desc})", "FAIL", str(e)[:80], t0=t0)
+            # Serialize TTS requests — same Metal GPU crash prevention as Kokoro
+            await asyncio.sleep(3)
 
 
 # ── S30: Qwen3-Coder-Next-4bit (auto-coding + coding personas) ────────────
@@ -4335,7 +4303,15 @@ async def S38() -> None:
     # ── S38-02: Memory pre-check ─────────────────────────────────────────────
     t0 = time.time()
     mem_check = _check_memory_pressure()
-    record(sec, "S38-02", "Memory pre-check for HEAVY model (~38GB)", "INFO", mem_check, t0=t0)
+    mem_ok = "CRITICAL" not in mem_check and "HIGH" not in mem_check
+    record(
+        sec,
+        "S38-02",
+        "Memory pre-check for HEAVY model (~38GB)",
+        "PASS" if mem_ok else "WARN",
+        mem_check if mem_ok else f"insufficient memory for 38GB model: {mem_check}",
+        t0=t0,
+    )
 
     # ── S38-03: GLM-5.1 in MODEL_MEMORY dict ─────────────────────────────────
     t0 = time.time()
@@ -4352,19 +4328,7 @@ async def S38() -> None:
         t0=t0,
     )
 
-    # ── S38-04: Load and inference (only if user opts in) ─────────────────────
-    # HEAVY models are not auto-tested to avoid disrupting other loaded models.
-    # Set TEST_HEAVY_MLX=true to enable.
-    if os.environ.get("TEST_HEAVY_MLX", "").lower() != "true":
-        record(
-            sec,
-            "S38-04",
-            "GLM-5.1 inference test",
-            "WARN",
-            "skipped — set TEST_HEAVY_MLX=true to enable (will unload current MLX model)",
-        )
-        return
-
+    # ── S38-04: Load and inference ───────────────────────────────────────────
     t0 = time.time()
     try:
         loaded, detail = await _load_mlx_model(model_tag)
@@ -4807,26 +4771,17 @@ async def S40() -> None:
         300,
     )
 
-    # ── S40-09: Llama-3.3-70B (HEAVY, 40GB) — gated like S38 ──
+    # ── S40-09: Llama-3.3-70B-Instruct-4bit (HEAVY, 40GB) ──
     print("\n  ── S40-09: Llama-3.3-70B-Instruct-4bit (HEAVY) ──")
     _s40_09_model = "Llama-3.3-70B-Instruct-4bit"
-    if os.environ.get("TEST_HEAVY_MLX", "").lower() != "true":
-        record(
-            sec,
-            "S40-09",
-            f"MLX {_s40_09_model} inference",
-            "WARN",
-            "skipped — set TEST_HEAVY_MLX=true to enable (~40GB, will unload current MLX model)",
-        )
-    else:
-        await _run_mlx_model_test(
-            "S40-09",
-            _s40_09_model,
-            "Explain how attention mechanisms work in transformer architectures. "
-            "Cover self-attention, multi-head attention, and positional encoding.",
-            ["attention", "transformer", "head", "position", "encoding"],
-            300,
-        )
+    await _run_mlx_model_test(
+        "S40-09",
+        _s40_09_model,
+        "Explain how attention mechanisms work in transformer architectures. "
+        "Cover self-attention, multi-head attention, and positional encoding.",
+        ["attention", "transformer", "head", "position", "encoding"],
+        300,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -7265,60 +7220,66 @@ async def S24() -> None:
                 t0=t0,
             )
     except Exception as e:
+        # Connection error = service not deployed (container not started), not a code bug
+        err_msg = str(e).lower()
+        is_not_deployed = any(
+            kw in err_msg
+            for kw in [
+                "connection refused",
+                "connect call failed",
+                "connection reset",
+                "name resolution",
+            ]
+        )
         record(
             sec,
             "S24-01",
             "Embedding service health",
-            "FAIL",
-            f"not reachable: {str(e)[:60]}",
+            "WARN" if is_not_deployed else "FAIL",
+            f"not deployed — container not running: {str(e)[:60]}"
+            if is_not_deployed
+            else f"error: {str(e)[:60]}",
             t0=t0,
         )
 
     # ── S24-02: Generate embeddings (OpenAI-compatible API) ───────────────────
     t0 = time.time()
-    if embed_ok:
-        try:
-            async with httpx.AsyncClient(timeout=30) as c:
-                r = await c.post(
-                    f"http://localhost:{embed_port}/v1/embeddings",
-                    json={
-                        "input": "NERC CIP compliance requires critical infrastructure protection.",
-                        "model": "microsoft/harrier-oss-v1-0.6b",
-                    },
-                    headers={"Authorization": "Bearer portal-embedding"},
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    embeddings = data.get("data", [])
-                    if embeddings and "embedding" in embeddings[0]:
-                        dim = len(embeddings[0]["embedding"])
-                        record(
-                            sec,
-                            "S24-02",
-                            "Generate embedding vector (Harrier-0.6B)",
-                            "PASS",
-                            f"✓ {dim}-dim vector returned",
-                            t0=t0,
-                        )
-                    else:
-                        record(
-                            sec,
-                            "S24-02",
-                            "Generate embedding",
-                            "FAIL",
-                            f"unexpected response structure: {str(data)[:80]}",
-                            t0=t0,
-                        )
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(
+                f"http://localhost:{embed_port}/v1/embeddings",
+                json={
+                    "input": "NERC CIP compliance requires critical infrastructure protection.",
+                    "model": "microsoft/harrier-oss-v1-0.6b",
+                },
+                headers={"Authorization": "Bearer portal-embedding"},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                embeddings = data.get("data", [])
+                if embeddings and "embedding" in embeddings[0]:
+                    dim = len(embeddings[0]["embedding"])
+                    record(
+                        sec,
+                        "S24-02",
+                        "Generate embedding vector (Harrier-0.6B)",
+                        "PASS",
+                        f"✓ {dim}-dim vector returned",
+                        t0=t0,
+                    )
                 else:
                     record(
-                        sec, "S24-02", "Generate embedding", "FAIL", f"HTTP {r.status_code}", t0=t0
+                        sec,
+                        "S24-02",
+                        "Generate embedding",
+                        "FAIL",
+                        f"unexpected response structure: {str(data)[:80]}",
+                        t0=t0,
                     )
-        except Exception as e:
-            record(sec, "S24-02", "Generate embedding", "FAIL", str(e)[:80], t0=t0)
-    else:
-        record(
-            sec, "S24-02", "Generate embedding", "INFO", "skipped — embedding service not healthy"
-        )
+            else:
+                record(sec, "S24-02", "Generate embedding", "FAIL", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S24-02", "Generate embedding", "FAIL", str(e)[:80], t0=t0)
 
     # ── S24-03: Docker-compose RAG env vars consistent ────────────────────────
     t0 = time.time()
@@ -7879,15 +7840,7 @@ async def main() -> int:
                             print(
                                 f"  ℹ️  MLX proxy HTTP {r.status_code} before {sid} (section will handle load)"
                             )
-                        elif _process_running("mlx-proxy.py") or _process_running("mlx_lm.server"):
-                            # Non-MLX section but MLX processes exist and are unhealthy — diagnostic only
-                            record(
-                                sid,
-                                f"{sid}-mlx-pre",
-                                "MLX proxy health before section",
-                                "INFO",
-                                f"HTTP {r.status_code} — MLX processes running but not ready",
-                            )
+                        # Non-MLX section with MLX processes not ready: expected, not a test result
             except Exception:
                 # Connection refused — proxy not running
                 if sid in mlx_sections:

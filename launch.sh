@@ -2437,16 +2437,6 @@ PLIST
         echo "  ⚠️  en_core_web_sm download failed — Kokoro TTS may not work"
     echo "  ✅ Kokoro TTS dependencies installed"
 
-    # ── Kokoro TTS dependencies (required by mlx-audio Kokoro backend) ──────
-    echo "  Installing Kokoro TTS dependencies (misaki, num2words, spacy, phonemizer)..."
-    pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet 2>/dev/null || \
-        pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet --break-system-packages
-    echo "  Downloading en_core_web_sm (spaCy English model)..."
-    python3 -m spacy download en_core_web_sm --quiet 2>/dev/null || \
-        python3 -m spacy download en_core_web_sm --quiet --break-system-packages 2>/dev/null || \
-        echo "  ⚠️  en_core_web_sm download failed — Kokoro TTS may not work"
-    echo "  ✅ Kokoro TTS dependencies installed"
-
     # Deploy MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on port 8081)
     MLX_DIR="$HOME/.portal5/mlx"
     mkdir -p "$MLX_DIR" "$HOME/.portal5/logs"

@@ -83,6 +83,11 @@ QWEN3_SPEAKERS = [
 _tts_models: dict = {}  # keyed by model path
 _asr_model = None
 
+# Serialize TTS requests — concurrent Metal GPU command buffer encoding crashes
+# AGXG16XFamilyCommandBuffer (macOS Apple Silicon). Semaphore(1) ensures one
+# TTS generation at a time across all backends (Kokoro, Qwen3-TTS).
+_tts_lock = asyncio.Semaphore(1)
+
 
 def _get_tts_model(model_id: str):
     """Lazy-load and cache a TTS model."""
@@ -197,7 +202,10 @@ async def openai_audio_speech(request: Request):
         return JSONResponse({"error": "No input text provided"}, status_code=400)
 
     try:
-        result = await asyncio.to_thread(_generate_speech, text, voice, speed, instruct, language)
+        async with _tts_lock:
+            result = await asyncio.to_thread(
+                _generate_speech, text, voice, speed, instruct, language
+            )
     except Exception as e:
         logger.error("TTS generation failed: %s", e, exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
