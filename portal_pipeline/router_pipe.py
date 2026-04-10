@@ -460,7 +460,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B — 256K functional context, #3 open model; abliterated-4bit stays in pool for sensitive research
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",

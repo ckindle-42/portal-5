@@ -44,41 +44,44 @@ WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
-    "llava-1.5-7b-8bit",                                  # Lightweight VLM fallback (~8GB)
-    "GLM-OCR-bf16",                                       # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
-    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",    # Llama VLM — mllama model type, requires mlx_vlm
+    "gemma-4-E4B-it-UD-MLX-4bit",  # Gemma 4 E4B — replaces LLaVA; text+vision+audio, 128K ctx, ~5GB
+    "gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, ~15GB
+    "GLM-OCR-bf16",  # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
+    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
 }
 
 ALL_MODELS = [
     # ── Text-only (mlx_lm) ────────────────────────────────────────────────
     # Coding
-    "mlx-community/Qwen3-Coder-Next-4bit",                                          # 80B MoE 4bit (~46GB, BIG_MODEL)
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",                              # 30B MoE 8bit (~22GB)
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",                           # DS-Coder-V2 8bit (~12GB)
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit",                              # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
+    "mlx-community/Qwen3-Coder-Next-4bit",  # 80B MoE 4bit (~46GB, BIG_MODEL)
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",  # 30B MoE 8bit (~22GB)
+    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",  # DS-Coder-V2 8bit (~12GB)
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
     # Creative / general
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",                                   # Dolphin 8B (~9GB, uncensored)
-    "mlx-community/Llama-3.2-3B-Instruct-8bit",                                    # Ultra-fast routing (~3GB)
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",  # Dolphin 8B (~9GB, uncensored)
+    "mlx-community/Llama-3.2-3B-Instruct-8bit",  # Ultra-fast routing (~3GB)
     # Model diversity — non-Qwen families
-    "mlx-community/phi-4-8bit",                                                     # Microsoft Phi-4 14B (~14GB, synthetic data, MIT)
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit",                             # Mistral reasoning (~24GB, [THINK] mode)
+    "mlx-community/phi-4-8bit",  # Microsoft Phi-4 14B (~14GB, synthetic data, MIT)
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit",  # Mistral reasoning (~24GB, [THINK] mode)
     # Heavy (PULL_HEAVY only)
-    "mlx-community/Llama-3.3-70B-Instruct-4bit",                                   # Llama 70B 4bit (~40GB, BIG_MODEL)
+    "mlx-community/Llama-3.3-70B-Instruct-4bit",  # Llama 70B 4bit (~40GB, BIG_MODEL)
     # GLM-5.1 removed: exceeds 64GB safe headroom (both variants) — tested and confirmed OOM
     # Jackrong Qwopus3.5-v3 (primary reasoning) + Claude-4.6-Opus distills
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",                                          # Reasoning primary 27B v3 8bit (~22GB, auto-reasoning)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",                                           # Available 9B v3 8bit (~9GB)
-    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",        # Reasoning alt 27B v2 4bit (~14GB, Claude-4.6-Opus)
-    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",            # Available 9B Claude-4.6 8bit (~9GB)
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",       # 35B-A3B 8bit (~28GB, compliance)
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",  # Reasoning primary 27B v3 8bit (~22GB, auto-reasoning)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",  # Available 9B v3 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",  # Reasoning alt 27B v2 4bit (~14GB, Claude-4.6-Opus)
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",  # Available 9B Claude-4.6 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",  # 35B-A3B 8bit (~28GB, compliance)
     # Reasoning/analysis
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",                         # FIX: was missing from ALL_MODELS — R1 Distill 32B 8bit (~34GB, auto-data)
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",                 # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",  # FIX: was missing from ALL_MODELS — R1 Distill 32B 8bit (~34GB, auto-data)
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
     # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
-    "mlx-community/gemma-4-31b-it-4bit",                                            # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",                                    # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
-    "mlx-community/llava-1.5-7b-8bit",                                             # LLaVA 1.5 7B 8bit (~8GB, lightweight VLM)
-    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",               # Uncensored VLM 11B 4bit (~7GB, Karakeep)
+    "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
+    "unsloth/gemma-4-E4B-it-UD-MLX-4bit",  # Gemma 4 E4B — replaces LLaVA; vision+audio, 128K ctx (~5GB)
+    "mlx-community/gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, #6 LMArena (~15GB)
+    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",  # Phi-4-reasoning-plus — STEM/math, RL-trained, ~7GB (Microsoft)
+    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM 11B 4bit (~7GB, Karakeep)
 ]
 
 # ── Big-Model Mode (P5-BIG-001) ───────────────────────────────────────────────
@@ -91,8 +94,8 @@ ALL_MODELS = [
 # Trigger: any model whose HF path is in this set is treated as big-model.
 # The `auto-agentic` workspace is the intended entry point.
 BIG_MODEL_SET: set[str] = {
-    "mlx-community/Qwen3-Coder-Next-4bit",        # ~46GB — auto-agentic
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",   # ~36GB — heavy VLM
+    "mlx-community/Qwen3-Coder-Next-4bit",  # ~46GB — auto-agentic
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # ~36GB — heavy VLM
     "mlx-community/Llama-3.3-70B-Instruct-4bit",  # ~40GB — heavy coding + reasoning
     # GLM-5.1 removed: too large for 64GB stack (MXFP4-Q8 = 49GB, both variants exceed safe headroom)
 }
@@ -125,18 +128,20 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)
     "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,  # Llama 70B 4bit (~40GB)
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,                                     # Qwopus 27B v3 8bit (~22GB, primary auto-reasoning)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,                                      # Qwopus 9B v3 8bit (~9GB)
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,  # Qwopus 27B v3 8bit (~22GB, primary auto-reasoning)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,  # Qwopus 9B v3 8bit (~9GB)
     "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit": 14.0,  # 27B v2 4bit (~14GB, Claude-4.6-Opus)
-    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 9.0,       # 9B Claude-4.6 8bit (~9GB)
-    "mlx-community/phi-4-8bit": 14.0,                                               # Microsoft Phi-4 14B 8bit (~14GB)
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 9.0,  # 9B Claude-4.6 8bit (~9GB)
+    "mlx-community/phi-4-8bit": 14.0,  # Microsoft Phi-4 14B 8bit (~14GB)
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
+    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 8.0,  # Phi-4-reasoning-plus 14B 4bit (~7-8GB)
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
-    "mlx-community/llava-1.5-7b-8bit": 8.0,  # LLaVA 7B 8bit (~8GB, retained for lightweight VLM use)
+    "unsloth/gemma-4-E4B-it-UD-MLX-4bit": 5.0,  # Gemma 4 E4B UD-4bit (~5GB) — vision+audio
+    "mlx-community/gemma-4-26b-a4b-it-4bit": 15.0,  # Gemma 4 26B A4B MoE 4bit (~15GB)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
 }
 
@@ -523,7 +528,9 @@ def _evict_ollama_models() -> None:
         with httpx.Client(timeout=10) as c:
             resp = c.get(f"{ollama_url}/api/ps")
             if resp.status_code != 200:
-                print("[big-model] could not list running Ollama models — skipping evict", flush=True)
+                print(
+                    "[big-model] could not list running Ollama models — skipping evict", flush=True
+                )
                 return
             models = [m["name"] for m in resp.json().get("models", [])]
     except Exception as e:

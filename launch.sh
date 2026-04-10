@@ -1274,7 +1274,9 @@ case "${1:-up}" in
                 "mlx-community/gemma-4-31b-it-4bit"
                 "lmstudio-community/Magistral-Small-2509-MLX-8bit"
                 "mlx-community/Qwen3-VL-32B-Instruct-8bit"
-                "mlx-community/llava-1.5-7b-8bit"
+                "unsloth/gemma-4-E4B-it-UD-MLX-4bit"           # ~5GB — Gemma 4 E4B vision+audio (replaces LLaVA)
+                "mlx-community/gemma-4-26b-a4b-it-4bit"        # ~15GB — Gemma 4 26B A4B MoE research VLM
+                "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus STEM/math
                 # OCR (document ingestion)
                 "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
             )
@@ -2566,7 +2568,7 @@ MLXPLIST
         echo "    mlx-community/phi-4-8bit                                              (~14GB)"
         echo "  VLM models (mlx_vlm, port 18082):"
         echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
-        echo "    mlx-community/llava-1.5-7b-8bit                  (~8GB — lightweight VLM fallback)"
+        echo "    unsloth/gemma-4-E4B-it-UD-MLX-4bit               (~5GB — Gemma 4 E4B vision+audio fallback)"
         echo ""
         echo "Current status:"
         curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
@@ -2848,7 +2850,9 @@ MLXPLIST
         "lmstudio-community/Magistral-Small-2509-MLX-8bit"  # ~24GB — Mistral reasoning, [THINK] mode
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
-        "mlx-community/llava-1.5-7b-8bit"                  # ~8GB — lightweight VLM fallback
+        "unsloth/gemma-4-E4B-it-UD-MLX-4bit"               # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
+        "mlx-community/gemma-4-26b-a4b-it-4bit"            # ~15GB — Gemma 4 26B A4B MoE VLM, 256K ctx
+        "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus, STEM/math RL-trained
         # OCR (document ingestion)
         "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
         # Speech (mlx-audio — TTS + ASR, host-native)
