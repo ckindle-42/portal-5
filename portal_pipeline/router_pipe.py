@@ -1755,7 +1755,7 @@ async def chat_completions(
 
         body = await request.json()
         workspace_id = body.get("model") or "auto"
-        stream = body.get("stream", True)
+        stream = body.get("stream", False)
 
         # Content-aware routing for 'auto' workspace
         # Primary path: LLM-based intent classification (P5-FUT-006).
