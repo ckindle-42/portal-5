@@ -228,29 +228,6 @@ Portal 5 includes a native MLX speech server on Apple Silicon with:
 
 ---
 
-## Speech (Text-to-Speech & Speech-to-Text)
-
-Portal 5 includes a native MLX speech server on Apple Silicon with:
-- **Kokoro TTS** — fast, high-quality English TTS (200+ voices)
-- **Qwen3-TTS** — 10 languages, voice cloning, voice design, emotion control
-- **Qwen3-ASR** — speech-to-text via MLX
-
-```bash
-./launch.sh start-speech    # Start MLX speech server (Apple Silicon)
-./launch.sh stop-speech     # Stop MLX speech server
-./launch.sh mlx-status      # Check MLX component status (includes speech)
-```
-
-> **Kokoro TTS dependencies:** The Kokoro backend requires additional Python
-> packages that are not installed automatically. Install them before using Kokoro:
-> ```bash
-> pip install misaki num2words spacy phonemizer
-> python3 -m spacy download en_core_web_sm
-> ```
-> Qwen3-TTS and Qwen3-ASR work without these dependencies.
-
----
-
 ## Troubleshooting
 
 **Services not starting:**
@@ -297,20 +274,6 @@ lsof -i :8080               # Find what is using port 8080
 | [Cluster Scaling](docs/CLUSTER_SCALE.md) | Running multiple Ollama instances |
 | [Backup & Restore](docs/BACKUP_RESTORE.md) | Data backup procedures |
 | [Known Issues](KNOWN_ISSUES.md) | Current limitations and workarounds |
-
-### Acceptance Testing
-
-The full acceptance test suite (`portal5_acceptance_v4.py`) runs 284 checks
-across all subsystems. Latest run (2026-04-10, Run 13):
-
-**242 PASS · 15 WARN · 7 FAIL · 0 BLOCKED**
-
-All FAILs are environmental (Docker Hub unreachable, missing Kokoro Python
-dependencies, embedding service not deployed). All WARNs are expected behavior
-(memory constraints, model quality, timing). No product code changes required.
-
-See `ACCEPTANCE_RESULTS.md` for full results and `ACCEPTANCE_EVIDENCE.md`
-for detailed investigation of each failure.
 
 ### Acceptance Testing
 
