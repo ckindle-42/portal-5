@@ -735,6 +735,14 @@ case "${1:-up}" in
     cd "$COMPOSE_DIR"
     docker compose up -d
 
+    # Re-run openwebui-init in the background to pick up any new personas/workspaces
+    # added since the last run (idempotent — skips existing, only creates new ones).
+    # Only runs if open-webui is already healthy (first-run init is handled by depends_on).
+    if docker compose ps open-webui 2>/dev/null | grep -q "(healthy)"; then
+        echo "[portal-5] Syncing new personas/workspaces (incremental)..."
+        docker compose run --rm openwebui-init >/dev/null 2>&1 &
+    fi
+
     # Prune dangling images left behind by image pulls (untagged build layers).
     # Safe: only removes images with no tag and no running container referencing them.
     # Does NOT remove images used by other projects on this machine.
@@ -2727,6 +2735,65 @@ MLXPLIST
     echo "  💡 Models load lazily on first TTS/ASR request."
     ;;
 
+  start-embedding-cpu-arm)
+    # Start the native ARM64 embedding server (Python/sentence-transformers + MPS).
+    # Replaces the TEI Docker service on Apple Silicon where the x86-only TEI image
+    # has no ARM64 manifest. Binds to port 8917 — same as the Docker service.
+    ARCH=$(uname -m)
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ℹ️  This command is for Apple Silicon (arm64). On x86, the Docker TEI service works directly."
+        echo "  Run: ./launch.sh up  (embedding starts automatically)"
+        exit 0
+    fi
+
+    PID_FILE="/tmp/portal-embedding-arm.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "  ✅ ARM64 embedding server already running (PID $(cat "$PID_FILE"))"
+        echo "  Test: curl http://localhost:8917/health"
+        exit 0
+    fi
+
+    # Check dependencies
+    if ! python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+        echo "  ❌ Missing dependencies. Install with:"
+        echo "     pip install sentence-transformers fastapi uvicorn"
+        exit 1
+    fi
+
+    # Stop the TEI Docker container if running (port conflict)
+    docker stop portal5-embedding 2>/dev/null && echo "  Stopped Docker TEI container (port conflict)" || true
+
+    MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
+    PORT="${EMBEDDING_HOST_PORT:-8917}"
+    LOG_FILE="${HOME}/.portal5/logs/embedding-server.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+
+    echo "[portal-5] Starting ARM64 native embedding server..."
+    echo "  Model: $MODEL"
+    echo "  Port:  $PORT"
+    echo "  Log:   $LOG_FILE"
+
+    nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
+        --model "$MODEL" \
+        --port "$PORT" \
+        --host 0.0.0.0 \
+        >"$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "[portal-5] ARM64 embedding server started (PID $!)"
+    echo "  Health (ready in ~30s): curl http://localhost:8917/health"
+    ;;
+
+  stop-embedding-cpu-arm)
+    PID_FILE="/tmp/portal-embedding-arm.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        kill "$(cat "$PID_FILE")"
+        rm -f "$PID_FILE"
+        echo "  ✅ ARM64 embedding server stopped"
+    else
+        echo "  ℹ️  ARM64 embedding server not running"
+    fi
+    ;;
+
   stop-speech)
     PID_FILE="/tmp/portal-mlx-speech.pid"
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
@@ -2937,7 +3004,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -2952,6 +3019,8 @@ MEOF
     echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm, speech)"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
+    echo "  start-embedding-cpu-arm  Start native ARM64 embedding server (Apple Silicon, no Rosetta)"
+    echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama + MLX model refresh"

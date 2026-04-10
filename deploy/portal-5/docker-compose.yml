@@ -335,6 +335,8 @@ services:
   # ── Embedding + Reranker Service ─────────────────────────────────────────
   # Microsoft Harrier-0.6B (SOTA embedding, 32K ctx, MIT license)
   # Serves OpenAI-compatible /v1/embeddings endpoint for Open WebUI RAG
+  # NOTE: TEI cpu image is x86-only. On Apple Silicon, use:
+  #   ./launch.sh start-embedding-cpu-arm  (native ARM64 Python server on port 8917)
   portal5-embedding:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
     container_name: portal5-embedding
