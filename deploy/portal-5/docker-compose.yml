@@ -202,15 +202,17 @@ services:
       - ENABLE_CHANNELS=false         # Disable public channels (private chats only)
       - SAFE_MODE=false               # Allow full tool access for approved users
 
-      # ── Audio (TTS/STT via Portal MCP servers) ───────────────────────────────
+      # ── Speech (MLX-native on host via mlx-audio) ───────────────────────────
+      # Primary: mlx-speech server on host (:8918) — Qwen3-TTS + Qwen3-ASR + Kokoro
+      # Fallback: Docker mcp-tts (:8916) and mcp-whisper (:8915) still run as backup
       - AUDIO_TTS_ENGINE=openai
-      - AUDIO_TTS_OPENAI_API_BASE_URL=http://mcp-tts:8916
-      - AUDIO_TTS_OPENAI_API_KEY=portal-tts
+      - AUDIO_TTS_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
+      - AUDIO_TTS_OPENAI_API_KEY=portal-speech
       - AUDIO_TTS_MODEL=kokoro
       - AUDIO_TTS_VOICE=af_heart
       - AUDIO_STT_ENGINE=openai
-      - AUDIO_STT_OPENAI_API_BASE_URL=http://mcp-whisper:8915
-      - AUDIO_STT_OPENAI_API_KEY=portal-whisper
+      - AUDIO_STT_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
+      - AUDIO_STT_OPENAI_API_KEY=portal-speech
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

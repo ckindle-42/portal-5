@@ -283,6 +283,24 @@ _ensure_native_services() {
             fi
         fi
     fi
+
+    # ── MLX Speech (Apple Silicon native only) ──────────────────────────────
+    if [ "$ARCH" = "arm64" ]; then
+        if python3 -c "import mlx_audio" &>/dev/null 2>&1; then
+            local SPEECH_PID_FILE="/tmp/portal-mlx-speech.pid"
+            local SPEECH_SCRIPT="$PORTAL_ROOT/scripts/mlx-speech.py"
+            if [ -f "$SPEECH_PID_FILE" ] && kill -0 "$(cat "$SPEECH_PID_FILE")" 2>/dev/null; then
+                echo "[portal-5]   ✅ MLX Speech: running (PID $(cat "$SPEECH_PID_FILE"))"
+            elif [ -f "$SPEECH_SCRIPT" ]; then
+                echo "[portal-5]   MLX Speech installed but not running — starting..."
+                mkdir -p "$HOME/.portal5/logs"
+                nohup python3 "$SPEECH_SCRIPT" \
+                    >> "$HOME/.portal5/logs/mlx-speech.log" 2>&1 &
+                echo $! > "$SPEECH_PID_FILE"
+                echo "[portal-5]   ✅ MLX Speech started on :${MLX_SPEECH_PORT:-8918}"
+            fi
+        fi
+    fi
 }
 
 # ── Port pre-flight check ───────────────────────────────────────────────────
@@ -355,6 +373,15 @@ _check_ports() {
         fi
     fi
 
+    # MLX Speech (port 8918) — only check if installed
+    if python3 -c "import mlx_audio" &>/dev/null 2>&1; then
+        if curl -s "http://localhost:8918/health" &>/dev/null 2>&1; then
+            echo "  ✅ Port 8918 (MLX Speech) — already responding"
+        else
+            _port_check 8918   "MLX Speech (Qwen3-TTS + Qwen3-ASR)"
+        fi
+    fi
+
     # Ollama (Docker profile) — only check if explicitly using docker-ollama
     # Native Ollama on 11434 is expected and correct for the default setup
     if echo "${COMPOSE_PROFILES:-}" | grep -q "docker-ollama"; then
@@ -368,7 +395,7 @@ _check_ports() {
         echo "  Options:"
         echo "  1. Stop the conflicting process (see 'kill <PID>' above)"
         echo "  2. If it's a previous Portal 5 stack:  ./launch.sh down"
-        echo "     Note: 'down' also stops native MLX (:8081) and ComfyUI (:8188)"
+        echo "     Note: 'down' also stops native MLX (:8081), Speech (:8918) and ComfyUI (:8188)"
         echo "  3. If it's a different service, override the port in .env:"
         echo "     e.g.:  DOCUMENTS_HOST_PORT=9013  (for MCP Documents)"
         echo "            MLX_PORT=8082             (for MLX inference server)"
@@ -573,6 +600,16 @@ print(d.get('system',{}).get('comfyui_version','?'))
         elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
             printf "    ❌  %-28s %s\n" "MLX Watchdog" "not running — ./launch.sh start-mlx-watchdog"
         fi
+
+        # MLX Speech
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8918/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "MLX Speech" ":8918 (Qwen3-TTS + Qwen3-ASR)"
+        elif [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
+            printf "    ⏳  %-28s %s\n" "MLX Speech" "starting"
+        elif python3 -c "import mlx_audio" &>/dev/null 2>&1; then
+            printf "    ❌  %-28s %s\n" "MLX Speech" "installed but not running — ./launch.sh start-speech"
+        fi
+
         echo ""
     fi
 
@@ -971,6 +1008,15 @@ case "${1:-up}" in
             echo "[portal-5] MLX watchdog stopped."
         else
             echo "[portal-5] MLX watchdog: not running (nothing to stop)."
+        fi
+
+        # MLX Speech (:8918)
+        if [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-mlx-speech.pid
+            echo "[portal-5] MLX Speech stopped."
+        else
+            echo "[portal-5] MLX Speech: not running (nothing to stop)."
         fi
     fi
     ;;
@@ -2377,6 +2423,12 @@ PLIST
     python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
         echo "  ✅ mlx-vlm installed"
 
+    echo "  Installing mlx-audio (unified TTS + ASR via mlx-audio)..."
+    pip3 install "mlx-audio>=0.3.0" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-audio>=0.3.0" --upgrade --quiet --break-system-packages
+    python3 -c "import mlx_audio; print(f'  ✅ mlx-audio {mlx_audio.__version__}')" 2>/dev/null || \
+        echo "  ✅ mlx-audio installed"
+
     # Deploy MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on port 8081)
     MLX_DIR="$HOME/.portal5/mlx"
     mkdir -p "$MLX_DIR" "$HOME/.portal5/logs"
@@ -2616,9 +2668,60 @@ MLXPLIST
         echo "❌ not running (start with: ./launch.sh start-mlx-watchdog)"
     fi
 
+    # MLX Speech
+    echo -n "  MLX Speech (:8918):    "
+    if curl -s --connect-timeout 3 http://localhost:8918/health &>/dev/null; then
+        echo "✅ healthy"
+    elif [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
+        echo "⏳ starting (PID $(cat /tmp/portal-mlx-speech.pid))"
+    else
+        echo "❌ not running (start with: ./launch.sh start-speech)"
+    fi
+
     echo ""
     echo "=== Pipeline Backend Health ==="
     curl -s http://localhost:9099/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/  /' || echo "  Pipeline not responding"
+    ;;
+
+  start-speech)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    if [ "$(uname -m)" != "arm64" ]; then
+        echo "  ℹ️  MLX Speech requires Apple Silicon. Docker TTS/ASR services are available as fallback."
+        exit 0
+    fi
+
+    if ! python3 -c "import mlx_audio" &>/dev/null 2>&1; then
+        echo "  ❌ mlx-audio not installed. Run: ./launch.sh install-mlx"
+        exit 1
+    fi
+
+    PID_FILE="/tmp/portal-mlx-speech.pid"
+    LOG_FILE="$HOME/.portal5/logs/mlx-speech.log"
+    mkdir -p "$(dirname "$LOG_FILE")"
+
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "  ℹ️  MLX Speech already running (PID $(cat "$PID_FILE"))"
+        exit 0
+    fi
+
+    echo "Starting MLX Speech Server (Qwen3-TTS + Qwen3-ASR + Kokoro)..."
+    nohup python3 "$PORTAL_ROOT/scripts/mlx-speech.py" >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "  ✅ MLX Speech started (PID $!, port ${MLX_SPEECH_PORT:-8918})"
+    echo "  📋 Log: $LOG_FILE"
+    echo "  💡 Models load lazily on first TTS/ASR request."
+    ;;
+
+  stop-speech)
+    PID_FILE="/tmp/portal-mlx-speech.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        kill "$(cat "$PID_FILE")"
+        rm -f "$PID_FILE"
+        echo "  ✅ MLX Speech stopped"
+    else
+        echo "  ℹ️  MLX Speech not running"
+    fi
     ;;
 
   pull-mlx-models)
@@ -2664,12 +2767,12 @@ MLXPLIST
         "mlx-community/llava-1.5-7b-8bit"                  # ~8GB
         # OCR (document ingestion)
         "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
-    )
-
-    # Heavy models — gated behind PULL_HEAVY=true
-    HEAVY_MLX_MODELS=(
-        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
-        "mlx-community/GLM-5.1-DQ4plus-q8"                 # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
+        # Speech (mlx-audio — TTS + ASR, host-native)
+        "mlx-community/Kokoro-82M-bf16"                        # ~0.2GB — Kokoro TTS via mlx-audio
+        "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit"  # ~0.8GB — voice cloning + style control
+        "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit"  # ~0.8GB — create voices from descriptions
+        "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"         # ~0.8GB — voice cloning from reference audio
+        "mlx-community/Qwen3-ASR-1.7B-8bit"                    # ~0.8GB — speech recognition (replaces faster-whisper)
     )
 
     # Heavy models — gated behind PULL_HEAVY=true
@@ -2816,20 +2919,22 @@ MEOF
     python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
     ;;
 
-  *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|rebuild]"
+    *)
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
-    echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm) for Apple Silicon"
+    echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm + mlx-audio) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
     echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
     echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
     echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
-    echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm)"
+    echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm, speech)"
+    echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
+    echo "  stop-speech           Stop MLX Speech server"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama + MLX model refresh"

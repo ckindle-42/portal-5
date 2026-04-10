@@ -378,7 +378,7 @@ curl -s http://localhost:8912/health
 
 ## 11. Text-to-Speech
 
-**What:** Convert text to spoken audio using kokoro-onnx (built-in) or Fish Speech (optional).
+**What:** Convert text to spoken audio using MLX-native speech (Kokoro + Qwen3-TTS).
 
 **Activate:** Select **Music Producer** from the model dropdown. The TTS (text-to-speech) tool is automatically available in this workspace.
 
@@ -394,26 +394,35 @@ Read this aloud: Portal 5 is a complete local AI platform running entirely on yo
 Read this with a British male voice: The quick brown fox jumps over the lazy dog.
 ```
 
-**Available kokoro-onnx voices:**
+### MLX Speech voices (Apple Silicon — primary)
 
-| Voice ID | Description |
-|----------|-------------|
-| af_heart | American English female (default) |
-| af_sky | American English female |
-| af_bella | American English female |
-| af_nicole | American English female |
-| af_sarah | American English female |
-| am_adam | American English male |
-| am_michael | American English male |
-| bf_emma | British English female |
-| bf_isabella | British English female |
-| bm_george | British English male |
-| bm_lewis | British English male |
+| Voice ID | Backend | Description |
+|----------|---------|-------------|
+| `af_heart` | Kokoro | American English female (default) |
+| `bm_george` | Kokoro | British English male |
+| `Chelsie` | Qwen3-TTS | Preset speaker with style control |
+| `Ryan` | Qwen3-TTS | Preset speaker |
+| `Vivian` | Qwen3-TTS | Preset speaker |
+| `design:A deep male narrator` | Qwen3-TTS | Voice created from text description |
+| `clone:/path/to/reference.wav` | Qwen3-TTS | Voice cloned from 3-30s reference audio |
+
+### Style control (Qwen3-TTS CustomVoice)
+
+```
+Read this in an excited, energetic tone: You won the lottery!
+```
+
+### Voice design
+
+```
+Read this: Hello world
+Voice: design:A warm female voice with a slight British accent
+```
 
 ### Direct API call
 
 ```bash
-curl -X POST http://localhost:8916/v1/audio/speech \
+curl -X POST http://localhost:8918/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{"input": "Hello from Portal 5!", "voice": "af_heart"}' \
   --output hello.wav
@@ -421,15 +430,15 @@ curl -X POST http://localhost:8916/v1/audio/speech \
 
 **Verify:**
 ```bash
-curl -s http://localhost:8916/health
-# Returns: {"status": "ok", "backend": "kokoro"}
+curl -s http://localhost:8918/health
+# Returns: {"status": "ok", "service": "mlx-speech", "voice_cloning": true}
 ```
 
 ---
 
-## 12. Speech-to-Text (Whisper)
+## 12. Speech-to-Text (ASR)
 
-**What:** Transcribe audio files to text using faster-whisper.
+**What:** Transcribe audio files to text using Qwen3-ASR (MLX-native).
 
 **Activate:** Select any workspace from the model dropdown. The Whisper transcription tool is automatically available in all workspaces.
 
@@ -443,20 +452,22 @@ Transcribe this audio file
 ### Direct API call
 
 ```bash
-curl -X POST http://localhost:8915/v1/audio/transcriptions \
+curl -X POST http://localhost:8918/v1/audio/transcriptions \
   -F "file=@recording.mp3" \
-  -F "language=en"
+  -F "language=English"
 ```
 
 **Supported formats:** MP3, WAV, M4A, FLAC, OGG, WebM
 
 **Verify:**
 ```bash
-# Whisper MCP health (from inside container):
-docker exec portal5-mcp-whisper python3 -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())"
+curl -s http://localhost:8918/health
+# Returns: {"status": "ok", "service": "mlx-speech"}
 ```
 
-**Note:** The first transcription downloads the Whisper model (~150MB). Subsequent calls are instant.
+**Note:** The first transcription downloads the Qwen3-ASR model (~800MB). Subsequent calls are instant.
+
+**Fallback:** Docker `mcp-whisper` (:8915) and `mcp-tts` (:8916) still run as backup on non-Apple-Silicon hosts.
 
 ---
 
@@ -1008,6 +1019,8 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh start-mlx-watchdog  # Start MLX health watchdog daemon
 ./launch.sh stop-mlx-watchdog   # Stop MLX watchdog daemon
 ./launch.sh mlx-status      # Show MLX component status
+./launch.sh start-speech    # Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)
+./launch.sh stop-speech     # Stop MLX Speech server
 
 # Users
 ./launch.sh add-user <email> [name] [role]

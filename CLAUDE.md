@@ -512,6 +512,36 @@ Open WebUI points to ComfyUI at `http://host.docker.internal:8188` by default.
 
 ---
 
+## Speech Pipeline (MLX-native, Apple Silicon)
+
+Portal 5 v6.1+ uses `mlx-audio` for speech on Apple Silicon, replacing the Docker-based `kokoro-onnx` + `faster-whisper` services.
+
+**Architecture**: Open WebUI → `scripts/mlx-speech.py` (host:8918) → mlx-audio → MLX (Metal GPU)
+
+| Feature | Old (Docker) | New (MLX-native) |
+|---|---|---|
+| TTS engine | kokoro-onnx (82M, ONNX) | Kokoro (82M, MLX) + Qwen3-TTS (1.7B, MLX) |
+| Voice cloning | fish-speech (manual install) | Qwen3-TTS Base (3s reference audio, zero setup) |
+| Voice design | Not available | Qwen3-TTS VoiceDesign (describe a voice in text) |
+| Emotion control | Not available | Qwen3-TTS CustomVoice (style instructions) |
+| Languages | English only (kokoro) | 10 languages (Qwen3-TTS) + EN/JP/ZH (Kokoro) |
+| ASR engine | faster-whisper (CPU, Docker) | Qwen3-ASR (MLX Metal, host-native) |
+| Streaming | No | Yes (Qwen3-TTS streaming generation) |
+
+**Startup**: `./launch.sh start-speech` (or automatically via `./launch.sh up` on Apple Silicon)
+
+**Voice routing** (automatic based on voice name):
+- `af_heart`, `bm_george`, etc. → Kokoro (fast, backward-compatible)
+- `Chelsie`, `Ryan`, `Vivian`, etc. → Qwen3-TTS CustomVoice (style-controllable)
+- `design:A warm female British voice` → Qwen3-TTS VoiceDesign (creates voice from description)
+- `clone:/path/to/reference.wav` → Qwen3-TTS Base (voice cloning)
+
+**Memory**: Models load lazily. Kokoro: ~0.2GB. Each Qwen3-TTS variant: ~0.8GB (8-bit). Qwen3-ASR: ~0.8GB. Only the requested model is loaded.
+
+**Fallback**: Docker `mcp-tts` (:8916) and `mcp-whisper` (:8915) still run. Set `MLX_SPEECH_URL=http://mcp-tts:8916` in `.env` to bypass the MLX speech server.
+
+---
+
 ## Notification System
 
 The pipeline includes an operational alerting and daily summary system. It is **opt-in** — disabled by default via `NOTIFICATIONS_ENABLED=false`.
