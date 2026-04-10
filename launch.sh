@@ -1270,7 +1270,7 @@ case "${1:-up}" in
             )
             if [ "${PULL_HEAVY:-false}" = "true" ]; then
                 _MLX_MODELS+=("mlx-community/Llama-3.3-70B-Instruct-4bit")
-                _MLX_MODELS+=("mlx-community/GLM-5.1-DQ4plus-q8")
+                _MLX_MODELS+=("mlx-community/GLM-5.1-MXFP4-Q8")
             fi
             _MTOTAL=${#_MLX_MODELS[@]}
             _MCOUNT=0
@@ -2414,12 +2414,10 @@ PLIST
     echo "  Installing mlx-vlm (supports Qwen3.5 VLM + vision models)..."
     pip3 install "mlx-vlm" --upgrade --quiet 2>/dev/null || \
         pip3 install "mlx-vlm" --upgrade --quiet --break-system-packages
-    # Pin mlx-lm<0.31 to keep qwen3_next support (0.31+ removed it → moved to mlx_vlm)
-    echo "  Installing mlx-lm<0.31 (for qwen3_next text models)..."
-    pip3 install "mlx-lm<0.31" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-lm<0.31" --upgrade --quiet --break-system-packages
+    # mlx-lm is pulled as a dependency of mlx-vlm and mlx-audio — no explicit pin needed.
+    # mlx-vlm 0.4.4 requires mlx-lm>=0.31.0; mlx-audio 0.4.2 pins mlx-lm==0.31.1.
     python3 -c "import mlx_lm; print(f'  ✅ mlx-lm {mlx_lm.__version__}')" 2>/dev/null || \
-        echo "  ✅ mlx-lm installed"
+        echo "  ❌ mlx-lm not installed (should be pulled by mlx-vlm)"
     python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
         echo "  ✅ mlx-vlm installed"
 
@@ -2428,6 +2426,26 @@ PLIST
         pip3 install "mlx-audio>=0.3.0" --upgrade --quiet --break-system-packages
     python3 -c "import mlx_audio; print(f'  ✅ mlx-audio {mlx_audio.__version__}')" 2>/dev/null || \
         echo "  ✅ mlx-audio installed"
+
+    # ── Kokoro TTS dependencies (required by mlx-audio Kokoro backend) ──────
+    echo "  Installing Kokoro TTS dependencies (misaki, num2words, spacy, phonemizer)..."
+    pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet 2>/dev/null || \
+        pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet --break-system-packages
+    echo "  Downloading en_core_web_sm (spaCy English model)..."
+    python3 -m spacy download en_core_web_sm --quiet 2>/dev/null || \
+        python3 -m spacy download en_core_web_sm --quiet --break-system-packages 2>/dev/null || \
+        echo "  ⚠️  en_core_web_sm download failed — Kokoro TTS may not work"
+    echo "  ✅ Kokoro TTS dependencies installed"
+
+    # ── Kokoro TTS dependencies (required by mlx-audio Kokoro backend) ──────
+    echo "  Installing Kokoro TTS dependencies (misaki, num2words, spacy, phonemizer)..."
+    pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet 2>/dev/null || \
+        pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet --break-system-packages
+    echo "  Downloading en_core_web_sm (spaCy English model)..."
+    python3 -m spacy download en_core_web_sm --quiet 2>/dev/null || \
+        python3 -m spacy download en_core_web_sm --quiet --break-system-packages 2>/dev/null || \
+        echo "  ⚠️  en_core_web_sm download failed — Kokoro TTS may not work"
+    echo "  ✅ Kokoro TTS dependencies installed"
 
     # Deploy MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on port 8081)
     MLX_DIR="$HOME/.portal5/mlx"
@@ -2778,7 +2796,7 @@ MLXPLIST
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
         "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
-        "mlx-community/GLM-5.1-DQ4plus-q8"                 # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
+        "mlx-community/GLM-5.1-MXFP4-Q8"                   # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
     )
 
     total=${#MLX_MODELS[@]}
