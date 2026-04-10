@@ -150,12 +150,16 @@ services:
       - RAG_WEB_SEARCH_CONCURRENT_REQUESTS=10
 
       # ── RAG / Knowledge Base ────────────────────────────────────────────────
-      # Uses Ollama for embeddings (local, no external API)
-      - RAG_EMBEDDING_ENGINE=ollama
-      - RAG_OLLAMA_BASE_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
-      - RAG_EMBEDDING_MODEL=nomic-embed-text:latest
+      # Harrier-0.6B embedding (Microsoft, SOTA MTEB-v2, 32K context, MIT license)
+      # Served by portal5-embedding service on port 8917
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_OPENAI_API_BASE_URL=http://portal5-embedding:8917/v1
+      - RAG_OPENAI_API_KEY=portal-embedding
+      - RAG_EMBEDDING_MODEL=microsoft/harrier-oss-v1-0.6b
       - ENABLE_RAG_LOCAL_WEB_FETCH=true
-      - RAG_RERANKING_MODEL=
+      # bge-reranker-v2-m3 (BAAI, cross-encoder reranker, ~0.6B)
+      - RAG_RERANKING_MODEL=BAAI/bge-reranker-v2-m3
+      - RAG_RERANKING_MODEL_TRUST_REMOTE_CODE=true
       - CHUNK_SIZE=1500
       - CHUNK_OVERLAP=100
       - PDF_EXTRACT_IMAGES=true
@@ -163,7 +167,7 @@ services:
 
       # ── Cross-Session Memory ────────────────────────────────────────────────
       - ENABLE_MEMORY_FEATURE=true
-      - MEMORY_EMBEDDING_MODEL=nomic-embed-text:latest
+      - MEMORY_EMBEDDING_MODEL=microsoft/harrier-oss-v1-0.6b
 
       # ── Authentication & Session Security ───────────────────────────────────
       - WEBUI_AUTH=true
@@ -325,6 +329,33 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
+
+  # ── Embedding + Reranker Service ─────────────────────────────────────────
+  # Microsoft Harrier-0.6B (SOTA embedding, 32K ctx, MIT license)
+  # Serves OpenAI-compatible /v1/embeddings endpoint for Open WebUI RAG
+  portal5-embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
+    container_name: portal5-embedding
+    ports:
+      - "127.0.0.1:${EMBEDDING_HOST_PORT:-8917}:8917"
+    environment:
+      - MODEL_ID=microsoft/harrier-oss-v1-0.6b
+      - PORT=8917
+      - MAX_CLIENT_BATCH_SIZE=32
+      - MAX_BATCH_TOKENS=32768
+    volumes:
+      - portal5-hf-cache:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8917/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   # ── Docker-in-Docker (isolated execution environment for code sandbox) ──────
   dind:

@@ -114,6 +114,7 @@ MODEL_MEMORY: dict[str, float] = {
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
+    "mlx-community/GLM-5.1-DQ4plus-q8": 38.0,  # GLM-5.1 frontier coder DQ4+q8 (~38GB, HEAVY)
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)

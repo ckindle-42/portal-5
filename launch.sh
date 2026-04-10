@@ -1158,7 +1158,8 @@ case "${1:-up}" in
                 "${DEFAULT_MODEL:-dolphin-llama3:8b}"
                 "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
                 "nomic-embed-text:latest"
-                "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+        # Note: Harrier-0.6B is served by portal5-embedding container (TEI), not Ollama.
+        # nomic-embed-text kept as fallback if embedding service is down.
                 "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
                 "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF"
                 "xploiter/the-xploiter"
@@ -1218,9 +1219,12 @@ case "${1:-up}" in
                 "lmstudio-community/Magistral-Small-2509-MLX-8bit"
                 "mlx-community/Qwen3-VL-32B-Instruct-8bit"
                 "mlx-community/llava-1.5-7b-8bit"
+                # OCR (document ingestion)
+                "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
             )
             if [ "${PULL_HEAVY:-false}" = "true" ]; then
                 _MLX_MODELS+=("mlx-community/Llama-3.3-70B-Instruct-4bit")
+                _MLX_MODELS+=("mlx-community/GLM-5.1-DQ4plus-q8")
             fi
             _MTOTAL=${#_MLX_MODELS[@]}
             _MCOUNT=0
@@ -2658,16 +2662,20 @@ MLXPLIST
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
         "mlx-community/llava-1.5-7b-8bit"                  # ~8GB
+        # OCR (document ingestion)
+        "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
     )
 
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
         "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
+        "mlx-community/GLM-5.1-DQ4plus-q8"                 # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
     )
 
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
         "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
+        "mlx-community/GLM-5.1-DQ4plus-q8"                 # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
     )
 
     total=${#MLX_MODELS[@]}

@@ -167,6 +167,7 @@ print('Workspace IDs consistent')
 | 8914 | MCP: Code Sandbox |
 | 8915 | MCP: Whisper |
 | 8916 | MCP: TTS |
+| 8917 | Embedding (Harrier-0.6B TEI) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |
@@ -292,12 +293,15 @@ Install: `./launch.sh install-mlx`. Pre-warm a model: `./launch.sh switch-mlx-mo
 | `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | ComfyUI (CPU) + Ollama general (~5GB) |
 | `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Ollama only (3B) — unload others first |
+| `mlx-community/GLM-5.1-DQ4plus-q8` | ~38GB | mlx_lm | Ollama only (3B) — unload others first. HEAVY: frontier agentic coder, Zhipu/GLM lineage. |
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | ComfyUI (CPU) + Ollama general (3B) |
 | `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | ComfyUI + Ollama + Wan2.2 video |
+| `mlx-community/GLM-OCR-bf16` | ~2GB | mlx_vlm | Everything — OCR specialist for document ingestion |
 
 **64GB systems**: Qwen3-Coder-Next-4bit (~46GB) + Ollama (~5GB) + OS (~8GB) = 59GB — no concurrent ComfyUI/Wan2.2.
 **64GB systems**: Qwen3-Coder-30B-8bit (~32GB) + Ollama (~5GB) + OS (~8GB) = 45GB — no ComfyUI headroom; Ollama routing only.
 **64GB systems**: Llama-3.3-70B (~40GB) + anything else is tight — set `OLLAMA_MAX_LOADED_MODELS=1`.
+**64GB systems**: GLM-5.1-DQ4plus-q8 (~38GB) + Ollama (~5GB) + OS (~8GB) = 51GB — no concurrent ComfyUI/Wan2.2.
 **64GB systems**: Gemma-4-31B (~18GB) + Magistral-Small (~24GB) = 42GB combined — coexist safely.
 **64GB systems**: Qwen3.5-35B-A3B-Claude (~28GB) + Wan2.2 (~18GB) + Ollama (~5GB) = 51GB — feasible.
 **32GB systems**: Use Llama-3.2-3B (~3GB) or Devstral-Small (~22GB). Heavy models (70B, Qwen3-Coder-Next, Qwen3-Coder-30B-8bit) will OOM.
@@ -316,10 +320,25 @@ Unified memory is shared across all workloads. The proxy ensures only one MLX se
 | 64GB | Gemma-4-31B (~18GB) | ComfyUI Wan2.2 + Ollama general |
 | 64GB | Magistral-Small-8bit (~24GB) | ComfyUI flux-schnell + Ollama general |
 | 64GB | Llama-3.3-70B (~40GB) | Nothing else heavy — stop ComfyUI first |
+| 64GB | GLM-5.1-DQ4plus-q8 (~38GB) | Ollama only (3B) — unload others first |
 
 Pre-warm a model: `./launch.sh switch-mlx-model <tag>`
 
 > **Note (v6.0.0):** Memory coexistence rules are now self-enforcing via MLX proxy admission control (P5-FUT-009). See `MODEL_MEMORY` dict in `scripts/mlx-proxy.py`. The proxy will reject model loads with HTTP 503 and an actionable message if available memory is insufficient.
+
+### Embedding & Retrieval Models
+
+| Model | Served By | Purpose | RAM |
+|---|---|---|---|
+| Harrier-OSS-v1-0.6B | portal5-embedding (TEI, :8917) | RAG embedding, 32K ctx, SOTA MTEB-v2, Microsoft lineage | ~1.2GB |
+| bge-reranker-v2-m3 | Open WebUI internal (sentence-transformers) | Cross-encoder reranker for RAG result scoring | ~0.6GB |
+| nomic-embed-text:latest | Ollama (fallback) | Legacy embedding fallback if embedding service is down | ~0.3GB |
+
+### OCR Models
+
+| Model | Server | Purpose | RAM |
+|---|---|---|---|
+| `mlx-community/GLM-OCR-bf16` | Host-side mlx_vlm | Scanned document OCR for compliance doc ingestion | ~2GB |
 
 ### Generation Models (ComfyUI / HuggingFace)
 
