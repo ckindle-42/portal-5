@@ -1707,14 +1707,14 @@ async def S1() -> None:
         "S1-13",
         "backends.yaml contains GLM-5.1 model entry",
         "PASS" if has_glm51 else "FAIL",
-        "✓ GLM-5.1-DQ4plus-q8 in MLX models" if has_glm51 else "GLM-5.1 not found in backends.yaml",
+        "✓ GLM-5.1-MXFP4-Q8 in MLX models" if has_glm51 else "GLM-5.1 not found in backends.yaml",
         t0=t0,
     )
 
     # ── S1-14: GLM-5.1 in MODEL_MEMORY (mlx-proxy.py) ────────────────────────
     t0 = time.time()
     proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
-    has_glm51_mem = "GLM-5.1-DQ4plus-q8" in proxy_src
+    has_glm51_mem = "GLM-5.1-MXFP4-Q8" in proxy_src
     record(
         sec,
         "S1-14",
@@ -2078,6 +2078,11 @@ _WS_PROMPT: dict[str, str] = {
         "more than 10 failed logins from the same source IP within 5 minutes. "
         "Use tstats where possible. Explain each pipe in the pipeline."
     ),
+    "auto-agentic": (
+        "Write a Python class that implements a retry decorator with exponential backoff, "
+        "jitter, and configurable max attempts. Include type hints, docstrings, and "
+        "a usage example showing integration with an HTTP client."
+    ),
 }
 
 _WS_SIGNALS: dict[str, list[str]] = {
@@ -2097,6 +2102,7 @@ _WS_SIGNALS: dict[str, list[str]] = {
     "auto-compliance": ["cip-007", "patch", "evidence", "audit", "nerc", "asset"],
     "auto-mistral": ["trade-off", "risk", "decision", "monolith", "microservice", "strang"],
     "auto-spl": ["tstats", "index=", "sourcetype", "stats", "count", "threshold"],
+    "auto-agentic": ["def ", "class", "retry", "backoff", "decorator", "jitter"],
 }
 
 
@@ -2116,8 +2122,8 @@ _WS_MODEL_GROUPS: list[tuple[str, list[str]]] = [
     # security models (Ollama: baronllm, the-xploiter, WhiteRabbitNeo)
     ("ollama/security", ["auto-security", "auto-redteam", "auto-blueteam"]),
     # ── Phase 2: MLX models (contiguous block) ──────────────────────────────
-    # Qwen3-Coder-Next-4bit (MLX — coding)
-    ("mlx/coding", ["auto-coding"]),
+    # Qwen3-Coder-Next-4bit (MLX — coding + agentic)
+    ("mlx/coding", ["auto-coding", "auto-agentic"]),
     # Qwen3-Coder-30B-A3B-Instruct-8bit (MLX — SPL)
     ("mlx/spl", ["auto-spl"]),
     # reasoning/compliance/research/data (MLX: Qwopus3.5-27B-v3, Magistral, DeepSeek-R1-abliterated, Qwen3.5-35B-A3B)
@@ -2146,12 +2152,21 @@ _MLX_MODEL_FULL_PATHS: dict[str, str] = {
     "Qwen3-Coder-30B-A3B-Instruct-8bit": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
     "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+    "DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit",
     "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
     "Magistral-Small-2509-MLX-8bit": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
+    "Devstral-Small-2507-MLX-4bit": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
     "Qwopus3.5-27B-v3-8bit": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
     "Qwopus3.5-9B-v3-8bit": "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
+    "DeepSeek-Coder-V2-Lite-Instruct-8bit": "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
     "Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
     "gemma-4-31b-it-4bit": "mlx-community/gemma-4-31b-it-4bit",
+    "Qwen3-VL-32B-Instruct-8bit": "mlx-community/Qwen3-VL-32B-Instruct-8bit",
+    "llava-1.5-7b-8bit": "mlx-community/llava-1.5-7b-8bit",
+    "GLM-OCR-bf16": "mlx-community/GLM-OCR-bf16",
+    "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",
+    "Llama-3.3-70B-Instruct-4bit": "mlx-community/Llama-3.3-70B-Instruct-4bit",
 }
 
 # Approximate model sizes (GB) — used to compute switch timeouts in _mlx_group.
@@ -2161,12 +2176,21 @@ _MLX_MODEL_SIZES_GB: dict[str, float] = {
     "Qwen3-Coder-30B-A3B-Instruct-8bit": 32.0,
     "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,
     "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,
+    "DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit": 34.0,
     "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,
     "Magistral-Small-2509-MLX-8bit": 24.0,
+    "Devstral-Small-2507-MLX-4bit": 18.0,
     "Qwopus3.5-27B-v3-8bit": 22.0,
     "Qwopus3.5-9B-v3-8bit": 9.0,
+    "DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,
     "Dolphin3.0-Llama3.1-8B-8bit": 9.0,
     "gemma-4-31b-it-4bit": 18.0,
+    "Qwen3-VL-32B-Instruct-8bit": 36.0,
+    "llava-1.5-7b-8bit": 8.0,
+    "GLM-OCR-bf16": 2.0,
+    "Llama-3.2-3B-Instruct-8bit": 3.0,
+    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,
+    "Llama-3.3-70B-Instruct-4bit": 40.0,
 }
 
 
@@ -2189,7 +2213,14 @@ async def _load_mlx_model(model: str) -> tuple[bool, str]:
     full_model = _MLX_MODEL_FULL_PATHS.get(model, model)
 
     # Determine which server type this model uses
-    stype = "vlm" if any(v in full_model for v in ("gemma-4", "Qwen3-VL", "llava")) else "lm"
+    stype = (
+        "vlm"
+        if any(
+            v in full_model
+            for v in ("gemma-4", "Qwen3-VL", "llava", "Llama-3.2-11B-Vision", "GLM-OCR")
+        )
+        else "lm"
+    )
     log_file = f"/tmp/mlx-proxy-logs/mlx_{stype}.log"
 
     # Record current log state so we can detect when it's truncated (new server start)
@@ -4911,7 +4942,7 @@ async def S11() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MODEL-GROUPED MLX SECTIONS (S30-S38)
+# MODEL-GROUPED MLX SECTIONS (S30-S40)
 #
 # Each section loads one MLX model ONCE, then tests both the workspace AND
 # personas that use that model. This prevents model switching within a group
@@ -5085,9 +5116,9 @@ async def _mlx_group(
         await asyncio.sleep(2)
 
 
-# ── S30: Devstral-Small-2507 (auto-coding + coding personas) ───────────────
+# ── S30: Qwen3-Coder-Next-4bit (auto-coding + coding personas) ────────────
 async def S30() -> None:
-    print("\n━━━ S30. MLX: Devstral-Small-2507-MLX-4bit (coding) ━━━")
+    print("\n━━━ S30. MLX: Qwen3-Coder-Next-4bit (coding) ━━━")
     await _mlx_group(
         "S30",
         "Qwen3-Coder-Next-4bit",
@@ -5327,13 +5358,13 @@ async def S37() -> None:
 async def S38() -> None:
     print("\n━━━ S38. GLM-5.1 HEAVY MLX (FRONTIER AGENTIC CODER) ━━━")
     sec = "S38"
-    model_tag = "mlx-community/GLM-5.1-DQ4plus-q8"
+    model_tag = "mlx-community/GLM-5.1-MXFP4-Q8"
 
     # ── S38-01: Model present in HuggingFace cache ────────────────────────────
     t0 = time.time()
     hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
     # HF cache uses -- separator for org/model
-    cache_dir_pattern = "models--mlx-community--GLM-5.1-DQ4plus-q8"
+    cache_dir_pattern = "models--mlx-community--GLM-5.1-MXFP4-Q8"
     model_cached = (
         any(d.name == cache_dir_pattern for d in hf_cache.iterdir()) if hf_cache.exists() else False
     )
@@ -5343,11 +5374,11 @@ async def S38() -> None:
             sec,
             "S38-01",
             "GLM-5.1 model in HF cache",
-            "INFO",
+            "WARN",
             "not downloaded — run: PULL_HEAVY=true ./launch.sh pull-mlx-models",
             t0=t0,
         )
-        record(sec, "S38-02", "GLM-5.1 inference test", "INFO", "skipped — model not cached")
+        record(sec, "S38-02", "GLM-5.1 inference test", "WARN", "skipped — model not cached")
         return
 
     record(sec, "S38-01", "GLM-5.1 model in HF cache", "PASS", "✓ cached", t0=t0)
@@ -5360,7 +5391,7 @@ async def S38() -> None:
     # ── S38-03: GLM-5.1 in MODEL_MEMORY dict ─────────────────────────────────
     t0 = time.time()
     proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
-    has_entry = "GLM-5.1-DQ4plus-q8" in proxy_src
+    has_entry = "GLM-5.1-MXFP4-Q8" in proxy_src
     record(
         sec,
         "S38-03",
@@ -5380,21 +5411,21 @@ async def S38() -> None:
             sec,
             "S38-04",
             "GLM-5.1 inference test",
-            "INFO",
+            "WARN",
             "skipped — set TEST_HEAVY_MLX=true to enable (will unload current MLX model)",
         )
         return
 
     t0 = time.time()
     try:
-        loaded = await _load_mlx_model(model_tag, timeout=300)
+        loaded, detail = await _load_mlx_model(model_tag)
         if not loaded:
             record(
                 sec,
                 "S38-04",
                 "GLM-5.1 model load",
                 "FAIL",
-                "failed to load within 300s — may exceed memory",
+                f"failed to load: {detail[:80]}",
                 t0=t0,
             )
             return
@@ -5455,6 +5486,396 @@ async def S38() -> None:
                 )
     except Exception as e:
         record(sec, "S38-05", "GLM-5.1 inference", "FAIL", str(e)[:80], t0=t0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# S39 — OLLAMA MODEL DIRECT INFERENCE TESTS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests every Ollama model listed in backends.yaml that is not already exercised
+# through workspace routing (S3) or persona tests (S11). Each model gets a direct
+# Ollama API call with a domain-specific prompt and signal validation.
+# If a model is not pulled, result is WARN (test cannot be completed without it).
+
+
+async def _ollama_model_test(
+    sec: str,
+    tid: str,
+    model: str,
+    prompt: str,
+    signals: list[str],
+    max_tokens: int = 200,
+) -> None:
+    """Test an Ollama model directly via its API. Result is WARN if model not pulled."""
+    t0 = time.time()
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "max_tokens": max_tokens,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=180) as c:
+            r = await c.post(f"{OLLAMA_URL}/v1/chat/completions", json=body)
+        if r.status_code == 200:
+            data = r.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            actual_model = data.get("model", "")
+            if actual_model and actual_model != model:
+                record(
+                    sec,
+                    tid,
+                    f"Ollama {model}",
+                    "WARN",
+                    f"wrong model returned: {actual_model}",
+                    t0=t0,
+                )
+                return
+            if content.strip():
+                matched = [s for s in signals if s in content.lower()]
+                record(
+                    sec,
+                    tid,
+                    f"Ollama {model}",
+                    "PASS" if matched or not signals else "WARN",
+                    f"matched={matched}" if matched else f"preview: {content[:80]}",
+                    t0=t0,
+                )
+            else:
+                record(sec, tid, f"Ollama {model}", "WARN", "empty response", t0=t0)
+        elif r.status_code == 404:
+            record(
+                sec,
+                tid,
+                f"Ollama {model}",
+                "WARN",
+                f"model not pulled — run: ollama pull {model}",
+                t0=t0,
+            )
+        else:
+            record(
+                sec, tid, f"Ollama {model}", "WARN", f"HTTP {r.status_code}: {r.text[:60]}", t0=t0
+            )
+    except Exception as e:
+        record(sec, tid, f"Ollama {model}", "WARN", str(e)[:80], t0=t0)
+
+
+async def S39() -> None:
+    """Ollama model direct inference — every model in backends.yaml gets exercised."""
+    print("\n━━━ S39. OLLAMA MODEL DIRECT INFERENCE ━━━")
+    sec = "S39"
+
+    tests: list[tuple[str, str, list[str], int]] = [
+        # ── General ──
+        (
+            "dolphin-llama3:8b",
+            "Explain what Docker is and name three benefits of containerization.",
+            ["docker", "container", "benefit"],
+            200,
+        ),
+        (
+            "dolphin-llama3:70b-q4_k_m",
+            "Explain what Docker is and name three benefits of containerization.",
+            ["docker", "container", "benefit"],
+            200,
+        ),
+        # ── Coding ──
+        (
+            "qwen3-coder:30b",
+            "Write a Python function that reverses a string. Include type hints.",
+            ["def ", "str", "return"],
+            200,
+        ),
+        (
+            "qwen3.5:9b",
+            "Write a Python function that checks if a number is prime.",
+            ["def ", "prime", "return"],
+            200,
+        ),
+        (
+            "devstral:24b",
+            "Write a Python function that merges two sorted lists.",
+            ["def ", "merge", "return", "list"],
+            200,
+        ),
+        (
+            "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+            "Write a Python decorator that retries a function 3 times on exception.",
+            ["def ", "retry", "exception", "decorator"],
+            200,
+        ),
+        (
+            "deepseek-coder-v2-lite:Q4_K_M",
+            "Write a Python function that flattens a nested list recursively.",
+            ["def ", "flatten", "recurs", "list"],
+            200,
+        ),
+        (
+            "glm-4.7-flash:Q4_K_M",
+            "Write a Python function that counts word frequency in a text.",
+            ["def ", "count", "frequency", "word"],
+            200,
+        ),
+        (
+            "llama3.3:70b-q4_k_m",
+            "Write a Python function that implements binary search.",
+            ["def ", "binary", "search", "return"],
+            200,
+        ),
+        # ── Security ──
+        (
+            "huihui_ai/baronllm-abliterated",
+            "Analyze the security risks of an open CORS policy allowing all origins.",
+            ["cors", "origin", "security", "attack", "vulnerability"],
+            200,
+        ),
+        (
+            "whiterabbitneo:33b-v1.5-q4_k_m",
+            "Describe common techniques for privilege escalation on Linux systems.",
+            ["privilege", "escalation", "linux", "root", "exploit"],
+            200,
+        ),
+        (
+            "dolphin3-r1-mistral:24b-q4_k_m",
+            "Explain the OWASP Top 10 and how to mitigate injection attacks.",
+            ["owasp", "injection", "security", "mitigation"],
+            200,
+        ),
+        # ── Reasoning ──
+        (
+            "huihui_ai/tongyi-deepresearch-abliterated",
+            "Compare microservices versus monolithic architecture. List 3 pros and 3 cons of each.",
+            ["microservice", "monolith", "scal", "complex"],
+            200,
+        ),
+        # ── Vision ──
+        (
+            "qwen3-vl:32b",
+            "Describe what types of visual analysis you can perform on images.",
+            ["image", "visual", "detect", "recognize", "describe"],
+            200,
+        ),
+        (
+            "llava:7b",
+            "Describe what types of visual analysis you can perform on images.",
+            ["image", "visual", "detect", "recognize", "describe"],
+            200,
+        ),
+    ]
+
+    test_num = 1
+    for model, prompt, signals, max_tokens in tests:
+        await _ollama_model_test(sec, f"S39-{test_num:02d}", model, prompt, signals, max_tokens)
+        test_num += 1
+        await asyncio.sleep(2)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# S40 — MLX MODEL DIRECT INFERENCE TESTS
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests MLX models listed in _MLX_MODEL_FULL_PATHS that are not already tested
+# in S30-S38. Each model is loaded into the MLX proxy and gets a direct inference
+# test. Result is WARN if model not downloaded (cannot complete test).
+
+
+async def S40() -> None:
+    """MLX model direct inference — test models not covered by S30-S38."""
+    print("\n━━━ S40. MLX MODEL DIRECT INFERENCE ━━━")
+    sec = "S40"
+
+    async def _run_mlx_model_test(
+        tid: str,
+        model_label: str,
+        prompt: str,
+        signals: list[str],
+        max_tokens: int = 200,
+    ) -> None:
+        """Load a model via the MLX proxy, run inference, validate signals."""
+        t0 = time.time()
+        full_model = _MLX_MODEL_FULL_PATHS.get(model_label, model_label)
+
+        print(f"  ── Loading {model_label} ──")
+        await _unload_ollama_models()
+        loaded, detail = await _load_mlx_model(model_label)
+        if not loaded:
+            record(sec, tid, f"MLX {model_label}", "WARN", f"model load failed: {detail[:80]}")
+            return
+
+        _model_gb = _MLX_MODEL_SIZES_GB.get(model_label, 20.0)
+        is_vlm = "vlm" in full_model.lower() or any(
+            v in full_model for v in ("Qwen3-VL", "llava", "GLM-OCR")
+        )
+        if is_vlm:
+            ready_timeout = 240
+        elif _model_gb >= 30:
+            ready_timeout = 300
+        elif _model_gb >= 20:
+            ready_timeout = 240
+        else:
+            ready_timeout = 120
+        ready = await _wait_for_mlx_ready(timeout=ready_timeout, expected_model=model_label)
+        if not ready:
+            record(
+                sec,
+                tid,
+                f"MLX {model_label}",
+                "WARN",
+                f"proxy not ready after {ready_timeout}s",
+            )
+            return
+
+        t0 = time.time()
+        body = {
+            "model": full_model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "max_tokens": max_tokens,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=300) as c:
+                r = await c.post(f"{MLX_URL}/v1/chat/completions", json=body)
+            if r.status_code == 200:
+                data = r.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                resp_model = data.get("model", "")
+                if resp_model and full_model not in resp_model:
+                    record(
+                        sec,
+                        tid,
+                        f"MLX {model_label}",
+                        "WARN",
+                        f"wrong model in response: {resp_model[:60]}",
+                        t0=t0,
+                    )
+                    return
+                if content.strip():
+                    matched = [s for s in signals if s in content.lower()]
+                    record(
+                        sec,
+                        tid,
+                        f"MLX {model_label}",
+                        "PASS" if matched or not signals else "WARN",
+                        f"matched={matched}" if matched else f"preview: {content[:80]}",
+                        t0=t0,
+                    )
+                else:
+                    record(sec, tid, f"MLX {model_label}", "WARN", "empty response", t0=t0)
+            else:
+                record(
+                    sec,
+                    tid,
+                    f"MLX {model_label}",
+                    "WARN",
+                    f"HTTP {r.status_code}: {r.text[:60]}",
+                    t0=t0,
+                )
+        except Exception as e:
+            record(sec, tid, f"MLX {model_label}", "WARN", str(e)[:80], t0=t0)
+
+    # ── S40-01: Qwen3-VL-32B (VLM, 36GB) ──
+    print("\n  ── S40-01: Qwen3-VL-32B-Instruct-8bit (VLM) ──")
+    await _run_mlx_model_test(
+        "S40-01",
+        "Qwen3-VL-32B-Instruct-8bit",
+        "Describe what types of visual analysis you can perform on photographs. "
+        "List at least 5 capabilities.",
+        ["image", "visual", "detect", "describe", "recognize", "object"],
+        250,
+    )
+
+    # ── S40-02: llava-1.5-7b (VLM, 8GB) ──
+    print("\n  ── S40-02: llava-1.5-7b-8bit (VLM) ──")
+    await _run_mlx_model_test(
+        "S40-02",
+        "llava-1.5-7b-8bit",
+        "Describe what types of visual analysis you can perform on photographs. "
+        "List at least 3 capabilities.",
+        ["image", "visual", "detect", "describe", "recognize"],
+        200,
+    )
+
+    # ── S40-03: GLM-OCR (VLM, 2GB, OCR specialist) ──
+    print("\n  ── S40-03: GLM-OCR-bf16 (OCR specialist) ──")
+    await _run_mlx_model_test(
+        "S40-03",
+        "GLM-OCR-bf16",
+        "What can you extract from a scanned document image? Describe your OCR capabilities.",
+        ["text", "read", "extract", "document", "ocr", "recognize"],
+        200,
+    )
+
+    # ── S40-04: Devstral-Small-2507 (coding, 18GB) ──
+    print("\n  ── S40-04: Devstral-Small-2507-MLX-4bit (coding) ──")
+    await _run_mlx_model_test(
+        "S40-04",
+        "Devstral-Small-2507-MLX-4bit",
+        "Write a Python function that implements a binary search tree with insert, "
+        "search, and in-order traversal. Include type hints.",
+        ["def ", "class", "insert", "search", "traversal"],
+        250,
+    )
+
+    # ── S40-05: DeepSeek-Coder-V2-Lite (coding, 12GB) ──
+    print("\n  ── S40-05: DeepSeek-Coder-V2-Lite-Instruct-8bit (coding) ──")
+    await _run_mlx_model_test(
+        "S40-05",
+        "DeepSeek-Coder-V2-Lite-Instruct-8bit",
+        "Write a Python function that implements LRU cache using OrderedDict. "
+        "Include type hints and a usage example.",
+        ["def ", "cache", "lru", "ordered", "dict"],
+        200,
+    )
+
+    # ── S40-06: Llama-3.2-3B (text, 3GB, fast) ──
+    print("\n  ── S40-06: Llama-3.2-3B-Instruct-8bit (text, fast) ──")
+    await _run_mlx_model_test(
+        "S40-06",
+        "Llama-3.2-3B-Instruct-8bit",
+        "Explain the difference between a list and a tuple in Python. When should you use each?",
+        ["list", "tuple", "mutable", "immutable"],
+        150,
+    )
+
+    # ── S40-07: Llama-3.2-11B-Vision (VLM, 7GB) ──
+    print("\n  ── S40-07: Llama-3.2-11B-Vision-Instruct-abliterated-4-bit (VLM) ──")
+    await _run_mlx_model_test(
+        "S40-07",
+        "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",
+        "Describe what types of visual content you can analyze. List at least 3 capabilities.",
+        ["image", "visual", "detect", "describe", "recognize"],
+        200,
+    )
+
+    # ── S40-08: DeepSeek-R1-abliterated-8bit (reasoning, 34GB) ──
+    print("\n  ── S40-08: DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit (reasoning) ──")
+    await _run_mlx_model_test(
+        "S40-08",
+        "DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit",
+        "Two trains leave cities 790 miles apart simultaneously — one at 60 mph, "
+        "one at 80 mph. When and where do they meet? Show all steps.",
+        ["meet", "hour", "miles", "mph", "train"],
+        300,
+    )
+
+    # ── S40-09: Llama-3.3-70B (HEAVY, 40GB) — gated like S38 ──
+    print("\n  ── S40-09: Llama-3.3-70B-Instruct-4bit (HEAVY) ──")
+    _s40_09_model = "Llama-3.3-70B-Instruct-4bit"
+    if os.environ.get("TEST_HEAVY_MLX", "").lower() != "true":
+        record(
+            sec,
+            "S40-09",
+            f"MLX {_s40_09_model} inference",
+            "WARN",
+            "skipped — set TEST_HEAVY_MLX=true to enable (~40GB, will unload current MLX model)",
+        )
+    else:
+        await _run_mlx_model_test(
+            "S40-09",
+            _s40_09_model,
+            "Explain how attention mechanisms work in transformer architectures. "
+            "Cover self-attention, multi-head attention, and positional encoding.",
+            ["attention", "transformer", "head", "position", "encoding"],
+            300,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -8032,6 +8453,8 @@ SECTIONS = {
     "S36": S36,
     "S37": S37,
     "S38": S38,
+    "S39": S39,
+    "S40": S40,
 }
 
 ALL_ORDER = [
@@ -8057,10 +8480,11 @@ ALL_ORDER = [
     "S15",  # Web search (SearXNG)
     "S20",  # Channel adapters (Telegram/Slack)
     "S11",  # Ollama personas (grouped by model)
+    "S39",  # Ollama model direct inference — all models in backends.yaml (no MLX needed)
     # ── MLX models — grouped by model (workspace + persona together) ───────
     # Each section loads ONE model and runs all its tests before switching.
     # S22 (intentional model switch test) runs after all groups.
-    "S30",  # Devstral-Small-2507: auto-coding + 17 coding personas
+    "S30",  # Qwen3-Coder-Next-4bit: auto-coding + 17 coding personas
     "S5",  # Code sandbox (auto-coding → already loaded from S30)
     "S31",  # Qwen3-Coder-30B-A3B: auto-spl + 3 SPL/fullstack personas (SWITCH)
     "S32",  # DeepSeek-R1-abliterated-4bit: auto-reasoning/research/data (SWITCH)
@@ -8070,6 +8494,7 @@ ALL_ORDER = [
     "S36",  # Dolphin3.0-Llama3.1-8B: auto-creative (SWITCH)
     "S37",  # gemma-4-31b-it-4bit: auto-vision + Gemma persona (SWITCH, VLM)
     "S38",  # GLM-5.1 HEAVY: frontier agentic coder (Zhipu lineage, optional)
+    "S40",  # MLX untested models: Qwen3-VL, llava, GLM-OCR direct inference
     "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
     # ── Fallback chain verification (kill/restore backends) ─────────────────
     "S23",  # Fallback chain (kill MLX, verify Ollama fallback, restore)
