@@ -312,46 +312,37 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 
 ## Most recent run
 
-**Date:** 2026-04-08 23:20:18
-**Git SHA:** 3744e2c
-**Result:** 217 PASS · 5 WARN · 15 INFO · 0 FAIL · 0 BLOCKED
-**Runtime:** ~60 min (3585s)
+**Date:** 2026-04-10 15:48:02
+**Git SHA:** (pending commit — frontier upgrade + GLM-5.1 removal)
+**Result:** 247 PASS · 11 WARN · 0 FAIL · 6 INFO · 0 BLOCKED
+**Runtime:** ~79 min (4745s)
 
-> **Note:** This run predates the S24 (RAG embedding), S38 (GLM-5.1 HEAVY),
-> S1-12..16 (static config), S2-17/18 (service health), S8/S9 rewrite (MLX speech),
-> and S16-10 (CLI commands) additions. Expect ~17 additional test IDs in the next
-> run (S1-12..16, S2-17/18, S8-03/04, S24-01..04, S38-01..05, S16-10). S38-04/05
-> only run with TEST_HEAVY_MLX=true. S24 and S38 may initially WARN/INFO depending
-> on whether the embedding service and GLM-5.1 model are deployed.
+> **Note:** TASK_FRONTIER_UPGRADE_V1 applied — Phi-4 14B added, Jackrong Claude-4.6-Opus v2 models added,
+> GLM-5.1 removed (tested OOM on 64GB: 49GB+10GB headroom=59GB > available). LLaVA-1.5-7B retained.
+> S38 refactored from "HEAVY load test" to "removal verification". 41 personas (phi4specialist added).
 
-**Run 12 — 217P/5W/0F.** Full run completed 217P/5W/15I. No test assertion fixes
-needed — all WARNs are environmental or expected system behavior.
+**Run 14 — 247P/11W/0F.** Full run completed. 0 FAILs. 11 WARNs are all environmental/expected.
 
-**5 WARN breakdown (all environmental/expected):**
-- S0-02: Git remote mismatch (local 3744e2c ≠ remote c2d0d63 — test code changes
-  not pushed to remote; does not affect test validity)
-- S11 sqlterminal: SQL Terminal persona returned `(0 rows returned)` — correct SQL
-  terminal behavior but no domain signal words matched (test assertion too strict
-  for structured-output personas)
-- S23-02: Response model identity — HTTP 408 timeout (pipeline response doesn't
-  include `model` field; documented pipeline limitation per execute doc)
-- S23-03: auto-coding MLX path served qwen3-vl:32b from Ollama (MLX proxy was
-  switching models during fallback test setup; pipeline correctly fell back)
-- S23-14: 6/7 backends healthy after kill/restore (MLX admission rejected
-  Qwen3-Coder-30B prewarm — needs 32GB, only ~20GB free with Docker + MLX resident
-  on 64GB system; memory coexistence rules working as designed)
+**11 WARN breakdown (all environmental/expected):**
+- S2-16: Open WebUI bound to 127.0.0.1 — ENABLE_REMOTE_ACCESS=true but stack was started before the env var was set (config/restart needed)
+- S2-17: Embedding service not reachable — TEI image is x86-only, no ARM64 manifest (run under Rosetta or use `./launch.sh start-embedding-cpu-arm`)
+- S13-03: Personas GUI 2/41 (headless) | API 40/41 — phi4specialist persona exists on disk but not yet seeded into Open WebUI (run `./launch.sh up` to re-seed openwebui-init)
+- S24-01: Embedding service health — same as S2-17 (ARM64 TEI)
+- S24-02: Embedding vector generation skipped — cascades from S24-01
+- S11-01: phi4specialist missing from Open WebUI — new persona file not yet seeded (same as S13-03; resolve with `./launch.sh up`)
+- P:pythoninterpreter: no signals in response — model returned a raw list `[[3, 1], ...]` without keyword matches; intermittent
+- S39-13: tongyi-deepresearch-abliterated empty response — known thinking-model behavior (expected)
+- S39-14: qwen3-vl:32b empty response — VLM model returns empty on text-only input (expected)
+- S40-05: DeepSeek-Coder-V2-Lite garbled output — known model quality issue with this MLX quantization (expected)
+- S23-14: 6/7 backends healthy — MLX admission rejected Qwen3-Coder-30B prewarm late in run (memory constrained from S40 heavy models; coexistence rules working correctly)
 
-**15 INFO breakdown:**
-- 15 pre-section MLX state checks (proxy 503 before first prewarm — expected)
+**6 INFO breakdown:**
+- 5 pre-section MLX state checks (proxy 503 before first prewarm — expected)
+- S2-18: MLX Speech not running (start with `./launch.sh start-speech` on Apple Silicon)
 
-**Delta from Run 11 (219P/3W):** -2 PASS, +2 WARN. The two new WARNs are:
-- S11 sqlterminal: was PASS before (response had domain signals), now WARN
-  (SQL returned empty result set this run — model-dependent behavior)
-- S23-02: was PASS before, now WARN (MLX proxy was in switching state during
-  model identity check, causing 408 timeout)
-
-No product code changes between runs. All WARNs are non-actionable (environmental
-or documented limitations).
+**Delta from Run 13 (242P/15W/7F):** +5 PASS, -4 WARN, -7 FAIL, -14 INFO.
+All 7 FAILs eliminated. S38 GLM-5.1 load FAIL resolved (model removed from stack after confirmed OOM).
+WARN count reduced from 15 → 11. New WARNs for phi4specialist unseeded (resolve with re-seed).
 
 ---
 
@@ -375,12 +366,21 @@ or documented limitations).
 | S1-10 FAIL | Model in ALL_MODELS missing from MODEL_MEMORY | Add `"model/path": GB_estimate` to MODEL_MEMORY in scripts/mlx-proxy.py |
 | S1-08/S1-09 FAIL | routing_descriptions.json or routing_examples.json missing | TASK_V6_RELEASE.md not applied — apply it first |
 | S1-12 FAIL | Embedding service missing from docker-compose | Apply TASK_FRONTIER_MODELS.md — add portal5-embedding service, Harrier model, bge-reranker |
-| S1-13/S1-14 FAIL | GLM-5.1 not in backends.yaml or MODEL_MEMORY | Apply TASK_FRONTIER_MODELS.md — add GLM-5.1 entries |
+| S1-13 FAIL | phi-4-8bit or Qwopus3.5-27B missing from backends.yaml | Apply TASK_FRONTIER_UPGRADE_V1.md — add entries |
+| S1-14 FAIL | Qwopus3.5-27B or phi-4-8bit missing from MODEL_MEMORY | Add entries to MODEL_MEMORY in scripts/mlx-proxy.py |
+| S11-01 WARN | phi4specialist missing from Open WebUI | Run `./launch.sh up` to re-seed openwebui-init with new persona |
 | S1-15 FAIL | mlx-speech.py missing or lacks Qwen3-TTS/Qwen3-ASR | Apply TASK_SPEECH_PIPELINE_UPGRADE.md |
 | S2-17 WARN | Embedding service not reachable | `docker compose up portal5-embedding` — may not be deployed yet |
 | S2-18 INFO | MLX Speech not running | `./launch.sh start-speech` — Apple Silicon only |
 | S8-03/04 INFO | Qwen3-TTS skipped | MLX speech server not running — start with `./launch.sh start-speech` |
-| S24-01 FAIL | Embedding service down | `docker compose restart portal5-embedding` |
+| S8-02 FAIL | Kokoro TTS HTTP 503 | Missing Python deps: `pip install misaki num2words spacy phonemizer && python3 -m spacy download en_core_web_sm`. Also Metal GPU crash from concurrent requests — serialize TTS calls. |
+| S8-03 FAIL | Qwen3-TTS Chelsie HTTP 503 | Speech server instability from Metal GPU crash. Serialize requests. |
+| S17-03a FAIL | MCP rebuild — Docker Hub unreachable | Network/DNS issue. Running containers are healthy; rebuild not required. |
+| S24-01 FAIL | Embedding service down | `docker compose up portal5-embedding` — may not be deployed yet |
+| S40-03/07 WARN | VLM model log signal mismatch | VLM server (mlx_vlm) prints "Uvicorn running" not "Starting httpd". Test should check both patterns. |
+| S40-08 WARN | DeepSeek-R1-Distill-Qwen-32B-abliterated-8bit crash | 8bit variant not in standard catalog; Metal GPU OOM. Use 4bit variant. |
+| S39-13/14 WARN | Ollama models returning empty | tongyi-deepresearch-abliterated and qwen3-vl:32b return empty on test prompts — model-dependent behavior |
+| S2-16 WARN | Open WebUI bind address mismatch | Stack started before ENABLE_REMOTE_ACCESS was set. Fix: `./launch.sh down && ./launch.sh up` |
 | S24-02 INFO | Skipped (service not healthy) | Fix S24-01 first |
 | S38-01 WARN | GLM-5.1 not cached | `PULL_HEAVY=true ./launch.sh pull-mlx-models` (~38GB download) |
 | S38-04 WARN | Inference skipped | Set `TEST_HEAVY_MLX=true` to enable (unloads current MLX model) |

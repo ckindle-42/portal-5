@@ -444,7 +444,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
+        "mlx_model_hint": "mlx-community/phi-4-8bit",  # Microsoft Phi-4 14B — structured doc generation, STEM reasoning
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",

@@ -1253,9 +1253,11 @@ case "${1:-up}" in
                 "mlx-community/Qwen3-Coder-Next-4bit"
                 "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"
                 "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"
+                "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
                 "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"
                 "lmstudio-community/Devstral-Small-2507-MLX-4bit"
                 "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"
+                "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit"
                 "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
                 "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"
                 "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"
@@ -1270,7 +1272,6 @@ case "${1:-up}" in
             )
             if [ "${PULL_HEAVY:-false}" = "true" ]; then
                 _MLX_MODELS+=("mlx-community/Llama-3.3-70B-Instruct-4bit")
-                _MLX_MODELS+=("mlx-community/GLM-5.1-MXFP4-Q8")
             fi
             _MTOTAL=${#_MLX_MODELS[@]}
             _MCOUNT=0
@@ -2541,18 +2542,23 @@ MLXPLIST
         echo "    lmstudio-community/Devstral-Small-2507-MLX-4bit      (~15GB — Devstral v1.1, 53.6% SWE-bench, Mistral lineage)"
         echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
         echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
-        echo "  Model Diversity (Google / Mistral):"
+        echo "  Model Diversity (Microsoft / Google / Mistral):"
+        echo "    mlx-community/phi-4-8bit                           (~14GB — Microsoft Phi-4 14B, synthetic data, MIT)"
         echo "    mlx-community/gemma-4-31b-it-4bit                  (~18GB — Google Gemma 4 dense 31B, thinking+vision, VLM)"
         echo "    lmstudio-community/Magistral-Small-2509-MLX-8bit  (~24GB — Mistral reasoning, [THINK] mode)"
         echo "    mlx-community/Llama-3.3-70B-Instruct-4bit        (~40GB — heavy, 4bit only)"
-        echo "  Qwopus3.5 v3 Reasoning (Claude Opus distillation):"
-        echo "    Jackrong/MLX-Qwopus3.5-27B-v3-8bit                      (~22GB)"
-        echo "    Jackrong/MLX-Qwopus3.5-9B-v3-8bit                       (~10GB)"
+        echo "  Jackrong Reasoning Distills:"
+        echo "    Jackrong/MLX-Qwopus3.5-27B-v3-8bit                                    (~22GB, primary auto-reasoning)"
+        echo "    Jackrong/MLX-Qwopus3.5-9B-v3-8bit                                     (~9GB)"
+        echo "    Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit  (~14GB, Claude-4.6-Opus v2)"
+        echo "    Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      (~9GB, Claude-4.6-Opus)"
         echo "    Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit (~28GB)"
         echo "    mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           (~18GB — uncensored)"
+        echo "  Microsoft:"
+        echo "    mlx-community/phi-4-8bit                                              (~14GB)"
         echo "  VLM models (mlx_vlm, port 18082):"
         echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
-        echo "    mlx-community/llava-1.5-7b-8bit                  (~8GB — vision fallback)"
+        echo "    mlx-community/llava-1.5-7b-8bit                  (~8GB — lightweight VLM fallback)"
         echo ""
         echo "Current status:"
         curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
@@ -2755,11 +2761,13 @@ MLXPLIST
         # Coding — primary workspace models
         "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
-        "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"               # ~9GB
         "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
         "lmstudio-community/Devstral-Small-2507-MLX-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
-        # Qwopus3.5 v3 Reasoning
-        "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                # ~22GB
+        # Jackrong Reasoning (Qwopus3.5-v3 primary + Claude-4.6-Opus variants)
+        "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                                    # ~22GB — primary auto-reasoning
+        "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"                                     # ~9GB
+        "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit"  # ~14GB — v2: efficient CoT
+        "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"      # ~9GB — Claude-4.6-Opus 9B distill
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"                   # ~34GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
@@ -2767,12 +2775,13 @@ MLXPLIST
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing
         "mlx-community/Llama-3.2-3B-Instruct-8bit"         # ~3GB — ultra-fast
-        # Model diversity (non-Qwen families)
+        # Model diversity (non-Qwen/non-DeepSeek families)
+        "mlx-community/phi-4-8bit"                          # ~14GB — Microsoft Phi-4 14B, synthetic data training, MIT
         "mlx-community/gemma-4-31b-it-4bit"                  # ~18GB — Google Gemma 4 dense 31B, thinking+vision
         "lmstudio-community/Magistral-Small-2509-MLX-8bit"  # ~24GB — Mistral reasoning, [THINK] mode
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
-        "mlx-community/llava-1.5-7b-8bit"                  # ~8GB
+        "mlx-community/llava-1.5-7b-8bit"                  # ~8GB — lightweight VLM fallback
         # OCR (document ingestion)
         "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
         # Speech (mlx-audio — TTS + ASR, host-native)
@@ -2785,8 +2794,8 @@ MLXPLIST
 
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
-        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first
-        "mlx-community/GLM-5.1-MXFP4-Q8"                   # ~38GB — GLM-5.1 frontier agentic coder (MIT, Zhipu lineage)
+        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first (BIG_MODEL)
+        # GLM-5.1 removed: tested on 64GB M4 Mac — both MXFP4-Q8 (49GB) and DQ4plus variants exceed safe headroom
     )
 
     total=${#MLX_MODELS[@]}

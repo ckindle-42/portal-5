@@ -104,7 +104,7 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (40 total):**
+**Available personas (41 total):**
 
 | Category | Personas |
 |----------|----------|
@@ -889,7 +889,7 @@ Only one server runs at a time due to unified memory constraints. Switching take
 ./launch.sh install-mlx
 ```
 
-This installs both `mlx-vlm` and `mlx-lm<0.31`, deploys the proxy to
+This installs `mlx-vlm`, `mlx-lm`, and `mlx-audio`, deploys the proxy to
 `~/.portal5/mlx/mlx-proxy.py`, and registers a launchd service (`com.portal5.mlx-proxy`).
 
 ### How it works

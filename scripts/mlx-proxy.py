@@ -44,27 +44,41 @@ WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
-    "llava-1.5-7b-8bit",
+    "llava-1.5-7b-8bit",                                  # Lightweight VLM fallback (~8GB)
+    "GLM-OCR-bf16",                                       # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
+    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",    # Llama VLM — mllama model type, requires mlx_vlm
 }
 
 ALL_MODELS = [
-    "mlx-community/Qwen3-Coder-Next-4bit",
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
-    "mlx-community/Devstral-Small-2505-8bit",
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit",
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
-    "mlx-community/Llama-3.2-3B-Instruct-8bit",
-    "mlx-community/gemma-4-31b-it-4bit",
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit",
-    "mlx-community/Llama-3.3-70B-Instruct-4bit",
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",
-    "mlx-community/llava-1.5-7b-8bit",
-    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
+    # ── Text-only (mlx_lm) ────────────────────────────────────────────────
+    # Coding
+    "mlx-community/Qwen3-Coder-Next-4bit",                                          # 80B MoE 4bit (~46GB, BIG_MODEL)
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",                              # 30B MoE 8bit (~22GB)
+    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",                           # DS-Coder-V2 8bit (~12GB)
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit",                              # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
+    # Creative / general
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",                                   # Dolphin 8B (~9GB, uncensored)
+    "mlx-community/Llama-3.2-3B-Instruct-8bit",                                    # Ultra-fast routing (~3GB)
+    # Model diversity — non-Qwen families
+    "mlx-community/phi-4-8bit",                                                     # Microsoft Phi-4 14B (~14GB, synthetic data, MIT)
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit",                             # Mistral reasoning (~24GB, [THINK] mode)
+    # Heavy (PULL_HEAVY only)
+    "mlx-community/Llama-3.3-70B-Instruct-4bit",                                   # Llama 70B 4bit (~40GB, BIG_MODEL)
+    # GLM-5.1 removed: exceeds 64GB safe headroom (both variants) — tested and confirmed OOM
+    # Jackrong Qwopus3.5-v3 (primary reasoning) + Claude-4.6-Opus distills
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",                                          # Reasoning primary 27B v3 8bit (~22GB, auto-reasoning)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",                                           # Available 9B v3 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",        # Reasoning alt 27B v2 4bit (~14GB, Claude-4.6-Opus)
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",            # Available 9B Claude-4.6 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",       # 35B-A3B 8bit (~28GB, compliance)
+    # Reasoning/analysis
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",                         # FIX: was missing from ALL_MODELS — R1 Distill 32B 8bit (~34GB, auto-data)
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",                 # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
+    # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
+    "mlx-community/gemma-4-31b-it-4bit",                                            # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit",                                    # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
+    "mlx-community/llava-1.5-7b-8bit",                                             # LLaVA 1.5 7B 8bit (~8GB, lightweight VLM)
+    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",               # Uncensored VLM 11B 4bit (~7GB, Karakeep)
 ]
 
 # ── Big-Model Mode (P5-BIG-001) ───────────────────────────────────────────────
@@ -77,7 +91,10 @@ ALL_MODELS = [
 # Trigger: any model whose HF path is in this set is treated as big-model.
 # The `auto-agentic` workspace is the intended entry point.
 BIG_MODEL_SET: set[str] = {
-    "mlx-community/Qwen3-Coder-Next-4bit",
+    "mlx-community/Qwen3-Coder-Next-4bit",        # ~46GB — auto-agentic
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit",   # ~36GB — heavy VLM
+    "mlx-community/Llama-3.3-70B-Instruct-4bit",  # ~40GB — heavy coding + reasoning
+    # GLM-5.1 removed: too large for 64GB stack (MXFP4-Q8 = 49GB, both variants exceed safe headroom)
 }
 
 # Context ceiling for big-model requests — suppresses KV cache spike.
@@ -103,22 +120,23 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/Qwen3-Coder-Next-4bit": 46.0,  # 80B MoE, 4bit (~46GB)
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,  # Lite 8bit (~12GB)
-    "mlx-community/Devstral-Small-2505-8bit": 18.0,  # Devstral 8bit (~18GB)
     "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15.0,  # Devstral Small 2507 MLX 4bit (~15GB, 53.6% SWE-bench)
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,  # Dolphin 8B 8bit (~9GB)
     "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)
     "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,  # Llama 70B 4bit (~40GB)
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,  # Qwopus 27B 8bit (~22GB)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,  # Qwopus 9B 8bit (~9GB)
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,                                     # Qwopus 27B v3 8bit (~22GB, primary auto-reasoning)
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,                                      # Qwopus 9B v3 8bit (~9GB)
+    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit": 14.0,  # 27B v2 4bit (~14GB, Claude-4.6-Opus)
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 9.0,       # 9B Claude-4.6 8bit (~9GB)
+    "mlx-community/phi-4-8bit": 14.0,                                               # Microsoft Phi-4 14B 8bit (~14GB)
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
-    "mlx-community/GLM-5.1-DQ4plus-q8": 38.0,  # GLM-5.1 frontier coder DQ4+q8 (~38GB, HEAVY)
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
-    "mlx-community/llava-1.5-7b-8bit": 8.0,  # LLaVA 7B 8bit (~8GB)
+    "mlx-community/llava-1.5-7b-8bit": 8.0,  # LLaVA 7B 8bit (~8GB, retained for lightweight VLM use)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
 }
 
@@ -483,14 +501,19 @@ def _get_free_memory_gb() -> float:
 
 
 def _evict_ollama_models() -> None:
-    """Send keep_alive=0 to all known-loaded Ollama models to free unified memory.
+    """Send keep_alive=0 to all CURRENTLY LOADED Ollama models to free unified memory.
 
     Ollama holds loaded models in unified memory indefinitely when keep_alive=-1.
     For big-model mode we must evict them before loading a 46 GB MLX model.
 
-    Strategy: GET /api/tags to find currently-loaded models, then POST a
+    Strategy: GET /api/ps to find ONLY currently-loaded (running) models, then POST a
     generate request with keep_alive=0 and an empty prompt for each one.
     This is the documented Ollama mechanism for explicit unloading.
+
+    NOTE: /api/ps returns only actively running models; /api/tags returns ALL installed
+    models (which could be 25+). Using /api/tags would send keep_alive=0 to unloaded
+    models, causing Ollama to briefly load each one before unloading — adding minutes
+    of unnecessary latency to the big-model pre-load sequence.
 
     Errors are suppressed — if Ollama is unreachable the load may still succeed
     if memory happens to be sufficient.
@@ -498,9 +521,9 @@ def _evict_ollama_models() -> None:
     ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     try:
         with httpx.Client(timeout=10) as c:
-            resp = c.get(f"{ollama_url}/api/tags")
+            resp = c.get(f"{ollama_url}/api/ps")
             if resp.status_code != 200:
-                print("[big-model] could not list Ollama models — skipping evict", flush=True)
+                print("[big-model] could not list running Ollama models — skipping evict", flush=True)
                 return
             models = [m["name"] for m in resp.json().get("models", [])]
     except Exception as e:
@@ -511,7 +534,7 @@ def _evict_ollama_models() -> None:
         print("[big-model] no Ollama models loaded — nothing to evict", flush=True)
         return
 
-    print(f"[big-model] evicting {len(models)} Ollama model(s): {models}", flush=True)
+    print(f"[big-model] evicting {len(models)} running Ollama model(s): {models}", flush=True)
     with httpx.Client(timeout=30) as c:
         for model_name in models:
             try:
