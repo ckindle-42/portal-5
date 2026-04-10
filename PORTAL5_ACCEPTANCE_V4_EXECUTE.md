@@ -30,7 +30,7 @@ cd portal-5
 Read these files before doing anything else:
 - `PORTAL5_ACCEPTANCE_V4_EXECUTE.md` — this file, full methodology and failure classification rules
 - `ACCEPTANCE_RESULTS.md` — most recent prior run results (if present)
-- `portal5_acceptance_v4.py` — the main test suite (S0-S23, no ComfyUI)
+- `portal5_acceptance_v4.py` — the main test suite (S0-S38, no ComfyUI)
 - `portal5_acceptance_comfyui.py` — standalone ComfyUI/image/video test suite (C0-C10)
 - `KNOWN_LIMITATIONS.md` — architectural constraints (ComfyUI, fish-speech, etc.)
 
@@ -98,11 +98,11 @@ echo "Exit: $?"
 ```
 
 This will take 120-180 minutes for a warm system. Cold model loads add time.
-Do NOT interrupt. Let it complete. The suite has 22 sections (S0-S23, ComfyUI removed):
+Do NOT interrupt. Let it complete. The suite has 26 sections (S0-S38, ComfyUI removed):
 - Phase 1 (Ollama): S3, S4, S6, S7, S10, S15, S20
-- Phase 2 (MLX): S5, S11, S22
+- Phase 2 (MLX): S5, S11, S30-S38
 - Fallback chain verification: S23 (kill/restore backends — disables MLX watchdog)
-- No LLM dependency: S8, S9, S12, S13, S14, S16, S21
+- No LLM dependency: S8, S9, S12, S13, S14, S16, S21, S24
 
 **ComfyUI/image/video tests** are in a separate suite — run independently when ComfyUI is active:
 ```bash
@@ -317,6 +317,13 @@ unified memory. Concurrent inference causes Metal/MLX crashes.
 **Result:** 217 PASS · 5 WARN · 15 INFO · 0 FAIL · 0 BLOCKED
 **Runtime:** ~60 min (3585s)
 
+> **Note:** This run predates the S24 (RAG embedding), S38 (GLM-5.1 HEAVY),
+> S1-12..16 (static config), S2-17/18 (service health), S8/S9 rewrite (MLX speech),
+> and S16-10 (CLI commands) additions. Expect ~17 additional test IDs in the next
+> run (S1-12..16, S2-17/18, S8-03/04, S24-01..04, S38-01..05, S16-10). S38-04/05
+> only run with TEST_HEAVY_MLX=true. S24 and S38 may initially WARN/INFO depending
+> on whether the embedding service and GLM-5.1 model are deployed.
+
 **Run 12 — 217P/5W/0F.** Full run completed 217P/5W/15I. No test assertion fixes
 needed — all WARNs are environmental or expected system behavior.
 
@@ -367,6 +374,16 @@ or documented limitations).
 | S2-16 FAIL | Open WebUI bound to 0.0.0.0 with ENABLE_REMOTE_ACCESS=false | Stack not launched via ./launch.sh. Fix: `./launch.sh down && ./launch.sh up` |
 | S1-10 FAIL | Model in ALL_MODELS missing from MODEL_MEMORY | Add `"model/path": GB_estimate` to MODEL_MEMORY in scripts/mlx-proxy.py |
 | S1-08/S1-09 FAIL | routing_descriptions.json or routing_examples.json missing | TASK_V6_RELEASE.md not applied — apply it first |
+| S1-12 FAIL | Embedding service missing from docker-compose | Apply TASK_FRONTIER_MODELS.md — add portal5-embedding service, Harrier model, bge-reranker |
+| S1-13/S1-14 FAIL | GLM-5.1 not in backends.yaml or MODEL_MEMORY | Apply TASK_FRONTIER_MODELS.md — add GLM-5.1 entries |
+| S1-15 FAIL | mlx-speech.py missing or lacks Qwen3-TTS/Qwen3-ASR | Apply TASK_SPEECH_PIPELINE_UPGRADE.md |
+| S2-17 WARN | Embedding service not reachable | `docker compose up portal5-embedding` — may not be deployed yet |
+| S2-18 INFO | MLX Speech not running | `./launch.sh start-speech` — Apple Silicon only |
+| S8-03/04 INFO | Qwen3-TTS skipped | MLX speech server not running — start with `./launch.sh start-speech` |
+| S24-01 FAIL | Embedding service down | `docker compose restart portal5-embedding` |
+| S24-02 INFO | Skipped (service not healthy) | Fix S24-01 first |
+| S38-01 INFO | GLM-5.1 not cached | `PULL_HEAVY=true ./launch.sh pull-mlx-models` (~38GB download) |
+| S38-04 INFO | Inference skipped | Set `TEST_HEAVY_MLX=true` to enable (unloads current MLX model) |
 
 ---
 
@@ -394,7 +411,7 @@ S23 runs last and intentionally breaks things. It:
    - `auto-reasoning`: MLX → Ollama reasoning → general (S23-11/12/13)
 4. **Verifies full health recovery** after all kill/restore cycles (S23-14)
 5. **Re-enables the MLX watchdog** (S23-14b) before the smoke test
-6. **Smoke tests all 8 MLX workspaces** survive MLX failure (S23-15)
+6. **Smoke tests all MLX workspaces** survive MLX failure (S23-15)
 
 Each kill/restore test is self-healing — the killed backend is restored before the next test runs.
 
