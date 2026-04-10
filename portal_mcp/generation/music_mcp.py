@@ -38,7 +38,11 @@ TOOLS_MANIFEST = [
             "type": "object",
             "properties": {
                 "prompt": {"type": "string", "description": "Description of the music to generate"},
-                "duration": {"type": "number", "description": "Duration in seconds (5-30)", "default": 10},
+                "duration": {
+                    "type": "number",
+                    "description": "Duration in seconds (5-30)",
+                    "default": 10,
+                },
                 "model": {
                     "type": "string",
                     "description": "Model size: small (~300MB), medium (~1.5GB), large (~3.3GB, default)",
@@ -131,6 +135,7 @@ def _get_device() -> str:
     """Select best available torch device: MPS → CUDA → CPU."""
     try:
         import torch
+
         if torch.backends.mps.is_available():
             return "mps"
         if torch.cuda.is_available():
@@ -151,7 +156,9 @@ def _load_musicgen(model_size: str) -> tuple[Any, Any]:
         from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
         model_name = f"facebook/musicgen-{model_size}"
-        logger.info("Loading MusicGen %s (first-time load, cached for subsequent calls)", model_name)
+        logger.info(
+            "Loading MusicGen %s (first-time load, cached for subsequent calls)", model_name
+        )
         processor = AutoProcessor.from_pretrained(model_name)
         model = MusicgenForConditionalGeneration.from_pretrained(model_name)
         device = _get_device()
@@ -409,9 +416,9 @@ async def list_music_models() -> dict:
         "error": err if not available else None,
         "device": device,
         "models": {
-            "small":  {"params": "300M",  "ram_gb": 2,  "quality": "fast"},
-            "medium": {"params": "1.5B",  "ram_gb": 6,  "quality": "recommended"},
-            "large":  {"params": "3.3B",  "ram_gb": 12, "quality": "best"},
+            "small": {"params": "300M", "ram_gb": 2, "quality": "fast"},
+            "medium": {"params": "1.5B", "ram_gb": 6, "quality": "recommended"},
+            "large": {"params": "3.3B", "ram_gb": 12, "quality": "best"},
         },
         "note": (
             "Models auto-download from HuggingFace on first use. "

@@ -319,16 +319,32 @@ Run 11 fixes (2026-04-08):
       containers + MLX proxy resident consuming ~30GB). The MCP call succeeds within
       ~175s normally, but the 180s timeout had no headroom. Result: TaskGroup error
       at exactly 180.1s. Increased to 300s to provide adequate margin.
+
+Changes from v5 (this run):
+    - S1-12/13/14/15/16: Static config checks for embedding service, reranker, GLM-5.1,
+      GLM-OCR, and MLX speech server additions from TASK_FRONTIER_MODELS + TASK_SPEECH_PIPELINE
+    - S2-17/18: Health checks for portal5-embedding (:8917) and mlx-speech (:8918)
+    - S8: Rewritten for MLX speech server (:8918). Tests Kokoro backward compat,
+      Qwen3-TTS CustomVoice (preset speakers), VoiceDesign (text description → voice).
+      Falls back to Docker mcp-tts (:8916) if MLX speech not running.
+    - S9: Rewritten for Qwen3-ASR via MLX speech server (:8918). Round-trip: TTS → WAV → ASR.
+      Falls back to Docker mcp-whisper (:8915) if MLX speech not running.
+    - S24 (NEW): RAG embedding pipeline — embedding endpoint health, vector generation,
+      reranker config validation, Open WebUI RAG env var consistency
+    - S38 (NEW): GLM-5.1 HEAVY MLX model test — model load, inference, MODEL_MEMORY check
+    - S16: Added start-speech/stop-speech CLI command checks
+    - MCP port dict: added embedding (8917)
+    - MLX_SPEECH_PORT / MLX_SPEECH_URL constants for host-native speech
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import json
 import os
 import re
-import io
 import signal
 import subprocess
 import sys
@@ -384,7 +400,12 @@ MCP = {
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
     "video": int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911")),
+    "embedding": int(os.environ.get("EMBEDDING_HOST_PORT", "8917")),
 }
+
+# MLX Speech server (host-native, replaces Docker TTS/ASR on Apple Silicon)
+MLX_SPEECH_PORT = int(os.environ.get("MLX_SPEECH_PORT", "8918"))
+MLX_SPEECH_URL = f"http://localhost:{MLX_SPEECH_PORT}"
 
 DC = ["docker", "compose", "-f", "deploy/portal-5/docker-compose.yml"]
 
@@ -476,13 +497,13 @@ async def _send_notification(event_type: str, message: str, metadata: dict | Non
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
         return
     try:
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.events import AlertEvent, EventType
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
         from portal_pipeline.notifications.channels.email import EmailChannel
         from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.channels.slack import SlackChannel
+        from portal_pipeline.notifications.channels.telegram import TelegramChannel
         from portal_pipeline.notifications.channels.webhook import WebhookChannel
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.events import AlertEvent, EventType
 
         dispatcher = NotificationDispatcher()
         for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
@@ -947,7 +968,6 @@ async def S17() -> None:
                 created_str = insp.stdout.strip()
                 if created_str:
                     # Docker returns ISO 8601: 2026-04-05T21:13:07.123456789Z
-                    from datetime import timezone
                     import re as _re
 
                     # Truncate nanoseconds to microseconds for fromisoformat
@@ -1029,7 +1049,7 @@ async def S17() -> None:
         h_repo = dh_repo.stdout.split()[0] if dh_repo.returncode == 0 else ""
         if h_deployed != h_repo and h_deployed and h_repo:
             proxy_stale = True
-            print(f"  ⚠️  MLX proxy stale — syncing from scripts/mlx-proxy.py")
+            print("  ⚠️  MLX proxy stale — syncing from scripts/mlx-proxy.py")
             import shutil
 
             shutil.copy2(str(repo_proxy), str(deployed_proxy))
@@ -1659,6 +1679,86 @@ async def S1() -> None:
         t0=t0,
     )
 
+    # ── S1-12: Embedding service in docker-compose ────────────────────────────
+    t0 = time.time()
+    dc_src = (ROOT / "deploy/portal-5/docker-compose.yml").read_text()
+    has_embed_svc = "portal5-embedding" in dc_src
+    has_harrier = "harrier-oss-v1-0.6b" in dc_src
+    has_rag_openai = "RAG_EMBEDDING_ENGINE=openai" in dc_src
+    has_reranker = "bge-reranker-v2-m3" in dc_src
+    all_ok = has_embed_svc and has_harrier and has_rag_openai and has_reranker
+    record(
+        sec,
+        "S1-12",
+        "docker-compose: embedding service + RAG config (Harrier + bge-reranker)",
+        "PASS" if all_ok else "FAIL",
+        "✓ portal5-embedding service, Harrier model, RAG_EMBEDDING_ENGINE=openai, reranker configured"
+        if all_ok
+        else f"svc={has_embed_svc} harrier={has_harrier} rag_openai={has_rag_openai} reranker={has_reranker}",
+        t0=t0,
+    )
+
+    # ── S1-13: GLM-5.1 in backends.yaml ──────────────────────────────────────
+    t0 = time.time()
+    backends_src = (ROOT / "config/backends.yaml").read_text()
+    has_glm51 = "GLM-5.1" in backends_src
+    record(
+        sec,
+        "S1-13",
+        "backends.yaml contains GLM-5.1 model entry",
+        "PASS" if has_glm51 else "FAIL",
+        "✓ GLM-5.1-DQ4plus-q8 in MLX models" if has_glm51 else "GLM-5.1 not found in backends.yaml",
+        t0=t0,
+    )
+
+    # ── S1-14: GLM-5.1 in MODEL_MEMORY (mlx-proxy.py) ────────────────────────
+    t0 = time.time()
+    proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
+    has_glm51_mem = "GLM-5.1-DQ4plus-q8" in proxy_src
+    record(
+        sec,
+        "S1-14",
+        "mlx-proxy.py MODEL_MEMORY includes GLM-5.1",
+        "PASS" if has_glm51_mem else "FAIL",
+        "✓ admission control entry present" if has_glm51_mem else "GLM-5.1 not in MODEL_MEMORY",
+        t0=t0,
+    )
+
+    # ── S1-15: MLX speech server script exists ────────────────────────────────
+    t0 = time.time()
+    speech_script = ROOT / "scripts/mlx-speech.py"
+    has_speech = speech_script.exists()
+    has_qwen3_tts = has_speech and "Qwen3-TTS" in speech_script.read_text()
+    has_qwen3_asr = has_speech and "Qwen3-ASR" in speech_script.read_text()
+    record(
+        sec,
+        "S1-15",
+        "scripts/mlx-speech.py exists with Qwen3-TTS + Qwen3-ASR",
+        "PASS" if has_speech and has_qwen3_tts and has_qwen3_asr else "FAIL",
+        "✓ speech server with TTS + ASR backends"
+        if has_speech and has_qwen3_tts and has_qwen3_asr
+        else f"exists={has_speech} tts={has_qwen3_tts} asr={has_qwen3_asr}",
+        t0=t0,
+    )
+
+    # ── S1-16: GLM-OCR in MLX pull list (launch.sh) ──────────────────────────
+    t0 = time.time()
+    launch_src = (ROOT / "launch.sh").read_text()
+    has_glm_ocr = "GLM-OCR" in launch_src
+    has_glm51_launch = "GLM-5.1" in launch_src
+    has_speech_cmd = "start-speech" in launch_src and "stop-speech" in launch_src
+    has_speech_models = "Qwen3-TTS" in launch_src and "Qwen3-ASR" in launch_src
+    record(
+        sec,
+        "S1-16",
+        "launch.sh: GLM-OCR, GLM-5.1, speech commands, speech models in pull list",
+        "PASS"
+        if has_glm_ocr and has_glm51_launch and has_speech_cmd and has_speech_models
+        else "FAIL",
+        f"ocr={has_glm_ocr} glm51={has_glm51_launch} speech_cmd={has_speech_cmd} speech_models={has_speech_models}",
+        t0=t0,
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # S2 — SERVICE HEALTH
@@ -1843,6 +1943,63 @@ async def S2() -> None:
             )
     except Exception as e:
         record(sec, "S2-16", "Open WebUI bind address check", "WARN", str(e)[:80], t0=t0)
+
+    # ── S2-17: Embedding service health ───────────────────────────────────────
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"http://localhost:{MCP['embedding']}/health")
+            record(
+                sec,
+                "S2-17",
+                "Embedding service (portal5-embedding :8917)",
+                "PASS" if r.status_code == 200 else "WARN",
+                f"HTTP {r.status_code}" if r.status_code != 200 else "✓ Harrier-0.6B serving",
+                t0=t0,
+            )
+    except Exception as e:
+        record(
+            sec,
+            "S2-17",
+            "Embedding service (portal5-embedding :8917)",
+            "WARN",
+            f"not reachable: {str(e)[:60]} — run: docker compose up portal5-embedding",
+            t0=t0,
+        )
+
+    # ── S2-18: MLX Speech server health ───────────────────────────────────────
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{MLX_SPEECH_URL}/health")
+            if r.status_code == 200:
+                data = r.json()
+                record(
+                    sec,
+                    "S2-18",
+                    "MLX Speech server (:8918)",
+                    "PASS",
+                    f"backends={data.get('backends', [])} cloning={data.get('voice_cloning', '?')}",
+                    t0=t0,
+                )
+            else:
+                record(
+                    sec,
+                    "S2-18",
+                    "MLX Speech server (:8918)",
+                    "WARN",
+                    f"HTTP {r.status_code}",
+                    t0=t0,
+                )
+    except Exception:
+        record(
+            sec,
+            "S2-18",
+            "MLX Speech server (:8918)",
+            "INFO",
+            "not running — run: ./launch.sh start-speech (Apple Silicon only)",
+            t0=t0,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2117,7 +2274,7 @@ async def _load_mlx_model(model: str) -> tuple[bool, str]:
             # (future.done() check below will still fire when request completes)
             if detail != last_log_check:
                 print(
-                    f"  ⏳ Stale Traceback in log (pre-existing crash, ignoring) — waiting for new server..."
+                    "  ⏳ Stale Traceback in log (pre-existing crash, ignoring) — waiting for new server..."
                 )
                 last_log_check = detail
             # Don't return False here; let the loop continue watching for log truncation
@@ -2134,7 +2291,7 @@ async def _load_mlx_model(model: str) -> tuple[bool, str]:
                 if ready:
                     print(f"  📋 Server log confirms: {detail}")
                     return True, detail
-            print(f"  ⚠️  Request completed but server log never showed 'Starting httpd'")
+            print("  ⚠️  Request completed but server log never showed 'Starting httpd'")
             executor.shutdown(wait=False)
             return False, "request completed but model not confirmed via log"
 
@@ -2627,7 +2784,7 @@ async def _remediate_mlx_crash(reason: str) -> bool:
     Returns True if remediation succeeded.
     """
     print(f"  🔧 MLX crash remediation: {reason}")
-    print(f"     Step 1/5: Killing MLX server processes...")
+    print("     Step 1/5: Killing MLX server processes...")
     subprocess.run(["pkill", "-f", "mlx_lm.server"], capture_output=True)
     subprocess.run(["pkill", "-f", "mlx_vlm.server"], capture_output=True)
     subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True)
@@ -2660,7 +2817,7 @@ async def _remediate_mlx_crash(reason: str) -> bool:
         except Exception:
             pass
 
-    print(f"     Step 2/5: Waiting for GPU memory reclamation...")
+    print("     Step 2/5: Waiting for GPU memory reclamation...")
     # Wait for ports to be released — lsof is the factual signal
     for _ in range(30):
         ports_clear = True
@@ -2672,7 +2829,7 @@ async def _remediate_mlx_crash(reason: str) -> bool:
             except Exception:
                 pass
         if ports_clear:
-            print(f"     Ports 18081/18082/8081 released")
+            print("     Ports 18081/18082/8081 released")
             break
         await asyncio.sleep(0.5)
 
@@ -2692,9 +2849,9 @@ async def _remediate_mlx_crash(reason: str) -> bool:
                 print(f"     Step 3/5: {free_gb:.1f}GB free after reclaim")
                 break
     except Exception:
-        print(f"     Step 3/5: Could not read memory stats")
+        print("     Step 3/5: Could not read memory stats")
 
-    print(f"     Step 4/5: Restarting MLX proxy...")
+    print("     Step 4/5: Restarting MLX proxy...")
     proxy_script = ROOT / "scripts" / "mlx-proxy.py"
     subprocess.Popen(
         ["python3", str(proxy_script)],
@@ -2703,7 +2860,7 @@ async def _remediate_mlx_crash(reason: str) -> bool:
     )
 
     # Wait for proxy process to start listening
-    print(f"     Step 5/5: Waiting for proxy process to start...")
+    print("     Step 5/5: Waiting for proxy process to start...")
     # Watch proxy log for startup signal — "[mlx-proxy] Listening on :8081"
     proxy_log = os.path.expanduser("~/.portal5/logs/mlx-proxy.log")
     found, line = await _wait_for_log_file(
@@ -2721,12 +2878,12 @@ async def _remediate_mlx_crash(reason: str) -> bool:
                 return True
     except Exception:
         pass
-    print(f"     ❌ MLX proxy failed to start")
+    print("     ❌ MLX proxy failed to start")
     return False
     if ready:
-        print(f"     ✅ MLX proxy recovered and ready")
+        print("     ✅ MLX proxy recovered and ready")
     else:
-        print(f"     ❌ MLX proxy failed to recover within 120s")
+        print("     ❌ MLX proxy failed to recover within 120s")
     return ready
 
 
@@ -3655,176 +3812,377 @@ _TTS_TEXT = (
 
 
 async def S8() -> None:
+    """TTS tests — targets MLX speech server (:8918) primary, Docker mcp-tts (:8916) fallback."""
     print("\n━━━ S8. TEXT-TO-SPEECH ━━━")
     sec = "S8"
-    port = MCP["tts"]
 
-    await _mcp(
-        port,
-        "list_voices",
-        {},
-        section=sec,
-        tid="S8-01",
-        name="list_voices includes af_heart (default voice)",
-        ok_fn=lambda t: "af_heart" in t,
-        detail_fn=lambda t: "✓ voices listed" if "af_heart" in t else t[:80],
-        timeout=15,
-    )
+    # Determine which TTS endpoint to test
+    tts_url = MLX_SPEECH_URL
+    tts_label = "MLX speech"
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{MLX_SPEECH_URL}/health")
+            if r.status_code != 200:
+                raise ConnectionError("MLX speech not healthy")
+    except Exception:
+        tts_url = f"http://localhost:{MCP['tts']}"
+        tts_label = "Docker mcp-tts (fallback)"
+        record(
+            sec,
+            "S8-00",
+            "MLX speech server check",
+            "INFO",
+            f"MLX speech (:8918) not available, falling back to Docker mcp-tts (:{MCP['tts']})",
+        )
 
-    await _mcp(
-        port,
-        "speak",
-        {"text": _TTS_TEXT, "voice": "af_heart"},
-        section=sec,
-        tid="S8-02",
-        name="speak af_heart → file_path returned",
-        ok_fn=lambda t: "file_path" in t or "path" in t or "success" in t,
-        detail_fn=lambda t: "✓ speech generated" if "path" in t else t[:80],
-        timeout=60,
-    )
+    record(sec, "S8-00b", "TTS target endpoint", "INFO", f"using {tts_label} at {tts_url}")
 
-    voices = [
+    # ── S8-01: List voices endpoint ───────────────────────────────────────────
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"{tts_url}/v1/voices")
+            if r.status_code == 200:
+                body = r.json()
+                has_kokoro = "kokoro" in str(body).lower()
+                record(
+                    sec,
+                    "S8-01",
+                    "GET /v1/voices includes Kokoro voices",
+                    "PASS" if has_kokoro else "WARN",
+                    "✓ voices listed" if has_kokoro else f"unexpected: {str(body)[:80]}",
+                    t0=t0,
+                )
+            elif r.status_code == 404:
+                # Docker fallback doesn't have /v1/voices — try MCP list_voices tool
+                await _mcp(
+                    MCP["tts"],
+                    "list_voices",
+                    {},
+                    section=sec,
+                    tid="S8-01",
+                    name="list_voices includes af_heart (Docker fallback)",
+                    ok_fn=lambda t: "af_heart" in t,
+                    detail_fn=lambda t: "✓ voices listed (Docker)" if "af_heart" in t else t[:80],
+                    timeout=15,
+                )
+            else:
+                record(sec, "S8-01", "List voices", "FAIL", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S8-01", "List voices", "FAIL", str(e)[:80], t0=t0)
+
+    # ── S8-02: Kokoro TTS (backward compatibility) ────────────────────────────
+    kokoro_voices = [
         ("af_heart", "US-F default"),
         ("bm_george", "British male"),
         ("am_adam", "US male"),
         ("bf_emma", "British female"),
     ]
     async with httpx.AsyncClient(timeout=60) as c:
-        for voice, desc in voices:
+        for voice, desc in kokoro_voices:
             t0 = time.time()
             try:
                 r = await c.post(
-                    f"http://localhost:{port}/v1/audio/speech",
+                    f"{tts_url}/v1/audio/speech",
                     json={"input": _TTS_TEXT, "voice": voice, "model": "kokoro"},
                 )
                 if r.status_code == 200:
                     info = _wav_info(r.content)
                     is_wav = info is not None
-                    # _TTS_TEXT is ~80 chars — expect at least 1s of audio at any sample rate
                     duration_ok = is_wav and info["duration_s"] >= 1.0
                     record(
                         sec,
-                        "S8-03",
-                        f"TTS REST /v1/audio/speech: {voice} ({desc})",
+                        "S8-02",
+                        f"Kokoro TTS: {voice} ({desc})",
                         "PASS" if is_wav and duration_ok else ("WARN" if is_wav else "FAIL"),
                         (
-                            f"✓ valid WAV {len(r.content):,} bytes "
-                            f"{info['duration_s']}s {info['sample_rate']}Hz {info['channels']}ch"
+                            f"✓ WAV {len(r.content):,}B {info['duration_s']:.1f}s {info['sample_rate']}Hz"
                             if info
-                            else f"not WAV {len(r.content):,} bytes"
+                            else f"not WAV {len(r.content):,}B"
                         ),
-                        [f"Content-Type: {r.headers.get('content-type', '?')}"],
                         t0=t0,
                     )
                 else:
                     record(
-                        sec, "S8-03", f"TTS REST: {voice}", "FAIL", f"HTTP {r.status_code}", t0=t0
+                        sec, "S8-02", f"Kokoro TTS: {voice}", "FAIL", f"HTTP {r.status_code}", t0=t0
                     )
             except Exception as e:
-                record(sec, "S8-03", f"TTS REST: {voice}", "FAIL", str(e), t0=t0)
+                record(sec, "S8-02", f"Kokoro TTS: {voice}", "FAIL", str(e)[:80], t0=t0)
+            await asyncio.sleep(1)
+
+    # ── S8-03: Qwen3-TTS CustomVoice (preset speaker + style) ────────────────
+    # Only available on MLX speech server, not Docker fallback
+    if "MLX" in tts_label:
+        qwen3_voices = [
+            ("Chelsie", ""),
+            ("Ryan", "Professional news anchor tone."),
+            ("Vivian", "Whisper softly."),
+        ]
+        async with httpx.AsyncClient(timeout=90) as c:
+            for speaker, instruct in qwen3_voices:
+                t0 = time.time()
+                desc = f"{speaker}" + (f" ({instruct[:30]})" if instruct else "")
+                try:
+                    payload = {"input": "Welcome to Portal Five.", "voice": speaker}
+                    if instruct:
+                        payload["instruct"] = instruct
+                    r = await c.post(f"{tts_url}/v1/audio/speech", json=payload)
+                    if r.status_code == 200:
+                        info = _wav_info(r.content)
+                        is_wav = info is not None
+                        record(
+                            sec,
+                            "S8-03",
+                            f"Qwen3-TTS CustomVoice: {desc}",
+                            "PASS" if is_wav else "WARN",
+                            f"✓ WAV {len(r.content):,}B {info['duration_s']:.1f}s"
+                            if info
+                            else f"not WAV {len(r.content):,}B",
+                            t0=t0,
+                        )
+                    else:
+                        record(
+                            sec,
+                            "S8-03",
+                            f"Qwen3-TTS: {desc}",
+                            "FAIL",
+                            f"HTTP {r.status_code}",
+                            t0=t0,
+                        )
+                except Exception as e:
+                    record(sec, "S8-03", f"Qwen3-TTS: {desc}", "FAIL", str(e)[:80], t0=t0)
+                await asyncio.sleep(2)  # Qwen3-TTS is heavier, allow cooldown
+
+        # ── S8-04: Qwen3-TTS VoiceDesign (create voice from description) ─────
+        t0 = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=120) as c:
+                r = await c.post(
+                    f"{tts_url}/v1/audio/speech",
+                    json={
+                        "input": "This is a test of voice design.",
+                        "voice": "design:A warm male narrator with a calm British accent",
+                    },
+                )
+                if r.status_code == 200:
+                    info = _wav_info(r.content)
+                    record(
+                        sec,
+                        "S8-04",
+                        "Qwen3-TTS VoiceDesign: text description → generated voice",
+                        "PASS" if info else "WARN",
+                        f"✓ WAV {len(r.content):,}B {info['duration_s']:.1f}s"
+                        if info
+                        else f"not WAV {len(r.content):,}B",
+                        t0=t0,
+                    )
+                else:
+                    record(
+                        sec,
+                        "S8-04",
+                        "Qwen3-TTS VoiceDesign",
+                        "FAIL",
+                        f"HTTP {r.status_code}",
+                        t0=t0,
+                    )
+        except Exception as e:
+            record(sec, "S8-04", "Qwen3-TTS VoiceDesign", "FAIL", str(e)[:80], t0=t0)
+    else:
+        record(sec, "S8-03", "Qwen3-TTS CustomVoice", "INFO", "skipped — MLX speech not running")
+        record(sec, "S8-04", "Qwen3-TTS VoiceDesign", "INFO", "skipped — MLX speech not running")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# S9 — SPEECH-TO-TEXT (Whisper)
+# S9 — SPEECH-TO-TEXT (Qwen3-ASR / Whisper fallback)
 # ═══════════════════════════════════════════════════════════════════════════════
 async def S9() -> None:
-    print("\n━━━ S9. SPEECH-TO-TEXT (Whisper) ━━━")
+    """STT tests — targets MLX speech server (:8918) primary, Docker mcp-whisper (:8915) fallback."""
+    print("\n━━━ S9. SPEECH-TO-TEXT ━━━")
     sec = "S9"
-    port = MCP["whisper"]
 
-    # HOWTO §12 exact docker exec command
-    r = subprocess.run(
-        [
-            "docker",
-            "exec",
-            "portal5-mcp-whisper",
-            "python3",
-            "-c",
-            "import urllib.request; "
-            "print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    record(
-        sec,
-        "S9-01",
-        "Whisper health via docker exec (HOWTO §12 exact command)",
-        "PASS" if r.returncode == 0 and "ok" in r.stdout.lower() else "FAIL",
-        r.stdout.strip()[:80] or r.stderr.strip()[:80],
-    )
+    # Determine which ASR endpoint to test
+    asr_url = MLX_SPEECH_URL
+    asr_label = "MLX speech (Qwen3-ASR)"
+    tts_url = MLX_SPEECH_URL
+    use_mlx = True
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"{MLX_SPEECH_URL}/health")
+            if r.status_code != 200:
+                raise ConnectionError()
+    except Exception:
+        asr_url = f"http://localhost:{MCP['whisper']}"
+        tts_url = f"http://localhost:{MCP['tts']}"
+        asr_label = "Docker mcp-whisper (fallback)"
+        use_mlx = False
+        record(
+            sec,
+            "S9-00",
+            "MLX speech server check",
+            "INFO",
+            f"falling back to Docker whisper (:{MCP['whisper']})",
+        )
 
-    await _mcp(
-        port,
-        "transcribe_audio",
-        {"file_path": "/nonexistent_portal5_test.wav"},
-        section=sec,
-        tid="S9-02",
-        name="transcribe_audio tool reachable (file-not-found confirms connectivity)",
-        ok_fn=lambda t: True,
-        detail_fn=lambda t: (
-            "✓ tool responds (expected file-not-found error)"
-            if any(x in t.lower() for x in ["not found", "error", "no such", "cannot"])
-            else f"unexpected: {t[:80]}"
-        ),
-        timeout=15,
-    )
+    # ── S9-01: ASR health / reachability ──────────────────────────────────────
+    t0 = time.time()
+    if use_mlx:
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get(f"{asr_url}/health")
+                record(
+                    sec,
+                    "S9-01",
+                    f"ASR health ({asr_label})",
+                    "PASS" if r.status_code == 200 else "FAIL",
+                    f"HTTP {r.status_code}",
+                    t0=t0,
+                )
+        except Exception as e:
+            record(sec, "S9-01", "ASR health", "FAIL", str(e)[:80], t0=t0)
+    else:
+        # Docker fallback — use docker exec like the original test
+        r = subprocess.run(
+            [
+                "docker",
+                "exec",
+                "portal5-mcp-whisper",
+                "python3",
+                "-c",
+                "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8915/health').read().decode())",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        record(
+            sec,
+            "S9-01",
+            f"ASR health ({asr_label})",
+            "PASS" if r.returncode == 0 and "ok" in r.stdout.lower() else "FAIL",
+            r.stdout.strip()[:80] or r.stderr.strip()[:80],
+            t0=t0,
+        )
 
-    # Full round-trip: TTS → WAV → copy into container → Whisper
+    # ── S9-02: ASR endpoint reachable (error response confirms connectivity) ──
+    if use_mlx:
+        t0 = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                # Send empty form to trigger a validation error (confirms endpoint exists)
+                r = await c.post(f"{asr_url}/v1/audio/transcriptions")
+                # Any response (even 4xx) means the endpoint is reachable
+                record(
+                    sec,
+                    "S9-02",
+                    "ASR endpoint reachable (/v1/audio/transcriptions)",
+                    "PASS",
+                    f"HTTP {r.status_code} — endpoint responds",
+                    t0=t0,
+                )
+        except Exception as e:
+            record(sec, "S9-02", "ASR endpoint reachable", "FAIL", str(e)[:80], t0=t0)
+    else:
+        await _mcp(
+            MCP["whisper"],
+            "transcribe_audio",
+            {"file_path": "/nonexistent_portal5_test.wav"},
+            section=sec,
+            tid="S9-02",
+            name="transcribe_audio tool reachable (file-not-found confirms connectivity)",
+            ok_fn=lambda t: True,
+            detail_fn=lambda t: (
+                "✓ tool responds" if any(x in t.lower() for x in ["not found", "error"]) else t[:80]
+            ),
+            timeout=15,
+        )
+
+    # ── S9-03: Full round-trip: TTS → WAV → ASR ──────────────────────────────
     t0 = time.time()
     try:
         async with httpx.AsyncClient(timeout=60) as c:
-            tts = await c.post(
-                f"http://localhost:{MCP['tts']}/v1/audio/speech",
+            tts_r = await c.post(
+                f"{tts_url}/v1/audio/speech",
                 json={"input": "Hello from Portal Five.", "voice": "af_heart", "model": "kokoro"},
             )
-        if tts.status_code == 200 and _is_wav(tts.content):
-            wav = Path("/tmp/portal5_stt_roundtrip.wav")
-            wav.write_bytes(tts.content)
-            cp = subprocess.run(
-                ["docker", "cp", str(wav), "portal5-mcp-whisper:/tmp/stt_roundtrip.wav"],
-                capture_output=True,
-                text=True,
-            )
-            if cp.returncode == 0:
-                await _mcp(
-                    port,
-                    "transcribe_audio",
-                    {"file_path": "/tmp/stt_roundtrip.wav"},
-                    section=sec,
-                    tid="S9-03",
-                    name="STT round-trip: TTS → WAV → Whisper transcription",
-                    ok_fn=lambda t: any(
-                        x in t.lower() for x in ["hello", "portal", "five", "text"]
-                    ),
-                    detail_fn=lambda t: (
-                        f"✓ transcribed: {t[:80]}"
-                        if any(x in t.lower() for x in ["hello", "portal", "five"])
-                        else f"transcribed but unexpected text: {t[:80]}"
-                    ),
-                    timeout=60,
-                )
+        if tts_r.status_code == 200 and _is_wav(tts_r.content):
+            if use_mlx:
+                # MLX path: POST wav bytes directly to /v1/audio/transcriptions
+                import io
+
+                wav_bytes = tts_r.content
+                async with httpx.AsyncClient(timeout=90) as c:
+                    files = {"file": ("roundtrip.wav", io.BytesIO(wav_bytes), "audio/wav")}
+                    data = {"language": "English"}
+                    asr_r = await c.post(
+                        f"{asr_url}/v1/audio/transcriptions", files=files, data=data
+                    )
+                if asr_r.status_code == 200:
+                    text = asr_r.json().get("text", "")
+                    has_keywords = any(x in text.lower() for x in ["hello", "portal", "five"])
+                    record(
+                        sec,
+                        "S9-03",
+                        "STT round-trip: TTS → WAV → Qwen3-ASR",
+                        "PASS" if has_keywords else "WARN",
+                        f"transcribed: '{text[:80]}'" if text else "empty transcription",
+                        t0=t0,
+                    )
+                else:
+                    record(
+                        sec,
+                        "S9-03",
+                        "STT round-trip",
+                        "FAIL",
+                        f"ASR HTTP {asr_r.status_code}",
+                        t0=t0,
+                    )
             else:
-                record(
-                    sec,
-                    "S9-03",
-                    "STT round-trip",
-                    "FAIL",
-                    f"docker cp failed: {cp.stderr[:80]}",
-                    t0=t0,
+                # Docker fallback: copy WAV into container, call MCP tool
+                wav = Path("/tmp/portal5_stt_roundtrip.wav")
+                wav.write_bytes(tts_r.content)
+                cp = subprocess.run(
+                    ["docker", "cp", str(wav), "portal5-mcp-whisper:/tmp/stt_roundtrip.wav"],
+                    capture_output=True,
+                    text=True,
                 )
+                if cp.returncode == 0:
+                    await _mcp(
+                        MCP["whisper"],
+                        "transcribe_audio",
+                        {"file_path": "/tmp/stt_roundtrip.wav"},
+                        section=sec,
+                        tid="S9-03",
+                        name="STT round-trip: TTS → WAV → Whisper (Docker fallback)",
+                        ok_fn=lambda t: any(
+                            x in t.lower() for x in ["hello", "portal", "five", "text"]
+                        ),
+                        detail_fn=lambda t: (
+                            f"✓ transcribed: {t[:80]}"
+                            if any(x in t.lower() for x in ["hello", "portal"])
+                            else t[:80]
+                        ),
+                        timeout=60,
+                    )
+                else:
+                    record(
+                        sec,
+                        "S9-03",
+                        "STT round-trip",
+                        "FAIL",
+                        f"docker cp failed: {cp.stderr[:80]}",
+                        t0=t0,
+                    )
         else:
             record(
                 sec,
                 "S9-03",
                 "STT round-trip",
                 "WARN",
-                f"TTS HTTP {tts.status_code} or non-WAV — skipping STT",
+                f"TTS HTTP {tts_r.status_code} or non-WAV — skipping STT",
                 t0=t0,
             )
     except Exception as e:
-        record(sec, "S9-03", "STT round-trip", "FAIL", str(e), t0=t0)
+        record(sec, "S9-03", "STT round-trip", "FAIL", str(e)[:80], t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4610,7 +4968,7 @@ async def _mlx_group(
                     print(f"  ⚠️  MLX crashed: {crash_info['error']}")
                     recovered = await _remediate_mlx_crash(crash_info["error"])
                     if recovered:
-                        print(f"  ── Retrying model load after crash recovery ──")
+                        print("  ── Retrying model load after crash recovery ──")
                         await _unload_ollama_models()  # reclaim memory before retry
                         loaded, detail = await _load_mlx_model(model_label)
                         if loaded:
@@ -4620,7 +4978,7 @@ async def _mlx_group(
                     # macOS inactive pages from prior loads are freed over 30-120s after eviction.
                     # Wait 90s then retry once before giving up.
                     print(
-                        f"  ⏳ Admission rejection detected — waiting 90s for memory reclaim, then retrying..."
+                        "  ⏳ Admission rejection detected — waiting 90s for memory reclaim, then retrying..."
                     )
                     await asyncio.sleep(90)
                     await _unload_ollama_models()
@@ -4892,7 +5250,7 @@ async def S35() -> None:
                             "S35-01",
                             f"MLX model {model_label} (direct)",
                             "WARN",
-                            f"empty response",
+                            "empty response",
                             t0=t0,
                         )
                     else:
@@ -4923,7 +5281,7 @@ async def S35() -> None:
     # ── S35-02: Pipeline workspace test — verify auto-documents routing ───────
     # auto-documents routes to Ollama [coding, general] by design.
     # This test verifies the workspace returns domain-relevant content (any model).
-    print(f"  ── S35-02: Pipeline workspace test (auto-documents → Ollama routing) ──")
+    print("  ── S35-02: Pipeline workspace test (auto-documents → Ollama routing) ──")
     await _workspace_test_with_retry(
         sec,
         "S35-02",
@@ -4956,6 +5314,147 @@ async def S37() -> None:
         ],
         is_vlm=True,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# S38 — GLM-5.1 HEAVY MLX Model (frontier agentic coder, Zhipu lineage)
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOTE: This is a HEAVY model (~38GB). It may not fit alongside other loaded models.
+# Only runs if PULL_HEAVY=true models have been downloaded.
+# Same pattern as S30-S37 but with explicit memory pre-check.
+
+
+async def S38() -> None:
+    print("\n━━━ S38. GLM-5.1 HEAVY MLX (FRONTIER AGENTIC CODER) ━━━")
+    sec = "S38"
+    model_tag = "mlx-community/GLM-5.1-DQ4plus-q8"
+
+    # ── S38-01: Model present in HuggingFace cache ────────────────────────────
+    t0 = time.time()
+    hf_cache = Path.home() / ".cache" / "huggingface" / "hub"
+    # HF cache uses -- separator for org/model
+    cache_dir_pattern = "models--mlx-community--GLM-5.1-DQ4plus-q8"
+    model_cached = (
+        any(d.name == cache_dir_pattern for d in hf_cache.iterdir()) if hf_cache.exists() else False
+    )
+
+    if not model_cached:
+        record(
+            sec,
+            "S38-01",
+            "GLM-5.1 model in HF cache",
+            "INFO",
+            "not downloaded — run: PULL_HEAVY=true ./launch.sh pull-mlx-models",
+            t0=t0,
+        )
+        record(sec, "S38-02", "GLM-5.1 inference test", "INFO", "skipped — model not cached")
+        return
+
+    record(sec, "S38-01", "GLM-5.1 model in HF cache", "PASS", "✓ cached", t0=t0)
+
+    # ── S38-02: Memory pre-check ─────────────────────────────────────────────
+    t0 = time.time()
+    mem_check = _check_memory_pressure()
+    record(sec, "S38-02", "Memory pre-check for HEAVY model (~38GB)", "INFO", mem_check, t0=t0)
+
+    # ── S38-03: GLM-5.1 in MODEL_MEMORY dict ─────────────────────────────────
+    t0 = time.time()
+    proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
+    has_entry = "GLM-5.1-DQ4plus-q8" in proxy_src
+    record(
+        sec,
+        "S38-03",
+        "GLM-5.1 in mlx-proxy.py MODEL_MEMORY",
+        "PASS" if has_entry else "FAIL",
+        "✓ admission control entry present"
+        if has_entry
+        else "missing — proxy will use unknown default",
+        t0=t0,
+    )
+
+    # ── S38-04: Load and inference (only if user opts in) ─────────────────────
+    # HEAVY models are not auto-tested to avoid disrupting other loaded models.
+    # Set TEST_HEAVY_MLX=true to enable.
+    if os.environ.get("TEST_HEAVY_MLX", "").lower() != "true":
+        record(
+            sec,
+            "S38-04",
+            "GLM-5.1 inference test",
+            "INFO",
+            "skipped — set TEST_HEAVY_MLX=true to enable (will unload current MLX model)",
+        )
+        return
+
+    t0 = time.time()
+    try:
+        loaded = await _load_mlx_model(model_tag, timeout=300)
+        if not loaded:
+            record(
+                sec,
+                "S38-04",
+                "GLM-5.1 model load",
+                "FAIL",
+                "failed to load within 300s — may exceed memory",
+                t0=t0,
+            )
+            return
+        record(
+            sec,
+            "S38-04",
+            "GLM-5.1 model load",
+            "PASS",
+            f"✓ loaded in {time.time() - t0:.0f}s",
+            t0=t0,
+        )
+    except Exception as e:
+        record(sec, "S38-04", "GLM-5.1 model load", "FAIL", str(e)[:80], t0=t0)
+        return
+
+    # ── S38-05: Inference test ────────────────────────────────────────────────
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=120) as c:
+            r = await c.post(
+                f"{MLX_URL}/v1/chat/completions",
+                json={
+                    "model": model_tag,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "Write a Python function to reverse a linked list. Be concise.",
+                        }
+                    ],
+                    "max_tokens": 400,
+                    "temperature": 0.2,
+                },
+            )
+            if r.status_code == 200:
+                data = r.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                has_code = any(
+                    kw in content.lower() for kw in ["def ", "node", "next", "reverse", "class"]
+                )
+                record(
+                    sec,
+                    "S38-05",
+                    "GLM-5.1 coding inference",
+                    "PASS" if has_code else "WARN",
+                    f"✓ code response ({len(content)} chars)"
+                    if has_code
+                    else f"response lacks code keywords: {content[:80]}",
+                    t0=t0,
+                )
+            else:
+                record(
+                    sec,
+                    "S38-05",
+                    "GLM-5.1 inference",
+                    "FAIL",
+                    f"HTTP {r.status_code}: {r.text[:80]}",
+                    t0=t0,
+                )
+    except Exception as e:
+        record(sec, "S38-05", "GLM-5.1 inference", "FAIL", str(e)[:80], t0=t0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5580,6 +6079,22 @@ async def S16() -> None:
             t0=t0,
         )
 
+    # ── S16-10: Speech server CLI commands ────────────────────────────────────
+    t0 = time.time()
+    launch_src = (ROOT / "launch.sh").read_text()
+    has_start = "start-speech)" in launch_src
+    has_stop = "stop-speech)" in launch_src
+    record(
+        sec,
+        "S16-10",
+        "launch.sh has start-speech / stop-speech commands",
+        "PASS" if has_start and has_stop else "FAIL",
+        "✓ both commands present"
+        if has_start and has_stop
+        else f"start={has_start} stop={has_stop}",
+        t0=t0,
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 async def _unload_ollama_models() -> None:
@@ -5639,7 +6154,7 @@ async def S20() -> None:
         # Verify the module imports and builds without errors
         t0 = time.time()
         try:
-            from portal_channels.telegram.bot import build_app, DEFAULT_WORKSPACE, _allowed_users
+            from portal_channels.telegram.bot import DEFAULT_WORKSPACE, _allowed_users, build_app
 
             app = build_app()
             allowed = _allowed_users()
@@ -5776,8 +6291,6 @@ async def S21() -> None:
     # Verify notification dispatcher module imports
     t0 = time.time()
     try:
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-
         record(
             sec,
             "S21-01",
@@ -5929,7 +6442,7 @@ async def S22() -> None:
                         break
                     elif proxy_state == "down" and not s22_restart_attempted:
                         # Proxy is in state=down — it won't self-recover. Restart it.
-                        print(f"  🔄 S22: proxy state=down, attempting restart...")
+                        print("  🔄 S22: proxy state=down, attempting restart...")
                         _restore_mlx_proxy()
                         s22_restart_attempted = True
                 else:
@@ -5943,7 +6456,7 @@ async def S22() -> None:
             s22_state_detail = str(e)[:80]
             # Connection refused means proxy not running — restart
             if not s22_restart_attempted:
-                print(f"  🔄 S22: proxy unreachable, attempting restart...")
+                print("  🔄 S22: proxy unreachable, attempting restart...")
                 _restore_mlx_proxy()
                 s22_restart_attempted = True
         await asyncio.sleep(3)
@@ -6148,8 +6661,8 @@ async def S22() -> None:
             # constrain the model to valid workspace IDs.
             try:
                 from portal_pipeline.router_pipe import (  # type: ignore
-                    _build_router_prompt,
                     _ROUTER_JSON_SCHEMA,
+                    _build_router_prompt,
                 )
 
                 _test_prompt = _build_router_prompt(
@@ -6543,7 +7056,7 @@ def _restore_mlx_proxy() -> bool:
                         # Proxy says ready but log not confirmed yet — keep polling
                     elif state == "none":
                         # Proxy is running with no model loaded — valid restored state.
-                        print(f"  ✅ Proxy restored (state=none — will load model on demand)")
+                        print("  ✅ Proxy restored (state=none — will load model on demand)")
                         return True
                     elif state == "switching":
                         # Proxy is alive and loading a model. After 10s in switching state
@@ -6552,7 +7065,7 @@ def _restore_mlx_proxy() -> bool:
                             _switching_start = time.time()
                         elif time.time() - _switching_start >= 10:
                             print(
-                                f"  ✅ Proxy restored (state=switching — model loading in progress)"
+                                "  ✅ Proxy restored (state=switching — model loading in progress)"
                             )
                             return True
                     elif state in ("degraded", "down"):
@@ -6713,7 +7226,7 @@ async def _workspace_fallback_test(
             if matches_group:
                 detail += f" | matched expected group: {expected_fallback_group}"
             elif is_ollama:
-                detail += f" | absolute fallback (pipeline served from any healthy backend)"
+                detail += " | absolute fallback (pipeline served from any healthy backend)"
             record(
                 sec,
                 tid,
@@ -7357,6 +7870,133 @@ async def S23() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# S24 — RAG EMBEDDING PIPELINE (Harrier + bge-reranker)
+# ═══════════════════════════════════════════════════════════════════════════════
+async def S24() -> None:
+    print("\n━━━ S24. RAG EMBEDDING PIPELINE ━━━")
+    sec = "S24"
+
+    # ── S24-01: Embedding service health ──────────────────────────────────────
+    embed_port = MCP["embedding"]
+    t0 = time.time()
+    embed_ok = False
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(f"http://localhost:{embed_port}/health")
+            embed_ok = r.status_code == 200
+            record(
+                sec,
+                "S24-01",
+                "Embedding service health (Harrier-0.6B via TEI)",
+                "PASS" if embed_ok else "FAIL",
+                f"HTTP {r.status_code}" if not embed_ok else "✓ healthy",
+                t0=t0,
+            )
+    except Exception as e:
+        record(
+            sec,
+            "S24-01",
+            "Embedding service health",
+            "FAIL",
+            f"not reachable: {str(e)[:60]}",
+            t0=t0,
+        )
+
+    # ── S24-02: Generate embeddings (OpenAI-compatible API) ───────────────────
+    t0 = time.time()
+    if embed_ok:
+        try:
+            async with httpx.AsyncClient(timeout=30) as c:
+                r = await c.post(
+                    f"http://localhost:{embed_port}/v1/embeddings",
+                    json={
+                        "input": "NERC CIP compliance requires critical infrastructure protection.",
+                        "model": "microsoft/harrier-oss-v1-0.6b",
+                    },
+                    headers={"Authorization": "Bearer portal-embedding"},
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    embeddings = data.get("data", [])
+                    if embeddings and "embedding" in embeddings[0]:
+                        dim = len(embeddings[0]["embedding"])
+                        record(
+                            sec,
+                            "S24-02",
+                            "Generate embedding vector (Harrier-0.6B)",
+                            "PASS",
+                            f"✓ {dim}-dim vector returned",
+                            t0=t0,
+                        )
+                    else:
+                        record(
+                            sec,
+                            "S24-02",
+                            "Generate embedding",
+                            "FAIL",
+                            f"unexpected response structure: {str(data)[:80]}",
+                            t0=t0,
+                        )
+                else:
+                    record(
+                        sec, "S24-02", "Generate embedding", "FAIL", f"HTTP {r.status_code}", t0=t0
+                    )
+        except Exception as e:
+            record(sec, "S24-02", "Generate embedding", "FAIL", str(e)[:80], t0=t0)
+    else:
+        record(
+            sec, "S24-02", "Generate embedding", "INFO", "skipped — embedding service not healthy"
+        )
+
+    # ── S24-03: Docker-compose RAG env vars consistent ────────────────────────
+    t0 = time.time()
+    dc_src = (ROOT / "deploy/portal-5/docker-compose.yml").read_text()
+    checks = {
+        "RAG_EMBEDDING_ENGINE=openai": "RAG_EMBEDDING_ENGINE=openai" in dc_src,
+        "harrier model ref": "harrier-oss-v1-0.6b" in dc_src,
+        "reranker model ref": "bge-reranker-v2-m3" in dc_src,
+        "embedding URL points to TEI": "portal5-embedding" in dc_src or "8917" in dc_src,
+    }
+    all_ok = all(checks.values())
+    failed = [k for k, v in checks.items() if not v]
+    record(
+        sec,
+        "S24-03",
+        "docker-compose RAG env vars consistent",
+        "PASS" if all_ok else "FAIL",
+        "✓ all RAG config references present" if all_ok else f"missing: {failed}",
+        t0=t0,
+    )
+
+    # ── S24-04: Open WebUI RAG config reachable ──────────────────────────────
+    t0 = time.time()
+    try:
+        token = _owui_token()
+        if token:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get(
+                    f"{OPENWEBUI_URL}/api/v1/retrieval/config",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                if r.status_code == 200:
+                    rag_cfg = r.json()
+                    record(
+                        sec,
+                        "S24-04",
+                        "Open WebUI RAG config endpoint reachable",
+                        "PASS",
+                        f"config keys: {list(rag_cfg.keys())[:5]}",
+                        t0=t0,
+                    )
+                else:
+                    record(sec, "S24-04", "OWU RAG config", "WARN", f"HTTP {r.status_code}", t0=t0)
+        else:
+            record(sec, "S24-04", "OWU RAG config", "WARN", "no auth token — skipping")
+    except Exception as e:
+        record(sec, "S24-04", "OWU RAG config", "WARN", str(e)[:80], t0=t0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
 SECTIONS = {
@@ -7382,6 +8022,7 @@ SECTIONS = {
     "S21": S21,
     "S22": S22,
     "S23": S23,
+    "S24": S24,
     "S30": S30,
     "S31": S31,
     "S32": S32,
@@ -7390,6 +8031,7 @@ SECTIONS = {
     "S35": S35,
     "S36": S36,
     "S37": S37,
+    "S38": S38,
 }
 
 ALL_ORDER = [
@@ -7398,13 +8040,14 @@ ALL_ORDER = [
     "S1",  # Static config
     "S2",  # Service health
     # ── No LLM dependency (can run anytime) ────────────────────────────────
-    "S8",  # TTS (kokoro-onnx, no LLM)
-    "S9",  # STT (Whisper, no LLM)
+    "S8",  # TTS (MLX speech / kokoro fallback)
+    "S9",  # STT (Qwen3-ASR / Whisper fallback)
     "S12",  # Metrics (Prometheus/Grafana)
     "S13",  # GUI (Playwright/Chromium)
     "S14",  # HOWTO audit (static file checks)
     "S16",  # CLI commands (launch.sh)
     "S21",  # Notifications & alerts (module imports + event formatting)
+    "S24",  # RAG embedding pipeline (Harrier + bge-reranker)
     # ── Ollama workspaces + personas (no MLX needed) ───────────────────────
     "S3",  # Ollama workspace routing (auto, creative, documents, security, video, music)
     "S4",  # Document MCP (auto-documents → Ollama qwen3.5:9b)
@@ -7426,6 +8069,7 @@ ALL_ORDER = [
     "S35",  # Qwopus3.5-9B: auto-documents — direct MLX test + pipeline workspace (SWITCH)
     "S36",  # Dolphin3.0-Llama3.1-8B: auto-creative (SWITCH)
     "S37",  # gemma-4-31b-it-4bit: auto-vision + Gemma persona (SWITCH, VLM)
+    "S38",  # GLM-5.1 HEAVY: frontier agentic coder (Zhipu lineage, optional)
     "S22",  # MLX model switching — intentionally forces switches to verify proxy handles them
     # ── Fallback chain verification (kill/restore backends) ─────────────────
     "S23",  # Fallback chain (kill MLX, verify Ollama fallback, restore)

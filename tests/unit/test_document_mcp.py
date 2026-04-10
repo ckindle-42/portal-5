@@ -276,10 +276,10 @@ class TestReadPDF:
         f = tmp_path / "doc.pdf"
         f.touch()
 
-        import importlib
+
+        import unittest.mock as mock
 
         import portal_mcp.documents.document_mcp as doc_mcp
-        import unittest.mock as mock
 
         with mock.patch.dict("sys.modules", {"pdfplumber": None}):
             result = doc_mcp.read_pdf(str(f))

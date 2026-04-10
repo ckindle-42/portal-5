@@ -27,7 +27,6 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,13 +77,13 @@ def _send_notification(message: str) -> None:
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
         return
     try:
-        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
-        from portal_pipeline.notifications.events import AlertEvent, EventType
-        from portal_pipeline.notifications.channels.slack import SlackChannel
-        from portal_pipeline.notifications.channels.telegram import TelegramChannel
         from portal_pipeline.notifications.channels.email import EmailChannel
         from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.channels.slack import SlackChannel
+        from portal_pipeline.notifications.channels.telegram import TelegramChannel
         from portal_pipeline.notifications.channels.webhook import WebhookChannel
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.events import AlertEvent, EventType
 
         dispatcher = NotificationDispatcher()
         for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
@@ -424,9 +423,7 @@ def benchmark_proxy(model: str, dry_run: bool = False, kill_proxy_before: bool =
     # Determine switch type
     if server_before is None:
         result["switch_type"] = "cold_start"
-    elif vlm and server_before != "vlm":
-        result["switch_type"] = "cross_server"
-    elif not vlm and server_before != "lm":
+    elif vlm and server_before != "vlm" or not vlm and server_before != "lm":
         result["switch_type"] = "cross_server"
     else:
         result["switch_type"] = "same_server"
@@ -459,7 +456,7 @@ def benchmark_proxy(model: str, dry_run: bool = False, kill_proxy_before: bool =
     except httpx.ReadTimeout:
         result["error"] = "timeout (300s)"
         result["response_time_s"] = 300.0
-        print(f"    ❌ Timeout after 300s")
+        print("    ❌ Timeout after 300s")
     except Exception as e:
         result["error"] = str(e)[:100]
         result["response_time_s"] = round(time.time() - req_start, 1)
@@ -577,7 +574,7 @@ def run_benchmark(mode: str, models: list[str], dry_run: bool) -> tuple[list[dic
                 if log_ready:
                     print(f"    Server ready (log confirmed): {log_detail}")
                 else:
-                    print(f"    Waiting for server readiness (log-based)...")
+                    print("    Waiting for server readiness (log-based)...")
                     ok, elapsed, detail = _wait_for_proxy_model_loaded(
                         current_model, stype=stype_next, timeout=60
                     )
@@ -695,7 +692,7 @@ def print_summary(results: list[dict]) -> None:
                 if r.get("response_time_s") and r.get("success"):
                     by_switch.setdefault(st, []).append(r["response_time_s"])
             if by_switch:
-                print(f"    By switch type:")
+                print("    By switch type:")
                 for st, s_times in by_switch.items():
                     print(
                         f"      {st}: {len(s_times)} requests, "
