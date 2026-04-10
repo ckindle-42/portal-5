@@ -1648,6 +1648,34 @@ async def _try_non_streaming(
         resp.raise_for_status()
         data = resp.json()
 
+        # Translate Ollama's native non-streaming format to OpenAI format
+        # Ollama returns: {"message": {"role": "assistant", "content": "..."}, "eval_count": N, ...}
+        # Pipeline expects: {"choices": [{"message": {"content": "..."}, ...}], ...}
+        if "message" in data and "choices" not in data:
+            _msg = data.get("message", {})
+            _content = _msg.get("content", "") or _msg.get("reasoning", "")
+            data = {
+                "id": f"chatcmpl-p5-{int(time.time())}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": target_model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": _msg.get("role", "assistant"),
+                            "content": _content,
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                    "completion_tokens": data.get("eval_count", 0),
+                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
+                },
+            }
+
         # Reasoning model normalisation: DeepSeek-R1, Qwen3 thinking mode, and Magistral
         # populate message.reasoning instead of message.content when the thinking chain
         # exhausts max_tokens. Promote reasoning→content so Open WebUI and all callers
