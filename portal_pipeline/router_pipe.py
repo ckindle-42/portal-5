@@ -1197,14 +1197,15 @@ def _detect_workspace(messages: list[dict]) -> str | None:
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
 if not _raw_api_key:
-    import warnings
+    import sys
 
-    warnings.warn(
-        "PIPELINE_API_KEY is not set — using insecure default 'portal-pipeline'. "
-        "Set PIPELINE_API_KEY in .env before deploying.",
-        stacklevel=1,
+    print(
+        "FATAL: PIPELINE_API_KEY is not set. "
+        "Set PIPELINE_API_KEY in .env before starting the pipeline. "
+        "Example: PIPELINE_API_KEY=$(openssl rand -hex 32)",
+        file=sys.stderr,
     )
-    _raw_api_key = "portal-pipeline"
+    sys.exit(1)
 PIPELINE_API_KEY: str = _raw_api_key
 
 # Concurrency limiter — prevents Ollama overload when all workers are busy
@@ -2266,19 +2267,3 @@ async def _stream_from_backend_guarded(
             _record_response_time(model, workspace_id, time.monotonic() - start_time)
         if sem is not None:
             sem.release()  # Release AFTER generator is fully exhausted
-
-
-async def _complete_from_backend(
-    url: str, body: dict, workspace_id: str = "unknown", model: str = "unknown"
-) -> JSONResponse:
-    if _http_client is None:
-        raise HTTPException(status_code=503, detail="Pipeline not ready")
-    try:
-        resp = await _http_client.post(url, json=body)
-        resp.raise_for_status()
-        data = resp.json()
-        _record_usage(model=model, workspace=workspace_id, data=data)
-        return JSONResponse(content=data)
-    except Exception as e:
-        logger.error("Completion error from %s: %s", url, e)
-        raise HTTPException(status_code=502, detail="Backend error — check server logs") from e

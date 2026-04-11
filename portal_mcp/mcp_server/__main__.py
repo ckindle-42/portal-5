@@ -8,11 +8,6 @@ from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server
 from mcp.types import ServerCapabilities
 
-if not sys.warnoptions:
-    import warnings
-
-    warnings.simplefilter("ignore")
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server")
 
@@ -21,7 +16,7 @@ async def receive_loop(session: ServerSession):
     logger.info("Starting receive loop")
     async for message in session.incoming_messages:
         if isinstance(message, Exception):
-            logger.error("Error: %s", message)
+            logger.exception("Error processing message: %s", message)
             continue
 
         logger.info("Received message from client: %s", message)

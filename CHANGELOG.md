@@ -2,6 +2,35 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.0.1] - 2026-04-11
+
+### Security
+- **CRITICAL**: Removed insecure default API key fallback — pipeline now fails closed when `PIPELINE_API_KEY` is unset (P5-SEC-001)
+- **CRITICAL**: Removed `privileged: true` from DinD sandbox to prevent container escape; migrated to rootless `docker:27-dind-rootless` (P5-SEC-002)
+
+### Fixed
+- Removed global warning suppression in MCP server; exceptions now log full tracebacks (P5-OBS-001)
+- Removed dead code: `_complete_from_backend()` in `router_pipe.py` (P5-MAINT-001)
+- Fixed duplicate `_MLX_PROXY_HEALTH_URL` assignment in `dispatcher.py` (P5-MAINT-002)
+
+### Changed
+- Native service startup errors now logged to `~/.portal5/logs/` instead of `/dev/null` (P5-OBS-002)
+- JSON parsing in `launch.sh` uses `jq` when available for faster status checks (P5-PERF-001)
+
+### Documentation
+- Fixed AudioCraft → HuggingFace MusicGen terminology in README (P5-DOCS-001)
+- Fixed version drift: aligned all headers to 6.0.1 (P5-DOCS-002)
+- Added network exposure security documentation with local-only override option (P5-DOCS-003)
+- Clarified privacy claims regarding model download telemetry (P5-DOCS-004)
+- Updated persona count in CLAUDE.md from 42 to 44 (P5-MAINT-003)
+
+### Tests
+- Added `TestCodeHygiene` regression prevention tests (P5-TEST-001)
+- Fixed test suite to set `PIPELINE_API_KEY` via `conftest.py` for hard-fail API key enforcement
+- Fixed `HEADERS` in `test_pipeline.py` to read from env rather than hardcoded default key
+
+---
+
 ## [Unreleased]
 
 ### Added

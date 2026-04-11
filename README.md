@@ -4,7 +4,10 @@ A complete, private AI platform that runs on your hardware. Text, code, security
 analysis, images, video, music, documents, and voice — all local, all yours.
 
 Connects to Open WebUI, Telegram, and Slack. Routes automatically to the right
-model for each task. No cloud accounts. No usage fees. No data leaving your machine.
+model for each task. No cloud accounts. No usage fees. Inference is fully local —
+your prompts and responses never leave your machine. Model downloads from HuggingFace
+or Ollama registries transmit standard HTTP metadata; if `HF_TOKEN` is configured for
+gated models, authentication requests are sent to HuggingFace.
 
 ---
 
@@ -82,7 +85,7 @@ and tools automatically.
 | `auto-redteam` | Offensive security research | Code sandbox |
 | `auto-blueteam` | Defensive security, incident response | Code sandbox |
 | `auto-documents` | Create Word, Excel, PowerPoint | Documents + Code |
-| `auto-music` | Generate music via AudioCraft | Music + TTS |
+| `auto-music` | Generate music via HuggingFace MusicGen | Music + TTS |
 | `auto-video` | Generate video via ComfyUI | Video + Image |
 | `auto-vision` | Image understanding, visual tasks | Image generation |
 | `auto-creative` | Creative writing | TTS voice |
@@ -258,6 +261,25 @@ On slower connections it may take longer. The download resumes if interrupted.
 lsof -i :8080               # Find what is using port 8080
 # Stop the conflicting service, then ./launch.sh up
 ```
+
+---
+
+## Security
+
+### Required Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PIPELINE_API_KEY` | **Yes** | API key for pipeline authentication. Generate with: `openssl rand -hex 32`. Pipeline will not start without this. |
+
+### Network Exposure
+
+By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allow LAN access from other applications. This is intentional for multi-device setups.
+
+**Security Considerations**:
+- The pipeline is protected by `PIPELINE_API_KEY` authentication
+- Ensure your LAN is trusted or use firewall rules to restrict access
+- For local-only deployments, set in `.env`: `PIPELINE_LISTEN_ADDR=127.0.0.1`
 
 ---
 

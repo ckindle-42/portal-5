@@ -23,10 +23,6 @@ _MLX_PROXY_HEALTH_URL = os.environ.get(
     "MLX_PROXY_HEALTH_URL", "http://host.docker.internal:8081/health"
 )
 
-_MLX_PROXY_HEALTH_URL = os.environ.get(
-    "MLX_PROXY_HEALTH_URL", "http://host.docker.internal:8081/health"
-)
-
 
 class NotificationDispatcher:
     """

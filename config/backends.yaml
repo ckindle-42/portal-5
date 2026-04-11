@@ -1,4 +1,4 @@
-# Portal 5.2.1 — Backend Registry
+# Portal 6.0.1 — Backend Registry
 # OPERATOR FILE: Edit this to add cluster nodes. No code changes needed.
 # After editing: docker compose restart portal-pipeline
 

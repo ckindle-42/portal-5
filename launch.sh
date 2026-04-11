@@ -4,6 +4,25 @@ PORTAL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_DIR="$PORTAL_ROOT/deploy/portal-5"
 ENV_FILE="$PORTAL_ROOT/.env"
 
+# ── JSON parsing helper ────────────────────────────────────────────────────────
+# Prefer jq (faster), fall back to python3 if unavailable.
+if command -v jq &>/dev/null; then
+    _USE_JQ=true
+else
+    _USE_JQ=false
+fi
+
+# Usage: _jq_get <json_string> <jq_filter> <python_fallback_expr> [default]
+# Example: _jq_get "$JSON" '.status // "?"' "d.get('status','?')"
+_json_get() {
+    local json="$1" jq_filter="$2" py_expr="$3" default="${4:-}"
+    if $_USE_JQ; then
+        echo "$json" | jq -r "$jq_filter" 2>/dev/null || echo "${default}"
+    else
+        echo "$json" | python3 -c "import json,sys; d=json.load(sys.stdin); print($py_expr)" 2>/dev/null || echo "${default}"
+    fi
+}
+
 # ── Secret generation ─────────────────────────────────────────────────────────
 generate_secret() {
     # Works on macOS (LibreSSL) and Linux (OpenSSL)
@@ -125,8 +144,8 @@ _check_hardware() {
         fi
         # Check MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on 8081)
         if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-            MLX_ACTIVE=$(curl -s "http://localhost:8081/health" 2>/dev/null | \
-                python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('active_server','?'))" 2>/dev/null || echo "?")
+            MLX_ACTIVE=$(_json_get "$(curl -s "http://localhost:8081/health" 2>/dev/null)" \
+                '.active_server // "?"' "d.get('active_server','?')" "?")
             echo "  ✅ MLX proxy: active (server=$MLX_ACTIVE) — dual-server Apple Silicon inference"
         elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
             echo "  ⏳ MLX: starting in background (Ollama used until ready)"
@@ -198,7 +217,7 @@ _ensure_native_services() {
                 echo "[portal-5]   ComfyUI installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
                 if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
-                    launchctl start com.portal5.comfyui 2>/dev/null || true
+                    launchctl start com.portal5.comfyui 2>>"$HOME/.portal5/logs/comfyui-launchctl.log" || true
                 else
                     nohup "$COMFYUI_DIR/start.sh" \
                         > "$HOME/.portal5/logs/comfyui.log" 2>&1 &
@@ -220,7 +239,7 @@ _ensure_native_services() {
                 echo "[portal-5]   MLX proxy installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
                 if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
-                    launchctl start com.portal5.mlx-proxy 2>/dev/null || true
+                    launchctl start com.portal5.mlx-proxy 2>>"$HOME/.portal5/logs/mlx-proxy-launchctl.log" || true
                 else
                     nohup python3 "$MLX_PROXY_SCRIPT" \
                         > "$HOME/.portal5/logs/mlx-proxy.log" 2>&1 &
@@ -241,7 +260,7 @@ _ensure_native_services() {
                 echo "[portal-5]   Music MCP installed but not running — starting..."
                 mkdir -p "$HOME/.portal5/logs"
                 if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
-                    launchctl start com.portal5.music-mcp 2>/dev/null || true
+                    launchctl start com.portal5.music-mcp 2>>"$HOME/.portal5/logs/music-mcp-launchctl.log" || true
                 else
                     PYTHONPATH="$PORTAL_ROOT" \
                     HF_HOME="${HF_HOME:-$HOME/.portal5/music/hf_cache}" \
@@ -484,11 +503,12 @@ get_admin_token() {
         exit 1
     fi
 
-    curl -s -X POST "$url/api/v1/auths/signin" \
+    local _auth_json
+    _auth_json=$(curl -s -X POST "$url/api/v1/auths/signin" \
         -H "Content-Type: application/json" \
         -d "{\"email\":\"$email\",\"password\":\"$pass\"}" \
-        2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('token',''))" \
-        2>/dev/null
+        2>/dev/null)
+    _json_get "$_auth_json" '.token // ""' "d.get('token','')" ""
 }
 
 # ── Status display ─────────────────────────────────────────────────────────
@@ -808,8 +828,8 @@ case "${1:-up}" in
     # ── Pipeline ──────────────────────────────────────────────────────────────
     echo "Pipeline:"
     HEALTH_JSON=$(curl -s "$PIPE/health" 2>/dev/null)
-    STATUS=$(echo "$HEALTH_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
-    BACKENDS=$(echo "$HEALTH_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin).get('backends_healthy',0))" 2>/dev/null)
+    STATUS=$(_json_get "$HEALTH_JSON" '.status // "?"' "json.load(sys.stdin).get('status','?')" "?")
+    BACKENDS=$(_json_get "$HEALTH_JSON" '.backends_healthy // 0' "json.load(sys.stdin).get('backends_healthy',0)" "0")
 
     # Pipeline is reachable if status is 'ok' or 'degraded' (either means it's running)
     [ "$STATUS" = "ok" ] || [ "$STATUS" = "degraded" ] \
@@ -821,7 +841,8 @@ case "${1:-up}" in
         && echo "  ✅ Ollama connected ($BACKENDS backends healthy)" && PASS=$((PASS+1)) \
         || echo "  ℹ️  Ollama: no backends healthy yet — run: ./launch.sh pull-models"
 
-    WS_COUNT=$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('data',[])))" 2>/dev/null)
+    WS_COUNT=$(_json_get "$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" 2>/dev/null)" \
+        '(.data // []) | length' "d=json.load(sys.stdin); print(len(d.get('data',[])))" "0")
     _check "all 15 workspaces exposed" "$WS_COUNT" "15"
 
     METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
@@ -836,15 +857,19 @@ case "${1:-up}" in
     # ── Ollama inference ──────────────────────────────────────────────────────
     echo ""
     echo "Ollama:"
-    MODELS=$(curl -s http://localhost:11434/api/tags | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('models',[])))" 2>/dev/null)
+    MODELS=$(_json_get "$(curl -s http://localhost:11434/api/tags 2>/dev/null)" \
+        '(.models // []) | length' "d=json.load(sys.stdin); print(len(d.get('models',[])))" "0")
     [ "$MODELS" -ge 1 ] && echo "  ✅ Ollama has $MODELS model(s) loaded" && PASS=$((PASS+1)) || { echo "  ❌ No Ollama models loaded — run: ./launch.sh pull-models"; FAIL=$((FAIL+1)); }
 
     # Live inference test
-    REPLY=$(curl -s -X POST "$PIPE/v1/chat/completions" \
+    _infer_json=$(curl -s -X POST "$PIPE/v1/chat/completions" \
         -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
         -H "Content-Type: application/json" \
         -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG"}],"stream":false}' \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('choices',[{}])[0].get('message',{}).get('content','FAIL')[:20])" 2>/dev/null)
+        2>/dev/null)
+    REPLY=$(_json_get "$_infer_json" \
+        '(.choices[0].message.content // "FAIL")[:20]' \
+        "d=json.load(sys.stdin); print(d.get('choices',[{}])[0].get('message',{}).get('content','FAIL')[:20])" "FAIL")
     [ -n "$REPLY" ] && [ "$REPLY" != "FAIL" ] && echo "  ✅ Live inference: got reply" && PASS=$((PASS+1)) || { echo "  ❌ Live inference failed — check Ollama has a model"; FAIL=$((FAIL+1)); }
 
     # ── MCP Servers ───────────────────────────────────────────────────────────
@@ -861,10 +886,13 @@ case "${1:-up}" in
     # ── Document generation ───────────────────────────────────────────────────
     echo ""
     echo "Document Generation:"
-    DOC_RESULT=$(curl -s -X POST "http://localhost:8913/mcp" \
+    _doc_json=$(curl -s -X POST "http://localhost:8913/mcp" \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_word_document","arguments":{"title":"Smoke Test","content":"Portal 5 smoke test document"}},"id":1}' \
-        2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('result',{}); print('OK' if r.get('success') or 'path' in str(r) else 'FAIL')" 2>/dev/null)
+        2>/dev/null)
+    DOC_RESULT=$(_json_get "$_doc_json" \
+        'if (.result.success // false) or (.result | tostring | test("path")) then "OK" else "FAIL" end' \
+        "d=json.load(sys.stdin); r=d.get('result',{}); print('OK' if r.get('success') or 'path' in str(r) else 'FAIL')" "FAIL")
     _check "Word document created" "$DOC_RESULT" "OK"
 
     # ── TTS ───────────────────────────────────────────────────────────────────
@@ -881,8 +909,9 @@ case "${1:-up}" in
     # ── SearXNG ───────────────────────────────────────────────────────────────
     echo ""
     echo "Web Search:"
-    SEARCH=$(curl -s "http://localhost:8088/search?q=portal+ai&format=json" \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK' if d.get('results') else 'EMPTY')" 2>/dev/null)
+    SEARCH=$(_json_get "$(curl -s "http://localhost:8088/search?q=portal+ai&format=json" 2>/dev/null)" \
+        'if (.results // [] | length) > 0 then "OK" else "EMPTY" end' \
+        "d=json.load(sys.stdin); print('OK' if d.get('results') else 'EMPTY')" "EMPTY")
     _check "SearXNG returns results" "$SEARCH" "OK"
 
     # ── Prometheus + Grafana ──────────────────────────────────────────────────
@@ -2623,7 +2652,7 @@ MLXPLIST
         -d "{\"model\":\"${MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false}" \
         --max-time 120 2>/dev/null)
 
-    if echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'choices' in d" 2>/dev/null; then
+    if [ "$(_json_get "$RESP" 'if .choices then "yes" else "no" end' "d=json.load(sys.stdin); print('yes' if 'choices' in d else 'no')" "no")" = "yes" ]; then
         echo "  ✅ Server switched and responding for $MODEL"
     else
         echo "  ⚠️  Request completed (may have fallen back to Ollama)"

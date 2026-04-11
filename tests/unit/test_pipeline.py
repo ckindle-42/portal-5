@@ -29,7 +29,9 @@ def client():
         yield test_client
 
 
-HEADERS = {"Authorization": "Bearer portal-pipeline"}
+import os as _os
+
+HEADERS = {"Authorization": f"Bearer {_os.environ.get('PIPELINE_API_KEY', 'test-pipeline-key-for-unit-tests')}"}
 
 
 @pytest.fixture
@@ -1148,4 +1150,83 @@ class TestAutoCodingDevstralUpgrade:
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
         assert "4bit" in hint or "MLX-4bit" in hint, (
             f"auto-coding mlx_model_hint should be 4bit variant for 3GB memory savings, got: {hint!r}"
+        )
+
+
+class TestCodeHygiene:
+    """Prevent regression of remediated issues."""
+
+    def test_no_default_api_key_fallback(self):
+        """Verify insecure default API key was removed (P5-SEC-001)."""
+        from pathlib import Path
+
+        router_path = Path("portal_pipeline/router_pipe.py")
+        if not router_path.exists():
+            router_path = Path(__file__).parent.parent.parent / "portal_pipeline/router_pipe.py"
+        content = router_path.read_text()
+        assert '_raw_api_key = "portal-pipeline"' not in content
+
+    def test_no_unreferenced_complete_from_backend(self):
+        """Verify _complete_from_backend was removed (P5-MAINT-001)."""
+        from portal_pipeline import router_pipe
+
+        assert not hasattr(router_pipe, "_complete_from_backend")
+
+    def test_no_duplicate_mlx_proxy_url(self):
+        """Verify duplicate assignment was removed (P5-MAINT-002)."""
+        from pathlib import Path
+
+        dispatcher_path = Path("portal_pipeline/notifications/dispatcher.py")
+        if not dispatcher_path.exists():
+            dispatcher_path = (
+                Path(__file__).parent.parent.parent
+                / "portal_pipeline/notifications/dispatcher.py"
+            )
+        content = dispatcher_path.read_text()
+        count = content.count("_MLX_PROXY_HEALTH_URL =")
+        assert count == 1, f"Expected 1 assignment, found {count}"
+
+    def test_mcp_server_no_warning_suppression(self):
+        """Verify global warning suppression was removed (P5-OBS-001)."""
+        from pathlib import Path
+
+        mcp_main = Path("portal_mcp/mcp_server/__main__.py")
+        if not mcp_main.exists():
+            mcp_main = Path(__file__).parent.parent.parent / "portal_mcp/mcp_server/__main__.py"
+        content = mcp_main.read_text()
+        assert "warnings.simplefilter" not in content
+
+    def test_no_privileged_containers(self):
+        """Verify privileged flag was removed (P5-SEC-002)."""
+        from pathlib import Path
+
+        compose_path = Path("deploy/portal-5/docker-compose.yml")
+        if not compose_path.exists():
+            compose_path = (
+                Path(__file__).parent.parent.parent / "deploy/portal-5/docker-compose.yml"
+            )
+        content = compose_path.read_text()
+        assert "privileged: true" not in content
+
+    def test_claude_md_persona_count_accurate(self):
+        """Verify CLAUDE.md persona count matches actual files."""
+        import re
+        from pathlib import Path
+
+        personas_dir = Path("config/personas")
+        if not personas_dir.exists():
+            personas_dir = Path(__file__).parent.parent.parent / "config" / "personas"
+        actual_count = len(list(personas_dir.glob("*.yaml")))
+
+        claude_md = Path("CLAUDE.md")
+        if not claude_md.exists():
+            claude_md = Path(__file__).parent.parent.parent / "CLAUDE.md"
+        content = claude_md.read_text()
+
+        match = re.search(r"(\d+)\s+personas", content)
+        assert match, "Could not find persona count in CLAUDE.md"
+        doc_count = int(match.group(1))
+
+        assert doc_count == actual_count, (
+            f"CLAUDE.md says {doc_count} personas but found {actual_count} yaml files"
         )
