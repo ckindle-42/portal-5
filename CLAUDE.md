@@ -244,22 +244,6 @@ First run: 5-15 min. Subsequent runs: ~30 seconds.
 
 ---
 
-## Performance Optimizations (P7-PERF)
-
-The pipeline includes several optimizations to minimize routing overhead:
-
-1. **Shared HTTP Client** — All backend requests use a single `httpx.AsyncClient` with connection pooling (20 keepalive, 100 max connections). The LLM router also uses this shared client instead of creating per-request clients.
-
-2. **Keyword Cache** — Workspace keyword dictionaries are pre-compiled to lowercase at module load (`_KEYWORD_CACHE`). This eliminates repeated `.lower()` calls and dict rebuilding on every request.
-
-3. **Backend Candidate Cache** — `get_backend_candidates()` results are cached with a 5-second TTL. Cache is invalidated after health checks. Avoids list comprehension and `random.shuffle()` on every request.
-
-4. **Benchmark Client Reuse** — `bench_tps.py` reuses a single httpx client across all benchmark runs for accurate pipeline latency measurement.
-
-When profiling, look for `P7-PERF` comments marking optimized code paths.
-
----
-
 ## Testing Rules
 
 - All tests in `tests/unit/` must pass with no network access (`pytest tests/unit/`)
