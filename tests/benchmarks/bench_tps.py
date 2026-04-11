@@ -486,9 +486,14 @@ def _runtime_mlx_models() -> set[str]:
 
 
 def _config_workspaces() -> list[str]:
-    """All workspace IDs from backends.yaml."""
+    """All workspace IDs from backends.yaml, sorted by primary backend group.
+
+    Sorting by the first group in each workspace's routing list keeps the same
+    backend active across consecutive tests, minimising model swaps.
+    """
     cfg = _load_backends_config()
-    return list(cfg.get("workspace_routing", {}).keys())
+    routing: dict[str, list[str]] = cfg.get("workspace_routing", {})
+    return sorted(routing.keys(), key=lambda ws: (routing[ws][0] if routing[ws] else "", ws))
 
 
 def _discover_personas() -> list[dict]:
@@ -906,6 +911,9 @@ def bench_personas(
             for p in personas
             if persona_filter in p["slug"] or persona_filter in p["name"].lower()
         ]
+    # Sort by workspace_model so personas that share a model run consecutively,
+    # minimising Ollama model swaps and MLX proxy switches.
+    personas = sorted(personas, key=lambda p: (p["workspace_model"], p["slug"]))
 
     results = []
     print(f"\n  Personas to test: {len(personas)}")
