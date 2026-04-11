@@ -1176,7 +1176,7 @@ async def S1() -> None:
             vlm_section = proxy_src[proxy_src.index("VLM_MODELS"):proxy_src.index("ALL_MODELS")]
             # Gemma 4 31B dense and E4B must be in VLM_MODELS (require mlx_vlm)
             gemma_31b_vlm = "gemma-4-31b-it-4bit" in vlm_section
-            gemma_e4b_vlm = "gemma-4-E4B-it-UD-MLX-4bit" in vlm_section
+            gemma_e4b_vlm = "gemma-4-e4b-it-4bit" in vlm_section
             gemma_31b_all = "mlx-community/gemma-4-31b-it-4bit" in proxy_src
             all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all
             record(
@@ -1868,7 +1868,7 @@ async def S11() -> None:
         ("lmstudio-community/Phi-4-reasoning-plus-MLX-4bit", None, ["phi4stemanalyst"]),
         ("lmstudio-community/Magistral-Small-2509-MLX-8bit", "auto-mistral", ["magistralstrategist"]),
         # gemma-4-E4B: VLM, no pipeline workspace — direct MLX proxy
-        ("unsloth/gemma-4-E4B-it-UD-MLX-4bit", None, ["gemma4e4bvision"]),
+        ("mlx-community/gemma-4-e4b-it-4bit", None, ["gemma4e4bvision"]),
     ]
 
     test_num = 1
@@ -1886,7 +1886,7 @@ async def S11() -> None:
             "mlx-community/phi-4-8bit": 14,
             "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
             "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,
-            "unsloth/gemma-4-E4B-it-UD-MLX-4bit": 5,
+            "mlx-community/gemma-4-e4b-it-4bit": 5,
         }.get(model_hint, 10)
         if model_gb >= 14:
             await _ensure_free_ram_gb(model_gb + 10, f"{model_short}")

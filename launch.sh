@@ -1296,7 +1296,7 @@ case "${1:-up}" in
                 "mlx-community/gemma-4-31b-it-4bit"
                 "lmstudio-community/Magistral-Small-2509-MLX-8bit"
                 "mlx-community/Qwen3-VL-32B-Instruct-8bit"
-                "unsloth/gemma-4-E4B-it-UD-MLX-4bit"           # ~5GB — Gemma 4 E4B vision+audio (replaces LLaVA)
+                "mlx-community/gemma-4-e4b-it-4bit"            # ~5GB — Gemma 4 E4B vision+audio (replaces LLaVA)
                 "mlx-community/gemma-4-26b-a4b-it-4bit"        # ~15GB — Gemma 4 26B A4B MoE research VLM
                 "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus STEM/math
                 # OCR (document ingestion)
@@ -2590,7 +2590,7 @@ MLXPLIST
         echo "    mlx-community/phi-4-8bit                                              (~14GB)"
         echo "  VLM models (mlx_vlm, port 18082):"
         echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
-        echo "    unsloth/gemma-4-E4B-it-UD-MLX-4bit               (~5GB — Gemma 4 E4B vision+audio fallback)"
+        echo "    mlx-community/gemma-4-e4b-it-4bit                 (~5GB — Gemma 4 E4B vision+audio fallback)"
         echo ""
         echo "Current status:"
         curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
@@ -2844,7 +2844,7 @@ MLXPLIST
     fi
 
     echo "=== Downloading MLX models to HuggingFace cache ==="
-    echo "Models download to: ~/.cache/huggingface/hub/"
+    echo "Models download to: ${HF_HOME:-~/.cache/huggingface/hub/}"
     echo ""
 
     # Standard MLX models (8bit quants for 64GB M4 Mac — one at a time)
@@ -2872,7 +2872,7 @@ MLXPLIST
         "lmstudio-community/Magistral-Small-2509-MLX-8bit"  # ~24GB — Mistral reasoning, [THINK] mode
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
-        "unsloth/gemma-4-E4B-it-UD-MLX-4bit"               # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
+        "mlx-community/gemma-4-e4b-it-4bit"                # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
         "mlx-community/gemma-4-26b-a4b-it-4bit"            # ~15GB — Gemma 4 26B A4B MoE VLM, 256K ctx
         "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus, STEM/math RL-trained
         # OCR (document ingestion)

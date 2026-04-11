@@ -44,7 +44,7 @@ WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
-    "gemma-4-E4B-it-UD-MLX-4bit",  # Gemma 4 E4B — replaces LLaVA; text+vision+audio, 128K ctx, ~5GB
+    "gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; text+vision+audio, 128K ctx, ~5GB
     "gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, ~15GB
     "GLM-OCR-bf16",  # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
     "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
@@ -78,7 +78,7 @@ ALL_MODELS = [
     # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
-    "unsloth/gemma-4-E4B-it-UD-MLX-4bit",  # Gemma 4 E4B — replaces LLaVA; vision+audio, 128K ctx (~5GB)
+    "mlx-community/gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; vision+audio, 128K ctx (~5GB)
     "mlx-community/gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, #6 LMArena (~15GB)
     "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",  # Phi-4-reasoning-plus — STEM/math, RL-trained, ~7GB (Microsoft)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM 11B 4bit (~7GB, Karakeep)
@@ -140,7 +140,7 @@ MODEL_MEMORY: dict[str, float] = {
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
-    "unsloth/gemma-4-E4B-it-UD-MLX-4bit": 5.0,  # Gemma 4 E4B UD-4bit (~5GB) — vision+audio
+    "mlx-community/gemma-4-e4b-it-4bit": 5.0,  # Gemma 4 E4B mlx-community 4bit (~5GB) — vision+audio
     "mlx-community/gemma-4-26b-a4b-it-4bit": 15.0,  # Gemma 4 26B A4B MoE 4bit (~15GB)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
 }

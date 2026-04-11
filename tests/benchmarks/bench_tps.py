@@ -196,7 +196,7 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "DeepSeek-R1-Distill": "reasoning",
     "gemma-4-31b": "vision",
     "Qwen3-VL": "vision",
-    "gemma-4-E4B": "vision",
+    "gemma-4-e4b": "vision",
     "gemma-4-26b": "vision",
     "Phi-4-reasoning": "reasoning",
     "Llama-3.2-11B-Vision": "vision",
