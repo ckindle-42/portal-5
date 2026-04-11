@@ -324,6 +324,75 @@ def _unload_ollama_model(model: str) -> None:
         pass
 
 
+def _unload_all_running_ollama_models() -> None:
+    """Evict every model currently loaded in Ollama via keep_alive=0.
+
+    Mirrors mlx-proxy's _evict_ollama_models() — uses /api/ps (running models
+    only) rather than /api/tags (all installed) to avoid briefly loading models
+    that happen to be installed but idle.
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.get(f"{OLLAMA_URL}/api/ps")
+            if r.status_code != 200:
+                return
+            models = [m["name"] for m in r.json().get("models", [])]
+    except Exception:
+        return
+    for name in models:
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                client.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json={"model": name, "keep_alive": 0, "prompt": ""},
+                )
+        except Exception:
+            pass
+
+
+def _wait_ollama_idle(timeout_s: float = 60.0) -> bool:
+    """Poll /api/ps until no models are running (memory fully reclaimed).
+
+    Returns True if Ollama becomes idle within timeout_s, False otherwise.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5.0)
+            if r.status_code == 200 and not r.json().get("models"):
+                return True
+        except Exception:
+            pass
+        time.sleep(2.0)
+    return False
+
+
+def _evict_mlx_current_model(smallest_mlx_model: str | None) -> None:
+    """Force the MLX proxy to release its current (possibly large) model.
+
+    The MLX proxy has no explicit unload endpoint — eviction is triggered by
+    loading a different model. We load the smallest configured MLX model to
+    push out whatever large model was last tested, leaving only ~3GB resident
+    instead of potentially 40-70GB.
+
+    If no small model is available, we just sleep to give the proxy time to
+    settle — the proxy's own admission control will handle the next request.
+    """
+    if not smallest_mlx_model:
+        return
+    payload = {
+        "model": smallest_mlx_model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+        "max_tokens": 1,
+    }
+    try:
+        with httpx.Client(timeout=300.0) as client:
+            client.post(f"{MLX_URL}/v1/chat/completions", json=payload)
+    except Exception:
+        pass
+
+
 def _parse_ollama_sizes_from_config() -> dict[str, float]:
     """Parse model→GB size estimates from backends.yaml.
 
@@ -777,6 +846,23 @@ def bench_direct(
                 time.sleep(cooldown)
                 print("ok")
 
+        # ── MLX→Ollama transition eviction ────────────────────────────────
+        # The last MLX model is still resident when the Ollama section starts.
+        # Force-evict it by loading the smallest configured MLX model (~3GB),
+        # then wait for a long transition cooldown so unified memory is clear.
+        if ollama_available and mlx_models and not dry_run:
+            smallest = sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+            transition = max(cooldown * 5, 30.0)
+            print(
+                f"\n  MLX→Ollama: evicting large model via {smallest.split('/')[-1]} "
+                f"then {transition:.0f}s transition cooldown ...",
+                end=" ",
+                flush=True,
+            )
+            _evict_mlx_current_model(smallest)
+            time.sleep(transition)
+            print("ok")
+
     if ollama_available:
         ollama_groups = _config_ollama_models_by_group()
         ollama_unique = _config_ollama_models_unique()
@@ -845,12 +931,24 @@ def bench_direct(
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
             # Force Ollama to release this model from unified memory before next test.
-            # Uses keep_alive=0 (same pattern as mlx-proxy's _evict_ollama_models_for_big_model).
-            _unload_ollama_model(model)
-            if i < len(ollama_unique) and cooldown > 0:
-                print(f"    cooldown {cooldown:.0f}s ...", end=" ", flush=True)
-                time.sleep(cooldown)
-                print("ok")
+            # Uses keep_alive=0 then polls /api/ps until Ollama reports no running
+            # models — prevents the next model from loading into an already-full
+            # unified memory space (the crash vector for large model sequences).
+            if i < len(ollama_unique):
+                _unload_all_running_ollama_models()
+                idle = _wait_ollama_idle(timeout_s=max(cooldown * 10, 60.0))
+                if not idle:
+                    # Didn't go fully idle — still do the fixed cooldown as fallback
+                    if cooldown > 0:
+                        print(f"    cooldown {cooldown:.0f}s (idle timeout) ...", end=" ", flush=True)
+                        time.sleep(cooldown)
+                        print("ok")
+                else:
+                    print(f"    ollama idle (memory clear)", end="", flush=True)
+                    if cooldown > 0:
+                        print(f" + {cooldown:.0f}s cooldown ...", end=" ", flush=True)
+                        time.sleep(cooldown)
+                    print("ok")
 
     return results
 
