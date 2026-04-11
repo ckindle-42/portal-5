@@ -85,18 +85,18 @@ def _record_persona(persona: str, model: str) -> None:
 
 
 def _load_state() -> None:
-    """Restore persisted metrics state from disk (survives restarts)."""
-    global \
-        _request_count, \
-        _total_response_time_ms, \
-        _total_tps, \
-        _request_tps_count, \
-        _total_input_tokens, \
-        _total_output_tokens, \
-        _req_count_by_model, \
-        _req_count_by_error, \
-        _peak_concurrent, \
-        _persona_usage_raw
+    """Restore persisted metrics state from disk (survives restarts).
+
+    IMPORTANT: In-memory accumulator counters (_request_count, _total_tps, etc.)
+    are intentionally NOT pre-loaded from disk.  The _save_state() merge adds
+    each worker's in-memory delta on top of the existing file totals; if we also
+    pre-loaded the file totals into memory we would double-count on every save
+    cycle, compounding exponentially across workers and restarts.
+
+    Only peak_concurrent is restored because it uses max() rather than addition
+    in the merge, so loading the historical peak is safe and desirable.
+    """
+    global _peak_concurrent
 
     if not _STATE_FILE.exists():
         logger.info("No persisted metrics state found at %s — starting fresh", _STATE_FILE)
@@ -104,20 +104,10 @@ def _load_state() -> None:
 
     try:
         state = json.loads(_STATE_FILE.read_text())
-        _request_count = state.get("request_count", {})
-        _total_response_time_ms = float(state.get("total_response_time_ms", 0.0))
-        _total_tps = float(state.get("total_tps", 0.0))
-        _request_tps_count = int(state.get("request_tps_count", 0))
-        _total_input_tokens = int(state.get("total_input_tokens", 0))
-        _total_output_tokens = int(state.get("total_output_tokens", 0))
-        _req_count_by_model = state.get("req_count_by_model", {})
-        _req_count_by_error = state.get("req_count_by_error", {})
         _peak_concurrent = int(state.get("peak_concurrent", 0))
-        _persona_usage_raw = state.get("persona_usage_raw", {})
         logger.info(
-            "Loaded persisted metrics state: %d requests, %d output tokens, peak concurrent=%d",
-            sum(_request_count.values()),
-            _total_output_tokens,
+            "Loaded persisted metrics state: %d cumulative requests in file, peak concurrent=%d",
+            sum(v for v in state.get("request_count", {}).values() if isinstance(v, int)),
             _peak_concurrent,
         )
     except Exception as e:
