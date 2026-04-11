@@ -377,17 +377,20 @@ services:
 
   # ── Docker-in-Docker (isolated execution environment for code sandbox) ──────
   dind:
-    image: docker:27-dind-rootless
+    # docker:dind-rootless requires kernel user-namespace support unavailable in
+    # Docker Desktop's LinuxKit VM on macOS. On macOS the Desktop VM already
+    # provides the isolation boundary, so privileged DinD is acceptable here.
+    # On bare-metal Linux hosts you can switch to docker:27-dind-rootless +
+    # seccomp:unconfined + apparmor:unconfined + tmpfs /run/user/1000.
+    image: docker:27-dind
     container_name: portal5-dind
     restart: unless-stopped
-    user: "1000:1000"
+    privileged: true
     environment:
       - DOCKER_TLS_CERTDIR=        # Disable TLS — internal network only
     volumes:
-      - dind-storage:/home/rootless/.local/share/docker
+      - dind-storage:/var/lib/docker
       - sandbox-work:/app/data/sandbox  # Shared with mcp-sandbox for code files
-    security_opt:
-      - seccomp:unconfined
     # P7: Resource limits prevent DinD from consuming all system RAM/CPU.
     deploy:
       resources:
