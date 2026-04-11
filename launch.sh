@@ -761,21 +761,25 @@ case "${1:-up}" in
         if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
             echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
         else
-            if ! python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-                echo "[portal-5]   Installing ARM64 embedding server deps..."
-                if command -v uv &>/dev/null; then
-                    uv pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
-                else
-                    pip3 install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
-                fi
+            # Use a dedicated venv so packages don't collide with the project venv
+            # or the Homebrew-managed system Python (PEP 668).
+            _EM_VENV="${HOME}/.portal5/embedding-venv"
+            _EM_PY="${_EM_VENV}/bin/python3"
+            if [ ! -x "$_EM_PY" ]; then
+                python3 -m venv "$_EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$_EM_VENV"
+                "$_EM_PY" -m ensurepip --upgrade &>/dev/null || true
             fi
-            if python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+            if ! "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+                echo "[portal-5]   Installing ARM64 embedding server deps..."
+                "$_EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
+            fi
+            if "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
                 echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
                 _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
                 _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
                 _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
                 mkdir -p "$(dirname "$_EM_LOG")"
-                nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
+                nohup "$_EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
                     --model "$_EM_MODEL" \
                     --port "$_EM_PORT" \
                     > "$_EM_LOG" 2>&1 &
@@ -2818,11 +2822,20 @@ MLXPLIST
         exit 0
     fi
 
-    # Check dependencies
-    if ! python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-        echo "  ❌ Missing dependencies. Install with:"
-        echo "     pip install sentence-transformers fastapi uvicorn"
-        exit 1
+    # Use a dedicated venv (avoids conflicts with project venv and PEP 668 Homebrew Python)
+    EM_VENV="${HOME}/.portal5/embedding-venv"
+    EM_PY="${EM_VENV}/bin/python3"
+    if [ ! -x "$EM_PY" ]; then
+        echo "  Creating embedding venv at $EM_VENV..."
+        python3 -m venv "$EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$EM_VENV"
+        "$EM_PY" -m ensurepip --upgrade &>/dev/null || true
+    fi
+    if ! "$EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+        echo "  Installing deps into embedding venv..."
+        "$EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn || {
+            echo "  ❌ Failed to install deps into $EM_VENV"
+            exit 1
+        }
     fi
 
     # Stop the TEI Docker container if running (port conflict)
@@ -2838,7 +2851,7 @@ MLXPLIST
     echo "  Port:  $PORT"
     echo "  Log:   $LOG_FILE"
 
-    nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
+    nohup "$EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
         --model "$MODEL" \
         --port "$PORT" \
         --host 0.0.0.0 \
