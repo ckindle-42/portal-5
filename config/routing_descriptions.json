@@ -15,5 +15,7 @@
   "auto-music": "Generating music and audio via AudioCraft/MusicGen, describing musical ideas.",
   "auto-video": "Generating videos via ComfyUI/Wan2.2, describing video concepts.",
   "auto-mistral": "Structured strategic reasoning, business analysis, planning with explicit thinking mode, Mistral-lineage model requests.",
+  "auto-blueteam": "Defensive security, incident response, threat hunting, SOC operations, SIEM analysis, EDR/XDR response, security monitoring, log analysis, malware containment, blue team playbooks.",
+  "auto-agentic": "Autonomous agentic coding tasks requiring maximum context, long-form code generation, large codebase analysis, full-project refactors, multi-file edits with 256K context window.",
   "auto": "General conversation, questions that do not clearly fit any specialist workspace, greetings, casual chat."
 }
