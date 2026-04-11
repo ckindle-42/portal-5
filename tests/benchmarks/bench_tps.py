@@ -546,6 +546,21 @@ def _warmup_mlx_model(model: str) -> bool:
     return False
 
 
+# P7-PERF: Module-level reusable httpx client for benchmarks
+_bench_client: httpx.Client | None = None
+
+
+def _get_bench_client() -> httpx.Client:
+    """Get or create the shared benchmark httpx client."""
+    global _bench_client
+    if _bench_client is None:
+        _bench_client = httpx.Client(
+            timeout=REQUEST_TIMEOUT,
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+        )
+    return _bench_client
+
+
 def bench_tps(
     base_url: str,
     model: str,
@@ -553,7 +568,12 @@ def bench_tps(
     runs: int = 3,
     label: str = "",
 ) -> dict:
-    """Benchmark TPS for a single model/endpoint. Returns summary dict."""
+    """Benchmark TPS for a single model/endpoint. Returns summary dict.
+
+    P7-PERF: Reuses a shared httpx client to avoid TCP connection overhead
+    between runs. This gives a more accurate measurement of actual inference
+    time vs connection setup time.
+    """
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -565,24 +585,23 @@ def bench_tps(
     if base_url == PIPELINE_URL and PIPELINE_API_KEY:
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
 
+    client = _get_bench_client()
     run_results = []
     for run_num in range(1, runs + 1):
         t0 = time.perf_counter()
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                resp = client.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers)
-                resp.raise_for_status()
+            resp = client.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers)
+            resp.raise_for_status()
         except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
             # MLX proxy may be mid-server-switch (mlx_lm ↔ mlx_vlm). Retry once.
             if base_url == MLX_URL:
                 time.sleep(10)
                 try:
                     t0 = time.perf_counter()
-                    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                        resp = client.post(
-                            f"{base_url}/v1/chat/completions", json=payload, headers=headers
-                        )
-                        resp.raise_for_status()
+                    resp = client.post(
+                        f"{base_url}/v1/chat/completions", json=payload, headers=headers
+                    )
+                    resp.raise_for_status()
                 except Exception as e2:
                     run_results.append(
                         {

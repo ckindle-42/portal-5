@@ -62,12 +62,10 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_returns_workspace_on_high_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.95)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("write a Python function"))
             assert result == "auto-coding"
@@ -75,12 +73,10 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_returns_none_on_low_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.3)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("write a Python function"))
             assert result is None
@@ -88,12 +84,10 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_returns_none_on_unknown_workspace(self):
         mock_resp = _mock_llm_response("auto-notaworkspace", 0.95)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("hello"))
             assert result is None
@@ -102,12 +96,10 @@ class TestRouteWithLLM:
     async def test_returns_none_on_timeout(self):
         import httpx
 
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("hello"))
             assert result is None
@@ -116,12 +108,10 @@ class TestRouteWithLLM:
     async def test_returns_none_on_network_error(self):
         import httpx
 
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("hello"))
             assert result is None
@@ -130,12 +120,10 @@ class TestRouteWithLLM:
     async def test_returns_none_for_auto_workspace(self):
         """'auto' is the default — returning it provides no routing value."""
         mock_resp = _mock_llm_response("auto", 0.99)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("hello"))
             assert result is None
@@ -152,12 +140,10 @@ class TestRouteWithLLM:
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"response": "not json {{{"}
         mock_resp.raise_for_status = MagicMock()
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(_user_messages("hello"))
             assert result is None
@@ -171,12 +157,10 @@ class TestRouteWithLLM:
     async def test_spl_routing_via_llm(self):
         """Verify SPL workspace is returned and is a valid workspace ID."""
         mock_resp = _mock_llm_response("auto-spl", 0.98)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(
                 _user_messages("write a Splunk tstats query to count failed logins by user")
@@ -187,12 +171,10 @@ class TestRouteWithLLM:
     @pytest.mark.asyncio
     async def test_security_routing_via_llm(self):
         mock_resp = _mock_llm_response("auto-security", 0.93)
-        with patch("portal_pipeline.router_pipe.httpx.AsyncClient") as mock_client_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
+        with patch(
+            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+        ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_client_cls.return_value = mock_client
 
             result = await _route_with_llm(
                 _user_messages("analyze this CVE and explain the exploitation path")

@@ -128,6 +128,10 @@ class BackendRegistry:
         # P9: pre-computed workspace → group list cache. Built once in _load_config.
         # Eliminates dict lookup + list construction on every get_backend_for_workspace call.
         self._ws_group_cache: dict[str, list[str]] = {}
+        # P7-PERF: TTL-cached backend candidates per workspace. Rebuilt after health checks
+        # or when TTL expires. Avoids list comprehension + shuffle on every request.
+        self._candidate_cache: dict[str, tuple[list[Backend], float]] = {}
+        self._candidate_cache_ttl: float = 5.0  # 5s TTL — short enough to react to failures
 
         self._load_config()
 
@@ -215,6 +219,8 @@ class BackendRegistry:
     def _refresh_healthy_cache(self) -> None:
         """Rebuild the cached healthy-backend list. Called after each health cycle."""
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
+        # P7-PERF: Invalidate candidate cache when health status changes
+        self._invalidate_candidate_cache()
 
     def get_backend_candidates(self, workspace_id: str) -> list[Backend]:
         """Return all healthy backends for a workspace, ordered by priority.
@@ -222,7 +228,20 @@ class BackendRegistry:
         Each group's backends are shuffled (load balancing within group),
         then concatenated in group-priority order. This enables request-level
         fallback: if the first backend fails, try the next in this list.
+
+        P7-PERF: Results are cached with a 5s TTL to avoid rebuilding on every
+        request. Cache is invalidated after health checks complete.
         """
+        # P7-PERF: Check cache first
+        now = time.time()
+        cached = self._candidate_cache.get(workspace_id)
+        if cached is not None:
+            candidates, cache_time = cached
+            if now - cache_time < self._candidate_cache_ttl:
+                # Return a copy to prevent mutation — shallow copy is fine since
+                # Backend objects are not mutated during request handling.
+                return list(candidates)
+
         groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
         healthy = self.list_healthy_backends()
         if not healthy:
@@ -252,7 +271,13 @@ class BackendRegistry:
             random.shuffle(remaining)
             result.extend(remaining)
 
-        return result
+        # P7-PERF: Cache the result
+        self._candidate_cache[workspace_id] = (result, now)
+        return list(result)
+
+    def _invalidate_candidate_cache(self) -> None:
+        """Clear the candidate cache. Called after health checks."""
+        self._candidate_cache.clear()
 
     def get_backend_for_workspace(self, workspace_id: str) -> Backend | None:
         """Select the best healthy backend for a given workspace.

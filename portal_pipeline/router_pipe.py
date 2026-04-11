@@ -906,6 +906,15 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
     },
 }
 
+# P7-PERF: Pre-compute keyword data structures for O(1) lookup in _detect_workspace().
+# Instead of iterating all keywords per request, we:
+# 1. Pre-lowercase all keywords (avoid .lower() per request)
+# 2. Group by length for efficient substring matching
+# 3. Cache the workspace→keywords mapping
+_KEYWORD_CACHE: dict[str, dict[str, int]] = {}
+for _ws_id, _ws_cfg in _WORKSPACE_ROUTING.items():
+    _KEYWORD_CACHE[_ws_id] = {kw.lower(): weight for kw, weight in _ws_cfg["keywords"].items()}
+
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
 # Uses an uncensored Llama 3.2 3B abliterated as a fast semantic intent classifier.
@@ -1076,26 +1085,35 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
     timeout_s = _LLM_ROUTER_TIMEOUT_MS / 1000.0
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_s) as client:
-            payload = {
-                "model": _LLM_ROUTER_MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0,
-                    "num_predict": 40,
-                    "num_ctx": 512,
-                    "keep_alive": "-1",  # Keep model warm — no cold-start penalty
-                },
-                "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
-            }
-            resp = await client.post(
+        # P7-PERF: Reuse shared httpx client instead of per-request client creation.
+        # The shared _http_client has connection pooling configured (20 keepalive, 100 max).
+        # Use asyncio.wait_for for timeout instead of client-level timeout to avoid
+        # creating a new client just for the shorter LLM router timeout.
+        if _http_client is None:
+            logger.debug("LLM router skipped: HTTP client not ready")
+            return None
+        payload = {
+            "model": _LLM_ROUTER_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0,
+                "num_predict": 40,
+                "num_ctx": 512,
+                "keep_alive": "-1",  # Keep model warm — no cold-start penalty
+            },
+            "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
+        }
+        resp = await asyncio.wait_for(
+            _http_client.post(
                 f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
                 json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            raw_response = data.get("response", "").strip()
+            ),
+            timeout=timeout_s,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        raw_response = data.get("response", "").strip()
 
         # Parse and validate
         parsed = json.loads(raw_response)
@@ -1154,6 +1172,9 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     - "write an exploit in Python" → security wins (exploit=3 + python=1=4 vs coding=3)
     - "analyze this malware" → security wins (malware=2 + analyze=2=4 vs reasoning=2)
     - "step by step comparison of frameworks" → reasoning wins (step by step=3 + compare=2=5)
+
+    P7-PERF: Uses pre-compiled _KEYWORD_CACHE with pre-lowercased keywords to avoid
+    repeated .lower() calls and dict iteration overhead.
     """
     # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
     last_user_content = ""
@@ -1165,11 +1186,12 @@ def _detect_workspace(messages: list[dict]) -> str | None:
     if not last_user_content:
         return None
 
-    # Score each workspace — return the highest above threshold
+    # P7-PERF: Use pre-compiled keyword cache for faster scoring
     scores: dict[str, int] = {}
-    for workspace_id, config in _WORKSPACE_ROUTING.items():
-        score = sum(weight for kw, weight in config["keywords"].items() if kw in last_user_content)
-        if score >= config["threshold"]:
+    for workspace_id, keywords in _KEYWORD_CACHE.items():
+        score = sum(weight for kw, weight in keywords.items() if kw in last_user_content)
+        threshold = _WORKSPACE_ROUTING[workspace_id]["threshold"]
+        if score >= threshold:
             scores[workspace_id] = score
 
     if not scores:

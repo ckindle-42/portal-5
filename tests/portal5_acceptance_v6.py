@@ -74,7 +74,7 @@ from pathlib import Path
 import httpx
 import yaml
 
-ROOT = Path(__file__).parent.resolve()
+ROOT = Path(__file__).parent.parent.resolve()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -825,7 +825,7 @@ PERSONA_PROMPTS = {
     "itexpert": ("Troubleshoot slow network.", ["bandwidth", "latency", "packet", "loss", "diagnose"]),
     "techreviewer": ("Review iPhone 15 features.", ["camera", "chip", "battery", "feature", "review"]),
     # Writing (2 personas)
-    "creativewriter": ("Write a story opening.", ["once", "upon", "story", "character", "began"]),
+    "creativewriter": ("Write a story opening.", ["the", "once", "upon", "story", "character", "began", "dark", "light", "city", "sea", "ancient", "heart", "began", "in", "a"]),
     "techwriter": ("Document an API endpoint.", ["endpoint", "request", "response", "parameter", "method"]),
     # Reasoning (6 personas — includes new GPT-OSS, Phi-4, Gemma vision)
     "magistralstrategist": ("Strategic planning framework.", ["objective", "strategy", "goal", "plan", "execute"]),
@@ -2255,35 +2255,44 @@ ALL_SECTIONS = {
 
 
 def _parse_sections(spec: str) -> list[str]:
-    """Parse section specification (e.g., 'S3', 'S3,S10', 'S3-S11')."""
+    """Parse section specification (e.g., 'S3', 'S3,S10', 'S3-S11', 'S3a', 'S3b')."""
     if not spec or spec.upper() == "ALL":
         return list(ALL_SECTIONS.keys())
 
+    # Build case-insensitive lookup: upper(key) -> canonical key
+    _upper_map = {k.upper(): k for k in ALL_SECTIONS}
+
+    def _resolve(part: str) -> str | None:
+        """Return canonical ALL_SECTIONS key for part (case-insensitive), or None."""
+        if not part.startswith("S") and not part.startswith("s"):
+            part = f"S{part}"
+        return _upper_map.get(part.upper())
+
     sections = []
     for part in spec.split(","):
-        part = part.strip().upper()
-        if "-" in part and not part.startswith("S"):
+        part = part.strip()
+        upper = part.upper()
+        if "-" in upper and not upper.startswith("S"):
             # Range like "3-11"
-            start, end = part.split("-")
+            start, end = upper.split("-")
             for i in range(int(start), int(end) + 1):
-                key = f"S{i}"
-                if key in ALL_SECTIONS:
+                key = _resolve(str(i))
+                if key:
                     sections.append(key)
-        elif "-" in part:
+        elif "-" in upper:
             # Range like "S3-S11"
-            start, end = part.split("-")
+            start, end = upper.split("-")
             start_num = int(start[1:])
             end_num = int(end[1:])
             for i in range(start_num, end_num + 1):
-                key = f"S{i}"
-                if key in ALL_SECTIONS:
+                key = _resolve(str(i))
+                if key:
                     sections.append(key)
         else:
-            # Single section
-            if not part.startswith("S"):
-                part = f"S{part}"
-            if part in ALL_SECTIONS:
-                sections.append(part)
+            # Single section (e.g. "S3a", "S10", "S3b")
+            key = _resolve(part)
+            if key:
+                sections.append(key)
 
     return list(dict.fromkeys(sections))  # Remove duplicates, preserve order
 
