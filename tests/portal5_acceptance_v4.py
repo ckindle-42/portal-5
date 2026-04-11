@@ -1152,7 +1152,7 @@ async def S17() -> None:
                 "S17-03a",
                 "MCP containers rebuilt from source",
                 "WARN",
-                f"network error — Docker Hub unreachable; running containers are healthy",
+                "network error — Docker Hub unreachable; running containers are healthy",
                 t0=t0,
             )
         else:

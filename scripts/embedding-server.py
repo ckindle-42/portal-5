@@ -21,11 +21,9 @@ import argparse
 import asyncio
 import logging
 import time
-from typing import Union
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -49,7 +47,7 @@ try:
 
     # MPS (Metal) on Apple Silicon; falls back to CPU automatically
     _model = SentenceTransformer(args.model, device="mps")
-    log.info(f"Model loaded on MPS (Apple Silicon Metal)")
+    log.info("Model loaded on MPS (Apple Silicon Metal)")
 except Exception as e:
     log.warning(f"MPS load failed ({e}), trying CPU...")
     try:
@@ -64,7 +62,7 @@ app = FastAPI(title="Portal 5 Embedding Server", version="1.0.0")
 
 
 class EmbeddingRequest(BaseModel):
-    input: Union[str, list[str]]
+    input: str | list[str]
     model: str = args.model
     encoding_format: str = "float"
 

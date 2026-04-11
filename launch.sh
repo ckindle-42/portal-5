@@ -170,7 +170,7 @@ _ensure_native_services() {
             else
                 # Linux: start as background process
                 mkdir -p "$HOME/.portal5/logs"
-                nohup ollama serve > "$HOME/.portal5/logs/ollama.log" 2>&1 &
+                OLLAMA_MODELS="${OLLAMA_MODELS:-$HOME/.ollama/models}" nohup ollama serve > "$HOME/.portal5/logs/ollama.log" 2>&1 &
             fi
             # Wait up to 10s for Ollama to respond
             local retries=10
@@ -734,6 +734,28 @@ case "${1:-up}" in
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose up -d
+
+    # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
+    if [ "$(uname -m)" = "arm64" ]; then
+        _PID_FILE="/tmp/portal-embedding-arm.pid"
+        if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
+            echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
+        elif python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+            echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
+            _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
+            _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
+            _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
+            mkdir -p "$(dirname "$_EM_LOG")"
+            nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
+                --model "$_EM_MODEL" \
+                --port "$_EM_PORT" \
+                > "$_EM_LOG" 2>&1 &
+            echo $! > "$_PID_FILE"
+            echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
+        else
+            echo "[portal-5]   ℹ️  ARM64 embedding server deps not installed (pip install sentence-transformers fastapi uvicorn)"
+        fi
+    fi
 
     # Re-run openwebui-init in the background to pick up any new personas/workspaces
     # added since the last run (idempotent — skips existing, only creates new ones).
@@ -1559,7 +1581,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
         _ensure_hf_cli
 
         echo "  Re-downloading: https://huggingface.co/$actual_repo"
-        local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
+        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
         local _hf_err
         _hf_err=$(mktemp)
         local gguf_path=""
@@ -1783,7 +1805,7 @@ except Exception:
         echo "  Downloading from: https://huggingface.co/$actual_repo"
 
         local gguf_path=""
-        local _dl_dir="$HOME/.portal5/model_downloads/${actual_repo//\//_}"
+        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
         if [ -n "$filename" ]; then
             echo "  File: $filename"
             mkdir -p "$_dl_dir"

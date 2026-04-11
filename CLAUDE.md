@@ -15,8 +15,8 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
 
 **Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← MLX proxy (host:8081) → mlx_lm (18081) / mlx_vlm (18082) / Ollama (fallback, host:11434) ← local models  
-**Inference strategy**: MLX-first on Apple Silicon (20-40% faster), Ollama GGUF fallback. Both run natively on host (not Docker).  
+**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← [MLX proxy (host:8081) → mlx_lm (18081) / mlx_vlm (18082)] + [Ollama (host:11434)] ← local models  
+**Inference strategy**: Two MLX-accelerated tiers on Apple Silicon (Ollama 0.20.5+). **Tier 1 — MLX proxy** (ports 18081/18082): safetensor-format models, VLM audio via mlx_vlm, admission control. **Tier 2 — Ollama** (port 11434): GGUF-format models with MLX backend. Speed delta: ~20-30% in favour of Tier 1 for models <14B; negligible for larger models (memory-bandwidth bound). Both run natively on host (not Docker).  
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
 
 ---
@@ -80,7 +80,7 @@ portal-5/
 │   └── functions/                # Open WebUI Function (pipe) JSONs
 ├── tests/
 │   ├── unit/                     # pytest unit tests — no Docker required
-│   └── benchmarks/               # MLX vs Ollama performance benchmarks
+│   └── benchmarks/               # Inference tier benchmarks (mlx_lm/mlx_vlm vs Ollama MLX)
 ├── Dockerfile.pipeline           # Lean image for portal-pipeline service
 ├── Dockerfile.mcp                # Image for all portal_mcp services
 ├── launch.sh                     # Single entry point (30+ commands)
@@ -168,9 +168,41 @@ print('Workspace IDs consistent')
 
 Port assignments are enforced in `.env.example`. Do not reassign without updating both.
 
-### 8 — Models Pull From Ollama or HuggingFace GGUF Imports
+### 8 — Two Inference Tiers: MLX Proxy and Ollama
 
-All text models run through Ollama. HuggingFace is used for GGUF model imports (via `hf.co/` pull format), ComfyUI model weights, MLX model weights, and first-use downloads (MusicGen, Whisper, faster-whisper). Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.
+Portal 5 runs two inference backends concurrently on the host. Each model belongs to
+exactly one tier. Adding a model to the wrong tier either produces errors or misses
+the model entirely.
+
+**Tier 1 — MLX proxy** (`scripts/mlx-proxy.py`, ports 8081 / 18081 / 18082)
+Models downloaded from HuggingFace in safetensor/MLX format via `huggingface-cli download`.
+Served by `mlx_lm.server` (text) or `mlx_vlm.server` (vision + audio).
+Managed via `ALL_MODELS`, `VLM_MODELS`, and `MODEL_MEMORY` in `mlx-proxy.py`.
+
+Use Tier 1 when:
+- The model only exists in safetensor/MLX format (no GGUF available) — e.g. Jackrong series, Magistral, Devstral MLX, Phi-4 MLX
+- The model requires vision **and audio** input (`mlx_vlm`, e.g. Gemma 4 E4B, Gemma 4 31B)
+- The model is large (>20GB) and needs admission control to prevent OOM
+
+**Tier 2 — Ollama** (port 11434, Ollama 0.20.5+ MLX backend)
+Models in GGUF format pulled via `ollama pull <tag>` or `hf.co/` format.
+Registered in `config/backends.yaml` under one of the ollama backend groups.
+All architectures run with MLX hardware acceleration on Apple Silicon as of 0.20.5.
+
+Use Tier 2 when:
+- The model has a stable GGUF release (security, creative, coding, general models)
+- The model does **not** require mlx_vlm audio
+- Simpler model management (ollama pull, no format conversion) is preferable
+
+**Decision checklist for new models**:
+1. Is a GGUF available AND audio input is not needed? → **Ollama**
+2. Is only a safetensor/MLX format available? → **MLX proxy Tier 1**
+3. Does it need mlx_vlm (vision + audio)? → **MLX proxy Tier 1, add basename to VLM_MODELS**
+4. Is it >20GB? → **MLX proxy Tier 1, add to MODEL_MEMORY**
+5. Is it >40GB? → **Consider BIG_MODEL_SET entry**
+
+Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean.
+Full model catalog with memory budgets is in `config/backends.yaml`.
 
 ### 9 — The Dockerfile Split Is Intentional
 

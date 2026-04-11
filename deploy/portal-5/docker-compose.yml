@@ -103,6 +103,17 @@ services:
       - ALERT_SUMMARY_ENABLED=${ALERT_SUMMARY_ENABLED:-true}
       - ALERT_SUMMARY_HOUR=${ALERT_SUMMARY_HOUR:-8}
       - ALERT_SUMMARY_TIMEZONE=${ALERT_SUMMARY_TIMEZONE:-America/Chicago}
+      # LLM Router
+      - LLM_ROUTER_ENABLED=${LLM_ROUTER_ENABLED:-true}
+      - LLM_ROUTER_MODEL=${LLM_ROUTER_MODEL:-hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF}
+      - LLM_ROUTER_CONFIDENCE_THRESHOLD=${LLM_ROUTER_CONFIDENCE_THRESHOLD:-0.5}
+      - LLM_ROUTER_TIMEOUT_MS=${LLM_ROUTER_TIMEOUT_MS:-500}
+      - LLM_ROUTER_OLLAMA_URL=${LLM_ROUTER_OLLAMA_URL:-http://host.docker.internal:11434}
+      # Request tuning
+      - MAX_REQUEST_BYTES=${MAX_REQUEST_BYTES:-4194304}
+      - OLLAMA_KEEP_ALIVE_REQUEST=${OLLAMA_KEEP_ALIVE_REQUEST:--1}
+      - OLLAMA_NUM_BATCH=${OLLAMA_NUM_BATCH:-2048}
+      - SHOW_ROUTING_STATUS=${SHOW_ROUTING_STATUS:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []
@@ -335,10 +346,13 @@ services:
   # ── Embedding + Reranker Service ─────────────────────────────────────────
   # Microsoft Harrier-0.6B (SOTA embedding, 32K ctx, MIT license)
   # Serves OpenAI-compatible /v1/embeddings endpoint for Open WebUI RAG
-  # NOTE: TEI cpu image is x86-only. On Apple Silicon, use:
-  #   ./launch.sh start-embedding-cpu-arm  (native ARM64 Python server on port 8917)
+  # NOTE: TEI cpu image is x86-only. On Apple Silicon, launch.sh auto-starts
+  #   the native ARM64 Python server on port 8917 instead.
+  #   Activate this profile manually: docker compose --profile embedding up -d
   portal5-embedding:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
+    profiles:
+      - embedding
     container_name: portal5-embedding
     ports:
       - "127.0.0.1:${EMBEDDING_HOST_PORT:-8917}:8917"
