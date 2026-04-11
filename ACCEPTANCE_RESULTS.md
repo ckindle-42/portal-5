@@ -297,36 +297,16 @@
 
 ## BLOCKED Items Register
 
-### BLOCKED-1: S11-10 — gemma4e4bvision
+### ~~BLOCKED-1: S11-10 — gemma4e4bvision~~ RESOLVED (2026-04-11)
 
 **Test ID**: S11-10  
 **Section**: S11 (MLX Personas)  
 
-**What was called**:
-```
-POST http://localhost:8081/v1/chat/completions
-{"model": "unsloth/gemma-4-E4B-it-UD-MLX-4bit",
- "messages": [{"role": "user", "content": "Describe what you see in a typical office..."}]}
-```
+**Root cause**: `unsloth/gemma-4-E4B-it-UD-MLX-4bit` omits audio_tower weights (~1,476 tensors, ~49% of model parameters). mlx_vlm requires audio_tower for all requests regardless of modality. Confirmed by inspecting `model.safetensors.index.json` — zero audio_tower keys present.
 
-**What was returned**:
-```
-HTTP 500
-{"error": "Missing 963 parameters: audio_tower.layers.0.self_attn.k_proj.weight, ..."}
-```
+**Fix applied**: Replaced with `mlx-community/gemma-4-e4b-it-4bit` (converted via mlx-vlm 0.4.3, audio_tower intact, same ~5GB footprint). Verified ~1,476 audio_tower tensors present in index. Updated in: `scripts/mlx-proxy.py`, `config/backends.yaml`, `config/personas/gemma4e4bvision.yaml`, `launch.sh`, `tests/portal5_acceptance_v6.py`, `tests/benchmarks/bench_tps.py`. Open WebUI reseeded.
 
-**Retry attempts**:
-1. Retry with simpler prompt → same HTTP 500, same missing parameter error
-2. MLX proxy health after load attempt → state: "down" (load failed, server crashed)
-3. Inspected model files → UD-4bit quantization omits audio_tower weights
-4. Attempted text-only mode → mlx_vlm requires audio_tower for ANY request to VLM models
-
-**Why BLOCKED**: The `unsloth/gemma-4-E4B-it-UD-MLX-4bit` quantized model omits audio_tower parameters. mlx_vlm requires these for all requests regardless of whether audio is sent. This is a model packaging defect in the unsloth quantization, not a Portal 5 code issue.
-
-**Protected file requiring change**:  
-`scripts/mlx-proxy.py` — VLM_MODELS list entry for gemma-4-E4B must point to a model quantization that preserves audio_tower weights (e.g., original google/gemma-4-e4b-it in float16, or a correctly quantized mlx-community version).
-
-**Workaround**: Gemma-4-E4B is registered in the MLX model list (S23-03 PASS). For text-only persona use, it can be moved to VLM_MODELS with a text-capable quantization. Current unsloth UD-4bit is incompatible with mlx_vlm.
+**Expected result in next run**: S11-10 PASS.
 
 ---
 

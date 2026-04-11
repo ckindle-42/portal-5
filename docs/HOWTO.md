@@ -917,18 +917,25 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | Code generation (80B MoE, 4bit required on 64GB) |
 | `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder |
 | `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | SPL specialist |
-| `mlx-community/Devstral-Small-2505-8bit` | ~18GB | mlx_lm | Agentic dev workflows |
+| `lmstudio-community/Devstral-Small-2507-MLX-4bit` | ~15GB | mlx_lm | Agentic dev workflows (v1.1, 53.6% SWE-bench) |
 | `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
-| `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline |
-| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Google Gemma 4 dense 31B, thinking+vision, 256K ctx |
-| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode, vision |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (4bit only) |
-| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | Reasoning, data analysis (v3 structural alignment) |
-| `Jackrong/MLX-Qwopus3.5-9B-v3-8bit` | ~10GB | mlx_lm | Documents, fast reasoning (v3) |
-| `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | Compliance, policy (MoE) |
+| `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline / LLM router |
+| `mlx-community/phi-4-8bit` | ~14GB | mlx_lm | STEM reasoning (Microsoft Phi-4, synthetic data) |
+| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (PULL_HEAVY only) |
+| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | Reasoning primary (v3, auto-reasoning workspace) |
+| `Jackrong/MLX-Qwopus3.5-9B-v3-8bit` | ~9GB | mlx_lm | Fast reasoning (v3) |
+| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit` | ~14GB | mlx_lm | Reasoning alt (Claude-4.6-Opus distill) |
+| `Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~9GB | mlx_lm | Fast Claude-4.6-Opus distill |
+| `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | Compliance / policy (MoE) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit` | ~34GB | mlx_lm | Data analysis (R1 Distill 32B) |
 | `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning |
+| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Google Gemma 4 dense 31B, thinking+vision, 256K ctx |
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Vision / multimodal |
-| `mlx-community/llava-1.5-7b-8bit` | ~8GB | mlx_vlm | Vision fallback |
+| `mlx-community/gemma-4-e4b-it-4bit` | ~5GB | mlx_vlm | Gemma 4 E4B — text+vision+audio (ASR), 128K ctx |
+| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~15GB | mlx_vlm | Gemma 4 26B A4B MoE, vision, 256K ctx |
+| `lmstudio-community/Phi-4-reasoning-plus-MLX-4bit` | ~7GB | mlx_vlm | STEM/math reasoning (RL-trained, Microsoft) |
+| `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (Karakeep / research) |
 
 ### Memory coexistence (64GB system)
 
