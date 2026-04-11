@@ -760,20 +760,30 @@ case "${1:-up}" in
         _PID_FILE="/tmp/portal-embedding-arm.pid"
         if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
             echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
-        elif python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-            echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
-            _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
-            _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
-            _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
-            mkdir -p "$(dirname "$_EM_LOG")"
-            nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
-                --model "$_EM_MODEL" \
-                --port "$_EM_PORT" \
-                > "$_EM_LOG" 2>&1 &
-            echo $! > "$_PID_FILE"
-            echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
         else
-            echo "[portal-5]   ℹ️  ARM64 embedding server deps not installed (pip install sentence-transformers fastapi uvicorn)"
+            if ! python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+                echo "[portal-5]   Installing ARM64 embedding server deps..."
+                if command -v uv &>/dev/null; then
+                    uv pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
+                else
+                    pip3 install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
+                fi
+            fi
+            if python3 -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+                echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
+                _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
+                _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
+                _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
+                mkdir -p "$(dirname "$_EM_LOG")"
+                nohup python3 "$PORTAL_ROOT/scripts/embedding-server.py" \
+                    --model "$_EM_MODEL" \
+                    --port "$_EM_PORT" \
+                    > "$_EM_LOG" 2>&1 &
+                echo $! > "$_PID_FILE"
+                echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
+            else
+                echo "[portal-5]   ⚠️  ARM64 embedding server deps install failed — skipping"
+            fi
         fi
     fi
 
@@ -789,7 +799,9 @@ case "${1:-up}" in
     # Safe: only removes images with no tag and no running container referencing them.
     # Does NOT remove images used by other projects on this machine.
     _PRUNED=$(docker image prune -f 2>/dev/null | grep "Total reclaimed" || true)
-    [ -n "$_PRUNED" ] && echo "[portal-5] 🧹 $_PRUNED" || true
+    if [ -n "$_PRUNED" ] && ! echo "$_PRUNED" | grep -qE "0 ?B$"; then
+        echo "[portal-5] 🧹 $_PRUNED"
+    fi
 
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
