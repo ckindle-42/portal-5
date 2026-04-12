@@ -31,7 +31,7 @@ All notable changes to Portal 5 will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [6.0.2] — 2026-04-12
 
 ### Added
 - **Unified update command** (`launch.sh`)
@@ -46,6 +46,16 @@ All notable changes to Portal 5 will be documented in this file.
     HuggingFace cache deduplicates, Ollama pulls only changed layers.
   - All existing update commands (`rebuild`, `refresh-models`, `pull-mlx-models`, `install-comfyui`,
     `install-music`, `seed`) remain available for granular control.
+
+### Fixed
+- Reverted DinD to privileged mode — rootless `docker:27-dind-rootless` is incompatible with macOS Docker Desktop
+- ARM64 embedding deps now auto-installed via dedicated venv; 0B prune noise suppressed in launch output
+
+### Tests
+- Acceptance suite v6 run 16: **154 PASS / 1 INFO / 0 FAIL / 0 BLOCKED / 0 WARN** (all 22 sections, 48m 41s)
+  — improved from run 15 (130P/4W/1B): all prior WARNs resolved, BLOCKED cleared
+
+---
 
 ## [6.0.0] — 2026-04-07
 

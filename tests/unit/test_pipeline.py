@@ -1196,17 +1196,29 @@ class TestCodeHygiene:
         content = mcp_main.read_text()
         assert "warnings.simplefilter" not in content
 
-    def test_no_privileged_containers(self):
-        """Verify privileged flag was removed (P5-SEC-002)."""
+    def test_only_dind_is_privileged(self):
+        """Verify only the dind service uses privileged mode (required for DinD on macOS Docker Desktop)."""
         from pathlib import Path
+
+        import yaml
 
         compose_path = Path("deploy/portal-5/docker-compose.yml")
         if not compose_path.exists():
             compose_path = (
                 Path(__file__).parent.parent.parent / "deploy/portal-5/docker-compose.yml"
             )
-        content = compose_path.read_text()
-        assert "privileged: true" not in content
+        data = yaml.safe_load(compose_path.read_text())
+        privileged_services = [
+            name
+            for name, svc in data.get("services", {}).items()
+            if svc.get("privileged") is True
+        ]
+        # Only dind may use privileged — required for Docker-in-Docker on macOS Docker Desktop
+        # (rootless DinD is incompatible; see KNOWN_LIMITATIONS.md P5-ROAD-SEC-001)
+        assert privileged_services == ["dind"], (
+            f"Unexpected privileged services: {privileged_services}. "
+            "Only 'dind' is permitted."
+        )
 
     def test_claude_md_persona_count_accurate(self):
         """Verify CLAUDE.md persona count matches actual files."""

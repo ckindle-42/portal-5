@@ -1,4 +1,4 @@
-"""Portal 6.0.0 — Intelligent Router Pipeline.
+"""Portal 6.0.2 — Intelligent Router Pipeline.
 
 Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
 Open WebUI connects here as its sole model source.
@@ -1016,14 +1016,14 @@ def _build_router_prompt(user_message: str) -> str:
     """Build the classification prompt sent to the uncensored LLM router model.
 
     Includes workspace descriptions and few-shot examples for in-context learning.
-    Kept under 512 tokens by design (fast, cheap inference).
+    Fits within Llama-3.2-3B 4096-token context window (17 workspaces ≈ 1100 tokens).
     """
     descriptions, examples = _load_routing_config()
 
     # Workspace descriptions block
     desc_lines = "\n".join(f"- {ws_id}: {desc}" for ws_id, desc in descriptions.items())
 
-    # Few-shot examples block (cap at 9 to stay under 512-token ctx budget)
+    # Few-shot examples block (cap at 9 examples)
     example_lines = "\n".join(
         f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\nConfidence: {ex["confidence"]}'
         for ex in (examples or [])[:9]
@@ -1089,7 +1089,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             "options": {
                 "temperature": 0,
                 "num_predict": 40,
-                "num_ctx": 512,
+                "num_ctx": 2048,
                 "keep_alive": "-1",  # Keep model warm — no cold-start penalty
             },
             "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON

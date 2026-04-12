@@ -51,9 +51,9 @@ class TestBuildRouterPrompt:
             assert ws in prompt, f"Expected '{ws}' in prompt"
 
     def test_capped_at_reasonable_length(self):
-        """Prompt must stay under 4096 chars to fit within 512-token context budget."""
+        """Prompt must stay under 6000 chars (fits within Llama-3.2-3B 4096-token context)."""
         prompt = _build_router_prompt("a" * 500)
-        assert len(prompt) < 4096
+        assert len(prompt) < 6000
 
 
 class TestRouteWithLLM:
