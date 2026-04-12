@@ -936,6 +936,7 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/gemma-4-26b-a4b-it-4bit` | ~15GB | mlx_vlm | Gemma 4 26B A4B MoE, vision, 256K ctx |
 | `lmstudio-community/Phi-4-reasoning-plus-MLX-4bit` | ~7GB | mlx_vlm | STEM/math reasoning (RL-trained, Microsoft) |
 | `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (Karakeep / research) |
+| `dealignai/Gemma-4-31B-JANG_4M-CRACK` | ~23GB | mlx_vlm | Abliterated Gemma 4 31B, uncensored vision+text, thinking mode (JANG v2 5.1-bit) |
 
 ### Memory coexistence (64GB system)
 

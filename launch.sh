@@ -2634,8 +2634,12 @@ MLXPLIST
         echo "  Microsoft:"
         echo "    mlx-community/phi-4-8bit                                              (~14GB)"
         echo "  VLM models (mlx_vlm, port 18082):"
+        echo "    mlx-community/gemma-4-31b-it-4bit                 (~18GB — Google Gemma 4 dense 31B, thinking+vision)"
         echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
         echo "    mlx-community/gemma-4-e4b-it-4bit                 (~5GB — Gemma 4 E4B vision+audio fallback)"
+        echo "    mlx-community/gemma-4-26b-a4b-it-4bit            (~15GB — Gemma 4 26B A4B MoE, 256K ctx)"
+        echo "    mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit  (~7GB — uncensored VLM)"
+        echo "    dealignai/Gemma-4-31B-JANG_4M-CRACK              (~23GB — abliterated Gemma 4 31B, uncensored VLM)"
         echo ""
         echo "Current status:"
         curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
@@ -2929,6 +2933,7 @@ MLXPLIST
         "mlx-community/gemma-4-e4b-it-4bit"                # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
         "mlx-community/gemma-4-26b-a4b-it-4bit"            # ~15GB — Gemma 4 26B A4B MoE VLM, 256K ctx
         "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus, STEM/math RL-trained
+        "dealignai/Gemma-4-31B-JANG_4M-CRACK"              # ~23GB — Abliterated Gemma 4 31B JANG v2 5.1-bit, uncensored VLM
         # OCR (document ingestion)
         "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
         # Speech (mlx-audio — TTS + ASR, host-native)
