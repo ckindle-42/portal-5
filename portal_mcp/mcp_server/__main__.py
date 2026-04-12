@@ -1,6 +1,5 @@
 import importlib.metadata
 import logging
-import sys
 
 import anyio
 from mcp.server.models import InitializationOptions

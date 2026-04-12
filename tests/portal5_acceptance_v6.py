@@ -33,7 +33,7 @@ Test Coverage (21 sections, ~300 tests):
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: 46 personas across 8 categories (Ollama + MLX backends)
+    S10-S11: 45 personas across 8 categories (Ollama + MLX backends)
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
@@ -44,7 +44,7 @@ Test Coverage (21 sections, ~300 tests):
 
 Changes from v5:
     - Added S21 (LLM Intent Router), S22 (Admission Control), S23 (Model Diversity)
-    - Updated persona count to 46 (added gemma4e4bvision, phi4specialist, gptossanalyst)
+    - Updated persona count to 45 (added gemma4e4bvision, phi4specialist, gptossanalyst, gemma4jangvision)
     - Fixed persona slugs to match actual YAML filenames
     - Tests for new models: GPT-OSS:20B, Gemma 4 E4B, Phi-4-reasoning-plus
     - Consolidated test framework with unified helper functions
@@ -825,7 +825,7 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
     print(f"  ── RAM: {free:.1f} GB free (need {needed_gb:.0f} GB for {phase}) ──")
     if free >= needed_gb:
         return free
-    print(f"  ── Insufficient RAM — running eviction ──")
+    print("  ── Insufficient RAM — running eviction ──")
     await _unload_ollama_models()
     await _unload_mlx_model()
     # Apple Silicon unified memory takes time to reclaim pages — wait 20s
@@ -943,14 +943,16 @@ WORKSPACE_PROMPTS = {
 }
 
 # Persona test prompts and expected signals
-# Full list of 46 personas from config/personas/*.yaml
+# Full list of 45 personas from config/personas/*.yaml
 PERSONA_PROMPTS = {
     # Development (17 personas)
-    "bugdiscoverycodeassistant": ("Find bugs in: def add(a,b): return a+b", ["bug", "type", "error", "check", "valid"]),
+    # Real IndexError bug: no bounds check on lst, no empty-list guard
+    "bugdiscoverycodeassistant": ("Find the bugs in this code:\ndef get_first(lst):\n    return lst[0]", ["index", "IndexError", "empty", "bounds", "check", "exception"]),
     "codereviewassistant": ("Review this code: x = [i for i in range(100)]", ["list", "comprehension", "memory", "generator"]),
     "codereviewer": ("Review: if x == True:", ["==", "bool", "simplify", "True", "comparison"]),
-    "codebasewikidocumentationskill": ("Document a Python function.", ["param", "return", "docstring", "description", "type"]),
-    "devopsautomator": ("Write a bash script to backup a directory.", ["#!/", "bash", "cp", "rsync", "backup"]),
+    # Concrete function so model generates an actual docstring rather than describing docs
+    "codebasewikidocumentationskill": ("Write a docstring for:\ndef parse_config(path: str, strict: bool = False) -> dict:", ["param", "Args", "Returns", "raises", "str", "dict", "path"]),
+    "devopsautomator": ("Write a bash script to back up /var/data to /backup with today's date in the filename.", ["#!/", "bash", "rsync", "date", "backup", "mkdir"]),
     "devopsengineer": ("Explain Kubernetes pod lifecycle.", ["pod", "pending", "running", "container", "lifecycle"]),
     "ethereumdeveloper": ("Write a simple Solidity smart contract.", ["contract", "pragma", "solidity", "function", "public"]),
     "fullstacksoftwaredeveloper": ("Design a REST API for a todo app.", ["GET", "POST", "endpoint", "REST", "API"]),
@@ -958,15 +960,18 @@ PERSONA_PROMPTS = {
     "javascriptconsole": ("Calculate 2 * Math.PI * 3", ["6.28", "18.84", "Math", "PI", "result"]),
     "kubernetesdockerrpglearningengine": ("Explain Docker layers.", ["layer", "image", "cache", "dockerfile", "build"]),
     "pythoncodegeneratorcleanoptimizedproduction-ready": ("Generate a function to sort a list of dicts by key.", ["sorted", "lambda", "key", "dict", "def"]),
-    "pythoninterpreter": ("Execute: sorted([3,1,2], reverse=True)", ["[3, 2, 1]", "3", "2", "1", "sorted"]),
+    # Remove single-digit signals ("3","2","1") — they match any text; keep specific output + sort terms
+    "pythoninterpreter": ("Execute: sorted([3,1,2], reverse=True)", ["[3, 2, 1]", "reverse", "sorted", "descend", "output"]),
     "seniorfrontenddeveloper": ("Explain React hooks.", ["useState", "useEffect", "hook", "component", "state"]),
-    "seniorsoftwareengineersoftwarearchitectrules": ("Design patterns for scalability.", ["pattern", "scale", "cache", "load", "balance"]),
+    "seniorsoftwareengineersoftwarearchitectrules": ("What design patterns would you apply to a REST API handling 10 million requests per day?", ["pattern", "cache", "load", "queue", "horizontal", "scale", "rate"]),
     "softwarequalityassurancetester": ("Write test cases for a login form.", ["test", "case", "valid", "invalid", "password"]),
     "ux-uideveloper": ("Best practices for mobile-first design.", ["mobile", "responsive", "viewport", "breakpoint", "touch"]),
     # Security (6 personas)
     "cybersecurityspecialist": ("Explain zero-trust architecture.", ["zero", "trust", "verify", "never", "assume"]),
-    "networkengineer": ("Configure a VLAN.", ["VLAN", "trunk", "access", "802.1Q", "switch"]),
-    "redteamoperator": ("MITRE ATT&CK initial access techniques.", ["phishing", "exploit", "T1566", "initial", "access"]),
+    # Specific enough to force actual IOS commands with testable tokens
+    "networkengineer": ("Write Cisco IOS commands to create VLAN 100 named PROD and assign interface GigabitEthernet0/1 as an access port.", ["vlan", "switchport", "interface", "access", "GigabitEthernet", "mode", "name"]),
+    # Question form so model lists techniques; T1566 is ATT&CK phishing ID
+    "redteamoperator": ("List three MITRE ATT&CK initial access techniques and their technique IDs.", ["T1566", "T1190", "phishing", "exploit", "technique", "initial"]),
     "blueteamdefender": ("Detect ransomware activity.", ["encrypt", "extension", "ransom", "detect", "behavior"]),
     "pentester": ("OWASP testing methodology.", ["OWASP", "test", "inject", "XSS", "methodology"]),
     "splunksplgineer": ("Write SPL to detect brute force.", ["index", "stats", "count", "fail", "threshold"]),
@@ -975,8 +980,10 @@ PERSONA_PROMPTS = {
     "datascientist": ("Feature engineering techniques.", ["feature", "encode", "normalize", "transform", "engineer"]),
     "machinelearningengineer": ("Explain gradient descent.", ["gradient", "descent", "learning", "rate", "optimize"]),
     "statistician": ("Explain p-value interpretation.", ["p-value", "null", "hypothesis", "significance", "0.05"]),
-    "itarchitect": ("Design a high-availability system.", ["HA", "redundant", "failover", "availability", "replica"]),
-    "researchanalyst": ("Conduct a literature review.", ["review", "source", "cite", "literature", "methodology"]),
+    # Remove "HA" — 2 chars match substrings in unrelated words; use full terms
+    "itarchitect": ("Design a high-availability system.", ["redundant", "failover", "availability", "replica", "load balancer"]),
+    # Concrete task so model produces structured steps, not a disclaimer it can't do a review
+    "researchanalyst": ("Outline the steps for a systematic literature review on transformer models in NLP.", ["systematic", "search", "inclusion", "database", "literature", "source", "criteria"]),
     "excelsheet": ("Formula for VLOOKUP.", ["VLOOKUP", "formula", "range", "col_index", "FALSE"]),
     # Compliance (2 personas)
     "nerccipcomplianceanalyst": ("CIP-007 patch management requirements.", ["CIP", "patch", "35", "day", "compliance"]),
@@ -988,16 +995,22 @@ PERSONA_PROMPTS = {
     "itexpert": ("Troubleshoot slow network.", ["bandwidth", "latency", "packet", "loss", "diagnose"]),
     "techreviewer": ("Review iPhone 15 features.", ["camera", "chip", "battery", "feature", "review"]),
     # Writing (2 personas)
-    "creativewriter": ("Write a story opening.", ["the", "once", "upon", "story", "character", "began", "dark", "light", "city", "sea", "ancient", "heart", "began", "in", "a"]),
+    # Removed stopword signals ("the","in","a") — matched everything; use narrative-specific terms
+    "creativewriter": ("Write the opening paragraph of a noir detective story set in a rainy city.", ["rain", "detective", "night", "dark", "street", "shadow", "city", "stood", "office", "cigarette"]),
     "techwriter": ("Document an API endpoint.", ["endpoint", "request", "response", "parameter", "method"]),
-    # Reasoning (6 personas — includes new GPT-OSS, Phi-4, Gemma vision)
-    "magistralstrategist": ("Strategic planning framework.", ["objective", "strategy", "goal", "plan", "execute"]),
+    # Reasoning (5 personas)
+    # Concrete deliverable so model produces a structured plan with testable milestones
+    "magistralstrategist": ("Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.", ["milestone", "KPI", "launch", "objective", "strategy", "quarter", "metric", "goal"]),
     "gemmaresearchanalyst": ("Research methodology steps.", ["method", "data", "collect", "analyze", "research"]),
-    "phi4stemanalyst": ("Explain the Pythagorean theorem.", ["pythagor", "triangle", "hypotenuse", "right", "sides", "squared"]),
+    # "square" matches "squared", "squares", "squaring" — more robust than exact "squared"
+    "phi4stemanalyst": ("Explain the Pythagorean theorem.", ["pythagor", "triangle", "hypotenuse", "right", "square", "sides"]),
     "phi4specialist": ("Write a technical specification outline.", ["spec", "requirement", "section", "format", "structure"]),
     "gptossanalyst": ("Analyze trade-offs between microservices and monoliths.", ["trade", "scale", "complex", "maintain", "deploy"]),
-    # Vision (1 persona — new Gemma 4 E4B multimodal)
-    "gemma4e4bvision": ("Describe how you would analyze an uploaded image.", ["image", "visual", "describe", "analyze", "see"]),
+    # Vision (2 personas — Gemma 4 E4B + JANG uncensored VLM)
+    # Text-only tests (no image upload in acceptance suite) — prompts exercise reasoning about visual context
+    "gemma4e4bvision": ("A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?", ["stack", "trace", "error", "500", "exception", "debug", "log", "server"]),
+    # Uncensored VLM — prompt tests no-refusal behavior on a red team / OSINT task
+    "gemma4jangvision": ("List three techniques for extracting credentials visible in a screenshot during a red team engagement.", ["credential", "password", "screenshot", "OCR", "extract", "hash", "capture", "image"]),
 }
 
 
@@ -1133,7 +1146,7 @@ async def S1() -> None:
 
     # S1-05: Persona count matches expected
     t0 = time.time()
-    expected_persona_count = 44
+    expected_persona_count = 45
     actual_count = len(PERSONAS)
     record(
         sec, "S1-05", "Persona count",
@@ -1174,17 +1187,19 @@ async def S1() -> None:
         # VLM_MODELS section appears before ALL_MODELS in the proxy source
         if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
             vlm_section = proxy_src[proxy_src.index("VLM_MODELS"):proxy_src.index("ALL_MODELS")]
-            # Gemma 4 31B dense and E4B must be in VLM_MODELS (require mlx_vlm)
+            # Gemma 4 31B dense, E4B, and JANG must be in VLM_MODELS (require mlx_vlm)
             gemma_31b_vlm = "gemma-4-31b-it-4bit" in vlm_section
             gemma_e4b_vlm = "gemma-4-e4b-it-4bit" in vlm_section
             gemma_31b_all = "mlx-community/gemma-4-31b-it-4bit" in proxy_src
-            all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all
+            jang_vlm = "Gemma-4-31B-JANG_4M-CRACK" in vlm_section
+            jang_all = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in proxy_src
+            all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all and jang_vlm and jang_all
             record(
                 sec, "S1-08",
                 "MLX routing: VLM models in VLM_MODELS (mlx_vlm backend)",
                 "PASS" if all_ok else "FAIL",
-                "✓ Gemma 4 31B + E4B in VLM_MODELS" if all_ok
-                else f"gemma_31b_vlm={gemma_31b_vlm} gemma_e4b_vlm={gemma_e4b_vlm} gemma_31b_all={gemma_31b_all}",
+                "✓ Gemma 4 31B + E4B + JANG in VLM_MODELS" if all_ok
+                else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all}",
                 t0=t0,
             )
         else:
@@ -1869,6 +1884,8 @@ async def S11() -> None:
         ("lmstudio-community/Magistral-Small-2509-MLX-8bit", "auto-mistral", ["magistralstrategist"]),
         # gemma-4-E4B: VLM, no pipeline workspace — direct MLX proxy
         ("mlx-community/gemma-4-e4b-it-4bit", None, ["gemma4e4bvision"]),
+        # JANG: abliterated Gemma 4 31B VLM, no pipeline workspace — direct MLX proxy
+        ("dealignai/Gemma-4-31B-JANG_4M-CRACK", None, ["gemma4jangvision"]),
     ]
 
     test_num = 1
@@ -1887,6 +1904,7 @@ async def S11() -> None:
             "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
             "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,
             "mlx-community/gemma-4-e4b-it-4bit": 5,
+            "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23,
         }.get(model_hint, 10)
         if model_gb >= 14:
             await _ensure_free_ram_gb(model_gb + 10, f"{model_short}")
@@ -1983,7 +2001,7 @@ async def S11() -> None:
                 # VLM models may fail with audio_tower parameter errors (model incompatibility)
                 if code == 500 and "audio_tower" in error_text:
                     record(sec, tid, f"Persona {slug} (MLX)", "BLOCKED",
-                           f"mlx_vlm audio_tower params missing in quantized model — requires full model download",
+                           "mlx_vlm audio_tower params missing in quantized model — requires full model download",
                            t0=t0)
                 else:
                     record(sec, tid, f"Persona {slug} (MLX)", "FAIL", f"HTTP {code}: {error_text}", t0=t0)
