@@ -85,6 +85,15 @@ Architectural and design constraints that cannot be resolved without significant
 - **Mitigation**: Test suite waits up to 300s for MLX readiness. If processes exist but proxy isn't ready, it's STARTING (not crashed). Only classify as crashed if no processes exist and no server logs are present.
 - **Last verified**: 2026-04-05
 
+### mlx_vlm utils.py Patch Required for JANG Mixed-Precision Model
+- **ID**: P5-ROAD-MLX-004
+- **Status**: **ACTIVE**
+- **Description**: `dealignai/Gemma-4-31B-JANG_4M-CRACK` uses mixed-precision quantization: embed/MLP layers are 4-bit (pack_factor=8), attention projections are 8-bit (pack_factor=4). mlx_vlm 0.4.4 (latest as of 2026-04-12) applies a single global `bits` value to all layers, causing shape mismatches on every attention weight.
+- **Fix applied**: `/opt/homebrew/lib/python3.14/site-packages/mlx_vlm/utils.py` was patched to support `quantization_bits_per_layer_type` in config.json — a dict mapping layer-name substring to per-type bit depth. JANG's config.json has `{"self_attn": 8}` which triggers a two-pass `nn.quantize`: attention layers at 8-bit, embed/MLP at 4-bit (default). See `scripts/convert_jang_keys.py` for the full config patch logic.
+- **Impact if mlx_vlm is upgraded**: The utils.py patch will be overwritten by the new install. Re-apply the two-pass quantization block from `scripts/convert_jang_keys.py`'s docstring, or re-run `scripts/convert_jang_keys.py` which will warn if the patch is missing (future improvement).
+- **Workaround if patch is lost**: Run `brew upgrade mlx-vlm` then re-apply patch from git history (`git show d1d07af -- scripts/convert_jang_keys.py` explains the change; the utils.py diff is in the session that produced commit `d1d07af`).
+- **Last verified**: 2026-04-12
+
 ### Deployed MLX Proxy Can Become Stale
 - **ID**: P5-ROAD-MLX-002
 - **Status**: **ACTIVE**
