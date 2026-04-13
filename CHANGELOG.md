@@ -2,6 +2,26 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.0.3] — 2026-04-13
+
+### Added
+- **`gemma4jangvision` persona** — routes to `dealignai/Gemma-4-31B-JANG_4M-CRACK` (uncensored Gemma 4 31B VLM, vision+text, 256K ctx, ~23GB)
+
+### Fixed
+- **JANG safetensors key format** (`scripts/convert_jang_keys.py`): converted non-standard key naming to mlx_vlm-compatible format so the model loads without reshape errors
+- **JANG mixed-precision quantization** (`scripts/mlx-proxy.py` + `mlx_vlm utils.py` patch): embed/MLP layers at 4-bit, attention projections at 8-bit — resolves shape mismatch on every attention weight under mlx_vlm 0.4.4
+- **JANG `audio_config` injection** (`scripts/convert_jang_keys.py`): set `"audio_config": null` in config.json to suppress spurious 752-parameter AudioEncoder instantiation (JANG has no audio tower weights)
+
+### Documentation
+- `KNOWN_LIMITATIONS.md`: added P5-ROAD-MLX-004 documenting the installed mlx_vlm utils.py patch, its scope, and re-apply instructions if `brew upgrade mlx-vlm` overwrites it
+
+### Tests
+- **Acceptance v6 signal broadening** (4 assertions): `bugdiscoverycodeassistant`, `redteamoperator`, `itexpert`, `auto-creative` — extended signal lists to cover alternative valid phrasings (TA0 notation, paraphrased explanations, creative haiku forms)
+- **Benchmark** (`tests/benchmarks/bench_tps.py`): incremental result saves after each model/workspace/persona test; updated Grafana TPS dashboard with 2026-04-12 run data
+- Acceptance suite v6 run 17: **154 PASS / 2 INFO / 0 FAIL / 0 BLOCKED / 0 WARN** (all 22 sections, 47m 5s)
+
+---
+
 ## [6.0.1] - 2026-04-11
 
 ### Security

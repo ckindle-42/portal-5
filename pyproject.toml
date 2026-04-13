@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "portal-5"
-version = "6.0.2"
-description = "Portal 6.0.2 — Open WebUI Enhancement Layer"
+version = "6.0.3"
+description = "Portal 6.0.3 — Open WebUI Enhancement Layer"
 readme = "README.md"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
