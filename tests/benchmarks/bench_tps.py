@@ -588,6 +588,75 @@ def _discover_personas() -> list[dict]:
     return personas
 
 
+# ── Incremental result persistence ────────────────────────────────────────────
+
+
+def _init_output(
+    output_path: str, args, hw: dict, mlx_cfg, ollama_cfg, workspaces_cfg, personas_cfg
+) -> dict:
+    """Initialize or load the output file. Returns the output dict."""
+    if os.path.exists(output_path):
+        try:
+            with open(output_path) as f:
+                existing = json.load(f)
+            if existing.get("results"):
+                print(
+                    f"  Resuming from {len(existing['results'])} existing results in {output_path}"
+                )
+                return existing
+        except Exception:
+            pass
+    output = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "mode": args.mode,
+        "order": args.order,
+        "cooldown_s": args.cooldown,
+        "runs_per_model": args.runs,
+        "total_wall_time_s": 0,
+        "hardware": hw,
+        "config_summary": {
+            "mlx_models_configured": len(mlx_cfg),
+            "ollama_models_configured": len(ollama_cfg),
+            "workspaces_configured": len(workspaces_cfg),
+            "personas_configured": len(personas_cfg),
+        },
+        "backends": {
+            "mlx": {"url": MLX_URL},
+            "ollama": {"url": OLLAMA_URL},
+            "pipeline": {"url": PIPELINE_URL},
+        },
+        "results": [],
+    }
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)
+    return output
+
+
+def _append_result(output_path: str, result: dict) -> None:
+    """Append a single result to the output JSON file (crash-safe)."""
+    try:
+        with open(output_path) as f:
+            data = json.load(f)
+        data["results"].append(result)
+        with open(output_path, "w") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"    ⚠️  Failed to save result: {e}")
+
+
+def _result_already_done(output_path: str, match_key: str, match_value: str) -> bool:
+    """Check if a result for this model/workspace/persona already exists."""
+    try:
+        with open(output_path) as f:
+            data = json.load(f)
+        return any(
+            r.get(match_key) == match_value and r.get("runs_success", 0) > 0
+            for r in data.get("results", [])
+        )
+    except Exception:
+        return False
+
+
 # ── Core benchmark ───────────────────────────────────────────────────────────
 
 
@@ -777,6 +846,7 @@ def bench_direct(
     dry_run: bool,
     cooldown: float = 3.0,
     order: str = "size",
+    output_path: str = "",
 ) -> list[dict]:
     results = []
 
@@ -793,6 +863,10 @@ def bench_direct(
         for i, model in enumerate(mlx_models, 1):
             short = model.split("/")[-1]
             size_gb = _parse_model_size_gb(model, "mlx")
+            # Resume: skip already-completed models
+            if output_path and _result_already_done(output_path, "model", model):
+                print(f"    [{i}/{len(mlx_models)}] {short} ({size_gb:.0f}GB) SKIP (already done)")
+                continue
             available = model in runtime if runtime else True
             marker = "" if available else " [not registered]"
             print(
@@ -823,6 +897,8 @@ def bench_direct(
                     "runs": [],
                 }
                 results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
                 continue
             prompt = _get_prompt_for_model(model)
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
@@ -835,6 +911,8 @@ def bench_direct(
             r["est_memory_gb"] = size_gb
             r["prompt_category"] = _prompt_category_for_model(model)
             results.append(r)
+            if output_path:
+                _append_result(output_path, r)
             if r["avg_tps"] > 0:
                 print(f"{r['avg_tps']} t/s  ({r['runs_success']}/{r['runs_total']} ok)")
             else:
@@ -882,6 +960,10 @@ def bench_direct(
             if missing:
                 print(f"  Ollama not installed: {', '.join(missing)}")
         for i, model in enumerate(ollama_unique, 1):
+            # Resume: skip already-completed models
+            if output_path and _result_already_done(output_path, "model", model):
+                print(f"    [{i}/{len(ollama_unique)}] {model} SKIP (already done)")
+                continue
             available = model in runtime if runtime else True
             size_gb = _parse_model_size_gb(model, "ollama")
             marker = "" if available else " [not installed]"
@@ -914,6 +996,8 @@ def bench_direct(
                     "runs": [],
                 }
                 results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
                 continue
             model_groups = [g for g, ms in ollama_groups.items() if model in ms]
             group = model_groups[0] if model_groups else ""
@@ -926,6 +1010,8 @@ def bench_direct(
             r["groups"] = model_groups
             r["prompt_category"] = _prompt_category_for_model(model, group=group)
             results.append(r)
+            if output_path:
+                _append_result(output_path, r)
             if r["avg_tps"] > 0:
                 print(f"{r['avg_tps']} t/s  ({r['runs_success']}/{r['runs_total']} ok)")
             else:
@@ -941,7 +1027,9 @@ def bench_direct(
                 if not idle:
                     # Didn't go fully idle — still do the fixed cooldown as fallback
                     if cooldown > 0:
-                        print(f"    cooldown {cooldown:.0f}s (idle timeout) ...", end=" ", flush=True)
+                        print(
+                            f"    cooldown {cooldown:.0f}s (idle timeout) ...", end=" ", flush=True
+                        )
                         time.sleep(cooldown)
                         print("ok")
                 else:
@@ -958,7 +1046,11 @@ def bench_direct(
 
 
 def bench_pipeline(
-    pipeline_available: bool, workspace_filter: str | None, runs: int, dry_run: bool
+    pipeline_available: bool,
+    workspace_filter: str | None,
+    runs: int,
+    dry_run: bool,
+    output_path: str = "",
 ) -> list[dict]:
     if not pipeline_available:
         return []
@@ -970,6 +1062,10 @@ def bench_pipeline(
     results = []
     print(f"\n  Pipeline workspaces to test: {len(workspaces)}")
     for i, ws in enumerate(workspaces, 1):
+        # Resume: skip already-completed workspaces
+        if output_path and _result_already_done(output_path, "workspace", ws):
+            print(f"    [{i}/{len(workspaces)}] {ws} SKIP (already done)")
+            continue
         print(f"    [{i}/{len(workspaces)}] {ws} ...", end=" ", flush=True)
         if dry_run:
             print("(dry run)")
@@ -981,6 +1077,8 @@ def bench_pipeline(
         r["workspace"] = ws
         r["prompt_category"] = WORKSPACE_PROMPT_MAP.get(ws, "general")
         results.append(r)
+        if output_path:
+            _append_result(output_path, r)
         if r["avg_tps"] > 0:
             print(f"{r['avg_tps']} t/s  ({r['runs_success']}/{r['runs_total']} ok)")
         else:
@@ -998,6 +1096,7 @@ def bench_personas(
     persona_filter: str | None,
     runs: int,
     dry_run: bool,
+    output_path: str = "",
 ) -> list[dict]:
     """Test TPS for each persona's workspace_model through the pipeline."""
     if not pipeline_available:
@@ -1020,6 +1119,10 @@ def bench_personas(
         slug = p["slug"]
         wm = p["workspace_model"]
         cat = p["category"]
+        # Resume: skip already-completed personas
+        if output_path and _result_already_done(output_path, "persona_slug", slug):
+            print(f"    [{i}/{len(personas)}] {slug} ({cat}) SKIP (already done)")
+            continue
         print(f"    [{i}/{len(personas)}] {slug} ({cat}) → {wm} ...", end=" ", flush=True)
         if dry_run:
             print("(dry run)")
@@ -1034,6 +1137,8 @@ def bench_personas(
         r["workspace_model"] = wm
         r["prompt_category"] = _prompt_category_for_persona(cat)
         results.append(r)
+        if output_path:
+            _append_result(output_path, r)
         if r["avg_tps"] > 0:
             print(f"{r['avg_tps']} t/s  ({r['runs_success']}/{r['runs_total']} ok)")
         else:
@@ -1279,7 +1384,13 @@ def main() -> None:
     do_personas = args.mode in ("personas", "all")
 
     t0 = time.time()
-    all_results: list[dict] = []
+
+    # Initialize output file (or load existing for resume)
+    output = _init_output(args.output, args, hw, mlx_cfg, ollama_cfg, workspaces_cfg, personas_cfg)
+    all_results = list(output.get("results", []))
+    if all_results:
+        t0_resume = time.time()
+        print(f"\n  Resuming: {len(all_results)} results already saved")
 
     if do_direct:
         print("\n── Direct Backend Tests ──")
@@ -1292,19 +1403,24 @@ def main() -> None:
                 args.dry_run,
                 cooldown=args.cooldown,
                 order=args.order,
+                output_path=args.output,
             )
         )
 
     if do_pipeline:
         print("\n── Pipeline Workspace Tests ──")
         all_results.extend(
-            bench_pipeline(pipeline_available, args.workspace, args.runs, args.dry_run)
+            bench_pipeline(
+                pipeline_available, args.workspace, args.runs, args.dry_run, output_path=args.output
+            )
         )
 
     if do_personas:
         print("\n── Persona Routing Tests ──")
         all_results.extend(
-            bench_personas(pipeline_available, args.persona, args.runs, args.dry_run)
+            bench_personas(
+                pipeline_available, args.persona, args.runs, args.dry_run, output_path=args.output
+            )
         )
 
     total_time = time.time() - t0
@@ -1315,41 +1431,37 @@ def main() -> None:
         _print_pipeline_table(all_results)
         _print_persona_table(all_results)
 
-    output = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mode": args.mode,
-        "order": args.order,
-        "cooldown_s": args.cooldown,
-        "runs_per_model": args.runs,
-        "total_wall_time_s": round(total_time, 1),
-        "hardware": hw,
-        "config_summary": {
-            "mlx_models_configured": len(mlx_cfg),
-            "ollama_models_configured": len(ollama_cfg),
-            "workspaces_configured": len(workspaces_cfg),
-            "personas_configured": len(personas_cfg),
-        },
-        "backends": {
-            "mlx": {"url": MLX_URL, "available": mlx_available},
-            "ollama": {"url": OLLAMA_URL, "available": ollama_available},
-            "pipeline": {"url": PIPELINE_URL, "available": pipeline_available},
-        },
-        "prompts": {
-            "override": args.prompt if args.prompt else None,
-            "library": {k: v[:80] + "..." if len(v) > 80 else v for k, v in PROMPTS.items()},
-            "workspace_map": WORKSPACE_PROMPT_MAP,
-            "group_map": GROUP_PROMPT_MAP,
-            "persona_category_map": PERSONA_CATEGORY_PROMPT_MAP,
-        },
-        "results": all_results,
+    # Finalize output with wall time and metadata
+    output["timestamp"] = datetime.now(timezone.utc).isoformat()
+    output["total_wall_time_s"] = round(total_time, 1)
+    output["backends"] = {
+        "mlx": {"url": MLX_URL, "available": mlx_available},
+        "ollama": {"url": OLLAMA_URL, "available": ollama_available},
+        "pipeline": {"url": PIPELINE_URL, "available": pipeline_available},
     }
+    output["prompts"] = {
+        "override": args.prompt if args.prompt else None,
+        "library": {k: v[:80] + "..." if len(v) > 80 else v for k, v in PROMPTS.items()},
+        "workspace_map": WORKSPACE_PROMPT_MAP,
+        "group_map": GROUP_PROMPT_MAP,
+        "persona_category_map": PERSONA_CATEGORY_PROMPT_MAP,
+    }
+    # Merge: keep all results from the file (including resumed ones)
+    try:
+        with open(args.output) as f:
+            file_data = json.load(f)
+        output["results"] = file_data.get("results", all_results)
+    except Exception:
+        output["results"] = all_results
 
     with open(args.output, "w") as f:
         json.dump(output, f, indent=2)
 
-    tested = sum(1 for r in all_results if r["runs_success"] > 0)
-    available = sum(1 for r in all_results if r.get("available", True))
-    print(f"\nTotal: {tested}/{available} passed ({len(all_results)} total) in {total_time:.0f}s")
+    tested = sum(1 for r in output["results"] if r.get("runs_success", 0) > 0)
+    available_ct = sum(1 for r in output["results"] if r.get("available", True))
+    print(
+        f"\nTotal: {tested}/{available_ct} passed ({len(output['results'])} total) in {total_time:.0f}s"
+    )
     print(f"Results: {args.output}")
 
 
