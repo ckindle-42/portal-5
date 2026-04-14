@@ -1,4 +1,4 @@
-# Portal 6.0.0 — How-To Guide
+# Portal 6.0.3 — How-To Guide
 
 Complete working examples for every feature. Each section shows: what it does, how to activate it, a working example, and how to verify.
 
@@ -79,7 +79,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
 | Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (MLX) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | DeepSeek-Coder-V2-Lite (MLX) |
 | Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next (MLX big-model) |
 
 **Example — coding:**
@@ -104,19 +104,20 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (41 total):**
+**Available personas (45 total):**
 
 | Category | Personas |
 |----------|----------|
 | Development (17) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
 | Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
-| Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst, Excel Sheet |
+| Data (8) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
 | Compliance (2) | NERC CIP Compliance Analyst, CIP Policy Writer |
 | Systems (2) | Linux Terminal, SQL Terminal |
-| General (2) | IT Expert, Tech Reviewer |
+| General (3) | IT Expert, Tech Reviewer, Phi-4 Technical Analyst |
 | Writing (2) | Creative Writer, Tech Writer |
-| Reasoning (1) | Magistral Strategist |
+| Reasoning (2) | Magistral Strategist, GPT-OSS Analyst |
 | Research (1) | Gemma Research Analyst |
+| Vision (2) | Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
@@ -142,6 +143,31 @@ curl -s http://localhost:9099/v1/models \
 
 (2.1) All events specified in this requirement are available for access by appropriate Information System personnel. This capability
    ```
+
+**Example — Phi-4 Technical Analyst:**
+1. Select `Phi-4 Technical Analyst` from the model dropdown
+2. Type: `Write a technical design document for a rate-limiting middleware in FastAPI`
+3. Routes to Microsoft Phi-4 14B (MLX) — optimized for structured documentation and STEM reasoning
+
+**Example — Phi-4 STEM Analyst:**
+1. Select `Phi-4 STEM Analyst` from the model dropdown
+2. Type: `Given a Poisson process with rate λ=3 events/hour, what is the probability of exactly 5 events in 2 hours?`
+3. Routes to Phi-4-reasoning-plus (MLX) — specialized for competition-level mathematics and statistical modeling
+
+**Example — GPT-OSS Analyst:**
+1. Select `GPT-OSS Analyst` from the model dropdown
+2. Type: `Compare the architectural trade-offs between event-driven and request-response microservice communication patterns`
+3. Routes to `gpt-oss:20b` (Ollama) — OpenAI-lineage open-weight model with RL-trained reasoning
+
+**Example — Gemma 4 Edge Vision (image + audio):**
+1. Select `Gemma 4 Edge Vision` from the model dropdown
+2. Attach an image or audio clip (up to 30 seconds) and type: `Describe what you see/hear and identify any anomalies`
+3. Routes to Gemma-4-E4B-IT (MLX VLM) — only model in the stack with native audio input
+
+**Example — Gemma 4 JANG Unfiltered Vision:**
+1. Select `Gemma 4 JANG Unfiltered Vision` from the model dropdown
+2. Attach a screenshot and type: `Analyze this network diagram for security weaknesses — no restrictions`
+3. Routes to Gemma-4-31B-JANG (MLX VLM) — abliterated 31B model, no refusal guardrails
 
 ---
 
@@ -866,6 +892,120 @@ docker run --rm -v portal-5_open-webui-data:/data -v /path/to/backups:/backup \
   models: [Qwen/Qwen2.5-Coder-32B-Instruct]
 ```
 
+---
+
+## 21. Remote API Access (Pipeline at :9099)
+
+**What:** The Portal Pipeline exposes an OpenAI-compatible HTTP API. Any tool that accepts a custom OpenAI base URL can connect directly — no Open WebUI required.
+
+### Authentication
+
+All requests require `PIPELINE_API_KEY` from `.env` as a Bearer token:
+
+```bash
+PIPELINE_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Service health check |
+| GET | `/metrics` | Prometheus metrics (text format) |
+| GET | `/v1/models` | List all workspaces and personas |
+| POST | `/v1/chat/completions` | Send messages, stream or blocking |
+
+### Base URL
+
+- **Local:** `http://localhost:9099`
+- **LAN (same network):** `http://<your-machine-ip>:9099`
+- **Remote via reverse proxy:** `https://portal.yourdomain.com:9099`
+
+### List available models
+
+```bash
+curl -s http://localhost:9099/v1/models \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  | python3 -m json.tool | grep '"id"'
+# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 45 personas
+```
+
+### Chat (blocking)
+
+```bash
+curl -s http://localhost:9099/v1/chat/completions \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto-coding",
+    "messages": [{"role": "user", "content": "Write a Python function to parse ISO 8601 dates"}],
+    "stream": false
+  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['choices'][0]['message']['content'])"
+```
+
+### Chat (streaming)
+
+```bash
+curl -s http://localhost:9099/v1/chat/completions \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto-reasoning",
+    "messages": [{"role": "user", "content": "Explain the CAP theorem"}],
+    "stream": true
+  }'
+# SSE stream: data: {"choices":[{"delta":{"content":"..."}}]}
+```
+
+### Using the OpenAI Python SDK
+
+```python
+from openai import OpenAI
+import os
+
+client = OpenAI(
+    base_url="http://localhost:9099/v1",
+    api_key=os.environ["PIPELINE_API_KEY"],
+)
+
+response = client.chat.completions.create(
+    model="auto-security",
+    messages=[{"role": "user", "content": "Review this nginx config for security issues:\nserver { listen 80; root /var/www; }"}],
+)
+print(response.choices[0].message.content)
+```
+
+### Compatible tools
+
+Any tool with a configurable OpenAI API base URL works out-of-the-box:
+
+| Tool | Setting | Value |
+|------|---------|-------|
+| **Continue.dev** (VS Code/JetBrains) | `apiBase` | `http://localhost:9099/v1` |
+| **Cursor** | Custom model → Base URL | `http://localhost:9099/v1` |
+| **Aider** | `--openai-api-base` | `http://localhost:9099/v1` |
+| **LM Studio** (client mode) | API Base URL | `http://localhost:9099/v1` |
+| **Jan** | OpenAI-compatible server | `http://localhost:9099/v1` |
+| **Shell scripts** | `curl` with `-H "Authorization: Bearer ..."` | see examples above |
+| **Python scripts** | `openai.OpenAI(base_url=...)` | see example above |
+
+**Model selection:** Use any workspace ID (`auto`, `auto-coding`, `auto-security`, etc.) or any persona slug (`redteamoperator`, `magistralstrategist`, etc.) as the `model` field. The pipeline routes to the appropriate backend automatically.
+
+### Verify
+
+```bash
+# Health check
+curl -s http://localhost:9099/health
+# Returns: {"status": "ok", "backends": {...}}
+
+# End-to-end test
+curl -s http://localhost:9099/v1/chat/completions \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto", "messages": [{"role": "user", "content": "Say OK"}], "stream": false}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['choices'][0]['message']['content'])"
+```
+
 **Verify:**
 ```bash
 ./launch.sh status
@@ -874,7 +1014,7 @@ docker run --rm -v portal-5_open-webui-data:/data -v /path/to/backups:/backup \
 
 ---
 
-## 21. MLX Acceleration (Apple Silicon)
+## 22. MLX Acceleration (Apple Silicon)
 
 **What:** 20-40% faster inference than Ollama GGUF on M-series Macs. The MLX proxy
 (`scripts/mlx-proxy.py`) auto-switches between two servers based on the requested model:
@@ -963,7 +1103,7 @@ curl -s http://localhost:8081/v1/models
 
 ---
 
-## 22. Metrics & Monitoring
+## 23. Metrics & Monitoring
 
 **What:** Prometheus metrics collection and Grafana dashboards.
 

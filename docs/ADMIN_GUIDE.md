@@ -1,4 +1,4 @@
-# Portal 6.0.0 — Admin Guide
+# Portal 6.0.3 — Admin Guide
 
 ## First Login
 
@@ -68,6 +68,8 @@ Portal 5 is designed for single-machine local use. After applying the recommende
 
 The pipeline API (port 9099) and all MCP servers (8910–8916) are always bound to 127.0.0.1 and are not reachable externally under any configuration.
 
+> **Note:** Grafana (port 3000) binds to `0.0.0.0:3000` and **is** reachable from other machines on your network. Grafana requires login (`admin` / `GRAFANA_PASSWORD` from `.env`) and does not expose inference data — but if your LAN is untrusted, restrict it with a firewall rule or set `GF_SERVER_HTTP_ADDR=127.0.0.1` in `docker-compose.yml`.
+
 ## Backup
 
 Critical data is in Docker volumes:
@@ -75,7 +77,10 @@ Critical data is in Docker volumes:
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
 
 ```bash
-# Backup Open WebUI data
+# Easiest: use the launch script (saves to ./backups/)
+./launch.sh backup
+
+# Or manually:
 docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
     alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
 ```

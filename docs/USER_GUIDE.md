@@ -1,8 +1,8 @@
-# Portal 6.0.0 — User Guide
+# Portal 6.0.3 — User Guide
 
 ## Getting Access
 
-Portal 6.0.0 requires an account. Contact your admin or sign up at the login page.
+Portal 6.0.3 requires an account. Contact your admin or sign up at the login page.
 New accounts require admin approval — you'll see "pending" status until approved.
 
 ## Workspaces
@@ -39,10 +39,12 @@ workspaces. Examples: `Cyber Security Specialist`, `Python Code Generator`, `Red
 
 In a chat, click the **+** icon to enable tools:
 - **Portal Documents** — generate Word, Excel, PowerPoint files
-- **Portal Music** — generate audio clips
-- **Portal Code** — execute code in a sandbox
+- **Portal Code** — execute code in an isolated sandbox
 - **Portal TTS** — convert text to speech
 - **Portal Whisper** — transcribe audio files
+- **Portal ComfyUI** — generate images via FLUX.1 / SDXL
+- **Portal Video** — generate short video clips via ComfyUI
+- **Portal Music** — generate audio clips via MusicGen
 
 ## Knowledge Base & Document RAG
 

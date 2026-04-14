@@ -64,8 +64,8 @@ Everything runs with a single command. No manual configuration.
 | Ollama | Runs local language models | (internal) |
 | SearXNG | Private web search for research | (internal) |
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| 6 MCP Servers | Documents, voice, code, images, video, whisper | (internal, Docker) |
-| Music MCP | Music generation (host-native, via `install-music`) | (internal) |
+| 7 MCP Servers | Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), ComfyUI (:8910), Video (:8911), Music (:8912) | (internal) |
+| Embedding | Harrier-0.6B text embeddings for RAG | :8917 (internal) |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
@@ -92,7 +92,7 @@ and tools automatically.
 | `auto-research` | Web research and synthesis | — |
 | `auto-reasoning` | Deep reasoning, complex analysis | — |
 | `auto-data` | Data analysis, statistics | Code + Documents |
-| `auto-spl` | Splunk SPL queries, pipeline explanation | Qwen3-Coder-30B (MLX) |
+| `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
 | `auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
 
@@ -287,7 +287,7 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 
 | Guide | Contents |
 |---|---|
-| [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature |
+| [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature, including remote API access |
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
@@ -299,17 +299,12 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 
 ### Acceptance Testing
 
-The full acceptance test suite (`portal5_acceptance_v4.py`) runs 284 checks
-across all subsystems. Latest run (2026-04-10, Run 13):
+The full acceptance test suite runs 156 checks across all subsystems.
+Latest run (2026-04-13, Run 17):
 
-**242 PASS · 15 WARN · 7 FAIL · 0 BLOCKED**
+**154 PASS · 2 INFO · 0 FAIL · 0 WARN**
 
-All FAILs are environmental (Docker Hub unreachable, missing Kokoro Python
-dependencies, embedding service not deployed). All WARNs are expected behavior
-(memory constraints, model quality, timing). No product code changes required.
-
-See `ACCEPTANCE_RESULTS.md` for full results and `ACCEPTANCE_EVIDENCE.md`
-for detailed investigation of each failure.
+Clean run. See `ACCEPTANCE_RESULTS.md` for full results.
 
 ---
 
@@ -328,15 +323,15 @@ for detailed investigation of each failure.
                         │   │   │   │
            ┌────────────┘   │   │   └─────────────┐
            │                │   │                 │
-    ┌──────▼──────┐  ┌──────▼──┐  ┌──────────────▼──┐
-    │  MLX Proxy   │  │ Ollama  │  │  MCP Servers     │
-    │  :8081       │  │ :11434  │  │  :8910–8916      │
-    │  (auto-swap) │  │ (LLMs)  │  │  (tools)         │
-    └──┬───────┬──┘  └─────────┘  └─────────────────┘
+    ┌──────▼──────┐  ┌──────▼──┐  ┌──────────────────▼──┐
+    │  MLX Proxy   │  │ Ollama  │  │  MCP Servers          │
+    │  :8081       │  │ :11434  │  │  :8910–8916 (tools)   │
+    │  (auto-swap) │  │ (LLMs)  │  │  :8917 (embedding)    │
+    └──┬───────┬──┘  └─────────┘  └─────────────────────┘
        │       │
-┌──────▼──┐ ┌──▼──────┐
-│ mlx_lm  │ │ mlx_vlm │
-│ :18081  │ │ :18082  │
+┌──────▼──┐ ┌──▼──────┐  MLX Speech :8918
+│ mlx_lm  │ │ mlx_vlm │  (Kokoro + Qwen3-TTS/ASR,
+│ :18081  │ │ :18082  │   Apple Silicon, optional)
 │(text)   │ │ (VLM)   │
 └─────────┘ └─────────┘
 
