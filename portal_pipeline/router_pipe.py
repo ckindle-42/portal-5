@@ -1328,14 +1328,13 @@ def _init_notifications(registry: BackendRegistry) -> None:
 
 
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
-    """Pre-load the auto workspace's default model on startup.
+    """Pre-load the auto workspace's default inference model on startup.
 
     Ollama lazily loads models on first request. A cold load of an 8B model
     takes 10-30s on HDD, 1-5s on SSD/NFS. By making a minimal generation call
     during startup, subsequent user requests skip this penalty entirely.
 
-    Runs in the background — startup is not blocked. Errors are logged but
-    swallowed so a failed warmup does not crash the pipeline.
+    Runs inside _run_startup_warmups — errors are logged but swallowed.
     """
     if _http_client is None:
         logger.debug("Warmup skipped: HTTP client not ready")
@@ -1368,8 +1367,62 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 resp.status_code,
             )
     except Exception as e:
-        # Never let warmup failure affect pipeline startup
         logger.debug("Model warmup failed (non-fatal): %s", e)
+
+
+async def _warmup_llm_router() -> None:
+    """Pre-load the LLM intent-router model on startup.
+
+    Every request routed through the 'auto' workspace calls _route_with_llm(),
+    which sends a generation request to the router model before any inference
+    happens. On a cold Ollama instance this adds 30-60s of model-loading time
+    to the first auto request even when the inference model is already warm.
+
+    This warmup fires a single minimal generate call at startup so the router
+    model is resident in memory when the first user request arrives.
+
+    Skipped when LLM routing is disabled (LLM_ROUTER_ENABLED=false).
+    """
+    if not _LLM_ROUTER_ENABLED:
+        return
+    if _http_client is None:
+        logger.debug("LLM router warmup skipped: HTTP client not ready")
+        return
+    try:
+        resp = await _http_client.post(
+            f"{_LLM_ROUTER_OLLAMA_URL}/api/generate",
+            json={
+                "model": _LLM_ROUTER_MODEL,
+                "prompt": "ok",
+                "stream": False,
+                "options": {"num_predict": 1, "keep_alive": "-1"},
+            },
+        )
+        if resp.status_code == 200:
+            logger.info("Warmup complete: LLM router model '%s' pre-loaded", _LLM_ROUTER_MODEL)
+        else:
+            logger.debug(
+                "LLM router warmup returned HTTP %d — router will cold-load on first use",
+                resp.status_code,
+            )
+    except Exception as e:
+        logger.debug("LLM router warmup failed (non-fatal): %s", e)
+
+
+async def _run_startup_warmups(registry: BackendRegistry) -> None:
+    """Fire all startup warmups in parallel.
+
+    Runs as a background task so pipeline startup is not blocked.
+    Both sub-tasks swallow exceptions — a failed warmup never crashes the pipeline.
+
+    Order matters: both fire simultaneously so neither has to wait for the other.
+    The LLM router warmup and the inference warmup are fully independent.
+    """
+    await asyncio.gather(
+        _warmup_auto_model(registry),
+        _warmup_llm_router(),
+        return_exceptions=True,
+    )
 
 
 @asynccontextmanager
@@ -1392,9 +1445,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await registry.health_check_all()
     # Load persisted metrics state from disk (survives restarts)
     _load_state()
-    # Pre-warm: load the auto workspace's default model so the first user request
-    # is not penalized by Ollama's model-loading cold-start (10-60s for 8-32B).
-    asyncio.create_task(_warmup_auto_model(registry))
+    # Pre-warm: load the inference model AND the LLM router model in parallel so
+    # the first 'auto' request is not penalized by two sequential cold-loads:
+    # (1) router model classification (~30-60s if cold) then
+    # (2) inference model generation (~10-30s if cold).
+    # Both fire simultaneously as background tasks — startup is not blocked.
+    asyncio.create_task(_run_startup_warmups(registry))
     healthy = registry.list_healthy_backends()
     logger.info("Portal Pipeline started. Healthy backends: %d", len(healthy))
     if not healthy:
