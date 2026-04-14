@@ -394,6 +394,45 @@ def _evict_mlx_current_model(smallest_mlx_model: str | None) -> None:
         pass
 
 
+def _wait_mlx_memory_available(
+    model_gb: float,
+    headroom_gb: float = 10.0,
+    timeout_s: float = 120.0,
+    poll_interval: float = 5.0,
+) -> bool:
+    """Wait until the MLX proxy reports enough memory for the next model.
+
+    Uses free + inactive + purgeable from the proxy health endpoint — the same
+    metric the proxy's admission check uses internally. Polls until available
+    memory exceeds model_gb + headroom_gb or the timeout expires.
+
+    After heavy model cycling, macOS accumulates inactive pages that are
+    reclaimable but not yet freed. Polling allows the kernel time to reclaim
+    them naturally before the next large model attempts to load.
+
+    Returns True if memory became available within timeout_s, False otherwise
+    (caller should proceed anyway — proxy will reject with 503 if still short).
+    """
+    needed_gb = model_gb + headroom_gb
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
+            if r.status_code == 200:
+                mem = r.json().get("memory", {}).get("current", {})
+                available = (
+                    mem.get("free_gb", 0.0)
+                    + mem.get("inactive_gb", 0.0)
+                    + mem.get("purgeable_gb", 0.0)
+                )
+                if available >= needed_gb:
+                    return True
+        except Exception:
+            pass
+        time.sleep(poll_interval)
+    return False
+
+
 def _parse_ollama_sizes_from_config() -> dict[str, float]:
     """Parse model→GB size estimates from backends.yaml.
 
@@ -857,6 +896,11 @@ def bench_direct(
         if order == "size":
             mlx_models = sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))
         runtime = _runtime_mlx_models()
+        smallest_mlx = (
+            sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+            if mlx_models
+            else None
+        )
         print(f"\n  MLX models configured: {len(mlx_models)} (order={order})")
         if runtime:
             print(f"  MLX proxy registered: {len(runtime)}")
@@ -901,6 +945,14 @@ def bench_direct(
                     _append_result(output_path, r)
                 continue
             prompt = _get_prompt_for_model(model)
+            # Pre-eviction for large models (>20GB): load the 3B canary to push out
+            # whatever is currently resident, then wait for macOS to reclaim inactive
+            # pages before the warm-up. This prevents admission check failures after
+            # heavy model-cycling has accumulated inactive pages in unified memory.
+            if size_gb >= 20.0 and model != smallest_mlx:
+                _evict_mlx_current_model(smallest_mlx)
+                if not _wait_mlx_memory_available(size_gb, timeout_s=90.0):
+                    print("(memory wait timed out, proceeding) ", end="", flush=True)
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
             _warmup_mlx_model(model)
@@ -929,16 +981,15 @@ def bench_direct(
         # The last MLX model is still resident when the Ollama section starts.
         # Force-evict it by loading the smallest configured MLX model (~3GB),
         # then wait for a long transition cooldown so unified memory is clear.
-        if ollama_available and mlx_models and not dry_run:
-            smallest = sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+        if ollama_available and mlx_models and smallest_mlx and not dry_run:
             transition = max(cooldown * 5, 30.0)
             print(
-                f"\n  MLX→Ollama: evicting large model via {smallest.split('/')[-1]} "
+                f"\n  MLX→Ollama: evicting large model via {smallest_mlx.split('/')[-1]} "
                 f"then {transition:.0f}s transition cooldown ...",
                 end=" ",
                 flush=True,
             )
-            _evict_mlx_current_model(smallest)
+            _evict_mlx_current_model(smallest_mlx)
             time.sleep(transition)
             print("ok")
 
@@ -1389,7 +1440,6 @@ def main() -> None:
     output = _init_output(args.output, args, hw, mlx_cfg, ollama_cfg, workspaces_cfg, personas_cfg)
     all_results = list(output.get("results", []))
     if all_results:
-        t0_resume = time.time()
         print(f"\n  Resuming: {len(all_results)} results already saved")
 
     if do_direct:
