@@ -751,6 +751,16 @@ case "${1:-up}" in
         export WEBUI_LISTEN_ADDR="127.0.0.1"
     fi
 
+    # Persist WEBUI_LISTEN_ADDR to .env so that `docker compose up -d` and
+    # `docker restart` invoked outside of launch.sh always pick up the correct
+    # binding address.  Without this, any restart falls back to 127.0.0.1.
+    if grep -q "^WEBUI_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+        sed -i.bak "s|^WEBUI_LISTEN_ADDR=.*|WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}|" "$ENV_FILE"
+        rm -f "${ENV_FILE}.bak"
+    else
+        echo "WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}" >> "$ENV_FILE"
+    fi
+
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose up -d
