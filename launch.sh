@@ -2812,6 +2812,11 @@ MLXPLIST
     # Start the native ARM64 embedding server (Python/sentence-transformers + MPS).
     # Replaces the TEI Docker service on Apple Silicon where the x86-only TEI image
     # has no ARM64 manifest. Binds to port 8917 — same as the Docker service.
+
+    # Source .env so EMBEDDING_MODEL, EMBEDDING_HOST_PORT, and ENABLE_REMOTE_ACCESS
+    # overrides are respected when this command is run standalone (not via `up`).
+    if [ -f "$ENV_FILE" ]; then set -a; source "$ENV_FILE"; set +a; fi
+
     ARCH=$(uname -m)
     if [ "$ARCH" != "arm64" ]; then
         echo "  ℹ️  This command is for Apple Silicon (arm64). On x86, the Docker TEI service works directly."

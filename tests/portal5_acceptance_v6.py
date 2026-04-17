@@ -660,11 +660,13 @@ _MLX_MODEL_SIZES_GB = {
 }
 
 # Known MLX org prefixes
-_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "unsloth/"]
+# MLX org prefixes — workspace_model values starting with these are raw HF paths
+# that Open WebUI can never resolve (pipeline only exposes workspace IDs).
+_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "unsloth/", "dealignai/"]
 
 # Mapping from MLX model hint (HF path) → pipeline workspace name.
-# Persona YAMLs store raw HF paths in workspace_model; the pipeline only knows
-# workspace IDs like "auto-spl".  Use this to resolve the correct workspace.
+# All persona YAMLs now use workspace IDs directly; this dict is used by S11
+# to know which MLX model to pre-load before testing each workspace.
 _MLX_MODEL_TO_WORKSPACE: dict[str, str] = {
     "lmstudio-community/Devstral-Small-2507-MLX-4bit": "auto-coding",
     "mlx-community/Qwen3-Coder-Next-4bit": "auto-agentic",
@@ -673,11 +675,12 @@ _MLX_MODEL_TO_WORKSPACE: dict[str, str] = {
     "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": "auto-reasoning",
     "mlx-community/phi-4-8bit": "auto-documents",
     "mlx-community/gemma-4-31b-it-4bit": "auto-research",
+    "mlx-community/gemma-4-31b-it-4bit": "auto-vision",   # same model serves both
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "auto-data",
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "auto-compliance",
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": "auto-mistral",
-    # Phi-4-reasoning-plus and gemma-4-E4B have no workspace mapping —
-    # tested directly via MLX proxy (port 8081).
+    # Phi-4-reasoning-plus has no pipeline workspace — it maps to auto-data (DeepSeek-R1)
+    # for production routing. Tested via auto-data workspace in S11.
 }
 
 
@@ -1231,6 +1234,33 @@ async def S1() -> None:
             record(sec, "S1-09", "MLX routing: text-only models NOT in VLM_MODELS", "WARN", "proxy source not found", t0=t0)
     except Exception as e:
         record(sec, "S1-09", "MLX routing: text-only models NOT in VLM_MODELS", "FAIL", str(e)[:100], t0=t0)
+
+    # S1-10: All persona workspace_model values are valid pipeline workspace IDs or Ollama tags.
+    # Raw MLX HF paths (mlx-community/*, lmstudio-community/*, Jackrong/*, dealignai/*) are
+    # INVALID because the pipeline only exposes workspace IDs in /v1/models.  Personas with
+    # raw HF paths show "model not found" in Open WebUI even though the model is downloaded.
+    t0 = time.time()
+    valid_ws_ids = set(WS_IDS) | {"auto"}
+    bad_personas: list[str] = []
+    for p in PERSONAS:
+        slug = p.get("slug", "?")
+        ws_model = p.get("workspace_model", "")
+        if not ws_model:
+            bad_personas.append(f"{slug}:(missing)")
+            continue
+        # Valid if it's a known pipeline workspace ID
+        if ws_model in valid_ws_ids:
+            continue
+        # Invalid if it starts with a known MLX org prefix — these are raw HF paths
+        if any(ws_model.startswith(org) for org in _MLX_ORGS):
+            bad_personas.append(f"{slug}:{ws_model.split('/')[-1]}")
+    record(
+        sec, "S1-10", "Persona workspace_model values are pipeline IDs or Ollama tags",
+        "FAIL" if bad_personas else "PASS",
+        f"invalid (raw MLX paths): {bad_personas}" if bad_personas
+        else f"all {len(PERSONAS)} personas use valid workspace_model values",
+        t0=t0,
+    )
 
 
 async def S2() -> None:
@@ -1863,29 +1893,36 @@ async def S11() -> None:
     # Evict Ollama models first — need unified memory for MLX
     await _ensure_free_ram_gb(20, "S11 MLX personas")
 
-    # MLX_PERSONA_GROUPS: (model_hint, pipeline_workspace_or_None, [slugs])
-    # workspace=None means no pipeline mapping → test directly via MLX proxy
+    # MLX_PERSONA_GROUPS: (model_hint, pipeline_workspace, [slugs])
+    # All personas now have valid workspace IDs — test via pipeline to cover the full stack.
+    # Groups ordered to minimise model switches: largest memory models first,
+    # then models that share the same underlying MLX model are batched together.
     MLX_PERSONA_GROUPS = [
-        # Group 1: Qwen3-Coder-30B → auto-spl (3 personas, largest group)
-        ("mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit", "auto-spl", [
-            "fullstacksoftwaredeveloper", "splunksplgineer", "ux-uideveloper",
+        # Group 1: Devstral → auto-coding (2 personas)
+        ("lmstudio-community/Devstral-Small-2507-MLX-4bit", "auto-coding", [
+            "fullstacksoftwaredeveloper", "ux-uideveloper",
         ]),
-        # Group 2: Jackrong compliance → auto-compliance (2 personas)
+        # Group 2: Qwen3-Coder-30B → auto-spl (1 persona)
+        ("mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit", "auto-spl", [
+            "splunksplgineer",
+        ]),
+        # Group 3: Jackrong compliance → auto-compliance (2 personas)
         ("Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "auto-compliance", [
             "cippolicywriter", "nerccipcomplianceanalyst",
         ]),
-        # Group 3: Single-persona models (unavoidable switches, smallest last)
+        # Group 4: Gemma 4 31B dense — serves both auto-research and auto-vision (3 personas,
+        # same MLX model loaded once; workspace routing selects the right system context).
         ("mlx-community/gemma-4-31b-it-4bit", "auto-research", ["gemmaresearchanalyst"]),
-        # phi-4-8bit: pipeline BackendRegistry refresh (30s interval) causes timing-dependent
-        # Ollama fallback — test directly via MLX proxy to avoid the race condition.
-        ("mlx-community/phi-4-8bit", None, ["phi4specialist"]),
-        # Phi-4-reasoning-plus: no pipeline workspace — direct MLX proxy
-        ("lmstudio-community/Phi-4-reasoning-plus-MLX-4bit", None, ["phi4stemanalyst"]),
+        ("mlx-community/gemma-4-31b-it-4bit", "auto-vision", [
+            "gemma4e4bvision", "gemma4jangvision",
+        ]),
+        # Group 5: Phi-4 8bit → auto-documents (1 persona)
+        ("mlx-community/phi-4-8bit", "auto-documents", ["phi4specialist"]),
+        # Group 6: Magistral → auto-mistral (1 persona)
         ("lmstudio-community/Magistral-Small-2509-MLX-8bit", "auto-mistral", ["magistralstrategist"]),
-        # gemma-4-E4B: VLM, no pipeline workspace — direct MLX proxy
-        ("mlx-community/gemma-4-e4b-it-4bit", None, ["gemma4e4bvision"]),
-        # JANG: abliterated Gemma 4 31B VLM, no pipeline workspace — direct MLX proxy
-        ("dealignai/Gemma-4-31B-JANG_4M-CRACK", None, ["gemma4jangvision"]),
+        # Group 7: DeepSeek-R1-32B → auto-data (1 persona — Phi-4-reasoning-plus maps here
+        # because it has no dedicated workspace; DeepSeek-R1 handles STEM reasoning too)
+        ("mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit", "auto-data", ["phi4stemanalyst"]),
     ]
 
     test_num = 1
