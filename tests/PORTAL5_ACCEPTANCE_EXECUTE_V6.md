@@ -437,10 +437,10 @@ Produce these files in the repo root:
 
 ## Most Recent Run
 
-**Date:** 2026-04-13  
-**Git SHA:** 49678c1  
-**Result:** PASS — 154 PASS / 2 INFO / 0 FAIL / 0 BLOCKED / 0 WARN  
-**Runtime:** 47m 5s (full suite, all 22 sections)
+**Date:** 2026-04-17  
+**Git SHA:** b62806b  
+**Result:** PASS — 155 PASS / 1 INFO / 0 FAIL / 0 BLOCKED / 0 WARN  
+**Runtime:** 51m 28s (full suite, all 22 sections)
 
 ---
 
