@@ -45,17 +45,14 @@ log.info(f"Loading embedding model: {args.model}")
 try:
     from sentence_transformers import SentenceTransformer
 
-    # MPS (Metal) on Apple Silicon; falls back to CPU automatically
-    _model = SentenceTransformer(args.model, device="mps")
-    log.info("Model loaded on MPS (Apple Silicon Metal)")
+    # CPU is used intentionally: MPS (Metal) is not thread-safe and crashes when
+    # encode() is called from a thread pool executor. For a 0.6B embedding model
+    # CPU throughput (~20-50ms/batch) is sufficient and stable on Apple Silicon.
+    _model = SentenceTransformer(args.model, device="cpu")
+    log.info("Model loaded on CPU")
 except Exception as e:
-    log.warning(f"MPS load failed ({e}), trying CPU...")
-    try:
-        _model = SentenceTransformer(args.model, device="cpu")
-        log.info("Model loaded on CPU")
-    except Exception as e2:
-        log.error(f"Failed to load model: {e2}")
-        raise
+    log.error(f"Failed to load model: {e}")
+    raise
 
 # ── FastAPI app ──────────────────────────────────────────────────────────────
 app = FastAPI(title="Portal 5 Embedding Server", version="1.0.0")
@@ -90,7 +87,7 @@ async def create_embeddings(req: EmbeddingRequest):
     try:
         # Run in executor so async event loop isn't blocked
         loop = asyncio.get_event_loop()
-        vectors = await loop.run_in_executor(None, lambda: _model.encode(texts, normalize_embeddings=True).tolist())
+        vectors = await loop.run_in_executor(None, lambda: _model.encode(texts, normalize_embeddings=True, show_progress_bar=False).tolist())
     except Exception as e:
         log.error(f"Embedding error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
