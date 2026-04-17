@@ -1110,6 +1110,19 @@ case "${1:-up}" in
         else
             echo "[portal-5] MLX Speech: not running (nothing to stop)."
         fi
+
+        # ARM64 embedding server (:8917)
+        # launchd-managed: leave the service running (it manages its own lifecycle),
+        # just print a note so the operator knows it's still up.
+        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+            echo "[portal-5] Embedding server: still running (launchd-managed — use './launch.sh uninstall-embedding-service' to stop permanently)."
+        elif [ -f /tmp/portal-embedding-arm.pid ] && kill -0 "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-embedding-arm.pid
+            echo "[portal-5] ARM64 embedding server stopped."
+        else
+            echo "[portal-5] Embedding server: not running (nothing to stop)."
+        fi
     fi
     ;;
   backup)
