@@ -1910,14 +1910,18 @@ async def S11() -> None:
         ("Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "auto-compliance", [
             "cippolicywriter", "nerccipcomplianceanalyst",
         ]),
-        # Group 4: Gemma 4 31B dense — serves both auto-research and auto-vision (3 personas,
-        # same MLX model loaded once; workspace routing selects the right system context).
+        # Group 4: Gemma 4 31B dense — serves auto-research with text prompts.
+        # auto-vision text-only prompts are rerouted by the pipeline to auto-reasoning
+        # (mlx_model_hint: Jackrong/MLX-Qwopus3.5-27B-v3-8bit), so pre-load Qwopus
+        # for the auto-vision persona group to avoid a cold-switch Ollama fallback.
         ("mlx-community/gemma-4-31b-it-4bit", "auto-research", ["gemmaresearchanalyst"]),
-        ("mlx-community/gemma-4-31b-it-4bit", "auto-vision", [
+        ("Jackrong/MLX-Qwopus3.5-27B-v3-8bit", "auto-vision", [
             "gemma4e4bvision", "gemma4jangvision",
         ]),
-        # Group 5: Phi-4 8bit → auto-documents (1 persona)
-        ("mlx-community/phi-4-8bit", "auto-documents", ["phi4specialist"]),
+        # Group 5: Phi-4 8bit — test directly via MLX proxy (not pipeline).
+        # auto-documents workspace uses [coding, general] backends (no mlx group),
+        # so the pipeline always routes it to Ollama. Direct proxy avoids this.
+        ("mlx-community/phi-4-8bit", None, ["phi4specialist"]),
         # Group 6: Magistral → auto-mistral (1 persona)
         ("lmstudio-community/Magistral-Small-2509-MLX-8bit", "auto-mistral", ["magistralstrategist"]),
         # Group 7: DeepSeek-R1-32B → auto-data (1 persona — Phi-4-reasoning-plus maps here
@@ -1936,6 +1940,7 @@ async def S11() -> None:
         model_gb = {
             "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 17,   # MoE 3B active ~17GB
             "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,  # 35B-A3B 8bit ~28GB
+            "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22,               # 27B 8bit ~22GB
             "mlx-community/gemma-4-31b-it-4bit": 18,
             "mlx-community/phi-4-8bit": 14,
             "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
