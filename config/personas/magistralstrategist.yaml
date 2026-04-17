@@ -1,7 +1,7 @@
 name: Magistral Strategist
 slug: magistralstrategist
 category: reasoning
-workspace_model: lmstudio-community/Magistral-Small-2509-MLX-8bit
+workspace_model: auto-mistral
 # Mistral Magistral-Small-2509 — 24B dedicated reasoning model
 # Built on Mistral-Small-3.2 with SFT from Magistral-Medium traces + RL
 # Uses [THINK]...[/THINK] reasoning traces (distinct from DeepSeek  style)

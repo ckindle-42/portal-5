@@ -1,7 +1,7 @@
 name: Phi-4 STEM Analyst
 slug: phi4stemanalyst
 category: data
-workspace_model: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
+workspace_model: auto-data
 # Microsoft Phi-4-reasoning-plus — 14B parameter dense model
 # RL-trained specifically for STEM reasoning — outperforms DeepSeek-R1-70B-distill on math
 # IFEval 63.0: avoid using for structured document formatting or strict output templates

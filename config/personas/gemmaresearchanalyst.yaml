@@ -1,7 +1,7 @@
 name: Gemma Research Analyst
 slug: gemmaresearchanalyst
 category: research
-workspace_model: mlx-community/gemma-4-31b-it-4bit
+workspace_model: auto-research
 # Google Gemma 4 31B dense — thinking mode, vision-capable
 # Routed via auto-vision (MLX hint) or auto-reasoning workspace
 # Different training lineage from all Qwen/DeepSeek personas in the stack

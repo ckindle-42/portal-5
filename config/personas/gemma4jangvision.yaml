@@ -1,7 +1,7 @@
 name: Gemma 4 JANG Unfiltered Vision
 slug: gemma4jangvision
 category: vision
-workspace_model: dealignai/Gemma-4-31B-JANG_4M-CRACK
+workspace_model: auto-vision
 # Abliterated Gemma 4 31B — JANG v2 5.1-bit quant (~23GB), 93.7% HarmBench compliance
 # Vision + text, 256K ctx, thinking mode. No refusal guardrails.
 # Use for: security research requiring visual analysis, unrestricted image analysis,
