@@ -38,7 +38,7 @@ Test Coverage (21 sections, ~300 tests):
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
     S22:     MLX Admission Control (P5-FUT-009) — memory-aware 503 rejection
-    S23:     Model diversity (GPT-OSS, Gemma 4 E4B, Phi-4, Magistral)
+    S23:     Model diversity availability checks (GPT-OSS, Gemma 4 E4B, Phi-4, Magistral)
     S30-S31: Image generation (ComfyUI/FLUX), video generation (Wan2.2)
     S40:     Metrics/monitoring (Prometheus, Grafana)
 
@@ -2352,7 +2352,11 @@ async def S22() -> None:
 
 
 async def S23() -> None:
-    """S23: New model diversity tests (GPT-OSS, Gemma 4, Phi-4)."""
+    """S23: Model diversity availability checks (GPT-OSS, Gemma 4, Phi-4, Magistral).
+
+    S23-02 removed — GPT-OSS chat is covered by S10's gptossanalyst persona test.
+    These checks verify model registration only (lightweight /v1/models queries).
+    """
     print("\n━━━ S23. MODEL DIVERSITY ━━━")
     sec = "S23"
 
@@ -2366,26 +2370,6 @@ async def S23() -> None:
         f"gpt-oss in models: {gpt_oss_available}",
         t0=t0,
     )
-
-    # S23-02: Test GPT-OSS reasoning (if available)
-    if gpt_oss_available:
-        t0 = time.time()
-        code, response, model = await _chat_with_model(
-            "auto-reasoning",
-            "What are the trade-offs between eventual consistency and strong consistency?",
-            max_tokens=300,
-            timeout=180,
-        )
-        signals = ["eventual", "strong", "consistency", "latency", "availability", "trade"]
-        found = [s for s in signals if s.lower() in response.lower()]
-        record(
-            sec, "S23-02", "GPT-OSS reasoning test",
-            "PASS" if found and code == 200 else "WARN",
-            f"signals: {found[:3]} | model: {model[:30]}",
-            t0=t0,
-        )
-    else:
-        record(sec, "S23-02", "GPT-OSS reasoning test", "INFO", "skipped (model not available)", t0=time.time())
 
     # S23-03: Gemma 4 E4B VLM available
     t0 = time.time()
