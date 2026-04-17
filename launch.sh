@@ -767,36 +767,43 @@ case "${1:-up}" in
 
     # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
     if [ "$(uname -m)" = "arm64" ]; then
-        _PID_FILE="/tmp/portal-embedding-arm.pid"
-        if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
-            echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
+        # If the launchd service is installed it manages the server — don't double-start.
+        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+            echo "[portal-5]   ✅ ARM64 embedding server managed by launchd (auto-restart on crash)"
         else
-            # Use a dedicated venv so packages don't collide with the project venv
-            # or the Homebrew-managed system Python (PEP 668).
-            _EM_VENV="${HOME}/.portal5/embedding-venv"
-            _EM_PY="${_EM_VENV}/bin/python3"
-            if [ ! -x "$_EM_PY" ]; then
-                python3 -m venv "$_EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$_EM_VENV"
-                "$_EM_PY" -m ensurepip --upgrade &>/dev/null || true
-            fi
-            if ! "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-                echo "[portal-5]   Installing ARM64 embedding server deps..."
-                "$_EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
-            fi
-            if "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
-                echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
-                _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
-                _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
-                _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
-                mkdir -p "$(dirname "$_EM_LOG")"
-                nohup "$_EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
-                    --model "$_EM_MODEL" \
-                    --port "$_EM_PORT" \
-                    > "$_EM_LOG" 2>&1 &
-                echo $! > "$_PID_FILE"
-                echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
+            _PID_FILE="/tmp/portal-embedding-arm.pid"
+            if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
+                echo "[portal-5]   ✅ ARM64 embedding server already running (PID $(cat "$_PID_FILE"))"
+                echo "[portal-5]   💡 Tip: run './launch.sh install-embedding-service' to start at login automatically"
             else
-                echo "[portal-5]   ⚠️  ARM64 embedding server deps install failed — skipping"
+                # Use a dedicated venv so packages don't collide with the project venv
+                # or the Homebrew-managed system Python (PEP 668).
+                _EM_VENV="${HOME}/.portal5/embedding-venv"
+                _EM_PY="${_EM_VENV}/bin/python3"
+                if [ ! -x "$_EM_PY" ]; then
+                    python3 -m venv "$_EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$_EM_VENV"
+                    "$_EM_PY" -m ensurepip --upgrade &>/dev/null || true
+                fi
+                if ! "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+                    echo "[portal-5]   Installing ARM64 embedding server deps..."
+                    "$_EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn 2>&1 | tail -1 || true
+                fi
+                if "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+                    echo "[portal-5]   Starting ARM64 native embedding server (port 8917)..."
+                    _EM_MODEL="${EMBEDDING_MODEL:-microsoft/harrier-oss-v1-0.6b}"
+                    _EM_PORT="${EMBEDDING_HOST_PORT:-8917}"
+                    _EM_LOG="${HOME}/.portal5/logs/embedding-server.log"
+                    mkdir -p "$(dirname "$_EM_LOG")"
+                    nohup "$_EM_PY" "$PORTAL_ROOT/scripts/embedding-server.py" \
+                        --model "$_EM_MODEL" \
+                        --port "$_EM_PORT" \
+                        > "$_EM_LOG" 2>&1 &
+                    echo $! > "$_PID_FILE"
+                    echo "[portal-5]   ✅ ARM64 embedding server started (PID $!)"
+                    echo "[portal-5]   💡 Tip: run './launch.sh install-embedding-service' to start at login automatically"
+                else
+                    echo "[portal-5]   ⚠️  ARM64 embedding server deps install failed — skipping"
+                fi
             fi
         fi
     fi
@@ -2891,6 +2898,107 @@ MLXPLIST
     fi
     ;;
 
+  install-embedding-service)
+    # Install a macOS launchd agent so the ARM64 embedding server starts at login
+    # and auto-restarts on crash — no dependency on launch.sh being run first.
+    if [ "$(uname)" != "Darwin" ]; then
+        echo "  ❌ launchd services are macOS-only"
+        exit 1
+    fi
+    if [ "$(uname -m)" != "arm64" ]; then
+        echo "  ℹ️  ARM64 embedding server is for Apple Silicon only."
+        echo "  On x86, the portal5-embedding Docker service (TEI) handles embeddings."
+        exit 0
+    fi
+
+    PLIST_DIR="${HOME}/Library/LaunchAgents"
+    PLIST_FILE="${PLIST_DIR}/com.portal5.embedding.plist"
+    LOG_DIR="${HOME}/.portal5/logs"
+    WRAPPER="${PORTAL_ROOT}/scripts/embedding-launchd-wrapper.sh"
+
+    mkdir -p "$PLIST_DIR" "$LOG_DIR"
+    chmod +x "$WRAPPER"
+
+    # Ensure venv + deps are installed before registering the service
+    _EM_VENV="${HOME}/.portal5/embedding-venv"
+    _EM_PY="${_EM_VENV}/bin/python3"
+    if [ ! -x "$_EM_PY" ]; then
+        echo "[portal-5] Creating embedding venv at $_EM_VENV..."
+        python3 -m venv "$_EM_VENV" --without-pip 2>/dev/null || python3 -m venv "$_EM_VENV"
+        "$_EM_PY" -m ensurepip --upgrade &>/dev/null || true
+    fi
+    if ! "$_EM_PY" -c "import sentence_transformers, fastapi, uvicorn" &>/dev/null 2>&1; then
+        echo "[portal-5] Installing embedding server deps..."
+        "$_EM_PY" -m pip install --quiet sentence-transformers fastapi uvicorn || {
+            echo "  ❌ Failed to install deps — aborting"
+            exit 1
+        }
+    fi
+
+    # Stop any existing nohup instance so there's no port conflict
+    _PID_FILE="/tmp/portal-embedding-arm.pid"
+    if [ -f "$_PID_FILE" ] && kill -0 "$(cat "$_PID_FILE")" 2>/dev/null; then
+        kill "$(cat "$_PID_FILE")" 2>/dev/null || true
+        rm -f "$_PID_FILE"
+        echo "[portal-5] Stopped existing nohup embedding instance"
+    fi
+
+    # Write the plist (paths must be absolute — launchd does not expand ~)
+    cat > "$PLIST_FILE" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.portal5.embedding</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${WRAPPER}</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>${LOG_DIR}/embedding-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG_DIR}/embedding-server-err.log</string>
+    <key>WorkingDirectory</key>
+    <string>${PORTAL_ROOT}</string>
+</dict>
+</plist>
+PLIST
+
+    # Unload any existing registration, then register the updated plist
+    launchctl bootout "gui/$(id -u)/com.portal5.embedding" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$PLIST_FILE"
+
+    echo "[portal-5] ✅ Embedding service installed and started"
+    echo "  Plist:    $PLIST_FILE"
+    echo "  Log:      ${LOG_DIR}/embedding-server.log"
+    echo "  Status:   launchctl list com.portal5.embedding"
+    echo "  Uninstall: ./launch.sh uninstall-embedding-service"
+    ;;
+
+  uninstall-embedding-service)
+    PLIST_FILE="${HOME}/Library/LaunchAgents/com.portal5.embedding.plist"
+    if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+        launchctl bootout "gui/$(id -u)/com.portal5.embedding" 2>/dev/null || true
+        echo "[portal-5] ✅ Embedding service stopped and unregistered"
+    else
+        launchctl bootout "gui/$(id -u)/com.portal5.embedding" 2>/dev/null || true
+    fi
+    if [ -f "$PLIST_FILE" ]; then
+        rm -f "$PLIST_FILE"
+        echo "[portal-5] Plist removed: $PLIST_FILE"
+    else
+        echo "[portal-5] ℹ️  No plist found at $PLIST_FILE"
+    fi
+    ;;
+
   stop-speech)
     PID_FILE="/tmp/portal-mlx-speech.pid"
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
@@ -3104,7 +3212,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3121,6 +3229,8 @@ MEOF
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-embedding-cpu-arm  Start native ARM64 embedding server (Apple Silicon, no Rosetta)"
     echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
+    echo "  install-embedding-service   Install launchd agent — embedding starts at login, auto-restarts on crash"
+    echo "  uninstall-embedding-service Remove launchd agent"
     echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
