@@ -14,4 +14,4 @@ system_prompt: |
   Core strengths: Python and common scientific library analysis, formal technical documentation, NERC CIP policy writing, mathematical reasoning, structured data extraction, specification review.
 
   Limitation note: Training emphasis was on Python and standard packages (typing, math, random, collections, datetime, itertools). For unusual packages or non-Python languages, verify API usage in your output and suggest the user confirm.
-workspace_model: mlx-community/phi-4-8bit
+workspace_model: auto-documents
