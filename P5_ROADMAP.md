@@ -27,6 +27,7 @@ genuinely open future work beyond the current stable release.
 | P5-FUT-010 | P2 | Abliterated Qwen3.5 Ollama upgrade | FUTURE | Replace `qwen3.5:9b` and `deepseek-r1:32b-q4_k_m` Ollama slots with `huihui_ai/qwen3.5-abliterated` variants (same trusted provider as existing baronllm-abliterated and tongyi-deepresearch-abliterated). Sizes: 9B for coding/documents, 35B-A3B for reasoning/compliance. Uncensored — 0 refusals on standard abliteration benchmarks. |
 | P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | FUTURE | Self-convert `huihui-ai/Huihui-Qwen3.5-35B-A3B-abliterated` to MLX via `mlx_lm.convert` for `auto-compliance` primary slot. Replaces Jackrong Claude-4.6-Opus distillation with native uncensored Qwen3.5 (vision, thinking mode, 262K context). Alternatively use `HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive` GGUF via Ollama as fallback. |
 | P5-FUT-012 | P3 | Speech pipeline upgrade (mlx-audio) | DONE | Host-native `scripts/mlx-speech.py` using mlx-audio. Qwen3-TTS (1.7B, 3 variants: CustomVoice, VoiceDesign, Base/Clone) + Qwen3-ASR (1.7B) + Kokoro (82M). Voice cloning from 3s audio, emotion control, voice design from text, 10 languages, streaming. Docker TTS/ASR kept as fallback. |
+| P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | FUTURE | Evaluate jundot/omlx (github.com/jundot/omlx, Apache 2.0) as replacement for scripts/mlx-proxy.py. Key benefits: continuous batching (up to 4.14x at 8x concurrency per their benchmarks), SSD KV cache persistence (TTFT 30-90s → 1-3s for repeated contexts), multi-model LRU eviction with pinning, native VLM + embedding + reranker support, OpenAI + Anthropic API compat, DFlash speculative decoding (experimental, Qwen3.5 only). Risks: Must preserve existing admission control (MODEL_MEMORY checks), VLM routing (VLM_MODELS set), big-model-mode orchestration (BIG_MODEL_SET eviction), and mlx-lm<0.31 version pin for qwen3_next architecture. OMLX uses its own mlx-lm fork — version compatibility requires investigation. Approach: Install OMLX alongside existing proxy on a separate port, benchmark same model set, compare TPS and switch latency. Do not replace mlx-proxy.py until parity is confirmed on all workspaces. |
 
 ---
 
@@ -89,6 +90,44 @@ evicting the current model.
 MLX_MEMORY_HEADROOM_GB=10
 MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 ```
+
+---
+
+### P5-FUT-013: OMLX Evaluation
+
+**NOT YET STARTED** — spike evaluation only, not a replacement commitment.
+
+**What OMLX offers** (validated from repo, v0.3.x as of 2026-04-20):
+- Continuous batching via mlx-lm BatchGenerator (configurable concurrency, default: 8)
+- Two-tier KV cache: hot (RAM) + cold (SSD, safetensors format), survives restarts
+- Multi-model serving: LLMs, VLMs, embeddings, rerankers in one process
+- LRU eviction + model pinning + per-model TTL + process memory enforcement
+- OpenAI /v1/chat/completions + Anthropic API compatible
+- Native macOS menu bar app (PyObjC, not Electron) OR CLI `omlx serve`
+- DFlash speculative decoding (experimental, 3-4x speedup on supported models)
+- mlx-audio integration: STT (Whisper, Qwen3-ASR), TTS (Qwen3-TTS, Kokoro)
+- Built-in admin dashboard with benchmarking
+
+**What Portal 5 would need to verify**:
+1. Can OMLX enforce the MODEL_MEMORY admission control checks?
+   - OMLX has `--max-model-memory` and `--max-process-memory` — may cover this
+2. Can OMLX replicate the VLM_MODELS routing (mlx_lm ↔ mlx_vlm auto-switch)?
+   - OMLX has VLMEngine with auto-detection — likely yes, needs testing
+3. Can OMLX handle BIG_MODEL_SET eviction (unload everything, load 46GB model)?
+   - OMLX has manual load/unload + LRU eviction — likely yes
+4. Does OMLX work with mlx-lm<0.31 pin (qwen3_next architecture)?
+   - OMLX uses its own mlx-lm fork — version compatibility unknown
+5. Does OMLX respect the 0.0.0.0 binding requirement for LAN access?
+   - CLI supports `--host 0.0.0.0` — yes
+6. Can OMLX integrate with existing Prometheus metrics?
+   - OMLX has persistent stats — may need a metrics bridge
+7. Does OMLX's mlx-audio subsystem overlap/conflict with mlx-speech.py?
+   - Both use Qwen3-TTS/Kokoro — potential consolidation opportunity
+
+**Evaluation approach**: Install OMLX on host alongside existing mlx-proxy on port 8000
+(proxy stays on 8081). Run the same bench_tps.py benchmark against both. Compare TPS,
+model switch latency, and memory behavior. If parity + improvement confirmed, plan
+migration as a separate task file.
 
 ---
 
