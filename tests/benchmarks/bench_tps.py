@@ -198,6 +198,7 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Qwen3-VL": "vision",
     "gemma-4-e4b": "vision",
     "gemma-4-26b": "vision",
+    "supergemma4-26b": "vision",   # Jiunsong abliterated Gemma 4 26B A4B MoE — multimodal VLM
     "JANG_4M-CRACK": "vision",  # dealignai abliterated Gemma 4 31B VLM
     "Phi-4-reasoning": "reasoning",
     "Llama-3.2-11B-Vision": "vision",
