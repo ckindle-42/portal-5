@@ -1372,7 +1372,7 @@ case "${1:-up}" in
                 "lmstudio-community/Magistral-Small-2509-MLX-8bit"
                 "mlx-community/Qwen3-VL-32B-Instruct-8bit"
                 "mlx-community/gemma-4-e4b-it-4bit"            # ~5GB — Gemma 4 E4B vision+audio (replaces LLaVA)
-                "mlx-community/gemma-4-26b-a4b-it-4bit"        # ~15GB — Gemma 4 26B A4B MoE research VLM
+                "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit"  # ~15GB — Gemma 4 26B A4B MoE abliterated VLM, uncensored
                 "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus STEM/math
                 # OCR (document ingestion)
                 "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
@@ -1631,6 +1631,11 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
                 filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
                 ollama_name="deepseek-r1:32b-q4_k_m"
                 ;;
+            Jiunsong/supergemma4-26b-uncensored-gguf-v2)
+                actual_repo="Jiunsong/supergemma4-26b-uncensored-gguf-v2"
+                filename="supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"
+                ollama_name="supergemma4-26b-uncensored:q4_k_m"
+                ;;
             cognitivecomputations/dolphin-3-llama3-70b-GGUF)
                 actual_repo="bartowski/dolphin-2.9.1-llama3-70b-GGUF"
                 filename="dolphin-2.9.1-llama3-70b-Q4_K_M.gguf"
@@ -1829,6 +1834,13 @@ except Exception:
                 filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
                 ollama_name="deepseek-r1:32b-q4_k_m"
                 ;;
+            Jiunsong/supergemma4-26b-uncensored-gguf-v2)
+                # Source: https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
+                # Gemma 4 26B A4B MoE uncensored, Q4_K_M, ~17GB
+                actual_repo="Jiunsong/supergemma4-26b-uncensored-gguf-v2"
+                filename="supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"
+                ollama_name="supergemma4-26b-uncensored:q4_k_m"
+                ;;
 
             # ── Heavy 70B models (PULL_HEAVY=true) ───────────────────────────
             cognitivecomputations/dolphin-3-llama3-70b-GGUF)
@@ -2006,6 +2018,7 @@ except Exception as e:
         # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "huihui_ai/tongyi-deepresearch-abliterated"
+        "hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2"   # ~17GB — Gemma 4 26B MoE uncensored, tool-use, Google lineage
         # ── Vision ───────────────────────────────────────────────────────
         "qwen3-vl:32b"
         "llava:7b"
@@ -2667,7 +2680,7 @@ MLXPLIST
         echo "    mlx-community/gemma-4-31b-it-4bit                 (~18GB — Google Gemma 4 dense 31B, thinking+vision)"
         echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
         echo "    mlx-community/gemma-4-e4b-it-4bit                 (~5GB — Gemma 4 E4B vision+audio fallback)"
-        echo "    mlx-community/gemma-4-26b-a4b-it-4bit            (~15GB — Gemma 4 26B A4B MoE, 256K ctx)"
+        echo "    Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit  (~15GB — Gemma 4 26B A4B MoE abliterated, uncensored)"
         echo "    mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit  (~7GB — uncensored VLM)"
         echo "    dealignai/Gemma-4-31B-JANG_4M-CRACK              (~23GB — abliterated Gemma 4 31B, uncensored VLM)"
         echo ""
@@ -3067,7 +3080,7 @@ PLIST
         # Vision
         "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
         "mlx-community/gemma-4-e4b-it-4bit"                # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
-        "mlx-community/gemma-4-26b-a4b-it-4bit"            # ~15GB — Gemma 4 26B A4B MoE VLM, 256K ctx
+        "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit"  # ~15GB — Gemma 4 26B A4B MoE abliterated VLM, 256K ctx, uncensored
         "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus, STEM/math RL-trained
         "dealignai/Gemma-4-31B-JANG_4M-CRACK"              # ~23GB — Abliterated Gemma 4 31B JANG v2 5.1-bit, uncensored VLM
         # OCR (document ingestion)

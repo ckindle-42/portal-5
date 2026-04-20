@@ -100,7 +100,7 @@ backends:
       - gpt-oss:20b                       # OpenAI open-weight MoE, o3-mini level, configurable thinking depth
       - dolphin-llama3:8b                 # Fast uncensored fallback
       - huihui_ai/tongyi-deepresearch-abliterated
-      - hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2  # Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage)
+      - supergemma4-26b-uncensored:q4_k_m  # Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage) — imported from hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
