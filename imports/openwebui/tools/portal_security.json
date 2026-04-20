@@ -1,0 +1,7 @@
+{
+  "id": "portal_security",
+  "name": "Portal Security Tools",
+  "description": "Vulnerability severity classification (CIRCL VLAI). Classifies CVE descriptions into low/medium/high/critical severity with confidence scores.",
+  "url": "http://portal5-mcp-security:8919",
+  "type": "mcp"
+}

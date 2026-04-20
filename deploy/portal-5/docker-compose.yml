@@ -439,6 +439,29 @@ services:
       retries: 3
     # NO docker.sock mount
 
+  # ── MCP: Security Tools (CVE severity classification) ──────────────────────
+  mcp-security:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-security
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SECURITY_HOST_PORT:-8919}:8919"
+    environment:
+      - SECURITY_MCP_PORT=8919
+      - MCP_PORT=8919
+      - HF_HOME=/app/data/hf_cache
+    command: ["python", "-m", "portal_mcp.security.security_mcp"]
+    volumes:
+      - security-hf-cache:/app/data/hf_cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8919/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+
   # ── MCP: ComfyUI Bridge (image/video via ComfyUI) ────────────────────────────
   mcp-comfyui:
     build:
@@ -688,3 +711,4 @@ volumes:
   prometheus-data:     # Prometheus metrics data
   grafana-data:        # Grafana dashboards/data
   pipeline-metrics-state:  # Persistent metrics state (JSON, survives restarts)
+  security-hf-cache:       # HuggingFace model cache for security MCP (CIRCL VLAI)

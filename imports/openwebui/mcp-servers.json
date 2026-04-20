@@ -8,7 +8,8 @@
     { "name": "Portal Documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
     { "name": "Portal Code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
     { "name": "Portal Whisper",   "url": "http://host.docker.internal:8915/mcp", "api_key": "" },
-    { "name": "Portal TTS",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" }
+    { "name": "Portal TTS",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" },
+    { "name": "Portal Security Tools", "url": "http://host.docker.internal:8919/mcp", "api_key": "" }
   ],
   "notes": {
     "macos": "host.docker.internal resolves automatically on macOS Docker Desktop",
