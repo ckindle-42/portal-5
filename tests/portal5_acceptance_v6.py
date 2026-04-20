@@ -126,6 +126,7 @@ MCP = {
     "whisper": int(os.environ.get("WHISPER_HOST_PORT", "8915")),
     "tts": int(os.environ.get("TTS_HOST_PORT", "8916")),
     "embedding": int(os.environ.get("EMBEDDING_HOST_PORT", "8917")),
+    "security": int(os.environ.get("SECURITY_HOST_PORT", "8919")),
 }
 
 # MLX Speech server (host-native)
@@ -634,7 +635,7 @@ _MLX_MODEL_FULL_PATHS = {
     "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
     "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
     "gemma-4-31b-it-4bit": "mlx-community/gemma-4-31b-it-4bit",
-    "gemma-4-26b-a4b-it-4bit": "mlx-community/gemma-4-26b-a4b-it-4bit",
+    "supergemma4-26b-abliterated-multimodal-mlx-4bit": "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",
     "Qwen3-VL-32B-Instruct-8bit": "mlx-community/Qwen3-VL-32B-Instruct-8bit",
 }
 
@@ -655,14 +656,14 @@ _MLX_MODEL_SIZES_GB = {
     "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34,
     "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18,
     "gemma-4-31b-it-4bit": 18,
-    "gemma-4-26b-a4b-it-4bit": 15,
+    "supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,
     "Qwen3-VL-32B-Instruct-8bit": 36,
 }
 
 # Known MLX org prefixes
 # MLX org prefixes — workspace_model values starting with these are raw HF paths
 # that Open WebUI can never resolve (pipeline only exposes workspace IDs).
-_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "unsloth/", "dealignai/"]
+_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "Jiunsong/", "unsloth/", "dealignai/"]
 
 # Mapping from MLX model hint (HF path) → pipeline workspace name.
 # All persona YAMLs now use workspace IDs directly; this dict is used by S11
@@ -674,8 +675,8 @@ _MLX_MODEL_TO_WORKSPACE: dict[str, str] = {
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": "auto-creative",
     "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": "auto-reasoning",
     "mlx-community/phi-4-8bit": "auto-documents",
-    "mlx-community/gemma-4-31b-it-4bit": "auto-research",
-    "mlx-community/gemma-4-31b-it-4bit": "auto-vision",   # same model serves both
+    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": "auto-research",  # Task 4: rerouted from 31B dense to 26B MoE abliterated (~35 vs ~20 TPS)
+    "mlx-community/gemma-4-31b-it-4bit": "auto-vision",
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "auto-data",
     "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "auto-compliance",
     "lmstudio-community/Magistral-Small-2509-MLX-8bit": "auto-mistral",
@@ -1190,19 +1191,21 @@ async def S1() -> None:
         # VLM_MODELS section appears before ALL_MODELS in the proxy source
         if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
             vlm_section = proxy_src[proxy_src.index("VLM_MODELS"):proxy_src.index("ALL_MODELS")]
-            # Gemma 4 31B dense, E4B, and JANG must be in VLM_MODELS (require mlx_vlm)
+            # Gemma 4 31B dense, E4B, JANG, and abliterated 26B MoE must be in VLM_MODELS (require mlx_vlm)
             gemma_31b_vlm = "gemma-4-31b-it-4bit" in vlm_section
             gemma_e4b_vlm = "gemma-4-e4b-it-4bit" in vlm_section
             gemma_31b_all = "mlx-community/gemma-4-31b-it-4bit" in proxy_src
             jang_vlm = "Gemma-4-31B-JANG_4M-CRACK" in vlm_section
             jang_all = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in proxy_src
-            all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all and jang_vlm and jang_all
+            gemma_26b_abl_vlm = "supergemma4-26b-abliterated-multimodal-mlx-4bit" in vlm_section
+            gemma_26b_abl_all = "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in proxy_src
+            all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all and jang_vlm and jang_all and gemma_26b_abl_vlm and gemma_26b_abl_all
             record(
                 sec, "S1-08",
                 "MLX routing: VLM models in VLM_MODELS (mlx_vlm backend)",
                 "PASS" if all_ok else "FAIL",
-                "✓ Gemma 4 31B + E4B + JANG in VLM_MODELS" if all_ok
-                else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all}",
+                "✓ Gemma 4 31B + E4B + JANG + 26B-abl in VLM_MODELS" if all_ok
+                else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all} 26b_abl_vlm={gemma_26b_abl_vlm} 26b_abl_all={gemma_26b_abl_all}",
                 t0=t0,
             )
         else:
@@ -1320,7 +1323,7 @@ async def S2() -> None:
     code, _ = await _get(f"{GRAFANA_URL}/api/health")
     record(sec, "S2-07", "Grafana", "PASS" if code == 200 else "WARN", f"HTTP {code}", t0=t0)
 
-    # S2-08 to S2-14: MCP services
+    # S2-08 to S2-15: MCP services
     mcp_services = [
         ("S2-08", "documents", MCP["documents"]),
         ("S2-09", "music", MCP["music"]),
@@ -1329,6 +1332,7 @@ async def S2() -> None:
         ("S2-12", "sandbox", MCP["sandbox"]),
         ("S2-13", "video", MCP["video"]),
         ("S2-14", "embedding", MCP["embedding"]),
+        ("S2-15", "security", MCP["security"]),
     ]
     for tid, name, port in mcp_services:
         t0 = time.time()
@@ -1340,21 +1344,21 @@ async def S2() -> None:
             t0=t0,
         )
 
-    # S2-15: MLX proxy health
+    # S2-16: MLX proxy health
     t0 = time.time()
     state, data = await _mlx_health()
     record(
-        sec, "S2-15", "MLX proxy",
+        sec, "S2-16", "MLX proxy",
         "PASS" if state in ("ready", "none", "switching") else "INFO",
         f"state={state}",
         t0=t0,
     )
 
-    # S2-16: MLX Speech health
+    # S2-17: MLX Speech health
     t0 = time.time()
     code, _ = await _get(f"{MLX_SPEECH_URL}/health", timeout=5)
     record(
-        sec, "S2-16", "MLX Speech",
+        sec, "S2-17", "MLX Speech",
         "PASS" if code == 200 else "INFO",
         f"HTTP {code}" if code else "not running (optional)",
         t0=t0,
@@ -1910,11 +1914,12 @@ async def S11() -> None:
         ("Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "auto-compliance", [
             "cippolicywriter", "nerccipcomplianceanalyst",
         ]),
-        # Group 4: Gemma 4 31B dense — serves auto-research with text prompts.
+        # Group 4a: Abliterated 26B MoE → auto-research (Task 4: rerouted for ~35 vs ~20 TPS)
+        ("Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit", "auto-research", ["gemmaresearchanalyst"]),
+        # Group 4b: Gemma 4 31B dense → auto-vision (unchanged — dense attention for complex visual reasoning)
         # auto-vision text-only prompts are rerouted by the pipeline to auto-reasoning
         # (mlx_model_hint: Jackrong/MLX-Qwopus3.5-27B-v3-8bit), so pre-load Qwopus
         # for the auto-vision persona group to avoid a cold-switch Ollama fallback.
-        ("mlx-community/gemma-4-31b-it-4bit", "auto-research", ["gemmaresearchanalyst"]),
         ("Jackrong/MLX-Qwopus3.5-27B-v3-8bit", "auto-vision", [
             "gemma4e4bvision", "gemma4jangvision",
         ]),
@@ -1942,6 +1947,7 @@ async def S11() -> None:
             "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,  # 35B-A3B 8bit ~28GB
             "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22,               # 27B 8bit ~22GB
             "mlx-community/gemma-4-31b-it-4bit": 18,
+            "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,  # 26B MoE abliterated ~15GB
             "mlx-community/phi-4-8bit": 14,
             "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
             "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,

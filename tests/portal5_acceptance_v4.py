@@ -401,6 +401,7 @@ MCP = {
     "sandbox": int(os.environ.get("SANDBOX_HOST_PORT", "8914")),
     "video": int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911")),
     "embedding": int(os.environ.get("EMBEDDING_HOST_PORT", "8917")),
+    "security": int(os.environ.get("SECURITY_HOST_PORT", "8919")),
 }
 
 # MLX Speech server (host-native, replaces Docker TTS/ASR on Apple Silicon)
@@ -953,6 +954,7 @@ async def S17() -> None:
         "mcp-whisper": "portal5-mcp-whisper",
         "mcp-sandbox": "portal5-mcp-sandbox",
         "mcp-video": "portal5-mcp-video",
+        "mcp-security": "portal5-mcp-security",
     }
     stale_images: list[str] = []
     image_details: list[str] = []
@@ -1090,6 +1092,7 @@ async def S17() -> None:
         ("mcp-whisper", f"http://localhost:{MCP['whisper']}/health"),
         ("mcp-sandbox", f"http://localhost:{MCP['sandbox']}/health"),
         ("mcp-video", f"http://localhost:{MCP['video']}/health"),
+        ("mcp-security", f"http://localhost:{MCP['security']}/health"),
     ]
     needs_restart: list[str] = []
     async with httpx.AsyncClient(timeout=6) as c:
@@ -1810,6 +1813,7 @@ async def S2() -> None:
         ("MCP TTS", f"http://localhost:{MCP['tts']}/health", {}),
         ("MCP Whisper", f"http://localhost:{MCP['whisper']}/health", {}),
         ("MCP Video", f"http://localhost:{MCP['video']}/health", {}),
+        ("MCP Security", f"http://localhost:{MCP['security']}/health", {}),
         ("Prometheus", f"{PROMETHEUS_URL}/-/ready", {}),
     ]
 
@@ -7651,7 +7655,7 @@ async def _workspace_fallback_test(
         # Ollama models use colon notation (e.g. dolphin-llama3:8b) OR slash notation
         # for HF imports (e.g. huihui_ai/baronllm-abliterated). MLX models also use
         # slash but are identified by known MLX org prefixes.
-        _MLX_ORGS = ("mlx-community/", "lmstudio-community/", "Jackrong/")
+        _MLX_ORGS = ("mlx-community/", "lmstudio-community/", "Jackrong/", "Jiunsong/")
         is_ollama = ":" in model_fallback or (
             "/" in model_fallback and not any(model_fallback.startswith(p) for p in _MLX_ORGS)
         )
