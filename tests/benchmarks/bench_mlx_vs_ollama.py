@@ -192,7 +192,6 @@ def _bench_openai_endpoint(
 
 def _bench_ollama(model: str, prompt: str, label: str, timeout: float = 180.0) -> dict | None:
     """Benchmark Ollama via its native /api/generate endpoint (no OpenAI shim)."""
-    import json as _json
     payload = {"model": model, "prompt": prompt, "stream": False, "options": {"num_predict": 200}}
     t0 = time.perf_counter()
     try:
@@ -330,7 +329,7 @@ def run_workspace_sweep(runs: int, only_workspace: str | None = None) -> None:
                 avg = sum(r["tokens_per_sec"] for r in mlx_ws) / len(mlx_ws)
                 print(f"  → MLX avg: {avg:.1f} t/s over {len(mlx_ws)} run(s)")
         elif mlx_model:
-            print(f"  Primary   (MLX): SKIPPED (proxy not available)")
+            print("  Primary   (MLX): SKIPPED (proxy not available)")
 
         # Counterpart path: Ollama fallback
         if ollama_model and ollama_available:
@@ -346,7 +345,7 @@ def run_workspace_sweep(runs: int, only_workspace: str | None = None) -> None:
                 avg = sum(r["tokens_per_sec"] for r in ol_ws) / len(ol_ws)
                 print(f"  → Ollama avg: {avg:.1f} t/s over {len(ol_ws)} run(s)")
         elif ollama_model:
-            print(f"  Counterpart (Ollama): SKIPPED (Ollama not available)")
+            print("  Counterpart (Ollama): SKIPPED (Ollama not available)")
 
         # Speed delta for this workspace
         mlx_ws = [r for r in ws_results if "/mlx" in r["label"]]

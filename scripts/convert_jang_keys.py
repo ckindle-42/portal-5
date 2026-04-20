@@ -50,7 +50,7 @@ def convert_file(path: str) -> None:
     # Check if already converted
     sample = next((k for k in header if k != "__metadata__"), None)
     if sample and not sample.startswith("model."):
-        print(f"    Already converted, skipping.")
+        print("    Already converted, skipping.")
         return
 
     new_header = {remap_key(k): v for k, v in header.items()}
@@ -91,7 +91,7 @@ def main() -> None:
     # Also remap model.safetensors.index.json if present
     index_path = os.path.join(snap, "model.safetensors.index.json")
     if os.path.exists(index_path):
-        print(f"\n  Updating index: model.safetensors.index.json")
+        print("\n  Updating index: model.safetensors.index.json")
         with open(index_path) as f:
             index = json.load(f)
         old_map = index.get("weight_map", {})
@@ -116,16 +116,16 @@ def main() -> None:
     #   causing shape mismatches on every attention/MLP projection.
     cfg_path = os.path.join(snap, "config.json")
     if os.path.exists(cfg_path):
-        print(f"\n  Patching config.json")
+        print("\n  Patching config.json")
         with open(cfg_path) as f:
             cfg = json.load(f)
         changed = False
         if cfg.get("audio_config") is not None:
             cfg["audio_config"] = None
             changed = True
-            print(f"    audio_config set to null")
+            print("    audio_config set to null")
         else:
-            print(f"    audio_config already null")
+            print("    audio_config already null")
         q = cfg.get("quantization", {})
         # Fix 2b: mixed-precision — attention layers use 8-bit packing (pack_factor=4),
         # embed/MLP use 4-bit (pack_factor=8). Set default bits=4 and add override.
@@ -134,17 +134,17 @@ def main() -> None:
             changed = True
             print(f"    quantization.bits: {q.get('bits')} -> 4 (embed/MLP)")
         else:
-            print(f"    quantization.bits already 4")
+            print("    quantization.bits already 4")
         if cfg.get("quantization_bits_per_layer_type", {}).get("self_attn") != 8:
             cfg["quantization_bits_per_layer_type"] = {"self_attn": 8}
             changed = True
-            print(f"    quantization_bits_per_layer_type: {{self_attn: 8}} (attention override)")
+            print("    quantization_bits_per_layer_type: {self_attn: 8} (attention override)")
         else:
-            print(f"    quantization_bits_per_layer_type already set")
+            print("    quantization_bits_per_layer_type already set")
         if changed:
             with open(cfg_path, "w") as f:
                 json.dump(cfg, f, indent=2)
-            print(f"    Written.")
+            print("    Written.")
 
     print("\nConversion complete.")
 
