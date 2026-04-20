@@ -45,7 +45,7 @@ VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
     "gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; text+vision+audio, 128K ctx, ~5GB
-    "gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, ~15GB
+    "supergemma4-26b-abliterated-multimodal-mlx-4bit",  # Gemma 4 26B A4B MoE abliterated — vision, 256K ctx, uncensored ~15GB
     "GLM-OCR-bf16",  # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
     "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
     "Gemma-4-31B-JANG_4M-CRACK",  # Abliterated Gemma 4 31B, JANG v2 quant (~23GB) — uncensored VLM
@@ -80,7 +80,7 @@ ALL_MODELS = [
     "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
     "mlx-community/gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; vision+audio, 128K ctx (~5GB)
-    "mlx-community/gemma-4-26b-a4b-it-4bit",  # Gemma 4 26B A4B MoE — vision, 256K ctx, #6 LMArena (~15GB)
+    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",  # Gemma 4 26B A4B MoE abliterated — vision, 256K ctx, uncensored (~15GB)
     "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",  # Phi-4-reasoning-plus — STEM/math, RL-trained, ~7GB (Microsoft)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM 11B 4bit (~7GB, Karakeep)
     "dealignai/Gemma-4-31B-JANG_4M-CRACK",  # Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB) — uncensored vision
@@ -143,7 +143,7 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
     "mlx-community/gemma-4-e4b-it-4bit": 5.0,  # Gemma 4 E4B mlx-community 4bit (~5GB) — vision+audio
-    "mlx-community/gemma-4-26b-a4b-it-4bit": 15.0,  # Gemma 4 26B A4B MoE 4bit (~15GB)
+    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15.0,  # Gemma 4 26B A4B MoE abliterated 4bit (~15GB)
     "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
     "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23.0,  # Abliterated Gemma 4 31B JANG v2 5.1-bit (~22.7GB)
 }
