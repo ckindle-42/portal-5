@@ -185,6 +185,7 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Qwen3-Coder": "coding",
     "DeepSeek-Coder": "coding",
     "Dolphin": "creative",
+    "hermes3": "creative",
     "Llama-3.2-3B": "general",
     "phi-4": "reasoning",
     "Magistral": "reasoning",

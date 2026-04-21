@@ -97,7 +97,7 @@ backends:
     group: reasoning
     models:
       - deepseek-r1:32b-q4_k_m           # Primary: strong reasoning + chain-of-thought
-      - gpt-oss:20b                       # OpenAI open-weight MoE, o3-mini level, configurable thinking depth
+      - gpt-oss:20b                       # ~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth
       - dolphin-llama3:8b                 # Fast uncensored fallback
       - huihui_ai/tongyi-deepresearch-abliterated
       - supergemma4-26b-uncensored:q4_k_m  # Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage) — imported from hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
