@@ -53,6 +53,11 @@ All 17 workspaces with content-aware routing validation:
 - Lily-Cybersecurity for blueteam
 - Content-aware routing keywords
 
+### Security MCP Tools (Section S16)
+- classify_vulnerability via CIRCL VulnAI API
+- Severity classification (high/critical, low/medium)
+- Probability and confidence scores returned
+
 ### Music Generation (Section S7)
 - MusicGen health check
 - Audio generation (WAV output)
@@ -68,7 +73,30 @@ All 17 workspaces with content-aware routing validation:
 - Round-trip TTS→ASR validation
 
 ### Personas (Sections S10-S11)
-All 46 personas across 8 categories:
+All 47 personas across 11 categories. Tests are grouped by **model, not category**,
+to prevent model swapping timeouts on 64GB unified memory:
+
+**S10 — Ollama personas (34 personas, 8 model groups):**
+- `qwen3-coder-next:30b-q5` → 17 personas (all development + systems)
+- `deepseek-r1:32b-q4_k_m` → 8 personas (all data + research)
+- `dolphin-llama3:8b` → 5 personas (writing + general)
+- `xploiter/the-xploiter` → 2 (cybersecurityspecialist, networkengineer)
+- `baronllm:q6_k` → 1 (redteamoperator)
+- `lily-cybersecurity:7b-q4_k_m` → 1 (blueteamdefender)
+- `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0` → 1 (pentester)
+- `gpt-oss:20b` → 1 (gptossanalyst)
+
+**S11 — MLX personas (13 personas, 8 model groups):**
+- Devstral-Small-2507 → auto-coding (fullstacksoftwaredeveloper, ux-uideveloper)
+- Qwen3-Coder-30B → auto-spl (splunksplgineer)
+- Qwen3.5-35B compliance → auto-compliance (cippolicywriter, nerccipcomplianceanalyst)
+- supergemma4-26b abliterated → auto-research (gemmaresearchanalyst, supergemma4researcher)
+- Qwopus3.5-27B → auto-vision (gemma4e4bvision, gemma4jangvision)
+- phi-4-8bit → direct MLX proxy (phi4specialist)
+- Magistral-Small → auto-mistral (magistralstrategist)
+- DeepSeek-R1-32B → auto-data (phi4stemanalyst)
+
+Personas by category:
 - Development (17): bugdiscoverycodeassistant, codereviewassistant, codereviewer,
   devopsautomator, devopsengineer, ethereumdeveloper, fullstacksoftwaredeveloper,
   githubexpert, javascriptconsole, kubernetesdockerrpglearningengine, 
@@ -79,12 +107,14 @@ All 46 personas across 8 categories:
   blueteamdefender, pentester, splunksplgineer
 - Data (7): dataanalyst, datascientist, machinelearningengineer, statistician,
   itarchitect, researchanalyst, excelsheet
+- Research (2): gemmaresearchanalyst, supergemma4researcher
 - Compliance (2): nerccipcomplianceanalyst, cippolicywriter
 - Systems (2): linuxterminal, sqlterminal
 - General (2): itexpert, techreviewer
-- Writing (2): creativewriter, techwriter
-- Reasoning (6): magistralstrategist, gemmaresearchanalyst, phi4stemanalyst,
-  phi4specialist, gptossanalyst, gemma4e4bvision
+- Writing (3): creativewriter, techwriter, hermes3writer
+- Reasoning (4): magistralstrategist, phi4stemanalyst,
+  phi4specialist, gptossanalyst
+- Vision (2): gemma4e4bvision, gemma4jangvision
 
 ### Web Search (Section S12)
 - SearXNG health
@@ -177,7 +207,7 @@ curl -s http://localhost:9099/health | python3 -m json.tool
 
 Verify MCP services are running:
 ```bash
-for port in 8910 8911 8912 8913 8914 8915 8916 8917 8918; do
+for port in 8910 8911 8912 8913 8914 8915 8916 8917 8918 8919; do
   curl -s --max-time 3 http://localhost:$port/health && echo " :$port OK" || echo " :$port DOWN"
 done
 ```
@@ -442,6 +472,10 @@ Produce these files in the repo root:
 **Result:** PASS — 155 PASS / 1 INFO / 0 FAIL / 0 BLOCKED / 0 WARN  
 **Runtime:** 51m 28s (full suite, all 22 sections)
 
+**Note:** Since this run, 3 persona-routing commits landed (`18afb98`, `1cc424a`, `1189204`)
+that fixed 30 broken persona `workspace_model` values. The execute document and test file
+have been updated to reflect these changes. A fresh run is recommended.
+
 ---
 
 ## Quick Reference: Common Issues
@@ -477,17 +511,18 @@ Produce these files in the repo root:
 | Section | Description | Expected Tests |
 |---------|-------------|----------------|
 | S0 | Prerequisites | 5 |
-| S1 | Config consistency | 7 |
-| S2 | Service health | 16 |
+| S1 | Config consistency | 10 |
+| S2 | Service health | 17 |
 | S3 | Workspace routing | 17 |
 | S4 | Document generation | 4 |
 | S5 | Code sandbox | 3 |
 | S6 | Security workspaces | 4 |
+| S16 | Security MCP tools (classify_vulnerability) | 4 |
 | S7 | Music generation | 2 |
 | S8 | Text-to-Speech | 2 |
 | S9 | Speech-to-Text | 2 |
-| S10 | Personas (Ollama) | 7+ |
-| S11 | Personas (MLX) | 4+ |
+| S10 | Personas (Ollama) | 34+ |
+| S11 | Personas (MLX) | 13+ |
 | S12 | Web search | 1 |
 | S13 | RAG/Embedding | 2 |
 | S20 | MLX acceleration | 3 |
@@ -498,8 +533,8 @@ Produce these files in the repo root:
 | S31 | Video generation | 1 |
 | S40 | Metrics/Monitoring | 3 |
 
-**Total expected:** ~100+ core tests (persona tests scale with persona count)
+**Total expected:** ~150+ tests (47 persona tests + ~100 infrastructure/routing/MCP tests)
 
 ---
 
-*Last updated: 2026-04-10*
+*Last updated: 2026-04-20*
