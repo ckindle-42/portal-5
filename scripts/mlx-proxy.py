@@ -727,11 +727,19 @@ def start_server(stype: str, model: str = "") -> int:
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
     if model:
         cmd.extend(["--model", model])
-    # KV cache quantization: compresses attention cache from float16 → int8, freeing
-    # 2-4GB of unified memory on 32B models with negligible quality impact at chat
-    # lengths (<8K tokens).  Applied to mlx_lm only — mlx_vlm does not support this flag.
+    # KV cache quantization (int8) saves 2-4GB on 32B models but requires mlx_lm ≥ 0.22.
+    # Check support at runtime to avoid crashing on older installs.
     if stype == "lm":
-        cmd.extend(["--kv-cache-quantization", "int8"])
+        import subprocess as _sp
+        help_out = _sp.run(
+            ["python3", "-m", "mlx_lm.server", "--help"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout + _sp.run(
+            ["python3", "-m", "mlx_lm.server", "--help"],
+            capture_output=True, text=True, timeout=10,
+        ).stderr
+        if "--kv-cache-quantization" in help_out:
+            cmd.extend(["--kv-cache-quantization", "int8"])
 
     # Ensure log directory exists
     os.makedirs(_server_log_dir, exist_ok=True)

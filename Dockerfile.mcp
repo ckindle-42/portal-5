@@ -68,6 +68,7 @@ COPY portal_channels/ ./portal_channels/
 
 # Run as non-root user
 RUN groupadd -r portal && useradd -r -g portal portal \
+    && mkdir -p /app/data/hf_cache \
     && chown -R portal:portal /app
 USER portal
 

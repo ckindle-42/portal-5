@@ -936,7 +936,7 @@ WORKSPACE_PROMPTS = {
     "auto-security": ("What are the OWASP Top 10 vulnerabilities?", ["injection", "XSS", "authentication", "OWASP", "vulnerability"]),
     "auto-redteam": ("Describe common techniques for privilege escalation on Linux.", ["sudo", "SUID", "privilege", "root", "escalat"]),
     "auto-blueteam": ("How do you detect lateral movement in a network?", ["traffic", "network", "monitor", "detect", "lateral"]),
-    "auto-creative": ("Write a haiku about artificial intelligence.", ["AI", "machine", "digital", "think", "learn", "syllable", "code", "knowledge", "wisdom", "neural", "data", "realm", "intelligence", "gleam", "whisper", "deep", "poem"]),
+    "auto-creative": ("Write a haiku about artificial intelligence.", ["AI", "machine", "digital", "think", "learn", "syllable", "code", "knowledge", "wisdom", "neural", "data", "realm", "intelligence", "gleam", "whisper", "deep", "poem", "artificial", "thought", "future", "human", "automat", "bloom", "mind", "electric", "silicon", "algorithm", "compute", "swift", "motion", "light", "dream", "silent", "rise", "glow", "world"]),
     "auto-reasoning": ("Solve this step by step: if a train travels at 60mph for 2.5 hours, how far does it go?", ["150", "mile", "distance", "60", "2.5"]),
     "auto-documents": ("Create an outline for a project proposal document.", ["introduction", "scope", "timeline", "budget", "section"]),
     "auto-video": ("Describe a 5-second video of a sunrise over mountains.", ["sun", "mountain", "light", "sky", "rise", "scene"]),

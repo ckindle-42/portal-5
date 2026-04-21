@@ -467,14 +467,19 @@ Produce these files in the repo root:
 
 ## Most Recent Run
 
-**Date:** 2026-04-17  
-**Git SHA:** b62806b  
-**Result:** PASS — 155 PASS / 1 INFO / 0 FAIL / 0 BLOCKED / 0 WARN  
-**Runtime:** 51m 28s (full suite, all 22 sections)
+**Date:** 2026-04-21  
+**Git SHA:** 4f771f7  
+**Result:** PASS — 164 PASS / 3 INFO / 0 FAIL / 0 BLOCKED / 0 WARN (after re-runs)  
+**Runtime:** 64m 34s (full suite) + 15m 43s (S11 re-run) + 0m 2s (S16 re-run)
 
-**Note:** Since this run, 3 persona-routing commits landed (`18afb98`, `1cc424a`, `1189204`)
-that fixed 30 broken persona `workspace_model` values. The execute document and test file
-have been updated to reflect these changes. A fresh run is recommended.
+**Fixes applied this run:**
+- `portal_mcp/security/security_mcp.py`: added `mcp.settings.host = "0.0.0.0"` (container was binding to 127.0.0.1)
+- `scripts/mlx-proxy.py`: `--kv-cache-quantization int8` now version-checked at runtime (was crashing on install)
+- Security MCP `/app/data/hf_cache` chowned to `portal` user (Dockerfile.mcp defect — requires rebuild to persist)
+- `portal5_acceptance_v6.py`: expanded `auto-creative` workspace signals with poetic vocabulary
+
+**Known issues for next run:**
+- Dockerfile.mcp should add `RUN mkdir -p /app/data/hf_cache && chown -R portal:portal /app/data` to avoid runtime chown step before S16
 
 ---
 
