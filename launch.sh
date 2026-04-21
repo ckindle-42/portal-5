@@ -322,6 +322,96 @@ _ensure_native_services() {
     fi
 }
 
+# ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
+_do_down() {
+    # ── Stop Docker stack ─────────────────────────────────────────────────
+    cd "$COMPOSE_DIR"
+    docker compose down
+    echo "[portal-5] Docker stack stopped."
+
+    # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
+    # These run outside Docker and must be stopped explicitly.
+    # Uses launchctl if the service is registered, falls back to pkill.
+    if [ "$(uname -s)" = "Darwin" ]; then
+        # MLX proxy (:8081) + underlying servers (:18081, :18082)
+        if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
+            launchctl stop com.portal5.mlx-proxy 2>/dev/null || true
+            echo "[portal-5] MLX proxy service stopped (launchd)."
+        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
+            pkill -f "mlx-proxy" 2>/dev/null || true
+            pkill -f "mlx_lm.server" 2>/dev/null || true
+            pkill -f "mlx_vlm.server" 2>/dev/null || true
+            echo "[portal-5] MLX processes stopped (pkill)."
+        else
+            echo "[portal-5] MLX proxy: not running (nothing to stop)."
+        fi
+
+        # Remove stale single-server plist if present
+        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
+            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
+            echo "[portal-5] Removed stale com.portal5.mlx plist."
+        fi
+
+        # ComfyUI (:8188)
+        if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
+            launchctl stop com.portal5.comfyui 2>/dev/null || true
+            echo "[portal-5] ComfyUI service stopped (launchd)."
+        elif pgrep -f "comfyui|ComfyUI|main.py.*comfy" &>/dev/null 2>&1; then
+            pkill -f "comfyui|ComfyUI|main.py.*comfy" 2>/dev/null || true
+            echo "[portal-5] ComfyUI process stopped (pkill)."
+        else
+            echo "[portal-5] ComfyUI: not running (nothing to stop)."
+        fi
+
+        # Music MCP (:8912)
+        if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
+            launchctl stop com.portal5.music-mcp 2>/dev/null || true
+            echo "[portal-5] Music MCP service stopped (launchd)."
+        elif [ -f /tmp/music-mcp.pid ] && kill -0 "$(cat /tmp/music-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/music-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/music-mcp.pid
+            echo "[portal-5] Music MCP process stopped."
+        elif pgrep -f "music_mcp|music-mcp" &>/dev/null 2>&1; then
+            pkill -f "music_mcp|music-mcp" 2>/dev/null || true
+            echo "[portal-5] Music MCP process stopped (pkill)."
+        else
+            echo "[portal-5] Music MCP: not running (nothing to stop)."
+        fi
+
+        # MLX Watchdog
+        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null || true
+            rm -f /tmp/mlx-watchdog.pid
+            echo "[portal-5] MLX watchdog stopped."
+        else
+            echo "[portal-5] MLX watchdog: not running (nothing to stop)."
+        fi
+
+        # MLX Speech (:8918)
+        if [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-mlx-speech.pid
+            echo "[portal-5] MLX Speech stopped."
+        else
+            echo "[portal-5] MLX Speech: not running (nothing to stop)."
+        fi
+
+        # ARM64 embedding server (:8917)
+        # launchd-managed: leave the service running (it manages its own lifecycle),
+        # just print a note so the operator knows it's still up.
+        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+            echo "[portal-5] Embedding server: still running (launchd-managed — use './launch.sh uninstall-embedding-service' to stop permanently)."
+        elif [ -f /tmp/portal-embedding-arm.pid ] && kill -0 "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-embedding-arm.pid
+            echo "[portal-5] ARM64 embedding server stopped."
+        else
+            echo "[portal-5] Embedding server: not running (nothing to stop)."
+        fi
+    fi
+}
+
 # ── Port pre-flight check ───────────────────────────────────────────────────
 _check_ports() {
     echo "[portal-5] Checking for port conflicts..."
@@ -381,7 +471,13 @@ _check_ports() {
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
     _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
-    _port_check "${EMBEDDING_HOST_PORT:-8917}"  "MCP Embedding"
+    # On ARM64 the native embedding server is launchd-managed and intentionally
+    # owns this port — skip the conflict check when it's our own service.
+    if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+        echo "  ✅ Port ${EMBEDDING_HOST_PORT:-8917} (MCP Embedding) — launchd-managed native server"
+    else
+        _port_check "${EMBEDDING_HOST_PORT:-8917}"  "MCP Embedding"
+    fi
     _port_check "${SECURITY_HOST_PORT:-8919}"   "MCP Security"
 
     # MLX proxy (port 8081) — only check if installed
@@ -691,6 +787,15 @@ case "${1:-up}" in
 
     # Generate any secrets still set to CHANGEME
     bootstrap_secrets "$ENV_FILE"
+
+    # Tear down any previously running stack so ports are clean before we start
+    echo "[portal-5] Stopping any existing Portal 5 services..."
+    _do_down
+
+    # Pull latest Docker images before bringing the stack up
+    echo "[portal-5] Pulling latest Docker images..."
+    cd "$COMPOSE_DIR"
+    docker compose pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services
@@ -1041,92 +1146,7 @@ case "${1:-up}" in
     docker system df
     ;;
   down)
-    # ── Stop Docker stack ─────────────────────────────────────────────────
-    cd "$COMPOSE_DIR"
-    docker compose down
-    echo "[portal-5] Docker stack stopped."
-
-    # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
-    # These run outside Docker and must be stopped explicitly.
-    # Uses launchctl if the service is registered, falls back to pkill.
-    if [ "$(uname -s)" = "Darwin" ]; then
-        # MLX proxy (:8081) + underlying servers (:18081, :18082)
-        if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
-            launchctl stop com.portal5.mlx-proxy 2>/dev/null || true
-            echo "[portal-5] MLX proxy service stopped (launchd)."
-        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
-            pkill -f "mlx-proxy" 2>/dev/null || true
-            pkill -f "mlx_lm.server" 2>/dev/null || true
-            pkill -f "mlx_vlm.server" 2>/dev/null || true
-            echo "[portal-5] MLX processes stopped (pkill)."
-        else
-            echo "[portal-5] MLX proxy: not running (nothing to stop)."
-        fi
-
-        # Remove stale single-server plist if present
-        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
-            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
-            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-            echo "[portal-5] Removed stale com.portal5.mlx plist."
-        fi
-
-        # ComfyUI (:8188)
-        if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
-            launchctl stop com.portal5.comfyui 2>/dev/null || true
-            echo "[portal-5] ComfyUI service stopped (launchd)."
-        elif pgrep -f "comfyui|ComfyUI|main.py.*comfy" &>/dev/null 2>&1; then
-            pkill -f "comfyui|ComfyUI|main.py.*comfy" 2>/dev/null || true
-            echo "[portal-5] ComfyUI process stopped (pkill)."
-        else
-            echo "[portal-5] ComfyUI: not running (nothing to stop)."
-        fi
-
-        # Music MCP (:8912)
-        if launchctl list com.portal5.music-mcp &>/dev/null 2>&1; then
-            launchctl stop com.portal5.music-mcp 2>/dev/null || true
-            echo "[portal-5] Music MCP service stopped (launchd)."
-        elif [ -f /tmp/music-mcp.pid ] && kill -0 "$(cat /tmp/music-mcp.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/music-mcp.pid)" 2>/dev/null || true
-            rm -f /tmp/music-mcp.pid
-            echo "[portal-5] Music MCP process stopped."
-        elif pgrep -f "music_mcp|music-mcp" &>/dev/null 2>&1; then
-            pkill -f "music_mcp|music-mcp" 2>/dev/null || true
-            echo "[portal-5] Music MCP process stopped (pkill)."
-        else
-            echo "[portal-5] Music MCP: not running (nothing to stop)."
-        fi
-
-        # MLX Watchdog
-        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null || true
-            rm -f /tmp/mlx-watchdog.pid
-            echo "[portal-5] MLX watchdog stopped."
-        else
-            echo "[portal-5] MLX watchdog: not running (nothing to stop)."
-        fi
-
-        # MLX Speech (:8918)
-        if [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null || true
-            rm -f /tmp/portal-mlx-speech.pid
-            echo "[portal-5] MLX Speech stopped."
-        else
-            echo "[portal-5] MLX Speech: not running (nothing to stop)."
-        fi
-
-        # ARM64 embedding server (:8917)
-        # launchd-managed: leave the service running (it manages its own lifecycle),
-        # just print a note so the operator knows it's still up.
-        if launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
-            echo "[portal-5] Embedding server: still running (launchd-managed — use './launch.sh uninstall-embedding-service' to stop permanently)."
-        elif [ -f /tmp/portal-embedding-arm.pid ] && kill -0 "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/portal-embedding-arm.pid)" 2>/dev/null || true
-            rm -f /tmp/portal-embedding-arm.pid
-            echo "[portal-5] ARM64 embedding server stopped."
-        else
-            echo "[portal-5] Embedding server: not running (nothing to stop)."
-        fi
-    fi
+    _do_down
     ;;
   backup)
     # Back up all critical Portal 5 data
