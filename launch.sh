@@ -1753,11 +1753,9 @@ except Exception:
         fi
 
         # ── Native Ollama registry (no hf.co/ prefix) ────────────────────────
+        # Always run pull — Ollama checks the registry and downloads only
+        # changed layers; prints "already up to date" when nothing changed.
         if [[ "$model" != hf.co/* ]]; then
-            if _model_exists "$model"; then
-                echo "  ✅ Already pulled: $model — skipping"
-                return 0
-            fi
             $ollama_cmd pull "$model"
             return $?
         fi
