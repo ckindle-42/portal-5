@@ -64,7 +64,7 @@ Everything runs with a single command. No manual configuration.
 | Ollama | Runs local language models | (internal) |
 | SearXNG | Private web search for research | (internal) |
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| 7 MCP Servers | Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), ComfyUI (:8910), Video (:8911), Music (:8912) | (internal) |
+| 8 MCP Servers | Documents (:8913), Code sandbox (:8914), Security (:8919), Whisper (:8915), TTS (:8916), ComfyUI (:8910), Video (:8911), Music (:8912, host-native — requires `./launch.sh install-music`) | (internal) |
 | Embedding | Harrier-0.6B text embeddings for RAG | :8917 (internal) |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |

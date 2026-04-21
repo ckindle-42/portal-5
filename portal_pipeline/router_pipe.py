@@ -1,4 +1,4 @@
-"""Portal 6.0.2 — Intelligent Router Pipeline.
+"""Portal 6.0.3 — Intelligent Router Pipeline.
 
 Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
 Open WebUI connects here as its sole model source.

@@ -34,7 +34,7 @@ Test Coverage (22 sections, ~300 tests):
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: 47 personas across 8 categories (Ollama + MLX backends)
+    S10-S11: 47 personas across 11 categories (Ollama + MLX backends)
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
@@ -949,7 +949,7 @@ WORKSPACE_PROMPTS = {
 }
 
 # Persona test prompts and expected signals
-# Full list of 45 personas from config/personas/*.yaml
+# Full list of 47 personas from config/personas/*.yaml
 PERSONA_PROMPTS = {
     # Development (17 personas)
     # Real IndexError bug: no bounds check on lst, no empty-list guard
@@ -1000,14 +1000,13 @@ PERSONA_PROMPTS = {
     # General (2 personas)
     "itexpert": ("Troubleshoot slow network.", ["bandwidth", "latency", "packet", "loss", "diagnose", "network", "gather", "troubleshoot", "speed", "connection", "router", "check", "slow"]),
     "techreviewer": ("Review iPhone 15 features.", ["camera", "chip", "battery", "feature", "review"]),
-    # Writing (2 personas)
+    # Writing (3 personas)
     # Removed stopword signals ("the","in","a") — matched everything; use narrative-specific terms
     "creativewriter": ("Write the opening paragraph of a noir detective story set in a rainy city.", ["rain", "detective", "night", "dark", "street", "shadow", "city", "stood", "office", "cigarette"]),
     "techwriter": ("Document an API endpoint.", ["endpoint", "request", "response", "parameter", "method"]),
-    # Reasoning (5 personas)
+    # Reasoning (3 personas)
     # Concrete deliverable so model produces a structured plan with testable milestones
     "magistralstrategist": ("Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.", ["milestone", "KPI", "launch", "objective", "strategy", "quarter", "metric", "goal"]),
-    "gemmaresearchanalyst": ("Research methodology steps.", ["method", "data", "collect", "analyze", "research"]),
     # "square" matches "squared", "squares", "squaring" — more robust than exact "squared"
     "phi4stemanalyst": ("Explain the Pythagorean theorem.", ["pythagor", "triangle", "hypotenuse", "right", "square", "sides"]),
     "phi4specialist": ("Write a technical specification outline.", ["spec", "requirement", "section", "format", "structure"]),
@@ -1019,8 +1018,10 @@ PERSONA_PROMPTS = {
     "gemma4jangvision": ("List three techniques for extracting credentials visible in a screenshot during a red team engagement.", ["credential", "password", "screenshot", "OCR", "extract", "hash", "capture", "image"]),
     # Writing (hermes3writer — long-form narrative fiction via Hermes 3 / Dolphin)
     "hermes3writer": ("Write the opening paragraph of a serialized mystery novel set in a coastal town, introducing the detective character.", ["detective", "coastal", "town", "mystery", "character", "chapter", "story", "narrative"]),
-    # Reasoning (supergemma4researcher — uncensored OSINT/research analysis)
-    "supergemma4researcher": ("Outline a systematic approach for conducting OSINT reconnaissance on a target organization's public-facing infrastructure.", ["recon", "OSINT", "domain", "infrastructure", "public", "source", "systematic", "investigate", "footprint", "enumerate"]),
+    # Research (2 personas)
+    "gemmaresearchanalyst": ("Research methodology steps.", ["method", "data", "collect", "analyze", "research"]),
+    # Uncensored multimodal researcher — test no-refusal on a professional OSINT task
+    "supergemma4researcher": ("Outline the steps for an OSINT investigation to verify a company's publicly disclosed executive team.", ["OSINT", "search", "verify", "public", "record", "source", "LinkedIn", "domain", "executive", "corporate", "registry", "confirm", "evidence"]),
 }
 
 
@@ -1332,6 +1333,8 @@ async def S2() -> None:
     # S2-08 to S2-15: MCP services
     mcp_services = [
         ("S2-08", "documents", MCP["documents"]),
+        # Music MCP is host-native (not a Docker service) — requires ./launch.sh install-music
+        # WARN is expected if not installed; this is not a regression
         ("S2-09", "music", MCP["music"]),
         ("S2-10", "tts", MCP["tts"]),
         ("S2-11", "whisper", MCP["whisper"]),
@@ -1814,7 +1817,7 @@ async def S10() -> None:
     # Group personas by their Ollama model to minimize model switching
     # Order: most personas first (amortize load time), then smaller groups
     OLLAMA_PERSONA_GROUPS = [
-        # Group 1: qwen3-coder-next:30b-q5 (16 personas) — load once, test all
+        # Group 1: qwen3-coder-next:30b-q5 (17 personas) — load once, test all
         ("qwen3-coder-next:30b-q5", [
             "bugdiscoverycodeassistant", "codebasewikidocumentationskill", "codereviewassistant",
             "codereviewer", "devopsautomator", "devopsengineer", "ethereumdeveloper",
@@ -1976,8 +1979,10 @@ async def S11() -> None:
         ("Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "auto-compliance", [
             "cippolicywriter", "nerccipcomplianceanalyst",
         ]),
-        # Group 4a: Abliterated 26B MoE → auto-research (Task 4: rerouted for ~35 vs ~20 TPS)
-        ("Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit", "auto-research", ["gemmaresearchanalyst"]),
+        # Group 4a: Abliterated 26B MoE → auto-research (~35 TPS, uncensored, 256K ctx)
+        ("Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit", "auto-research", [
+            "gemmaresearchanalyst", "supergemma4researcher",
+        ]),
         # Group 4b: Gemma 4 31B dense → auto-vision (unchanged — dense attention for complex visual reasoning)
         # auto-vision text-only prompts are rerouted by the pipeline to auto-reasoning
         # (mlx_model_hint: Jackrong/MLX-Qwopus3.5-27B-v3-8bit), so pre-load Qwopus

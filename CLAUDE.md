@@ -8,16 +8,13 @@
 
 ## What Portal 5 Is
 
-Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its native extension points (Pipeline server, MCP Tool Servers) rather than duplicating what Open WebUI already does. The result is a complete local AI platform covering text, code, security, images, video, music, documents, and voice — all running on local hardware, all accessible through a single Open WebUI interface.
+Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
 
-**This project has two roles:**
-1. **Personal local AI** — single M4 Mac or Linux node, launch and use today
-2. **Foundation node** for the Mac Studio cluster growth path (Stage 1→5, Track B Apple Silicon)
+**Architecture**: Open WebUI → Portal Pipeline (:9099) → [MLX proxy (:8081) + Ollama (:11434)] → local models. MCP servers (:8910–8916) provide tools (documents, code sandbox, TTS, etc.).
 
-**Hardware targets**: Apple M4 Mac (primary), NVIDIA CUDA Linux (secondary), any Docker host  
-**Architecture**: Open WebUI ← Portal Pipeline (:9099) ← [MLX proxy (host:8081) → mlx_lm (18081) / mlx_vlm (18082)] + [Ollama (host:11434)] ← local models  
-**Inference strategy**: Two MLX-accelerated tiers on Apple Silicon (Ollama 0.20.5+). **Tier 1 — MLX proxy** (ports 18081/18082): safetensor-format models, VLM audio via mlx_vlm, admission control. **Tier 2 — Ollama** (port 11434): GGUF-format models with MLX backend. Speed delta: ~20-30% in favour of Tier 1 for models <14B; negligible for larger models (memory-bandwidth bound). Both run natively on host (not Docker).  
-**Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command
+**Inference**: Two tiers on Apple Silicon — **Tier 1 MLX proxy** (safetensor models, faster ~20-30% for <14B) and **Tier 2 Ollama** (GGUF models, simpler management). Both host-native, not Docker.
+
+**Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command.
 
 ---
 
@@ -50,34 +47,27 @@ portal-5/
 │       └── channels/             # Slack, Telegram, Email, Pushover, Webhook
 ├── portal_mcp/                   # MCP Tool Servers (registered in Open WebUI)
 │   ├── documents/                # Word, PowerPoint, Excel generation (:8913)
-│   ├── generation/               # Music (:8912), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910)
+│   ├── generation/               # Music (:8912 host-native), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910)
 │   ├── execution/                # Code sandbox (:8914)
+│   ├── security/                 # Vulnerability classification (:8919)
+│   ├── core/                     # Shared MCP utilities
 │   └── mcp_server/               # Vendored FastMCP implementation
-├── portal_channels/              # Optional push interfaces
-│   ├── telegram/bot.py           # Telegram → Pipeline adapter
-│   └── slack/bot.py              # Slack → Pipeline adapter
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
 │   ├── personas/                 # 47 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
-│   ├── routing_examples.json     # LLM router few-shot examples
-│   ├── searxng/                  # SearXNG search engine config
-│   ├── prometheus/               # Prometheus scrape config
-│   └── grafana/                  # Grafana dashboards + datasources
+│   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
 │   └── docker-compose.yml        # THE launch definition — all services
 ├── scripts/
 │   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
 │   ├── mlx-proxy.py              # MLX dual-server proxy (auto-switches mlx_lm ↔ mlx_vlm, admission control)
+│   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
 │   ├── mlx-watchdog.py           # MLX component health monitor with auto-recovery
 │   ├── mlx-switch-benchmark.py   # MLX model switch timing benchmark
+│   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
 │   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
-│   ├── download_comfyui_models.py # ComfyUI model download helper
-│   └── update_workspace_tools.py # Workspace tool ID sync helper
-├── imports/openwebui/            # Pre-built JSON files for Open WebUI GUI import
-│   ├── tools/                    # MCP Tool Server registration JSONs
-│   ├── workspaces/               # Workspace preset JSONs
-│   └── functions/                # Open WebUI Function (pipe) JSONs
+│   └── ...                       # See scripts/ for full list
 ├── tests/
 │   ├── unit/                     # pytest unit tests — no Docker required
 │   └── benchmarks/               # Inference tier benchmarks (mlx_lm/mlx_vlm vs Ollama MLX)
@@ -128,7 +118,7 @@ Each `portal_mcp/` server is a standalone FastAPI+FastMCP app. They have zero im
 
 `portal_pipeline/router_pipe.py` is stateless for conversation routing — no database, no session state, no memory. Conversation history lives in Open WebUI's database. Cross-session memory uses Open WebUI's native memory feature.
 
-However, the pipeline **does persist operational metrics** to a JSON state file (`/app/data/metrics_state.json`) that survives restarts. This includes request counts, token totals, TPS aggregates, error counts, and persona usage. The state is written every 60 seconds and merged atomically across multiple uvicorn workers. This is operational telemetry only — it does not affect routing decisions.
+The pipeline does persist operational metrics (request counts, TPS, errors) to `/app/data/metrics_state.json` for telemetry only — it does not affect routing decisions.
 
 ### 5 — Personas Live in config/personas/
 
@@ -148,6 +138,8 @@ assert pipe_ids == yaml_ids, f'Mismatch: pipe={pipe_ids-yaml_ids} yaml={yaml_ids
 print('Workspace IDs consistent')
 "
 ```
+
+Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llama-3.2-3B-Instruct-abliterated-GGUF`, ~100ms, grammar-enforced JSON). **Layer 2** — weighted keyword scoring (fallback on low confidence or timeout). Vision text-only fallback: `auto-vision` with no image parts reroutes to `auto-reasoning`.
 
 ### 7 — All Ports Are Reserved
 
@@ -170,36 +162,17 @@ Port assignments are enforced in `.env.example`. Do not reassign without updatin
 
 ### 8 — Two Inference Tiers: MLX Proxy and Ollama
 
-Portal 5 runs two inference backends concurrently on the host. Each model belongs to
-exactly one tier. Adding a model to the wrong tier either produces errors or misses
-the model entirely.
+Portal 5 runs two inference backends concurrently on the host. Each model belongs to exactly one tier.
 
 **Tier 1 — MLX proxy** (`scripts/mlx-proxy.py`, ports 8081 / 18081 / 18082)
-Models downloaded from HuggingFace in safetensor/MLX format via `huggingface-cli download`.
-Served by `mlx_lm.server` (text) or `mlx_vlm.server` (vision + audio).
-Managed via `ALL_MODELS`, `VLM_MODELS`, and `MODEL_MEMORY` in `mlx-proxy.py`.
-
-Use Tier 1 when:
-- The model only exists in safetensor/MLX format (no GGUF available) — e.g. Jackrong series, Magistral, Devstral MLX, Phi-4 MLX
-- The model requires vision **and audio** input (`mlx_vlm`, e.g. Gemma 4 E4B, Gemma 4 31B)
-- The model is large (>20GB) and needs admission control to prevent OOM
+- Safetensor/MLX format models, downloaded via `huggingface-cli download`
+- Served by `mlx_lm.server` (text) or `mlx_vlm.server` (vision + audio)
+- Use when: no GGUF available, needs mlx_vlm audio, or model >20GB (admission control)
 
 **Tier 2 — Ollama** (port 11434, Ollama 0.20.5+ MLX backend)
-Models in GGUF format pulled via `ollama pull <tag>` or `hf.co/` format.
-Registered in `config/backends.yaml` under one of the ollama backend groups.
-All architectures run with MLX hardware acceleration on Apple Silicon as of 0.20.5.
-
-Use Tier 2 when:
-- The model has a stable GGUF release (security, creative, coding, general models)
-- The model does **not** require mlx_vlm audio
-- Simpler model management (ollama pull, no format conversion) is preferable
-
-**Decision checklist for new models**:
-1. Is a GGUF available AND audio input is not needed? → **Ollama**
-2. Is only a safetensor/MLX format available? → **MLX proxy Tier 1**
-3. Does it need mlx_vlm (vision + audio)? → **MLX proxy Tier 1, add basename to VLM_MODELS**
-4. Is it >20GB? → **MLX proxy Tier 1, add to MODEL_MEMORY**
-5. Is it >40GB? → **Consider BIG_MODEL_SET entry**
+- GGUF format models, pulled via `ollama pull` or `hf.co/`
+- Registered in `config/backends.yaml` under ollama backend groups
+- Use when: stable GGUF exists, no audio input needed, simpler management preferred
 
 Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean.
 Full model catalog with memory budgets is in `config/backends.yaml`.
@@ -214,33 +187,6 @@ Do not merge them. The pipeline container must stay small for fast restarts.
 ### 10 — Git Discipline
 
 Commit directly to `main` during stabilization. Run tests before every push: `pytest tests/ -q --tb=no`. Commit format: `type(scope): description`. Never force push. Never commit `.env` or cloud/external deps to `pyproject.toml`.
-
----
-
-## Workspace Routing & Auto-Routing
-
-Workspaces are defined in `config/backends.yaml` `workspace_routing`. Each key must match `WORKSPACES` in `router_pipe.py`. When a user selects `auto`, the Pipeline routes to the best specialist workspace via a two-layer system:
-
-**Layer 1: LLM-Based Intent Router** — Uses `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` as a fast semantic classifier (~100ms). Abliterated so red-team/security queries are never refused. Configured via env vars: `LLM_ROUTER_ENABLED`, `LLM_ROUTER_CONFIDENCE_THRESHOLD`, `LLM_ROUTER_TIMEOUT_MS`. JSON schema enforced via Ollama grammar decoding. Falls back to Layer 2 on low confidence or timeout.
-
-**Layer 2: Weighted Keyword Scoring** — Deterministic, zero-latency. Each workspace defines weighted keywords (1=weak, 2=medium, 3=strong) and an activation threshold.
-
-Workspace descriptions: `config/routing_descriptions.json`. Few-shot examples: `config/routing_examples.json`.
-
-**Vision text-only fallback**: When `auto-vision` is selected but no `image_url` content parts are present, the Pipeline reroutes to `auto-reasoning` with a vision-domain system context injected.
-
----
-
-## What `./launch.sh up` Does
-
-1. Copy `.env.example` → `.env` (if missing)
-2. Auto-start native services (Ollama, ComfyUI, MLX proxy)
-3. `docker compose up -d` — ollama healthchecked, portal-pipeline builds, open-webui starts
-4. `openwebui-init` seeds admin account, MCP Tool Servers, workspace presets, and persona presets
-5. MCP services start (documents, comfyui, video, tts, whisper, sandbox)
-6. Print access URLs
-
-First run: 5-15 min. Subsequent runs: ~30 seconds.
 
 ---
 
@@ -283,7 +229,7 @@ First run: 5-15 min. Subsequent runs: ~30 seconds.
 
 ## Zero-Setup Requirements
 
-Every feature must work from `./launch.sh up` without manual steps. If a feature requires a new dependency, it MUST be installable via pip/apt-get in the Dockerfile OR a Docker service in docker-compose.yml. If a dependency may fail (GPU-only, large download), degrade gracefully with a helpful message, never crash.
+Every feature must work from `./launch.sh up` without manual steps. Dependencies must be installable via pip/apt-get in the Dockerfile OR a Docker service. If a dependency may fail, degrade gracefully — never crash.
 
 ---
 
@@ -297,17 +243,6 @@ Every feature must work from `./launch.sh up` without manual steps. If a feature
 - Do NOT use `docker compose down -v` in scripts (nukes Ollama models) — use targeted volume removal
 - Do NOT commit `.env` — it is in `.gitignore`
 - Do NOT skip tests — they protect the routing logic that everything depends on
-
----
-
-## Git Workflow
-
-**All work is done directly on `main` during stabilization. Do not create feature branches unless explicitly instructed.**
-
-- **Commit directly to `main`** — no branches, no PRs, until v5.0 stable tag
-- Run tests before every push: `pytest tests/ -q --tb=no`
-- Commit format: `type(scope): description`
-- Never force push. Never commit `.env` or pyproject.toml changes that add cloud/external deps. Never modify Open WebUI source code.
 
 ---
 

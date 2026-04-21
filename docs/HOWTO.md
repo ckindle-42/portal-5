@@ -104,19 +104,20 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (45 total):**
+**Available personas (47 total):**
 
 | Category | Personas |
-|----------|----------|
+|----------|-------------|
 | Development (17) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
 | Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
-| Data (8) | Data Analyst, Data Scientist, ML Engineer, Statistician, IT Architect, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
+| Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
+| Architecture (1) | IT Architect |
 | Compliance (2) | NERC CIP Compliance Analyst, CIP Policy Writer |
 | Systems (2) | Linux Terminal, SQL Terminal |
-| General (3) | IT Expert, Tech Reviewer, Phi-4 Technical Analyst |
-| Writing (2) | Creative Writer, Tech Writer |
-| Reasoning (2) | Magistral Strategist, GPT-OSS Analyst |
-| Research (1) | Gemma Research Analyst |
+| General (2) | IT Expert, Tech Reviewer |
+| Writing (3) | Creative Writer, Tech Writer, Hermes Narrative Writer |
+| Reasoning (3) | Magistral Strategist, GPT-OSS Analyst, Phi-4 Technical Analyst |
+| Research (2) | Gemma Research Analyst, SuperGemma4 Uncensored Researcher |
 | Vision (2) | Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision |
 
 **Example — red team:**
@@ -927,7 +928,7 @@ PIPELINE_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $PIPELINE_API_KEY" \
   | python3 -m json.tool | grep '"id"'
-# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 45 personas
+# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 47 personas
 ```
 
 ### Chat (blocking)
