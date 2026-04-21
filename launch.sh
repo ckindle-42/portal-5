@@ -729,6 +729,15 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ❌  %-28s %s\n" "MLX Speech" "installed but not running — ./launch.sh start-speech"
         fi
 
+        # Embedding server
+        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${EMBEDDING_HOST_PORT:-8917}/health', timeout=2)" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Embedding" ":${EMBEDDING_HOST_PORT:-8917}"
+        elif launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
+            printf "    ⏳  %-28s %s\n" "Embedding" "starting (launchd-managed)"
+        else
+            printf "    ❌  %-28s %s\n" "Embedding" "not running — ./launch.sh up"
+        fi
+
         echo ""
     fi
 
@@ -775,6 +784,28 @@ except Exception as e:
         printf "    ❌  Open WebUI not reachable (model counts unavailable)\n"
     fi
     echo ""
+
+    # ── Channels (only shown when tokens are configured) ─────────────────────
+    if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+        echo "  CHANNELS"
+        if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            _TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" || echo 0)
+            if [ "$_TG" -ge 1 ]; then
+                printf "    ✅  %-28s %s\n" "Telegram Bot" "running"
+            else
+                printf "    ❌  %-28s %s\n" "Telegram Bot" "configured but not running — ./launch.sh up"
+            fi
+        fi
+        if [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -n "${SLACK_APP_TOKEN:-}" ]; then
+            _SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" || echo 0)
+            if [ "$_SL" -ge 1 ]; then
+                printf "    ✅  %-28s %s\n" "Slack Bot" "running"
+            else
+                printf "    ❌  %-28s %s\n" "Slack Bot" "configured but not running — ./launch.sh up"
+            fi
+        fi
+        echo ""
+    fi
 }
 
 case "${1:-up}" in
@@ -869,9 +900,20 @@ case "${1:-up}" in
         echo "WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}" >> "$ENV_FILE"
     fi
 
+    # Auto-detect channel profiles from .env tokens
+    _PROFILES=""
+    if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+        _PROFILES="$_PROFILES --profile telegram"
+        echo "[portal-5] Telegram token configured — including Telegram bot"
+    fi
+    if [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -n "${SLACK_APP_TOKEN:-}" ]; then
+        _PROFILES="$_PROFILES --profile slack"
+        echo "[portal-5] Slack tokens configured — including Slack bot"
+    fi
+
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
-    docker compose up -d
+    docker compose $_PROFILES up -d
 
     # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
     if [ "$(uname -m)" = "arm64" ]; then
@@ -3452,9 +3494,9 @@ MEOF
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"
     echo "                          --yes / -y      Skip confirmation prompts"
-    echo "  up-telegram           Start core stack + Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)"
-    echo "  up-slack              Start core stack + Slack bot (requires SLACK_BOT_TOKEN + SLACK_APP_TOKEN in .env)"
-    echo "  up-channels           Start core stack + both Telegram and Slack"
+    echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
+    echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
+    echo "  up-channels           Force-start both Telegram and Slack bots"
     echo "  test                  Run end-to-end smoke tests against the live stack"
     echo "  down                  Stop all services (data preserved)"
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"

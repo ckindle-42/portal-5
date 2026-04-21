@@ -289,11 +289,13 @@ services:
       start_period: 60s
       retries: 3
 
-  # MCP Music runs natively on the host (not in Docker) for MPS/Metal GPU access.
+  # ── MCP: Music Generation (host-native — not a Docker service) ──────────────
+  # Runs natively on macOS for MPS/Metal GPU access (Docker would lose acceleration).
   # Install: ./launch.sh install-music
-  # Start:   ./launch.sh up  (auto-started by _ensure_native_services)
+  # Start:   ./launch.sh up  (auto-started via _ensure_native_services if installed)
+  # Port:    :8912  (MUSIC_HOST_PORT)
 
-    # ── MCP: Text-to-Speech (Kokoro / Fish Speech) ────────────────────────────
+  # ── MCP: Text-to-Speech (Kokoro / Fish Speech) ────────────────────────────
   mcp-tts:
     build:
       context: ../..
@@ -702,7 +704,7 @@ services:
 volumes:
   ollama-models:       # Ollama model weights — survives docker compose down
   open-webui-data:     # Open WebUI database — wipe with ./launch.sh clean
-  portal5-hf-cache:    # HuggingFace model cache (music, TTS, whisper)
+  portal5-hf-cache:    # HuggingFace model cache (TTS, whisper)
   dind-storage:        # DinD persistent storage
   sandbox-work:        # Shared sandbox code files (mcp-sandbox ↔ dind)
   searxng-data:        # SearXNG data
