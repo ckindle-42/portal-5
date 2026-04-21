@@ -65,13 +65,15 @@ RUN pip install --no-cache-dir \
 # Copy application
 COPY portal_mcp/ ./portal_mcp/
 COPY portal_channels/ ./portal_channels/
+COPY scripts/mcp-entrypoint.sh /usr/local/bin/mcp-entrypoint.sh
 
-# Run as non-root user
+# Create non-root user; entrypoint fixes volume mount ownership at runtime then drops to this user
 RUN groupadd -r portal && useradd -r -g portal portal \
-    && mkdir -p /app/data/hf_cache \
-    && chown -R portal:portal /app
-USER portal
+    && mkdir -p /app/data/hf_cache /app/data/generated \
+    && chown -R portal:portal /app \
+    && chmod +x /usr/local/bin/mcp-entrypoint.sh
 
 # No HEALTHCHECK here — defined per-service in docker-compose.yml
 
+ENTRYPOINT ["/usr/local/bin/mcp-entrypoint.sh"]
 CMD ["python", "-m", "portal_mcp.documents.document_mcp"]
