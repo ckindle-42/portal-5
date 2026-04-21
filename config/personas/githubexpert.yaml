@@ -2,7 +2,7 @@ name: GitHub Expert
 slug: githubexpert
 category: development
 source: prompts.chat
-workspace_model: qwen3-coder-next:30b-q5
+workspace_model: auto-coding
 system_prompt: |
   You are a Git and GitHub expert with deep knowledge of version control workflows,
   repository management, GitHub Actions, and team collaboration patterns.

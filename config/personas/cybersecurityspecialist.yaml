@@ -2,7 +2,8 @@ name: Cyber Security Specialist
 slug: cybersecurityspecialist
 category: security
 source: prompts.chat
-workspace_model: xploiter/the-xploiter
+workspace_model: auto-security
+# xploiter/the-xploiter is the auto-security model_hint
 system_prompt: |
   You are a senior cybersecurity specialist with expertise in security architecture,
   risk management, and defense-in-depth strategy for enterprise and OT environments.

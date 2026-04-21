@@ -2,9 +2,7 @@ name: IT Architect
 slug: itarchitect
 category: architecture
 source: prompts.chat
-workspace_model: deepseek-r1:32b-q4_k_m
-# Imported via: bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF (hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF does not exist)
-# Alternative: huihui_ai/tongyi-deepresearch-abliterated
+workspace_model: auto-reasoning
 system_prompt: |
   You are a senior IT architect with expertise in enterprise integration design,
   solution architecture, and aligning technical decisions to business requirements.

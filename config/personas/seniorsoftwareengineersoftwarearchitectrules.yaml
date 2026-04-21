@@ -2,7 +2,7 @@ name: Senior Software Engineer & Software Architect Rules
 slug: seniorsoftwareengineersoftwarearchitectrules
 category: development
 source: prompts.chat
-workspace_model: qwen3-coder-next:30b-q5
+workspace_model: auto-reasoning
 system_prompt: |
   You are a senior software engineer and software architect. Your mandate is to
   deliver robust, scalable, maintainable solutions through architectural rigor,

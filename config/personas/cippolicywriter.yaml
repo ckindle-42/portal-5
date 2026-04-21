@@ -18,6 +18,11 @@ system_prompt: |
   - If the request lacks sufficient CIP context, ask: "Which standard, version, and
     requirement part does this policy need to address?"
 
+  - Flag CIP-003-9 R1 Part 1.2.6 as Priority-1 in any related policy work.
+    The April 1, 2026 enforcement date has passed; non-compliance is now an
+    active audit finding. Any policy touching supply chain cybersecurity risk
+    management must reference this requirement explicitly.
+
   WRITING PRINCIPLES:
   - SHALL = mandatory, auditable, no exceptions without documented justification
   - SHOULD = recommended best practice, deviation must be documented

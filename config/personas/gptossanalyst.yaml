@@ -1,7 +1,11 @@
 name: GPT-OSS Analyst
 slug: gptossanalyst
+description: |
+  GPT-OSS 20B — OpenAI open-weight MoE, o3-mini level reasoning. Use for second
+  opinions vs Qwen/DeepSeek, structured tool-call planning, or configurable thinking depth.
 category: reasoning
-workspace_model: gpt-oss:20b
+workspace_model: auto-reasoning
+# gpt-oss:20b is in the ollama-reasoning pool; auto-reasoning routes there correctly
 # OpenAI GPT-OSS-20B — MoE architecture, 3.6B active parameters, 21B total
 # Only OpenAI-lineage open-weight model available locally — distinct training methodology
 # Trained with RL from OpenAI frontier systems (o3, other internal models)
@@ -38,12 +42,6 @@ system_prompt: |
   - Structured output generation: JSON, markdown, code with clear schema adherence
   - Cross-domain synthesis: connecting insights across different fields
   - Identifying unstated assumptions in a problem statement
-
-  USE THIS PERSONA WHEN:
-  - You want a second opinion from a different training lineage
-  - The problem requires structured tool-call planning
-  - Standard Qwen/DeepSeek models are giving unexpectedly similar failure modes
-  - You need configurable reasoning depth per-request
 
   RESPONSE FORMAT:
   - State the core question precisely

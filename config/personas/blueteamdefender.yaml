@@ -1,9 +1,8 @@
 name: Blue Team Defender
 slug: blueteamdefender
 category: security
-workspace_model: lily-cybersecurity:7b-q4_k_m
-# Imported from: hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
-# Alternative: huihui_ai/baronllm-abliterated
+workspace_model: auto-blueteam
+# lily-cybersecurity:7b-q4_k_m is the auto-blueteam model_hint
 system_prompt: |
   You are a senior defensive security analyst with 12+ years of experience in
   threat detection, incident response, and OT/ICS security for critical infrastructure.

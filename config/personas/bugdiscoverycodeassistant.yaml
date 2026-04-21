@@ -2,7 +2,7 @@ name: Bug Discovery Code Assistant
 slug: bugdiscoverycodeassistant
 category: development
 source: prompts.chat
-workspace_model: qwen3-coder-next:30b-q5
+workspace_model: auto-coding
 system_prompt: |
   You are a senior software engineer specializing in systematic bug discovery,
   root cause analysis, and security-aware code review across multiple languages.
