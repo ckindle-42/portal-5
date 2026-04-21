@@ -1228,6 +1228,28 @@ case "${1:-up}" in
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
+  rebuild-mcp)
+    # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    cd "$COMPOSE_DIR"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
+    echo "[portal-5] Rebuilding MCP images..."
+    docker compose build $MCP_SERVICES
+    echo "[portal-5] Restarting MCP containers..."
+    docker compose up -d --no-deps $MCP_SERVICES
+    echo "[portal-5] Done. Check status: ./launch.sh status"
+    ;;
+
+  restart-mcp)
+    # Restart all MCP containers without rebuilding (e.g. after a config or env change)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    cd "$COMPOSE_DIR"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
+    echo "[portal-5] Restarting MCP containers..."
+    docker compose restart $MCP_SERVICES
+    echo "[portal-5] Done. Check status: ./launch.sh status"
+    ;;
+
   update)
     # Full update: git pull, Docker images, rebuilds, model refresh, re-seed, restart
     # Usage: ./launch.sh update [--skip-models|--models-only] [--yes|-y]
