@@ -949,9 +949,9 @@ WORKSPACE_PROMPTS = {
 }
 
 # Persona test prompts and expected signals
-# Full list of 47 personas from config/personas/*.yaml
+# Full list of 48 personas from config/personas/*.yaml
 PERSONA_PROMPTS = {
-    # Development (17 personas)
+    # Development (18 personas)
     # Real IndexError bug: no bounds check on lst, no empty-list guard
     "bugdiscoverycodeassistant": ("Find the bugs in this code:\ndef get_first(lst):\n    return lst[0]", ["index", "IndexError", "empty", "bounds", "check", "exception", "out-of-range", "list", "lst", "fail", "error", "first"]),
     "codereviewassistant": ("Review this code: x = [i for i in range(100)]", ["list", "comprehension", "memory", "generator"]),
@@ -972,6 +972,7 @@ PERSONA_PROMPTS = {
     "seniorsoftwareengineersoftwarearchitectrules": ("What design patterns would you apply to a REST API handling 10 million requests per day?", ["pattern", "cache", "load", "queue", "horizontal", "scale", "rate"]),
     "softwarequalityassurancetester": ("Write test cases for a login form.", ["test", "case", "valid", "invalid", "password"]),
     "ux-uideveloper": ("Best practices for mobile-first design.", ["mobile", "responsive", "viewport", "breakpoint", "touch"]),
+    "creativecoder": ("Write a single-file HTML Canvas game: a ball that bounces off walls and splits into two smaller balls when clicked.", ["canvas", "ball", "bounce", "click", "split", "radius", "velocity", "ctx", "requestAnimationFrame"]),
     # Security (6 personas)
     "cybersecurityspecialist": ("Explain zero-trust architecture.", ["zero", "trust", "verify", "never", "assume"]),
     # Specific enough to force actual IOS commands with testable tokens
@@ -1157,7 +1158,7 @@ async def S1() -> None:
 
     # S1-05: Persona count matches expected
     t0 = time.time()
-    expected_persona_count = 47
+    expected_persona_count = 48
     actual_count = len(PERSONAS)
     record(
         sec, "S1-05", "Persona count",

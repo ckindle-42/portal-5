@@ -104,11 +104,11 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (47 total):**
+**Available personas (48 total):**
 
 | Category | Personas |
 |----------|-------------|
-| Development (17) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
+| Development (18) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Creative Coder, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
 | Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
 | Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
 | Architecture (1) | IT Architect |
