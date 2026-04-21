@@ -27,13 +27,14 @@ Status model:
     WARN    — soft failure: request served but response does not fully match
     INFO    — informational, no assertion
 
-Test Coverage (21 sections, ~300 tests):
+Test Coverage (22 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
     S3:      17 workspaces with content-aware routing
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
+    S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: 45 personas across 8 categories (Ollama + MLX backends)
+    S10-S11: 47 personas across 8 categories (Ollama + MLX backends)
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
@@ -43,8 +44,9 @@ Test Coverage (21 sections, ~300 tests):
     S40:     Metrics/monitoring (Prometheus, Grafana)
 
 Changes from v5:
+    - Added S16 (Security MCP tool tests — classify_vulnerability)
+    - Updated persona count to 47 (added hermes3writer, supergemma4researcher)
     - Added S21 (LLM Intent Router), S22 (Admission Control), S23 (Model Diversity)
-    - Updated persona count to 45 (added gemma4e4bvision, phi4specialist, gptossanalyst, gemma4jangvision)
     - Fixed persona slugs to match actual YAML filenames
     - Tests for new models: GPT-OSS:20B, Gemma 4 E4B, Phi-4-reasoning-plus
     - Consolidated test framework with unified helper functions
@@ -1015,6 +1017,10 @@ PERSONA_PROMPTS = {
     "gemma4e4bvision": ("A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?", ["stack", "trace", "error", "500", "exception", "debug", "log", "server"]),
     # Uncensored VLM — prompt tests no-refusal behavior on a red team / OSINT task
     "gemma4jangvision": ("List three techniques for extracting credentials visible in a screenshot during a red team engagement.", ["credential", "password", "screenshot", "OCR", "extract", "hash", "capture", "image"]),
+    # Writing (hermes3writer — long-form narrative fiction via Hermes 3 / Dolphin)
+    "hermes3writer": ("Write the opening paragraph of a serialized mystery novel set in a coastal town, introducing the detective character.", ["detective", "coastal", "town", "mystery", "character", "chapter", "story", "narrative"]),
+    # Reasoning (supergemma4researcher — uncensored OSINT/research analysis)
+    "supergemma4researcher": ("Outline a systematic approach for conducting OSINT reconnaissance on a target organization's public-facing infrastructure.", ["recon", "OSINT", "domain", "infrastructure", "public", "source", "systematic", "investigate", "footprint", "enumerate"]),
 }
 
 
@@ -1150,7 +1156,7 @@ async def S1() -> None:
 
     # S1-05: Persona count matches expected
     t0 = time.time()
-    expected_persona_count = 45
+    expected_persona_count = 47
     actual_count = len(PERSONAS)
     record(
         sec, "S1-05", "Persona count",
@@ -1653,6 +1659,61 @@ async def S6() -> None:
     )
 
 
+async def S16() -> None:
+    """S16: Security MCP tool tests — classify_vulnerability via MCP protocol."""
+    print("\n━━━ S16. SECURITY MCP TOOLS ━━━")
+    sec = "S16"
+
+    sec_port = MCP.get("security", 8919)
+
+    # S16-01: Health check
+    t0 = time.time()
+    code, data = await _get(f"http://localhost:{sec_port}/health", timeout=5)
+    if code != 200:
+        record(sec, "S16-01", "Security MCP health", "WARN", f"HTTP {code}", t0=t0)
+        return
+    record(sec, "S16-01", "Security MCP health", "PASS", f"service: {data.get('service', 'unknown')}", t0=t0)
+
+    # S16-02: classify_vulnerability with a high-severity RCE description
+    await _mcp(
+        sec_port,
+        "classify_vulnerability",
+        {"description": "Remote code execution via buffer overflow in OpenSSL 3.0 allows attackers to execute arbitrary code by sending a crafted certificate."},
+        section=sec,
+        tid="S16-02",
+        name="classify_vulnerability (RCE — expect high/critical)",
+        ok_fn=lambda t: any(s in t.lower() for s in ["severity", "high", "critical"]),
+        warn_if=["error", "exception", "not available"],
+        timeout=120,
+    )
+
+    # S16-03: classify_vulnerability with a low-severity info disclosure
+    await _mcp(
+        sec_port,
+        "classify_vulnerability",
+        {"description": "Information disclosure in debug endpoint reveals server version number to authenticated users."},
+        section=sec,
+        tid="S16-03",
+        name="classify_vulnerability (info disclosure — expect low/medium)",
+        ok_fn=lambda t: any(s in t.lower() for s in ["severity", "low", "medium", "high"]),
+        warn_if=["error", "exception", "not available"],
+        timeout=120,
+    )
+
+    # S16-04: classify_vulnerability returns probabilities
+    await _mcp(
+        sec_port,
+        "classify_vulnerability",
+        {"description": "SQL injection in login form allows unauthorized data access."},
+        section=sec,
+        tid="S16-04",
+        name="classify_vulnerability returns probabilities",
+        ok_fn=lambda t: all(s in t.lower() for s in ["probabilities", "confidence"]),
+        warn_if=["error", "exception"],
+        timeout=120,
+    )
+
+
 async def S7() -> None:
     """S7: Music generation tests."""
     print("\n━━━ S7. MUSIC GENERATION ━━━")
@@ -1763,14 +1824,15 @@ async def S10() -> None:
             "seniorsoftwareengineersoftwarearchitectrules", "softwarequalityassurancetester",
             "sqlterminal",
         ]),
-        # Group 2: deepseek-r1:32b-q4_k_m (7 personas)
+        # Group 2: deepseek-r1:32b-q4_k_m (8 personas)
         ("deepseek-r1:32b-q4_k_m", [
             "dataanalyst", "datascientist", "excelsheet", "itarchitect",
             "machinelearningengineer", "researchanalyst", "statistician",
+            "supergemma4researcher",
         ]),
-        # Group 3: dolphin-llama3:8b (4 personas)
+        # Group 3: dolphin-llama3:8b (5 personas)
         ("dolphin-llama3:8b", [
-            "creativewriter", "itexpert", "techreviewer", "techwriter",
+            "creativewriter", "hermes3writer", "itexpert", "techreviewer", "techwriter",
         ]),
         # Group 4: Security models (1 persona each — unavoidable switches)
         ("xploiter/the-xploiter", ["cybersecurityspecialist", "networkengineer"]),
@@ -2757,6 +2819,7 @@ ALL_SECTIONS = {
     # Phase 2: Ollama tests
     "S3a": S3a,
     "S6": S6,
+    "S16": S16,
     "S10": S10,
     # Phase 3: MLX tests
     "S21": S21,

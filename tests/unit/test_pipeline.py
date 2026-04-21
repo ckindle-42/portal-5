@@ -339,9 +339,11 @@ class TestComplianceWorkspace:
             p = Path(f"config/personas/{slug}.yaml")
             assert p.exists(), f"Persona file not found: {p}"
             d = yaml.safe_load(p.read_text())
-            assert d.get("workspace_model"), f"{slug}: workspace_model missing"
-            assert "Qwen3.5-35B-A3B" in d["workspace_model"], (
-                f"{slug}: should use Qwen3.5-35B-A3B Claude-distilled, got: {d['workspace_model']}"
+            wm = d.get("workspace_model", "")
+            assert wm, f"{slug}: workspace_model missing"
+            # Personas now use workspace IDs (not raw MLX HF paths)
+            assert wm.startswith("auto-"), (
+                f"{slug}: workspace_model should be a workspace ID (auto-*), got: {wm}"
             )
 
     def test_workspace_count_is_14(self):
@@ -889,16 +891,16 @@ class TestSPLWorkspace:
         for field in ("name", "slug", "category", "workspace_model", "system_prompt", "tags"):
             assert field in data, f"SPL persona YAML missing required field: {field}"
 
-    def test_spl_persona_workspace_model_is_mlx_qwen3_coder(self):
-        """Persona workspace_model must be the MLX Qwen3-Coder-30B model."""
+    def test_spl_persona_workspace_model_is_auto_spl(self):
+        """Persona workspace_model must route to auto-spl workspace."""
         from pathlib import Path
 
         import yaml
 
         data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
         wm = data.get("workspace_model", "")
-        assert "Qwen3-Coder-30B" in wm, (
-            f"SPL persona workspace_model should be Qwen3-Coder-30B-A3B-Instruct-8bit, got: {wm}"
+        assert wm == "auto-spl", (
+            f"SPL persona workspace_model should be auto-spl, got: {wm}"
         )
 
     def test_workspace_json_exists(self):

@@ -58,7 +58,7 @@ portal-5/
 │   └── slack/bot.py              # Slack → Pipeline adapter
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 40+ persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 47 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   ├── routing_examples.json     # LLM router few-shot examples
 │   ├── searxng/                  # SearXNG search engine config
@@ -132,7 +132,7 @@ However, the pipeline **does persist operational metrics** to a JSON state file 
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog.
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (47 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 
@@ -322,7 +322,7 @@ Before adding new tasks or filing issues, check `KNOWN_ISSUES.md` — some items
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (45 personas) | `config/personas/*.yaml` |
+| Persona catalog (47 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (MLX-native TTS) | `docs/FISH_SPEECH_SETUP.md` |

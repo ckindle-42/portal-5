@@ -10,7 +10,7 @@ import logging
 import os
 
 import torch
-from fastapi import FastAPI
+from starlette.responses import JSONResponse
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Vendored FastMCP
@@ -44,15 +44,14 @@ _port = int(os.environ.get("SECURITY_MCP_PORT") or os.environ.get("MCP_PORT", "8
 
 mcp = FastMCP(
     "Portal Security Tools",
-    description="Vulnerability severity classification and security analysis tools",
+    instructions="Vulnerability severity classification and security analysis tools",
+    port=_port,
 )
 
-app = FastAPI(title="Portal Security MCP", version="1.0.0")
 
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "security-mcp", "port": _port}
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "ok", "service": "security-mcp", "port": _port})
 
 
 @mcp.tool()
@@ -89,10 +88,6 @@ def classify_vulnerability(description: str) -> dict:
     }
 
 
-# ── Mount and Serve ──────────────────────────────────────────────────────────
-# Mount the FastMCP SSE transport onto the FastAPI app
-mcp.mount_to_fastapi(app)
-
+# ── Serve ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=_port, log_level="info")
+    mcp.run(transport="streamable-http")
