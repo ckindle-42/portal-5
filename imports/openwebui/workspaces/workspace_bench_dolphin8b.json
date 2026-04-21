@@ -1,0 +1,13 @@
+{
+  "id": "bench-dolphin8b",
+  "name": "🔬 Bench · Dolphin-Llama3-8B",
+  "meta": {
+    "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit — Cognitive Computations, ~9GB, fast baseline",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-dolphin8b"
+  }
+}

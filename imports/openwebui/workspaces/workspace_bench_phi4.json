@@ -1,0 +1,13 @@
+{
+  "id": "bench-phi4",
+  "name": "🔬 Bench · Phi-4",
+  "meta": {
+    "description": "Benchmark: phi-4-8bit — Microsoft, 14B, synthetic training data, ~14GB",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-phi4"
+  }
+}

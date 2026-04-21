@@ -479,6 +479,71 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
     },
+    # ── Coding Capability Benchmark Workspaces ───────────────────────────────
+    # User-selected only — never auto-routed by the LLM intent classifier.
+    # Each workspace is pinned to exactly one model via mlx_model_hint / model_hint.
+    # No context_limit — benchmarks must run at full context for fair comparison.
+    # Companion personas (config/personas/bench_*.yaml) carry the Creative Coder
+    # system prompt verbatim so all models are evaluated under identical framing.
+    "bench-devstral": {
+        "name": "🔬 Bench · Devstral-Small-2507",
+        "description": "Benchmark: Devstral-Small-2507 (MLX, Mistral/Codestral lineage, ~15GB, 53.6% SWE-bench)",
+        "model_hint": "devstral:24b",
+        "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-qwen3-coder-next": {
+        "name": "🔬 Bench · Qwen3-Coder-Next (80B MoE)",
+        "description": "Benchmark: Qwen3-Coder-Next-4bit (MLX, Alibaba, 80B MoE 3B active, ~46GB, 256K ctx — cold load ~60s)",
+        "model_hint": "qwen3-coder:30b",
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-qwen3-coder-30b": {
+        "name": "🔬 Bench · Qwen3-Coder-30B",
+        "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit (MLX, Alibaba, 30B MoE 3B active, ~22GB)",
+        "model_hint": "qwen3-coder:30b",
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-llama33-70b": {
+        "name": "🔬 Bench · Llama-3.3-70B",
+        "description": "Benchmark: Llama-3.3-70B-Instruct-4bit (MLX, Meta, ~40GB — cold load ~60s, plan for sequential runs)",
+        "model_hint": "llama3.3:70b-q4_k_m",
+        "mlx_model_hint": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-phi4": {
+        "name": "🔬 Bench · Phi-4",
+        "description": "Benchmark: phi-4-8bit (MLX, Microsoft, 14B, synthetic training data — distinct methodology)",
+        "model_hint": "qwen3.5:9b",
+        "mlx_model_hint": "mlx-community/phi-4-8bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-phi4-reasoning": {
+        "name": "🔬 Bench · Phi-4-reasoning-plus",
+        "description": "Benchmark: Phi-4-reasoning-plus (MLX, Microsoft, RL-trained, ~7GB — produces reasoning traces before code)",
+        "model_hint": "qwen3.5:9b",
+        "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-dolphin8b": {
+        "name": "🔬 Bench · Dolphin-Llama3-8B",
+        "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit (MLX, Cognitive Computations, ~9GB — fast baseline, uncensored)",
+        "model_hint": "dolphin-llama3:8b",
+        "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+    },
+    "bench-glm": {
+        "name": "🔬 Bench · GLM-4.7-Flash",
+        "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhipu AI — distinct Chinese research lineage, ~6GB)",
+        "model_hint": "glm-4.7-flash:q4_k_m",
+    },
+    "bench-gptoss": {
+        "name": "🔬 Bench · GPT-OSS-20B",
+        "description": "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level — configurable thinking depth)",
+        "model_hint": "gpt-oss:20b",
+    },
 }
 
 # ── Content-aware routing: weighted keyword scoring ──────────────────────────
@@ -1910,6 +1975,27 @@ async def chat_completions(
                 ),
             )
 
+        # mlx_only workspaces (bench-*): restrict candidates to MLX backends only.
+        # A benchmark with a silent Ollama fallback is worse than a hard failure —
+        # the result would be attributed to the wrong model entirely.
+        # The existing 300s _http_client timeout already covers cold model loads
+        # (~60s for 40GB models), so no additional polling or retry logic is needed.
+        # Streaming path: after filtering to one MLX backend, len(candidates)==1 takes
+        # the single-candidate direct-stream path — _stream_or_fallback never runs.
+        _ws_cfg_local = WORKSPACES.get(workspace_id, {})
+        _mlx_only = _ws_cfg_local.get("mlx_only", False)
+        if _mlx_only:
+            candidates = [b for b in candidates if b.type == "mlx"]
+            if not candidates:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"Workspace '{workspace_id}' requires an MLX backend — "
+                        "none are currently healthy. "
+                        "Ensure mlx-proxy is running: ./launch.sh status"
+                    ),
+                )
+
         if not stream:
             # Non-streaming: try each backend in priority order until one succeeds.
             # Model hint is enforced (skip backends without the hinted model) for
@@ -1925,8 +2011,15 @@ async def chat_completions(
             )
             for i, backend in enumerate(candidates):
                 is_last = i == len(candidates) - 1
+                # mlx_only: always enforce model hint — never substitute a different
+                # model on the same backend. The benchmark result must be attributable
+                # to exactly the model named in the workspace's mlx_model_hint.
                 result = await _try_non_streaming(
-                    backend, body, workspace_id, start_time, enforce_hint=not is_last
+                    backend,
+                    body,
+                    workspace_id,
+                    start_time,
+                    enforce_hint=True if _mlx_only else (not is_last),
                 )
                 if result is not None:
                     resolved_model = backend.models[0] if backend.models else "unknown"
@@ -1941,6 +2034,16 @@ async def chat_completions(
             # All backends failed
             _record_error(workspace_id, "all_backends_failed")
             _concurrent_requests.dec()
+            if _mlx_only:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"Benchmark workspace '{workspace_id}': target MLX model did not respond. "
+                        "Large models (>30GB) require up to 60s to load on first use. "
+                        "If you just switched models, wait for the load to complete and retry. "
+                        "To verify: ./launch.sh logs | grep 'Switching to model'"
+                    ),
+                )
             raise HTTPException(
                 status_code=502,
                 detail="All backends failed — check server logs",

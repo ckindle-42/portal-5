@@ -46,6 +46,16 @@ VALID_WORKSPACES = frozenset(
         "auto-data",
         "auto-compliance",
         "auto-mistral",
+        # Coding capability benchmark workspaces (user-selected only)
+        "bench-devstral",
+        "bench-qwen3-coder-next",
+        "bench-qwen3-coder-30b",
+        "bench-llama33-70b",
+        "bench-phi4",
+        "bench-phi4-reasoning",
+        "bench-dolphin8b",
+        "bench-glm",
+        "bench-gptoss",
     }
 )
 

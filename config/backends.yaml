@@ -147,6 +147,20 @@ workspace_routing:
   auto-data:      [mlx, reasoning, general]
   auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary; reasoning group default (deepseek-r1:32b-q4_k_m) is Ollama fallback
   auto-mistral:    [mlx, reasoning, general]   # Magistral-Small dedicated reasoning — Mistral training lineage
+  # ── Coding Capability Benchmark Workspaces ──────────────────────────────
+  # User-selected only. Each workspace is pinned to one model.
+  # If MLX cannot load the target model, abort the benchmark run — do not
+  # compare against a fallback. Fallback groups listed for graceful degradation
+  # only; the bench persona description warns users to verify model loaded.
+  bench-devstral:          [mlx, coding, general]   # Devstral-Small-2507 (Mistral/Codestral)
+  bench-qwen3-coder-next:  [mlx, coding, general]   # Qwen3-Coder-Next-4bit (Alibaba, 80B MoE)
+  bench-qwen3-coder-30b:   [mlx, coding, general]   # Qwen3-Coder-30B-A3B-8bit (Alibaba, 30B MoE)
+  bench-llama33-70b:       [mlx, coding, general]   # Llama-3.3-70B-4bit (Meta)
+  bench-phi4:              [mlx, coding, general]   # Phi-4-8bit (Microsoft)
+  bench-phi4-reasoning:    [mlx, coding, general]   # Phi-4-reasoning-plus (Microsoft RL)
+  bench-dolphin8b:         [mlx, general]           # Dolphin3.0-Llama3.1-8B (Cognitive Computations)
+  bench-glm:               [coding, general]        # glm-4.7-flash (Zhipu AI — Ollama only)
+  bench-gptoss:            [reasoning, general]     # gpt-oss:20b (OpenAI open-weight — Ollama only)
 
 defaults:
   fallback_group: general

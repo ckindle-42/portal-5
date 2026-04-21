@@ -197,10 +197,22 @@ class TestRouteWithLLM:
         assert result in ("auto-redteam", "auto-security")
 
     def test_valid_workspace_ids_covers_all_workspaces(self):
-        """_VALID_WORKSPACE_IDS must match WORKSPACES keys exactly."""
+        """_VALID_WORKSPACE_IDS must cover all non-bench workspaces.
+
+        bench-* workspaces are user-selected only and intentionally excluded
+        from the LLM intent classifier allowlist (_VALID_WORKSPACE_IDS /
+        _ROUTER_JSON_SCHEMA) so the auto-router never routes to them.
+        """
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert frozenset(WORKSPACES.keys()) == _VALID_WORKSPACE_IDS, (
-            f"Mismatch: _VALID_WORKSPACE_IDS={_VALID_WORKSPACE_IDS - frozenset(WORKSPACES.keys())} "
-            f"extra, missing={frozenset(WORKSPACES.keys()) - _VALID_WORKSPACE_IDS}"
+        production_ids = frozenset(k for k in WORKSPACES if not k.startswith("bench-"))
+        bench_ids = frozenset(k for k in WORKSPACES if k.startswith("bench-"))
+
+        missing_from_router = production_ids - _VALID_WORKSPACE_IDS
+        assert not missing_from_router, (
+            f"Production workspaces missing from _VALID_WORKSPACE_IDS: {missing_from_router}"
+        )
+        leaked_bench = bench_ids & _VALID_WORKSPACE_IDS
+        assert not leaked_bench, (
+            f"Bench workspaces must not appear in _VALID_WORKSPACE_IDS: {leaked_bench}"
         )

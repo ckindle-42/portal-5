@@ -1,0 +1,13 @@
+{
+  "id": "bench-qwen3-coder-30b",
+  "name": "🔬 Bench · Qwen3-Coder-30B",
+  "meta": {
+    "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit — Alibaba, 30B MoE, ~22GB",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-qwen3-coder-30b"
+  }
+}
