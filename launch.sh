@@ -381,6 +381,8 @@ _check_ports() {
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
     _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
     _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
+    _port_check "${EMBEDDING_HOST_PORT:-8917}"  "MCP Embedding"
+    _port_check "${SECURITY_HOST_PORT:-8919}"   "MCP Security"
 
     # MLX proxy (port 8081) — only check if installed
     # Skip the check if proxy is already responding (started by _ensure_native_services)
@@ -558,6 +560,7 @@ rows = [
     ('portal5-mcp-sandbox',   'MCP Code Sandbox',     ':8914'),
     ('portal5-mcp-comfyui',   'MCP ComfyUI Bridge',   ':8910'),
     ('portal5-mcp-video',     'MCP Video',            ':8911'),
+    ('portal5-mcp-security',  'MCP Security',         ':8919'),
 ]
 icons = {'healthy': '✅', 'running': '✅', 'starting': '⏳'}
 for key, label, url in rows:
@@ -876,7 +879,7 @@ case "${1:-up}" in
 
     WS_COUNT=$(_json_get "$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" 2>/dev/null)" \
         '(.data // []) | length' "d=json.load(sys.stdin); print(len(d.get('data',[])))" "0")
-    _check "all 15 workspaces exposed" "$WS_COUNT" "15"
+    _check "all 17 workspaces exposed" "$WS_COUNT" "17"
 
     METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
     [ "$METRICS" -ge 4 ] && echo "  ✅ Prometheus metrics ($METRICS gauges)" && PASS=$((PASS+1)) || { echo "  ❌ Metrics missing"; FAIL=$((FAIL+1)); }
@@ -909,7 +912,7 @@ case "${1:-up}" in
     echo ""
     echo "MCP Servers:"
     for port_name in "8913:Documents" "8912:Music" "8916:TTS" "8915:Whisper" \
-                     "8910:ComfyUI" "8911:Video" "8914:Sandbox"; do
+                     "8910:ComfyUI" "8911:Video" "8914:Sandbox" "8917:Embedding" "8919:Security"; do
         PORT="${port_name%%:*}"
         NAME="${port_name##*:}"
         HC=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/health" 2>/dev/null)
@@ -1324,6 +1327,7 @@ case "${1:-up}" in
                 "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
                 "devstral:24b"
                 "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+                "gpt-oss:20b"
                 "huihui_ai/tongyi-deepresearch-abliterated"
                 "qwen3-vl:32b"
                 "llava:7b"
@@ -2006,6 +2010,7 @@ except Exception as e:
         "devstral:24b"
         # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+        "gpt-oss:20b"
         "huihui_ai/tongyi-deepresearch-abliterated"
         "hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2"   # ~17GB — Gemma 4 26B MoE uncensored, tool-use, Google lineage
         # ── Vision ───────────────────────────────────────────────────────
@@ -2234,6 +2239,7 @@ except Exception as e:
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
+        "gpt-oss:20b"
         "huihui_ai/tongyi-deepresearch-abliterated"
         "hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2"
         "qwen3-vl:32b"
