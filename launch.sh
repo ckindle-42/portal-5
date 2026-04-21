@@ -1386,10 +1386,11 @@ case "${1:-up}" in
             for _model in "${_MLX_MODELS[@]}"; do
                 _MCOUNT=$((_MCOUNT + 1))
                 echo "  [$_MCOUNT/$_MTOTAL] $_model"
-                if python3 -W ignore -c "
-import warnings; warnings.filterwarnings('ignore')
+                if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
-snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 " 2>/dev/null; then
                     echo "  ✅ Done"
                 else
@@ -1721,8 +1722,8 @@ except Exception as e:
         # Check importability via python3 — avoids PATH issues with the binary
         if ! python3 -c "import huggingface_hub" &>/dev/null 2>&1; then
             echo "  Installing huggingface_hub..."
-            pip3 install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
-            pip3 install huggingface_hub --quiet
+            pip3 install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
+            pip3 install "huggingface_hub>=0.28" --quiet
         fi
         # Authenticate if token provided — use python API (no binary PATH needed)
         if [ -n "${HF_TOKEN:-}" ]; then
@@ -1821,7 +1822,7 @@ except Exception:
                 # Q4_K_M = 138 GB — does not fit in 48 GB unified memory
                 echo "  ⚠️  Skipping MiniMax-M2.1: smallest useful quant is 138 GB (requires ~160 GB RAM)"
                 echo "     To pull manually if you have sufficient RAM:"
-                echo "     huggingface-cli download bartowski/MiniMaxAI_MiniMax-M2.1-GGUF --include 'MiniMaxAI_MiniMax-M2.1-Q4_K_M.gguf'"
+                echo "     hf hub download bartowski/MiniMaxAI_MiniMax-M2.1-GGUF --include 'MiniMaxAI_MiniMax-M2.1-Q4_K_M.gguf'"
                 return 0
                 ;;
 
@@ -1954,7 +1955,7 @@ except Exception as e:
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
             echo "  ❌ Download failed for $actual_repo"
             echo "     Retry manually:"
-            echo "       huggingface-cli download $actual_repo ${filename:-} --local-dir ~/Downloads"
+            echo "       hf hub download $actual_repo ${filename:-} --local-dir ~/Downloads"
             echo "     Then import: ./launch.sh import-gguf ~/Downloads/${filename:-model.gguf} $ollama_name"
             return 1
         fi
@@ -1985,7 +1986,7 @@ except Exception as e:
     echo ""
 
     # ── HuggingFace authentication — required for hf.co/ models ─────────────
-    echo "[portal-5] ℹ️  HuggingFace models: using huggingface-cli download (bypasses Ollama auth issues)"
+    echo "[portal-5] ℹ️  HuggingFace models: using hf hub download (bypasses Ollama auth issues)"
     echo "   For gated models (BaronLLM etc.), you must first accept terms at huggingface.co"
     echo "   then set HF_TOKEN in .env:"
     echo "     1. https://huggingface.co/<repo> → Accept conditions"
@@ -2067,24 +2068,6 @@ except Exception as e:
             echo "docker exec portal5-ollama ollama"
         else
             echo ""
-        fi
-    }
-
-    _ensure_hf_cli() {
-        if ! python3 -c "import huggingface_hub" &>/dev/null 2>&1; then
-            echo "  Installing huggingface_hub..."
-            pip3 install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
-            pip3 install huggingface_hub --quiet
-        fi
-        if [ -n "${HF_TOKEN:-}" ]; then
-            python3 -W ignore -c "
-from huggingface_hub import login
-import warnings; warnings.filterwarnings('ignore')
-try:
-    login(token='${HF_TOKEN}', add_to_git_credential=False)
-except Exception:
-    pass
-" 2>/dev/null || true
         fi
     }
 
@@ -2616,7 +2599,16 @@ PLIST
         <key>HOME</key>
         <string>${HOME}</string>
         <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>$(
+    if [ -n "${HF_HUB_CACHE:-}" ]; then
+        printf '\n        <key>HF_HUB_CACHE</key>\n        <string>%s</string>' "${HF_HUB_CACHE}"
+    fi
+    if [ -n "${HF_HOME:-}" ]; then
+        printf '\n        <key>HF_HOME</key>\n        <string>%s</string>' "${HF_HOME}"
+    fi
+    if [ -n "${HF_TOKEN:-}" ]; then
+        printf '\n        <key>HF_TOKEN</key>\n        <string>%s</string>' "${HF_TOKEN}"
+    fi)
     </dict>
 </dict>
 </plist>
@@ -3051,7 +3043,13 @@ PLIST
     fi
 
     echo "=== Downloading MLX models to HuggingFace cache ==="
-    echo "Models download to: ${HF_HOME:-~/.cache/huggingface/hub/}"
+    # Resolve actual HF cache dir: HF_HUB_CACHE > HF_HOME/hub > default
+    _hf_cache_dir="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
+    _hf_cache_dir="${_hf_cache_dir:-$HOME/.cache/huggingface/hub}"
+    echo "Models download to: ${_hf_cache_dir}"
+    if [ -L "$HOME/.cache/huggingface/hub" ]; then
+        echo "  (symlinked → $(readlink "$HOME/.cache/huggingface/hub"))"
+    fi
     echo ""
 
     # Standard MLX models (8bit quants for 64GB M4 Mac — one at a time)
@@ -3106,15 +3104,16 @@ PLIST
     for model in "${MLX_MODELS[@]}"; do
         count=$((count + 1))
         echo "[$count/$total] $model"
-        if python3 -W ignore -c "
-import warnings; warnings.filterwarnings('ignore')
+        if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
-snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
             echo "  ✅ Downloaded"
         else
             echo "  ❌ Failed"
-            echo "  Retry: huggingface-cli download $model"
+            echo "  Retry: hf hub download $model"
             failed=$((failed + 1))
         fi
         echo ""
@@ -3124,10 +3123,11 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
             echo "  Downloading: $model (~40GB)"
-            if python3 -W ignore -c "
-import warnings; warnings.filterwarnings('ignore')
+            if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
-snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
                 echo "  ✅ Done"
             else
@@ -3226,8 +3226,8 @@ MEOF
     # Ensure huggingface_hub is available
     if ! python3 -c "import huggingface_hub" &>/dev/null; then
         echo "  Installing huggingface_hub..."
-        pip install huggingface_hub --quiet --break-system-packages 2>/dev/null || \
-            python3 -m pip install huggingface_hub --quiet
+        pip install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
+            python3 -m pip install "huggingface_hub>=0.28" --quiet
     fi
 
     IMAGE_MODEL="$IMAGE_MODEL" \
