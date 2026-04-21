@@ -1661,17 +1661,14 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
 
         _ensure_hf_cli
 
-        echo "  Re-downloading: https://huggingface.co/$actual_repo"
-        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
+        echo "  Checking for updates: https://huggingface.co/$actual_repo"
         local _hf_err
         _hf_err=$(mktemp)
         local gguf_path=""
         if [ -n "$filename" ]; then
-            mkdir -p "$_dl_dir"
             gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
                 DL_REPO="$actual_repo" \
                 DL_FILE="$filename" \
-                DL_DIR="$_dl_dir" \
                 python3 -W ignore -c "
 import os, sys, warnings
 warnings.filterwarnings('ignore')
@@ -1682,7 +1679,6 @@ try:
         repo_id=os.environ['DL_REPO'],
         filename=os.environ['DL_FILE'],
         token=token,
-        local_dir=os.environ['DL_DIR'],
     )
     print(path)
 except Exception as e:
@@ -1698,8 +1694,8 @@ except Exception as e:
             return 1
         fi
         rm -f "$_hf_err"
-        echo "  ✅ Downloaded: $(basename "$gguf_path")"
-        echo "  Re-importing as: $ollama_name"
+        echo "  ✅ Ready: $(basename "$gguf_path")"
+        echo "  Importing as: $ollama_name"
 
         local modelfile
         modelfile=$(mktemp)
@@ -1708,7 +1704,6 @@ except Exception as e:
         if $ollama_cmd create --force "$ollama_name" -f "$modelfile"; then
             echo "  ✅ Refreshed: $ollama_name"
             rm -f "$modelfile"
-            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir"
             return 0
         else
             echo "  ❌ ollama create --force failed"
@@ -1884,21 +1879,20 @@ except Exception:
         _ensure_hf_cli
 
         # ── Download via Python snapshot_download ─────────────────────────────
-        # snapshot_download returns the actual cached path — works correctly
-        # whether files end up in --local-dir or ~/.cache/huggingface.
-        # This also handles the case where --include glob ignores --local-dir.
+        # hf_hub_download uses ~/.cache/huggingface/hub/ as a content-addressed
+        # cache. On subsequent calls it checks the remote ETag and returns the
+        # cached path without re-downloading if the file is unchanged.
 
-        echo "  Downloading from: https://huggingface.co/$actual_repo"
+        echo "  Fetching from HuggingFace (cached if unchanged): $actual_repo"
 
+        local _hf_err
+        _hf_err=$(mktemp)
         local gguf_path=""
-        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
         if [ -n "$filename" ]; then
             echo "  File: $filename"
-            mkdir -p "$_dl_dir"
             gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
                 DL_REPO="$actual_repo" \
                 DL_FILE="$filename" \
-                DL_DIR="$_dl_dir" \
                 python3 -W ignore -c "
 import os, sys, warnings
 warnings.filterwarnings('ignore')
@@ -1909,20 +1903,17 @@ try:
         repo_id=os.environ['DL_REPO'],
         filename=os.environ['DL_FILE'],
         token=token,
-        local_dir=os.environ['DL_DIR'],
     )
     print(path)
 except Exception as e:
     print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-")
+" 2>"$_hf_err")
         elif [ -n "$glob_pattern" ]; then
             echo "  Pattern: $glob_pattern (listing repo to find file)"
-            mkdir -p "$_dl_dir"
             gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
                 DL_REPO="$actual_repo" \
                 DL_GLOB="$glob_pattern" \
-                DL_DIR="$_dl_dir" \
                 python3 -W ignore -c "
 import os, sys, fnmatch, warnings
 warnings.filterwarnings('ignore')
@@ -1941,36 +1932,35 @@ try:
         repo_id=os.environ['DL_REPO'],
         filename=target,
         token=token,
-        local_dir=os.environ['DL_DIR'],
     )
     print(path)
 except Exception as e:
     print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-")
+" 2>"$_hf_err")
         fi
 
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
             echo "  ❌ Download failed for $actual_repo"
+            [ -s "$_hf_err" ] && echo "  Error detail: $(cat "$_hf_err")"
+            rm -f "$_hf_err"
             echo "     Retry manually:"
             echo "       hf hub download $actual_repo ${filename:-} --local-dir ~/Downloads"
             echo "     Then import: ./launch.sh import-gguf ~/Downloads/${filename:-model.gguf} $ollama_name"
             return 1
         fi
+        rm -f "$_hf_err"
 
-        echo "  ✅ Downloaded: $(basename "$gguf_path")"
+        echo "  ✅ Ready: $(basename "$gguf_path")"
         echo "  Importing as: $ollama_name"
 
         local modelfile
         modelfile=$(mktemp)
         printf 'FROM %s\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n' "$gguf_path" > "$modelfile"
 
-        # Bug C fix: use _ollama_cmd not bare 'ollama'
         if $ollama_cmd create "$ollama_name" -f "$modelfile"; then
             echo "  ✅ Imported: $ollama_name"
             rm -f "$modelfile"
-            # Clean download cache — Ollama has its own copy in blob store
-            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir" && echo "  ℹ️  Freed download cache"
             return 0
         else
             echo "  ❌ ollama create failed — GGUF kept at: $gguf_path"
@@ -2172,14 +2162,13 @@ except Exception:
 
         _ensure_hf_cli
 
-        echo "  Re-downloading: https://huggingface.co/$actual_repo"
-        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
-        mkdir -p "$_dl_dir"
+        echo "  Checking for updates: https://huggingface.co/$actual_repo"
+        local _hf_err
+        _hf_err=$(mktemp)
         local gguf_path
         gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
             DL_REPO="$actual_repo" \
             DL_FILE="$filename" \
-            DL_DIR="$_dl_dir" \
             python3 -W ignore -c "
 import os, sys, warnings
 warnings.filterwarnings('ignore')
@@ -2190,20 +2179,22 @@ try:
         repo_id=os.environ['DL_REPO'],
         filename=os.environ['DL_FILE'],
         token=token,
-        local_dir=os.environ['DL_DIR'],
     )
     print(path)
 except Exception as e:
     print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
     sys.exit(1)
-")
+" 2>"$_hf_err")
 
         if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
             echo "  ❌ Download failed for $actual_repo"
+            [ -s "$_hf_err" ] && echo "  Error detail: $(cat "$_hf_err")"
+            rm -f "$_hf_err"
             return 1
         fi
+        rm -f "$_hf_err"
 
-        echo "  ✅ Downloaded: $(basename "$gguf_path")"
+        echo "  ✅ Ready: $(basename "$gguf_path")"
         local modelfile
         modelfile=$(mktemp)
         printf 'FROM %s\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n' "$gguf_path" > "$modelfile"
@@ -2213,7 +2204,6 @@ except Exception as e:
         if $ollama_cmd_bin create "$ollama_name" -f "$modelfile"; then
             echo "  ✅ Refreshed: $ollama_name"
             rm -f "$modelfile"
-            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir"
             return 0
         else
             echo "  ❌ ollama create failed"
