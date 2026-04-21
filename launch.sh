@@ -3108,17 +3108,9 @@ PLIST
 import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$model', local_files_only=True, cache_dir=cache_dir,
-                  ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
-" 2>/dev/null; then
-            echo "  ✅ Already cached — skipping"
-        elif HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
-            echo "  ✅ Downloaded"
+            echo "  ✅ Done"
         else
             echo "  ❌ Failed"
             echo "  Retry: hf hub download $model"
@@ -3130,22 +3122,14 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     if [ "${PULL_HEAVY:-false}" = "true" ]; then
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
-            echo "  [$model]"
+            echo "  Downloading: $model (~40GB)"
             if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$model', local_files_only=True, cache_dir=cache_dir,
-                  ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
-" 2>/dev/null; then
-                echo "  ✅ Already cached — skipping"
-            elif HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
-                echo "  ✅ Downloaded"
+                echo "  ✅ Done"
             else
                 echo "  ❌ Failed"
                 failed=$((failed + 1))
