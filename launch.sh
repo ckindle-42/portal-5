@@ -1566,7 +1566,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
         local model_name="$1"
         local ollama_cmd
         ollama_cmd=$(_ollama_cmd)
-        [ -n "$ollama_cmd" ] && $ollama_cmd list 2>/dev/null | grep -q "^${model_name}"
+        [ -n "$ollama_cmd" ] && $ollama_cmd list 2>/dev/null | grep -qi "^${model_name}"
     }
 
     # ── Refresh model (force re-pull even if present) ─────────────────────────
@@ -3108,6 +3108,14 @@ PLIST
 import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$model', local_files_only=True, cache_dir=cache_dir,
+                  ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+" 2>/dev/null; then
+            echo "  ✅ Already cached — skipping"
+        elif HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+from huggingface_hub import snapshot_download
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
             echo "  ✅ Downloaded"
@@ -3122,14 +3130,22 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     if [ "${PULL_HEAVY:-false}" = "true" ]; then
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
-            echo "  Downloading: $model (~40GB)"
+            echo "  [$model]"
             if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+from huggingface_hub import snapshot_download
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$model', local_files_only=True, cache_dir=cache_dir,
+                  ignore_patterns=['*.md','*.txt','*.safetensors.index.json'])
+" 2>/dev/null; then
+                echo "  ✅ Already cached — skipping"
+            elif HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
 "; then
-                echo "  ✅ Done"
+                echo "  ✅ Downloaded"
             else
                 echo "  ❌ Failed"
                 failed=$((failed + 1))
