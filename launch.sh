@@ -2069,6 +2069,159 @@ except Exception as e:
         fi
     }
 
+    _ensure_hf_cli() {
+        if ! python3 -c "import huggingface_hub" &>/dev/null 2>&1; then
+            echo "  Installing huggingface_hub..."
+            pip3 install "huggingface_hub>=0.28" --quiet --break-system-packages 2>/dev/null || \
+            pip3 install "huggingface_hub>=0.28" --quiet
+        fi
+        if [ -n "${HF_TOKEN:-}" ]; then
+            python3 -W ignore -c "
+from huggingface_hub import login
+import warnings; warnings.filterwarnings('ignore')
+try:
+    login(token='${HF_TOKEN}', add_to_git_credential=False)
+except Exception:
+    pass
+" 2>/dev/null || true
+        fi
+    }
+
+    _refresh_model() {
+        local model="$1"
+        local ollama_cmd
+        ollama_cmd=$(_ollama_cmd)
+
+        if [ -z "$ollama_cmd" ]; then
+            echo "  ❌ No Ollama available. Run: ./launch.sh install-ollama"
+            return 1
+        fi
+
+        # Native Ollama registry — pull --force checks registry and re-imports changed layers
+        if [[ "$model" != hf.co/* ]]; then
+            $ollama_cmd pull "$model"
+            return $?
+        fi
+
+        local repo_id="${model#hf.co/}"
+        local actual_repo="" filename="" ollama_name="" gated="false"
+
+        case "$repo_id" in
+            AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF)
+                actual_repo="AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
+                filename="baronllm-llama3.1-v1-q6_k.gguf"
+                ollama_name="baronllm:q6_k"
+                gated="true"
+                ;;
+            segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF)
+                actual_repo="segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+                filename="Lily-7B-Instruct-v0.2.Q4_K_M.gguf"
+                ollama_name="lily-cybersecurity:7b-q4_k_m"
+                ;;
+            cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF)
+                actual_repo="bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF"
+                filename="cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf"
+                ollama_name="dolphin3-r1-mistral:24b-q4_k_m"
+                ;;
+            WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF)
+                actual_repo="dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF"
+                filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
+                ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
+                ;;
+            unsloth/GLM-4.7-Flash-GGUF)
+                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
+                filename="GLM-4.7-Flash-Q4_K_M.gguf"
+                ollama_name="glm-4.7-flash:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
+                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
+                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
+                ollama_name="deepseek-coder-v2-lite:q4_k_m"
+                ;;
+            deepseek-ai/DeepSeek-R1-32B-GGUF)
+                actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
+                filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
+                ollama_name="deepseek-r1:32b-q4_k_m"
+                ;;
+            Jiunsong/supergemma4-26b-uncensored-gguf-v2)
+                actual_repo="Jiunsong/supergemma4-26b-uncensored-gguf-v2"
+                filename="supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"
+                ollama_name="supergemma4-26b-uncensored:q4_k_m"
+                ;;
+            cognitivecomputations/dolphin-3-llama3-70b-GGUF)
+                actual_repo="bartowski/dolphin-2.9.1-llama-3-70b-GGUF"
+                filename="dolphin-2.9.1-llama-3-70b-Q4_K_M.gguf"
+                ollama_name="dolphin-llama3:70b-q4_k_m"
+                ;;
+            meta-llama/Meta-Llama-3.3-70B-GGUF)
+                actual_repo="bartowski/Llama-3.3-70B-Instruct-GGUF"
+                filename="Llama-3.3-70B-Instruct-Q4_K_M.gguf"
+                ollama_name="llama3.3:70b-q4_k_m"
+                ;;
+            *)
+                echo "  ⚠️  No verified spec for $repo_id — attempting direct ollama pull"
+                $ollama_cmd pull "$model"
+                return $?
+                ;;
+        esac
+
+        if [ "$gated" = "true" ] && [ -z "${HF_TOKEN:-}" ]; then
+            echo "  ❌ $actual_repo requires HF_TOKEN (gated repo)"
+            return 1
+        fi
+
+        _ensure_hf_cli
+
+        echo "  Re-downloading: https://huggingface.co/$actual_repo"
+        local _dl_dir="${OLLAMA_MODELS:-$HOME/.ollama/models}/../model_imports/${actual_repo//\//_}"
+        mkdir -p "$_dl_dir"
+        local gguf_path
+        gguf_path=$(HF_TOKEN="${HF_TOKEN:-}" \
+            DL_REPO="$actual_repo" \
+            DL_FILE="$filename" \
+            DL_DIR="$_dl_dir" \
+            python3 -W ignore -c "
+import os, sys, warnings
+warnings.filterwarnings('ignore')
+from huggingface_hub import hf_hub_download
+token = os.environ.get('HF_TOKEN') or None
+try:
+    path = hf_hub_download(
+        repo_id=os.environ['DL_REPO'],
+        filename=os.environ['DL_FILE'],
+        token=token,
+        local_dir=os.environ['DL_DIR'],
+    )
+    print(path)
+except Exception as e:
+    print(f'ERROR: {type(e).__name__}: {e}', file=sys.stderr)
+    sys.exit(1)
+")
+
+        if [ -z "$gguf_path" ] || [ ! -f "$gguf_path" ]; then
+            echo "  ❌ Download failed for $actual_repo"
+            return 1
+        fi
+
+        echo "  ✅ Downloaded: $(basename "$gguf_path")"
+        local modelfile
+        modelfile=$(mktemp)
+        printf 'FROM %s\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n' "$gguf_path" > "$modelfile"
+
+        local ollama_cmd_bin
+        ollama_cmd_bin=$(_ollama_cmd)
+        if $ollama_cmd_bin create "$ollama_name" -f "$modelfile"; then
+            echo "  ✅ Refreshed: $ollama_name"
+            rm -f "$modelfile"
+            [ -d "${_dl_dir:-}" ] && rm -rf "$_dl_dir"
+            return 0
+        else
+            echo "  ❌ ollama create failed"
+            rm -f "$modelfile"
+            return 1
+        fi
+    }
+
     echo "=== Portal 5: Refreshing models (only downloads changes) ==="
     echo "Each model will be checked — unchanged models will say 'up to date'."
     echo ""
@@ -2092,6 +2245,7 @@ except Exception as e:
         "devstral:24b"
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "huihui_ai/tongyi-deepresearch-abliterated"
+        "hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2"
         "qwen3-vl:32b"
         "llava:7b"
     )
