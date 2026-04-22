@@ -21,7 +21,7 @@ from portal_mcp.mcp_server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("video-generation")
+mcp = FastMCP("video-generation", host="0.0.0.0")
 
 # Configurable timeout: VIDEO_TIMEOUT env var (seconds, default 1200 = 20 min).
 # Video generation can be very slow on CPU/MPS — 32 frames at 8 steps can exceed 10 min.
@@ -559,7 +559,6 @@ async def list_video_models() -> list[str]:
 if __name__ == "__main__":
     port = int(os.getenv("VIDEO_MCP_PORT", "8911"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     try:
         mcp.run(transport="streamable-http")
     finally:

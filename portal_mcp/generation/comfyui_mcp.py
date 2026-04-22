@@ -17,7 +17,7 @@ from starlette.responses import JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
-mcp = FastMCP("comfyui-generation")
+mcp = FastMCP("comfyui-generation", host="0.0.0.0")
 
 # Configurable timeout: COMFYUI_TIMEOUT env var (seconds, default 1200 = 20 min).
 # SDXL at 25 steps can take 5+ min on MPS; FLUX schnell is faster but still variable.
@@ -481,7 +481,6 @@ async def get_generation_status(job_id: str) -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("COMFYUI_MCP_PORT", "8910"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     try:
         mcp.run(transport="streamable-http")
     finally:

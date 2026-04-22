@@ -22,7 +22,7 @@ from starlette.responses import JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
-mcp = FastMCP("code-sandbox")
+mcp = FastMCP("code-sandbox", host="0.0.0.0")
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -315,5 +315,4 @@ async def sandbox_status() -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

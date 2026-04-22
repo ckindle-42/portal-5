@@ -10,7 +10,7 @@
     ]
   },
   "params": {
-    "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP tools. Confirm the file was created and provide the path.",
+    "system": "You help create professional documents. When asked to create a Word, Excel, or PowerPoint file, use the available MCP document tools. After a tool creates a file, ALWAYS include the download_url from the tool result as a clickable link in your response so the user can download the file. Format it as: 'Download: <download_url>'. Never say you cannot create files — you have MCP tools for this.",
     "model": "auto-documents"
   }
 }

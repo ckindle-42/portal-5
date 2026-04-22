@@ -11,21 +11,25 @@ import asyncio
 import contextlib
 import logging
 import os
+import re
 import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 
 from portal_mcp.generation.utils import get_torch_device
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
-mcp = FastMCP("tts-generation")
+port = int(os.getenv("TTS_MCP_PORT", "8916"))
+mcp = FastMCP("tts-generation", host="0.0.0.0")
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 
 TTS_BACKEND = os.getenv("TTS_BACKEND", "kokoro")  # kokoro | fish_speech
 TTS_VOICE = os.getenv("TTS_DEFAULT_VOICE", "af_heart")  # Kokoro default voice
@@ -127,6 +131,22 @@ async def health_check(request):
             "backend": backend,
             "voice_cloning": _check_fish_speech()[0],
         }
+    )
+
+
+@mcp.custom_route("/files/{filename:path}", methods=["GET"])
+async def serve_generated_file(request):
+    """Serve generated audio files for browser download."""
+    filename = request.path_params["filename"]
+    if not SAFE_FILENAME.match(filename):
+        return JSONResponse({"error": "Invalid filename"}, status_code=400)
+    file_path = OUTPUT_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="audio/wav",
     )
 
 
@@ -334,9 +354,11 @@ def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
         output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         sf.write(str(output_path), samples, sample_rate)
 
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
         return {
             "status": "success",
-            "file_path": str(output_path),
+            "filename": output_path.name,
+            "download_url": download_url,
             "backend": "kokoro",
             "voice": voice,
             "duration_estimate": f"{len(text) / 15:.1f}s",
@@ -369,9 +391,11 @@ def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
         output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         get_audio(audio).save(str(output_path))
 
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
         return {
             "status": "success",
-            "file_path": str(output_path),
+            "filename": output_path.name,
+            "download_url": download_url,
             "backend": "fish_speech",
             "voice": voice,
         }
@@ -426,7 +450,8 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
         import soundfile as sf
 
         sf.write(str(output_path), audio, 24000)
-        return {"status": "success", "file_path": str(output_path), "backend": "fish_speech"}
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        return {"status": "success", "filename": output_path.name, "download_url": download_url, "backend": "fish_speech"}
     except Exception as e:
         return {"error": str(e), "backend": "fish_speech"}
 
@@ -460,5 +485,4 @@ async def list_voices() -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("TTS_MCP_PORT", "8916"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

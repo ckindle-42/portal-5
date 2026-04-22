@@ -14,19 +14,39 @@ Start with: python -m portal_mcp.generation.music_mcp
 import asyncio
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
-mcp = FastMCP("music-generation")
+port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
+mcp = FastMCP("music-generation", host="0.0.0.0")
+
+SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "music-mcp"})
+
+
+@mcp.custom_route("/files/{filename:path}", methods=["GET"])
+async def serve_generated_file(request):
+    """Serve generated audio files for browser download."""
+    filename = request.path_params["filename"]
+    if not SAFE_FILENAME.match(filename):
+        return JSONResponse({"error": "Invalid filename"}, status_code=400)
+    file_path = OUTPUT_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="audio/wav",
+    )
 
 
 # Tool manifest for discovery
@@ -223,9 +243,11 @@ def _generate_sync(
         wavfile.write(str(output_file), sampling_rate, audio_int16)
 
         actual_duration = len(audio_data) / sampling_rate
+        download_url = f"http://localhost:{port}/files/{output_file.name}"
         return {
             "success": True,
-            "path": str(output_file),
+            "filename": output_file.name,
+            "download_url": download_url,
             "duration_seconds": round(actual_duration, 2),
             "sample_rate": sampling_rate,
             "prompt": prompt,
@@ -304,9 +326,11 @@ def _generate_with_melody_sync(
         wavfile.write(str(output_file), sampling_rate, audio_int16)
 
         actual_duration = len(audio_data) / sampling_rate
+        download_url = f"http://localhost:{port}/files/{output_file.name}"
         return {
             "success": True,
-            "path": str(output_file),
+            "filename": output_file.name,
+            "download_url": download_url,
             "duration_seconds": round(actual_duration, 2),
             "sample_rate": sampling_rate,
             "prompt": prompt,
@@ -431,5 +455,4 @@ async def list_music_models() -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

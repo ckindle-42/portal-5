@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
-mcp = FastMCP("whisper-transcription")
+mcp = FastMCP("whisper-transcription", host="0.0.0.0")
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -169,5 +169,4 @@ async def transcribe_audio(file_path: str, language: str | None = None) -> dict:
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))
     mcp.settings.port = port
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

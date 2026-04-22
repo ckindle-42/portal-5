@@ -357,8 +357,9 @@ async def _enable_tool(page, tool_id: str) -> None:
         pass  # best-effort; test proceeds and assertion will catch if tool missing
 
 
-async def _download_artifact(page, expected_ext: str, timeout_ms: int = 120_000) -> Path | None:
+async def _download_artifact(page, expected_ext: str, timeout_ms: int = 120_000, response_text: str = "") -> Path | None:
     ARTIFACT_DIR.mkdir(exist_ok=True)
+    # Try Playwright UI download first
     try:
         async with page.expect_download(timeout=timeout_ms) as dl_info:
             await page.locator(
@@ -370,7 +371,72 @@ async def _download_artifact(page, expected_ext: str, timeout_ms: int = 120_000)
         await dl.save_as(dest)
         return dest
     except Exception:
-        return None
+        pass
+
+    # Fallback: extract file path or download URL from model response
+    import re
+    import subprocess
+
+    if response_text:
+        # Try 1: Match http://localhost:PORT/files/<filename>.<ext> download URL
+        url_pattern = rf'http://localhost:\d+/files/\S+\.{re.escape(expected_ext)}'
+        url_match = re.search(url_pattern, response_text)
+        if url_match:
+            download_url = url_match.group(0)
+            filename = Path(download_url).name
+            dest = ARTIFACT_DIR / filename
+            try:
+                r = httpx.get(download_url, timeout=30)
+                if r.status_code == 200:
+                    dest.write_bytes(r.content)
+                    return dest
+            except Exception:
+                pass
+
+        # Try 2: Match /app/data/generated/<filename>.<ext> container path
+        container_pattern = rf'/app/data/generated/\S+\.{re.escape(expected_ext)}'
+        container_match = re.search(container_pattern, response_text)
+        if container_match:
+            container_path = container_match.group(0)
+            for container in [
+                "portal5-mcp-documents", "portal5-mcp-sandbox",
+                "portal5-mcp-comfyui", "portal5-mcp-video",
+            ]:
+                dest = ARTIFACT_DIR / Path(container_path).name
+                result = subprocess.run(
+                    ["docker", "cp", f"{container}:{container_path}", str(dest)],
+                    capture_output=True, timeout=10,
+                )
+                if result.returncode == 0 and dest.exists():
+                    return dest
+
+    # Try 3: Most recent file with expected extension from MCP containers
+    # (handles case where tool ran but model didn't mention the filename)
+    for container in [
+        "portal5-mcp-documents", "portal5-mcp-sandbox",
+        "portal5-mcp-comfyui", "portal5-mcp-video",
+    ]:
+        try:
+            result = subprocess.run(
+                ["docker", "exec", container, "ls", "-t", "/app/data/generated/"],
+                capture_output=True, timeout=10, text=True,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.strip().split("\n"):
+                    fname = line.strip()
+                    if fname.endswith(f".{expected_ext}"):
+                        container_path = f"/app/data/generated/{fname}"
+                        dest = ARTIFACT_DIR / fname
+                        cp_result = subprocess.run(
+                            ["docker", "cp", f"{container}:{container_path}", str(dest)],
+                            capture_output=True, timeout=10,
+                        )
+                        if cp_result.returncode == 0 and dest.exists():
+                            return dest
+                        break
+        except Exception:
+            continue
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -2226,7 +2292,7 @@ async def run_test(
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
         if art_ext:
-            artifact_path = await _download_artifact(page, art_ext, timeout_ms)
+            artifact_path = await _download_artifact(page, art_ext, timeout_ms, response_text)
 
         # Multi-turn: send second message if defined
         turn2 = test.get("turn2")

@@ -1280,13 +1280,16 @@ case "${1:-up}" in
     echo "[portal-5] Restore complete. Run: ./launch.sh up"
     ;;
   rebuild)
-    # Rebuild and restart portal-pipeline (e.g. after a code update via git pull)
+    # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
-    echo "[portal-5] Restarting portal-pipeline..."
-    docker compose up -d --no-deps portal-pipeline
+    echo "[portal-5] Rebuilding MCP images..."
+    docker compose build $MCP_SERVICES
+    echo "[portal-5] Restarting all rebuilt containers..."
+    docker compose up -d --no-deps portal-pipeline $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
@@ -3489,7 +3492,7 @@ MEOF
     echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
     echo "  install-embedding-service   Install launchd agent — embedding starts at login, auto-restarts on crash"
     echo "  uninstall-embedding-service Remove launchd agent"
-    echo "  rebuild               Rebuild portal-pipeline Docker image + restart (after git pull)"
+    echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"

@@ -413,9 +413,9 @@ class TestDocumentMCPTools:
                 {"title": "Summary", "content": "It works."},
             ],
         )
-        assert result.get("success") is True or "path" in result, f"Failed: {result}"
-        path = result.get("path", "")
-        assert path.endswith(".pptx"), f"Expected .pptx file, got: {path}"
+        assert result.get("success") is True, f"Failed: {result}"
+        assert result.get("filename", "").endswith(".pptx"), f"Expected .pptx filename, got: {result}"
+        assert "download_url" in result, f"Missing download_url: {result}"
 
     def test_create_excel_creates_file(self, tmp_path, monkeypatch):
         """create_excel tool actually generates a .xlsx file."""
@@ -433,8 +433,9 @@ class TestDocumentMCPTools:
             title="Test Spreadsheet",
             data=[["Name", "Score"], ["Alice", 95], ["Bob", 87]],
         )
-        assert result.get("success") is True or "path" in result, f"Failed: {result}"
-        assert result.get("path", "").endswith(".xlsx")
+        assert result.get("success") is True, f"Failed: {result}"
+        assert result.get("filename", "").endswith(".xlsx"), f"Expected .xlsx filename, got: {result}"
+        assert "download_url" in result, f"Missing download_url: {result}"
 
     def test_create_word_document_creates_file(self, tmp_path, monkeypatch):
         """create_word_document actually generates a .docx file."""
@@ -452,8 +453,9 @@ class TestDocumentMCPTools:
             title="Test Document",
             content="Portal 5 document generation test. This document was created by the test suite.",
         )
-        assert result.get("success") is True or "path" in result, f"Failed: {result}"
-        assert result.get("path", "").endswith(".docx")
+        assert result.get("success") is True, f"Failed: {result}"
+        assert result.get("filename", "").endswith(".docx"), f"Expected .docx filename, got: {result}"
+        assert "download_url" in result, f"Missing download_url: {result}"
 
 
 class TestSandboxMCPTools:

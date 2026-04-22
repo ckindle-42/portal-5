@@ -44,6 +44,7 @@ _port = int(os.environ.get("SECURITY_MCP_PORT") or os.environ.get("MCP_PORT", "8
 
 mcp = FastMCP(
     "Portal Security Tools",
+    host="0.0.0.0",
     instructions="Vulnerability severity classification and security analysis tools",
     port=_port,
 )
@@ -90,5 +91,4 @@ def classify_vulnerability(description: str) -> dict:
 
 # ── Serve ────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

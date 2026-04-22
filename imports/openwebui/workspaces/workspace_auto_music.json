@@ -10,7 +10,7 @@
     ]
   },
   "params": {
-    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified.",
+    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file.",
     "model": "auto-music"
   }
 }

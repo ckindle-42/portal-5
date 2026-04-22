@@ -9,20 +9,42 @@ Start with: python -m mcp.documents.document_mcp
 
 import logging
 import os
+import re
 import uuid
 from pathlib import Path
 
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from portal_mcp.mcp_server.fastmcp import FastMCP
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
-mcp = FastMCP("document-tools", port=port)
+mcp = FastMCP("document-tools", host="0.0.0.0", port=port)
+
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "documents-mcp"})
+
+
+@mcp.custom_route("/files/{filename:path}", methods=["GET"])
+async def serve_generated_file(request):
+    """Serve generated files for browser download."""
+    filename = request.path_params["filename"]
+    if not SAFE_FILENAME.match(filename):
+        return JSONResponse({"error": "Invalid filename"}, status_code=400)
+    file_path = OUTPUT_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        return JSONResponse({"error": "File not found"}, status_code=404)
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/octet-stream",
+    )
 
 
 # Tool manifest for discovery
@@ -180,9 +202,6 @@ async def list_tools(request):
 
 logger = logging.getLogger(__name__)
 
-OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
 
 def _unique_path(name: str, ext: str) -> Path:
     """Return a unique output path."""
@@ -251,7 +270,13 @@ def create_word_document(
 
         output_path = _unique_path(title, "docx")
         doc.save(str(output_path))
-        return {"success": True, "path": str(output_path), "filename": output_path.name}
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        return {
+            "success": True,
+            "filename": output_path.name,
+            "download_url": download_url,
+            "message": f"Document created: {output_path.name}. Download: {download_url}",
+        }
     except Exception as e:
         logger.exception("Word document creation failed")
         return {"success": False, "error": str(e)}
@@ -321,7 +346,13 @@ def create_powerpoint(
 
         output_path = _unique_path(title, "pptx")
         prs.save(str(output_path))
-        return {"success": True, "path": str(output_path), "filename": output_path.name}
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        return {
+            "success": True,
+            "filename": output_path.name,
+            "download_url": download_url,
+            "message": f"Presentation created: {output_path.name}. Download: {download_url}",
+        }
     except Exception as e:
         logger.exception("Presentation creation failed")
         return {"success": False, "error": str(e)}
@@ -400,7 +431,13 @@ def create_excel(
 
         output_path = _unique_path(title, "xlsx")
         wb.save(str(output_path))
-        return {"success": True, "path": str(output_path), "filename": output_path.name}
+        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        return {
+            "success": True,
+            "filename": output_path.name,
+            "download_url": download_url,
+            "message": f"Spreadsheet created: {output_path.name}. Download: {download_url}",
+        }
     except Exception as e:
         logger.exception("Spreadsheet creation failed")
         return {"success": False, "error": str(e)}
@@ -786,5 +823,4 @@ def read_pdf(
 
 
 if __name__ == "__main__":
-    mcp.settings.host = "0.0.0.0"
     mcp.run(transport="streamable-http")

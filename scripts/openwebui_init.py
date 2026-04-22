@@ -165,13 +165,18 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
     except Exception as e:
         print(f"  Warning: could not fetch existing tool server config: {e}")
 
-    existing_urls = {c.get("url", "") for c in current_connections}
+    # OWUI normalizes tool server URLs by stripping the /mcp suffix when storing.
+    # Normalize both sides to prevent duplicate entries on re-runs.
+    def _normalize_url(u: str) -> str:
+        return u.rstrip("/").removesuffix("/mcp")
+
+    existing_urls = {_normalize_url(c.get("url", "")) for c in current_connections}
 
     added = skipped = 0
     for server in servers:
         url = server["url"]
         key = server.get("api_key", "")
-        if url in existing_urls:
+        if _normalize_url(url) in existing_urls:
             print(f"  Skip (exists): {server['name']}")
             skipped += 1
         else:
