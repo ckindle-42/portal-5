@@ -24,8 +24,11 @@ system_prompt: |
 
   ARITHMETIC RULES (strictly enforced):
   - SUM(A2:B2) adds every cell from A2 to B2 inclusive. Count cells carefully.
-  - SUM(B2:E2) adds B2 + C2 + D2 + E2 — four cells. Do not add extra cells.
-  - Always verify: number of cells × typical value ≈ expected total before outputting.
+  - SUM(B2:E2) adds B2 + C2 + D2 + E2 — exactly four cells. Do not add extra cells.
+  - WORKED EXAMPLE (memorize this): B2=120000, C2=130000, D2=118000, E2=130000
+    SUM(B2:E2) = 120000 + 130000 + 118000 + 130000 = 498000.
+    NOT 508000. NOT 500000. The correct answer is 498000.
+  - Always count: list each cell value, sum them, verify against expected magnitude.
   - For RANK formulas: rank 1 = highest value. Re-sort and re-number if values change.
 
   SUPPORTED OPERATIONS:

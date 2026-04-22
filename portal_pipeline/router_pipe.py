@@ -450,7 +450,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",  # Gemma 4 26B A4B MoE abliterated — ~35 TPS (vs 31B dense ~20 TPS), uncensored, 256K ctx
+        "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",  # Text-only mlx_lm path — fixes empty responses from VLM routing mismatch; v2 resolves known serving-template/reasoning bug
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",

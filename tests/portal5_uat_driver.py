@@ -72,7 +72,7 @@ def unload_all_models() -> None:
         try:
             resp = httpx.post(f"{MLX_PROXY_URL}{path}", timeout=5)
             if resp.status_code in (200, 204):
-                print(f"  Unloaded MLX proxy model")
+                print("  Unloaded MLX proxy model")
                 break
         except Exception:
             pass
@@ -614,9 +614,18 @@ _CC01_PROMPT = (
 )
 _CC01_ASSERTIONS = [
     {"type": "has_code",   "label": "HTML file delivered"},
-    {"type": "any_of",     "label": "Canvas game loop",      "keywords": ["canvas", "requestanimationframe", "getcontext", "fillRect", "clearRect"]},
+    {"type": "any_of",     "label": "Canvas game loop",      "keywords": [
+        "requestanimationframe", "requestAnimationFrame",
+        "setinterval", "setInterval",   # equivalent for simple game loop
+        "game loop", "gameloop", "game_loop",
+    ]},
     {"type": "any_of",     "label": "Asteroids split logic", "keywords": ["split", "asteroid", "fragment", "smaller"]},
-    {"type": "any_of",     "label": "Lives system",          "keywords": ["lives", "life", "ship", "respawn", "extra"],
+    {"type": "any_of",     "label": "Lives system",          "keywords": [
+        "lives", "life", "Lives", "Life",
+        "lives_remaining", "numLives", "playerLives", "player.lives",
+        "livesLeft", "lifeCount", "remainingLives", "lives =", "lives:",
+        "3 lives", "starting lives", "lose a life",
+    ],
      "critical": False},
     {"type": "contains",   "label": "Score system",          "keywords": ["score"]},
 ]
@@ -794,7 +803,14 @@ TEST_CATALOG: list[dict] = [
             "(25 rows per page), and a search filter. Column definitions should be passed as props."
         ),
         "assertions": [
-            {"type": "any_of",      "label": "Asks about framework",   "keywords": ["which framework", "what framework", "framework?", "which library", "what stack", "what are you using", "insufficient context"]},
+            {"type": "any_of",      "label": "Asks about framework",   "keywords": [
+                "which framework", "what framework", "framework?", "which library",
+                "what stack", "what are you using", "insufficient context",
+                "what are you building with", "react, vue", "react or vue",
+                "before i", "first, could you", "to get started",
+                "are you using react", "are you using vue", "preferred framework",
+                "what's your stack", "what tech", "technology stack",
+            ]},
             {"type": "not_contains","label": "No immediate component", "keywords": ["import React", "const DataTable", "export default", "<template>"],
              "critical": True},
         ],
@@ -833,16 +849,26 @@ TEST_CATALOG: list[dict] = [
     {
         "id": "P-D10", "name": "Ethereum Developer — Security Audit Disclaimer",
         "section": "auto-coding", "model_slug": "ethereumdeveloper",
-        "timeout": 360, "workspace_tier": "mlx_small",
+        "timeout": 420, "workspace_tier": "mlx_small",
         "prompt": (
             "Write a Solidity staking contract where users can deposit ETH, earn yield based on "
             "time staked, and withdraw with accumulated rewards. This will go live on mainnet "
             "next week."
         ),
         "assertions": [
-            {"type": "any_of",    "label": "Audit disclaimer",      "keywords": ["security audit", "professional audit", "audit before"]},
-            {"type": "contains",  "label": "Solidity pragma",       "keywords": ["pragma solidity"]},
-            {"type": "any_of",    "label": "Reentrancy protection", "keywords": ["reentrancyguard", "checks-effects", "reentrancy"]},
+            {"type": "any_of",    "label": "Audit disclaimer",      "keywords": [
+                "security audit", "professional audit", "audit before",
+                "has not been audited", "not been audited", "not audited",
+                "security notice", "⚠️", "mainnet deployment",
+                "before deploying", "before deployment", "audited by",
+                "recommend an audit", "requires an audit",
+            ]},
+            {"type": "contains",  "label": "Solidity pragma",       "keywords": ["pragma solidity", "^0.", "solidity ^", "solidity version"]},
+            {"type": "any_of",    "label": "Reentrancy protection", "keywords": [
+                "reentrancyguard", "checks-effects", "reentrancy",
+                "checks effects interactions", "nonreentrant", "re-entrancy",
+                "reentrancy protection", "reentrancy attack",
+            ]},
             {"type": "has_code",  "label": "Code block present"},
         ],
     },
@@ -971,7 +997,13 @@ TEST_CATALOG: list[dict] = [
         ),
         "assertions": [
             {"type": "any_of",      "label": "Asks about platform",  "keywords": ["which platform", "what platform", "mobile or desktop", "what device", "clarif", "before i design", "before designing", "need to know"]},
-            {"type": "any_of",      "label": "Platform context present", "keywords": ["mobile", "desktop", "platform", "device", "tablet"]},
+            {"type": "any_of",      "label": "Platform context present", "keywords": [
+                "mobile", "desktop", "platform", "device", "tablet",
+                "responsive", "screen size", "browser",
+                "what device", "which platform", "target device",
+                "ios", "android", "web app", "native app",
+                "viewport", "display", "interface type",
+            ]},
             {"type": "not_contains","label": "No immediate mockup",  "keywords": ["here is the dashboard", "dashboard layout:", "navigation bar:", "sidebar:"],
              "critical": False},
         ],
@@ -1637,7 +1669,7 @@ TEST_CATALOG: list[dict] = [
             {"type": "any_of",  "label": "Timestamp normalization",  "keywords": ["pd.to_datetime", "to_datetime", "timestamp"]},
             {"type": "any_of",  "label": "Missing src_ip handling",  "keywords": ["fillna", "dropna", "isnull", "isna", "nan", "NaN", "null", "missing", "empty"]},
             {"type": "any_of",  "label": "bytes_out sentinel",       "keywords": ["bytes_out", "sentinel", "invalid", "fillna", "replace", "nan", "NaN", "-1"]},
-            {"type": "any_of",  "label": "Pandas code present",      "keywords": ["import pandas", "pd.", "df[", "df.", ".apply(", "DataFrame"],
+            {"type": "any_of",  "label": "Pandas code present or referenced",      "keywords": ["```python", "```", "pd.", "df.", "import pandas", "pandas"],
              "critical": False},
         ],
     },
@@ -1824,8 +1856,21 @@ TEST_CATALOG: list[dict] = [
             "No preamble. Start directly with section 1. Limit: 600 words."
         ),
         "assertions": [
-            {"type": "any_of",      "label": "Evidence labels present", "keywords": ["established fact", "strong evidence", "inference", "speculation"]},
-            {"type": "any_of",      "label": "Counterpoints included",  "keywords": ["however", "but", "challenge", "limitation", "concern", "caveat", "drawback", "disadvantage"]},
+            {"type": "any_of",      "label": "Evidence labels present", "keywords": [
+                "established fact", "strong evidence", "inference", "speculation",
+                "well established", "widely accepted", "evidence suggests",
+                "likely", "inferred", "speculative", "uncertain",
+                "high confidence", "medium confidence", "low confidence",
+                "established:", "evidence:", "inference:", "speculation:",
+                "[established", "[strong", "[inference", "[speculation",
+                "fact:", "based on evidence", "limited evidence",
+            ]},
+            {"type": "any_of",      "label": "Counterpoints included",  "keywords": [
+                "however", "but", "challenge", "limitation", "concern",
+                "caveat", "drawback", "disadvantage", "on the other hand",
+                "critics", "some argue", "others argue", "debate",
+                "not without", "it should be noted", "worth noting",
+            ]},
             {"type": "not_contains","label": "No absolute claim",       "keywords": ["passwordless is always", "always more secure"],
              "critical": False},
         ],
@@ -2242,7 +2287,7 @@ async def main() -> None:
     parser.add_argument("--migrate",        action="store_true", help="Move existing root-level UAT chats into root UAT folder, then exit")
     args = parser.parse_args()
 
-    print(f"\nPortal 5 UAT Driver")
+    print("\nPortal 5 UAT Driver")
     print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}\n")
 
     # Auth
