@@ -132,6 +132,96 @@ def owui_rename_chat(token: str, chat_id: str, title: str) -> None:
     )
 
 
+def _owui_list_folders(token: str) -> list[dict]:
+    r = httpx.get(
+        f"{OPENWEBUI_URL}/api/v1/folders/",
+        headers=owui_headers(token),
+        timeout=10,
+    )
+    if r.status_code == 200:
+        try:
+            return r.json()
+        except Exception:
+            pass
+    return []
+
+
+def owui_get_or_create_folder(
+    token: str, name: str, parent_id: str | None = None
+) -> str | None:
+    """Return folder ID for `name` under `parent_id` (root if None), creating if absent."""
+    folders = _owui_list_folders(token)
+    for folder in folders:
+        if folder.get("name") == name and folder.get("parent_id") == parent_id:
+            return folder.get("id")
+
+    r = httpx.post(
+        f"{OPENWEBUI_URL}/api/v1/folders/",
+        json={"name": name, "parent_id": parent_id},
+        headers=owui_headers(token),
+        timeout=10,
+    )
+    if r.status_code == 200:
+        return r.json().get("id")
+
+    # "already exists" race — re-fetch
+    if r.status_code == 400 and "already exists" in r.text:
+        for folder in _owui_list_folders(token):
+            if folder.get("name") == name and folder.get("parent_id") == parent_id:
+                return folder.get("id")
+
+    return None
+
+
+def owui_assign_chat_folder(token: str, chat_id: str, folder_id: str) -> None:
+    """Move a chat into the given folder."""
+    try:
+        httpx.post(
+            f"{OPENWEBUI_URL}/api/v1/chats/{chat_id}/folder",
+            json={"folder_id": folder_id},
+            headers=owui_headers(token),
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+
+def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
+    """Move any root-level UAT chats (no folder_id) into root_folder_id.
+
+    Returns the number of chats migrated.
+    """
+    moved = 0
+    try:
+        r = httpx.get(
+            f"{OPENWEBUI_URL}/api/v1/chats/",
+            headers=owui_headers(token),
+            timeout=15,
+        )
+        if r.status_code != 200:
+            return 0
+        for chat in r.json():
+            chat_id = chat.get("id", "")
+            title = chat.get("title", "")
+            # Full detail needed to check folder_id
+            r2 = httpx.get(
+                f"{OPENWEBUI_URL}/api/v1/chats/{chat_id}",
+                headers=owui_headers(token),
+                timeout=10,
+            )
+            if r2.status_code != 200:
+                continue
+            detail = r2.json()
+            if detail.get("folder_id"):
+                continue  # already in a folder
+            if "UAT:" in title:
+                owui_assign_chat_folder(token, chat_id, root_folder_id)
+                moved += 1
+    except Exception as e:
+        print(f"  WARNING: migrate error — {e}")
+    return moved
+
+
 def owui_get_last_response(token: str, chat_id: str) -> str:
     """Fetch the last assistant response from OWUI API — avoids Playwright truncation."""
     try:
@@ -2028,6 +2118,7 @@ async def run_test(
     counts: dict,
     headed: bool = False,
     override_timeout: int | None = None,
+    folder_id: str | None = None,
 ) -> None:
     test_id   = test["id"]
     name      = test["name"]
@@ -2042,6 +2133,8 @@ async def run_test(
     if skip_if and skip_conditions.get(skip_if, False):
         chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
         owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {skip_if}")
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
         record_result(n, "SKIP", test_id, name, model, [], 0.0, chat_url)
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
@@ -2049,6 +2142,8 @@ async def run_test(
     # Manual test
     if test.get("is_manual"):
         chat_id, chat_url = owui_create_chat(token, model, title_pending)
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
         manual_prompt = (
             "🔧 MANUAL TEST: " + test["prompt"] +
             "\n\nReturn to this chat and pin your result with ✅ PASS / ⚠️ PARTIAL / ❌ FAIL + notes."
@@ -2062,6 +2157,8 @@ async def run_test(
 
     # Create chat
     chat_id, chat_url = owui_create_chat(token, model, title_pending)
+    if folder_id:
+        owui_assign_chat_folder(token, chat_id, folder_id)
 
     t0 = time.time()
     artifact_path: Path | None = None
@@ -2142,7 +2239,29 @@ async def main() -> None:
     parser.add_argument("--skip-bots",      action="store_true", help="Skip Telegram/Slack bot tests")
     parser.add_argument("--timeout",        type=int,            help="Override per-test timeout (seconds)")
     parser.add_argument("--append",         action="store_true", help="Append results to existing UAT_RESULTS.md (for re-runs)")
+    parser.add_argument("--migrate",        action="store_true", help="Move existing root-level UAT chats into root UAT folder, then exit")
     args = parser.parse_args()
+
+    print(f"\nPortal 5 UAT Driver")
+    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}\n")
+
+    # Auth
+    token = owui_token()
+    if not token:
+        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
+        sys.exit(1)
+
+    # --migrate mode: move existing loose UAT chats into UAT folder hierarchy, then exit
+    if args.migrate:
+        uat_root_id = owui_get_or_create_folder(token, "UAT")
+        if uat_root_id:
+            print(f"  Migrating loose UAT chats → root UAT folder (id={uat_root_id}) …")
+            n_moved = owui_migrate_loose_uat_chats(token, uat_root_id)
+            print(f"  Migrated {n_moved} chat(s).")
+        else:
+            print("  ERROR: could not get/create UAT root folder.")
+            sys.exit(1)
+        return
 
     # Determine test selection
     if args.test:
@@ -2166,14 +2285,7 @@ async def main() -> None:
         print("No tests selected.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"\nPortal 5 UAT Driver — {len(tests)} test(s) selected")
-    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}\n")
-
-    # Auth
-    token = owui_token()
-    if not token:
-        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
-        sys.exit(1)
+    print(f"{len(tests)} test(s) selected")
 
     # Skip conditions
     skip_conditions = evaluate_skip_conditions()
@@ -2198,6 +2310,20 @@ async def main() -> None:
             print(f"  Stopped MLX watchdog (PID {pid}) for test run duration")
     except Exception:
         pass
+
+    # ---- Folder hierarchy: UAT/ (root) → YYYY-MM-DD/ (per-run subfolder) ----
+    uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
+    run_date = time.strftime("%Y-%m-%d")
+    folder_id: str | None = None
+    if uat_root_id:
+        folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+        if folder_id:
+            print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
+        else:
+            print(f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder")
+            folder_id = uat_root_id
+    else:
+        print("  WARNING: could not get/create root UAT folder — chats will be in root")
 
     # Init results file
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -2234,6 +2360,7 @@ async def main() -> None:
                 counts=counts,
                 headed=args.headed,
                 override_timeout=args.timeout,
+                folder_id=folder_id,
             )
 
             # Inter-test settling
