@@ -128,7 +128,7 @@ async def _send_and_wait(page, prompt: str, timeout_ms: int = SEND_TIMEOUT) -> s
     await ta.fill(prompt)
     await ta.press("Enter")
 
-    # Primary: stop-button approach
+    # Primary: wait for stop-button to appear then disappear
     try:
         await page.wait_for_selector(
             'button[aria-label="Stop"], button[title="Stop"], button:has-text("Stop")',
@@ -140,7 +140,7 @@ async def _send_and_wait(page, prompt: str, timeout_ms: int = SEND_TIMEOUT) -> s
             timeout=timeout_ms,
         )
     except Exception:
-        # Fallback: DOM-stable
+        # Fallback: DOM-stable (waits for text to stop changing)
         await _wait_stable(page, timeout_ms)
 
     await page.wait_for_timeout(1000)
@@ -2091,6 +2091,13 @@ async def main() -> None:
                 if delay > 0:
                     await asyncio.sleep(delay)
 
+        # Navigate away from the last chat before closing so OWUI can commit its
+        # "done" state cleanly — prevents the browser-disconnect spinner on the
+        # last visited conversation.
+        try:
+            await page.goto(OPENWEBUI_URL, wait_until="load", timeout=8000)
+        except Exception:
+            pass
         await browser.close()
 
     # Update summary counts in results file
