@@ -5,7 +5,7 @@
     "description": "👁️  Portal Vision",
     "profile_image_url": "",
     "toolIds": [
-      "portal_comfyui"
+      "server:mcp:portal_comfyui"
     ]
   },
   "params": {

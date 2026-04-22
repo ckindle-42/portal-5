@@ -2,14 +2,14 @@
   "version": "1.1",
   "description": "Portal 5.2.1 MCP Tool Server configurations",
   "tool_servers": [
-    { "name": "Portal ComfyUI",   "url": "http://host.docker.internal:8910/mcp", "api_key": "" },
-    { "name": "Portal Video",     "url": "http://host.docker.internal:8911/mcp", "api_key": "" },
-    { "name": "Portal Music",     "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
-    { "name": "Portal Documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
-    { "name": "Portal Code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
-    { "name": "Portal Whisper",   "url": "http://host.docker.internal:8915/mcp", "api_key": "" },
-    { "name": "Portal TTS",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" },
-    { "name": "Portal Security Tools", "url": "http://host.docker.internal:8919/mcp", "api_key": "" }
+    { "name": "Portal ComfyUI",        "id": "portal_comfyui",   "url": "http://host.docker.internal:8910/mcp", "api_key": "" },
+    { "name": "Portal Video",          "id": "portal_video",     "url": "http://host.docker.internal:8911/mcp", "api_key": "" },
+    { "name": "Portal Music",          "id": "portal_music",     "url": "http://host.docker.internal:8912/mcp", "api_key": "" },
+    { "name": "Portal Documents",      "id": "portal_documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
+    { "name": "Portal Code",           "id": "portal_code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
+    { "name": "Portal Whisper",        "id": "portal_whisper",   "url": "http://host.docker.internal:8915/mcp", "api_key": "" },
+    { "name": "Portal TTS",            "id": "portal_tts",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" },
+    { "name": "Portal Security Tools", "id": "portal_security",  "url": "http://host.docker.internal:8919/mcp", "api_key": "" }
   ],
   "notes": {
     "macos": "host.docker.internal resolves automatically on macOS Docker Desktop",

@@ -175,15 +175,22 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
             print(f"  Skip (exists): {server['name']}")
             skipped += 1
         else:
-            current_connections.append({
+            # FastMCP 3.x uses MCP protocol (SSE) not OpenAPI schema discovery.
+            # info.id is required by OWUI 0.9.x to generate stable tool IDs
+            # (server:mcp:{info.id}) used in workspace model toolIds.
+            server_id = server.get("id", "")
+            conn: dict = {
                 "url": url,
-                "path": "openapi.json",
-                "type": "openapi",
+                "path": "mcp",
+                "type": "mcp",
                 "auth_type": "none" if not key else "bearer",
                 "headers": None,
                 "key": key,
                 "config": {"enable": True},
-            })
+            }
+            if server_id:
+                conn["info"] = {"id": server_id, "name": server["name"]}
+            current_connections.append(conn)
             print(f"  Adding: {server['name']}")
             added += 1
 
@@ -267,13 +274,15 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
         ws_id = ws.get("id", "")
         ws_name = ws.get("name", ws_id)
 
-        # base_model_id must be non-null for OW v0.6.5 get_models() to return this preset.
-        # Workspaces use their own ID as base since they ARE pipeline-level endpoints.
-        ws_base = ws.get("base_model_id") or ws.get("params", {}).get("model") or ws_id
+        # OW 0.9.x: base_model_id=None causes OWUI to overlay this preset on the
+        # pipeline model with matching id (setting model.info from this preset),
+        # which lets model.info.meta.toolIds be read by the frontend for tool resolution.
+        # Non-null base_model_id treats the preset as a standalone model that is skipped
+        # when a pipeline model with the same id already exists.
         payload = {
             "id": ws_id,
             "name": ws_name,
-            "base_model_id": ws_base,
+            "base_model_id": None,
             "meta": ws.get("meta", {}),
             "params": ws.get("params", {}),
         }
@@ -408,6 +417,10 @@ async def create_persona_presets_async(
                     "params": {
                         "system": system_prompt,
                         "model": workspace_model,
+                        **({"enable_web_search": True} if workspace_model in {
+                            "auto", "auto-research", "auto-security", "auto-reasoning",
+                            "auto-data", "auto-redteam", "auto-blueteam", "auto-compliance",
+                        } else {}),
                     },
                 },
             )

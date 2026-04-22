@@ -5,8 +5,8 @@
     "description": "🎵 Portal Music Producer",
     "profile_image_url": "",
     "toolIds": [
-      "portal_music",
-      "portal_tts"
+      "server:mcp:portal_music",
+      "server:mcp:portal_tts"
     ]
   },
   "params": {

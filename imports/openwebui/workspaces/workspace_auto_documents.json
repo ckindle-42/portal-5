@@ -5,8 +5,8 @@
     "description": "📄 Portal Document Builder",
     "profile_image_url": "",
     "toolIds": [
-      "portal_documents",
-      "portal_code"
+      "server:mcp:portal_documents",
+      "server:mcp:portal_code"
     ]
   },
   "params": {

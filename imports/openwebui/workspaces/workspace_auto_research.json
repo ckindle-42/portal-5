@@ -8,6 +8,7 @@
   },
   "params": {
     "system": "You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.",
-    "model": "auto-research"
+    "model": "auto-research",
+    "enable_web_search": true
   }
 }

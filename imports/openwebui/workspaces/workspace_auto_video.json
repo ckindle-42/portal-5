@@ -5,8 +5,8 @@
     "description": "🎬 Portal Video Creator",
     "profile_image_url": "",
     "toolIds": [
-      "portal_video",
-      "portal_comfyui"
+      "server:mcp:portal_video",
+      "server:mcp:portal_comfyui"
     ]
   },
   "params": {

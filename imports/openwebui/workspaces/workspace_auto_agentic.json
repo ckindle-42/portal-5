@@ -5,7 +5,7 @@
     "description": "⚡ Portal Agentic Coder (Heavy) — Qwen3-Coder-Next 80B MoE, big-model mode, 32K ctx",
     "profile_image_url": "",
     "toolIds": [
-      "portal_code"
+      "server:mcp:portal_code"
     ]
   },
   "params": {
