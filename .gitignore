@@ -45,3 +45,4 @@ venv/
 # Portal data
 volumes/
 data/
+.claude/
