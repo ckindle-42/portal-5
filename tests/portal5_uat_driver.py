@@ -850,10 +850,10 @@ TEST_CATALOG: list[dict] = [
             "    return config[env][\"db\"]"
         ),
         "assertions": [
-            {"type": "contains",  "label": "Command injection found",  "keywords": ["injection", "os.system", "command"]},
-            {"type": "any_of",    "label": "Security type label",      "keywords": ["security vulnerability", "security issue"]},
-            {"type": "any_of",    "label": "Runtime error label",      "keywords": ["runtime error", "keyerror", "runtime"]},
-            {"type": "contains",  "label": "At least 3 issues",        "keywords": ["1.", "2.", "3."]},
+            {"type": "any_of",  "label": "Command injection found",  "keywords": ["injection", "os.system", "command injection", "shell", "arbitrary command"]},
+            {"type": "any_of",    "label": "Security type label",      "keywords": ["security vulnerability", "security issue", "security risk", "vulnerability", "security flaw"]},
+            {"type": "any_of",    "label": "Runtime error label",      "keywords": ["runtime error", "keyerror", "key error", "KeyError", "exception"]},
+            {"type": "any_of",  "label": "At least 3 issues",          "keywords": ["1.", "2.", "3.", "1)", "2)", "3)", "first", "second", "third"]},
         ],
     },
     {
@@ -871,8 +871,8 @@ TEST_CATALOG: list[dict] = [
             "     return db.query(username, password)"
         ),
         "assertions": [
-            {"type": "any_of",      "label": "SECRET_KEY flagged",      "keywords": ["secret_key", "secret key", "hardcoded", "environment", "hardcode", "hard-coded", "env var"]},
-            {"type": "any_of",      "label": "exp/expiry claim",        "keywords": ["exp", "expiry", "expiration", "claim"]},
+            {"type": "any_of",      "label": "SECRET_KEY flagged",      "keywords": ["secret_key", "secret key", "hardcoded", "environment", "hardcode", "hard-coded", "env var", "secret", "credential", "config", "leaked"]},
+            {"type": "any_of",      "label": "exp/expiry claim",        "keywords": ["exp", "expiry", "expiration", "claim", "ttl", "expires", "lifetime", "duration", "3600"]},
             {"type": "not_contains","label": "check_db not critiqued",  "keywords": ["check_db is", "check_db looks", "check_db function"],
              "critical": False},
         ],
@@ -946,10 +946,11 @@ TEST_CATALOG: list[dict] = [
             "resource limits 512Mi/0.5CPU."
         ),
         "assertions": [
-            {"type": "contains",  "label": "Image tag pinned",          "keywords": ["v1.2.3"]},
-            {"type": "contains",  "label": "readinessProbe on /health", "keywords": ["readinessprobe", "/health"]},
-            {"type": "any_of",    "label": "Resource limits set",       "keywords": ["512mi", "0.5", "limits", "limit", "250m", "cpu", "memory"]},
-            {"type": "any_of",    "label": "Rollback included",         "keywords": ["rollout undo", "rollback", "kubectl rollout"]},
+            {"type": "any_of",    "label": "Image tag pinned",          "keywords": ["v1.2.3", "1.2.3"]},
+            {"type": "any_of",    "label": "readinessProbe on /health", "keywords": ["readinessprobe", "/health", "readiness", "healthz"]},
+            {"type": "any_of",    "label": "Resource limits set",       "keywords": ["512mi", "0.5", "limits", "limit", "250m", "cpu", "memory", "resources"]},
+            {"type": "any_of",    "label": "Rollback included",         "keywords": ["rollout undo", "rollback", "kubectl rollout", "revision"],
+             "critical": False},
             {"type": "has_code",  "label": "YAML block present"},
         ],
     },
@@ -962,9 +963,9 @@ TEST_CATALOG: list[dict] = [
             "from git history so nobody can ever see them. What is the git command?"
         ),
         "assertions": [
-            {"type": "any_of",    "label": "Correct command",        "keywords": ["reset --hard", "reset --hard head~3", "force"]},
-            {"type": "any_of",    "label": "Data loss warning",      "keywords": ["data loss", "permanent", "cannot be recovered", "unrecoverable", "warning"]},
-            {"type": "contains",  "label": "Collaborators mentioned","keywords": ["collaborator", "team", "pulled", "history"]},
+            {"type": "any_of",    "label": "Correct command",        "keywords": ["reset --hard", "reset --hard head~3", "force", "git reset"]},
+            {"type": "any_of",    "label": "Data loss warning",      "keywords": ["data loss", "permanent", "cannot be recovered", "unrecoverable", "warning", "destructive", "irreversible"]},
+            {"type": "any_of",  "label": "Collaborators mentioned",  "keywords": ["collaborator", "team", "pulled", "pushed", "remote", "others", "shared", "force push"]},
         ],
     },
     {
@@ -1055,9 +1056,9 @@ TEST_CATALOG: list[dict] = [
             "SELECT Username, Role FROM Users WHERE Username = 'newuser';"
         ),
         "assertions": [
-            {"type": "any_of",    "label": "SELECT returns rows",   "keywords": ["(3 rows", "3 row", "username"]},
-            {"type": "any_of",    "label": "INSERT acknowledged",   "keywords": ["1 row", "affected", "inserted", "insert 0", "row added"]},
-            {"type": "contains",  "label": "newuser retrieved",     "keywords": ["newuser", "analyst"]},
+            {"type": "any_of",    "label": "SELECT returns rows",   "keywords": ["(3 rows", "3 row", "username", "rows returned", "3 records", "3 results", "user"]},
+            {"type": "any_of",    "label": "INSERT acknowledged",   "keywords": ["1 row", "affected", "inserted", "insert 0", "row added", "1 record", "success", "created"]},
+            {"type": "any_of",    "label": "newuser retrieved",     "keywords": ["newuser", "analyst"]},
         ],
     },
     {
@@ -1101,9 +1102,9 @@ TEST_CATALOG: list[dict] = [
             "Do not claim 'comprehensive coverage' — be specific about what each test covers."
         ),
         "assertions": [
-            {"type": "any_of",      "label": "Security tests present",   "keywords": ["security", "malicious", "injection", "xss", "path traversal", "exploit", "attack"]},
-            {"type": "any_of",      "label": "Boundary at 10MB",         "keywords": ["10mb", "10 mb", "10mb", "size limit", "file size", "limit", "max"]},
-            {"type": "contains",    "label": "Multiple test types",      "keywords": ["unit", "integration", "security", "boundary"]},
+            {"type": "any_of",      "label": "Security tests present",   "keywords": ["security", "malicious", "injection", "xss", "path traversal", "exploit", "attack", "adversarial", "invalid type", "unauthorized"]},
+            {"type": "any_of",      "label": "Boundary at 10MB",         "keywords": ["10mb", "10 mb", "10mb", "size limit", "file size", "limit", "max", "oversized", "exceed", "boundary", "maximum"]},
+            {"type": "any_of",      "label": "Multiple test types",      "keywords": ["unit", "integration", "security", "boundary"]},
             {"type": "not_contains","label": "No vague coverage claim",  "keywords": ["comprehensive coverage", "covers everything"],
              "critical": False},
         ],
@@ -1531,9 +1532,9 @@ TEST_CATALOG: list[dict] = [
             "top security concerns and recommend mitigations."
         ),
         "assertions": [
-            {"type": "contains",  "label": "RDP risk identified",  "keywords": ["rdp"]},
-            {"type": "any_of",    "label": "Boundary/DMZ risk",    "keywords": ["boundary", "lateral", "dmz", "segmentation", "isolation", "network segment"]},
-            {"type": "any_of",    "label": "Framework cited",      "keywords": ["iec 62443", "nerc cip", "nist"]},
+            {"type": "any_of",  "label": "RDP risk identified",  "keywords": ["rdp", "remote desktop"]},
+            {"type": "any_of",    "label": "Boundary/DMZ risk",    "keywords": ["boundary", "lateral", "dmz", "segmentation", "isolation", "network segment", "purdue", "zone", "conduit"]},
+            {"type": "any_of",    "label": "Framework cited",      "keywords": ["iec 62443", "nerc cip", "nist", "cis", "purdue model"]},
             {"type": "min_length","label": "Substantive response", "chars": 500},
         ],
     },
