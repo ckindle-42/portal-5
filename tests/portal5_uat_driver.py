@@ -34,7 +34,10 @@ load_dotenv()
 OPENWEBUI_URL   = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
 ADMIN_EMAIL     = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASS      = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
-SEND_TIMEOUT    = 300_000   # 5 min max per response
+SEND_TIMEOUT    = 300_000   # initial window for stop-button to appear (cold load)
+PROGRESS_POLL_S = 30        # check for progress every 30s
+MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
+PROGRESS_LOG_INTERVAL = 120 # log a heartbeat every 2 min
 RESULTS_FILE    = Path("tests/UAT_RESULTS.md")
 SCREENSHOT_DIR  = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR    = Path("/tmp/uat_artifacts")
@@ -247,61 +250,113 @@ def owui_get_last_response(token: str, chat_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def _login(page) -> None:
-    await page.goto(OPENWEBUI_URL, wait_until="networkidle", timeout=20000)
-    await page.wait_for_selector('input[type="email"]', timeout=10000)
+    await page.goto(OPENWEBUI_URL, wait_until="networkidle", timeout=30000)
+    await page.wait_for_selector('input[type="email"]', timeout=15000)
     await page.fill('input[type="email"]', ADMIN_EMAIL)
     await page.fill('input[type="password"]', ADMIN_PASS)
     await page.locator('button[type="submit"], button:has-text("Sign in")').first.click()
-    await page.wait_for_selector("textarea, [contenteditable]", timeout=15000)
+    await page.wait_for_selector("textarea, [contenteditable]", timeout=20000)
 
 
 async def _navigate_to_chat(page, chat_url: str) -> None:
-    await page.goto(chat_url, wait_until="networkidle", timeout=15000)
-    await page.wait_for_selector("textarea, [contenteditable='true']", timeout=15000)
+    await page.goto(chat_url, wait_until="networkidle", timeout=60000)
+    await page.wait_for_selector("textarea, [contenteditable='true']", timeout=30000)
     await page.wait_for_timeout(2000)
 
 
-async def _wait_stable(page, timeout_ms: int = 300_000) -> None:
-    """DOM-stable fallback: no text changes for 3 consecutive checks."""
-    prev = ""
+async def _stop_button_visible(page) -> bool:
+    """Check if the stop/streaming button is currently visible."""
+    try:
+        btn = page.locator(
+            'button[aria-label="Stop"], button[title="Stop"], button:has-text("Stop")'
+        )
+        return await btn.count() > 0 and await btn.first.is_visible()
+    except Exception:
+        return False
+
+
+async def _wait_for_completion(page, test_id: str = "") -> None:
+    """Progress-monitoring wait: polls every PROGRESS_POLL_S seconds until the
+    response is complete.  No hard timeout — we wait until the model finishes
+    or until we detect zero progress for MAX_WAIT_NO_PROGRESS seconds.
+
+    Completion is detected by:
+      1. Stop button appeared and then disappeared (normal streaming)
+      2. DOM text stabilises (no changes for 3 consecutive polls)
+    """
+    t_start = time.time()
+    last_log = 0.0
+    prev_text = ""
     stable_count = 0
-    deadline = time.time() + timeout_ms / 1000
-    while time.time() < deadline:
+    stop_seen = False
+
+    def _log(msg: str) -> None:
+        nonlocal last_log
+        now = time.time()
+        if now - last_log >= PROGRESS_LOG_INTERVAL or "complete" in msg.lower():
+            elapsed = now - t_start
+            tag = f"[{test_id}] " if test_id else ""
+            print(f"  {tag}{msg} ({elapsed:.0f}s elapsed)", flush=True)
+            last_log = now
+
+    # Phase 1: wait for stop button to appear (model starts generating)
+    _log("waiting for model to start…")
+    while True:
+        elapsed = time.time() - t_start
+        if await _stop_button_visible(page):
+            stop_seen = True
+            _log("model streaming started")
+            break
+        # If no stop button but text is growing, model may be generating
+        # without showing a stop button (some OWUI versions)
         curr = await page.evaluate("document.body.innerText")
-        if curr == prev:
+        if curr != prev_text and len(curr) > len(prev_text) + 50:
+            _log("text growing without stop button — treating as streaming")
+            prev_text = curr
+            break
+        # Hard safety cap
+        if elapsed > MAX_WAIT_NO_PROGRESS:
+            _log(f"hit {MAX_WAIT_NO_PROGRESS}s safety cap waiting for start")
+            return
+        await asyncio.sleep(PROGRESS_POLL_S)
+
+    # Phase 2: wait for streaming to complete
+    while True:
+        elapsed = time.time() - t_start
+
+        # Check if stop button disappeared → stream finished
+        if stop_seen and not await _stop_button_visible(page):
+            _log("stream complete (stop button gone)")
+            await asyncio.sleep(2)  # let OWUI persist final content
+            return
+
+        # Check DOM stability as secondary signal
+        curr = await page.evaluate("document.body.innerText")
+        if curr == prev_text:
             stable_count += 1
             if stable_count >= 3:
+                _log("stream complete (DOM stable)")
+                await asyncio.sleep(2)
                 return
         else:
             stable_count = 0
-        prev = curr
-        await page.wait_for_timeout(1000)
+            prev_text = curr
+
+        # Safety cap
+        if elapsed > MAX_WAIT_NO_PROGRESS:
+            _log(f"hit {MAX_WAIT_NO_PROGRESS}s safety cap during streaming")
+            return
+
+        await asyncio.sleep(PROGRESS_POLL_S)
 
 
-async def _send_and_wait(page, prompt: str, timeout_ms: int = SEND_TIMEOUT) -> str:
+async def _send_and_wait(page, prompt: str, test_id: str = "") -> str:
+    """Send a prompt and wait for the response using progress monitoring."""
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
     await ta.fill(prompt)
     await ta.press("Enter")
-
-    # Primary: wait for stop-button to appear then disappear.
-    # Use the full per-test timeout for the "appear" phase — cold MLX loads
-    # can take 60-120s before the first token, causing a premature fallback.
-    try:
-        await page.wait_for_selector(
-            'button[aria-label="Stop"], button[title="Stop"], button:has-text("Stop")',
-            timeout=timeout_ms,
-        )
-        await page.wait_for_selector(
-            'button[aria-label="Stop"], button[title="Stop"], button:has-text("Stop")',
-            state="hidden",
-            timeout=timeout_ms,
-        )
-    except Exception:
-        # Fallback: DOM-stable (waits for text to stop changing)
-        await _wait_stable(page, timeout_ms)
-
-    await page.wait_for_timeout(1000)
+    await _wait_for_completion(page, test_id)
     return await _extract_last_response(page)
 
 
@@ -2228,14 +2283,11 @@ async def run_test(
     n: int,
     counts: dict,
     headed: bool = False,
-    override_timeout: int | None = None,
     folder_id: str | None = None,
 ) -> None:
     test_id   = test["id"]
     name      = test["name"]
     model     = test["model_slug"]
-    timeout_s = override_timeout or test.get("timeout", 120)
-    timeout_ms = timeout_s * 1000
 
     title_pending = f"[...] UAT: {test_id} {name}"
 
@@ -2260,7 +2312,7 @@ async def run_test(
             "\n\nReturn to this chat and pin your result with ✅ PASS / ⚠️ PARTIAL / ❌ FAIL + notes."
         )
         await _navigate_to_chat(page, chat_url)
-        await _send_and_wait(page, manual_prompt, timeout_ms)
+        await _send_and_wait(page, manual_prompt, test_id)
         owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
         record_result(n, "MANUAL", test_id, name, model, [], 0.0, chat_url)
         counts["MANUAL"] = counts.get("MANUAL", 0) + 1
@@ -2282,24 +2334,31 @@ async def run_test(
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
 
-        # Send first turn
-        await _send_and_wait(page, test["prompt"], timeout_ms)
-        # Fetch full response from OWUI API — Playwright inner_text() truncates long responses.
-        # Sleep 3s: OWUI persists responses asynchronously and may not be ready immediately.
-        await asyncio.sleep(3)
-        response_text = owui_get_last_response(token, chat_id)
+        # Send first turn — retry up to 2 times on empty response (MLX cold load)
+        response_text = ""
+        for attempt in range(3):
+            await _send_and_wait(page, test["prompt"], test_id)
+            await asyncio.sleep(5 if attempt > 0 else 3)  # extra persistence time on retries
+            response_text = owui_get_last_response(token, chat_id)
+            if response_text:
+                break
+            elapsed_now = time.time() - t0
+            print(f"  [{test_id}] empty response on attempt {attempt+1}/3 ({elapsed_now:.0f}s)", flush=True)
+            if attempt < 2:
+                # Clear the input and resend — OWUI may have dropped the response
+                await asyncio.sleep(15)  # wait for backend to settle
 
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
         if art_ext:
-            artifact_path = await _download_artifact(page, art_ext, timeout_ms, response_text)
+            artifact_path = await _download_artifact(page, art_ext, response_text=response_text)
 
         # Multi-turn: send second message if defined
         turn2 = test.get("turn2")
         turn2_response = ""
         if turn2:
-            await _send_and_wait(page, turn2, timeout_ms)
-            await asyncio.sleep(1)
+            await _send_and_wait(page, turn2, test_id)
+            await asyncio.sleep(3)
             # For turn2, get the second assistant message
             turn2_response = owui_get_last_response(token, chat_id)
 
@@ -2470,7 +2529,6 @@ async def main() -> None:
                 n=i,
                 counts=counts,
                 headed=args.headed,
-                override_timeout=args.timeout,
                 folder_id=folder_id,
             )
 
