@@ -1,14 +1,24 @@
 # Portal 5 — UAT Results
 
-**Run:** 2026-04-23 23:51:03  
-**Guide:** user_validation_guide_v3.docx  
+**Run:** 2026-04-23 23:51:03 (partial — auto-research section only)
+**Guide:** user_validation_guide_v3.docx
 **Reviewer:** (fill in)
+
+## Status
+
+All 4 FAILs below are empty responses caused by zombie MLX state (process alive,
+/health unresponsive). Root cause fixed in commit c6d3245 (zombie MLX detection +
+proactive GPU memory reclaim). Additional guard added in HEAD: `predict_limit: 16384`
+for auto-research/auto-data/auto-compliance/auto-reasoning/auto-mistral workspaces
+prevents DeepSeek-R1 Ollama fallback from exhausting all tokens on thinking chain.
+
+**Action required**: Re-run auto-research section to confirm pass.
 
 ## Summary
 
 - **PASS**: 0
 - **WARN**: 0
-- **FAIL**: 4
+- **FAIL**: 4 (all pending retest — zombie fix applied)
 - **SKIP**: 0
 - **MANUAL**: 0
 

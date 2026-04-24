@@ -429,6 +429,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
@@ -451,6 +452,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
         "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",  # Text-only mlx_lm path — fixes empty responses from VLM routing mismatch; v2 resolves known serving-template/reasoning bug
+        "predict_limit": 16384,  # Prevents DeepSeek-R1 Ollama fallback from CoT exhaustion (empty content)
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -463,12 +465,14 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
         "description": "NERC CIP compliance, policy analysis, regulatory guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
     },
     "auto-mistral": {
         "name": "🧪 Portal Mistral Reasoner",
@@ -478,6 +482,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         ),
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
+        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
     # User-selected only — never auto-routed by the LLM intent classifier.
@@ -1332,17 +1337,28 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
       requests, eliminating the 10-30s cold-start on the next request.
     - num_batch: inside 'options'. Larger batch = faster prompt evaluation = lower
       TTFT on multi-turn conversations with long histories.
+    - num_predict: output token cap for research/reasoning workspaces. Prevents
+      DeepSeek-R1 CoT exhaustion (where thinking chain consumes all tokens and
+      message.content is empty). 16384 tokens ≈ 50 pages — enough for any
+      research response but cuts off runaway thinking chains.
 
     Uses setdefault() throughout — never overrides an explicit value from the
     caller (e.g. Open WebUI passing its own keep_alive).
     """
     body = dict(body)
-    # Big-model context cap (P5-BIG-001): if workspace defines context_limit, enforce it.
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+    # Big-model context cap (P5-BIG-001): if workspace defines context_limit, enforce it.
     ctx_limit = ws_cfg_local.get("context_limit")
     if ctx_limit:
         body.setdefault("options", {})
         body["options"].setdefault("num_ctx", ctx_limit)
+    # Research/reasoning workspaces: cap output tokens to prevent CoT exhaustion.
+    # DeepSeek-R1 (Ollama fallback) can exhaust all tokens in its thinking block,
+    # leaving message.content empty. predict_limit is set per-workspace in WORKSPACES.
+    predict_limit = ws_cfg_local.get("predict_limit")
+    if predict_limit:
+        body.setdefault("options", {})
+        body["options"].setdefault("num_predict", predict_limit)
     body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
     opts: dict = dict(body.get("options") or {})
     opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
@@ -2330,7 +2346,11 @@ async def _stream_from_backend_guarded(
                             except Exception:
                                 continue
                             msg = obj.get("message") or {}
-                            content_delta = msg.get("content", "") or msg.get("reasoning", "")
+                            content_delta = (
+                                msg.get("content", "")
+                                or msg.get("reasoning", "")
+                                or msg.get("thinking", "")
+                            )
                             if content_delta:
                                 sse_chunk = {
                                     "id": rid,
