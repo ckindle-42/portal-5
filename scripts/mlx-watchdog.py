@@ -74,6 +74,8 @@ CHECK_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "30"))
 RECOVERY_THRESHOLD = int(os.environ.get("MLX_RECOVERY_THRESHOLD", "2"))
 MAX_RECOVERY_ATTEMPTS = int(os.environ.get("MLX_MAX_RECOVERY_ATTEMPTS", "3"))
 WATCHDOG_ENABLED = os.environ.get("MLX_WATCHDOG_ENABLED", "true").lower() != "false"
+# Seconds to wait for Metal GPU memory reclamation after killing a zombie server.
+ZOMBIE_KILL_WAIT_S = int(os.environ.get("MLX_ZOMBIE_KILL_WAIT_S", "10"))
 
 PROXY_PID_FILE = Path(os.environ.get("MLX_PROXY_PID_FILE", "/tmp/mlx-proxy.pid"))
 WATCHDOG_PID_FILE = Path("/tmp/mlx-watchdog.pid")
@@ -145,6 +147,110 @@ def _check_proxy_state() -> dict:
     except Exception:
         pass
     return {}
+
+
+def check_server_zombies() -> None:
+    """Kill MLX server processes that are alive in the OS but dead to HTTP.
+
+    A zombie server holds ~20-46 GB of Metal GPU memory indefinitely.
+    The proxy's /health returns state=down and future requests stall
+    because the port is occupied by the zombie.
+
+    Detection: pgrep finds the process, but GET /health times out or errors.
+    Action: SIGTERM → wait ZOMBIE_KILL_WAIT_S for Metal reclaim → notify.
+
+    This runs on every watchdog cycle, independently of the failure-counter
+    recovery path so zombies are cleared promptly without waiting for
+    RECOVERY_THRESHOLD failures to accumulate.
+
+    Guard: skips zombie detection when the proxy reports state=switching.
+    During a model switch the new server process is alive but its /health
+    is not yet responding (model weights are still loading — can take 30-90s
+    for large models). Without this guard the watchdog would kill a healthy
+    server that is simply still loading, exactly the interference it must avoid.
+    """
+    # Check proxy state before doing anything — don't interfere with model loads
+    try:
+        proxy_info = _check_proxy_state()
+        proxy_state = proxy_info.get("state", "unknown")
+        if proxy_state == "switching":
+            logger.debug("check_server_zombies: proxy state=switching, skipping")
+            return
+    except Exception as e:
+        logger.debug("check_server_zombies: could not read proxy state: %s", e)
+        # Proxy unreachable — proceed anyway, zombie cleanup is still warranted
+
+    server_specs = [
+        ("mlx_lm.server", LM_PORT, "mlx_lm"),
+        ("mlx_vlm.server", VLM_PORT, "mlx_vlm"),
+    ]
+    any_killed = False
+    for proc_pattern, port, name in server_specs:
+        try:
+            res = subprocess.run(
+                ["pgrep", "-f", proc_pattern], capture_output=True, text=True
+            )
+            pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
+            if not pids:
+                continue
+
+            # Process exists — is /health responding?
+            alive = False
+            try:
+                r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=3)
+                alive = r.status_code == 200
+            except Exception:
+                pass
+
+            if alive:
+                continue
+
+            # Process up but /health dead → zombie, kill it
+            logger.warning(
+                "%s zombie detected on :%d — process %s alive but /health unresponsive",
+                name,
+                port,
+                pids,
+            )
+            send_notification(
+                "DOWN",
+                f"{name} zombie on :{port} — process {pids} holding GPU memory without serving requests. Killing.",
+            )
+
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    logger.info("SIGTERM → %s PID %d", name, pid)
+                except ProcessLookupError:
+                    pass
+
+            any_killed = True
+
+            # Also free the port if process survives SIGTERM
+            time.sleep(3)
+            for pid in pids:
+                try:
+                    os.kill(pid, 0)  # still alive?
+                    os.kill(pid, signal.SIGKILL)
+                    logger.info("SIGKILL → %s PID %d (survived SIGTERM)", name, pid)
+                except ProcessLookupError:
+                    pass  # already gone
+
+        except Exception as e:
+            logger.warning("Zombie check error for %s: %s", name, e)
+
+    if any_killed:
+        logger.info("Waiting %ds for Metal GPU memory reclamation…", ZOMBIE_KILL_WAIT_S)
+        time.sleep(ZOMBIE_KILL_WAIT_S)
+        # Reset server component state so the proxy won't get stale failure counts
+        for name in ("mlx_lm", "mlx_vlm"):
+            if name in COMPONENTS:
+                COMPONENTS[name].consecutive_failures = 0
+                COMPONENTS[name].healthy = True
+        send_notification(
+            "RECOVERED",
+            f"Zombie MLX server(s) cleared. GPU memory releasing. Proxy will reload on next request.",
+        )
 
 
 def run_health_checks() -> None:
@@ -526,6 +632,11 @@ def main() -> None:
 
     while True:
         try:
+            # Zombie check runs first: a zombie server occupies the port and
+            # prevents the proxy from recovering it on demand. Kill zombies
+            # before the standard health checks so failure counters reflect
+            # the state after cleanup, not before.
+            check_server_zombies()
             run_health_checks()
         except Exception as e:
             logger.error("Health check loop error: %s", e)

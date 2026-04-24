@@ -458,6 +458,77 @@ def _graceful_kill(pid: int, timeout: float = 10.0) -> None:
         pass
 
 
+# Track whether a zombie cleanup is already in progress so the watchdog
+# doesn't start a second one before the first finishes.
+_zombie_cleanup_active = threading.Event()
+
+
+def _cleanup_zombie_servers() -> None:
+    """Proactively kill any MLX server process that is alive in the OS but
+    not responding to its /health endpoint.
+
+    This runs as a daemon thread from _watchdog_loop the moment a crash is
+    detected, rather than waiting for the next inference request to trigger
+    stop_all(). That means GPU memory is reclaimed within ~10s of a crash,
+    not indefinitely.
+
+    Called from _watchdog_loop only — do not call from request handlers.
+    """
+    if _zombie_cleanup_active.is_set():
+        return  # another cleanup already running
+
+    _zombie_cleanup_active.set()
+    try:
+        killed_any = False
+        for proc_pattern, port, label in [
+            ("mlx_lm.server", LM_PORT, "mlx_lm"),
+            ("mlx_vlm.server", VLM_PORT, "mlx_vlm"),
+        ]:
+            try:
+                res = subprocess.run(
+                    ["pgrep", "-f", proc_pattern], capture_output=True, text=True
+                )
+                pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
+                if not pids:
+                    continue
+
+                # Process exists — still answering?
+                alive = False
+                try:
+                    r = httpx.get(f"http://127.0.0.1:{port}/health", timeout=3)
+                    alive = r.status_code == 200
+                except Exception:
+                    pass
+
+                if alive:
+                    continue
+
+                # Zombie confirmed — SIGTERM then wait
+                print(
+                    f"[watchdog] zombie cleanup: {label} process {pids} alive but /health dead — sending SIGTERM",
+                    flush=True,
+                )
+                for pid in pids:
+                    _graceful_kill(pid)
+                killed_any = True
+
+            except Exception as e:
+                print(f"[watchdog] zombie cleanup error for {label}: {e}", flush=True)
+
+        if killed_any:
+            print("[watchdog] waiting for Metal GPU memory reclaim after zombie cleanup…", flush=True)
+            _wait_for_gpu_memory_reclaim()
+            # Reset the down state so the proxy attempts a clean restart on next request
+            if mlx_state.state == "down":
+                mlx_state._state = "none"
+                mlx_state._active_server = None
+                mlx_state._loaded_model = None
+                print("[watchdog] state reset to 'none' — proxy will restart server on next request", flush=True)
+
+    finally:
+        _zombie_cleanup_active.clear()
+
+
 def _get_available_memory_gb() -> float:
     """Get available memory in GB via vm_stat (macOS).
 
@@ -1000,6 +1071,8 @@ def _watchdog_loop():
                             f"[watchdog] mlx_lm appears down after {mlx_state.consecutive_failures} failed checks",
                             flush=True,
                         )
+                        # Proactively kill zombie — don't wait for next request
+                        threading.Thread(target=_cleanup_zombie_servers, daemon=True).start()
             elif active == "vlm":
                 if vlm_healthy:
                     mlx_state.record_health_check(True)
@@ -1012,6 +1085,8 @@ def _watchdog_loop():
                             f"[watchdog] mlx_vlm appears down after {mlx_state.consecutive_failures} failed checks",
                             flush=True,
                         )
+                        # Proactively kill zombie — don't wait for next request
+                        threading.Thread(target=_cleanup_zombie_servers, daemon=True).start()
             else:
                 # No active server tracked — only update if server is responding
                 # AND has a known model. Don't set ready with unknown model —

@@ -1091,18 +1091,22 @@ async def S0() -> None:
         t0=t0,
     )
 
-    # S0-06: MLX watchdog must NOT be running (interferes with test-driven model switches)
+    # S0-06: MLX watchdog status (informational — watchdog may run during tests).
+    # The watchdog's check_server_zombies() is now gated on proxy state=switching,
+    # so it no longer fights with test-driven model loads. It is intentionally left
+    # running to provide zombie detection during the test run.
     t0 = time.time()
     try:
         r = subprocess.run(["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5)
-        if r.returncode == 0 and r.stdout.strip():
-            # Kill it — watchdog fights with test-driven model switches
-            subprocess.run(["pkill", "-f", "mlx-watchdog"], capture_output=True, timeout=5)
-            record(sec, "S0-06", "MLX watchdog not running", "INFO", "watchdog was running — killed for testing", t0=t0)
-        else:
-            record(sec, "S0-06", "MLX watchdog not running", "PASS", "watchdog not running", t0=t0)
+        running = r.returncode == 0 and bool(r.stdout.strip())
+        record(
+            sec, "S0-06", "MLX watchdog status",
+            "INFO",
+            f"watchdog {'running (PID ' + r.stdout.strip() + ') — provides zombie detection during tests' if running else 'not running — start with ./launch.sh start-mlx-watchdog'}",
+            t0=t0,
+        )
     except Exception as e:
-        record(sec, "S0-06", "MLX watchdog not running", "WARN", str(e)[:80], t0=t0)
+        record(sec, "S0-06", "MLX watchdog status", "WARN", str(e)[:80], t0=t0)
 
 
 async def S1() -> None:

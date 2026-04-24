@@ -2998,12 +2998,27 @@ MLXPLIST
     echo "=== MLX Component Status ==="
     echo ""
 
+    # Helper: check if a process is running but its /health is unresponsive (zombie)
+    _mlx_zombie_check() {
+        local pattern="$1" port="$2"
+        local pids
+        pids=$(pgrep -f "$pattern" 2>/dev/null)
+        if [ -n "$pids" ]; then
+            if ! curl -s --connect-timeout 3 "http://localhost:${port}/health" &>/dev/null; then
+                echo "⚠️  ZOMBIE (PID $pids — process alive, /health dead — run: ./launch.sh mlx-clean)"
+                return 0
+            fi
+        fi
+        return 1
+    }
+
     # Proxy
-    echo -n "  MLX Proxy (:8081):     "
+    echo -n "  MLX Proxy (:8081):      "
     if curl -s --connect-timeout 3 http://localhost:8081/health &>/dev/null; then
-        echo "✅ healthy"
-        curl -s http://localhost:8081/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
-    else
+        PROXY_STATE=$(curl -s http://localhost:8081/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state','?'))" 2>/dev/null)
+        FREE_GB=$(curl -s http://localhost:8081/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=d.get('memory',{}).get('current',{}); print(f\"{m.get('free_gb','?')}GB free\")" 2>/dev/null)
+        echo "✅ healthy (state=${PROXY_STATE}, ${FREE_GB})"
+    elif ! _mlx_zombie_check "mlx-proxy.py" 8081; then
         echo "❌ down"
     fi
 
@@ -3011,22 +3026,20 @@ MLXPLIST
     echo -n "  mlx_lm server (:18081): "
     if curl -s --connect-timeout 3 http://localhost:18081/health &>/dev/null; then
         echo "✅ healthy"
-        curl -s http://localhost:18081/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
-    else
-        echo "❌ down"
+    elif ! _mlx_zombie_check "mlx_lm.server" 18081; then
+        echo "❌ not running"
     fi
 
     # mlx_vlm
     echo -n "  mlx_vlm server (:18082): "
     if curl -s --connect-timeout 3 http://localhost:18082/health &>/dev/null; then
         echo "✅ healthy"
-        curl -s http://localhost:18082/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/    /'
-    else
-        echo "❌ down"
+    elif ! _mlx_zombie_check "mlx_vlm.server" 18082; then
+        echo "❌ not running"
     fi
 
     # Watchdog
-    echo -n "  MLX Watchdog:          "
+    echo -n "  MLX Watchdog:           "
     if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
         echo "✅ running (PID $(cat /tmp/mlx-watchdog.pid))"
     else
@@ -3034,7 +3047,7 @@ MLXPLIST
     fi
 
     # MLX Speech
-    echo -n "  MLX Speech (:8918):    "
+    echo -n "  MLX Speech (:8918):     "
     if curl -s --connect-timeout 3 http://localhost:8918/health &>/dev/null; then
         echo "✅ healthy"
     elif [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
@@ -3046,6 +3059,73 @@ MLXPLIST
     echo ""
     echo "=== Pipeline Backend Health ==="
     curl -s http://localhost:9099/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/  /' || echo "  Pipeline not responding"
+    ;;
+
+  mlx-clean)
+    # Kill any zombie MLX server processes (alive in OS but dead to /health),
+    # wait for Metal GPU memory reclamation, then optionally restart the proxy.
+    echo "=== MLX Zombie Cleanup ==="
+    ANY_KILLED=0
+
+    for SPEC in "mlx_lm.server:18081" "mlx_vlm.server:18082"; do
+        PATTERN="${SPEC%%:*}"
+        PORT="${SPEC##*:}"
+        PIDS=$(pgrep -f "$PATTERN" 2>/dev/null)
+        if [ -z "$PIDS" ]; then
+            echo "  ${PATTERN}: not running — skip"
+            continue
+        fi
+        if curl -s --connect-timeout 3 "http://localhost:${PORT}/health" &>/dev/null; then
+            echo "  ${PATTERN} (:${PORT}): healthy — skip"
+            continue
+        fi
+        echo "  ⚠️  ${PATTERN} (:${PORT}): ZOMBIE detected (PID $PIDS) — killing…"
+        echo "$PIDS" | xargs -I{} kill -15 {} 2>/dev/null
+        sleep 3
+        # Force-kill if still alive
+        REMAINING=$(pgrep -f "$PATTERN" 2>/dev/null)
+        if [ -n "$REMAINING" ]; then
+            echo "    Still alive after SIGTERM — sending SIGKILL…"
+            echo "$REMAINING" | xargs -I{} kill -9 {} 2>/dev/null
+        fi
+        echo "  ✅ ${PATTERN} zombie cleared"
+        ANY_KILLED=1
+    done
+
+    # Also check if proxy is a zombie (process up, HTTP dead)
+    PROXY_PIDS=$(pgrep -f "mlx-proxy.py" 2>/dev/null)
+    if [ -n "$PROXY_PIDS" ]; then
+        if ! curl -s --connect-timeout 3 http://localhost:8081/health &>/dev/null; then
+            echo "  ⚠️  mlx-proxy.py: ZOMBIE detected (PID $PROXY_PIDS) — killing…"
+            echo "$PROXY_PIDS" | xargs -I{} kill -15 {} 2>/dev/null
+            sleep 3
+            REMAINING=$(pgrep -f "mlx-proxy.py" 2>/dev/null)
+            [ -n "$REMAINING" ] && echo "$REMAINING" | xargs -I{} kill -9 {} 2>/dev/null
+            echo "  ✅ mlx-proxy.py zombie cleared"
+            ANY_KILLED=1
+        fi
+    fi
+
+    if [ "$ANY_KILLED" -eq 1 ]; then
+        echo ""
+        echo "  Waiting 10s for Metal GPU memory reclamation…"
+        sleep 10
+        echo ""
+        FREE_GB=$(python3 -c "
+import subprocess, re
+r = subprocess.run(['vm_stat'], capture_output=True, text=True)
+pages = {m.group(1): int(m.group(2)) for m in re.finditer(r'Pages (\w[\w ]+):\s+(\d+)', r.stdout)}
+free = (pages.get('free', 0) + pages.get('inactive', 0)) * 4096 / 1024**3
+print(f'{free:.1f}')
+" 2>/dev/null || echo "?")
+        echo "  Estimated free memory after reclaim: ~${FREE_GB}GB"
+        echo ""
+        echo "  Restart the MLX proxy? (./launch.sh start-mlx-proxy)"
+        echo "  Or run './launch.sh up' to restart all services."
+    else
+        echo ""
+        echo "  No zombies found."
+    fi
     ;;
 
   start-speech)
@@ -3473,7 +3553,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3485,7 +3565,8 @@ MEOF
     echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
     echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
     echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
-    echo "  mlx-status              Show status of all MLX components (proxy, mlx_lm, mlx_vlm, speech)"
+    echo "  mlx-status              Show status of all MLX components + zombie detection"
+    echo "  mlx-clean               Kill any zombie MLX server processes + reclaim GPU memory"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-embedding-cpu-arm  Start native ARM64 embedding server (Apple Silicon, no Rosetta)"
