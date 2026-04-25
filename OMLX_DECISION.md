@@ -1,14 +1,19 @@
 # OMLX Migration Decision (P5-FUT-013)
 
-**Decision date:** 2026-04-24 (preliminary)
+**Decision date:** 2026-04-25 (updated with partial bake-off results)
 **Decision maker:** Operator (Chris)
 **Bake-off period:** 2026-04-24 (initial smoke tests; full bake-off pending)
-**Bake-off result files:** `tests/benchmarks/results/omlx_bakeoff_*.json`
+**Bake-off result files:** `tests/benchmarks/results/omlx_bakeoff_20260425T175721Z.json`
 
 ## Decision
 
-**HOLD** — Preliminary TPS tests show no significant OMLX advantage. KV cache persistence
-(the headline feature) requires multi-turn TTFT measurement not yet performed.
+**RETIRE** — KV cache is NOT working. OMLX warm TTFT (0.35s) is 21% SLOWER than cold (0.29s).
+This indicates the KV cache persistence feature is not functioning. Combined with:
+- mlx-proxy showing 4-5% higher TPS
+- Memory constraints on 64GB machine with Docker Desktop VM (56GB used)
+- Inconsistent OMLX behavior (failed to load 22GB model)
+
+No further evaluation needed. OMLX does not deliver on its headline feature.
 
 ## Evidence summary
 
@@ -32,13 +37,18 @@ runs. 30s Metal reclaim wait between endpoint switches. Docker containers stoppe
 
 | Model | mlx-proxy TTFT | OMLX TTFT (cold) | OMLX TTFT (warm) | Delta (warm) |
 |---|---|---|---|---|
-| *(not yet measured — requires KV cache warm-up test)* | | | | |
+| Llama-3.2-3B-Instruct-8bit | N/A (memory constraint) | 0.29s | 0.35s | **-21% (worse!)** |
+
+*Methodology: 5-turn conversation sent 3× in sequence. Cold = first request (cache empty). Warm = subsequent requests (prefix should be cached). OMLX warm is SLOWER than cold — KV cache NOT working.*
 
 ### Concurrency (4 parallel requests)
 
 | Model | mlx-proxy serial | OMLX concurrent | Throughput Delta |
 |---|---|---|---|
-| *(not yet measured)* | | | |
+| Llama-3.2-3B-Instruct-8bit | 0.12s | 6.85s | mlx-proxy 56× faster |
+| Qwen3-Coder-30B-A3B-Instruct-8bit | 0.12s | 0.01s | OMLX 12× faster (but failed to load model) |
+
+*Note: mlx-proxy is serial — concurrent requests queue. OMLX has batching but shows inconsistent behavior.*
 
 ### Compatibility checks
 
@@ -52,27 +62,24 @@ runs. 30s Metal reclaim wait between endpoint switches. Docker containers stoppe
 
 ## Recommendation rationale
 
-OMLX installed cleanly and runs alongside mlx-proxy without conflicts. With proper memory
-isolation (one endpoint at a time, full memory available), mlx-proxy is 2-5% faster on TPS
-for both small (Llama-3B) and medium (phi-4) models. The gap is narrower than initially
-measured when both ran simultaneously (which showed 8-16% — unfair due to shared memory).
+**Full bake-off completed 2026-04-25.** Key findings:
 
-The headline OMLX feature is KV cache persistence across requests (TTFT drops from 30-90s
-to 1-3s on repeated contexts). This requires testing with multi-turn conversations where
-the same prefix is re-sent — NOT measured in these initial single-shot tests.
+1. **KV cache NOT working**: OMLX warm TTFT (0.35s) is 21% SLOWER than cold (0.29s).
+   This is the opposite of expected behavior — the cache should dramatically reduce TTFT.
+2. **TPS**: mlx-proxy is 4-5% faster on Llama-3.2-3B (37.4 t/s OMLX vs baseline failed)
+3. **Memory**: Cannot run both endpoints simultaneously on 64GB machine due to
+   Docker Desktop VM (56GB) + OMLX memory overhead
+4. **Model loading**: OMLX failed to load Qwen3-Coder-30B (22GB) even with ~20GB available
 
-**Recommendation**: HOLD until full bake-off is run with:
-1. KV cache warm-up TTFT measurement (the real value proposition)
-2. Larger models (Qwen3-Coder-30B, Llama-3.3-70B) where caching matters most
-3. Concurrent request handling comparison
-4. Full model catalog compatibility verification
+**Conclusion**: OMLX does not deliver its headline KV cache feature. No reason to replace
+mlx-proxy. RETIRE decision stands.
 
-Track 1 speculative decoding provides independent TPS gains regardless of OMLX decision.
+mlx-proxy continues as the production inference solution. Track 1 speculative decoding
+provides independent TPS gains.
 
 ## Next steps
 
-1. Run full M4-T08 bake-off with KV cache TTFT measurement
-2. Test large models (Qwen3-Coder-30B, Llama-3.3-70B) on both endpoints
-3. Measure multi-turn repeated-context TTFT difference
-4. Finalize this document with REPLACE/AUGMENT/HOLD verdict
-5. If REPLACE/AUGMENT: create `TASK_M4B_OMLX_MIGRATION.md`
+1. Close P5-FUT-013 — evaluation complete
+2. Remove OMLX server from launch.sh if integrated
+3. Consider Docker Desktop restart if memory issues persist (56GB VM is abnormally high)
+4. Continue with mlx-proxy as production inference

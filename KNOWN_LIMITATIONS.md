@@ -177,14 +177,14 @@ Architectural and design constraints that cannot be resolved without significant
 - **Mitigation**: Draft models are small (0.5-1GB) — impact is minimal on 64GB machines. Remove from `speculative_decoding.draft_models` to disable.
 - **Last verified**: 2026-04-24
 
-### OMLX Evaluation Deferred
+### OMLX Evaluation Complete
 - **ID**: P5-OMLX-001
-- **Status**: **EVALUATING**
-- **Description**: OMLX is evaluated as a potential replacement for `mlx-proxy.py` (KV cache persistence, continuous batching). The package is not yet installable; evaluation infrastructure is prepared (config, benchmark script, decision template).
-- **Impact**: No KV cache persistence across requests until OMLX is evaluated or alternative is implemented. Each chat completion reprocesses the full prompt.
-- **Mitigation**: Speculative decoding (Track 1) provides TPS gains independently. OMLX evaluation resumes when package is available.
-- **Last verified**: 2026-04-24
+- **Status**: **CLOSED — Not adopted. KV cache not working.** See OMLX_DECISION.md.
+- **Description**: OMLX evaluated as replacement for mlx-proxy.py. Full bake-off shows KV cache persistence is NOT functioning — warm TTFT is 21% slower than cold (0.35s vs 0.29s). Headline feature fails.
+- **Impact**: No KV cache. mlx-proxy remains production inference.
+- **Mitigation**: mlx-proxy 4-5% faster on TPS. Speculative decoding provides independent gains.
+- **Last verified**: 2026-04-25
 
 ---
 
-*Last updated: 2026-04-24*
+*Last updated: 2026-04-25*
