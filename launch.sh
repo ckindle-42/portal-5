@@ -1647,6 +1647,60 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     FORCE_RESEED=true docker compose run --rm -e FORCE_RESEED=true openwebui-init
     echo "[portal-5] Reseed complete."
     ;;
+  sync-readme)
+    if [ ! -f "${PORTAL_ROOT}/ACCEPTANCE_RESULTS.md" ]; then
+      echo "No ACCEPTANCE_RESULTS.md to sync from. Run acceptance tests first:"
+      echo "  python3 tests/portal5_acceptance_v6.py"
+      exit 1
+    fi
+    python3 << 'PYEOF'
+import re
+from pathlib import Path
+
+root = Path(__file__).parent if '__file__' in dir() else Path('.')
+results = (root / "ACCEPTANCE_RESULTS.md").read_text()
+readme = (root / "README.md").read_text()
+
+# Extract Summary block from ACCEPTANCE_RESULTS.md (between ## Summary and ## Results)
+summary_match = re.search(r'(## Summary.*?)(?=## Results)', results, re.DOTALL)
+summary_block = summary_match.group(1).strip() if summary_match else "*(see ACCEPTANCE_RESULTS.md)*"
+
+# Extract date line
+date_match = re.search(r'\*\*Date:\*\*\s*([^\n]+)', results)
+date_str = date_match.group(1).strip() if date_match else "unknown"
+
+new_block = f"""### Acceptance Testing
+
+The full acceptance test suite (`tests/portal5_acceptance_v6.py`) runs
+~250 checks across 30 sections. Run with:
+
+```bash
+python3 tests/portal5_acceptance_v6.py
+python3 tests/portal5_acceptance_v6.py --section S70
+```
+
+Latest run ({date_str}):
+
+{summary_block}
+
+See [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md) for full results.
+"""
+
+new_readme = re.sub(
+    r'### Acceptance Testing.*?(?=\n## |\n### |\Z)',
+    new_block,
+    readme,
+    count=1,
+    flags=re.DOTALL,
+)
+
+if new_readme == readme:
+    print("README.md: no '### Acceptance Testing' section found — nothing to update.")
+else:
+    (root / "README.md").write_text(new_readme)
+    print("README.md acceptance section refreshed.")
+PYEOF
+    ;;
   logs)
     cd "$COMPOSE_DIR"
     docker compose logs -f "${2:-portal-pipeline}"
