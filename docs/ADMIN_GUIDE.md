@@ -84,3 +84,42 @@ Critical data is in Docker volumes:
 docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
     alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
 ```
+
+## MLX Health Monitoring
+
+The MLX subsystem uses two complementary health monitors with distinct responsibilities:
+
+### 1. In-process probe (`mlx-proxy.py`)
+Runs as a daemon thread inside `mlx-proxy.py` on a 15-second interval (configurable via `MLX_WATCHDOG_INTERVAL`).
+
+**Responsibilities:**
+- Keeps the proxy's `/health` endpoint accurate by probing `mlx_lm.server` and `mlx_vlm.server`
+- Updates `mlx_state` (ready / switching / down) for accurate self-reporting
+- Samples GPU memory every ~60 seconds for the `/health` `memory` field
+- Recovers internal state if a server comes back healthy after a down period
+
+**Does NOT:** kill processes, restart servers, or send notifications. One process killing another from two places caused race conditions and split the recovery logic.
+
+### 2. External daemon (`mlx-watchdog.py` via launchd)
+Runs as a standalone process managed by launchd, polling every 30 seconds.
+
+**Responsibilities:**
+- Owns zombie cleanup (SIGTERM → wait → SIGKILL for hung mlx_lm/mlx_vlm processes)
+- Owns process restart (respawns crashed servers after cool-down)
+- Sends operational notifications (Telegram/Slack/email) on crash and recovery
+- Tracks consecutive failure counts and escalates as needed
+
+**Configured via:** `~/.portal5/mlx/start.sh` (installed by `./launch.sh install-mlx`)
+
+### Debugging crashes
+
+```bash
+# External watchdog logs (last 50 lines)
+tail -50 ~/.portal5/mlx/logs/mlx-watchdog.log
+
+# Proxy state via API
+curl -s http://localhost:8081/health | jq .
+
+# Check both watchdogs are running
+./launch.sh status
+```

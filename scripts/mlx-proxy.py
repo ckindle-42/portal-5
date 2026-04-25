@@ -1098,7 +1098,16 @@ def ensure_server(model: str) -> int:
 
 
 def _watchdog_loop():
-    """Background thread: probe both MLX servers and sample memory."""
+    """Background thread: probe both MLX servers and sample memory.
+
+    Responsibility: keep mlx_state accurate for the /health endpoint.
+    Recovery: if state is "down" but a server responds, clear the down state.
+
+    Zombie cleanup and process restart are owned by the external mlx-watchdog.py
+    daemon (under launchd), which has full OS-level visibility. This loop does
+    NOT kill processes — doing so from two places produced redundant SIGTERM
+    races and split the recovery logic across files.
+    """
     mem_sample_counter = 0
     while True:
         time.sleep(WATCHDOG_INTERVAL)
@@ -1113,36 +1122,13 @@ def _watchdog_loop():
 
             if active == "lm":
                 if lm_healthy:
-                    mlx_state.record_health_check(True)
                     mlx_state.set_ready("lm", lm_model)
-                else:
-                    mlx_state.record_health_check(False)
-                    if mlx_state.consecutive_failures >= 2:
-                        mlx_state.set_down("mlx_lm server not responding (crashed or OOM)")
-                        print(
-                            f"[watchdog] mlx_lm appears down after {mlx_state.consecutive_failures} failed checks",
-                            flush=True,
-                        )
-                        # Proactively kill zombie — don't wait for next request
-                        threading.Thread(target=_cleanup_zombie_servers, daemon=True).start()
+                # Failure: external watchdog owns zombie cleanup + restart
             elif active == "vlm":
                 if vlm_healthy:
-                    mlx_state.record_health_check(True)
                     mlx_state.set_ready("vlm", vlm_model)
-                else:
-                    mlx_state.record_health_check(False)
-                    if mlx_state.consecutive_failures >= 2:
-                        mlx_state.set_down("mlx_vlm server not responding (crashed or OOM)")
-                        print(
-                            f"[watchdog] mlx_vlm appears down after {mlx_state.consecutive_failures} failed checks",
-                            flush=True,
-                        )
-                        # Proactively kill zombie — don't wait for next request
-                        threading.Thread(target=_cleanup_zombie_servers, daemon=True).start()
             else:
-                # No active server tracked — only update if server is responding
-                # AND has a known model. Don't set ready with unknown model —
-                # let ensure_server() handle the model selection.
+                # No active server tracked — detect if a server started running
                 if lm_healthy and lm_model:
                     mlx_state.set_ready("lm", lm_model)
                     print(
@@ -1154,7 +1140,7 @@ def _watchdog_loop():
                         "[watchdog] detected mlx_vlm running with model, updating state", flush=True
                     )
 
-            # Recovery: if proxy is "down" but a server is healthy, recover
+            # Recovery: if proxy state is "down" but a server is now healthy, clear it
             if mlx_state.state == "down":
                 if lm_healthy:
                     mlx_state.set_ready("lm", lm_model)
