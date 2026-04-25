@@ -2247,6 +2247,46 @@ async def S4() -> None:
         timeout=60,
     )
 
+    # S4-05..S4-08: Document read tools
+    _FIXTURES = ROOT / "tests" / "fixtures"
+    _READ_TESTS = [
+        ("S4-05", "read_word_document", "sample.docx", "docx"),
+        ("S4-06", "read_excel", "sample.xlsx", "xlsx"),
+        ("S4-07", "read_powerpoint", "sample.pptx", "pptx"),
+        ("S4-08", "read_pdf", "sample.pdf", "pdf"),
+    ]
+    for n, (tid, tool, fixture, ext) in enumerate(_READ_TESTS, 5):
+        fixture_path = _FIXTURES / fixture
+        t0 = time.time()
+        if not fixture_path.exists():
+            record(sec, tid, f"MCP {tool}", "SKIP", f"fixture {fixture} missing", t0=t0)
+            continue
+        try:
+            from mcp import ClientSession  # noqa: PLC0415
+            from mcp.client.streamable_http import streamablehttp_client  # noqa: PLC0415
+
+            url = f"http://localhost:{MCP['documents']}/mcp"
+            async with streamablehttp_client(url) as (read_, write_, _):
+                async with ClientSession(read_, write_) as session:
+                    await session.initialize()
+                    result = await asyncio.wait_for(
+                        session.call_tool(tool, {"file_path": str(fixture_path)}),
+                        timeout=30,
+                    )
+                    content = "".join(b.text for b in result.content if hasattr(b, "text"))
+            if content:
+                record(sec, tid, f"MCP {tool}", "PASS",
+                       f"got {len(content)} chars from {fixture}", t0=t0)
+            else:
+                record(sec, tid, f"MCP {tool}", "FAIL", "empty result", t0=t0)
+        except asyncio.TimeoutError:
+            record(sec, tid, f"MCP {tool}", "WARN", "timeout after 30s", t0=t0)
+        except ImportError:
+            record(sec, tid, f"MCP {tool}", "FAIL",
+                   "pip install mcp --break-system-packages", t0=t0)
+        except Exception as e:
+            record(sec, tid, f"MCP {tool}", "FAIL", str(e)[:120], t0=t0)
+
 
 async def S5() -> None:
     """S5: Code sandbox tests."""
