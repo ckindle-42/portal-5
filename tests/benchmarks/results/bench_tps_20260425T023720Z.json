@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-04-25T02:39:04.861270+00:00",
+  "mode": "direct",
+  "order": "size",
+  "cooldown_s": 3.0,
+  "runs_per_model": 3,
+  "total_wall_time_s": 104.1,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 23,
+    "ollama_models_configured": 24,
+    "workspaces_configured": 26,
+    "personas_configured": 57
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081",
+      "available": true
+    },
+    "ollama": {
+      "url": "http://localhost:11434",
+      "available": true
+    },
+    "pipeline": {
+      "url": "http://localhost:9099",
+      "available": true
+    }
+  },
+  "results": [
+    {
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "label": "mlx-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 38.9,
+      "min_tps": 25.8,
+      "max_tps": 55.0,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 7.24,
+      "routed_model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "prompt_category": "coding",
+      "quality_score": 0.67,
+      "tps_quality": 26.1,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 9.91,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 25.8,
+          "response_model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+          "response_text": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of (start, end) tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. Two intervals overlap if the current interval's start is <= previous interval's end\n    4. When merging, extend the end time to the maximum of both intervals\n    5. Add non-overlapping intervals to result\n    \n    Time Complexity: O(n log n) due to sorting\n    Space Complexity: O(1) excluding output\n    \n    Examples:\n    >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n    [(1, 6), (8, 10), (15, 18)]\n    >>> merge_intervals([(1,4),(4,5)])\n    [(1, 5)]\n    >>> merge_intervals([])\n    []\n    >>> merge_intervals([(1,2)])\n    [(1, 2)]\n    \n    Args:\n        intervals: List of tuples representing intervals as (start, end)\n        \n    Returns:\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 7.16,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 35.8,
+          "response_model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+          "response_text": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of (start, end) tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. Two intervals overlap if the current interval's start is <= previous interval's end\n    4. When merging, extend the end time to the maximum of both intervals\n    5. Add non-overlapping intervals to result\n    \n    Time Complexity: O(n log n) due to sorting\n    Space Complexity: O(1) excluding output\n    \n    Examples:\n    >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n    [(1, 6), (8, 10), (15, 18)]\n    >>> merge_intervals([(1,4),(4,5)])\n    [(1, 5)]\n    >>> merge_intervals([])\n    []\n    >>> merge_intervals([(1,2)])\n    [(1, 2)]\n    \n    Args:\n        intervals: List of tuples representing intervals as (start, end)\n        \n    Returns:\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.65,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 55.0,
+          "response_model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+          "response_text": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of (start, end) tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. Two intervals overlap if the current interval's start is <= previous interval's end\n    4. When merging, extend the end time to the maximum of both intervals\n    5. Add non-overlapping intervals to result\n    \n    Time Complexity: O(n log n) due to sorting\n    Space Complexity: O(1) excluding output\n    \n    Examples:\n    >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n    [(1, 6), (8, 10), (15, 18)]\n    >>> merge_intervals([(1,4),(4,5)])\n    [(1, 5)]\n    >>> merge_intervals([])\n    []\n    >>> merge_intervals([(1,2)])\n    [(1, 2)]\n    \n    Args:\n        intervals: List of tuples representing intervals as (start, end)\n        \n    Returns:\n"
+        }
+      ],
+      "backend": "mlx",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 22.0
+    }
+  ],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general"
+    }
+  }
+}

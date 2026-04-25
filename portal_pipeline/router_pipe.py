@@ -464,7 +464,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # Bench 2026-04-25: 7.6 TPS × Q=1.00; 8bit (34GB) fails to load under normal conditions (~44GB needed)
         "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
     },
     "auto-compliance": {

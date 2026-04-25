@@ -59,12 +59,14 @@ Architectural and design constraints that cannot be resolved without significant
 - **Replacement**: `huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` added to MLX catalog. Selected for: GLM lineage (new to MLX tier), 59.2% SWE-bench, 79.5% τ²-Bench tool use, abliterated by trusted provider, ~18GB.
 - **Last verified**: 2026-04-25
 
-### huihui-ai MLX Models Not Apple-Tested by Provider
+### Huihui-GLM-4.7-Flash-abliterated-mlx-4bit: Empty Output on Apple Silicon
 - **ID**: P5-MLX-006
-- **Status**: **ACTIVE — first-load validation required**
-- **Description**: huihui-ai publishes MLX-format models (e.g., `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit`) but their model cards explicitly note: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."* Conversions may have undetected issues that surface only on Apple Metal.
-- **First-load validation procedure**: After download, run a single inference at small max_tokens to confirm the model loads and produces coherent output before relying on it in production routing. Document any tokenizer or weight-shape errors at huihui-ai's HuggingFace discussions tab.
-- **Mitigation**: Acceptance test S23-07 (added in v6.0.3) verifies the model registers and produces non-empty output.
+- **Status**: **CONFIRMED BROKEN — produces empty content on Apple Metal**
+- **Description**: Benchmark on 2026-04-25 (M4 Pro, 64GB, mlx-lm 0.31.1) shows `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` loads and reports non-zero TPS (30.9 avg) but `choices[0].message.content` is always empty string across all 3 runs. The model generates `usage.completion_tokens=256` (max) but produces no readable text. This confirms the model card warning: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."*
+- **Diagnosis**: Not a proxy or test harness issue — other models through the same proxy and bench code produce text. Issue is specific to this model's weight/tokenizer conversion on Apple Metal.
+- **Impact**: Quality score = 0.00; TPS×Q = 0.0. The model is non-functional for inference.
+- **Next steps**: Monitor huihui-ai HF discussions for Apple Metal fix; alternatively find an mlx-community conversion of GLM-4.7-Flash-abliterated. Model remains in `backends.yaml` and `ALL_MODELS` (registered) for when a fixed conversion becomes available — remove if no fix in 60 days.
+- **Acceptance test**: S23-07 will FAIL or WARN on this model — expected until upstream fixes the conversion.
 - **Last verified**: 2026-04-25
 
 ---

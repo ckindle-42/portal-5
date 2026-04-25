@@ -1,0 +1,179 @@
+{
+  "timestamp": "2026-04-25T02:52:43.164800+00:00",
+  "mode": "direct",
+  "order": "size",
+  "cooldown_s": 3.0,
+  "runs_per_model": 3,
+  "total_wall_time_s": 295.8,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 23,
+    "ollama_models_configured": 24,
+    "workspaces_configured": 26,
+    "personas_configured": 57
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081",
+      "available": true
+    },
+    "ollama": {
+      "url": "http://localhost:11434",
+      "available": true
+    },
+    "pipeline": {
+      "url": "http://localhost:9099",
+      "available": true
+    }
+  },
+  "results": [
+    {
+      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+      "label": "mlx-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 7.6,
+      "min_tps": 6.1,
+      "max_tps": 9.2,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 34.56,
+      "routed_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+      "prompt_category": "reasoning",
+      "quality_score": 1.0,
+      "tps_quality": 7.6,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 42.12,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 6.1,
+          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+          "response_text": "<think>\nOkay, so I need to figure out the primary bottleneck in the ER. Let's see. The ER has 8 beds, 3 doctors, and 12 nurses. Patients arrive at 30 per hour, and each treatment takes 45 minutes. The current wait time is 3.5 hours. Hmm.\n\nFirst, let's think about the beds. If each patient takes 45 minutes, how many patients can be treated per hour? Well, 60 minutes divided by 45 minutes per patient is about 1.333 patients per bed per hour. So with 8 beds, that's 8 times 1.333, which is about 10.666 patients per hour. So beds can handle about 10.666 patients per hour.\n\nNow, the doctors. There are 3 doctors. Each doctor can see a patient every 45 minutes, so per hour, each doctor can see 60/45 = 1.333 patients. So 3 doctors can handle 3 times 1.333, which is about 4 patients per hour. Wait, that seems low. So doctors can handle 4 patients"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 27.91,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 9.2,
+          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+          "response_text": "<think>\nOkay, so I need to figure out the primary bottleneck in the ER. Let's see. The ER has 8 beds, 3 doctors, and 12 nurses. Patients arrive at 30 per hour, and each treatment takes 45 minutes. The current wait time is 3.5 hours. Hmm.\n\nFirst, let's think about the beds. If each patient takes 45 minutes, how many patients can be treated per hour? Well, 60 minutes divided by 45 minutes per patient is about 1.333 patients per bed per hour. So with 8 beds, that's 8 times 1.333, which is about 10.666 patients per hour. So beds can handle about 10.666 patients per hour.\n\nNow, the doctors. There are 3 doctors. Each doctor can see a patient every 45 minutes, so per hour, each doctor can see 60/45 = 1.333 patients. So 3 doctors can handle 3 times 1.333, which is about 4 patients per hour. Wait, that seems low. So doctors can handle 4 patients"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 33.65,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 7.6,
+          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+          "response_text": "<think>\nOkay, so I need to figure out the primary bottleneck in the ER. Let's see. The ER has 8 beds, 3 doctors, and 12 nurses. Patients arrive at 30 per hour, and each treatment takes 45 minutes. The current wait time is 3.5 hours. Hmm.\n\nFirst, let's think about the beds. If each patient takes 45 minutes, how many patients can be treated per hour? Well, 60 minutes divided by 45 minutes per patient is about 1.333 patients per bed per hour. So with 8 beds, that's 8 times 1.333, which is about 10.666 patients per hour. So beds can handle about 10.666 patients per hour.\n\nNow, the doctors. There are 3 doctors. Each doctor can see a patient every 45 minutes, so per hour, each doctor can see 60/45 = 1.333 patients. So 3 doctors can handle 3 times 1.333, which is about 4 patients per hour. Wait, that seems low. So doctors can handle 4 patients"
+        }
+      ],
+      "backend": "mlx",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 18.0
+    },
+    {
+      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+      "label": "mlx-direct",
+      "runs_total": 3,
+      "runs_success": 0,
+      "avg_tps": 0.0,
+      "min_tps": 0.0,
+      "max_tps": 0.0,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 0.0,
+      "routed_model": "",
+      "prompt_category": "reasoning",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "runs": [
+        {
+          "run": 1,
+          "error": "HTTP 503: ",
+          "elapsed_s": 0.02
+        },
+        {
+          "run": 2,
+          "error": "HTTP 503: ",
+          "elapsed_s": 0.02
+        },
+        {
+          "run": 3,
+          "error": "HTTP 503: ",
+          "elapsed_s": 0.01
+        }
+      ],
+      "backend": "mlx",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 34.0
+    }
+  ],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general"
+    }
+  }
+}

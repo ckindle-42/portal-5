@@ -190,6 +190,7 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Devstral": "coding",
     "Qwen3-Coder": "coding",
     "DeepSeek-Coder": "coding",
+    "Huihui-GLM": "coding",  # GLM-4.7-Flash — coding/tool-use model
     "Dolphin": "creative",
     "hermes3": "creative",
     "Llama-3.2-3B": "general",

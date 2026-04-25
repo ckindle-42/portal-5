@@ -68,6 +68,7 @@ ALL_MODELS = [
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",  # 30B MoE 8bit (~22GB)
     "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",  # DS-Coder-V2 8bit (~12GB)
     "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
+    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit",  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated
     # Creative / general
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",  # Dolphin 8B (~9GB, uncensored)
     "mlx-community/Llama-3.2-3B-Instruct-8bit",  # Ultra-fast routing (~3GB)
