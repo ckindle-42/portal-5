@@ -32,7 +32,8 @@ _COOLDOWN_FILE = Path("/tmp/.portal_daily_summary_sent")
 _COOLDOWN_SECONDS = 23 * 3600  # 23 hours — staggered send on restart is fine
 
 # Snapshot file: stores previous-day metrics so the summary shows deltas, not totals.
-_SNAPSHOT_FILE = Path("/tmp/.portal_daily_summary_snapshot.json")
+# Stored in /app/data (named volume) so it persists across container rebuilds.
+_SNAPSHOT_FILE = Path(os.environ.get("DAILY_SUMMARY_SNAPSHOT_FILE", "/app/data/daily_summary_snapshot.json"))
 
 # Module-level references to router_pipe state (set during integration)
 _request_count: dict[str, int] = {}
