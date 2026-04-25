@@ -257,7 +257,7 @@ Before adding new tasks or filing issues, check `KNOWN_ISSUES.md` — some items
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (75 personas) | `config/personas/*.yaml` |
+| Persona catalog (76 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (MLX-native TTS) | `docs/FISH_SPEECH_SETUP.md` |

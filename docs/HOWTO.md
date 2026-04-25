@@ -104,21 +104,23 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (48 total):**
+**Available personas (67 total):**
 
 | Category | Personas |
 |----------|-------------|
 | Development (18) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Creative Coder, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
+| Languages (3) | Rust Engineer, Go Engineer, TypeScript Engineer |
 | Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
 | Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
 | Architecture (1) | IT Architect |
-| Compliance (2) | NERC CIP Compliance Analyst, CIP Policy Writer |
+| Compliance (6) | NERC CIP Compliance Analyst, CIP Policy Writer, SOC 2 Auditor, PCI-DSS Assessor, GDPR DPO, HIPAA Privacy Officer |
 | Systems (2) | Linux Terminal, SQL Terminal |
-| General (2) | IT Expert, Tech Reviewer |
+| General (6) | IT Expert, Tech Reviewer, Product Manager, Business Analyst, Proofreader, Interview Coach |
 | Writing (3) | Creative Writer, Tech Writer, Hermes Narrative Writer |
-| Reasoning (3) | Magistral Strategist, GPT-OSS Analyst, Phi-4 Technical Analyst |
+| Reasoning (4) | Magistral Strategist, GPT-OSS Analyst, Phi-4 Technical Analyst, Math Reasoner |
 | Research (2) | Gemma Research Analyst, SuperGemma4 Uncensored Researcher |
-| Vision (2) | Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision |
+| Vision (4) | Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Diagram Reader |
+| Specialties (5) | Splunk Detection Author, Terraform Writer, Documentation Architect, Database Architect, Dashboard Architect |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
@@ -928,7 +930,7 @@ PIPELINE_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $PIPELINE_API_KEY" \
   | python3 -m json.tool | grep '"id"'
-# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 47 personas
+# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 67 personas
 ```
 
 ### Chat (blocking)

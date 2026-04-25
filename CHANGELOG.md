@@ -2,6 +2,23 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.1.0] — Frontier UX milestone (M1)
+
+### Added
+- **Reasoning passthrough**: pipeline now forwards `reasoning_content` to OWUI, surfacing thinking from DeepSeek-R1, Magistral, GLM-4.7-Flash, Qwopus in the OWUI collapsible thinking panel
+- **Math workspace**: new `auto-math` workspace + `mathreasoner` persona, primary MLX is `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` (~5GB)
+- **18 new personas**: 4 compliance (SOC2, PCI-DSS, GDPR, HIPAA), 3 language (Rust, Go, TypeScript), 4 workplace (PM, BA, proofreader, interviewer), 5 specialty (SPL detection, Terraform, docs, DB arch, dashboards), 2 vision (OCR specialist, diagram reader)
+- Workspace count: 16 → 17 auto-* workspaces
+- Persona count: 57 → 76
+
+### Changed
+- Workspaces emitting reasoning blocks marked with `emits_reasoning: True` in `WORKSPACES` dict (informational)
+
+### Tests
+- `PERSONA_PROMPTS` extended to cover all 18 new M1 personas
+
+---
+
 ## [6.0.3] — 2026-04-13
 
 ### Added

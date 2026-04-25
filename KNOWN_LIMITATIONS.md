@@ -41,6 +41,11 @@ Architectural and design constraints that cannot be resolved without significant
 
 ## Models
 
+### auto-math Workspace Has No Reasoning-Block Support
+- **ID:** P5-MATH-001
+- **Status:** ACTIVE
+- **Description:** `Qwen2.5-Math-7B-Instruct` does not emit `reasoning_content` blocks — math reasoning appears in the regular content stream. The collapsible thinking panel will not show separately for `auto-math` traffic. This is a model property, not a pipeline issue. For extended thinking on math problems, `auto-reasoning` (Qwopus 27B) is an alternative.
+
 ### Persona workspace_model Values Fixed
 - **ID**: P5-ROAD-MOD-001
 - **Status**: **RESOLVED**

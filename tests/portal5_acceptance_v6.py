@@ -1052,6 +1052,88 @@ PERSONA_PROMPTS = {
     "gemmaresearchanalyst": ("Research methodology steps.", ["method", "data", "collect", "analyze", "research"]),
     # Uncensored multimodal researcher — test no-refusal on a professional OSINT task
     "supergemma4researcher": ("Outline the steps for an OSINT investigation to verify a company's publicly disclosed executive team.", ["OSINT", "search", "verify", "public", "record", "source", "LinkedIn", "domain", "executive", "corporate", "registry", "confirm", "evidence"]),
+    # ── M1: Compliance personas ─────────────────────────────────────────
+    "soc2auditor": (
+        "What's the difference between control design and operating effectiveness in a SOC 2 Type II audit?",
+        ["design", "operating", "effectiveness", "type ii", "trust services"],
+    ),
+    "pcidssassessor": (
+        "We process 5 million card transactions per year. Which PCI-DSS merchant level applies and what validation does it require?",
+        ["level", "merchant", "report on compliance", "roc", "5 million", "6 million"],
+    ),
+    "gdprdpoadvisor": (
+        "Our SaaS company is based in California and serves EU residents. Does GDPR apply to us, and if so under which article?",
+        ["article 3", "territorial scope", "offering", "monitoring", "controller"],
+    ),
+    "hipaaprivacyofficer": (
+        "What is the 4-factor low probability of compromise test in HIPAA breach assessment?",
+        ["nature", "extent", "phi", "unauthorized", "acquired", "viewed", "extent of risk"],
+    ),
+    # ── M1: Language personas ────────────────────────────────────────────
+    "rustengineer": (
+        "Write a thread-safe LRU cache in Rust with capacity bound and TTL eviction.",
+        ["arc", "mutex", "rwlock", "hashmap", "vecdeque", "lru", "instant", "duration"],
+    ),
+    "goengineer": (
+        "Write a Go HTTP middleware that adds request IDs and structured logging via slog.",
+        ["middleware", "http.handler", "context", "slog", "uuid", "next.servehttp"],
+    ),
+    "typescriptengineer": (
+        "Write a TypeScript discriminated union for a state machine with idle, loading, success, error states. Include type guards.",
+        ["discriminated union", "type", "loading", "success", "error", "type guard", "narrowing"],
+    ),
+    # ── M1: Workplace personas ───────────────────────────────────────────
+    "productmanager": (
+        "Write a one-page PRD for adding two-factor authentication to a banking app.",
+        ["problem", "target user", "success metric", "scope", "non-goals", "rice"],
+    ),
+    "businessanalyst": (
+        "Map the requirements for replacing our legacy CRM. We have 200 sales users.",
+        ["business requirement", "stakeholder", "functional", "moscow", "process", "constraint"],
+    ),
+    "proofreader": (
+        "Proofread: 'Their are several issues with the project, that needs to be address. Mainly, the timeline is to short.'",
+        ["there are", "address", "addressed", "too short", "comma"],
+    ),
+    "interviewcoach": (
+        "Run a mock behavioral interview question for a senior software engineer role at a fintech company.",
+        ["star", "situation", "task", "action", "result", "behavioral"],
+    ),
+    # ── M1: Specialty personas ───────────────────────────────────────────
+    "splunkdetectionauthor": (
+        "Write a Splunk detection for password spraying — many failed logins from one source against many accounts.",
+        ["tstats", "authentication", "data model", "t1110", "mitre", "false positive"],
+    ),
+    "terraformwriter": (
+        "Write a Terraform module that provisions an S3 bucket with encryption, public access block, and lifecycle policy.",
+        ["resource", "aws_s3_bucket", "encryption", "public_access_block", "lifecycle", "variables.tf"],
+    ),
+    "documentationarchitect": (
+        "Outline the documentation structure for an open-source REST API library.",
+        ["tutorial", "reference", "how-to", "explanation", "diataxis", "getting started"],
+    ),
+    "databasearchitect": (
+        "Design the schema for a multi-tenant SaaS application with users, organizations, projects, tasks.",
+        ["users", "organizations", "tenant", "primary key", "foreign key", "index"],
+    ),
+    "dashboardarchitect": (
+        "Design an executive dashboard for monthly recurring revenue (MRR) tracking.",
+        ["mrr", "trend", "kpi", "month-over-month", "churn", "above the fold"],
+    ),
+    # ── M1: Vision personas ──────────────────────────────────────────────
+    "ocrspecialist": (
+        "Describe the framework you'd use to extract data from a scanned receipt.",
+        ["receipt", "preprocessing", "layout", "line item", "total", "vendor", "confidence"],
+    ),
+    "diagramreader": (
+        "Describe how you'd analyze and convert an architecture diagram to text.",
+        ["entities", "relationships", "components", "directionality", "mermaid", "abstraction"],
+    ),
+    # ── M1: Math persona ─────────────────────────────────────────────────
+    "mathreasoner": (
+        "Find the eigenvalues of the matrix [[3, 1], [0, 2]].",
+        ["eigenvalue", "characteristic polynomial", "det", "lambda", "3", "2"],
+    ),
 }
 
 
