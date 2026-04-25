@@ -77,6 +77,10 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
+Portal 5 includes **18 functional workspaces** (plus 9 benchmark workspaces for performance comparison).
+
+### Functional Workspaces
+
 | Workspace | Purpose | Auto-activates |
 |---|---|---|
 | `auto` | General — routes to best model | — |
@@ -93,9 +97,26 @@ and tools automatically.
 | `auto-research` | Web research and synthesis | — |
 | `auto-reasoning` | Deep reasoning, complex analysis | — |
 | `auto-data` | Data analysis, statistics | Code + Documents |
-| `auto-spl` | Splunk SPL queries, pipeline explanation | DeepSeek-Coder-V2-Lite (MLX) |
-| `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | Qwen3.5-35B-A3B (MLX) |
-| `auto-mistral` | Strategic analysis, business reasoning | Magistral-Small (MLX) |
+| `auto-math` | Mathematical problem solving, proofs, calculus | Code sandbox |
+| `auto-spl` | Splunk SPL queries, pipeline explanation | — |
+| `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | — |
+| `auto-mistral` | Strategic analysis, business reasoning | — |
+
+### Benchmark Workspaces (user-selected only)
+
+These pin a specific model for direct performance comparison. Not intended for daily use.
+
+| Workspace | Pinned model |
+|---|---|
+| `bench-devstral` | Devstral-Small-2507 (MLX 4-bit) |
+| `bench-dolphin8b` | Dolphin 3.0 Llama 3.1 8B (MLX 8-bit) |
+| `bench-glm` | GLM-4.7-Flash abliterated (MLX 4-bit) |
+| `bench-gptoss` | GPT-4o style open-source model |
+| `bench-llama33-70b` | Llama 3.3 70B (MLX 4-bit) |
+| `bench-phi4` | Phi-4 (MLX 8-bit) |
+| `bench-phi4-reasoning` | Phi-4 reasoning plus (MLX 4-bit) |
+| `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B (MLX 8-bit) |
+| `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE (MLX 4-bit) |
 
 ---
 
