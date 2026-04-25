@@ -533,7 +533,7 @@ services:
     container_name: portal5-playwright
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${BROWSER_MCP_HOST_PORT:-8922}:8922"
+      - "127.0.0.1:${BROWSER_MCP_HOST_PORT:-8923}:8923"
     volumes:
       - ${BROWSER_PROFILES_DIR:-/Volumes/data01/portal5_browser_profiles}:/profiles:rw
       - ${BROWSER_AUDIT_LOG:-/Volumes/data01/portal5_browser_audit.log}:/audit/audit.log:rw
@@ -542,7 +542,7 @@ services:
       - PLAYWRIGHT_MCP_BROWSER=chromium
       - PROFILES_DIR=/profiles
       - AUDIT_LOG_PATH=/audit/audit.log
-      - BROWSER_MCP_PORT=8922
+      - BROWSER_MCP_PORT=8923
       - BROWSER_HEADLESS=true
       - BROWSER_DOMAIN_RATE_LIMIT=${BROWSER_DOMAIN_RATE_LIMIT:-30}
     deploy:
@@ -551,7 +551,7 @@ services:
           memory: 3G
           cpus: "2.0"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8922/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8923/health"]
       interval: 30s
       timeout: 5s
       start_period: 60s

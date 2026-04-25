@@ -15,7 +15,7 @@ Tools (subset of MS Playwright MCP, gated by allowlist):
 - browser_list_profiles()
 - browser_create_profile(name) — admin only
 
-Port: 8922 (BROWSER_MCP_PORT env override).
+Port: 8923 (BROWSER_MCP_PORT env override).
 """
 import asyncio
 import json
@@ -493,7 +493,7 @@ app = Starlette(routes=routes, lifespan=_lifespan)
 
 def main():
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BROWSER_MCP_PORT", "8922")))
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BROWSER_MCP_PORT", "8923")))
 
 
 if __name__ == "__main__":

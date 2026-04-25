@@ -3741,7 +3741,7 @@ async def S42() -> None:
     print("\n━━━ S42. M5 BROWSER AUTOMATION ━━━")
     sec = "S42"
 
-    browser_mcp_url = os.environ.get("BROWSER_MCP_URL", "http://localhost:8922")
+    browser_mcp_url = os.environ.get("BROWSER_MCP_URL", "http://localhost:8923")
 
     # S42-01: Browser MCP health
     t0 = time.time()
@@ -3905,7 +3905,7 @@ async def S70() -> None:
     t0 = time.time()
     try:
         c = _get_acc_client()
-        r = await c.get("http://localhost:8920/health", timeout=10)
+        r = await c.get("http://localhost:8922/health", timeout=10)
         if r.status_code == 200:
             record(sec, "S70-02", "Research MCP health", "PASS", r.text[:80], t0=t0)
         else:
@@ -3918,7 +3918,7 @@ async def S70() -> None:
     t0 = time.time()
     try:
         c = _get_acc_client()
-        r = await c.get("http://localhost:8921/health", timeout=10)
+        r = await c.get("http://localhost:8920/health", timeout=10)
         if r.status_code == 200:
             record(sec, "S70-03", "Memory MCP health", "PASS", r.text[:80], t0=t0)
         else:
@@ -3931,7 +3931,7 @@ async def S70() -> None:
     t0 = time.time()
     try:
         c = _get_acc_client()
-        r = await c.get("http://localhost:8923/health", timeout=10)
+        r = await c.get("http://localhost:8921/health", timeout=10)
         if r.status_code == 200:
             record(sec, "S70-04", "RAG MCP health", "PASS", r.text[:80], t0=t0)
         else:
