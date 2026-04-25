@@ -430,6 +430,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
         "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
+        "emits_reasoning": True,  # Qwopus-27B / Claude-4.6-Opus distill — chain-of-thought
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
@@ -453,6 +454,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
         "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",  # Text-only mlx_lm path — fixes empty responses from VLM routing mismatch; v2 resolves known serving-template/reasoning bug
         "predict_limit": 16384,  # Prevents DeepSeek-R1 Ollama fallback from CoT exhaustion (empty content)
+        "emits_reasoning": True,  # supergemma4 + reasoning Ollama fallback
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
@@ -466,6 +468,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # Bench 2026-04-25: 7.6 TPS × Q=1.00; 8bit (34GB) fails to load under normal conditions (~44GB needed)
         "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
+        "emits_reasoning": True,  # DeepSeek-R1
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
@@ -473,6 +476,7 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
         "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
+        "emits_reasoning": True,  # 35B-A3B + DeepSeek-R1 fallback
     },
     "auto-mistral": {
         "name": "🧪 Portal Mistral Reasoner",
@@ -483,6 +487,14 @@ WORKSPACES: dict[str, dict[str, str]] = {
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
         "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
+        "emits_reasoning": True,  # Magistral [THINK] mode
+    },
+    "auto-math": {
+        "name": "🧮 Portal Math Reasoner",
+        "description": "Mathematical problem solving, proofs, calculus, algebra, statistics",
+        "model_hint": "qwen3.5:9b",  # Ollama fallback — generalist
+        "mlx_model_hint": "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",  # Math-specific
+        "predict_limit": 8192,  # Math proofs can be long; allow space
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
     # User-selected only — never auto-routed by the LLM intent classifier.
@@ -1013,6 +1025,7 @@ _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
         "auto-data",
         "auto-compliance",
         "auto-mistral",
+        "auto-math",
     ]
 )
 
@@ -1041,6 +1054,7 @@ _ROUTER_JSON_SCHEMA: dict = {
                 "auto-data",
                 "auto-compliance",
                 "auto-mistral",
+                "auto-math",
             ],
         },
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
@@ -1803,7 +1817,21 @@ async def _try_non_streaming(
         # Pipeline expects: {"choices": [{"message": {"content": "..."}, ...}], ...}
         if "message" in data and "choices" not in data:
             _msg = data.get("message", {})
-            _content = _msg.get("content", "") or _msg.get("reasoning", "")
+            _content = _msg.get("content", "")
+            _reasoning = (
+                _msg.get("reasoning_content", "")
+                or _msg.get("reasoning", "")
+                or _msg.get("thinking", "")
+            )
+            if not _content and _reasoning:
+                _content = _reasoning
+                _reasoning = ""
+            response_msg: dict = {
+                "role": _msg.get("role", "assistant"),
+                "content": _content,
+            }
+            if _reasoning:
+                response_msg["reasoning_content"] = _reasoning
             data = {
                 "id": f"chatcmpl-p5-{int(time.time())}",
                 "object": "chat.completion",
@@ -1812,10 +1840,7 @@ async def _try_non_streaming(
                 "choices": [
                     {
                         "index": 0,
-                        "message": {
-                            "role": _msg.get("role", "assistant"),
-                            "content": _content,
-                        },
+                        "message": response_msg,
                         "finish_reason": "stop",
                     }
                 ],
@@ -2357,10 +2382,23 @@ async def _stream_from_backend_guarded(
                             msg = obj.get("message") or {}
                             content_delta = (
                                 msg.get("content", "")
+                                if isinstance(msg.get("content"), str)
+                                else ""
+                            )
+                            reasoning_delta = (
+                                msg.get("reasoning_content", "")
                                 or msg.get("reasoning", "")
                                 or msg.get("thinking", "")
                             )
-                            if content_delta:
+                            if isinstance(reasoning_delta, dict):
+                                reasoning_delta = reasoning_delta.get("text", "") or ""
+                            done = obj.get("done", False)
+                            if content_delta or reasoning_delta or done:
+                                delta_payload: dict = {}
+                                if content_delta:
+                                    delta_payload["content"] = content_delta
+                                if reasoning_delta:
+                                    delta_payload["reasoning_content"] = reasoning_delta
                                 sse_chunk = {
                                     "id": rid,
                                     "object": "chat.completion.chunk",
@@ -2369,8 +2407,8 @@ async def _stream_from_backend_guarded(
                                     "choices": [
                                         {
                                             "index": 0,
-                                            "delta": {"content": content_delta},
-                                            "finish_reason": None,
+                                            "delta": delta_payload,
+                                            "finish_reason": "stop" if done else None,
                                         }
                                     ],
                                 }

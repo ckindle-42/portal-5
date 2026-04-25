@@ -87,6 +87,8 @@ ALL_MODELS = [
     # Reasoning/analysis
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",  # FIX: was missing from ALL_MODELS — R1 Distill 32B 8bit (~34GB, auto-data)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
+    # Math/STEM specialist
+    "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",  # Qwen2.5-Math 7B 4bit (~5GB, auto-math)
     # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
@@ -150,6 +152,8 @@ MODEL_MEMORY: dict[str, float] = {
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
     "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 8.0,  # Phi-4-reasoning-plus 14B 4bit (~7-8GB)
+    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18.0,  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB)
+    "mlx-community/Qwen2.5-Math-7B-Instruct-4bit": 5.0,  # Qwen2.5-Math 7B 4bit (~5GB)
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-04-25T02:31:45.104468+00:00",
+  "mode": "all",
+  "order": "size",
+  "cooldown_s": 3.0,
+  "runs_per_model": 3,
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 23,
+    "ollama_models_configured": 24,
+    "workspaces_configured": 26,
+    "personas_configured": 57
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081"
+    },
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": []
+}

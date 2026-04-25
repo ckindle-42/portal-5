@@ -41,6 +41,8 @@ backends:
       - Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit # Compliance (~28GB, MoE 3B active)
       - mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit                   # Data analysis (~34GB)
       - mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           # Uncensored reasoning (~18GB)
+      # ── Math specialist — Qwen2.5-Math-7B-Instruct, mlx-community 4bit (~5GB) ──
+      - mlx-community/Qwen2.5-Math-7B-Instruct-4bit
       # ── VLM (served by mlx_vlm on port 8082 — auto-switched) ──────────────
       - mlx-community/gemma-4-31b-it-4bit                   # Google Gemma 4 dense 31B (~18GB, thinking+vision, 256K ctx)
       - mlx-community/Qwen3-VL-32B-Instruct-8bit          # Vision / multimodal (~36GB)
@@ -148,6 +150,7 @@ workspace_routing:
   auto-data:      [mlx, reasoning, general]
   auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary; reasoning group default (deepseek-r1:32b-q4_k_m) is Ollama fallback
   auto-mistral:    [mlx, reasoning, general]   # Magistral-Small dedicated reasoning — Mistral training lineage
+  auto-math:       [mlx, coding, general]      # Qwen2.5-Math-7B primary; qwen3.5:9b Ollama fallback
   # ── Coding Capability Benchmark Workspaces ──────────────────────────────
   # User-selected only. Each workspace is pinned to one model.
   # If MLX cannot load the target model, abort the benchmark run — do not

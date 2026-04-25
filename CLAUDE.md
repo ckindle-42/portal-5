@@ -122,7 +122,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (57 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (76 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 
@@ -257,7 +257,7 @@ Before adding new tasks or filing issues, check `KNOWN_ISSUES.md` — some items
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (57 personas) | `config/personas/*.yaml` |
+| Persona catalog (75 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (MLX-native TTS) | `docs/FISH_SPEECH_SETUP.md` |
