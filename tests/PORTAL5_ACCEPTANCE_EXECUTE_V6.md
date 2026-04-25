@@ -30,11 +30,9 @@ The v6 acceptance test framework validates **every documented feature** in Porta
 - Configuration consistency (backends.yaml ↔ router_pipe.py)
 
 ### Workspaces (Section S3)
-All 17 workspaces with content-aware routing validation:
-- `auto`, `auto-coding`, `auto-agentic`, `auto-spl`, `auto-security`
-- `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`
-- `auto-documents`, `auto-video`, `auto-music`, `auto-research`
-- `auto-vision`, `auto-data`, `auto-compliance`, `auto-mistral`
+All 27 workspaces (18 auto-* + 9 bench-*) with content-aware routing validation:
+- Auto workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`, `auto-s50`, `auto-creative`, `auto-video`, `auto-music`
+- Bench workspaces: `bench-reasoning`, `bench-coding`, `bench-math`, `bench-vision`, `bench-agentic`, `bench-data`, `bench-research`, `bench-security`, `bench-creative`
 
 ### Document Generation (Section S4)
 - Word (.docx) generation via MCP
@@ -73,48 +71,17 @@ All 17 workspaces with content-aware routing validation:
 - Round-trip TTS→ASR validation
 
 ### Personas (Sections S10-S11)
-All 47 personas across 11 categories. Tests are grouped by **model, not category**,
-to prevent model swapping timeouts on 64GB unified memory:
+All 91 personas grouped by workspace_model. Tests are grouped by **model, not category**,
+to prevent model swapping timeouts on 64GB unified memory.
 
-**S10 — Ollama personas (34 personas, 8 model groups):**
-- `qwen3-coder-next:30b-q5` → 17 personas (all development + systems)
-- `deepseek-r1:32b-q4_k_m` → 8 personas (all data + research)
-- `dolphin-llama3:8b` → 5 personas (writing + general)
-- `xploiter/the-xploiter` → 2 (cybersecurityspecialist, networkengineer)
-- `baronllm:q6_k` → 1 (redteamoperator)
-- `lily-cybersecurity:7b-q4_k_m` → 1 (blueteamdefender)
-- `lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0` → 1 (pentester)
-- `gpt-oss:20b` → 1 (gptossanalyst)
+For the full persona list, see `config/personas/*.yaml`. The test dynamically loads
+all persona YAML files at runtime, grouping them by their `workspace_model` field.
 
-**S11 — MLX personas (13 personas, 8 model groups):**
-- Devstral-Small-2507 → auto-coding (fullstacksoftwaredeveloper, ux-uideveloper)
-- Qwen3-Coder-30B → auto-spl (splunksplgineer)
-- Qwen3.5-35B compliance → auto-compliance (cippolicywriter, nerccipcomplianceanalyst)
-- supergemma4-26b abliterated → auto-research (gemmaresearchanalyst, supergemma4researcher)
-- Qwopus3.5-27B → auto-vision (gemma4e4bvision, gemma4jangvision)
-- phi-4-8bit → direct MLX proxy (phi4specialist)
-- Magistral-Small → auto-mistral (magistralstrategist)
-- DeepSeek-R1-32B → auto-data (phi4stemanalyst)
+**S10 — Ollama-routed workspaces:**
+- Ollama workspaces: `ollama-coding`, `ollama-reasoning`, `ollama-data`, `ollama-security`, `ollama-research`, `ollama-general`, `ollama-creative`, `ollama-vision`, `ollama-math`, `ollama-s50`
 
-Personas by category:
-- Development (17): bugdiscoverycodeassistant, codereviewassistant, codereviewer,
-  devopsautomator, devopsengineer, ethereumdeveloper, fullstacksoftwaredeveloper,
-  githubexpert, javascriptconsole, kubernetesdockerrpglearningengine, 
-  pythoncodegeneratorcleanoptimizedproduction-ready, pythoninterpreter, 
-  seniorfrontenddeveloper, seniorsoftwareengineersoftwarearchitectrules, 
-  softwarequalityassurancetester, ux-uideveloper, codebasewikidocumentationskill
-- Security (6): cybersecurityspecialist, networkengineer, redteamoperator,
-  blueteamdefender, pentester, splunksplgineer
-- Data (7): dataanalyst, datascientist, machinelearningengineer, statistician,
-  itarchitect, researchanalyst, excelsheet
-- Research (2): gemmaresearchanalyst, supergemma4researcher
-- Compliance (2): nerccipcomplianceanalyst, cippolicywriter
-- Systems (2): linuxterminal, sqlterminal
-- General (2): itexpert, techreviewer
-- Writing (3): creativewriter, techwriter, hermes3writer
-- Reasoning (4): magistralstrategist, phi4stemanalyst,
-  phi4specialist, gptossanalyst
-- Vision (2): gemma4e4bvision, gemma4jangvision
+**S11 — MLX-routed workspaces:**
+- MLX workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`
 
 ### Web Search (Section S12)
 - SearXNG health

@@ -27,23 +27,24 @@ Status model:
     WARN    — soft failure: request served but response does not fully match
     INFO    — informational, no assertion
 
-Test Coverage (22 sections, ~300 tests):
+Test Coverage (~27 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
-    S3:      17 workspaces with content-aware routing
+    S3a/S3b: 27 workspaces (18 auto-* + 9 bench-*) with content-aware routing
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: personas across multiple categories (Ollama + MLX backends)
+    S10-S11: 91 personas grouped by workspace (Ollama + MLX backends)
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
-    S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
-    S22:     MLX Admission Control (P5-FUT-009) — memory-aware 503 rejection
-    S23:     Model diversity availability checks (GPT-OSS, Gemma 4 E4B, Phi-4, Magistral)
+    S21:     LLM Intent Router — semantic routing via Llama-3.2-3B
+    S22:     MLX Admission Control — memory-aware 503 rejection
+    S23:     Model diversity availability checks
     S30-S31: Image generation (ComfyUI/FLUX), video generation (Wan2.2)
     S40:     Metrics/monitoring (Prometheus, Grafana)
     S41:     M6 production hardening (/health/all, rate limits, admin endpoints, power metrics)
     S42:     M5 browser automation (Browser MCP health, tool manifest)
+    S50:     Negative testing (malformed bodies, invalid auth, etc.)
     S60:     M2 tool-calling orchestration (registry, dispatch, metrics)
     S70:     M3 information access MCPs (research, memory, RAG, SearXNG)
 
@@ -291,13 +292,12 @@ def _git_sha() -> str:
 
 
 def _load_workspaces() -> tuple[list[str], dict[str, str]]:
-    """Load workspace definitions from router_pipe.py."""
-    src = (ROOT / "portal_pipeline/router_pipe.py").read_text()
-    start = src.index("WORKSPACES:")
-    end = src.index("# ── Content-aware", start)
-    block = src[start:end]
-    ids = sorted(set(re.findall(r'"((?:auto|bench)[^"]*)":\s*\{', block)))
-    names = dict(re.findall(r'"((?:auto|bench)[^"]*)":.*?"name":\s*"([^"]+)"', block, re.DOTALL))
+    """Load workspace definitions from portal_pipeline.router.workspaces."""
+    sys.path.insert(0, str(ROOT))
+    from portal_pipeline.router.workspaces import WORKSPACES  # noqa: PLC0415
+
+    ids = sorted(k for k in WORKSPACES if k.startswith(("auto", "bench")))
+    names = {k: WORKSPACES[k].get("name", k) for k in ids}
     return ids, names
 
 
@@ -1498,6 +1498,71 @@ PERSONA_PROMPTS = {
     "mathreasoner": (
         "Find the eigenvalues of the matrix [[3, 1], [0, 2]].",
         ["eigenvalue", "characteristic polynomial", "det", "lambda", "3", "2"],
+    ),
+    # ── M1: Additional personas (v6 sync) ─────────────────────────────────
+    # Web/research group
+    "webnavigator": (
+        "Research the best practices for API rate limiting and cite three sources.",
+        ["source", "url", "cited", "verified", "evidence"],
+    ),
+    "webresearcher": (
+        "Research the impact of remote work on employee productivity and cite three sources.",
+        ["source", "url", "cited", "verified", "evidence"],
+    ),
+    "paywalledresearcher": (
+        "Research quantum computing advances in 2024 and cite three academic sources.",
+        ["source", "url", "cited", "verified", "evidence"],
+    ),
+    "kbnavigator": (
+        "Find information about the company's PTO policy in the knowledge base and cite three sources.",
+        ["source", "url", "cited", "verified", "evidence"],
+    ),
+    "factchecker": (
+        "Verify the claim: 'The US GDP grew by 3.1% in Q3 2024' and cite three sources.",
+        ["source", "url", "cited", "verified", "evidence"],
+    ),
+    # Data extraction group
+    "dataextractor": (
+        "Extract structured data from this description: User John Doe, email john@example.com, subscription tier Premium, renewal date 2025-03-15.",
+        ["extracted", "field", "value", "parsed"],
+    ),
+    "chartanalyst": (
+        "Extract the quarterly revenue data from this description: Q1 $1.2M, Q2 $1.4M, Q3 $1.7M, Q4 $2.1M.",
+        ["extracted", "field", "value", "parsed", "quarter", "revenue"],
+    ),
+    "codescreenshotreader": (
+        "Extract the code from this description: function calculateTotal(items) { return items.reduce((sum, item) => sum + item.price, 0); }",
+        ["extracted", "function", "code", "parsed"],
+    ),
+    "whiteboardconverter": (
+        "Convert this diagram description to structured format: Box A → Box B → Box C, with arrow from Box B to Box D.",
+        ["extracted", "entities", "relationships", "parsed"],
+    ),
+    "formfiller": (
+        "Extract the form fields from this description: Name field, Email field (required), Phone field, Submit button.",
+        ["extracted", "field", "value", "parsed"],
+    ),
+    # Analytics group
+    "marketanalyst": (
+        "Analyze the Q3 revenue trend: $1.2M (Jan), $1.4M (Feb), $1.7M (Mar). What's the takeaway?",
+        ["trend", "growth", "quarter", "revenue", "analysis"],
+    ),
+    # Agentic group
+    "agentorchestrator": (
+        "Plan the steps to set up a CI pipeline with three stages: build, test, deploy.",
+        ["step", "plan", "stage", "task", "next"],
+    ),
+    "e2edebugger": (
+        "Plan the steps to set up a CI pipeline with three stages: build, test, deploy.",
+        ["step", "plan", "stage", "task", "next"],
+    ),
+    "e2etestauthor": (
+        "Plan the steps to set up a CI pipeline with three stages: build, test, deploy.",
+        ["step", "plan", "stage", "task", "next"],
+    ),
+    "personalassistant": (
+        "Plan the steps to set up a CI pipeline with three stages: build, test, deploy.",
+        ["step", "plan", "stage", "task", "next"],
     ),
 }
 
@@ -2723,6 +2788,7 @@ MLX_WORKSPACES = {
     "auto-mistral",
     "auto-vision",
     "auto-documents",
+    "auto-math",
 }
 
 # Memory sizes from mlx-proxy.py MODEL_MEMORY dict (approximate)

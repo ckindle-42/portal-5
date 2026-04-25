@@ -4,9 +4,8 @@ Execute the acceptance workflow defined in:
 
 **PORTAL5_ACCEPTANCE_EXECUTE_V6.md**
 
-This is the v6 test suite covering all 21 sections, 17 workspaces, 46 personas,
-and new features including LLM intent routing (P5-FUT-006) and MLX admission
-control (P5-FUT-009).
+This is the v6 test suite covering all sections in TEST_CATALOG, 27 workspaces,
+91 personas, and features including LLM intent routing and MLX admission control.
 
 The run may take 2-4 hours. Execution MUST remain interactive and continuously
 supervised. Do NOT background the process.
