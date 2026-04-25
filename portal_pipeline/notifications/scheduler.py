@@ -297,6 +297,30 @@ class NotificationScheduler:
         daily_by_model = _delta_dict(current_snapshot["req_count_by_model"], prev_by_model)
         daily_by_error = _delta_dict(current_snapshot["req_count_by_error"], prev_by_error)
 
+        # Guard: if both current state AND previous snapshot are empty, the state was
+        # wiped (container recreation). Skip the empty summary — save current as new
+        # baseline instead so tomorrow's summary has a valid delta.
+        current_total = sum(current_snapshot["request_count"].values()) if current_snapshot["request_count"] else 0
+        prev_total = sum(prev_request_count.values()) if prev_request_count else 0
+        if daily_total == 0 and current_total == 0 and prev_total == 0:
+            _save_snapshot(current_snapshot)
+            logger.info(
+                "Daily summary skipped: state file empty (likely container restart). "
+                "Snapshot reset for next summary."
+            )
+            return
+
+        # Guard: if previous snapshot was empty but current has data, the snapshot
+        # was wiped (container restart, /tmp lost). The delta would show cumulative
+        # totals, not yesterday's activity. Skip, reset snapshot.
+        if prev_total == 0 and current_total > 0 and not prev:
+            _save_snapshot(current_snapshot)
+            logger.info(
+                "Daily summary skipped: previous snapshot missing but state has %d "
+                "requests (container restart detected). Snapshot reset.", current_total
+            )
+            return
+
         # Read persona usage from aggregated state file
         persona_usage: dict[str, int] = {}
         try:
