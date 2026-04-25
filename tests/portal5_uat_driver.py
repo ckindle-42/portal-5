@@ -1,14 +1,30 @@
 #!/usr/bin/env python3
 """Portal 5 UAT Conversation Driver v1
 
-Sends every test from user_validation_guide_v3 through the real Open WebUI
-browser interface, creating permanent reviewable conversations in OWUI history.
+Sends every test in TEST_CATALOG through the real Open WebUI browser
+interface, creating permanent reviewable conversations in OWUI history.
+The catalog currently spans ~104 tests across 20 sections including
+auto-* workspaces, benchmark workspaces, and an `advanced` section
+covering multi-turn / advanced flows.
 
-Usage:
+Run modes:
     python3 tests/portal5_uat_driver.py --all
-    python3 tests/portal5_uat_driver.py --section workspace
-    python3 tests/portal5_uat_driver.py --test WS-01
-    python3 tests/portal5_uat_driver.py --section benchmark --headed
+    python3 tests/portal5_uat_driver.py --section auto-coding
+    python3 tests/portal5_uat_driver.py --section auto-coding --section benchmark
+    python3 tests/portal5_uat_driver.py --test WS-01 --test P-W06
+    python3 tests/portal5_uat_driver.py --all --headed --append
+
+Calibration mode (capture real responses for signal extraction):
+    python3 tests/portal5_uat_driver.py --calibrate \
+        --calibrate-output calibration.json
+    # ... review calibration.json, set review_tag = good/bad/skip on each entry
+    python3 tests/portal5_uat_driver.py --emit-signals-from calibration.json
+    # See docs/UAT_CALIBRATION.md for the full workflow.
+
+Maintenance:
+    python3 tests/portal5_uat_driver.py --migrate    # move root chats into UAT folder
+    python3 tests/portal5_uat_driver.py --skip-artifacts  # skip ComfyUI/Wan2.2 tests
+    python3 tests/portal5_uat_driver.py --skip-bots       # skip Telegram/Slack tests
 """
 
 from __future__ import annotations
@@ -815,7 +831,7 @@ def init_results(run_ts: str) -> None:
     RESULTS_FILE.write_text(
         f"# Portal 5 — UAT Results\n\n"
         f"**Run:** {run_ts}  \n"
-        f"**Guide:** user_validation_guide_v3.docx  \n"
+        f"**Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  \n"
         f"**Reviewer:** (fill in)\n\n"
         f"## Summary\n\n"
         f"- **PASS**: 0\n- **WARN**: 0\n- **FAIL**: 0\n- **SKIP**: 0\n- **MANUAL**: 0\n\n"

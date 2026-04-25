@@ -25,7 +25,7 @@ was skipped.
 
 ## What the UAT Driver Tests
 
-82 tests that produce **real Open WebUI conversations visible in the browser** at
+104 tests that produce **real Open WebUI conversations visible in the browser** at
 `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts
 (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
 
@@ -33,6 +33,29 @@ The driver is NOT the acceptance suite. It validates user-observable behavioral
 contracts that keyword matching cannot catch: does the persona ask before diagnosing?
 Does the Excel Sheet compute values, not show formula text? Does the Code Review
 Assistant scope its review to the diff only?
+
+---
+
+## Calibration Mode
+
+Before tightening or replacing assertion keyword lists, run a calibration pass.
+Calibration runs every test once, captures the real model responses to JSON,
+and lets a human (or a follow-up agent) tag responses as good/bad/skip. Tagged
+responses then drive `--emit-signals-from`, which proposes per-section TF-IDF
+keyword sets to feed back into `tests/quality_signals.py` and the UAT catalog.
+
+```bash
+# Capture
+python3 tests/portal5_uat_driver.py --calibrate --calibrate-output calibration.json
+
+# (Manually edit calibration.json — set review_tag on each entry)
+
+# Generate
+python3 tests/portal5_uat_driver.py --emit-signals-from calibration.json
+```
+
+Full workflow: `docs/UAT_CALIBRATION.md`. Use `--section <n>` to calibrate
+a single section without running the full suite.
 
 ---
 
