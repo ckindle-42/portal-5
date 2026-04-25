@@ -1860,7 +1860,10 @@ async def _try_non_streaming(
             workspace_id,
             target_model,
         )
-        return JSONResponse(content=data)
+        return JSONResponse(
+            content=data,
+            headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
+        )
     except Exception as e:
         logger.warning(
             "Backend %s failed for workspace=%s: %s — trying next candidate",
@@ -2111,6 +2114,7 @@ async def chat_completions(
                     start_time=start_time,
                 ),
                 media_type="text/event-stream",
+                headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
             _is_streaming = True
             return _streaming_response
@@ -2207,6 +2211,7 @@ async def chat_completions(
         _streaming_response = StreamingResponse(
             _stream_or_fallback(),
             media_type="text/event-stream",
+            headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
         )
         _record_persona(persona, target_model)
         _is_streaming = True

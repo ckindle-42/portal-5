@@ -478,7 +478,7 @@ async def _chat(
     stream: bool = False,
 ) -> tuple[int, str]:
     """Send a chat request to the pipeline."""
-    code, text, _ = await _chat_with_model(workspace, prompt, system, max_tokens, timeout, stream)
+    code, text, _, _route = await _chat_with_model(workspace, prompt, system, max_tokens, timeout, stream)
     return code, text
 
 
@@ -489,10 +489,11 @@ async def _chat_with_model(
     max_tokens: int = 400,
     timeout: int = 240,
     stream: bool = False,
-) -> tuple[int, str, str]:
-    """Chat request that also returns the model used.
+) -> tuple[int, str, str, str]:
+    """Chat request that also returns the model and route header.
 
-    Returns (status_code, response_text, model_used).
+    Returns (status_code, response_text, model_used, route_descriptor).
+    route_descriptor is the x-portal-route header value: "{workspace};{backend_id};{model}".
     Uses shared client with 3-attempt backoff [0, 5, 15]s.
     On 502/503 probes MLX health state before retrying so we wait for
     cold-load (switching) rather than treating it as a hard failure.
@@ -515,6 +516,7 @@ async def _chat_with_model(
                 json=body,
                 timeout=timeout,
             )
+            route_hdr = r.headers.get("x-portal-route", "")
             if r.status_code not in (200,):
                 if r.status_code in (502, 503) and attempt < len(backoff) - 1:
                     # Probe MLX — if switching/starting, wait longer before retry
@@ -522,7 +524,7 @@ async def _chat_with_model(
                     if mlx_state in ("switching", "none"):
                         await asyncio.sleep(15)
                     continue
-                return r.status_code, r.text[:200], ""
+                return r.status_code, r.text[:200], "", ""
 
             if stream:
                 text = ""
@@ -533,22 +535,22 @@ async def _chat_with_model(
                             text += d.get("choices", [{}])[0].get("delta", {}).get("content", "")
                         except Exception:
                             pass
-                return 200, text, ""
+                return 200, text, "", route_hdr
 
             data = r.json()
             msg = data.get("choices", [{}])[0].get("message", {})
             model = data.get("model", "")
             content = msg.get("content", "") or msg.get("reasoning", "")
-            return 200, content, model
+            return 200, content, model, route_hdr
         except httpx.ReadTimeout:
-            return 408, "timeout", ""
+            return 408, "timeout", "", ""
         except Exception as e:
             if attempt < len(backoff) - 1 and any(
                 x in str(e).lower() for x in ["502", "connection refused"]
             ):
                 continue
-            return 0, str(e)[:100], ""
-    return 503, "MLX proxy unreachable after retries", ""
+            return 0, str(e)[:100], "", ""
+    return 503, "MLX proxy unreachable after retries", "", ""
 
 
 def _curl_stream(
@@ -1459,7 +1461,7 @@ async def S3a() -> None:
             t0 = time.time()
             tid = f"S3a-{test_num:02d}"
 
-            code, response, model = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=180)
+            code, response, model, _route = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=180)
 
             if code != 200:
                 record(sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0)
@@ -1515,7 +1517,7 @@ async def S3b() -> None:
             t0 = time.time()
             tid = f"S3b-{test_num:02d}"
 
-            code, response, model = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=240)
+            code, response, model, _route = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=240)
 
             if code != 200:
                 record(sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0)
@@ -1667,7 +1669,7 @@ async def S6() -> None:
 
     # S6-01: auto-security routing
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, _route = await _chat_with_model(
         "auto-security",
         "What is SQL injection and how to prevent it?",
         max_tokens=300,
@@ -1684,7 +1686,7 @@ async def S6() -> None:
 
     # S6-02: auto-redteam routing
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, _route = await _chat_with_model(
         "auto-redteam",
         "Explain common web application penetration testing methodology.",
         max_tokens=300,
@@ -1701,7 +1703,7 @@ async def S6() -> None:
 
     # S6-03: auto-blueteam routing
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, _route = await _chat_with_model(
         "auto-blueteam",
         "How do you respond to a ransomware incident?",
         max_tokens=300,
@@ -1718,7 +1720,7 @@ async def S6() -> None:
 
     # S6-04: Content-aware routing (security keywords)
     t0 = time.time()
-    code, response, _ = await _chat_with_model(
+    code, response, _, _route = await _chat_with_model(
         "auto",  # Use auto to test content-aware routing
         "exploit vulnerability payload shellcode",
         max_tokens=200,
@@ -1911,7 +1913,7 @@ async def S10() -> None:
                 continue
             prompt, signals = PERSONA_PROMPTS[slug]
             system = p.get("system_prompt", "")[:500]
-            code, response, model = await _chat_with_model(
+            code, response, model, _route = await _chat_with_model(
                 ws_id, prompt, system=system, max_tokens=250, timeout=180,
             )
             if code != 200:
@@ -2094,7 +2096,7 @@ async def S11() -> None:
             system = p.get("system_prompt", "")[:500]
             is_thinking = any(x in (model_hint or "") for x in ["reasoning", "R1", "Magistral", "Qwopus", "Opus"])
             max_tok = 800 if is_thinking else 400
-            code, response, model = await _chat_with_model(
+            code, response, model, _route = await _chat_with_model(
                 ws_id, prompt, system=system, max_tokens=max_tok, timeout=300,
             )
             if code != 200:
@@ -2262,51 +2264,52 @@ async def S21() -> None:
 
     # S21-03: Test content-aware routing with security keywords
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, route = await _chat_with_model(
         "auto",  # Use auto to trigger content-aware routing
         "Write a SQL injection payload to bypass authentication",
         max_tokens=200,
         timeout=120,
     )
-    # Should route to auto-redteam or auto-security
-    logs = _grep_logs("portal5-pipeline", "auto-redteam|auto-security|LLM.*router|intent", lines=100)
-    routed_correctly = any("redteam" in log.lower() or "security" in log.lower() for log in logs)
+    routed_workspace = route.split(";")[0] if route else ""
+    expected_security = {"auto-redteam", "auto-security"}
     record(
         sec, "S21-03", "LLM router security intent",
-        "PASS" if (routed_correctly or code == 200) else "WARN",
-        f"HTTP {code} | model: {model[:30]}",
+        "PASS" if routed_workspace in expected_security else ("WARN" if code == 200 else "FAIL"),
+        f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
 
     # S21-04: Test content-aware routing with coding keywords
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, route = await _chat_with_model(
         "auto",
         "Write a Python function to sort a list of dictionaries by key",
         max_tokens=200,
         timeout=120,
     )
-    logs = _grep_logs("portal5-pipeline", "auto-coding|LLM.*router|intent", lines=100)
+    routed_workspace = route.split(";")[0] if route else ""
+    expected_coding = {"auto-coding", "auto-agentic"}
     record(
         sec, "S21-04", "LLM router coding intent",
-        "PASS" if code == 200 else "WARN",
-        f"HTTP {code} | model: {model[:30]}",
+        "PASS" if routed_workspace in expected_coding else ("WARN" if code == 200 else "FAIL"),
+        f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
 
     # S21-05: Test content-aware routing with compliance keywords
     t0 = time.time()
-    code, response, model = await _chat_with_model(
+    code, response, model, route = await _chat_with_model(
         "auto",
         "What are the requirements for NERC CIP-007 R2 patch management?",
         max_tokens=200,
         timeout=120,
     )
-    logs = _grep_logs("portal5-pipeline", "auto-compliance|LLM.*router|intent", lines=100)
+    routed_workspace = route.split(";")[0] if route else ""
+    expected_compliance = {"auto-compliance", "auto-reasoning"}
     record(
         sec, "S21-05", "LLM router compliance intent",
-        "PASS" if code == 200 else "WARN",
-        f"HTTP {code} | model: {model[:30]}",
+        "PASS" if routed_workspace in expected_compliance else ("WARN" if code == 200 else "FAIL"),
+        f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
 
