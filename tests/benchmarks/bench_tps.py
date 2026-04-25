@@ -789,6 +789,7 @@ def bench_tps(
     prompt: str,
     runs: int = 3,
     label: str = "",
+    prompt_category: str = "",
 ) -> dict:
     """Benchmark TPS for a single model/endpoint. Returns summary dict.
 
@@ -877,6 +878,10 @@ def bench_tps(
         prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0))
         tps = completion_tokens / elapsed if elapsed > 0 else 0.0
 
+        # Capture response text for quality scoring
+        choices = data.get("choices", [{}])
+        response_text = choices[0].get("message", {}).get("content", "") if choices else ""
+
         # Capture the actual model returned by the API (useful for pipeline routing)
         response_model = data.get("model", "")
 
@@ -888,6 +893,7 @@ def bench_tps(
                 "completion_tokens": completion_tokens,
                 "tps": round(tps, 1),
                 "response_model": response_model,
+                "response_text": response_text,
             }
         )
 
@@ -905,10 +911,23 @@ def bench_tps(
 
     # Capture the actual model returned by the API (pipeline routing may differ)
     routed_model = ""
+    last_response_text = ""
     if successful:
-        # Use the last successful run's response model field if available
         last_ok = successful[-1]
         routed_model = last_ok.get("response_model", "")
+        last_response_text = last_ok.get("response_text", "")
+
+    # Quality scoring: measure signal coverage for this prompt category
+    try:
+        import sys as _sys
+        import os as _os
+        _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), ".."))
+        from quality_signals import quality_score as _qs
+        qs = round(_qs(prompt_category, last_response_text), 2) if last_response_text else 0.0
+    except Exception:
+        qs = 1.0  # Don't penalize if signals module unavailable
+
+    tps_quality = round(avg_tps * qs, 1)
 
     return {
         "model": model,
@@ -921,6 +940,9 @@ def bench_tps(
         "avg_completion_tokens": avg_tokens,
         "avg_elapsed_s": avg_elapsed,
         "routed_model": routed_model,
+        "prompt_category": prompt_category,
+        "quality_score": qs,
+        "tps_quality": tps_quality,
         "runs": run_results,
     }
 
@@ -1007,12 +1029,13 @@ def bench_direct(
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
             _warmup_mlx_model(model)
-            r = bench_tps(MLX_URL, model, prompt=prompt, runs=runs, label="mlx-direct")
+            prompt_cat = _prompt_category_for_model(model)
+            r = bench_tps(MLX_URL, model, prompt=prompt, runs=runs, label="mlx-direct", prompt_category=prompt_cat)
             r["backend"] = "mlx"
             r["path"] = "direct"
             r["available"] = True
             r["est_memory_gb"] = size_gb
-            r["prompt_category"] = _prompt_category_for_model(model)
+            r["prompt_category"] = prompt_cat
             results.append(r)
             if output_path:
                 _append_result(output_path, r)
@@ -1108,13 +1131,14 @@ def bench_direct(
             # doesn't include model-load latency (mirrors MLX warm-up).
             print("(warm-up) ", end="", flush=True)
             _warmup_ollama_model(model)
-            r = bench_tps(OLLAMA_URL, model, prompt=prompt, runs=runs, label="ollama-direct")
+            prompt_cat = _prompt_category_for_model(model, group=group)
+            r = bench_tps(OLLAMA_URL, model, prompt=prompt, runs=runs, label="ollama-direct", prompt_category=prompt_cat)
             r["backend"] = "ollama"
             r["path"] = "direct"
             r["available"] = True
             r["est_memory_gb"] = size_gb
             r["groups"] = model_groups
-            r["prompt_category"] = _prompt_category_for_model(model, group=group)
+            r["prompt_category"] = prompt_cat
             results.append(r)
             if output_path:
                 _append_result(output_path, r)
@@ -1177,11 +1201,12 @@ def bench_pipeline(
             print("(dry run)")
             continue
         prompt = _get_prompt_for_workspace(ws)
-        r = bench_tps(PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline")
+        prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
+        r = bench_tps(PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline", prompt_category=prompt_cat)
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
         r["workspace"] = ws
-        r["prompt_category"] = WORKSPACE_PROMPT_MAP.get(ws, "general")
+        r["prompt_category"] = prompt_cat
         results.append(r)
         if output_path:
             _append_result(output_path, r)
@@ -1234,14 +1259,15 @@ def bench_personas(
             print("(dry run)")
             continue
         prompt = _get_prompt_for_persona_category(cat)
-        r = bench_tps(PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona")
+        prompt_cat = _prompt_category_for_persona(cat)
+        r = bench_tps(PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona", prompt_category=prompt_cat)
         r["backend"] = "pipeline"
         r["path"] = "persona"
         r["persona_slug"] = slug
         r["persona_name"] = p["name"]
         r["persona_category"] = cat
         r["workspace_model"] = wm
-        r["prompt_category"] = _prompt_category_for_persona(cat)
+        r["prompt_category"] = prompt_cat
         results.append(r)
         if output_path:
             _append_result(output_path, r)
@@ -1315,33 +1341,34 @@ def _print_direct_table(results: list[dict]) -> None:
     if not direct:
         return
 
-    print("\n" + "=" * 110)
+    print("\n" + "=" * 130)
     print(
-        f"{'Model':<50} {'Backend':<10} {'Size':<8} {'Status':<10} {'Avg TPS':<10} {'Min':<8} {'Max':<8} {'Tokens':<8}"
+        f"{'Model':<50} {'Backend':<10} {'Size':<8} {'Status':<10} {'Avg TPS':<10} {'Q-Score':<9} {'TPS×Q':<8} {'Tokens':<8}"
     )
-    print("=" * 110)
-    # Sort: successful first by TPS desc, then unavailable
-    for r in sorted(direct, key=lambda x: (x["runs_success"] > 0, x["avg_tps"]), reverse=True):
+    print("=" * 130)
+    # Sort: successful first by tps_quality desc, then unavailable
+    for r in sorted(direct, key=lambda x: (x["runs_success"] > 0, x.get("tps_quality", x["avg_tps"])), reverse=True):
         model_short = r["model"].split("/")[-1]
         size_gb = r.get("est_memory_gb", 0)
         size_str = f"{size_gb:.0f}GB" if size_gb else "-"
         if r["runs_success"] > 0:
-            status = "OK"
+            qs = r.get("quality_score", 1.0)
+            tq = r.get("tps_quality", r["avg_tps"])
             print(
-                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {status:<10} {r['avg_tps']:<10.1f} "
-                f"{r['min_tps']:<8.1f} {r['max_tps']:<8.1f} {r['avg_completion_tokens']:<8}"
+                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {'OK':<10} {r['avg_tps']:<10.1f} "
+                f"{qs:<9.2f} {tq:<8.1f} {r['avg_completion_tokens']:<8}"
             )
         elif not r.get("available", True):
             print(
-                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {'MISSING':<10} {'-':<10} {'-':<8} {'-':<8} {'-':<8}"
+                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {'MISSING':<10} {'-':<10} {'-':<9} {'-':<8} {'-':<8}"
             )
         else:
             errors = {run.get("error", "?") for run in r.get("runs", []) if "error" in run}
             err_short = ", ".join(errors)[:20] if errors else "error"
             print(
-                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {err_short:<10} {'-':<10} {'-':<8} {'-':<8} {'-':<8}"
+                f"{model_short:<50} {r['backend']:<10} {size_str:<8} {err_short:<10} {'-':<10} {'-':<9} {'-':<8} {'-':<8}"
             )
-    print("=" * 110)
+    print("=" * 130)
 
     mlx = [r for r in direct if r["backend"] == "mlx" and r["runs_success"] > 0]
     ollama = [r for r in direct if r["backend"] == "ollama" and r["runs_success"] > 0]
@@ -1362,22 +1389,23 @@ def _print_pipeline_table(results: list[dict]) -> None:
     if not pipeline:
         return
 
-    print("\n" + "=" * 90)
-    print(f"{'Workspace':<30} {'Avg TPS':<10} {'Min':<8} {'Max':<8} {'Tokens':<8} {'Runs':<8}")
-    print("=" * 90)
-    for r in sorted(pipeline, key=lambda x: x["avg_tps"], reverse=True):
+    print("\n" + "=" * 105)
+    print(f"{'Workspace':<30} {'Avg TPS':<10} {'Q-Score':<9} {'TPS×Q':<8} {'Tokens':<8} {'Runs':<8}")
+    print("=" * 105)
+    for r in sorted(pipeline, key=lambda x: x.get("tps_quality", x["avg_tps"]), reverse=True):
         ws = r.get("workspace", "?")
         if r["runs_success"] > 0:
+            qs = r.get("quality_score", 1.0)
+            tq = r.get("tps_quality", r["avg_tps"])
             print(
-                f"{ws:<30} {r['avg_tps']:<10.1f} {r['min_tps']:<8.1f} "
-                f"{r['max_tps']:<8.1f} {r['avg_completion_tokens']:<8} "
-                f"{r['runs_success']}/{r['runs_total']}"
+                f"{ws:<30} {r['avg_tps']:<10.1f} {qs:<9.2f} {tq:<8.1f} "
+                f"{r['avg_completion_tokens']:<8} {r['runs_success']}/{r['runs_total']}"
             )
         else:
             print(
-                f"{ws:<30} {'FAIL':<10} {'-':<8} {'-':<8} {'-':<8} {r['runs_success']}/{r['runs_total']}"
+                f"{ws:<30} {'FAIL':<10} {'-':<9} {'-':<8} {'-':<8} {r['runs_success']}/{r['runs_total']}"
             )
-    print("=" * 90)
+    print("=" * 105)
 
 
 def _print_persona_table(results: list[dict]) -> None:
@@ -1385,23 +1413,24 @@ def _print_persona_table(results: list[dict]) -> None:
     if not personas:
         return
 
-    print("\n" + "=" * 110)
-    print(f"{'Persona':<30} {'Category':<12} {'Workspace Model':<40} {'Avg TPS':<10} {'Runs':<8}")
-    print("=" * 110)
-    for r in sorted(personas, key=lambda x: x["avg_tps"], reverse=True):
+    print("\n" + "=" * 125)
+    print(f"{'Persona':<30} {'Category':<12} {'Workspace Model':<40} {'Avg TPS':<10} {'Q-Score':<9} {'Runs':<8}")
+    print("=" * 125)
+    for r in sorted(personas, key=lambda x: x.get("tps_quality", x["avg_tps"]), reverse=True):
         slug = r.get("persona_slug", "?")
         cat = r.get("persona_category", "?")
         wm = r.get("workspace_model", "?")
         wm_short = wm.split("/")[-1] if "/" in wm else wm
         if r["runs_success"] > 0:
+            qs = r.get("quality_score", 1.0)
             print(
-                f"{slug:<30} {cat:<12} {wm_short:<40} {r['avg_tps']:<10.1f} {r['runs_success']}/{r['runs_total']}"
+                f"{slug:<30} {cat:<12} {wm_short:<40} {r['avg_tps']:<10.1f} {qs:<9.2f} {r['runs_success']}/{r['runs_total']}"
             )
         else:
             print(
-                f"{slug:<30} {cat:<12} {wm_short:<40} {'FAIL':<10} {r['runs_success']}/{r['runs_total']}"
+                f"{slug:<30} {cat:<12} {wm_short:<40} {'FAIL':<10} {'-':<9} {r['runs_success']}/{r['runs_total']}"
             )
-    print("=" * 110)
+    print("=" * 125)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

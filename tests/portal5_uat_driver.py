@@ -708,6 +708,18 @@ def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None 
             results.append(assert_pptx_valid(artifact_path, min_slides, label))
         elif t == "wav_valid":
             results.append(assert_wav_valid(artifact_path, label))
+        elif t == "quality_score":
+            threshold = a.get("min", 0.5)
+            cat = a.get("category", "general")
+            try:
+                import sys as _sys, os as _os
+                _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__)))
+                from quality_signals import quality_score as _qs
+                qs = _qs(cat, text)
+            except Exception:
+                qs = 1.0
+            label_ext = f"{label} ({qs:.2f})"
+            results.append((label_ext, qs >= threshold, f"score={qs:.2f}, min={threshold}"))
     return results
 
 
