@@ -147,6 +147,17 @@ _FORCE_REBUILD = False
 _verbose = False
 _PROGRESS_LOG = "/tmp/portal5_progress.log"
 
+# Shared httpx client — created once, reused across all test HTTP calls
+_acc_client: httpx.AsyncClient | None = None
+
+
+def _get_acc_client() -> httpx.AsyncClient:
+    """Return shared httpx client; create on first call."""
+    global _acc_client
+    if _acc_client is None or _acc_client.is_closed:
+        _acc_client = httpx.AsyncClient(timeout=30)
+    return _acc_client
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Result Model and Recording
@@ -273,12 +284,12 @@ PERSONAS = _load_personas()
 async def _get(url: str, timeout: int = 10) -> tuple[int, dict | str]:
     """Simple GET request returning (status_code, json_or_text)."""
     try:
-        async with httpx.AsyncClient(timeout=timeout) as c:
-            r = await c.get(url)
-            try:
-                return r.status_code, r.json()
-            except Exception:
-                return r.status_code, r.text
+        c = _get_acc_client()
+        r = await c.get(url, timeout=timeout)
+        try:
+            return r.status_code, r.json()
+        except Exception:
+            return r.status_code, r.text
     except Exception as e:
         return 0, str(e)
 
@@ -291,12 +302,12 @@ async def _post(
 ) -> tuple[int, dict | str]:
     """Simple POST request returning (status_code, json_or_text)."""
     try:
-        async with httpx.AsyncClient(timeout=timeout) as c:
-            r = await c.post(url, json=body, headers=headers or AUTH)
-            try:
-                return r.status_code, r.json()
-            except Exception:
-                return r.status_code, r.text
+        c = _get_acc_client()
+        r = await c.post(url, json=body, headers=headers or AUTH, timeout=timeout)
+        try:
+            return r.status_code, r.json()
+        except Exception:
+            return r.status_code, r.text
     except Exception as e:
         return 0, str(e)
 
@@ -480,47 +491,64 @@ async def _chat_with_model(
     stream: bool = False,
 ) -> tuple[int, str, str]:
     """Chat request that also returns the model used.
-    
+
     Returns (status_code, response_text, model_used).
+    Uses shared client with 3-attempt backoff [0, 5, 15]s.
+    On 502/503 probes MLX health state before retrying so we wait for
+    cold-load (switching) rather than treating it as a hard failure.
     """
     msgs: list[dict] = []
     if system:
         msgs.append({"role": "system", "content": system[:800]})
     msgs.append({"role": "user", "content": prompt})
     body = {"model": workspace, "messages": msgs, "stream": stream, "max_tokens": max_tokens}
+    backoff = [0, 5, 15]
 
-    for attempt in range(2):
+    for attempt, delay in enumerate(backoff):
+        if delay:
+            await asyncio.sleep(delay)
         try:
-            async with httpx.AsyncClient(timeout=timeout) as c:
-                r = await c.post(f"{PIPELINE_URL}/v1/chat/completions", headers=AUTH, json=body)
-                if r.status_code != 200:
-                    if r.status_code in (502, 503) and attempt == 0:
-                        continue  # Retry on MLX proxy crash
-                    return r.status_code, r.text[:200], ""
+            c = _get_acc_client()
+            r = await c.post(
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=AUTH,
+                json=body,
+                timeout=timeout,
+            )
+            if r.status_code not in (200,):
+                if r.status_code in (502, 503) and attempt < len(backoff) - 1:
+                    # Probe MLX — if switching/starting, wait longer before retry
+                    mlx_state, _ = await _mlx_health()
+                    if mlx_state in ("switching", "none"):
+                        await asyncio.sleep(15)
+                    continue
+                return r.status_code, r.text[:200], ""
 
-                if stream:
-                    text = ""
-                    for line in r.text.splitlines():
-                        if line.startswith("data: ") and line != "data: [DONE]":
-                            try:
-                                d = json.loads(line[6:])
-                                text += d.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                            except Exception:
-                                pass
-                    return 200, text, ""
+            if stream:
+                text = ""
+                for line in r.text.splitlines():
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        try:
+                            d = json.loads(line[6:])
+                            text += d.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                        except Exception:
+                            pass
+                return 200, text, ""
 
-                data = r.json()
-                msg = data.get("choices", [{}])[0].get("message", {})
-                model = data.get("model", "")
-                content = msg.get("content", "") or msg.get("reasoning", "")
-                return 200, content, model
+            data = r.json()
+            msg = data.get("choices", [{}])[0].get("message", {})
+            model = data.get("model", "")
+            content = msg.get("content", "") or msg.get("reasoning", "")
+            return 200, content, model
         except httpx.ReadTimeout:
             return 408, "timeout", ""
         except Exception as e:
-            if attempt == 0 and any(x in str(e).lower() for x in ["502", "connection refused"]):
+            if attempt < len(backoff) - 1 and any(
+                x in str(e).lower() for x in ["502", "connection refused"]
+            ):
                 continue
             return 0, str(e)[:100], ""
-    return 503, "MLX proxy down, fallback not available", ""
+    return 503, "MLX proxy unreachable after retries", ""
 
 
 def _curl_stream(
@@ -696,17 +724,17 @@ async def _mlx_health() -> tuple[str, dict]:
     to get the actual state rather than inferring from the HTTP status code.
     """
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{MLX_URL}/health")
-            if r.status_code in (200, 503):
-                try:
-                    data = r.json()
-                    return data.get("state", "unknown"), data
-                except Exception:
-                    pass
-            if r.status_code == 503:
-                return "down", {"status_code": 503}
-            return "error", {"status_code": r.status_code}
+        c = _get_acc_client()
+        r = await c.get(f"{MLX_URL}/health", timeout=10)
+        if r.status_code in (200, 503):
+            try:
+                data = r.json()
+                return data.get("state", "unknown"), data
+            except Exception:
+                pass
+        if r.status_code == 503:
+            return "down", {"status_code": 503}
+        return "error", {"status_code": r.status_code}
     except Exception as e:
         return "unreachable", {"error": str(e)}
 
@@ -752,25 +780,24 @@ async def _wait_for_mlx_model(model_hint: str, timeout: int = 300) -> bool:
 async def _unload_ollama_models() -> None:
     """Evict all Ollama models from memory to free unified memory for MLX/ComfyUI."""
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{OLLAMA_URL}/api/ps")
-            if r.status_code != 200:
-                return
-            models = [m["name"] for m in r.json().get("models", [])]
+        c = _get_acc_client()
+        r = await c.get(f"{OLLAMA_URL}/api/ps", timeout=10)
+        if r.status_code != 200:
+            return
+        models = [m["name"] for m in r.json().get("models", [])]
         if not models:
             print("  ── No Ollama models loaded ──")
             return
         print(f"  ── Evicting {len(models)} Ollama model(s): {models} ──")
-        async with httpx.AsyncClient(timeout=30) as c:
-            for model in models:
-                try:
-                    await c.post(
-                        f"{OLLAMA_URL}/api/generate",
-                        json={"model": model, "keep_alive": 0},
-                        timeout=10,
-                    )
-                except Exception:
-                    pass
+        for model in models:
+            try:
+                await c.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json={"model": model, "keep_alive": 0},
+                    timeout=10,
+                )
+            except Exception:
+                pass
         # Wait for memory to be released
         await asyncio.sleep(5)
     except Exception as e:
@@ -786,12 +813,11 @@ async def _unload_mlx_model() -> None:
             return
         loaded = data.get("loaded_model") or "unknown"
         print(f"  ── Unloading MLX model: {loaded} ──")
-        # Send request to unload (if proxy supports it)
-        async with httpx.AsyncClient(timeout=30) as c:
-            try:
-                await c.post(f"{MLX_URL}/unload", timeout=10)
-            except Exception:
-                pass
+        c = _get_acc_client()
+        try:
+            await c.post(f"{MLX_URL}/unload", timeout=10)
+        except Exception:
+            pass
         # Wait for memory to be released
         await asyncio.sleep(10)
     except Exception as e:
@@ -896,14 +922,14 @@ async def _remediate_mlx_crash(reason: str = "crash") -> bool:
     for _ in range(30):
         await asyncio.sleep(2)
         try:
-            async with httpx.AsyncClient(timeout=5) as c:
-                r = await c.get(f"{MLX_URL}/health")
-                if r.status_code in (200, 503):
-                    data = r.json()
-                    state = data.get("state", "unknown")
-                    if state in ("none", "ready"):
-                        print(f"  ✅ MLX proxy recovered (state={state})")
-                        return True
+            c = _get_acc_client()
+            r = await c.get(f"{MLX_URL}/health", timeout=5)
+            if r.status_code in (200, 503):
+                data = r.json()
+                state = data.get("state", "unknown")
+                if state in ("none", "ready"):
+                    print(f"  ✅ MLX proxy recovered (state={state})")
+                    return True
         except Exception:
             pass
 
@@ -1810,20 +1836,21 @@ async def S8() -> None:
         # S8-02: TTS via MLX Speech
         t0 = time.time()
         try:
-            async with httpx.AsyncClient(timeout=60) as c:
-                r = await c.post(
-                    f"{MLX_SPEECH_URL}/v1/audio/speech",
-                    json={"input": "Hello from Portal 5 acceptance test.", "voice": "af_heart"},
-                )
-                if r.status_code == 200:
-                    wav_data = r.content
-                    info = _wav_info(wav_data)
-                    if info and info["duration_s"] > 0.5:
-                        record(sec, "S8-02", "MLX Speech TTS", "PASS", f"duration: {info['duration_s']}s", t0=t0)
-                    else:
-                        record(sec, "S8-02", "MLX Speech TTS", "WARN", f"invalid WAV: {info}", t0=t0)
+            c = _get_acc_client()
+            r = await c.post(
+                f"{MLX_SPEECH_URL}/v1/audio/speech",
+                json={"input": "Hello from Portal 5 acceptance test.", "voice": "af_heart"},
+                timeout=60,
+            )
+            if r.status_code == 200:
+                wav_data = r.content
+                info = _wav_info(wav_data)
+                if info and info["duration_s"] > 0.5:
+                    record(sec, "S8-02", "MLX Speech TTS", "PASS", f"duration: {info['duration_s']}s", t0=t0)
                 else:
-                    record(sec, "S8-02", "MLX Speech TTS", "FAIL", f"HTTP {r.status_code}", t0=t0)
+                    record(sec, "S8-02", "MLX Speech TTS", "WARN", f"invalid WAV: {info}", t0=t0)
+            else:
+                record(sec, "S8-02", "MLX Speech TTS", "FAIL", f"HTTP {r.status_code}", t0=t0)
         except Exception as e:
             record(sec, "S8-02", "MLX Speech TTS", "FAIL", str(e)[:100], t0=t0)
     else:
@@ -1917,20 +1944,21 @@ async def _mlx_chat_direct(
         msgs.append({"role": "system", "content": system[:800]})
     msgs.append({"role": "user", "content": prompt})
     try:
-        async with httpx.AsyncClient(timeout=timeout) as c:
-            r = await c.post(
-                f"{MLX_URL}/v1/chat/completions",
-                json={"model": model, "messages": msgs, "max_tokens": max_tokens},
-            )
-            if r.status_code != 200:
-                return r.status_code, r.text[:300], ""
-            data = r.json()
-            msg = data.get("choices", [{}])[0].get("message", {})
-            content = msg.get("content", "")
-            reasoning = msg.get("reasoning", "")
-            # Combine all text for signal search
-            text = (content + " " + reasoning).strip() if (content or reasoning) else ""
-            return 200, text, data.get("model", model)
+        c = _get_acc_client()
+        r = await c.post(
+            f"{MLX_URL}/v1/chat/completions",
+            json={"model": model, "messages": msgs, "max_tokens": max_tokens},
+            timeout=timeout,
+        )
+        if r.status_code != 200:
+            return r.status_code, r.text[:300], ""
+        data = r.json()
+        msg = data.get("choices", [{}])[0].get("message", {})
+        content = msg.get("content", "")
+        reasoning = msg.get("reasoning", "")
+        # Combine all text for signal search
+        text = (content + " " + reasoning).strip() if (content or reasoning) else ""
+        return 200, text, data.get("model", model)
     except httpx.ReadTimeout:
         return 408, "timeout", ""
     except Exception as e:
@@ -2010,12 +2038,12 @@ async def S11() -> None:
 
             print(f"  ── Triggering model load: {model_short} ──")
             try:
-                async with httpx.AsyncClient(timeout=10) as c:
-                    await c.post(
-                        f"{MLX_URL}/v1/chat/completions",
-                        json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
-                        timeout=3,
-                    )
+                c = _get_acc_client()
+                await c.post(
+                    f"{MLX_URL}/v1/chat/completions",
+                    json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                    timeout=3,
+                )
             except Exception:
                 pass  # Expected timeout — just queuing the switch
 
@@ -2032,10 +2060,12 @@ async def S11() -> None:
                             test_num += 1
                         break
                     try:
-                        async with httpx.AsyncClient(timeout=10) as c:
-                            await c.post(f"{MLX_URL}/v1/chat/completions",
-                                         json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
-                                         timeout=3)
+                        c = _get_acc_client()
+                        await c.post(
+                            f"{MLX_URL}/v1/chat/completions",
+                            json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                            timeout=3,
+                        )
                     except Exception:
                         pass
                     model_ready = await _wait_for_mlx_model(model_hint, timeout=240)
@@ -2113,14 +2143,14 @@ async def S12() -> None:
     # S12-01: SearXNG direct query
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"{SEARXNG_URL}/search", params={"q": "test query", "format": "json"})
-            if r.status_code == 200:
-                data = r.json()
-                results = data.get("results", [])
-                record(sec, "S12-01", "SearXNG search", "PASS", f"{len(results)} results", t0=t0)
-            else:
-                record(sec, "S12-01", "SearXNG search", "WARN", f"HTTP {r.status_code}", t0=t0)
+        c = _get_acc_client()
+        r = await c.get(f"{SEARXNG_URL}/search", params={"q": "test query", "format": "json"}, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            results = data.get("results", [])
+            record(sec, "S12-01", "SearXNG search", "PASS", f"{len(results)} results", t0=t0)
+        else:
+            record(sec, "S12-01", "SearXNG search", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
         record(sec, "S12-01", "SearXNG search", "WARN", str(e)[:100], t0=t0)
 
@@ -2144,17 +2174,18 @@ async def S13() -> None:
     if code == 200:
         t0 = time.time()
         try:
-            async with httpx.AsyncClient(timeout=30) as c:
-                r = await c.post(
-                    f"http://localhost:{MCP['embedding']}/v1/embeddings",
-                    json={"input": "test embedding text", "model": "microsoft/harrier-oss-v1-0.6b"},
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    embedding = data.get("data", [{}])[0].get("embedding", [])
-                    record(sec, "S13-02", "Generate embedding", "PASS", f"dim: {len(embedding)}", t0=t0)
-                else:
-                    record(sec, "S13-02", "Generate embedding", "WARN", f"HTTP {r.status_code}", t0=t0)
+            c = _get_acc_client()
+            r = await c.post(
+                f"http://localhost:{MCP['embedding']}/v1/embeddings",
+                json={"input": "test embedding text", "model": "microsoft/harrier-oss-v1-0.6b"},
+                timeout=30,
+            )
+            if r.status_code == 200:
+                data = r.json()
+                embedding = data.get("data", [{}])[0].get("embedding", [])
+                record(sec, "S13-02", "Generate embedding", "PASS", f"dim: {len(embedding)}", t0=t0)
+            else:
+                record(sec, "S13-02", "Generate embedding", "WARN", f"HTTP {r.status_code}", t0=t0)
         except Exception as e:
             record(sec, "S13-02", "Generate embedding", "WARN", str(e)[:100], t0=t0)
 
@@ -2327,17 +2358,18 @@ async def S22() -> None:
     # (typically because enough memory was available), recorded as INFO not FAIL.
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=8) as c:
-            # Llama-3.3-70B-Instruct-4bit: tracked at 40GB in MODEL_MEMORY.
-            # Requires 40 + 10 = 50GB free — only available on a clean 64GB system.
-            r = await c.post(
-                f"{MLX_URL}/v1/chat/completions",
-                json={
-                    "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
-                    "messages": [{"role": "user", "content": "test"}],
-                    "max_tokens": 10,
-                },
-            )
+        c = _get_acc_client()
+        # Llama-3.3-70B-Instruct-4bit: tracked at 40GB in MODEL_MEMORY.
+        # Requires 40 + 10 = 50GB free — only available on a clean 64GB system.
+        r = await c.post(
+            f"{MLX_URL}/v1/chat/completions",
+            json={
+                "model": "mlx-community/Llama-3.3-70B-Instruct-4bit",
+                "messages": [{"role": "user", "content": "test"}],
+                "max_tokens": 10,
+            },
+            timeout=8,
+        )
             if r.status_code == 503:
                 # Try to parse the detail from JSON body
                 try:
@@ -2501,14 +2533,14 @@ async def S30() -> None:
     # S30-01: ComfyUI direct health
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{COMFYUI_URL}/system_stats")
-            if r.status_code == 200:
-                data = r.json()
-                version = data.get("system", {}).get("comfyui_version", "unknown")
-                record(sec, "S30-01", "ComfyUI direct", "PASS", f"version: {version}", t0=t0)
-            else:
-                record(sec, "S30-01", "ComfyUI direct", "WARN", f"HTTP {r.status_code}", t0=t0)
+        c = _get_acc_client()
+        r = await c.get(f"{COMFYUI_URL}/system_stats", timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            version = data.get("system", {}).get("comfyui_version", "unknown")
+            record(sec, "S30-01", "ComfyUI direct", "PASS", f"version: {version}", t0=t0)
+        else:
+            record(sec, "S30-01", "ComfyUI direct", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
         record(sec, "S30-01", "ComfyUI direct", "INFO", f"not running: {str(e)[:50]}", t0=t0)
 
@@ -2547,44 +2579,45 @@ async def S40() -> None:
     # S40-01: Pipeline /metrics endpoint
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{PIPELINE_URL}/metrics")
-            if r.status_code == 200:
-                lines = r.text.splitlines()
-                metric_lines = [l for l in lines if l and not l.startswith("#")]
-                record(sec, "S40-01", "Pipeline /metrics", "PASS", f"{len(metric_lines)} metrics", t0=t0)
-            else:
-                record(sec, "S40-01", "Pipeline /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0)
+        c = _get_acc_client()
+        r = await c.get(f"{PIPELINE_URL}/metrics", timeout=10)
+        if r.status_code == 200:
+            lines = r.text.splitlines()
+            metric_lines = [l for l in lines if l and not l.startswith("#")]
+            record(sec, "S40-01", "Pipeline /metrics", "PASS", f"{len(metric_lines)} metrics", t0=t0)
+        else:
+            record(sec, "S40-01", "Pipeline /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
         record(sec, "S40-01", "Pipeline /metrics", "FAIL", str(e)[:100], t0=t0)
 
     # S40-02: Prometheus scrape targets
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{PROMETHEUS_URL}/api/v1/targets")
-            if r.status_code == 200:
-                data = r.json()
-                targets = data.get("data", {}).get("activeTargets", [])
-                up = sum(1 for t in targets if t.get("health") == "up")
-                record(sec, "S40-02", "Prometheus targets", "PASS", f"{up}/{len(targets)} up", t0=t0)
-            else:
-                record(sec, "S40-02", "Prometheus targets", "WARN", f"HTTP {r.status_code}", t0=t0)
+        c = _get_acc_client()
+        r = await c.get(f"{PROMETHEUS_URL}/api/v1/targets", timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            targets = data.get("data", {}).get("activeTargets", [])
+            up = sum(1 for t in targets if t.get("health") == "up")
+            record(sec, "S40-02", "Prometheus targets", "PASS", f"{up}/{len(targets)} up", t0=t0)
+        else:
+            record(sec, "S40-02", "Prometheus targets", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
         record(sec, "S40-02", "Prometheus targets", "WARN", str(e)[:100], t0=t0)
 
     # S40-03: Grafana API
     t0 = time.time()
     try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(
-                f"{GRAFANA_URL}/api/search",
-                headers={"Authorization": f"Basic {GRAFANA_PASS}"},
-            )
-            if r.status_code in (200, 401):  # 401 is OK, means API is responding
-                record(sec, "S40-03", "Grafana API", "PASS", f"HTTP {r.status_code}", t0=t0)
-            else:
-                record(sec, "S40-03", "Grafana API", "WARN", f"HTTP {r.status_code}", t0=t0)
+        c = _get_acc_client()
+        r = await c.get(
+            f"{GRAFANA_URL}/api/search",
+            headers={"Authorization": f"Basic {GRAFANA_PASS}"},
+            timeout=10,
+        )
+        if r.status_code in (200, 401):  # 401 is OK, means API is responding
+            record(sec, "S40-03", "Grafana API", "PASS", f"HTTP {r.status_code}", t0=t0)
+        else:
+            record(sec, "S40-03", "Grafana API", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
         record(sec, "S40-03", "Grafana API", "WARN", str(e)[:100], t0=t0)
 
@@ -2908,19 +2941,24 @@ async def main() -> int:
 
     await _notify_test_start(args.section, len(sections))
 
-    for sec in sections:
-        if sec in ALL_SECTIONS:
-            try:
-                await ALL_SECTIONS[sec]()
-            except Exception as e:
-                record(sec, f"{sec}-ERR", "Section error", "FAIL", str(e)[:200])
+    try:
+        for sec in sections:
+            if sec in ALL_SECTIONS:
+                try:
+                    await ALL_SECTIONS[sec]()
+                except Exception as e:
+                    record(sec, f"{sec}-ERR", "Section error", "FAIL", str(e)[:200])
 
-            # Memory cleanup at phase transitions (only for full suite runs)
-            if running_full_suite and sec in PHASE_TRANSITIONS:
-                await _memory_cleanup(PHASE_TRANSITIONS[sec])
-            else:
-                # Brief pause between sections
-                await asyncio.sleep(2)
+                # Memory cleanup at phase transitions (only for full suite runs)
+                if running_full_suite and sec in PHASE_TRANSITIONS:
+                    await _memory_cleanup(PHASE_TRANSITIONS[sec])
+                else:
+                    # Brief pause between sections
+                    await asyncio.sleep(2)
+    finally:
+        global _acc_client
+        if _acc_client and not _acc_client.is_closed:
+            await _acc_client.aclose()
 
     elapsed = int(time.time() - start_time)
 

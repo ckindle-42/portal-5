@@ -1,3 +1,14 @@
+# ⚠️ Archived — V4 Acceptance Results (2026-04-10)
+
+**This file is preserved for historical reference only.**
+
+The current acceptance suite is V6 (`tests/portal5_acceptance_v6.py`). Authoritative results live in:
+**`/ACCEPTANCE_RESULTS.md`** (top-level of repo).
+
+V4 had 264 tests; V6 has ~167+. Test numbering, sections, and expectations differ — do not cross-reference.
+
+---
+
 # Portal 5 — Acceptance Test Results (v4)
 
 **Run:** 2026-04-10 16:07:09 (4745s)  
