@@ -1917,6 +1917,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global registry, _health_task, _request_semaphore, _http_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
+    # P5-FIX: pre-create Prometheus multiproc dir at startup so workers don't race.
+    if (mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR")):
+        os.makedirs(mp_dir, exist_ok=True)
     # P1: create shared client with a connection pool sized for concurrent inference
     # Timeout raised to 300s: cold-loading 32B models under memory pressure takes
     # 2-4 min before the first token. 120s was causing S3-18 streaming timeouts.
@@ -2166,6 +2169,10 @@ async def metrics() -> PlainTextResponse:
     global _mp_registry_cache, _mp_registry_dir_cache
     mp_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
     if mp_dir:
+        # P5-FIX: prometheus_client writes per-pid files but does not create the
+        # parent dir. Without this, the first /metrics scrape after worker fork
+        # fails with errno-2 (see ACCEPTANCE_RESULTS S70-07, 2026-04-25).
+        os.makedirs(mp_dir, exist_ok=True)
         if _mp_registry_cache is None or _mp_registry_dir_cache != mp_dir:
             from prometheus_client import multiprocess
 
