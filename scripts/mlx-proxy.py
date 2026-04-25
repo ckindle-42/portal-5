@@ -67,7 +67,6 @@ ALL_MODELS = [
     # Coding
     "mlx-community/Qwen3-Coder-Next-4bit",  # 80B MoE 4bit (~46GB, BIG_MODEL)
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",  # 30B MoE 8bit (~22GB)
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",  # DS-Coder-V2 8bit (~12GB)
     "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
     "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit",  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated
     # Creative / general
@@ -141,7 +140,6 @@ MODEL_MEMORY: dict[str, float] = {
     # ── Text-only (mlx_lm) ────────────────────────────────────────────────
     "mlx-community/Qwen3-Coder-Next-4bit": 46.0,  # 80B MoE, 4bit (~46GB)
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit": 12.0,  # Lite 8bit (~12GB)
     "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15.0,  # Devstral Small 2507 MLX 4bit (~15GB, 53.6% SWE-bench)
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,  # Dolphin 8B 8bit (~9GB)
     "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
