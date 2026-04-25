@@ -657,6 +657,7 @@ rows = [
     ('portal5-mcp-comfyui',   'MCP ComfyUI Bridge',   ':8910'),
     ('portal5-mcp-video',     'MCP Video',            ':8911'),
     ('portal5-mcp-security',  'MCP Security',         ':8919'),
+    ('portal5-playwright',    'MCP Browser (Playwright)', ':8922'),
 ]
 icons = {'healthy': '✅', 'running': '✅', 'starting': '⏳'}
 for key, label, url in rows:
@@ -738,6 +739,15 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ❌  %-28s %s\n" "Embedding" "not running — ./launch.sh up"
         fi
 
+        # Powermetrics daemon
+        if [ -f /tmp/portal5-powermetrics.sock ] && python3 -c "import socket; s=socket.socket(socket.AF_UNIX); s.connect('/tmp/portal5-powermetrics.sock'); s.close()" &>/dev/null 2>&1; then
+            printf "    ✅  %-28s %s\n" "Powermetrics" "/tmp/portal5-powermetrics.sock"
+        elif launchctl list com.portal5.powermetrics 2>/dev/null | grep -q '"PID"'; then
+            printf "    ⏳  %-28s %s\n" "Powermetrics" "starting (launchd)"
+        else
+            printf "    ❌  %-28s %s\n" "Powermetrics" "not running — see scripts/portal5-powermetrics.py"
+        fi
+
         echo ""
     fi
 
@@ -762,18 +772,23 @@ print(f\"{d.get('backends_healthy','?')}/{d.get('backends_total','?')} backends 
     _OW_COUNTS=$(python3 -c "
 import httpx
 try:
+    # Workspace count from pipeline
+    ws_count = '?'
+    try:
+        pr = httpx.get('http://localhost:9099/health', timeout=3)
+        ws_count = str(pr.json().get('workspaces', '?'))
+    except: pass
+    # Persona count from OWUI
+    ps_count = '?'
     r = httpx.post('http://localhost:8080/api/v1/auths/signin',
         json={'email': '${_OW_EMAIL}', 'password': '${_OW_PASS}'}, timeout=5)
     token = r.json().get('token','')
-    if not token:
-        print('? ?')
-    else:
+    if token:
         r2 = httpx.get('http://localhost:8080/api/v1/models/export',
             headers={'Authorization': 'Bearer ' + token}, timeout=5)
         items = r2.json() if isinstance(r2.json(), list) else r2.json().get('items', r2.json().get('data', []))
-        ws = sum(1 for m in items if m['id'].startswith('auto'))
-        ps = sum(1 for m in items if not m['id'].startswith('auto'))
-        print(ws, ps)
+        ps_count = str(len(items))
+    print(ws_count, ps_count)
 except Exception as e:
     print('? ?')
 " 2>/dev/null || echo "? ?")
@@ -1283,7 +1298,7 @@ case "${1:-up}" in
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video playwright-mcp"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
@@ -1297,7 +1312,7 @@ case "${1:-up}" in
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video playwright-mcp"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Restarting MCP containers..."
@@ -1309,7 +1324,7 @@ case "${1:-up}" in
     # Restart all MCP containers without rebuilding (e.g. after a config or env change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video playwright-mcp"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"

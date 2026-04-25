@@ -29,6 +29,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -480,14 +481,14 @@ routes = [
     Route("/admin/browser_delete_profile", admin_delete_profile, methods=["POST"]),
 ] + [_make_route(t["name"]) for t in TOOLS_MANIFEST if t["name"] != "browser_list_profiles"]
 
-app = Starlette(routes=routes)
 
-
-async def _on_startup():
+@asynccontextmanager
+async def _lifespan(app):
     asyncio.create_task(_idle_reaper())
+    yield
 
 
-app.add_event_handler("startup", _on_startup)
+app = Starlette(routes=routes, lifespan=_lifespan)
 
 
 def main():
