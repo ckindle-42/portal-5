@@ -2642,6 +2642,8 @@ async def chat_completions(
                     persona,
                     set(effective_tools),
                     start_time,
+                    ws_sem=_ws_sem,
+                    api_sem=_api_sem,
                 )
                 if _has_tools
                 else _stream_with_preamble(
@@ -2651,6 +2653,8 @@ async def chat_completions(
                     workspace_id=workspace_id,
                     model=target_model,
                     start_time=start_time,
+                    ws_sem=_ws_sem,
+                    api_sem=_api_sem,
                 )
             )
             _streaming_response = StreamingResponse(
@@ -2679,6 +2683,8 @@ async def chat_completions(
                         persona,
                         set(effective_tools),
                         start_time,
+                        ws_sem=_ws_sem,
+                        api_sem=_api_sem,
                     )
                     if _has_tools
                     else _stream_with_preamble(
@@ -2688,6 +2694,8 @@ async def chat_completions(
                         workspace_id=workspace_id,
                         model=target_model,
                         start_time=start_time,
+                        ws_sem=_ws_sem,
+                        api_sem=_api_sem,
                     )
                 )
                 async for chunk in _inner_stream:
@@ -2799,6 +2807,8 @@ async def _stream_with_tool_loop(
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
+    ws_sem: asyncio.Semaphore | None = None,
+    api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream from backend, dispatching tool calls and re-injecting results.
 
@@ -2806,6 +2816,31 @@ async def _stream_with_tool_loop(
     (OWUI renders them); tool results are emitted as custom SSE events.
     Loop continues until finish_reason=stop or MAX_TOOL_HOPS is reached.
     """
+    try:
+        async for chunk in _stream_with_tool_loop_impl(
+            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+        ):
+            yield chunk
+    finally:
+        # Release all semaphores acquired by chat_completions on the streaming path.
+        # Mirror _stream_with_preamble's pattern (single-sem release in its own finally).
+        sem.release()
+        if ws_sem is not None:
+            ws_sem.release()
+        if api_sem is not None:
+            api_sem.release()
+
+
+async def _stream_with_tool_loop_impl(
+    backend_url: str,
+    body: dict,
+    workspace_id: str,
+    model: str,
+    persona: str,
+    effective_tools: set[str],
+    start_time: float | None = None,
+) -> AsyncIterator[bytes]:
+    """Inner implementation for _stream_with_tool_loop (no semaphore ownership)."""
     request_id = f"chatcmpl-p5-{int(time.time())}"
     hop = 0
     current_body = dict(body)
@@ -3116,6 +3151,8 @@ async def _stream_with_preamble(
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
+    ws_sem: asyncio.Semaphore | None = None,
+    api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
     """Emit an immediate OpenAI role chunk before connecting to the backend.
 
@@ -3168,6 +3205,10 @@ async def _stream_with_preamble(
             yield chunk
     finally:
         sem.release()
+        if ws_sem is not None:
+            ws_sem.release()
+        if api_sem is not None:
+            api_sem.release()
 
 
 async def _stream_from_backend_guarded(
