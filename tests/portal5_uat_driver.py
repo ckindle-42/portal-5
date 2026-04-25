@@ -344,6 +344,32 @@ def owui_get_last_response(token: str, chat_id: str) -> str:
         return ""
 
 
+def owui_get_routed_model(token: str, chat_id: str) -> str:
+    """Extract the model actually used from the last assistant message in OWUI chat history.
+
+    Returns the model string or "" if unavailable. Provides diagnostic value
+    equivalent to reading x-portal-route: the pipeline embeds the selected
+    backend model in the message metadata stored by Open WebUI.
+    """
+    try:
+        r = httpx.get(
+            f"{OPENWEBUI_URL}/api/v1/chats/{chat_id}",
+            headers={"Authorization": f"Bearer {token}", "Accept-Encoding": "identity"},
+            timeout=10,
+        )
+        data = r.json()
+        msgs = data.get("chat", {}).get("history", {}).get("messages", {})
+        assistant_msgs = [m for m in msgs.values() if m.get("role") == "assistant"]
+        if not assistant_msgs:
+            return ""
+        last = assistant_msgs[-1]
+        # OWUI stores the model that generated the response in the message metadata
+        model = last.get("model", "") or last.get("info", {}).get("model", "")
+        return str(model) if model else ""
+    except Exception:
+        return ""
+
+
 # ---------------------------------------------------------------------------
 # Playwright helpers
 # ---------------------------------------------------------------------------
@@ -818,19 +844,23 @@ def record_result(
     assertions: list,
     elapsed: float,
     chat_url: str,
+    routed_model: str = "",
 ) -> None:
     passed = sum(1 for a in assertions if a[1])
     total = len(assertions)
     pct = f"{passed}/{total}({passed * 100 // total}%)" if total else "0/0"
     detail = "; ".join(f"{a[0]}={'✓' if a[1] else '✗'}({a[2]})" for a in assertions[:5])
+    if routed_model and status in ("FAIL", "WARN"):
+        detail = f"[routed: {routed_model}] {detail}" if detail else f"[routed: {routed_model}]"
     with RESULTS_FILE.open("a") as f:
         f.write(
             f"| {n} | {status} | [{test_id} {name}]({chat_url}) | "
             f"`{model}` | {pct} {detail} | {elapsed:.1f}s |\n"
         )
     icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "MANUAL": "✎"}.get(status, "?")
+    routed_suffix = f" [→{routed_model}]" if routed_model else ""
     print(
-        f"  [{icon} {status}] {test_id} {name} ({passed}/{total}={passed * 100 // total if total else 0}%) ({elapsed:.1f}s)"
+        f"  [{icon} {status}] {test_id} {name} ({passed}/{total}={passed * 100 // total if total else 0}%) ({elapsed:.1f}s){routed_suffix}"
     )
 
 
@@ -4745,8 +4775,9 @@ async def run_test(
 
     elapsed = time.time() - t0
     final_title = f"[{status}] UAT: {test_id} {name}"
+    routed_model = owui_get_routed_model(token, chat_id)
     owui_rename_chat(token, chat_id, final_title)
-    record_result(n, status, test_id, name, model, assertions_result, elapsed, chat_url)
+    record_result(n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model)
     counts[status] = counts.get(status, 0) + 1
 
 
