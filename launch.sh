@@ -807,7 +807,7 @@ except Exception as e:
     if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || [ -n "${SLACK_BOT_TOKEN:-}" ]; then
         echo "  CHANNELS"
         if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-            _TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" || echo 0)
+            _TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" 2>/dev/null || echo "0")
             if [ "$_TG" -ge 1 ]; then
                 printf "    ✅  %-28s %s\n" "Telegram Bot" "running"
             else
@@ -815,7 +815,7 @@ except Exception as e:
             fi
         fi
         if [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -n "${SLACK_APP_TOKEN:-}" ]; then
-            _SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" || echo 0)
+            _SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" 2>/dev/null || echo "0")
             if [ "$_SL" -ge 1 ]; then
                 printf "    ✅  %-28s %s\n" "Slack Bot" "running"
             else
