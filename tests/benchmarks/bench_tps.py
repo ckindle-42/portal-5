@@ -805,6 +805,24 @@ def _get_bench_client() -> httpx.Client:
     return _bench_client
 
 
+def _mlx_memory_snapshot() -> dict[str, float]:
+    """Fetch free_gb and used_gb from the MLX proxy /health endpoint."""
+    try:
+        r = httpx.get(f"{MLX_URL}/health", timeout=2.0)
+        if r.status_code == 200:
+            mem = r.json().get("memory", {})
+            # Proxy may nest under "current" or expose top-level keys
+            if "current" in mem:
+                mem = mem["current"]
+            return {
+                "free_gb": round(float(mem.get("free_gb", 0.0)), 2),
+                "used_gb": round(float(mem.get("used_gb", 0.0)), 2),
+            }
+    except Exception:
+        pass
+    return {}
+
+
 def bench_tps(
     base_url: str,
     model: str,
@@ -815,14 +833,19 @@ def bench_tps(
 ) -> dict:
     """Benchmark TPS for a single model/endpoint. Returns summary dict.
 
+    Uses streaming to capture time-to-first-token (TTFT) alongside TPS.
+    MLX runs also capture memory snapshots before and after each inference.
+
     P7-PERF: Reuses a shared httpx client to avoid TCP connection overhead
     between runs. This gives a more accurate measurement of actual inference
     time vs connection setup time.
     """
+    import json as _json
+
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
+        "stream": True,
         "max_tokens": MAX_TOKENS,
     }
 
@@ -830,94 +853,104 @@ def bench_tps(
     if base_url == PIPELINE_URL and PIPELINE_API_KEY:
         headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
 
+    is_mlx = base_url == MLX_URL
     client = _get_bench_client()
     run_results = []
-    for run_num in range(1, runs + 1):
+
+    def _stream_one_run(run_num: int) -> dict:
+        """Execute one streaming inference run and return its result dict."""
+        mem_before = _mlx_memory_snapshot() if is_mlx else {}
         t0 = time.perf_counter()
+        t_first_token: float | None = None
+        completion_tokens = 0
+        prompt_tokens = 0
+        response_text = ""
+        response_model = ""
+
         try:
-            resp = client.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers)
-            resp.raise_for_status()
-        except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
-            # MLX proxy may be mid-server-switch (mlx_lm ↔ mlx_vlm). Retry once.
-            if base_url == MLX_URL:
-                time.sleep(10)
-                try:
-                    t0 = time.perf_counter()
-                    resp = client.post(
-                        f"{base_url}/v1/chat/completions", json=payload, headers=headers
-                    )
-                    resp.raise_for_status()
-                except Exception as e2:
-                    run_results.append(
-                        {
-                            "run": run_num,
-                            "error": str(e2)[:100],
-                            "elapsed_s": round(time.perf_counter() - t0, 2),
-                        }
-                    )
-                    continue
-            else:
-                run_results.append(
-                    {
+            with client.stream(
+                "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers
+            ) as resp:
+                if resp.status_code != 200:
+                    body = resp.read()[:200].decode(errors="replace")
+                    return {
                         "run": run_num,
-                        "error": str(e)[:100],
+                        "error": f"HTTP {resp.status_code}: {body[:80]}",
                         "elapsed_s": round(time.perf_counter() - t0, 2),
                     }
-                )
-                continue
+                for raw_line in resp.iter_lines():
+                    line = raw_line.strip() if isinstance(raw_line, str) else raw_line.decode(errors="replace").strip()
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        obj = _json.loads(data_str)
+                    except Exception:
+                        continue
+                    delta = obj.get("choices", [{}])[0].get("delta", {})
+                    chunk_text = delta.get("content") or ""
+                    if chunk_text and t_first_token is None:
+                        t_first_token = time.perf_counter()
+                    response_text += chunk_text
+                    if not response_model:
+                        response_model = obj.get("model", "")
+                    # Usage may appear in the final chunk
+                    usage = obj.get("usage") or {}
+                    if usage.get("completion_tokens"):
+                        completion_tokens = usage["completion_tokens"]
+                    if usage.get("prompt_tokens"):
+                        prompt_tokens = usage["prompt_tokens"]
+
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as e:
+            return {
+                "run": run_num,
+                "error": str(e)[:100],
+                "elapsed_s": round(time.perf_counter() - t0, 2),
+            }
         except httpx.ReadTimeout:
-            run_results.append({"run": run_num, "error": "timeout", "elapsed_s": REQUEST_TIMEOUT})
-            continue
-        except httpx.HTTPStatusError as e:
-            body = ""
-            try:
-                body = e.response.json().get("detail", "")[:80]
-            except Exception:
-                body = e.response.text[:80]
-            run_results.append(
-                {
-                    "run": run_num,
-                    "error": f"HTTP {e.response.status_code}: {body}",
-                    "elapsed_s": round(time.perf_counter() - t0, 2),
-                }
-            )
-            continue
+            return {"run": run_num, "error": "timeout", "elapsed_s": REQUEST_TIMEOUT}
         except Exception as e:
-            run_results.append(
-                {
-                    "run": run_num,
-                    "error": str(e)[:100],
-                    "elapsed_s": round(time.perf_counter() - t0, 2),
-                }
-            )
-            continue
+            return {
+                "run": run_num,
+                "error": str(e)[:100],
+                "elapsed_s": round(time.perf_counter() - t0, 2),
+            }
 
         elapsed = time.perf_counter() - t0
-        data = resp.json()
-        usage = data.get("usage", {})
-        # Handle both OpenAI (completion_tokens) and MLX VLM (output_tokens) formats
-        completion_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0))
-        prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0))
+        # Fallback token count: estimate from response text if server didn't emit usage
+        if completion_tokens == 0 and response_text:
+            completion_tokens = max(1, len(response_text.split()))
         tps = completion_tokens / elapsed if elapsed > 0 else 0.0
+        ttft = round(t_first_token - t0, 3) if t_first_token is not None else None
 
-        # Capture response text for quality scoring
-        choices = data.get("choices", [{}])
-        response_text = choices[0].get("message", {}).get("content", "") if choices else ""
+        mem_after = _mlx_memory_snapshot() if is_mlx else {}
+        result: dict = {
+            "run": run_num,
+            "elapsed_s": round(elapsed, 2),
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "tps": round(tps, 1),
+            "time_to_first_token_s": ttft,
+            "response_model": response_model,
+            "response_text": response_text,
+        }
+        if mem_before:
+            result["memory_free_gb_before"] = mem_before.get("free_gb")
+            result["memory_used_gb_before"] = mem_before.get("used_gb")
+        if mem_after:
+            result["memory_free_gb_after"] = mem_after.get("free_gb")
+            result["memory_used_gb_after"] = mem_after.get("used_gb")
+        return result
 
-        # Capture the actual model returned by the API (useful for pipeline routing)
-        response_model = data.get("model", "")
-
-        run_results.append(
-            {
-                "run": run_num,
-                "elapsed_s": round(elapsed, 2),
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "tps": round(tps, 1),
-                "response_model": response_model,
-                "response_text": response_text,
-            }
-        )
+    for run_num in range(1, runs + 1):
+        result = _stream_one_run(run_num)
+        # MLX proxy mid-switch retry: ConnectError on first attempt
+        if "error" in result and is_mlx and "Connect" in result.get("error", ""):
+            time.sleep(10)
+            result = _stream_one_run(run_num)
+        run_results.append(result)
 
     successful = [r for r in run_results if "tps" in r]
     if successful:
@@ -926,10 +959,13 @@ def bench_tps(
         max_tps = max(r["tps"] for r in successful)
         avg_tokens = round(sum(r["completion_tokens"] for r in successful) / len(successful))
         avg_elapsed = round(sum(r["elapsed_s"] for r in successful) / len(successful), 2)
+        ttft_vals = [r["time_to_first_token_s"] for r in successful if r.get("time_to_first_token_s") is not None]
+        avg_ttft = round(sum(ttft_vals) / len(ttft_vals), 3) if ttft_vals else None
     else:
         avg_tps = min_tps = max_tps = 0.0
         avg_tokens = 0
         avg_elapsed = 0.0
+        avg_ttft = None
 
     # Capture the actual model returned by the API (pipeline routing may differ)
     routed_model = ""
@@ -963,6 +999,7 @@ def bench_tps(
         "max_tps": max_tps,
         "avg_completion_tokens": avg_tokens,
         "avg_elapsed_s": avg_elapsed,
+        "avg_ttft_s": avg_ttft,
         "routed_model": routed_model,
         "prompt_category": prompt_category,
         "quality_score": qs,
