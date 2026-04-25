@@ -31,7 +31,9 @@ def client():
 
 import os as _os
 
-HEADERS = {"Authorization": f"Bearer {_os.environ.get('PIPELINE_API_KEY', 'test-pipeline-key-for-unit-tests')}"}
+HEADERS = {
+    "Authorization": f"Bearer {_os.environ.get('PIPELINE_API_KEY', 'test-pipeline-key-for-unit-tests')}"
+}
 
 
 @pytest.fixture
@@ -899,9 +901,7 @@ class TestSPLWorkspace:
 
         data = yaml.safe_load(Path("config/personas/splunksplgineer.yaml").read_text())
         wm = data.get("workspace_model", "")
-        assert wm == "auto-spl", (
-            f"SPL persona workspace_model should be auto-spl, got: {wm}"
-        )
+        assert wm == "auto-spl", f"SPL persona workspace_model should be auto-spl, got: {wm}"
 
     def test_workspace_json_exists(self):
         """Workspace JSON file must exist for GUI import."""
@@ -1038,9 +1038,7 @@ class TestAgenticWorkspace:
         from portal_pipeline.router_pipe import WORKSPACES
 
         ctx = WORKSPACES["auto-agentic"].get("context_limit")
-        assert ctx == 32768, (
-            f"auto-agentic context_limit should be 32768, got: {ctx}"
-        )
+        assert ctx == 32768, f"auto-agentic context_limit should be 32768, got: {ctx}"
 
     def test_agentic_workspace_has_model_hint(self):
         """auto-agentic must have an Ollama model_hint as fallback."""
@@ -1181,8 +1179,7 @@ class TestCodeHygiene:
         dispatcher_path = Path("portal_pipeline/notifications/dispatcher.py")
         if not dispatcher_path.exists():
             dispatcher_path = (
-                Path(__file__).parent.parent.parent
-                / "portal_pipeline/notifications/dispatcher.py"
+                Path(__file__).parent.parent.parent / "portal_pipeline/notifications/dispatcher.py"
             )
         content = dispatcher_path.read_text()
         count = content.count("_MLX_PROXY_HEALTH_URL =")
@@ -1211,15 +1208,12 @@ class TestCodeHygiene:
             )
         data = yaml.safe_load(compose_path.read_text())
         privileged_services = [
-            name
-            for name, svc in data.get("services", {}).items()
-            if svc.get("privileged") is True
+            name for name, svc in data.get("services", {}).items() if svc.get("privileged") is True
         ]
         # Only dind may use privileged — required for Docker-in-Docker on macOS Docker Desktop
         # (rootless DinD is incompatible; see KNOWN_LIMITATIONS.md P5-ROAD-SEC-001)
         assert privileged_services == ["dind"], (
-            f"Unexpected privileged services: {privileged_services}. "
-            "Only 'dind' is permitted."
+            f"Unexpected privileged services: {privileged_services}. Only 'dind' is permitted."
         )
 
     def test_claude_md_persona_count_accurate(self):
@@ -1244,3 +1238,184 @@ class TestCodeHygiene:
         assert doc_count == actual_count, (
             f"CLAUDE.md says {doc_count} personas but found {actual_count} yaml files"
         )
+
+
+# ── M2: Tool-calling orchestration tests ─────────────────────────────────────
+
+
+class TestToolRegistry:
+    """Tests for the tool registry module."""
+
+    def test_tool_definition_to_openai(self):
+        """ToolDefinition serialises to OpenAI tools format."""
+        from portal_pipeline.tool_registry import ToolDefinition
+
+        td = ToolDefinition(
+            name="execute_python",
+            description="Run Python code",
+            parameters={"type": "object", "properties": {"code": {"type": "string"}}},
+            server_id="execution",
+            server_url="http://localhost:8914",
+        )
+        oai = td.to_openai_tool()
+        assert oai["type"] == "function"
+        assert oai["function"]["name"] == "execute_python"
+        assert oai["function"]["description"] == "Run Python code"
+        assert "code" in oai["function"]["parameters"]["properties"]
+
+    def test_tool_registry_list_names(self):
+        """Registry lists tool names sorted."""
+        from portal_pipeline.tool_registry import ToolRegistry
+
+        reg = ToolRegistry()
+        assert reg.list_tool_names() == []
+        assert reg.get("nonexistent") is None
+
+    def test_tool_registry_get_openai_tools_filters(self):
+        """get_openai_tools filters by name list and health."""
+        from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry
+
+        reg = ToolRegistry()
+        reg._tools = {
+            "a": ToolDefinition("a", "desc a", {}, "s1", "http://x:1", healthy=True),
+            "b": ToolDefinition("b", "desc b", {}, "s1", "http://x:1", healthy=False),
+            "c": ToolDefinition("c", "desc c", {}, "s2", "http://x:2", healthy=True),
+        }
+        result = reg.get_openai_tools(["a", "b", "c"])
+        names = [t["function"]["name"] for t in result]
+        assert "a" in names
+        assert "b" not in names  # unhealthy
+        assert "c" in names
+
+
+class TestPersonaToolResolution:
+    """Tests for _resolve_persona_tools."""
+
+    def test_workspace_defaults(self):
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+
+        persona = {}
+        tools = _resolve_persona_tools(persona, "auto-coding")
+        assert "execute_python" in tools
+
+    def test_persona_deny_strips_tool(self):
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+
+        persona = {"tools_deny": ["execute_python"]}
+        tools = _resolve_persona_tools(persona, "auto-coding")
+        assert "execute_python" not in tools
+
+    def test_persona_allow_overrides_workspace(self):
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+
+        persona = {"tools_allow": ["generate_image"]}
+        tools = _resolve_persona_tools(persona, "auto-coding")
+        assert "generate_image" in tools
+
+    def test_persona_deny_overrides_allow(self):
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+
+        persona = {"tools_allow": ["execute_python", "execute_bash"], "tools_deny": ["execute_python"]}
+        tools = _resolve_persona_tools(persona, "auto-coding")
+        assert "execute_bash" in tools
+        assert "execute_python" not in tools
+
+    def test_empty_workspace_no_tools(self):
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+
+        persona = {}
+        tools = _resolve_persona_tools(persona, "auto-creative")
+        assert tools == []
+
+    def test_workspace_tools_helper(self):
+        from portal_pipeline.router_pipe import _workspace_tools
+
+        tools = _workspace_tools("auto-agentic")
+        assert "execute_python" in tools
+        assert "web_search" in tools
+
+        tools_empty = _workspace_tools("auto-creative")
+        assert tools_empty == []
+
+        tools_missing = _workspace_tools("nonexistent-workspace")
+        assert tools_missing == []
+
+
+class TestWorkspaceToolsConsistency:
+    """Tests for workspace tool field integrity."""
+
+    def test_all_workspaces_have_tools_field(self):
+        """Every workspace dict must have a 'tools' key."""
+        for ws_id, ws in WORKSPACES.items():
+            assert "tools" in ws, f"Workspace '{ws_id}' missing 'tools' field"
+            assert isinstance(ws["tools"], list), f"Workspace '{ws_id}' tools must be a list"
+
+    def test_auto_agentic_has_comprehensive_tools(self):
+        """auto-agentic should have the broadest tool set."""
+        tools = set(WORKSPACES["auto-agentic"]["tools"])
+        for expected in ["execute_python", "execute_bash", "web_search", "remember", "kb_search"]:
+            assert expected in tools, f"auto-agentic missing tool: {expected}"
+
+
+class TestDispatchToolCall:
+    """Tests for _dispatch_tool_call error handling."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_arguments(self):
+        from portal_pipeline.router_pipe import _dispatch_tool_call
+
+        tc = {
+            "id": "call_1",
+            "function": {"name": "execute_python", "arguments": "not json"},
+        }
+        result = await _dispatch_tool_call(tc, {"execute_python"}, "auto-coding", "test", "req1")
+        assert result["role"] == "tool"
+        assert "Invalid JSON" in result["content"]
+
+    @pytest.mark.asyncio
+    async def test_tool_not_in_whitelist(self):
+        from portal_pipeline.router_pipe import _dispatch_tool_call
+
+        tc = {
+            "id": "call_2",
+            "function": {"name": "execute_bash", "arguments": '{"command": "ls"}'},
+        }
+        result = await _dispatch_tool_call(tc, {"execute_python"}, "auto-coding", "test", "req1")
+        assert result["role"] == "tool"
+        assert "not available" in result["content"]
+
+
+class TestPersonasHaveToolFields:
+    """Verify M2+M3 persona YAMLs have correct tool fields."""
+
+    def test_agentorchestrator_has_tools(self):
+        from portal_pipeline.router_pipe import _PERSONA_MAP
+
+        p = _PERSONA_MAP.get("agentorchestrator", {})
+        assert "tools_allow" in p
+        assert "execute_python" in p["tools_allow"]
+
+    def test_webresearcher_has_web_tools(self):
+        from portal_pipeline.router_pipe import _PERSONA_MAP
+
+        p = _PERSONA_MAP.get("webresearcher", {})
+        assert "tools_allow" in p
+        assert "web_search" in p["tools_allow"]
+        assert "web_fetch" in p["tools_allow"]
+
+    def test_personalassistant_has_memory_tools(self):
+        from portal_pipeline.router_pipe import _PERSONA_MAP
+
+        p = _PERSONA_MAP.get("personalassistant", {})
+        assert "tools_allow" in p
+        assert "remember" in p["tools_allow"]
+        assert "recall" in p["tools_allow"]
+
+    def test_kbnavigator_has_rag_tools(self):
+        from portal_pipeline.router_pipe import _PERSONA_MAP
+
+        p = _PERSONA_MAP.get("kbnavigator", {})
+        assert "tools_allow" in p
+        assert "kb_list" in p["tools_allow"]
+        assert "kb_search" in p["tools_allow"]
+        assert "kb_search_all" in p["tools_allow"]

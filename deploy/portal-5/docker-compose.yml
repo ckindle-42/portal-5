@@ -612,6 +612,84 @@ services:
       start_period: 30s
       retries: 3
 
+  # ── MCP: Research (web search, fetch, news) ──────────────────────────────
+  mcp-research:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-research
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${RESEARCH_MCP_HOST_PORT:-8918}:8918"
+    environment:
+      - RESEARCH_MCP_PORT=8918
+      - MCP_PORT=8918
+      - SEARXNG_URL=http://searxng:8080
+      - BRAVE_API_KEY=${BRAVE_API_KEY:-}
+    command: ["python", "-m", "portal_mcp.research.web_search_mcp"]
+    depends_on:
+      searxng:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8918/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # ── MCP: Memory (cross-conversation persistence) ─────────────────────────
+  mcp-memory:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-memory
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MEMORY_MCP_HOST_PORT:-8920}:8920"
+    environment:
+      - MEMORY_MCP_PORT=8920
+      - MCP_PORT=8920
+      - PORTAL5_LANCE_DIR=/app/data/portal5_lance
+      - MLX_EMBEDDING_URL=http://host.docker.internal:8081/v1/embeddings
+    command: ["python", "-m", "portal_mcp.memory.memory_mcp"]
+    volumes:
+      - portal5-lance:/app/data/portal5_lance
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8920/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  # ── MCP: RAG (knowledge base retrieval) ──────────────────────────────────
+  mcp-rag:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-rag
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${RAG_MCP_HOST_PORT:-8921}:8921"
+    environment:
+      - RAG_MCP_PORT=8921
+      - MCP_PORT=8921
+      - PORTAL5_LANCE_DIR=/app/data/portal5_lance
+      - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
+      - MLX_EMBEDDING_URL=http://host.docker.internal:8081/v1/embeddings
+      - MLX_RERANK_URL=http://host.docker.internal:8081/v1/rerank
+    command: ["python", "-m", "portal_mcp.rag.rag_mcp"]
+    volumes:
+      - portal5-lance:/app/data/portal5_lance
+      - portal5-kb-sources:/app/data/portal5_kb_sources
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8921/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
   # ── ComfyUI — Image and Video Generation Engine (opt-in, native is default) ──
   # Uses CPU by default (works everywhere). Enable GPU profile for CUDA.
   # Models are downloaded by comfyui-model-init on first start.
@@ -714,3 +792,5 @@ volumes:
   grafana-data:        # Grafana dashboards/data
   pipeline-metrics-state:  # Persistent metrics state (JSON, survives restarts)
   security-hf-cache:       # HuggingFace model cache for security MCP (CIRCL VLAI)
+  portal5-lance:           # LanceDB vector storage (memory + RAG)
+  portal5-kb-sources:      # Knowledge base source files for RAG ingestion

@@ -57,6 +57,12 @@ RUN pip install --no-cache-dir \
     "transformers>=4.40.0" \
     "scipy>=1.11.0"
 
+# Vector storage + retrieval (memory MCP, RAG MCP)
+RUN pip install --no-cache-dir \
+    "lancedb>=0.13.0" \
+    "pyarrow>=18.0.0" \
+    "pypdf>=4.0.0"
+
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \
     "python-telegram-bot>=20.7" \

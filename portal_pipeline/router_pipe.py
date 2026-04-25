@@ -256,6 +256,40 @@ _persona_usage = Counter(
     registry=_REGISTRY,
 )
 
+# ── Tool-call metrics (M2) ─────────────────────────────────────────────────
+_tool_calls_total = Counter(
+    "portal5_tool_calls_total",
+    "Total tool calls dispatched, by tool name and workspace",
+    ["tool", "workspace"],
+    registry=_REGISTRY,
+)
+_tool_call_duration = Histogram(
+    "portal5_tool_call_duration_seconds",
+    "Tool call dispatch latency in seconds, by tool name",
+    ["tool"],
+    buckets=[0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
+    registry=_REGISTRY,
+)
+_tool_call_errors = Counter(
+    "portal5_tool_call_errors_total",
+    "Tool calls that returned error, by tool and workspace",
+    ["tool", "workspace"],
+    registry=_REGISTRY,
+)
+_tool_workspace_strip = Counter(
+    "portal5_tool_workspace_strip_total",
+    "Tools stripped from request because workspace doesn't authorize them",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+_tool_loop_hops = Histogram(
+    "portal5_tool_loop_hops",
+    "Number of hops in the multi-turn tool loop per request",
+    ["workspace"],
+    buckets=[1, 2, 3, 5, 8, 10, 15, 20],
+    registry=_REGISTRY,
+)
+
 
 def _record_usage(
     model: str, workspace: str, data: dict, elapsed_seconds: float | None = None
@@ -366,10 +400,36 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
         logger.debug("Failed to record response time: %s", e)
 
 
+# ── Persona map (for tool whitelist resolution) ─────────────────────────────
+_PERSONA_MAP: dict[str, dict[str, Any]] = {}
+
+
+def _load_persona_map() -> None:
+    """Load persona YAML files into a slug -> data dict for tool resolution."""
+    global _PERSONA_MAP
+    personas_dir = Path(__file__).resolve().parent.parent / "config" / "personas"
+    if not personas_dir.is_dir():
+        return
+    try:
+        import yaml  # noqa: F811 — pyyaml is a pipeline dependency
+
+        for yf in sorted(personas_dir.glob("*.yaml")):
+            try:
+                data = yaml.safe_load(yf.read_text()) or {}
+                slug = data.get("slug", yf.stem)
+                _PERSONA_MAP[slug] = data
+            except Exception as e:
+                logger.debug("Failed to load persona %s: %s", yf, e)
+    except Exception as e:
+        logger.warning("Failed to load persona map: %s", e)
+
+
+_load_persona_map()
+
 # Canonical workspace definitions — must match backends.yaml workspace_routing keys
 # model_hint: preferred Ollama model tag within the routed backend group
 # mlx_model_hint: preferred MLX model tag (HF path) for workspaces that route through MLX
-WORKSPACES: dict[str, dict[str, str]] = {
+WORKSPACES: dict[str, dict[str, Any]] = {
     "auto": {
         "name": "🤖 Portal Auto Router",
         "description": (
@@ -378,12 +438,21 @@ WORKSPACES: dict[str, dict[str, str]] = {
             "Reasoning/research → DeepSeek-R1. Other → general."
         ),
         "model_hint": "dolphin-llama3:8b",
+        "tools": [],
     },
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder-next:30b-q5",  # Primary Ollama coding fallback (Qwen3-Coder-Next GGUF)
-        "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 — 53.6% SWE-bench, best open-source agentic coder <40GB
+        "model_hint": "qwen3-coder-next:30b-q5",
+        "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "tools": [
+            "execute_python",
+            "execute_nodejs",
+            "execute_bash",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+        ],
     },
     "auto-agentic": {
         "name": "⚡ Portal Agentic Coder (Heavy)",
@@ -395,88 +464,155 @@ WORKSPACES: dict[str, dict[str, str]] = {
         ),
         "model_hint": "qwen3-coder-next:30b-q5",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
-        "context_limit": 32768,  # KV cache suppression — see P5-BIG-001
+        "context_limit": 32768,
+        "tools": [
+            "execute_python",
+            "execute_bash",
+            "execute_nodejs",
+            "sandbox_status",
+            "create_word_document",
+            "create_excel",
+            "create_powerpoint",
+            "read_word_document",
+            "read_excel",
+            "read_powerpoint",
+            "read_pdf",
+            "classify_vulnerability",
+            "transcribe_audio",
+            "speak",
+            "generate_image",
+            "web_search",
+            "web_fetch",
+            "remember",
+            "recall",
+            "kb_search",
+            "kb_list",
+        ],
     },
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
         "description": "Splunk SPL queries, pipeline explanation, detection search authoring",
         "model_hint": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",  # FIX: DeepSeek-Coder-V2-Lite-8bit causes consistent 120s timeouts; Qwen3-Coder-30B handles SPL reliably
+        "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "tools": ["classify_vulnerability", "kb_search", "kb_list"],
     },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
+        "tools": [
+            "classify_vulnerability",
+            "execute_python",
+            "execute_bash",
+            "web_search",
+            "web_fetch",
+            "kb_search",
+            "kb_list",
+        ],
     },
     "auto-redteam": {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
+        "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
         "model_hint": "lily-cybersecurity:7b-q4_k_m",
+        "tools": ["execute_python", "classify_vulnerability"],
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
         "model_hint": "dolphin-llama3:8b",
         "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+        "tools": [],
     },
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
-        "emits_reasoning": True,  # Qwopus-27B / Claude-4.6-Opus distill — chain-of-thought
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/phi-4-8bit",  # Microsoft Phi-4 14B — structured doc generation, STEM reasoning
+        "mlx_model_hint": "mlx-community/phi-4-8bit",
+        "tools": [
+            "create_word_document",
+            "create_excel",
+            "create_powerpoint",
+            "read_word_document",
+            "read_excel",
+            "read_powerpoint",
+            "read_pdf",
+        ],
     },
     "auto-video": {
         "name": "🎬 Portal Video Creator",
         "description": "Generate videos via ComfyUI / Wan2.2",
         "model_hint": "dolphin-llama3:8b",
+        "tools": [],
     },
     "auto-music": {
         "name": "🎵 Portal Music Producer",
         "description": "Generate music and audio via AudioCraft/MusicGen",
         "model_hint": "dolphin-llama3:8b",
+        "tools": [],
     },
     "auto-research": {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",  # Text-only mlx_lm path — fixes empty responses from VLM routing mismatch; v2 resolves known serving-template/reasoning bug
-        "predict_limit": 16384,  # Prevents DeepSeek-R1 Ollama fallback from CoT exhaustion (empty content)
-        "emits_reasoning": True,  # supergemma4 + reasoning Ollama fallback
+        "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [
+            "web_search",
+            "web_fetch",
+            "news_search",
+            "kb_search",
+            "kb_search_all",
+            "kb_list",
+            "remember",
+            "recall",
+        ],
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks",
         "model_hint": "qwen3-vl:32b",
-        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B replaces 26B MoE (more capable, ~18GB)
+        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",
+        "tools": ["transcribe_audio"],
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # Bench 2026-04-25: 7.6 TPS × Q=1.00; 8bit (34GB) fails to load under normal conditions (~44GB needed)
-        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
-        "emits_reasoning": True,  # DeepSeek-R1
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
         "description": "NERC CIP compliance, policy analysis, regulatory guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
-        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
-        "emits_reasoning": True,  # 35B-A3B + DeepSeek-R1 fallback
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [
+            "create_word_document",
+            "read_pdf",
+            "kb_search",
+            "kb_list",
+            "web_search",
+        ],
     },
     "auto-mistral": {
         "name": "🧪 Portal Mistral Reasoner",
@@ -486,82 +622,181 @@ WORKSPACES: dict[str, dict[str, str]] = {
         ),
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
-        "predict_limit": 16384,  # Prevents Ollama R1 CoT exhaustion (empty content)
-        "emits_reasoning": True,  # Magistral [THINK] mode
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": ["execute_python", "execute_bash"],
     },
     "auto-math": {
         "name": "🧮 Portal Math Reasoner",
         "description": "Mathematical problem solving, proofs, calculus, algebra, statistics",
-        "model_hint": "qwen3.5:9b",  # Ollama fallback — generalist
-        "mlx_model_hint": "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",  # Math-specific
-        "predict_limit": 8192,  # Math proofs can be long; allow space
+        "model_hint": "qwen3.5:9b",
+        "mlx_model_hint": "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",
+        "predict_limit": 8192,
+        "tools": ["execute_python"],
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
-    # User-selected only — never auto-routed by the LLM intent classifier.
-    # Each workspace is pinned to exactly one model via mlx_model_hint / model_hint.
-    # No context_limit — benchmarks must run at full context for fair comparison.
-    # Companion personas (config/personas/bench_*.yaml) carry the Creative Coder
-    # system prompt verbatim so all models are evaluated under identical framing.
     "bench-devstral": {
         "name": "🔬 Bench · Devstral-Small-2507",
         "description": "Benchmark: Devstral-Small-2507 (MLX, Mistral/Codestral lineage, ~15GB, 53.6% SWE-bench)",
         "model_hint": "devstral:24b",
         "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-qwen3-coder-next": {
         "name": "🔬 Bench · Qwen3-Coder-Next (80B MoE)",
         "description": "Benchmark: Qwen3-Coder-Next-4bit (MLX, Alibaba, 80B MoE 3B active, ~46GB, 256K ctx — cold load ~60s)",
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-qwen3-coder-30b": {
         "name": "🔬 Bench · Qwen3-Coder-30B",
         "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit (MLX, Alibaba, 30B MoE 3B active, ~22GB)",
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-llama33-70b": {
         "name": "🔬 Bench · Llama-3.3-70B",
         "description": "Benchmark: Llama-3.3-70B-Instruct-4bit (MLX, Meta, ~40GB — cold load ~60s, plan for sequential runs)",
         "model_hint": "llama3.3:70b-q4_k_m",
         "mlx_model_hint": "mlx-community/Llama-3.3-70B-Instruct-4bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-phi4": {
         "name": "🔬 Bench · Phi-4",
         "description": "Benchmark: phi-4-8bit (MLX, Microsoft, 14B, synthetic training data — distinct methodology)",
         "model_hint": "qwen3.5:9b",
         "mlx_model_hint": "mlx-community/phi-4-8bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-phi4-reasoning": {
         "name": "🔬 Bench · Phi-4-reasoning-plus",
         "description": "Benchmark: Phi-4-reasoning-plus (MLX, Microsoft, RL-trained, ~7GB — produces reasoning traces before code)",
         "model_hint": "qwen3.5:9b",
         "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-dolphin8b": {
         "name": "🔬 Bench · Dolphin-Llama3-8B",
         "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit (MLX, Cognitive Computations, ~9GB — fast baseline, uncensored)",
         "model_hint": "dolphin-llama3:8b",
         "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
-        "mlx_only": True,  # Hard-fail if MLX unavailable — no Ollama fallback during benchmark
+        "mlx_only": True,
+        "tools": [],
     },
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
         "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhipu AI — distinct Chinese research lineage, ~6GB)",
         "model_hint": "glm-4.7-flash:q4_k_m",
+        "tools": [],
     },
     "bench-gptoss": {
         "name": "🔬 Bench · GPT-OSS-20B",
         "description": "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level — configurable thinking depth)",
         "model_hint": "gpt-oss:20b",
+        "tools": [],
     },
 }
+
+# ── Tool-call helpers (M2) ──────────────────────────────────────────────────
+
+MAX_TOOL_HOPS = int(os.environ.get("MAX_TOOL_HOPS", "10"))
+
+
+def _workspace_tools(workspace_id: str) -> list[str]:
+    """Get the tool whitelist for a workspace."""
+    return WORKSPACES.get(workspace_id, {}).get("tools", [])
+
+
+def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
+    """Resolve the effective tool list for a persona within a workspace.
+
+    Order of precedence:
+        1. persona.tools_deny — always strips these tools
+        2. persona.tools_allow — if present, uses this list (then applies deny)
+        3. workspace.tools — default fallback
+    """
+    workspace_tools = set(_workspace_tools(workspace_id))
+    persona_allow = set(persona.get("tools_allow", []) or [])
+    persona_deny = set(persona.get("tools_deny", []) or [])
+
+    effective = persona_allow or workspace_tools
+    effective = effective - persona_deny
+    return sorted(effective)
+
+
+async def _dispatch_tool_call(
+    tool_call: dict,
+    effective_tools: set[str],
+    workspace_id: str,
+    persona: str,
+    request_id: str,
+) -> dict:
+    """Dispatch a single tool call. Returns the tool result message.
+
+    Returns a dict shaped like an OpenAI tool message:
+        {"role": "tool", "tool_call_id": "...", "name": "...", "content": "..."}
+    """
+    from portal_pipeline.tool_registry import tool_registry
+
+    fn = tool_call.get("function", {})
+    tool_name = fn.get("name", "")
+    arguments_str = fn.get("arguments", "{}")
+    tool_call_id = tool_call.get("id", "")
+
+    # Parse arguments
+    try:
+        arguments = json.loads(arguments_str) if arguments_str else {}
+    except json.JSONDecodeError:
+        _record_error(workspace_id, "tool_arg_parse")
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "name": tool_name,
+            "content": json.dumps({"error": f"Invalid JSON arguments: {arguments_str[:200]}"}),
+        }
+
+    # Whitelist enforcement
+    if tool_name not in effective_tools:
+        _record_error(workspace_id, "tool_not_allowed")
+        logger.warning(
+            "Tool %s called but not in workspace=%s persona=%s whitelist; rejected",
+            tool_name,
+            workspace_id,
+            persona,
+        )
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "name": tool_name,
+            "content": json.dumps({"error": f"Tool '{tool_name}' not available for {persona}"}),
+        }
+
+    # Dispatch via registry
+    t0 = time.monotonic()
+    result = await tool_registry.dispatch(tool_name, arguments, request_id=request_id)
+    elapsed = time.monotonic() - t0
+
+    # Metrics
+    _tool_calls_total.labels(tool=tool_name, workspace=workspace_id).inc()
+    _tool_call_duration.labels(tool=tool_name).observe(elapsed)
+    if "error" in result:
+        _tool_call_errors.labels(tool=tool_name, workspace=workspace_id).inc()
+
+    return {
+        "role": "tool",
+        "tool_call_id": tool_call_id,
+        "name": tool_name,
+        "content": json.dumps(result) if isinstance(result, (dict, list)) else str(result),
+    }
+
 
 # ── Content-aware routing: weighted keyword scoring ──────────────────────────
 # Applied only when the user selects the 'auto' workspace.
@@ -1935,7 +2170,7 @@ async def chat_completions(
             body = await request.json()
         except Exception:
             _concurrent_requests.dec()
-            raise HTTPException(status_code=400, detail="Invalid JSON body")
+            raise HTTPException(status_code=400, detail="Invalid JSON body") from None
         workspace_id = body.get("model") or "auto"
         stream = body.get("stream", False)
 
@@ -2121,6 +2356,28 @@ async def chat_completions(
         if backend.type == "ollama":
             backend_body = _inject_ollama_options(backend_body, workspace_id)
 
+        # Resolve effective tool list for this request (M2)
+        persona_data = _PERSONA_MAP.get(persona, {})
+        effective_tools = _resolve_persona_tools(persona_data, workspace_id)
+        _has_tools = bool(effective_tools) and backend.type == "ollama"
+
+        if _has_tools:
+            from portal_pipeline.tool_registry import tool_registry
+
+            await tool_registry.refresh()
+            tools_array = tool_registry.get_openai_tools(effective_tools)
+            if tools_array:
+                backend_body["tools"] = tools_array
+                backend_body["tool_choice"] = backend_body.get("tool_choice", "auto")
+                logger.info(
+                    "Tool-call: workspace=%s persona=%s exposed %d tools",
+                    workspace_id,
+                    persona,
+                    len(tools_array),
+                )
+            else:
+                _has_tools = False
+
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s (1/%d candidates)",
             workspace_id,
@@ -2133,15 +2390,29 @@ async def chat_completions(
         if len(candidates) == 1:
             # Single candidate — no fallback possible, return streaming directly
             _record_persona(persona, target_model)
-            _streaming_response = StreamingResponse(
-                _stream_with_preamble(
+            _stream_fn = (
+                _stream_with_tool_loop(
+                    backend.chat_url,
+                    backend_body,
+                    _request_semaphore,
+                    workspace_id,
+                    target_model,
+                    persona,
+                    set(effective_tools),
+                    start_time,
+                )
+                if _has_tools
+                else _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
                     _request_semaphore,
                     workspace_id=workspace_id,
                     model=target_model,
                     start_time=start_time,
-                ),
+                )
+            )
+            _streaming_response = StreamingResponse(
+                _stream_fn,
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
@@ -2156,14 +2427,28 @@ async def chat_completions(
         async def _stream_or_fallback() -> AsyncIterator[bytes]:
             stream_failed = False
             try:
-                async for chunk in _stream_with_preamble(
-                    backend.chat_url,
-                    backend_body,
-                    _request_semaphore,
-                    workspace_id=workspace_id,
-                    model=target_model,
-                    start_time=start_time,
-                ):
+                _inner_stream = (
+                    _stream_with_tool_loop(
+                        backend.chat_url,
+                        backend_body,
+                        _request_semaphore,
+                        workspace_id,
+                        target_model,
+                        persona,
+                        set(effective_tools),
+                        start_time,
+                    )
+                    if _has_tools
+                    else _stream_with_preamble(
+                        backend.chat_url,
+                        backend_body,
+                        _request_semaphore,
+                        workspace_id=workspace_id,
+                        model=target_model,
+                        start_time=start_time,
+                    )
+                )
+                async for chunk in _inner_stream:
                     if b'"error"' in chunk:
                         stream_failed = True
                     yield chunk
@@ -2257,6 +2542,325 @@ async def chat_completions(
             # Non-streaming: response fully awaited above, safe to release here
             # Streaming: generator releases after stream completes
             _request_semaphore.release()
+
+
+async def _stream_with_tool_loop(
+    backend_url: str,
+    body: dict,
+    sem: asyncio.Semaphore,
+    workspace_id: str,
+    model: str,
+    persona: str,
+    effective_tools: set[str],
+    start_time: float | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream from backend, dispatching tool calls and re-injecting results.
+
+    Yields the user-visible SSE stream. Tool-call chunks are passed through
+    (OWUI renders them); tool results are emitted as custom SSE events.
+    Loop continues until finish_reason=stop or MAX_TOOL_HOPS is reached.
+    """
+    request_id = f"chatcmpl-p5-{int(time.time())}"
+    hop = 0
+    current_body = dict(body)
+
+    while hop < MAX_TOOL_HOPS:
+        hop += 1
+
+        # Accumulators for this iteration
+        tool_calls_buf: list[dict] = []
+        finish_reason: str | None = None
+        _ollama_tool_calls: list[dict] | None = None
+
+        # Emit preamble (role chunk) on first hop
+        if hop == 1:
+            ts = int(time.time())
+            role_chunk = {
+                "id": request_id,
+                "object": "chat.completion.chunk",
+                "created": ts,
+                "model": workspace_id,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": ""},
+                        "finish_reason": None,
+                    }
+                ],
+            }
+            yield f"data: {json.dumps(role_chunk)}\n\n".encode()
+            if _SHOW_ROUTING_STATUS:
+                ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
+                status_chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": ts,
+                    "model": workspace_id,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"content": f"`⚡ {ws_name} → {model}`\n\n"},
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+                yield f"data: {json.dumps(status_chunk)}\n\n".encode()
+
+        # Stream from backend
+        try:
+            async with _http_client.stream("POST", backend_url, json=current_body) as resp:
+                if resp.status_code != 200:
+                    err = await resp.aread()
+                    logger.error(
+                        "Tool-loop backend returned HTTP %d: %s", resp.status_code, err[:200]
+                    )
+                    yield (
+                        f"data: {json.dumps({'error': f'Backend HTTP {resp.status_code}'})}\n\n"
+                    ).encode()
+                    return
+
+                _is_ollama_native = "/api/chat" in backend_url and "/v1/" not in backend_url
+                rid = f"chatcmpl-p5-{int(time.time())}"
+                ts = int(time.time())
+
+                async for chunk in resp.aiter_bytes():
+                    if not chunk:
+                        continue
+                    if _is_ollama_native:
+                        chunk_text = chunk.decode("utf-8", errors="replace")
+                        for line in chunk_text.splitlines():
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                obj = json.loads(line)
+                            except Exception:
+                                continue
+                            msg = obj.get("message") or {}
+
+                            # Capture tool calls from Ollama native format
+                            if "tool_calls" in msg and msg["tool_calls"]:
+                                _ollama_tool_calls = msg["tool_calls"]
+                                # Forward tool_calls as SSE so OWUI can render
+                                for tc in msg["tool_calls"]:
+                                    tc_sse = {
+                                        "id": rid,
+                                        "object": "chat.completion.chunk",
+                                        "created": ts,
+                                        "model": workspace_id,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {
+                                                    "tool_calls": [
+                                                        {
+                                                            "index": 0,
+                                                            "id": tc.get("id", f"call_{rid}"),
+                                                            "type": "function",
+                                                            "function": {
+                                                                "name": tc.get("function", {}).get(
+                                                                    "name", ""
+                                                                ),
+                                                                "arguments": json.dumps(
+                                                                    tc.get("function", {}).get(
+                                                                        "arguments", {}
+                                                                    )
+                                                                ),
+                                                            },
+                                                        }
+                                                    ],
+                                                },
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    yield f"data: {json.dumps(tc_sse)}\n\n".encode()
+
+                            content_delta = (
+                                msg.get("content", "")
+                                if isinstance(msg.get("content"), str)
+                                else ""
+                            )
+                            reasoning_delta = (
+                                msg.get("reasoning_content", "")
+                                or msg.get("reasoning", "")
+                                or msg.get("thinking", "")
+                            )
+                            if isinstance(reasoning_delta, dict):
+                                reasoning_delta = reasoning_delta.get("text", "") or ""
+                            done = obj.get("done", False)
+                            if content_delta or reasoning_delta or done:
+                                delta_payload: dict = {}
+                                if content_delta:
+                                    delta_payload["content"] = content_delta
+                                if reasoning_delta:
+                                    delta_payload["reasoning_content"] = reasoning_delta
+                                sse_chunk = {
+                                    "id": rid,
+                                    "object": "chat.completion.chunk",
+                                    "created": ts,
+                                    "model": workspace_id,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": delta_payload,
+                                            "finish_reason": "stop" if done else None,
+                                        }
+                                    ],
+                                }
+                                yield f"data: {json.dumps(sse_chunk)}\n\n".encode()
+
+                            if done:
+                                finish_reason = "tool_calls" if _ollama_tool_calls else "stop"
+                                elapsed = (time.monotonic() - start_time) if start_time else None
+                                _record_usage(
+                                    model=obj.get("model", model),
+                                    workspace=workspace_id,
+                                    data=obj,
+                                    elapsed_seconds=elapsed,
+                                )
+                    else:
+                        # OpenAI SSE path — detect tool_calls in delta
+                        chunk_text = chunk.decode("utf-8", errors="replace")
+                        for line in chunk_text.splitlines():
+                            if not line.startswith("data: "):
+                                yield (line + "\n\n").encode() if line else b""
+                                continue
+                            data_str = line[6:].strip()
+                            if data_str == "[DONE]":
+                                yield b"data: [DONE]\n\n"
+                                continue
+                            try:
+                                obj = json.loads(data_str)
+                            except Exception:
+                                yield (line + "\n\n").encode()
+                                continue
+
+                            choice = (obj.get("choices") or [{}])[0]
+                            delta = choice.get("delta", {})
+
+                            if "tool_calls" in delta:
+                                for tc_delta in delta["tool_calls"]:
+                                    idx = tc_delta.get("index", 0)
+                                    while len(tool_calls_buf) <= idx:
+                                        tool_calls_buf.append(
+                                            {
+                                                "id": "",
+                                                "type": "function",
+                                                "function": {"name": "", "arguments": ""},
+                                            }
+                                        )
+                                    buf = tool_calls_buf[idx]
+                                    if "id" in tc_delta:
+                                        buf["id"] = tc_delta["id"]
+                                    if "function" in tc_delta:
+                                        fn = tc_delta["function"]
+                                        if "name" in fn:
+                                            buf["function"]["name"] += fn["name"]
+                                        if "arguments" in fn:
+                                            buf["function"]["arguments"] += fn["arguments"]
+
+                            if choice.get("finish_reason"):
+                                finish_reason = choice["finish_reason"]
+
+                            yield (line + "\n\n").encode()
+        except Exception as e:
+            logger.error("Tool-loop stream error from %s: %s", backend_url, e)
+            _record_error(workspace_id, "stream_error")
+            yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
+            return
+
+        # After stream completes, check if tool calls were emitted
+        if finish_reason == "tool_calls":
+            # Collect tool calls (Ollama native vs OpenAI format)
+            all_tool_calls = []
+            if _ollama_tool_calls:
+                for tc in _ollama_tool_calls:
+                    fn = tc.get("function", {})
+                    all_tool_calls.append(
+                        {
+                            "id": tc.get("id", f"call_{request_id}"),
+                            "type": "function",
+                            "function": {
+                                "name": fn.get("name", ""),
+                                "arguments": json.dumps(fn.get("arguments", {}))
+                                if isinstance(fn.get("arguments"), dict)
+                                else str(fn.get("arguments", "{}")),
+                            },
+                        }
+                    )
+            elif tool_calls_buf:
+                all_tool_calls = tool_calls_buf
+
+            if not all_tool_calls:
+                return
+
+            _tool_loop_hops.labels(workspace=workspace_id).observe(hop)
+
+            # Hop limit guard
+            if hop >= MAX_TOOL_HOPS:
+                limit_msg = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {
+                                "content": f"\n\n[Tool-use limit ({MAX_TOOL_HOPS} hops) reached. Returning partial result.]"
+                            },
+                            "finish_reason": "stop",
+                        }
+                    ],
+                }
+                yield f"data: {json.dumps(limit_msg)}\n\n".encode()
+                yield b"data: [DONE]\n\n"
+                return
+
+            # Dispatch all tool calls in parallel
+            dispatch_results = await asyncio.gather(
+                *[
+                    _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
+                    for tc in all_tool_calls
+                ],
+            )
+
+            # Emit tool_result SSE events
+            for _tc, result in zip(all_tool_calls, dispatch_results, strict=False):
+                tool_result_event = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "tool_result": result,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
+                }
+                yield f"event: tool_result\ndata: {json.dumps(tool_result_event)}\n\n".encode()
+
+            # Append assistant turn and tool results to message list
+            assistant_msg = {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": all_tool_calls,
+            }
+            current_body["messages"] = (
+                current_body.get("messages", []) + [assistant_msg] + dispatch_results
+            )
+
+            logger.info(
+                "Tool loop hop=%d/%d workspace=%s tools_called=%s",
+                hop,
+                MAX_TOOL_HOPS,
+                workspace_id,
+                [tc["function"]["name"] for tc in all_tool_calls],
+            )
+            # Continue loop for next iteration
+        else:
+            # Model finished without tool calls — done
+            if start_time is not None:
+                _record_response_time(model, workspace_id, time.monotonic() - start_time)
+            return
 
 
 async def _stream_with_preamble(
