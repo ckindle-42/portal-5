@@ -1955,16 +1955,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() in ("true", "1", "yes"):
         _init_notifications(registry)
 
+    async def _on_health(r: "BackendRegistry") -> None:
+        if _notification_dispatcher:
+            await _notification_dispatcher.check_thresholds_and_alert(r)
+
     _health_task = asyncio.create_task(
-        registry.start_health_loop(
-            on_health_check=(
-                lambda r: (
-                    _notification_dispatcher.check_thresholds_and_alert(r)
-                    if _notification_dispatcher
-                    else None
-                )
-            )
-        )
+        registry.start_health_loop(on_health_check=_on_health)
     )
 
     # Background task: persist metrics state to disk every 60s

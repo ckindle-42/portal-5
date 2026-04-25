@@ -72,7 +72,7 @@ class NotificationDispatcher:
 
     # ── Threshold checking ──────────────────────────────────────────────────
 
-    def check_thresholds_and_alert(
+    async def check_thresholds_and_alert(
         self,
         registry: BackendRegistry,
         down_threshold: int | None = None,
@@ -113,7 +113,7 @@ class NotificationDispatcher:
                 if count == down_threshold:
                     metadata: dict = {}
                     if backend.type == "mlx":
-                        metadata = self._fetch_mlx_context()
+                        metadata = await self._fetch_mlx_context()
                     event = AlertEvent(
                         type=EventType.BACKEND_DOWN,
                         message=(
@@ -136,7 +136,7 @@ class NotificationDispatcher:
             metadata: dict = {}
             mlx_backend = registry._backends.get("mlx-apple-silicon")
             if mlx_backend and not mlx_backend.healthy:
-                metadata = self._fetch_mlx_context()
+                metadata = await self._fetch_mlx_context()
             event = AlertEvent(
                 type=EventType.ALL_BACKENDS_DOWN,
                 message="All backends are unhealthy. Portal 5 cannot serve requests.",
@@ -148,25 +148,26 @@ class NotificationDispatcher:
         if currently_healthy and self._alerted_all_down:
             self._alerted_all_down = False
 
-    def _fetch_mlx_context(self) -> dict:
+    async def _fetch_mlx_context(self) -> dict:
         """Fetch detailed MLX proxy state for alert enrichment.
 
-        Makes a synchronous HTTP call to the MLX proxy /health endpoint.
+        Async — does not block the asyncio event loop. Caller must await.
         Returns context dict or empty dict on failure.
         """
         try:
-            resp = httpx.get(_MLX_PROXY_HEALTH_URL, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                return {
-                    "mlx_server": data.get("active_server", "unknown"),
-                    "mlx_model": data.get("loaded_model", "none"),
-                    "mlx_state": data.get("state", "unknown"),
-                    "mlx_error": data.get("last_error") or "none",
-                    "mlx_consecutive_failures": data.get("consecutive_failures", 0),
-                    "mlx_switch_count": data.get("switch_count", 0),
-                    "mlx_state_duration": f"{data.get('state_duration_sec', 0)}s",
-                }
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(_MLX_PROXY_HEALTH_URL)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {
+                        "mlx_server": data.get("active_server", "unknown"),
+                        "mlx_model": data.get("loaded_model", "none"),
+                        "mlx_state": data.get("state", "unknown"),
+                        "mlx_error": data.get("last_error") or "none",
+                        "mlx_consecutive_failures": data.get("consecutive_failures", 0),
+                        "mlx_switch_count": data.get("switch_count", 0),
+                        "mlx_state_duration": f"{data.get('state_duration_sec', 0)}s",
+                    }
         except Exception as e:
             logger.debug("Failed to fetch MLX context for alert: %s", e)
         return {}

@@ -12,6 +12,7 @@ import os
 import random
 import re
 import time
+import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -346,14 +347,13 @@ class BackendRegistry:
 
     async def start_health_loop(
         self,
-        on_health_check: Callable[[BackendRegistry], None] | None = None,
+        on_health_check: Callable | None = None,
     ) -> None:
         """Background task: run health checks periodically.
 
         Args:
             on_health_check: Optional callback called after each health check cycle.
-                             Receives `self` (the BackendRegistry). Use for triggering
-                             external effects like notification dispatches.
+                             Receives `self` (the BackendRegistry). May be sync or async.
         """
         logger.info("Starting health check loop (interval: %ss)", self._health_check_interval)
         while True:
@@ -361,7 +361,9 @@ class BackendRegistry:
                 await asyncio.sleep(self._health_check_interval)
                 await self.health_check_all()
                 if on_health_check is not None:
-                    on_health_check(self)
+                    result = on_health_check(self)
+                    if inspect.isawaitable(result):
+                        await result
             except asyncio.CancelledError:
                 logger.info("Health check loop cancelled")
                 break

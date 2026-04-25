@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -271,15 +272,15 @@ class TestNotificationDispatcher:
             mock_registry._backends = {"test-backend": mock_backend}
 
             # Two checks — should accumulate but not fire
-            disp.check_thresholds_and_alert(mock_registry)
+            asyncio.run(disp.check_thresholds_and_alert(mock_registry))
             assert disp._failure_counts["test-backend"] == 1
-            disp.check_thresholds_and_alert(mock_registry)
+            asyncio.run(disp.check_thresholds_and_alert(mock_registry))
             assert disp._failure_counts["test-backend"] == 2
 
             # Third check — crosses threshold (3 == ALERT_BACKEND_DOWN_THRESHOLD=3)
             # We assert the counter reached the threshold value — the actual async
             # dispatch is tested separately in async tests.
-            disp.check_thresholds_and_alert(mock_registry)
+            asyncio.run(disp.check_thresholds_and_alert(mock_registry))
             assert disp._failure_counts["test-backend"] == 3
 
     def test_recovery_fires_event(self):
@@ -312,7 +313,7 @@ class TestNotificationDispatcher:
                 patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
                 patch("asyncio.ensure_future"),
             ):
-                disp.check_thresholds_and_alert(mock_registry)
+                asyncio.run(disp.check_thresholds_and_alert(mock_registry))
                 mock_dispatch.assert_called_once()
                 event = mock_dispatch.call_args[0][0]
                 assert event.type == EventType.BACKEND_RECOVERED
@@ -342,7 +343,7 @@ class TestNotificationDispatcher:
                 patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
                 patch("asyncio.ensure_future"),
             ):
-                disp.check_thresholds_and_alert(mock_registry)
+                asyncio.run(disp.check_thresholds_and_alert(mock_registry))
                 # Should fire ALL_BACKENDS_DOWN
                 all_down_events = [
                     c[0][0]
@@ -356,7 +357,7 @@ class TestNotificationDispatcher:
                 patch.object(disp, "dispatch", new_callable=AsyncMock) as mock_dispatch,
                 patch("asyncio.ensure_future"),
             ):
-                disp.check_thresholds_and_alert(mock_registry)
+                asyncio.run(disp.check_thresholds_and_alert(mock_registry))
                 all_down_events = [
                     c[0][0]
                     for c in mock_dispatch.call_args_list
@@ -387,7 +388,7 @@ class TestNotificationDispatcher:
                 patch.object(disp, "dispatch", new_callable=AsyncMock),
                 patch("asyncio.ensure_future"),
             ):
-                disp.check_thresholds_and_alert(mock_registry)
+                asyncio.run(disp.check_thresholds_and_alert(mock_registry))
             assert disp._alerted_all_down is False
 
 
