@@ -44,6 +44,8 @@ Test Coverage (22 sections, ~300 tests):
     S40:     Metrics/monitoring (Prometheus, Grafana)
     S41:     M6 production hardening (/health/all, rate limits, admin endpoints, power metrics)
     S42:     M5 browser automation (Browser MCP health, tool manifest)
+    S60:     M2 tool-calling orchestration (registry, dispatch, metrics)
+    S70:     M3 information access MCPs (research, memory, RAG, SearXNG)
 
 Changes from v5:
     - Added S16 (Security MCP tool tests — classify_vulnerability)
@@ -113,6 +115,7 @@ SEARXNG_URL = "http://localhost:8088"
 PROMETHEUS_URL = "http://localhost:9090"
 GRAFANA_URL = "http://localhost:3000"
 COMFYUI_URL = "http://localhost:8188"
+EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8917")
 
 # API credentials
 API_KEY = os.environ.get("PIPELINE_API_KEY", "")
@@ -3625,6 +3628,209 @@ async def S42() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# S60: M2 Tool-Calling Orchestration
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def S60() -> None:
+    """S60: M2 tool-calling orchestration — registry, dispatch, multi-turn loop."""
+    print("\n━━━ S60. M2 TOOL-CALLING ORCHESTRATION ━━━")
+    sec = "S60"
+
+    # S60-01: Tool registry module exists
+    t0 = time.time()
+    try:
+        from portal_pipeline.tool_registry import tool_registry
+        names = tool_registry.list_tool_names()
+        record(sec, "S60-01", "Tool registry loaded", "PASS",
+               f"{len(names)} tools: {', '.join(names[:5])}...", t0=t0)
+    except Exception as e:
+        record(sec, "S60-01", "Tool registry loaded", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-02: WORKSPACES have tools arrays
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import WORKSPACES
+        with_tools = {k: v.get("tools", []) for k, v in WORKSPACES.items() if v.get("tools")}
+        record(sec, "S60-02", "Workspace tool whitelists", "PASS",
+               f"{len(with_tools)}/{len(WORKSPACES)} workspaces have tools", t0=t0)
+    except Exception as e:
+        record(sec, "S60-02", "Workspace tool whitelists", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-03: _resolve_persona_tools function exists
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import _resolve_persona_tools
+        result = _resolve_persona_tools({"tools_allow": ["execute_python"]}, "auto-coding")
+        assert "execute_python" in result
+        record(sec, "S60-03", "Persona tool resolution", "PASS",
+               f"tools_allow override works: {result}", t0=t0)
+    except Exception as e:
+        record(sec, "S60-03", "Persona tool resolution", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-04: _dispatch_tool_call function exists
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import _dispatch_tool_call
+        record(sec, "S60-04", "Tool dispatch function", "PASS", "exists", t0=t0)
+    except Exception as e:
+        record(sec, "S60-04", "Tool dispatch function", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-05: MAX_TOOL_HOPS configurable
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import MAX_TOOL_HOPS
+        assert isinstance(MAX_TOOL_HOPS, int) and MAX_TOOL_HOPS > 0
+        record(sec, "S60-05", "MAX_TOOL_HOPS", "PASS", f"value={MAX_TOOL_HOPS}", t0=t0)
+    except Exception as e:
+        record(sec, "S60-05", "MAX_TOOL_HOPS", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-06: Tool-call metrics present in /metrics
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{PIPELINE_URL}/metrics", timeout=10)
+        if r.status_code == 200:
+            has_tool_calls = "portal5_tool_calls_total" in r.text
+            has_tool_duration = "portal5_tool_call_duration_seconds" in r.text
+            has_tool_errors = "portal5_tool_call_errors_total" in r.text
+            if has_tool_calls and has_tool_duration:
+                record(sec, "S60-06", "Tool-call Prometheus metrics", "PASS",
+                       "portal5_tool_calls_total + duration present", t0=t0)
+            else:
+                record(sec, "S60-06", "Tool-call Prometheus metrics", "WARN",
+                       "some tool metrics missing", t0=t0)
+        else:
+            record(sec, "S60-06", "Tool-call Prometheus metrics", "FAIL",
+                   f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S60-06", "Tool-call Prometheus metrics", "FAIL", str(e)[:100], t0=t0)
+
+    # S60-07: agentorchestrator persona exists
+    t0 = time.time()
+    try:
+        p = ROOT / "config" / "personas" / "agentorchestrator.yaml"
+        if p.exists():
+            import yaml
+            data = yaml.safe_load(p.read_text())
+            record(sec, "S60-07", "agentorchestrator persona", "PASS",
+                   f"slug={data.get('slug')}, workspace={data.get('workspace_model')}", t0=t0)
+        else:
+            record(sec, "S60-07", "agentorchestrator persona", "FAIL", "file missing", t0=t0)
+    except Exception as e:
+        record(sec, "S60-07", "agentorchestrator persona", "FAIL", str(e)[:100], t0=t0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# S70: M3 Information Access MCPs
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def S70() -> None:
+    """S70: M3 information access MCPs — research, memory, RAG, SearXNG."""
+    print("\n━━━ S70. M3 INFORMATION ACCESS MCPS ━━━")
+    sec = "S70"
+
+    # S70-01: SearXNG search
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{SEARXNG_URL}/search?q=test&format=json", timeout=15)
+        if r.status_code == 200:
+            data = r.json()
+            results = data.get("results", [])
+            record(sec, "S70-01", "SearXNG web search", "PASS",
+                   f"{len(results)} results returned", t0=t0)
+        else:
+            record(sec, "S70-01", "SearXNG web search", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-01", "SearXNG web search", "FAIL", str(e)[:100], t0=t0)
+
+    # S70-02: Research MCP health
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get("http://localhost:8920/health", timeout=10)
+        if r.status_code == 200:
+            record(sec, "S70-02", "Research MCP health", "PASS", r.text[:80], t0=t0)
+        else:
+            record(sec, "S70-02", "Research MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-02", "Research MCP health", "WARN",
+               f"not running: {str(e)[:60]}", t0=t0)
+
+    # S70-03: Memory MCP health
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get("http://localhost:8921/health", timeout=10)
+        if r.status_code == 200:
+            record(sec, "S70-03", "Memory MCP health", "PASS", r.text[:80], t0=t0)
+        else:
+            record(sec, "S70-03", "Memory MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-03", "Memory MCP health", "WARN",
+               f"not running: {str(e)[:60]}", t0=t0)
+
+    # S70-04: RAG MCP health
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get("http://localhost:8923/health", timeout=10)
+        if r.status_code == 200:
+            record(sec, "S70-04", "RAG MCP health", "PASS", r.text[:80], t0=t0)
+        else:
+            record(sec, "S70-04", "RAG MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-04", "RAG MCP health", "WARN",
+               f"not running: {str(e)[:60]}", t0=t0)
+
+    # S70-05: Embedding service
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{EMBEDDING_URL}/health", timeout=10)
+        if r.status_code == 200:
+            record(sec, "S70-05", "Embedding service health", "PASS", r.text[:80], t0=t0)
+        else:
+            record(sec, "S70-05", "Embedding service health", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-05", "Embedding service health", "WARN", str(e)[:100], t0=t0)
+
+    # S70-06: Research personas exist
+    t0 = time.time()
+    research_personas = ["webresearcher", "factchecker", "kbnavigator", "marketanalyst",
+                         "supergemma4researcher", "gemmaresearchanalyst"]
+    found = []
+    for p in research_personas:
+        if (ROOT / "config" / "personas" / f"{p}.yaml").exists():
+            found.append(p)
+    if len(found) == len(research_personas):
+        record(sec, "S70-06", "Research personas", "PASS",
+               f"{len(found)}/{len(research_personas)} present", t0=t0)
+    else:
+        missing = [p for p in research_personas if p not in found]
+        record(sec, "S70-06", "Research personas", "WARN",
+               f"missing: {missing}", t0=t0)
+
+    # S70-07: web_search in auto-research workspace tools
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import WORKSPACES
+        research_tools = WORKSPACES.get("auto-research", {}).get("tools", [])
+        has_search = "web_search" in research_tools
+        has_fetch = "web_fetch" in research_tools
+        if has_search and has_fetch:
+            record(sec, "S70-07", "auto-research tool whitelist", "PASS",
+                   f"tools: {research_tools}", t0=t0)
+        else:
+            record(sec, "S70-07", "auto-research tool whitelist", "WARN",
+                   f"missing web_search/web_fetch in {research_tools}", t0=t0)
+    except Exception as e:
+        record(sec, "S70-07", "auto-research tool whitelist", "FAIL", str(e)[:100], t0=t0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Report Generation
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -3881,6 +4087,9 @@ ALL_SECTIONS = {
     # Phase 7: M5/M6 features
     "S41": S41,  # M6 production hardening
     "S42": S42,  # M5 browser automation
+    # Phase 8: M2/M3 tool-calling and information access
+    "S60": S60,  # M2 tool-calling orchestration
+    "S70": S70,  # M3 information access MCPs
     # Legacy S3 wrapper (runs S3a + S3b)
     "S3": S3,
 }

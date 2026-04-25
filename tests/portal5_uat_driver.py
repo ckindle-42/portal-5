@@ -4440,6 +4440,145 @@ TEST_CATALOG: list[dict] = [
             },
         ],
     },
+    # -----------------------------------------------------------------------
+    # Missing browser personas (M5)
+    # -----------------------------------------------------------------------
+    {
+        "id": "P-B03",
+        "name": "Web Navigator — Task Decomposition",
+        "section": "auto",
+        "model_slug": "webnavigator",
+        "timeout": 60,
+        "workspace_tier": "any",
+        "prompt": (
+            "Go to the AWS console and check my current monthly bill. "
+            "How would you approach this task?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Task decomposition",
+                "keywords": ["navigate", "login", "billing", "step", "first", "then", "click"],
+            },
+            {
+                "type": "any_of",
+                "label": "Safety awareness",
+                "keywords": ["confirm", "purchase", "delete", "never", "without", "ask"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "P-B04",
+        "name": "E2E Debugger — Root Cause Analysis",
+        "section": "auto-coding",
+        "model_slug": "e2edebugger",
+        "timeout": 90,
+        "workspace_tier": "mlx_small",
+        "prompt": (
+            "My Playwright test `test_login_redirect` fails intermittently. "
+            "The error is: 'TimeoutError: locator.click: Timeout 30000ms exceeded.' "
+            "The test clicks a 'Sign In' button that should redirect to /dashboard. "
+            "It works locally but fails in CI. What's your diagnosis approach?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Timing issue suspected",
+                "keywords": ["timing", "race", "animation", "network", "slow", "wait", "timeout", "flaky"],
+            },
+            {
+                "type": "any_of",
+                "label": "Browser inspection suggested",
+                "keywords": ["snapshot", "browser", "inspect", "navigate", "reproduce", "accessibility"],
+            },
+        ],
+    },
+    {
+        "id": "P-B05",
+        "name": "Data Extractor — Extraction Strategy",
+        "section": "auto-data",
+        "model_slug": "dataextractor",
+        "timeout": 60,
+        "workspace_tier": "any",
+        "prompt": (
+            "I need to extract all product names and prices from a paginated "
+            "e-commerce category page (20 products per page, ~50 pages). "
+            "What's your approach using browser tools?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Pagination handling",
+                "keywords": ["page", "pagination", "next", "click", "scroll", "iterate", "loop"],
+            },
+            {
+                "type": "any_of",
+                "label": "Structured output",
+                "keywords": ["csv", "json", "table", "extract", "format", "structured"],
+            },
+        ],
+    },
+    {
+        "id": "P-B06",
+        "name": "Paywalled Researcher — Source Strategy",
+        "section": "auto-research",
+        "model_slug": "paywalledresearcher",
+        "timeout": 60,
+        "workspace_tier": "any",
+        "prompt": (
+            "I need to find recent papers on 'local LLM inference optimization' "
+            "from ACM Digital Library and IEEE Xplore. I have institutional access "
+            "to both. What's your approach?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Authenticated sources mentioned",
+                "keywords": ["acm", "ieee", "login", "profile", "session", "access", "institutional"],
+            },
+            {
+                "type": "any_of",
+                "label": "Fallback to open access",
+                "keywords": ["arxiv", "semantic scholar", "open access", "alternative", "free"],
+                "critical": False,
+            },
+        ],
+    },
+    # -----------------------------------------------------------------------
+    # Missing vision persona (M6)
+    # -----------------------------------------------------------------------
+    {
+        "id": "P-V12",
+        "name": "Whiteboard Converter — Diagram Recognition",
+        "section": "auto-vision",
+        "model_slug": "whiteboardconverter",
+        "timeout": 60,
+        "workspace_tier": "any",
+        "prompt": (
+            "If I send you a whiteboard photo of a system architecture sketch "
+            "with boxes labeled 'API Gateway', 'Auth Service', 'User DB', and "
+            "arrows between them, how would you convert it to a digital format?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Diagram type identification",
+                "keywords": ["architecture", "flowchart", "diagram", "type", "identify", "classify"],
+            },
+            {
+                "type": "any_of",
+                "label": "Mermaid or structured output",
+                "keywords": ["mermaid", "markdown", "structured", "format", "convert", "digital"],
+            },
+            {
+                "type": "any_of",
+                "label": "Ambiguity handling",
+                "keywords": ["ambiguit", "unclear", "not sure", "confidence", "best guess"],
+                "critical": False,
+            },
+        ],
+    },
 ]
 
 
