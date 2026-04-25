@@ -806,10 +806,11 @@ def evaluate_skip_conditions() -> dict:
     conditions["no_bot_slack"] = (
         "SLACK_BOT_TOKEN" not in env_content or "CHANGEME" in env_content
     )
-    conditions["no_image_upload"]  = True
-    conditions["no_audio_fixture"] = True
-    conditions["no_docx_fixture"]  = True
-    conditions["no_knowledge_base"] = True
+    fixtures = Path(__file__).parent / "fixtures"
+    conditions["no_image_upload"]  = not (fixtures / "sample.png").exists()
+    conditions["no_audio_fixture"] = not (fixtures / "sample.wav").exists()
+    conditions["no_docx_fixture"]  = not (fixtures / "sample.docx").exists()
+    conditions["no_knowledge_base"] = not (fixtures / "knowledge_base").is_dir()
     return conditions
 
 
