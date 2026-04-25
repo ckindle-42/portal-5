@@ -1733,6 +1733,36 @@ _health_task: asyncio.Task | None = None
 _http_client: httpx.AsyncClient | None = None
 
 
+def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
+    """Verify every WORKSPACES hint resolves to an actual backend model.
+
+    Returns a list of error strings. Empty list = all hints reachable.
+
+    Hints check against the union of `backend.models` for all backends
+    whose `group` appears in `workspace_routing[ws_id]`.
+    """
+    group_models: dict[str, set[str]] = {}
+    for be in registry.list_backends():
+        group_models.setdefault(be.group, set()).update(be.models)
+
+    errors: list[str] = []
+    for ws_id, ws_cfg in WORKSPACES.items():
+        groups = registry._workspace_routes.get(ws_id, [])
+        available: set[str] = set()
+        for g in groups:
+            available |= group_models.get(g, set())
+
+        for hint_key in ("model_hint", "mlx_model_hint"):
+            hint = ws_cfg.get(hint_key)
+            if hint and hint not in available:
+                errors.append(
+                    f"workspace={ws_id!r} {hint_key}={hint!r} "
+                    f"not in any backend's models for groups={groups}. "
+                    f"Add it to config/backends.yaml or correct the WORKSPACES hint."
+                )
+    return errors
+
+
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Inject Ollama-specific TTFT performance defaults not already in the request.
 
@@ -1932,6 +1962,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ),
     )
     registry = BackendRegistry()
+    hint_errors = _validate_workspace_hints(registry)
+    if hint_errors:
+        for e in hint_errors:
+            logger.error("HINT VALIDATION: %s", e)
+        if os.environ.get("STRICT_HINT_VALIDATION", "false").lower() in ("true", "1", "yes"):
+            raise RuntimeError(
+                f"STRICT_HINT_VALIDATION=true and {len(hint_errors)} hint(s) failed validation. "
+                "See logs above. Set STRICT_HINT_VALIDATION=false to start anyway."
+            )
+        else:
+            logger.warning(
+                "HINT VALIDATION: %d hint(s) failed but STRICT_HINT_VALIDATION=false — starting anyway. "
+                "Hints will silently fall back at request time. Fix backends.yaml or WORKSPACES.",
+                len(hint_errors),
+            )
     await registry.health_check_all()
     # Load persisted metrics state from disk (survives restarts)
     _load_state()
