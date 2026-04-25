@@ -579,6 +579,34 @@ def configure_tool_settings(client: httpx.Client, token: str) -> None:
 # --- Main ---------------------------------------------------------------------
 
 
+def _validate_personas(personas_dir: Path, valid_workspace_ids: set[str]) -> list[str]:
+    """Validate every persona YAML's workspace_model resolves.
+
+    Returns a list of error strings. Empty list = all valid.
+    """
+    import yaml as _yaml  # noqa: PLC0415
+
+    errors = []
+    for f in sorted(personas_dir.glob("*.yaml")):
+        if f.stem.startswith("bench_"):
+            continue
+        try:
+            d = _yaml.safe_load(f.read_text())
+        except Exception as e:
+            errors.append(f"{f.name}: YAML parse error: {e}")
+            continue
+        wm = (d or {}).get("workspace_model", "")
+        if not wm:
+            errors.append(f"{f.name}: missing workspace_model field")
+            continue
+        if wm not in valid_workspace_ids:
+            errors.append(
+                f"{f.name}: workspace_model={wm!r} not in WORKSPACES — "
+                f"persona will fail to route. Use one of the auto-* IDs."
+            )
+    return errors
+
+
 async def main() -> int:
     client = httpx.Client(timeout=30.0)
 
@@ -598,6 +626,31 @@ async def main() -> int:
         print(f"  OPENWEBUI_ADMIN_EMAIL: {ADMIN_EMAIL}")
         print("  Set OPENWEBUI_ADMIN_EMAIL and OPENWEBUI_ADMIN_PASSWORD in .env")
         return 1
+
+    # Validate persona workspace_model values before creating presets
+    if PERSONAS_DIR.exists():
+        try:
+            from portal_pipeline.router_pipe import WORKSPACES as _WORKSPACES  # noqa: PLC0415
+            valid_ws = set(_WORKSPACES.keys())
+        except Exception:
+            valid_ws = set()
+        if valid_ws:
+            persona_errors = _validate_personas(PERSONAS_DIR, valid_ws)
+            if persona_errors:
+                for e in persona_errors:
+                    print(f"[seed] PERSONA ERROR: {e}", file=sys.stderr)
+                if os.environ.get("STRICT_PERSONA_VALIDATION", "true").lower() in ("true", "1", "yes"):
+                    print(
+                        f"[seed] {len(persona_errors)} persona(s) invalid — "
+                        "set STRICT_PERSONA_VALIDATION=false to seed anyway",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(
+                    f"[seed] {len(persona_errors)} personas invalid — "
+                    "STRICT_PERSONA_VALIDATION=false, continuing",
+                    file=sys.stderr,
+                )
 
     # Seed the instance — P5: parallelize tool servers, workspaces, and persona presets
     # (configure_* are sync print-only helpers, no I/O, so no need to parallelize)
