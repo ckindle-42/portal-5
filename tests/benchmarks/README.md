@@ -17,19 +17,24 @@ Each model/workspace is tested with a category-mapped prompt (~200 tokens output
 | `creative` | ~200 tokens | Noir detective opening scene (narrative) |
 | `vision` | ~200 tokens | Image analysis framework (structured + meta) |
 
-**Mapping:**
+**Mapping (auto-* workspaces — see `WORKSPACE_PROMPT_MAP` in `bench_tps.py`):**
 - `auto-coding`, `auto-agentic`, `auto-spl`, `auto-documents` → coding
 - `auto-security`, `auto-redteam`, `auto-blueteam` → security
-- `auto-reasoning`, `auto-data`, `auto-compliance`, `auto-mistral` → reasoning
+- `auto-reasoning`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-research`, `auto-math` → reasoning
 - `auto-creative`, `auto-video`, `auto-music` → creative
 - `auto-vision` → vision
-- `auto`, `auto-research` → general
+- `auto` → general
+
+**Bench workspaces** route directly to a fixed model and use that model's primary-capability prompt:
+- `bench-devstral`, `bench-qwen3-coder-next`, `bench-qwen3-coder-30b`, `bench-llama33-70b`, `bench-glm` → coding
+- `bench-phi4`, `bench-phi4-reasoning`, `bench-gptoss` → reasoning
+- `bench-dolphin8b` → creative
 
 Ollama models are mapped by their backend group. MLX models are mapped by name pattern. Personas are mapped by their YAML `category` field.
 
 ### Usage
 ```bash
-python3 tests/benchmarks/bench_tps.py                         # everything, 3 runs
+python3 tests/benchmarks/bench_tps.py                         # everything, 5 runs
 python3 tests/benchmarks/bench_tps.py --runs 1                # single run (faster)
 python3 tests/benchmarks/bench_tps.py --mode direct           # backends only
 python3 tests/benchmarks/bench_tps.py --mode pipeline         # workspaces only
@@ -55,20 +60,20 @@ Models are tested **one at a time** (sequential, blocking HTTP). Memory is manag
 - **`--order config`**: preserves the original `backends.yaml` ordering (all MLX first, then all Ollama groups).
 
 ### What Gets Tested
-- **22 MLX models** from `config/backends.yaml`
-- **23 unique Ollama models** across 6 backend groups from `config/backends.yaml`
-- **17 workspaces** from `config/backends.yaml` `workspace_routing`
-- **44 personas** from `config/personas/*.yaml`
+- **26 MLX models** from `config/backends.yaml` `mlx_models`
+- **24 unique Ollama models** across 6 backend groups from `config/backends.yaml`
+- **27 workspaces** from `config/backends.yaml` `workspace_routing` (18 auto-* + 9 bench-*)
+- **91 personas** from `config/personas/*.yaml`
 
-Undownloaded Ollama models and unregistered MLX models are reported as `MISSING` in the results — not silently skipped.
+Undownloaded Ollama models and unregistered MLX models are reported with `available: false` in the results — not silently skipped.
 
 ### Output
-JSON file at `/tmp/bench_tps_results.json` with per-run data. Use `jq` for filtering:
+JSON file at `tests/benchmarks/results/bench_tps_<UTC>.json` (default; overridable with `--output`). Operators commit selected baselines manually. Use `jq` for filtering:
 ```bash
-jq '.results[] | select(.backend=="mlx") | {model, avg_tps, prompt_category}' /tmp/bench_tps_results.json
-jq '.results[] | select(.path=="pipeline") | {workspace, avg_tps, prompt_category}' /tmp/bench_tps_results.json
-jq '.results[] | select(.path=="persona") | {persona_slug, workspace_model, avg_tps}' /tmp/bench_tps_results.json
-jq '.results[] | select(.available==false) | {model, backend, error}' /tmp/bench_tps_results.json
+jq '.results[] | select(.backend=="mlx") | {model, avg_tps, prompt_category}' tests/benchmarks/results/bench_tps_*.json
+jq '.results[] | select(.path=="pipeline") | {workspace, avg_tps, prompt_category}' tests/benchmarks/results/bench_tps_*.json
+jq '.results[] | select(.path=="persona") | {persona_slug, workspace_model, avg_tps}' tests/benchmarks/results/bench_tps_*.json
+jq '.results[] | select(.available==false) | {model, backend, error}' tests/benchmarks/results/bench_tps_*.json
 ```
 
 ---
