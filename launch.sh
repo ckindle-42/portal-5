@@ -745,7 +745,7 @@ print(d.get('system',{}).get('comfyui_version','?'))
         elif launchctl list com.portal5.powermetrics 2>/dev/null | grep -q '"PID"'; then
             printf "    ⏳  %-28s %s\n" "Powermetrics" "starting (launchd)"
         else
-            printf "    ❌  %-28s %s\n" "Powermetrics" "not running — see scripts/portal5-powermetrics.py"
+            printf "    ❌  %-28s %s\n" "Powermetrics" "not running — ./launch.sh install-powermetrics"
         fi
 
         echo ""
@@ -3347,6 +3347,61 @@ PLIST
     fi
     ;;
 
+  install-powermetrics)
+    # Install powermetrics reader daemon (requires sudo — powermetrics needs root)
+    if [ "$(uname)" != "Darwin" ]; then
+        echo "  ❌ powermetrics is macOS-only"
+        exit 1
+    fi
+    if [ "$(uname -m)" != "arm64" ]; then
+        echo "  ℹ️  powermetrics telemetry is for Apple Silicon only."
+        exit 0
+    fi
+
+    SCRIPT_SRC="${PORTAL_ROOT}/scripts/portal5-powermetrics.py"
+    PLIST_SRC="${PORTAL_ROOT}/deploy/launchd/com.portal5.powermetrics.plist"
+    SCRIPT_DST="/usr/local/bin/portal5-powermetrics"
+    PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
+
+    if [ ! -f "$SCRIPT_SRC" ]; then
+        echo "  ❌ Missing: $SCRIPT_SRC"
+        exit 1
+    fi
+
+    echo "[portal-5] Installing powermetrics daemon (requires sudo)..."
+    sudo cp "$SCRIPT_SRC" "$SCRIPT_DST" && sudo chmod +x "$SCRIPT_DST" || {
+        echo "  ❌ Failed to copy daemon script"
+        exit 1
+    }
+    sudo cp "$PLIST_SRC" "$PLIST_DST" || {
+        echo "  ❌ Failed to copy plist"
+        exit 1
+    }
+    sudo launchctl load -w "$PLIST_DST" 2>/dev/null || sudo launchctl kickstart -k "system/com.portal5.powermetrics" 2>/dev/null || true
+
+    sleep 3
+    if [ -S "/tmp/portal5-powermetrics.sock" ]; then
+        echo "[portal-5] ✅ Powermetrics daemon installed and running"
+    else
+        echo "[portal-5] ⏳ Powermetrics daemon installed, starting (may need 15s for first powermetrics sample)..."
+    fi
+    echo "  Script: $SCRIPT_DST"
+    echo "  Plist:  $PLIST_DST"
+    echo "  Socket: /tmp/portal5-powermetrics.sock"
+    echo "  Status: sudo launchctl list com.portal5.powermetrics"
+    echo "  Uninstall: ./launch.sh uninstall-powermetrics"
+    ;;
+
+  uninstall-powermetrics)
+    PLIST_DST="/Library/LaunchDaemons/com.portal5.powermetrics.plist"
+    SCRIPT_DST="/usr/local/bin/portal5-powermetrics"
+    echo "[portal-5] Uninstalling powermetrics daemon (requires sudo)..."
+    sudo launchctl unload "$PLIST_DST" 2>/dev/null || true
+    sudo rm -f "$PLIST_DST" "$SCRIPT_DST"
+    rm -f "/tmp/portal5-powermetrics.sock"
+    echo "[portal-5] ✅ Powermetrics daemon stopped and removed"
+    ;;
+
   stop-speech)
     PID_FILE="/tmp/portal-mlx-speech.pid"
     if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
@@ -3570,7 +3625,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3590,6 +3645,8 @@ MEOF
     echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
     echo "  install-embedding-service   Install launchd agent — embedding starts at login, auto-restarts on crash"
     echo "  uninstall-embedding-service Remove launchd agent"
+    echo "  install-powermetrics        Install powermetrics daemon (sudo) — power telemetry for cost tracking"
+    echo "  uninstall-powermetrics      Remove powermetrics daemon (sudo)"
     echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
