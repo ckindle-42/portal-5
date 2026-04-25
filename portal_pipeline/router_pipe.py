@@ -1917,6 +1917,29 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
     return {"object": "list", "data": models}
 
 
+@app.get("/v1/backends")
+async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict:
+    """Return the live BackendRegistry view. Diagnostic / tooling use only."""
+    _verify_key(authorization)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="Backend registry not initialised")
+    return {
+        "object": "list",
+        "data": [
+            {
+                "id": b.id,
+                "type": b.type,
+                "group": b.group,
+                "url": b.url,
+                "models": b.models,
+                "healthy": b.healthy,
+                "last_check": b.last_check,
+            }
+            for b in registry.list_backends()
+        ],
+    }
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict,
