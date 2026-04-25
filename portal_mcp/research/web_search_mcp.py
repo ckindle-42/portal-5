@@ -5,7 +5,7 @@ Tools:
 - web_fetch: fetch a URL's text content (size-bounded, blocks private/local)
 - news_search: like web_search, biased toward recent news
 
-Port: 8918 (RESEARCH_MCP_PORT env override).
+Port: 8922 (RESEARCH_MCP_PORT env override).
 """
 
 import logging
@@ -206,7 +206,7 @@ async def web_fetch_endpoint(request):
 
 
 def main():
-    port = int(os.environ.get("RESEARCH_MCP_PORT", "8918"))
+    port = int(os.environ.get("RESEARCH_MCP_PORT", "8922"))
     mcp.settings.port = port
     mcp.run(transport="streamable-http")
 

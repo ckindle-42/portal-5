@@ -10,7 +10,7 @@
 
 Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
 
-**Architecture**: Open WebUI → Portal Pipeline (:9099) → [MLX proxy (:8081) + Ollama (:11434)] → local models. MCP servers (:8910–8916) provide tools (documents, code sandbox, TTS, etc.).
+**Architecture**: Open WebUI → Portal Pipeline (:9099) → [MLX proxy (:8081) + Ollama (:11434)] → local models. MCP servers (:8910–8922) provide tools (documents, code sandbox, TTS, research, memory, RAG, etc.).
 
 **Inference**: Two tiers on Apple Silicon — **Tier 1 MLX proxy** (safetensor models, faster ~20-30% for <14B) and **Tier 2 Ollama** (GGUF models, simpler management). Both host-native, not Docker.
 
@@ -152,6 +152,11 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 | 18082 | mlx_vlm server (VLM, managed by proxy) |
 | 8910-8916 | MCP: ComfyUI, Video, Music, Documents, Sandbox, Whisper, TTS |
 | 8917 | Embedding (Harrier-0.6B TEI) |
+| 8918 | MLX speech (Kokoro + Qwen3-TTS/ASR) |
+| 8919 | MCP Security |
+| 8920 | MCP Memory |
+| 8921 | MCP RAG |
+| 8922 | MCP Research |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |

@@ -31,7 +31,7 @@ MCP_SERVERS: dict[str, str] = {
     "whisper": os.environ.get("MCP_WHISPER_URL", "http://localhost:8915"),
     "tts": os.environ.get("MCP_TTS_URL", "http://localhost:8916"),
     # M3 additions:
-    "research": os.environ.get("MCP_RESEARCH_URL", "http://localhost:8918"),
+    "research": os.environ.get("MCP_RESEARCH_URL", "http://localhost:8922"),
     "memory": os.environ.get("MCP_MEMORY_URL", "http://localhost:8920"),
     "rag": os.environ.get("MCP_RAG_URL", "http://localhost:8921"),
 }

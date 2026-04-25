@@ -652,10 +652,10 @@ services:
     container_name: portal5-mcp-research
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${RESEARCH_MCP_HOST_PORT:-8918}:8918"
+      - "127.0.0.1:${RESEARCH_MCP_HOST_PORT:-8922}:8922"
     environment:
-      - RESEARCH_MCP_PORT=8918
-      - MCP_PORT=8918
+      - RESEARCH_MCP_PORT=8922
+      - MCP_PORT=8922
       - SEARXNG_URL=http://searxng:8080
       - BRAVE_API_KEY=${BRAVE_API_KEY:-}
     command: ["python", "-m", "portal_mcp.research.web_search_mcp"]
@@ -663,7 +663,7 @@ services:
       searxng:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8918/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8922/health"]
       interval: 30s
       timeout: 5s
       start_period: 30s
