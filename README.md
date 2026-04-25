@@ -300,12 +300,15 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 
 ### Acceptance Testing
 
-The full acceptance test suite runs 156 checks across all subsystems.
-Latest run (2026-04-13, Run 17):
+The full acceptance test suite (`tests/portal5_acceptance_v6.py`) runs
+~250 checks across 30 sections. Run with:
 
-**154 PASS · 2 INFO · 0 FAIL · 0 WARN**
+```bash
+python3 tests/portal5_acceptance_v6.py        # full suite
+python3 tests/portal5_acceptance_v6.py --section S70  # one section
+```
 
-Clean run. See `ACCEPTANCE_RESULTS.md` for full results.
+Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
 
 ---
 
