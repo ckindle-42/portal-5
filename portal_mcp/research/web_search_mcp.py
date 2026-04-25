@@ -206,9 +206,9 @@ async def web_fetch_endpoint(request):
 
 
 def main():
-    import uvicorn
-
-    uvicorn.run(mcp.app, host="0.0.0.0", port=int(os.environ.get("RESEARCH_MCP_PORT", "8918")))
+    port = int(os.environ.get("RESEARCH_MCP_PORT", "8918"))
+    mcp.settings.port = port
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
