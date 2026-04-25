@@ -1,34 +1,25 @@
-# Portal 5 — Acceptance Test Results (V6 — Authoritative)
+# Portal 5 Acceptance Test Results — V6
 
-**Suite:** `tests/portal5_acceptance_v6.py`
-**Prior version (V4) archive:** `tests/ACCEPTANCE_RESULTS_V4_ARCHIVE.md`
-
-**Date:** 2026-04-24 20:59:30
-**Git SHA:** 58d2292
-**Sections:** S4
-**Runtime:** 2s (0m 2s)
+**Date:** 2026-04-24 21:26:37
+**Git SHA:** d2cb4b9
+**Sections:** S50
+**Runtime:** 60s (1m 0s)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ PASS | 4 |
-| **Total** | **4** |
+| ✅ PASS | 5 |
+| ⚠️  WARN | 1 |
+| **Total** | **6** |
 
 ## Results
 
 | Section | ID | Name | Status | Detail | Duration |
 |---------|-----|------|--------|--------|----------|
-| S4 | S4-01 | Documents MCP health | ✅ PASS | HTTP 200 | 0.0s |
-| S4 | S4-02 | Generate Word document | ✅ PASS | {
-  "success": true,
-  "filename": "Test_Proposal_1d512b5c.docx",
-  "download_ur | 0.3s |
-| S4 | S4-03 | Generate Excel spreadsheet | ✅ PASS | {
-  "success": true,
-  "filename": "Test_Budget_8d727e39.xlsx",
-  "download_url" | 0.0s |
-| S4 | S4-04 | Generate PowerPoint | ✅ PASS | {
-  "success": true,
-  "filename": "Test_Presentation_efc79552.pptx",
-  "downloa | 0.0s |
+| S50 | S50-01 | Empty prompt handled gracefully | ⚠️  WARN | unexpected HTTP 408 | 30.0s |
+| S50 | S50-02 | Oversized prompt rejected or truncated | ✅ PASS | HTTP 200 | 27.0s |
+| S50 | S50-03 | Invalid model slug handled | ✅ PASS | HTTP 200 \| model=dolphin-llama3:8b | 0.8s |
+| S50 | S50-04 | Pipeline /health surfaces backend count | ✅ PASS | healthy: 6 | 0.0s |
+| S50 | S50-05 | Malformed JSON rejected | ✅ PASS | HTTP 400 | 0.0s |
+| S50 | S50-06 | Missing auth rejected with 401 | ✅ PASS | HTTP 401 | 0.0s |
