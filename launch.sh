@@ -658,6 +658,9 @@ rows = [
     ('portal5-mcp-video',     'MCP Video',            ':8911'),
     ('portal5-mcp-security',  'MCP Security',         ':8919'),
     ('portal5-playwright',    'MCP Browser (Playwright)', ':8922'),
+    ('portal5-mcp-research',  'MCP Research',         ':8918'),
+    ('portal5-mcp-memory',    'MCP Memory',           ':8920'),
+    ('portal5-mcp-rag',       'MCP RAG',              ':8921'),
 ]
 icons = {'healthy': '✅', 'running': '✅', 'starting': '⏳'}
 for key, label, url in rows:
