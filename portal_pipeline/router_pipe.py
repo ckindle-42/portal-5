@@ -523,7 +523,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-coding": {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder-next:30b-q5",
+        "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
         "tools": [
             "execute_python",
@@ -542,7 +542,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. "
             "Not for interactive chat — load time ~60s, context capped at 32K."
         ),
-        "model_hint": "qwen3-coder-next:30b-q5",
+        "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
         "context_limit": 32768,
         "tools": [
@@ -649,7 +649,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2",
+        "mlx_model_hint": "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [
