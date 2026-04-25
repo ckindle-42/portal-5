@@ -60,7 +60,10 @@ PIPELINE_URL = "http://localhost:9099"
 
 MAX_TOKENS = 256
 REQUEST_TIMEOUT = 180.0
-RESULTS_FILE = "/tmp/bench_tps_results.json"
+RESULTS_DIR = Path(__file__).parent / "results"
+# Default output: timestamped UTC file under tests/benchmarks/results/
+# Override with --output. Operator commits selected baselines manually.
+RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json")
 
 # ── Prompt library ────────────────────────────────────────────────────────────
 # Category-mapped prompts designed to produce ~150-250 tokens of structured
@@ -168,6 +171,8 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
     "coding": "coding",
     "software": "coding",
     "development": "coding",
+    "systems": "coding",          # linuxterminal, sqlterminal
+    "architecture": "reasoning",  # itarchitect — system design = reasoning
     "reasoning": "reasoning",
     "research": "reasoning",
     "analysis": "reasoning",
@@ -177,6 +182,7 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
     "multimodal": "vision",
     "data": "reasoning",
     "compliance": "reasoning",
+    "general": "general",         # itexpert, techreviewer
 }
 
 # MLX models don't have explicit groups in backends.yaml — infer from name/path
@@ -279,9 +285,13 @@ def _check_backend(url: str, path: str) -> bool:
         r = httpx.get(f"{url}{path}", timeout=3.0, headers=headers)
         if r.status_code == 200:
             return True
-        # MLX proxy returns 503 when idle (load-on-demand) — still available
         if url == MLX_URL and r.status_code == 503:
-            return True
+            # 503 alone is ambiguous: idle (load-on-demand, OK) vs stuck.
+            try:
+                h = httpx.get(f"{url}/health", timeout=3.0).json()
+                return h.get("state") in ("none", "switching", "ready")
+            except Exception:
+                return False
     except Exception:
         pass
     return False
@@ -609,9 +619,14 @@ def _runtime_mlx_models() -> set[str]:
         r = httpx.get(f"{MLX_URL}/v1/models", timeout=5.0)
         if r.status_code == 200:
             return {m["id"] for m in r.json().get("data", [])}
-        # 503 = proxy idle, models load on demand — use config list
         if r.status_code == 503:
-            return set(_config_mlx_models())
+            try:
+                h = httpx.get(f"{MLX_URL}/health", timeout=3.0).json()
+                if h.get("state") in ("none", "switching", "ready"):
+                    return set(_config_mlx_models())
+            except Exception:
+                pass
+            return set()
     except Exception:
         pass
     return set()
@@ -657,6 +672,7 @@ def _init_output(
     output_path: str, args, hw: dict, mlx_cfg, ollama_cfg, workspaces_cfg, personas_cfg
 ) -> dict:
     """Initialize or load the output file. Returns the output dict."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     if os.path.exists(output_path):
         try:
             with open(output_path) as f:
@@ -1420,11 +1436,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # If user provides a single prompt override, replace the entire library
+    original_prompts = dict(PROMPTS) if args.prompt else None
     if args.prompt:
         for key in PROMPTS:
             PROMPTS[key] = args.prompt
 
+    try:
+        _run_main(args)
+    finally:
+        if original_prompts is not None:
+            PROMPTS.clear()
+            PROMPTS.update(original_prompts)
+        global _bench_client
+        if _bench_client is not None:
+            _bench_client.close()
+            _bench_client = None
+
+
+def _run_main(args) -> None:
     print("=" * 70)
     print("Portal 5 — Comprehensive TPS Benchmark")
     print("=" * 70)

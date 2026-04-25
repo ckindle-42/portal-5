@@ -366,7 +366,12 @@ async def _stop_button_visible(page) -> bool:
         return False
 
 
-async def _wait_for_completion(page, test_id: str = "", tier: str = "any") -> None:
+async def _wait_for_completion(
+    page,
+    test_id: str = "",
+    tier: str = "any",
+    max_wait_no_progress: int = MAX_WAIT_NO_PROGRESS,
+) -> None:
     """Progress-monitoring wait: polls every PROGRESS_POLL_S seconds until the
     response is complete.  No hard timeout — we wait until the model finishes
     or until we detect zero progress for MAX_WAIT_NO_PROGRESS seconds.
@@ -433,8 +438,8 @@ async def _wait_for_completion(page, test_id: str = "", tier: str = "any") -> No
         if _check_backend_crash():
             return
         # Hard safety cap
-        if elapsed > MAX_WAIT_NO_PROGRESS:
-            _log(f"hit {MAX_WAIT_NO_PROGRESS}s safety cap waiting for start")
+        if elapsed > max_wait_no_progress:
+            _log(f"hit {max_wait_no_progress}s safety cap waiting for start")
             return
         await asyncio.sleep(PROGRESS_POLL_S)
 
@@ -465,42 +470,23 @@ async def _wait_for_completion(page, test_id: str = "", tier: str = "any") -> No
             return
 
         # Safety cap
-        if elapsed > MAX_WAIT_NO_PROGRESS:
-            _log(f"hit {MAX_WAIT_NO_PROGRESS}s safety cap during streaming")
+        if elapsed > max_wait_no_progress:
+            _log(f"hit {max_wait_no_progress}s safety cap during streaming")
             return
 
         await asyncio.sleep(PROGRESS_POLL_S)
 
 
-async def _send_and_wait(page, prompt: str, test_id: str = "", tier: str = "any") -> str:
-    """Send a prompt and wait for the response using progress monitoring."""
+async def _send_and_wait(
+    page, prompt: str, test_id: str = "", tier: str = "any",
+    max_wait_no_progress: int = MAX_WAIT_NO_PROGRESS,
+) -> None:
+    """Send a prompt and wait for completion. Caller fetches via owui_get_last_response."""
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
     await ta.fill(prompt)
     await ta.press("Enter")
-    await _wait_for_completion(page, test_id, tier)
-    return await _extract_last_response(page)
-
-
-async def _extract_last_response(page) -> str:
-    # Try OWUI-specific selectors for the last assistant message
-    selectors = [
-        ".message-container:last-child .prose",
-        "[data-testid='assistant-message']:last-child",
-        ".chat-messages > div:last-child",
-        # Broader fallbacks tried with short timeout to avoid hanging
-    ]
-    for sel in selectors:
-        try:
-            els = page.locator(sel)
-            cnt = await els.count()
-            if cnt > 0:
-                text = (await els.last.inner_text(timeout=5000)).strip()
-                if text:
-                    return text
-        except Exception:
-            continue
-    return ""
+    await _wait_for_completion(page, test_id, tier, max_wait_no_progress)
 
 
 async def _enable_tool(page, tool_id: str) -> None:
@@ -738,7 +724,7 @@ def compute_status(assertions: list, assertions_spec: list) -> str:
     for result, spec in zip(assertions, assertions_spec):
         _label, passed, _evidence = result
         critical = spec.get("critical", True)
-        if not passed and critical and pct < 70:
+        if not passed and critical:
             return "FAIL"
 
     if pct >= 70:
@@ -2403,11 +2389,13 @@ TEST_CATALOG: list[dict] = [
         "id": "CC-01-llama33-70b", "name": "CC-01 Asteroids · Llama-3.3-70B",
         "section": "benchmark", "model_slug": "bench-llama33-70b", "timeout": 600,
         "workspace_tier": "mlx_large", "prompt": _CC01_PROMPT, "assertions": _CC01_ASSERTIONS,
+        "max_wait_no_progress": 1800,  # 30 min for 70B-class
     },
     {
         "id": "CC-01-qwen3-coder-next", "name": "CC-01 Asteroids · Qwen3-Coder-Next",
         "section": "benchmark", "model_slug": "bench-qwen3-coder-next", "timeout": 600,
         "workspace_tier": "mlx_large", "prompt": _CC01_PROMPT, "assertions": _CC01_ASSERTIONS,
+        "max_wait_no_progress": 1800,  # 30 min for 80B MoE
     },
 ]
 
@@ -2495,9 +2483,10 @@ async def run_test(
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
 
         # Send first turn — retry up to 2 times on empty response (MLX cold load)
+        max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
         response_text = ""
         for attempt in range(3):
-            await _send_and_wait(page, test["prompt"], test_id, tier)
+            await _send_and_wait(page, test["prompt"], test_id, tier, max_wait)
             await asyncio.sleep(5 if attempt > 0 else 3)  # extra persistence time on retries
             response_text = owui_get_last_response(token, chat_id)
             if response_text:
@@ -2523,7 +2512,7 @@ async def run_test(
         turn2 = test.get("turn2")
         turn2_response = ""
         if turn2:
-            await _send_and_wait(page, turn2, test_id, tier)
+            await _send_and_wait(page, turn2, test_id, tier, max_wait)
             await asyncio.sleep(3)
             # For turn2, get the second assistant message
             turn2_response = owui_get_last_response(token, chat_id)

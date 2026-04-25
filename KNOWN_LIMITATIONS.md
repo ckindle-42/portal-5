@@ -52,6 +52,21 @@ Architectural and design constraints that cannot be resolved without significant
   - `dataanalyst`, `datascientist`, `machinelearningengineer`, `statistician`, `itarchitect`, `researchanalyst`, `excelsheet` → `deepseek-r1:32b-q4_k_m` (the HF path `hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF` doesn't exist; correct import is via `bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF`); alternative: `huihui_ai/tongyi-deepresearch-abliterated`
 - **Last verified**: 2026-04-01
 
+### DeepSeek-Coder-V2-Lite-Instruct-8bit Removed (Gibberish Output)
+- **ID**: P5-MLX-005
+- **Status**: **RESOLVED** — model removed from `config/backends.yaml` MLX list 2026-04-25
+- **Description**: The MLX-converted `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` produced garbled Unicode output in V4 acceptance test S40 #229 (run dated 2026-04-10). Stale `backends.yaml` comment still claimed it as auto-spl primary; `router_pipe.py:404` had already swapped to `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` due to "consistent 120s timeouts."
+- **Replacement**: `huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` added to MLX catalog. Selected for: GLM lineage (new to MLX tier), 59.2% SWE-bench, 79.5% τ²-Bench tool use, abliterated by trusted provider, ~18GB.
+- **Last verified**: 2026-04-25
+
+### huihui-ai MLX Models Not Apple-Tested by Provider
+- **ID**: P5-MLX-006
+- **Status**: **ACTIVE — first-load validation required**
+- **Description**: huihui-ai publishes MLX-format models (e.g., `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit`) but their model cards explicitly note: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."* Conversions may have undetected issues that surface only on Apple Metal.
+- **First-load validation procedure**: After download, run a single inference at small max_tokens to confirm the model loads and produces coherent output before relying on it in production routing. Document any tokenizer or weight-shape errors at huihui-ai's HuggingFace discussions tab.
+- **Mitigation**: Acceptance test S23-07 (added in v6.0.3) verifies the model registers and produces non-empty output.
+- **Last verified**: 2026-04-25
+
 ---
 
 ## Seeding / Init

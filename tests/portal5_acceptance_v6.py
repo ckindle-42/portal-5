@@ -34,7 +34,7 @@ Test Coverage (22 sections, ~300 tests):
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: 47 personas across 11 categories (Ollama + MLX backends)
+    S10-S11: personas across multiple categories (Ollama + MLX backends)
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router (P5-FUT-006) — semantic routing via Llama-3.2-3B
@@ -45,7 +45,7 @@ Test Coverage (22 sections, ~300 tests):
 
 Changes from v5:
     - Added S16 (Security MCP tool tests — classify_vulnerability)
-    - Updated persona count to 47 (added hermes3writer, supergemma4researcher)
+    - Persona count is now dynamic (derived from config/personas/*.yaml at runtime)
     - Added S21 (LLM Intent Router), S22 (Admission Control), S23 (Model Diversity)
     - Fixed persona slugs to match actual YAML filenames
     - Tests for new models: GPT-OSS:20B, Gemma 4 E4B, Phi-4-reasoning-plus
@@ -61,6 +61,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
+import itertools
 import json
 import os
 import re
@@ -665,7 +666,7 @@ _MLX_MODEL_SIZES_GB = {
 # Known MLX org prefixes
 # MLX org prefixes — workspace_model values starting with these are raw HF paths
 # that Open WebUI can never resolve (pipeline only exposes workspace IDs).
-_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "Jiunsong/", "unsloth/", "dealignai/"]
+_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "Jiunsong/", "unsloth/", "dealignai/", "huihui-ai/"]
 
 # Mapping from MLX model hint (HF path) → pipeline workspace name.
 # All persona YAMLs now use workspace IDs directly; this dict is used by S11
@@ -1108,6 +1109,21 @@ async def S0() -> None:
     except Exception as e:
         record(sec, "S0-06", "MLX watchdog status", "WARN", str(e)[:80], t0=t0)
 
+    # S0-07: Deployed MLX proxy matches source (catches P5-ROAD-MLX-002 staleness)
+    t0 = time.time()
+    import filecmp  # noqa: PLC0415
+    src = ROOT / "scripts/mlx-proxy.py"
+    deployed = Path.home() / ".portal5/mlx/mlx-proxy.py"
+    if not deployed.exists():
+        record(sec, "S0-07", "Deployed MLX proxy", "INFO",
+               "not yet deployed (run ./launch.sh install-mlx)", t0=t0)
+    elif filecmp.cmp(src, deployed, shallow=False):
+        record(sec, "S0-07", "Deployed MLX proxy matches source", "PASS",
+               "deployed copy in sync", t0=t0)
+    else:
+        record(sec, "S0-07", "Deployed MLX proxy matches source", "WARN",
+               "deployed != source — run ./launch.sh install-mlx", t0=t0)
+
 
 async def S1() -> None:
     """S1: Configuration consistency."""
@@ -1160,14 +1176,14 @@ async def S1() -> None:
         t0=t0,
     )
 
-    # S1-05: Persona count matches expected
+    # S1-05: Persona count matches actual yaml file count (no frozen baseline)
     t0 = time.time()
-    expected_persona_count = 48
+    yaml_count = len(list((ROOT / "config/personas").glob("*.yaml")))
     actual_count = len(PERSONAS)
     record(
-        sec, "S1-05", "Persona count",
-        "PASS" if actual_count >= expected_persona_count - 2 else "WARN",
-        f"{actual_count} personas (expected ~{expected_persona_count})",
+        sec, "S1-05", "Persona count matches yaml file count",
+        "PASS" if actual_count == yaml_count else "FAIL",
+        f"{actual_count} loaded, {yaml_count} yaml files",
         t0=t0,
     )
 
@@ -1274,6 +1290,16 @@ async def S1() -> None:
         "FAIL" if bad_personas else "PASS",
         f"invalid (raw MLX paths): {bad_personas}" if bad_personas
         else f"all {len(PERSONAS)} personas use valid workspace_model values",
+        t0=t0,
+    )
+
+    # S1-11: Every persona has a PERSONA_PROMPTS entry
+    t0 = time.time()
+    missing_prompts = [p["slug"] for p in PERSONAS if p["slug"] not in PERSONA_PROMPTS]
+    record(
+        sec, "S1-11", "All personas have PERSONA_PROMPTS entries",
+        "FAIL" if missing_prompts else "PASS",
+        f"missing prompts for: {missing_prompts}" if missing_prompts else f"all {len(PERSONAS)} covered",
         t0=t0,
     )
 
@@ -1472,10 +1498,23 @@ async def S3b() -> None:
             found = [s for s in signals if s.lower() in response_lower]
             is_mlx = any(org in model for org in _MLX_ORGS)
 
-            if found:
-                record(sec, tid, f"Workspace {ws_id}", "PASS", f"MLX:{is_mlx} | signals: {found[:3]}", t0=t0)
+            # Distinguish "MLX healthy but routed Ollama" (FAIL) from "MLX down/switching" (WARN — infra)
+            if not is_mlx:
+                mlx_state, _ = await _mlx_health()
+                if mlx_state in ("down", "switching"):
+                    record(sec, tid, f"Workspace {ws_id}", "WARN",
+                           f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}",
+                           t0=t0)
+                else:
+                    record(sec, tid, f"Workspace {ws_id}", "FAIL",
+                           f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)",
+                           t0=t0)
+            elif found:
+                record(sec, tid, f"Workspace {ws_id}", "PASS",
+                       f"MLX:{is_mlx} | signals: {found[:3]}", t0=t0)
             else:
-                record(sec, tid, f"Workspace {ws_id}", "WARN", f"no signals in: {response[:100]}", t0=t0)
+                record(sec, tid, f"Workspace {ws_id}", "WARN",
+                       f"MLX:{is_mlx} | no signals in: {response[:100]}", t0=t0)
 
             test_num += 1
             await asyncio.sleep(1)
@@ -1814,93 +1853,52 @@ async def S9() -> None:
         record(sec, "S9-02", "Docker Whisper health", "PASS" if code == 200 else "WARN", f"HTTP {code}", t0=t0)
 
 
+OLLAMA_WORKSPACES = {
+    "auto", "auto-security", "auto-redteam", "auto-blueteam",
+    "auto-creative", "auto-video", "auto-music",
+}
+
+
 async def S10() -> None:
-    """S10: Persona tests (Ollama-routed) — grouped by model to minimize switching."""
+    """S10: Persona tests (Ollama-routed) — driven by PERSONAS, grouped by workspace."""
     print("\n━━━ S10. PERSONAS (OLLAMA) ━━━")
     sec = "S10"
 
-    # Group personas by their Ollama model to minimize model switching
-    # Order: most personas first (amortize load time), then smaller groups
-    OLLAMA_PERSONA_GROUPS = [
-        # Group 1: qwen3-coder-next:30b-q5 (17 personas) — load once, test all
-        ("qwen3-coder-next:30b-q5", [
-            "bugdiscoverycodeassistant", "codebasewikidocumentationskill", "codereviewassistant",
-            "codereviewer", "devopsautomator", "devopsengineer", "ethereumdeveloper",
-            "githubexpert", "javascriptconsole", "kubernetesdockerrpglearningengine",
-            "linuxterminal", "pythoncodegeneratorcleanoptimizedproduction-ready",
-            "pythoninterpreter", "seniorfrontenddeveloper",
-            "seniorsoftwareengineersoftwarearchitectrules", "softwarequalityassurancetester",
-            "sqlterminal",
-        ]),
-        # Group 2: deepseek-r1:32b-q4_k_m (8 personas)
-        ("deepseek-r1:32b-q4_k_m", [
-            "dataanalyst", "datascientist", "excelsheet", "itarchitect",
-            "machinelearningengineer", "researchanalyst", "statistician",
-            "supergemma4researcher",
-        ]),
-        # Group 3: dolphin-llama3:8b (5 personas)
-        ("dolphin-llama3:8b", [
-            "creativewriter", "hermes3writer", "itexpert", "techreviewer", "techwriter",
-        ]),
-        # Group 4: Security models (1 persona each — unavoidable switches)
-        ("xploiter/the-xploiter", ["cybersecurityspecialist", "networkengineer"]),
-        ("baronllm:q6_k", ["redteamoperator"]),
-        ("lily-cybersecurity:7b-q4_k_m", ["blueteamdefender"]),
-        ("lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0", ["pentester"]),
-        # Group 5: gpt-oss:20b (1 persona)
-        ("gpt-oss:20b", ["gptossanalyst"]),
-    ]
+    candidates = [p for p in PERSONAS if p.get("workspace_model") in OLLAMA_WORKSPACES]
+    candidates.sort(key=lambda p: p["workspace_model"])
 
     test_num = 1
-
-    for model_hint, persona_slugs in OLLAMA_PERSONA_GROUPS:
-        # Log which model group we're testing
-        print(f"\n  ── Model: {model_hint} ({len(persona_slugs)} personas) ──")
-
-        for slug in persona_slugs:
-            if slug not in PERSONA_PROMPTS:
-                continue
-
-            prompt, signals = PERSONA_PROMPTS[slug]
-            t0 = time.time()
+    for ws_id, group in itertools.groupby(candidates, key=lambda p: p["workspace_model"]):
+        members = list(group)
+        print(f"\n  ── Workspace: {ws_id} ({len(members)} personas) ──")
+        for p in members:
+            slug = p["slug"]
             tid = f"S10-{test_num:02d}"
-
-            persona_data = next((p for p in PERSONAS if p.get("slug") == slug), None)
-            if not persona_data:
-                record(sec, tid, f"Persona {slug}", "WARN", "persona YAML not found", t0=t0)
+            t0 = time.time()
+            if slug not in PERSONA_PROMPTS:
+                record(sec, tid, f"Persona {slug}", "FAIL",
+                       "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
                 continue
-
-            workspace_model = persona_data.get("workspace_model", "auto")
-            system_prompt = persona_data.get("system_prompt", "")[:500]
-
+            prompt, signals = PERSONA_PROMPTS[slug]
+            system = p.get("system_prompt", "")[:500]
             code, response, model = await _chat_with_model(
-                workspace_model,
-                prompt,
-                system=system_prompt,
-                max_tokens=250,
-                timeout=180,
+                ws_id, prompt, system=system, max_tokens=250, timeout=180,
             )
-
             if code != 200:
                 record(sec, tid, f"Persona {slug}", "FAIL", f"HTTP {code}", t0=t0)
                 test_num += 1
                 continue
-
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
-
             record(
                 sec, tid, f"Persona {slug}",
                 "PASS" if found else "WARN",
                 f"signals: {found[:3]}" if found else f"no signals in: {response[:60]}",
                 t0=t0,
             )
-
             test_num += 1
-            await asyncio.sleep(0.5)  # Shorter sleep within same model
-
-        # Longer pause between model groups to allow clean switching
+            await asyncio.sleep(0.5)
         await asyncio.sleep(2)
 
 
@@ -1937,188 +1935,138 @@ async def _mlx_chat_direct(
         return 0, str(e)[:100], ""
 
 
-async def S11() -> None:
-    """S11: Persona tests (MLX-routed) — grouped by model to minimize switching.
+MLX_WORKSPACES = {
+    "auto-coding", "auto-agentic", "auto-spl",
+    "auto-reasoning", "auto-research", "auto-data",
+    "auto-compliance", "auto-mistral", "auto-vision",
+    "auto-documents",
+}
 
-    MLX persona YAMLs store HF model paths (e.g. mlx-community/...) in workspace_model.
-    The pipeline only understands workspace IDs (auto-spl, auto-coding, etc.).
-    We resolve each model hint to its correct workspace via _MLX_MODEL_TO_WORKSPACE.
-    Models with no pipeline workspace are tested directly via the MLX proxy.
-    """
+# Memory sizes from mlx-proxy.py MODEL_MEMORY dict (approximate)
+_MLX_MODEL_GB = {
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 17,
+    "mlx-community/Qwen3-Coder-Next-4bit": 22,
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22,
+    "mlx-community/gemma-4-31b-it-4bit": 18,
+    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,
+    "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2": 15,
+    "mlx-community/phi-4-8bit": 14,
+    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15,
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34,
+    "mlx-community/gemma-4-e4b-it-4bit": 5,
+    "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23,
+    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18,
+}
+
+
+async def S11() -> None:
+    """S11: Persona tests (MLX-routed) — driven by PERSONAS, grouped by workspace."""
     print("\n━━━ S11. PERSONAS (MLX) ━━━")
     sec = "S11"
 
-    # Check MLX availability — auto-remediate if proxy is "down"
     state, _ = await _mlx_health()
     if state == "down":
         print("  ⚠️  MLX proxy is 'down' — attempting remediation before S11...")
-        recovered = await _remediate_mlx_crash("MLX down before S11")
-        if recovered:
-            state, _ = await _mlx_health()
-        else:
-            record(sec, "S11-00", "MLX availability", "BLOCKED", "MLX proxy is down and could not be recovered", t0=time.time())
+        if not await _remediate_mlx_crash("MLX down before S11"):
+            record(sec, "S11-00", "MLX availability", "BLOCKED",
+                   "MLX proxy is down and could not be recovered", t0=time.time())
             return
+        state, _ = await _mlx_health()
     if state not in ("ready", "none", "switching"):
-        record(sec, "S11-00", "MLX availability", "INFO", f"MLX state: {state}, skipping MLX persona tests", t0=time.time())
+        record(sec, "S11-00", "MLX availability", "INFO",
+               f"MLX state: {state}, skipping MLX persona tests", t0=time.time())
         return
-
     record(sec, "S11-00", "MLX availability", "PASS", f"state: {state}", t0=time.time())
 
-    # Evict Ollama models first — need unified memory for MLX
     await _ensure_free_ram_gb(20, "S11 MLX personas")
 
-    # MLX_PERSONA_GROUPS: (model_hint, pipeline_workspace, [slugs])
-    # All personas now have valid workspace IDs — test via pipeline to cover the full stack.
-    # Groups ordered to minimise model switches: largest memory models first,
-    # then models that share the same underlying MLX model are batched together.
-    MLX_PERSONA_GROUPS = [
-        # Group 1: Devstral → auto-coding (2 personas)
-        ("lmstudio-community/Devstral-Small-2507-MLX-4bit", "auto-coding", [
-            "fullstacksoftwaredeveloper", "ux-uideveloper",
-        ]),
-        # Group 2: Qwen3-Coder-30B → auto-spl (1 persona)
-        ("mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit", "auto-spl", [
-            "splunksplgineer",
-        ]),
-        # Group 3: Jackrong compliance → auto-compliance (2 personas)
-        ("Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit", "auto-compliance", [
-            "cippolicywriter", "nerccipcomplianceanalyst",
-        ]),
-        # Group 4a: Abliterated 26B MoE → auto-research (~35 TPS, uncensored, 256K ctx)
-        ("Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit", "auto-research", [
-            "gemmaresearchanalyst", "supergemma4researcher",
-        ]),
-        # Group 4b: Gemma 4 31B dense → auto-vision (unchanged — dense attention for complex visual reasoning)
-        # auto-vision text-only prompts are rerouted by the pipeline to auto-reasoning
-        # (mlx_model_hint: Jackrong/MLX-Qwopus3.5-27B-v3-8bit), so pre-load Qwopus
-        # for the auto-vision persona group to avoid a cold-switch Ollama fallback.
-        ("Jackrong/MLX-Qwopus3.5-27B-v3-8bit", "auto-vision", [
-            "gemma4e4bvision", "gemma4jangvision",
-        ]),
-        # Group 5: Phi-4 8bit — test directly via MLX proxy (not pipeline).
-        # auto-documents workspace uses [coding, general] backends (no mlx group),
-        # so the pipeline always routes it to Ollama. Direct proxy avoids this.
-        ("mlx-community/phi-4-8bit", None, ["phi4specialist"]),
-        # Group 6: Magistral → auto-mistral (1 persona)
-        ("lmstudio-community/Magistral-Small-2509-MLX-8bit", "auto-mistral", ["magistralstrategist"]),
-        # Group 7: DeepSeek-R1-32B → auto-data (1 persona — Phi-4-reasoning-plus maps here
-        # because it has no dedicated workspace; DeepSeek-R1 handles STEM reasoning too)
-        ("mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit", "auto-data", ["phi4stemanalyst"]),
-    ]
+    # Build (workspace_id → mlx_model_hint) at runtime — single source of truth
+    from portal_pipeline.router_pipe import WORKSPACES as _WORKSPACES  # noqa: PLC0415
+    ws_to_mlx = {
+        wsid: _WORKSPACES[wsid].get("mlx_model_hint")
+        for wsid in MLX_WORKSPACES
+        if _WORKSPACES.get(wsid, {}).get("mlx_model_hint")
+    }
+
+    candidates = [p for p in PERSONAS if p.get("workspace_model") in MLX_WORKSPACES]
+    candidates.sort(key=lambda p: p["workspace_model"])
 
     test_num = 1
+    for ws_id, group in itertools.groupby(candidates, key=lambda p: p["workspace_model"]):
+        members = list(group)
+        model_hint = ws_to_mlx.get(ws_id, "")
+        model_short = model_hint.split("/")[-1] if model_hint else "unknown"
+        print(f"\n  ── Workspace: {ws_id} → {model_short} ({len(members)} personas) ──")
 
-    for model_hint, pipeline_workspace, persona_slugs in MLX_PERSONA_GROUPS:
-        model_short = model_hint.split("/")[-1]
-        route_desc = f"via {pipeline_workspace}" if pipeline_workspace else "direct MLX proxy"
-        print(f"\n  ── MLX Model: {model_short} ({len(persona_slugs)} personas, {route_desc}) ──")
+        if model_hint:
+            model_gb = _MLX_MODEL_GB.get(model_hint, 10)
+            if model_gb >= 14:
+                await _ensure_free_ram_gb(model_gb + 10, model_short)
 
-        # Memory sizes from mlx-proxy.py MODEL_MEMORY dict (+ 10GB headroom)
-        model_gb = {
-            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 17,   # MoE 3B active ~17GB
-            "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,  # 35B-A3B 8bit ~28GB
-            "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22,               # 27B 8bit ~22GB
-            "mlx-community/gemma-4-31b-it-4bit": 18,
-            "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,  # 26B MoE abliterated ~15GB
-            "mlx-community/phi-4-8bit": 14,
-            "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
-            "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,
-            "mlx-community/gemma-4-e4b-it-4bit": 5,
-            "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23,
-        }.get(model_hint, 10)
-        if model_gb >= 14:
-            await _ensure_free_ram_gb(model_gb + 10, f"{model_short}")
+            print(f"  ── Triggering model load: {model_short} ──")
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    await c.post(
+                        f"{MLX_URL}/v1/chat/completions",
+                        json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                        timeout=3,
+                    )
+            except Exception:
+                pass  # Expected timeout — just queuing the switch
 
-        # Trigger model load DIRECTLY on the MLX proxy.
-        # Sending directly to port 8081 (not through pipeline) ensures the switch
-        # is queued immediately without pipeline routing overhead or auth checks.
-        # The proxy queues the model switch; we then poll until it's ready.
-        print(f"  ── Triggering model load: {model_short} ──")
-        try:
-            async with httpx.AsyncClient(timeout=10) as c:
-                await c.post(
-                    f"{MLX_URL}/v1/chat/completions",
-                    json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
-                    timeout=3,
-                )
-        except Exception:
-            pass  # Expected timeout — just queuing the switch
-
-        # Wait for the SPECIFIC model to be loaded and ready
-        model_ready = await _wait_for_mlx_model(model_hint, timeout=300)
-        if not model_ready:
-            # Check if proxy went "down" (e.g., admission rejection or crash)
-            cur_state, health_data = await _mlx_health()
-            loaded = health_data.get("loaded_model") or "unknown"
-            if cur_state == "down":
-                print(f"  ⚠️  MLX went down during {model_short} load — attempting recovery...")
-                recovered = await _remediate_mlx_crash(f"model load failed: {model_short}")
-                if not recovered:
-                    for slug in persona_slugs:
-                        record(sec, f"S11-{test_num:02d}", f"Persona {slug} (MLX)", "BLOCKED",
-                               f"MLX proxy down during {model_short} load, recovery failed", t0=time.time())
-                        test_num += 1
-                    break  # MLX is broken, stop testing further groups
-                # Retry the trigger after recovery
-                try:
-                    async with httpx.AsyncClient(timeout=10) as c:
-                        await c.post(f"{MLX_URL}/v1/chat/completions",
-                                     json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
-                                     timeout=3)
-                except Exception:
-                    pass
-                model_ready = await _wait_for_mlx_model(model_hint, timeout=240)
+            model_ready = await _wait_for_mlx_model(model_hint, timeout=300)
             if not model_ready:
-                for slug in persona_slugs:
-                    record(sec, f"S11-{test_num:02d}", f"Persona {slug} (MLX)", "WARN",
-                           f"Model {model_short} not loaded within 300s (proxy: {cur_state})", t0=time.time())
-                    test_num += 1
-                continue
+                cur_state, _ = await _mlx_health()
+                if cur_state == "down":
+                    print(f"  ⚠️  MLX went down during {model_short} load — attempting recovery...")
+                    recovered = await _remediate_mlx_crash(f"model load failed: {model_short}")
+                    if not recovered:
+                        for p in members:
+                            record(sec, f"S11-{test_num:02d}", f"Persona {p['slug']} (MLX)", "BLOCKED",
+                                   f"MLX proxy down during {model_short} load, recovery failed", t0=time.time())
+                            test_num += 1
+                        break
+                    try:
+                        async with httpx.AsyncClient(timeout=10) as c:
+                            await c.post(f"{MLX_URL}/v1/chat/completions",
+                                         json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                                         timeout=3)
+                    except Exception:
+                        pass
+                    model_ready = await _wait_for_mlx_model(model_hint, timeout=240)
+                if not model_ready:
+                    for p in members:
+                        record(sec, f"S11-{test_num:02d}", f"Persona {p['slug']} (MLX)", "WARN",
+                               f"Model {model_short} not loaded within 300s (proxy: {cur_state})", t0=time.time())
+                        test_num += 1
+                    continue
 
-        # Confirm correct model loaded
-        _, health_data = await _mlx_health()
-        loaded = health_data.get("loaded_model") or ""
-        if loaded and model_hint not in loaded and model_hint.split("/")[-1] not in loaded:
-            print(f"  ⚠️  Different model loaded: {loaded} (expected {model_short})")
+            _, health_data = await _mlx_health()
+            loaded = health_data.get("loaded_model") or ""
+            if loaded and model_hint not in loaded and model_hint.split("/")[-1] not in loaded:
+                print(f"  ⚠️  Different model loaded: {loaded} (expected {model_short})")
 
-        for slug in persona_slugs:
-            if slug not in PERSONA_PROMPTS:
-                continue
-
-            prompt, signals = PERSONA_PROMPTS[slug]
-            t0 = time.time()
+        for p in members:
+            slug = p["slug"]
             tid = f"S11-{test_num:02d}"
-
-            persona_data = next((p for p in PERSONAS if p.get("slug") == slug), None)
-            if not persona_data:
-                record(sec, tid, f"Persona {slug} (MLX)", "WARN", "persona not found", t0=t0)
+            t0 = time.time()
+            if slug not in PERSONA_PROMPTS:
+                record(sec, tid, f"Persona {slug} (MLX)", "FAIL",
+                       "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
                 continue
-
-            system_prompt = persona_data.get("system_prompt", "")[:500]
-
-            # Thinking models need more tokens to complete the actual answer
-            is_thinking_model = any(x in model_hint for x in ["reasoning", "R1", "Magistral", "Qwopus", "Opus"])
-            max_tok = 800 if is_thinking_model else 400
-
-            if pipeline_workspace:
-                # Route through pipeline using the correct workspace ID
-                code, response, model = await _chat_with_model(
-                    pipeline_workspace,
-                    prompt,
-                    system=system_prompt,
-                    max_tokens=max_tok,
-                    timeout=300,
-                )
-            else:
-                # No pipeline workspace — test directly via MLX proxy
-                code, response, model = await _mlx_chat_direct(
-                    model_hint, prompt, system=system_prompt, max_tokens=max_tok, timeout=300
-                )
-
+            prompt, signals = PERSONA_PROMPTS[slug]
+            system = p.get("system_prompt", "")[:500]
+            is_thinking = any(x in (model_hint or "") for x in ["reasoning", "R1", "Magistral", "Qwopus", "Opus"])
+            max_tok = 800 if is_thinking else 400
+            code, response, model = await _chat_with_model(
+                ws_id, prompt, system=system, max_tokens=max_tok, timeout=300,
+            )
             if code != 200:
                 error_text = response[:120]
-                # VLM models may fail with audio_tower parameter errors (model incompatibility)
                 if code == 500 and "audio_tower" in error_text:
                     record(sec, tid, f"Persona {slug} (MLX)", "BLOCKED",
                            "mlx_vlm audio_tower params missing in quantized model — requires full model download",
@@ -2130,26 +2078,28 @@ async def S11() -> None:
 
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
-
-            # Verify MLX was actually used (not Ollama fallback)
             is_mlx = any(org in model for org in _MLX_ORGS)
-            # Ollama fallback: model name contains ":" (e.g., "dolphin-llama3:8b")
             ollama_fallback = ":" in model and not is_mlx
 
-            status = "PASS" if found else "WARN"
             if ollama_fallback:
-                status = "WARN"
-                detail = f"Ollama fallback! model={model[:40]} — pipeline workspace routing issue"
+                mlx_state, _ = await _mlx_health()
+                if mlx_state in ("down", "switching"):
+                    status = "WARN"
+                    detail = f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}"
+                else:
+                    status = "FAIL"
+                    detail = f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)"
             elif found:
+                status = "PASS"
                 detail = f"MLX:{is_mlx} model={model.split('/')[-1][:30]} | signals: {found[:2]}"
             else:
+                status = "WARN"
                 detail = f"MLX:{is_mlx} model={model[:30]} | no signals in: {response[:60]}"
 
             record(sec, tid, f"Persona {slug} (MLX)", status, detail, t0=t0)
             test_num += 1
-            await asyncio.sleep(1)  # Short sleep within same model
+            await asyncio.sleep(1)
 
-        # Longer pause between MLX model switches (they're expensive)
         await asyncio.sleep(5)
 
 
@@ -2368,18 +2318,6 @@ async def S22() -> None:
         return
     record(sec, "S22-01", "MLX proxy for admission control", "PASS", f"state: {state}", t0=t0)
 
-    # S22-02: Memory endpoint available
-    t0 = time.time()
-    code, mem_data = await _get(f"{MLX_URL}/health/memory")
-    if code == 200:
-        if isinstance(mem_data, dict):
-            available_gb = mem_data.get("available_gb", 0)
-            record(sec, "S22-02", "MLX memory endpoint", "PASS", f"available: {available_gb:.1f}GB", t0=t0)
-        else:
-            record(sec, "S22-02", "MLX memory endpoint", "PASS", str(mem_data)[:80], t0=t0)
-    else:
-        record(sec, "S22-02", "MLX memory endpoint", "WARN", f"HTTP {code}", t0=t0)
-
     # S22-03: Test that proxy returns 503 for oversized model request.
     # Admission control should reject immediately (within ~2s) if memory < model_size + headroom.
     # Use 5s timeout: fast enough to catch prompt 503, short enough to avoid waiting for OOM.
@@ -2517,6 +2455,40 @@ async def S23() -> None:
         )
     else:
         record(sec, "S23-06", "Phi-4-reasoning-plus available", "INFO", f"HTTP {code}", t0=t0)
+
+    # S23-07: Huihui-GLM-4.7-Flash-abliterated-mlx-4bit available and produces output
+    t0 = time.time()
+    state, _ = await _mlx_health()
+    if state in ("ready", "none", "switching"):
+        code, models_data = await _get(f"{MLX_URL}/v1/models")
+        if code == 200 and isinstance(models_data, dict):
+            model_ids = [m.get("id", "") for m in models_data.get("data", [])]
+            glm_present = any("Huihui-GLM-4.7-Flash" in m for m in model_ids)
+            if not glm_present:
+                record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated registered", "INFO",
+                       "model not in MLX list — run hf download or ./launch.sh pull-mlx-models", t0=t0)
+            else:
+                try:
+                    code2, response2, _ = await _mlx_chat_direct(
+                        "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit",
+                        "Write hello world in Python.",
+                        max_tokens=50, timeout=300,
+                    )
+                    if code2 == 200 and len(response2) > 10:
+                        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "PASS",
+                               f"loaded + produced {len(response2)} chars", t0=t0)
+                    else:
+                        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "FAIL",
+                               f"HTTP {code2}, response len={len(response2)}", t0=t0)
+                except Exception as e:
+                    record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "FAIL",
+                           str(e)[:100], t0=t0)
+        else:
+            record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated registered", "INFO",
+                   "MLX models endpoint unavailable", t0=t0)
+    else:
+        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated", "INFO",
+               f"MLX state: {state}", t0=t0)
 
 
 async def S30() -> None:

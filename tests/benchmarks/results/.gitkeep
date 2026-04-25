@@ -1,0 +1,3 @@
+# Benchmark results — operator commits baselines manually.
+# Timestamped JSON files land here from `python3 tests/benchmarks/bench_tps.py`.
+# Use `jq` queries (see tests/benchmarks/README.md) to analyze.
