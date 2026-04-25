@@ -1375,56 +1375,22 @@ _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
 )
 
 # Valid workspace IDs the LLM router may return
+# Valid workspace IDs the LLM router may return.
+# Derived from WORKSPACES, excluding bench-* (those are user-selected only,
+# never auto-routed to). Updates automatically when WORKSPACES changes.
 _VALID_WORKSPACE_IDS: frozenset[str] = frozenset(
-    [
-        "auto",
-        "auto-agentic",
-        "auto-coding",
-        "auto-spl",
-        "auto-security",
-        "auto-redteam",
-        "auto-blueteam",
-        "auto-creative",
-        "auto-reasoning",
-        "auto-documents",
-        "auto-video",
-        "auto-music",
-        "auto-research",
-        "auto-vision",
-        "auto-data",
-        "auto-compliance",
-        "auto-mistral",
-        "auto-math",
-    ]
+    k for k in WORKSPACES if not k.startswith("bench-")
 )
 
-# JSON schema enforced by Ollama grammar decoding — guarantees parseable output
-# Enum constrains workspace to valid IDs (no hallucinated values possible)
+# JSON schema enforced by Ollama grammar decoding — derived from WORKSPACES.
+# One source of truth: adding a workspace to WORKSPACES automatically
+# makes it available to the LLM router. No parallel list to maintain.
 _ROUTER_JSON_SCHEMA: dict = {
     "type": "object",
     "properties": {
         "workspace": {
             "type": "string",
-            "enum": [
-                "auto",
-                "auto-agentic",
-                "auto-coding",
-                "auto-spl",
-                "auto-security",
-                "auto-redteam",
-                "auto-blueteam",
-                "auto-creative",
-                "auto-reasoning",
-                "auto-documents",
-                "auto-video",
-                "auto-music",
-                "auto-research",
-                "auto-vision",
-                "auto-data",
-                "auto-compliance",
-                "auto-mistral",
-                "auto-math",
-            ],
+            "enum": sorted(_VALID_WORKSPACE_IDS),
         },
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
     },
