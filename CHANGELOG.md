@@ -2,6 +2,23 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.4.0] — Inference performance milestone (M4)
+
+### Added (Track 1: Speculative Decoding)
+- **Draft models**: `mlx-community/Qwen2.5-0.5B-Instruct-4bit` (~0.5GB) and `mlx-community/Llama-3.2-1B-Instruct-4bit` (~1GB) added to MLX catalog
+- **`speculative_decoding.draft_models`** map in `config/backends.yaml` — 8 target→draft pairs for Qwen and Llama families
+- **`--draft-model` injection** in `scripts/mlx-proxy.py` — automatically passes `--draft-model` + `--num-draft-tokens` to `mlx_lm.server` when target has a draft mapping
+- **Draft-aware admission control** — `_check_memory_for_model()` now includes draft model memory in the pre-flight check
+- **`--spec-decoding-tag`** arg in `tests/benchmarks/bench_tps.py` — labels bench runs for before/after comparison
+
+### Added (Track 2: OMLX Evaluation — deferred)
+- **`deploy/omlx/config.yaml`** — OMLX evaluation config mapping admission control, VLM routing, KV cache, batching
+- **`tests/benchmarks/bench_omlx.py`** — side-by-side OMLX vs mlx-proxy benchmark script
+- **`OMLX_DECISION.md`** — decision document template (REPLACE/AUGMENT/HOLD)
+
+### Performance impact (Track 1)
+- Bench validation pending — run `bench_tps.py --spec-decoding-tag off` then `--spec-decoding-tag on` to measure TPS gains
+
 ## [6.1.0] — Frontier UX milestone (M1)
 
 ### Added

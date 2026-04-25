@@ -167,4 +167,24 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
-*Last updated: 2026-04-07*
+## Inference Performance (M4)
+
+### Speculative Decoding Adds Memory Cost
+- **ID**: P5-SPEC-001
+- **Status**: **ACTIVE**
+- **Description**: When a target model has a draft assigned in `speculative_decoding.draft_models`, both the target and draft are loaded simultaneously by `mlx_lm.server`. Admission control accounts for this — draft memory is added to the target's MODEL_MEMORY entry pre-flight.
+- **Impact**: Models with draft mappings require ~0.5-1GB more headroom than without. If memory is tight, removing the draft entry from `backends.yaml` and restarting the proxy falls back to non-spec-decoded inference.
+- **Mitigation**: Draft models are small (0.5-1GB) — impact is minimal on 64GB machines. Remove from `speculative_decoding.draft_models` to disable.
+- **Last verified**: 2026-04-24
+
+### OMLX Evaluation Deferred
+- **ID**: P5-OMLX-001
+- **Status**: **EVALUATING**
+- **Description**: OMLX is evaluated as a potential replacement for `mlx-proxy.py` (KV cache persistence, continuous batching). The package is not yet installable; evaluation infrastructure is prepared (config, benchmark script, decision template).
+- **Impact**: No KV cache persistence across requests until OMLX is evaluated or alternative is implemented. Each chat completion reprocesses the full prompt.
+- **Mitigation**: Speculative decoding (Track 1) provides TPS gains independently. OMLX evaluation resumes when package is available.
+- **Last verified**: 2026-04-24
+
+---
+
+*Last updated: 2026-04-24*

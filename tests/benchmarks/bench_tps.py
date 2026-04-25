@@ -66,7 +66,9 @@ REQUEST_TIMEOUT = 180.0
 RESULTS_DIR = Path(__file__).parent / "results"
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
-RESULTS_FILE = str(RESULTS_DIR / f"bench_tps_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json")
+RESULTS_FILE = str(
+    RESULTS_DIR / f"bench_tps_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+)
 
 # ── Prompt library ────────────────────────────────────────────────────────────
 # Category-mapped prompts designed to produce ~150-250 tokens of structured
@@ -174,7 +176,7 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
     "coding": "coding",
     "software": "coding",
     "development": "coding",
-    "systems": "coding",          # linuxterminal, sqlterminal
+    "systems": "coding",  # linuxterminal, sqlterminal
     "architecture": "reasoning",  # itarchitect — system design = reasoning
     "reasoning": "reasoning",
     "research": "reasoning",
@@ -185,7 +187,7 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
     "multimodal": "vision",
     "data": "reasoning",
     "compliance": "reasoning",
-    "general": "general",         # itexpert, techreviewer
+    "general": "general",  # itexpert, techreviewer
 }
 
 # MLX models don't have explicit groups in backends.yaml — infer from name/path
@@ -209,7 +211,7 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Qwen3-VL": "vision",
     "gemma-4-e4b": "vision",
     "gemma-4-26b": "vision",
-    "supergemma4-26b": "vision",   # Jiunsong abliterated Gemma 4 26B A4B MoE — multimodal VLM
+    "supergemma4-26b": "vision",  # Jiunsong abliterated Gemma 4 26B A4B MoE — multimodal VLM
     "JANG_4M-CRACK": "vision",  # dealignai abliterated Gemma 4 31B VLM
     "Phi-4-reasoning": "reasoning",
     "Llama-3.2-11B-Vision": "vision",
@@ -694,6 +696,7 @@ def _init_output(
         "order": args.order,
         "cooldown_s": args.cooldown,
         "runs_per_model": args.runs,
+        "spec_decoding": args.spec_decoding_tag or "unspecified",
         "total_wall_time_s": 0,
         "hardware": hw,
         "config_summary": {
@@ -923,10 +926,12 @@ def bench_tps(
 
     # Quality scoring: measure signal coverage for this prompt category
     try:
-        import sys as _sys
         import os as _os
+        import sys as _sys
+
         _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__), ".."))
         from quality_signals import quality_score as _qs
+
         qs = round(_qs(prompt_category, last_response_text), 2) if last_response_text else 0.0
     except Exception:
         qs = 1.0  # Don't penalize if signals module unavailable
@@ -1026,7 +1031,14 @@ def bench_direct(
             print("(warm-up) ", end="", flush=True)
             _warmup_mlx_model(model)
             prompt_cat = _prompt_category_for_model(model)
-            r = bench_tps(MLX_URL, model, prompt=prompt, runs=runs, label="mlx-direct", prompt_category=prompt_cat)
+            r = bench_tps(
+                MLX_URL,
+                model,
+                prompt=prompt,
+                runs=runs,
+                label="mlx-direct",
+                prompt_category=prompt_cat,
+            )
             r["backend"] = "mlx"
             r["path"] = "direct"
             r["available"] = True
@@ -1054,7 +1066,9 @@ def bench_direct(
                 )
                 _unload_all_running_ollama_models()
                 _evict_mlx_current_model(smallest_mlx)
-                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=max(cooldown * 12, 120.0))
+                reclaimed = _wait_mlx_memory_available(
+                    next_size, timeout_s=max(cooldown * 12, 120.0)
+                )
                 time.sleep(cooldown)
                 print("ok" if reclaimed else "ok (partial reclaim)")
 
@@ -1128,7 +1142,14 @@ def bench_direct(
             print("(warm-up) ", end="", flush=True)
             _warmup_ollama_model(model)
             prompt_cat = _prompt_category_for_model(model, group=group)
-            r = bench_tps(OLLAMA_URL, model, prompt=prompt, runs=runs, label="ollama-direct", prompt_category=prompt_cat)
+            r = bench_tps(
+                OLLAMA_URL,
+                model,
+                prompt=prompt,
+                runs=runs,
+                label="ollama-direct",
+                prompt_category=prompt_cat,
+            )
             r["backend"] = "ollama"
             r["path"] = "direct"
             r["available"] = True
@@ -1198,7 +1219,9 @@ def bench_pipeline(
             continue
         prompt = _get_prompt_for_workspace(ws)
         prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
-        r = bench_tps(PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline", prompt_category=prompt_cat)
+        r = bench_tps(
+            PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline", prompt_category=prompt_cat
+        )
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
         r["workspace"] = ws
@@ -1256,7 +1279,9 @@ def bench_personas(
             continue
         prompt = _get_prompt_for_persona_category(cat)
         prompt_cat = _prompt_category_for_persona(cat)
-        r = bench_tps(PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona", prompt_category=prompt_cat)
+        r = bench_tps(
+            PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona", prompt_category=prompt_cat
+        )
         r["backend"] = "pipeline"
         r["path"] = "persona"
         r["persona_slug"] = slug
@@ -1343,7 +1368,11 @@ def _print_direct_table(results: list[dict]) -> None:
     )
     print("=" * 130)
     # Sort: successful first by tps_quality desc, then unavailable
-    for r in sorted(direct, key=lambda x: (x["runs_success"] > 0, x.get("tps_quality", x["avg_tps"])), reverse=True):
+    for r in sorted(
+        direct,
+        key=lambda x: (x["runs_success"] > 0, x.get("tps_quality", x["avg_tps"])),
+        reverse=True,
+    ):
         model_short = r["model"].split("/")[-1]
         size_gb = r.get("est_memory_gb", 0)
         size_str = f"{size_gb:.0f}GB" if size_gb else "-"
@@ -1386,7 +1415,9 @@ def _print_pipeline_table(results: list[dict]) -> None:
         return
 
     print("\n" + "=" * 105)
-    print(f"{'Workspace':<30} {'Avg TPS':<10} {'Q-Score':<9} {'TPS×Q':<8} {'Tokens':<8} {'Runs':<8}")
+    print(
+        f"{'Workspace':<30} {'Avg TPS':<10} {'Q-Score':<9} {'TPS×Q':<8} {'Tokens':<8} {'Runs':<8}"
+    )
     print("=" * 105)
     for r in sorted(pipeline, key=lambda x: x.get("tps_quality", x["avg_tps"]), reverse=True):
         ws = r.get("workspace", "?")
@@ -1410,7 +1441,9 @@ def _print_persona_table(results: list[dict]) -> None:
         return
 
     print("\n" + "=" * 125)
-    print(f"{'Persona':<30} {'Category':<12} {'Workspace Model':<40} {'Avg TPS':<10} {'Q-Score':<9} {'Runs':<8}")
+    print(
+        f"{'Persona':<30} {'Category':<12} {'Workspace Model':<40} {'Avg TPS':<10} {'Q-Score':<9} {'Runs':<8}"
+    )
     print("=" * 125)
     for r in sorted(personas, key=lambda x: x.get("tps_quality", x["avg_tps"]), reverse=True):
         slug = r.get("persona_slug", "?")
@@ -1458,6 +1491,12 @@ def main() -> None:
         choices=["size", "config"],
         default="size",
         help="Model test order: 'size' = smallest first (default), 'config' = backends.yaml order",
+    )
+    parser.add_argument(
+        "--spec-decoding-tag",
+        type=str,
+        default="",
+        help="Label this run as 'spec_decoding=on/off' for later comparison (M4 Track 1)",
     )
     args = parser.parse_args()
 

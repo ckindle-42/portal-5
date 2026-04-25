@@ -51,7 +51,7 @@
     {
       "id": 10,
       "type": "text",
-      "title": "Model TPS \u2014 MLX (23) + Ollama (24)",
+      "title": "Model TPS \u2014 MLX (26) + Ollama (24)",
       "gridPos": {
         "h": 18,
         "w": 14,
@@ -67,7 +67,7 @@
     {
       "id": 20,
       "type": "text",
-      "title": "Pipeline Workspace TPS (17)",
+      "title": "Pipeline Workspace TPS (27)",
       "gridPos": {
         "h": 12,
         "w": 10,
@@ -99,7 +99,7 @@
     {
       "id": 40,
       "type": "text",
-      "title": "Persona Routing TPS (48)",
+      "title": "Persona Routing TPS (82)",
       "gridPos": {
         "h": 18,
         "w": 14,

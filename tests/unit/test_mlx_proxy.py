@@ -105,7 +105,9 @@ class TestCheckMemoryForModel:
         """Exactly at threshold should pass (>=, not >)."""
         model = "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"  # 9GB
         headroom = proxy_module.MEMORY_HEADROOM_GB
-        exact = 9.0 + headroom
+        draft = proxy_module.DRAFT_MODEL_MAP.get(model, "")
+        draft_mem = proxy_module.MODEL_MEMORY.get(draft, 0.5) if draft else 0.0
+        exact = 9.0 + draft_mem + headroom
         with patch.object(proxy_module, "_get_available_memory_gb", return_value=exact):
             ok, _ = proxy_module._check_memory_for_model(model)
         assert ok is True
@@ -114,7 +116,9 @@ class TestCheckMemoryForModel:
         """Just below threshold should fail."""
         model = "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"  # 9GB
         headroom = proxy_module.MEMORY_HEADROOM_GB
-        just_short = 9.0 + headroom - 0.1
+        draft = proxy_module.DRAFT_MODEL_MAP.get(model, "")
+        draft_mem = proxy_module.MODEL_MEMORY.get(draft, 0.5) if draft else 0.0
+        just_short = 9.0 + draft_mem + headroom - 0.1
         with patch.object(proxy_module, "_get_available_memory_gb", return_value=just_short):
             ok, _ = proxy_module._check_memory_for_model(model)
         assert ok is False
@@ -148,6 +152,7 @@ class TestBigModelMode:
     def test_big_model_ctx_default_is_32k(self, proxy_module):
         """Default BIG_MODEL_CTX must be 32768 (suppresses KV cache spike at 46GB)."""
         import os
+
         if "MLX_BIG_MODEL_CTX" not in os.environ:
             assert proxy_module.BIG_MODEL_CTX == 32768, (
                 f"Default BIG_MODEL_CTX should be 32768, got: {proxy_module.BIG_MODEL_CTX}"

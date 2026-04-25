@@ -1,0 +1,77 @@
+# Portal 5 OMLX evaluation configuration
+# Equivalent to scripts/mlx-proxy.py for the bake-off period.
+# NOTE: Exact YAML schema may differ from OMLX's actual config format — verify at install time.
+
+server:
+  host: 127.0.0.1
+  port: 8085
+
+# KV cache configuration — the headline OMLX feature
+kv_cache:
+  enabled: true
+  hot_max_gb: 4         # in-RAM tier (LRU)
+  cold_dir: /Volumes/data01/portal5_omlx_cache
+  cold_max_gb: 5        # SSD tier (LRU)
+  ttl_hours: 168        # 7 days
+
+# Admission control — OMLX equivalent of MODEL_MEMORY checks
+admission_control:
+  max_total_memory_gb: 30           # ceiling for OMLX process memory
+  per_model_memory_gb:              # mirror MODEL_MEMORY from mlx-proxy.py
+    "mlx-community/Qwen3-Coder-Next-4bit": 46.0
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0
+    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15.0
+    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0
+    "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0
+    "mlx-community/phi-4-8bit": 14.0
+    "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0
+    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0
+    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0
+    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit": 14.0
+    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 9.0
+    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0
+    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0
+    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 8.0
+    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18.0
+    "mlx-community/Qwen2.5-Math-7B-Instruct-4bit": 5.0
+    "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0
+    "mlx-community/gemma-4-31b-it-4bit": 18.0
+    "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0
+    "mlx-community/gemma-4-e4b-it-4bit": 5.0
+    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15.0
+    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0
+    "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23.0
+  unknown_model_default_gb: 20
+
+# Multi-model serving — the LRU eviction OMLX promises
+multi_model:
+  enabled: true
+  max_loaded_models: 2              # 2 simultaneous LM models max
+  pinned_models:
+    - mlx-community/Llama-3.2-3B-Instruct-8bit   # Pin the LLM router model — never evict
+
+# VLM routing — equivalent to mlx-proxy.py VLM_MODELS auto-switch
+vlm_routing:
+  vlm_models:
+    - mlx-community/Qwen3-VL-32B-Instruct-8bit
+    - mlx-community/gemma-4-31b-it-4bit
+    - mlx-community/gemma-4-e4b-it-4bit
+    - Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit
+    - mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit
+    - dealignai/Gemma-4-31B-JANG_4M-CRACK
+  auto_detect: true                 # OMLX inspects model architecture to decide engine
+
+# Speculative decoding — OMLX has its own DFlash; check if compatible with our drafts
+speculative_decoding:
+  enabled: true
+  engine: dflash                    # "dflash" or "draft_model"
+  draft_models:
+    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
+    "mlx-community/Llama-3.3-70B-Instruct-4bit": "mlx-community/Llama-3.2-1B-Instruct-4bit"
+
+# Continuous batching — concurrent request handling on shared model
+batching:
+  enabled: true
+  max_concurrent: 4
+  max_batch_tokens: 8192

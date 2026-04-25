@@ -31,6 +31,7 @@ from pathlib import Path
 from socketserver import ThreadingMixIn
 
 import httpx
+import yaml
 
 LM_PORT = 18081
 VLM_PORT = 18082
@@ -89,6 +90,9 @@ ALL_MODELS = [
     "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
     # Math/STEM specialist
     "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",  # Qwen2.5-Math 7B 4bit (~5GB, auto-math)
+    # ── Draft models for speculative decoding (M4 Track 1) ──────────────────
+    "mlx-community/Qwen2.5-0.5B-Instruct-4bit",  # ~0.5GB, Qwen tokenizer (draft for Qwen family)
+    "mlx-community/Llama-3.2-1B-Instruct-4bit",  # ~1GB, Llama-3 tokenizer (draft for Llama family)
     # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
@@ -154,6 +158,9 @@ MODEL_MEMORY: dict[str, float] = {
     "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 8.0,  # Phi-4-reasoning-plus 14B 4bit (~7-8GB)
     "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18.0,  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB)
     "mlx-community/Qwen2.5-Math-7B-Instruct-4bit": 5.0,  # Qwen2.5-Math 7B 4bit (~5GB)
+    # ── Draft models for speculative decoding (M4 Track 1) ──────────────────
+    "mlx-community/Qwen2.5-0.5B-Instruct-4bit": 0.5,  # Qwen draft, additive with target
+    "mlx-community/Llama-3.2-1B-Instruct-4bit": 1.0,  # Llama draft, additive with target
     # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
     "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
     "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
@@ -169,6 +176,49 @@ MEMORY_HEADROOM_GB: float = float(os.environ.get("MLX_MEMORY_HEADROOM_GB", "10.0
 
 # Unknown models get this conservative default rather than being blocked
 MEMORY_UNKNOWN_DEFAULT_GB: float = float(os.environ.get("MLX_MEMORY_UNKNOWN_DEFAULT_GB", "20.0"))
+
+# ── Speculative Decoding (M4 Track 1) ────────────────────────────────────────
+# Draft models are loaded alongside target models for 2-3× token acceptance.
+# The mapping is defined in config/backends.yaml under speculative_decoding.draft_models.
+
+
+def _backends_yaml_path() -> str:
+    """Locate config/backends.yaml — try Docker mount then repo-relative."""
+    candidates = [
+        "/app/config/backends.yaml",
+        os.path.join(os.path.dirname(__file__), "..", "config", "backends.yaml"),
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return candidates[-1]  # fallback (will fail later with clear error)
+
+
+def _load_draft_model_map() -> dict[str, str]:
+    """Read config/backends.yaml for speculative_decoding.draft_models map."""
+    try:
+        with open(_backends_yaml_path()) as f:
+            cfg = yaml.safe_load(f.read())
+        return cfg.get("speculative_decoding", {}).get("draft_models", {})
+    except Exception:
+        return {}
+
+
+def _model_exists_locally(model_id: str) -> bool:
+    """Check if model directory exists in the Portal 5 models mount or HF cache."""
+    portal5_models = Path(os.environ.get("PORTAL5_MODELS_DIR", "/Volumes/data01/models"))
+    p = portal5_models / model_id
+    if p.is_dir():
+        return True
+    hf_home = os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
+    cache_dir = Path(hf_home) / "hub"
+    safe_name = model_id.replace("/", "--")
+    return any(cache_dir.glob(f"models--{safe_name}*"))
+
+
+DRAFT_MODEL_MAP: dict[str, str] = _load_draft_model_map()
+if DRAFT_MODEL_MAP:
+    print(f"[proxy] speculative decoding map loaded: {len(DRAFT_MODEL_MAP)} pairs", flush=True)
 
 lock = threading.Lock()
 _request_semaphore = threading.Semaphore(MAX_WORKERS + MAX_QUEUE)
@@ -500,9 +550,7 @@ def _cleanup_zombie_servers() -> None:
             ("mlx_vlm.server", VLM_PORT, "mlx_vlm"),
         ]:
             try:
-                res = subprocess.run(
-                    ["pgrep", "-f", proc_pattern], capture_output=True, text=True
-                )
+                res = subprocess.run(["pgrep", "-f", proc_pattern], capture_output=True, text=True)
                 pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
                 if not pids:
                     continue
@@ -531,14 +579,19 @@ def _cleanup_zombie_servers() -> None:
                 print(f"[watchdog] zombie cleanup error for {label}: {e}", flush=True)
 
         if killed_any:
-            print("[watchdog] waiting for Metal GPU memory reclaim after zombie cleanup…", flush=True)
+            print(
+                "[watchdog] waiting for Metal GPU memory reclaim after zombie cleanup…", flush=True
+            )
             _wait_for_gpu_memory_reclaim()
             # Reset the down state so the proxy attempts a clean restart on next request
             if mlx_state.state == "down":
                 mlx_state._state = "none"
                 mlx_state._active_server = None
                 mlx_state._loaded_model = None
-                print("[watchdog] state reset to 'none' — proxy will restart server on next request", flush=True)
+                print(
+                    "[watchdog] state reset to 'none' — proxy will restart server on next request",
+                    flush=True,
+                )
 
     finally:
         _zombie_cleanup_active.clear()
@@ -826,15 +879,42 @@ def start_server(stype: str, model: str = "") -> int:
     # Check support at runtime to avoid crashing on older installs.
     if stype == "lm":
         import subprocess as _sp
-        help_out = _sp.run(
-            ["python3", "-m", "mlx_lm.server", "--help"],
-            capture_output=True, text=True, timeout=10,
-        ).stdout + _sp.run(
-            ["python3", "-m", "mlx_lm.server", "--help"],
-            capture_output=True, text=True, timeout=10,
-        ).stderr
+
+        help_out = (
+            _sp.run(
+                ["python3", "-m", "mlx_lm.server", "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stdout
+            + _sp.run(
+                ["python3", "-m", "mlx_lm.server", "--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stderr
+        )
         if "--kv-cache-quantization" in help_out:
             cmd.extend(["--kv-cache-quantization", "int8"])
+
+    # ── Speculative decoding via --draft-model (M4 Track 1) ─────────────────
+    if stype == "lm" and model and DRAFT_MODEL_MAP:
+        draft_model = DRAFT_MODEL_MAP.get(model, "")
+        if draft_model and _model_exists_locally(draft_model):
+            cmd.extend(["--draft-model", draft_model])
+            num_draft = os.environ.get("MLX_NUM_DRAFT_TOKENS", "4")
+            cmd.extend(["--num-draft-tokens", num_draft])
+            print(
+                f"[proxy] speculative decoding enabled: target={model} "
+                f"draft={draft_model} num_draft={num_draft}",
+                flush=True,
+            )
+        elif draft_model:
+            print(
+                f"[proxy] draft model {draft_model!r} not found locally; "
+                f"skipping spec-decoding for {model}",
+                flush=True,
+            )
 
     # Ensure log directory exists
     os.makedirs(_server_log_dir, exist_ok=True)
@@ -882,6 +962,13 @@ def _check_memory_for_model(model: str, freed_by_stop_gb: float = 0.0) -> tuple[
             when switching models so the admission check doesn't reject valid switches.
     """
     estimated_gb = MODEL_MEMORY.get(model, MEMORY_UNKNOWN_DEFAULT_GB)
+
+    # Include draft model memory if speculative decoding is configured
+    draft_model = DRAFT_MODEL_MAP.get(model, "")
+    if draft_model:
+        draft_gb = MODEL_MEMORY.get(draft_model, 0.5)
+        estimated_gb += draft_gb
+
     available_gb = _get_available_memory_gb() + freed_by_stop_gb
     required_gb = estimated_gb + MEMORY_HEADROOM_GB
 
@@ -899,9 +986,10 @@ def _check_memory_for_model(model: str, freed_by_stop_gb: float = 0.0) -> tuple[
     is_known = model in MODEL_MEMORY
 
     model_label = model.split("/")[-1] if "/" in model else model
+    draft_note = f" (incl {draft_model.split('/')[-1]} draft)" if draft_model else ""
     msg = (
         f"Insufficient memory to load {model_label!r}: "
-        f"needs ~{estimated_gb:.0f}GB"
+        f"needs ~{estimated_gb:.0f}GB{draft_note}"
         + (" (estimated)" if not is_known else "")
         + f" + {MEMORY_HEADROOM_GB:.0f}GB headroom = {required_gb:.0f}GB, "
         f"only {available_gb:.1f}GB available ({deficit:.1f}GB short). "
