@@ -2743,11 +2743,14 @@ PLIST
     # ── Create start script ───────────────────────────────────────────────────
     cat > "$MUSIC_DIR/start.sh" << MUSIC_START
 #!/bin/bash
-# Start Music MCP natively for MPS acceleration on Apple Silicon
-PORTAL_ROOT="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/../../projects/portal-5" 2>/dev/null && pwd)"
-# Fallback: walk up to find portal_mcp
+# Start Music MCP natively for MPS acceleration on Apple Silicon.
+# PORTAL_ROOT is baked at install-music time — re-run install-music
+# if the portal-5 repo moves.
+PORTAL_ROOT="${PORTAL_ROOT}"
 if [ ! -d "\$PORTAL_ROOT/portal_mcp" ]; then
-    PORTAL_ROOT="\$(python3 -c "import subprocess, os; r=subprocess.run(['git','-C',os.path.dirname(os.path.abspath('\$0')),  'rev-parse','--show-toplevel'],capture_output=True,text=True); print(r.stdout.strip())" 2>/dev/null)"
+    echo "ERROR: PORTAL_ROOT=\$PORTAL_ROOT no longer contains portal_mcp/" >&2
+    echo "Re-run: ./launch.sh install-music" >&2
+    exit 1
 fi
 export PYTHONPATH="\$PORTAL_ROOT"
 export HF_HOME="${HF_CACHE}"
