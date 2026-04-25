@@ -243,8 +243,8 @@ def _load_workspaces() -> tuple[list[str], dict[str, str]]:
     start = src.index("WORKSPACES:")
     end = src.index("# ── Content-aware", start)
     block = src[start:end]
-    ids = sorted(set(re.findall(r'"(auto[^"]*)":\s*\{', block)))
-    names = dict(re.findall(r'"(auto[^"]*)":.*?"name":\s*"([^"]+)"', block, re.DOTALL))
+    ids = sorted(set(re.findall(r'"((?:auto|bench)[^"]*)":\s*\{', block)))
+    names = dict(re.findall(r'"((?:auto|bench)[^"]*)":.*?"name":\s*"([^"]+)"', block, re.DOTALL))
     return ids, names
 
 
@@ -1293,13 +1293,14 @@ async def S1() -> None:
         t0=t0,
     )
 
-    # S1-11: Every persona has a PERSONA_PROMPTS entry
+    # S1-11: Every non-benchmark persona has a PERSONA_PROMPTS entry
     t0 = time.time()
-    missing_prompts = [p["slug"] for p in PERSONAS if p["slug"] not in PERSONA_PROMPTS]
+    non_bench = [p for p in PERSONAS if p.get("category") != "benchmark"]
+    missing_prompts = [p["slug"] for p in non_bench if p["slug"] not in PERSONA_PROMPTS]
     record(
         sec, "S1-11", "All personas have PERSONA_PROMPTS entries",
         "FAIL" if missing_prompts else "PASS",
-        f"missing prompts for: {missing_prompts}" if missing_prompts else f"all {len(PERSONAS)} covered",
+        f"missing prompts for: {missing_prompts}" if missing_prompts else f"all {len(non_bench)} non-benchmark personas covered",
         t0=t0,
     )
 
@@ -1416,8 +1417,7 @@ async def S3a() -> None:
         ("Ollama general", ["auto", "auto-video", "auto-music"]),
         # Group 2: Security (baronllm, lily-cybersecurity, xploiter)
         ("Ollama security", ["auto-security", "auto-redteam", "auto-blueteam"]),
-        # Group 3: Documents (qwen3.5:9b via coding group)
-        ("Ollama coding", ["auto-documents"]),
+        # auto-documents moved to S3b (now [mlx, coding, general] after T-08)
     ]
 
     test_num = 1
@@ -1472,6 +1472,8 @@ async def S3b() -> None:
         ("MLX creative", ["auto-creative"]),
         # Group 4: Vision (Gemma-4, Qwen3-VL)
         ("MLX vision", ["auto-vision"]),
+        # Group 5: Documents (Phi-4 8bit, MLX primary — T-08)
+        ("MLX documents", ["auto-documents"]),
     ]
 
     test_num = 1

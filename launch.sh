@@ -3372,8 +3372,8 @@ PLIST
         # Coding — primary workspace models
         "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
-        "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"  # ~12GB
         "lmstudio-community/Devstral-Small-2507-MLX-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
+        "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit"    # ~18GB — GLM 30B-A3B MoE, 59.2% SWE-bench, abliterated
         # Jackrong Reasoning (Qwopus3.5-v3 primary + Claude-4.6-Opus variants)
         "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                                    # ~22GB — primary auto-reasoning
         "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"                                     # ~9GB
