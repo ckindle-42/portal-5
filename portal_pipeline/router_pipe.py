@@ -8,6 +8,7 @@ Routes by workspace to the appropriate backend + model.
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import hmac
 import importlib.metadata
 import json
@@ -115,58 +116,90 @@ def _load_state() -> None:
 
 
 def _save_state() -> None:
-    """Persist current metrics state to disk.
+    """Persist current metrics state to disk with delta semantics.
 
-    With multiple workers, each process has its own in-memory counters.
-    On save we read the existing file, merge our counters into it (sum for
-    accumulators, max for peak), and write back atomically.
+    Cross-worker correctness:
+      1. Acquire exclusive flock on a sidecar lockfile (serialises all workers).
+      2. Read the file, add this worker's in-memory delta, write atomically.
+      3. Reset in-memory accumulators to 0 — the delta has been persisted.
+    The reset is critical: without it, every subsequent save re-adds the same
+    cumulative totals on top of the file, inflating values by ~saves_per_day.
+    Only `peak_concurrent` uses max() rather than addition — it survives the
+    reset and accumulates correctly across saves.
     """
+    global _total_response_time_ms, _total_tps, _request_tps_count
+    global _total_input_tokens, _total_output_tokens
+    global _request_count, _req_count_by_model, _req_count_by_error, _persona_usage_raw
+    global _peak_concurrent
+
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        lock_file = _STATE_FILE.with_suffix(".lock")
+        with open(lock_file, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                # Read existing state (may have been written by another worker)
+                existing: dict = {}
+                if _STATE_FILE.exists():
+                    with suppress(json.JSONDecodeError, OSError):
+                        existing = json.loads(_STATE_FILE.read_text())
 
-        # Read existing state (may have been written by another worker)
-        existing: dict = {}
-        if _STATE_FILE.exists():
-            with suppress(json.JSONDecodeError, OSError):
-                existing = json.loads(_STATE_FILE.read_text())
+                # Merge: sum accumulators, max for peak
+                merged = {
+                    "request_count": dict(existing.get("request_count", {})),
+                    "total_response_time_ms": float(existing.get("total_response_time_ms", 0.0))
+                    + _total_response_time_ms,
+                    "total_tps": float(existing.get("total_tps", 0.0)) + _total_tps,
+                    "request_tps_count": int(existing.get("request_tps_count", 0)) + _request_tps_count,
+                    "total_input_tokens": int(existing.get("total_input_tokens", 0)) + _total_input_tokens,
+                    "total_output_tokens": int(existing.get("total_output_tokens", 0))
+                    + _total_output_tokens,
+                    "req_count_by_model": dict(existing.get("req_count_by_model", {})),
+                    "req_count_by_error": dict(existing.get("req_count_by_error", {})),
+                    "peak_concurrent": max(int(existing.get("peak_concurrent", 0)), _peak_concurrent),
+                    "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
+                }
 
-        # Merge: sum accumulators, max for peak
-        merged = {
-            "request_count": dict(existing.get("request_count", {})),
-            "total_response_time_ms": float(existing.get("total_response_time_ms", 0.0))
-            + _total_response_time_ms,
-            "total_tps": float(existing.get("total_tps", 0.0)) + _total_tps,
-            "request_tps_count": int(existing.get("request_tps_count", 0)) + _request_tps_count,
-            "total_input_tokens": int(existing.get("total_input_tokens", 0)) + _total_input_tokens,
-            "total_output_tokens": int(existing.get("total_output_tokens", 0))
-            + _total_output_tokens,
-            "req_count_by_model": dict(existing.get("req_count_by_model", {})),
-            "req_count_by_error": dict(existing.get("req_count_by_error", {})),
-            "peak_concurrent": max(int(existing.get("peak_concurrent", 0)), _peak_concurrent),
-            "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
-        }
+                # Merge nested dicts
+                for ws, count in _request_count.items():
+                    merged["request_count"][ws] = merged["request_count"].get(ws, 0) + count
+                for model, count in _req_count_by_model.items():
+                    merged["req_count_by_model"][model] = (
+                        merged["req_count_by_model"].get(model, 0) + count
+                    )
+                for err_type, count in _req_count_by_error.items():
+                    merged["req_count_by_error"][err_type] = (
+                        merged["req_count_by_error"].get(err_type, 0) + count
+                    )
+                for persona, models in _persona_usage_raw.items():
+                    if persona not in merged["persona_usage_raw"]:
+                        merged["persona_usage_raw"][persona] = {}
+                    for model, count in models.items():
+                        merged["persona_usage_raw"][persona][model] = (
+                            merged["persona_usage_raw"][persona].get(model, 0) + count
+                        )
 
-        # Merge nested dicts
-        for ws, count in _request_count.items():
-            merged["request_count"][ws] = merged["request_count"].get(ws, 0) + count
-        for model, count in _req_count_by_model.items():
-            merged["req_count_by_model"][model] = merged["req_count_by_model"].get(model, 0) + count
-        for err_type, count in _req_count_by_error.items():
-            merged["req_count_by_error"][err_type] = (
-                merged["req_count_by_error"].get(err_type, 0) + count
-            )
-        for persona, models in _persona_usage_raw.items():
-            if persona not in merged["persona_usage_raw"]:
-                merged["persona_usage_raw"][persona] = {}
-            for model, count in models.items():
-                merged["persona_usage_raw"][persona][model] = (
-                    merged["persona_usage_raw"][persona].get(model, 0) + count
-                )
+                # Atomic write
+                tmp = _STATE_FILE.with_suffix(".tmp")
+                tmp.write_text(json.dumps(merged))
+                tmp.rename(_STATE_FILE)
 
-        # Atomic write
-        tmp = _STATE_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(merged))
-        tmp.rename(_STATE_FILE)
+                # CRITICAL: reset in-memory accumulators after successful persist.
+                # The delta is now in the file. Re-summing in-memory on the next
+                # save would double-count.
+                _total_response_time_ms = 0.0
+                _total_tps = 0.0
+                _request_tps_count = 0
+                _total_input_tokens = 0
+                _total_output_tokens = 0
+                _request_count.clear()
+                _req_count_by_model.clear()
+                _req_count_by_error.clear()
+                _persona_usage_raw.clear()
+                # peak_concurrent is NOT reset — it uses max() and represents
+                # an all-time peak that should survive across save cycles.
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
     except Exception as e:
         logger.debug("Failed to persist metrics state: %s", e)
 
