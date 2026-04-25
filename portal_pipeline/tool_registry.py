@@ -41,6 +41,12 @@ TOOL_DISCOVERY_TIMEOUT_S = 5.0
 TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 
+def _backoff_seconds(failures: int) -> float:
+    """Backoff schedule: 30s, 2m, 5m, 15m, 1h, capped."""
+    schedule = [30, 120, 300, 900, 3600]
+    return float(schedule[min(failures - 1, len(schedule) - 1)])
+
+
 @dataclass
 class ToolDefinition:
     """A single tool, resolvable to an MCP server."""
@@ -53,6 +59,8 @@ class ToolDefinition:
     last_seen: float = 0.0
     healthy: bool = True
     custom_timeout_s: float | None = None  # override TOOL_DISPATCH_TIMEOUT_S
+    next_retry_at: float = 0.0        # epoch seconds; 0 = retry allowed immediately
+    consecutive_failures: int = 0     # for exponential backoff calc
 
     def to_openai_tool(self) -> dict[str, Any]:
         """Serialize to OpenAI tools array format."""
@@ -122,10 +130,13 @@ class ToolRegistry:
                 return_exceptions=True,
             )
 
-            # Preserve health flags from previous tools that re-appeared
+            # Preserve backoff state from previous tools that re-appeared
             for name, tool in new_tools.items():
                 if name in self._tools:
-                    tool.healthy = self._tools[name].healthy
+                    prev = self._tools[name]
+                    tool.healthy = prev.healthy
+                    tool.consecutive_failures = prev.consecutive_failures
+                    tool.next_retry_at = prev.next_retry_at
 
             self._tools = new_tools
             self._last_refresh = now
@@ -143,12 +154,19 @@ class ToolRegistry:
         return sorted(self._tools.keys())
 
     def get_openai_tools(self, names: list[str]) -> list[dict[str, Any]]:
-        """Get OpenAI-format tools array, filtered by name list."""
-        return [
-            self._tools[n].to_openai_tool()
-            for n in names
-            if n in self._tools and self._tools[n].healthy
-        ]
+        """Get OpenAI-format tools array, filtered by name list.
+
+        A tool is included if healthy or if its backoff window has elapsed.
+        """
+        now = time.time()
+        result = []
+        for n in names:
+            t = self._tools.get(n)
+            if t is None:
+                continue
+            if t.healthy or now >= t.next_retry_at:
+                result.append(t.to_openai_tool())
+        return result
 
     async def dispatch(
         self, tool_name: str, arguments: dict[str, Any], request_id: str = ""
@@ -157,8 +175,14 @@ class ToolRegistry:
         tool = self.get(tool_name)
         if tool is None:
             return {"error": f"Tool '{tool_name}' not in registry — call ignored"}
-        if not tool.healthy:
-            return {"error": f"Tool '{tool_name}' marked unhealthy by registry"}
+
+        now = time.time()
+        if not tool.healthy and now < tool.next_retry_at:
+            remaining = int(tool.next_retry_at - now)
+            return {
+                "error": f"Tool '{tool_name}' in backoff (retry in {remaining}s after "
+                         f"{tool.consecutive_failures} consecutive failures)"
+            }
 
         timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S
         url = f"{tool.server_url.rstrip('/')}/tools/{tool_name}"
@@ -171,16 +195,27 @@ class ToolRegistry:
                 timeout=timeout_s,
             )
             if r.status_code == 200:
+                tool.healthy = True
+                tool.consecutive_failures = 0
+                tool.next_retry_at = 0.0
                 return r.json()
             else:
-                tool.healthy = False  # Mark unhealthy on non-200; refresh will reset
+                tool.consecutive_failures += 1
+                tool.healthy = False
+                tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
                 return {
                     "error": f"Tool '{tool_name}' returned HTTP {r.status_code}",
                     "detail": r.text[:200],
                 }
         except asyncio.TimeoutError:
+            tool.consecutive_failures += 1
+            tool.healthy = False
+            tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
             return {"error": f"Tool '{tool_name}' timed out after {timeout_s}s"}
         except Exception as e:
+            tool.consecutive_failures += 1
+            tool.healthy = False
+            tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
             return {"error": f"Tool '{tool_name}' dispatch failed: {e}"}
 
     async def close(self) -> None:
