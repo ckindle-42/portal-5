@@ -2373,19 +2373,19 @@ async def S22() -> None:
             },
             timeout=8,
         )
-            if r.status_code == 503:
-                # Try to parse the detail from JSON body
-                try:
-                    detail = r.json().get("detail", r.text[:100])
-                except Exception:
-                    detail = r.text[:100] or "admission rejected"
-                record(sec, "S22-03", "Admission control rejects oversized", "PASS", f"503: {detail[:80]}", t0=t0)
-            elif r.status_code == 200:
-                # Proxy accepted and returned a response — enough memory was available
-                record(sec, "S22-03", "Admission control rejects oversized", "INFO",
-                       "model loaded successfully — insufficient memory pressure to trigger rejection", t0=t0)
-            else:
-                record(sec, "S22-03", "Admission control rejects oversized", "WARN", f"HTTP {r.status_code}", t0=t0)
+        if r.status_code == 503:
+            # Try to parse the detail from JSON body
+            try:
+                detail = r.json().get("detail", r.text[:100])
+            except Exception:
+                detail = r.text[:100] or "admission rejected"
+            record(sec, "S22-03", "Admission control rejects oversized", "PASS", f"503: {detail[:80]}", t0=t0)
+        elif r.status_code == 200:
+            # Proxy accepted and returned a response — enough memory was available
+            record(sec, "S22-03", "Admission control rejects oversized", "INFO",
+                   "model loaded successfully — insufficient memory pressure to trigger rejection", t0=t0)
+        else:
+            record(sec, "S22-03", "Admission control rejects oversized", "WARN", f"HTTP {r.status_code}", t0=t0)
     except (httpx.ReadTimeout, httpx.ConnectTimeout, asyncio.TimeoutError):
         # Proxy accepted request and started loading (no immediate rejection) — memory not tight enough
         free_gb = _free_ram_gb()
@@ -2828,6 +2828,14 @@ async def _notify_test_summary(
     )
 
 
+async def S50() -> None:
+    """S50: Negative tests — delegates to tests/acceptance/s50_negative.py."""
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "tests"))
+    from acceptance import s50_negative as _s50
+    await _s50.run()
+
+
 ALL_SECTIONS = {
     # Phase 1: No-model tests
     "S0": S0,
@@ -2836,6 +2844,7 @@ ALL_SECTIONS = {
     "S12": S12,
     "S13": S13,
     "S40": S40,
+    "S50": S50,  # Negative tests (section file: tests/acceptance/s50_negative.py)
     # Phase 2: Ollama tests
     "S3a": S3a,
     "S6": S6,
