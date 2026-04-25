@@ -355,19 +355,18 @@ def attempt_recovery(name: str, state: ComponentState) -> None:
 
 
 def recover_proxy() -> None:
-    """Kill hung proxy and restart it.
+    """Kill hung proxy and ask launchd to restart it.
 
-    Uses the same approach as mlx-proxy.py's ensure_server():
-    kill all MLX processes, wait for GPU memory reclamation, restart proxy,
-    verify it responds on /health.
+    Uses `launchctl kickstart -k` so the recovered proxy inherits the
+    com.portal5.mlx-proxy.plist EnvironmentVariables (HF_HOME,
+    HF_HUB_CACHE, HF_TOKEN) and remains tracked by launchd's KeepAlive.
+    Falls back to a direct subprocess.Popen only if launchctl is
+    unavailable (Linux dev environments).
     """
-    # Kill all MLX processes — proxy and any servers it was managing
-    for pattern in ["mlx-proxy.py", "mlx_lm.server", "mlx_vlm.server"]:
-        result = subprocess.run(
-            ["pgrep", "-f", pattern],
-            capture_output=True,
-            text=True,
-        )
+    # Kill any MLX server processes the proxy was managing.
+    # The proxy itself will be killed and respawned by launchctl below.
+    for pattern in ["mlx_lm.server", "mlx_vlm.server"]:
+        result = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True)
         for pid in result.stdout.strip().split("\n"):
             if pid:
                 try:
@@ -376,37 +375,46 @@ def recover_proxy() -> None:
                 except ProcessLookupError:
                     pass
 
-    # Also kill anything on the ports
-    for port in [PROXY_PORT, LM_PORT, VLM_PORT]:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True,
-            text=True,
-        )
-        for pid in result.stdout.strip().split("\n"):
-            if pid:
-                try:
-                    os.kill(int(pid), signal.SIGKILL)
-                    logger.info("Force-killed PID %s on port %d", pid, port)
-                except ProcessLookupError:
-                    pass
-
     # Wait for GPU memory reclamation (critical on Apple Silicon)
     logger.info("Waiting 15s for GPU memory reclamation...")
     time.sleep(15)
 
-    # Restart proxy — it will handle server lifecycle on demand
-    script_dir = Path(__file__).parent
-    proxy_script = script_dir / "mlx-proxy.py"
-    if not proxy_script.exists():
-        raise FileNotFoundError(f"mlx-proxy.py not found at {proxy_script}")
-
-    subprocess.Popen(
-        ["python3", str(proxy_script)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    logger.info("Restarted MLX proxy — it will load models on demand")
+    # Ask launchd to restart the proxy service. -k kills first, then starts.
+    # The new process inherits the plist's EnvironmentVariables.
+    launchd_label = "com.portal5.mlx-proxy"
+    domain = f"gui/{os.getuid()}"
+    try:
+        result = subprocess.run(
+            ["launchctl", "kickstart", "-k", f"{domain}/{launchd_label}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode == 0:
+            logger.info("Asked launchd to restart %s", launchd_label)
+        else:
+            logger.warning(
+                "launchctl kickstart returned %d: %s — falling back to subprocess",
+                result.returncode, result.stderr.strip(),
+            )
+            raise RuntimeError("launchctl kickstart failed")
+    except (FileNotFoundError, subprocess.TimeoutExpired, RuntimeError):
+        # Fallback: direct Popen (Linux or no launchd registration)
+        logger.warning("Falling back to direct proxy spawn (no launchd)")
+        for pattern in ["mlx-proxy.py"]:
+            result = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True)
+            for pid in result.stdout.strip().split("\n"):
+                if pid:
+                    try:
+                        os.kill(int(pid), signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+        time.sleep(2)
+        script_dir = Path(__file__).parent
+        proxy_script = script_dir / "mlx-proxy.py"
+        if proxy_script.exists():
+            subprocess.Popen(
+                ["python3", str(proxy_script)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
 
     # Wait for proxy to respond (any response = alive)
     for attempt in range(30):
@@ -414,11 +422,10 @@ def recover_proxy() -> None:
         try:
             r = httpx.get(f"http://127.0.0.1:{PROXY_PORT}/health", timeout=5)
             if r.status_code in (200, 503):
-                name = "MLX Proxy"
                 COMPONENTS["proxy"].healthy = True
                 COMPONENTS["proxy"].consecutive_failures = 0
                 COMPONENTS["proxy"].recovery_attempts = 0
-                send_notification("RECOVERED", f"{name} recovered on :{PROXY_PORT}")
+                send_notification("RECOVERED", f"MLX Proxy recovered on :{PROXY_PORT}")
                 return
         except Exception:
             pass
