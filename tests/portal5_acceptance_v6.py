@@ -1844,6 +1844,22 @@ async def S1() -> None:
         t0=t0,
     )
 
+    # S1-17: workspace hint reachability
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import _validate_workspace_hints
+        from portal_pipeline.cluster_backends import BackendRegistry
+        reg = BackendRegistry()
+        errors = _validate_workspace_hints(reg)
+        if not errors:
+            record(sec, "S1-17", "workspace hint reachability", "PASS",
+                   f"all {len(WS_IDS)} workspace hints resolve", t0=t0)
+        else:
+            record(sec, "S1-17", "workspace hint reachability", "FAIL",
+                   f"{len(errors)} hints unresolved: {errors[0][:120]}", t0=t0)
+    except Exception as e:
+        record(sec, "S1-17", "workspace hint reachability", "FAIL", str(e)[:200], t0=t0)
+
 
 async def S2() -> None:
     """S2: Service health checks."""
