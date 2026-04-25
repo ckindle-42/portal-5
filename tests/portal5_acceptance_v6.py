@@ -189,6 +189,36 @@ _blocked: list[R] = []
 _ICON = {"PASS": "✅", "FAIL": "❌", "BLOCKED": "🚫", "WARN": "⚠️ ", "INFO": "ℹ️ "}
 
 
+_ERROR_PATTERNS_CODE_DEFECT = [
+    r"No such file or directory.*portal_metrics",
+    r"model_hint.*not in",
+    r"workspace_model.*not in WORKSPACES",
+    r"AttributeError|TypeError|NameError",
+    r"port.*already in use|address already in use",
+    r"semaphore.*concurrency limit",
+]
+_ERROR_PATTERNS_ENV_ISSUE = [
+    r"All connection attempts failed",
+    r"name resolution|getaddrinfo",
+    r"docker.*registry|registry-1\.docker\.io",
+    r"insufficient memory|out of memory",
+    r"missing dependency|No module named",
+    r"port.*not running|not running",
+    r"ConnectError|Connection refused",
+]
+
+
+def _classify(detail: str) -> str:
+    """Classify a FAIL/WARN detail string as CODE-DEFECT, ENV-ISSUE, or UNCLASSIFIED."""
+    for pat in _ERROR_PATTERNS_CODE_DEFECT:
+        if re.search(pat, detail, re.IGNORECASE):
+            return "CODE-DEFECT"
+    for pat in _ERROR_PATTERNS_ENV_ISSUE:
+        if re.search(pat, detail, re.IGNORECASE):
+            return "ENV-ISSUE"
+    return "UNCLASSIFIED"
+
+
 def _emit(r: R) -> R:
     """Print and log a test result."""
     icon = _ICON.get(r.status, "  ")
@@ -232,6 +262,9 @@ def record(
 ) -> R:
     """Record a test result."""
     dur = time.time() - t0 if t0 else 0.0
+    if status in ("FAIL", "WARN") and detail:
+        cls = _classify(detail)
+        detail = f"{detail}  [{cls}]"
     r = R(section, tid, name, status, detail, evidence or [], fix, dur)
     _log.append(r)
     if status == "BLOCKED":
@@ -3877,6 +3910,17 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
         if status in counts:
             lines.append(f"| {_ICON.get(status, '')} {status} | {counts[status]} |")
     lines.append(f"| **Total** | **{total}** |")
+
+    # Classifier breakdown for FAIL/WARN
+    fail_warn = [r for r in _log if r.status in ("FAIL", "WARN")]
+    if fail_warn:
+        code_defects = sum(1 for r in fail_warn if "CODE-DEFECT" in r.detail)
+        env_issues = sum(1 for r in fail_warn if "ENV-ISSUE" in r.detail)
+        unclassified = len(fail_warn) - code_defects - env_issues
+        lines.extend([
+            "",
+            f"**Code defects: {code_defects} · Env issues: {env_issues} · Unclassified: {unclassified}**",
+        ])
 
     lines.extend(
         [
