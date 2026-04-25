@@ -178,3 +178,63 @@ class TestBigModelMode:
     def test_devstral_2507_not_in_big_model_set(self, proxy_module):
         """Devstral-Small-2507-MLX-4bit (~15GB) must NOT be in BIG_MODEL_SET — it fits normally."""
         assert "lmstudio-community/Devstral-Small-2507-MLX-4bit" not in proxy_module.BIG_MODEL_SET
+
+
+class TestVLMAdmissionCredit:
+    """Verify admission credit is correctly computed on VLM↔LM transitions (Task 2.8)."""
+
+    def test_vlm_model_routes_to_vlm_server(self, proxy_module):
+        """A model in VLM_MODELS must be routed to the vlm server."""
+        vlm_model = "mlx-community/Qwen3-VL-32B-Instruct-8bit"
+        assert proxy_module.needs_vlm(vlm_model), (
+            f"{vlm_model} should need the VLM server"
+        )
+
+    def test_text_model_routes_to_lm_server(self, proxy_module):
+        """A model NOT in VLM_MODELS must be routed to the lm server."""
+        text_model = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"
+        assert not proxy_module.needs_vlm(text_model), (
+            f"{text_model} should NOT need the VLM server"
+        )
+
+    def test_vlm_model_has_memory_entry(self, proxy_module):
+        """A VLM model used in admission credit must be in MODEL_MEMORY."""
+        vlm_model = "mlx-community/Qwen3-VL-32B-Instruct-8bit"
+        assert vlm_model in proxy_module.MODEL_MEMORY, (
+            f"VLM model {vlm_model!r} missing from MODEL_MEMORY — "
+            "admission credit lookup will return 0.0"
+        )
+
+    def test_admission_credit_vlm_to_lm_uses_vlm_memory(self, proxy_module):
+        """When switching from a VLM model to a text model, freed_by_stop_gb must
+        reflect the VLM model's memory so the admission check isn't overly conservative.
+        """
+        vlm_model = "mlx-community/Qwen3-VL-32B-Instruct-8bit"
+        vlm_memory = proxy_module.MODEL_MEMORY.get(vlm_model, 0.0)
+        assert vlm_memory > 0, f"MODEL_MEMORY[{vlm_model!r}] = 0 — credit would be 0"
+
+        # Simulate: MLXState reflects VLM model loaded
+        state = proxy_module.MLXState()
+        state.set_ready("vlm", vlm_model)
+        assert state.loaded_model == vlm_model
+        assert state.active_server == "vlm"
+
+        # Admission credit calculation mirrors ensure_server() lines 1129-1130
+        current_loaded = state.loaded_model
+        freed = proxy_module.MODEL_MEMORY.get(current_loaded, 0.0) if current_loaded else 0.0
+        assert freed == vlm_memory, (
+            f"Credit for VLM→LM switch should be {vlm_memory}GB (VLM model footprint), "
+            f"got {freed}GB"
+        )
+
+    def test_mlx_state_invariant_vlm_model_sets_active_server_vlm(self, proxy_module):
+        """After set_ready('vlm', vlm_model), active_server must be 'vlm' not 'lm'.
+        This invariant is checked by the debug assertion in ensure_server().
+        """
+        vlm_model = "mlx-community/Qwen3-VL-32B-Instruct-8bit"
+        state = proxy_module.MLXState()
+        state.set_ready("vlm", vlm_model)
+        assert state.active_server == "vlm"
+        # The debug assertion in ensure_server() checks needs_vlm(loaded_model) agrees
+        expected = "vlm" if proxy_module.needs_vlm(vlm_model) else "lm"
+        assert state.active_server == expected

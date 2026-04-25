@@ -1127,6 +1127,18 @@ def ensure_server(model: str) -> int:
                 # When switching models, credit the memory freed by unloading the
                 # current model — it WILL be released by stop_all() below.
                 current_loaded = mlx_state.loaded_model
+                # Invariant: if a model is loaded, active_server must be set and
+                # must match the expected server type for that model. This catches
+                # state corruption where loaded_model and active_server disagree,
+                # which would cause the admission credit to be computed for the
+                # wrong server's memory footprint.
+                if __debug__ and current_loaded and mlx_state.active_server:
+                    expected_server = "vlm" if needs_vlm(current_loaded) else "lm"
+                    assert mlx_state.active_server == expected_server, (
+                        f"State invariant violated: loaded_model={current_loaded!r} "
+                        f"implies active_server={expected_server!r} but "
+                        f"active_server={mlx_state.active_server!r}"
+                    )
                 freed_by_stop_gb = MODEL_MEMORY.get(current_loaded, 0.0) if current_loaded else 0.0
                 ok, rejection_msg = _check_memory_for_model(
                     model, freed_by_stop_gb=freed_by_stop_gb
