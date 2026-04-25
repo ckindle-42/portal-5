@@ -1425,6 +1425,17 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     return errors
 
 
+def _model_supports_tools(model_id: str) -> bool:
+    """Return True if a model supports OpenAI tools schema (reads backends.yaml mlx_metadata)."""
+    if registry is None:
+        return False
+    for be in registry.list_backends():
+        for meta in be.mlx_metadata:
+            if meta.get("id") == model_id:
+                return bool(meta.get("supports_tools", False))
+    return False
+
+
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Inject Ollama-specific TTFT performance defaults not already in the request.
 
@@ -2318,7 +2329,10 @@ async def chat_completions(
         # Resolve effective tool list for this request (M2)
         persona_data = _PERSONA_MAP.get(persona, {})
         effective_tools = _resolve_persona_tools(persona_data, workspace_id)
-        _has_tools = bool(effective_tools) and backend.type == "ollama"
+        backend_supports_tools = backend.type == "ollama" or (
+            backend.type == "mlx" and _model_supports_tools(target_model or "")
+        )
+        _has_tools = bool(effective_tools) and backend_supports_tools
 
         if _has_tools:
             from portal_pipeline.tool_registry import tool_registry
