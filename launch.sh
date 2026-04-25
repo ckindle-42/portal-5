@@ -2627,6 +2627,13 @@ PLIST
     ;;
 
   install-music)
+    # Source .env so HF_HOME, AI_OUTPUT_DIR, and MUSIC_HOST_PORT propagate into
+    # the generated com.portal5.music-mcp.plist EnvironmentVariables block.
+    # Without this, a fresh shell running `./launch.sh install-music` defaults
+    # HF_HOME to ~/.portal5/music/hf_cache — separate from MLX's HF cache,
+    # fragmenting model storage.
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
     echo "=== Installing Music MCP natively (Apple Silicon / MPS) ==="
     ARCH=$(uname -m)
     MUSIC_DIR="$HOME/.portal5/music"
@@ -2755,6 +2762,13 @@ PLIST
     ;;
 
   install-mlx)
+    # Source .env so HF_HUB_CACHE/HF_HOME/HF_TOKEN propagate into the
+    # generated com.portal5.mlx-proxy.plist EnvironmentVariables block.
+    # Without this, a fresh shell running `./launch.sh install-mlx` produces
+    # a plist that omits HF env vars, and the launchd-managed proxy looks
+    # for models in ~/.cache/huggingface instead of the configured cache.
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
     echo "=== Installing MLX dual-server (Apple Silicon native inference) ==="
     ARCH=$(uname -m)
 
