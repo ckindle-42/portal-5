@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-25T01:59:35.902590+00:00",
+  "timestamp": "2026-04-25T02:56:10.674315+00:00",
   "mode": "direct",
   "order": "size",
   "cooldown_s": 3.0,
   "runs_per_model": 3,
-  "total_wall_time_s": 0,
+  "total_wall_time_s": 3394.8,
   "hardware": {
     "platform": "Darwin",
     "machine": "arm64",
@@ -19,13 +19,16 @@
   },
   "backends": {
     "mlx": {
-      "url": "http://localhost:8081"
+      "url": "http://localhost:8081",
+      "available": true
     },
     "ollama": {
-      "url": "http://localhost:11434"
+      "url": "http://localhost:11434",
+      "available": true
     },
     "pipeline": {
-      "url": "http://localhost:9099"
+      "url": "http://localhost:9099",
+      "available": true
     }
   },
   "results": [
@@ -785,6 +788,1204 @@
       "available": true,
       "est_memory_gb": 40.0,
       "prompt_category": "coding"
+    },
+    {
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "label": "mlx-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 61.8,
+      "min_tps": 58.6,
+      "max_tps": 63.9,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 4.15,
+      "routed_model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.37,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 58.6,
+          "response_model": "mlx-community/Qwen3-Coder-Next-4bit"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.07,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 62.9,
+          "response_model": "mlx-community/Qwen3-Coder-Next-4bit"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.01,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 63.9,
+          "response_model": "mlx-community/Qwen3-Coder-Next-4bit"
+        }
+      ],
+      "backend": "mlx",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 46.0,
+      "prompt_category": "coding"
+    },
+    {
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 82.9,
+      "min_tps": 78.0,
+      "max_tps": 85.6,
+      "avg_completion_tokens": 140,
+      "avg_elapsed_s": 1.68,
+      "routed_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.59,
+          "prompt_tokens": 73,
+          "completion_tokens": 124,
+          "tps": 78.0,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.55,
+          "prompt_tokens": 73,
+          "completion_tokens": 132,
+          "tps": 85.0,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.9,
+          "prompt_tokens": 73,
+          "completion_tokens": 163,
+          "tps": 85.6,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ],
+      "prompt_category": "general"
+    },
+    {
+      "model": "lily-cybersecurity:7b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 47.9,
+      "min_tps": 45.8,
+      "max_tps": 48.9,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 5.35,
+      "routed_model": "lily-cybersecurity:7b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.59,
+          "prompt_tokens": 161,
+          "completion_tokens": 256,
+          "tps": 45.8,
+          "response_model": "lily-cybersecurity:7b-q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.23,
+          "prompt_tokens": 161,
+          "completion_tokens": 256,
+          "tps": 48.9,
+          "response_model": "lily-cybersecurity:7b-q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.24,
+          "prompt_tokens": 161,
+          "completion_tokens": 256,
+          "tps": 48.9,
+          "response_model": "lily-cybersecurity:7b-q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "llava:7b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 50.7,
+      "min_tps": 48.2,
+      "max_tps": 52.0,
+      "avg_completion_tokens": 245,
+      "avg_elapsed_s": 4.84,
+      "routed_model": "llava:7b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.0,
+          "prompt_tokens": 164,
+          "completion_tokens": 241,
+          "tps": 48.2,
+          "response_model": "llava:7b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.93,
+          "prompt_tokens": 164,
+          "completion_tokens": 256,
+          "tps": 51.9,
+          "response_model": "llava:7b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.58,
+          "prompt_tokens": 164,
+          "completion_tokens": 238,
+          "tps": 52.0,
+          "response_model": "llava:7b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "vision"
+      ],
+      "prompt_category": "vision"
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 46.9,
+      "min_tps": 45.5,
+      "max_tps": 48.0,
+      "avg_completion_tokens": 169,
+      "avg_elapsed_s": 3.62,
+      "routed_model": "dolphin-llama3:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.5,
+          "prompt_tokens": 88,
+          "completion_tokens": 205,
+          "tps": 45.5,
+          "response_model": "dolphin-llama3:8b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.95,
+          "prompt_tokens": 88,
+          "completion_tokens": 92,
+          "tps": 47.2,
+          "response_model": "dolphin-llama3:8b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.4,
+          "prompt_tokens": 88,
+          "completion_tokens": 211,
+          "tps": 48.0,
+          "response_model": "dolphin-llama3:8b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "reasoning",
+        "creative"
+      ],
+      "prompt_category": "general"
+    },
+    {
+      "model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 45.4,
+      "min_tps": 43.9,
+      "max_tps": 46.4,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 5.64,
+      "routed_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.83,
+          "prompt_tokens": 123,
+          "completion_tokens": 256,
+          "tps": 43.9,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.52,
+          "prompt_tokens": 123,
+          "completion_tokens": 256,
+          "tps": 46.4,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.57,
+          "prompt_tokens": 123,
+          "completion_tokens": 256,
+          "tps": 45.9,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "hermes3:8b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 47.1,
+      "min_tps": 46.3,
+      "max_tps": 47.8,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 5.43,
+      "routed_model": "hermes3:8b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.53,
+          "prompt_tokens": 89,
+          "completion_tokens": 256,
+          "tps": 46.3,
+          "response_model": "hermes3:8b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.35,
+          "prompt_tokens": 89,
+          "completion_tokens": 256,
+          "tps": 47.8,
+          "response_model": "hermes3:8b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.42,
+          "prompt_tokens": 89,
+          "completion_tokens": 256,
+          "tps": 47.3,
+          "response_model": "hermes3:8b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "creative"
+      ],
+      "prompt_category": "creative"
+    },
+    {
+      "model": "qwen3.5:9b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 24.0,
+      "min_tps": 22.8,
+      "max_tps": 24.7,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 10.65,
+      "routed_model": "qwen3.5:9b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 10.34,
+          "prompt_tokens": 141,
+          "completion_tokens": 256,
+          "tps": 24.7,
+          "response_model": "qwen3.5:9b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 10.41,
+          "prompt_tokens": 141,
+          "completion_tokens": 256,
+          "tps": 24.6,
+          "response_model": "qwen3.5:9b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 11.21,
+          "prompt_tokens": 141,
+          "completion_tokens": 256,
+          "tps": 22.8,
+          "response_model": "qwen3.5:9b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 5.4,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 73.7,
+      "min_tps": 65.3,
+      "max_tps": 78.1,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 3.5,
+      "routed_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.92,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 65.3,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.28,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 78.1,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 3.29,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 77.8,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 9.6,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 39.0,
+      "min_tps": 36.4,
+      "max_tps": 44.3,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 6.62,
+      "routed_model": "gpt-oss:20b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.79,
+          "prompt_tokens": 193,
+          "completion_tokens": 256,
+          "tps": 44.3,
+          "response_model": "gpt-oss:20b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 7.04,
+          "prompt_tokens": 193,
+          "completion_tokens": 256,
+          "tps": 36.4,
+          "response_model": "gpt-oss:20b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 7.03,
+          "prompt_tokens": 193,
+          "completion_tokens": 256,
+          "tps": 36.4,
+          "response_model": "gpt-oss:20b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 12.0,
+      "groups": [
+        "reasoning"
+      ],
+      "prompt_category": "reasoning"
+    },
+    {
+      "model": "devstral:24b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 15.2,
+      "min_tps": 14.4,
+      "max_tps": 15.6,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 16.86,
+      "routed_model": "devstral:24b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 17.74,
+          "prompt_tokens": 1356,
+          "completion_tokens": 256,
+          "tps": 14.4,
+          "response_model": "devstral:24b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 16.4,
+          "prompt_tokens": 1356,
+          "completion_tokens": 256,
+          "tps": 15.6,
+          "response_model": "devstral:24b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 16.43,
+          "prompt_tokens": 1356,
+          "completion_tokens": 256,
+          "tps": 15.6,
+          "response_model": "devstral:24b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "dolphin3-r1-mistral:24b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 9.6,
+      "min_tps": 8.5,
+      "max_tps": 11.4,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 27.3,
+      "routed_model": "dolphin3-r1-mistral:24b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 30.2,
+          "prompt_tokens": 142,
+          "completion_tokens": 256,
+          "tps": 8.5,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 29.22,
+          "prompt_tokens": 142,
+          "completion_tokens": 256,
+          "tps": 8.8,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 22.49,
+          "prompt_tokens": 142,
+          "completion_tokens": 256,
+          "tps": 11.4,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 52.5,
+      "min_tps": 50.4,
+      "max_tps": 53.6,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 4.88,
+      "routed_model": "supergemma4-26b-uncensored:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.08,
+          "prompt_tokens": 148,
+          "completion_tokens": 256,
+          "tps": 50.4,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.79,
+          "prompt_tokens": 148,
+          "completion_tokens": 256,
+          "tps": 53.5,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.78,
+          "prompt_tokens": 148,
+          "completion_tokens": 256,
+          "tps": 53.6,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 17.0,
+      "groups": [
+        "reasoning"
+      ],
+      "prompt_category": "reasoning"
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 62.8,
+      "min_tps": 59.4,
+      "max_tps": 64.6,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 4.08,
+      "routed_model": "qwen3-coder:30b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.31,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 59.4,
+          "response_model": "qwen3-coder:30b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.96,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 64.6,
+          "response_model": "qwen3-coder:30b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 3.97,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 64.5,
+          "response_model": "qwen3-coder:30b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 18.0,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "deepseek-r1:32b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 10.8,
+      "min_tps": 9.8,
+      "max_tps": 11.4,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 23.87,
+      "routed_model": "deepseek-r1:32b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 26.18,
+          "prompt_tokens": 127,
+          "completion_tokens": 256,
+          "tps": 9.8,
+          "response_model": "deepseek-r1:32b-q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 23.06,
+          "prompt_tokens": 127,
+          "completion_tokens": 256,
+          "tps": 11.1,
+          "response_model": "deepseek-r1:32b-q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 22.38,
+          "prompt_tokens": 127,
+          "completion_tokens": 256,
+          "tps": 11.4,
+          "response_model": "deepseek-r1:32b-q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 19.2,
+      "groups": [
+        "security",
+        "reasoning"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "qwen3-vl:32b",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 9.2,
+      "min_tps": 6.3,
+      "max_tps": 10.8,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 29.53,
+      "routed_model": "qwen3-vl:32b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 40.67,
+          "prompt_tokens": 153,
+          "completion_tokens": 256,
+          "tps": 6.3,
+          "response_model": "qwen3-vl:32b"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 23.81,
+          "prompt_tokens": 153,
+          "completion_tokens": 256,
+          "tps": 10.8,
+          "response_model": "qwen3-vl:32b"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 24.11,
+          "prompt_tokens": 153,
+          "completion_tokens": 256,
+          "tps": 10.6,
+          "response_model": "qwen3-vl:32b"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 19.2,
+      "groups": [
+        "vision"
+      ],
+      "prompt_category": "vision"
+    },
+    {
+      "model": "whiterabbitneo:33b-v1.5-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 1,
+      "avg_tps": 10.7,
+      "min_tps": 10.7,
+      "max_tps": 10.7,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 23.98,
+      "routed_model": "whiterabbitneo:33b-v1.5-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 23.98,
+          "prompt_tokens": 169,
+          "completion_tokens": 256,
+          "tps": 10.7,
+          "response_model": "whiterabbitneo:33b-v1.5-q4_k_m"
+        },
+        {
+          "run": 2,
+          "error": "HTTP 404: ",
+          "elapsed_s": 0.0
+        },
+        {
+          "run": 3,
+          "error": "HTTP 404: ",
+          "elapsed_s": 0.0
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 19.8,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "glm-4.7-flash:q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 45.1,
+      "min_tps": 43.3,
+      "max_tps": 46.1,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 5.68,
+      "routed_model": "glm-4.7-flash:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.91,
+          "prompt_tokens": 124,
+          "completion_tokens": 256,
+          "tps": 43.3,
+          "response_model": "glm-4.7-flash:q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.55,
+          "prompt_tokens": 124,
+          "completion_tokens": 256,
+          "tps": 46.1,
+          "response_model": "glm-4.7-flash:q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.58,
+          "prompt_tokens": 124,
+          "completion_tokens": 256,
+          "tps": 45.9,
+          "response_model": "glm-4.7-flash:q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "deepseek-coder-v2-lite:q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 86.4,
+      "min_tps": 82.3,
+      "max_tps": 88.5,
+      "avg_completion_tokens": 231,
+      "avg_elapsed_s": 2.68,
+      "routed_model": "deepseek-coder-v2-lite:q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.06,
+          "prompt_tokens": 142,
+          "completion_tokens": 252,
+          "tps": 82.3,
+          "response_model": "deepseek-coder-v2-lite:q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.08,
+          "prompt_tokens": 142,
+          "completion_tokens": 184,
+          "tps": 88.3,
+          "response_model": "deepseek-coder-v2-lite:q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 2.89,
+          "prompt_tokens": 142,
+          "completion_tokens": 256,
+          "tps": 88.5,
+          "response_model": "deepseek-coder-v2-lite:q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "huihui_ai/baronllm-abliterated",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 44.5,
+      "min_tps": 42.9,
+      "max_tps": 45.3,
+      "avg_completion_tokens": 254,
+      "avg_elapsed_s": 5.72,
+      "routed_model": "huihui_ai/baronllm-abliterated",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.83,
+          "prompt_tokens": 133,
+          "completion_tokens": 250,
+          "tps": 42.9,
+          "response_model": "huihui_ai/baronllm-abliterated"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.66,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 45.3,
+          "response_model": "huihui_ai/baronllm-abliterated"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.66,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 45.2,
+          "response_model": "huihui_ai/baronllm-abliterated"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "security",
+        "creative"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "xploiter/the-xploiter",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 12.5,
+      "min_tps": 10.0,
+      "max_tps": 17.1,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 21.82,
+      "routed_model": "xploiter/the-xploiter",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 14.93,
+          "prompt_tokens": 1537,
+          "completion_tokens": 256,
+          "tps": 17.1,
+          "response_model": "xploiter/the-xploiter"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 25.69,
+          "prompt_tokens": 1537,
+          "completion_tokens": 256,
+          "tps": 10.0,
+          "response_model": "xploiter/the-xploiter"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 24.85,
+          "prompt_tokens": 1537,
+          "completion_tokens": 256,
+          "tps": 10.3,
+          "response_model": "xploiter/the-xploiter"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "baronllm:q6_k",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 16.9,
+      "min_tps": 16.0,
+      "max_tps": 18.5,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 15.21,
+      "routed_model": "baronllm:q6_k",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 15.98,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 16.0,
+          "response_model": "baronllm:q6_k"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 15.79,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 16.2,
+          "response_model": "baronllm:q6_k"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 13.87,
+          "prompt_tokens": 133,
+          "completion_tokens": 256,
+          "tps": 18.5,
+          "response_model": "baronllm:q6_k"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
+    },
+    {
+      "model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 62.7,
+      "min_tps": 59.4,
+      "max_tps": 64.5,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 4.09,
+      "routed_model": "huihui_ai/tongyi-deepresearch-abliterated",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.31,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 59.4,
+          "response_model": "huihui_ai/tongyi-deepresearch-abliterated"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.98,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 64.3,
+          "response_model": "huihui_ai/tongyi-deepresearch-abliterated"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 3.97,
+          "prompt_tokens": 138,
+          "completion_tokens": 256,
+          "tps": 64.5,
+          "response_model": "huihui_ai/tongyi-deepresearch-abliterated"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 20.0,
+      "groups": [
+        "reasoning"
+      ],
+      "prompt_category": "reasoning"
+    },
+    {
+      "model": "llama3.3:70b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 5.2,
+      "min_tps": 4.7,
+      "max_tps": 5.5,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 49.45,
+      "routed_model": "llama3.3:70b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 54.75,
+          "prompt_tokens": 134,
+          "completion_tokens": 256,
+          "tps": 4.7,
+          "response_model": "llama3.3:70b-q4_k_m"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 47.33,
+          "prompt_tokens": 134,
+          "completion_tokens": 256,
+          "tps": 5.4,
+          "response_model": "llama3.3:70b-q4_k_m"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 46.28,
+          "prompt_tokens": 134,
+          "completion_tokens": 256,
+          "tps": 5.5,
+          "response_model": "llama3.3:70b-q4_k_m"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 42.0,
+      "groups": [
+        "coding"
+      ],
+      "prompt_category": "coding"
+    },
+    {
+      "model": "dolphin-llama3:70b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 3,
+      "runs_success": 1,
+      "avg_tps": 5.2,
+      "min_tps": 5.2,
+      "max_tps": 5.2,
+      "avg_completion_tokens": 235,
+      "avg_elapsed_s": 45.12,
+      "routed_model": "dolphin-llama3:70b-q4_k_m",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 45.12,
+          "prompt_tokens": 132,
+          "completion_tokens": 235,
+          "tps": 5.2,
+          "response_model": "dolphin-llama3:70b-q4_k_m"
+        },
+        {
+          "run": 2,
+          "error": "Server disconnected without sending a response.",
+          "elapsed_s": 24.66
+        },
+        {
+          "run": 3,
+          "error": "[Errno 61] Connection refused",
+          "elapsed_s": 0.0
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 42.0,
+      "groups": [
+        "security"
+      ],
+      "prompt_category": "security"
     }
-  ]
+  ],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general"
+    }
+  }
 }
