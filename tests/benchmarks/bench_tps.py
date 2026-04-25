@@ -1019,13 +1019,14 @@ def bench_direct(
                     _append_result(output_path, r)
                 continue
             prompt = _get_prompt_for_model(model)
-            # Pre-eviction for large models (>20GB): load the 3B canary to push out
-            # whatever is currently resident, then wait for macOS to reclaim inactive
-            # pages before the warm-up. This prevents admission check failures after
-            # heavy model-cycling has accumulated inactive pages in unified memory.
-            if size_gb >= 20.0 and model != smallest_mlx:
+            # Pre-eviction for large models (>15GB): flush Ollama (pipeline routing model
+            # can be loaded in background), evict MLX current model via 3B canary, then
+            # wait for macOS to reclaim inactive pages. Prevents OOM crashes from
+            # accumulated routing-model + large-MLX-model pressure.
+            if size_gb >= 15.0 and model != smallest_mlx:
+                _unload_all_running_ollama_models()
                 _evict_mlx_current_model(smallest_mlx)
-                if not _wait_mlx_memory_available(size_gb, timeout_s=90.0):
+                if not _wait_mlx_memory_available(size_gb, timeout_s=120.0):
                     print("(memory wait timed out, proceeding) ", end="", flush=True)
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
