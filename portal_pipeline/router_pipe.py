@@ -2017,20 +2017,20 @@ async def health_all():
     """Aggregate health across pipeline + all MCPs + MLX proxy + Ollama."""
     checks: dict[str, dict] = {}
     checks["pipeline"] = {"status": "ok"}
-    for name, url in [
-        ("mlx_proxy", os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081")),
-        ("ollama", os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434")),
-        ("mcp_documents", "http://mcp-documents:8913"),
-        ("mcp_sandbox", "http://mcp-sandbox:8914"),
-        ("mcp_comfyui", "http://mcp-comfyui:8910"),
-        ("mcp_video", "http://mcp-video:8911"),
-        ("mcp_whisper", "http://mcp-whisper:8915"),
-        ("mcp_tts", "http://mcp-tts:8916"),
-        ("mcp_security", "http://mcp-security:8919"),
+    for name, url, path in [
+        ("mlx_proxy", os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081"), "/health"),
+        ("ollama", os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"), "/api/tags"),
+        ("mcp_documents", "http://mcp-documents:8913", "/health"),
+        ("mcp_sandbox", "http://mcp-sandbox:8914", "/health"),
+        ("mcp_comfyui", "http://mcp-comfyui:8910", "/health"),
+        ("mcp_video", "http://mcp-video:8911", "/health"),
+        ("mcp_whisper", "http://mcp-whisper:8915", "/health"),
+        ("mcp_tts", "http://mcp-tts:8916", "/health"),
+        ("mcp_security", "http://mcp-security:8919", "/health"),
     ]:
         try:
             async with httpx.AsyncClient(timeout=3) as c:
-                r = await c.get(f"{url}/health")
+                r = await c.get(f"{url}{path}")
                 checks[name] = r.json() if r.status_code == 200 else {
                     "status": "degraded", "code": r.status_code,
                 }
