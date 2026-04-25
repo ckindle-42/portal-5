@@ -1645,7 +1645,6 @@ _workspace_semaphores: dict[str, asyncio.Semaphore] = {}
 _workspace_sem_lock = asyncio.Lock()
 _api_key_semaphores: dict[str, asyncio.Semaphore] = {}
 _api_key_sem_lock = asyncio.Lock()
-_workspace_semaphore_busy_total: Counter | None = None
 
 
 def _get_workspace_concurrency_limit(workspace_id: str) -> int:
