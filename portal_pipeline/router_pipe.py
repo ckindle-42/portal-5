@@ -2583,11 +2583,25 @@ async def chat_completions(
 
         # Pick the right hint for the backend type
         if backend.type == "mlx" and mlx_hint:
-            target_model = mlx_hint if mlx_hint in backend.models else ""
-            if not target_model:
+            if mlx_hint in backend.models:
+                target_model = mlx_hint
+            else:
                 target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
-        elif model_hint and model_hint in backend.models:
-            target_model = model_hint
+                logger.warning(
+                    "mlx_model_hint %r not in backend %s models — falling back to %r. "
+                    "Add it to config/backends.yaml MLX list or correct the hint in WORKSPACES.",
+                    mlx_hint, backend.id, target_model,
+                )
+        elif model_hint:
+            if model_hint in backend.models:
+                target_model = model_hint
+            else:
+                target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+                logger.warning(
+                    "model_hint %r not in backend %s models — falling back to %r. "
+                    "Add it to config/backends.yaml or correct the hint in WORKSPACES.",
+                    model_hint, backend.id, target_model,
+                )
         else:
             target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
 
