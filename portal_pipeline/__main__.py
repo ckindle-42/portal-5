@@ -1,4 +1,4 @@
-"""Portal 5.2.1 Pipeline entry point."""
+"""Portal 6.0.4 Pipeline entry point."""
 
 from __future__ import annotations
 

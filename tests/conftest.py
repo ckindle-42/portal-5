@@ -1,5 +1,5 @@
 """
-Pytest configuration for Portal 5.2.1.
+Pytest configuration for Portal 6.0.4.
 
 This conftest ensures tests run with the correct Python environment
 by adding the uv virtualenv's site-packages to sys.path.
