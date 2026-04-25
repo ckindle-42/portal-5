@@ -13,30 +13,33 @@ Model discovery is config-driven (backends.yaml + persona YAMLs), not
 runtime-only. Undownloaded Ollama models are tested and reported as unavailable.
 
 Usage:
-    python3 tests/benchmarks/bench_tps.py                         # everything, 3 runs
-    python3 tests/benchmarks/bench_tps.py --runs 1                # single run (faster)
-    python3 tests/benchmarks/bench_tps.py --mode direct           # backends only
-    python3 tests/benchmarks/bench_tps.py --mode pipeline         # workspaces only
-    python3 tests/benchmarks/bench_tps.py --mode personas         # personas only
-    python3 tests/benchmarks/bench_tps.py --mode all              # everything (default)
-    python3 tests/benchmarks/bench_tps.py --model dolphin-llama3  # filter by model substring
-    python3 tests/benchmarks/bench_tps.py --workspace auto-coding # single workspace
-    python3 tests/benchmarks/bench_tps.py --persona cybersecurity # filter personas
-    python3 tests/benchmarks/bench_tps.py --output results.json   # custom output
-    python3 tests/benchmarks/bench_tps.py --dry-run               # show plan
-    python3 tests/benchmarks/bench_tps.py --cooldown 5            # 5s gap between models
-    python3 tests/benchmarks/bench_tps.py --order size            # smallest models first
+    python3 tests/benchmarks/bench_tps.py                                    # everything, 5 runs
+    python3 tests/benchmarks/bench_tps.py --runs 1                           # single run (faster)
+    python3 tests/benchmarks/bench_tps.py --mode direct                      # backends only
+    python3 tests/benchmarks/bench_tps.py --mode pipeline                    # workspaces only
+    python3 tests/benchmarks/bench_tps.py --mode personas                    # personas only
+    python3 tests/benchmarks/bench_tps.py --mode all --order size --runs 5 --cooldown 10  # standard baseline
+    python3 tests/benchmarks/bench_tps.py --model dolphin-llama3             # filter by model substring
+    python3 tests/benchmarks/bench_tps.py --workspace auto-coding            # single workspace
+    python3 tests/benchmarks/bench_tps.py --persona cybersecurity            # filter personas
+    python3 tests/benchmarks/bench_tps.py --output results.json              # custom output
+    python3 tests/benchmarks/bench_tps.py --dry-run                          # show plan
 
 Memory management:
-    Models are tested ONE AT A TIME (sequential, blocking). Ollama models are force-unloaded
-    via keep_alive=0 after each test to reclaim unified memory. Between MLX model tests a
-    cooldown period allows the MLX proxy to fully switch and release GPU memory.
+    Each MLX model follows a strict load → test → evict → reclaim → cooldown cycle:
+      1. Load: proxy warms up the model (may switch mlx_lm ↔ mlx_vlm, 10-120s)
+      2. Test: N inference runs with the category-appropriate prompt
+      3. Evict: Ollama routing model flushed, then 3B canary loaded to push out large model
+      4. Reclaim: poll proxy /health until free+inactive memory ≥ next model + 10GB headroom
+      5. Cooldown: sleep --cooldown seconds to let Metal fully settle before next load
 
-    --order size (default): tests smallest models first, so failures on large models don't
-    waste time after small models already passed. MLX sizes come from the proxy's
-    MODEL_MEMORY dict; Ollama sizes are parsed from backends.yaml comments.
-    --order config: preserves backends.yaml ordering (group-then-model).
-    --cooldown N: seconds to wait between model tests for memory reclamation (default: 3).
+    This mirrors actual user behavior — no user loads back-to-back models without waiting.
+    Prevents Metal page accumulation that causes OOM crashes under sequential large model loads.
+
+    --order size (default): smallest models first so failures on large models don't waste time.
+    --order config: preserves backends.yaml ordering.
+    --cooldown N: seconds to wait after memory reclaim before loading next model (default: 10).
+    --runs N: inference runs per model/workspace (default: 5).
 
 Output: JSON file with raw TPS data for every model/workspace/persona.
 """
@@ -957,7 +960,7 @@ def bench_direct(
     models_filter: str | None,
     runs: int,
     dry_run: bool,
-    cooldown: float = 3.0,
+    cooldown: float = 10.0,
     order: str = "size",
     output_path: str = "",
 ) -> list[dict]:
@@ -1019,15 +1022,6 @@ def bench_direct(
                     _append_result(output_path, r)
                 continue
             prompt = _get_prompt_for_model(model)
-            # Pre-eviction for large models (>15GB): flush Ollama (pipeline routing model
-            # can be loaded in background), evict MLX current model via 3B canary, then
-            # wait for macOS to reclaim inactive pages. Prevents OOM crashes from
-            # accumulated routing-model + large-MLX-model pressure.
-            if size_gb >= 15.0 and model != smallest_mlx:
-                _unload_all_running_ollama_models()
-                _evict_mlx_current_model(smallest_mlx)
-                if not _wait_mlx_memory_available(size_gb, timeout_s=120.0):
-                    print("(memory wait timed out, proceeding) ", end="", flush=True)
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
             _warmup_mlx_model(model)
@@ -1046,28 +1040,28 @@ def bench_direct(
             else:
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
-            # MLX proxy handles memory (admission control, single-model-at-a-time).
-            # Cooldown lets proxy settle after model switch.
-            if i < len(mlx_models) and cooldown > 0:
-                print(f"    cooldown {cooldown:.0f}s ...", end=" ", flush=True)
+            # Post-test: evict → reclaim → cooldown (always, after every model).
+            # Mirrors real user behavior: no one loads a new model immediately after the last.
+            # Flush Ollama (pipeline routing model can be loaded in background), evict MLX by
+            # loading the 3B canary, poll until Metal reclaims inactive pages, then sleep cooldown.
+            has_next = i < len(mlx_models)
+            if has_next or ollama_available:
+                next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
+                print(
+                    f"    evict → reclaim ({cooldown:.0f}s cooldown) ...",
+                    end=" ",
+                    flush=True,
+                )
+                _unload_all_running_ollama_models()
+                _evict_mlx_current_model(smallest_mlx)
+                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=max(cooldown * 12, 120.0))
                 time.sleep(cooldown)
-                print("ok")
+                print("ok" if reclaimed else "ok (partial reclaim)")
 
-        # ── MLX→Ollama transition eviction ────────────────────────────────
-        # The last MLX model is still resident when the Ollama section starts.
-        # Force-evict it by loading the smallest configured MLX model (~3GB),
-        # then wait for a long transition cooldown so unified memory is clear.
-        if ollama_available and mlx_models and smallest_mlx and not dry_run:
-            transition = max(cooldown * 5, 30.0)
-            print(
-                f"\n  MLX→Ollama: evicting large model via {smallest_mlx.split('/')[-1]} "
-                f"then {transition:.0f}s transition cooldown ...",
-                end=" ",
-                flush=True,
-            )
-            _evict_mlx_current_model(smallest_mlx)
-            time.sleep(transition)
-            print("ok")
+        # ── MLX→Ollama transition ─────────────────────────────────────────
+        # The post-test evict+reclaim cycle already ran after the last MLX model,
+        # so the 3B canary is resident and large-model pages are reclaimed.
+        # Nothing extra needed — Ollama section starts with clean memory.
 
     if ollama_available:
         ollama_groups = _config_ollama_models_by_group()
@@ -1446,7 +1440,7 @@ def main() -> None:
         default="all",
         help="Test direct backends, pipeline workspaces, persona routing, or all (default: all)",
     )
-    parser.add_argument("--runs", type=int, default=3, help="Runs per model/workspace (default: 3)")
+    parser.add_argument("--runs", type=int, default=5, help="Runs per model/workspace (default: 5)")
     parser.add_argument("--model", help="Filter: substring match on model name (direct only)")
     parser.add_argument("--workspace", help="Filter: exact workspace ID (pipeline only)")
     parser.add_argument("--persona", help="Filter: substring match on persona slug/name")
@@ -1456,8 +1450,8 @@ def main() -> None:
     parser.add_argument(
         "--cooldown",
         type=float,
-        default=3.0,
-        help="Seconds to wait between model tests for memory reclamation (default: 3)",
+        default=10.0,
+        help="Seconds to wait after memory reclaim before loading next model (default: 10)",
     )
     parser.add_argument(
         "--order",
