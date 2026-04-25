@@ -180,9 +180,9 @@ Architectural and design constraints that cannot be resolved without significant
 ### OMLX Evaluation Complete
 - **ID**: P5-OMLX-001
 - **Status**: **CLOSED — Not adopted. KV cache not working.** See OMLX_DECISION.md.
-- **Description**: OMLX evaluated as replacement for mlx-proxy.py. Full bake-off shows KV cache persistence is NOT functioning — warm TTFT is 21% slower than cold (0.35s vs 0.29s). Headline feature fails.
+- **Description**: OMLX evaluated as replacement for mlx-proxy.py. Full bake-off shows KV cache persistence is NOT functioning — warm TTFT is 31% slower than cold (0.38s vs 0.29s). OMLX also failed to load 22GB Qwen3-Coder-30B model. Headline feature fails.
 - **Impact**: No KV cache. mlx-proxy remains production inference.
-- **Mitigation**: mlx-proxy 4-5% faster on TPS. Speculative decoding provides independent gains.
+- **Mitigation**: mlx-proxy ~equivalent TPS, more stable. Speculative decoding provides independent gains.
 - **Last verified**: 2026-04-25
 
 ---

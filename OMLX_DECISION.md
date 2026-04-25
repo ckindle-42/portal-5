@@ -1,9 +1,11 @@
 # OMLX Migration Decision (P5-FUT-013)
 
-**Decision date:** 2026-04-25 (updated with partial bake-off results)
+**Decision date:** 2026-04-25 (full bake-off complete)
 **Decision maker:** Operator (Chris)
-**Bake-off period:** 2026-04-24 (initial smoke tests; full bake-off pending)
-**Bake-off result files:** `tests/benchmarks/results/omlx_bakeoff_20260425T175721Z.json`
+**Bake-off period:** 2026-04-25 (full bake-off: KV cache + TPS + concurrent)
+**Bake-off result files:**
+- `tests/benchmarks/results/omlx_bakeoff_20260425T181325Z.json` (full bake-off)
+- `tests/benchmarks/results/omlx_bakeoff_20260425T175721Z.json` (initial smoke test)
 
 ## Decision
 
@@ -27,8 +29,9 @@ No further evaluation needed. OMLX does not deliver on its headline feature.
 
 | Model | mlx-proxy TPS | OMLX TPS | Delta |
 |---|---|---|---|
-| Llama-3.2-3B-Instruct-8bit | 58.8-60.2 | 56.8-57.2 | mlx-proxy ~4-5% faster |
-| phi-4-8bit | 14.9-15.0 | 14.6 | mlx-proxy ~2-3% faster |
+| Llama-3.2-3B-Instruct-8bit | 37.5 | 37.7 | ~equivalent |
+| Qwen3-Coder-30B-A3B-Instruct-8bit | 30.3 | N/A (OOM) | mlx-proxy only |
+| Llama-3.2-3B-Instruct-8bit (prior smoke) | 58.8-60.2 | 56.8-57.2 | mlx-proxy ~4-5% faster |
 
 *Methodology: Each endpoint tested alone with full memory. Model loaded cold, then 3 steady-state
 runs. 30s Metal reclaim wait between endpoint switches. Docker containers stopped during test.*
@@ -37,18 +40,19 @@ runs. 30s Metal reclaim wait between endpoint switches. Docker containers stoppe
 
 | Model | mlx-proxy TTFT | OMLX TTFT (cold) | OMLX TTFT (warm) | Delta (warm) |
 |---|---|---|---|---|
-| Llama-3.2-3B-Instruct-8bit | N/A (memory constraint) | 0.29s | 0.35s | **-21% (worse!)** |
+| Llama-3.2-3B-Instruct-8bit | 3.32s | 0.29s | 0.38s | **+31% (worse!)** |
+| Qwen3-Coder-30B-A3B-Instruct-8bit | 3.92s | N/A (OOM) | N/A | N/A |
 
-*Methodology: 5-turn conversation sent 3× in sequence. Cold = first request (cache empty). Warm = subsequent requests (prefix should be cached). OMLX warm is SLOWER than cold — KV cache NOT working.*
+*Methodology: 5-turn conversation sent 3× in sequence. Cold = first request (cache empty). Warm = subsequent requests (prefix should be cached). OMLX warm is SLOWER than cold — KV cache NOT working. OMLX also failed to load 22GB model due to memory constraints.*
 
 ### Concurrency (4 parallel requests)
 
-| Model | mlx-proxy serial | OMLX concurrent | Throughput Delta |
+| Model | mlx-proxy serial | OMLX concurrent | Speedup |
 |---|---|---|---|
-| Llama-3.2-3B-Instruct-8bit | 0.12s | 6.85s | mlx-proxy 56× faster |
-| Qwen3-Coder-30B-A3B-Instruct-8bit | 0.12s | 0.01s | OMLX 12× faster (but failed to load model) |
+| Llama-3.2-3B-Instruct-8bit | 13.00s | 6.82s | 1.9× |
+| Qwen3-Coder-30B-A3B-Instruct-8bit | 14.64s | N/A (OOM) | N/A |
 
-*Note: mlx-proxy is serial — concurrent requests queue. OMLX has batching but shows inconsistent behavior.*
+*Note: mlx-proxy is serial — concurrent requests queue. OMLX shows marginal batching benefit but fails on larger models.*
 
 ### Compatibility checks
 
@@ -64,12 +68,11 @@ runs. 30s Metal reclaim wait between endpoint switches. Docker containers stoppe
 
 **Full bake-off completed 2026-04-25.** Key findings:
 
-1. **KV cache NOT working**: OMLX warm TTFT (0.35s) is 21% SLOWER than cold (0.29s).
+1. **KV cache NOT working**: OMLX warm TTFT (0.38s) is 31% SLOWER than cold (0.29s).
    This is the opposite of expected behavior — the cache should dramatically reduce TTFT.
-2. **TPS**: mlx-proxy is 4-5% faster on Llama-3.2-3B (37.4 t/s OMLX vs baseline failed)
-3. **Memory**: Cannot run both endpoints simultaneously on 64GB machine due to
-   Docker Desktop VM (56GB) + OMLX memory overhead
-4. **Model loading**: OMLX failed to load Qwen3-Coder-30B (22GB) even with ~20GB available
+2. **TPS**: ~equivalent between OMLX and mlx-proxy on 3B model (~37 t/s)
+3. **Memory**: OMLX cannot load 22GB Qwen3-Coder-30B model even with ~36GB available
+4. **Concurrency**: OMLX shows marginal benefit (1.9× speedup) but mlx-proxy is more stable
 
 **Conclusion**: OMLX does not deliver its headline KV cache feature. No reason to replace
 mlx-proxy. RETIRE decision stands.
