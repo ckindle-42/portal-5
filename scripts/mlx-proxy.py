@@ -41,6 +41,16 @@ MAX_QUEUE = int(os.environ.get("MLX_PROXY_MAX_QUEUE", "8"))
 REQUEST_TIMEOUT = int(os.environ.get("MLX_PROXY_REQUEST_TIMEOUT", "300"))
 WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 
+# ── mlx_vlm performance tuning ──────────────────────────────────────────────
+# KV cache quantization (TurboQuant) reduces memory pressure during long
+# vision contexts. Fractional kv-bits (e.g. 4.5) auto-enables TurboQuant.
+# prefill-step-size controls prompt-processing chunk size; lower values
+# reduce peak memory but may slow prefill. Tune if you hit GPU OOM on
+# multi-image or long-document vision workloads.
+MLX_VLM_KV_BITS = os.environ.get("MLX_VLM_KV_BITS", "")
+MLX_VLM_KV_QUANT_SCHEME = os.environ.get("MLX_VLM_KV_QUANT_SCHEME", "turboquant")
+MLX_VLM_PREFILL_STEP_SIZE = os.environ.get("MLX_VLM_PREFILL_STEP_SIZE", "")
+
 VLM_MODELS = {
     "Qwen3-VL-32B-Instruct-8bit",
     "gemma-4-31b-it-4bit",
@@ -798,6 +808,15 @@ def start_server(stype: str, model: str = "") -> int:
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
     if model:
         cmd.extend(["--model", model])
+
+    # ── mlx_vlm performance flags ───────────────────────────────────────────
+    if stype == "vlm":
+        if MLX_VLM_KV_BITS:
+            cmd.extend(["--kv-bits", MLX_VLM_KV_BITS])
+            cmd.extend(["--kv-quant-scheme", MLX_VLM_KV_QUANT_SCHEME])
+        if MLX_VLM_PREFILL_STEP_SIZE:
+            cmd.extend(["--prefill-step-size", MLX_VLM_PREFILL_STEP_SIZE])
+
     # KV cache quantization (int8) saves 2-4GB on 32B models but requires mlx_lm ≥ 0.22.
     # Check support at runtime to avoid crashing on older installs.
     if stype == "lm":

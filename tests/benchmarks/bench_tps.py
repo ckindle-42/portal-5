@@ -353,6 +353,27 @@ def _unload_all_running_ollama_models() -> None:
             pass
 
 
+def _warmup_ollama_model(model: str) -> bool:
+    """Send a minimal warm-up request to force Ollama to load the model.
+
+    Ollama lazily loads models into unified memory on first request. Without
+    warm-up, run 1 of every benchmarked model includes load time, inflating
+    elapsed and depressing TPS. This mirrors _warmup_mlx_model().
+    """
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+        "max_tokens": 1,
+    }
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            resp = client.post(f"{OLLAMA_URL}/v1/chat/completions", json=payload)
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
 def _wait_ollama_idle(timeout_s: float = 60.0) -> bool:
     """Poll /api/ps until no models are running (memory fully reclaimed).
 
@@ -840,6 +861,9 @@ def bench_tps(
         prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0))
         tps = completion_tokens / elapsed if elapsed > 0 else 0.0
 
+        # Capture the actual model returned by the API (useful for pipeline routing)
+        response_model = data.get("model", "")
+
         run_results.append(
             {
                 "run": run_num,
@@ -847,6 +871,7 @@ def bench_tps(
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "tps": round(tps, 1),
+                "response_model": response_model,
             }
         )
 
@@ -862,6 +887,13 @@ def bench_tps(
         avg_tokens = 0
         avg_elapsed = 0.0
 
+    # Capture the actual model returned by the API (pipeline routing may differ)
+    routed_model = ""
+    if successful:
+        # Use the last successful run's response model field if available
+        last_ok = successful[-1]
+        routed_model = last_ok.get("response_model", "")
+
     return {
         "model": model,
         "label": label,
@@ -872,6 +904,7 @@ def bench_tps(
         "max_tps": max_tps,
         "avg_completion_tokens": avg_tokens,
         "avg_elapsed_s": avg_elapsed,
+        "routed_model": routed_model,
         "runs": run_results,
     }
 
@@ -1055,6 +1088,10 @@ def bench_direct(
             model_groups = [g for g, ms in ollama_groups.items() if model in ms]
             group = model_groups[0] if model_groups else ""
             prompt = _get_prompt_for_model(model, group=group)
+            # Warm-up: force Ollama to load model before timed runs so run 1
+            # doesn't include model-load latency (mirrors MLX warm-up).
+            print("(warm-up) ", end="", flush=True)
+            _warmup_ollama_model(model)
             r = bench_tps(OLLAMA_URL, model, prompt=prompt, runs=runs, label="ollama-direct")
             r["backend"] = "ollama"
             r["path"] = "direct"
