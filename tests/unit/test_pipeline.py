@@ -1272,19 +1272,24 @@ class TestToolRegistry:
         assert reg.get("nonexistent") is None
 
     def test_tool_registry_get_openai_tools_filters(self):
-        """get_openai_tools filters by name list and health."""
+        """get_openai_tools filters by name list and health/backoff."""
+        import time
         from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry
 
         reg = ToolRegistry()
         reg._tools = {
             "a": ToolDefinition("a", "desc a", {}, "s1", "http://x:1", healthy=True),
-            "b": ToolDefinition("b", "desc b", {}, "s1", "http://x:1", healthy=False),
+            # "b" is unhealthy AND in active backoff window — should be excluded
+            "b": ToolDefinition(
+                "b", "desc b", {}, "s1", "http://x:1",
+                healthy=False, consecutive_failures=1, next_retry_at=time.time() + 999,
+            ),
             "c": ToolDefinition("c", "desc c", {}, "s2", "http://x:2", healthy=True),
         }
         result = reg.get_openai_tools(["a", "b", "c"])
         names = [t["function"]["name"] for t in result]
         assert "a" in names
-        assert "b" not in names  # unhealthy
+        assert "b" not in names  # unhealthy and in active backoff window
         assert "c" in names
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import os
 import sys
+import time
 from pathlib import Path
 
 # ── Constants (loaded independently from env) ────────────────────────────────
@@ -110,3 +111,40 @@ async def _chat_with_model(
 
 async def _mlx_health() -> tuple[str, dict]:
     return await _monolith()._mlx_health()
+
+
+# ── Additional delegation helpers ────────────────────────────────────────────
+
+ROOT = _ROOT  # alias for section modules
+
+SEARXNG_URL = "http://localhost:8088"
+PROMETHEUS_URL = "http://localhost:9090"
+GRAFANA_URL = "http://localhost:3000"
+COMFYUI_URL = "http://localhost:8188"
+EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8917")
+
+
+def _docker_alive():
+    return _monolith()._docker_alive()
+
+
+def _git_sha() -> str:
+    return _monolith()._git_sha()
+
+
+def _ollama_models() -> list[str]:
+    return _monolith()._ollama_models()
+
+
+def _load_backends_yaml() -> dict:
+    return _monolith()._load_backends_yaml()
+
+
+def _get_personas() -> list[dict]:
+    """Return PERSONAS list from the monolith."""
+    return _monolith().PERSONAS
+
+
+def _get_ws_ids() -> list[str]:
+    """Return WS_IDS list from the monolith."""
+    return _monolith().WS_IDS
