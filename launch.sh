@@ -743,7 +743,7 @@ print(d.get('system',{}).get('comfyui_version','?'))
         fi
 
         # Powermetrics daemon
-        if [ -f /tmp/portal5-powermetrics.sock ] && python3 -c "import socket; s=socket.socket(socket.AF_UNIX); s.connect('/tmp/portal5-powermetrics.sock'); s.close()" &>/dev/null 2>&1; then
+        if [ -S /tmp/portal5-powermetrics.sock ] && python3 -c "import socket; s=socket.socket(socket.AF_UNIX); s.connect('/tmp/portal5-powermetrics.sock'); s.close()" &>/dev/null 2>&1; then
             printf "    ✅  %-28s %s\n" "Powermetrics" "/tmp/portal5-powermetrics.sock"
         elif launchctl list com.portal5.powermetrics 2>/dev/null | grep -q '"PID"'; then
             printf "    ⏳  %-28s %s\n" "Powermetrics" "starting (launchd)"
