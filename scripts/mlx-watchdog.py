@@ -75,7 +75,9 @@ RECOVERY_THRESHOLD = int(os.environ.get("MLX_RECOVERY_THRESHOLD", "2"))
 MAX_RECOVERY_ATTEMPTS = int(os.environ.get("MLX_MAX_RECOVERY_ATTEMPTS", "3"))
 WATCHDOG_ENABLED = os.environ.get("MLX_WATCHDOG_ENABLED", "true").lower() != "false"
 # Seconds to wait for Metal GPU memory reclamation after killing a zombie server.
-ZOMBIE_KILL_WAIT_S = int(os.environ.get("MLX_ZOMBIE_KILL_WAIT_S", "10"))
+# 10s was too short for large models (>20GB) — Metal can take 30-60s to fully
+# release pages after SIGKILL. Set higher if you see reload failures after zombie kills.
+ZOMBIE_KILL_WAIT_S = int(os.environ.get("MLX_ZOMBIE_KILL_WAIT_S", "30"))
 
 PROXY_PID_FILE = Path(os.environ.get("MLX_PROXY_PID_FILE", "/tmp/mlx-proxy.pid"))
 WATCHDOG_PID_FILE = Path("/tmp/mlx-watchdog.pid")
