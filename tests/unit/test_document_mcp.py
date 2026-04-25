@@ -71,9 +71,7 @@ class TestToolsManifest:
         assert len(read_tools) == 4, f"Expected 4 read_ tools, got {len(read_tools)}"
         for tool in read_tools:
             props = tool.get("parameters", {}).get("properties", {})
-            assert "file_path" in props, (
-                f"Tool '{tool['name']}' missing 'file_path' in parameters"
-            )
+            assert "file_path" in props, f"Tool '{tool['name']}' missing 'file_path' in parameters"
 
 
 class TestReadWordDocument:
@@ -133,6 +131,7 @@ class TestReadWordDocument:
         f.touch()
 
         from portal_mcp.documents import document_mcp
+
         # Call the raw function to bypass any module-level caching
         result = document_mcp.read_word_document(str(f))
         assert result["success"] is False
@@ -275,7 +274,6 @@ class TestReadPDF:
 
         f = tmp_path / "doc.pdf"
         f.touch()
-
 
         import unittest.mock as mock
 

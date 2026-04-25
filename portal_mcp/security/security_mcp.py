@@ -69,7 +69,9 @@ def classify_vulnerability(description: str) -> dict:
     """
     _ensure_model()
 
-    inputs = _tokenizer(description, return_tensors="pt", truncation=True, padding=True, max_length=512)
+    inputs = _tokenizer(
+        description, return_tensors="pt", truncation=True, padding=True, max_length=512
+    )
 
     with torch.no_grad():
         outputs = _model(**inputs)

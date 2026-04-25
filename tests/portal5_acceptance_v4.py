@@ -1740,7 +1740,8 @@ async def S1() -> None:
         "S1-13",
         "backends.yaml: phi-4-8bit + Qwopus3.5-27B-v3 present (GLM-5.1 removed — tested OOM on 64GB)",
         "PASS" if has_phi4 and has_qwopus27 else "FAIL",
-        f"phi4={has_phi4} qwopus27={has_qwopus27}" if not (has_phi4 and has_qwopus27)
+        f"phi4={has_phi4} qwopus27={has_qwopus27}"
+        if not (has_phi4 and has_qwopus27)
         else "✓ phi-4-8bit + Qwopus3.5-27B-v3 present",
         t0=t0,
     )
@@ -1755,7 +1756,8 @@ async def S1() -> None:
         "S1-14",
         "mlx-proxy.py MODEL_MEMORY includes Qwopus3.5-27B + phi-4-8bit",
         "PASS" if has_qwopus_mem and has_phi4_mem else "FAIL",
-        f"qwopus27={has_qwopus_mem} phi4={has_phi4_mem}" if not (has_qwopus_mem and has_phi4_mem)
+        f"qwopus27={has_qwopus_mem} phi4={has_phi4_mem}"
+        if not (has_qwopus_mem and has_phi4_mem)
         else "✓ admission control entries present",
         t0=t0,
     )
@@ -1996,6 +1998,7 @@ async def S2() -> None:
             )
     except Exception as e:
         import platform as _plat2  # noqa: PLC0415
+
         _is_arm64 = _plat2.machine() in ("arm64", "aarch64")
         _arm64_hint = (
             " (ARM64: TEI image is x86-only — add platform: linux/amd64 to docker-compose.yml)"
@@ -5199,7 +5202,6 @@ async def _mlx_group(
         await asyncio.sleep(2)
 
 
-
 # ── S30: Qwen3-Coder-Next-4bit (auto-coding + coding personas) ────────────
 async def S30() -> None:
     print("\n━━━ S30. MLX: Qwen3-Coder-Next-4bit (coding) ━━━")
@@ -5704,7 +5706,11 @@ async def S40() -> None:
         loaded, detail = await _load_mlx_model(model_label)
         if not loaded:
             is_admission = "admission rejected" in detail or "Insufficient memory" in detail
-            msg = f"memory constraint: {detail[:100]}" if is_admission else f"model load failed: {detail[:80]}"
+            msg = (
+                f"memory constraint: {detail[:100]}"
+                if is_admission
+                else f"model load failed: {detail[:80]}"
+            )
             record(sec, tid, f"MLX {model_label}", "WARN", msg)
             return
 
@@ -5765,9 +5771,7 @@ async def S40() -> None:
                         return
                     if content.strip():
                         if _is_garbled(content) and inference_attempt == 0:
-                            print(
-                                f"    ⚠️  Garbled output from {model_label} — retrying in 5s..."
-                            )
+                            print(f"    ⚠️  Garbled output from {model_label} — retrying in 5s...")
                             await asyncio.sleep(5)
                             continue
                         matched = [s for s in signals if s in content.lower()]
@@ -8349,6 +8353,7 @@ async def S24() -> None:
         )
         # Detect Apple Silicon ARM64: TEI image has no ARM64 manifest
         import platform as _plat  # noqa: PLC0415
+
         is_arm64 = _plat.machine() in ("arm64", "aarch64")
         if is_arm64 and is_not_deployed:
             detail = (

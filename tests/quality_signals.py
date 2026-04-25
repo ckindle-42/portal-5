@@ -11,31 +11,55 @@ PROMPTS dict. If you change a category's prompt, update its signals here.
 QUALITY_SIGNALS: dict[str, list[str]] = {
     "general": [
         # Prompt asks for OSI 7 layers with protocol examples
-        "physical", "data link", "network", "transport",
-        "session", "presentation", "application",
+        "physical",
+        "data link",
+        "network",
+        "transport",
+        "session",
+        "presentation",
+        "application",
     ],
     "coding": [
         # Prompt asks for merge_intervals function
-        "def merge_intervals", "list", "tuple", "intervals.sort",
-        "merged", "overlap",
+        "def merge_intervals",
+        "list",
+        "tuple",
+        "intervals.sort",
+        "merged",
+        "overlap",
     ],
     "security": [
         # Prompt asks for SSH brute-force MITRE ATT&CK analysis
-        "T1110", "MITRE", "ATT&CK", "containment",
-        "detection", "block",
+        "T1110",
+        "MITRE",
+        "ATT&CK",
+        "containment",
+        "detection",
+        "block",
     ],
     "reasoning": [
         # Prompt asks for ER bottleneck analysis
-        "bottleneck", "doctor", "nurse", "bed",
-        "wait", "minute",
+        "bottleneck",
+        "doctor",
+        "nurse",
+        "bed",
+        "wait",
+        "minute",
     ],
     "creative": [
         # Prompt asks for noir detective opening, memory-as-currency
-        "memory", "detective", "city", "rain",
+        "memory",
+        "detective",
+        "city",
+        "rain",
     ],
     "vision": [
         # Prompt is meta — describe the analysis framework
-        "objects", "text", "scene", "anomalies", "confidence",
+        "objects",
+        "text",
+        "scene",
+        "anomalies",
+        "confidence",
     ],
 }
 

@@ -451,7 +451,12 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
 
         sf.write(str(output_path), audio, 24000)
         download_url = f"http://localhost:{port}/files/{output_path.name}"
-        return {"status": "success", "filename": output_path.name, "download_url": download_url, "backend": "fish_speech"}
+        return {
+            "status": "success",
+            "filename": output_path.name,
+            "download_url": download_url,
+            "backend": "fish_speech",
+        }
     except Exception as e:
         return {"error": str(e), "backend": "fish_speech"}
 

@@ -155,6 +155,17 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-data": "reasoning",
     "auto-compliance": "reasoning",
     "auto-mistral": "reasoning",
+    "auto-math": "reasoning",
+    # Benchmark workspaces — prompt matches the model's primary capability
+    "bench-devstral": "coding",
+    "bench-qwen3-coder-next": "coding",
+    "bench-qwen3-coder-30b": "coding",
+    "bench-llama33-70b": "coding",
+    "bench-phi4": "reasoning",
+    "bench-phi4-reasoning": "reasoning",
+    "bench-dolphin8b": "creative",
+    "bench-glm": "coding",
+    "bench-gptoss": "reasoning",
 }
 
 # Map Ollama backend group → prompt category
@@ -188,6 +199,7 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
     "data": "reasoning",
     "compliance": "reasoning",
     "general": "general",  # itexpert, techreviewer
+    "benchmark": "coding",  # benchmark personas test coding capability
 }
 
 # MLX models don't have explicit groups in backends.yaml — infer from name/path
@@ -215,6 +227,9 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "JANG_4M-CRACK": "vision",  # dealignai abliterated Gemma 4 31B VLM
     "Phi-4-reasoning": "reasoning",
     "Llama-3.2-11B-Vision": "vision",
+    "Qwen2.5-Math": "reasoning",
+    "Qwen2.5-0.5B": "general",
+    "Llama-3.2-1B": "general",
 }
 
 

@@ -3382,6 +3382,8 @@ PLIST
         "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"                   # ~34GB
         "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
+        # Math specialist
+        "mlx-community/Qwen2.5-Math-7B-Instruct-4bit"                           # ~5GB — Qwen2.5-Math 7B, math/STEM specialist
         # Creative / general (uncensored)
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
         # General / fast routing

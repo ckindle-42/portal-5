@@ -42,6 +42,8 @@ Test Coverage (22 sections, ~300 tests):
     S23:     Model diversity availability checks (GPT-OSS, Gemma 4 E4B, Phi-4, Magistral)
     S30-S31: Image generation (ComfyUI/FLUX), video generation (Wan2.2)
     S40:     Metrics/monitoring (Prometheus, Grafana)
+    S41:     M6 production hardening (/health/all, rate limits, admin endpoints, power metrics)
+    S42:     M5 browser automation (Browser MCP health, tool manifest)
 
 Changes from v5:
     - Added S16 (Security MCP tool tests — classify_vulnerability)
@@ -83,6 +85,7 @@ ROOT = Path(__file__).parent.parent.resolve()
 # ══════════════════════════════════════════════════════════════════════════════
 # Environment Setup
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def _load_env() -> None:
     """Load .env file into environment."""
@@ -163,9 +166,11 @@ def _get_acc_client() -> httpx.AsyncClient:
 # Result Model and Recording
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class R:
     """Test result record."""
+
     section: str
     tid: str
     name: str
@@ -235,6 +240,7 @@ def record(
 # Git and Configuration Helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _git_sha() -> str:
     """Get current git SHA."""
     try:
@@ -262,8 +268,7 @@ def _load_workspaces() -> tuple[list[str], dict[str, str]]:
 def _load_personas() -> list[dict]:
     """Load all persona YAML files."""
     return [
-        yaml.safe_load(f.read_text())
-        for f in sorted((ROOT / "config/personas").glob("*.yaml"))
+        yaml.safe_load(f.read_text()) for f in sorted((ROOT / "config/personas").glob("*.yaml"))
     ]
 
 
@@ -280,6 +285,7 @@ PERSONAS = _load_personas()
 # ══════════════════════════════════════════════════════════════════════════════
 # HTTP and API Helpers
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 async def _get(url: str, timeout: int = 10) -> tuple[int, dict | str]:
     """Simple GET request returning (status_code, json_or_text)."""
@@ -349,6 +355,7 @@ def _owui_token() -> str:
 # Audio Helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _is_wav(data: bytes) -> bool:
     """Check if data is a valid WAV file."""
     return len(data) > 44 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
@@ -374,6 +381,7 @@ def _wav_info(data: bytes) -> dict | None:
 # MCP Tool Calling (uses real MCP SDK)
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 async def _mcp(
     port: int,
     tool: str,
@@ -397,9 +405,7 @@ async def _mcp(
         async with streamablehttp_client(url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await asyncio.wait_for(
-                    session.call_tool(tool, args), timeout=timeout
-                )
+                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
                 text = ""
                 for block in result.content:
                     if hasattr(block, "text"):
@@ -443,9 +449,7 @@ async def _mcp_raw(
         async with streamablehttp_client(url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await asyncio.wait_for(
-                    session.call_tool(tool, args), timeout=timeout
-                )
+                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
                 for block in result.content:
                     if hasattr(block, "text"):
                         text += block.text
@@ -469,6 +473,7 @@ async def _mcp_raw(
 # Pipeline Chat (simulates Open WebUI traffic)
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 async def _chat(
     workspace: str,
     prompt: str,
@@ -478,7 +483,9 @@ async def _chat(
     stream: bool = False,
 ) -> tuple[int, str]:
     """Send a chat request to the pipeline."""
-    code, text, _, _route = await _chat_with_model(workspace, prompt, system, max_tokens, timeout, stream)
+    code, text, _, _route = await _chat_with_model(
+        workspace, prompt, system, max_tokens, timeout, stream
+    )
     return code, text
 
 
@@ -560,16 +567,26 @@ def _curl_stream(
     try:
         result = subprocess.run(
             [
-                "curl", "-s", "-m", str(timeout_s),
-                "-X", "POST", f"{PIPELINE_URL}/v1/chat/completions",
-                "-H", f"Authorization: Bearer {API_KEY}",
-                "-H", "Content-Type: application/json",
-                "-d", json.dumps({
-                    "model": workspace,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": True,
-                    "max_tokens": max_tokens,
-                }),
+                "curl",
+                "-s",
+                "-m",
+                str(timeout_s),
+                "-X",
+                "POST",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                "-H",
+                f"Authorization: Bearer {API_KEY}",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                json.dumps(
+                    {
+                        "model": workspace,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": True,
+                        "max_tokens": max_tokens,
+                    }
+                ),
             ],
             capture_output=True,
             text=True,
@@ -591,6 +608,7 @@ def _curl_stream(
 # Docker and Log Helpers
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 def _grep_logs(container: str, pattern: str, lines: int = 500) -> list[str]:
     """Grep container logs for a pattern."""
     try:
@@ -601,8 +619,7 @@ def _grep_logs(container: str, pattern: str, lines: int = 500) -> list[str]:
             timeout=10,
         )
         return [
-            ln for ln in (r.stdout + r.stderr).splitlines()
-            if re.search(pattern, ln, re.IGNORECASE)
+            ln for ln in (r.stdout + r.stderr).splitlines() if re.search(pattern, ln, re.IGNORECASE)
         ]
     except Exception:
         return []
@@ -624,7 +641,12 @@ def _docker_alive() -> tuple[bool, str]:
             timeout=5,
         )
         containers = ps.stdout.strip().split("\n")
-        required = ["portal5-pipeline", "portal5-open-webui", "portal5-searxng", "portal5-prometheus"]
+        required = [
+            "portal5-pipeline",
+            "portal5-open-webui",
+            "portal5-searxng",
+            "portal5-prometheus",
+        ]
         missing = [c for c in required if c not in containers]
         if missing:
             return False, f"Missing containers: {missing}"
@@ -696,7 +718,15 @@ _MLX_MODEL_SIZES_GB = {
 # Known MLX org prefixes
 # MLX org prefixes — workspace_model values starting with these are raw HF paths
 # that Open WebUI can never resolve (pipeline only exposes workspace IDs).
-_MLX_ORGS = ["mlx-community/", "lmstudio-community/", "Jackrong/", "Jiunsong/", "unsloth/", "dealignai/", "huihui-ai/"]
+_MLX_ORGS = [
+    "mlx-community/",
+    "lmstudio-community/",
+    "Jackrong/",
+    "Jiunsong/",
+    "unsloth/",
+    "dealignai/",
+    "huihui-ai/",
+]
 
 # Mapping from MLX model hint (HF path) → pipeline workspace name.
 # All persona YAMLs now use workspace IDs directly; this dict is used by S11
@@ -890,7 +920,9 @@ async def _remediate_mlx_crash(reason: str = "crash") -> bool:
     # Force-kill anything still on the MLX ports
     for port in [18081, 18082, 8081]:
         try:
-            r = subprocess.run(["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5)
+            r = subprocess.run(
+                ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
+            )
             for pid in r.stdout.strip().split("\n"):
                 if pid.strip():
                     try:
@@ -945,6 +977,7 @@ async def _memory_cleanup(phase: str) -> None:
     await _unload_ollama_models()
     await _unload_mlx_model()
     import gc
+
     gc.collect()
     # Apple Silicon: 20s for unified memory pages to be reclaimed
     await asyncio.sleep(20)
@@ -958,23 +991,111 @@ async def _memory_cleanup(phase: str) -> None:
 
 # Workspace test prompts and expected signals
 WORKSPACE_PROMPTS = {
-    "auto": ("Explain what a DNS server does in two sentences.", ["DNS", "domain", "IP", "resolve", "name"]),
-    "auto-coding": ("Write a Python function that reverses a string.", ["def", "return", "reverse", "[::-1]", "str"]),
-    "auto-agentic": ("Explain how you would refactor a monolith into microservices.", ["service", "API", "boundary", "domain", "decouple"]),
-    "auto-spl": ("Write a Splunk SPL query to find failed login attempts.", ["index", "source", "fail", "login", "stats", "|"]),
-    "auto-security": ("What are the OWASP Top 10 vulnerabilities?", ["injection", "XSS", "authentication", "OWASP", "vulnerability"]),
-    "auto-redteam": ("Describe common techniques for privilege escalation on Linux.", ["sudo", "SUID", "privilege", "root", "escalat"]),
-    "auto-blueteam": ("How do you detect lateral movement in a network?", ["traffic", "network", "monitor", "detect", "lateral"]),
-    "auto-creative": ("Write a haiku about artificial intelligence.", ["AI", "machine", "digital", "think", "learn", "syllable", "code", "knowledge", "wisdom", "neural", "data", "realm", "intelligence", "gleam", "whisper", "deep", "poem", "artificial", "thought", "future", "human", "automat", "bloom", "mind", "electric", "silicon", "algorithm", "compute", "swift", "motion", "light", "dream", "silent", "rise", "glow", "world"]),
-    "auto-reasoning": ("Solve this step by step: if a train travels at 60mph for 2.5 hours, how far does it go?", ["150", "mile", "distance", "60", "2.5"]),
-    "auto-documents": ("Create an outline for a project proposal document.", ["introduction", "scope", "timeline", "budget", "section"]),
-    "auto-video": ("Describe a 5-second video of a sunrise over mountains.", ["sun", "mountain", "light", "sky", "rise", "scene"]),
-    "auto-music": ("Describe a 10-second lo-fi hip hop beat.", ["beat", "drum", "sample", "chill", "loop", "bass"]),
-    "auto-research": ("What are the latest developments in quantum computing?", ["qubit", "quantum", "compute", "superconducting", "research"]),
-    "auto-vision": ("How would you analyze an image for accessibility issues?", ["alt", "text", "contrast", "color", "image", "visual"]),
-    "auto-data": ("Explain how to calculate standard deviation.", ["mean", "variance", "deviation", "σ", "standard", "sqrt"]),
-    "auto-compliance": ("What evidence is needed for NERC CIP-007 R2?", ["CIP", "evidence", "patch", "compliance", "NERC", "requirement"]),
-    "auto-mistral": ("Analyze the trade-offs between microservices and monolithic architectures.", ["trade", "scale", "complex", "deploy", "maintain"]),
+    "auto": (
+        "Explain what a DNS server does in two sentences.",
+        ["DNS", "domain", "IP", "resolve", "name"],
+    ),
+    "auto-coding": (
+        "Write a Python function that reverses a string.",
+        ["def", "return", "reverse", "[::-1]", "str"],
+    ),
+    "auto-agentic": (
+        "Explain how you would refactor a monolith into microservices.",
+        ["service", "API", "boundary", "domain", "decouple"],
+    ),
+    "auto-spl": (
+        "Write a Splunk SPL query to find failed login attempts.",
+        ["index", "source", "fail", "login", "stats", "|"],
+    ),
+    "auto-security": (
+        "What are the OWASP Top 10 vulnerabilities?",
+        ["injection", "XSS", "authentication", "OWASP", "vulnerability"],
+    ),
+    "auto-redteam": (
+        "Describe common techniques for privilege escalation on Linux.",
+        ["sudo", "SUID", "privilege", "root", "escalat"],
+    ),
+    "auto-blueteam": (
+        "How do you detect lateral movement in a network?",
+        ["traffic", "network", "monitor", "detect", "lateral"],
+    ),
+    "auto-creative": (
+        "Write a haiku about artificial intelligence.",
+        [
+            "AI",
+            "machine",
+            "digital",
+            "think",
+            "learn",
+            "syllable",
+            "code",
+            "knowledge",
+            "wisdom",
+            "neural",
+            "data",
+            "realm",
+            "intelligence",
+            "gleam",
+            "whisper",
+            "deep",
+            "poem",
+            "artificial",
+            "thought",
+            "future",
+            "human",
+            "automat",
+            "bloom",
+            "mind",
+            "electric",
+            "silicon",
+            "algorithm",
+            "compute",
+            "swift",
+            "motion",
+            "light",
+            "dream",
+            "silent",
+            "rise",
+            "glow",
+            "world",
+        ],
+    ),
+    "auto-reasoning": (
+        "Solve this step by step: if a train travels at 60mph for 2.5 hours, how far does it go?",
+        ["150", "mile", "distance", "60", "2.5"],
+    ),
+    "auto-documents": (
+        "Create an outline for a project proposal document.",
+        ["introduction", "scope", "timeline", "budget", "section"],
+    ),
+    "auto-video": (
+        "Describe a 5-second video of a sunrise over mountains.",
+        ["sun", "mountain", "light", "sky", "rise", "scene"],
+    ),
+    "auto-music": (
+        "Describe a 10-second lo-fi hip hop beat.",
+        ["beat", "drum", "sample", "chill", "loop", "bass"],
+    ),
+    "auto-research": (
+        "What are the latest developments in quantum computing?",
+        ["qubit", "quantum", "compute", "superconducting", "research"],
+    ),
+    "auto-vision": (
+        "How would you analyze an image for accessibility issues?",
+        ["alt", "text", "contrast", "color", "image", "visual"],
+    ),
+    "auto-data": (
+        "Explain how to calculate standard deviation.",
+        ["mean", "variance", "deviation", "σ", "standard", "sqrt"],
+    ),
+    "auto-compliance": (
+        "What evidence is needed for NERC CIP-007 R2?",
+        ["CIP", "evidence", "patch", "compliance", "NERC", "requirement"],
+    ),
+    "auto-mistral": (
+        "Analyze the trade-offs between microservices and monolithic architectures.",
+        ["trade", "scale", "complex", "deploy", "maintain"],
+    ),
 }
 
 # Persona test prompts and expected signals
@@ -982,76 +1103,277 @@ WORKSPACE_PROMPTS = {
 PERSONA_PROMPTS = {
     # Development (18 personas)
     # Real IndexError bug: no bounds check on lst, no empty-list guard
-    "bugdiscoverycodeassistant": ("Find the bugs in this code:\ndef get_first(lst):\n    return lst[0]", ["index", "IndexError", "empty", "bounds", "check", "exception", "out-of-range", "list", "lst", "fail", "error", "first"]),
-    "codereviewassistant": ("Review this code: x = [i for i in range(100)]", ["list", "comprehension", "memory", "generator"]),
+    "bugdiscoverycodeassistant": (
+        "Find the bugs in this code:\ndef get_first(lst):\n    return lst[0]",
+        [
+            "index",
+            "IndexError",
+            "empty",
+            "bounds",
+            "check",
+            "exception",
+            "out-of-range",
+            "list",
+            "lst",
+            "fail",
+            "error",
+            "first",
+        ],
+    ),
+    "codereviewassistant": (
+        "Review this code: x = [i for i in range(100)]",
+        ["list", "comprehension", "memory", "generator"],
+    ),
     "codereviewer": ("Review: if x == True:", ["==", "bool", "simplify", "True", "comparison"]),
     # Concrete function so model generates an actual docstring rather than describing docs
-    "codebasewikidocumentationskill": ("Write a docstring for:\ndef parse_config(path: str, strict: bool = False) -> dict:", ["param", "Args", "Returns", "raises", "str", "dict", "path"]),
-    "devopsautomator": ("Write a bash script to back up /var/data to /backup with today's date in the filename.", ["#!/", "bash", "rsync", "date", "backup", "mkdir"]),
-    "devopsengineer": ("Explain Kubernetes pod lifecycle.", ["pod", "pending", "running", "container", "lifecycle"]),
-    "ethereumdeveloper": ("Write a simple Solidity smart contract.", ["contract", "pragma", "solidity", "function", "public"]),
-    "fullstacksoftwaredeveloper": ("Design a REST API for a todo app.", ["GET", "POST", "endpoint", "REST", "API"]),
-    "githubexpert": ("Explain git rebase vs merge.", ["rebase", "merge", "history", "commit", "branch"]),
+    "codebasewikidocumentationskill": (
+        "Write a docstring for:\ndef parse_config(path: str, strict: bool = False) -> dict:",
+        ["param", "Args", "Returns", "raises", "str", "dict", "path"],
+    ),
+    "devopsautomator": (
+        "Write a bash script to back up /var/data to /backup with today's date in the filename.",
+        ["#!/", "bash", "rsync", "date", "backup", "mkdir"],
+    ),
+    "devopsengineer": (
+        "Explain Kubernetes pod lifecycle.",
+        ["pod", "pending", "running", "container", "lifecycle"],
+    ),
+    "ethereumdeveloper": (
+        "Write a simple Solidity smart contract.",
+        ["contract", "pragma", "solidity", "function", "public"],
+    ),
+    "fullstacksoftwaredeveloper": (
+        "Design a REST API for a todo app.",
+        ["GET", "POST", "endpoint", "REST", "API"],
+    ),
+    "githubexpert": (
+        "Explain git rebase vs merge.",
+        ["rebase", "merge", "history", "commit", "branch"],
+    ),
     "javascriptconsole": ("Calculate 2 * Math.PI * 3", ["6.28", "18.84", "Math", "PI", "result"]),
-    "kubernetesdockerrpglearningengine": ("Explain Docker layers.", ["layer", "image", "cache", "dockerfile", "build"]),
-    "pythoncodegeneratorcleanoptimizedproduction-ready": ("Generate a function to sort a list of dicts by key.", ["sorted", "lambda", "key", "dict", "def"]),
+    "kubernetesdockerrpglearningengine": (
+        "Explain Docker layers.",
+        ["layer", "image", "cache", "dockerfile", "build"],
+    ),
+    "pythoncodegeneratorcleanoptimizedproduction-ready": (
+        "Generate a function to sort a list of dicts by key.",
+        ["sorted", "lambda", "key", "dict", "def"],
+    ),
     # Remove single-digit signals ("3","2","1") — they match any text; keep specific output + sort terms
-    "pythoninterpreter": ("Execute: sorted([3,1,2], reverse=True)", ["[3, 2, 1]", "reverse", "sorted", "descend", "output"]),
-    "seniorfrontenddeveloper": ("Explain React hooks.", ["useState", "useEffect", "hook", "component", "state"]),
-    "seniorsoftwareengineersoftwarearchitectrules": ("What design patterns would you apply to a REST API handling 10 million requests per day?", ["pattern", "cache", "load", "queue", "horizontal", "scale", "rate"]),
-    "softwarequalityassurancetester": ("Write test cases for a login form.", ["test", "case", "valid", "invalid", "password"]),
-    "ux-uideveloper": ("Best practices for mobile-first design.", ["mobile", "responsive", "viewport", "breakpoint", "touch"]),
-    "creativecoder": ("Write a single-file HTML Canvas game: a ball that bounces off walls and splits into two smaller balls when clicked.", ["canvas", "ball", "bounce", "click", "split", "radius", "velocity", "ctx", "requestAnimationFrame"]),
+    "pythoninterpreter": (
+        "Execute: sorted([3,1,2], reverse=True)",
+        ["[3, 2, 1]", "reverse", "sorted", "descend", "output"],
+    ),
+    "seniorfrontenddeveloper": (
+        "Explain React hooks.",
+        ["useState", "useEffect", "hook", "component", "state"],
+    ),
+    "seniorsoftwareengineersoftwarearchitectrules": (
+        "What design patterns would you apply to a REST API handling 10 million requests per day?",
+        ["pattern", "cache", "load", "queue", "horizontal", "scale", "rate"],
+    ),
+    "softwarequalityassurancetester": (
+        "Write test cases for a login form.",
+        ["test", "case", "valid", "invalid", "password"],
+    ),
+    "ux-uideveloper": (
+        "Best practices for mobile-first design.",
+        ["mobile", "responsive", "viewport", "breakpoint", "touch"],
+    ),
+    "creativecoder": (
+        "Write a single-file HTML Canvas game: a ball that bounces off walls and splits into two smaller balls when clicked.",
+        [
+            "canvas",
+            "ball",
+            "bounce",
+            "click",
+            "split",
+            "radius",
+            "velocity",
+            "ctx",
+            "requestAnimationFrame",
+        ],
+    ),
     # Security (6 personas)
-    "cybersecurityspecialist": ("Explain zero-trust architecture.", ["zero", "trust", "verify", "never", "assume"]),
+    "cybersecurityspecialist": (
+        "Explain zero-trust architecture.",
+        ["zero", "trust", "verify", "never", "assume"],
+    ),
     # Specific enough to force actual IOS commands with testable tokens
-    "networkengineer": ("Write Cisco IOS commands to create VLAN 100 named PROD and assign interface GigabitEthernet0/1 as an access port.", ["vlan", "switchport", "interface", "access", "GigabitEthernet", "mode", "name"]),
+    "networkengineer": (
+        "Write Cisco IOS commands to create VLAN 100 named PROD and assign interface GigabitEthernet0/1 as an access port.",
+        ["vlan", "switchport", "interface", "access", "GigabitEthernet", "mode", "name"],
+    ),
     # Question form so model lists techniques; T1566/T1190 are ATT&CK IDs; model may use TA0xxx or DS notation
-    "redteamoperator": ("List three MITRE ATT&CK initial access techniques and their technique IDs.", ["T1566", "T1190", "phishing", "exploit", "technique", "initial", "TA0", "DS1", "access", "attack", "spearphish", "removable"]),
-    "blueteamdefender": ("Detect ransomware activity.", ["encrypt", "extension", "ransom", "detect", "behavior"]),
+    "redteamoperator": (
+        "List three MITRE ATT&CK initial access techniques and their technique IDs.",
+        [
+            "T1566",
+            "T1190",
+            "phishing",
+            "exploit",
+            "technique",
+            "initial",
+            "TA0",
+            "DS1",
+            "access",
+            "attack",
+            "spearphish",
+            "removable",
+        ],
+    ),
+    "blueteamdefender": (
+        "Detect ransomware activity.",
+        ["encrypt", "extension", "ransom", "detect", "behavior"],
+    ),
     "pentester": ("OWASP testing methodology.", ["OWASP", "test", "inject", "XSS", "methodology"]),
-    "splunksplgineer": ("Write SPL to detect brute force.", ["index", "stats", "count", "fail", "threshold"]),
+    "splunksplgineer": (
+        "Write SPL to detect brute force.",
+        ["index", "stats", "count", "fail", "threshold"],
+    ),
     # Data (7 personas)
-    "dataanalyst": ("Explain correlation vs causation.", ["correlation", "causation", "variable", "relationship"]),
-    "datascientist": ("Feature engineering techniques.", ["feature", "encode", "normalize", "transform", "engineer"]),
-    "machinelearningengineer": ("Explain gradient descent.", ["gradient", "descent", "learning", "rate", "optimize"]),
-    "statistician": ("Explain p-value interpretation.", ["p-value", "null", "hypothesis", "significance", "0.05"]),
+    "dataanalyst": (
+        "Explain correlation vs causation.",
+        ["correlation", "causation", "variable", "relationship"],
+    ),
+    "datascientist": (
+        "Feature engineering techniques.",
+        ["feature", "encode", "normalize", "transform", "engineer"],
+    ),
+    "machinelearningengineer": (
+        "Explain gradient descent.",
+        ["gradient", "descent", "learning", "rate", "optimize"],
+    ),
+    "statistician": (
+        "Explain p-value interpretation.",
+        ["p-value", "null", "hypothesis", "significance", "0.05"],
+    ),
     # Remove "HA" — 2 chars match substrings in unrelated words; use full terms
-    "itarchitect": ("Design a high-availability system.", ["redundant", "failover", "availability", "replica", "load balancer"]),
+    "itarchitect": (
+        "Design a high-availability system.",
+        ["redundant", "failover", "availability", "replica", "load balancer"],
+    ),
     # Concrete task so model produces structured steps, not a disclaimer it can't do a review
-    "researchanalyst": ("Outline the steps for a systematic literature review on transformer models in NLP.", ["systematic", "search", "inclusion", "database", "literature", "source", "criteria"]),
+    "researchanalyst": (
+        "Outline the steps for a systematic literature review on transformer models in NLP.",
+        ["systematic", "search", "inclusion", "database", "literature", "source", "criteria"],
+    ),
     "excelsheet": ("Formula for VLOOKUP.", ["VLOOKUP", "formula", "range", "col_index", "FALSE"]),
     # Compliance (2 personas)
-    "nerccipcomplianceanalyst": ("CIP-007 patch management requirements.", ["CIP", "patch", "35", "day", "compliance"]),
-    "cippolicywriter": ("Write a policy for access control.", ["access", "control", "policy", "authorize", "role"]),
+    "nerccipcomplianceanalyst": (
+        "CIP-007 patch management requirements.",
+        ["CIP", "patch", "35", "day", "compliance"],
+    ),
+    "cippolicywriter": (
+        "Write a policy for access control.",
+        ["access", "control", "policy", "authorize", "role"],
+    ),
     # Systems (2 personas)
     "linuxterminal": ("List files by size.", ["ls", "-l", "sort", "size", "du"]),
     "sqlterminal": ("SELECT users with admin role.", ["SELECT", "FROM", "WHERE", "role", "admin"]),
     # General (2 personas)
-    "itexpert": ("Troubleshoot slow network.", ["bandwidth", "latency", "packet", "loss", "diagnose", "network", "gather", "troubleshoot", "speed", "connection", "router", "check", "slow"]),
-    "techreviewer": ("Review iPhone 15 features.", ["camera", "chip", "battery", "feature", "review"]),
+    "itexpert": (
+        "Troubleshoot slow network.",
+        [
+            "bandwidth",
+            "latency",
+            "packet",
+            "loss",
+            "diagnose",
+            "network",
+            "gather",
+            "troubleshoot",
+            "speed",
+            "connection",
+            "router",
+            "check",
+            "slow",
+        ],
+    ),
+    "techreviewer": (
+        "Review iPhone 15 features.",
+        ["camera", "chip", "battery", "feature", "review"],
+    ),
     # Writing (3 personas)
     # Removed stopword signals ("the","in","a") — matched everything; use narrative-specific terms
-    "creativewriter": ("Write the opening paragraph of a noir detective story set in a rainy city.", ["rain", "detective", "night", "dark", "street", "shadow", "city", "stood", "office", "cigarette"]),
-    "techwriter": ("Document an API endpoint.", ["endpoint", "request", "response", "parameter", "method"]),
+    "creativewriter": (
+        "Write the opening paragraph of a noir detective story set in a rainy city.",
+        [
+            "rain",
+            "detective",
+            "night",
+            "dark",
+            "street",
+            "shadow",
+            "city",
+            "stood",
+            "office",
+            "cigarette",
+        ],
+    ),
+    "techwriter": (
+        "Document an API endpoint.",
+        ["endpoint", "request", "response", "parameter", "method"],
+    ),
     # Reasoning (3 personas)
     # Concrete deliverable so model produces a structured plan with testable milestones
-    "magistralstrategist": ("Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.", ["milestone", "KPI", "launch", "objective", "strategy", "quarter", "metric", "goal"]),
+    "magistralstrategist": (
+        "Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.",
+        ["milestone", "KPI", "launch", "objective", "strategy", "quarter", "metric", "goal"],
+    ),
     # "square" matches "squared", "squares", "squaring" — more robust than exact "squared"
-    "phi4stemanalyst": ("Explain the Pythagorean theorem.", ["pythagor", "triangle", "hypotenuse", "right", "square", "sides"]),
-    "phi4specialist": ("Write a technical specification outline.", ["spec", "requirement", "section", "format", "structure"]),
-    "gptossanalyst": ("Analyze trade-offs between microservices and monoliths.", ["trade", "scale", "complex", "maintain", "deploy"]),
+    "phi4stemanalyst": (
+        "Explain the Pythagorean theorem.",
+        ["pythagor", "triangle", "hypotenuse", "right", "square", "sides"],
+    ),
+    "phi4specialist": (
+        "Write a technical specification outline.",
+        ["spec", "requirement", "section", "format", "structure"],
+    ),
+    "gptossanalyst": (
+        "Analyze trade-offs between microservices and monoliths.",
+        ["trade", "scale", "complex", "maintain", "deploy"],
+    ),
     # Vision (2 personas — Gemma 4 E4B + JANG uncensored VLM)
     # Text-only tests (no image upload in acceptance suite) — prompts exercise reasoning about visual context
-    "gemma4e4bvision": ("A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?", ["stack", "trace", "error", "500", "exception", "debug", "log", "server"]),
+    "gemma4e4bvision": (
+        "A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?",
+        ["stack", "trace", "error", "500", "exception", "debug", "log", "server"],
+    ),
     # Uncensored VLM — prompt tests no-refusal behavior on a red team / OSINT task
-    "gemma4jangvision": ("List three techniques for extracting credentials visible in a screenshot during a red team engagement.", ["credential", "password", "screenshot", "OCR", "extract", "hash", "capture", "image"]),
+    "gemma4jangvision": (
+        "List three techniques for extracting credentials visible in a screenshot during a red team engagement.",
+        ["credential", "password", "screenshot", "OCR", "extract", "hash", "capture", "image"],
+    ),
     # Writing (hermes3writer — long-form narrative fiction via Hermes 3 / Dolphin)
-    "hermes3writer": ("Write the opening paragraph of a serialized mystery novel set in a coastal town, introducing the detective character.", ["detective", "coastal", "town", "mystery", "character", "chapter", "story", "narrative"]),
+    "hermes3writer": (
+        "Write the opening paragraph of a serialized mystery novel set in a coastal town, introducing the detective character.",
+        ["detective", "coastal", "town", "mystery", "character", "chapter", "story", "narrative"],
+    ),
     # Research (2 personas)
-    "gemmaresearchanalyst": ("Research methodology steps.", ["method", "data", "collect", "analyze", "research"]),
+    "gemmaresearchanalyst": (
+        "Research methodology steps.",
+        ["method", "data", "collect", "analyze", "research"],
+    ),
     # Uncensored multimodal researcher — test no-refusal on a professional OSINT task
-    "supergemma4researcher": ("Outline the steps for an OSINT investigation to verify a company's publicly disclosed executive team.", ["OSINT", "search", "verify", "public", "record", "source", "LinkedIn", "domain", "executive", "corporate", "registry", "confirm", "evidence"]),
+    "supergemma4researcher": (
+        "Outline the steps for an OSINT investigation to verify a company's publicly disclosed executive team.",
+        [
+            "OSINT",
+            "search",
+            "verify",
+            "public",
+            "record",
+            "source",
+            "LinkedIn",
+            "domain",
+            "executive",
+            "corporate",
+            "registry",
+            "confirm",
+            "evidence",
+        ],
+    ),
     # ── M1: Compliance personas ─────────────────────────────────────────
     "soc2auditor": (
         "What's the difference between control design and operating effectiveness in a SOC 2 Type II audit?",
@@ -1106,7 +1428,14 @@ PERSONA_PROMPTS = {
     ),
     "terraformwriter": (
         "Write a Terraform module that provisions an S3 bucket with encryption, public access block, and lifecycle policy.",
-        ["resource", "aws_s3_bucket", "encryption", "public_access_block", "lifecycle", "variables.tf"],
+        [
+            "resource",
+            "aws_s3_bucket",
+            "encryption",
+            "public_access_block",
+            "lifecycle",
+            "variables.tf",
+        ],
     ),
     "documentationarchitect": (
         "Outline the documentation structure for an open-source REST API library.",
@@ -1141,6 +1470,7 @@ PERSONA_PROMPTS = {
 # Test Sections
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 async def S0() -> None:
     """S0: Prerequisites and environment check."""
     print("\n━━━ S0. PREREQUISITES ━━━")
@@ -1150,7 +1480,9 @@ async def S0() -> None:
     t0 = time.time()
     py_ver = sys.version_info
     record(
-        sec, "S0-01", "Python version",
+        sec,
+        "S0-01",
+        "Python version",
         "PASS" if py_ver >= (3, 10) else "FAIL",
         f"Python {py_ver.major}.{py_ver.minor}.{py_ver.micro}",
         t0=t0,
@@ -1166,7 +1498,9 @@ async def S0() -> None:
         except ImportError:
             missing.append(pkg)
     record(
-        sec, "S0-02", "Required packages",
+        sec,
+        "S0-02",
+        "Required packages",
         "PASS" if not missing else "FAIL",
         f"missing: {missing}" if missing else "all present",
         t0=t0,
@@ -1176,7 +1510,9 @@ async def S0() -> None:
     t0 = time.time()
     env_exists = (ROOT / ".env").exists()
     record(
-        sec, "S0-03", ".env file exists",
+        sec,
+        "S0-03",
+        ".env file exists",
         "PASS" if env_exists else "FAIL",
         str(ROOT / ".env"),
         t0=t0,
@@ -1186,7 +1522,9 @@ async def S0() -> None:
     t0 = time.time()
     has_key = bool(API_KEY)
     record(
-        sec, "S0-04", "PIPELINE_API_KEY configured",
+        sec,
+        "S0-04",
+        "PIPELINE_API_KEY configured",
         "PASS" if has_key else "FAIL",
         f"key length: {len(API_KEY)}" if has_key else "not set",
         t0=t0,
@@ -1196,7 +1534,9 @@ async def S0() -> None:
     t0 = time.time()
     sha = _git_sha()
     record(
-        sec, "S0-05", "Git repository",
+        sec,
+        "S0-05",
+        "Git repository",
         "PASS" if sha != "unknown" else "WARN",
         f"SHA: {sha}",
         t0=t0,
@@ -1208,10 +1548,14 @@ async def S0() -> None:
     # running to provide zombie detection during the test run.
     t0 = time.time()
     try:
-        r = subprocess.run(["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5)
+        r = subprocess.run(
+            ["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5
+        )
         running = r.returncode == 0 and bool(r.stdout.strip())
         record(
-            sec, "S0-06", "MLX watchdog status",
+            sec,
+            "S0-06",
+            "MLX watchdog status",
             "INFO",
             f"watchdog {'running (PID ' + r.stdout.strip() + ') — provides zombie detection during tests' if running else 'not running — start with ./launch.sh start-mlx-watchdog'}",
             t0=t0,
@@ -1222,17 +1566,36 @@ async def S0() -> None:
     # S0-07: Deployed MLX proxy matches source (catches P5-ROAD-MLX-002 staleness)
     t0 = time.time()
     import filecmp  # noqa: PLC0415
+
     src = ROOT / "scripts/mlx-proxy.py"
     deployed = Path.home() / ".portal5/mlx/mlx-proxy.py"
     if not deployed.exists():
-        record(sec, "S0-07", "Deployed MLX proxy", "INFO",
-               "not yet deployed (run ./launch.sh install-mlx)", t0=t0)
+        record(
+            sec,
+            "S0-07",
+            "Deployed MLX proxy",
+            "INFO",
+            "not yet deployed (run ./launch.sh install-mlx)",
+            t0=t0,
+        )
     elif filecmp.cmp(src, deployed, shallow=False):
-        record(sec, "S0-07", "Deployed MLX proxy matches source", "PASS",
-               "deployed copy in sync", t0=t0)
+        record(
+            sec,
+            "S0-07",
+            "Deployed MLX proxy matches source",
+            "PASS",
+            "deployed copy in sync",
+            t0=t0,
+        )
     else:
-        record(sec, "S0-07", "Deployed MLX proxy matches source", "WARN",
-               "deployed != source — run ./launch.sh install-mlx", t0=t0)
+        record(
+            sec,
+            "S0-07",
+            "Deployed MLX proxy matches source",
+            "WARN",
+            "deployed != source — run ./launch.sh install-mlx",
+            t0=t0,
+        )
 
 
 async def S1() -> None:
@@ -1244,7 +1607,9 @@ async def S1() -> None:
     t0 = time.time()
     backends_file = ROOT / "config/backends.yaml"
     record(
-        sec, "S1-01", "backends.yaml exists",
+        sec,
+        "S1-01",
+        "backends.yaml exists",
         "PASS" if backends_file.exists() else "FAIL",
         str(backends_file),
         t0=t0,
@@ -1254,7 +1619,14 @@ async def S1() -> None:
     t0 = time.time()
     try:
         backends = _load_backends_yaml()
-        record(sec, "S1-02", "backends.yaml valid YAML", "PASS", f"{len(backends.get('backends', []))} backends", t0=t0)
+        record(
+            sec,
+            "S1-02",
+            "backends.yaml valid YAML",
+            "PASS",
+            f"{len(backends.get('backends', []))} backends",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S1-02", "backends.yaml valid YAML", "FAIL", str(e)[:100], t0=t0)
         return
@@ -1264,7 +1636,9 @@ async def S1() -> None:
     pipe_ids = set(WS_IDS)
     yaml_ids = set(backends.get("workspace_routing", {}).keys())
     if pipe_ids == yaml_ids:
-        record(sec, "S1-03", "Workspace IDs consistent", "PASS", f"{len(pipe_ids)} workspaces", t0=t0)
+        record(
+            sec, "S1-03", "Workspace IDs consistent", "PASS", f"{len(pipe_ids)} workspaces", t0=t0
+        )
     else:
         diff = pipe_ids.symmetric_difference(yaml_ids)
         record(sec, "S1-03", "Workspace IDs consistent", "FAIL", f"mismatch: {diff}", t0=t0)
@@ -1280,7 +1654,9 @@ async def S1() -> None:
         except Exception:
             invalid.append(pf.name)
     record(
-        sec, "S1-04", "Persona YAMLs valid",
+        sec,
+        "S1-04",
+        "Persona YAMLs valid",
         "PASS" if not invalid else "FAIL",
         f"{len(persona_files)} personas" if not invalid else f"invalid: {invalid}",
         t0=t0,
@@ -1291,7 +1667,9 @@ async def S1() -> None:
     yaml_count = len(list((ROOT / "config/personas").glob("*.yaml")))
     actual_count = len(PERSONAS)
     record(
-        sec, "S1-05", "Persona count matches yaml file count",
+        sec,
+        "S1-05",
+        "Persona count matches yaml file count",
         "PASS" if actual_count == yaml_count else "FAIL",
         f"{actual_count} loaded, {yaml_count} yaml files",
         t0=t0,
@@ -1303,7 +1681,14 @@ async def S1() -> None:
     try:
         if routing_desc_file.exists():
             desc = json.loads(routing_desc_file.read_text())
-            record(sec, "S1-06", "routing_descriptions.json", "PASS", f"{len(desc)} descriptions", t0=t0)
+            record(
+                sec,
+                "S1-06",
+                "routing_descriptions.json",
+                "PASS",
+                f"{len(desc)} descriptions",
+                t0=t0,
+            )
         else:
             record(sec, "S1-06", "routing_descriptions.json", "WARN", "file not found", t0=t0)
     except Exception as e:
@@ -1328,7 +1713,7 @@ async def S1() -> None:
         proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
         # VLM_MODELS section appears before ALL_MODELS in the proxy source
         if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
-            vlm_section = proxy_src[proxy_src.index("VLM_MODELS"):proxy_src.index("ALL_MODELS")]
+            vlm_section = proxy_src[proxy_src.index("VLM_MODELS") : proxy_src.index("ALL_MODELS")]
             # Gemma 4 31B dense, E4B, JANG, and abliterated 26B MoE must be in VLM_MODELS (require mlx_vlm)
             gemma_31b_vlm = "gemma-4-31b-it-4bit" in vlm_section
             gemma_e4b_vlm = "gemma-4-e4b-it-4bit" in vlm_section
@@ -1336,18 +1721,37 @@ async def S1() -> None:
             jang_vlm = "Gemma-4-31B-JANG_4M-CRACK" in vlm_section
             jang_all = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in proxy_src
             gemma_26b_abl_vlm = "supergemma4-26b-abliterated-multimodal-mlx-4bit" in vlm_section
-            gemma_26b_abl_all = "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in proxy_src
-            all_ok = gemma_31b_vlm and gemma_e4b_vlm and gemma_31b_all and jang_vlm and jang_all and gemma_26b_abl_vlm and gemma_26b_abl_all
+            gemma_26b_abl_all = (
+                "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in proxy_src
+            )
+            all_ok = (
+                gemma_31b_vlm
+                and gemma_e4b_vlm
+                and gemma_31b_all
+                and jang_vlm
+                and jang_all
+                and gemma_26b_abl_vlm
+                and gemma_26b_abl_all
+            )
             record(
-                sec, "S1-08",
+                sec,
+                "S1-08",
                 "MLX routing: VLM models in VLM_MODELS (mlx_vlm backend)",
                 "PASS" if all_ok else "FAIL",
-                "✓ Gemma 4 31B + E4B + JANG + 26B-abl in VLM_MODELS" if all_ok
+                "✓ Gemma 4 31B + E4B + JANG + 26B-abl in VLM_MODELS"
+                if all_ok
                 else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all} 26b_abl_vlm={gemma_26b_abl_vlm} 26b_abl_all={gemma_26b_abl_all}",
                 t0=t0,
             )
         else:
-            record(sec, "S1-08", "MLX routing: VLM models in VLM_MODELS", "WARN", "VLM_MODELS section not found", t0=t0)
+            record(
+                sec,
+                "S1-08",
+                "MLX routing: VLM models in VLM_MODELS",
+                "WARN",
+                "VLM_MODELS section not found",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S1-08", "MLX routing: VLM models in VLM_MODELS", "FAIL", str(e)[:100], t0=t0)
 
@@ -1357,24 +1761,40 @@ async def S1() -> None:
     try:
         proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
         if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
-            vlm_section = proxy_src[proxy_src.index("VLM_MODELS"):proxy_src.index("ALL_MODELS")]
+            vlm_section = proxy_src[proxy_src.index("VLM_MODELS") : proxy_src.index("ALL_MODELS")]
             magistral_in_all = "Magistral-Small-2509" in proxy_src
             magistral_in_vlm = "Magistral-Small-2509" in vlm_section
             phi4_in_all = "phi-4-8bit" in proxy_src
             phi4_in_vlm = "phi-4-8bit" in vlm_section
             lm_ok = magistral_in_all and not magistral_in_vlm and phi4_in_all and not phi4_in_vlm
             record(
-                sec, "S1-09",
+                sec,
+                "S1-09",
                 "MLX routing: text-only models NOT in VLM_MODELS (mlx_lm backend)",
                 "PASS" if lm_ok else "FAIL",
-                "✓ Magistral + Phi-4 use mlx_lm" if lm_ok
+                "✓ Magistral + Phi-4 use mlx_lm"
+                if lm_ok
                 else f"magistral: all={magistral_in_all} vlm={magistral_in_vlm} | phi4: all={phi4_in_all} vlm={phi4_in_vlm}",
                 t0=t0,
             )
         else:
-            record(sec, "S1-09", "MLX routing: text-only models NOT in VLM_MODELS", "WARN", "proxy source not found", t0=t0)
+            record(
+                sec,
+                "S1-09",
+                "MLX routing: text-only models NOT in VLM_MODELS",
+                "WARN",
+                "proxy source not found",
+                t0=t0,
+            )
     except Exception as e:
-        record(sec, "S1-09", "MLX routing: text-only models NOT in VLM_MODELS", "FAIL", str(e)[:100], t0=t0)
+        record(
+            sec,
+            "S1-09",
+            "MLX routing: text-only models NOT in VLM_MODELS",
+            "FAIL",
+            str(e)[:100],
+            t0=t0,
+        )
 
     # S1-10: All persona workspace_model values are valid pipeline workspace IDs or Ollama tags.
     # Raw MLX HF paths (mlx-community/*, lmstudio-community/*, Jackrong/*, dealignai/*) are
@@ -1396,9 +1816,12 @@ async def S1() -> None:
         if any(ws_model.startswith(org) for org in _MLX_ORGS):
             bad_personas.append(f"{slug}:{ws_model.split('/')[-1]}")
     record(
-        sec, "S1-10", "Persona workspace_model values are pipeline IDs or Ollama tags",
+        sec,
+        "S1-10",
+        "Persona workspace_model values are pipeline IDs or Ollama tags",
         "FAIL" if bad_personas else "PASS",
-        f"invalid (raw MLX paths): {bad_personas}" if bad_personas
+        f"invalid (raw MLX paths): {bad_personas}"
+        if bad_personas
         else f"all {len(PERSONAS)} personas use valid workspace_model values",
         t0=t0,
     )
@@ -1408,9 +1831,13 @@ async def S1() -> None:
     non_bench = [p for p in PERSONAS if p.get("category") != "benchmark"]
     missing_prompts = [p["slug"] for p in non_bench if p["slug"] not in PERSONA_PROMPTS]
     record(
-        sec, "S1-11", "All personas have PERSONA_PROMPTS entries",
+        sec,
+        "S1-11",
+        "All personas have PERSONA_PROMPTS entries",
         "FAIL" if missing_prompts else "PASS",
-        f"missing prompts for: {missing_prompts}" if missing_prompts else f"all {len(non_bench)} non-benchmark personas covered",
+        f"missing prompts for: {missing_prompts}"
+        if missing_prompts
+        else f"all {len(non_bench)} non-benchmark personas covered",
         t0=t0,
     )
 
@@ -1433,7 +1860,9 @@ async def S2() -> None:
         backends_healthy = data.get("backends_healthy", 0)
         workspaces = data.get("workspaces", 0)
         record(
-            sec, "S2-02", "Pipeline /health",
+            sec,
+            "S2-02",
+            "Pipeline /health",
             "PASS" if backends_healthy > 0 else "WARN",
             f"backends={backends_healthy}/{backends_total}, workspaces={workspaces}",
             t0=t0,
@@ -1446,7 +1875,9 @@ async def S2() -> None:
     code, _ = await _get(f"{OLLAMA_URL}/api/tags")
     models = _ollama_models()
     record(
-        sec, "S2-03", "Ollama",
+        sec,
+        "S2-03",
+        "Ollama",
         "PASS" if code == 200 else "FAIL",
         f"{len(models)} models" if code == 200 else f"HTTP {code}",
         t0=t0,
@@ -1489,7 +1920,9 @@ async def S2() -> None:
         t0 = time.time()
         code, _ = await _get(f"http://localhost:{port}/health", timeout=5)
         record(
-            sec, tid, f"MCP {name} (:{port})",
+            sec,
+            tid,
+            f"MCP {name} (:{port})",
             "PASS" if code == 200 else "WARN",
             f"HTTP {code}",
             t0=t0,
@@ -1499,7 +1932,9 @@ async def S2() -> None:
     t0 = time.time()
     state, data = await _mlx_health()
     record(
-        sec, "S2-16", "MLX proxy",
+        sec,
+        "S2-16",
+        "MLX proxy",
         "PASS" if state in ("ready", "none", "switching") else "INFO",
         f"state={state}",
         t0=t0,
@@ -1509,7 +1944,9 @@ async def S2() -> None:
     t0 = time.time()
     code, _ = await _get(f"{MLX_SPEECH_URL}/health", timeout=5)
     record(
-        sec, "S2-17", "MLX Speech",
+        sec,
+        "S2-17",
+        "MLX Speech",
         "PASS" if code == 200 else "INFO",
         f"HTTP {code}" if code else "not running (optional)",
         t0=t0,
@@ -1543,10 +1980,14 @@ async def S3a() -> None:
             t0 = time.time()
             tid = f"S3a-{test_num:02d}"
 
-            code, response, model, _route = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=180)
+            code, response, model, _route = await _chat_with_model(
+                ws_id, prompt, max_tokens=300, timeout=180
+            )
 
             if code != 200:
-                record(sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0)
+                record(
+                    sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0
+                )
                 test_num += 1
                 continue
 
@@ -1554,9 +1995,23 @@ async def S3a() -> None:
             found = [s for s in signals if s.lower() in response_lower]
 
             if found:
-                record(sec, tid, f"Workspace {ws_id}", "PASS", f"signals: {found[:3]} | model: {model[:40]}", t0=t0)
+                record(
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "PASS",
+                    f"signals: {found[:3]} | model: {model[:40]}",
+                    t0=t0,
+                )
             else:
-                record(sec, tid, f"Workspace {ws_id}", "WARN", f"no signals in: {response[:100]}", t0=t0)
+                record(
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "WARN",
+                    f"no signals in: {response[:100]}",
+                    t0=t0,
+                )
 
             test_num += 1
             await asyncio.sleep(0.5)
@@ -1577,7 +2032,10 @@ async def S3b() -> None:
         # Group 1: Coding (Devstral, Qwen3-Coder)
         ("MLX coding", ["auto-coding", "auto-agentic", "auto-spl"]),
         # Group 2: Reasoning (Qwopus, DeepSeek-R1, Magistral)
-        ("MLX reasoning", ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"]),
+        (
+            "MLX reasoning",
+            ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"],
+        ),
         # Group 3: Creative (Dolphin-8B)
         ("MLX creative", ["auto-creative"]),
         # Group 4: Vision (Gemma-4, Qwen3-VL)
@@ -1599,10 +2057,14 @@ async def S3b() -> None:
             t0 = time.time()
             tid = f"S3b-{test_num:02d}"
 
-            code, response, model, _route = await _chat_with_model(ws_id, prompt, max_tokens=300, timeout=240)
+            code, response, model, _route = await _chat_with_model(
+                ws_id, prompt, max_tokens=300, timeout=240
+            )
 
             if code != 200:
-                record(sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0)
+                record(
+                    sec, tid, f"Workspace {ws_id}", "FAIL", f"HTTP {code}: {response[:80]}", t0=t0
+                )
                 test_num += 1
                 continue
 
@@ -1614,19 +2076,41 @@ async def S3b() -> None:
             if not is_mlx:
                 mlx_state, _ = await _mlx_health()
                 if mlx_state in ("down", "switching"):
-                    record(sec, tid, f"Workspace {ws_id}", "WARN",
-                           f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}",
-                           t0=t0)
+                    record(
+                        sec,
+                        tid,
+                        f"Workspace {ws_id}",
+                        "WARN",
+                        f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}",
+                        t0=t0,
+                    )
                 else:
-                    record(sec, tid, f"Workspace {ws_id}", "FAIL",
-                           f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)",
-                           t0=t0)
+                    record(
+                        sec,
+                        tid,
+                        f"Workspace {ws_id}",
+                        "FAIL",
+                        f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)",
+                        t0=t0,
+                    )
             elif found:
-                record(sec, tid, f"Workspace {ws_id}", "PASS",
-                       f"MLX:{is_mlx} | signals: {found[:3]}", t0=t0)
+                record(
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "PASS",
+                    f"MLX:{is_mlx} | signals: {found[:3]}",
+                    t0=t0,
+                )
             else:
-                record(sec, tid, f"Workspace {ws_id}", "WARN",
-                       f"MLX:{is_mlx} | no signals in: {response[:100]}", t0=t0)
+                record(
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "WARN",
+                    f"MLX:{is_mlx} | no signals in: {response[:100]}",
+                    t0=t0,
+                )
 
             test_num += 1
             await asyncio.sleep(1)
@@ -1649,7 +2133,14 @@ async def S4() -> None:
     # S4-01: MCP Documents health
     t0 = time.time()
     code, _ = await _get(f"http://localhost:{MCP['documents']}/health")
-    record(sec, "S4-01", "Documents MCP health", "PASS" if code == 200 else "FAIL", f"HTTP {code}", t0=t0)
+    record(
+        sec,
+        "S4-01",
+        "Documents MCP health",
+        "PASS" if code == 200 else "FAIL",
+        f"HTTP {code}",
+        t0=t0,
+    )
 
     # S4-02: Generate Word document
     await _mcp(
@@ -1713,7 +2204,9 @@ async def S5() -> None:
     # S5-01: Sandbox health
     t0 = time.time()
     code, _ = await _get(f"http://localhost:{MCP['sandbox']}/health")
-    record(sec, "S5-01", "Sandbox MCP health", "PASS" if code == 200 else "FAIL", f"HTTP {code}", t0=t0)
+    record(
+        sec, "S5-01", "Sandbox MCP health", "PASS" if code == 200 else "FAIL", f"HTTP {code}", t0=t0
+    )
 
     # S5-02: Execute Python code (tool: execute_python)
     await _mcp(
@@ -1760,7 +2253,9 @@ async def S6() -> None:
     signals = ["sql", "inject", "sanitize", "parameter", "escape", "prepared"]
     found = [s for s in signals if s.lower() in response.lower()]
     record(
-        sec, "S6-01", "auto-security routing",
+        sec,
+        "S6-01",
+        "auto-security routing",
         "PASS" if found and code == 200 else "WARN",
         f"signals: {found[:3]} | model: {model[:30]}",
         t0=t0,
@@ -1777,7 +2272,9 @@ async def S6() -> None:
     signals = ["recon", "scan", "exploit", "pentest", "OWASP", "vulnerability"]
     found = [s for s in signals if s.lower() in response.lower()]
     record(
-        sec, "S6-02", "auto-redteam routing",
+        sec,
+        "S6-02",
+        "auto-redteam routing",
         "PASS" if found and code == 200 else "WARN",
         f"signals: {found[:3]} | model: {model[:30]}",
         t0=t0,
@@ -1794,7 +2291,9 @@ async def S6() -> None:
     signals = ["isolate", "contain", "backup", "incident", "response", "recover"]
     found = [s for s in signals if s.lower() in response.lower()]
     record(
-        sec, "S6-03", "auto-blueteam routing",
+        sec,
+        "S6-03",
+        "auto-blueteam routing",
         "PASS" if found and code == 200 else "WARN",
         f"signals: {found[:3]} | model: {model[:30]}",
         t0=t0,
@@ -1811,7 +2310,9 @@ async def S6() -> None:
     # Check pipeline logs for routing decision
     logs = _grep_logs("portal5-pipeline", "auto-redteam|auto-security", lines=100)
     record(
-        sec, "S6-04", "Content-aware security routing",
+        sec,
+        "S6-04",
+        "Content-aware security routing",
         "PASS" if logs and code == 200 else "WARN",
         f"routed to security workspace: {bool(logs)}",
         t0=t0,
@@ -1831,13 +2332,22 @@ async def S16() -> None:
     if code != 200:
         record(sec, "S16-01", "Security MCP health", "WARN", f"HTTP {code}", t0=t0)
         return
-    record(sec, "S16-01", "Security MCP health", "PASS", f"service: {data.get('service', 'unknown')}", t0=t0)
+    record(
+        sec,
+        "S16-01",
+        "Security MCP health",
+        "PASS",
+        f"service: {data.get('service', 'unknown')}",
+        t0=t0,
+    )
 
     # S16-02: classify_vulnerability with a high-severity RCE description
     await _mcp(
         sec_port,
         "classify_vulnerability",
-        {"description": "Remote code execution via buffer overflow in OpenSSL 3.0 allows attackers to execute arbitrary code by sending a crafted certificate."},
+        {
+            "description": "Remote code execution via buffer overflow in OpenSSL 3.0 allows attackers to execute arbitrary code by sending a crafted certificate."
+        },
         section=sec,
         tid="S16-02",
         name="classify_vulnerability (RCE — expect high/critical)",
@@ -1850,7 +2360,9 @@ async def S16() -> None:
     await _mcp(
         sec_port,
         "classify_vulnerability",
-        {"description": "Information disclosure in debug endpoint reveals server version number to authenticated users."},
+        {
+            "description": "Information disclosure in debug endpoint reveals server version number to authenticated users."
+        },
         section=sec,
         tid="S16-03",
         name="classify_vulnerability (info disclosure — expect low/medium)",
@@ -1882,7 +2394,14 @@ async def S7() -> None:
     t0 = time.time()
     code, data = await _get(f"http://localhost:{MCP['music']}/health")
     if code == 200 and isinstance(data, dict):
-        record(sec, "S7-01", "Music MCP health", "PASS", f"service: {data.get('service', 'unknown')}", t0=t0)
+        record(
+            sec,
+            "S7-01",
+            "Music MCP health",
+            "PASS",
+            f"service: {data.get('service', 'unknown')}",
+            t0=t0,
+        )
     else:
         record(sec, "S7-01", "Music MCP health", "WARN", f"HTTP {code}", t0=t0)
 
@@ -1915,7 +2434,14 @@ async def S8() -> None:
     mlx_speech_available = code == 200
 
     if mlx_speech_available:
-        record(sec, "S8-01", "MLX Speech health", "PASS", f"voice_cloning: {data.get('voice_cloning', False)}", t0=t0)
+        record(
+            sec,
+            "S8-01",
+            "MLX Speech health",
+            "PASS",
+            f"voice_cloning: {data.get('voice_cloning', False)}",
+            t0=t0,
+        )
 
         # S8-02: TTS via MLX Speech
         t0 = time.time()
@@ -1930,7 +2456,14 @@ async def S8() -> None:
                 wav_data = r.content
                 info = _wav_info(wav_data)
                 if info and info["duration_s"] > 0.5:
-                    record(sec, "S8-02", "MLX Speech TTS", "PASS", f"duration: {info['duration_s']}s", t0=t0)
+                    record(
+                        sec,
+                        "S8-02",
+                        "MLX Speech TTS",
+                        "PASS",
+                        f"duration: {info['duration_s']}s",
+                        t0=t0,
+                    )
                 else:
                     record(sec, "S8-02", "MLX Speech TTS", "WARN", f"invalid WAV: {info}", t0=t0)
             else:
@@ -1938,12 +2471,26 @@ async def S8() -> None:
         except Exception as e:
             record(sec, "S8-02", "MLX Speech TTS", "FAIL", str(e)[:100], t0=t0)
     else:
-        record(sec, "S8-01", "MLX Speech health", "INFO", "not running (using Docker TTS fallback)", t0=t0)
+        record(
+            sec,
+            "S8-01",
+            "MLX Speech health",
+            "INFO",
+            "not running (using Docker TTS fallback)",
+            t0=t0,
+        )
 
         # Fallback to Docker TTS
         t0 = time.time()
         code, data = await _get(f"http://localhost:{MCP['tts']}/health")
-        record(sec, "S8-02", "Docker TTS health", "PASS" if code == 200 else "WARN", f"HTTP {code}", t0=t0)
+        record(
+            sec,
+            "S8-02",
+            "Docker TTS health",
+            "PASS" if code == 200 else "WARN",
+            f"HTTP {code}",
+            t0=t0,
+        )
 
 
 async def S9() -> None:
@@ -1958,17 +2505,36 @@ async def S9() -> None:
     if code == 200:
         record(sec, "S9-01", "MLX Speech ASR available", "PASS", "Qwen3-ASR", t0=t0)
     else:
-        record(sec, "S9-01", "MLX Speech ASR available", "INFO", "not running (Docker Whisper fallback)", t0=t0)
+        record(
+            sec,
+            "S9-01",
+            "MLX Speech ASR available",
+            "INFO",
+            "not running (Docker Whisper fallback)",
+            t0=t0,
+        )
 
         # Check Docker Whisper
         t0 = time.time()
         code, _ = await _get(f"http://localhost:{MCP['whisper']}/health")
-        record(sec, "S9-02", "Docker Whisper health", "PASS" if code == 200 else "WARN", f"HTTP {code}", t0=t0)
+        record(
+            sec,
+            "S9-02",
+            "Docker Whisper health",
+            "PASS" if code == 200 else "WARN",
+            f"HTTP {code}",
+            t0=t0,
+        )
 
 
 OLLAMA_WORKSPACES = {
-    "auto", "auto-security", "auto-redteam", "auto-blueteam",
-    "auto-creative", "auto-video", "auto-music",
+    "auto",
+    "auto-security",
+    "auto-redteam",
+    "auto-blueteam",
+    "auto-creative",
+    "auto-video",
+    "auto-music",
 }
 
 
@@ -1989,14 +2555,17 @@ async def S10() -> None:
             tid = f"S10-{test_num:02d}"
             t0 = time.time()
             if slug not in PERSONA_PROMPTS:
-                record(sec, tid, f"Persona {slug}", "FAIL",
-                       "no PERSONA_PROMPTS entry", t0=t0)
+                record(sec, tid, f"Persona {slug}", "FAIL", "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
                 continue
             prompt, signals = PERSONA_PROMPTS[slug]
             system = p.get("system_prompt", "")[:500]
             code, response, model, _route = await _chat_with_model(
-                ws_id, prompt, system=system, max_tokens=250, timeout=180,
+                ws_id,
+                prompt,
+                system=system,
+                max_tokens=250,
+                timeout=180,
             )
             if code != 200:
                 record(sec, tid, f"Persona {slug}", "FAIL", f"HTTP {code}", t0=t0)
@@ -2005,7 +2574,9 @@ async def S10() -> None:
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
             record(
-                sec, tid, f"Persona {slug}",
+                sec,
+                tid,
+                f"Persona {slug}",
                 "PASS" if found else "WARN",
                 f"signals: {found[:3]}" if found else f"no signals in: {response[:60]}",
                 t0=t0,
@@ -2050,9 +2621,15 @@ async def _mlx_chat_direct(
 
 
 MLX_WORKSPACES = {
-    "auto-coding", "auto-agentic", "auto-spl",
-    "auto-reasoning", "auto-research", "auto-data",
-    "auto-compliance", "auto-mistral", "auto-vision",
+    "auto-coding",
+    "auto-agentic",
+    "auto-spl",
+    "auto-reasoning",
+    "auto-research",
+    "auto-data",
+    "auto-compliance",
+    "auto-mistral",
+    "auto-vision",
     "auto-documents",
 }
 
@@ -2085,13 +2662,25 @@ async def S11() -> None:
     if state == "down":
         print("  ⚠️  MLX proxy is 'down' — attempting remediation before S11...")
         if not await _remediate_mlx_crash("MLX down before S11"):
-            record(sec, "S11-00", "MLX availability", "BLOCKED",
-                   "MLX proxy is down and could not be recovered", t0=time.time())
+            record(
+                sec,
+                "S11-00",
+                "MLX availability",
+                "BLOCKED",
+                "MLX proxy is down and could not be recovered",
+                t0=time.time(),
+            )
             return
         state, _ = await _mlx_health()
     if state not in ("ready", "none", "switching"):
-        record(sec, "S11-00", "MLX availability", "INFO",
-               f"MLX state: {state}, skipping MLX persona tests", t0=time.time())
+        record(
+            sec,
+            "S11-00",
+            "MLX availability",
+            "INFO",
+            f"MLX state: {state}, skipping MLX persona tests",
+            t0=time.time(),
+        )
         return
     record(sec, "S11-00", "MLX availability", "PASS", f"state: {state}", t0=time.time())
 
@@ -2099,6 +2688,7 @@ async def S11() -> None:
 
     # Build (workspace_id → mlx_model_hint) at runtime — single source of truth
     from portal_pipeline.router_pipe import WORKSPACES as _WORKSPACES  # noqa: PLC0415
+
     ws_to_mlx = {
         wsid: _WORKSPACES[wsid].get("mlx_model_hint")
         for wsid in MLX_WORKSPACES
@@ -2125,7 +2715,11 @@ async def S11() -> None:
                 c = _get_acc_client()
                 await c.post(
                     f"{MLX_URL}/v1/chat/completions",
-                    json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                    json={
+                        "model": model_hint,
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 1,
+                    },
                     timeout=3,
                 )
             except Exception:
@@ -2139,15 +2733,25 @@ async def S11() -> None:
                     recovered = await _remediate_mlx_crash(f"model load failed: {model_short}")
                     if not recovered:
                         for p in members:
-                            record(sec, f"S11-{test_num:02d}", f"Persona {p['slug']} (MLX)", "BLOCKED",
-                                   f"MLX proxy down during {model_short} load, recovery failed", t0=time.time())
+                            record(
+                                sec,
+                                f"S11-{test_num:02d}",
+                                f"Persona {p['slug']} (MLX)",
+                                "BLOCKED",
+                                f"MLX proxy down during {model_short} load, recovery failed",
+                                t0=time.time(),
+                            )
                             test_num += 1
                         break
                     try:
                         c = _get_acc_client()
                         await c.post(
                             f"{MLX_URL}/v1/chat/completions",
-                            json={"model": model_hint, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 1},
+                            json={
+                                "model": model_hint,
+                                "messages": [{"role": "user", "content": "ping"}],
+                                "max_tokens": 1,
+                            },
                             timeout=3,
                         )
                     except Exception:
@@ -2155,8 +2759,14 @@ async def S11() -> None:
                     model_ready = await _wait_for_mlx_model(model_hint, timeout=240)
                 if not model_ready:
                     for p in members:
-                        record(sec, f"S11-{test_num:02d}", f"Persona {p['slug']} (MLX)", "WARN",
-                               f"Model {model_short} not loaded within 300s (proxy: {cur_state})", t0=time.time())
+                        record(
+                            sec,
+                            f"S11-{test_num:02d}",
+                            f"Persona {p['slug']} (MLX)",
+                            "WARN",
+                            f"Model {model_short} not loaded within 300s (proxy: {cur_state})",
+                            t0=time.time(),
+                        )
                         test_num += 1
                     continue
 
@@ -2170,25 +2780,42 @@ async def S11() -> None:
             tid = f"S11-{test_num:02d}"
             t0 = time.time()
             if slug not in PERSONA_PROMPTS:
-                record(sec, tid, f"Persona {slug} (MLX)", "FAIL",
-                       "no PERSONA_PROMPTS entry", t0=t0)
+                record(sec, tid, f"Persona {slug} (MLX)", "FAIL", "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
                 continue
             prompt, signals = PERSONA_PROMPTS[slug]
             system = p.get("system_prompt", "")[:500]
-            is_thinking = any(x in (model_hint or "") for x in ["reasoning", "R1", "Magistral", "Qwopus", "Opus"])
+            is_thinking = any(
+                x in (model_hint or "") for x in ["reasoning", "R1", "Magistral", "Qwopus", "Opus"]
+            )
             max_tok = 800 if is_thinking else 400
             code, response, model, _route = await _chat_with_model(
-                ws_id, prompt, system=system, max_tokens=max_tok, timeout=300,
+                ws_id,
+                prompt,
+                system=system,
+                max_tokens=max_tok,
+                timeout=300,
             )
             if code != 200:
                 error_text = response[:120]
                 if code == 500 and "audio_tower" in error_text:
-                    record(sec, tid, f"Persona {slug} (MLX)", "BLOCKED",
-                           "mlx_vlm audio_tower params missing in quantized model — requires full model download",
-                           t0=t0)
+                    record(
+                        sec,
+                        tid,
+                        f"Persona {slug} (MLX)",
+                        "BLOCKED",
+                        "mlx_vlm audio_tower params missing in quantized model — requires full model download",
+                        t0=t0,
+                    )
                 else:
-                    record(sec, tid, f"Persona {slug} (MLX)", "FAIL", f"HTTP {code}: {error_text}", t0=t0)
+                    record(
+                        sec,
+                        tid,
+                        f"Persona {slug} (MLX)",
+                        "FAIL",
+                        f"HTTP {code}: {error_text}",
+                        t0=t0,
+                    )
                 test_num += 1
                 continue
 
@@ -2201,7 +2828,9 @@ async def S11() -> None:
                 mlx_state, _ = await _mlx_health()
                 if mlx_state in ("down", "switching"):
                     status = "WARN"
-                    detail = f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}"
+                    detail = (
+                        f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}"
+                    )
                 else:
                     status = "FAIL"
                     detail = f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)"
@@ -2228,7 +2857,9 @@ async def S12() -> None:
     t0 = time.time()
     try:
         c = _get_acc_client()
-        r = await c.get(f"{SEARXNG_URL}/search", params={"q": "test query", "format": "json"}, timeout=30)
+        r = await c.get(
+            f"{SEARXNG_URL}/search", params={"q": "test query", "format": "json"}, timeout=30
+        )
         if r.status_code == 200:
             data = r.json()
             results = data.get("results", [])
@@ -2248,7 +2879,9 @@ async def S13() -> None:
     t0 = time.time()
     code, data = await _get(f"http://localhost:{MCP['embedding']}/health")
     record(
-        sec, "S13-01", "Embedding service",
+        sec,
+        "S13-01",
+        "Embedding service",
         "PASS" if code == 200 else "WARN",
         f"HTTP {code}",
         t0=t0,
@@ -2283,7 +2916,9 @@ async def S20() -> None:
     t0 = time.time()
     state, data = await _mlx_health()
     record(
-        sec, "S20-01", "MLX proxy health",
+        sec,
+        "S20-01",
+        "MLX proxy health",
         "PASS" if state in ("ready", "none", "switching") else "WARN",
         f"state: {state}, data: {str(data)[:80]}",
         t0=t0,
@@ -2318,27 +2953,34 @@ async def S21() -> None:
     t0 = time.time()
     llm_router_enabled = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
     record(
-        sec, "S21-01", "LLM router enabled",
+        sec,
+        "S21-01",
+        "LLM router enabled",
         "PASS" if llm_router_enabled else "INFO",
         f"LLM_ROUTER_ENABLED={llm_router_enabled}",
         t0=t0,
     )
 
     if not llm_router_enabled:
-        record(sec, "S21-02", "LLM router model", "INFO", "skipped (router disabled)", t0=time.time())
+        record(
+            sec, "S21-02", "LLM router model", "INFO", "skipped (router disabled)", t0=time.time()
+        )
         return
 
     # S21-02: Check LLM router model exists in Ollama
     t0 = time.time()
-    router_model = os.environ.get("LLM_ROUTER_MODEL", "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF")
+    router_model = os.environ.get(
+        "LLM_ROUTER_MODEL", "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+    )
     models = _ollama_models()
     # Check if router model is available (may be abbreviated in ollama list)
     model_available = any(
-        router_model.split("/")[-1].lower().replace("-gguf", "") in m.lower()
-        for m in models
+        router_model.split("/")[-1].lower().replace("-gguf", "") in m.lower() for m in models
     ) or any("llama-3.2-3b" in m.lower() and "abliterated" in m.lower() for m in models)
     record(
-        sec, "S21-02", "LLM router model available",
+        sec,
+        "S21-02",
+        "LLM router model available",
         "PASS" if model_available else "WARN",
         f"model: {router_model[:50]}",
         t0=t0,
@@ -2355,7 +2997,9 @@ async def S21() -> None:
     routed_workspace = route.split(";")[0] if route else ""
     expected_security = {"auto-redteam", "auto-security"}
     record(
-        sec, "S21-03", "LLM router security intent",
+        sec,
+        "S21-03",
+        "LLM router security intent",
         "PASS" if routed_workspace in expected_security else ("WARN" if code == 200 else "FAIL"),
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
@@ -2372,7 +3016,9 @@ async def S21() -> None:
     routed_workspace = route.split(";")[0] if route else ""
     expected_coding = {"auto-coding", "auto-agentic"}
     record(
-        sec, "S21-04", "LLM router coding intent",
+        sec,
+        "S21-04",
+        "LLM router coding intent",
         "PASS" if routed_workspace in expected_coding else ("WARN" if code == 200 else "FAIL"),
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
@@ -2389,7 +3035,9 @@ async def S21() -> None:
     routed_workspace = route.split(";")[0] if route else ""
     expected_compliance = {"auto-compliance", "auto-reasoning"}
     record(
-        sec, "S21-05", "LLM router compliance intent",
+        sec,
+        "S21-05",
+        "LLM router compliance intent",
         "PASS" if routed_workspace in expected_compliance else ("WARN" if code == 200 else "FAIL"),
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
@@ -2403,7 +3051,14 @@ async def S21() -> None:
             desc = json.loads(desc_file.read_text())
             # Should have descriptions for all workspaces
             ws_count = len([k for k in desc.keys() if k.startswith("auto")])
-            record(sec, "S21-06", "routing_descriptions.json", "PASS", f"{ws_count} workspace descriptions", t0=t0)
+            record(
+                sec,
+                "S21-06",
+                "routing_descriptions.json",
+                "PASS",
+                f"{ws_count} workspace descriptions",
+                t0=t0,
+            )
         else:
             record(sec, "S21-06", "routing_descriptions.json", "WARN", "file not found", t0=t0)
     except Exception as e:
@@ -2416,7 +3071,9 @@ async def S21() -> None:
         if ex_file.exists():
             ex = json.loads(ex_file.read_text())
             examples = ex.get("examples", [])
-            record(sec, "S21-07", "routing_examples.json", "PASS", f"{len(examples)} examples", t0=t0)
+            record(
+                sec, "S21-07", "routing_examples.json", "PASS", f"{len(examples)} examples", t0=t0
+            )
         else:
             record(sec, "S21-07", "routing_examples.json", "WARN", "file not found", t0=t0)
     except Exception as e:
@@ -2432,7 +3089,9 @@ async def S22() -> None:
     t0 = time.time()
     state, data = await _mlx_health()
     if state == "unreachable":
-        record(sec, "S22-01", "MLX proxy for admission control", "INFO", "MLX proxy not running", t0=t0)
+        record(
+            sec, "S22-01", "MLX proxy for admission control", "INFO", "MLX proxy not running", t0=t0
+        )
         return
     record(sec, "S22-01", "MLX proxy for admission control", "PASS", f"state: {state}", t0=t0)
 
@@ -2461,20 +3120,53 @@ async def S22() -> None:
                 detail = r.json().get("detail", r.text[:100])
             except Exception:
                 detail = r.text[:100] or "admission rejected"
-            record(sec, "S22-03", "Admission control rejects oversized", "PASS", f"503: {detail[:80]}", t0=t0)
+            record(
+                sec,
+                "S22-03",
+                "Admission control rejects oversized",
+                "PASS",
+                f"503: {detail[:80]}",
+                t0=t0,
+            )
         elif r.status_code == 200:
             # Proxy accepted and returned a response — enough memory was available
-            record(sec, "S22-03", "Admission control rejects oversized", "INFO",
-                   "model loaded successfully — insufficient memory pressure to trigger rejection", t0=t0)
+            record(
+                sec,
+                "S22-03",
+                "Admission control rejects oversized",
+                "INFO",
+                "model loaded successfully — insufficient memory pressure to trigger rejection",
+                t0=t0,
+            )
         else:
-            record(sec, "S22-03", "Admission control rejects oversized", "WARN", f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec,
+                "S22-03",
+                "Admission control rejects oversized",
+                "WARN",
+                f"HTTP {r.status_code}",
+                t0=t0,
+            )
     except (httpx.ReadTimeout, httpx.ConnectTimeout, asyncio.TimeoutError):
         # Proxy accepted request and started loading (no immediate rejection) — memory not tight enough
         free_gb = _free_ram_gb()
-        record(sec, "S22-03", "Admission control rejects oversized", "INFO",
-               f"proxy accepted 70B request (free RAM: {free_gb:.1f}GB >= 50GB threshold) — no rejection expected", t0=t0)
+        record(
+            sec,
+            "S22-03",
+            "Admission control rejects oversized",
+            "INFO",
+            f"proxy accepted 70B request (free RAM: {free_gb:.1f}GB >= 50GB threshold) — no rejection expected",
+            t0=t0,
+        )
     except Exception as e:
-        record(sec, "S22-03", "Admission control rejects oversized", "WARN", str(e)[:100] or repr(e)[:100], t0=t0)
+        record(
+            sec,
+            "S22-03",
+            "Admission control rejects oversized",
+            "WARN",
+            str(e)[:100] or repr(e)[:100],
+            t0=t0,
+        )
 
     # S22-04: MODEL_MEMORY dict coverage check
     t0 = time.time()
@@ -2482,7 +3174,9 @@ async def S22() -> None:
         # Check that common MLX models have memory estimates
         models_with_estimates = len(_MLX_MODEL_SIZES_GB)
         record(
-            sec, "S22-04", "Model memory estimates",
+            sec,
+            "S22-04",
+            "Model memory estimates",
             "PASS" if models_with_estimates >= 10 else "WARN",
             f"{models_with_estimates} models with size estimates",
             t0=t0,
@@ -2505,7 +3199,9 @@ async def S23() -> None:
     models = _ollama_models()
     gpt_oss_available = any("gpt-oss" in m.lower() for m in models)
     record(
-        sec, "S23-01", "GPT-OSS:20B available",
+        sec,
+        "S23-01",
+        "GPT-OSS:20B available",
         "PASS" if gpt_oss_available else "INFO",
         f"gpt-oss in models: {gpt_oss_available}",
         t0=t0,
@@ -2520,13 +3216,22 @@ async def S23() -> None:
             model_ids = [m.get("id", "") for m in models_data.get("data", [])]
             gemma_e4b = any("gemma-4-e4b" in m.lower() or "gemma-4-E4B" in m for m in model_ids)
             record(
-                sec, "S23-03", "Gemma 4 E4B VLM registered",
+                sec,
+                "S23-03",
+                "Gemma 4 E4B VLM registered",
                 "PASS" if gemma_e4b else "INFO",
                 f"gemma-4-E4B in MLX models: {gemma_e4b}",
                 t0=t0,
             )
         else:
-            record(sec, "S23-03", "Gemma 4 E4B VLM registered", "INFO", "MLX models endpoint unavailable", t0=t0)
+            record(
+                sec,
+                "S23-03",
+                "Gemma 4 E4B VLM registered",
+                "INFO",
+                "MLX models endpoint unavailable",
+                t0=t0,
+            )
     else:
         record(sec, "S23-03", "Gemma 4 E4B VLM registered", "INFO", f"MLX state: {state}", t0=t0)
 
@@ -2537,7 +3242,9 @@ async def S23() -> None:
         model_ids = [m.get("id", "") for m in models_data.get("data", [])]
         phi4 = any("phi-4" in m.lower() for m in model_ids)
         record(
-            sec, "S23-04", "Phi-4 available",
+            sec,
+            "S23-04",
+            "Phi-4 available",
             "PASS" if phi4 else "INFO",
             f"phi-4 in MLX models: {phi4}",
             t0=t0,
@@ -2552,7 +3259,9 @@ async def S23() -> None:
         model_ids = [m.get("id", "") for m in models_data.get("data", [])]
         magistral = any("magistral" in m.lower() for m in model_ids)
         record(
-            sec, "S23-05", "Magistral-Small available",
+            sec,
+            "S23-05",
+            "Magistral-Small available",
             "PASS" if magistral else "INFO",
             f"magistral in MLX models: {magistral}",
             t0=t0,
@@ -2567,7 +3276,9 @@ async def S23() -> None:
         model_ids = [m.get("id", "") for m in models_data.get("data", [])]
         phi4_reasoning = any("phi-4-reasoning" in m.lower() for m in model_ids)
         record(
-            sec, "S23-06", "Phi-4-reasoning-plus available",
+            sec,
+            "S23-06",
+            "Phi-4-reasoning-plus available",
             "PASS" if phi4_reasoning else "INFO",
             f"phi-4-reasoning-plus in MLX models: {phi4_reasoning}",
             t0=t0,
@@ -2584,33 +3295,71 @@ async def S23() -> None:
             model_ids = [m.get("id", "") for m in models_data.get("data", [])]
             glm_present = any("Huihui-GLM-4.7-Flash" in m for m in model_ids)
             if not glm_present:
-                record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated registered", "INFO",
-                       "model not in MLX list — run hf download or ./launch.sh pull-mlx-models", t0=t0)
+                record(
+                    sec,
+                    "S23-07",
+                    "Huihui-GLM-4.7-Flash-abliterated registered",
+                    "INFO",
+                    "model not in MLX list — run hf download or ./launch.sh pull-mlx-models",
+                    t0=t0,
+                )
             else:
                 try:
                     code2, response2, _ = await _mlx_chat_direct(
                         "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit",
                         "Write hello world in Python.",
-                        max_tokens=50, timeout=300,
+                        max_tokens=50,
+                        timeout=300,
                     )
                     if code2 == 200 and len(response2) > 10:
-                        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "PASS",
-                               f"loaded + produced {len(response2)} chars", t0=t0)
+                        record(
+                            sec,
+                            "S23-07",
+                            "Huihui-GLM-4.7-Flash-abliterated smoke test",
+                            "PASS",
+                            f"loaded + produced {len(response2)} chars",
+                            t0=t0,
+                        )
                     elif code2 == 200 and len(response2) == 0:
-                        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "WARN",
-                               "empty content on Apple Metal — known issue P5-MLX-006 (Linux-only conversion)", t0=t0)
+                        record(
+                            sec,
+                            "S23-07",
+                            "Huihui-GLM-4.7-Flash-abliterated smoke test",
+                            "WARN",
+                            "empty content on Apple Metal — known issue P5-MLX-006 (Linux-only conversion)",
+                            t0=t0,
+                        )
                     else:
-                        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "WARN",
-                               f"HTTP {code2}, response len={len(response2)} — P5-MLX-006", t0=t0)
+                        record(
+                            sec,
+                            "S23-07",
+                            "Huihui-GLM-4.7-Flash-abliterated smoke test",
+                            "WARN",
+                            f"HTTP {code2}, response len={len(response2)} — P5-MLX-006",
+                            t0=t0,
+                        )
                 except Exception as e:
-                    record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated smoke test", "WARN",
-                           f"P5-MLX-006: {str(e)[:80]}", t0=t0)
+                    record(
+                        sec,
+                        "S23-07",
+                        "Huihui-GLM-4.7-Flash-abliterated smoke test",
+                        "WARN",
+                        f"P5-MLX-006: {str(e)[:80]}",
+                        t0=t0,
+                    )
         else:
-            record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated registered", "INFO",
-                   "MLX models endpoint unavailable", t0=t0)
+            record(
+                sec,
+                "S23-07",
+                "Huihui-GLM-4.7-Flash-abliterated registered",
+                "INFO",
+                "MLX models endpoint unavailable",
+                t0=t0,
+            )
     else:
-        record(sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated", "INFO",
-               f"MLX state: {state}", t0=t0)
+        record(
+            sec, "S23-07", "Huihui-GLM-4.7-Flash-abliterated", "INFO", f"MLX state: {state}", t0=t0
+        )
 
 
 async def S30() -> None:
@@ -2636,7 +3385,9 @@ async def S30() -> None:
     t0 = time.time()
     code, _ = await _get(f"http://localhost:{MCP['comfyui']}/health")
     record(
-        sec, "S30-02", "ComfyUI MCP bridge",
+        sec,
+        "S30-02",
+        "ComfyUI MCP bridge",
         "PASS" if code == 200 else "INFO",
         f"HTTP {code}",
         t0=t0,
@@ -2652,7 +3403,9 @@ async def S31() -> None:
     t0 = time.time()
     code, _ = await _get(f"http://localhost:{MCP['video']}/health")
     record(
-        sec, "S31-01", "Video MCP health",
+        sec,
+        "S31-01",
+        "Video MCP health",
         "PASS" if code == 200 else "INFO",
         f"HTTP {code}",
         t0=t0,
@@ -2672,7 +3425,9 @@ async def S40() -> None:
         if r.status_code == 200:
             lines = r.text.splitlines()
             metric_lines = [l for l in lines if l and not l.startswith("#")]
-            record(sec, "S40-01", "Pipeline /metrics", "PASS", f"{len(metric_lines)} metrics", t0=t0)
+            record(
+                sec, "S40-01", "Pipeline /metrics", "PASS", f"{len(metric_lines)} metrics", t0=t0
+            )
         else:
             record(sec, "S40-01", "Pipeline /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
@@ -2711,8 +3466,168 @@ async def S40() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# S41: M6 Production Hardening — Health, Rate Limits, Admin
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def S41() -> None:
+    """S41: M6 production hardening tests — /health/all, rate limiting, admin endpoints."""
+    print("\n━━━ S41. M6 PRODUCTION HARDENING ━━━")
+    sec = "S41"
+
+    # S41-01: /health/all aggregator
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{PIPELINE_URL}/health/all", timeout=15)
+        if r.status_code == 200:
+            checks = r.json()
+            services = list(checks.keys())
+            ok_count = sum(1 for v in checks.values() if isinstance(v, dict) and v.get("status") == "ok")
+            record(sec, "S41-01", "/health/all aggregator", "PASS",
+                   f"{ok_count}/{len(services)} services ok: {', '.join(services[:5])}", t0=t0)
+        else:
+            record(sec, "S41-01", "/health/all aggregator", "FAIL", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S41-01", "/health/all aggregator", "FAIL", str(e)[:100], t0=t0)
+
+    # S41-02: Workspace concurrency config (bench-* should be 1)
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import WORKSPACES, _get_workspace_concurrency_limit
+        bench_ok = True
+        for wsid in sorted(WORKSPACES.keys()):
+            if wsid.startswith("bench-"):
+                limit = _get_workspace_concurrency_limit(wsid)
+                if limit != 1:
+                    bench_ok = False
+                    record(sec, "S41-02", "bench-* concurrency=1", "FAIL",
+                           f"{wsid} limit={limit}, expected 1", t0=t0)
+                    break
+        if bench_ok:
+            bench_count = sum(1 for k in WORKSPACES if k.startswith("bench-"))
+            record(sec, "S41-02", "bench-* concurrency=1", "PASS",
+                   f"all {bench_count} bench-* workspaces capped at 1", t0=t0)
+    except Exception as e:
+        record(sec, "S41-02", "bench-* concurrency=1", "FAIL", str(e)[:100], t0=t0)
+
+    # S41-03: /admin/refresh-tools endpoint exists
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        api_key = os.environ.get("PIPELINE_API_KEY", "")
+        r = await c.post(
+            f"{PIPELINE_URL}/admin/refresh-tools",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            record(sec, "S41-03", "/admin/refresh-tools", "PASS",
+                   f"{data.get('tools_registered', 0)} tools registered", t0=t0)
+        else:
+            record(sec, "S41-03", "/admin/refresh-tools", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S41-03", "/admin/refresh-tools", "FAIL", str(e)[:100], t0=t0)
+
+    # S41-04: Power metrics gauges present in /metrics
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{PIPELINE_URL}/metrics", timeout=10)
+        if r.status_code == 200:
+            has_power = "portal5_power_current_watts" in r.text
+            has_energy = "portal5_energy_consumed_watt_seconds_total" in r.text
+            if has_power and has_energy:
+                record(sec, "S41-04", "Power metrics in /metrics", "PASS",
+                       "portal5_power_* and portal5_energy_* present", t0=t0)
+            else:
+                missing = []
+                if not has_power:
+                    missing.append("portal5_power_current_watts")
+                if not has_energy:
+                    missing.append("portal5_energy_consumed_watt_seconds_total")
+                record(sec, "S41-04", "Power metrics in /metrics", "WARN",
+                       f"missing: {', '.join(missing)}", t0=t0)
+        else:
+            record(sec, "S41-04", "Power metrics in /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S41-04", "Power metrics in /metrics", "FAIL", str(e)[:100], t0=t0)
+
+    # S41-05: Workspace count matches config (27)
+    t0 = time.time()
+    try:
+        from portal_pipeline.router_pipe import WORKSPACES
+        import yaml
+        cfg = yaml.safe_load(open(ROOT / "config" / "backends.yaml"))
+        yaml_ids = set(cfg.get("workspace_routing", {}).keys())
+        pipe_ids = set(WORKSPACES.keys())
+        if yaml_ids == pipe_ids:
+            record(sec, "S41-05", "Workspace consistency", "PASS",
+                   f"{len(pipe_ids)} workspaces, pipe+yaml match", t0=t0)
+        else:
+            diff = yaml_ids.symmetric_difference(pipe_ids)
+            record(sec, "S41-05", "Workspace consistency", "FAIL",
+                   f"mismatch: {diff}", t0=t0)
+    except Exception as e:
+        record(sec, "S41-05", "Workspace consistency", "FAIL", str(e)[:100], t0=t0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# S42: M5 Browser Automation — MCP Service Check
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def S42() -> None:
+    """S42: M5 browser automation — MCP service health and tool count."""
+    print("\n━━━ S42. M5 BROWSER AUTOMATION ━━━")
+    sec = "S42"
+
+    browser_mcp_url = os.environ.get("BROWSER_MCP_URL", "http://localhost:8922")
+
+    # S42-01: Browser MCP health
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{browser_mcp_url}/health", timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            record(sec, "S42-01", "Browser MCP health", "PASS",
+                   f"status={data.get('status')}, profiles={len(data.get('profiles', []))}", t0=t0)
+        else:
+            record(sec, "S42-01", "Browser MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S42-01", "Browser MCP health", "WARN",
+               f"not running (expected if browser MCP not started): {str(e)[:60]}", t0=t0)
+
+    # S42-02: Browser MCP tools manifest
+    t0 = time.time()
+    try:
+        c = _get_acc_client()
+        r = await c.get(f"{browser_mcp_url}/tools", timeout=10)
+        if r.status_code == 200:
+            tools = r.json()
+            tool_names = [t["name"] for t in tools]
+            expected = ["browser_navigate", "browser_snapshot", "browser_click",
+                        "browser_fill", "browser_screenshot", "browser_close"]
+            missing = [n for n in expected if n not in tool_names]
+            if not missing:
+                record(sec, "S42-02", "Browser MCP tools", "PASS",
+                       f"{len(tools)} tools: {', '.join(tool_names[:4])}...", t0=t0)
+            else:
+                record(sec, "S42-02", "Browser MCP tools", "WARN",
+                       f"missing tools: {missing}", t0=t0)
+        else:
+            record(sec, "S42-02", "Browser MCP tools", "WARN", f"HTTP {r.status_code}", t0=t0)
+    except Exception as e:
+        record(sec, "S42-02", "Browser MCP tools", "WARN",
+               f"not running (expected if browser MCP not started): {str(e)[:60]}", t0=t0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Report Generation
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def _write_results(elapsed: int, sections_run: list[str]) -> None:
     """Write ACCEPTANCE_RESULTS.md."""
@@ -2741,36 +3656,44 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
             lines.append(f"| {_ICON.get(status, '')} {status} | {counts[status]} |")
     lines.append(f"| **Total** | **{total}** |")
 
-    lines.extend([
-        "",
-        "## Results",
-        "",
-        "| Section | ID | Name | Status | Detail | Duration |",
-        "|---------|-----|------|--------|--------|----------|",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Results",
+            "",
+            "| Section | ID | Name | Status | Detail | Duration |",
+            "|---------|-----|------|--------|--------|----------|",
+        ]
+    )
 
     for r in _log:
         icon = _ICON.get(r.status, "")
         detail = r.detail.replace("|", "\\|")[:80]
         dur = f"{r.duration:.1f}s" if r.duration else ""
-        lines.append(f"| {r.section} | {r.tid} | {r.name[:40]} | {icon} {r.status} | {detail} | {dur} |")
+        lines.append(
+            f"| {r.section} | {r.tid} | {r.name[:40]} | {icon} {r.status} | {detail} | {dur} |"
+        )
 
     if _blocked:
-        lines.extend([
-            "",
-            "## Blocked Items Register",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Blocked Items Register",
+                "",
+            ]
+        )
         for i, r in enumerate(_blocked, 1):
-            lines.extend([
-                f"### BLOCKED-{i}: {r.name}",
-                "",
-                f"**Test ID:** {r.tid}",
-                f"**Section:** {r.section}",
-                f"**Detail:** {r.detail}",
-                f"**Fix:** {r.fix or 'TBD'}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### BLOCKED-{i}: {r.name}",
+                    "",
+                    f"**Test ID:** {r.tid}",
+                    f"**Section:** {r.section}",
+                    f"**Detail:** {r.detail}",
+                    f"**Fix:** {r.fix or 'TBD'}",
+                    "",
+                ]
+            )
 
     (ROOT / "ACCEPTANCE_RESULTS.md").write_text("\n".join(lines))
     print("\n📄 Results written to ACCEPTANCE_RESULTS.md")
@@ -2803,6 +3726,7 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
 #
 # PHASE 6: ComfyUI tests LAST (huge memory footprint)
 #   S30 (image - FLUX ~8-20GB), S31 (video - Wan2.2 ~18GB)
+
 
 async def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
     """Fire a notification via the Portal 5 notification dispatcher.
@@ -2916,8 +3840,10 @@ async def _notify_test_summary(
 async def S50() -> None:
     """S50: Negative tests — delegates to tests/acceptance/s50_negative.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s50_negative as _s50
+
     await _s50.run()
 
 
@@ -2952,6 +3878,9 @@ ALL_SECTIONS = {
     # Phase 6: ComfyUI tests (LAST - huge memory)
     "S30": S30,
     "S31": S31,
+    # Phase 7: M5/M6 features
+    "S41": S41,  # M6 production hardening
+    "S42": S42,  # M5 browser automation
     # Legacy S3 wrapper (runs S3a + S3b)
     "S3": S3,
 }
@@ -3008,7 +3937,9 @@ async def main() -> int:
     parser.add_argument("--section", "-s", default="ALL", help="Section(s) to run")
     parser.add_argument("--rebuild", action="store_true", help="Force rebuild before tests")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
-    parser.add_argument("--skip-passing", action="store_true", help="Skip sections that passed in prior run")
+    parser.add_argument(
+        "--skip-passing", action="store_true", help="Skip sections that passed in prior run"
+    )
     args = parser.parse_args()
 
     _FORCE_REBUILD = args.rebuild
@@ -3019,9 +3950,9 @@ async def main() -> int:
     # Define memory cleanup points between phases
     # Only apply when running ALL sections (full suite)
     PHASE_TRANSITIONS = {
-        "S10": "Ollama → MLX",      # After Ollama personas, before MLX
-        "S23": "MLX → MCP",          # After MLX tests, before MCP
-        "S7": "Audio → ComfyUI",     # After audio tests, before ComfyUI
+        "S10": "Ollama → MLX",  # After Ollama personas, before MLX
+        "S23": "MLX → MCP",  # After MLX tests, before MCP
+        "S7": "Audio → ComfyUI",  # After audio tests, before ComfyUI
     }
 
     print("=" * 70)

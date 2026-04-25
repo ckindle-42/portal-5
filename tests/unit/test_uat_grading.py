@@ -1,4 +1,5 @@
 """Unit tests for UAT result grading (regression for inverted-critical bug)."""
+
 import sys
 from pathlib import Path
 

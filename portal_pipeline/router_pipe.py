@@ -290,6 +290,86 @@ _tool_loop_hops = Histogram(
     registry=_REGISTRY,
 )
 
+# ── Power & cost metrics (M6-T02) ─────────────────────────────────────────
+_power_current_watts = Gauge(
+    "portal5_power_current_watts",
+    "Current total power draw across CPU+GPU+ANE+DRAM",
+    registry=_REGISTRY,
+)
+_power_cpu_watts = Gauge("portal5_power_cpu_watts", "CPU package power", registry=_REGISTRY)
+_power_gpu_watts = Gauge("portal5_power_gpu_watts", "GPU power", registry=_REGISTRY)
+_power_ane_watts = Gauge("portal5_power_ane_watts", "ANE power", registry=_REGISTRY)
+_power_dram_watts = Gauge("portal5_power_dram_watts", "DRAM power", registry=_REGISTRY)
+_power_avg_1min_watts = Gauge(
+    "portal5_power_avg_1min_watts", "1-minute average power", registry=_REGISTRY
+)
+_energy_consumed_ws_total = Counter(
+    "portal5_energy_consumed_watt_seconds_total",
+    "Cumulative energy consumed by the host",
+    registry=_REGISTRY,
+)
+_energy_by_workspace_ws = Counter(
+    "portal5_energy_by_workspace_watt_seconds_total",
+    "Estimated energy attributed to a workspace",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+_request_energy_ws = Histogram(
+    "portal5_request_energy_watt_seconds",
+    "Estimated energy per request (avg_power * duration)",
+    ["workspace", "persona"],
+    buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
+    registry=_REGISTRY,
+)
+
+# ── Rate-limit metrics (M6-T05) ───────────────────────────────────────────
+_workspace_semaphore_busy_total_metric = Counter(
+    "portal5_workspace_semaphore_busy_total",
+    "Requests rejected because workspace concurrency limit reached",
+    ["workspace"],
+    registry=_REGISTRY,
+)
+_workspace_semaphore_busy_total = _workspace_semaphore_busy_total_metric
+
+_POWERMETRICS_SOCKET = "/tmp/portal5-powermetrics.sock"
+ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KWH", "0.15"))
+
+
+def watts_seconds_to_cost_usd(ws: float) -> float:
+    kwh = ws / 3600 / 1000
+    return kwh * ELECTRICITY_RATE_USD_PER_KWH
+
+
+async def _power_polling_loop():
+    """Read powermetrics socket every 10s; update gauges and accumulate energy."""
+    last_poll = time.time()
+    while True:
+        try:
+            reader, writer = await asyncio.open_unix_connection(_POWERMETRICS_SOCKET)
+            data = await reader.readline()
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+            state = json.loads(data.decode())
+            now = state.get("ts", time.time())
+            elapsed = now - last_poll
+            last_poll = now
+            current_w = state.get("current_w", 0.0)
+            _power_current_watts.set(current_w)
+            _power_cpu_watts.set(state.get("cpu_w", 0.0))
+            _power_gpu_watts.set(state.get("gpu_w", 0.0))
+            _power_ane_watts.set(state.get("ane_w", 0.0))
+            _power_dram_watts.set(state.get("dram_w", 0.0))
+            _power_avg_1min_watts.set(state.get("avg_1min_w", 0.0))
+            _energy_consumed_ws_total.inc(current_w * elapsed)
+        except FileNotFoundError:
+            pass  # powermetrics daemon not running — degrade gracefully
+        except Exception:
+            pass
+        await asyncio.sleep(10)
+
 
 def _record_usage(
     model: str, workspace: str, data: dict, elapsed_seconds: float | None = None
@@ -641,6 +721,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "devstral:24b",
         "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-qwen3-coder-next": {
@@ -649,6 +730,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-qwen3-coder-30b": {
@@ -657,6 +739,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-llama33-70b": {
@@ -665,6 +748,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "llama3.3:70b-q4_k_m",
         "mlx_model_hint": "mlx-community/Llama-3.3-70B-Instruct-4bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-phi4": {
@@ -673,6 +757,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3.5:9b",
         "mlx_model_hint": "mlx-community/phi-4-8bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-phi4-reasoning": {
@@ -681,6 +766,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3.5:9b",
         "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-dolphin8b": {
@@ -689,18 +775,21 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "dolphin-llama3:8b",
         "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
         "mlx_only": True,
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
         "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhipu AI — distinct Chinese research lineage, ~6GB)",
         "model_hint": "glm-4.7-flash:q4_k_m",
+        "max_concurrent": 1,
         "tools": [],
     },
     "bench-gptoss": {
         "name": "🔬 Bench · GPT-OSS-20B",
         "description": "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level — configurable thinking depth)",
         "model_hint": "gpt-oss:20b",
+        "max_concurrent": 1,
         "tools": [],
     },
 }
@@ -730,6 +819,18 @@ def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
     effective = persona_allow or workspace_tools
     effective = effective - persona_deny
     return sorted(effective)
+
+
+def _resolve_persona_browser_policy(persona: dict) -> dict:
+    """Return the persona's browser policy. Defaults applied for missing fields."""
+    bp = persona.get("browser_policy", {}) or {}
+    return {
+        "allowed_domains": bp.get("allowed_domains") or [],
+        "blocked_domains": bp.get("blocked_domains") or [],
+        "default_profile": bp.get("default_profile", "_isolated"),
+        "force_credential_fill": bp.get("force_credential_fill", False),
+        "max_navigations_per_session": bp.get("max_navigations_per_session", 50),
+    }
 
 
 async def _dispatch_tool_call(
@@ -1539,6 +1640,63 @@ except ValueError:
     logger.warning("Invalid SEMAPHORE_TIMEOUT_MS value — must be a number. Using default: 50ms")
 _request_semaphore: asyncio.Semaphore | None = None
 
+# ── Per-workspace + per-API-key semaphores (M6-T05/T06) ───────────────────────
+_workspace_semaphores: dict[str, asyncio.Semaphore] = {}
+_workspace_sem_lock = asyncio.Lock()
+_api_key_semaphores: dict[str, asyncio.Semaphore] = {}
+_api_key_sem_lock = asyncio.Lock()
+_workspace_semaphore_busy_total: Counter | None = None
+
+
+def _get_workspace_concurrency_limit(workspace_id: str) -> int:
+    """Return the configured concurrency limit for a workspace.
+
+    Order:
+        1. WORKSPACE_CONCURRENCY_<id> env (e.g., WORKSPACE_CONCURRENCY_AUTO_CODING=4)
+        2. workspace's `max_concurrent` field in WORKSPACES dict
+        3. PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY env (default: 5)
+    """
+    env_key = f"WORKSPACE_CONCURRENCY_{workspace_id.upper().replace('-', '_')}"
+    if env_key in os.environ:
+        return int(os.environ[env_key])
+    ws = WORKSPACES.get(workspace_id, {})
+    if "max_concurrent" in ws:
+        return ws["max_concurrent"]
+    return int(os.environ.get("PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY", "5"))
+
+
+async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
+    async with _workspace_sem_lock:
+        sem = _workspace_semaphores.get(workspace_id)
+        if sem is None:
+            limit = _get_workspace_concurrency_limit(workspace_id)
+            sem = asyncio.Semaphore(limit)
+            _workspace_semaphores[workspace_id] = sem
+            logger.info("Workspace semaphore created: %s limit=%d", workspace_id, limit)
+        return sem
+
+
+def _api_key_limit(key_hash: str) -> int:
+    prefix = key_hash[:8]
+    env_key = f"API_KEY_CONCURRENCY_{prefix.upper()}"
+    if env_key in os.environ:
+        return int(os.environ[env_key])
+    return int(os.environ.get("PORTAL5_DEFAULT_API_KEY_CONCURRENCY", "10"))
+
+
+async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
+    if not api_key:
+        return None
+    import hashlib
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    async with _api_key_sem_lock:
+        sem = _api_key_semaphores.get(key_hash)
+        if sem is None:
+            limit = _api_key_limit(key_hash)
+            sem = asyncio.Semaphore(limit)
+            _api_key_semaphores[key_hash] = sem
+        return sem
+
 # ── Ollama per-request TTFT tuning ────────────────────────────────────────────
 # keep_alive: how long Ollama keeps the model loaded after a request completes.
 #   "-1" = never unload. Eliminates the 10-30s cold-start on the next request.
@@ -1781,6 +1939,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # (2) inference model generation (~10-30s if cold).
     # Both fire simultaneously as background tasks — startup is not blocked.
     asyncio.create_task(_run_startup_warmups(registry))
+    # Power metrics polling (M6-T02) — graceful if daemon not running
+    asyncio.create_task(_power_polling_loop())
     healthy = registry.list_healthy_backends()
     logger.info("Portal Pipeline started. Healthy backends: %d", len(healthy))
     if not healthy:
@@ -1850,6 +2010,52 @@ async def health() -> dict:
         "backends_total": len(registry.list_backends()),
         "workspaces": len(WORKSPACES),
     }
+
+
+@app.get("/health/all")
+async def health_all():
+    """Aggregate health across pipeline + all MCPs + MLX proxy + Ollama."""
+    checks: dict[str, dict] = {}
+    checks["pipeline"] = {"status": "ok"}
+    for name, url in [
+        ("mlx_proxy", os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081")),
+        ("ollama", os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434")),
+        ("mcp_documents", "http://mcp-documents:8913"),
+        ("mcp_sandbox", "http://mcp-sandbox:8914"),
+        ("mcp_comfyui", "http://mcp-comfyui:8910"),
+        ("mcp_video", "http://mcp-video:8911"),
+        ("mcp_whisper", "http://mcp-whisper:8915"),
+        ("mcp_tts", "http://mcp-tts:8916"),
+        ("mcp_security", "http://mcp-security:8919"),
+    ]:
+        try:
+            async with httpx.AsyncClient(timeout=3) as c:
+                r = await c.get(f"{url}/health")
+                checks[name] = r.json() if r.status_code == 200 else {
+                    "status": "degraded", "code": r.status_code,
+                }
+        except Exception as e:
+            checks[name] = {"status": "down", "error": str(e)[:100]}
+    return checks
+
+
+PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE_API_KEY", ""))
+
+
+def _verify_admin_key(authorization: str | None) -> None:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(token.encode(), PORTAL5_ADMIN_KEY.encode()):
+        raise HTTPException(status_code=401, detail="Invalid admin key")
+
+
+@app.post("/admin/refresh-tools")
+async def admin_refresh_tools(authorization: str | None = Header(None)):
+    _verify_admin_key(authorization)
+    from portal_pipeline.tool_registry import tool_registry
+    n = await tool_registry.refresh(force=True)
+    return {"refreshed": True, "tools_registered": n, "names": tool_registry.list_tool_names()}
 
 
 @app.post("/notifications/test")
@@ -2159,9 +2365,23 @@ async def chat_completions(
             headers={"Retry-After": "5"},
         ) from None
 
+    # Per-API-key semaphore (M6-T06)
+    _api_key_raw = authorization.removeprefix("Bearer ").strip() if authorization else ""
+    _api_sem = await _acquire_api_key_sem(_api_key_raw)
+    if _api_sem is not None:
+        try:
+            await asyncio.wait_for(_api_sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
+        except asyncio.TimeoutError:
+            _request_semaphore.release()
+            raise HTTPException(
+                status_code=429,
+                detail="API key at concurrency limit. Please retry.",
+                headers={"Retry-After": "5"},
+            ) from None
+
     _is_streaming = False
     workspace_id: str = "unknown"
-    start_time = time.monotonic()  # Track request start for response time measurement
+    start_time = time.monotonic()
     try:
         if registry is None:
             raise HTTPException(status_code=503, detail="Backend registry not initialised")
@@ -2234,6 +2454,22 @@ async def chat_completions(
                         ),
                     }
                     body = {**body, "messages": [vision_system] + messages}
+
+        # Per-workspace semaphore (M6-T05)
+        _ws_sem = await _acquire_workspace_sem(workspace_id)
+        try:
+            await asyncio.wait_for(_ws_sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
+        except asyncio.TimeoutError:
+            if _workspace_semaphore_busy_total is not None:
+                _workspace_semaphore_busy_total.labels(workspace=workspace_id).inc()
+            _request_semaphore.release()
+            if _api_sem is not None:
+                _api_sem.release()
+            raise HTTPException(
+                status_code=429,
+                detail=f"Workspace '{workspace_id}' at concurrency limit. Try again shortly.",
+                headers={"Retry-After": "5"},
+            ) from None
 
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
         _requests_total.labels(workspace=workspace_id).inc()
@@ -2542,6 +2778,10 @@ async def chat_completions(
             # Non-streaming: response fully awaited above, safe to release here
             # Streaming: generator releases after stream completes
             _request_semaphore.release()
+            if _ws_sem is not None:
+                _ws_sem.release()
+            if _api_sem is not None:
+                _api_sem.release()
 
 
 async def _stream_with_tool_loop(

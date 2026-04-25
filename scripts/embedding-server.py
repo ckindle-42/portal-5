@@ -87,7 +87,12 @@ async def create_embeddings(req: EmbeddingRequest):
     try:
         # Run in executor so async event loop isn't blocked
         loop = asyncio.get_event_loop()
-        vectors = await loop.run_in_executor(None, lambda: _model.encode(texts, normalize_embeddings=True, show_progress_bar=False).tolist())
+        vectors = await loop.run_in_executor(
+            None,
+            lambda: _model.encode(
+                texts, normalize_embeddings=True, show_progress_bar=False
+            ).tolist(),
+        )
     except Exception as e:
         log.error(f"Embedding error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,9 +102,14 @@ async def create_embeddings(req: EmbeddingRequest):
 
     return {
         "object": "list",
-        "data": [{"object": "embedding", "index": i, "embedding": v} for i, v in enumerate(vectors)],
+        "data": [
+            {"object": "embedding", "index": i, "embedding": v} for i, v in enumerate(vectors)
+        ],
         "model": req.model,
-        "usage": {"prompt_tokens": sum(len(t.split()) for t in texts), "total_tokens": sum(len(t.split()) for t in texts)},
+        "usage": {
+            "prompt_tokens": sum(len(t.split()) for t in texts),
+            "total_tokens": sum(len(t.split()) for t in texts),
+        },
     }
 
 

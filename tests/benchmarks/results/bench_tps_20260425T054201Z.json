@@ -1,0 +1,106 @@
+{
+  "timestamp": "2026-04-25T05:42:01.798468+00:00",
+  "mode": "all",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 1,
+  "spec_decoding": "unspecified",
+  "total_wall_time_s": 0.1,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 26,
+    "ollama_models_configured": 24,
+    "workspaces_configured": 27,
+    "personas_configured": 91
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081",
+      "available": true
+    },
+    "ollama": {
+      "url": "http://localhost:11434",
+      "available": true
+    },
+    "pipeline": {
+      "url": "http://localhost:9099",
+      "available": true
+    }
+  },
+  "results": [],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning",
+      "auto-math": "reasoning",
+      "bench-devstral": "coding",
+      "bench-qwen3-coder-next": "coding",
+      "bench-qwen3-coder-30b": "coding",
+      "bench-llama33-70b": "coding",
+      "bench-phi4": "reasoning",
+      "bench-phi4-reasoning": "reasoning",
+      "bench-dolphin8b": "creative",
+      "bench-glm": "coding",
+      "bench-gptoss": "reasoning"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general",
+      "benchmark": "coding"
+    }
+  }
+}

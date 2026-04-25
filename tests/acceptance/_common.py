@@ -5,17 +5,13 @@ files can import from here without circular imports.  Constants (PIPELINE_URL,
 AUTH, etc.) are loaded independently from env so they are available at import
 time without touching the monolith.
 """
+
 from __future__ import annotations
 
-import asyncio
 import importlib
-import json
 import os
 import sys
-import time
 from pathlib import Path
-
-import httpx
 
 # ── Constants (loaded independently from env) ────────────────────────────────
 
@@ -52,6 +48,7 @@ MCP = {
 }
 
 # ── Lazy delegation to monolith ──────────────────────────────────────────────
+
 
 def _monolith():
     """Return the monolith module.
@@ -106,7 +103,9 @@ async def _chat_with_model(
     timeout: int = 240,
     stream: bool = False,
 ) -> tuple[int, str, str, str]:
-    return await _monolith()._chat_with_model(workspace, prompt, system, max_tokens, timeout, stream)
+    return await _monolith()._chat_with_model(
+        workspace, prompt, system, max_tokens, timeout, stream
+    )
 
 
 async def _mlx_health() -> tuple[str, dict]:

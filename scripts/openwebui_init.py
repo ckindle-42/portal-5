@@ -262,7 +262,11 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
             if resp.status_code == 200:
                 data = resp.json()
                 # Handle both list and dict response formats safely
-                models = data if isinstance(data, list) else (data.get("items") or data.get("data") or [])
+                models = (
+                    data
+                    if isinstance(data, list)
+                    else (data.get("items") or data.get("data") or [])
+                )
                 for m in models:
                     if isinstance(m, dict):
                         existing_names.add(m.get("id", ""))
@@ -376,11 +380,17 @@ async def create_persona_presets_async(
     existing_ids: set[str] = set()
     for attempt in range(3):
         try:
-            resp = await client.get(f"{OPENWEBUI_URL}/api/v1/models/export", headers=auth_headers(token))
+            resp = await client.get(
+                f"{OPENWEBUI_URL}/api/v1/models/export", headers=auth_headers(token)
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 # Handle both list and dict response formats safely
-                items = data if isinstance(data, list) else (data.get("items") or data.get("data") or [])
+                items = (
+                    data
+                    if isinstance(data, list)
+                    else (data.get("items") or data.get("data") or [])
+                )
                 for m in items:
                     if isinstance(m, dict):
                         existing_ids.add(m.get("id", ""))
@@ -422,10 +432,21 @@ async def create_persona_presets_async(
                     "params": {
                         "system": system_prompt,
                         "model": workspace_model,
-                        **({"enable_web_search": True} if workspace_model in {
-                            "auto", "auto-research", "auto-security", "auto-reasoning",
-                            "auto-data", "auto-redteam", "auto-blueteam", "auto-compliance",
-                        } else {}),
+                        **(
+                            {"enable_web_search": True}
+                            if workspace_model
+                            in {
+                                "auto",
+                                "auto-research",
+                                "auto-security",
+                                "auto-reasoning",
+                                "auto-data",
+                                "auto-redteam",
+                                "auto-blueteam",
+                                "auto-compliance",
+                            }
+                            else {}
+                        ),
                     },
                 },
             )

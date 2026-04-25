@@ -51,10 +51,10 @@ def _mock_torch():
             if isinstance(self._data, (int, float)):
                 return float(self._data)
             if isinstance(self._data, list) and len(self._data) == 1:
-                    val = self._data[0]
-                    if hasattr(val, "item"):
-                        return val.item()
-                    return float(val)
+                val = self._data[0]
+                if hasattr(val, "item"):
+                    return val.item()
+                return float(val)
             return float(self._data)
 
         def __getitem__(self, idx):
@@ -227,9 +227,7 @@ class TestClassifyVulnerability:
         """classify_vulnerability must return probabilities for all 4 severity levels."""
         from portal_mcp.security.security_mcp import classify_vulnerability
 
-        result = classify_vulnerability(
-            "Cross-site scripting vulnerability in login form"
-        )
+        result = classify_vulnerability("Cross-site scripting vulnerability in login form")
         assert "probabilities" in result
         probs = result["probabilities"]
         assert set(probs.keys()) == {"low", "medium", "high", "critical"}

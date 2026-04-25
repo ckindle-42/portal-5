@@ -9,8 +9,6 @@ Usage:
 
 import argparse
 import json
-import platform
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,6 +58,7 @@ def _runs_cell(success: int, total: int) -> str:
 
 # ── Panel: Model TPS table ────────────────────────────────────────────────────
 
+
 def _build_model_table(direct_results: list[dict]) -> str:
     available = [r for r in direct_results if r.get("available", True) and r.get("avg_tps", 0) > 0]
     unavailable = [r for r in direct_results if not r.get("available", True)]
@@ -72,7 +71,7 @@ def _build_model_table(direct_results: list[dict]) -> str:
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
         tier = _tier_badge(r.get("backend", ""))
         short_model = r["model"].split("/")[-1]
-        mem = f'{r.get("est_memory_gb", 0):.0f}GB' if r.get("est_memory_gb") else "-"
+        mem = f"{r.get('est_memory_gb', 0):.0f}GB" if r.get("est_memory_gb") else "-"
         cat = r.get("prompt_category", "general")
         tps = r.get("avg_tps", 0)
         runs_s = r.get("runs_success", 0)
@@ -80,7 +79,7 @@ def _build_model_table(direct_results: list[dict]) -> str:
 
         if not r.get("available", True):
             rows.append(
-                f'<tr{bg}><td>{i + 1}</td><td>{tier}</td>'
+                f"<tr{bg}><td>{i + 1}</td><td>{tier}</td>"
                 f'<td style="font-family:monospace;color:#666">{short_model}</td>'
                 f'<td style="color:#666">{mem}</td><td style="color:#666">{cat}</td>'
                 f'<td style="color:#666">N/A</td><td style="color:#666">0/{runs_t}</td></tr>'
@@ -97,13 +96,13 @@ def _build_model_table(direct_results: list[dict]) -> str:
     ollama_count = sum(1 for r in available if r.get("backend") == "ollama")
     header = (
         '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        "<th style=\"text-align:left\">#"
-        "<th style=\"text-align:left\">Tier"
-        "<th style=\"text-align:left\">Model"
-        "<th style=\"text-align:left\">Mem"
-        "<th style=\"text-align:left\">Cat"
+        '<th style="text-align:left">#'
+        '<th style="text-align:left">Tier'
+        '<th style="text-align:left">Model'
+        '<th style="text-align:left">Mem'
+        '<th style="text-align:left">Cat'
         '<th style="text-align:left;min-width:160px">Avg TPS'
-        "<th style=\"text-align:left\">Runs</tr>"
+        '<th style="text-align:left">Runs</tr>'
     )
     table_html = (
         f'<div style="overflow:auto;max-height:600px">'
@@ -114,6 +113,7 @@ def _build_model_table(direct_results: list[dict]) -> str:
 
 
 # ── Panel: Pipeline workspace TPS table ──────────────────────────────────────
+
 
 def _build_workspace_table(pipeline_results: list[dict]) -> str:
     rows_data = sorted(
@@ -153,11 +153,11 @@ def _build_workspace_table(pipeline_results: list[dict]) -> str:
 
     header = (
         '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        "<th style=\"text-align:left\">#"
-        "<th style=\"text-align:left\">Workspace"
-        "<th style=\"text-align:left\">Prompt Cat"
+        '<th style="text-align:left">#'
+        '<th style="text-align:left">Workspace'
+        '<th style="text-align:left">Prompt Cat'
         '<th style="text-align:left;min-width:160px">Avg TPS'
-        "<th style=\"text-align:left\">Runs</tr>"
+        '<th style="text-align:left">Runs</tr>'
     )
     html = (
         f'<div style="overflow:auto;max-height:400px">'
@@ -170,6 +170,7 @@ def _build_workspace_table(pipeline_results: list[dict]) -> str:
 
 
 # ── Panel: Persona TPS table ──────────────────────────────────────────────────
+
 
 def _build_persona_table(persona_results: list[dict]) -> str:
     rows_data = sorted(
@@ -210,12 +211,12 @@ def _build_persona_table(persona_results: list[dict]) -> str:
 
     header = (
         '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        "<th style=\"text-align:left\">#"
-        "<th style=\"text-align:left\">Persona"
-        "<th style=\"text-align:left\">Category"
-        "<th style=\"text-align:left\">Model"
+        '<th style="text-align:left">#'
+        '<th style="text-align:left">Persona'
+        '<th style="text-align:left">Category'
+        '<th style="text-align:left">Model'
         '<th style="text-align:left;min-width:160px">Avg TPS'
-        "<th style=\"text-align:left\">Runs</tr>"
+        '<th style="text-align:left">Runs</tr>'
     )
     html = (
         f'<div style="overflow:auto;max-height:580px">'
@@ -227,6 +228,7 @@ def _build_persona_table(persona_results: list[dict]) -> str:
 
 
 # ── Panel: Summary banner ─────────────────────────────────────────────────────
+
 
 def _build_summary_panel(
     mlx_count: int,
@@ -265,6 +267,7 @@ def _build_summary_panel(
 
 # ── Panel: Run metadata ───────────────────────────────────────────────────────
 
+
 def _build_metadata_panel(data: dict, runs: int, cooldown: int, wall_s: float, hw: dict) -> str:
     ts = data.get("timestamp", datetime.now(timezone.utc).isoformat())
     try:
@@ -289,6 +292,7 @@ def _build_metadata_panel(data: dict, runs: int, cooldown: int, wall_s: float, h
 
 # ── Panel: Workspace routing notes ───────────────────────────────────────────
 
+
 def _build_ws_notes(fastest, slowest, ws_count: int) -> str:
     fastest_str = f"{fastest['avg_tps']} t/s" if fastest else "N/A"
     slowest_str = f"{slowest['avg_tps']} t/s" if slowest else "N/A"
@@ -305,6 +309,7 @@ def _build_ws_notes(fastest, slowest, ws_count: int) -> str:
 
 
 # ── Panel: Key findings ───────────────────────────────────────────────────────
+
 
 def _build_key_findings(
     direct_results: list[dict],
@@ -347,14 +352,19 @@ def _build_key_findings(
 
     failures = total - passed
     if failures == 0:
-        lines.append(f'<li><b>Failures:</b> <span style="color:#73BF69">None — {passed}/{total} ✓</span></li>')
+        lines.append(
+            f'<li><b>Failures:</b> <span style="color:#73BF69">None — {passed}/{total} ✓</span></li>'
+        )
     else:
-        lines.append(f'<li><b>Failures:</b> <span style="color:#FFD700">{failures} failed ({passed}/{total} passed)</span></li>')
+        lines.append(
+            f'<li><b>Failures:</b> <span style="color:#FFD700">{failures} failed ({passed}/{total} passed)</span></li>'
+        )
 
     return f'<div style="font-size:12px;padding:8px"><ul>{"".join(lines)}</ul></div>'
 
 
 # ── Panel: MLX vs Ollama size comparison ─────────────────────────────────────
+
 
 def _build_size_comparison(direct_results: list[dict], mlx_avg: float, ollama_avg: float) -> str:
     mlx_ok = [r for r in direct_results if r.get("backend") == "mlx" and r.get("avg_tps", 0) > 0]
@@ -377,8 +387,12 @@ def _build_size_comparison(direct_results: list[dict], mlx_avg: float, ollama_av
             continue
         m_best = max(m_bucket, key=lambda r: r["avg_tps"], default=None)
         o_best = max(o_bucket, key=lambda r: r["avg_tps"], default=None)
-        m_str = f'{m_best["avg_tps"]} t/s ({m_best["model"].split("/")[-1][:35]})' if m_best else "-"
-        o_str = f'{o_best["avg_tps"]} t/s ({o_best["model"].split("/")[-1][:35]})' if o_best else "-"
+        m_str = (
+            f"{m_best['avg_tps']} t/s ({m_best['model'].split('/')[-1][:35]})" if m_best else "-"
+        )
+        o_str = (
+            f"{o_best['avg_tps']} t/s ({o_best['model'].split('/')[-1][:35]})" if o_best else "-"
+        )
         bg = ' style="background:#1a1a2e"' if len(rows) % 2 == 1 else ""
         rows.append(
             f"<tr{bg}><td>{label}</td>"
@@ -409,10 +423,15 @@ def _build_size_comparison(direct_results: list[dict], mlx_avg: float, ollama_av
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Update Grafana benchmark dashboard from bench_tps results.")
+    parser = argparse.ArgumentParser(
+        description="Update Grafana benchmark dashboard from bench_tps results."
+    )
     parser.add_argument("--input", default=DEFAULT_INPUT, help="Path to bench_tps results JSON")
-    parser.add_argument("--dry-run", action="store_true", help="Print summary but do not write dashboard")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print summary but do not write dashboard"
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -450,17 +469,30 @@ def main() -> None:
     persona_count = len(persona_results)
 
     summary_html = _build_summary_panel(
-        mlx_count, ollama_count, ws_count, persona_count,
-        mlx_avg, ollama_avg, round(peak, 1), passed, total,
+        mlx_count,
+        ollama_count,
+        ws_count,
+        persona_count,
+        mlx_avg,
+        ollama_avg,
+        round(peak, 1),
+        passed,
+        total,
     )
     metadata_html = _build_metadata_panel(data, runs, cooldown, wall_s, hw)
     ws_notes_html = _build_ws_notes(ws_fastest, ws_slowest, ws_count)
-    findings_html = _build_key_findings(direct_results, persona_results, mlx_avg, ollama_avg, passed, total)
+    findings_html = _build_key_findings(
+        direct_results, persona_results, mlx_avg, ollama_avg, passed, total
+    )
     size_cmp_html = _build_size_comparison(direct_results, mlx_avg, ollama_avg)
 
-    print(f"Results: {len(results)} entries ({len(mlx_ok)} MLX, {len(ol_ok)} Ollama, "
-          f"{ws_count} workspaces, {persona_count} personas)")
-    print(f"Passed: {passed}/{total}  MLX avg: {mlx_avg}  Ollama avg: {ollama_avg}  Peak: {round(peak, 1)}")
+    print(
+        f"Results: {len(results)} entries ({len(mlx_ok)} MLX, {len(ol_ok)} Ollama, "
+        f"{ws_count} workspaces, {persona_count} personas)"
+    )
+    print(
+        f"Passed: {passed}/{total}  MLX avg: {mlx_avg}  Ollama avg: {ollama_avg}  Peak: {round(peak, 1)}"
+    )
 
     if args.dry_run:
         print("Dry run — dashboard not updated.")

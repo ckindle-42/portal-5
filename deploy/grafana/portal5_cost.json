@@ -1,0 +1,84 @@
+{
+  "title": "Portal 5 — Cost & Power",
+  "uid": "portal5-cost",
+  "tags": ["portal5", "cost", "power"],
+  "panels": [
+    {
+      "title": "Current power draw",
+      "type": "stat",
+      "targets": [{"expr": "portal5_power_current_watts", "legendFormat": "Total"}],
+      "fieldConfig": {
+        "defaults": {"unit": "watt", "color": {"mode": "thresholds"},
+                     "thresholds": {"steps": [{"value": 0, "color": "green"},
+                                              {"value": 30, "color": "yellow"},
+                                              {"value": 60, "color": "orange"},
+                                              {"value": 90, "color": "red"}]}}
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "title": "Power breakdown by component",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "portal5_power_cpu_watts", "legendFormat": "CPU"},
+        {"expr": "portal5_power_gpu_watts", "legendFormat": "GPU"},
+        {"expr": "portal5_power_ane_watts", "legendFormat": "ANE"},
+        {"expr": "portal5_power_dram_watts", "legendFormat": "DRAM"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "watt"}},
+      "gridPos": {"h": 8, "w": 18, "x": 6, "y": 0}
+    },
+    {
+      "title": "Total energy consumed (today)",
+      "type": "stat",
+      "targets": [
+        {"expr": "increase(portal5_energy_consumed_watt_seconds_total[24h]) / 3600",
+         "legendFormat": "Today"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "watth"}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 4}
+    },
+    {
+      "title": "Daily electricity cost (today)",
+      "type": "stat",
+      "targets": [
+        {"expr": "increase(portal5_energy_consumed_watt_seconds_total[24h]) / 3600000 * 0.15",
+         "legendFormat": "USD today"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 3}},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+    },
+    {
+      "title": "Energy by workspace (last hour)",
+      "type": "barchart",
+      "targets": [
+        {"expr": "topk(10, increase(portal5_energy_by_workspace_watt_seconds_total[1h]) / 3600)",
+         "legendFormat": "{{workspace}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "watth"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+    },
+    {
+      "title": "Tokens generated per Wh (efficiency)",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "rate(portal5_tokens_completion_total[5m]) / (portal5_power_avg_1min_watts / 3600)",
+         "legendFormat": "tokens/Wh"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "title": "Power vs request rate",
+      "type": "timeseries",
+      "targets": [
+        {"expr": "portal5_power_current_watts", "legendFormat": "Watts"},
+        {"expr": "rate(portal5_requests_total[1m]) * 60", "legendFormat": "Req/min"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+    }
+  ],
+  "schemaVersion": 38,
+  "refresh": "10s"
+}

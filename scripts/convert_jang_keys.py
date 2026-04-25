@@ -30,10 +30,10 @@ def remap_key(key: str) -> str:
         return key
     # Strip model. prefix
     if key.startswith("model."):
-        key = key[len("model."):]
+        key = key[len("model.") :]
     # language_model.X -> language_model.model.X (but not language_model.model.X)
     if key.startswith("language_model.") and not key.startswith("language_model.model."):
-        key = "language_model.model." + key[len("language_model."):]
+        key = "language_model.model." + key[len("language_model.") :]
     return key
 
 
@@ -65,8 +65,10 @@ def convert_file(path: str) -> None:
         f.write(tensor_data)
 
     os.replace(tmp_path, path)
-    print(f"    Done. Header: {header_len} -> {new_header_len} bytes, "
-          f"tensor data: {len(tensor_data):,} bytes")
+    print(
+        f"    Done. Header: {header_len} -> {new_header_len} bytes, "
+        f"tensor data: {len(tensor_data):,} bytes"
+    )
 
 
 def main() -> None:

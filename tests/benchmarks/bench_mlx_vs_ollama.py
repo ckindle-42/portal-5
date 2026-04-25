@@ -216,6 +216,7 @@ def _bench_ollama(model: str, prompt: str, label: str, timeout: float = 180.0) -
 
 def _get_unified_memory_gb() -> float | None:
     import subprocess
+
     if sys.platform != "darwin":
         return None
     try:
@@ -250,12 +251,16 @@ def run_matched_pair(runs: int) -> None:
     for run in range(1, runs + 1):
         print(f"--- Run {run}/{runs} ---")
         if mlx_available:
-            r = _bench_openai_endpoint(MLX_URL, MATCHED_MLX_MODEL, TEST_PROMPT, "MLX (Llama-3.2-3B-8bit)")
+            r = _bench_openai_endpoint(
+                MLX_URL, MATCHED_MLX_MODEL, TEST_PROMPT, "MLX (Llama-3.2-3B-8bit)"
+            )
             if r:
                 results.append(r)
                 _print_result(r)
         if ollama_available:
-            r = _bench_ollama(MATCHED_OLLAMA_MODEL, TEST_PROMPT, "Ollama (Llama-3.2-3B-abliterated)")
+            r = _bench_ollama(
+                MATCHED_OLLAMA_MODEL, TEST_PROMPT, "Ollama (Llama-3.2-3B-abliterated)"
+            )
             if r:
                 results.append(r)
                 _print_result(r)
@@ -376,15 +381,28 @@ def run_workspace_sweep(runs: int, only_workspace: str | None = None) -> None:
                 avg_tps = sum(r["tokens_per_sec"] for r in runs_data) / len(runs_data)
                 path_name = "MLX" if label_suffix == "/mlx" else "Ollama"
                 model_short = model.split("/")[-1][:30]
-                print(f"  {ws_id:<22} {path_name:<12} {avg_tps:>8.1f}  {len(runs_data):>5}  {model_short}")
+                print(
+                    f"  {ws_id:<22} {path_name:<12} {avg_tps:>8.1f}  {len(runs_data):>5}  {model_short}"
+                )
     print()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 — MLX vs Ollama benchmark")
-    parser.add_argument("--runs", type=int, default=3, help="Number of timed runs per path (default: 3)")
-    parser.add_argument("--all-workspaces", action="store_true", help="Benchmark all workspace primary+counterpart pairs")
-    parser.add_argument("--workspace", type=str, default=None, help="Benchmark a single workspace (e.g. auto-coding)")
+    parser.add_argument(
+        "--runs", type=int, default=3, help="Number of timed runs per path (default: 3)"
+    )
+    parser.add_argument(
+        "--all-workspaces",
+        action="store_true",
+        help="Benchmark all workspace primary+counterpart pairs",
+    )
+    parser.add_argument(
+        "--workspace",
+        type=str,
+        default=None,
+        help="Benchmark a single workspace (e.g. auto-coding)",
+    )
     args = parser.parse_args()
 
     mem = _get_unified_memory_gb()

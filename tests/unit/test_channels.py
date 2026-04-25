@@ -414,7 +414,9 @@ class TestDocumentMCPTools:
             ],
         )
         assert result.get("success") is True, f"Failed: {result}"
-        assert result.get("filename", "").endswith(".pptx"), f"Expected .pptx filename, got: {result}"
+        assert result.get("filename", "").endswith(".pptx"), (
+            f"Expected .pptx filename, got: {result}"
+        )
         assert "download_url" in result, f"Missing download_url: {result}"
 
     def test_create_excel_creates_file(self, tmp_path, monkeypatch):
@@ -434,7 +436,9 @@ class TestDocumentMCPTools:
             data=[["Name", "Score"], ["Alice", 95], ["Bob", 87]],
         )
         assert result.get("success") is True, f"Failed: {result}"
-        assert result.get("filename", "").endswith(".xlsx"), f"Expected .xlsx filename, got: {result}"
+        assert result.get("filename", "").endswith(".xlsx"), (
+            f"Expected .xlsx filename, got: {result}"
+        )
         assert "download_url" in result, f"Missing download_url: {result}"
 
     def test_create_word_document_creates_file(self, tmp_path, monkeypatch):
@@ -454,7 +458,9 @@ class TestDocumentMCPTools:
             content="Portal 5 document generation test. This document was created by the test suite.",
         )
         assert result.get("success") is True, f"Failed: {result}"
-        assert result.get("filename", "").endswith(".docx"), f"Expected .docx filename, got: {result}"
+        assert result.get("filename", "").endswith(".docx"), (
+            f"Expected .docx filename, got: {result}"
+        )
         assert "download_url" in result, f"Missing download_url: {result}"
 
 

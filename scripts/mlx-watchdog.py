@@ -189,9 +189,7 @@ def check_server_zombies() -> None:
     any_killed = False
     for proc_pattern, port, name in server_specs:
         try:
-            res = subprocess.run(
-                ["pgrep", "-f", proc_pattern], capture_output=True, text=True
-            )
+            res = subprocess.run(["pgrep", "-f", proc_pattern], capture_output=True, text=True)
             pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
             if not pids:
                 continue
@@ -251,7 +249,7 @@ def check_server_zombies() -> None:
                 COMPONENTS[name].healthy = True
         send_notification(
             "RECOVERED",
-            f"Zombie MLX server(s) cleared. GPU memory releasing. Proxy will reload on next request.",
+            "Zombie MLX server(s) cleared. GPU memory releasing. Proxy will reload on next request.",
         )
 
 

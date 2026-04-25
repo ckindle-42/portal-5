@@ -525,6 +525,38 @@ services:
       start_period: 60s
       retries: 3
 
+  # ── Browser MCP (Playwright) ──────────────────────────────────────────────────
+  playwright-mcp:
+    build:
+      context: ../../deploy/playwright-mcp
+      dockerfile: Dockerfile
+    container_name: portal5-playwright
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${BROWSER_MCP_HOST_PORT:-8922}:8922"
+    volumes:
+      - ${BROWSER_PROFILES_DIR:-/Volumes/data01/portal5_browser_profiles}:/profiles:rw
+      - ${BROWSER_AUDIT_LOG:-/Volumes/data01/portal5_browser_audit.log}:/audit/audit.log:rw
+    environment:
+      - PLAYWRIGHT_MCP_BLOCKED_ORIGINS=${PLAYWRIGHT_MCP_BLOCKED_ORIGINS:-localhost;127.0.0.1;169.254.169.254;metadata.google.internal}
+      - PLAYWRIGHT_MCP_BROWSER=chromium
+      - PROFILES_DIR=/profiles
+      - AUDIT_LOG_PATH=/audit/audit.log
+      - BROWSER_MCP_PORT=8922
+      - BROWSER_HEADLESS=true
+      - BROWSER_DOMAIN_RATE_LIMIT=${BROWSER_DOMAIN_RATE_LIMIT:-30}
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8922/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+
   # ── Telegram Bot ─────────────────────────────────────────────────────────────
   # Enabled when TELEGRAM_BOT_TOKEN is set in .env
   # Get a token from @BotFather: https://t.me/BotFather
