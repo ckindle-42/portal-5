@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/opt/homebrew/bin/python3
 """Portal 5 powermetrics reader daemon.
 
 Runs `powermetrics` continuously, parses the output, exposes current power
@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+from typing import Optional
 
 SOCKET_PATH = "/tmp/portal5-powermetrics.sock"
 SAMPLE_INTERVAL_MS = 10000
@@ -92,7 +93,7 @@ def run_powermetrics(sampler: PowerSampler):
             time.sleep(5)
 
 
-def parse_plist_buffer(text: str) -> dict | None:
+def parse_plist_buffer(text: str) -> Optional[dict]:
     try:
         sample = {}
         for key, attr in [
