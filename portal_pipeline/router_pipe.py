@@ -1906,7 +1906,11 @@ async def chat_completions(
         if registry is None:
             raise HTTPException(status_code=503, detail="Backend registry not initialised")
 
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception:
+            _concurrent_requests.dec()
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
         workspace_id = body.get("model") or "auto"
         stream = body.get("stream", False)
 
