@@ -63,7 +63,7 @@ Architectural and design constraints that cannot be resolved without significant
 - **ID**: P5-MLX-006
 - **Status**: **CONFIRMED BROKEN — produces empty content on Apple Metal**
 - **Description**: Benchmark on 2026-04-25 (M4 Pro, 64GB, mlx-lm 0.31.1) shows `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` loads and reports non-zero TPS (30.9 avg) but `choices[0].message.content` is always empty string across all 3 runs. The model generates `usage.completion_tokens=256` (max) but produces no readable text. This confirms the model card warning: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."*
-- **Diagnosis**: Not a proxy or test harness issue — other models through the same proxy and bench code produce text. Issue is specific to this model's weight/tokenizer conversion on Apple Metal.
+- **Diagnosis**: Confirmed at the mlx_lm server level (port 18081, bypassing proxy): `usage.completion_tokens=20` but `content=""`. The server generates tokens but they all decode to empty string — a tokenizer vocabulary mapping defect in the Linux conversion. Not a proxy or test harness issue; other models produce text through identical code paths.
 - **Impact**: Quality score = 0.00; TPS×Q = 0.0. The model is non-functional for inference.
 - **Next steps**: Monitor huihui-ai HF discussions for Apple Metal fix; alternatively find an mlx-community conversion of GLM-4.7-Flash-abliterated. Model remains in `backends.yaml` and `ALL_MODELS` (registered) for when a fixed conversion becomes available — remove if no fix in 60 days.
 - **Acceptance test**: S23-07 will FAIL or WARN on this model — expected until upstream fixes the conversion.
