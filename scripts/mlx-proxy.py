@@ -52,72 +52,6 @@ MLX_VLM_KV_BITS = os.environ.get("MLX_VLM_KV_BITS", "")
 MLX_VLM_KV_QUANT_SCHEME = os.environ.get("MLX_VLM_KV_QUANT_SCHEME", "turboquant")
 MLX_VLM_PREFILL_STEP_SIZE = os.environ.get("MLX_VLM_PREFILL_STEP_SIZE", "")
 
-VLM_MODELS = {
-    "Qwen3-VL-32B-Instruct-8bit",
-    "gemma-4-31b-it-4bit",
-    "gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; text+vision+audio, 128K ctx, ~5GB
-    "supergemma4-26b-abliterated-multimodal-mlx-4bit",  # Gemma 4 26B A4B MoE abliterated — vision, 256K ctx, uncensored ~15GB
-    "GLM-OCR-bf16",  # OCR specialist — requires mlx_vlm (model_type=glm_ocr)
-    "Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM for Karakeep
-    "Gemma-4-31B-JANG_4M-CRACK",  # Abliterated Gemma 4 31B, JANG v2 quant (~23GB) — uncensored VLM
-}
-
-ALL_MODELS = [
-    # ── Text-only (mlx_lm) ────────────────────────────────────────────────
-    # Coding
-    "mlx-community/Qwen3-Coder-Next-4bit",  # 80B MoE 4bit (~46GB, BIG_MODEL)
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",  # 30B MoE 8bit (~22GB)
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit",  # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)
-    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit",  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated
-    # Creative / general
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",  # Dolphin 8B (~9GB, uncensored)
-    "mlx-community/Llama-3.2-3B-Instruct-8bit",  # Ultra-fast routing (~3GB)
-    # Model diversity — non-Qwen families
-    "mlx-community/phi-4-8bit",  # Microsoft Phi-4 14B (~14GB, synthetic data, MIT)
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit",  # Mistral reasoning (~24GB, [THINK] mode)
-    # Heavy (PULL_HEAVY only)
-    "mlx-community/Llama-3.3-70B-Instruct-4bit",  # Llama 70B 4bit (~40GB, BIG_MODEL)
-    # GLM-5.1 removed: exceeds 64GB safe headroom (both variants) — tested and confirmed OOM
-    # Jackrong Qwopus3.5-v3 (primary reasoning) + Claude-4.6-Opus distills
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",  # Reasoning primary 27B v3 8bit (~22GB, auto-reasoning)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",  # Available 9B v3 8bit (~9GB)
-    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",  # Reasoning alt 27B v2 4bit (~14GB, Claude-4.6-Opus)
-    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit",  # Available 9B Claude-4.6 8bit (~9GB)
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",  # 35B-A3B 8bit (~28GB, compliance)
-    # Reasoning/analysis
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",  # FIX: was missing from ALL_MODELS — R1 Distill 32B 8bit (~34GB, auto-data)
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",  # R1 Distill 32B 4bit uncensored (~18GB, auto-research)
-    # Math/STEM specialist
-    "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",  # Qwen2.5-Math 7B 4bit (~5GB, auto-math)
-    # ── Draft models for speculative decoding (M4 Track 1) ──────────────────
-    "mlx-community/Qwen2.5-0.5B-Instruct-4bit",  # ~0.5GB, Qwen tokenizer (draft for Qwen family)
-    "mlx-community/Llama-3.2-1B-Instruct-4bit",  # ~1GB, Llama-3 tokenizer (draft for Llama family)
-    # ── VLM (mlx_vlm — auto-switched) ────────────────────────────────────────
-    "mlx-community/gemma-4-31b-it-4bit",  # Gemma 4 dense 31B 4bit (~18GB, primary VLM)
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # Qwen3-VL 32B 8bit (~36GB, VLM fallback)
-    "mlx-community/gemma-4-e4b-it-4bit",  # Gemma 4 E4B — replaces LLaVA; vision+audio, 128K ctx (~5GB)
-    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",  # Gemma 4 26B A4B MoE abliterated — vision, 256K ctx, uncensored (~15GB)
-    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",  # Phi-4-reasoning-plus — STEM/math, RL-trained, ~7GB (Microsoft)
-    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",  # Uncensored VLM 11B 4bit (~7GB, Karakeep)
-    "dealignai/Gemma-4-31B-JANG_4M-CRACK",  # Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB) — uncensored vision
-]
-
-# ── Big-Model Mode (P5-BIG-001) ───────────────────────────────────────────────
-# Models that require a full-evict load sequence:
-#   1. Stop current MLX server + wait for Metal reclaim
-#   2. Kill all Ollama loaded models (ollama stop --all)
-#   3. Load the big model with a reduced context cap
-#   4. On next non-big-model request, restore normal warm model
-#
-# Trigger: any model whose HF path is in this set is treated as big-model.
-# The `auto-agentic` workspace is the intended entry point.
-BIG_MODEL_SET: set[str] = {
-    "mlx-community/Qwen3-Coder-Next-4bit",  # ~46GB — auto-agentic
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",  # ~36GB — heavy VLM
-    "mlx-community/Llama-3.3-70B-Instruct-4bit",  # ~40GB — heavy coding + reasoning
-    # GLM-5.1 removed: too large for 64GB stack (MXFP4-Q8 = 49GB, both variants exceed safe headroom)
-}
-
 # Context ceiling for big-model requests — suppresses KV cache spike.
 # 256K default context + KV cache can push memory over the edge.
 # At 32K the KV cache is ~2 GB instead of ~16 GB.
@@ -127,46 +61,6 @@ BIG_MODEL_CTX: int = int(os.environ.get("MLX_BIG_MODEL_CTX", "32768"))
 # Minimum strictly-free GB required after full-evict before allowing a big-model load.
 # Protects against proceeding into a guaranteed OOM.
 BIG_MODEL_MIN_FREE_GB: float = float(os.environ.get("MLX_BIG_MODEL_MIN_FREE_GB", "6.0"))
-
-# ── Model-Size-Aware Admission Control (P5-FUT-009) ──────────────────────────
-# Maps each MLX model HuggingFace path → estimated peak memory in GB.
-# Sourced from CLAUDE.md model catalog and mlx-community model cards.
-# Values are conservative estimates including KV cache at default context.
-#
-# Rule: MODEL_MEMORY[model] + MEMORY_HEADROOM_GB <= _get_available_memory_gb()
-# If the check fails, ensure_server() returns HTTP 503 instead of loading
-# a model that would OOM — making CLAUDE.md coexistence rules self-enforcing.
-MODEL_MEMORY: dict[str, float] = {
-    # ── Text-only (mlx_lm) ────────────────────────────────────────────────
-    "mlx-community/Qwen3-Coder-Next-4bit": 46.0,  # 80B MoE, 4bit (~46GB)
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22.0,  # 30B MoE, 3B active (~22GB)
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15.0,  # Devstral Small 2507 MLX 4bit (~15GB, 53.6% SWE-bench)
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": 9.0,  # Dolphin 8B 8bit (~9GB)
-    "mlx-community/Llama-3.2-3B-Instruct-8bit": 3.0,  # Ultra-fast routing (~3GB)
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit": 24.0,  # Magistral 24B 8bit (~24GB)
-    "mlx-community/Llama-3.3-70B-Instruct-4bit": 40.0,  # Llama 70B 4bit (~40GB)
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22.0,  # Qwopus 27B v3 8bit (~22GB, primary auto-reasoning)
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit": 9.0,  # Qwopus 9B v3 8bit (~9GB)
-    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit": 14.0,  # 27B v2 4bit (~14GB, Claude-4.6-Opus)
-    "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 9.0,  # 9B Claude-4.6 8bit (~9GB)
-    "mlx-community/phi-4-8bit": 14.0,  # Microsoft Phi-4 14B 8bit (~14GB)
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28.0,  # 35B MoE 8bit (~28GB)
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34.0,  # R1 Distill 32B 8bit (~34GB)
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18.0,  # R1 Distill 32B 4bit (~18GB)
-    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 8.0,  # Phi-4-reasoning-plus 14B 4bit (~7-8GB)
-    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18.0,  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB)
-    "mlx-community/Qwen2.5-Math-7B-Instruct-4bit": 5.0,  # Qwen2.5-Math 7B 4bit (~5GB)
-    # ── Draft models for speculative decoding (M4 Track 1) ──────────────────
-    "mlx-community/Qwen2.5-0.5B-Instruct-4bit": 0.5,  # Qwen draft, additive with target
-    "mlx-community/Llama-3.2-1B-Instruct-4bit": 1.0,  # Llama draft, additive with target
-    # ── VLM (mlx_vlm) ─────────────────────────────────────────────────────
-    "mlx-community/gemma-4-31b-it-4bit": 18.0,  # Gemma 4 dense 31B 4bit (~18GB)
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit": 36.0,  # Qwen3-VL 32B 8bit (~36GB)
-    "mlx-community/gemma-4-e4b-it-4bit": 5.0,  # Gemma 4 E4B mlx-community 4bit (~5GB) — vision+audio
-    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15.0,  # Gemma 4 26B A4B MoE abliterated 4bit (~15GB)
-    "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit": 7.0,  # Uncensored VLM 11B 4bit (~7GB)
-    "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23.0,  # Abliterated Gemma 4 31B JANG v2 5.1-bit (~22.7GB)
-}
 
 # Safety headroom reserved for OS, Ollama sidecar, and KV cache spikes.
 # Operator may override via env var.
@@ -192,6 +86,33 @@ def _backends_yaml_path() -> str:
     return candidates[-1]  # fallback (will fail later with clear error)
 
 
+def _load_mlx_metadata() -> "tuple[dict[str, float], set[str], set[str], list[str]]":
+    """Load MODEL_MEMORY, BIG_MODEL_SET, VLM_MODELS, ALL_MODELS from backends.yaml.
+
+    Reads the mlx_models structured entries under the first backend with type=mlx.
+    Falls back to empty collections if the key is absent (old backends.yaml format).
+    """
+    try:
+        with open(_backends_yaml_path()) as f:
+            cfg = yaml.safe_load(f.read())
+        mlx_be = next((b for b in cfg.get("backends", []) if b.get("type") == "mlx"), None)
+        if not mlx_be:
+            return {}, set(), set(), []
+        items = mlx_be.get("mlx_models", [])
+        if not items:
+            # Old format: plain models list — no per-model metadata available
+            return {}, set(), set(), mlx_be.get("models", [])
+        model_memory = {it["id"]: float(it.get("memory_gb", 20.0)) for it in items}
+        big_models: set[str] = {it["id"] for it in items if it.get("big_model")}
+        # VLM_MODELS stores full HF IDs; needs_vlm() compares directly (no bare-name split)
+        vlm_models: set[str] = {it["id"] for it in items if it.get("is_vlm")}
+        all_models = [it["id"] for it in items]
+        return model_memory, big_models, vlm_models, all_models
+    except Exception as exc:
+        print(f"[proxy] WARNING: failed to load mlx_models from backends.yaml: {exc}", flush=True)
+        return {}, set(), set(), []
+
+
 def _load_draft_model_map() -> dict[str, str]:
     """Read config/backends.yaml for speculative_decoding.draft_models map."""
     try:
@@ -213,6 +134,14 @@ def _model_exists_locally(model_id: str) -> bool:
     safe_name = model_id.replace("/", "--")
     return any(cache_dir.glob(f"models--{safe_name}*"))
 
+
+# Load model registry from backends.yaml (single source of truth — CLAUDE.md Rule 8)
+MODEL_MEMORY, BIG_MODEL_SET, VLM_MODELS, ALL_MODELS = _load_mlx_metadata()
+print(
+    f"[proxy] loaded {len(MODEL_MEMORY)} MLX models from backends.yaml "
+    f"({len(BIG_MODEL_SET)} big, {len(VLM_MODELS)} VLM)",
+    flush=True,
+)
 
 DRAFT_MODEL_MAP: dict[str, str] = _load_draft_model_map()
 if DRAFT_MODEL_MAP:
@@ -475,7 +404,8 @@ memory_monitor = MemoryMonitor()
 
 
 def needs_vlm(model: str) -> bool:
-    return model.split("/")[-1] in VLM_MODELS
+    # VLM_MODELS stores full HuggingFace IDs (loaded from backends.yaml is_vlm: true)
+    return model in VLM_MODELS
 
 
 def _probe_server(stype: str) -> tuple[bool, str | None]:

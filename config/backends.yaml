@@ -17,43 +17,176 @@ backends:
     type: mlx
     url: "${MLX_LM_URL:-http://host.docker.internal:8081}"
     group: mlx
-    models:
-      # ── Text-only (served by mlx_lm on port 8081) ──────────────────────────
-      # 8bit quants used on 64GB M4 Mac — one model at a time, max quality.
-      # Exception: Qwen3-Coder-Next uses 4bit (~46GB) — 80B total params, 8bit would require ~85GB.
-      # 64GB budget: Coder-Next-4bit (~46GB) + Ollama 3B (~3GB) + OS (~8GB) ≈ 57GB (no ComfyUI concurrent)
-      - mlx-community/Qwen3-Coder-Next-4bit              # Primary coder: 80B MoE, 3B active (~46GB, 256k ctx)
-      - mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  # Fast agentic coder (~22GB)
-      - lmstudio-community/Devstral-Small-2507-MLX-4bit        # Devstral v1.1 4bit (~15GB, 53.6% SWE-bench, +5.6% over 2505)
-      # ── Coding diversity (non-Qwen, abliterated) ──────────────────────────
-      - huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit  # GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench / 79.5% τ²-Bench tool use, 200K ctx, abliterated. NEW MLX lineage 2026-04-25.
-      - mlx-community/Dolphin3.0-Llama3.1-8B-8bit         # Creative / general (~9GB)
-      - mlx-community/Llama-3.2-3B-Instruct-8bit          # Ultra-fast routing (~3GB)
-      # ── Model Diversity (non-Qwen/non-DeepSeek families) ───────────────────
-      - mlx-community/phi-4-8bit                           # Microsoft Phi-4 14B (~14GB, MIT, synthetic data training — distinct methodology)
-      - lmstudio-community/Magistral-Small-2509-MLX-8bit   # Mistral reasoning 24B (~24GB, [THINK] mode, vision, different training lineage)
-      - mlx-community/Llama-3.3-70B-Instruct-4bit         # Heavy coding + reasoning (~40GB, 4bit only — too big for 8bit)
-      # ── Claude 4.6 Opus Reasoning Distilled (Jackrong / mlx-community) ─────
-      - Jackrong/MLX-Qwopus3.5-27B-v3-8bit                      # Reasoning primary (~22GB, v3 structural alignment)
-      - Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit  # Reasoning alt (~14GB, v2: tighter CoT, Claude-4.6-Opus)
-      - Jackrong/MLX-Qwopus3.5-9B-v3-8bit                       # Available 9B slot (~9GB, v3)
-      - Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      # Available 9B Claude-4.6 slot (~9GB)
-      - Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit # Compliance (~28GB, MoE 3B active)
-      - mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit                   # Data analysis (~34GB)
-      - mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           # Uncensored reasoning (~18GB)
-      # ── Math specialist — Qwen2.5-Math-7B-Instruct, mlx-community 4bit (~5GB) ──
-      - mlx-community/Qwen2.5-Math-7B-Instruct-4bit
-      # ── Draft models for speculative decoding (M4 Track 1) ──────────────
-      - mlx-community/Qwen2.5-0.5B-Instruct-4bit          # ~0.5GB, Qwen tokenizer (draft for Qwen family)
-      - mlx-community/Llama-3.2-1B-Instruct-4bit          # ~1GB, Llama-3 tokenizer (draft for Llama family)
-      # ── VLM (served by mlx_vlm on port 8082 — auto-switched) ──────────────
-      - mlx-community/gemma-4-31b-it-4bit                   # Google Gemma 4 dense 31B (~18GB, thinking+vision, 256K ctx)
-      - mlx-community/Qwen3-VL-32B-Instruct-8bit          # Vision / multimodal (~36GB)
-      - mlx-community/gemma-4-e4b-it-4bit                  # Gemma 4 E4B — vision+audio VLM fallback (~5GB); replaces LLaVA 1.5-7B
-      - Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit  # Gemma 4 26B A4B MoE abliterated — vision+text, 256K ctx, uncensored (~15GB)
-      - lmstudio-community/Phi-4-reasoning-plus-MLX-4bit  # Phi-4-reasoning-plus — STEM/math reasoning, RL-trained (~7GB, Microsoft)
-      - mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit  # Uncensored VLM for Karakeep (~7GB)
-      - dealignai/Gemma-4-31B-JANG_4M-CRACK               # Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB, uncensored vision+text)
+    # mlx_models: canonical per-model metadata. cluster_backends.py auto-flattens
+    # to `models: [id]` for routing. mlx-proxy.py reads memory_gb/big_model/is_vlm
+    # for admission control. Add a model here — it appears everywhere automatically.
+    # Fields:
+    #   id:             full HuggingFace model path
+    #   memory_gb:      estimated peak VRAM (weights + KV cache at default ctx)
+    #   big_model:      true = requires full-evict load sequence (see BIG_MODEL_CTX)
+    #   is_vlm:         true = requires mlx_vlm server (port 8082), false = mlx_lm
+    #   supports_tools: true = model reliably handles OpenAI tools schema in mlx_lm
+    mlx_models:
+      # ── Text-only (mlx_lm, port 8081) ────────────────────────────────────────
+      - id: mlx-community/Qwen3-Coder-Next-4bit
+        memory_gb: 46
+        big_model: true
+        is_vlm: false
+        supports_tools: true
+        notes: "Primary coder: 80B MoE 4bit, 3B active (~46GB, 256k ctx, BIG_MODEL)"
+      - id: mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit
+        memory_gb: 22
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Fast agentic coder: 30B MoE 8bit (~22GB)"
+      - id: lmstudio-community/Devstral-Small-2507-MLX-4bit
+        memory_gb: 15
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)"
+      - id: huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit
+        memory_gb: 18
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated, 200K ctx"
+      - id: mlx-community/Dolphin3.0-Llama3.1-8B-8bit
+        memory_gb: 9
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Dolphin 8B uncensored (~9GB)"
+      - id: mlx-community/Llama-3.2-3B-Instruct-8bit
+        memory_gb: 3
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Ultra-fast routing model (~3GB)"
+      - id: mlx-community/phi-4-8bit
+        memory_gb: 14
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Microsoft Phi-4 14B (~14GB, MIT, synthetic data — distinct methodology)"
+      - id: lmstudio-community/Magistral-Small-2509-MLX-8bit
+        memory_gb: 24
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Mistral reasoning 24B (~24GB, [THINK] mode — tool format differs from Qwen/Llama)"
+      - id: mlx-community/Llama-3.3-70B-Instruct-4bit
+        memory_gb: 40
+        big_model: true
+        is_vlm: false
+        supports_tools: true
+        notes: "Heavy coding + reasoning (~40GB, 4bit only — too big for 8bit, BIG_MODEL)"
+      # ── Claude 4.6 Opus Reasoning Distilled (Jackrong) ────────────────────────
+      - id: Jackrong/MLX-Qwopus3.5-27B-v3-8bit
+        memory_gb: 22
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Reasoning primary: 27B v3 8bit (~22GB, v3 structural alignment)"
+      - id: Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit
+        memory_gb: 14
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Reasoning alt: 27B v2 4bit (~14GB, tighter CoT, Claude-4.6-Opus)"
+      - id: Jackrong/MLX-Qwopus3.5-9B-v3-8bit
+        memory_gb: 9
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Available 9B slot (~9GB, v3)"
+      - id: Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit
+        memory_gb: 9
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Available 9B Claude-4.6 slot (~9GB)"
+      - id: Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
+        memory_gb: 28
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Compliance: 35B MoE 8bit, 3B active (~28GB)"
+      - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit
+        memory_gb: 34
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Data analysis: R1 Distill Qwen 32B 8bit (~34GB)"
+      - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit
+        memory_gb: 18
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Uncensored reasoning: R1 Distill Qwen 32B 4bit (~18GB)"
+      - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
+        memory_gb: 5
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Math specialist: Qwen2.5-Math 7B 4bit (~5GB)"
+      # ── Draft models for speculative decoding (loaded alongside target) ────────
+      - id: mlx-community/Qwen2.5-0.5B-Instruct-4bit
+        memory_gb: 0.5
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Draft model: Qwen tokenizer (~0.5GB, additive with target)"
+      - id: mlx-community/Llama-3.2-1B-Instruct-4bit
+        memory_gb: 1.0
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Draft model: Llama-3 tokenizer (~1GB, additive with target)"
+      # ── VLM (mlx_vlm, port 8082 — auto-switched) ──────────────────────────────
+      - id: mlx-community/gemma-4-31b-it-4bit
+        memory_gb: 18
+        big_model: false
+        is_vlm: true
+        supports_tools: false
+        notes: "Primary VLM: Gemma 4 dense 31B 4bit (~18GB, thinking+vision, 256K ctx)"
+      - id: mlx-community/Qwen3-VL-32B-Instruct-8bit
+        memory_gb: 36
+        big_model: true
+        is_vlm: true
+        supports_tools: false
+        notes: "Heavy VLM: Qwen3-VL 32B 8bit (~36GB, BIG_MODEL)"
+      - id: mlx-community/gemma-4-e4b-it-4bit
+        memory_gb: 5
+        big_model: false
+        is_vlm: true
+        supports_tools: false
+        notes: "Gemma 4 E4B VLM fallback (~5GB, vision+audio, 128K ctx)"
+      - id: Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit
+        memory_gb: 15
+        big_model: false
+        is_vlm: true
+        supports_tools: false
+        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx)"
+      - id: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
+        memory_gb: 8
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Phi-4-reasoning-plus STEM/math (~8GB, RL-trained, mlx_lm not mlx_vlm)"
+      - id: mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit
+        memory_gb: 7
+        big_model: false
+        is_vlm: true
+        supports_tools: false
+        notes: "Uncensored VLM 11B 4bit (~7GB, Karakeep vision)"
+      - id: dealignai/Gemma-4-31B-JANG_4M-CRACK
+        memory_gb: 23
+        big_model: false
+        is_vlm: true
+        supports_tools: false
+        notes: "Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB, uncensored vision+text)"
 
   # ── General (fast default, function calling, creative) ─────────────────────
   - id: ollama-general

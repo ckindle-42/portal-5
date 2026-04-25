@@ -85,6 +85,14 @@ class Backend:
     models: list[str]
     healthy: bool = True
     last_check: float = 0.0
+    # Rich per-model metadata for MLX backends (from mlx_models: in backends.yaml).
+    # Each entry: {id, memory_gb, big_model, is_vlm, supports_tools, notes}.
+    # Empty list for non-MLX backends or when mlx_models key is absent (old format).
+    mlx_metadata: list[dict] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.mlx_metadata is None:
+            self.mlx_metadata = []
 
     @property
     def chat_url(self) -> str:
@@ -168,12 +176,20 @@ class BackendRegistry:
 
         # Load backends
         for be in cfg.get("backends", []):
+            # Accept both `mlx_models: [dict]` (new) and `models: [str]` (old).
+            # mlx_models is the canonical form for MLX backends; models is auto-derived.
+            mlx_meta: list[dict] = be.get("mlx_models", [])
+            if mlx_meta:
+                flat_models = [m["id"] for m in mlx_meta]
+            else:
+                flat_models = be.get("models", [])
             backend = Backend(
                 id=be["id"],
                 type=be.get("type", "ollama"),
                 url=be["url"],
                 group=be.get("group", "general"),
-                models=be.get("models", []),
+                models=flat_models,
+                mlx_metadata=mlx_meta,
             )
             self._backends[backend.id] = backend
             logger.info(

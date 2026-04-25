@@ -326,7 +326,11 @@ class TestComplianceWorkspace:
         assert mlx_backends, "No MLX backend in backends.yaml"
         all_models = []
         for b in mlx_backends:
-            all_models.extend(b.get("models", []))
+            # Handle both mlx_models: [dict] (new) and models: [str] (old)
+            if "mlx_models" in b:
+                all_models.extend(m["id"] for m in b["mlx_models"])
+            else:
+                all_models.extend(b.get("models", []))
         assert any("Qwen3.5-35B-A3B" in m for m in all_models), (
             f"Qwen3.5-35B-A3B Claude-distilled not in any MLX backend models: {all_models}\n"
             "This is the primary model for auto-compliance — must be present."
@@ -422,7 +426,12 @@ class TestR18ModelCompleteness:
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
-        all_models = [m for b in cfg["backends"] for m in b.get("models", [])]
+        all_models = []
+        for b in cfg["backends"]:
+            if "mlx_models" in b:
+                all_models.extend(m["id"] for m in b["mlx_models"])
+            else:
+                all_models.extend(b.get("models", []))
 
         required = [
             # Security
@@ -672,7 +681,12 @@ class TestR23MLXSupport:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
         assert len(mlx_backends) >= 1, "No MLX backend in backends.yaml"
-        models = mlx_backends[0]["models"]
+        be = mlx_backends[0]
+        # Accept both mlx_models: [dict] (new) and models: [str] (old)
+        if "mlx_models" in be:
+            models = [m["id"] for m in be["mlx_models"]]
+        else:
+            models = be.get("models", [])
         assert any("Qwen3-Coder-Next" in m for m in models), (
             "MLX primary model (Qwen3-Coder-Next-4bit) not in mlx backend"
         )
@@ -731,7 +745,11 @@ class TestR23MLXSupport:
         assert "PROXY_PORT" in content
         assert "detect_server" in content
         assert "ensure_server" in content
-        assert "Qwen3.5-35B-A3B" in content or "Qwen3.5-35B-A3B-Claude" in content
+        # Model catalog now lives in backends.yaml (CLAUDE.md Rule 8).
+        # Verify mlx-proxy.py loads from yaml rather than checking for hardcoded model names.
+        assert "_load_mlx_metadata" in content, (
+            "mlx-proxy.py must load MODEL_MEMORY/VLM_MODELS from backends.yaml via _load_mlx_metadata()"
+        )
 
 
 class TestRecordUsageMetrics:
