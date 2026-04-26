@@ -5443,9 +5443,10 @@ async def run_test(
                 break
             # DOM stable may have fired while reasoning model was still generating
             # (collapsed <details> block makes innerText appear stable). Poll the
-            # API for up to 90s before declaring this attempt empty — the model
-            # may still be generating the actual response after the thinking block.
-            for _poll in range(9):
+            # API before declaring this attempt empty — mlx_large reasoning models
+            # can take 4-5 minutes; others are bounded to 90s.
+            _poll_limit = 27 if tier == "mlx_large" else 9  # 270s vs 90s
+            for _poll in range(_poll_limit):
                 await asyncio.sleep(10)
                 response_text = owui_get_last_response(token, chat_id)
                 if response_text:
