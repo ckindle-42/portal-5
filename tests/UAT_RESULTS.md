@@ -1,14 +1,14 @@
 # Portal 5 — UAT Results
 
-**Run:** 2026-04-26 11:32:07  
+**Run:** 2026-04-26 11:40:05  
 **Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  
 **Reviewer:** (fill in)
 
 ## Summary
 
-- **PASS**: 0
-- **WARN**: 0
-- **FAIL**: 0
+- **PASS**: 4
+- **WARN**: 1
+- **FAIL**: 1
 - **SKIP**: 0
 - **MANUAL**: 0
 
@@ -16,3 +16,16 @@
 
 | # | Status | Test | Model | Detail | Elapsed |
 |---|--------|------|-------|--------|---------|
+| 1 | PASS | [WS-01 Auto Router — Intent-Driven Routing](http://localhost:8080/c/d4166fe4-bce0-4d6e-a957-6cb436f4412f) | `auto` | 4/4(100%) YAML manifests present=✓(ok); RBAC discussed=✓(found: ['rbac', 'serviceaccount']); No refusal=✓(ok); Substantive response=✓(len=2051, min=800) | 382.3s |
+| 2 | PASS | [P-W06 IT Expert — Asks Symptoms Before Diagnosing](http://localhost:8080/c/3e522e49-9aa9-4243-94aa-3906aaca1bf9) | `itexpert` | 3/3(100%) Asks what OS=✓(found: ['os', 'windows', 'mac', 'linux', 'computer', 'system']); Asks what is slow=✓(found: ['when did', 'specific', 'symptoms', 'slowdown']); No immediate fix list=✓(ok) | 68.0s |
+| 3 | FAIL | [P-W03 Tech Reviewer — Training Data Caveat on Benchmarks](http://localhost:8080/c/300595bd-dd97-454a-931c-d549e3a0624c) | `techreviewer` | 2/3(66%) [routed: techreviewer] Training data caveat=✓(found: ['current', 'as of', 'official spec']); Both chips compared=✗(none of: ['m4 pro and m4 max', 'm4 pro vs m4 max', 'm4 max and m4 pro', 'm4 max vs m4 pro', 'm4 pro and the m4 max', 'm4 max and the m4 pro', 'm4 pro and the max', 'm4 max and the pro', 'the pro and the max', 'the max and the pro', 'between the m4 pro', 'between the m4 max', 'compared to the m4 pro', 'compared to the m4 max', 'than the m4 pro', 'than the m4 max', 'versus the m4 pro', 'versus the m4 max']); Recommendation given=✓(found: ['recommend']) | 127.9s |
+| 4 | WARN | [P-B03 Web Navigator — Task Decomposition](http://localhost:8080/c/3afd36fd-0a83-463d-9ff4-64d24d7b025b) | `webnavigator` | 1/2(50%) [routed: webnavigator] Task decomposition=✓(found: ['navigate', 'billing', 'step', 'click']); Safety awareness=✗(none of: ['confirm', 'purchase', 'delete', 'never', 'without', 'ask']) | 128.0s |
+| 1 | PASS | [P-W03 Tech Reviewer — Training Data Caveat on Benchmarks](http://localhost:8080/c/1f5b4444-eb8e-4dc4-80e8-c89ce9f867ec) | `techreviewer` | 3/3(100%) Training data caveat=✓(found: ['current', 'as of', 'official spec']); Both chips compared=✓(found: ['m4 pro vs. m4 max']); Recommendation given=✓(found: ['recommend']) | 67.9s |
+| 2 | PASS | [P-B03 Web Navigator — Task Decomposition](http://localhost:8080/c/92bdf51e-b246-40a2-bb0e-c02bfdedea01) | `webnavigator` | 2/2(100%) Task decomposition=✓(found: ['navigate', 'billing', 'step', 'click']); Safety awareness=✓(found: ['security', 'privacy', "i can't directly", "you'd need", 'your account']) | 127.9s |
+| 1 | PASS | [WS-03 Agentic Coder Heavy — Flask Migration Plan](http://localhost:8080/c/b50f5c03-8ad1-48c7-a1b6-68b698404582) | `auto-agentic` | 3/4(75%) Directory structure shown=✓(ok); create_app factory=✓(ok); Blueprint registration=✗(none of: ['register_blueprint', 'app.register_blueprint', 'blueprint(', '.register(', 'register the blueprint']); Substantive response=✓(len=1870, min=1200) | 67.9s |
+| 2 | FAIL | [WS-16 Compliance Analyst — CIP-003-9 R1.2.6](http://localhost:8080/c/a37ad9ad-77e5-411e-84c5-f1d47f413abb) | `auto-compliance` | 0/4(0%) [routed: auto-compliance] Standard cited precisely=✗(missing: ['cip-003-9', 'r1', '1.2.6']); Enforceability date=✗(none of: ['april 1, 2026', 'april 2026', '2026']); Immediate actions given=✗(none of: ['assess', 'inventory', 'identif', 'review', 'determine', 'evaluate', 'audit', 'gap analysis', 'next step', 'action']); Refers user to SME=✗(none of: ['sme', 'expert', 'attorney', 'legal', 'verify']) | 225.1s |
+| 3 | FAIL | [WS-15 Data Analyst — SIEM Dataset Cleaning](http://localhost:8080/c/91f1fd00-a2ba-4d5f-9841-d76eeaec8f9f) | `auto-data` | 0/4(0%) [routed: auto-data] Timestamp normalization=✗(none of: ['pd.to_datetime', 'to_datetime', 'timestamp']); Missing src_ip handling=✗(none of: ['fillna', 'dropna', 'isnull', 'isna', 'nan', 'NaN', 'null', 'missing', 'empty']); bytes_out sentinel=✗(none of: ['bytes_out', 'sentinel', 'invalid', 'fillna', 'replace', 'nan', 'NaN', '-1']); Pandas code present or referenced=✗(none of: ['```python', '```', 'pd.', 'df.', 'import pandas', 'pandas']) | 292.3s |
+| 4 | FAIL | [WS-09 Deep Reasoner — Secrets Management Trade-off](http://localhost:8080/c/81171859-cc7a-4075-93bd-281e9a635253) | `auto-reasoning` | 0/4(0%) [routed: auto-reasoning] All three options covered=✗(missing: ['vault', 'aws secrets', 'external-secrets']); SOC 2 addressed=✗(missing: ['soc 2']); Team size factored=✗(missing: ['engineer', 'team', 'operational']); Clear recommendation=✗(none of: ['recommend', 'suggest', 'should', 'opt for', 'go with', 'best option']) | 322.3s |
+| 5 | FAIL | [WS-13 Research Assistant — Post-Quantum Cryptography](http://localhost:8080/c/c4af09f2-71e4-4c1a-adc6-1538864bbae9) | `auto-research` | 0/4(0%) [routed: auto-research] NIST algorithms named=✗(none of: ['ml-kem', 'kyber', 'ml-dsa', 'dilithium', 'slh-dsa']); TLS library mentioned=✗(none of: ['openssl', 'boringssl', 'rustls', 'tls']); Migration timeline=✗(none of: ['phase', 'migrat', 'timeline', 'roadmap', 'step', 'schedule']); Substantive response=✗(len=0, min=500) | 292.2s |
+| 6 | PASS | [WS-14 Vision — Image Analysis](http://localhost:8080/c/30597040-9e61-498e-acde-fc2e940d9430) | `auto-vision` | 2/2(100%) No 'cannot process'=✓(ok); Substantive description=✓(len=733, min=200) | 127.9s |
+| 1 | PASS | [WS-07 Blue Team — Multi-Stage Incident Triage](http://localhost:8080/c/24a904f4-4c87-4c0a-9d66-27e3af7b8271) | `auto-blueteam` | 4/4(100%) Isolation first=✓(found: ['isolat', 'contain', 'disconnect']); Admin account action=✓(found: ['admin account', 'account', 'access']); Action-oriented=✓(found: ['step', 'first', 'priority']); Substantive response=✓(len=3006, min=500) | 160.9s |

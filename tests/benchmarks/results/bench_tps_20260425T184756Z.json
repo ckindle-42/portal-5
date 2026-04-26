@@ -1,0 +1,1087 @@
+{
+  "timestamp": "2026-04-25T18:47:56.386038+00:00",
+  "mode": "all",
+  "order": "size",
+  "cooldown_s": 10.0,
+  "runs_per_model": 5,
+  "spec_decoding": "unspecified",
+  "total_wall_time_s": 0,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 0,
+    "ollama_models_configured": 24,
+    "workspaces_configured": 27,
+    "personas_configured": 91
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081"
+    },
+    "ollama": {
+      "url": "http://localhost:11434"
+    },
+    "pipeline": {
+      "url": "http://localhost:9099"
+    }
+  },
+  "results": [
+    {
+      "model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 51.8,
+      "min_tps": 45.1,
+      "max_tps": 57.1,
+      "avg_completion_tokens": 113,
+      "avg_elapsed_s": 2.19,
+      "avg_ttft_s": 0.093,
+      "routed_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 51.8,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 123,
+          "tps": 56.3,
+          "time_to_first_token_s": 0.182,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 0 - Physical, Data\nExample: Fibre Channel for data transfer between devices.\n\n2. Layer 1 - Network Access\nExample: PPP (Point-to-Point Protocol) for connecting two Network Stations.\n\n3. Layer 2 - Network\nExample: IP Address Generation, enabling unique identification of each device on the network.\n\n4. Layer 3 - Network\nExample: Routing Table Maintenance, to optimize the flow of data between devices.\n\n5. Layer 4 - Network\n Example: Error Correcting, allowing for fault tolerance and failure correction in data transfer.\n\n6. Layer 7 - Control\nExample: DNS (Domain Name System) resolving network name to IP address mapping.\n\n7. Layer 8 - Presentation\nExample: ASCII character conversion, converting raw binary data to human-readable text format."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 2.68,
+          "prompt_tokens": 0,
+          "completion_tokens": 133,
+          "tps": 49.5,
+          "time_to_first_token_s": 0.073,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here is the list of OSI model layers:\n\n1. Layer 7 - Application Layer\n\t* Standard name: Hypertext Symbolic (HWS) Network\n\t* Example: HTTP (Hypertext Submissions Protocol)\n2. Layer 6 - Presentation Layer\n\t* Standard name: Data Encryption Algorithm (DEA)\n\t* Example: AES (Advanced Encryption Standard)\n3. Layer 5 - Session Layer\n\t* Standard name: Virtual Terminal Services\n\t* Example: RAS (Remote Access Services)\n4. Layer 4 - Network Layer\n\t* Standard name: Routing and Addressing Tables\n\t* Example: BGP (Border Gateway Protocol)\n5. Layer 3 - Data Link Layer\n\t* Standard name: Frame Error Correction\n\t* Example: Ethernet frames\n6. Layer 2 - Physical Layer\n\t* Standard name: Multi-Plexing Demarcation\n\t* Example: T1 (Tristand loop)\n7. Layer 1 - Physical/Link Layer\n\t* Standard name: Transmission Line Interface\n\t* Example: 10BASE-T (Base Ethernet)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 0.83,
+          "prompt_tokens": 0,
+          "completion_tokens": 42,
+          "tps": 50.9,
+          "time_to_first_token_s": 0.071,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 7 - Host\n2. Layer 6 - Application\n3. Layer 5 - Presenting\n4. Layer 4 - Session\n5. Layer 3 - Confusion\n6. Layer 2 - Control\n7. Layer 1 - Reference"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 2.61,
+          "prompt_tokens": 0,
+          "completion_tokens": 149,
+          "tps": 57.1,
+          "time_to_first_token_s": 0.069,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 7 - Frame Control\n   Standard Name: IEEE\n   Example Protocol: Ethernet frame control is typically at this layer.\n\n2. Layer 6 - Address\n   Standard Name: MAC address\n   Example Protocol: IP addresses are typically assigned to this layer.\n\n3. Layer 5 - Network Access\n   Standard Name: Data Link\n   Example Protocol: Ethernet, Fiber-Connect and Token Ring use these layers for data exchange.\n\n4. Layer 4 - End System\n   Standard Name: Datagram\n   Example Technology: HTTP works best here (example protocol).\n\n5. Layer 3 - Convergence Sub-layer\n    (data link) \n    This appears at the same functional levels as the layer below.\n\n6. Layer 2 - Functional Sub-layer\n    Examples include this\n    The sublayer for each of those is similar to it, which can be used and also referenced. \n\n7. Layer 1 - Physical\n   Standard Name: None\n   (This is one of the 5 layers you see on hardware)."
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.66,
+          "prompt_tokens": 0,
+          "completion_tokens": 120,
+          "tps": 45.1,
+          "time_to_first_token_s": 0.068,
+          "response_model": "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF",
+          "response_text": "Here are the 7 OSI model layers:\n\n1. Layer 1 - Physical\n   Standard Name: Physical (Layer 1)\n   Example Protocol/Technology: Bit-level encoding (e.g., Huffman coding)\n\n2. Layer 2 - Data Link\n   Standard Name: Data Link (Layer 2)\n   Example Protocol/Technology: Ethernet framing (e.g., Ethernet framing)\n   \n3. Layer 3 - Network\n   Standard Name: Network (Layer 3)\n   Example Protocol/Technology: TCP/IP (Internet protocol routing)\n\n4. Layer 4 - Transport\n   Standard Name: Transport (Layer 4)\n   Example Protocol/Technology: TCP (Transmission Control Protocol)\n\n5. Layer 5 - Session\n   Standard Name: Session (Layer 5)\n   Example Protocol/Technology: SSH (Secure Shell)\n\n6. Layer 6 - Presentation\n   Standard Name: Presentation (Layer 6)\n   Example Prototype/Technology: MIME types\n\n7. Layer 7 - Application\n   Standard Name: Application (Layer 7)\n   Example Protocol/Technology: HTTP (Hypertext Transfer Protocol)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 1.8,
+      "groups": [
+        "general"
+      ]
+    },
+    {
+      "model": "lily-cybersecurity:7b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.8,
+      "min_tps": 30.2,
+      "max_tps": 33.6,
+      "avg_completion_tokens": 171,
+      "avg_elapsed_s": 5.36,
+      "avg_ttft_s": 0.105,
+      "routed_model": "lily-cybersecurity:7b-q4_k_m",
+      "prompt_category": "security",
+      "quality_score": 1.0,
+      "tps_quality": 31.8,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.59,
+          "prompt_tokens": 0,
+          "completion_tokens": 172,
+          "tps": 30.8,
+          "time_to_first_token_s": 0.392,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The detected behavior falls under the Brute Force attack tactic (T1110), specifically the technique ID of SSH bruteforce login attempt (T1179).\n\n2. Immediate containment actions: Implementing network segmentation by blocking access to the DMZ from the identified IPs in the first 30 minutes. Additionally, suspending or disabling user accounts to prevent further brute-force attempts on the affected systems immediately.\n\n3. Detection rule to write: In order to detect SSH bruteforce attacks, it is recommended to create a detection rule that monitors the logs of repeated failed login attempts to the SSH port (22) within a defined time frame. A possible structure for this rule could be: IF (Event Type = \"Failed Login Attempts\") AND (Destination Port = 22) AND (Multiple Failures Within Time Frame).\n\n4. Root cause question to investigate: The root cause of the detected SSH brute-force attempts can be investigated by analyzing the IP addresses and conducting network traffic analysis or intrusion detection system logs to determine whether these are internal or external attacks. Additionally, reviewing server configurations"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.26,
+          "prompt_tokens": 0,
+          "completion_tokens": 177,
+          "tps": 33.6,
+          "time_to_first_token_s": 0.033,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The scenario represents an attempt to exploit the password authentication tactic, specifically the Brute Force technique found in the Brute Force for Authentication category of the MITRE ATT&CK framework. This implies a focus on guessing or trying multiple passwords, likely with automated tools, to gain unauthorized access through SSH.\n\n2. Immediate containment actions: The initial responses should involve strengthening authentication mechanisms, such as enforcing complex requirements for passwords and implementing account lockout policies after repeated fails. Additionally, disabling weak SSH versions or setting up restrictions like rate limiting or IP blocking on the affected servers can help mitigate further brute-force attempts.\n\n3. Detection rule to write: One possible detection rule would involve identifying suspicious traffic patterns associated with SSH or any other authentication protocol. This could be achieved by monitoring login attempts and flagging any abnormal spikes in unsuccessful logins from specific IPs, particularly those on the CrowdSec community blocklist. The following logic can be utilized: Logs containing fields \"IP address\" and \"Authentication protocol\" matching {\"IP Address\": [\"47 unique IPs\"] AND \"Authentication Protocol\": [\"SSH\"]} with"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.29,
+          "prompt_tokens": 0,
+          "completion_tokens": 160,
+          "tps": 30.2,
+          "time_to_first_token_s": 0.034,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: Based on the information provided, the scenario falls under the \"Brute Force\" tactic identified by MITRE ATT&CK with a specific technique ID of \"T1107.2003229\". It suggests an aggressive authentication attempt utilizing SSH with repeated brute-force attempts originating from multiple IP addresses targeting port 22 on the company's DMZ servers.\n\n2. Immediate containment actions: In order to mitigate the ongoing brute-force attack, initial containment measures should be implemented within the first 30 minutes. These include:\n   a) Blocking the two IP addresses already present on the CrowdSec community blocklist from further access attempts. This can be done by updating the respective security group rules or configuring network access control lists accordingly.\n   b) Limiting the number of failed authentication attempts within a specified time frame. Implementing rate-limiting measures can slow down the adversary's brute-force attempts and hinder their progress without creating excessive disruptions to authorized users.\n   c) Reviewing and strengthening SSH configurations on all servers in DMZ. Enforcing strong passwords, enabling"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.33,
+          "prompt_tokens": 0,
+          "completion_tokens": 175,
+          "tps": 32.8,
+          "time_to_first_token_s": 0.034,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: This scenario can be classified under the category of \"Brute Force\" in the MITRE ATT&CK tactic frame work. Specifically, it falls under technique ID \"Bru-Force: Brute Force ( privileges and credentials, passwords, physical or virtual hardware based keys or tokens)\".\n\n2. Immediate containment actions: In the immediate response to mitigate further damage, some crucial steps might include isolating affected servers from Internet access by modifying firewall rules or network segmentation. Additionally, disabling unauthenticated SSH connection or setting up strong authentication mechanisms like public key-based authentication can help in preventing brute force attacks.\n\n3. Detection rule to write: To ensure proper detection of such incidents in the future, it's recommended to craft a detection rule for your security system. This could be structured as follows: \"ALERT SIEM - Unusual network activity. Source IP addresses not present on whitelist, targeting port 22 with high volume and frequency.\"\n\n4. Root cause question: To effectively address the root cause of this attack, it's important to investigate how these unique IP addresses were identified in the first place"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.33,
+          "prompt_tokens": 0,
+          "completion_tokens": 169,
+          "tps": 31.7,
+          "time_to_first_token_s": 0.033,
+          "response_model": "lily-cybersecurity:7b-q4_k_m",
+          "response_text": " 1. Classification: The scenario can be classified as \"Brute Forcing\" under the MITRE ATT&CK tactic ID T1110. specific technique IDs for Brute Forcing are listed in the MITRE ATT&CK matrix such as T1110.20560 (OS Credential Access - Windows Credentials Brute Force).\n\n2. Immediate containment actions: During the first 30 minutes after detecting the brute-force attempts, the immediate steps should be swiftly taken to secure the affected systems and limit potential damage. One appropriate action is to block connections from suspect IPs by updating firewall rules to deny access or restrict it. Additionally, setting up temporary account lockouts can help prevent unauthorized login attempts in progress.\n\n3. Detection rule to write: To create a detection rule capable of capturing these specific events, we should ensure it targets fields related to the SSH (Secure Shell) protocol. A suggested structure could be as follows: IF source IP is any of [specific IPs from 47 IPs] AND destination port is 22 THEN detect this log entry. This rule would allow us to specifically"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "llava:7b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 34.4,
+      "min_tps": 30.5,
+      "max_tps": 40.0,
+      "avg_completion_tokens": 96,
+      "avg_elapsed_s": 2.72,
+      "avg_ttft_s": 0.098,
+      "routed_model": "llava:7b",
+      "prompt_category": "vision",
+      "quality_score": 1.0,
+      "tps_quality": 34.4,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 3.42,
+          "prompt_tokens": 0,
+          "completion_tokens": 112,
+          "tps": 32.8,
+          "time_to_first_token_s": 0.363,
+          "response_model": "llava:7b",
+          "response_text": " 1. OBJECTS: There are no distinct objects visible in the given description as no image has been provided.\n2. TEXT: This is a text-only prompt that describes a framework for analyzing images. It lists types of information that should be included in an analysis, such as objects present, any visible text, the scene setting, any anomalies observed, and the confidence rating for each category.\n3. SCENE: The image provided is not visible; thus, no specific scene can be described.\n4. ANOMALIES: As there is no image to analyze, this section of the prompt is not applicable.\n5. CONFIDENCE: Without any specific visual input, a confidence rating cannot be assigned for this analysis. "
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 183,
+          "tps": 37.1,
+          "time_to_first_token_s": 0.032,
+          "response_model": "llava:7b",
+          "response_text": " OBJECTS: N/A\n\nTEXT: Prompt Template\n\nSCENE: This template provides a structured format for visual analysis, typically involving an image. It helps to identify objects, read text, describe the setting or scene, point out anomalies or irregularities, and provide a confidence rating for each category of analysis.\n\nANOMALIES: Though no actual image is provided here, this section would be used to note anything unusual or unexpected relative to the expected norms for the scene depicted in the image. In the context of the template's instruction format, there may not be anything specifically anomalous within the text-based prompt itself. However, one could say that deviation from the standard English language syntax in the phrase \"This prompt template\" is a technicality rather than an actual anomaly.\n\nCONFIDENCE: Since no image is used here and the focus remains on the analysis framework itself, it might be challenging to accurately rate confidence for non-image analysis. Thus, this section cannot be scored due to insufficient visual information.\n\nSuggestion for Improvement: Adding \"Confidence Interval\" would enhance the overall analysis, as an estimation range could provide more insights on how certain"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.28,
+          "prompt_tokens": 0,
+          "completion_tokens": 39,
+          "tps": 30.5,
+          "time_to_first_token_s": 0.031,
+          "response_model": "llava:7b",
+          "response_text": " 1. TEXT: \"Please provide an image\"\n2. SCENE: The prompt template is for a vision analyst to perform an analysis on an image.\n3. ANOMALIES: None in this case as it is only a text-based prompt.\n4. CONFIDENCE: High "
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 53,
+          "tps": 31.4,
+          "time_to_first_token_s": 0.031,
+          "response_model": "llava:7b",
+          "response_text": " 1. OBJECTS:\n* No objects are visible in this text-only test\n2. TEXT: There is no text visible in this test\n3. SCENE: The prompt itself serves as a setting for providing image analysis information\n4. ANOMALIES: There are no anomalies in this text-only test\n5. CONFIDENCE: High (since there is no image) "
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.3,
+          "prompt_tokens": 0,
+          "completion_tokens": 92,
+          "tps": 40.0,
+          "time_to_first_token_s": 0.032,
+          "response_model": "llava:7b",
+          "response_text": " OBJECTS: None\nTEXT: \"Describe what you see precisely\"\nScene: Not applicable since there is no image provided\nAnomalies: Not applicable since there is no image provided\nConfidence: Non-applicable as no analysis is being performed\nOne improvement to the analysis framework for future use would be to provide clear instructions on how to generate an accurate description of images that are similar to what has been described in the prompt. Additionally, including a weighting system for the certainty levels to each category could be beneficial to evaluate the accuracy of the descriptions provided. "
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.2,
+      "groups": [
+        "vision"
+      ]
+    },
+    {
+      "model": "dolphin-llama3:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 26.4,
+      "min_tps": 23.2,
+      "max_tps": 31.7,
+      "avg_completion_tokens": 76,
+      "avg_elapsed_s": 2.78,
+      "avg_ttft_s": 0.122,
+      "routed_model": "dolphin-llama3:8b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 26.4,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 2.14,
+          "prompt_tokens": 0,
+          "completion_tokens": 53,
+          "tps": 24.8,
+          "time_to_first_token_s": 0.291,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1. Layer 1 - Physical: Transmissions over unguided media (Ethernet).\n   Layer 2 - Data Link: PPP or Ethernet.\n   Layer 3 - Network: IP or ICMP.\n   Layer 4 - Transport: TCP or UDP.\n   Layer 5 - Session: NetBIOS or AppleTalk.\n   Layer 6 - Presentation: MIME or SSL/TLS.\n   Layer 7 - Application: HTTP or SMTP."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.08,
+          "prompt_tokens": 0,
+          "completion_tokens": 101,
+          "tps": 24.7,
+          "time_to_first_token_s": 0.077,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1: Physical\n   - Standard Name: Link Layer\n   - Example Protocol/Technology: Ethernet\n\n2) Layer 2: Data Link\n   - Standard Name: Logical Link Control (LLC)\n   - Example Protocol/Technology: ARP (Address Resolution Protocol)\n\n3) Layer 3: Network\n   - Standard Name: Internet\n   - Example Protocol/Technology: IP (Internet Protocol)\n\n4) Layer 4: Transport\n   - Standard Name: Transmission Control\n   - Example Protocol/Technology: TCP (Transmission Control Protocol)\n\n5) Layer 5: Session\n   - Standard Name: Presentation\n   - Example Protocol/Technology: NetBIOS\n\n6) Layer 6: Presentation\n   - Standard Name: Display\n   - Example Protocol/Technology: JPEG\n\n7) Layer 7: Application\n   - Standard Name: Application\n   - Example Protocol/Technology: HTTP (Hypertext Transfer Protocol)"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.2,
+          "prompt_tokens": 0,
+          "completion_tokens": 133,
+          "tps": 31.7,
+          "time_to_first_token_s": 0.081,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "Layer 1 - Physical (Physical): Example protocols or technologies include Ethernet and Wi-Fi.\nLayer 2 - Data Link (Layer 2): Example protocols or technologies include ARP (Address Resolution Protocol) and PPP (Point-to-Point Protocol).\nLayer 3 - Network (Layer 3): Example protocols or technologies include TCP (Transmission Control Protocol) and IP (Internet Protocol).\nLayer 4 - Transport (Layer 4): Example protocols or technologies include SCTP (Stream Control Transmission Protocol) and UDP (User Datagram Protocol).\nLayer 5 - Session (Layer 5): Example protocols or technologies include NetBIOS (Network Basic Input/Output System) and AppleTalk.\nLayer 6 - Presentation (Layer 6): Example protocols or technologies include SMTP (Simple Mail Transfer Protocol) and MIME (Multipurpose Internet Mail Extensions).\nLayer 7 - Application (Layer 7): Example protocols or technologies include HTTP (Hypertext Transfer Protocol) and FTP (File Transfer Protocol)."
+        },
+        {
+          "run": 4,
+          "elapsed_s": 1.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 29,
+          "tps": 23.2,
+          "time_to_first_token_s": 0.08,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1: Physical\n2) Layer 2: Data Link\n3) Layer 3: Network\n4) Layer 4: Transport\n5) Layer 5: Session\n6) Layer 6: Presentation\n7) Layer 7: Application"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 2.23,
+          "prompt_tokens": 0,
+          "completion_tokens": 62,
+          "tps": 27.8,
+          "time_to_first_token_s": 0.081,
+          "response_model": "dolphin-llama3:8b",
+          "response_text": "1) Layer 1: Physical - Ethernet\n2) Layer 2: Data Link - ARP (Address Resolution Protocol)\n3) Layer 3: Network - IP (Internet Protocol)\n4) Layer 4: Transport - TCP (Transmission Control Protocol)\n5) Layer 5: Session - NetBIOS (Network Basic Input/Output System)\n6) Layer 6: Presentation - MIME (Multipurpose Internet Mail Extensions)\n7) Layer 7: Application - HTTP (Hypertext Transfer Protocol)"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "general",
+        "reasoning",
+        "creative"
+      ]
+    },
+    {
+      "model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 29.2,
+      "min_tps": 25.9,
+      "max_tps": 32.8,
+      "avg_completion_tokens": 167,
+      "avg_elapsed_s": 5.73,
+      "avg_ttft_s": 0.153,
+      "routed_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+      "prompt_category": "security",
+      "quality_score": 0.5,
+      "tps_quality": 14.6,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 153,
+          "tps": 25.9,
+          "time_to_first_token_s": 0.409,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": " (1-2 questions)\n\nHere we go...\n\n1. **Classification:**\n\n   ```plaintext\n   MITRE ATT&CK technique ID:\n   \n   T1078 - Exploiting Remote Services\n   \n   Technique description:\n   The process of attempting to exploit vulnerabilities or misconfigurations in a remote system's services without having first established access.\n  \n   For example:\n   - Attacker uses a known vulnerability for a particular protocol (e.g., SMB, RDP) on target systems.\n        \n   Tactic:\n   Initial Access\n \n   Technique ID:\n   T1078.002\n   \n   Technique description:\n   An attacker connects to the services of remote host via an account. This could be done using plaintext authentication or various forms of brute force.\n  \n   For example:\n   - A web service accepts connections with no password and executes arbitrary code upon connection (e.g., command injection).\n   ```\n\n2. **Immediate Containment Actions:**\n\n   ```plaintext\n   Immediate actions:\n   \n    1. All three servers are isolated from network.\n    \n    2. SSH access is disabled until further notice for these servers.\n    \n    3. SSH logins will be done via VPN only temporarily as a mitigation measure.\n    \n    4. An alert"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.64,
+          "prompt_tokens": 0,
+          "completion_tokens": 182,
+          "tps": 32.3,
+          "time_to_first_token_s": 0.09,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "\n5. Long-term remediation strategy\n\n```mermaid\ngraph TD\nA(SIEM detected) --> B{Repeated SSH brute-force attempts}\nB --> C[47 unique IPs]\nB --> D({over 2 hours})\nB --> E(port 22 on 3 servers in DMZ)\nC --> F[Two IPs are on the CrowdSec community blocklist]\n```\n\n## 1. Classification (MITRE ATT&CK tactic + technique ID)\n\nIdentification (Tactic ID: Initial Access) - Threat actors would not likely spend much time attempting brute-force logins without some positive indicator that they could exploit a vulnerability in a system. This is a reconnaissance activity that might lead to credential theft or initial access, but it alone does not allow further actions.\n\nThe technique ID will vary depending on the success. If multiple users accounts are compromised then you would want to add an Attack group for Credential Access (techniques 1.4 and 3.1)\n\n## 2. Immediate Containment Actions\n\n- Block all traffic from the CrowdSec list in real-time\n- Log events and watchlist suspicious IPs \n- Trigger an alert to security incident response team\n\n30 minutes later:\n\n- Confirm if blocking has stopped brute force attempts. If not, consider"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 156,
+          "tps": 27.4,
+          "time_to_first_token_s": 0.091,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "\n5. Long term prevention measures\n\n---\n\n1. **Classification:**\n   - Tactic: Discovery | Technique: Port Scanning (T1059)\n\n   The company is likely targeting the organization and identifying open ports, potentially finding exposed SSH services.\n\n2. **Immediate Containment Actions:**\n   - Block or rate limit incoming traffic from these IPs using firewalls.\n   - Generate alerts based on anomalous behaviors.\n   - Contact the network operations center to increase monitoring/alerting if needed.\n   - Increase logging for forensic analysis.\n   - Use a web proxy or IDS/IPS to prevent additional scan attempts.\n   - Employ threat intelligence tools to identify known malicious domains.\n\n3. **Detection Rule to Write:**\n   - Alert Name: SSH Brute-Force\n   -\n     ```sql\n     FIELDNAME1 = 0\n     AND EVENTID = \"5033\"\n     AND SOURCEIP IN (\"8.16.10.13\", \"8.20.12.14\")\n     ```\n   -\n     Here is an example of a simple rule using CIDR range matching. In the actual environment, you would use field names and match logic that are relevant.\n   - Log Source: Application\n   - Thresholds: N/A\n\n4. **"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.7,
+          "prompt_tokens": 0,
+          "completion_tokens": 187,
+          "tps": 32.8,
+          "time_to_first_token_s": 0.086,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": ": What's the root cause of CrowdSec's blocklist inclusion for two IPs?\n\nThe response should be organized into points.\n\n1. Classification:\n\n- MITRE ATT&CK tactic:\nTechnique ID 3.123 (Credential Dumping)\n\n- MITRE ATT&CK technique:\nTactic = Lateral Movement\nTechnique ID = T1086\n\n2. Immediate containment actions (first 30 minutes): \n\n- Investigate the IP range and block any known malicious IPs on DMZ firewalls.\n- Rotate SSH server credentials immediately, lock down ports, or consider disabling SSH temporarily.\n\n3. Detection rule to write:\n\nfield: source_ip \nrule: if source_ip in threat intelligence list then alert; else ignore\n\nThis field matches with each attempt from a potential attacker. \n\n4. Root cause question to investigate:\nWhat is the root cause of CrowdSec's blocklist inclusion for two IPs? Is it due to poor cybersecurity hygiene, such as misconfigured devices or bad actors? Alternatively could be that they were already added by another organization or through some automated process, for example an AI/ML model.\n\nYou may need more than one sentence in each case. Make sure your responses are focused on identifying actions and questions as described in the scenario.\n'''\n\n# 1"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.74,
+          "prompt_tokens": 0,
+          "completion_tokens": 159,
+          "tps": 27.7,
+          "time_to_first_token_s": 0.087,
+          "response_model": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+          "response_text": "\n\n### Step 1: Classification\n\n**Classification:**\nTactic: Credential Access\nTechnique ID: TA0075 - Brute Force\n\nThis was an attempt at gaining unauthorized access credentials using brute force.\n\n### Step 2: Immediate Containment Actions\n\n**Immediate Containment Actions:**\n\n- **Network Response:** Immediately block the remaining SSH brute-force attempts by changing port numbers. Use IDS/IPS to monitor network traffic and identify malicious activity.\n- **Sponsor Response:** Escalate this to your Cyber Security team as this is a continued reconnaissance effort that may lead to an escalation of privilege attempt.\n\n### Step 3: Detection Rule\n\n**Detection Rule:**\n\nRules:\n- **SSH Brute Force (Rule 1):**\n  - Alert if there are more than X SSH brute-force attempts in Y time.\n    - Field names should include at least `src_ip`, `dst_ip`, `action_name`\n    - Logic: `where $data['action_name'] = 'ssh' and ($data['src_ip'] > ${X} or $data['dst_ip'] > ${Y})`\n\n- **SSH Brute Force (Rule 2):**\n   - Alert if there are more than X SSH brute-force attempts from the same source IP"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "hermes3:8b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 34.3,
+      "min_tps": 33.0,
+      "max_tps": 35.1,
+      "avg_completion_tokens": 174,
+      "avg_elapsed_s": 5.08,
+      "avg_ttft_s": 0.123,
+      "routed_model": "hermes3:8b",
+      "prompt_category": "creative",
+      "quality_score": 0.5,
+      "tps_quality": 17.1,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.9,
+          "prompt_tokens": 0,
+          "completion_tokens": 168,
+          "tps": 34.3,
+          "time_to_first_token_s": 0.288,
+          "response_model": "hermes3:8b",
+          "response_text": "The neon lights of Memory City blazed overhead, casting an eerie glow on the rain-slicked streets. I sat in my office, cheap whiskey on the rocks by my side, as Mr. Smith \u2014 a man who looked like he'd been ground out by life's cigarette lighter \u2014 handed me his card.\n\n\"Detective Ezra Blackwell,\" he muttered, slamming the card down on my desk. \"I want my wife's memory back.\"\n\nI eyed him suspiciously, noting the desperation in his beady eyes. \"What makes you think I've got the skills for that?\"\n\nMr. Smith reached into his trench coat and produced a small vial filled with shimmering liquid. \"You don't ask questions when you're paying top dollar, Detective.\"\n\nAnd just like that, my world flipped upside-down.\n\nIn Memory City, memories were currency. And somewhere out there \u2014 in the darkness lurking between high-rises and back-alley deals \u2014 someone had taken mine.\n\nBecause as Mr. Smith's words lingered in my mind... It was my wife's memory he'd asked me to retrieve."
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.43,
+          "prompt_tokens": 0,
+          "completion_tokens": 190,
+          "tps": 35.0,
+          "time_to_first_token_s": 0.081,
+          "response_model": "hermes3:8b",
+          "response_text": "Grit clogged my throat as I strolled down Memory Lane, a place where memories were bought, sold, and traded with cold efficiency. In this city of hazy recollections, even forgetting had standards.\n\nThe detective's office was nestled between the whispers of an old bookstore and the pulsing neon of a smoky cabaret. The \"Open\" sign flickered on, inviting trouble\u2014or maybe just me\u2014inside.\n\nI shut the door behind me, letting the city's din fade into silence. Rows of memory vials lined the shelves, each one a potential lead. They hummed with anticipation, echoing conversations I couldn't decipher.\n\nMy client's face appeared in my mind\u2014a mix of desperation and dollar signs\u2014he wanted his wife's betrayal erased, or so he claimed. But as the words left his lips, everything blurred into static, leaving an empty void where my past should have been.\n\nHe blinked, then swallowed hard. \"You've really been...taken?\"\n\n\"Me too,\" I said, letting the realization settle over us like a thick fog.\n\nHis eyes widened, reflecting the neon glow outside. \"Then, Mr.\u2014\"\n\n\"\u2014find it,\" I interrupted, forcing out a wry smile before turning my back. \"And bring it back to me"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.42,
+          "prompt_tokens": 0,
+          "completion_tokens": 190,
+          "tps": 35.1,
+          "time_to_first_token_s": 0.083,
+          "response_model": "hermes3:8b",
+          "response_text": "The neon-soaked streets of Retrograde City pulsed with a sickly blue glow. Smokestacks belched acrid fumes into the sky as I made my way down the cracked sidewalk. My worn leather trenchcoat flapped in the stale summer breeze.\n\nI sighed, my breath fogging against the chemical tang. Another day, another memory to hunt. But this job...it gnarled my gut like a swarm of locusts on a parched field. Because the memory they wanted back? It was mine.\n\nYeah, I'd gotten my hands dirty once too often years ago, and some jerk had recorded the whole thing. Now that little data chip was worth more than any bank heist in history\u2014or at least, that's what I told myself as we haggled like second-hand merchants over a stolen gem. \n\nAs if sensing my distraction, my client smirked, lips glistening with minty foam from his silver toothbrush of a cigarette. \"So you think this is some kind of joke?\" His voice was sandpaper and venom. \n\nI met his gaze coolly, hands in my pockets like an underworld peacemaker. \"You hired me, Mac. But if you want to waste your money\u2014\"\n\nColor me stupid;"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 4.21,
+          "prompt_tokens": 0,
+          "completion_tokens": 139,
+          "tps": 33.0,
+          "time_to_first_token_s": 0.079,
+          "response_model": "hermes3:8b",
+          "response_text": "Fog thick as wool muffled the city's face, obfuscating the gray towers that clawed at the night sky. The streetlamps blinked like tired eyelids\u2014barely keeping watch over the rain-slick asphalt. A solitary figure stepped from the shadows of an alley onto Delaney Boulevard, collar turned up against the raw October gusts.\n\n\"Detective Lysander?\" came a voice too smooth to belong to this place of damp concrete and rusted metal. The man extended an unsteady hand wreathed in cigarette smoke\u2014thin lines that snaked upwards like lazy serpents aiming for heaven's gates. \"My name is Remy, Mr. Remy. I've got your case.\"\n\nHook: Lysander's blood ran cold as he met the eyes offering a deal from Remy's gaunt face\u2014a deal for something he realized, with heart-stopping clarity, that he wanted back more than anything in this world of secrets and scars."
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.44,
+          "prompt_tokens": 0,
+          "completion_tokens": 185,
+          "tps": 34.0,
+          "time_to_first_token_s": 0.083,
+          "response_model": "hermes3:8b",
+          "response_text": "Tiffany lights up like a Christmas tree when she sees me walk through the door of Memory Alley. Her synthetic nails tap against the metal desk as she tosses her long, dyed-blond hair. \"Detective,\" she purrs, \"back for more memories, eh?\"\n\nI slide into the creaky chair across from her and let out a breath heavy with cigarette smoke. \"Heard you got a new gig, Tiff.\"\n\nHer eyes flash with excitement. \"You heard right, dollface. High-profile case landed on my desk, but it'll require an investigator of your... particular set of skills.\" She leans in close enough to trail her perfumed aura up my nose.\n\n\"So spill - what's the job?\"\n\nShe grins, revealing perfectly straight teeth made possible by advances in dentistry that I couldn't afford. \"The owner of Memory Alley lost something precious, something he's willing to pay handsomely for it back.\"\n\nI tilt my head, studying Tiffany with squinted eyes. \"And lemme guess - this ain't no ordinary purloined peculiarity, is it? His memory got took.\"\n\nHer smile falters for a millisecond before she schools her features back into place. \"Precisely. Except"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 4.8,
+      "groups": [
+        "creative"
+      ]
+    },
+    {
+      "model": "qwen3.5:9b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 0.0,
+      "min_tps": 0.0,
+      "max_tps": 0.0,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 10.33,
+      "avg_ttft_s": null,
+      "routed_model": "qwen3.5:9b",
+      "prompt_category": "coding",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 10.21,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "qwen3.5:9b",
+          "response_text": ""
+        },
+        {
+          "run": 2,
+          "elapsed_s": 10.24,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "qwen3.5:9b",
+          "response_text": ""
+        },
+        {
+          "run": 3,
+          "elapsed_s": 10.56,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "qwen3.5:9b",
+          "response_text": ""
+        },
+        {
+          "run": 4,
+          "elapsed_s": 10.35,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "qwen3.5:9b",
+          "response_text": ""
+        },
+        {
+          "run": 5,
+          "elapsed_s": 10.31,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "qwen3.5:9b",
+          "response_text": ""
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 5.4,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.4,
+      "min_tps": 24.8,
+      "max_tps": 37.0,
+      "avg_completion_tokens": 145,
+      "avg_elapsed_s": 4.69,
+      "avg_ttft_s": 0.2,
+      "routed_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+      "prompt_category": "coding",
+      "quality_score": 0.83,
+      "tps_quality": 26.1,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.44,
+          "prompt_tokens": 0,
+          "completion_tokens": 160,
+          "tps": 36.0,
+          "time_to_first_token_s": 0.76,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merge overlapping intervals from a list of tuples where each tuple is a pair of integers representing a start and end value.\n    \n    Args:\n        intervals (list of tuple): A list of intervals represented as pairs of integers.\n        \n    Returns:\n        list of tuple: A new list with merged intervals.\n    \n    Algorithm:\n    1. Sort the intervals based on the start time.\n    2. Initialize an empty result list and a variable for the current interval (start, end).\n    3. Iterate over each interval in sorted order:\n        - If the current interval overlaps with the next one, merge them by updating the end of the current interval.\n        - If not, add the current interval to the result list and update the current interval to the next interval.\n    4. After the loop, add the last interval to the result list.\n    5. Return the merged intervals.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals based on the start time\n    intervals.sort(key=lambda x: x[0])\n    \n    merged = []\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.78,
+          "prompt_tokens": 0,
+          "completion_tokens": 140,
+          "tps": 37.0,
+          "time_to_first_token_s": 0.051,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merges overlapping intervals in a list of tuples.\n    \n    Args:\n        intervals (list of tuple): A list of integer pairs representing start and end values.\n        \n    Returns:\n        list of tuple: A new list with merged intervals.\n    \n    Algorithm:\n        1. Sort the intervals based on the start value.\n        2. Initialize an empty result list to store the merged intervals.\n        3. Iterate through each interval in the sorted list, and merge it if necessary.\n        4. If the current interval starts before the last added interval in the result list, merge them by updating the end of the last added interval.\n        5. Otherwise, add the current interval to the result list.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals based on the start value\n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    \n    merged_intervals = [sorted_intervals[0]]\n    \n    for current in sorted_intervals[1:]:\n        last = merged_intervals[-1]\n        if current"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.41,
+          "prompt_tokens": 0,
+          "completion_tokens": 124,
+          "tps": 28.1,
+          "time_to_first_token_s": 0.055,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merge overlapping intervals from a list of tuples.\n    \n    Args:\n        intervals (List[Tuple[int, int]]): List of integer intervals where each interval is represented by a tuple (start, end).\n    \n    Returns:\n        List[Tuple[int, int]]: A new list with merged overlapping intervals.\n        \n    Algorithm:\n    1. Sort the intervals based on the start time.\n    2. Initialize an empty list to store the merged intervals.\n    3. Iterate through each interval in sorted order.\n    4. If the current interval overlaps with the last added interval, update the end of the last added interval.\n    5. If it doesn't overlap, add it to the result list.\n    6. Return the result list.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    intervals.sort(key=lambda x: x[0])\n    merged = [intervals[0]]\n    \n    for current_start, current_end in intervals[1:]:\n        last_merged_start, last_merged_end = merged[-1"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.2,
+          "prompt_tokens": 0,
+          "completion_tokens": 161,
+          "tps": 31.0,
+          "time_to_first_token_s": 0.063,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merge overlapping intervals from a list of tuples.\n    \n    The function takes a list of integer pairs representing start and end values\n    of intervals, merges overlapping intervals, and returns a new list with merged intervals.\n    \n    Args:\n        intervals (list of tuple): List of intervals where each interval is represented as a pair of integers.\n        \n    Returns:\n        list of tuple: A new list of merged intervals.\n    \n    Algorithm:\n    1. Sort the intervals based on their start times.\n    2. Initialize an empty list to store the merged intervals.\n    3. Iterate through each interval in sorted order, and merge them if necessary.\n    4. If the current interval overlaps with the last added one (i.e., end of previous >= start of current), \n       update the end of the last added interval to max(end of prev, end of cur).\n    5. Otherwise, add the current interval as it is not overlapping.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals based on their start times\n    intervals = sorted(intervals)"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.6,
+          "prompt_tokens": 0,
+          "completion_tokens": 139,
+          "tps": 24.8,
+          "time_to_first_token_s": 0.072,
+          "response_model": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+          "response_text": " ```python\ndef merge_intervals(intervals):\n    \"\"\"\n    Merge overlapping intervals in a list of tuples where each tuple contains start and end values.\n    \n    Args:\n        intervals (list of tuple): A list of integer pairs representing intervals.\n        \n    Returns:\n        list of tuple: A new list with merged intervals.\n        \n    Algorithm:\n    1. Sort the intervals based on the start value of each interval.\n    2. Initialize an empty list to store non-overlapping intervals.\n    3. Iterate through the sorted intervals and merge them if necessary.\n    4. If the current interval's start is less than or equal to the last merged interval's end, merge them by updating the end of the last merged interval.\n    5. Otherwise, add the current interval to the list of non-overlapping intervals.\n    \"\"\"\n    if not intervals:\n        return []\n    \n    sorted_intervals = sorted(intervals, key=lambda x: x[0])\n    merged = [sorted_intervals[0]]\n    \n    for current in sorted_intervals[1:]:\n        last = merged[-1]\n        if current[0]"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 9.6,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "gpt-oss:20b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 0.0,
+      "min_tps": 0.0,
+      "max_tps": 0.0,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 5.1,
+      "avg_ttft_s": null,
+      "routed_model": "gpt-oss:20b",
+      "prompt_category": "reasoning",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.29,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "gpt-oss:20b",
+          "response_text": ""
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.03,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "gpt-oss:20b",
+          "response_text": ""
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.05,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "gpt-oss:20b",
+          "response_text": ""
+        },
+        {
+          "run": 4,
+          "elapsed_s": 5.08,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "gpt-oss:20b",
+          "response_text": ""
+        },
+        {
+          "run": 5,
+          "elapsed_s": 5.07,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "gpt-oss:20b",
+          "response_text": ""
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 12.0,
+      "groups": [
+        "reasoning"
+      ]
+    },
+    {
+      "model": "devstral:24b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 8.9,
+      "min_tps": 7.7,
+      "max_tps": 10.0,
+      "avg_completion_tokens": 154,
+      "avg_elapsed_s": 17.44,
+      "avg_ttft_s": 0.381,
+      "routed_model": "devstral:24b",
+      "prompt_category": "coding",
+      "quality_score": 0.83,
+      "tps_quality": 7.4,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 18.03,
+          "prompt_tokens": 0,
+          "completion_tokens": 138,
+          "tps": 7.7,
+          "time_to_first_token_s": 1.381,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge a list of overlapping intervals.\n\n    Algorithm Explanation:\n    1. First, sort the intervals by their start value.\n    2. Then, iterate through the sorted intervals:\n       - For each interval, if it overlaps with the previous one,\n         merge them into a single interval (update end to max of both ends).\n       - If it doesn't overlap, add the current interval to the result list.\n\n    Args:\n        intervals: List of tuples representing intervals (start, end)\n\n    Returns:\n        List of merged intervals\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort intervals by start value\n    intervals.sort()\n\n    merged = [intervals[0]]\n    for current in intervals[1:]:\n        last_merged = merged[-1]\n        if current[0] <= last_merged[1]:  # Overlapping intervals\n            # Merge with the previous interval by updating end value\n            last_index = len(merged) - 1\n            merged[last_index] = (last_merged[0], max"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 17.47,
+          "prompt_tokens": 0,
+          "completion_tokens": 136,
+          "tps": 7.8,
+          "time_to_first_token_s": 0.127,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n\n    The algorithm follows these steps:\n    1. If the input list is empty or has only one interval, return it as is.\n    2. Sort the intervals based on their start times.\n    3. Iterate through the sorted intervals and merge them if they overlap.\n    4. Return the merged list of intervals.\n\n    :param intervals: List of tuples where each tuple represents an interval with a start and end value\n    :return: A list of merged intervals\n    \"\"\"\n    if not intervals:\n        return []\n\n    # Sort the intervals based on the starting point\n    intervals.sort(key=lambda x: x[0])\n\n    merged = [intervals[0]]\n    for current in intervals[1:]:\n        last_merged = merged[-1]\n        if current[0] <= last_merged[1]:  # Overlapping intervals\n            merged[-1] = (last_merged[0], max(last_merged[1], current[1]))\n        else:\n            merged.append"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 17.46,
+          "prompt_tokens": 0,
+          "completion_tokens": 174,
+          "tps": 10.0,
+          "time_to_first_token_s": 0.132,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n\n    This function takes a list of intervals where each interval is represented as a tuple (start, end).\n    It merges the intervals that overlap and returns a new list of merged intervals sorted by start time.\n\n    Algorithm Explanation:\n    1. If the input list is empty or contains only one interval, return it as is.\n    2. Sort the intervals based on the starting value.\n    3. Iterate through the sorted intervals and merge them if they overlap:\n        - Compare each interval with the last one in merged_intervals list.\n        - If they overlap, update the end of the last interval to be the maximum end of the overlapping intervals.\n        - If they don't overlap, add the current interval to the merged_intervals list.\n\n    Edge cases handled:\n    - Empty input list\n    - Single interval in the list\n    - Fully overlapping intervals\n\n    Args:\n    intervals: List[Tuple[int, int]] - A list of tuples where each tuple is an interval (start, end"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 17.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 9.6,
+          "time_to_first_token_s": 0.134,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merges overlapping intervals from a list of intervals.\n\n    The function sorts the input intervals by their start time and then iteratively merges them\n    if they overlap. If the current interval overlaps with the last interval in the result list,\n    it's merged; otherwise, it's added as a new interval to the result.\n\n    Args:\n        intervals (List[Tuple[int, int]]): A list of tuples where each tuple represents an interval\n                                           with start and end values.\n\n    Returns:\n        List[Tuple[int, int]]: A list of merged intervals.\n\n    Algorithm explanation:\n    1. Sort the input intervals based on their start times.\n    2. Initialize a result list to store merged intervals.\n    3. Iterate through each interval in sorted order:\n       - If the current interval overlaps with the last interval in the result, merge them.\n       - If they don't overlap, append the current interval to the result list.\n\n    Edge cases handled:\n    - Empty input list returns an empty list.\n    - A single interval returns a"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 16.99,
+          "prompt_tokens": 0,
+          "completion_tokens": 158,
+          "tps": 9.3,
+          "time_to_first_token_s": 0.129,
+          "response_model": "devstral:24b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(Intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals from a collection.\n\n    Algorithm:\n    1. Sort the intervals based on starting times.\n    2. Initialize an empty list to store merged intervals.\n    3. Iterate through the sorted intervals.\n       - If the current interval does not overlap with the last interval in merged list, add it as is.\n       - Otherwise, merge them by updating the end time of the last interval in merged list.\n\n    This approach ensures that all overlapping intervals are combined into continuous ranges.\n\n    Args:\n        Intervals (List[Tuple[int, int]]): A list of tuples representing intervals with start and end values\n\n    Returns:\n        List[Tuple[int, int]]: A new list with all overlapping intervals merged\n    \"\"\"\n    if not Intervals:\n        return []\n\n    # Sort intervals based on the first element of each tuple\n    intervals = sorted(Intervals)\n\n    merged = [intervals[0]]\n    for current in intervals:\n        last_merged = merged[-1]\n        # If there's an overlap between the current interval and the"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "dolphin3-r1-mistral:24b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 10.0,
+      "min_tps": 9.0,
+      "max_tps": 10.6,
+      "avg_completion_tokens": 165,
+      "avg_elapsed_s": 16.38,
+      "avg_ttft_s": 0.342,
+      "routed_model": "dolphin3-r1-mistral:24b-q4_k_m",
+      "prompt_category": "security",
+      "quality_score": 0.33,
+      "tps_quality": 3.3,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 16.93,
+          "prompt_tokens": 0,
+          "completion_tokens": 180,
+          "tps": 10.6,
+          "time_to_first_token_s": 1.222,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m",
+          "response_text": "<think>\nOkay, let's break this down. The user wants me to analyze a scenario where a company's SIEM detected repeated SSH brute-force attempts from 47 unique IPs over two hours targeting port 22 on three servers in the DMZ. Two of those IPs are on the CrowdSec community blocklist.\n\nFirst, for the classification part, I need to map this attack to MITRE ATT&CK tactics and techniques. Brute-force attacks on SSH are pretty common. MITRE ATT&CK's \"Brute Force\" tactic (CTA-01) comes to mind. The technique here would be T09 (Subvert Security Controls), specifically targeting credentials. Maybe also T023 (Bypass Authentication), since they're trying to guess passwords.\n\nNext, immediate containment actions. The first 30 minutes are critical. I should think about what quick steps can block the attack without causing disruption. Blocking the malicious IPs via the firewall or network controls would be a top priority. Also, checking if any credentials were compromised and changing them immediately if possible. Maybe isolating the affected servers to prevent lateral movement.\n\nFor the detection rule, I need to capture the specifics: the source IPs, port "
+        },
+        {
+          "run": 2,
+          "elapsed_s": 16.0,
+          "prompt_tokens": 0,
+          "completion_tokens": 164,
+          "tps": 10.2,
+          "time_to_first_token_s": 0.123,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m",
+          "response_text": "<think>\nOkay, let me try to work through this scenario step by step. The user wants me to act as a cybersecurity analyst and analyze the given situation where a company's SIEM detected repeated SSH brute-force attempts from 47 unique IPs over two hours targeting port 22 on three servers in the DMZ. Two of those IPs are on the CrowdSec community blocklist.\n\nFirst, for the classification part, I need to map this activity to MITRE ATT&CK tactics. Brute-force attacks on SSH typically fall under the tactic of Initial Access, specifically the technique T00198 or maybe T00236 if it's part of a larger campaign. But I remember that MITRE ATT&CK's T00198 is about compromised credentials, whereas T00236 is more about cloud services. Wait, no, T00198 is brute-force attacks, right? Because brute-force is about trying multiple combinations to gain access. So the tactic would be Initial Access, and technique T00198. Also, since they're using unique IPs, that might involve subterfuge (T00244) or network service abuse.\n\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 16.37,
+          "prompt_tokens": 0,
+          "completion_tokens": 148,
+          "tps": 9.0,
+          "time_to_first_token_s": 0.12,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m",
+          "response_text": "<think>\nHere's a thinking process to arrive at the answer:\n\n1. **Understand the Scenario:**  Break down the key information.\n    * **Event:** Repeated SSH brute-force attempts.\n    * **Source:** 47 unique IPs, seemingly external (DMZ).\n    * **Target:** 3 servers in DMZ, specifically port 22 (SSH).\n    * **Timeframe:** Over 2 hours.\n    * **Indicators:** CrowdSec blocklist IPs.\n\n2. **Initial Assessment - Is it an Attack?** Yes, repeated brute-force attempts on SSH are strong indicators of malicious activity. The use of DMZ servers as targets and the presence of IPs on a blocklist further supports this.\n\n3. **Frameworks for Cybersecurity Analysis:**  Think about relevant frameworks for cybersecurity analysis.\n    * **MITRE ATT&CK:**  This is explicitly requested, so it's crucial.  Think about the MITRE ATT&CK framework's categories (Tactics, Techniques, Procedures, Tools). Tactic and Technique are specifically asked for.\n    * **Cybersecurity Frameworks in general:**  Consider broader context -  incident response, threat hunting, defense in depth. This"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 16.34,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 10.2,
+          "time_to_first_token_s": 0.123,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m",
+          "response_text": "<think>\nOkay, let's tackle this scenario. The user wants a structured response from a cybersecurity analyst's perspective using specific frameworks like MITRE ATT&CK.\n\nFirst, the incident involves repeated SSH brute-force attacks from 47 unique IPs within two hours targeting port 22 on three DMZ servers. Two of those IPs are already on CrowdSec's blocklist. \n\nFor classification using MITRE ATT&CK, I need to identify the tactic and technique. Brute-force attacks are typically under the Initial Access category. The technique here is probably \"Brute Force Attacks\" which is MITRE ATT&CK 2305-1. Maybe more specifically, sub-technique like 2305-1.Brute Force Attack on a Local Account.\n\nImmediate containment actions within 30 minutes: block the IPs, check if port 22 is open in DMZ, monitor logs for other ports, and change DMZ passwords. Also, alert the SOC and update the access list in firewall configurations.\n\nDetection rule example: the rule should trigger on repeated SSH attempts from single IPs, possibly tracking failed login attempts, source IPs, and destination servers. So a SYN"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 16.25,
+          "prompt_tokens": 0,
+          "completion_tokens": 166,
+          "tps": 10.2,
+          "time_to_first_token_s": 0.12,
+          "response_model": "dolphin3-r1-mistral:24b-q4_k_m",
+          "response_text": "<think>\nOkay, let's tackle this scenario step by step. The user wants me to act as a cybersecurity analyst and analyze the given situation using MITRE ATT&CK tactics. \n\nFirst, I need to recall MITRE ATT&CK framework to identify the correct tactic and technique. The scenario involves repeated SSH brute-force attacks from multiple IPs targeting port 22 on servers in the DMZ. Brute-force attacks are common, so that should map to a specific tactic.\n\nLooking at MITRE ATT&CK, Common Weaponized Payloads (CWP) might be relevant here. But wait, CWP is more about exploiting known vulnerabilities. Alternatively, maybe Initial Access is involved because the attacker is trying to gain entry. Wait, no\u2014brute-force is part of the Initial Access phase? Or perhaps it's under Infiltration Techniques?\n\nWait, MITRE ATT&CK has different categories. Let me think again. The Tactics are broader like Infiltration, Lateral Movement, etc. Techniques are more specific. Brute-force attacks under initial access. So maybe Tactic: Initial Access, Technique: Brute Force (CWP-XXXX?). Alternatively, CWP-01: Massive Collection of Cred"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 14.4,
+      "groups": [
+        "security"
+      ]
+    },
+    {
+      "model": "supergemma4-26b-uncensored:q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 0.0,
+      "min_tps": 0.0,
+      "max_tps": 0.0,
+      "avg_completion_tokens": 0,
+      "avg_elapsed_s": 4.79,
+      "avg_ttft_s": null,
+      "routed_model": "supergemma4-26b-uncensored:q4_k_m",
+      "prompt_category": "reasoning",
+      "quality_score": 0.0,
+      "tps_quality": 0.0,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.01,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m",
+          "response_text": ""
+        },
+        {
+          "run": 2,
+          "elapsed_s": 4.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m",
+          "response_text": ""
+        },
+        {
+          "run": 3,
+          "elapsed_s": 4.75,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m",
+          "response_text": ""
+        },
+        {
+          "run": 4,
+          "elapsed_s": 4.75,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m",
+          "response_text": ""
+        },
+        {
+          "run": 5,
+          "elapsed_s": 4.73,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "tps": 0.0,
+          "time_to_first_token_s": null,
+          "response_model": "supergemma4-26b-uncensored:q4_k_m",
+          "response_text": ""
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 17.0,
+      "groups": [
+        "reasoning"
+      ]
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 31.0,
+      "min_tps": 30.3,
+      "max_tps": 31.4,
+      "avg_completion_tokens": 124,
+      "avg_elapsed_s": 4.01,
+      "avg_ttft_s": 0.127,
+      "routed_model": "qwen3-coder:30b",
+      "prompt_category": "coding",
+      "quality_score": 0.83,
+      "tps_quality": 25.7,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 4.26,
+          "prompt_tokens": 0,
+          "completion_tokens": 129,
+          "tps": 30.3,
+          "time_to_first_token_s": 0.38,
+          "response_model": "qwen3-coder:30b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Algorithm:\n    1. Handle edge cases: empty list or single interval\n    2. Sort intervals by start time\n    3. Iterate through sorted intervals, merging overlapping ones:\n       - If current interval starts before or at the end of previous interval,\n         merge them by extending the end time\n       - Otherwise, add the previous interval to result and start new one\n    4. Add the last interval to result\n    \n    Time complexity: O(n log n) due to sorting\n    Space complexity: O(1) excluding output space\n    \n    Args:\n        intervals: List of tuples where each tuple represents [start, end] interval\n        \n    Returns:\n        List of merged non-overlapping intervals\n        \n    Examples:\n        >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n        [(1, 6), (8, 10), (15, 18)]\n        >>> merge_intervals([(1,4),(4,5)])\n        [(1"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 3.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 123,
+          "tps": 31.2,
+          "time_to_first_token_s": 0.062,
+          "response_model": "qwen3-coder:30b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. An interval overlaps with the previous one if its start is <= previous end\n    4. When merging, the new end is the maximum of the two ends\n    5. Add merged intervals to result list\n    \n    Time Complexity: O(n log n) due to sorting\n    Space Complexity: O(1) excluding output space\n    \n    Args:\n        intervals: List of tuples where each tuple represents [start, end]\n        \n    Returns:\n        List of merged non-overlapping intervals\n        \n    Examples:\n        >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n        [(1, 6), (8, 10), (15, 18)]\n        >>> merge_intervals([(1,4),(4,5)])\n        [(1, 5)]\n        >>> merge_intervals([])\n        []\n    \"\"\"\n    if not intervals"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 3.94,
+          "prompt_tokens": 0,
+          "completion_tokens": 123,
+          "tps": 31.2,
+          "time_to_first_token_s": 0.065,
+          "response_model": "qwen3-coder:30b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. An interval overlaps with the previous one if its start is <= previous end\n    4. When merging, extend the end time to the maximum of both intervals\n    \n    Time complexity: O(n log n) due to sorting\n    Space complexity: O(1) excluding output space\n    \n    Args:\n        intervals: List of tuples representing intervals as (start, end)\n        \n    Returns:\n        List of merged non-overlapping intervals\n        \n    Examples:\n        >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n        [(1, 6), (8, 10), (15, 18)]\n        >>> merge_intervals([(1,4),(4,5)])\n        [(1, 5)]\n        >>> merge_intervals([])\n        []\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals by start time"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 3.96,
+          "prompt_tokens": 0,
+          "completion_tokens": 123,
+          "tps": 31.0,
+          "time_to_first_token_s": 0.067,
+          "response_model": "qwen3-coder:30b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Algorithm:\n    1. Sort intervals by start time\n    2. Iterate through sorted intervals, merging overlapping ones\n    3. An interval overlaps with the previous one if its start is less than or equal to \n       the previous interval's end\n    4. When merging, extend the end time to the maximum of both intervals\n    5. Add non-overlapping intervals directly to result\n    \n    Time complexity: O(n log n) due to sorting\n    Space complexity: O(1) excluding output space\n    \n    Args:\n        intervals: List of tuples where each tuple represents [start, end] interval\n        \n    Returns:\n        List of merged non-overlapping intervals\n        \n    Examples:\n        >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n        [(1, 6), (8, 10), (15, 18)]\n        >>> merge_intervals([(1,4),(4,5)])\n        [(1, 5)]"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 3.95,
+          "prompt_tokens": 0,
+          "completion_tokens": 124,
+          "tps": 31.4,
+          "time_to_first_token_s": 0.059,
+          "response_model": "qwen3-coder:30b",
+          "response_text": "```python\ndef merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of tuples.\n    \n    Algorithm:\n    1. Handle edge cases: empty list or single interval\n    2. Sort intervals by start time\n    3. Iterate through sorted intervals, merging overlapping ones\n    4. An interval overlaps with the previous one if its start is <= previous end\n    5. When merging, extend the end of the previous interval to the maximum of both ends\n    \n    Time Complexity: O(n log n) due to sorting\n    Space Complexity: O(1) excluding output space\n    \n    Args:\n        intervals: List of tuples where each tuple represents [start, end] of an interval\n        \n    Returns:\n        List of merged non-overlapping intervals\n        \n    Examples:\n        >>> merge_intervals([(1,3),(2,6),(8,10),(15,18)])\n        [(1, 6), (8, 10), (15, 18)]\n        >>> merge_intervals([(1,4),(4,5)])\n        [(1, 5)]\n        >>> merge_intervals([])\n        []\n    \"\"\"\n    if"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 18.0,
+      "groups": [
+        "coding"
+      ]
+    },
+    {
+      "model": "deepseek-r1:32b-q4_k_m",
+      "label": "ollama-direct",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 6.7,
+      "min_tps": 5.8,
+      "max_tps": 7.7,
+      "avg_completion_tokens": 158,
+      "avg_elapsed_s": 23.68,
+      "avg_ttft_s": 0.389,
+      "routed_model": "deepseek-r1:32b-q4_k_m",
+      "prompt_category": "security",
+      "quality_score": 0.83,
+      "tps_quality": 5.6,
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 24.13,
+          "prompt_tokens": 0,
+          "completion_tokens": 141,
+          "tps": 5.8,
+          "time_to_first_token_s": 1.386,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Longer-term controls/monitoring\n\nResponse should be concise, using proper terminology.\n</think>\n\n### 1. **Classification (MITRE ATT&CK Tactic + Technique ID)**  \nThis activity aligns with MITRE ATT&CK Tactic: Initial Access (TA0001) and Technique: Brute Force (T1625), where attackers attempt to compromise servers via SSH through repeated credential guessing.\n\n### 2. **Immediate Containment Actions (First 30 Minutes)**  \n- Block the identified IPs at the firewall ingress point to prevent ongoing attempts.\n- Temporarily disable SSH access on port 22 and consider\u542f\u7528SSH\u7684\u53cc\u56e0\u7d20\u8ba4\u8bc1\uff08MFA\uff09if not already in place.\n- Inspect the affected servers for signs of unauthorized access or compromised credentials.\n\n### 3. **Detection Rule to Write (Field Names + Logic)**  \n``` \n sourcetype=\"SIEM_logs\"  \n port=22  \n action=sshd  \n status=failure  \n event_type=authentication  \n | stats count by source_ip,dest_port  \n | where count >=50 within 1h  \n```\nThis rule alerts on high volumes of failed SSH attempts (e.g., >50 in an hour) to identify"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 23.99,
+          "prompt_tokens": 0,
+          "completion_tokens": 163,
+          "tps": 6.8,
+          "time_to_first_token_s": 0.142,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Additional detection capabilities needed (beyond current SIEM)\n\nAlso, include one helpful resource link.\n</think>\n\n### Scenario Analysis: Brute-force SSH Attacks on DMZ Servers  \n**Classification:**  \n- **MITRE ATT&CK Tactic:** The attackers are attempting unauthorized access using brute-force methods, aligning with the **Initial Access** tactic (T1078). Specifically, the technique used is **Automated Account Enumeration**, technique ID **T1426.**\n\n### Immediate Containment Actions:  \n- **Immediate Steps (First 30 Minutes):**\n   - Temporarily disable SSH access on port 22 for the affected DMZ servers to stop ongoing attempts.\n   - Implement rate limiting or fail2ban rules on firewalls to block repeated connections from the same IP addresses.\n   - Review server logs and assess if any breaches have occurred.\n\n### Detection Rule:  \n- **Rule Description:** To detect brute-force SSH attempts, a rule can be written to monitor for multiple failed login attempts originating from unique IPs. The detection criteria should include fields such as `sourceIP`, `destinationPort`, `eventID` (for authentication failures), and possibly `username` patterns.\n   - **Fields and Logic Example:**\n      -"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 24.09,
+          "prompt_tokens": 0,
+          "completion_tokens": 185,
+          "tps": 7.7,
+          "time_to_first_token_s": 0.14,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Mitigation recommendations for preventing recurrence\n6. SIEM analytics (types of data sources, any relevant log fields, timeline visualization)\n\nMake sure to provide clear and actionable answers.\n\nOkay, so I need to analyze this scenario where a company's SIEM detected repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Out of these, two IPs are already blocked by CrowdSec. The user wants a structured response addressing six items: classification (MITRE ATT&CK), immediate containment actions, detection rule writing, root cause questions, mitigation recommendations, and SIEM analytics.\n\nFirst off, for classification using MITRE ATT&CK, I'm thinking the main tactics here are probably Initial Access and maybeCredential Stuffing or Brute Force. The technique could be T1078.004 - Brute Force: SSH. Because they're brute-forcing SSH credentials to gain access.\n\nMoving on to immediate containment actions within 30 minutes, blocking those two IPs from the blocklist is essential. Perhaps add them to a firewall or use an intrusion prevention system (IPS). Also, monitoring traffic for more attempts and maybe implementing rate limiting on the servers to slow down brute"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 23.33,
+          "prompt_tokens": 0,
+          "completion_tokens": 157,
+          "tps": 6.7,
+          "time_to_first_token_s": 0.139,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n\nMake sure the scenario doesn't include any internal or real-world company info.\n</think>\n\n### Structured Response to SSH Brute-Force Scenario\n\n#### **1. Classification (MITRE ATT&CK Tactic + Technique ID)**\n**Tactic:** Exploitation of Remote Services  \n**Technique:** [Initial Access - Brute Force - T1607](https://attack.mitre.org/techniques/T1607/)  \n\nThe scenario involves unauthorized access attempts via SSH on port 22, which aligns with MITRE ATT&CK's **T1607**, *Brute Force*. This technique aims to compromise credentials by testing combinations of usernames and passwords at scale.\n\n#### **2. Immediate Containment Actions (First 30 Minutes)**\n- **Block IPs:** Temporarily block the identified 47 unique IPs, especially focusing on the two already flagged in CrowdSec\u2019s blocklist.\n- **Rate Limiting:** Implement rate limiting on SSH access to prevent excessive login attempts from the same source.\n- **Log Analysis:** Review logs for successful brute-force attempts or lateral movement indicators.\n\nThese actions aim to halt ongoing attacks and limit potential breaches during investigation.\n\n#### **3. Detection Rule to Write (Field Names +"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 22.86,
+          "prompt_tokens": 0,
+          "completion_tokens": 144,
+          "tps": 6.3,
+          "time_to_first_token_s": 0.139,
+          "response_model": "deepseek-r1:32b-q4_k_m",
+          "response_text": "\n5. Prevention measures for ongoing defense\n6. Monitoring recommendations\n7. Key indicators of compromise\n</think>\n\n1. **Classification**  \n   - **MITRE ATT&CK Tactic**: Initial Access (TA0001)  \n   - **Technique ID**: SSH Brute Force (T1192.003)  \n\n   The activity involves unauthorized attempts to access systems using brute-force methods targeting SSH credentials, which is a common initial access vector for attackers.\n\n2. **Immediate Containment Actions**  \n   - Block the identified 47 IPs at the network perimeter to prevent further attempts.  \n   - Temporarily disable SSH access or implement rate limiting on port 22 to mitigate ongoing attacks.  \n   - Review logs from the DMZ servers and SIEM for any signs of successful breaches, such as unauthorized logins.\n\n3. **Detection Rule**  \n   Fields:\u6e90IP, \u7aef\u53e3\u53f7 (Port), \u65f6\u95f4\u6233 (Timestamp), \u767b\u5f55\u5c1d\u8bd5\u6b21\u6570 (Login Attempt Count)  \n   Logic: COUNT(\u767b\u5f55\u5c1d\u8bd5) > 10 FROM \u6e90IP OVER 5\u5206\u949f, AND Port IN [22], \u548c\u5730\u7406\u4f4d\u7f6e\u68c0\u6d4b  \n\n   Write a rule that triggers an alert if there are more than"
+        }
+      ],
+      "backend": "ollama",
+      "path": "direct",
+      "available": true,
+      "est_memory_gb": 19.2,
+      "groups": [
+        "security",
+        "reasoning"
+      ]
+    }
+  ]
+}
