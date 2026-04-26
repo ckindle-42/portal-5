@@ -718,10 +718,19 @@ async def _wait_for_completion(
     while True:
         elapsed = time.time() - t_start
 
-        # Check if stop button disappeared → stream finished
-        if stop_seen and not await _stop_button_visible(page):
+        # Re-check stop button each poll — Phase 1 may have used the "text growing"
+        # fallback path (stop_seen=False). If the stop button appears during Phase 2
+        # (model started proper streaming after initial text growth), update stop_seen
+        # and reset stable_count so the DOM stable gate works correctly.
+        if await _stop_button_visible(page):
+            if not stop_seen:
+                stop_seen = True
+                stable_count = 0
+                _log("stop button appeared in Phase 2 — streaming active")
+        elif stop_seen:
+            # Stop button was seen and is now gone → stream finished
             _log("stream complete (stop button gone)")
-            await asyncio.sleep(2)  # let OWUI persist final content
+            await asyncio.sleep(5)  # let OWUI persist final content
             return
 
         # Check DOM stability as secondary signal — only when stop button is gone
@@ -5430,6 +5439,22 @@ async def run_test(
             await _send_and_wait(page, test["prompt"], test_id, tier, max_wait)
             await asyncio.sleep(5 if attempt > 0 else 3)  # extra persistence time on retries
             response_text = owui_get_last_response(token, chat_id)
+            if response_text:
+                break
+            # DOM stable may have fired while reasoning model was still generating
+            # (collapsed <details> block makes innerText appear stable). Poll the
+            # API for up to 90s before declaring this attempt empty — the model
+            # may still be generating the actual response after the thinking block.
+            for _poll in range(9):
+                await asyncio.sleep(10)
+                response_text = owui_get_last_response(token, chat_id)
+                if response_text:
+                    break
+                elapsed_now = time.time() - t0
+                print(
+                    f"  [{test_id}] polling for response… ({elapsed_now:.0f}s)",
+                    flush=True,
+                )
             if response_text:
                 break
             elapsed_now = time.time() - t0
