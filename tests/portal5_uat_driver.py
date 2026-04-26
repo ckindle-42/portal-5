@@ -1067,16 +1067,98 @@ def evaluate_skip_conditions() -> dict:
         conditions["no_comfyui"] = True
 
     env_content = Path(".env").read_text() if Path(".env").exists() else ""
-    conditions["no_bot_telegram"] = (
-        "TELEGRAM_BOT_TOKEN" not in env_content or "CHANGEME" in env_content
-    )
-    conditions["no_bot_slack"] = "SLACK_BOT_TOKEN" not in env_content or "CHANGEME" in env_content
+    # Per-key check: KEY=value on its own line, value non-empty, value != "CHANGEME".
+    # The previous `"CHANGEME" in env_content` substring check fired on any other
+    # placeholder elsewhere in the file (PIPELINE_API_KEY, GRAFANA_PASSWORD, the
+    # comment on line 3 of .env.example, etc.), falsely flagging both bot
+    # predicates as "not configured" even with valid tokens set.
+    conditions["no_bot_telegram"] = not _env_var_set(env_content, "TELEGRAM_BOT_TOKEN")
+    conditions["no_bot_slack"] = not _env_var_set(env_content, "SLACK_BOT_TOKEN")
     fixtures = Path(__file__).parent / "fixtures"
     conditions["no_image_upload"] = not (fixtures / "sample.png").exists()
     conditions["no_audio_fixture"] = not (fixtures / "sample.wav").exists()
     conditions["no_docx_fixture"] = not (fixtures / "sample.docx").exists()
     conditions["no_knowledge_base"] = not (fixtures / "knowledge_base").is_dir()
     return conditions
+
+
+def _env_var_set(env_content: str, key: str) -> bool:
+    """True iff ``key`` is set in env content with a non-empty value that isn't ``CHANGEME``.
+
+    Reads ``KEY=value`` on its own line; tolerates leading whitespace, inline
+    comments, and surrounding quotes on the value. Comments and unrelated
+    placeholders elsewhere in the file do not affect the result.
+    """
+    import re
+
+    pat = rf"^[ \t]*{re.escape(key)}=([^\r\n]*)$"
+    m = re.search(pat, env_content, re.MULTILINE)
+    if not m:
+        return False
+    raw = m.group(1)
+    # Strip inline comment ("# ..." not inside quotes — simple heuristic that
+    # matches typical .env practice; values containing literal '#' should be
+    # quoted, which is the convention .env.example follows).
+    if "#" in raw and not (raw.lstrip().startswith(('"', "'"))):
+        raw = raw.split("#", 1)[0]
+    val = raw.strip().strip('"').strip("'")
+    return bool(val) and val != "CHANGEME"
+
+
+def _bot_container_running(container_name: str) -> tuple[bool, str]:
+    """True if the named docker container is in 'running' state.
+
+    Used by via_dispatcher tests to surface a clear failure when the bot
+    container itself is down — distinct from the dispatcher path failing.
+    """
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Status}}", container_name],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if r.returncode != 0:
+            return False, f"container not found: {container_name}"
+        status = r.stdout.strip()
+        return status == "running", f"status={status}"
+    except FileNotFoundError:
+        return False, "docker CLI not available"
+    except Exception as exc:
+        return False, f"inspect error: {exc}"
+
+
+async def _run_via_dispatcher(workspace: str, prompt: str, timeout: int) -> str:
+    """Drive a chat completion through the Pipeline as a Telegram/Slack bot would.
+
+    Bypasses Open WebUI to exercise the exact code path
+    ``portal_channels.dispatcher.call_pipeline_async`` uses on every inbound
+    message: a single POST to ``:9099/v1/chat/completions`` with
+    ``Authorization: Bearer ${PIPELINE_API_KEY}``. Returns the assistant content
+    string. Raises on transport error or non-2xx response — caller handles.
+    """
+    api_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+    pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
+    payload = {
+        "model": workspace,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(
+            f"{pipeline_url}/v1/chat/completions",
+            json=payload,
+            headers=headers,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return str(data["choices"][0]["message"]["content"])
 
 
 # ---------------------------------------------------------------------------
@@ -4604,29 +4686,78 @@ TEST_CATALOG: list[dict] = [
             {"type": "min_length", "label": "Substantive response", "chars": 200},
         ],
     },
+    # A-05 — Telegram bot dispatcher path. Drives the same call call_pipeline_async()
+    # makes on every inbound message; container pre-check ensures the bot process
+    # is alive (the Telegram <-> bot network hop is third-party and out of scope).
     {
         "id": "A-05",
-        "name": "Telegram Bot — Channel Integration",
+        "name": "Telegram Bot — Pipeline Path (auto-coding)",
         "section": "advanced",
-        "model_slug": "auto",
-        "timeout": 60,
+        "model_slug": "auto-coding",
+        "timeout": 90,
         "workspace_tier": "any",
         "skip_if": "no_bot_telegram",
-        "prompt": "[MANUAL] Send '/start' then '/workspace auto-coding' then 'Write a one-liner Python function to check if a number is prime.' to your Telegram bot. Mark PASS/SKIP/FAIL manually.",
-        "assertions": [],
-        "is_manual": True,
+        "via_dispatcher": True,
+        "requires_container": "portal5-telegram",
+        "prompt": "Write a one-liner Python function to check if a number is prime.",
+        "assertions": [
+            {"type": "contains", "label": "Python function present", "keywords": ["def "]},
+            {
+                "type": "any_of",
+                "label": "Prime-check semantics",
+                "keywords": [
+                    "prime",
+                    "% 2",
+                    "%2",
+                    "range(",
+                    "all(",
+                    "sympy",
+                    "math.isqrt",
+                    "n ** 0.5",
+                    "n**0.5",
+                ],
+            },
+            {"type": "min_length", "label": "Substantive response", "chars": 60},
+        ],
     },
+    # A-06 — Slack bot dispatcher path. Slack Socket Mode bot routes "security"
+    # channel mentions to auto-security per CHANNEL_WORKSPACE_MAP; this test
+    # drives the matching workspace + prompt directly.
     {
         "id": "A-06",
-        "name": "Slack Bot — Channel Messaging",
+        "name": "Slack Bot — Pipeline Path (auto-security)",
         "section": "advanced",
-        "model_slug": "auto",
-        "timeout": 60,
-        "workspace_tier": "any",
+        "model_slug": "auto-security",
+        "timeout": 120,
+        "workspace_tier": "ollama",
         "skip_if": "no_bot_slack",
-        "prompt": "[MANUAL] Mention @portal in a Slack channel: 'Summarize the key security risks of running Docker with the --privileged flag in 3 bullet points.' Mark PASS/SKIP/FAIL manually.",
-        "assertions": [],
-        "is_manual": True,
+        "via_dispatcher": True,
+        "requires_container": "portal5-slack",
+        "prompt": "Summarize the key security risks of running Docker with the --privileged flag in 3 bullet points.",
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Privileged-Docker risk vocabulary",
+                "keywords": [
+                    "privileged",
+                    "kernel",
+                    "host",
+                    "capabilit",
+                    "escape",
+                    "root",
+                    "syscall",
+                    "cgroup",
+                    "namespace",
+                    "device",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Bullet structure",
+                "keywords": ["- ", "* ", "1.", "2.", "3.", "\u2022"],
+            },
+            {"type": "min_length", "label": "Substantive response", "chars": 200},
+        ],
     },
     {
         "id": "A-07",
@@ -5110,6 +5241,69 @@ async def run_test(
         owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
         record_result(n, "MANUAL", test_id, name, model, [], 0.0, chat_url)
         counts["MANUAL"] = counts.get("MANUAL", 0) + 1
+        return
+
+    # Dispatcher-path test (Telegram / Slack bot pipeline call).
+    # Drives the exact code path portal_channels.dispatcher uses on every
+    # inbound bot message: a direct POST to the Pipeline with PIPELINE_API_KEY.
+    # Bypasses Open WebUI and Playwright entirely.
+    if test.get("via_dispatcher"):
+        # Pre-check: bot container running, if specified.
+        required_container = test.get("requires_container")
+        if required_container:
+            ok, detail = _bot_container_running(required_container)
+            if not ok:
+                record_result(
+                    n,
+                    "FAIL",
+                    test_id,
+                    name,
+                    model,
+                    [("bot_container_unavailable", False, f"{required_container}: {detail}")],
+                    0.0,
+                    "",
+                )
+                counts["FAIL"] = counts.get("FAIL", 0) + 1
+                return
+
+        t0_disp = time.time()
+        try:
+            response_text = await _run_via_dispatcher(
+                workspace=model,
+                prompt=test["prompt"],
+                timeout=test.get("timeout", 120),
+            )
+        except Exception as exc:
+            elapsed = time.time() - t0_disp
+            record_result(
+                n,
+                "FAIL",
+                test_id,
+                name,
+                model,
+                [("dispatcher_call_failed", False, f"{type(exc).__name__}: {str(exc)[:160]}")],
+                elapsed,
+                "",
+            )
+            counts["FAIL"] = counts.get("FAIL", 0) + 1
+            return
+
+        elapsed = time.time() - t0_disp
+        assertions_result = run_assertions(response_text, test.get("assertions", []))
+        status = compute_status(assertions_result, test.get("assertions", []))
+        # No chat URL — this path doesn't create an Open WebUI chat. Use a
+        # synthetic marker so the report shows where the response came from.
+        record_result(
+            n,
+            status,
+            test_id,
+            name,
+            model,
+            assertions_result,
+            elapsed,
+            f"via-dispatcher://{model}",
+        )
+        counts[status] = counts.get(status, 0) + 1
         return
 
     tier = test.get("workspace_tier", "any")
