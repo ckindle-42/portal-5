@@ -3083,7 +3083,7 @@ async def _stream_from_backend_guarded(
                                 yield f"data: {json.dumps(done_chunk)}\n\n".encode()
                                 yield b"data: [DONE]\n\n"
                     else:
-                        # Non-native path (MLX, vLLM, /v1/ Ollama compat): keep existing logic
+                        # Non-native path (MLX, vLLM, /v1/ Ollama compat):
                         # P6: Check raw bytes for '"done"' before decode — skip 99% of chunks.
                         if b'"done"' in chunk:
                             chunk_text = chunk.decode("utf-8", errors="replace")
@@ -3121,6 +3121,36 @@ async def _stream_from_backend_guarded(
                                 data={},
                                 elapsed_seconds=elapsed,
                             )
+
+                        # mlx_lm 0.31.2+ server regression: reasoning models emit content in
+                        # delta.reasoning instead of delta.content. Promote so Open WebUI renders it.
+                        if b'"reasoning"' in chunk and b'"content"' not in chunk:
+                            try:
+                                chunk_text = chunk.decode("utf-8", errors="replace")
+                                for line in chunk_text.splitlines():
+                                    line = line.strip()
+                                    if not line.startswith("data:") or line == "data: [DONE]":
+                                        continue
+                                    payload = line[5:].strip()
+                                    if not payload:
+                                        continue
+                                    obj = json.loads(payload)
+                                    for choice in obj.get("choices", []):
+                                        delta = choice.get("delta", {})
+                                        reasoning_val = (
+                                            delta.get("reasoning")
+                                            or delta.get("reasoning_content")
+                                            or delta.get("thinking")
+                                        )
+                                        if reasoning_val and not delta.get("content"):
+                                            delta["content"] = reasoning_val
+                                            delta.pop("reasoning", None)
+                                            delta.pop("reasoning_content", None)
+                                            delta.pop("thinking", None)
+                                    chunk = f"data: {json.dumps(obj)}\n\n".encode()
+                            except Exception:
+                                pass  # Fall through to raw yield on parse failure
+
                         yield chunk
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)

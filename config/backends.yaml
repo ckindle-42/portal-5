@@ -144,7 +144,7 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: false
-        notes: "Gemma 4 31B abliterated 4bit (~17GB) — text-only quant loaded via mlx_lm (gemma4 arch added in mlx-lm 0.31.2). No vision weights, is_vlm=false. Abliteration via Arditi et al. (2024). No degeneration issues (vs dboris variant). Apache 2.0. PRIMARY for auto-creative."
+        notes: "Gemma 4 31B abliterated 4bit (~17GB) — text-only quant, gemma4 arch requires mlx-lm >= 0.31.2 (deferred — 0.31.2 server has reasoning-content regression). Abliteration via Arditi et al. (2024). No degeneration issues (vs dboris variant). Catalog-only until mlx-lm server fix."
       - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
         memory_gb: 5
         big_model: false
@@ -334,16 +334,7 @@ defaults:
 # server command. Speculative decoding requires tokenizer compatibility — only
 # same-family pairs.
 speculative_decoding:
-  draft_models:
-    # Qwen family (Qwen tokenizer)
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    # Llama family (Llama-3 tokenizer)
-    "mlx-community/Llama-3.3-70B-Instruct-4bit": "mlx-community/Llama-3.2-1B-Instruct-4bit"
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Llama-3.2-1B-Instruct-4bit"
-    # Excluded: Qwen3-Coder-Next-4bit (no Qwen3-Coder draft model available)
-    # Excluded: Mistral/Magistral (no small Mistral draft in MLX yet)
+  # DISABLED — mlx_lm 0.31.2 changed default cache to ArraysCache which is not trimmable.
+  # Speculative decoding requires a trimmable cache. Re-enable when mlx_lm fixes this.
+  # See: https://github.com/ml-explore/mlx-lm/issues (v0.31.2 regression)
+  draft_models: {}
