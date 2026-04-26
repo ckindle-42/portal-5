@@ -1,13 +1,11 @@
 """Test exponential backoff for tool health in ToolRegistry."""
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry, _backoff_seconds
-
 
 # ── _backoff_seconds schedule ────────────────────────────────────────────────
 

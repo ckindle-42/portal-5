@@ -371,7 +371,7 @@ def unload_all_models() -> None:
             )
             print(f"  Evicted MLX model: {loaded}", flush=True)
         elif state == "none":
-            print(f"  MLX already idle (state=none) — no eviction needed", flush=True)
+            print("  MLX already idle (state=none) — no eviction needed", flush=True)
         else:
             print(f"  MLX eviction skipped (state={state}, loaded={loaded})", flush=True)
     except Exception as e:

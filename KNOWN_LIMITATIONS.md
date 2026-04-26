@@ -70,9 +70,18 @@ Architectural and design constraints that cannot be resolved without significant
 - **Description**: Benchmark on 2026-04-25 (M4 Pro, 64GB, mlx-lm 0.31.1) shows `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` loads and reports non-zero TPS (30.9 avg) but `choices[0].message.content` is always empty string across all 3 runs. The model generates `usage.completion_tokens=256` (max) but produces no readable text. This confirms the model card warning: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."*
 - **Diagnosis**: Confirmed at the mlx_lm server level (port 18081, bypassing proxy): `usage.completion_tokens=20` but `content=""`. The server generates tokens but they all decode to empty string — a tokenizer vocabulary mapping defect in the Linux conversion. Not a proxy or test harness issue; other models produce text through identical code paths.
 - **Impact**: Quality score = 0.00; TPS×Q = 0.0. The model is non-functional for inference.
-- **Next steps**: Monitor huihui-ai HF discussions for Apple Metal fix; alternatively find an mlx-community conversion of GLM-4.7-Flash-abliterated. Model remains in `backends.yaml` and `ALL_MODELS` (registered) for when a fixed conversion becomes available — remove if no fix in 60 days.
+- **Next steps**: Replacement IN CATALOG as of 2026-04-26: `mlx-community/glm-4.7-flash-abliterated-8bit` (Apple-converted from huihui source, catalog-only pending security-tier MLX architecture). Standard non-abliterated `mlx-community/GLM-4.7-Flash-4bit` also added and pinned as `auto-coding` primary for general lineage diversity. The broken `huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` remains registered for monitoring — remove if no upstream Linux fix appears within 60 days of replacement deployment.
 - **Acceptance test**: S23-07 will FAIL or WARN on this model — expected until upstream fixes the conversion.
 - **Last verified**: 2026-04-25
+
+### Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit: Empty Content on Apple Metal
+- **ID**: P5-MLX-008
+- **Status**: **CONFIRMED BROKEN — produces empty content on Apple Metal**
+- **Description**: UAT 2026-04-26 (M4 Pro, 64GB) WS-13 (auto-research, post-quantum cryptography prompt) returned `len=0` content. Same defect class as P5-MLX-006: Linux-converted MLX where the server emits tokens but they decode to empty string. Single-contributor repo (`Jiunsong`), no Apple Silicon validation in card. The "lighter MLX build" packaging note flagging Hub auto-inference as 5B/8B is a leading indicator of non-standard config that the Apple-side `mlx_vlm` runtime mis-handles. The sibling repo `Jiunsong/SuperGemma4-31b-abliterated-mlx-4bit` exhibits the same single-contributor / no-eval pattern and should be considered the same risk class.
+- **Diagnosis**: Same pattern as P5-MLX-006 GLM-4.7. The multimodal MLX pipeline (`mlx_vlm`) is the most-fragile path for cross-platform tokenizer drift. Auto-research does not require vision (no `image_url` parts), so pinning a VLM there was a misallocation independent of the conversion bug.
+- **Replacement**: Two-track. (1) For auto-research workspace: `mlx-community/gemma-4-31b-it-4bit` (already in catalog, proven working in auto-vision WS-14, co-locates auto-research + auto-vision on the same `mlx_vlm` server). (2) For the abliterated Gemma slot in the catalog and as the `auto-creative` MLX pin: `divinetribe/gemma-4-31b-it-abliterated-4bit-mlx` (MLX 4-bit quantization of null-space/gemma-4-31b-it-abliterated, 1857 downloads, no degeneration issues).
+- **Acceptance test**: WS-13 acceptance prompt should produce non-zero substantive content after replacement.
+- **Last verified**: 2026-04-26
 
 ---
 

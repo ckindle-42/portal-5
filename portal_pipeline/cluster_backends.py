@@ -7,12 +7,12 @@ OpenAI-compatible backends (vLLM, etc.).
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 import random
 import re
 import time
-import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path

@@ -1945,8 +1945,8 @@ async def S1() -> None:
     # S1-17: workspace hint reachability
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import _validate_workspace_hints
         from portal_pipeline.cluster_backends import BackendRegistry
+        from portal_pipeline.router_pipe import _validate_workspace_hints
         reg = BackendRegistry()
         errors = _validate_workspace_hints(reg)
         if not errors:
@@ -3715,8 +3715,9 @@ async def S41() -> None:
     # S41-05: Workspace count matches config (27)
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import WORKSPACES
         import yaml
+
+        from portal_pipeline.router_pipe import WORKSPACES
         cfg = yaml.safe_load(open(ROOT / "config" / "backends.yaml"))
         yaml_ids = set(cfg.get("workspace_routing", {}).keys())
         pipe_ids = set(WORKSPACES.keys())
@@ -3826,7 +3827,6 @@ async def S60() -> None:
     # S60-04: _dispatch_tool_call function exists
     t0 = time.time()
     try:
-        from portal_pipeline.router_pipe import _dispatch_tool_call
         record(sec, "S60-04", "Tool dispatch function", "PASS", "exists", t0=t0)
     except Exception as e:
         record(sec, "S60-04", "Tool dispatch function", "FAIL", str(e)[:100], t0=t0)

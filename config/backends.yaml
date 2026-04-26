@@ -51,7 +51,19 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated, 200K ctx"
+        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated, 200K ctx — KNOWN BROKEN P5-MLX-006: empty content on Apple Metal (Linux-conversion tokenizer defect). Replacement in catalog: mlx-community/glm-4.7-flash-abliterated-8bit. Kept registered for upstream-fix monitoring."
+      - id: mlx-community/GLM-4.7-Flash-4bit
+        memory_gb: 15
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~15GB) — mlx-community Apple-Silicon conversion of zai-org/GLM-4.7-Flash. Z.AI lineage (escapes Qwen+Gemma duopoly). 59.2% SWE-bench, 79.5% τ²-Bench tool use, 200K ctx. PRIMARY for auto-coding."
+      - id: mlx-community/glm-4.7-flash-abliterated-8bit
+        memory_gb: 22
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "GLM-4.7-Flash 30B-A3B abliterated 8bit (~22GB) — mlx-community Apple-Silicon conversion of huihui abliterated source. Replaces broken huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit (P5-MLX-006). Z.AI lineage uncensored. Catalog-only pending workspace MLX-hint architecture for security tier."
       - id: mlx-community/Dolphin3.0-Llama3.1-8B-8bit
         memory_gb: 9
         big_model: false
@@ -168,7 +180,13 @@ backends:
         big_model: false
         is_vlm: true
         supports_tools: false
-        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx)"
+        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx) — KNOWN BROKEN P5-MLX-008: empty content on Apple Metal (UAT 2026-04-26 WS-13 len=0). Replacement in catalog: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx. Kept registered for monitoring."
+      - id: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
+        memory_gb: 20
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Gemma 4 31B abliterated 4bit (~17GB) — text-only quant loaded via mlx_lm (gemma4 arch added in mlx-lm 0.31.2). No vision weights, is_vlm=false. Abliteration via Arditi et al. (2024). No degeneration issues (vs dboris variant). Apache 2.0. PRIMARY for auto-creative."
       - id: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
         memory_gb: 8
         big_model: false

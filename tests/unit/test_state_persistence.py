@@ -5,9 +5,8 @@ avoid Prometheus counter re-registration conflicts.
 """
 
 import json
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch
 
 import portal_pipeline.router_pipe as rp
 

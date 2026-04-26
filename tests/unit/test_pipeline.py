@@ -1148,26 +1148,26 @@ class TestAgenticWorkspace:
         )
 
 
-class TestAutoCodingDevstralUpgrade:
-    """Verify auto-coding uses Devstral-Small-2507-MLX-4bit (b180374)."""
+class TestAutoCodingGLM47Upgrade:
+    """Verify auto-coding uses GLM-4.7-Flash-4bit (59.2% SWE-bench, TASK-MODELS-001)."""
 
-    def test_auto_coding_mlx_hint_is_devstral_2507(self):
-        """auto-coding mlx_model_hint must be the upgraded Devstral-Small-2507-MLX-4bit."""
+    def test_auto_coding_mlx_hint_is_glm47_flash(self):
+        """auto-coding mlx_model_hint must be GLM-4.7-Flash-4bit (59.2% SWE-bench)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
-        assert "Devstral-Small-2507" in hint, (
-            f"auto-coding mlx_model_hint should be Devstral-Small-2507-MLX-4bit (53.6% SWE-bench), "
-            f"got: {hint!r}. If reverting, update this test."
+        assert "GLM-4.7-Flash-4bit" in hint, (
+            f"auto-coding mlx_model_hint should be mlx-community/GLM-4.7-Flash-4bit (59.2% SWE-bench), "
+            f"got: {hint!r}. Displaced model (Devstral-Small-2507-MLX-4bit) remains in bench-devstral for rollback."
         )
 
     def test_auto_coding_mlx_hint_is_4bit_not_8bit(self):
-        """auto-coding must use 4bit Devstral (15GB, not 18GB 8bit variant) for memory savings."""
+        """auto-coding must use 4bit GLM (15GB, not 22GB 8bit variant) for memory savings."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
-        assert "4bit" in hint or "MLX-4bit" in hint, (
-            f"auto-coding mlx_model_hint should be 4bit variant for 3GB memory savings, got: {hint!r}"
+        assert "4bit" in hint, (
+            f"auto-coding mlx_model_hint should be 4bit variant for memory savings, got: {hint!r}"
         )
 
 
@@ -1292,6 +1292,7 @@ class TestToolRegistry:
     def test_tool_registry_get_openai_tools_filters(self):
         """get_openai_tools filters by name list and health/backoff."""
         import time
+
         from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry
 
         reg = ToolRegistry()

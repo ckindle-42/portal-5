@@ -519,13 +519,10 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
 # portal_pipeline/router/workspaces.py. Imported here so existing code in this
 # file works unchanged.
 from portal_pipeline.router.workspaces import (  # noqa: E402
+    _PERSONA_MAP,
     MAX_TOOL_HOPS,
     WORKSPACES,
-    _PERSONA_MAP,
-    _load_persona_map,
-    _resolve_persona_browser_policy,
     _resolve_persona_tools,
-    _workspace_tools,
 )
 
 
@@ -1673,7 +1670,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() in ("true", "1", "yes"):
         _init_notifications(registry)
 
-    async def _on_health(r: "BackendRegistry") -> None:
+    async def _on_health(r: BackendRegistry) -> None:
         if _notification_dispatcher:
             await _notification_dispatcher.check_thresholds_and_alert(r)
 

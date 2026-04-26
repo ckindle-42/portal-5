@@ -20,7 +20,6 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Optional
 
 SOCKET_PATH = "/tmp/portal5-powermetrics.sock"
 SAMPLE_INTERVAL_MS = 10000
@@ -93,7 +92,7 @@ def run_powermetrics(sampler: PowerSampler):
             time.sleep(5)
 
 
-def parse_plist_buffer(text: str) -> Optional[dict]:
+def parse_plist_buffer(text: str) -> dict | None:
     try:
         sample = {}
         for key, attr in [

@@ -1,9 +1,8 @@
 """Test the workspace hint validator."""
 
-import pytest
 from unittest.mock import MagicMock
 
-from portal_pipeline.router_pipe import _validate_workspace_hints, WORKSPACES
+from portal_pipeline.router_pipe import WORKSPACES, _validate_workspace_hints
 
 
 def _mock_registry(backends: list[tuple[str, str, list[str]]], routes: dict[str, list[str]]):
