@@ -595,12 +595,21 @@ def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0)
 _server_log_dir = "/tmp/mlx-proxy-logs"
 
 
-def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) -> bool:
+def _wait_for_model_loaded(
+    stype: str,
+    model: str = "",
+    timeout: float = 600.0,
+    proc: subprocess.Popen | None = None,
+) -> bool:
     """Wait for the MLX server to actually be serving inference requests.
 
     Monitors the server's stderr log for "Starting httpd" which appears
     AFTER the model finishes loading into GPU memory. This is deterministic —
     no guessing with timers or HTTP probes.
+
+    If ``proc`` is provided and the subprocess exits before the ready signal
+    appears, returns False immediately (rather than waiting out the full
+    timeout). Surfaces the tail of the server log to aid diagnosis.
     """
     log_file = os.path.join(_server_log_dir, f"mlx_{stype}.log")
     deadline = time.time() + timeout
@@ -608,6 +617,22 @@ def _wait_for_model_loaded(stype: str, model: str = "", timeout: float = 600.0) 
     last_log = 0
 
     while time.time() < deadline:
+        # Fast-fail: child process exited before printing the ready signal.
+        if proc is not None and proc.poll() is not None:
+            elapsed = time.time() - (deadline - timeout)
+            print(
+                f"[proxy] mlx_{stype} subprocess exited rc={proc.returncode} "
+                f"after {elapsed:.0f}s — never reached ready signal",
+                flush=True,
+            )
+            try:
+                if os.path.exists(log_file):
+                    with open(log_file) as _f:
+                        tail = _f.read()[-2000:]
+                    print(f"[proxy] mlx_{stype} log tail:\n{tail}", flush=True)
+            except Exception:
+                pass
+            return False
         try:
             if os.path.exists(log_file):
                 with open(log_file) as f:
@@ -778,7 +803,19 @@ def start_server(stype: str, model: str = "") -> int:
         f.write("")
 
     log_fh = open(log_file, "a")
-    proc = subprocess.Popen(cmd, stdout=log_fh, stderr=log_fh)
+    # Subprocess hardening — required for mlx_lm.server / mlx_vlm.server to start
+    # cleanly under the proxy. Without these flags the child inherits the proxy's
+    # stdin and process group, which causes multiprocessing.resource_tracker to
+    # leak semaphores and the server to exit before binding its HTTP port.
+    # See tests/UAT_RESULTS.md (2026-04-26) Research Notes — MLX Infrastructure Issue.
+    proc = subprocess.Popen(
+        cmd,
+        stdout=log_fh,
+        stderr=log_fh,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+        close_fds=True,
+    )
     print(
         f"[proxy] started mlx_{stype} (PID {proc.pid}) model={model or '(default)'} log={log_file}",
         flush=True,
@@ -786,7 +823,7 @@ def start_server(stype: str, model: str = "") -> int:
 
     # Wait for model to load — monitor log for "Starting httpd"
     print("[proxy] waiting for model to load (monitoring server log)...", flush=True)
-    if _wait_for_model_loaded(stype, model):
+    if _wait_for_model_loaded(stype, model, proc=proc):
         mlx_state.set_ready(stype, model or None)
         print(f"[proxy] mlx_{stype} ready on :{port} model={model or '(default)'}", flush=True)
         return port
