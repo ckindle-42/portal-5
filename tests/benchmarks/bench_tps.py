@@ -2086,10 +2086,55 @@ def main() -> None:
             _bench_client = None
 
 
+def _check_image_freshness() -> None:
+    """Warn if any portal Docker image predates the latest relevant git commit."""
+    def _ts(git_paths=None, image=None):
+        try:
+            if git_paths:
+                r = subprocess.run(
+                    ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%ct", "--", *git_paths],
+                    capture_output=True, text=True, timeout=10,
+                )
+                ts = r.stdout.strip()
+                from datetime import datetime, timezone
+                return datetime.fromtimestamp(int(ts), tz=timezone.utc) if ts else None
+            if image:
+                r = subprocess.run(
+                    ["docker", "inspect", "--format", "{{.Created}}", image],
+                    capture_output=True, text=True, timeout=10,
+                )
+                raw = r.stdout.strip()
+                if raw and raw != "[]":
+                    from datetime import datetime
+                    return datetime.fromisoformat(raw.rstrip("Z") + "+00:00")
+        except Exception:
+            return None
+
+    checks = [
+        ("portal-pipeline", "portal-5-portal-pipeline",
+         ["portal_pipeline/", "config/backends.yaml", "Dockerfile.pipeline", "pyproject.toml"]),
+        ("mcp-services", "portal-5-mcp-documents",
+         ["portal_mcp/", "Dockerfile.mcp", "pyproject.toml"]),
+    ]
+    stale = []
+    for label, image, paths in checks:
+        built = _ts(image=image)
+        committed = _ts(git_paths=paths)
+        if built and committed:
+            lag = (committed - built).total_seconds()
+            if lag > 30:
+                stale.append(f"{label} ({int(lag // 60)}m behind HEAD)")
+    if stale:
+        print("  WARNING: stale Docker images — run './launch.sh rebuild' before trusting results:")
+        for s in stale:
+            print(f"    {s}")
+
+
 def _run_main(args) -> None:
     print("=" * 70)
     print("Portal 5 — Comprehensive TPS Benchmark")
     print("=" * 70)
+    _check_image_freshness()
 
     hw = _get_hardware_info()
     print(f"Hardware: {json.dumps(hw)}")

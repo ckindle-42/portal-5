@@ -291,6 +291,57 @@ def _git_sha() -> str:
         return "unknown"
 
 
+def _check_image_freshness() -> None:
+    """Warn if any portal Docker image predates the latest relevant git commit.
+
+    Stale images mean tests exercise old code. Run './launch.sh rebuild' to fix.
+    """
+    import datetime
+
+    def _last_commit_ts(paths: list[str]) -> datetime.datetime | None:
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(ROOT), "log", "-1", "--format=%ct", "--", *paths],
+                capture_output=True, text=True, timeout=10,
+            )
+            ts = r.stdout.strip()
+            return datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc) if ts else None
+        except Exception:
+            return None
+
+    def _image_built_ts(name: str) -> datetime.datetime | None:
+        try:
+            r = subprocess.run(
+                ["docker", "inspect", "--format", "{{.Created}}", name],
+                capture_output=True, text=True, timeout=10,
+            )
+            raw = r.stdout.strip()
+            if raw and raw != "[]":
+                return datetime.datetime.fromisoformat(raw.rstrip("Z") + "+00:00")
+        except Exception:
+            return None
+
+    checks = [
+        ("portal-pipeline", "portal-5-portal-pipeline",
+         ["portal_pipeline/", "config/backends.yaml", "config/personas/",
+          "Dockerfile.pipeline", "pyproject.toml"]),
+        ("mcp-services", "portal-5-mcp-documents",
+         ["portal_mcp/", "portal_channels/", "Dockerfile.mcp", "pyproject.toml"]),
+    ]
+    stale = []
+    for label, image, paths in checks:
+        built = _image_built_ts(image)
+        committed = _last_commit_ts(paths)
+        if built and committed:
+            lag = (committed - built).total_seconds()
+            if lag > 30:
+                stale.append(f"{label} ({int(lag // 60)}m behind HEAD)")
+    if stale:
+        print(f"  WARNING: stale images — run './launch.sh rebuild' before trusting results:")
+        for s in stale:
+            print(f"    {s}")
+
+
 def _load_workspaces() -> tuple[list[str], dict[str, str]]:
     """Load workspace definitions from portal_pipeline.router.workspaces."""
     sys.path.insert(0, str(ROOT))
@@ -4335,6 +4386,7 @@ async def main() -> int:
     print(f"Git: {_git_sha()}")
     print(f"Sections: {', '.join(sections)}")
     print("=" * 70)
+    _check_image_freshness()
 
     # Clear progress log
     Path(_PROGRESS_LOG).write_text(f"[{time.strftime('%H:%M:%S')}] Starting acceptance tests\n")
