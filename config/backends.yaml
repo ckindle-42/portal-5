@@ -45,7 +45,8 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "Devstral v1.1 4bit (~15GB, 53.6% SWE-bench)"
+        notes: "Devstral v1.1 4bit (~15GB, 53.6% SWE-bench) — bench-devstral pin, displaced by GLM-4.7-Flash for auto-coding"
+      # ── GLM-4.7 (Z.AI lineage — escapes Qwen+Gemma duopoly) ───────────────────
       - id: huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit
         memory_gb: 18
         big_model: false
@@ -137,6 +138,13 @@ backends:
         is_vlm: false
         supports_tools: true
         notes: "Uncensored reasoning: R1 Distill Qwen 32B 4bit (~18GB)"
+      # ── Gemma 4 abliterated (text-only — no vision weights) ────────────────────
+      - id: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
+        memory_gb: 20
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Gemma 4 31B abliterated 4bit (~17GB) — text-only quant loaded via mlx_lm (gemma4 arch added in mlx-lm 0.31.2). No vision weights, is_vlm=false. Abliteration via Arditi et al. (2024). No degeneration issues (vs dboris variant). Apache 2.0. PRIMARY for auto-creative."
       - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
         memory_gb: 5
         big_model: false
@@ -180,13 +188,7 @@ backends:
         big_model: false
         is_vlm: true
         supports_tools: false
-        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx) — KNOWN BROKEN P5-MLX-008: empty content on Apple Metal (UAT 2026-04-26 WS-13 len=0). Replacement in catalog: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx. Kept registered for monitoring."
-      - id: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
-        memory_gb: 20
-        big_model: false
-        is_vlm: false
-        supports_tools: false
-        notes: "Gemma 4 31B abliterated 4bit (~17GB) — text-only quant loaded via mlx_lm (gemma4 arch added in mlx-lm 0.31.2). No vision weights, is_vlm=false. Abliteration via Arditi et al. (2024). No degeneration issues (vs dboris variant). Apache 2.0. PRIMARY for auto-creative."
+        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx) — KNOWN BROKEN P5-MLX-008: empty content on Apple Metal (UAT 2026-04-26 WS-13 len=0). Kept registered for monitoring."
       - id: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
         memory_gb: 8
         big_model: false
