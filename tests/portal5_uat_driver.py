@@ -63,6 +63,11 @@ MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
 # Sections that require all models unloaded before running for max memory headroom.
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
 
+# Memory pressure thresholds
+MEMORY_WARN_PCT = 75.0   # Log warning
+MEMORY_CRITICAL_PCT = 85.0  # Force eviction before next test
+MEMORY_ABORT_PCT = 92.0  # Stop — system is about to OOM
+
 # ---------------------------------------------------------------------------
 # Backend health + zombie detection
 # ---------------------------------------------------------------------------
@@ -75,6 +80,126 @@ def _mlx_health() -> dict:
         return r.json()
     except Exception:
         return {}
+
+
+def _get_memory_pct() -> float:
+    """Get current memory used % from MLX proxy or system vm_stat."""
+    # Try MLX proxy first (has accurate GPU/unified memory stats)
+    try:
+        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+        mem = h.get("memory", {}).get("current", {})
+        used = mem.get("used_pct", 0.0)
+        if used > 0:
+            return used
+    except Exception:
+        pass
+    # Fallback: system vm_stat (page-level)
+    try:
+        import subprocess
+        result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
+        lines = result.stdout.strip().split("\n")
+        page_size = 16384  # Apple Silicon
+        free = active = inactive = speculative = wired = 0
+        for line in lines:
+            if "Pages free:" in line:
+                free = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages active:" in line:
+                active = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages inactive:" in line:
+                inactive = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages speculative:" in line:
+                speculative = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages wired down:" in line:
+                wired = int(line.split(":")[1].strip().rstrip("."))
+        total = free + active + inactive + speculative + wired
+        if total > 0:
+            used = active + wired
+            return round(used / total * 100, 1)
+    except Exception:
+        pass
+    return 0.0
+
+
+def _check_memory_before_test(test_name: str = "") -> bool:
+    """Check memory pressure before running a test. Returns True if safe to proceed.
+
+    If critical: force-evicts all models and returns False (caller should skip/retry).
+    If abort: raises SystemExit to prevent OOM crash.
+    """
+    used = _get_memory_pct()
+
+    if used >= MEMORY_ABORT_PCT:
+        print(
+            f"\n  [OOM RISK] Memory at {used:.0f}% — aborting to prevent crash. "
+            f"Test: {test_name}",
+            flush=True,
+        )
+        unload_all_models()
+        time.sleep(10)
+        used_after = _get_memory_pct()
+        print(f"  [OOM RISK] After eviction: {used_after:.0f}%", flush=True)
+        if used_after >= MEMORY_ABORT_PCT:
+            raise SystemExit(
+                f"ABORT: Memory still at {used_after:.0f}% after full eviction. "
+                "Manual intervention required — check for leaked processes."
+            )
+        return False
+
+    if used >= MEMORY_CRITICAL_PCT:
+        print(
+            f"\n  [MEMORY] Critical: {used:.0f}% — evicting before {test_name}",
+            flush=True,
+        )
+        unload_all_models()
+        time.sleep(8)
+        used_after = _get_memory_pct()
+        print(f"  [MEMORY] After eviction: {used_after:.0f}%", flush=True)
+        return used_after < MEMORY_CRITICAL_PCT
+
+    if used >= MEMORY_WARN_PCT:
+        print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
+
+    return True
+
+
+def _check_for_oom_crash() -> str | None:
+    """Check if any backend crashed due to OOM since last check.
+
+    Detects:
+    1. MLX proxy unreachable (process died)
+    2. MLX server zombie (process stuck, /health dead)
+    3. Ollama unreachable
+    4. System memory above abort threshold
+
+    Returns crash description or None if healthy.
+    """
+    # MLX proxy dead?
+    try:
+        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
+        if h.status_code != 200:
+            return f"MLX proxy returned {h.status_code}"
+    except Exception:
+        return "MLX proxy unreachable (process may have crashed)"
+
+    # MLX zombie? (process exists but /health dead)
+    zombie = _kill_zombie_mlx()
+    if zombie:
+        return "MLX server zombie detected and killed"
+
+    # Ollama dead?
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
+        if r.status_code != 200:
+            return f"Ollama returned {r.status_code}"
+    except Exception:
+        return "Ollama unreachable (process may have crashed)"
+
+    # System memory critical?
+    used = _get_memory_pct()
+    if used >= MEMORY_ABORT_PCT:
+        return f"System memory at {used:.0f}% — OOM imminent"
+
+    return None
 
 
 def _backend_alive(tier: str) -> tuple[bool, str]:
@@ -174,8 +299,13 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 
 
 def unload_all_models() -> None:
-    """Unload all running Ollama models. MLX loads on demand — don't kill it."""
-    # Ollama: list running models via /api/ps, then unload each with keep_alive=0
+    """Unload all running models — both Ollama and MLX — to free unified memory.
+
+    Ollama: list running models via /api/ps, then unload each with keep_alive=0.
+    MLX: proxy has no explicit unload, but loading the smallest canary model
+    (Qwen2.5-0.5B, ~0.5GB) pushes out any large model that was loaded.
+    """
+    # 1. Ollama: force unload all running models
     try:
         resp = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
         if resp.status_code == 200:
@@ -192,13 +322,56 @@ def unload_all_models() -> None:
     except Exception as e:
         print(f"  WARNING: Could not unload Ollama models: {e}")
 
-    # Do NOT unload MLX — it loads on demand and killing it causes cold-start
-    # empty responses. The proxy manages its own memory.
+    # 2. MLX: evict by loading the smallest canary model to push out any large model
+    try:
+        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+        loaded = h.get("loaded_model")
+        state = h.get("state", "")
+        if loaded and state in ("ready", "switching"):
+            # Load smallest model to evict whatever is loaded
+            httpx.post(
+                f"{MLX_PROXY_URL}/v1/chat/completions",
+                json={
+                    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+                    "messages": [{"role": "user", "content": "evict"}],
+                    "stream": False,
+                    "max_tokens": 1,
+                },
+                timeout=120,
+            )
+            print(f"  Evicted MLX model: {loaded}")
+    except Exception as e:
+        print(f"  WARNING: Could not evict MLX model: {e}")
 
-    # Brief settle time for memory to be released before first test
-    import time as _t
+    # 3. Wait for Ollama to fully release memory
+    try:
+        for _ in range(15):
+            ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3).json()
+            if not ps.get("models"):
+                break
+            time.sleep(2)
+    except Exception:
+        pass
 
-    _t.sleep(3)
+    # 4. Settle time for Metal GPU memory reclamation
+    time.sleep(8)
+
+
+def cleanup_after_uat() -> None:
+    """Full cleanup after all UAT tests complete — prevents OOM post-run."""
+    print("\n  Post-UAT cleanup: evicting all models ...", end=" ", flush=True)
+    unload_all_models()
+    # Check memory state
+    try:
+        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+        mem = h.get("memory", {}).get("current", {})
+        used = mem.get("used_pct", 0)
+        if used > 70:
+            print(f"WARNING: memory still at {used:.0f}%")
+        else:
+            print(f"ok ({used:.0f}% used)")
+    except Exception:
+        print("ok (proxy unreachable)")
 
 
 # ---------------------------------------------------------------------------
@@ -932,6 +1105,210 @@ SETTLING: dict[tuple, int] = {
 
 def settling_delay(current_tier: str, next_tier: str) -> int:
     return SETTLING.get((current_tier, next_tier), 10)
+
+
+# ---------------------------------------------------------------------------
+# Continuous memory & health monitor (self-healing)
+# ---------------------------------------------------------------------------
+
+
+class MemoryMonitor:
+    """Background task that continuously monitors memory and backend health.
+
+    Self-healing actions:
+    - Memory > 75%: log warning
+    - Memory > 85%: force-evict all models (both MLX + Ollama)
+    - Memory > 92% after eviction: kill zombie processes, retry eviction
+    - MLX proxy unreachable: wait and check, log crash
+    - Ollama unreachable: log crash (restart handled by launchd/docker)
+    - MLX server zombie: SIGTERM the stuck process
+
+    Runs as an asyncio task alongside the test loop. Call start() before tests,
+    stop() after. Stats are available via .stats dict.
+    """
+
+    def __init__(self, poll_interval: float = 20.0) -> None:
+        self.poll_interval = poll_interval
+        self._task: asyncio.Task | None = None
+        self._running = False
+        self.stats = {
+            "checks": 0,
+            "warnings": 0,
+            "force_evictions": 0,
+            "zombie_kills": 0,
+            "mlx_crashes": 0,
+            "ollama_crashes": 0,
+            "recovery_attempts": 0,
+            "recovery_failures": 0,
+        }
+        self._last_event: str = ""
+
+    def start(self) -> None:
+        """Start the background monitor."""
+        if self._running:
+            return
+        self._running = True
+        self._task = asyncio.create_task(self._monitor_loop())
+        print(f"  [monitor] Memory monitor started (poll every {self.poll_interval}s)")
+
+    async def stop(self) -> None:
+        """Stop the background monitor and return stats."""
+        self._running = False
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
+        print(
+            f"  [monitor] Stopped — {self.stats['checks']} checks, "
+            f"{self.stats['force_evictions']} evictions, "
+            f"{self.stats['zombie_kills']} zombies killed, "
+            f"{self.stats['mlx_crashes']} MLX crashes, "
+            f"{self.stats['ollama_crashes']} Ollama crashes"
+        )
+
+    def _log(self, msg: str) -> None:
+        """Log with dedup — suppress repeated identical events."""
+        if msg != self._last_event:
+            print(f"  [monitor] {msg}", flush=True)
+            self._last_event = msg
+
+    async def _monitor_loop(self) -> None:
+        """Main monitoring loop — runs until stop() is called."""
+        while self._running:
+            try:
+                await self._check_once()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self._log(f"Monitor error: {e}")
+            try:
+                await asyncio.sleep(self.poll_interval)
+            except asyncio.CancelledError:
+                break
+
+    async def _check_once(self) -> None:
+        """One monitoring cycle."""
+        self.stats["checks"] += 1
+
+        # ── 1. Memory pressure ──
+        used = _get_memory_pct()
+        if used >= MEMORY_ABORT_PCT:
+            self._log(f"CRITICAL: Memory at {used:.0f}% — emergency eviction")
+            self.stats["force_evictions"] += 1
+            await self._emergency_evict()
+            used = _get_memory_pct()
+            if used >= MEMORY_ABORT_PCT:
+                self._log(
+                    f"ABORT RISK: Memory still {used:.0f}% after eviction — "
+                    "manual intervention may be needed"
+                )
+                self.stats["recovery_failures"] += 1
+        elif used >= MEMORY_CRITICAL_PCT:
+            self._log(f"Memory critical: {used:.0f}% — evicting models")
+            self.stats["force_evictions"] += 1
+            self.stats["recovery_attempts"] += 1
+            unload_all_models()
+            await asyncio.sleep(5)
+        elif used >= MEMORY_WARN_PCT:
+            self.stats["warnings"] += 1
+            self._log(f"Memory warning: {used:.0f}%")
+
+        # ── 2. MLX proxy health ──
+        try:
+            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
+            if h.status_code != 200:
+                self.stats["mlx_crashes"] += 1
+                self._log(f"MLX proxy unhealthy: HTTP {h.status_code}")
+            else:
+                health = h.json()
+                state = health.get("state", "")
+                # Check for zombie: state stuck in switching for > 5 min
+                duration = health.get("state_duration_sec", 0)
+                if state == "switching" and duration > 300:
+                    self._log(f"MLX stuck in 'switching' for {duration:.0f}s — killing zombies")
+                    self.stats["zombie_kills"] += 1
+                    _kill_zombie_mlx()
+        except Exception:
+            self.stats["mlx_crashes"] += 1
+            self._log("MLX proxy unreachable — may have crashed")
+
+        # ── 3. Ollama health ──
+        try:
+            r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
+            if r.status_code != 200:
+                self.stats["ollama_crashes"] += 1
+                self._log(f"Ollama unhealthy: HTTP {r.status_code}")
+        except Exception:
+            self.stats["ollama_crashes"] += 1
+            self._log("Ollama unreachable — may have crashed")
+
+        # ── 4. Check for MLX server zombies ──
+        if _kill_zombie_mlx():
+            self.stats["zombie_kills"] += 1
+            self._log("Killed MLX server zombie")
+            await asyncio.sleep(8)  # Metal memory reclaim
+
+    async def _emergency_evict(self) -> None:
+        """Aggressive eviction when memory is critically high."""
+        self.stats["recovery_attempts"] += 1
+        # Kill zombies first (they hold GPU memory even when stuck)
+        if _kill_zombie_mlx():
+            self.stats["zombie_kills"] += 1
+            await asyncio.sleep(8)
+        # Evict everything
+        unload_all_models()
+        await asyncio.sleep(10)
+        # Force OS memory reclaim
+        try:
+            import subprocess
+            subprocess.run(["purge"], capture_output=True, timeout=30)
+        except Exception:
+            pass
+        await asyncio.sleep(5)
+
+
+# ---------------------------------------------------------------------------
+# Model cascade ordering
+# ---------------------------------------------------------------------------
+
+# Tier execution order: biggest first, then smaller, then non-MLX
+_TIER_ORDER = ["mlx_large", "mlx_small", "ollama", "any"]
+
+
+def sort_tests_cascade(tests: list[dict]) -> list[dict]:
+    """Reorder tests for model-cascade execution.
+
+    Order:
+    1. By workspace_tier: mlx_large → mlx_small → ollama → any
+       (biggest models first, so the hardest loads are done early and memory
+       is cleanest at the start)
+    2. Within each tier, by model_slug: groups tests using the same persona
+       together, minimizing model switches within the pipeline
+    3. Within each model_slug, preserve original order (test IDs)
+
+    This replaces section-based ordering. Instead of:
+      all auto-coding tests → all auto-spl tests → ...
+    We do:
+      all mlx_large tests (grouped by model) → all mlx_small tests → ...
+
+    Benefits:
+    - Models loaded once per tier transition, not per section
+    - Big models tested while memory is freshest
+    - Tests using same persona run consecutively (pipeline caches)
+    - Clear memory boundaries between tiers
+    """
+    tier_rank = {t: i for i, t in enumerate(_TIER_ORDER)}
+    return sorted(
+        tests,
+        key=lambda t: (
+            tier_rank.get(t.get("workspace_tier", "any"), 99),
+            t.get("model_slug", ""),
+            t.get("id", ""),
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -4985,6 +5362,15 @@ async def main() -> None:
 
     print(f"{len(tests)} test(s) selected")
 
+    # Reorder tests for model-cascade execution: tier groups (large→small→ollama→any),
+    # then model_slug within each tier to minimize pipeline model switches.
+    tests = sort_tests_cascade(tests)
+    tier_counts = {}
+    for t in tests:
+        tier = t.get("workspace_tier", "any")
+        tier_counts[tier] = tier_counts.get(tier, 0) + 1
+    print(f"  Cascade order: {' > '.join(f'{t}({c})' for t, c in tier_counts.items())}")
+
     # Skip conditions
     skip_conditions = evaluate_skip_conditions()
     flagged = [k for k, v in skip_conditions.items() if v]
@@ -5030,13 +5416,29 @@ async def main() -> None:
         await _login(page)
         print("  Logged in to Open WebUI\n")
 
-        _unloaded_sections: set[str] = set()
+        # Start continuous memory/health monitor (background task)
+        monitor = MemoryMonitor(poll_interval=20.0)
+        monitor.start()
+
+        _last_tier: str = ""
         for i, test in enumerate(tests, start=1):
-            section = test.get("section", "")
-            if SECTIONS_REQUIRE_UNLOAD and section not in _unloaded_sections:
-                print(f"  Unloading all models before section '{section}' (max memory)")
+            tier = test.get("workspace_tier", "any")
+
+            # Tier transition: evict previous backend before loading new one
+            # This prevents MLX + Ollama both loaded simultaneously (OOM risk)
+            if tier != _last_tier:
+                if _last_tier:
+                    print(f"  Tier transition: {_last_tier} → {tier} — evicting models")
                 unload_all_models()
-                _unloaded_sections.add(section)
+                _last_tier = tier
+
+            # Pre-test memory check (monitor runs continuously in background,
+            # but this catches issues right before a test starts)
+            safe = _check_memory_before_test(f"{test['id']} {test['name']}")
+            if not safe:
+                print(f"  [{i:02d}/{len(tests):02d}] {test['id']} SKIPPED (memory pressure)")
+                counts["SKIP"] = counts.get("SKIP", 0) + 1
+                continue
 
             print(f"[{i:02d}/{len(tests):02d}] {test['id']} {test['name']}")
 
@@ -5080,6 +5482,12 @@ async def main() -> None:
         except Exception:
             pass
         await browser.close()
+
+    # Stop continuous monitor and print stats
+    await monitor.stop()
+
+    # Final cleanup: evict all models to prevent OOM after UAT completes
+    cleanup_after_uat()
 
     # Write calibration JSON if collected
     if calibration_records is not None:

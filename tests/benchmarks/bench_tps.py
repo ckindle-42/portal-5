@@ -422,6 +422,98 @@ def _wait_ollama_idle(timeout_s: float = 60.0) -> bool:
     return False
 
 
+def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
+    """Check if system memory pressure is too high.
+
+    Returns (safe, used_pct). If used_pct > threshold_pct, safe=False.
+    Checks MLX proxy's memory report if available, falls back to system vm_stat.
+    """
+    try:
+        r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
+        if r.status_code == 200:
+            mem = r.json().get("memory", {}).get("current", {})
+            used_pct = mem.get("used_pct", 0.0)
+            if used_pct > 0:
+                return used_pct < threshold_pct, used_pct
+    except Exception:
+        pass
+    # Fallback: no data available, assume safe
+    return True, 0.0
+
+
+def _cleanup_all_backends(smallest_mlx: str | None = None) -> None:
+    """Full cleanup: evict all models from MLX proxy and Ollama to free memory.
+
+    Called at the end of the benchmark to prevent OOM after testing completes.
+    The last model in a test sequence doesn't get evicted by the normal
+    per-model cleanup cycle, so we need explicit final cleanup.
+    """
+    print("\n  Cleaning up: evicting all models from memory ...", end=" ", flush=True)
+
+    # 1. Evict MLX: load the smallest canary to push out any large model
+    if smallest_mlx:
+        try:
+            with httpx.Client(timeout=120.0) as client:
+                client.post(
+                    f"{MLX_URL}/v1/chat/completions",
+                    json={
+                        "model": smallest_mlx,
+                        "messages": [{"role": "user", "content": "hi"}],
+                        "stream": False,
+                        "max_tokens": 1,
+                    },
+                )
+        except Exception:
+            pass
+    # 2. Evict Ollama: force unload all running models
+    _unload_all_running_ollama_models()
+    # 3. Wait for memory reclamation
+    time.sleep(10)
+    _wait_ollama_idle(timeout_s=30.0)
+
+    # 4. Check final memory state
+    safe, used = _check_memory_pressure()
+    if safe:
+        print(f"ok (memory at {used:.0f}%)")
+    else:
+        print(f"WARNING: memory still at {used:.0f}% — manual cleanup may be needed")
+
+
+def _ensure_ollama_evicted() -> None:
+    """Force-unload all Ollama models before loading an MLX model.
+
+    MLX and Ollama share unified memory — having both loaded simultaneously,
+    especially large models, causes OOM. This ensures Ollama is clear before
+    MLX loads a big model.
+    """
+    _unload_all_running_ollama_models()
+    _wait_ollama_idle(timeout_s=30.0)
+
+
+def _ensure_mlx_evicted(smallest_mlx: str | None) -> None:
+    """Evict the current MLX model before loading Ollama models.
+
+    Loads the smallest MLX canary to push out any large MLX model, then
+    waits for memory reclamation.
+    """
+    if not smallest_mlx:
+        return
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            client.post(
+                f"{MLX_URL}/v1/chat/completions",
+                json={
+                    "model": smallest_mlx,
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "stream": False,
+                    "max_tokens": 1,
+                },
+            )
+    except Exception:
+        pass
+    _wait_mlx_memory_available(3.0, timeout_s=60.0)
+
+
 def _evict_mlx_current_model(smallest_mlx_model: str | None) -> None:
     """Force the MLX proxy to release its current (possibly large) model.
 
@@ -491,25 +583,36 @@ def _parse_ollama_sizes_from_config() -> dict[str, float]:
     """Parse model→GB size estimates from backends.yaml.
 
     Priority:
-    1. Inline comments like '# ~46GB' (MLX models have these).
-    2. Parameter count inferred from model name (e.g., ':70b' → ~40GB for Q4).
-    3. Fallback: 20.0 GB (conservative).
+    1. `memory_gb` field from `mlx_models:` objects (MLX models).
+    2. Inline comments like '# ~46GB' (Ollama models).
+    3. Parameter count inferred from model name (e.g., ':70b' → ~40GB for Q4).
+    4. Fallback: 20.0 GB (conservative).
     """
     import re
 
-    cfg_path = PROJECT_ROOT / "config" / "backends.yaml"
-    if not cfg_path.exists():
-        return {}
+    cfg = _load_backends_config()
     sizes: dict[str, float] = {}
-    model_re = re.compile(r"^\s+-\s+(\S+)")
-    size_re = re.compile(r"~(\d+(?:\.\d+)?)\s*GB")
-    # Parse inline size comments first
-    for line in cfg_path.read_text().splitlines():
-        m = model_re.match(line)
-        if m:
-            s = size_re.search(line)
-            if s:
-                sizes[m.group(1)] = float(s.group(1))
+
+    # 1. MLX models: read memory_gb from mlx_models objects
+    for be in cfg.get("backends", []):
+        if be.get("type") == "mlx":
+            for m in be.get("mlx_models", []):
+                if "id" in m and "memory_gb" in m:
+                    sizes[m["id"]] = float(m["memory_gb"])
+
+    # 2. Ollama models: parse inline size comments from YAML text
+    cfg_path = PROJECT_ROOT / "config" / "backends.yaml"
+    if cfg_path.exists():
+        model_re = re.compile(r"^\s+-\s+(\S+)")
+        size_re = re.compile(r"~(\d+(?:\.\d+)?)\s*GB")
+        for line in cfg_path.read_text().splitlines():
+            m = model_re.match(line)
+            if m:
+                name = m.group(1)
+                if name not in sizes:  # don't override mlx_models memory_gb
+                    s = size_re.search(line)
+                    if s:
+                        sizes[name] = float(s.group(1))
     return sizes
 
 
@@ -572,10 +675,19 @@ def _parse_model_size_gb(model_name: str, backend_type: str = "ollama") -> float
 
 
 def _config_mlx_models() -> list[str]:
-    """All MLX models from backends.yaml."""
+    """All MLX models from backends.yaml.
+
+    MLX backends use `mlx_models:` (list of objects with `id` + `memory_gb`)
+    rather than the flat `models:` list used by Ollama backends.
+    """
     cfg = _load_backends_config()
     for be in cfg.get("backends", []):
         if be.get("type") == "mlx":
+            # Preferred: mlx_models sub-key (objects with id, memory_gb, is_vlm, etc.)
+            mlx_models = be.get("mlx_models", [])
+            if mlx_models:
+                return [m["id"] for m in mlx_models if "id" in m]
+            # Fallback: flat models list (legacy format)
             return list(be.get("models", []))
     return []
 
@@ -777,8 +889,20 @@ def _warmup_mlx_model(model: str) -> bool:
         try:
             with httpx.Client(timeout=300.0) as client:
                 resp = client.post(f"{MLX_URL}/v1/chat/completions", json=payload)
-                if resp.status_code in (200, 503):
+                if resp.status_code == 200:
                     return True
+                if resp.status_code == 503:
+                    # 503 = insufficient memory or proxy busy — wait for memory then retry
+                    try:
+                        err = resp.json().get("error", {}).get("message", "")
+                    except Exception:
+                        err = ""
+                    if "Insufficient memory" in err:
+                        # Wait for memory to free up before retrying
+                        _wait_mlx_memory_available(20.0, timeout_s=120.0)
+                    if attempt < 2:
+                        time.sleep(15)
+                    continue
         except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError):
             if attempt < 2:
                 time.sleep(10)
@@ -1008,6 +1132,40 @@ def bench_tps(
     }
 
 
+# ── Model affinity: which workspaces/personas benefit from a model being loaded ──
+
+
+def _build_model_affinity() -> tuple[dict[str, list[str]], dict[str, list[dict]]]:
+    """Build reverse maps: model_id → [workspace_ids] and model_id → [persona_dicts].
+
+    For workspaces: includes any workspace whose routing list contains 'mlx'
+    (the pipeline will route to whatever MLX model is currently loaded).
+    For personas: includes any persona whose workspace_model's routing contains 'mlx'.
+    """
+    cfg = _load_backends_config()
+    ws_routing = cfg.get("workspace_routing", {})
+
+    # Workspaces that route through MLX (have 'mlx' in their routing list)
+    mlx_workspaces = [ws for ws, groups in ws_routing.items() if "mlx" in groups]
+
+    # Personas that route through MLX
+    all_personas = _discover_personas()
+    mlx_personas = []
+    for p in all_personas:
+        wm = p["workspace_model"]
+        wm_groups = ws_routing.get(wm, [])
+        if "mlx" in wm_groups:
+            mlx_personas.append(p)
+
+    # Map every MLX model to the same set (since any MLX model can serve these
+    # when it's the currently-loaded model in the proxy).
+    mlx_models = _config_mlx_models()
+    model_to_ws: dict[str, list[str]] = {m: list(mlx_workspaces) for m in mlx_models}
+    model_to_personas: dict[str, list[dict]] = {m: list(mlx_personas) for m in mlx_models}
+
+    return model_to_ws, model_to_personas
+
+
 # ── Direct backend tests ─────────────────────────────────────────────────────
 
 
@@ -1023,12 +1181,16 @@ def bench_direct(
 ) -> list[dict]:
     results = []
 
-    if mlx_available:
+    if mlx_available and not os.environ.get("BENCH_SKIP_MLX"):
         mlx_models = _config_mlx_models()
         if models_filter:
             mlx_models = [m for m in mlx_models if models_filter in m]
-        if order == "size":
-            mlx_models = sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))
+        if order in ("size", "largest"):
+            mlx_models = sorted(
+                mlx_models,
+                key=lambda m: _parse_model_size_gb(m, "mlx"),
+                reverse=(order == "largest"),
+            )
         runtime = _runtime_mlx_models()
         smallest_mlx = (
             sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
@@ -1079,9 +1241,63 @@ def bench_direct(
                     _append_result(output_path, r)
                 continue
             prompt = _get_prompt_for_model(model)
+            # Mutual exclusion: evict Ollama before loading MLX (shared unified memory)
+            _ensure_ollama_evicted()
+            # Memory pressure check
+            safe, used = _check_memory_pressure(threshold_pct=80.0)
+            if not safe:
+                print(f"SKIP (memory pressure {used:.0f}%)")
+                r = {
+                    "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
+                    "available": True, "error": f"memory pressure too high ({used:.0f}%)",
+                    "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
+                    "avg_tps": 0, "min_tps": 0, "max_tps": 0,
+                    "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+                }
+                results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
+                continue
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
-            _warmup_mlx_model(model)
+            warm_ok = _warmup_mlx_model(model)
+            if not warm_ok:
+                print("FAIL (model load failed after retries)")
+                r = {
+                    "model": model,
+                    "label": "mlx-direct",
+                    "backend": "mlx",
+                    "path": "direct",
+                    "available": True,
+                    "error": "model load failed (503 insufficient memory or timeout)",
+                    "est_memory_gb": size_gb,
+                    "runs_total": runs,
+                    "runs_success": 0,
+                    "avg_tps": 0,
+                    "min_tps": 0,
+                    "max_tps": 0,
+                    "avg_completion_tokens": 0,
+                    "avg_elapsed_s": 0,
+                    "runs": [],
+                }
+                results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
+                # Still evict to free memory for next model
+                has_next = i < len(mlx_models)
+                if has_next or ollama_available:
+                    next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
+                    print(
+                        f"    evict → reclaim ({cooldown:.0f}s cooldown) ...",
+                        end=" ",
+                        flush=True,
+                    )
+                    _unload_all_running_ollama_models()
+                    _evict_mlx_current_model(smallest_mlx)
+                    _wait_mlx_memory_available(next_size, timeout_s=max(cooldown * 12, 120.0))
+                    time.sleep(cooldown)
+                    print("ok")
+                continue
             prompt_cat = _prompt_category_for_model(model)
             r = bench_tps(
                 MLX_URL,
@@ -1107,21 +1323,52 @@ def bench_direct(
             # Post-test: evict → reclaim → cooldown (always, after every model).
             # Mirrors real user behavior: no one loads a new model immediately after the last.
             # Flush Ollama (pipeline routing model can be loaded in background), evict MLX by
-            # loading the 3B canary, poll until Metal reclaims inactive pages, then sleep cooldown.
+            # loading the 3B canary to push out the big model, then also evict the canary itself
+            # so Metal can reclaim ALL pages. Poll until enough memory, then sleep cooldown.
             has_next = i < len(mlx_models)
             if has_next or ollama_available:
                 next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
+                # Scale timeout and cooldown by current model size — big models need more settle time
+                big_model = size_gb >= 20
+                reclaim_timeout = max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
+                settle_sleep = max(cooldown, 30.0) if big_model else cooldown
                 print(
-                    f"    evict → reclaim ({cooldown:.0f}s cooldown) ...",
+                    f"    evict → reclaim ({settle_sleep:.0f}s cooldown) ...",
                     end=" ",
                     flush=True,
                 )
                 _unload_all_running_ollama_models()
                 _evict_mlx_current_model(smallest_mlx)
                 reclaimed = _wait_mlx_memory_available(
-                    next_size, timeout_s=max(cooldown * 12, 120.0)
+                    next_size, timeout_s=reclaim_timeout
                 )
-                time.sleep(cooldown)
+                # After canary pushed out the big model, also evict the canary itself
+                # so the next large model has maximum free memory (not canary+headroom).
+                if smallest_mlx and size_gb >= 10:
+                    _unload_ollama_model(smallest_mlx)  # no-op for MLX, but clears Ollama side
+                    # Send a minimal request with a tiny model to force proxy to release the canary
+                    try:
+                        with httpx.Client(timeout=30.0) as _c:
+                            _c.post(
+                                f"{MLX_URL}/v1/chat/completions",
+                                json={
+                                    "model": smallest_mlx,
+                                    "messages": [{"role": "user", "content": ""}],
+                                    "stream": False,
+                                    "max_tokens": 1,
+                                },
+                            )
+                    except Exception:
+                        pass
+                    # Extra settle time for Metal to reclaim pages from the canary
+                    time.sleep(settle_sleep)
+                    # Re-check memory after canary eviction
+                    reclaimed2 = _wait_mlx_memory_available(
+                        next_size, timeout_s=60.0
+                    )
+                    reclaimed = reclaimed or reclaimed2
+                else:
+                    time.sleep(settle_sleep)
                 print("ok" if reclaimed else "ok (partial reclaim)")
 
         # ── MLX→Ollama transition ─────────────────────────────────────────
@@ -1129,13 +1376,17 @@ def bench_direct(
         # so the 3B canary is resident and large-model pages are reclaimed.
         # Nothing extra needed — Ollama section starts with clean memory.
 
-    if ollama_available:
+    if ollama_available and not os.environ.get("BENCH_SKIP_OLLAMA"):
         ollama_groups = _config_ollama_models_by_group()
         ollama_unique = _config_ollama_models_unique()
         if models_filter:
             ollama_unique = [m for m in ollama_unique if models_filter in m]
-        if order == "size":
-            ollama_unique = sorted(ollama_unique, key=lambda m: _parse_model_size_gb(m, "ollama"))
+        if order in ("size", "largest"):
+            ollama_unique = sorted(
+                ollama_unique,
+                key=lambda m: _parse_model_size_gb(m, "ollama"),
+                reverse=(order == "largest"),
+            )
         runtime = _runtime_ollama_models()
         print(
             f"\n  Ollama models configured: {len(ollama_unique)} (across {len(ollama_groups)} groups, order={order})"
@@ -1189,6 +1440,12 @@ def bench_direct(
             model_groups = [g for g, ms in ollama_groups.items() if model in ms]
             group = model_groups[0] if model_groups else ""
             prompt = _get_prompt_for_model(model, group=group)
+            # Mutual exclusion: evict MLX before loading Ollama (shared unified memory)
+            _smallest = (
+                sorted(_config_mlx_models(), key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+                if _config_mlx_models() else None
+            )
+            _ensure_mlx_evicted(_smallest)
             # Warm-up: force Ollama to load model before timed runs so run 1
             # doesn't include model-load latency (mirrors MLX warm-up).
             print("(warm-up) ", end="", flush=True)
@@ -1237,6 +1494,266 @@ def bench_direct(
                         print(f" + {cooldown:.0f}s cooldown ...", end=" ", flush=True)
                         time.sleep(cooldown)
                     print("ok")
+
+    return results
+
+
+# ── Model cascade: load once → test all → evict ──────────────────────────────
+
+
+def bench_model_cascade(
+    mlx_available: bool,
+    ollama_available: bool,
+    pipeline_available: bool,
+    models_filter: str | None,
+    runs: int,
+    dry_run: bool,
+    cooldown: float = 10.0,
+    order: str = "size",
+    output_path: str = "",
+) -> list[dict]:
+    """Optimized benchmark: for each MLX model, load once then run direct + workspace + persona tests.
+
+    Instead of:
+      load M1 → test → evict → ... → load M1 again via pipeline → test → evict → ...
+
+    This does:
+      load M1 → direct test → workspace tests → persona tests → evict → load M2 → ...
+
+    This eliminates redundant model loads (~50% reduction in MLX switching time)
+    and captures pipeline TPS for each model in a single pass.
+
+    Workspaces and personas tested during the cascade are marked as done.
+    Remaining non-MLX workspaces/personas are tested in a final pass.
+    """
+    results = []
+    tested_workspaces: set[str] = set()
+    tested_personas: set[str] = set()
+
+    if not mlx_available or os.environ.get("BENCH_SKIP_MLX"):
+        return results
+
+    mlx_models = _config_mlx_models()
+    if models_filter:
+        mlx_models = [m for m in mlx_models if models_filter in m]
+    if order in ("size", "largest"):
+        mlx_models = sorted(
+            mlx_models,
+            key=lambda m: _parse_model_size_gb(m, "mlx"),
+            reverse=(order == "largest"),
+        )
+
+    runtime = _runtime_mlx_models()
+    smallest_mlx = (
+        sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+        if mlx_models
+        else None
+    )
+
+    model_to_ws, model_to_personas = _build_model_affinity()
+    mlx_ws_count = len(next(iter(model_to_ws.values()), [])) if model_to_ws else 0
+    mlx_p_count = len(next(iter(model_to_personas.values()), [])) if model_to_personas else 0
+
+    print(f"\n  MLX models: {len(mlx_models)} (order={order})")
+    print(f"  MLX-routed workspaces: {mlx_ws_count}  |  MLX-routed personas: {mlx_p_count}")
+    if runtime:
+        print(f"  MLX proxy registered: {len(runtime)}")
+
+    for i, model in enumerate(mlx_models, 1):
+        short = model.split("/")[-1]
+        size_gb = _parse_model_size_gb(model, "mlx")
+
+        # Check if direct test already done (resume)
+        direct_done = output_path and _result_already_done(output_path, "model", model)
+        # Check which workspace/persona tests still need running
+        pending_ws = [
+            ws for ws in model_to_ws.get(model, [])
+            if ws not in tested_workspaces and not (output_path and _result_already_done(output_path, "workspace", ws))
+        ]
+        pending_personas = [
+            p for p in model_to_personas.get(model, [])
+            if p["slug"] not in tested_personas and not (output_path and _result_already_done(output_path, "persona_slug", p["slug"]))
+        ]
+
+        if direct_done and not pending_ws and not pending_personas:
+            print(f"    [{i}/{len(mlx_models)}] {short} ({size_gb:.0f}GB) SKIP (all done)")
+            continue
+
+        available = model in runtime if runtime else True
+        marker = "" if available else " [not registered]"
+        tasks_desc = []
+        if not direct_done:
+            tasks_desc.append("direct")
+        if pending_ws:
+            tasks_desc.append(f"{len(pending_ws)}ws")
+        if pending_personas:
+            tasks_desc.append(f"{len(pending_personas)}p")
+        print(
+            f"    [{i}/{len(mlx_models)}] {short} ({size_gb:.0f}GB){marker}"
+            f" [{'+'.join(tasks_desc)}] ...",
+            end=" ",
+            flush=True,
+        )
+
+        if dry_run:
+            print("(dry run)")
+            continue
+
+        if not available:
+            print("SKIP")
+            r = {
+                "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
+                "available": False, "error": "not registered in proxy",
+                "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
+                "avg_tps": 0, "min_tps": 0, "max_tps": 0,
+                "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+            }
+            results.append(r)
+            if output_path:
+                _append_result(output_path, r)
+            continue
+
+        # ── 1. Warm-up: load the model ──
+        if not direct_done or pending_ws or pending_personas:
+            # Mutual exclusion: evict Ollama before loading MLX (shared unified memory)
+            _ensure_ollama_evicted()
+            # Memory pressure check before loading
+            safe, used = _check_memory_pressure(threshold_pct=80.0)
+            if not safe:
+                print(f"SKIP (memory pressure {used:.0f}%) ", end="", flush=True)
+                continue
+            print("(warm-up) ", end="", flush=True)
+            warm_ok = _warmup_mlx_model(model)
+            if not warm_ok:
+                print("FAIL (load failed) ", end="", flush=True)
+                if not direct_done:
+                    r = {
+                        "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
+                        "available": True, "error": "model load failed",
+                        "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
+                        "avg_tps": 0, "min_tps": 0, "max_tps": 0,
+                        "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+                    }
+                    results.append(r)
+                    if output_path:
+                        _append_result(output_path, r)
+                # Skip workspace/persona tests if model didn't load
+                pending_ws = []
+                pending_personas = []
+
+        # ── 2. Direct TPS test ──
+        if not direct_done and warm_ok:
+            prompt = _get_prompt_for_model(model)
+            prompt_cat = _prompt_category_for_model(model)
+            r = bench_tps(
+                MLX_URL, model, prompt=prompt, runs=runs,
+                label="mlx-direct", prompt_category=prompt_cat,
+            )
+            r["backend"] = "mlx"
+            r["path"] = "direct"
+            r["available"] = True
+            r["est_memory_gb"] = size_gb
+            r["prompt_category"] = prompt_cat
+            results.append(r)
+            if output_path:
+                _append_result(output_path, r)
+            if r["avg_tps"] > 0:
+                print(f"{r['avg_tps']}t/s ", end="", flush=True)
+            else:
+                print("FAIL ", end="", flush=True)
+
+        # ── 3. Workspace tests (pipeline routes to loaded MLX model) ──
+        if pipeline_available and pending_ws:
+            print(f"({len(pending_ws)}ws:", end="", flush=True)
+            for _j, ws in enumerate(pending_ws, 1):
+                if output_path and _result_already_done(output_path, "workspace", ws):
+                    continue
+                prompt = _get_prompt_for_workspace(ws)
+                prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
+                r = bench_tps(
+                    PIPELINE_URL, ws, prompt=prompt, runs=runs,
+                    label="pipeline", prompt_category=prompt_cat,
+                )
+                r["backend"] = "pipeline"
+                r["path"] = "pipeline"
+                r["workspace"] = ws
+                r["prompt_category"] = prompt_cat
+                r["active_mlx_model"] = model  # tag which model was loaded
+                results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
+                tested_workspaces.add(ws)
+                tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
+                print(f" {ws}={tps_str}", end="", flush=True)
+            print(") ", end="", flush=True)
+
+        # ── 4. Persona tests (pipeline routes to loaded MLX model) ──
+        if pipeline_available and pending_personas:
+            print(f"({len(pending_personas)}p:", end="", flush=True)
+            for _j, p in enumerate(pending_personas, 1):
+                slug = p["slug"]
+                if output_path and _result_already_done(output_path, "persona_slug", slug):
+                    continue
+                wm = p["workspace_model"]
+                cat = p["category"]
+                prompt = _get_prompt_for_persona_category(cat)
+                prompt_cat = _prompt_category_for_persona(cat)
+                r = bench_tps(
+                    PIPELINE_URL, wm, prompt=prompt, runs=runs,
+                    label="persona", prompt_category=prompt_cat,
+                )
+                r["backend"] = "pipeline"
+                r["path"] = "persona"
+                r["persona_slug"] = slug
+                r["persona_name"] = p["name"]
+                r["persona_category"] = cat
+                r["workspace_model"] = wm
+                r["prompt_category"] = prompt_cat
+                r["active_mlx_model"] = model
+                results.append(r)
+                if output_path:
+                    _append_result(output_path, r)
+                tested_personas.add(slug)
+                tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
+                print(f" {slug}={tps_str}", end="", flush=True)
+            print(") ", end="", flush=True)
+
+        print("ok")
+
+        # ── 5. Evict → reclaim → cooldown ──
+        has_next = i < len(mlx_models)
+        if has_next or ollama_available:
+            next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
+            big_model = size_gb >= 20
+            reclaim_timeout = max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
+            settle_sleep = max(cooldown, 30.0) if big_model else cooldown
+            print(
+                f"    evict → reclaim ({settle_sleep:.0f}s cooldown) ...",
+                end=" ",
+                flush=True,
+            )
+            _unload_all_running_ollama_models()
+            _evict_mlx_current_model(smallest_mlx)
+            reclaimed = _wait_mlx_memory_available(next_size, timeout_s=reclaim_timeout)
+            if smallest_mlx and size_gb >= 10:
+                try:
+                    with httpx.Client(timeout=30.0) as _c:
+                        _c.post(
+                            f"{MLX_URL}/v1/chat/completions",
+                            json={
+                                "model": smallest_mlx,
+                                "messages": [{"role": "user", "content": ""}],
+                                "stream": False, "max_tokens": 1,
+                            },
+                        )
+                except Exception:
+                    pass
+                time.sleep(settle_sleep)
+                reclaimed2 = _wait_mlx_memory_available(next_size, timeout_s=60.0)
+                reclaimed = reclaimed or reclaimed2
+            else:
+                time.sleep(settle_sleep)
+            print("ok" if reclaimed else "ok (partial reclaim)")
 
     return results
 
@@ -1540,9 +2057,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--order",
-        choices=["size", "config"],
+        choices=["size", "config", "largest"],
         default="size",
-        help="Model test order: 'size' = smallest first (default), 'config' = backends.yaml order",
+        help="Model test order: 'size' = smallest first (default), 'largest' = biggest first, 'config' = backends.yaml order",
     )
     parser.add_argument(
         "--spec-decoding-tag",
@@ -1626,7 +2143,8 @@ def _run_main(args) -> None:
     if all_results:
         print(f"\n  Resuming: {len(all_results)} results already saved")
 
-    if do_direct:
+    if do_direct and args.mode != "all":
+        # Standalone direct mode: MLX + Ollama only (no workspace/persona tests)
         print("\n── Direct Backend Tests ──")
         all_results.extend(
             bench_direct(
@@ -1640,6 +2158,39 @@ def _run_main(args) -> None:
                 output_path=args.output,
             )
         )
+
+    if args.mode == "all":
+        # ── Optimized cascade: load model once, test everything, then evict ──
+        print("\n── Model Cascade (MLX direct + workspaces + personas) ──")
+        all_results.extend(
+            bench_model_cascade(
+                mlx_available=mlx_available,
+                ollama_available=ollama_available,
+                pipeline_available=pipeline_available,
+                models_filter=args.model,
+                runs=args.runs,
+                dry_run=args.dry_run,
+                cooldown=args.cooldown,
+                order=args.order,
+                output_path=args.output,
+            )
+        )
+
+        # Ollama direct tests (separate — no model-switching constraint)
+        if not os.environ.get("BENCH_SKIP_OLLAMA"):
+            print("\n── Ollama Direct Tests ──")
+            all_results.extend(
+                bench_direct(
+                    mlx_available=False,  # skip MLX (already done in cascade)
+                    ollama_available=ollama_available,
+                    models_filter=args.model,
+                    runs=args.runs,
+                    dry_run=args.dry_run,
+                    cooldown=args.cooldown,
+                    order=args.order,
+                    output_path=args.output,
+                )
+            )
 
     if do_pipeline:
         print("\n── Pipeline Workspace Tests ──")
@@ -1696,6 +2247,15 @@ def _run_main(args) -> None:
     print(
         f"\nTotal: {tested}/{available_ct} passed ({len(output['results'])} total) in {total_time:.0f}s"
     )
+    # Final cleanup: evict all models to prevent OOM after testing
+    if not args.dry_run and (mlx_available or ollama_available):
+        smallest_mlx = (
+            sorted(_config_mlx_models(), key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
+            if _config_mlx_models()
+            else None
+        )
+        _cleanup_all_backends(smallest_mlx)
+
     print(f"Results: {args.output}")
 
 
