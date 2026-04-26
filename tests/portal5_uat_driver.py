@@ -64,9 +64,9 @@ MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
 
 # Memory pressure thresholds
-MEMORY_WARN_PCT = 75.0   # Log warning
-MEMORY_CRITICAL_PCT = 85.0  # Force eviction before next test
-MEMORY_ABORT_PCT = 92.0  # Stop — system is about to OOM
+MEMORY_WARN_PCT = 80.0   # Log warning
+MEMORY_CRITICAL_PCT = 90.0  # Force eviction before next test (MLX admission control handles below this)
+MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
 
 # ---------------------------------------------------------------------------
 # Backend health + zombie detection
@@ -176,7 +176,17 @@ def _check_for_oom_crash() -> str | None:
     # MLX proxy dead?
     try:
         h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-        if h.status_code != 200:
+        if h.status_code == 503:
+            # MLX loads on demand — 503 means idle/loading, not crashed.
+            # Check if the proxy is actually responding with state info.
+            try:
+                state = h.json().get("state", "unknown")
+            except Exception:
+                state = "unknown"
+            if state == "unknown" and not h.text:
+                return "MLX proxy returned empty 503 (may be stuck)"
+            # Proxy is responding — it's alive, just idle or loading
+        elif h.status_code != 200:
             return f"MLX proxy returned {h.status_code}"
     except Exception:
         return "MLX proxy unreachable (process may have crashed)"
@@ -207,7 +217,8 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
     if tier in ("mlx_large", "mlx_small"):
         h = _mlx_health()
         state = h.get("state", "unknown")
-        return state in ("ready", "switching"), f"mlx={state}"
+        # "none" = proxy is up, no model loaded (on-demand loading is normal)
+        return state in ("ready", "switching", "none"), f"mlx={state}"
     if tier == "ollama":
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
@@ -218,16 +229,19 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
 
 
 def _kill_zombie_mlx() -> bool:
-    """Kill any MLX server that has a live OS process but won't answer /health.
+    """Kill MLX server processes that are genuinely stuck — not ones still loading.
 
-    A zombie in this context: pgrep finds the process, but the HTTP /health
-    probe times out or errors — meaning the process is stuck and holding GPU
-    memory without serving requests.
+    A real zombie: process running >ZOMBIE_MIN_AGE_SEC with /health still dead.
+    A process that just started and is loading a large model is NOT a zombie.
+    MLX on-demand loading means mlx_lm.server starts on request and takes
+    30-120s to load depending on model size. Killing during load is destructive.
 
     Returns True if a zombie was found and SIGTERMed.
     """
     import os as _os
     import subprocess
+
+    ZOMBIE_MIN_AGE_SEC = 300  # 5 minutes — loading a 70B model can take 2+ min
 
     killed = False
     for proc_name, port in [("mlx_lm.server", 18081), ("mlx_vlm.server", 18082)]:
@@ -236,21 +250,36 @@ def _kill_zombie_mlx() -> bool:
             pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
             if not pids:
                 continue
-            # Process exists — is it still answering?
-            healthy = False
-            try:
-                r = httpx.get(f"http://localhost:{port}/health", timeout=3)
-                healthy = r.status_code == 200
-            except Exception:
-                pass
-            if healthy:
-                continue
-            # Process exists but /health is dead → zombie
             for pid in pids:
+                # Check process age — don't kill anything younger than ZOMBIE_MIN_AGE_SEC
+                try:
+                    etimes = subprocess.run(
+                        ["ps", "-o", "etimes=", "-p", str(pid)],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                    age_sec = int(etimes.stdout.strip()) if etimes.stdout.strip() else 0
+                except Exception:
+                    age_sec = 0
+
+                if age_sec < ZOMBIE_MIN_AGE_SEC:
+                    # Process is young — likely still loading, not a zombie
+                    continue
+
+                # Process is old AND /health is dead → genuine zombie
+                healthy = False
+                try:
+                    r = httpx.get(f"http://localhost:{port}/health", timeout=3)
+                    healthy = r.status_code == 200
+                except Exception:
+                    pass
+                if healthy:
+                    continue
+
+                # Confirmed zombie: old process, no health response
                 try:
                     _os.kill(pid, 15)  # SIGTERM — lets Metal release GPU memory
                     print(
-                        f"  [zombie] killed {proc_name} PID {pid} (process up, /health dead)",
+                        f"  [zombie] killed {proc_name} PID {pid} (age={age_sec}s, /health dead)",
                         flush=True,
                     )
                     killed = True
@@ -329,6 +358,7 @@ def unload_all_models() -> None:
         state = h.get("state", "")
         if loaded and state in ("ready", "switching"):
             # Load smallest model to evict whatever is loaded
+            print(f"  Evicting MLX model: {loaded} (state={state})", flush=True)
             httpx.post(
                 f"{MLX_PROXY_URL}/v1/chat/completions",
                 json={
@@ -337,11 +367,25 @@ def unload_all_models() -> None:
                     "stream": False,
                     "max_tokens": 1,
                 },
-                timeout=120,
+                timeout=300,
             )
-            print(f"  Evicted MLX model: {loaded}")
+            print(f"  Evicted MLX model: {loaded}", flush=True)
+        elif state == "none":
+            print(f"  MLX already idle (state=none) — no eviction needed", flush=True)
+        else:
+            print(f"  MLX eviction skipped (state={state}, loaded={loaded})", flush=True)
     except Exception as e:
-        print(f"  WARNING: Could not evict MLX model: {e}")
+        # Check actual proxy state before concluding failure
+        try:
+            check = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+            check_state = check.get("state", "unknown")
+            check_loaded = check.get("loaded_model")
+            if check_state == "none" or not check_loaded:
+                print(f"  MLX eviction: proxy responded state={check_state} (no model loaded) — OK", flush=True)
+            else:
+                print(f"  WARNING: MLX eviction failed but model still loaded: {check_loaded} state={check_state} ({e})", flush=True)
+        except Exception as e2:
+            print(f"  WARNING: Could not evict MLX model AND proxy unreachable: {e2}", flush=True)
 
     # 3. Wait for Ollama to fully release memory
     try:
@@ -608,7 +652,7 @@ async def _wait_for_completion(
     "degraded" for BACKEND_DEAD_STRIKES consecutive polls we abort early
     rather than burning the full safety cap.
     """
-    BACKEND_DEAD_STRIKES = 2  # consecutive down polls before we give up
+    BACKEND_DEAD_STRIKES = 5  # consecutive down polls before we give up (MLX cold load can take 60s+)
 
     t_start = time.time()
     last_log = 0.0
@@ -1301,10 +1345,7 @@ class MemoryMonitor:
         # ── 2. MLX proxy health ──
         try:
             h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-            if h.status_code != 200:
-                self.stats["mlx_crashes"] += 1
-                self._log(f"MLX proxy unhealthy: HTTP {h.status_code}")
-            else:
+            if h.status_code == 200:
                 health = h.json()
                 state = health.get("state", "")
                 # Check for zombie: state stuck in switching for > 5 min
@@ -1313,9 +1354,29 @@ class MemoryMonitor:
                     self._log(f"MLX stuck in 'switching' for {duration:.0f}s — killing zombies")
                     self.stats["zombie_kills"] += 1
                     _kill_zombie_mlx()
+            elif h.status_code == 503:
+                # MLX loads on demand — 503 means idle/loading, not crashed
+                health = h.json()
+                state = health.get("state", "unknown")
+                if state == "switching":
+                    duration = health.get("state_duration_sec", 0)
+                    if duration > 300:
+                        self._log(f"MLX stuck loading for {duration:.0f}s — may need intervention")
+                        self.stats["mlx_crashes"] += 1
+                    # else: normal model loading, not a crash
+                # state "none" = idle, perfectly healthy for on-demand loading
+            else:
+                self.stats["mlx_crashes"] += 1
+                self._log(f"MLX proxy unhealthy: HTTP {h.status_code}")
         except Exception:
-            self.stats["mlx_crashes"] += 1
-            self._log("MLX proxy unreachable — may have crashed")
+            # Connection failure — check if it's a timeout (proxy busy loading) vs truly dead
+            try:
+                h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=10)
+                state = h2.json().get("state", "unknown") if h2.status_code in (200, 503) else f"http_{h2.status_code}"
+                self._log(f"MLX slow response (state={state}) — proxy alive, likely loading")
+            except Exception:
+                self.stats["mlx_crashes"] += 1
+                self._log("MLX proxy unreachable — no response after 13s total")
 
         # ── 3. Ollama health ──
         try:

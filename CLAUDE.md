@@ -174,6 +174,7 @@ Portal 5 runs two inference backends concurrently on the host. Each model belong
 - Safetensor/MLX format models, downloaded via `huggingface-cli download`
 - Served by `mlx_lm.server` (text) or `mlx_vlm.server` (vision + audio)
 - Use when: no GGUF available, needs mlx_vlm audio, or model >20GB (admission control)
+- **On-demand loading**: the proxy starts with no model loaded. `/health` returns 503 with `state: "none"` when idle — this is normal, not a crash. Models load on first request; 32B loads in 30-90s, 70-80B in 1-3 min. Do NOT kill mlx_lm.server processes during loading.
 
 **Tier 2 — Ollama** (port 11434, Ollama 0.20.5+ MLX backend)
 - GGUF format models, pulled via `ollama pull` or `hf.co/`

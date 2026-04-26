@@ -425,13 +425,19 @@ Expected after a complete run (excluding skips): 70–82 conversations.
 ### Memory safety (automatic — do not bypass):
 - The driver evicts models at every tier transition — do not skip
 - **Continuous background monitor** runs every 20s during the entire test suite:
-  - Memory > 75%: logs warning
-  - Memory > 85%: force-evicts all models (MLX + Ollama)
-  - Memory > 92%: emergency eviction + zombie kill + `purge`
+  - Memory > 80%: logs warning
+  - Memory > 90%: force-evicts all models (MLX + Ollama)
+  - Memory > 95%: emergency eviction + `purge`
   - MLX proxy crash: detected and logged
-  - MLX server zombie: SIGTERM'd automatically
   - Ollama crash: detected and logged
 - After all tests, `cleanup_after_uat()` evicts everything automatically
+
+### MLX on-demand loading rules (critical):
+- **MLX loads models on request, not at startup.** A 503 from the proxy means it is idle and healthy — not crashed.
+- **Model loading is slow.** A 32B model takes 30-90s to load. A 70-80B model takes 1-3 minutes. Do NOT kill mlx_lm.server processes during loading.
+- **Zombie = process stuck >5 minutes with /health dead.** A process younger than 5 minutes that hasn't responded to /health is still loading, not a zombie. The driver checks process age before killing.
+- **MLX admission control is the authority on memory.** The proxy checks actual GPU memory before loading and rejects if insufficient. Do not preemptively evict models below 90% memory — trust the admission control.
+- **First request to any MLX model will be slow** (cold load). The driver retries on empty responses — this is expected. Second attempt will succeed once the model is loaded.
 - If running `--section` individually, each invocation cleans up at the end
 
 ---

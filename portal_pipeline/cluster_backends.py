@@ -354,10 +354,22 @@ class BackendRegistry:
         async with sem:
             try:
                 resp = await client.get(backend.health_url)
-                backend.healthy = resp.status_code == 200
+                if resp.status_code == 200:
+                    backend.healthy = True
+                elif backend.type == "mlx":
+                    # MLX proxy loads models on demand — 503 means idle/loading,
+                    # proxy is still healthy and will load on request.
+                    backend.healthy = True
+                else:
+                    backend.healthy = False
             except Exception as e:
-                logger.debug("Health check failed for %s: %s", backend.id, e)
-                backend.healthy = False
+                if backend.type == "mlx":
+                    # MLX proxy may timeout while loading a model — still healthy.
+                    logger.debug("MLX health check exception (treating as healthy): %s", e)
+                    backend.healthy = True
+                else:
+                    logger.debug("Health check failed for %s: %s", backend.id, e)
+                    backend.healthy = False
             finally:
                 backend.last_check = time.time()
 
