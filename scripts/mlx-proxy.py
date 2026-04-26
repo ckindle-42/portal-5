@@ -501,6 +501,36 @@ def _get_free_memory_gb() -> float:
         return 0.0
 
 
+def _wait_for_memory_reclaim(target_free_gb: float, timeout_s: float = 45.0) -> bool:
+    """Poll free memory after eviction, waiting for Metal GPU pages to release.
+
+    macOS can hold Metal allocations as "inactive" or "wired" pages for 5-30s
+    after a process exits. Calling this after stop_all() prevents the OOM that
+    results from loading a new model while the old one's pages are still held.
+
+    Returns True if target_free_gb of available memory (free+inactive) was
+    reached within timeout_s, False if the timeout expired.
+    """
+    deadline = time.time() + timeout_s
+    interval = 3.0
+    while time.time() < deadline:
+        available = _get_available_memory_gb()
+        if available >= target_free_gb:
+            print(
+                f"[proxy] memory reclaim OK: {available:.1f}GB available >= {target_free_gb:.0f}GB target",
+                flush=True,
+            )
+            return True
+        remaining = deadline - time.time()
+        print(
+            f"[proxy] waiting for reclaim: {available:.1f}GB available, need {target_free_gb:.0f}GB "
+            f"({remaining:.0f}s remaining)",
+            flush=True,
+        )
+        time.sleep(interval)
+    return False
+
+
 def _evict_ollama_models() -> None:
     """Send keep_alive=0 to all CURRENTLY LOADED Ollama models to free unified memory.
 
@@ -1042,14 +1072,31 @@ def ensure_server(model: str) -> int:
 
                 stop_all()
 
-            # Post-reclaim check — secondary safety net after eviction
+            # Wait for Metal GPU pages to release after process exit.
+            # Admission control credits freed_by_stop_gb, but macOS holds
+            # Metal allocations for 5-30s after process exit — loading
+            # immediately causes OOM. Wait up to 45s for reclaim before load.
+            estimated_gb = MODEL_MEMORY.get(model, MEMORY_UNKNOWN_DEFAULT_GB)
+            _wait_for_memory_reclaim(target_free_gb=estimated_gb, timeout_s=45.0)
+
+            # Post-reclaim check — abort if still insufficient after waiting.
             free_post = _get_free_memory_gb()
+            available_post = _get_available_memory_gb()
             if free_post < MEMORY_HEADROOM_GB:
                 print(
-                    f"[proxy] WARNING: only {free_post:.1f}GB free after reclaim — "
-                    f"model load may fail on 64GB system",
+                    f"[proxy] WARNING: only {free_post:.1f}GB strictly free after reclaim — "
+                    f"model load may be tight",
                     flush=True,
                 )
+            if available_post < estimated_gb:
+                msg = (
+                    f"Post-eviction memory still insufficient for {model!r}: "
+                    f"{available_post:.1f}GB available (free+inactive), need ~{estimated_gb:.0f}GB. "
+                    f"Metal GPU buffers still held — wait and retry, or close other GPU workloads."
+                )
+                print(f"[proxy] ABORT post-reclaim: {msg}", flush=True)
+                mlx_state.set_down(msg)
+                raise RuntimeError(msg)
 
             port = start_server(target, model)
             mlx_state.set_ready(target, model)
