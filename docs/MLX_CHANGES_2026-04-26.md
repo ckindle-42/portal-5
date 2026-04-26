@@ -10,7 +10,18 @@
 
 ## Known Issues
 
-### 1. mlx-lm 0.31.2 Server Puts Content in `reasoning` Field
+### 1. mlx-lm 0.31.2 + mlx 0.31.2: Worker Thread GPU Stream Crash (FIXED)
+- **Severity**: Critical — all completions hang/crash, UAT produces 0 results
+- **Symptom**: `mlx_lm.server` starts and reports `/health` OK but every POST to `/v1/chat/completions` causes `RuntimeError: There is no Stream(gpu, 0) in current thread.` in `Thread-2 (_generate)`. The server returns HTTP 200 but with no body (streaming hangs, non-streaming times out).
+- **Root cause**: mlx 0.31.2 made GPU streams strictly thread-local. `mlx_lm/generate.py` creates `generation_stream = mx.new_stream(mx.default_device())` at module-import time in the main thread. When the `_generate` worker thread calls `with mx.stream(generation_stream):`, mlx cannot find Stream(gpu, 0) in the worker thread's context.
+- **Fix applied**: Patched `/opt/homebrew/lib/python3.14/site-packages/mlx_lm/generate.py` line 226:
+  - Before: `generation_stream = mx.new_stream(mx.default_device())`
+  - After: `generation_stream = mx.new_thread_local_stream(mx.default_device())`
+  - `ThreadLocalStream` is resolved per-thread at use time — it works in any worker thread without per-thread initialization.
+- **Re-apply script**: `python3 scripts/patch-mlx-threads.py` (idempotent, re-run after any mlx_lm upgrade).
+- **Status**: Fixed. Upstream mlx_lm bug — report to ml-explore/mlx-lm.
+
+### 2. mlx-lm 0.31.2 Server Puts Content in `reasoning` Field
 - **Severity**: High — breaks content display in Open WebUI for all models
 - **Symptom**: `mlx_lm.generate` CLI returns content correctly, but `mlx_lm.server` HTTP endpoint returns content in `message.reasoning` instead of `message.content`. Also affects SSE streaming: `delta.reasoning` instead of `delta.content`.
 - **Root cause**: mlx_lm 0.31.2 server treats all models as reasoning models when emitting responses.
@@ -56,3 +67,4 @@
 1. **Post-brew-upgrade script**: Add a script to `/scripts/` that copies missing mlx Python bindings after Homebrew upgrades.
 2. **Spec-decoding re-enable**: Monitor mlx_lm releases; re-enable `draft_models` when ArraysCache fix lands.
 3. **Streaming reasoning→content**: The new code at `router_pipe.py:3127` is a hotfix. Clean up when mlx_lm server is fixed upstream.
+4. ~~**Thread stream crash**~~: Fixed via `scripts/patch-mlx-threads.py` (Issue #1 above).
