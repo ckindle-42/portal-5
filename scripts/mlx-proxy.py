@@ -768,8 +768,13 @@ def start_server(stype: str, model: str = "") -> int:
     """Start mlx_lm.server or mlx_vlm.server and wait for it to be serving.
 
     Captures server stderr to a log file and monitors for "Starting httpd"
-    which means the model has finished loading. This is deterministic —
-    the mlx_lm server loads the model synchronously before starting HTTP.
+    which means the HTTP server is ready to accept connections.
+
+    NOTE (mlx 0.31.2+): mlx_lm/server.py is patched to defer model loading
+    to the _generate() worker thread (avoids cross-thread GPU stream errors).
+    "Starting httpd" now signals HTTP-ready, not model-loaded. The model loads
+    lazily on the first inference request within the 300s REQUEST_TIMEOUT.
+    See: mlx_lm/server.py ModelProvider.__init__ patch.
     """
     port = LM_PORT if stype == "lm" else VLM_PORT
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
@@ -1202,14 +1207,29 @@ class Handler(BaseHTTPRequestHandler):
             k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")
         }
         hdrs["Content-Type"] = "application/json"
+        # Stream the mlx_lm response back to the pipeline as chunks arrive.
+        # Previous design (buffered c.post()) caused 300s pipeline timeout for
+        # large models (70B @ 17min) because the pipeline saw no bytes until
+        # the entire generation finished. With streaming, the first SSE chunk
+        # arrives at the pipeline as soon as the first token is generated.
         with httpx.Client(timeout=REQUEST_TIMEOUT) as c:
-            resp = c.post(url, content=body, headers=hdrs)
-        self.send_response(resp.status_code)
-        for k, v in resp.headers.items():
-            if k.lower() not in ("transfer-encoding", "content-encoding"):
-                self.send_header(k, v)
-        self.end_headers()
-        self.wfile.write(resp.content)
+            with c.stream("POST", url, content=body, headers=hdrs) as resp:
+                self.send_response(resp.status_code)
+                for k, v in resp.headers.items():
+                    if k.lower() not in ("transfer-encoding", "content-encoding", "content-length"):
+                        self.send_header(k, v)
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                for chunk in resp.iter_bytes(chunk_size=None):
+                    if chunk:
+                        # HTTP/1.1 chunked encoding: <hex-size>\r\n<data>\r\n
+                        self.wfile.write(f"{len(chunk):x}\r\n".encode())
+                        self.wfile.write(chunk)
+                        self.wfile.write(b"\r\n")
+                        self.wfile.flush()
+                # Chunked terminator
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
 
     def _handle_get_forward(self):
         active = detect_server()
