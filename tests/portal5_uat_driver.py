@@ -446,24 +446,29 @@ def unload_all_models() -> None:
     except Exception as e:
         print(f"  WARNING: Could not unload Ollama models: {e}")
 
-    # 2. MLX: evict by loading the smallest canary model to push out any large model
+    # 2. MLX: kill the server process to free GPU memory.
+    # The proxy resets to state=none on restart; the next test triggers a fresh model load.
     try:
         h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
         loaded = h.get("loaded_model")
         state = h.get("state", "")
         if loaded and state in ("ready", "switching"):
-            # Load smallest model to evict whatever is loaded
             print(f"  Evicting MLX model: {loaded} (state={state})", flush=True)
-            httpx.post(
-                f"{MLX_PROXY_URL}/v1/chat/completions",
-                json={
-                    "model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
-                    "messages": [{"role": "user", "content": "evict"}],
-                    "stream": False,
-                    "max_tokens": 1,
-                },
-                timeout=300,
-            )
+            import subprocess
+            for proc_name in ("mlx_lm.server", "mlx_vlm.server"):
+                try:
+                    subprocess.run(
+                        ["pkill", "-f", proc_name],
+                        capture_output=True, timeout=10
+                    )
+                except Exception:
+                    pass
+            # Restart proxy so it starts fresh with state=none
+            try:
+                subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True, timeout=10)
+            except Exception:
+                pass
+            time.sleep(5)
             print(f"  Evicted MLX model: {loaded}", flush=True)
         elif state == "none":
             print("  MLX already idle (state=none) — no eviction needed", flush=True)
@@ -1442,11 +1447,8 @@ class MemoryMonitor:
                 )
                 self.stats["recovery_failures"] += 1
         elif used >= MEMORY_CRITICAL_PCT:
-            self._log(f"Memory critical: {used:.0f}% — evicting models")
-            self.stats["force_evictions"] += 1
-            self.stats["recovery_attempts"] += 1
-            unload_all_models()
-            await asyncio.sleep(5)
+            self._log(f"Memory critical: {used:.0f}% — model loaded, pre-test check will evict between tests")
+            self.stats["warnings"] += 1
         elif used >= MEMORY_WARN_PCT:
             self.stats["warnings"] += 1
             self._log(f"Memory warning: {used:.0f}%")
@@ -5873,12 +5875,59 @@ async def main() -> None:
         for i, test in enumerate(tests, start=1):
             tier = test.get("workspace_tier", "any")
 
-            # Tier transition: evict previous backend before loading new one
-            # This prevents MLX + Ollama both loaded simultaneously (OOM risk)
+            # Tier transition: evict previous backend + verify memory is clean
+            # Critical: MLX + Ollama must never be loaded simultaneously (OOM risk).
+            # Before MLX tiers, confirm no Ollama models are loaded.
+            # Before Ollama tiers, confirm MLX proxy is idle.
             if tier != _last_tier:
                 if _last_tier:
                     print(f"  Tier transition: {_last_tier} → {tier} — evicting models")
                 unload_all_models()
+
+                # Verify prerequisites before proceeding
+                if tier in ("mlx_large", "mlx_small"):
+                    # MLX tier: verify Ollama is completely unloaded
+                    for retry in range(3):
+                        try:
+                            ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
+                            loaded = ps.get("models", [])
+                            if not loaded:
+                                break
+                            print(f"  [verify] Ollama still has {len(loaded)} model(s) loaded — retrying eviction ({retry+1}/3)")
+                            unload_all_models()
+                            time.sleep(5)
+                        except Exception:
+                            break
+                    if retry == 2:
+                        try:
+                            ps2 = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
+                            if ps2.get("models"):
+                                print(f"  [verify] WARNING: Ollama models still loaded after 3 eviction attempts — may cause OOM")
+                        except Exception:
+                            pass
+
+                elif tier == "ollama":
+                    # Ollama tier: verify MLX is idle
+                    for retry in range(3):
+                        try:
+                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
+                            state = h.get("state", "")
+                            loaded = h.get("loaded_model")
+                            if state == "none" or not loaded:
+                                break
+                            print(f"  [verify] MLX still has model loaded (state={state}) — retrying eviction ({retry+1}/3)")
+                            unload_all_models()
+                            time.sleep(5)
+                        except Exception:
+                            break
+                    if retry == 2:
+                        try:
+                            h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
+                            if h2.get("loaded_model") and h2.get("state") != "none":
+                                print(f"  [verify] WARNING: MLX model still loaded after 3 eviction attempts — may cause OOM")
+                        except Exception:
+                            pass
+
                 _last_tier = tier
 
             # Pre-test memory check (monitor runs continuously in background,

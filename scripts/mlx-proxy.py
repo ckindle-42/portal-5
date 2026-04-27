@@ -1067,7 +1067,11 @@ def ensure_server(model: str) -> int:
                     model, freed_by_stop_gb=freed_by_stop_gb
                 )
                 if not ok:
-                    mlx_state.set_down(rejection_msg)
+                    print(f"[proxy] admission control: {rejection_msg} — resetting to idle", flush=True)
+                    mlx_state.set_down(rejection_msg)  # record the error for /health
+                    # Reset to idle immediately so the proxy can serve other models
+                    mlx_state._state = "none"
+                    mlx_state._state_since = time.time()
                     raise RuntimeError(rejection_msg)
 
                 stop_all()
@@ -1094,8 +1098,11 @@ def ensure_server(model: str) -> int:
                     f"{available_post:.1f}GB available (free+inactive), need ~{estimated_gb:.0f}GB. "
                     f"Metal GPU buffers still held — wait and retry, or close other GPU workloads."
                 )
-                print(f"[proxy] ABORT post-reclaim: {msg}", flush=True)
-                mlx_state.set_down(msg)
+                print(f"[proxy] ABORT post-reclaim: {msg} — resetting to idle", flush=True)
+                mlx_state.set_down(msg)  # record the error for /health
+                # Reset to idle immediately so the proxy can serve other models
+                mlx_state._state = "none"
+                mlx_state._state_since = time.time()
                 raise RuntimeError(msg)
 
             port = start_server(target, model)
@@ -1104,6 +1111,11 @@ def ensure_server(model: str) -> int:
             return port
         except Exception as e:
             mlx_state.set_down(str(e))
+            # Admission control / memory rejections: proxy is healthy, just can't load this model.
+            # Reset to idle so future requests can try other models (pipeline falls back to Ollama).
+            if "Insufficient memory to load" in str(e) or "Post-eviction memory still insufficient" in str(e):
+                mlx_state._state = "none"
+                mlx_state._state_since = time.time()
             raise
 
 
