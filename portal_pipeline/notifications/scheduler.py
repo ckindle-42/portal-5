@@ -33,7 +33,9 @@ _COOLDOWN_SECONDS = 23 * 3600  # 23 hours — staggered send on restart is fine
 
 # Snapshot file: stores previous-day metrics so the summary shows deltas, not totals.
 # Stored in /app/data (named volume) so it persists across container rebuilds.
-_SNAPSHOT_FILE = Path(os.environ.get("DAILY_SUMMARY_SNAPSHOT_FILE", "/app/data/daily_summary_snapshot.json"))
+_SNAPSHOT_FILE = Path(
+    os.environ.get("DAILY_SUMMARY_SNAPSHOT_FILE", "/app/data/daily_summary_snapshot.json")
+)
 
 # Module-level references to router_pipe state (set during integration)
 _request_count: dict[str, int] = {}
@@ -301,7 +303,11 @@ class NotificationScheduler:
         # Guard: if both current state AND previous snapshot are empty, the state was
         # wiped (container recreation). Skip the empty summary — save current as new
         # baseline instead so tomorrow's summary has a valid delta.
-        current_total = sum(current_snapshot["request_count"].values()) if current_snapshot["request_count"] else 0
+        current_total = (
+            sum(current_snapshot["request_count"].values())
+            if current_snapshot["request_count"]
+            else 0
+        )
         prev_total = sum(prev_request_count.values()) if prev_request_count else 0
         if daily_total == 0 and current_total == 0 and prev_total == 0:
             _save_snapshot(current_snapshot)
@@ -318,7 +324,8 @@ class NotificationScheduler:
             _save_snapshot(current_snapshot)
             logger.info(
                 "Daily summary skipped: previous snapshot missing but state has %d "
-                "requests (container restart detected). Snapshot reset.", current_total
+                "requests (container restart detected). Snapshot reset.",
+                current_total,
             )
             return
 

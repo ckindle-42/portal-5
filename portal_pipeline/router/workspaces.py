@@ -364,4 +364,3 @@ def _resolve_persona_browser_policy(persona: dict) -> dict:
         "force_credential_fill": bp.get("force_credential_fill", False),
         "max_navigations_per_session": bp.get("max_navigations_per_session", 50),
     }
-

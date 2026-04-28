@@ -59,8 +59,8 @@ class ToolDefinition:
     last_seen: float = 0.0
     healthy: bool = True
     custom_timeout_s: float | None = None  # override TOOL_DISPATCH_TIMEOUT_S
-    next_retry_at: float = 0.0        # epoch seconds; 0 = retry allowed immediately
-    consecutive_failures: int = 0     # for exponential backoff calc
+    next_retry_at: float = 0.0  # epoch seconds; 0 = retry allowed immediately
+    consecutive_failures: int = 0  # for exponential backoff calc
 
     def to_openai_tool(self) -> dict[str, Any]:
         """Serialize to OpenAI tools array format."""
@@ -181,7 +181,7 @@ class ToolRegistry:
             remaining = int(tool.next_retry_at - now)
             return {
                 "error": f"Tool '{tool_name}' in backoff (retry in {remaining}s after "
-                         f"{tool.consecutive_failures} consecutive failures)"
+                f"{tool.consecutive_failures} consecutive failures)"
             }
 
         timeout_s = tool.custom_timeout_s or TOOL_DISPATCH_TIMEOUT_S

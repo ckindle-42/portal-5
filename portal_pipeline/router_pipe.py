@@ -150,13 +150,17 @@ def _save_state() -> None:
                     "total_response_time_ms": float(existing.get("total_response_time_ms", 0.0))
                     + _total_response_time_ms,
                     "total_tps": float(existing.get("total_tps", 0.0)) + _total_tps,
-                    "request_tps_count": int(existing.get("request_tps_count", 0)) + _request_tps_count,
-                    "total_input_tokens": int(existing.get("total_input_tokens", 0)) + _total_input_tokens,
+                    "request_tps_count": int(existing.get("request_tps_count", 0))
+                    + _request_tps_count,
+                    "total_input_tokens": int(existing.get("total_input_tokens", 0))
+                    + _total_input_tokens,
                     "total_output_tokens": int(existing.get("total_output_tokens", 0))
                     + _total_output_tokens,
                     "req_count_by_model": dict(existing.get("req_count_by_model", {})),
                     "req_count_by_error": dict(existing.get("req_count_by_error", {})),
-                    "peak_concurrent": max(int(existing.get("peak_concurrent", 0)), _peak_concurrent),
+                    "peak_concurrent": max(
+                        int(existing.get("peak_concurrent", 0)), _peak_concurrent
+                    ),
                     "persona_usage_raw": dict(existing.get("persona_usage_raw", {})),
                 }
 
@@ -511,7 +515,6 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
         _total_response_time_ms += duration_seconds * 1000
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)
-
 
 
 # ── Workspace configuration (extracted to portal_pipeline.router.workspaces) ─
@@ -1346,6 +1349,7 @@ async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
     if not api_key:
         return None
     import hashlib
+
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     async with _api_key_sem_lock:
         sem = _api_key_semaphores.get(key_hash)
@@ -1354,6 +1358,7 @@ async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
             sem = asyncio.Semaphore(limit)
             _api_key_semaphores[key_hash] = sem
         return sem
+
 
 # ── Ollama per-request TTFT tuning ────────────────────────────────────────────
 # keep_alive: how long Ollama keeps the model loaded after a request completes.
@@ -1618,7 +1623,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     # P5-FIX: pre-create Prometheus multiproc dir at startup so workers don't race.
-    if (mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR")):
+    if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         os.makedirs(mp_dir, exist_ok=True)
     # P1: create shared client with a connection pool sized for concurrent inference
     # Timeout raised to 300s: cold-loading 32B models under memory pressure takes
@@ -1674,9 +1679,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if _notification_dispatcher:
             await _notification_dispatcher.check_thresholds_and_alert(r)
 
-    _health_task = asyncio.create_task(
-        registry.start_health_loop(on_health_check=_on_health)
-    )
+    _health_task = asyncio.create_task(registry.start_health_loop(on_health_check=_on_health))
 
     # Background task: persist metrics state to disk every 60s
     _state_save_task = asyncio.create_task(_state_save_loop(interval=60))
@@ -1731,8 +1734,16 @@ async def health_all():
     checks: dict[str, dict] = {}
     checks["pipeline"] = {"status": "ok"}
     for name, url, path in [
-        ("mlx_proxy", os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081"), "/health"),
-        ("ollama", os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"), "/api/tags"),
+        (
+            "mlx_proxy",
+            os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081"),
+            "/health",
+        ),
+        (
+            "ollama",
+            os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
+            "/api/tags",
+        ),
         ("mcp_documents", "http://mcp-documents:8913", "/health"),
         ("mcp_sandbox", "http://mcp-sandbox:8914", "/health"),
         ("mcp_comfyui", "http://mcp-comfyui:8910", "/health"),
@@ -1744,9 +1755,14 @@ async def health_all():
         try:
             async with httpx.AsyncClient(timeout=3) as c:
                 r = await c.get(f"{url}{path}")
-                checks[name] = r.json() if r.status_code == 200 else {
-                    "status": "degraded", "code": r.status_code,
-                }
+                checks[name] = (
+                    r.json()
+                    if r.status_code == 200
+                    else {
+                        "status": "degraded",
+                        "code": r.status_code,
+                    }
+                )
         except Exception as e:
             checks[name] = {"status": "down", "error": str(e)[:100]}
     return checks
@@ -1767,6 +1783,7 @@ def _verify_admin_key(authorization: str | None) -> None:
 async def admin_refresh_tools(authorization: str | None = Header(None)):
     _verify_admin_key(authorization)
     from portal_pipeline.tool_registry import tool_registry
+
     n = await tool_registry.refresh(force=True)
     return {"refreshed": True, "tools_registered": n, "names": tool_registry.list_tool_names()}
 
@@ -2324,7 +2341,9 @@ async def chat_completions(
                 logger.warning(
                     "mlx_model_hint %r not in backend %s models — falling back to %r. "
                     "Add it to config/backends.yaml MLX list or correct the hint in WORKSPACES.",
-                    mlx_hint, backend.id, target_model,
+                    mlx_hint,
+                    backend.id,
+                    target_model,
                 )
         elif model_hint:
             if model_hint in backend.models:
@@ -2334,7 +2353,9 @@ async def chat_completions(
                 logger.warning(
                     "model_hint %r not in backend %s models — falling back to %r. "
                     "Add it to config/backends.yaml or correct the hint in WORKSPACES.",
-                    model_hint, backend.id, target_model,
+                    model_hint,
+                    backend.id,
+                    target_model,
                 )
         else:
             target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
