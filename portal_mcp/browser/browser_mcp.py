@@ -17,6 +17,7 @@ Tools (subset of MS Playwright MCP, gated by allowlist):
 
 Port: 8923 (BROWSER_MCP_PORT env override).
 """
+
 import asyncio
 import json
 import logging
@@ -47,9 +48,24 @@ DEFAULT_BLOCKED_ORIGINS = os.environ.get(
     "localhost;127.0.0.1;169.254.169.254;metadata.google.internal",
 ).split(";")
 PRIVATE_PREFIXES = (
-    "192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.",
-    "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
-    "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
+    "192.168.",
+    "10.",
+    "172.16.",
+    "172.17.",
+    "172.18.",
+    "172.19.",
+    "172.20.",
+    "172.21.",
+    "172.22.",
+    "172.23.",
+    "172.24.",
+    "172.25.",
+    "172.26.",
+    "172.27.",
+    "172.28.",
+    "172.29.",
+    "172.30.",
+    "172.31.",
 )
 SENSITIVE_FIELD_PATTERNS = re.compile(
     r"password|passwd|pwd|secret|token|api[-_]?key|ssn|social|credit|card|cvv|cvc",
@@ -69,7 +85,10 @@ _audit_logger.propagate = False
 if AUDIT_LOG_PATH.parent.exists() or True:
     AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     _audit_handler = logging.handlers.TimedRotatingFileHandler(
-        str(AUDIT_LOG_PATH), when="midnight", interval=1, backupCount=30,
+        str(AUDIT_LOG_PATH),
+        when="midnight",
+        interval=1,
+        backupCount=30,
     )
     _audit_handler.setFormatter(logging.Formatter("%(message)s"))
     _audit_logger.addHandler(_audit_handler)
@@ -85,8 +104,9 @@ def _redact_args(tool: str, args: dict) -> dict:
     return redacted
 
 
-def _audit_log(persona: str, profile: str, tool: str,
-               args: dict, result_status: str, duration_ms: float):
+def _audit_log(
+    persona: str, profile: str, tool: str, args: dict, result_status: str, duration_ms: float
+):
     entry = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "request_id": str(uuid.uuid4())[:8],
@@ -130,10 +150,15 @@ _anomaly_lock = threading.Lock()
 def _check_anomaly(persona: str, profile: str, tool: str, args: dict) -> str | None:
     with _anomaly_lock:
         now = time.time()
-        _recent_actions.append({
-            "ts": now, "persona": persona, "profile": profile,
-            "tool": tool, "args": args,
-        })
+        _recent_actions.append(
+            {
+                "ts": now,
+                "persona": persona,
+                "profile": profile,
+                "tool": tool,
+                "args": args,
+            }
+        )
         recent = list(_recent_actions)
         if tool == "browser_navigate":
             new_host = (urlparse(args.get("url", "")).hostname or "").lower()
@@ -148,8 +173,10 @@ def _check_anomaly(persona: str, profile: str, tool: str, args: dict) -> str | N
 
 # ── URL filtering ────────────────────────────────────────────────────────
 
-def _validate_url(url: str, allowed_domains: list[str] | None = None,
-                  blocked_domains: list[str] | None = None) -> tuple[bool, str]:
+
+def _validate_url(
+    url: str, allowed_domains: list[str] | None = None, blocked_domains: list[str] | None = None
+) -> tuple[bool, str]:
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         return False, "only http/https supported"
@@ -167,6 +194,7 @@ def _validate_url(url: str, allowed_domains: list[str] | None = None,
 
 
 # ── Microsoft Playwright MCP stdio bridge ────────────────────────────────
+
 
 class PlaywrightStdioClient:
     def __init__(self, profile: str = "_isolated"):
@@ -191,7 +219,10 @@ class PlaywrightStdioClient:
         cmd.extend(["--blocked-origins", ";".join(DEFAULT_BLOCKED_ORIGINS)])
         logger.info("Starting Playwright MCP for profile=%s", self.profile)
         self.proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             bufsize=0,
         )
 
@@ -237,8 +268,9 @@ async def _idle_reaper():
         await asyncio.sleep(60)
         now = time.time()
         async with _clients_lock:
-            stale = [p for p, c in _clients.items()
-                     if c.proc is not None and now - c._last_used > 300]
+            stale = [
+                p for p, c in _clients.items() if c.proc is not None and now - c._last_used > 300
+            ]
             for p in stale:
                 logger.info("Reaping idle browser client: %s", p)
                 await _clients[p].close()
@@ -247,13 +279,16 @@ async def _idle_reaper():
 
 # ── HTTP API ─────────────────────────────────────────────────────────────
 
+
 async def health(request):
-    return JSONResponse({
-        "status": "ok",
-        "service": "browser-mcp",
-        "active_clients": len(_clients),
-        "profiles": [p.name for p in PROFILES_DIR.iterdir() if p.is_dir()],
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "browser-mcp",
+            "active_clients": len(_clients),
+            "profiles": [p.name for p in PROFILES_DIR.iterdir() if p.is_dir()],
+        }
+    )
 
 
 TOOLS_MANIFEST = [
@@ -371,13 +406,15 @@ async def _proxy_tool(request, tool_name: str):
     if tool_name == "browser_fill":
         ref = args.get("element_ref", "")
         text = args.get("text", "")
-        if (SENSITIVE_FIELD_PATTERNS.search(str(ref)) and
-                not body.get("force_credential_fill", False)):
+        if SENSITIVE_FIELD_PATTERNS.search(str(ref)) and not body.get(
+            "force_credential_fill", False
+        ):
             duration = (time.monotonic() - t0) * 1000
             _audit_log(persona, profile, tool_name, args, "denied: sensitive field", duration)
-            return JSONResponse({
-                "error": "sensitive field detected; persona does not have force_credential_fill"
-            }, status_code=403)
+            return JSONResponse(
+                {"error": "sensitive field detected; persona does not have force_credential_fill"},
+                status_code=403,
+            )
 
     # Anomaly check
     anomaly = _check_anomaly(persona, profile, tool_name, args)
@@ -386,9 +423,7 @@ async def _proxy_tool(request, tool_name: str):
 
     client = await _get_client(profile)
     try:
-        result = await asyncio.wait_for(
-            client.request(tool_name, args), timeout=120
-        )
+        result = await asyncio.wait_for(client.request(tool_name, args), timeout=120)
         duration = (time.monotonic() - t0) * 1000
         status = "ok" if "error" not in result else "error"
         _audit_log(persona, profile, tool_name, args, status, duration)
@@ -406,6 +441,7 @@ async def _proxy_tool(request, tool_name: str):
 def _make_route(tool_name):
     async def handler(request):
         return await _proxy_tool(request, tool_name)
+
     return Route(f"/tools/{tool_name}", handler, methods=["POST"])
 
 
@@ -416,19 +452,25 @@ async def list_profiles_handler(request):
 
 # ── Admin endpoints (profile management) ─────────────────────────────────
 
+
 async def admin_create_profile(request):
     body = await request.json()
     name = body.get("arguments", {}).get("name", "")
     if not re.match(r"^[a-z0-9_]+$", name):
-        return JSONResponse({"error": "name must be lowercase alphanumeric + underscore"}, status_code=400)
+        return JSONResponse(
+            {"error": "name must be lowercase alphanumeric + underscore"}, status_code=400
+        )
     profile_path = PROFILES_DIR / name
     if profile_path.exists():
         return JSONResponse({"error": f"profile '{name}' already exists"}, status_code=409)
     profile_path.mkdir(parents=True)
-    return JSONResponse({
-        "profile": name, "created": True,
-        "next_step": f"call /admin/browser_login_session with profile='{name}' to log in",
-    })
+    return JSONResponse(
+        {
+            "profile": name,
+            "created": True,
+            "next_step": f"call /admin/browser_login_session with profile='{name}' to log in",
+        }
+    )
 
 
 async def admin_login_session(request):
@@ -440,21 +482,35 @@ async def admin_login_session(request):
         return JSONResponse({"error": "profile and starting_url required"}, status_code=400)
     profile_path = PROFILES_DIR / profile
     if not profile_path.exists():
-        return JSONResponse({"error": f"profile '{profile}' not found — create first"}, status_code=404)
+        return JSONResponse(
+            {"error": f"profile '{profile}' not found — create first"}, status_code=404
+        )
     cmd = [
-        "npx", "@playwright/mcp@latest",
-        "--browser", "chromium",
-        "--user-data-dir", str(profile_path),
+        "npx",
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium",
+        "--user-data-dir",
+        str(profile_path),
     ]
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    init = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "browser_navigate",
-                        "params": {"url": url}}).encode() + b"\n"
+    proc = subprocess.Popen(
+        cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    init = (
+        json.dumps(
+            {"jsonrpc": "2.0", "id": 1, "method": "browser_navigate", "params": {"url": url}}
+        ).encode()
+        + b"\n"
+    )
     proc.stdin.write(init)
     proc.stdin.flush()
-    return JSONResponse({
-        "profile": profile, "session_pid": proc.pid,
-        "instructions": "Browser window opened. Complete login, then kill the process to persist cookies.",
-    })
+    return JSONResponse(
+        {
+            "profile": profile,
+            "session_pid": proc.pid,
+            "instructions": "Browser window opened. Complete login, then kill the process to persist cookies.",
+        }
+    )
 
 
 async def admin_delete_profile(request):
@@ -493,6 +549,7 @@ app = Starlette(routes=routes, lifespan=_lifespan)
 
 def main():
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BROWSER_MCP_PORT", "8923")))
 
 
