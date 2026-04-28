@@ -320,6 +320,17 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
             return r.status_code == 200, f"ollama={r.status_code}"
         except Exception:
             return False, "ollama_unreachable"
+    if tier == "media_heavy":
+        # Both backends should be idle — media tools need clean GPU memory
+        h = _mlx_health()
+        mlx_state = h.get("state", "unknown")
+        mlx_ok = mlx_state in ("ready", "switching", "none")
+        try:
+            r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
+            ollama_ok = r.status_code == 200
+        except Exception:
+            ollama_ok = False
+        return (mlx_ok and ollama_ok), f"mlx={mlx_state},ollama={'ok' if ollama_ok else 'down'}"
     return True, "tier=any"
 
 
@@ -394,7 +405,7 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
     Returns True if the backend became ready, False if it stayed down.
     Emits progress lines every 20s so the operator can see what's happening.
     """
-    if tier not in ("mlx_large", "mlx_small", "ollama"):
+    if tier not in ("mlx_large", "mlx_small", "ollama", "media_heavy"):
         return True
     t0 = time.time()
     last_log = 0.0
@@ -1340,6 +1351,15 @@ SETTLING: dict[tuple, int] = {
     ("any", "mlx_small"): 10,
     ("any", "ollama"): 10,
     ("any", "any"): 5,
+    ("any", "media_heavy"): 30,
+    ("media_heavy", "media_heavy"): 30,
+    ("media_heavy", "any"): 15,
+    ("mlx_large", "media_heavy"): 30,
+    ("mlx_small", "media_heavy"): 30,
+    ("ollama", "media_heavy"): 30,
+    ("media_heavy", "mlx_large"): 30,
+    ("media_heavy", "mlx_small"): 30,
+    ("media_heavy", "ollama"): 30,
 }
 
 
@@ -1529,7 +1549,7 @@ class MemoryMonitor:
 # ---------------------------------------------------------------------------
 
 # Tier execution order: biggest first, then smaller, then non-MLX
-_TIER_ORDER = ["mlx_large", "mlx_small", "ollama", "any"]
+_TIER_ORDER = ["mlx_large", "mlx_small", "ollama", "any", "media_heavy"]
 
 
 def sort_tests_cascade(tests: list[dict]) -> list[dict]:
@@ -1701,6 +1721,16 @@ TEST_CATALOG: list[dict] = [
                     "tell me more",
                     "what changed",
                     "how long",
+                    "recent changes",
+                    "error message",
+                    "error code",
+                    "recent software",
+                    "hardware changes",
+                    "software installations",
+                    "hardware or software",
+                    "encountered",
+                    "need information",
+                    "diagnose",
                 ],
             },
             {
@@ -4693,9 +4723,10 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-music",
         "model_slug": "auto-music",
         "timeout": 180,
-        "workspace_tier": "any",
+        "workspace_tier": "media_heavy",
         "requires_tool": "portal_music",
         "artifact_ext": "wav",
+        "force_unload_before": True,
         "prompt": (
             "Generate a 20-second piece: dark ambient electronic, cinematic tension, "
             "slow evolving pads, subtle percussion, minor key, suitable for a suspense scene."
@@ -4715,9 +4746,10 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-music",
         "model_slug": "auto-music",
         "timeout": 120,
-        "workspace_tier": "any",
+        "workspace_tier": "media_heavy",
         "requires_tool": "portal_tts",
         "artifact_ext": "wav",
+        "force_unload_before": True,
         "prompt": (
             "Read the following text aloud using a British male voice (bm_george): "
             '"Portal 5 operates entirely on local hardware. Your data never leaves your machine. '
@@ -4741,10 +4773,11 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-video",
         "model_slug": "auto-video",
         "timeout": 360,
-        "workspace_tier": "any",
+        "workspace_tier": "media_heavy",
         "requires_tool": "portal_video",
         "artifact_ext": "mp4",
         "skip_if": "no_comfyui",
+        "force_unload_before": True,
         "prompt": (
             "Generate a 3-second video: a timelapse of storm clouds building over a city skyline, "
             "dramatic lighting, dark blues and oranges, cinematic wide shot."
@@ -4763,10 +4796,11 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-video",
         "model_slug": "auto",
         "timeout": 180,
-        "workspace_tier": "any",
+        "workspace_tier": "media_heavy",
         "requires_tool": "portal_comfyui",
         "artifact_ext": "png",
         "skip_if": "no_comfyui",
+        "force_unload_before": True,
         "prompt": (
             "Generate an image: isometric technical diagram of a server rack with labeled "
             "components, clean line art style, white background, 1024x1024."
@@ -5928,7 +5962,54 @@ async def main() -> None:
                         except Exception:
                             pass
 
+                elif tier == "media_heavy":
+                    # Media-heavy tier (TTS, music, video, image): verify BOTH
+                    # backends are clear AND memory is actually freed before
+                    # proceeding — media tools spawn additional processes that
+                    # compete for GPU memory and can crash the system.
+                    for retry in range(3):
+                        try:
+                            ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
+                            loaded = ps.get("models", [])
+                            if not loaded:
+                                break
+                            print(f"  [verify] Ollama still has {len(loaded)} model(s) — retrying eviction ({retry+1}/3)")
+                            unload_all_models()
+                            time.sleep(5)
+                        except Exception:
+                            break
+                    for retry in range(3):
+                        try:
+                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
+                            state = h.get("state", "")
+                            loaded = h.get("loaded_model")
+                            if state == "none" or not loaded:
+                                break
+                            print(f"  [verify] MLX still loaded (state={state}) — retrying eviction ({retry+1}/3)")
+                            unload_all_models()
+                            time.sleep(5)
+                        except Exception:
+                            break
+                    # Post-eviction memory verification — wait until memory is
+                    # actually freed before running memory-intensive media tests
+                    for mem_retry in range(5):
+                        mem_pct = _get_memory_pct()
+                        if mem_pct < 75.0:
+                            print(f"  [mem] Memory clear at {mem_pct:.0f}% — safe to proceed")
+                            break
+                        print(f"  [mem] Memory at {mem_pct:.0f}% after eviction — waiting ({mem_retry+1}/5)")
+                        time.sleep(10)
+                        if mem_retry == 4:
+                            print(f"  [mem] WARNING: Memory still at {mem_pct:.0f}% after 5 retries — may risk OOM")
+
                 _last_tier = tier
+
+            # Force-unload before heavy media tests (TTS, music, video, image)
+            # that load large frameworks and risk OOM when run consecutively
+            if test.get("force_unload_before"):
+                print(f"  [mem] Force-unloading before {test['id']} (heavy media test)")
+                unload_all_models()
+                time.sleep(5)
 
             # Pre-test memory check (monitor runs continuously in background,
             # but this catches issues right before a test starts)
