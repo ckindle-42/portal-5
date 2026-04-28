@@ -918,6 +918,16 @@ case "${1:-up}" in
         echo "WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}" >> "$ENV_FILE"
     fi
 
+    if [ -n "${PORTAL_PUBLIC_URL:-}" ]; then
+        _BASE="${PORTAL_PUBLIC_URL%/}"
+        export MUSIC_PUBLIC_URL="${_BASE}/files/music"
+        export TTS_PUBLIC_URL="${_BASE}/files/tts"
+        export VIDEO_PUBLIC_URL="${_BASE}/files/video"
+        export COMFYUI_PUBLIC_URL="${_BASE}/comfyui"
+        echo "[portal-5] Public media URLs derived from PORTAL_PUBLIC_URL=${_BASE}"
+        echo "[portal-5]   For Cloudflare Tunnel, see config/cloudflared/config.yml.example"
+    fi
+
     # Auto-detect channel profiles from .env tokens
     _PROFILES=""
     if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then

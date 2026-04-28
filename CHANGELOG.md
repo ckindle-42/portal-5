@@ -2,6 +2,53 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.0.7] — Media UAT section + remotely-addressable media URLs
+
+### Added
+- `tests/portal5_uat_driver.py --media` flag selects all `workspace_tier=media_heavy`
+  tests (image / sound / voice / video) for isolated debugging of MCP and Open WebUI
+  media plumbing.
+- `media_kind` tag on the four existing media tests for clearer debug output.
+- New Whisper STT round-trip test M-01 (skips if `tests/fixtures/sample.wav` absent).
+- `PORTAL_PUBLIC_URL` env variable in `.env.example`. `launch.sh` derives
+  `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL`
+  from it. MCPs emit those into chat instead of localhost.
+- Reference Cloudflare Tunnel ingress configuration at
+  `config/cloudflared/config.yml.example`. Operator's existing cloudflared
+  setup picks up the new ingress rules; no additional Portal 5 services
+  are introduced.
+
+### Changed
+- `portal_mcp/generation/music_mcp.py`: file-serving route is now
+  `/files/music/<filename>` (was `/files/<filename>`). Five hardcoded
+  `f"http://localhost:{port}/files/..."` strings replaced with a
+  `MUSIC_PUBLIC_URL`-driven prefix.
+- `portal_mcp/generation/tts_mcp.py`: file-serving route is now
+  `/files/tts/<filename>` (was `/files/<filename>`). Same `TTS_PUBLIC_URL`
+  treatment.
+- `_download_artifact` URL regex broadened to match both legacy localhost
+  and public-hostname shapes.
+- `docs/ADMIN_GUIDE.md` "Network Exposure" updated to recommend Cloudflare
+  Tunnel; Caddy noted as a future option for non-Tunnel deployments.
+
+### Breaking
+- Old `[Download WAV](http://localhost:8912/files/<name>.wav)` links in
+  pre-upgrade chat history will 404 — the route is now
+  `/files/music/<name>.wav`. New chats are unaffected. Operator can
+  regenerate any old artifact by re-running the original prompt.
+
+### Notes
+- Stacks that don't set `PORTAL_PUBLIC_URL` continue to use localhost URLs
+  in chat. Open WebUI itself remains reachable per `ENABLE_REMOTE_ACCESS`.
+- A first-class Caddy profile for non-Tunnel deployments is deferred to a
+  future task. The `docs/ADMIN_GUIDE.md` "Network Exposure" section
+  describes the manual setup in the meantime.
+- `M-01` Whisper STT is fixture-gated for v6.0.7. Generic file-upload
+  plumbing in the driver for arbitrary fixture types is a follow-up.
+- T-08 (image gen) is still in section `auto-video` for back-compat;
+  renaming to `auto-image` is deferred to avoid touching calibration
+  data and the routing keyword extractor in the same release.
+
 ## [6.0.6] — UAT execute prompt V2
 
 ### Documentation

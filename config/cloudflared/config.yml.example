@@ -1,0 +1,64 @@
+# Portal 5 — Cloudflare Tunnel ingress reference
+#
+# This is a REFERENCE file, not consumed by the Portal 5 stack. Your real
+# cloudflared config (typically ~/.cloudflared/config.yml or wherever
+# `cloudflared service install` placed it) needs the rules below merged
+# into its `ingress:` list, in this order — first-match-wins.
+#
+# Replace `tunnel:` and `credentials-file:` with your actual values.
+# `cloudflared tunnel list` shows the UUID; the credentials file lives
+# next to it after `cloudflared tunnel create`.
+#
+# Hostname: replace portal.example.com with whatever Cloudflare DNS record
+# you've pointed at this tunnel (`cloudflared tunnel route dns <tunnel> <hostname>`).
+#
+# After editing your real config: `cloudflared tunnel run` (or restart the
+# service). No Portal 5 services need to restart for ingress changes — only
+# cloudflared itself.
+
+tunnel: 00000000-0000-0000-0000-000000000000
+credentials-file: /Users/<you>/.cloudflared/00000000-0000-0000-0000-000000000000.json
+
+ingress:
+  # ── Media file paths — route BEFORE the catch-all to Open WebUI ───────────
+  # MCP servers are bound to 127.0.0.1 in compose; cloudflared runs on the
+  # host so it can reach them directly. Each rule matches the path the MCP
+  # itself emits in download_url (controlled by MUSIC_PUBLIC_URL etc.).
+
+  - hostname: portal.example.com
+    path: ^/files/music/.*
+    service: http://localhost:8912
+
+  - hostname: portal.example.com
+    path: ^/files/tts/.*
+    service: http://localhost:8916
+
+  # /files/video/* is reserved — video_mcp.py currently emits ComfyUI URLs,
+  # not /files/video/. The rule is harmless when no files match it.
+  - hostname: portal.example.com
+    path: ^/files/video/.*
+    service: http://localhost:8911
+
+  # ComfyUI's /view?filename=...&type=output endpoint, namespaced under
+  # /comfyui/ on the public side. comfyui_mcp.py and video_mcp.py emit
+  # URLs of the form ${COMFYUI_PUBLIC_URL}/view?filename=... — with
+  # COMFYUI_PUBLIC_URL set to https://portal.example.com/comfyui that
+  # becomes https://portal.example.com/comfyui/view?filename=...
+  #
+  # cloudflared forwards the path verbatim, so ComfyUI receives
+  # /comfyui/view?filename=... — which doesn't match its routes
+  # (it expects /view directly). Two options:
+  #   (a) bind ComfyUI behind /comfyui by setting its --base-directory,
+  #       OR launch with a sub-path-aware front-end. Not currently done.
+  #   (b) use a dedicated subdomain for ComfyUI and skip the path prefix.
+  #
+  # Option (b) is simpler. Recommended:
+  - hostname: comfyui.portal.example.com
+    service: http://localhost:8188
+
+  # ── Open WebUI catch-all — MUST be after the file rules above ─────────────
+  - hostname: portal.example.com
+    service: http://localhost:8080
+
+  # ── Required final rule per cloudflared spec ──────────────────────────────
+  - service: http_status:404

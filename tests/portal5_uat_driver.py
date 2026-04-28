@@ -921,8 +921,14 @@ async def _download_artifact(
     import subprocess
 
     if response_text:
-        # Try 1: Match http://localhost:PORT/files/<filename>.<ext> download URL
-        url_pattern = rf"http://localhost:\d+/files/\S+\.{re.escape(expected_ext)}"
+        # Try 1: Match a download URL ending in /files/<...>.<ext>.
+        # Covers both the localhost shape and the public shape emitted when
+        # PORTAL_PUBLIC_URL is set (e.g. https://portal.example.com/files/tts/<name>.wav,
+        # potentially served via Cloudflare Tunnel). The driver runs on the
+        # host, so it can resolve either form via DNS or loopback. Try 1
+        # fetching matters because it exercises the same URL the user's
+        # browser would use.
+        url_pattern = rf"https?://[^\s)>\]]+/files/\S+?\.{re.escape(expected_ext)}"
         url_match = re.search(url_pattern, response_text)
         if url_match:
             download_url = url_match.group(0)
@@ -4772,6 +4778,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-music",
         "timeout": 180,
         "workspace_tier": "media_heavy",
+        "media_kind": "sound",
         "requires_tool": "portal_music",
         "artifact_ext": "wav",
         "force_unload_before": True,
@@ -4795,6 +4802,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-music",
         "timeout": 120,
         "workspace_tier": "media_heavy",
+        "media_kind": "voice",
         "requires_tool": "portal_tts",
         "artifact_ext": "wav",
         "force_unload_before": True,
@@ -4822,6 +4830,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-video",
         "timeout": 360,
         "workspace_tier": "media_heavy",
+        "media_kind": "video",
         "requires_tool": "portal_video",
         "artifact_ext": "mp4",
         "skip_if": "no_comfyui",
@@ -4845,6 +4854,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto",
         "timeout": 180,
         "workspace_tier": "media_heavy",
+        "media_kind": "image",
         "requires_tool": "portal_comfyui",
         "artifact_ext": "png",
         "skip_if": "no_comfyui",
@@ -4858,6 +4868,38 @@ TEST_CATALOG: list[dict] = [
                 "type": "not_contains",
                 "label": "No error",
                 "keywords": ["error", "failed", "unavailable", "comfyui not"],
+            },
+        ],
+    },
+    # -----------------------------------------------------------------------
+    # GROUP auto-voice (Whisper STT round-trip)
+    # -----------------------------------------------------------------------
+    {
+        "id": "M-01",
+        "name": "Whisper STT — Voice-to-Text Round-Trip",
+        "section": "auto-music",
+        "model_slug": "auto-music",
+        "timeout": 90,
+        "workspace_tier": "media_heavy",
+        "media_kind": "voice",
+        "requires_tool": "portal_whisper",
+        "skip_if": "no_audio_fixture",
+        "force_unload_before": True,
+        "fixture": "sample.wav",
+        "prompt": (
+            "I'm uploading an audio file. Please transcribe it using the "
+            "Whisper tool and return the text exactly as spoken."
+        ),
+        "assertions": [
+            {
+                "type": "not_contains",
+                "label": "No tool error",
+                "keywords": ["error", "failed", "unavailable", "no audio"],
+            },
+            {
+                "type": "min_length",
+                "label": "Transcript present",
+                "chars": 20,
             },
         ],
     },
@@ -5911,6 +5953,15 @@ async def main() -> None:
     parser.add_argument("--headed", action="store_true", help="Show browser window")
     parser.add_argument("--skip-artifacts", action="store_true", help="Skip ComfyUI/Wan2.2 tests")
     parser.add_argument("--skip-bots", action="store_true", help="Skip Telegram/Slack bot tests")
+    parser.add_argument(
+        "--media",
+        action="store_true",
+        help=(
+            "Run only media-generation tests (image, sound, voice, video) — "
+            "shorthand for selecting all tests with workspace_tier=media_heavy. "
+            "Useful for debugging MCP/Open WebUI media plumbing in isolation."
+        ),
+    )
     parser.add_argument("--timeout", type=int, help="Override per-test timeout (seconds)")
     parser.add_argument(
         "--append",
@@ -5971,15 +6022,27 @@ async def main() -> None:
             sys.exit(1)
         return
 
-    # Determine test selection
+    # Determine test selection. --media composes with --section by union;
+    # --test always overrides.
     if args.test:
         test_ids = set(args.test)
         tests = [t for t in TEST_CATALOG if t["id"] in test_ids]
         if not tests:
             print(f"Error: test ID(s) '{args.test}' not found", file=sys.stderr)
             sys.exit(1)
-    elif args.section:
-        tests = [t for t in TEST_CATALOG if t["section"] in args.section]
+    elif args.media or args.section:
+        selected_ids: set[str] = set()
+        if args.media:
+            media_tests = [t for t in TEST_CATALOG if t.get("workspace_tier") == "media_heavy"]
+            selected_ids.update(t["id"] for t in media_tests)
+            print(
+                f"--media selected {len(media_tests)} test(s): "
+                + ", ".join(f"{t['id']}({t.get('media_kind', '?')})" for t in media_tests)
+            )
+        if args.section:
+            section_tests = [t for t in TEST_CATALOG if t["section"] in args.section]
+            selected_ids.update(t["id"] for t in section_tests)
+        tests = [t for t in TEST_CATALOG if t["id"] in selected_ids]
     else:
         tests = list(TEST_CATALOG)
 

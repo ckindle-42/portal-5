@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))
 mcp = FastMCP("tts-generation", host="0.0.0.0")
 
+PUBLIC_URL = os.getenv("TTS_PUBLIC_URL", f"http://localhost:{port}/files/tts").rstrip("/")
+
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -134,7 +136,7 @@ async def health_check(request):
     )
 
 
-@mcp.custom_route("/files/{filename:path}", methods=["GET"])
+@mcp.custom_route("/files/tts/{filename:path}", methods=["GET"])
 async def serve_generated_file(request):
     """Serve generated audio files for browser download."""
     filename = request.path_params["filename"]
@@ -354,7 +356,7 @@ def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
         output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         sf.write(str(output_path), samples, sample_rate)
 
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        download_url = f"{PUBLIC_URL}/{output_path.name}"
         return {
             "status": "success",
             "filename": output_path.name,
@@ -392,7 +394,7 @@ def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
         output_path = OUTPUT_DIR / f"tts_{uuid.uuid4().hex[:12]}.wav"
         get_audio(audio).save(str(output_path))
 
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        download_url = f"{PUBLIC_URL}/{output_path.name}"
         return {
             "status": "success",
             "filename": output_path.name,
@@ -452,7 +454,7 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
         import soundfile as sf
 
         sf.write(str(output_path), audio, 24000)
-        download_url = f"http://localhost:{port}/files/{output_path.name}"
+        download_url = f"{PUBLIC_URL}/{output_path.name}"
         return {
             "status": "success",
             "filename": output_path.name,

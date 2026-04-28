@@ -1,4 +1,4 @@
-# Portal 6.0.3 — Admin Guide
+# Portal 6.0.7 — Admin Guide
 
 ## First Login
 
@@ -56,17 +56,30 @@ Edit `config/backends.yaml` — see `docs/CLUSTER_SCALE.md`.
 
 ## Network Exposure
 
-Portal 5 is designed for single-machine local use. After applying the recommended configuration, Open WebUI binds to `127.0.0.1` and is only accessible from `localhost`.
+Portal 5 is designed for single-machine local use. Open WebUI binds to `127.0.0.1` by default and is only reachable from `localhost`. All MCP servers (8910–8923) are always 127.0.0.1-bound and never reach the network directly.
 
-**To access from other machines on your network (LAN):**
-1. Set up a reverse proxy (Caddy or nginx) on the same machine
-2. Proxy from a public-facing port to `127.0.0.1:8080`
-3. Configure TLS (HTTPS) — never serve Open WebUI over plain HTTP across a network
-4. Consider adding HTTP Basic Auth at the proxy layer for an additional authentication factor
+### Recommended remote access: Cloudflare Tunnel
 
-**Never expose port 8080 directly to the internet.**
+Run `cloudflared` on the host and configure ingress rules that route specific paths to the local services. The MCP servers stay loopback-only — cloudflared (running on the host, not in docker) reaches them through `127.0.0.1`. A reference ingress configuration is provided at `config/cloudflared/config.yml.example`.
 
-The pipeline API (port 9099) and all MCP servers (8910–8916) are always bound to 127.0.0.1 and are not reachable externally under any configuration.
+To make generated media links work for remote browsers:
+
+```
+ENABLE_REMOTE_ACCESS=true
+PORTAL_PUBLIC_URL=https://portal.example.com
+```
+
+`launch.sh` derives `MUSIC_PUBLIC_URL`, `TTS_PUBLIC_URL`, `VIDEO_PUBLIC_URL`, and `COMFYUI_PUBLIC_URL` from `PORTAL_PUBLIC_URL`, and the MCPs emit those into chat instead of `http://localhost:<port>/...`.
+
+Without `PORTAL_PUBLIC_URL` set, every MCP falls back to localhost-only links — Open WebUI can still be reached remotely, but media download links inside chat won't resolve from a remote browser.
+
+### Alternative: LAN reverse proxy (Caddy / nginx)
+
+For deployments that don't use Cloudflare Tunnel, a Caddy or nginx reverse proxy on the same machine can serve the same role. Reverse-proxy `/files/{music,tts,video}/*` and `/comfyui/*` to the corresponding loopback ports, set `PORTAL_PUBLIC_URL` to the proxy's public address, and the same env-var derivation works. A first-class Caddy profile in `docker-compose.yml` is on the roadmap but not in v6.0.7.
+
+**Never expose the MCP ports directly to the internet.** Routing only `/files/{kind}/*` keeps the rest of the MCP API surface private.
+
+The pipeline API (port 9099) and all MCP servers (8910–8923) are always bound to 127.0.0.1 and are not reachable externally under any configuration. Cloudflare Tunnel reaches them via the host loopback only because cloudflared itself runs on the host.
 
 > **Note:** Grafana (port 3000) binds to `0.0.0.0:3000` and **is** reachable from other machines on your network. Grafana requires login (`admin` / `GRAFANA_PASSWORD` from `.env`) and does not expose inference data — but if your LAN is untrusted, restrict it with a firewall rule or set `GF_SERVER_HTTP_ADDR=127.0.0.1` in `docker-compose.yml`.
 

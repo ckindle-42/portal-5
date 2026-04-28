@@ -25,6 +25,8 @@ from portal_mcp.mcp_server.fastmcp import FastMCP
 port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
 mcp = FastMCP("music-generation", host="0.0.0.0")
 
+PUBLIC_URL = os.getenv("MUSIC_PUBLIC_URL", f"http://localhost:{port}/files/music").rstrip("/")
+
 SAFE_FILENAME = re.compile(r"^[\w\-\.\s]+$")
 
 
@@ -33,9 +35,13 @@ async def health_check(request):
     return JSONResponse({"status": "ok", "service": "music-mcp"})
 
 
-@mcp.custom_route("/files/{filename:path}", methods=["GET"])
+@mcp.custom_route("/files/music/{filename:path}", methods=["GET"])
 async def serve_generated_file(request):
-    """Serve generated audio files for browser download."""
+    """Serve generated audio files for browser download.
+
+    Namespaced under /files/music/ so cloudflared (or any path-based
+    reverse proxy) can route by prefix without rewriting the path.
+    """
     filename = request.path_params["filename"]
     if not SAFE_FILENAME.match(filename):
         return JSONResponse({"error": "Invalid filename"}, status_code=400)
@@ -243,7 +249,7 @@ def _generate_sync(
         wavfile.write(str(output_file), sampling_rate, audio_int16)
 
         actual_duration = len(audio_data) / sampling_rate
-        download_url = f"http://localhost:{port}/files/{output_file.name}"
+        download_url = f"{PUBLIC_URL}/{output_file.name}"
         return {
             "success": True,
             "filename": output_file.name,
@@ -327,7 +333,7 @@ def _generate_with_melody_sync(
         wavfile.write(str(output_file), sampling_rate, audio_int16)
 
         actual_duration = len(audio_data) / sampling_rate
-        download_url = f"http://localhost:{port}/files/{output_file.name}"
+        download_url = f"{PUBLIC_URL}/{output_file.name}"
         return {
             "success": True,
             "filename": output_file.name,

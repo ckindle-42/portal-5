@@ -307,6 +307,7 @@ services:
     environment:
       - TTS_MCP_PORT=8916
       - MCP_PORT=8916
+      - TTS_PUBLIC_URL=${TTS_PUBLIC_URL:-http://localhost:8916/files/tts}
       - TTS_BACKEND=${TTS_BACKEND:-kokoro}
       - TTS_DEFAULT_VOICE=${TTS_DEFAULT_VOICE:-af_heart}
       - OUTPUT_DIR=/app/data/generated
