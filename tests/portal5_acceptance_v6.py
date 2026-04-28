@@ -302,10 +302,14 @@ def _check_image_freshness() -> None:
         try:
             r = subprocess.run(
                 ["git", "-C", str(ROOT), "log", "-1", "--format=%ct", "--", *paths],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             ts = r.stdout.strip()
-            return datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc) if ts else None
+            return (
+                datetime.datetime.fromtimestamp(int(ts), tz=datetime.timezone.utc) if ts else None
+            )
         except Exception:
             return None
 
@@ -313,7 +317,9 @@ def _check_image_freshness() -> None:
         try:
             r = subprocess.run(
                 ["docker", "inspect", "--format", "{{.Created}}", name],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             raw = r.stdout.strip()
             if raw and raw != "[]":
@@ -322,11 +328,22 @@ def _check_image_freshness() -> None:
             return None
 
     checks = [
-        ("portal-pipeline", "portal-5-portal-pipeline",
-         ["portal_pipeline/", "config/backends.yaml", "config/personas/",
-          "Dockerfile.pipeline", "pyproject.toml"]),
-        ("mcp-services", "portal-5-mcp-documents",
-         ["portal_mcp/", "portal_channels/", "Dockerfile.mcp", "pyproject.toml"]),
+        (
+            "portal-pipeline",
+            "portal-5-portal-pipeline",
+            [
+                "portal_pipeline/",
+                "config/backends.yaml",
+                "config/personas/",
+                "Dockerfile.pipeline",
+                "pyproject.toml",
+            ],
+        ),
+        (
+            "mcp-services",
+            "portal-5-mcp-documents",
+            ["portal_mcp/", "portal_channels/", "Dockerfile.mcp", "pyproject.toml"],
+        ),
     ]
     stale = []
     for label, image, paths in checks:
@@ -337,7 +354,7 @@ def _check_image_freshness() -> None:
             if lag > 30:
                 stale.append(f"{label} ({int(lag // 60)}m behind HEAD)")
     if stale:
-        print(f"  WARNING: stale images — run './launch.sh rebuild' before trusting results:")
+        print("  WARNING: stale images — run './launch.sh rebuild' before trusting results:")
         for s in stale:
             print(f"    {s}")
 
@@ -1998,14 +2015,27 @@ async def S1() -> None:
     try:
         from portal_pipeline.cluster_backends import BackendRegistry
         from portal_pipeline.router_pipe import _validate_workspace_hints
+
         reg = BackendRegistry()
         errors = _validate_workspace_hints(reg)
         if not errors:
-            record(sec, "S1-17", "workspace hint reachability", "PASS",
-                   f"all {len(WS_IDS)} workspace hints resolve", t0=t0)
+            record(
+                sec,
+                "S1-17",
+                "workspace hint reachability",
+                "PASS",
+                f"all {len(WS_IDS)} workspace hints resolve",
+                t0=t0,
+            )
         else:
-            record(sec, "S1-17", "workspace hint reachability", "FAIL",
-                   f"{len(errors)} hints unresolved: {errors[0][:120]}", t0=t0)
+            record(
+                sec,
+                "S1-17",
+                "workspace hint reachability",
+                "FAIL",
+                f"{len(errors)} hints unresolved: {errors[0][:120]}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S1-17", "workspace hint reachability", "FAIL", str(e)[:200], t0=t0)
 
@@ -2391,15 +2421,22 @@ async def S4() -> None:
                     )
                     content = "".join(b.text for b in result.content if hasattr(b, "text"))
             if content:
-                record(sec, tid, f"MCP {tool}", "PASS",
-                       f"got {len(content)} chars from {fixture}", t0=t0)
+                record(
+                    sec,
+                    tid,
+                    f"MCP {tool}",
+                    "PASS",
+                    f"got {len(content)} chars from {fixture}",
+                    t0=t0,
+                )
             else:
                 record(sec, tid, f"MCP {tool}", "FAIL", "empty result", t0=t0)
         except asyncio.TimeoutError:
             record(sec, tid, f"MCP {tool}", "WARN", "timeout after 30s", t0=t0)
         except ImportError:
-            record(sec, tid, f"MCP {tool}", "FAIL",
-                   "pip install mcp --break-system-packages", t0=t0)
+            record(
+                sec, tid, f"MCP {tool}", "FAIL", "pip install mcp --break-system-packages", t0=t0
+            )
         except Exception as e:
             record(sec, tid, f"MCP {tool}", "FAIL", str(e)[:120], t0=t0)
 
@@ -3692,9 +3729,17 @@ async def S41() -> None:
         if r.status_code == 200:
             checks = r.json()
             services = list(checks.keys())
-            ok_count = sum(1 for v in checks.values() if isinstance(v, dict) and v.get("status") == "ok")
-            record(sec, "S41-01", "/health/all aggregator", "PASS",
-                   f"{ok_count}/{len(services)} services ok: {', '.join(services[:5])}", t0=t0)
+            ok_count = sum(
+                1 for v in checks.values() if isinstance(v, dict) and v.get("status") == "ok"
+            )
+            record(
+                sec,
+                "S41-01",
+                "/health/all aggregator",
+                "PASS",
+                f"{ok_count}/{len(services)} services ok: {', '.join(services[:5])}",
+                t0=t0,
+            )
         else:
             record(sec, "S41-01", "/health/all aggregator", "FAIL", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
@@ -3704,19 +3749,32 @@ async def S41() -> None:
     t0 = time.time()
     try:
         from portal_pipeline.router_pipe import WORKSPACES, _get_workspace_concurrency_limit
+
         bench_ok = True
         for wsid in sorted(WORKSPACES.keys()):
             if wsid.startswith("bench-"):
                 limit = _get_workspace_concurrency_limit(wsid)
                 if limit != 1:
                     bench_ok = False
-                    record(sec, "S41-02", "bench-* concurrency=1", "FAIL",
-                           f"{wsid} limit={limit}, expected 1", t0=t0)
+                    record(
+                        sec,
+                        "S41-02",
+                        "bench-* concurrency=1",
+                        "FAIL",
+                        f"{wsid} limit={limit}, expected 1",
+                        t0=t0,
+                    )
                     break
         if bench_ok:
             bench_count = sum(1 for k in WORKSPACES if k.startswith("bench-"))
-            record(sec, "S41-02", "bench-* concurrency=1", "PASS",
-                   f"all {bench_count} bench-* workspaces capped at 1", t0=t0)
+            record(
+                sec,
+                "S41-02",
+                "bench-* concurrency=1",
+                "PASS",
+                f"all {bench_count} bench-* workspaces capped at 1",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S41-02", "bench-* concurrency=1", "FAIL", str(e)[:100], t0=t0)
 
@@ -3732,8 +3790,14 @@ async def S41() -> None:
         )
         if r.status_code == 200:
             data = r.json()
-            record(sec, "S41-03", "/admin/refresh-tools", "PASS",
-                   f"{data.get('tools_registered', 0)} tools registered", t0=t0)
+            record(
+                sec,
+                "S41-03",
+                "/admin/refresh-tools",
+                "PASS",
+                f"{data.get('tools_registered', 0)} tools registered",
+                t0=t0,
+            )
         else:
             record(sec, "S41-03", "/admin/refresh-tools", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
@@ -3748,18 +3812,32 @@ async def S41() -> None:
             has_power = "portal5_power_current_watts" in r.text
             has_energy = "portal5_energy_consumed_watt_seconds_total" in r.text
             if has_power and has_energy:
-                record(sec, "S41-04", "Power metrics in /metrics", "PASS",
-                       "portal5_power_* and portal5_energy_* present", t0=t0)
+                record(
+                    sec,
+                    "S41-04",
+                    "Power metrics in /metrics",
+                    "PASS",
+                    "portal5_power_* and portal5_energy_* present",
+                    t0=t0,
+                )
             else:
                 missing = []
                 if not has_power:
                     missing.append("portal5_power_current_watts")
                 if not has_energy:
                     missing.append("portal5_energy_consumed_watt_seconds_total")
-                record(sec, "S41-04", "Power metrics in /metrics", "WARN",
-                       f"missing: {', '.join(missing)}", t0=t0)
+                record(
+                    sec,
+                    "S41-04",
+                    "Power metrics in /metrics",
+                    "WARN",
+                    f"missing: {', '.join(missing)}",
+                    t0=t0,
+                )
         else:
-            record(sec, "S41-04", "Power metrics in /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec, "S41-04", "Power metrics in /metrics", "FAIL", f"HTTP {r.status_code}", t0=t0
+            )
     except Exception as e:
         record(sec, "S41-04", "Power metrics in /metrics", "FAIL", str(e)[:100], t0=t0)
 
@@ -3769,16 +3847,22 @@ async def S41() -> None:
         import yaml
 
         from portal_pipeline.router_pipe import WORKSPACES
+
         cfg = yaml.safe_load(open(ROOT / "config" / "backends.yaml"))
         yaml_ids = set(cfg.get("workspace_routing", {}).keys())
         pipe_ids = set(WORKSPACES.keys())
         if yaml_ids == pipe_ids:
-            record(sec, "S41-05", "Workspace consistency", "PASS",
-                   f"{len(pipe_ids)} workspaces, pipe+yaml match", t0=t0)
+            record(
+                sec,
+                "S41-05",
+                "Workspace consistency",
+                "PASS",
+                f"{len(pipe_ids)} workspaces, pipe+yaml match",
+                t0=t0,
+            )
         else:
             diff = yaml_ids.symmetric_difference(pipe_ids)
-            record(sec, "S41-05", "Workspace consistency", "FAIL",
-                   f"mismatch: {diff}", t0=t0)
+            record(sec, "S41-05", "Workspace consistency", "FAIL", f"mismatch: {diff}", t0=t0)
     except Exception as e:
         record(sec, "S41-05", "Workspace consistency", "FAIL", str(e)[:100], t0=t0)
 
@@ -3802,13 +3886,25 @@ async def S42() -> None:
         r = await c.get(f"{browser_mcp_url}/health", timeout=10)
         if r.status_code == 200:
             data = r.json()
-            record(sec, "S42-01", "Browser MCP health", "PASS",
-                   f"status={data.get('status')}, profiles={len(data.get('profiles', []))}", t0=t0)
+            record(
+                sec,
+                "S42-01",
+                "Browser MCP health",
+                "PASS",
+                f"status={data.get('status')}, profiles={len(data.get('profiles', []))}",
+                t0=t0,
+            )
         else:
             record(sec, "S42-01", "Browser MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
-        record(sec, "S42-01", "Browser MCP health", "WARN",
-               f"not running (expected if browser MCP not started): {str(e)[:60]}", t0=t0)
+        record(
+            sec,
+            "S42-01",
+            "Browser MCP health",
+            "WARN",
+            f"not running (expected if browser MCP not started): {str(e)[:60]}",
+            t0=t0,
+        )
 
     # S42-02: Browser MCP tools manifest
     t0 = time.time()
@@ -3818,20 +3914,39 @@ async def S42() -> None:
         if r.status_code == 200:
             tools = r.json()
             tool_names = [t["name"] for t in tools]
-            expected = ["browser_navigate", "browser_snapshot", "browser_click",
-                        "browser_fill", "browser_screenshot", "browser_close"]
+            expected = [
+                "browser_navigate",
+                "browser_snapshot",
+                "browser_click",
+                "browser_fill",
+                "browser_screenshot",
+                "browser_close",
+            ]
             missing = [n for n in expected if n not in tool_names]
             if not missing:
-                record(sec, "S42-02", "Browser MCP tools", "PASS",
-                       f"{len(tools)} tools: {', '.join(tool_names[:4])}...", t0=t0)
+                record(
+                    sec,
+                    "S42-02",
+                    "Browser MCP tools",
+                    "PASS",
+                    f"{len(tools)} tools: {', '.join(tool_names[:4])}...",
+                    t0=t0,
+                )
             else:
-                record(sec, "S42-02", "Browser MCP tools", "WARN",
-                       f"missing tools: {missing}", t0=t0)
+                record(
+                    sec, "S42-02", "Browser MCP tools", "WARN", f"missing tools: {missing}", t0=t0
+                )
         else:
             record(sec, "S42-02", "Browser MCP tools", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
-        record(sec, "S42-02", "Browser MCP tools", "WARN",
-               f"not running (expected if browser MCP not started): {str(e)[:60]}", t0=t0)
+        record(
+            sec,
+            "S42-02",
+            "Browser MCP tools",
+            "WARN",
+            f"not running (expected if browser MCP not started): {str(e)[:60]}",
+            t0=t0,
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3848,9 +3963,16 @@ async def S60() -> None:
     t0 = time.time()
     try:
         from portal_pipeline.tool_registry import tool_registry
+
         names = tool_registry.list_tool_names()
-        record(sec, "S60-01", "Tool registry loaded", "PASS",
-               f"{len(names)} tools: {', '.join(names[:5])}...", t0=t0)
+        record(
+            sec,
+            "S60-01",
+            "Tool registry loaded",
+            "PASS",
+            f"{len(names)} tools: {', '.join(names[:5])}...",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S60-01", "Tool registry loaded", "FAIL", str(e)[:100], t0=t0)
 
@@ -3858,9 +3980,16 @@ async def S60() -> None:
     t0 = time.time()
     try:
         from portal_pipeline.router_pipe import WORKSPACES
+
         with_tools = {k: v.get("tools", []) for k, v in WORKSPACES.items() if v.get("tools")}
-        record(sec, "S60-02", "Workspace tool whitelists", "PASS",
-               f"{len(with_tools)}/{len(WORKSPACES)} workspaces have tools", t0=t0)
+        record(
+            sec,
+            "S60-02",
+            "Workspace tool whitelists",
+            "PASS",
+            f"{len(with_tools)}/{len(WORKSPACES)} workspaces have tools",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S60-02", "Workspace tool whitelists", "FAIL", str(e)[:100], t0=t0)
 
@@ -3868,10 +3997,17 @@ async def S60() -> None:
     t0 = time.time()
     try:
         from portal_pipeline.router_pipe import _resolve_persona_tools
+
         result = _resolve_persona_tools({"tools_allow": ["execute_python"]}, "auto-coding")
         assert "execute_python" in result
-        record(sec, "S60-03", "Persona tool resolution", "PASS",
-               f"tools_allow override works: {result}", t0=t0)
+        record(
+            sec,
+            "S60-03",
+            "Persona tool resolution",
+            "PASS",
+            f"tools_allow override works: {result}",
+            t0=t0,
+        )
     except Exception as e:
         record(sec, "S60-03", "Persona tool resolution", "FAIL", str(e)[:100], t0=t0)
 
@@ -3886,6 +4022,7 @@ async def S60() -> None:
     t0 = time.time()
     try:
         from portal_pipeline.router_pipe import MAX_TOOL_HOPS
+
         assert isinstance(MAX_TOOL_HOPS, int) and MAX_TOOL_HOPS > 0
         record(sec, "S60-05", "MAX_TOOL_HOPS", "PASS", f"value={MAX_TOOL_HOPS}", t0=t0)
     except Exception as e:
@@ -3901,14 +4038,32 @@ async def S60() -> None:
             has_tool_duration = "portal5_tool_call_duration_seconds" in r.text
             has_tool_errors = "portal5_tool_call_errors_total" in r.text
             if has_tool_calls and has_tool_duration:
-                record(sec, "S60-06", "Tool-call Prometheus metrics", "PASS",
-                       "portal5_tool_calls_total + duration present", t0=t0)
+                record(
+                    sec,
+                    "S60-06",
+                    "Tool-call Prometheus metrics",
+                    "PASS",
+                    "portal5_tool_calls_total + duration present",
+                    t0=t0,
+                )
             else:
-                record(sec, "S60-06", "Tool-call Prometheus metrics", "WARN",
-                       "some tool metrics missing", t0=t0)
+                record(
+                    sec,
+                    "S60-06",
+                    "Tool-call Prometheus metrics",
+                    "WARN",
+                    "some tool metrics missing",
+                    t0=t0,
+                )
         else:
-            record(sec, "S60-06", "Tool-call Prometheus metrics", "FAIL",
-                   f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec,
+                "S60-06",
+                "Tool-call Prometheus metrics",
+                "FAIL",
+                f"HTTP {r.status_code}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S60-06", "Tool-call Prometheus metrics", "FAIL", str(e)[:100], t0=t0)
 
@@ -3918,9 +4073,16 @@ async def S60() -> None:
         p = ROOT / "config" / "personas" / "agentorchestrator.yaml"
         if p.exists():
             import yaml
+
             data = yaml.safe_load(p.read_text())
-            record(sec, "S60-07", "agentorchestrator persona", "PASS",
-                   f"slug={data.get('slug')}, workspace={data.get('workspace_model')}", t0=t0)
+            record(
+                sec,
+                "S60-07",
+                "agentorchestrator persona",
+                "PASS",
+                f"slug={data.get('slug')}, workspace={data.get('workspace_model')}",
+                t0=t0,
+            )
         else:
             record(sec, "S60-07", "agentorchestrator persona", "FAIL", "file missing", t0=t0)
     except Exception as e:
@@ -3945,8 +4107,14 @@ async def S70() -> None:
         if r.status_code == 200:
             data = r.json()
             results = data.get("results", [])
-            record(sec, "S70-01", "SearXNG web search", "PASS",
-                   f"{len(results)} results returned", t0=t0)
+            record(
+                sec,
+                "S70-01",
+                "SearXNG web search",
+                "PASS",
+                f"{len(results)} results returned",
+                t0=t0,
+            )
         else:
             record(sec, "S70-01", "SearXNG web search", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
@@ -3962,8 +4130,7 @@ async def S70() -> None:
         else:
             record(sec, "S70-02", "Research MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
-        record(sec, "S70-02", "Research MCP health", "WARN",
-               f"not running: {str(e)[:60]}", t0=t0)
+        record(sec, "S70-02", "Research MCP health", "WARN", f"not running: {str(e)[:60]}", t0=t0)
 
     # S70-03: Memory MCP health
     t0 = time.time()
@@ -3975,8 +4142,7 @@ async def S70() -> None:
         else:
             record(sec, "S70-03", "Memory MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
-        record(sec, "S70-03", "Memory MCP health", "WARN",
-               f"not running: {str(e)[:60]}", t0=t0)
+        record(sec, "S70-03", "Memory MCP health", "WARN", f"not running: {str(e)[:60]}", t0=t0)
 
     # S70-04: RAG MCP health
     t0 = time.time()
@@ -3988,8 +4154,7 @@ async def S70() -> None:
         else:
             record(sec, "S70-04", "RAG MCP health", "WARN", f"HTTP {r.status_code}", t0=t0)
     except Exception as e:
-        record(sec, "S70-04", "RAG MCP health", "WARN",
-               f"not running: {str(e)[:60]}", t0=t0)
+        record(sec, "S70-04", "RAG MCP health", "WARN", f"not running: {str(e)[:60]}", t0=t0)
 
     # S70-05: Embedding service
     t0 = time.time()
@@ -3999,39 +4164,65 @@ async def S70() -> None:
         if r.status_code == 200:
             record(sec, "S70-05", "Embedding service health", "PASS", r.text[:80], t0=t0)
         else:
-            record(sec, "S70-05", "Embedding service health", "WARN", f"HTTP {r.status_code}", t0=t0)
+            record(
+                sec, "S70-05", "Embedding service health", "WARN", f"HTTP {r.status_code}", t0=t0
+            )
     except Exception as e:
         record(sec, "S70-05", "Embedding service health", "WARN", str(e)[:100], t0=t0)
 
     # S70-06: Research personas exist
     t0 = time.time()
-    research_personas = ["webresearcher", "factchecker", "kbnavigator", "marketanalyst",
-                         "supergemma4researcher", "gemmaresearchanalyst"]
+    research_personas = [
+        "webresearcher",
+        "factchecker",
+        "kbnavigator",
+        "marketanalyst",
+        "supergemma4researcher",
+        "gemmaresearchanalyst",
+    ]
     found = []
     for p in research_personas:
         if (ROOT / "config" / "personas" / f"{p}.yaml").exists():
             found.append(p)
     if len(found) == len(research_personas):
-        record(sec, "S70-06", "Research personas", "PASS",
-               f"{len(found)}/{len(research_personas)} present", t0=t0)
+        record(
+            sec,
+            "S70-06",
+            "Research personas",
+            "PASS",
+            f"{len(found)}/{len(research_personas)} present",
+            t0=t0,
+        )
     else:
         missing = [p for p in research_personas if p not in found]
-        record(sec, "S70-06", "Research personas", "WARN",
-               f"missing: {missing}", t0=t0)
+        record(sec, "S70-06", "Research personas", "WARN", f"missing: {missing}", t0=t0)
 
     # S70-07: web_search in auto-research workspace tools
     t0 = time.time()
     try:
         from portal_pipeline.router_pipe import WORKSPACES
+
         research_tools = WORKSPACES.get("auto-research", {}).get("tools", [])
         has_search = "web_search" in research_tools
         has_fetch = "web_fetch" in research_tools
         if has_search and has_fetch:
-            record(sec, "S70-07", "auto-research tool whitelist", "PASS",
-                   f"tools: {research_tools}", t0=t0)
+            record(
+                sec,
+                "S70-07",
+                "auto-research tool whitelist",
+                "PASS",
+                f"tools: {research_tools}",
+                t0=t0,
+            )
         else:
-            record(sec, "S70-07", "auto-research tool whitelist", "WARN",
-                   f"missing web_search/web_fetch in {research_tools}", t0=t0)
+            record(
+                sec,
+                "S70-07",
+                "auto-research tool whitelist",
+                "WARN",
+                f"missing web_search/web_fetch in {research_tools}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S70-07", "auto-research tool whitelist", "FAIL", str(e)[:100], t0=t0)
 
@@ -4074,10 +4265,12 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
         code_defects = sum(1 for r in fail_warn if "CODE-DEFECT" in r.detail)
         env_issues = sum(1 for r in fail_warn if "ENV-ISSUE" in r.detail)
         unclassified = len(fail_warn) - code_defects - env_issues
-        lines.extend([
-            "",
-            f"**Code defects: {code_defects} · Env issues: {env_issues} · Unclassified: {unclassified}**",
-        ])
+        lines.extend(
+            [
+                "",
+                f"**Code defects: {code_defects} · Env issues: {env_issues} · Unclassified: {unclassified}**",
+            ]
+        )
 
     lines.extend(
         [

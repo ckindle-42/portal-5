@@ -31,7 +31,8 @@ def test_validator_passes_when_hints_resolve():
     saved = dict(WORKSPACES)
     WORKSPACES.clear()
     WORKSPACES["auto-coding"] = {
-        "name": "test", "description": "test",
+        "name": "test",
+        "description": "test",
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
         "tools": [],
@@ -52,7 +53,8 @@ def test_validator_catches_missing_hint():
     saved = dict(WORKSPACES)
     WORKSPACES.clear()
     WORKSPACES["auto-coding"] = {
-        "name": "test", "description": "test",
+        "name": "test",
+        "description": "test",
         "model_hint": "nonexistent:99b",
         "tools": [],
     }
@@ -68,6 +70,7 @@ def test_validator_catches_missing_hint():
 def test_validator_catches_real_workspaces_dict():
     """Smoke test against the actual WORKSPACES dict and backends.yaml."""
     from portal_pipeline.cluster_backends import BackendRegistry
+
     reg = BackendRegistry()
     errors = _validate_workspace_hints(reg)
     assert errors == [], "Hint validation regressions:\n  " + "\n  ".join(errors)

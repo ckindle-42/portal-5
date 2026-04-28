@@ -9,6 +9,7 @@ from portal_pipeline.tool_registry import ToolDefinition, ToolRegistry, _backoff
 
 # ── _backoff_seconds schedule ────────────────────────────────────────────────
 
+
 def test_backoff_schedule():
     assert _backoff_seconds(1) == 30
     assert _backoff_seconds(2) == 120
@@ -20,13 +21,19 @@ def test_backoff_schedule():
 
 # ── dispatch: success resets backoff state ───────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_success_resets_backoff():
     reg = ToolRegistry()
     tool = ToolDefinition(
-        name="my_tool", description="", parameters={},
-        server_id="test", server_url="http://localhost:9999",
-        healthy=False, consecutive_failures=3, next_retry_at=0.0,
+        name="my_tool",
+        description="",
+        parameters={},
+        server_id="test",
+        server_url="http://localhost:9999",
+        healthy=False,
+        consecutive_failures=3,
+        next_retry_at=0.0,
     )
     reg._tools["my_tool"] = tool
 
@@ -48,12 +55,16 @@ async def test_success_resets_backoff():
 
 # ── dispatch: single failure schedules 30s retry ────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_single_failure_schedules_30s():
     reg = ToolRegistry()
     tool = ToolDefinition(
-        name="my_tool", description="", parameters={},
-        server_id="test", server_url="http://localhost:9999",
+        name="my_tool",
+        description="",
+        parameters={},
+        server_id="test",
+        server_url="http://localhost:9999",
     )
     reg._tools["my_tool"] = tool
 
@@ -76,13 +87,19 @@ async def test_single_failure_schedules_30s():
 
 # ── dispatch: three failures schedules 5m retry ─────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_three_failures_schedules_5m():
     reg = ToolRegistry()
     tool = ToolDefinition(
-        name="my_tool", description="", parameters={},
-        server_id="test", server_url="http://localhost:9999",
-        healthy=False, consecutive_failures=2, next_retry_at=0.0,
+        name="my_tool",
+        description="",
+        parameters={},
+        server_id="test",
+        server_url="http://localhost:9999",
+        healthy=False,
+        consecutive_failures=2,
+        next_retry_at=0.0,
     )
     reg._tools["my_tool"] = tool
 
@@ -103,13 +120,18 @@ async def test_three_failures_schedules_5m():
 
 # ── dispatch: blocked inside backoff window ──────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_blocked_inside_backoff_window():
     reg = ToolRegistry()
     tool = ToolDefinition(
-        name="my_tool", description="", parameters={},
-        server_id="test", server_url="http://localhost:9999",
-        healthy=False, consecutive_failures=1,
+        name="my_tool",
+        description="",
+        parameters={},
+        server_id="test",
+        server_url="http://localhost:9999",
+        healthy=False,
+        consecutive_failures=1,
         next_retry_at=time.time() + 999,
     )
     reg._tools["my_tool"] = tool
@@ -121,13 +143,18 @@ async def test_blocked_inside_backoff_window():
 
 # ── dispatch: allowed after backoff window expires ───────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_allowed_after_backoff_window():
     reg = ToolRegistry()
     tool = ToolDefinition(
-        name="my_tool", description="", parameters={},
-        server_id="test", server_url="http://localhost:9999",
-        healthy=False, consecutive_failures=1,
+        name="my_tool",
+        description="",
+        parameters={},
+        server_id="test",
+        server_url="http://localhost:9999",
+        healthy=False,
+        consecutive_failures=1,
         next_retry_at=time.time() - 1,  # expired
     )
     reg._tools["my_tool"] = tool
@@ -148,23 +175,35 @@ async def test_allowed_after_backoff_window():
 
 # ── get_openai_tools: unhealthy tool excluded while in backoff ───────────────
 
+
 def test_get_openai_tools_excludes_in_backoff():
     reg = ToolRegistry()
     reg._tools["good_tool"] = ToolDefinition(
-        name="good_tool", description="ok", parameters={},
-        server_id="s1", server_url="http://localhost:1",
+        name="good_tool",
+        description="ok",
+        parameters={},
+        server_id="s1",
+        server_url="http://localhost:1",
         healthy=True,
     )
     reg._tools["bad_tool"] = ToolDefinition(
-        name="bad_tool", description="broken", parameters={},
-        server_id="s2", server_url="http://localhost:2",
-        healthy=False, consecutive_failures=1,
+        name="bad_tool",
+        description="broken",
+        parameters={},
+        server_id="s2",
+        server_url="http://localhost:2",
+        healthy=False,
+        consecutive_failures=1,
         next_retry_at=time.time() + 999,
     )
     reg._tools["recovering_tool"] = ToolDefinition(
-        name="recovering_tool", description="expired backoff", parameters={},
-        server_id="s3", server_url="http://localhost:3",
-        healthy=False, consecutive_failures=1,
+        name="recovering_tool",
+        description="expired backoff",
+        parameters={},
+        server_id="s3",
+        server_url="http://localhost:3",
+        healthy=False,
+        consecutive_failures=1,
         next_retry_at=time.time() - 1,  # window expired
     )
 
@@ -172,4 +211,4 @@ def test_get_openai_tools_excludes_in_backoff():
     names = [t["function"]["name"] for t in tools]
     assert "good_tool" in names
     assert "recovering_tool" in names  # expired backoff = allowed
-    assert "bad_tool" not in names     # still in backoff window
+    assert "bad_tool" not in names  # still in backoff window

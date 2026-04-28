@@ -1300,8 +1300,14 @@ class TestToolRegistry:
             "a": ToolDefinition("a", "desc a", {}, "s1", "http://x:1", healthy=True),
             # "b" is unhealthy AND in active backoff window — should be excluded
             "b": ToolDefinition(
-                "b", "desc b", {}, "s1", "http://x:1",
-                healthy=False, consecutive_failures=1, next_retry_at=time.time() + 999,
+                "b",
+                "desc b",
+                {},
+                "s1",
+                "http://x:1",
+                healthy=False,
+                consecutive_failures=1,
+                next_retry_at=time.time() + 999,
             ),
             "c": ToolDefinition("c", "desc c", {}, "s2", "http://x:2", healthy=True),
         }
@@ -1339,7 +1345,10 @@ class TestPersonaToolResolution:
     def test_persona_deny_overrides_allow(self):
         from portal_pipeline.router_pipe import _resolve_persona_tools
 
-        persona = {"tools_allow": ["execute_python", "execute_bash"], "tools_deny": ["execute_python"]}
+        persona = {
+            "tools_allow": ["execute_python", "execute_bash"],
+            "tools_deny": ["execute_python"],
+        }
         tools = _resolve_persona_tools(persona, "auto-coding")
         assert "execute_bash" in tools
         assert "execute_python" not in tools

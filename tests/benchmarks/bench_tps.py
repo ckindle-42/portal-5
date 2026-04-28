@@ -1003,7 +1003,11 @@ def bench_tps(
                         "elapsed_s": round(time.perf_counter() - t0, 2),
                     }
                 for raw_line in resp.iter_lines():
-                    line = raw_line.strip() if isinstance(raw_line, str) else raw_line.decode(errors="replace").strip()
+                    line = (
+                        raw_line.strip()
+                        if isinstance(raw_line, str)
+                        else raw_line.decode(errors="replace").strip()
+                    )
                     if not line.startswith("data: "):
                         continue
                     data_str = line[6:]
@@ -1083,7 +1087,11 @@ def bench_tps(
         max_tps = max(r["tps"] for r in successful)
         avg_tokens = round(sum(r["completion_tokens"] for r in successful) / len(successful))
         avg_elapsed = round(sum(r["elapsed_s"] for r in successful) / len(successful), 2)
-        ttft_vals = [r["time_to_first_token_s"] for r in successful if r.get("time_to_first_token_s") is not None]
+        ttft_vals = [
+            r["time_to_first_token_s"]
+            for r in successful
+            if r.get("time_to_first_token_s") is not None
+        ]
         avg_ttft = round(sum(ttft_vals) / len(ttft_vals), 3) if ttft_vals else None
     else:
         avg_tps = min_tps = max_tps = 0.0
@@ -1248,11 +1256,21 @@ def bench_direct(
             if not safe:
                 print(f"SKIP (memory pressure {used:.0f}%)")
                 r = {
-                    "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
-                    "available": True, "error": f"memory pressure too high ({used:.0f}%)",
-                    "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
-                    "avg_tps": 0, "min_tps": 0, "max_tps": 0,
-                    "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+                    "model": model,
+                    "label": "mlx-direct",
+                    "backend": "mlx",
+                    "path": "direct",
+                    "available": True,
+                    "error": f"memory pressure too high ({used:.0f}%)",
+                    "est_memory_gb": size_gb,
+                    "runs_total": runs,
+                    "runs_success": 0,
+                    "avg_tps": 0,
+                    "min_tps": 0,
+                    "max_tps": 0,
+                    "avg_completion_tokens": 0,
+                    "avg_elapsed_s": 0,
+                    "runs": [],
                 }
                 results.append(r)
                 if output_path:
@@ -1330,7 +1348,9 @@ def bench_direct(
                 next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
                 # Scale timeout and cooldown by current model size — big models need more settle time
                 big_model = size_gb >= 20
-                reclaim_timeout = max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
+                reclaim_timeout = (
+                    max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
+                )
                 settle_sleep = max(cooldown, 30.0) if big_model else cooldown
                 print(
                     f"    evict → reclaim ({settle_sleep:.0f}s cooldown) ...",
@@ -1339,9 +1359,7 @@ def bench_direct(
                 )
                 _unload_all_running_ollama_models()
                 _evict_mlx_current_model(smallest_mlx)
-                reclaimed = _wait_mlx_memory_available(
-                    next_size, timeout_s=reclaim_timeout
-                )
+                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=reclaim_timeout)
                 # After canary pushed out the big model, also evict the canary itself
                 # so the next large model has maximum free memory (not canary+headroom).
                 if smallest_mlx and size_gb >= 10:
@@ -1363,9 +1381,7 @@ def bench_direct(
                     # Extra settle time for Metal to reclaim pages from the canary
                     time.sleep(settle_sleep)
                     # Re-check memory after canary eviction
-                    reclaimed2 = _wait_mlx_memory_available(
-                        next_size, timeout_s=60.0
-                    )
+                    reclaimed2 = _wait_mlx_memory_available(next_size, timeout_s=60.0)
                     reclaimed = reclaimed or reclaimed2
                 else:
                     time.sleep(settle_sleep)
@@ -1443,7 +1459,8 @@ def bench_direct(
             # Mutual exclusion: evict MLX before loading Ollama (shared unified memory)
             _smallest = (
                 sorted(_config_mlx_models(), key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
-                if _config_mlx_models() else None
+                if _config_mlx_models()
+                else None
             )
             _ensure_mlx_evicted(_smallest)
             # Warm-up: force Ollama to load model before timed runs so run 1
@@ -1545,9 +1562,7 @@ def bench_model_cascade(
 
     runtime = _runtime_mlx_models()
     smallest_mlx = (
-        sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0]
-        if mlx_models
-        else None
+        sorted(mlx_models, key=lambda m: _parse_model_size_gb(m, "mlx"))[0] if mlx_models else None
     )
 
     model_to_ws, model_to_personas = _build_model_affinity()
@@ -1567,12 +1582,16 @@ def bench_model_cascade(
         direct_done = output_path and _result_already_done(output_path, "model", model)
         # Check which workspace/persona tests still need running
         pending_ws = [
-            ws for ws in model_to_ws.get(model, [])
-            if ws not in tested_workspaces and not (output_path and _result_already_done(output_path, "workspace", ws))
+            ws
+            for ws in model_to_ws.get(model, [])
+            if ws not in tested_workspaces
+            and not (output_path and _result_already_done(output_path, "workspace", ws))
         ]
         pending_personas = [
-            p for p in model_to_personas.get(model, [])
-            if p["slug"] not in tested_personas and not (output_path and _result_already_done(output_path, "persona_slug", p["slug"]))
+            p
+            for p in model_to_personas.get(model, [])
+            if p["slug"] not in tested_personas
+            and not (output_path and _result_already_done(output_path, "persona_slug", p["slug"]))
         ]
 
         if direct_done and not pending_ws and not pending_personas:
@@ -1602,11 +1621,21 @@ def bench_model_cascade(
         if not available:
             print("SKIP")
             r = {
-                "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
-                "available": False, "error": "not registered in proxy",
-                "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
-                "avg_tps": 0, "min_tps": 0, "max_tps": 0,
-                "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+                "model": model,
+                "label": "mlx-direct",
+                "backend": "mlx",
+                "path": "direct",
+                "available": False,
+                "error": "not registered in proxy",
+                "est_memory_gb": size_gb,
+                "runs_total": runs,
+                "runs_success": 0,
+                "avg_tps": 0,
+                "min_tps": 0,
+                "max_tps": 0,
+                "avg_completion_tokens": 0,
+                "avg_elapsed_s": 0,
+                "runs": [],
             }
             results.append(r)
             if output_path:
@@ -1628,11 +1657,21 @@ def bench_model_cascade(
                 print("FAIL (load failed) ", end="", flush=True)
                 if not direct_done:
                     r = {
-                        "model": model, "label": "mlx-direct", "backend": "mlx", "path": "direct",
-                        "available": True, "error": "model load failed",
-                        "est_memory_gb": size_gb, "runs_total": runs, "runs_success": 0,
-                        "avg_tps": 0, "min_tps": 0, "max_tps": 0,
-                        "avg_completion_tokens": 0, "avg_elapsed_s": 0, "runs": [],
+                        "model": model,
+                        "label": "mlx-direct",
+                        "backend": "mlx",
+                        "path": "direct",
+                        "available": True,
+                        "error": "model load failed",
+                        "est_memory_gb": size_gb,
+                        "runs_total": runs,
+                        "runs_success": 0,
+                        "avg_tps": 0,
+                        "min_tps": 0,
+                        "max_tps": 0,
+                        "avg_completion_tokens": 0,
+                        "avg_elapsed_s": 0,
+                        "runs": [],
                     }
                     results.append(r)
                     if output_path:
@@ -1646,8 +1685,12 @@ def bench_model_cascade(
             prompt = _get_prompt_for_model(model)
             prompt_cat = _prompt_category_for_model(model)
             r = bench_tps(
-                MLX_URL, model, prompt=prompt, runs=runs,
-                label="mlx-direct", prompt_category=prompt_cat,
+                MLX_URL,
+                model,
+                prompt=prompt,
+                runs=runs,
+                label="mlx-direct",
+                prompt_category=prompt_cat,
             )
             r["backend"] = "mlx"
             r["path"] = "direct"
@@ -1671,8 +1714,12 @@ def bench_model_cascade(
                 prompt = _get_prompt_for_workspace(ws)
                 prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
                 r = bench_tps(
-                    PIPELINE_URL, ws, prompt=prompt, runs=runs,
-                    label="pipeline", prompt_category=prompt_cat,
+                    PIPELINE_URL,
+                    ws,
+                    prompt=prompt,
+                    runs=runs,
+                    label="pipeline",
+                    prompt_category=prompt_cat,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "pipeline"
@@ -1699,8 +1746,12 @@ def bench_model_cascade(
                 prompt = _get_prompt_for_persona_category(cat)
                 prompt_cat = _prompt_category_for_persona(cat)
                 r = bench_tps(
-                    PIPELINE_URL, wm, prompt=prompt, runs=runs,
-                    label="persona", prompt_category=prompt_cat,
+                    PIPELINE_URL,
+                    wm,
+                    prompt=prompt,
+                    runs=runs,
+                    label="persona",
+                    prompt_category=prompt_cat,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "persona"
@@ -1743,7 +1794,8 @@ def bench_model_cascade(
                             json={
                                 "model": smallest_mlx,
                                 "messages": [{"role": "user", "content": ""}],
-                                "stream": False, "max_tokens": 1,
+                                "stream": False,
+                                "max_tokens": 1,
                             },
                         )
                 except Exception:
@@ -2088,33 +2140,46 @@ def main() -> None:
 
 def _check_image_freshness() -> None:
     """Warn if any portal Docker image predates the latest relevant git commit."""
+
     def _ts(git_paths=None, image=None):
         try:
             if git_paths:
                 r = subprocess.run(
                     ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%ct", "--", *git_paths],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 ts = r.stdout.strip()
                 from datetime import datetime, timezone
+
                 return datetime.fromtimestamp(int(ts), tz=timezone.utc) if ts else None
             if image:
                 r = subprocess.run(
                     ["docker", "inspect", "--format", "{{.Created}}", image],
-                    capture_output=True, text=True, timeout=10,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 raw = r.stdout.strip()
                 if raw and raw != "[]":
                     from datetime import datetime
+
                     return datetime.fromisoformat(raw.rstrip("Z") + "+00:00")
         except Exception:
             return None
 
     checks = [
-        ("portal-pipeline", "portal-5-portal-pipeline",
-         ["portal_pipeline/", "config/backends.yaml", "Dockerfile.pipeline", "pyproject.toml"]),
-        ("mcp-services", "portal-5-mcp-documents",
-         ["portal_mcp/", "Dockerfile.mcp", "pyproject.toml"]),
+        (
+            "portal-pipeline",
+            "portal-5-portal-pipeline",
+            ["portal_pipeline/", "config/backends.yaml", "Dockerfile.pipeline", "pyproject.toml"],
+        ),
+        (
+            "mcp-services",
+            "portal-5-mcp-documents",
+            ["portal_mcp/", "Dockerfile.mcp", "pyproject.toml"],
+        ),
     ]
     stale = []
     for label, image, paths in checks:

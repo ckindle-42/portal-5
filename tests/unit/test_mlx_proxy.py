@@ -186,9 +186,7 @@ class TestVLMAdmissionCredit:
     def test_vlm_model_routes_to_vlm_server(self, proxy_module):
         """A model in VLM_MODELS must be routed to the vlm server."""
         vlm_model = "mlx-community/Qwen3-VL-32B-Instruct-8bit"
-        assert proxy_module.needs_vlm(vlm_model), (
-            f"{vlm_model} should need the VLM server"
-        )
+        assert proxy_module.needs_vlm(vlm_model), f"{vlm_model} should need the VLM server"
 
     def test_text_model_routes_to_lm_server(self, proxy_module):
         """A model NOT in VLM_MODELS must be routed to the lm server."""

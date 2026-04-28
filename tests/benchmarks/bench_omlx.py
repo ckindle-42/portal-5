@@ -132,8 +132,8 @@ KV_CONVERSATION = [
 MAX_TOKENS = 200
 WARMUP_TOKENS = 1
 REQUEST_TIMEOUT = 300.0
-KV_ROUNDS = 3   # cold + 2 warm rounds per model per endpoint
-TPS_RUNS = 3    # single-shot TPS runs per prompt per model per endpoint
+KV_ROUNDS = 3  # cold + 2 warm rounds per model per endpoint
+TPS_RUNS = 3  # single-shot TPS runs per prompt per model per endpoint
 CONCURRENT_N = 4  # parallel workers for concurrency test
 
 
@@ -298,7 +298,7 @@ def test_kv_cache(url: str, label: str, model: str, rounds: int = KV_ROUNDS) -> 
     print(f"    KV cache test ({rounds} rounds, same prefix each time) ...", flush=True)
     results = []
     for i in range(1, rounds + 1):
-        label_round = "cold" if i == 1 else f"warm-{i-1}"
+        label_round = "cold" if i == 1 else f"warm-{i - 1}"
         r = _one_request(url, model, KV_CONVERSATION, max_tokens=MAX_TOKENS)
         r["round"] = i
         r["round_label"] = label_round
@@ -316,9 +316,7 @@ def test_kv_cache(url: str, label: str, model: str, rounds: int = KV_ROUNDS) -> 
     warm = [r for r in results if r["round"] > 1 and "ttft_s" in r]
 
     cold_ttft = cold["ttft_s"] if cold else None
-    warm_ttft_avg = (
-        round(sum(r["ttft_s"] for r in warm) / len(warm), 3) if warm else None
-    )
+    warm_ttft_avg = round(sum(r["ttft_s"] for r in warm) / len(warm), 3) if warm else None
     speedup = (
         round(cold_ttft / warm_ttft_avg, 1)
         if cold_ttft and warm_ttft_avg and warm_ttft_avg > 0
@@ -409,9 +407,7 @@ def test_concurrent(url: str, label: str, model: str, n: int = CONCURRENT_N) -> 
     t_wall_start = time.perf_counter()
     concurrent_results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=n) as executor:
-        futures = [
-            executor.submit(_one_request, url, model, msgs) for _ in range(n)
-        ]
+        futures = [executor.submit(_one_request, url, model, msgs) for _ in range(n)]
         for f in concurrent.futures.as_completed(futures):
             concurrent_results.append(f.result())
     wall_elapsed = round(time.perf_counter() - t_wall_start, 2)
@@ -421,7 +417,9 @@ def test_concurrent(url: str, label: str, model: str, n: int = CONCURRENT_N) -> 
     aggregate_tps = round(total_tokens / wall_elapsed, 1) if wall_elapsed > 0 else 0.0
     speedup = round(serial_total_est / wall_elapsed, 2) if wall_elapsed > 0 else None
 
-    print(f"      serial avg: {serial_avg:.2f}s/req  |  concurrent wall: {wall_elapsed:.2f}s  |  speedup: {speedup}×")
+    print(
+        f"      serial avg: {serial_avg:.2f}s/req  |  concurrent wall: {wall_elapsed:.2f}s  |  speedup: {speedup}×"
+    )
 
     return {
         "test": "concurrent",
@@ -444,9 +442,9 @@ def test_concurrent(url: str, label: str, model: str, n: int = CONCURRENT_N) -> 
 
 def run_endpoint(url: str, label: str, models: list[dict], args) -> list[dict]:
     """Run all three tests against `url` for each model in `models`."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"ENDPOINT: {label} ({url})")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     all_results = []
     for model_def in models:
@@ -483,7 +481,11 @@ def run_endpoint(url: str, label: str, models: list[dict], args) -> list[dict]:
         # (OMLX handles its own LRU eviction; no eviction call needed)
         if url == MLX_PROXY_URL and model_def != models[-1]:
             next_gb = models[models.index(model_def) + 1]["memory_gb"]
-            print(f"    Evicting {short} → reclaim for next model ({next_gb}GB) ...", end=" ", flush=True)
+            print(
+                f"    Evicting {short} → reclaim for next model ({next_gb}GB) ...",
+                end=" ",
+                flush=True,
+            )
             _evict_mlx(SMALLEST_MLX)
             ok = _wait_mlx_memory(next_gb + 10, timeout_s=120.0)
             time.sleep(10)
@@ -496,9 +498,9 @@ def run_endpoint(url: str, label: str, models: list[dict], args) -> list[dict]:
 
 
 def _print_summary(all_results: list[dict]) -> None:
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("BAKE-OFF SUMMARY")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Group by test type
     kv_results = [r for r in all_results if r["test"] == "kv_cache_ttft"]
@@ -550,11 +552,13 @@ def _print_summary(all_results: list[dict]) -> None:
             if mx and ox:
                 delta = round((mx - ox) / mx * 100, 1)
                 winner = "OMLX" if ox < mx else "mlx-proxy"
-                print(f"  {m.split('/')[-1]}: mlx={mx:.2f}s  omlx={ox:.2f}s  → {winner} {abs(delta):.1f}% faster")
+                print(
+                    f"  {m.split('/')[-1]}: mlx={mx:.2f}s  omlx={ox:.2f}s  → {winner} {abs(delta):.1f}% faster"
+                )
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("Update OMLX_DECISION.md with these results, then close P5-FUT-013.")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -576,7 +580,9 @@ def main() -> None:
     print("Portal 5 — OMLX Full Bake-off")
     print(f"Timestamp: {ts}")
     print(f"Models: {[m['short'] for m in models]}")
-    print(f"Tests: KV cache TTFT ({KV_ROUNDS} rounds)  |  TPS ({TPS_RUNS} runs)  |  Concurrent ({CONCURRENT_N} workers)")
+    print(
+        f"Tests: KV cache TTFT ({KV_ROUNDS} rounds)  |  TPS ({TPS_RUNS} runs)  |  Concurrent ({CONCURRENT_N} workers)"
+    )
 
     mlx_up = _check_endpoint(MLX_PROXY_URL)
     omlx_up = _check_endpoint(OMLX_URL)
@@ -599,7 +605,11 @@ def main() -> None:
 
     # Wait for Metal to reclaim fully before switching endpoints
     if not args.omlx_only and not args.mlx_only and not args.dry_run:
-        print(f"\n  Switching endpoints — waiting {METAL_RECLAIM_WAIT}s for Metal reclaim ...", end=" ", flush=True)
+        print(
+            f"\n  Switching endpoints — waiting {METAL_RECLAIM_WAIT}s for Metal reclaim ...",
+            end=" ",
+            flush=True,
+        )
         _evict_mlx(SMALLEST_MLX)
         _wait_mlx_memory(30.0, timeout_s=90.0)
         time.sleep(METAL_RECLAIM_WAIT)
