@@ -10,6 +10,7 @@ Install:
     sudo cp deploy/launchd/com.portal5.powermetrics.plist /Library/LaunchDaemons/
     sudo launchctl load -w /Library/LaunchDaemons/com.portal5.powermetrics.plist
 """
+
 import collections
 import json
 import os
@@ -68,9 +69,12 @@ def run_powermetrics(sampler: PowerSampler):
         try:
             cmd = [
                 "powermetrics",
-                "--samplers", "cpu_power,gpu_power,ane_power,interrupts",
-                "-i", str(SAMPLE_INTERVAL_MS),
-                "-f", "plist",
+                "--samplers",
+                "cpu_power,gpu_power,ane_power,interrupts",
+                "-i",
+                str(SAMPLE_INTERVAL_MS),
+                "-f",
+                "plist",
             ]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
             buf = []
@@ -96,10 +100,14 @@ def parse_plist_buffer(text: str) -> dict | None:
     try:
         sample = {}
         for key, attr in [
-            ("CPU Power", "cpu_w"), ("combined_power", "cpu_w"),
-            ("GPU Power", "gpu_w"), ("gpu_power", "gpu_w"),
-            ("ANE Power", "ane_w"), ("ane_power", "ane_w"),
-            ("DRAM Power", "dram_w"), ("dram_power", "dram_w"),
+            ("CPU Power", "cpu_w"),
+            ("combined_power", "cpu_w"),
+            ("GPU Power", "gpu_w"),
+            ("gpu_power", "gpu_w"),
+            ("ANE Power", "ane_w"),
+            ("ane_power", "ane_w"),
+            ("DRAM Power", "dram_w"),
+            ("dram_power", "dram_w"),
         ]:
             m = re.search(rf"<key>{re.escape(key)}</key>\s*<integer>(\d+)</integer>", text)
             if m:

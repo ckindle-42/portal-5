@@ -44,7 +44,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 # ── Patch 1: generate.py — thread-local generation stream ────────────────────
 
 GENERATE_OLD = "generation_stream = mx.new_stream(mx.default_device())"
@@ -66,8 +65,8 @@ SERVER_OLD = (
     "        # Preload the default model if it is provided\n"
     "        self.default_model_map = {}\n"
     "        if self.cli_args.model is not None:\n"
-    "            self.default_model_map[self.cli_args.model] = \"default_model\"\n"
-    "            self.load(self.cli_args.model, draft_model_path=\"default_model\")"
+    '            self.default_model_map[self.cli_args.model] = "default_model"\n'
+    '            self.load(self.cli_args.model, draft_model_path="default_model")'
 )
 
 SERVER_NEW = (
@@ -79,7 +78,7 @@ SERVER_NEW = (
     "        # the same thread-local stream context.\n"
     "        self.default_model_map = {}\n"
     "        if self.cli_args.model is not None:\n"
-    "            self.default_model_map[self.cli_args.model] = \"default_model\"\n"
+    '            self.default_model_map[self.cli_args.model] = "default_model"\n'
     "            # DO NOT call self.load() here — deferred to _generate() worker thread"
 )
 
@@ -120,7 +119,9 @@ def apply_patch(target: Path, old: str, new: str, name: str) -> bool:
         if alt:
             old_actual = alt.group()
         else:
-            print(f"  {name}: WARNING — expected pattern not found. mlx_lm version may have changed.")
+            print(
+                f"  {name}: WARNING — expected pattern not found. mlx_lm version may have changed."
+            )
             print(f"    Expected: {repr(old[:80])}")
             return False
     else:
@@ -163,7 +164,11 @@ def main() -> int:
     # Sanity check: import generates cleanly
     try:
         result = subprocess.run(
-            [sys.executable, "-c", "import mlx_lm.generate; import mlx_lm.server; print('imports ok')"],
+            [
+                sys.executable,
+                "-c",
+                "import mlx_lm.generate; import mlx_lm.server; print('imports ok')",
+            ],
             capture_output=True,
             text=True,
             timeout=30,

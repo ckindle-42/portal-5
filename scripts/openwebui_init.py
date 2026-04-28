@@ -631,6 +631,7 @@ async def main() -> int:
     if PERSONAS_DIR.exists():
         try:
             from portal_pipeline.router_pipe import WORKSPACES as _WORKSPACES  # noqa: PLC0415
+
             valid_ws = set(_WORKSPACES.keys())
         except Exception:
             valid_ws = set()
@@ -639,7 +640,11 @@ async def main() -> int:
             if persona_errors:
                 for e in persona_errors:
                     print(f"[seed] PERSONA ERROR: {e}", file=sys.stderr)
-                if os.environ.get("STRICT_PERSONA_VALIDATION", "true").lower() in ("true", "1", "yes"):
+                if os.environ.get("STRICT_PERSONA_VALIDATION", "true").lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                ):
                     print(
                         f"[seed] {len(persona_errors)} persona(s) invalid — "
                         "set STRICT_PERSONA_VALIDATION=false to seed anyway",
