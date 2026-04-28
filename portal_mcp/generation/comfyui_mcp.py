@@ -121,6 +121,9 @@ async def list_tools(request):
 
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
+# Public URL used in links returned to the browser — differs from COMFYUI_URL when the
+# MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
+COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
 IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored", or "sdxl"
 
 # FLUX.1 workflow — split-loader approach.
@@ -421,12 +424,14 @@ async def generate_image(
                 images = node_output.get("images", [])
                 if images:
                     filename = images[0]["filename"]
+                    url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
                     return {
                         "success": True,
                         "filename": filename,
-                        "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
+                        "url": url,
                         "prompt": prompt,
                         "seed": seed,
+                        "message": f"Image generated successfully. [View image]({url})",
                     }
 
     return {

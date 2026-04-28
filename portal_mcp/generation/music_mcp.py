@@ -253,6 +253,7 @@ def _generate_sync(
             "prompt": prompt,
             "model": f"facebook/musicgen-{model_size}",
             "device": str(device),
+            "message": f"Music generated ({round(actual_duration, 1)}s). [Download WAV]({download_url})",
         }
     except Exception as e:
         logger.exception("Music generation failed")
@@ -336,6 +337,7 @@ def _generate_with_melody_sync(
             "prompt": prompt,
             "model": f"facebook/musicgen-{model_size}",
             "device": str(device),
+            "message": f"Music generated ({round(actual_duration, 1)}s). [Download WAV]({download_url})",
         }
     except Exception as e:
         logger.exception("Melody continuation failed")

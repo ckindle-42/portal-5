@@ -108,6 +108,9 @@ async def list_tools(request):
 
 
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
+# Public URL used in links returned to the browser — differs from COMFYUI_URL when the
+# MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
+COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
 VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 
 # Video model filename — single-file model in models/diffusion_models/.
@@ -479,14 +482,16 @@ async def generate_video(
                         else str(video_files[0])
                     )
                     if filename:
+                        url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
                         return {
                             "success": True,
                             "filename": filename,
-                            "url": f"{COMFYUI_URL}/view?filename={filename}&type=output",
+                            "url": url,
                             "prompt": prompt,
                             "seed": seed,
                             "frames": frames,
                             "fps": fps,
+                            "message": f"Video generated successfully. [Download video]({url})",
                         }
             logger.debug(
                 "ComfyUI history for prompt_id=%s had no video output. history=%s",

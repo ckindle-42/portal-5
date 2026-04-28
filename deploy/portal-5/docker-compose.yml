@@ -477,6 +477,7 @@ services:
       - COMFYUI_MCP_PORT=8910
       - MCP_PORT=8910
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      - COMFYUI_PUBLIC_URL=${COMFYUI_PUBLIC_URL:-http://localhost:8188}
       - IMAGE_BACKEND=${IMAGE_BACKEND:-flux}
       - FLUX_CKPT_FILE=${FLUX_CKPT_FILE:-flux1-schnell.safetensors}
       - FLUX_CLIP_L_FILE=${FLUX_CLIP_L_FILE:-text_encoder/model.safetensors}
@@ -505,6 +506,7 @@ services:
       - VIDEO_MCP_PORT=8911
       - MCP_PORT=8911
       - COMFYUI_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      - COMFYUI_PUBLIC_URL=${COMFYUI_PUBLIC_URL:-http://localhost:8188}
       - OUTPUT_DIR=/app/data/generated
       - VIDEO_BACKEND=${VIDEO_BACKEND:-wan22}
       - VIDEO_MODEL_FILE=${VIDEO_MODEL_FILE:-hunyuan_video_t2v_720p_bf16.safetensors}

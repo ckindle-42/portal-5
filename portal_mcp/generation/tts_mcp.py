@@ -362,6 +362,7 @@ def _kokoro_sync(text: str, voice: str, speed: float) -> dict:
             "backend": "kokoro",
             "voice": voice,
             "duration_estimate": f"{len(text) / 15:.1f}s",
+            "message": f"Speech generated. [Download WAV]({download_url})",
         }
     except Exception as e:
         logger.error("Kokoro TTS error: %s", e)
@@ -398,6 +399,7 @@ def _fish_speech_sync(text: str, voice: str, speed: float) -> dict:
             "download_url": download_url,
             "backend": "fish_speech",
             "voice": voice,
+            "message": f"Speech generated. [Download WAV]({download_url})",
         }
     except Exception as e:
         logger.error("Fish Speech generation failed: %s", e)
