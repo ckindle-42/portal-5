@@ -46,6 +46,14 @@ Architectural and design constraints that cannot be resolved without significant
 - **Status:** ACTIVE
 - **Description:** `Qwen2.5-Math-7B-Instruct` does not emit `reasoning_content` blocks — math reasoning appears in the regular content stream. The collapsible thinking panel will not show separately for `auto-math` traffic. This is a model property, not a pipeline issue. For extended thinking on math problems, `auto-reasoning` (Qwopus 27B) is an alternative.
 
+### Asteroids Bench Lives/Loop Differences Are the Benchmark's Purpose
+- **ID:** P5-BENCH-001
+- **Status:** ACTIVE — by design
+- **Description:** The CC-01 Asteroids bench (`bench-*` workspaces) measures real model differences in single-shot HTML game generation. Per UAT 2026-04-28: GPT-OSS and GLM-4.7-Flash deliver 5/5; Llama-3.3-70B and phi4 deliver 4/5 (lives system not explicitly named); Devstral, Dolphin-8B, Qwen3-Coder-30B, Qwen3-Coder-Next deliver 3/5 (also miss explicit canvas game loop keywords); phi4-reasoning delivers 2/5 (does not produce an HTML code block — phi4-reasoning is RL-trained for STEM/math, not code generation).
+- **Why this is not a bug:** The bench personas all share an identical creative-coder system prompt by design (verified: `diff config/personas/bench_devstral.yaml config/personas/bench_glm.yaml` shows only header/slug differences). The point of the bench is to surface raw model capability on a fixed task. Broadening the assertion keywords would erase the signal the bench exists to capture.
+- **Operator action:** None. Use the bench results as model-selection input. If a model scores ≤3/5 on CC-01 it is not a candidate for `auto-coding` HTML generation.
+- **Last verified:** 2026-04-28
+
 ### Persona workspace_model Values Fixed
 - **ID**: P5-ROAD-MOD-001
 - **Status**: **RESOLVED**
