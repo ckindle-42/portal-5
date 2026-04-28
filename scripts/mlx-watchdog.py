@@ -130,6 +130,17 @@ class Config:
     memory_critical_gb: float = float(os.environ.get("MLX_MEMORY_CRITICAL_GB", "8"))
     """Below this, escalate zombie kills (skip SIGTERM grace, go straight to SIGKILL)."""
 
+    # Wired-memory leak detection (P5-UAT-001 resolution)
+    wired_leak_threshold_gb: float = float(os.environ.get("MLX_WIRED_LEAK_THRESHOLD_GB", "12"))
+    """Wired memory above this while proxy reports state=none indicates a Metal
+    GPU buffer leak (proxy thinks it's idle but the OS still has buffers wired).
+    Default 12 GB allows ~6-8 GB OS baseline + headroom; raise on systems with
+    larger baseline footprint."""
+
+    wired_leak_consecutive_samples: int = int(os.environ.get("MLX_WIRED_LEAK_SAMPLES", "3"))
+    """Number of consecutive idle-with-high-wired samples before declaring a leak.
+    At cycle_interval_s=30 default, 3 samples = 90s of confirmed leak before action."""
+
     # Recovery state machine
     recovery_threshold_failures: int = int(os.environ.get("MLX_RECOVERY_THRESHOLD", "2"))
     max_recovery_attempts: int = int(os.environ.get("MLX_MAX_RECOVERY_ATTEMPTS", "3"))
@@ -176,7 +187,9 @@ class Config:
 
     # Lock files
     watchdog_pid_file: Path = field(
-        default_factory=lambda: Path(os.environ.get("MLX_WATCHDOG_PID_FILE", "/tmp/mlx-watchdog.pid"))
+        default_factory=lambda: Path(
+            os.environ.get("MLX_WATCHDOG_PID_FILE", "/tmp/mlx-watchdog.pid")
+        )
     )
     watchdog_lock_file: Path = field(
         default_factory=lambda: Path(
@@ -241,6 +254,8 @@ class WatchdogState:
     started_at: float = field(default_factory=time.time)
     last_zombie_kill_at: float = 0.0
     consecutive_zombie_kills: int = 0  # for backoff if servers keep zombifying
+    consecutive_idle_wired_high: int = 0  # P5-UAT-001 wired-leak cycle counter
+    last_wired_leak_recovery_at: float = 0.0
 
 
 # ── Process discovery ───────────────────────────────────────────────────────
@@ -262,7 +277,9 @@ async def _pgrep(pattern: str) -> list[int]:
         return []
 
 
-async def _http_get_json(client: httpx.AsyncClient, url: str, timeout: float) -> tuple[int | None, dict | None]:
+async def _http_get_json(
+    client: httpx.AsyncClient, url: str, timeout: float
+) -> tuple[int | None, dict | None]:
     """GET a URL, return (status_code, parsed_json) or (None, None) on any failure."""
     try:
         r = await client.get(url, timeout=timeout)
@@ -314,7 +331,9 @@ async def probe_proxy(client: httpx.AsyncClient, config: Config) -> ProxyHealth:
     )
 
 
-async def probe_server(client: httpx.AsyncClient, name: str, port: int, pattern: str, timeout: float) -> ServerProbe:
+async def probe_server(
+    client: httpx.AsyncClient, name: str, port: int, pattern: str, timeout: float
+) -> ServerProbe:
     """Probe a single MLX server: pgrep + /health in parallel."""
     pids_task = asyncio.create_task(_pgrep(pattern))
     http_task = asyncio.create_task(
@@ -431,6 +450,55 @@ async def kill_pids(pids: list[int], aggressive: bool, sigterm_grace_s: int) -> 
     return killed
 
 
+async def recover_wired_leak(config: Config, state: WatchdogState) -> tuple[bool, str]:
+    """Recover from a Metal GPU wired-memory leak detected while proxy is idle.
+
+    Two-stage recovery:
+      1. Soft: POST /unload to the proxy. If the proxy is healthy enough to
+         respond, this is sufficient — perform_unload() will run stop_all()
+         which kills any straggler mlx_lm/mlx_vlm processes the proxy lost
+         track of and waits for Metal reclaim.
+      2. Hard: if /unload doesn't drop wired_gb below threshold within 20s,
+         the proxy itself is leaking — call launchctl kickstart -k to recreate
+         the proxy process. The OS reaps process resources on exit, releasing
+         any wired allocations the in-process eviction couldn't.
+
+    Returns (recovered, log_message).
+    """
+    state.last_wired_leak_recovery_at = time.time()
+
+    # Stage 1: soft recovery via /unload
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"http://127.0.0.1:{config.proxy_port}/unload?ollama=true")
+            if resp.status_code == 200:
+                body = resp.json()
+                wired_after = body.get("wired_after_gb", 999)
+                if wired_after < config.wired_leak_threshold_gb:
+                    msg = (
+                        f"wired-leak soft recovery OK: "
+                        f"{body.get('wired_before_gb')}GB → {wired_after}GB"
+                    )
+                    logger.info(msg)
+                    state.consecutive_idle_wired_high = 0
+                    return True, msg
+                logger.warning(
+                    "wired-leak soft recovery did not drop wired below threshold "
+                    "(after=%s, threshold=%s) — escalating to proxy restart",
+                    wired_after,
+                    config.wired_leak_threshold_gb,
+                )
+    except Exception as e:
+        logger.warning("wired-leak soft recovery failed: %s — escalating", e)
+
+    # Stage 2: hard recovery — restart the proxy via launchd
+    ok, msg = await restart_proxy_via_launchctl(config)
+    if ok:
+        state.consecutive_idle_wired_high = 0
+        return True, f"wired-leak hard recovery via launchctl OK: {msg}"
+    return False, f"wired-leak recovery FAILED: {msg}"
+
+
 async def restart_proxy_via_launchctl(config: Config) -> tuple[bool, str]:
     """Ask launchd to restart the MLX proxy via `launchctl kickstart -k`.
 
@@ -498,7 +566,9 @@ async def restart_proxy_fallback_popen(config: Config) -> tuple[bool, str]:
         return False, f"Popen failed: {e}"
 
 
-async def wait_for_proxy_ready(client: httpx.AsyncClient, config: Config, max_wait_s: int = 60) -> bool:
+async def wait_for_proxy_ready(
+    client: httpx.AsyncClient, config: Config, max_wait_s: int = 60
+) -> bool:
     """Poll proxy /health until any HTTP response. Returns True if alive within max_wait_s."""
     deadline = time.monotonic() + max_wait_s
     while time.monotonic() < deadline:
@@ -613,7 +683,9 @@ class NotificationBus:
             names.append("Webhook")
         return names
 
-    async def send(self, event_class: str, severity: str, message: str, *, force: bool = False) -> bool:
+    async def send(
+        self, event_class: str, severity: str, message: str, *, force: bool = False
+    ) -> bool:
         """Dispatch a notification across all configured channels.
 
         event_class is a short stable string (e.g. 'proxy_down', 'zombie_killed_lm').
@@ -770,9 +842,7 @@ class WatchdogMetrics:
     def render_text(self) -> str:
         """Return Prometheus text-format exposition."""
         now = time.time()
-        self.last_cycle_seconds_ago = (
-            now - self.last_cycle_at if self.last_cycle_at else -1.0
-        )
+        self.last_cycle_seconds_ago = now - self.last_cycle_at if self.last_cycle_at else -1.0
 
         lines = [
             "# HELP mlx_watchdog_zombie_kills_total Total zombie servers killed",
@@ -943,10 +1013,14 @@ async def watchdog_cycle(
     # ── 1. Probe proxy + servers concurrently ──
     proxy_task = asyncio.create_task(probe_proxy(client, config))
     lm_task = asyncio.create_task(
-        probe_server(client, "mlx_lm", config.lm_port, "mlx_lm.server", config.server_probe_timeout_s)
+        probe_server(
+            client, "mlx_lm", config.lm_port, "mlx_lm.server", config.server_probe_timeout_s
+        )
     )
     vlm_task = asyncio.create_task(
-        probe_server(client, "mlx_vlm", config.vlm_port, "mlx_vlm.server", config.server_probe_timeout_s)
+        probe_server(
+            client, "mlx_vlm", config.vlm_port, "mlx_vlm.server", config.server_probe_timeout_s
+        )
     )
     proxy_health, lm_probe, vlm_probe = await asyncio.gather(proxy_task, lm_task, vlm_task)
 
@@ -989,9 +1063,7 @@ async def watchdog_cycle(
         decision = classify_zombie(server_probe, proxy_health, config)
         if not decision.is_zombie:
             if decision.reason and not server_probe.http_responding and server_probe.pids:
-                logger.debug(
-                    "%s skipped zombie kill: %s", server_probe.name, decision.reason
-                )
+                logger.debug("%s skipped zombie kill: %s", server_probe.name, decision.reason)
             continue
 
         logger.warning(
@@ -1029,6 +1101,51 @@ async def watchdog_cycle(
             )
             metrics.observe_notification(dispatched)
 
+    # ── P5-UAT-001 wired-leak detection ─────────────────────────────────────
+    # Signature: proxy reports state=none (no model loaded) AND wired_gb is
+    # above leak threshold. This means Metal still holds GPU buffers from a
+    # previous load that didn't release. Trigger recovery after N consecutive
+    # cycles to avoid acting on transient post-eviction reclaim windows.
+    if (
+        proxy_health.reachable
+        and proxy_health.state == "none"
+        and proxy_health.memory_used_pct is not None  # confirms memory data is present
+    ):
+        try:
+            async with httpx.AsyncClient(timeout=config.proxy_probe_timeout_s) as client:
+                wired_resp = await client.get(f"http://127.0.0.1:{config.proxy_port}/health/wired")
+                if wired_resp.status_code == 200:
+                    wired_gb = wired_resp.json().get("wired_gb", 0.0)
+                    if wired_gb > config.wired_leak_threshold_gb:
+                        state.consecutive_idle_wired_high += 1
+                        logger.warning(
+                            "wired-while-idle: %.1fGB > threshold %.1fGB (sample %d/%d)",
+                            wired_gb,
+                            config.wired_leak_threshold_gb,
+                            state.consecutive_idle_wired_high,
+                            config.wired_leak_consecutive_samples,
+                        )
+                        if (
+                            state.consecutive_idle_wired_high
+                            >= config.wired_leak_consecutive_samples
+                        ):
+                            # Don't recover more than once per recovery_min_interval window
+                            since_last = time.time() - state.last_wired_leak_recovery_at
+                            if since_last >= config.min_seconds_between_recoveries:
+                                ok, msg = await recover_wired_leak(config, state)
+                                logger.info("wired-leak recovery: ok=%s msg=%s", ok, msg)
+                            else:
+                                logger.info(
+                                    "wired-leak recovery suppressed: "
+                                    "last attempt %.0fs ago (min interval %ds)",
+                                    since_last,
+                                    config.min_seconds_between_recoveries,
+                                )
+                    else:
+                        state.consecutive_idle_wired_high = 0
+        except Exception as e:
+            logger.debug("wired-leak probe failed (non-fatal): %s", e)
+
     # ── 4. Proxy recovery if threshold reached ──
     if (
         not state.proxy.healthy
@@ -1049,9 +1166,7 @@ async def watchdog_cycle(
                 )
                 metrics.observe_notification(dispatched)
         else:
-            await _attempt_proxy_recovery(
-                config, state, client, bus, metrics, last_known_proxy
-            )
+            await _attempt_proxy_recovery(config, state, client, bus, metrics, last_known_proxy)
 
     # Reset consecutive zombie kills on a clean cycle
     if proxy_health.reachable and proxy_health.state == "ready":

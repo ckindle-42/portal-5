@@ -720,6 +720,63 @@ def _wait_for_model_loaded(
     return False
 
 
+def perform_unload(evict_ollama: bool = False) -> dict:
+    """Graceful unload of all MLX servers + optional Ollama eviction.
+
+    Wraps existing primitives (stop_all, _wait_for_gpu_memory_reclaim,
+    _evict_ollama_models) into a single, observable cycle. Returns a
+    measurement dict so callers can verify reclamation actually happened.
+
+    This is the function the HTTP /unload endpoint and the watchdog leak
+    handler both call. It must be safe to invoke when no model is loaded
+    (it becomes a no-op cleanup).
+    """
+    t0 = time.time()
+    wired_before = memory_monitor.to_dict().get("current", {}).get("wired_gb", 0.0)
+    free_before = _get_free_memory_gb()
+
+    loaded_before = mlx_state.loaded_model
+    state_before = mlx_state.state
+
+    # 1. Graceful kill of mlx_lm/mlx_vlm if anything is running.
+    #    stop_all() already does SIGTERM(10s grace)→SIGKILL→reclaim wait.
+    stop_all()
+
+    # 2. Reset proxy state to idle. Future requests will trigger a fresh load.
+    mlx_state._state = "none"
+    mlx_state._state_since = time.time()
+    mlx_state._loaded_model = None
+    mlx_state._active_server = None
+
+    # 3. Optionally evict Ollama models too — the UAT and big-model paths want this.
+    if evict_ollama:
+        try:
+            _evict_ollama_models()
+        except Exception as e:
+            # Non-fatal — Ollama may be down, that's fine for an unload call
+            print(f"[proxy] /unload: ollama eviction warning: {e}", flush=True)
+
+    # 4. Sample post-state. wired_gb is the leak indicator: if a model was
+    #    loaded and stop_all worked, wired_gb should drop by approximately
+    #    the model's memory footprint. If it doesn't, Metal leaked.
+    wired_after = memory_monitor.to_dict().get("current", {}).get("wired_gb", 0.0)
+    free_after = _get_free_memory_gb()
+
+    return {
+        "unloaded": True,
+        "loaded_model_before": loaded_before,
+        "state_before": state_before,
+        "state_after": mlx_state.state,
+        "wired_before_gb": round(wired_before, 1),
+        "wired_after_gb": round(wired_after, 1),
+        "wired_freed_gb": round(wired_before - wired_after, 1),
+        "free_before_gb": round(free_before, 1),
+        "free_after_gb": round(free_after, 1),
+        "ollama_evicted": evict_ollama,
+        "elapsed_s": round(time.time() - t0, 1),
+    }
+
+
 def stop_all():
     """Gracefully stop any running MLX server on LM_PORT or VLM_PORT.
 
@@ -1072,7 +1129,10 @@ def ensure_server(model: str) -> int:
                     model, freed_by_stop_gb=freed_by_stop_gb
                 )
                 if not ok:
-                    print(f"[proxy] admission control: {rejection_msg} — resetting to idle", flush=True)
+                    print(
+                        f"[proxy] admission control: {rejection_msg} — resetting to idle",
+                        flush=True,
+                    )
                     mlx_state.set_down(rejection_msg)  # record the error for /health
                     # Reset to idle immediately so the proxy can serve other models
                     mlx_state._state = "none"
@@ -1118,7 +1178,9 @@ def ensure_server(model: str) -> int:
             mlx_state.set_down(str(e))
             # Admission control / memory rejections: proxy is healthy, just can't load this model.
             # Reset to idle so future requests can try other models (pipeline falls back to Ollama).
-            if "Insufficient memory to load" in str(e) or "Post-eviction memory still insufficient" in str(e):
+            if "Insufficient memory to load" in str(
+                e
+            ) or "Post-eviction memory still insufficient" in str(e):
                 mlx_state._state = "none"
                 mlx_state._state_since = time.time()
             raise
@@ -1250,6 +1312,28 @@ class Handler(BaseHTTPRequestHandler):
         if not _request_semaphore.acquire(blocking=False):
             self._send_json(503, {"error": "MLX proxy overloaded — too many concurrent requests"})
             return
+        # /unload — explicit graceful eviction endpoint. The driver and watchdog
+        # call this instead of pkill-ing the proxy. Query param ?ollama=true also
+        # evicts loaded Ollama models. Released semaphore inline because unload
+        # is bounded; no streaming.
+        path = self.path.split("?", 1)[0]
+        if path == "/unload":
+            try:
+                # Parse query string for ?ollama=true|false (default false)
+                evict_ollama = False
+                if "?" in self.path:
+                    qs = self.path.split("?", 1)[1]
+                    for pair in qs.split("&"):
+                        if pair.startswith("ollama="):
+                            evict_ollama = pair.split("=", 1)[1].lower() in ("1", "true", "yes")
+                with lock:  # serialize against ensure_server() — same lock the load path uses
+                    result = perform_unload(evict_ollama=evict_ollama)
+                self._send_json(200, result)
+            except Exception as e:
+                self._send_json(500, {"error": f"unload failed: {e}"})
+            finally:
+                _request_semaphore.release()
+            return
         try:
             self._handle_post()
         except RuntimeError as e:
@@ -1272,6 +1356,26 @@ class Handler(BaseHTTPRequestHandler):
             state = state_info["state"]
             code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)
+            return
+        if self.path == "/health/wired":
+            # Compact wired-memory endpoint for the watchdog leak detector.
+            # Returns wired_gb plus enough state to decide whether high
+            # wired memory is legitimate (model loaded) or a leak (state=none
+            # but wired stayed high).
+            mem = memory_monitor.to_dict().get("current", {}) or {}
+            self._send_json(
+                200,
+                {
+                    "wired_gb": mem.get("wired_gb", 0.0),
+                    "free_gb": mem.get("free_gb", 0.0),
+                    "active_gb": mem.get("active_gb", 0.0),
+                    "state": mlx_state.state,
+                    "loaded_model": mlx_state.loaded_model,
+                    "expected_wired_gb": MODEL_MEMORY.get(mlx_state.loaded_model, 0.0)
+                    if mlx_state.loaded_model
+                    else 0.0,
+                },
+            )
             return
         if self.path == "/health/memory":
             self._send_json(
