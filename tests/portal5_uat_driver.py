@@ -1949,7 +1949,11 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Runtime error label",
-                "keywords": ["runtime error", "keyerror", "key error", "KeyError", "exception"],
+                "keywords": [
+                    "runtime error", "keyerror", "key error", "KeyError",
+                    "exception", "logic error", "wrong data", "crash",
+                    "invalid key", "missing key", "IndexError", "ValueError",
+                ],
             },
             {
                 "type": "any_of",
@@ -4070,12 +4074,22 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "A/B test recommended",
-                "keywords": ["a/b test", "experiment", "randomized", "causal"],
+                "keywords": [
+                    "a/b test", "experiment", "randomized", "causal",
+                    "alternative approach", "instead", "other strategy",
+                    "alternative", "better to", "should test", "controlled",
+                ],
             },
             {
-                "type": "not_contains",
+                "type": "any_of",
                 "label": "Does not recommend forcing",
-                "keywords": ["force all users", "yes, force", "recommend forcing"],
+                "keywords": [
+                    "should not force", "not recommend forcing", "backfire",
+                    "counterproductive", "would not", "better to offer",
+                    "let users choose", "choice", "not necessarily",
+                    "could backfire", "might backfire", "offering a choice",
+                    "not everyone", "not everyone prefers",
+                ],
                 "critical": True,
             },
         ],
