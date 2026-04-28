@@ -458,6 +458,7 @@ def _fish_clone_sync(text: str, reference_audio_path: str) -> dict:
             "filename": output_path.name,
             "download_url": download_url,
             "backend": "fish_speech",
+            "message": f"Voice cloning complete. [Download WAV]({download_url})",
         }
     except Exception as e:
         return {"error": str(e), "backend": "fish_speech"}

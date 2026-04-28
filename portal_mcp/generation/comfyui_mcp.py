@@ -472,11 +472,22 @@ async def get_generation_status(job_id: str) -> dict:
         if resp.status_code == 200:
             history = resp.json()
             if job_id in history:
-                return {
-                    "status": "complete",
-                    "job_id": job_id,
-                    "outputs": history[job_id].get("outputs", {}),
-                }
+                outputs = history[job_id].get("outputs", {})
+                # Extract first image filename so the caller gets a usable link
+                image_url = None
+                for node_output in outputs.values():
+                    images = node_output.get("images", [])
+                    if images:
+                        filename = images[0]["filename"]
+                        image_url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
+                        break
+                result: dict = {"status": "complete", "job_id": job_id}
+                if image_url:
+                    result["url"] = image_url
+                    result["message"] = f"Image ready. [View image]({image_url})"
+                else:
+                    result["outputs"] = outputs
+                return result
             return {"status": "pending", "job_id": job_id}
         return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
     except Exception as e:
