@@ -6033,6 +6033,30 @@ async def main() -> None:
                 calibration_records=calibration_records,
             )
 
+            # Post-test memory cleanup: only evict when the NEXT test uses a
+            # different model_slug. Cascade grouping already keeps same-model
+            # tests together to minimize model switches — don't undo that.
+            if i < len(tests):
+                next_test = tests[i]
+                same_model = (
+                    test.get("model_slug") == next_test.get("model_slug")
+                    and test.get("workspace_tier") == next_test.get("workspace_tier")
+                )
+                mem_pct = _get_memory_pct()
+                if not same_model and mem_pct >= MEMORY_WARN_PCT:
+                    print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
+                    unload_all_models()
+                    time.sleep(5)
+                    mem_after = _get_memory_pct()
+                    if mem_after >= MEMORY_CRITICAL_PCT:
+                        print(f"  [mem] Memory still {mem_after:.0f}% after eviction — extending settling delay")
+                        time.sleep(15)
+                elif mem_pct >= MEMORY_CRITICAL_PCT:
+                    # Always evict if critical, even on same model
+                    print(f"  [mem] Post-test memory at {mem_pct:.0f}% — critical eviction")
+                    unload_all_models()
+                    time.sleep(5)
+
             # Inter-test settling: sleep the prescribed delay, then ensure the
             # backend for the next test is actually alive before proceeding.
             if i < len(tests):
