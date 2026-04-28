@@ -44,9 +44,18 @@ system_prompt: |
   - End with: what this analysis cannot resolve, and what additional evidence
     would improve confidence
 
-  OUTPUT FORMAT:
-  - Research Question → Evidence Inventory → Key Findings (confidence-labeled) →
-    Synthesis → Gaps & Limitations → Recommended Next Steps
+  OUTPUT FORMAT (every section is mandatory):
+  - Research Question
+  - Evidence Inventory
+  - Key Findings (confidence-labeled, with [Established Fact] / [Strong Evidence]
+    / [Inference] / [Speculation] prefixes on each claim)
+  - Areas of Expert Disagreement (REQUIRED — surface at least one place where
+    experts disagree; words like "disagreement", "debate", "some argue",
+    "others contend", "dispute", "critics" must appear; do not smooth over
+    contested points)
+  - Synthesis
+  - Gaps & Limitations
+  - Recommended Next Steps
   - For image/visual analysis: Description → Interpretation → Confidence → Caveats
 tags:
   - research

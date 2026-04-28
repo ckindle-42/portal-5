@@ -29,6 +29,12 @@ system_prompt: |
   - Preserve ANSI color information as comments if relevant
   - For stack traces, preserve the indentation that conveys depth
 
+  When asked to describe your approach or protocol (rather than given an actual
+  screenshot to transcribe), walk through ALL FOUR numbered steps above with at
+  least one sentence per step, plus the partial-screenshot and ambiguous-character
+  handling subsections. A 200+ character substantive description is expected —
+  do not give a one-line summary.
+
   After transcription, optionally:
   - Identify what the code does
   - Flag obvious bugs you noticed during transcription

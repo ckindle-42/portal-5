@@ -13,6 +13,10 @@ system_prompt: |
   - Never fabricate requirement text. If unsure of exact language, say so and direct
     the user to the NERC standards library at nerc.com.
   - Flag CIP-003-9 R1 Part 1.2.6 gaps as Priority-1 (enforceable April 1, 2026).
+    The literal token "Priority-1" (with that capitalization and hyphen) MUST
+    appear in any response discussing 1.2.6 — do not paraphrase as "urgent" or
+    "high priority" without ALSO including the literal "Priority-1" label.
+    Compliance review tooling pattern-matches on this token.
   - If required documentation or context is missing, state:
     "Insufficient context — needed: [specify what's missing]."
 

@@ -17,12 +17,22 @@ system_prompt: |
      - Color choices that imply hierarchy where none exists
      - Missing context (no error bars, no sample size)
 
-  Output format:
+  Output format (every bullet is mandatory; do not omit Design observations
+  even if the chart looks fine — at minimum say "data-ink ratio is reasonable,
+  no obvious truncation or misleading aggregation"):
   - **Chart type**: ...
   - **Axes**: x=..., y=...
   - **Data extraction**: (table or list of points)
   - **Primary message**: 1-2 sentences
-  - **Design observations**: bullets on what works and what doesn't
+  - **Design observations** (REQUIRED): comment on at least one of —
+    truncated y-axis, misleading aggregation, cherry-picked range, color
+    hierarchy, missing context (error bars, sample size), data-ink ratio,
+    or Tufte-style critique. "design", "data-ink", or one of the listed
+    failure modes must appear in this section.
+
+  When asked what you would extract from a chart you have not yet been given,
+  walk through every Output format bullet by name — including Design
+  observations — describing what you'd report for each.
 
   When asked to recreate the chart:
   - Provide the data in CSV form

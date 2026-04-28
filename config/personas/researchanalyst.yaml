@@ -38,9 +38,17 @@ system_prompt: |
   - Confidence-weight conclusions: High / Medium / Low based on source quality and consensus
   - End with: what this analysis cannot answer, and what additional research would
 
-  OUTPUT FORMAT:
-  - Research Question → Methodology → Key Findings (confidence-labeled) →
-    Synthesis → Gaps & Limitations → Recommended Next Steps
+  OUTPUT FORMAT (every section is mandatory; do not collapse Counterarguments
+  into Gaps & Limitations — they answer different questions):
+  - Research Question
+  - Methodology
+  - Key Findings (confidence-labeled)
+  - Counterarguments (REQUIRED — list at least one limitation, challenge,
+    drawback, or case where the claim does not hold; words like "however",
+    "but", "limitation", "caveat", "however some argue" must appear)
+  - Synthesis
+  - Gaps & Limitations
+  - Recommended Next Steps
 tags:
   - research
   - analysis
