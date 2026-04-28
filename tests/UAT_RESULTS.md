@@ -1,6 +1,6 @@
 # Portal 5 — UAT Results
 
-**Run:** 2026-04-27 21:57:18  
+**Run:** 2026-04-27 22:41:58  
 **Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  
 **Reviewer:** (fill in)
 
@@ -8,29 +8,20 @@
 
 - **PASS**: 4
 - **WARN**: 0
-- **FAIL**: 3
+- **FAIL**: 5
 - **SKIP**: 0
-- **MANUAL**: 1
+- **MANUAL**: 0
 
 ## Results
 
 | # | Status | Test | Model | Detail | Elapsed |
 |---|--------|------|-------|--------|---------|
-| 1 | PASS | [A-01 Document RAG — Upload, Query, Follow-Up](http://localhost:8080/c/2773aa7b-2031-4d2b-87d7-13670546151f) | `auto` | 3/3(100%) Turn 1 summary substantive=✓(len=298, min=150); Not generic=✓(ok); Turn 2 retrieval substantive=✓(len=211, min=100) | 409.2s |
-| 2 | PASS | [A-02 Knowledge Base — Persistent Collection Query](http://localhost:8080/c/34149be8-d1b8-4976-8b65-11aec6f431f3) | `auto` | 2/2(100%) Response substantive=✓(len=395, min=100); Collection found=✓(ok) | 161.0s |
-| 3 | FAIL | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/795d40f7-93a7-4b58-bba4-817d880bdf29) | `auto` | 0/1(0%) [routed: auto] exception=✗(Page.screenshot: Timeout 30000ms exceeded.
-Call log:
-  - taking page screenshot
-  - waiting for fonts to load...
-  - fon) | 579.0s |
-| 4 | FAIL | [A-04 Routing Validation — Content-Aware Selection](http://localhost:8080/c/7db1cd97-d112-4db8-8bc5-4d5055cfa04d) | `auto` | 0/1(0%) [routed: auto] exception=✗(Locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator("textarea, [contenteditable='true']").first
- ) | 349.5s |
-| 5 | MANUAL | [A-07 Grafana Monitoring — Metrics Visibility](http://localhost:8080/c/3319b5cb-0e34-49d9-9f12-1ac5214b4456) | `auto` | 0/0  | 0.0s |
-| 6 | FAIL | [P-B06 Paywalled Researcher — Source Strategy](http://localhost:8080/c/394a714f-1eae-4d97-b9ac-99a2272d4fbe) | `paywalledresearcher` | 0/1(0%) exception=✗(Locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator("textarea, [contenteditable='true']").first
- ) | 63.5s |
-| 7 | PASS | [P-W03 Tech Reviewer — Training Data Caveat on Benchmarks](http://localhost:8080/c/5fae772a-d73e-4752-b9b2-14b903543fc3) | `techreviewer` | 3/3(100%) Training data caveat=✓(found: ['current', 'manufacturer']); Both chips compared=✓(found: ['m4 pro and m4 max']); Recommendation given=✓(found: ['recommend', 'buy']) | 509.6s |
-| 8 | PASS | [P-B03 Web Navigator — Task Decomposition](http://localhost:8080/c/fd484f4c-ed8c-4495-97ef-6b3a56ec06cc) | `webnavigator` | 2/2(100%) Task decomposition=✓(found: ['navigate', 'billing', 'first']); Safety awareness=✓(found: ['ask']) | 81.1s |
+| 1 | PASS | [CC-01-llama33-70b CC-01 Asteroids · Llama-3.3-70B](http://localhost:8080/c/51b57e6d-4de2-4fe9-aeb3-e8fa597777b6) | `bench-llama33-70b` | 4/5(80%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop', 'gameloop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 992.7s |
+| 2 | FAIL | [CC-01-qwen3-coder-next CC-01 Asteroids · Qwen3-Coder-Next](http://localhost:8080/c/20667987-b4ca-42fc-977b-a6026771d173) | `bench-qwen3-coder-next` | 3/5(60%) [routed: bench-qwen3-coder-next] HTML file delivered=✓(code block present); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 161.2s |
+| 3 | FAIL | [CC-01-devstral CC-01 Asteroids · Devstral-Small-2507](http://localhost:8080/c/b816b5d0-8d1f-4350-9910-601a617862fa) | `bench-devstral` | 3/5(60%) [routed: bench-devstral] HTML file delivered=✓(code block present); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 191.2s |
+| 4 | FAIL | [CC-01-dolphin8b CC-01 Asteroids · Dolphin-8B](http://localhost:8080/c/31ba9724-b412-4d25-a6a8-c87af0517918) | `bench-dolphin8b` | 3/5(60%) [routed: bench-dolphin8b] HTML file delivered=✓(raw html); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 191.1s |
+| 5 | PASS | [CC-01-glm CC-01 Asteroids · GLM](http://localhost:8080/c/3ca0cad7-9fb7-4db1-8713-5d1f68304f6d) | `bench-glm` | 5/5(100%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop']); Asteroids split logic=✓(found: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✓(found: ['life', 'Life']); Score system=✓(ok) | 1307.5s |
+| 6 | PASS | [CC-01-gptoss CC-01 Asteroids · GPT-OSS](http://localhost:8080/c/33036ea3-c84e-4a03-ac89-201405bf1af3) | `bench-gptoss` | 5/5(100%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop']); Asteroids split logic=✓(found: ['split', 'asteroid', 'smaller']); Lives system=✓(found: ['life', 'Life']); Score system=✓(ok) | 191.2s |
+| 7 | PASS | [CC-01-phi4 CC-01 Asteroids · phi4](http://localhost:8080/c/1713c9db-3ac6-408a-920b-b0629c2d5e01) | `bench-phi4` | 4/5(80%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 191.1s |
+| 8 | FAIL | [CC-01-phi4-reasoning CC-01 Asteroids · phi4-reasoning](http://localhost:8080/c/a5ecd1d6-85ad-4091-a1cb-78cfbfdae283) | `bench-phi4-reasoning` | 2/5(40%) [routed: bench-phi4-reasoning] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 161.1s |
+| 9 | FAIL | [CC-01-qwen3-coder-30b CC-01 Asteroids · Qwen3-Coder-30B](http://localhost:8080/c/674d1f68-c656-4baa-8af8-2b259a6a7aec) | `bench-qwen3-coder-30b` | 3/5(60%) [routed: bench-qwen3-coder-30b] HTML file delivered=✓(code block present); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 161.2s |
