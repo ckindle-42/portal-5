@@ -2,6 +2,13 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.0.6] — UAT execute prompt V2
+
+### Documentation
+- `tests/PORTAL5_UAT_EXECUTE_V2.md` replaces V1 as the canonical UAT execute prompt. New: 8-phase tier-descending execution plan; one driver invocation per phase with `--append`; `tests/UAT_RUN_LOG.md` resume tracker (agent-maintained, survives Ctrl+C and reboots); explicit inter-phase memory and FAIL-delta gates; reinforcement of `sort_tests_cascade`'s `(tier, model_slug, id)` grouping with explicit guidance against single-test invocations during phased runs (which would waste model loads); alignment with the `POST /unload` + `GET /health/wired` proxy endpoints shipped in 6.0.5.
+- The V2 plan batches multiple sections per invocation where their tier+model_slug overlap allows the cascade to consolidate model loads across sections (phase 4 batches six mlx_small sections for this reason). This is the primary V1→V2 efficiency change.
+- V1 archived to `tests/_archive/PORTAL5_UAT_EXECUTE_V1.md`.
+
 ## [6.0.5] — UAT 2026-04-28 persona remediation
 
 ### Fixed
