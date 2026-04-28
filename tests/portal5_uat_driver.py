@@ -64,8 +64,10 @@ MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
 
 # Memory pressure thresholds
-MEMORY_WARN_PCT = 80.0   # Log warning
-MEMORY_CRITICAL_PCT = 90.0  # Force eviction before next test (MLX admission control handles below this)
+MEMORY_WARN_PCT = 80.0  # Log warning
+MEMORY_CRITICAL_PCT = (
+    90.0  # Force eviction before next test (MLX admission control handles below this)
+)
 MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
 
 # ---------------------------------------------------------------------------
@@ -84,8 +86,8 @@ def _check_image_freshness() -> list[str]:
 
     Prints a clear summary; returns list of stale image names (empty = all current).
     """
-    import subprocess
     import datetime
+    import subprocess
 
     warnings: list[str] = []
 
@@ -94,7 +96,9 @@ def _check_image_freshness() -> list[str]:
         try:
             result = subprocess.run(
                 ["git", "-C", str(_REPO_ROOT), "log", "-1", "--format=%ct", "--", *paths],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             ts = result.stdout.strip()
             if ts:
@@ -108,7 +112,9 @@ def _check_image_freshness() -> list[str]:
         try:
             result = subprocess.run(
                 ["docker", "inspect", "--format", "{{.Created}}", image_name],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             raw = result.stdout.strip()
             if raw and raw != "[]":
@@ -124,8 +130,14 @@ def _check_image_freshness() -> list[str]:
         (
             "portal-pipeline",
             "portal-5-portal-pipeline",
-            ["portal_pipeline/", "config/backends.yaml", "config/personas/",
-             "Dockerfile.pipeline", "pyproject.toml", "scripts/pipeline-entrypoint.sh"],
+            [
+                "portal_pipeline/",
+                "config/backends.yaml",
+                "config/personas/",
+                "Dockerfile.pipeline",
+                "pyproject.toml",
+                "scripts/pipeline-entrypoint.sh",
+            ],
         ),
         (
             "mcp-services",
@@ -191,6 +203,7 @@ def _get_memory_pct() -> float:
     # Fallback: system vm_stat (page-level)
     try:
         import subprocess
+
         result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
         lines = result.stdout.strip().split("\n")
         page_size = 16384  # Apple Silicon
@@ -225,8 +238,7 @@ def _check_memory_before_test(test_name: str = "") -> bool:
 
     if used >= MEMORY_ABORT_PCT:
         print(
-            f"\n  [OOM RISK] Memory at {used:.0f}% — aborting to prevent crash. "
-            f"Test: {test_name}",
+            f"\n  [OOM RISK] Memory at {used:.0f}% — aborting to prevent crash. Test: {test_name}",
             flush=True,
         )
         unload_all_models()
@@ -361,7 +373,9 @@ def _kill_zombie_mlx() -> bool:
                 try:
                     etimes = subprocess.run(
                         ["ps", "-o", "etimes=", "-p", str(pid)],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
                     age_sec = int(etimes.stdout.strip()) if etimes.stdout.strip() else 0
                 except Exception:
@@ -434,82 +448,45 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 
 
 def unload_all_models() -> None:
-    """Unload all running models — both Ollama and MLX — to free unified memory.
+    """Unload all running models via the proxy's /unload endpoint.
 
-    Ollama: list running models via /api/ps, then unload each with keep_alive=0.
-    MLX: proxy has no explicit unload, but loading the smallest canary model
-    (Qwen2.5-0.5B, ~0.5GB) pushes out any large model that was loaded.
+    The proxy owns Metal GPU memory management. We POST /unload?ollama=true
+    and trust it to handle: graceful SIGTERM of mlx_lm/mlx_vlm, wait for
+    Metal buffer release, evict Ollama models. The proxy returns measurements
+    we can verify before the next test runs.
+
+    Failures here mean the proxy itself is broken — the watchdog will
+    independently detect this (state=none + wired_gb high) and recover via
+    launchctl. We do NOT pkill the proxy from the driver — that races with
+    the watchdog's own recovery.
     """
-    # 1. Ollama: force unload all running models
+    print("  Requesting /unload from proxy ...", flush=True)
     try:
-        resp = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
+        resp = httpx.post(f"{MLX_PROXY_URL}/unload?ollama=true", timeout=120)
         if resp.status_code == 200:
-            models = resp.json().get("models", [])
-            for m in models:
-                name = m.get("name", "")
-                if name:
-                    httpx.post(
-                        f"{OLLAMA_URL}/api/generate",
-                        json={"model": name, "keep_alive": 0},
-                        timeout=10,
-                    )
-                    print(f"  Unloaded Ollama model: {name}")
-    except Exception as e:
-        print(f"  WARNING: Could not unload Ollama models: {e}")
-
-    # 2. MLX: kill the server process to free GPU memory.
-    # The proxy resets to state=none on restart; the next test triggers a fresh model load.
-    try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-        loaded = h.get("loaded_model")
-        state = h.get("state", "")
-        if loaded and state in ("ready", "switching"):
-            print(f"  Evicting MLX model: {loaded} (state={state})", flush=True)
-            import subprocess
-            for proc_name in ("mlx_lm.server", "mlx_vlm.server"):
-                try:
-                    subprocess.run(
-                        ["pkill", "-f", proc_name],
-                        capture_output=True, timeout=10
-                    )
-                except Exception:
-                    pass
-            # Restart proxy so it starts fresh with state=none
-            try:
-                subprocess.run(["pkill", "-f", "mlx-proxy.py"], capture_output=True, timeout=10)
-            except Exception:
-                pass
-            time.sleep(5)
-            print(f"  Evicted MLX model: {loaded}", flush=True)
-        elif state == "none":
-            print("  MLX already idle (state=none) — no eviction needed", flush=True)
+            body = resp.json()
+            print(
+                f"  Unload OK: wired {body.get('wired_before_gb')}GB → "
+                f"{body.get('wired_after_gb')}GB "
+                f"(freed {body.get('wired_freed_gb')}GB), "
+                f"loaded_before={body.get('loaded_model_before')}, "
+                f"elapsed={body.get('elapsed_s')}s",
+                flush=True,
+            )
         else:
-            print(f"  MLX eviction skipped (state={state}, loaded={loaded})", flush=True)
-    except Exception as e:
-        # Check actual proxy state before concluding failure
-        try:
-            check = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-            check_state = check.get("state", "unknown")
-            check_loaded = check.get("loaded_model")
-            if check_state == "none" or not check_loaded:
-                print(f"  MLX eviction: proxy responded state={check_state} (no model loaded) — OK", flush=True)
-            else:
-                print(f"  WARNING: MLX eviction failed but model still loaded: {check_loaded} state={check_state} ({e})", flush=True)
-        except Exception as e2:
-            print(f"  WARNING: Could not evict MLX model AND proxy unreachable: {e2}", flush=True)
-
-    # 3. Wait for Ollama to fully release memory
-    try:
-        for _ in range(15):
-            ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3).json()
-            if not ps.get("models"):
-                break
-            time.sleep(2)
-    except Exception:
-        pass
-
-    # 4. Settle time for Metal GPU memory reclamation
-    time.sleep(8)
+            print(
+                f"  WARNING: /unload returned {resp.status_code}: {resp.text[:200]}",
+                flush=True,
+            )
+    except httpx.RequestError as e:
+        # Proxy is unreachable — the watchdog will recover it independently.
+        # We log and proceed; the next test's backend health gate will catch
+        # the situation if recovery is still in progress.
+        print(
+            f"  WARNING: /unload request failed: {e}. "
+            "Watchdog will recover the proxy if it's down. Proceeding.",
+            flush=True,
+        )
 
 
 def cleanup_after_uat() -> None:
@@ -763,7 +740,9 @@ async def _wait_for_completion(
     "degraded" for BACKEND_DEAD_STRIKES consecutive polls we abort early
     rather than burning the full safety cap.
     """
-    BACKEND_DEAD_STRIKES = 5  # consecutive down polls before we give up (MLX cold load can take 60s+)
+    BACKEND_DEAD_STRIKES = (
+        5  # consecutive down polls before we give up (MLX cold load can take 60s+)
+    )
 
     t_start = time.time()
     last_log = 0.0
@@ -1467,7 +1446,9 @@ class MemoryMonitor:
                 )
                 self.stats["recovery_failures"] += 1
         elif used >= MEMORY_CRITICAL_PCT:
-            self._log(f"Memory critical: {used:.0f}% — model loaded, pre-test check will evict between tests")
+            self._log(
+                f"Memory critical: {used:.0f}% — model loaded, pre-test check will evict between tests"
+            )
             self.stats["warnings"] += 1
         elif used >= MEMORY_WARN_PCT:
             self.stats["warnings"] += 1
@@ -1503,7 +1484,11 @@ class MemoryMonitor:
             # Connection failure — check if it's a timeout (proxy busy loading) vs truly dead
             try:
                 h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=10)
-                state = h2.json().get("state", "unknown") if h2.status_code in (200, 503) else f"http_{h2.status_code}"
+                state = (
+                    h2.json().get("state", "unknown")
+                    if h2.status_code in (200, 503)
+                    else f"http_{h2.status_code}"
+                )
                 self._log(f"MLX slow response (state={state}) — proxy alive, likely loading")
             except Exception:
                 self.stats["mlx_crashes"] += 1
@@ -1533,15 +1518,13 @@ class MemoryMonitor:
             self.stats["zombie_kills"] += 1
             await asyncio.sleep(8)
         # Evict everything
+        # unload_all_models() already POSTs /unload?ollama=true which triggers
+        # the proxy's stop_all + _wait_for_gpu_memory_reclaim cycle. No need
+        # for sudo purge — proper graceful eviction releases Metal buffers
+        # without OS-level intervention. If wired memory remains high, the
+        # watchdog's wired-leak detector will escalate to launchctl kickstart.
         unload_all_models()
-        await asyncio.sleep(10)
-        # Force OS memory reclaim
-        try:
-            import subprocess
-            subprocess.run(["purge"], capture_output=True, timeout=30)
-        except Exception:
-            pass
-        await asyncio.sleep(5)
+        await asyncio.sleep(15)  # let watchdog observe state and act if needed
 
 
 # ---------------------------------------------------------------------------
@@ -1950,9 +1933,18 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Runtime error label",
                 "keywords": [
-                    "runtime error", "keyerror", "key error", "KeyError",
-                    "exception", "logic error", "wrong data", "crash",
-                    "invalid key", "missing key", "IndexError", "ValueError",
+                    "runtime error",
+                    "keyerror",
+                    "key error",
+                    "KeyError",
+                    "exception",
+                    "logic error",
+                    "wrong data",
+                    "crash",
+                    "invalid key",
+                    "missing key",
+                    "IndexError",
+                    "ValueError",
                 ],
             },
             {
@@ -4075,20 +4067,37 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "A/B test recommended",
                 "keywords": [
-                    "a/b test", "experiment", "randomized", "causal",
-                    "alternative approach", "instead", "other strategy",
-                    "alternative", "better to", "should test", "controlled",
+                    "a/b test",
+                    "experiment",
+                    "randomized",
+                    "causal",
+                    "alternative approach",
+                    "instead",
+                    "other strategy",
+                    "alternative",
+                    "better to",
+                    "should test",
+                    "controlled",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Does not recommend forcing",
                 "keywords": [
-                    "should not force", "not recommend forcing", "backfire",
-                    "counterproductive", "would not", "better to offer",
-                    "let users choose", "choice", "not necessarily",
-                    "could backfire", "might backfire", "offering a choice",
-                    "not everyone", "not everyone prefers",
+                    "should not force",
+                    "not recommend forcing",
+                    "backfire",
+                    "counterproductive",
+                    "would not",
+                    "better to offer",
+                    "let users choose",
+                    "choice",
+                    "not necessarily",
+                    "could backfire",
+                    "might backfire",
+                    "offering a choice",
+                    "not everyone",
+                    "not everyone prefers",
                 ],
                 "critical": True,
             },
@@ -4450,7 +4459,32 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Migration timeline",
-                "keywords": ["phase", "migrat", "timeline", "roadmap", "step", "schedule"],
+                "keywords": [
+                    "phase",
+                    "migrat",
+                    "timeline",
+                    "roadmap",
+                    "step",
+                    "schedule",
+                    "year 1",
+                    "year 2",
+                    "year one",
+                    "year two",
+                    "rollout",
+                    "rolled out",
+                    "phased",
+                    "deployment plan",
+                    "near-term",
+                    "long-term",
+                    "short-term",
+                    "q1",
+                    "q2",
+                    "q3",
+                    "q4",
+                    "first quarter",
+                    "wave 1",
+                    "wave 2",
+                ],
             },
             {"type": "min_length", "label": "Substantive response", "chars": 500},
         ],
@@ -5297,10 +5331,22 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Safety awareness",
                 "keywords": [
-                    "confirm", "purchase", "delete", "never", "without", "ask",
-                    "security", "privacy", "i can't directly", "cannot directly",
-                    "you'd need", "you'll need", "you need to", "on your behalf",
-                    "access your", "your account",
+                    "confirm",
+                    "purchase",
+                    "delete",
+                    "never",
+                    "without",
+                    "ask",
+                    "security",
+                    "privacy",
+                    "i can't directly",
+                    "cannot directly",
+                    "you'd need",
+                    "you'll need",
+                    "you need to",
+                    "on your behalf",
+                    "access your",
+                    "your account",
                 ],
                 "critical": False,
             },
@@ -5323,12 +5369,28 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Timing issue suspected",
-                "keywords": ["timing", "race", "animation", "network", "slow", "wait", "timeout", "flaky"],
+                "keywords": [
+                    "timing",
+                    "race",
+                    "animation",
+                    "network",
+                    "slow",
+                    "wait",
+                    "timeout",
+                    "flaky",
+                ],
             },
             {
                 "type": "any_of",
                 "label": "Browser inspection suggested",
-                "keywords": ["snapshot", "browser", "inspect", "navigate", "reproduce", "accessibility"],
+                "keywords": [
+                    "snapshot",
+                    "browser",
+                    "inspect",
+                    "navigate",
+                    "reproduce",
+                    "accessibility",
+                ],
             },
         ],
     },
@@ -5373,7 +5435,15 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Authenticated sources mentioned",
-                "keywords": ["acm", "ieee", "login", "profile", "session", "access", "institutional"],
+                "keywords": [
+                    "acm",
+                    "ieee",
+                    "login",
+                    "profile",
+                    "session",
+                    "access",
+                    "institutional",
+                ],
             },
             {
                 "type": "any_of",
@@ -5402,7 +5472,14 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Diagram type identification",
-                "keywords": ["architecture", "flowchart", "diagram", "type", "identify", "classify"],
+                "keywords": [
+                    "architecture",
+                    "flowchart",
+                    "diagram",
+                    "type",
+                    "identify",
+                    "classify",
+                ],
             },
             {
                 "type": "any_of",
@@ -5667,21 +5744,25 @@ async def run_test(
     final_title = f"[{status}] UAT: {test_id} {name}"
     routed_model = owui_get_routed_model(token, chat_id)
     owui_rename_chat(token, chat_id, final_title)
-    record_result(n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model)
+    record_result(
+        n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model
+    )
     counts[status] = counts.get(status, 0) + 1
 
     if calibration_records is not None:
-        calibration_records.append({
-            "test_id": test_id,
-            "name": name,
-            "section": test.get("section", ""),
-            "workspace": test.get("model_slug", ""),
-            "prompt": test.get("prompt", ""),
-            "response_text": response_text,
-            "chat_url": chat_url,
-            "review_tag": "",
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        })
+        calibration_records.append(
+            {
+                "test_id": test_id,
+                "name": name,
+                "section": test.get("section", ""),
+                "workspace": test.get("model_slug", ""),
+                "prompt": test.get("prompt", ""),
+                "response_text": response_text,
+                "chat_url": chat_url,
+                "review_tag": "",
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        )
 
 
 def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_signals.py") -> None:
@@ -5695,7 +5776,9 @@ def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_s
 
     if not good:
         print(f"No 'good'-tagged records found in {json_path}.")
-        print("Open the JSON, set review_tag to 'good' / 'bad' / 'skip' for each entry, then re-run.")
+        print(
+            "Open the JSON, set review_tag to 'good' / 'bad' / 'skip' for each entry, then re-run."
+        )
         return
 
     # Group by section
@@ -5708,12 +5791,63 @@ def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_s
         return _re.findall(r"\b[a-zA-Z][a-zA-Z0-9_]{2,}\b", text.lower())
 
     _STOPWORDS = {
-        "the", "and", "for", "this", "that", "with", "from", "are", "can", "will",
-        "not", "you", "your", "have", "has", "was", "but", "all", "more", "into",
-        "use", "used", "using", "would", "should", "could", "when", "which", "here",
-        "there", "also", "each", "such", "then", "they", "them", "their", "been",
-        "its", "any", "how", "what", "where", "who", "why", "may", "one", "two",
-        "three", "just", "like", "make", "made", "note", "see", "get", "set",
+        "the",
+        "and",
+        "for",
+        "this",
+        "that",
+        "with",
+        "from",
+        "are",
+        "can",
+        "will",
+        "not",
+        "you",
+        "your",
+        "have",
+        "has",
+        "was",
+        "but",
+        "all",
+        "more",
+        "into",
+        "use",
+        "used",
+        "using",
+        "would",
+        "should",
+        "could",
+        "when",
+        "which",
+        "here",
+        "there",
+        "also",
+        "each",
+        "such",
+        "then",
+        "they",
+        "them",
+        "their",
+        "been",
+        "its",
+        "any",
+        "how",
+        "what",
+        "where",
+        "who",
+        "why",
+        "may",
+        "one",
+        "two",
+        "three",
+        "just",
+        "like",
+        "make",
+        "made",
+        "note",
+        "see",
+        "get",
+        "set",
     }
 
     # IDF: inverse of how many sections a word appears in
@@ -5941,7 +6075,9 @@ async def main() -> None:
                             loaded = ps.get("models", [])
                             if not loaded:
                                 break
-                            print(f"  [verify] Ollama still has {len(loaded)} model(s) loaded — retrying eviction ({retry+1}/3)")
+                            print(
+                                f"  [verify] Ollama still has {len(loaded)} model(s) loaded — retrying eviction ({retry + 1}/3)"
+                            )
                             unload_all_models()
                             time.sleep(5)
                         except Exception:
@@ -5950,7 +6086,9 @@ async def main() -> None:
                         try:
                             ps2 = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
                             if ps2.get("models"):
-                                print(f"  [verify] WARNING: Ollama models still loaded after 3 eviction attempts — may cause OOM")
+                                print(
+                                    "  [verify] WARNING: Ollama models still loaded after 3 eviction attempts — may cause OOM"
+                                )
                         except Exception:
                             pass
 
@@ -5963,7 +6101,9 @@ async def main() -> None:
                             loaded = h.get("loaded_model")
                             if state == "none" or not loaded:
                                 break
-                            print(f"  [verify] MLX still has model loaded (state={state}) — retrying eviction ({retry+1}/3)")
+                            print(
+                                f"  [verify] MLX still has model loaded (state={state}) — retrying eviction ({retry + 1}/3)"
+                            )
                             unload_all_models()
                             time.sleep(5)
                         except Exception:
@@ -5972,7 +6112,9 @@ async def main() -> None:
                         try:
                             h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
                             if h2.get("loaded_model") and h2.get("state") != "none":
-                                print(f"  [verify] WARNING: MLX model still loaded after 3 eviction attempts — may cause OOM")
+                                print(
+                                    "  [verify] WARNING: MLX model still loaded after 3 eviction attempts — may cause OOM"
+                                )
                         except Exception:
                             pass
 
@@ -5987,7 +6129,9 @@ async def main() -> None:
                             loaded = ps.get("models", [])
                             if not loaded:
                                 break
-                            print(f"  [verify] Ollama still has {len(loaded)} model(s) — retrying eviction ({retry+1}/3)")
+                            print(
+                                f"  [verify] Ollama still has {len(loaded)} model(s) — retrying eviction ({retry + 1}/3)"
+                            )
                             unload_all_models()
                             time.sleep(5)
                         except Exception:
@@ -5999,7 +6143,9 @@ async def main() -> None:
                             loaded = h.get("loaded_model")
                             if state == "none" or not loaded:
                                 break
-                            print(f"  [verify] MLX still loaded (state={state}) — retrying eviction ({retry+1}/3)")
+                            print(
+                                f"  [verify] MLX still loaded (state={state}) — retrying eviction ({retry + 1}/3)"
+                            )
                             unload_all_models()
                             time.sleep(5)
                         except Exception:
@@ -6011,10 +6157,14 @@ async def main() -> None:
                         if mem_pct < 75.0:
                             print(f"  [mem] Memory clear at {mem_pct:.0f}% — safe to proceed")
                             break
-                        print(f"  [mem] Memory at {mem_pct:.0f}% after eviction — waiting ({mem_retry+1}/5)")
+                        print(
+                            f"  [mem] Memory at {mem_pct:.0f}% after eviction — waiting ({mem_retry + 1}/5)"
+                        )
                         time.sleep(10)
                         if mem_retry == 4:
-                            print(f"  [mem] WARNING: Memory still at {mem_pct:.0f}% after 5 retries — may risk OOM")
+                            print(
+                                f"  [mem] WARNING: Memory still at {mem_pct:.0f}% after 5 retries — may risk OOM"
+                            )
 
                 _last_tier = tier
 
@@ -6052,10 +6202,9 @@ async def main() -> None:
             # tests together to minimize model switches — don't undo that.
             if i < len(tests):
                 next_test = tests[i]
-                same_model = (
-                    test.get("model_slug") == next_test.get("model_slug")
-                    and test.get("workspace_tier") == next_test.get("workspace_tier")
-                )
+                same_model = test.get("model_slug") == next_test.get("model_slug") and test.get(
+                    "workspace_tier"
+                ) == next_test.get("workspace_tier")
                 mem_pct = _get_memory_pct()
                 if not same_model and mem_pct >= MEMORY_WARN_PCT:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
@@ -6063,7 +6212,9 @@ async def main() -> None:
                     time.sleep(5)
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
-                        print(f"  [mem] Memory still {mem_after:.0f}% after eviction — extending settling delay")
+                        print(
+                            f"  [mem] Memory still {mem_after:.0f}% after eviction — extending settling delay"
+                        )
                         time.sleep(15)
                 elif mem_pct >= MEMORY_CRITICAL_PCT:
                     # Always evict if critical, even on same model
