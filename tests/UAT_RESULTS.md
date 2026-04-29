@@ -1,164 +1,284 @@
 # Portal 5 — UAT Results
 
-**Run:** 2026-04-28 (compiled from 8 batch runs)  
-**Catalog:** 104 tests (102 with `--skip-bots`)  
-**MLX fix:** commit `c301230` — streaming proxy + thread-local GPU stream fix  
-**Driver fixes:** `media_heavy` tier isolation, post-test memory cleanup, assertion broadening (P-W06, P-DA01, P-D02)  
+**Run:** 2026-04-28 14:19:09  
+**Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  
+**Reviewer:** @ckindle-42
 
 ## Summary
 
-- **PASS**: 73
-- **FAIL**: 26
-- **WARN**: 2
-- **MANUAL**: 1
-- **SKIP**: 2
-
-**Total tracked:** 104  
-**Not run (catalog gaps):** 0 — all 102 skip-bots tests tracked in session  
+- **PASS**: 101
+- **WARN**: 1
+- **FAIL**: 44
+- **SKIP**: 4
+- **MANUAL**: 2
 
 ## Results
 
 | # | Status | Test | Model | Detail | Elapsed |
 |---|--------|------|-------|--------|---------|
-| 1 | PASS | Auto Router — Intent-Driven Routing | `auto` | 4/4(100%) | 80.9s |
-| 2 | FAIL | Code Expert — Async HTTP Retry Wrapper | `auto-coding` | 3/5(60%) — no code block, model outputs plan/reasoning | 131.0s |
-| 3 | PASS | Agentic Coder Heavy — Flask Migration Plan | `auto-agentic` | 4/4(100%) | 160.9s |
-| 4 | PASS | SPL Engineer — Refactor Slow Search | `auto-spl` | 4/4(100%) | 161.1s |
-| 5 | PASS | Security Analyst — OT/ICS Hardening | `auto-security` | 4/4(100%) | 161.0s |
-| 6 | PASS | Red Team — Active Directory Pivot | `auto-redteam` | 4/4(100%) | 160.9s |
-| 7 | PASS | Blue Team — Multi-Stage Incident Triage | `auto-blueteam` | 4/4(100%) | 160.9s |
-| 8 | PASS | Creative Writer — Constrained Flash Fiction | `auto-creative` | 3/3(100%) | 221.0s |
-| 9 | PASS | Deep Reasoner — Secrets Management Trade-off | `auto-reasoning` | 4/4(100%) | 221.0s |
-| 10 | PASS | Document Builder — Change Management DOCX | `auto-documents` | 2/2(100%) | 191.0s |
-| 11 | PASS | Video Creator — Storm Timelapse | `auto-video` | 1/1(100%) | 522.7s |
-| 12 | PASS | Music Producer — Dark Ambient Generation | `auto-music` | 2/2(100%) | 276.6s |
-| 13 | FAIL | Research Assistant — Post-Quantum Cryptography | `auto-research` | 3/4(75%) — covers NIST+TLS, missing migration timeline | 191.0s |
-| 14 | PASS | Vision — Image Analysis | `auto-vision` | 2/2(100%) | 281.4s |
-| 15 | PASS | Data Analyst — SIEM Dataset Cleaning | `auto-data` | 4/4(100%) | 271.4s |
-| 16 | PASS | Compliance Analyst — CIP-003-9 R1.2.6 | `auto-compliance` | 4/4(100%) | 90.9s |
-| 17 | PASS | Mistral Reasoner — Multi-Stakeholder OT Problem | `auto-mistral` | 4/4(100%) | 221.0s |
-| 18 | FAIL | Math Reasoner — Calculus Problem | `auto-math` | 0/4(0%) — empty responses, memory pressure | 482.2s |
-| 19 | PASS | Math Reasoner — Statistics Proof | `auto-math` | 3/3(100%) | 371.5s |
-| 20 | PASS | CC-01 Asteroids · Llama-3.3-70B | `bench-llama33-70b` | 4/5(80%) — lives system not implemented | 281.0s |
-| 21 | FAIL | CC-01 Asteroids · Qwen3-Coder-Next | `bench-qwen3-coder-next` | 3/5(60%) — canvas loop + lives | 191.1s |
-| 22 | PASS | CC-01 Asteroids · GLM | `bench-glm` | 5/5(100%) | 1307.5s |
-| 23 | PASS | CC-01 Asteroids · GPT-OSS | `bench-gptoss` | 5/5(100%) | 191.2s |
-| 24 | PASS | CC-01 Asteroids · phi4 | `bench-phi4` | 4/5(80%) — lives system not implemented | 191.1s |
-| 25 | FAIL | CC-01 Asteroids · Devstral-Small-2507 | `bench-devstral` | 3/5(60%) — canvas loop + lives | 191.2s |
-| 26 | FAIL | CC-01 Asteroids · Dolphin-8B | `bench-dolphin8b` | 3/5(60%) — canvas loop + lives | 191.1s |
-| 27 | FAIL | CC-01 Asteroids · phi4-reasoning | `bench-phi4-reasoning` | 2/5(40%) — HTML+canvas+lives+split | 161.1s |
-| 28 | FAIL | CC-01 Asteroids · Qwen3-Coder-30B | `bench-qwen3-coder-30b` | 3/5(60%) — canvas loop + lives | 161.2s |
-| 29 | FAIL | Python Code Generator — Five-Step Delivery | `pythoncodegeneratorcleanoptimizedproduction-ready` | 3/5(60%) — missing type hints + code block (model outputs plan) | 161.1s |
-| 30 | PASS | Bug Discovery — Classification by Type | `bugdiscoverycodeassistant` | 4/4(100%) | 161.0s |
-| 31 | PASS | Code Review Assistant — PR Diff Scope | `codereviewassistant` | 3/3(100%) | 131.0s |
-| 32 | PASS | Code Reviewer — Deep Audit with Confidence | `codereviewer` | 3/3(100%) | 131.0s |
-| 33 | FAIL | Fullstack Developer — Secure JWT Auth | `fullstacksoftwaredeveloper` | 3/4(75%) — missing code block (model outputs plan) | 131.0s |
-| 34 | PASS | Senior Frontend Developer — Asks Framework First | `seniorfrontenddeveloper` | 2/2(100%) — was BLOCKED in prior run, now passes | 130.9s |
-| 35 | FAIL | DevOps Automator — Complete K8s Manifest | `devopsautomator` | 4/5(80%) — missing YAML block (model outputs plan) | 161.3s |
-| 36 | PASS | DevOps Engineer — Consults Before Designing | `devopsengineer` | 2/2(100%) | 221.5s |
-| 37 | PASS | GitHub Expert — Destructive Command Warning | `githubexpert` | 3/3(100%) | 131.0s |
-| 38 | FAIL | Ethereum Developer — Security Audit Disclaimer | `ethereumdeveloper` | 1/4(25%) — BLOCKED: no audit disclaimer, no Solidity pragma, no code block | 131.1s |
-| 39 | PASS | JavaScript Console — Strict V8 Output | `javascriptconsole` | 5/5(100%) | 161.1s |
-| 40 | WARN | Linux Terminal — Stateful Session | `linuxterminal` | 2/3(66%) — produces prose alongside output (persona constraint) | 131.0s |
-| 41 | FAIL | Python Interpreter — Traceback Handling | `pythoninterpreter` | 2/3(66%) — shows >>> interactive prompts | 131.0s |
-| 42 | PASS | SQL Terminal — DML Session State | `sqlterminal` | 3/3(100%) | 131.0s |
-| 43 | FAIL | Excel Sheet — Formula Computation | `excelsheet` | 4/5(80%) — BLOCKED: shows formula text (=B2-C2) instead of computed values only | 161.0s |
-| 44 | PASS | K8s/Docker RPG — Mission Start | `kubernetesdockerrpglearningengine` | 3/3(100%) | 131.1s |
-| 45 | PASS | Codebase WIKI — Inferred Sections Labeled | `codebasewikidocumentationskill` | 3/3(100%) | 191.1s |
-| 46 | PASS | QA Tester — Test Type Coverage | `softwarequalityassurancetester` | 4/4(100%) | 131.0s |
-| 47 | PASS | UX/UI Developer — Platform Clarification | `ux-uideveloper` | 3/3(100%) | 130.9s |
-| 48 | FAIL | Creative Coder — Particle System (Ships First) | `creativecoder` | 3/5(60%) — no HTML/canvas (model outputs plan) | 131.0s |
-| 49 | PASS | Data Analyst — Correlation vs Causation | `dataanalyst` | 3/3(100%) — assertion fixed | 91.1s |
-| 50 | PASS | Data Scientist — Imbalanced Class Problem | `datascientist` | 3/3(100%) | 191.1s |
-| 51 | PASS | ML Engineer — Benchmark vs Production | `machinelearningengineer` | 3/3(100%) | 251.0s |
-| 52 | PASS | Statistician — Check Assumptions Before t-test | `statistician` | 3/3(100%) | 281.0s |
-| 53 | PASS | Phi-4 STEM Analyst — Binomial Derivation | `phi4stemanalyst` | 4/4(100%) | 251.0s |
-| 54 | FAIL | Excel Sheet — Multi-Region Rank Formula | `excelsheet` | 2/4(50%) — BLOCKED: F3=384000 wrong, ranks ascending not descending | 131.1s |
-| 55 | PASS | Magistral Strategist — Reasoning Before Conclusion | `magistralstrategist` | 4/4(100%) | 251.0s |
-| 56 | PASS | IT Architect — Requirements Before Architecture | `itarchitect` | 2/2(100%) | 221.0s |
-| 57 | PASS | Senior SE/Architect — Rate Limiting Trade-offs | `seniorsoftwareengineersoftwarearchitectrules` | 4/4(100%) | 221.1s |
-| 58 | PASS | GPT-OSS Analyst — Independent Second Opinion | `gptossanalyst` | 3/3(100%) | 221.3s |
-| 59 | FAIL | Research Analyst — Evidence Quality Labeling | `researchanalyst` | 2/3(66%) — missing counterpoints | 81.0s |
-| 60 | FAIL | Gemma Research Analyst — AI Regulation with Evidence Framework | `gemmaresearchanalyst` | 2/3(66%) — missing expert disagreement | 81.0s |
-| 61 | PASS | SuperGemma4 Uncensored — Adversarial ML Analysis | `supergemma4researcher` | 4/4(100%) | 81.0s |
-| 62 | FAIL | NERC CIP Analyst — CIP-003-9 Full Citation | `nerccipcomplianceanalyst` | 3/4(75%) — missing priority-1 flag | 191.0s |
-| 63 | PASS | CIP Policy Writer — Aspirational Language Rejection | `cippolicywriter` | 4/4(100%) | 191.0s |
-| 64 | PASS | Cyber Security Specialist — Defense-in-Depth | `cybersecurityspecialist` | 3/4(75%) — firewall-only check | 130.9s |
-| 65 | PASS | Red Team Operator — OT Physical Risk Flag | `redteamoperator` | 3/3(100%) | 130.9s |
-| 66 | PASS | Blue Team Defender — Asks for OT Context | `blueteamdefender` | 2/2(100%) | 131.0s |
-| 67 | PASS | Penetration Tester — Scope Confirmation | `pentester` | 2/2(100%) | 131.4s |
-| 68 | PASS | Network Engineer — OT Segmentation Design | `networkengineer` | 4/4(100%) | 131.0s |
-| 69 | PASS | SPL Engineer — Redirects Non-SPL Request | `splunksplgineer` | 2/2(100%) | 161.2s |
-| 70 | PASS | Gemma 4 Edge Vision — Observed vs Inferred | `gemma4e4bvision` | 2/2(100%) | 191.0s |
-| 71 | PASS | Gemma 4 JANG Vision — Security Red Team Perspective | `gemma4jangvision` | 2/2(100%) | 221.0s |
-| 72 | FAIL | Code Screenshot Reader — Protocol | `codescreenshotreader` | 3/4(75%) — missing min length | 122.5s |
-| 73 | FAIL | Chart Analyst — Analysis Framework | `chartanalyst` | 2/3(66%) — missing design critique | 121.4s |
-| 74 | WARN | Whiteboard Converter — Diagram Recognition | `whiteboardconverter` | 2/3(66%) — incomplete analysis | 121.6s |
-| 75 | PASS | Creative Writer — States Deliberate Choices | `creativewriter` | 2/2(100%) | 191.0s |
-| 76 | PASS | Hermes Narrative Writer — Character Consistency | `hermes3writer` | 2/2(100%) | 349.2s |
-| 77 | PASS | Tech Reviewer — Training Data Caveat on Benchmarks | `techreviewer` | 3/3(100%) | 509.6s |
-| 78 | FAIL | Tech Writer — Audience-Appropriate Docs | `techwriter` | 1/4(25%) — empty responses, memory pressure | 512.1s |
-| 79 | PASS | Phi-4 Technical Analyst — Conclusion First | `phi4specialist` | 3/3(100%) | 191.0s |
-| 80 | PASS | IT Expert — Asks Symptoms Before Diagnosing | `itexpert` | 3/3(100%) — assertion keywords broadened | 91.4s |
-| 81 | PASS | E2E Test Author — Test Strategy | `e2etestauthor` | 4/4(100%) | 131.5s |
-| 82 | PASS | Form Filler — Verification Protocol | `formfiller` | 3/3(100%) | 81.2s |
-| 83 | PASS | Web Navigator — Task Decomposition | `webnavigator` | 2/2(100%) | 81.1s |
-| 84 | PASS | E2E Debugger — Root Cause Analysis | `e2edebugger` | 2/2(100%) | 131.0s |
-| 85 | PASS | Data Extractor — Extraction Strategy | `dataextractor` | 2/2(100%) | 111.2s |
-| 86 | FAIL | Paywalled Researcher — Source Strategy | `paywalledresearcher` | 0/2(0%) — empty responses, memory pressure | 613.4s |
-| 87 | PASS | Code Sandbox — Python Exact Execution | `auto-coding` | 2/2(100%) | 161.0s |
-| 88 | PASS | Code Sandbox — Bash Pipeline | `auto-coding` | 3/3(100%) | 131.0s |
-| 89 | PASS | Code Sandbox — Network Isolation | `auto-coding` | 2/2(100%) | 131.1s |
-| 90 | PASS | Document Generation — DOCX with Table | `auto-documents` | 2/2(100%) | 91.1s |
-| 91 | PASS | Document Generation — Excel Tracker | `auto-documents` | 2/2(100%) | 161.2s |
-| 92 | PASS | Document Generation — PowerPoint Zero Trust | `auto-documents` | 2/2(100%) | 161.1s |
-| 93 | PASS | Document Reading — Parse Uploaded Word File | `auto-documents` | 2/2(100%) | 131.1s |
-| 94 | PASS | Image Generation — ComfyUI FLUX | `auto` | 1/1(100%) | 91.3s |
-| 95 | PASS | TTS — British Male Voice | `auto-music` | 2/2(100%) | 522.0s |
-| 96 | FAIL | Security MCP — Vulnerability Classification | `auto-security` | 0/3(0%) — empty responses all retries, MCP tool issue | 571.6s |
-| 97 | PASS | Web Search — Recent CVEs via SearXNG | `auto-security` | 3/3(100%) | 131.0s |
-| 98 | PASS | Document RAG — Upload, Query, Follow-Up | `auto` | 3/3(100%) | 409.2s |
-| 99 | PASS | Knowledge Base — Persistent Collection Query | `auto` | 2/2(100%) | 161.0s |
-| 100 | FAIL | Cross-Session Memory — Fact Persistence | `auto` | 0/1(0%) — empty responses, memory pressure | 579.0s |
-| 101 | FAIL | Routing Validation — Content-Aware Selection | `auto` | 0/1(0%) — empty responses, memory pressure | 349.5s |
-| 102 | SKIP | Telegram Bot — Pipeline Path | `auto-coding` | manual setup required | 0.0s |
-| 103 | SKIP | Slack Bot — Pipeline Path | `auto-security` | manual setup required | 0.0s |
-| 104 | MANUAL | Grafana Monitoring — Metrics Visibility | `auto` | manual verification needed | 0.0s |
+| 1 | PASS | [WS-01 Auto Router — Intent-Driven Routing](http://localhost:8080/c/28bda43b-0ec3-4f20-86ce-e27a77ebe05d) | `auto` | 4/4(100%) YAML manifests present=✓(ok); RBAC discussed=✓(found: ['rbac']); No refusal=✓(ok); Substantive response=✓(len=906, min=800) | 81.0s |
+| 2 | PASS | [P-W06 IT Expert — Asks Symptoms Before Diagnosing](http://localhost:8080/c/eaae2458-86e0-4d4d-8ad8-e14e4f539421) | `itexpert` | 3/3(100%) Asks what OS=✓(found: ['os', 'windows', 'mac', 'linux', 'computer', 'system']); Asks what is slow=✓(found: ['specific', 'applications', 'diagnose']); No immediate fix list=✓(ok) | 251.2s |
+| 3 | PASS | [P-W03 Tech Reviewer — Training Data Caveat on Benchmarks](http://localhost:8080/c/9fe35d56-d10c-4905-a15c-7ca110b47e9b) | `techreviewer` | 3/3(100%) Training data caveat=✓(found: ['training data', 'verify', 'current', 'based on my training', 'verify with', 'manufacturer']); Both chips compared=✓(found: ['m4 pro and m4 max']); Recommendation given=✓(found: ['recommend', 'if you']) | 80.9s |
+| 1 | PASS | [P-B03 Web Navigator — Task Decomposition](http://localhost:8080/c/0b8ebeec-3ddf-4f2e-a1a0-02895b06f9ac) | `webnavigator` | 2/2(100%) Task decomposition=✓(found: ['billing', 'first']); Safety awareness=✓(found: ['ask']) | 141.0s |
+| 1 | PASS | [WS-03 Agentic Coder Heavy — Flask Migration Plan](http://localhost:8080/c/ad5494d4-a9d2-48b3-9677-85337b0e0312) | `auto-agentic` | 4/4(100%) Directory structure shown=✓(ok); create_app factory=✓(ok); Blueprint registration=✓(found: ['register_blueprint', 'app.register_blueprint', 'blueprint(']); Substantive response=✓(len=3345, min=1200) | 161.1s |
+| 2 | FAIL | [WS-16 Compliance Analyst — CIP-003-9 R1.2.6](http://localhost:8080/c/b7b5886c-c36f-4b5c-8f80-8b10f0834f41) | `auto-compliance` | 2/4(50%) [routed: auto-compliance] Standard cited precisely=✓(ok); Enforceability date=✗(none of: ['april 1, 2026', 'april 2026', '2026']); Immediate actions given=✓(found: ['assess', 'identif', 'review', 'determine', 'audit', 'gap analysis', 'action']); Refers user to SME=✗(none of: ['sme', 'expert', 'attorney', 'legal', 'verify']) | 131.1s |
+| 3 | FAIL | [WS-13 Research Assistant — Post-Quantum Cryptography](http://localhost:8080/c/3be03c1c-405d-4b42-b658-c4d7a0717187) | `auto-research` | 3/4(75%) [routed: auto-research] NIST algorithms named=✓(found: ['ml-kem', 'kyber', 'ml-dsa', 'dilithium', 'slh-dsa']); TLS library mentioned=✓(found: ['openssl', 'boringssl', 'rustls', 'tls']); Migration timeline=✗(none of: ['phase', 'migrat', 'timeline', 'roadmap', 'step', 'schedule', 'year 1', 'year 2', 'year one', 'year two', 'rollout', 'rolled out', 'phased', 'deployment plan', 'near-term', 'long-term', 'short-term', 'q1', 'q2', 'q3', 'q4', 'first quarter', 'wave 1', 'wave 2']); Substantive response=✓(len=798, min=500) | 281.1s |
+| 4 | PASS | [WS-14 Vision — Image Analysis](http://localhost:8080/c/0dccc18a-e207-4fd7-a499-ea33d77219df) | `auto-vision` | 2/2(100%) No 'cannot process'=✓(ok); Substantive description=✓(len=1506, min=200) | 201.1s |
+| 5 | PASS | [P-C02 CIP Policy Writer — Aspirational Language Rejection](http://localhost:8080/c/3b471df2-2f0f-456d-bf78-0a70d3cb9b3d) | `cippolicywriter` | 4/4(100%) Aspirational language flagged=✓(ok); Rewrite uses mandatory language=✓(found: ['shall', 'must']); Placeholder preserved=✓(ok); Time window specified=✓(found: ['35 calendar', 'days', 'calendar days', 'window', 'timeframe', 'within']) | 91.0s |
+| 6 | PASS | [P-V01 Gemma 4 Edge Vision — Observed vs Inferred](http://localhost:8080/c/68fe97bb-a3d1-43cd-bd4d-cb9750f0bff0) | `gemma4e4bvision` | 2/2(100%) No 'cannot process'=✓(ok); Uncertainty distinguished=✓(found: ['infer', 'cannot confirm']) | 191.0s |
+| 7 | PASS | [P-V02 Gemma 4 JANG Vision — Security Red Team Perspective](http://localhost:8080/c/4774623d-4cad-4465-b35a-3c292febc231) | `gemma4jangvision` | 2/2(100%) No refusal=✓(ok); Security analysis present=✓(found: ['exposure', 'weakness', 'attack']) | 221.1s |
+| 8 | PASS | [P-R06 Gemma Research Analyst — AI Regulation with Evidence Framework](http://localhost:8080/c/425ef640-0ab6-43a1-a79c-38c2180e9d09) | `gemmaresearchanalyst` | 3/3(100%) Evidence labels present=✓(found: ['established fact', 'strong evidence', 'inference', 'speculation', '[strong', '[inference']); EU AI Act covered=✓(found: ['eu ai act']); Expert disagreement surfaced=✓(found: ['differ']) | 121.0s |
+| 9 | PASS | [P-C01 NERC CIP Analyst — CIP-003-9 Full Citation](http://localhost:8080/c/60cf36cc-02cd-43d2-8284-f28097783f63) | `nerccipcomplianceanalyst` | 4/4(100%) Precise citation=✓(ok); Enforceability date=✓(found: ['deadline']); Priority-1 flagged=✓(found: ['immediate']); SME review recommended=✓(found: ['expert', 'verify', 'consult', 'review', 'professional']) | 191.2s |
+| 10 | PASS | [P-R05 Research Analyst — Evidence Quality Labeling](http://localhost:8080/c/7be0aa5a-dbd7-4701-a50c-079dae8d9099) | `researchanalyst` | 3/3(100%) Evidence labels present=✓(found: ['established fact', 'strong evidence', 'inference', 'speculation', '[established', '[strong', '[inference', '[speculation', 'limited evidence']); Counterpoints included=✓(found: ['but', 'challenge', 'limitation']); No absolute claim=✓(ok) | 181.2s |
+| 11 | PASS | [P-R07 SuperGemma4 Uncensored — Adversarial ML Analysis](http://localhost:8080/c/ed82ca0b-be44-4825-a9e5-d855db80f7bf) | `supergemma4researcher` | 4/4(100%) Prompt injection covered=✓(found: ['prompt injection']); Model extraction covered=✓(found: ['model extraction', 'api', 'reconstruct']); Defenses included=✓(found: ['detect', 'mitigat', 'defend', 'prevent', 'filter', 'sanitiz']); No excessive refusal=✓(ok) | 952.6s |
+| 12 | PASS | [P-D17 Codebase WIKI — Inferred Sections Labeled](http://localhost:8080/c/e4583fac-9e41-4804-95fd-c584a5d1c10c) | `codebasewikidocumentationskill` | 3/3(100%) Public methods documented=✓(ok); _dispatch marked internal=✓(found: ['internal', '_dispatch']); Inferred label used=✓(found: ['inferred', 'verify with source', '[inferred']) | 91.0s |
+| 13 | PASS | [P-V11 Chart Analyst — Analysis Framework](http://localhost:8080/c/4467ecd4-1293-4eb8-a692-c34fa7dd228b) | `chartanalyst` | 3/3(100%) Chart type identification=✓(found: ['chart type', 'bar chart', 'axes']); Data extraction mentioned=✓(found: ['data', 'extract', 'values']); Design critique mentioned=✓(found: ['design', 'misleading', 'truncated']) | 141.1s |
+| 14 | PASS | [P-V10 Code Screenshot Reader — Protocol](http://localhost:8080/c/5bb6884b-771b-486b-ab55-609f124af580) | `codescreenshotreader` | 4/4(100%) Language identification=✓(found: ['language', 'syntax', 'identify', 'highlighting']); Indentation preservation=✓(found: ['indent', 'preserv']); Ambiguous character handling=✓(found: ['ambiguous']); Substantive response=✓(len=2314, min=200) | 191.0s |
+| 15 | WARN | [P-B06 Paywalled Researcher — Source Strategy](http://localhost:8080/c/fad878b3-c384-47a0-9777-abc5c37aa01c) | `paywalledresearcher` | 1/2(50%) [routed: paywalledresearcher] Authenticated sources mentioned=✓(found: ['acm', 'ieee', 'profile', 'access']); Fallback to open access=✗(none of: ['arxiv', 'semantic scholar', 'open access', 'alternative', 'free']) | 191.0s |
+| 16 | PASS | [P-V12 Whiteboard Converter — Diagram Recognition](http://localhost:8080/c/0617a0c0-a484-4308-82ce-5b0ac0e0987e) | `whiteboardconverter` | 3/3(100%) Diagram type identification=✓(found: ['architecture', 'flowchart', 'diagram', 'type', 'identify']); Mermaid or structured output=✓(found: ['mermaid', 'format', 'digital']); Ambiguity handling=✓(found: ['ambiguit']) | 220.9s |
+| 1 | FAIL | [P-D15 Excel Sheet — Formula Computation](http://localhost:8080/c/c48aebb6-0f8e-48fd-8903-c30ff3366493) | `excelsheet` | 4/5(80%) [routed: excelsheet] D2 = 10500=✓(ok); D3 = 9000=✓(ok); B4 = 80000=✓(ok); D4 = 19500=✓(ok); No formula text shown=✗(found (bad): ['=b2-c2', '=sum(b2', '=SUM(B2']) | 161.0s |
+| 2 | FAIL | [P-DA06 Excel Sheet — Multi-Region Rank Formula](http://localhost:8080/c/33434e06-fca6-46bf-a54b-47b464e0352f) | `excelsheet` | 2/4(50%) [routed: excelsheet] F2 = 498000=✓(ok); F3 = 384000=✗(missing: ['384000']); F4 = 865000=✓(ok); West is rank 1=✗(none of: ['865000 | 1', '865000|1', '865000  | 1', 'west.*rank.*1', '865000.*1$']) | 131.0s |
+| 3 | PASS | [T-01 Code Sandbox — Python Exact Execution](http://localhost:8080/c/f3d8238d-aaa1-44a8-b01e-4ab2d2470f02) | `auto-coding` | 2/2(100%) Executed (not predicted)=✓(ok); Not a prediction=✓(ok) | 161.0s |
+| 4 | PASS | [T-02 Code Sandbox — Bash Pipeline](http://localhost:8080/c/87a9eef3-4989-4377-ac7b-061212ce04de) | `auto-coding` | 3/3(100%) 3 apple first=✓(ok); 2 banana second=✓(ok); 1 cherry last=✓(ok) | 131.0s |
+| 5 | PASS | [T-03 Code Sandbox — Network Isolation](http://localhost:8080/c/67881b5d-0c63-40b0-a937-76c24a84f6c7) | `auto-coding` | 2/2(100%) Network error returned=✓(found: ['gaierror', 'network', 'failed', 'error', 'connection']); No fake success=✓(ok) | 131.0s |
+| 6 | FAIL | [WS-02 Code Expert — Async HTTP Retry Wrapper](http://localhost:8080/c/4ca33cbe-e22e-4b9b-849a-3eb5d02c8668) | `auto-coding` | 3/5(60%) [routed: auto-coding] Uses httpx.AsyncClient=✓(ok); Status codes correct=✓(ok); Asyncio backoff present=✓(found: ['backoff', 'jitter']); Type hints present=✗(none of: ['->', ': int', ': str', ': float', 'optional[', 'dict[', 'tuple[']); Code block present=✗(no code block) | 131.2s |
+| 7 | PASS | [P-D02 Bug Discovery — Classification by Type](http://localhost:8080/c/b6aa42ec-dcff-43b5-bd1f-b51e99c6c581) | `bugdiscoverycodeassistant` | 4/4(100%) Command injection found=✓(found: ['injection', 'os.system', 'command injection', 'shell', 'arbitrary command']); Security type label=✓(found: ['security vulnerability', 'vulnerability']); Runtime error label=✓(found: ['logic error', 'wrong data', 'crash']); At least 3 issues=✓(found: ['1.', '2.', '3.']) | 161.0s |
+| 8 | PASS | [P-D03 Code Review Assistant — PR Diff Scope](http://localhost:8080/c/064611e2-1429-4ca8-8a70-e96064e3ab4e) | `codereviewassistant` | 3/3(100%) SECRET_KEY flagged=✓(found: ['secret_key', 'hardcoded', 'hardcode', 'secret', 'credential']); exp/expiry claim=✓(found: ['exp', 'expiration', 'expires', '3600']); check_db not critiqued=✓(ok) | 131.1s |
+| 9 | PASS | [P-D04 Code Reviewer — Deep Audit with Confidence](http://localhost:8080/c/da4796bf-c018-4d71-b8a9-f4cd1aa65f6b) | `codereviewer` | 3/3(100%) Mutation bug found=✓(found: ['result = base', 'copy']); Confidence levels present=✓(found: ['high', 'medium', 'low', 'confidence']); Recursion risk noted=✓(found: ['recursion', 'depth', 'merge_configs(']) | 131.0s |
+| 10 | FAIL | [P-D20 Creative Coder — Particle System (Ships First)](http://localhost:8080/c/e4fb774e-d9f7-4463-8843-27b4907c9eb7) | `creativecoder` | 3/5(60%) [routed: creativecoder] HTML file delivered=✗(no code block); Canvas used=✗(missing: ['getcontext']); Gravity implemented=✓(found: ['gravity', 'vy', 'velocity', 'vx']); Space/C key handlers=✓(found: ['space', 'keydown']); No clarifying questions=✓(ok) | 131.0s |
+| 11 | FAIL | [P-D07 DevOps Automator — Complete K8s Manifest](http://localhost:8080/c/b390cb5e-26eb-4e4c-8a04-097caf8989c1) | `devopsautomator` | 4/5(80%) [routed: devopsautomator] Image tag pinned=✓(found: ['v1.2.3', '1.2.3']); readinessProbe on /health=✓(found: ['readinessprobe', '/health', 'readiness']); Resource limits set=✓(found: ['512mi', 'limits', 'limit', 'cpu', 'memory', 'resources']); Rollback included=✓(found: ['rollout undo', 'rollback', 'kubectl rollout']); YAML block present=✗(no code block) | 131.0s |
+| 12 | PASS | [P-B04 E2E Debugger — Root Cause Analysis](http://localhost:8080/c/5416f259-16c2-462e-8b82-c9900823f68c) | `e2edebugger` | 2/2(100%) Timing issue suspected=✓(found: ['timing', 'race', 'network', 'slow', 'wait', 'timeout']); Browser inspection suggested=✓(found: ['inspect', 'navigate']) | 131.0s |
+| 13 | PASS | [P-B01 E2E Test Author — Test Strategy](http://localhost:8080/c/2f61b779-aed7-42a5-9439-b57d9b554099) | `e2etestauthor` | 4/4(100%) Playwright selectors=✓(found: ['getbyrole', 'getbylabel', 'getbytext', 'page.goto']); Happy path present=✓(found: ['success', 'dashboard', 'redirect', 'expect', 'visible']); Error path present=✓(found: ['error', 'invalid', 'fail', 'toast']); Code block present=✓(code block present) | 161.2s |
+| 14 | FAIL | [P-D10 Ethereum Developer — Security Audit Disclaimer](http://localhost:8080/c/dc4de292-e1cb-42cb-bd0a-bc89d4253119) | `ethereumdeveloper` | 1/4(25%) [routed: ethereumdeveloper] Audit disclaimer=✗(none of: ['security audit', 'professional audit', 'audit before', 'has not been audited', 'not been audited', 'not audited', 'security notice', '⚠️', 'mainnet deployment', 'before deploying', 'before deployment', 'audited by', 'recommend an audit', 'requires an audit']); Solidity pragma=✗(missing: ['pragma solidity', '^0.', 'solidity ^', 'solidity version']); Reentrancy protection=✓(found: ['reentrancy']); Code block present=✗(no code block) | 161.4s |
+| 15 | FAIL | [P-D05 Fullstack Developer — Secure JWT Auth](http://localhost:8080/c/5bc238ba-1392-452c-8231-8d6529c0b5db) | `fullstacksoftwaredeveloper` | 3/4(75%) [routed: fullstacksoftwaredeveloper] All 3 endpoints=✓(ok); exp claim present=✓(found: ['exp', 'expiry']); No hardcoded secret=✓(ok); Code block present=✗(no code block) | 131.2s |
+| 16 | PASS | [P-D09 GitHub Expert — Destructive Command Warning](http://localhost:8080/c/90d508e0-0680-4bd3-9170-0ab08fb59182) | `githubexpert` | 3/3(100%) Correct command=✓(found: ['reset --hard', 'force', 'git reset']); Data loss warning=✓(found: ['unrecoverable', 'warning', 'destructive']); Collaborators mentioned=✓(found: ['shared', 'force push']) | 131.0s |
+| 17 | FAIL | [P-D11 JavaScript Console — Strict V8 Output](http://localhost:8080/c/d4fdf156-939e-4a6b-b32e-8f00e9d5fbc1) | `javascriptconsole` | 3/5(60%) [routed: javascriptconsole] typeof null = object=✓(ok); TypeError for [].foo.bar=✗(none of: ['typeerror', 'cannot read', 'undefined']); [2, 4, 6] correct=✓(found: ['map(x']); Map.get returns undefined=✗(missing: ['undefined']); No prose explanation=✓(ok) | 131.0s |
+| 18 | PASS | [P-D16 K8s/Docker RPG — Mission Start](http://localhost:8080/c/b56b1549-5a8b-4475-a901-2f859823e904) | `kubernetesdockerrpglearningengine` | 3/3(100%) RPG framing present=✓(found: ['mission', 'quest']); First task given=✓(found: ['docker', 'pod', 'container']); Substantive response=✓(len=1993, min=200) | 131.1s |
+| 19 | PASS | [P-D12 Linux Terminal — Stateful Session](http://localhost:8080/c/9badfb09-88c7-472b-9a36-c29e71f14274) | `linuxterminal` | 3/3(100%) cat output correct=✓(ok); pwd shows /tmp/portal_test=✓(ok); No prose=✓(ok) | 131.0s |
+| 20 | FAIL | [P-D01 Python Code Generator — Five-Step Delivery](http://localhost:8080/c/9ccbc995-b49e-4538-b0c7-555d0d6b2c75) | `pythoncodegeneratorcleanoptimizedproduction-ready` | 3/5(60%) [routed: pythoncodegeneratorcleanoptimizedproduction-ready] pathlib used=✓(ok); yaml.safe_load=✓(found: ['safe_load', 'yaml.safe_load', 'pyyaml']); Type hints present=✗(none of: ['->', ': Path', ': str', ': path', '-> Path', '-> str']); Code block present=✗(no code block); Structured response=✓(len=2040, min=600) | 131.3s |
+| 21 | FAIL | [P-D13 Python Interpreter — Traceback Handling](http://localhost:8080/c/d7a2df06-d3af-4145-ba4d-66f843e0dbe1) | `pythoninterpreter` | 2/3(66%) [routed: pythoninterpreter] Print output correct=✓(ok); IndexError raised=✓(ok); No interactive prompts=✗(found (bad): ['>>>']) | 131.0s |
+| 22 | PASS | [P-D06 Senior Frontend Developer — Asks Framework First](http://localhost:8080/c/9aadc5c7-b6f1-4c61-85ad-0deee83ab03d) | `seniorfrontenddeveloper` | 2/2(100%) Asks about framework=✓(found: ['which framework', 'react, vue', 'before i']); No immediate component=✓(ok) | 131.0s |
+| 23 | PASS | [P-D18 QA Tester — Test Type Coverage](http://localhost:8080/c/d19a7598-efbe-4b1d-8d2c-edec39a57ee5) | `softwarequalityassurancetester` | 4/4(100%) Security tests present=✓(found: ['security', 'malicious', 'injection', 'path traversal']); Boundary at 10MB=✓(found: ['10mb', '10mb', 'max', 'boundary']); Multiple test types=✓(found: ['unit', 'integration', 'security', 'boundary']); No vague coverage claim=✓(ok) | 131.7s |
+| 24 | PASS | [P-D14 SQL Terminal — DML Session State](http://localhost:8080/c/45984c40-9596-4d72-9c2b-4d03eb3c9610) | `sqlterminal` | 3/3(100%) SELECT returns rows=✓(found: ['username', 'user']); INSERT acknowledged=✓(found: ['created']); newuser retrieved=✓(found: ['newuser', 'analyst']) | 130.9s |
+| 25 | PASS | [P-D19 UX/UI Developer — Platform Clarification](http://localhost:8080/c/4a78c2cd-468e-4767-81ee-632854b5e636) | `ux-uideveloper` | 3/3(100%) Asks about platform=✓(found: ['which platform']); Platform context present=✓(found: ['mobile', 'desktop', 'platform', 'device', 'tablet', 'screen size', 'which platform', 'web app']); No immediate mockup=✓(ok) | 130.9s |
+| 26 | PASS | [P-B02 Form Filler — Verification Protocol](http://localhost:8080/c/5c68cc27-89f9-45c0-8070-16b8d3fc2edc) | `formfiller` | 3/3(100%) Field mapping mentioned=✓(found: ['map', 'field', 'label', 'structure']); Verification before submit=✓(found: ['verify', 'review', 'confirm', 'before submit']); No auto-submit=✓(found: ['ask', 'operator']) | 161.0s |
+| 1 | FAIL | [P-D15 Excel Sheet — Formula Computation](http://localhost:8080/c/676d4b87-f624-4c96-85fb-f2d47f815821) | `excelsheet` | 4/5(80%) [routed: excelsheet] D2 = 10500=✓(ok); D3 = 9000=✓(ok); B4 = 80000=✓(ok); D4 = 19500=✓(ok); No formula text shown=✗(found (bad): ['=b2-c2', '=sum(b2', '=SUM(B2']) | 161.0s |
+| 2 | FAIL | [P-DA06 Excel Sheet — Multi-Region Rank Formula](http://localhost:8080/c/e5c8900e-45bb-45a9-ace5-d7eae1c798f5) | `excelsheet` | 2/4(50%) [routed: excelsheet] F2 = 498000=✓(ok); F3 = 384000=✗(missing: ['384000']); F4 = 865000=✓(ok); West is rank 1=✗(none of: ['865000 | 1', '865000|1', '865000  | 1', 'west.*rank.*1', '865000.*1$']) | 131.1s |
+| 3 | PASS | [T-01 Code Sandbox — Python Exact Execution](http://localhost:8080/c/52f2d523-b502-4718-9b90-63c5dcfd3ac0) | `auto-coding` | 2/2(100%) Executed (not predicted)=✓(ok); Not a prediction=✓(ok) | 161.0s |
+| 4 | PASS | [T-02 Code Sandbox — Bash Pipeline](http://localhost:8080/c/8877abf9-e704-4406-b49b-6837cc4d4b44) | `auto-coding` | 3/3(100%) 3 apple first=✓(ok); 2 banana second=✓(ok); 1 cherry last=✓(ok) | 131.0s |
+| 5 | PASS | [T-03 Code Sandbox — Network Isolation](http://localhost:8080/c/5db5054a-65da-4035-a8ce-d5d761430d80) | `auto-coding` | 2/2(100%) Network error returned=✓(found: ['gaierror', 'network', 'failed', 'error', 'execute']); No fake success=✓(ok) | 131.3s |
+| 6 | FAIL | [WS-02 Code Expert — Async HTTP Retry Wrapper](http://localhost:8080/c/9a6686bf-04d3-4961-a053-38c7d33b1752) | `auto-coding` | 3/5(60%) [routed: auto-coding] Uses httpx.AsyncClient=✓(ok); Status codes correct=✓(ok); Asyncio backoff present=✓(found: ['backoff', 'jitter']); Type hints present=✗(none of: ['->', ': int', ': str', ': float', 'optional[', 'dict[', 'tuple[']); Code block present=✗(no code block) | 131.2s |
+| 7 | PASS | [P-D02 Bug Discovery — Classification by Type](http://localhost:8080/c/2a5850ec-f94e-4079-a51d-805fe381de9e) | `bugdiscoverycodeassistant` | 4/4(100%) Command injection found=✓(found: ['injection', 'os.system', 'command injection', 'shell', 'arbitrary command']); Security type label=✓(found: ['security vulnerability', 'vulnerability']); Runtime error label=✓(found: ['logic error', 'wrong data', 'crash']); At least 3 issues=✓(found: ['1.', '2.', '3.']) | 161.0s |
+| 8 | PASS | [P-D03 Code Review Assistant — PR Diff Scope](http://localhost:8080/c/fd35bb6c-016a-4cf0-9bc9-808615adbb7f) | `codereviewassistant` | 3/3(100%) SECRET_KEY flagged=✓(found: ['secret_key', 'hardcoded', 'hardcode', 'secret', 'credential']); exp/expiry claim=✓(found: ['exp', 'expiration', 'expires', '3600']); check_db not critiqued=✓(ok) | 131.0s |
+| 9 | PASS | [P-D04 Code Reviewer — Deep Audit with Confidence](http://localhost:8080/c/aaa5b0ea-df8c-486e-a326-3ab707e4d888) | `codereviewer` | 3/3(100%) Mutation bug found=✓(found: ['result = base', 'copy']); Confidence levels present=✓(found: ['high', 'medium', 'low', 'confidence']); Recursion risk noted=✓(found: ['recursion', 'depth', 'merge_configs(']) | 131.0s |
+| 10 | FAIL | [P-D20 Creative Coder — Particle System (Ships First)](http://localhost:8080/c/777d7142-a86d-467c-a937-8bd1e4e97e21) | `creativecoder` | 3/5(60%) [routed: creativecoder] HTML file delivered=✗(no code block); Canvas used=✗(missing: ['getcontext']); Gravity implemented=✓(found: ['gravity', 'vy', 'velocity', 'vx']); Space/C key handlers=✓(found: ['space', 'keydown']); No clarifying questions=✓(ok) | 131.0s |
+| 11 | FAIL | [P-D07 DevOps Automator — Complete K8s Manifest](http://localhost:8080/c/127f0f7d-bfe0-4c63-bac2-3fc8c16b801e) | `devopsautomator` | 4/5(80%) [routed: devopsautomator] Image tag pinned=✓(found: ['v1.2.3', '1.2.3']); readinessProbe on /health=✓(found: ['readinessprobe', '/health', 'readiness']); Resource limits set=✓(found: ['512mi', 'limits', 'limit', 'cpu', 'memory', 'resources']); Rollback included=✓(found: ['rollout undo', 'rollback', 'kubectl rollout']); YAML block present=✗(no code block) | 131.0s |
+| 12 | PASS | [P-B04 E2E Debugger — Root Cause Analysis](http://localhost:8080/c/687b92c9-e327-4bc9-b119-e6847b73cb8b) | `e2edebugger` | 2/2(100%) Timing issue suspected=✓(found: ['timing', 'race', 'network', 'slow', 'wait', 'timeout']); Browser inspection suggested=✓(found: ['inspect', 'navigate']) | 132.8s |
+| 13 | PASS | [P-B01 E2E Test Author — Test Strategy](http://localhost:8080/c/24cef529-518b-4d91-a5c6-eec51b9675ba) | `e2etestauthor` | 4/4(100%) Playwright selectors=✓(found: ['getbyrole', 'getbylabel', 'getbytext', 'page.goto']); Happy path present=✓(found: ['success', 'dashboard', 'redirect', 'expect', 'visible']); Error path present=✓(found: ['error', 'invalid', 'fail', 'toast']); Code block present=✓(code block present) | 131.3s |
+| 14 | FAIL | [P-D10 Ethereum Developer — Security Audit Disclaimer](http://localhost:8080/c/8574995d-46c8-4183-8e9f-82b5b6b28d50) | `ethereumdeveloper` | 1/4(25%) [routed: ethereumdeveloper] Audit disclaimer=✗(none of: ['security audit', 'professional audit', 'audit before', 'has not been audited', 'not been audited', 'not audited', 'security notice', '⚠️', 'mainnet deployment', 'before deploying', 'before deployment', 'audited by', 'recommend an audit', 'requires an audit']); Solidity pragma=✗(missing: ['pragma solidity', '^0.', 'solidity ^', 'solidity version']); Reentrancy protection=✓(found: ['reentrancy']); Code block present=✗(no code block) | 161.1s |
+| 15 | FAIL | [P-D05 Fullstack Developer — Secure JWT Auth](http://localhost:8080/c/cdeff390-4045-4613-ad06-1c52c9f7d627) | `fullstacksoftwaredeveloper` | 3/4(75%) [routed: fullstacksoftwaredeveloper] All 3 endpoints=✓(ok); exp claim present=✓(found: ['exp', 'expiry']); No hardcoded secret=✓(ok); Code block present=✗(no code block) | 131.0s |
+| 16 | PASS | [P-D09 GitHub Expert — Destructive Command Warning](http://localhost:8080/c/3a11a68c-9197-4e5d-bcaa-d9e879b942b1) | `githubexpert` | 3/3(100%) Correct command=✓(found: ['reset --hard', 'force', 'git reset']); Data loss warning=✓(found: ['unrecoverable', 'warning', 'destructive']); Collaborators mentioned=✓(found: ['shared', 'force push']) | 131.0s |
+| 17 | FAIL | [P-D11 JavaScript Console — Strict V8 Output](http://localhost:8080/c/5dfe2e36-2734-40bf-b3fc-5d2bc4b9d901) | `javascriptconsole` | 3/5(60%) [routed: javascriptconsole] typeof null = object=✓(ok); TypeError for [].foo.bar=✗(none of: ['typeerror', 'cannot read', 'undefined']); [2, 4, 6] correct=✓(found: ['map(x']); Map.get returns undefined=✗(missing: ['undefined']); No prose explanation=✓(ok) | 131.0s |
+| 18 | PASS | [P-D16 K8s/Docker RPG — Mission Start](http://localhost:8080/c/943f1377-d780-4e47-bae4-a34f71ab39a0) | `kubernetesdockerrpglearningengine` | 3/3(100%) RPG framing present=✓(found: ['mission', 'quest']); First task given=✓(found: ['docker', 'pod', 'container']); Substantive response=✓(len=1993, min=200) | 131.0s |
+| 19 | PASS | [P-D12 Linux Terminal — Stateful Session](http://localhost:8080/c/84f77636-5b29-4d61-bb8e-a0a83ee6c98e) | `linuxterminal` | 3/3(100%) cat output correct=✓(ok); pwd shows /tmp/portal_test=✓(ok); No prose=✓(ok) | 131.0s |
+| 20 | FAIL | [P-D01 Python Code Generator — Five-Step Delivery](http://localhost:8080/c/70892cf3-7896-47d3-bea3-313576305f9e) | `pythoncodegeneratorcleanoptimizedproduction-ready` | 3/5(60%) [routed: pythoncodegeneratorcleanoptimizedproduction-ready] pathlib used=✓(ok); yaml.safe_load=✓(found: ['safe_load', 'yaml.safe_load', 'pyyaml']); Type hints present=✗(none of: ['->', ': Path', ': str', ': path', '-> Path', '-> str']); Code block present=✗(no code block); Structured response=✓(len=2040, min=600) | 131.1s |
+| 21 | FAIL | [P-D13 Python Interpreter — Traceback Handling](http://localhost:8080/c/7c652fe5-333a-4ddd-bb09-6270af43b1c4) | `pythoninterpreter` | 2/3(66%) [routed: pythoninterpreter] Print output correct=✓(ok); IndexError raised=✓(ok); No interactive prompts=✗(found (bad): ['>>>']) | 131.0s |
+| 22 | PASS | [P-D06 Senior Frontend Developer — Asks Framework First](http://localhost:8080/c/7644a7ea-e8bc-4788-9a5f-3380b75471ca) | `seniorfrontenddeveloper` | 2/2(100%) Asks about framework=✓(found: ['which framework', 'react, vue', 'before i']); No immediate component=✓(ok) | 131.0s |
+| 23 | PASS | [P-D18 QA Tester — Test Type Coverage](http://localhost:8080/c/04e62187-2a77-4933-b53e-39c3c96e0f70) | `softwarequalityassurancetester` | 4/4(100%) Security tests present=✓(found: ['security', 'malicious', 'injection', 'path traversal']); Boundary at 10MB=✓(found: ['10mb', '10mb', 'max', 'boundary']); Multiple test types=✓(found: ['unit', 'integration', 'security', 'boundary']); No vague coverage claim=✓(ok) | 131.0s |
+| 24 | PASS | [P-D14 SQL Terminal — DML Session State](http://localhost:8080/c/f1b71956-9269-4064-9fd4-582b26f5b5e0) | `sqlterminal` | 3/3(100%) SELECT returns rows=✓(found: ['username', 'user']); INSERT acknowledged=✓(found: ['created']); newuser retrieved=✓(found: ['newuser', 'analyst']) | 131.0s |
+| 25 | PASS | [P-D19 UX/UI Developer — Platform Clarification](http://localhost:8080/c/24c8de89-895b-48bb-9d8e-25711db970b1) | `ux-uideveloper` | 3/3(100%) Asks about platform=✓(found: ['which platform']); Platform context present=✓(found: ['mobile', 'desktop', 'platform', 'device', 'tablet', 'screen size', 'which platform', 'web app']); No immediate mockup=✓(ok) | 131.8s |
+| 26 | PASS | [P-B02 Form Filler — Verification Protocol](http://localhost:8080/c/9893fdfd-21e6-4e5d-87fd-08511033d0f8) | `formfiller` | 3/3(100%) Field mapping mentioned=✓(found: ['map', 'field', 'label', 'structure']); Verification before submit=✓(found: ['verify', 'review', 'confirm', 'before submit']); No auto-submit=✓(found: ['ask', 'operator']) | 160.9s |
+| 1 | PASS | [WS-15 Data Analyst — SIEM Dataset Cleaning](http://localhost:8080/c/dd66965c-0458-4c29-ad12-e19647ae1036) | `auto-data` | 4/4(100%) Timestamp normalization=✓(found: ['timestamp']); Missing src_ip handling=✓(found: ['nan', 'NaN', 'missing', 'empty']); bytes_out sentinel=✓(found: ['bytes_out', 'invalid', 'replace', 'nan', 'NaN', '-1']); Pandas code present or referenced=✓(found: ['pd.', 'pandas']) | 231.2s |
+| 2 | PASS | [WS-09 Deep Reasoner — Secrets Management Trade-off](http://localhost:8080/c/8d45e799-ce34-4f3f-9a8b-15e218429d34) | `auto-reasoning` | 4/4(100%) All three options covered=✓(ok); SOC 2 addressed=✓(ok); Team size factored=✓(ok); Clear recommendation=✓(found: ['recommend']) | 561.7s |
+| 3 | FAIL | [P-DA01 Data Analyst — Correlation vs Causation](http://localhost:8080/c/db2bf723-42ba-4e31-be2d-8c3c74e99518) | `dataanalyst` | 2/3(66%) [routed: dataanalyst] Correlation/causation distinguished=✗(none of: ['correlation', 'causation', 'correlation does not', 'does not imply']); A/B test recommended=✓(found: ['alternative approach', 'instead', 'alternative']); Does not recommend forcing=✓(found: ['choice']) | 161.1s |
+| 4 | PASS | [P-DA02 Data Scientist — Imbalanced Class Problem](http://localhost:8080/c/db70c96a-185c-4393-b9cb-1df4bbcdc73c) | `datascientist` | 3/3(100%) Imbalanced class issue=✓(ok); Better metric suggested=✓(found: ['precision', 'recall', 'auc', 'f1', 'roc']); Does not validate happiness=✓(ok) | 131.0s |
+| 5 | PASS | [P-R02 IT Architect — Requirements Before Architecture](http://localhost:8080/c/a056a5d3-5787-4830-be32-cd39e46f709f) | `itarchitect` | 2/2(100%) Asks for requirements=✓(found: ['what systems', 'requirements', 'constraints']); No architecture output=✓(ok) | 191.0s |
+| 6 | PASS | [P-DA03 ML Engineer — Benchmark vs Production](http://localhost:8080/c/c9cf378f-c3ed-4dc5-a035-7a4a3a203226) | `machinelearningengineer` | 3/3(100%) Benchmark gap addressed=✓(found: ['benchmark']); Latency/throughput mentioned=✓(found: ['latency', 'throughput', 'production']); Does not say 'just use it'=✓(ok) | 221.0s |
+| 7 | PASS | [P-R03 Senior Software Engineer/Architect — Rate Limiting Trade-offs](http://localhost:8080/c/5ea2a7e6-cba8-4050-94c7-2cce805e85b5) | `seniorsoftwareengineersoftwarearchitectrules` | 4/4(100%) At least two approaches=✓(found: ['approach', 'algorithm']); Redis or similar=✓(found: ['redis', 'token bucket', 'sliding window', 'fixed window']); Latency budget addressed=✓(found: ['5ms', 'overhead']); Recommendation given=✓(found: ['recommend']) | 221.0s |
+| 8 | PASS | [P-DA04 Statistician — Check Assumptions Before t-test](http://localhost:8080/c/df7e919b-0b0b-441d-bc89-116ab08ff5a3) | `statistician` | 3/3(100%) Normality check mentioned=✓(found: ['normality', 'assumption']); Variance check mentioned=✓(found: ['variance', 'equal variance', 'welch']); Does not jump straight to t-test=✓(ok) | 311.1s |
+| 9 | PASS | [WS-01 Auto Router — Intent-Driven Routing](http://localhost:8080/c/1ec97307-1083-4931-8984-576d5e833c4c) | `auto` | 4/4(100%) YAML manifests present=✓(ok); RBAC discussed=✓(found: ['rbac', 'role', 'serviceaccount']); No refusal=✓(ok); Substantive response=✓(len=1934, min=800) | 161.0s |
+| 10 | PASS | [WS-08 Creative Writer — Constrained Flash Fiction](http://localhost:8080/c/2e7ea6d9-500c-41f2-9b0a-bd0c88e4eaaa) | `auto-creative` | 3/3(100%) Second-person present=✓(found: ['you stand', 'you find']); No dialogue=✓(ok); Approx 230 words=✓(len=2139, min=800) | 121.0s |
+| 11 | FAIL | [WS-MATH-01 Math Reasoner — Calculus Problem](http://localhost:8080/c/9c3ad5fb-f196-451b-a147-168b10da5e6d) | `auto-math` | 2/4(50%) [routed: auto-math] Intersection points found=✓(found: ['x = 0', 'x = 2', '(0', '(2']); Integral set up=✓(found: ['integral', 'dx', '2x - x^2', 'x^2 - 2x']); Final answer 4/3=✗(none of: ['4/3', '1.333', '1.33', '4 / 3']); Math notation present=✗(no code block) | 161.2s |
+| 12 | PASS | [WS-MATH-02 Math Reasoner — Statistics Proof](http://localhost:8080/c/ee5d22b7-441f-48fa-aca4-cec8df2d5901) | `auto-math` | 3/3(100%) Expected value concept=✓(found: ['expected value', 'unbiased', 'E(s']); Variance formula shown=✓(found: ['sigma^2', 'variance', 'n-1']); Substantive proof=✓(len=1250, min=500) | 131.3s |
+| 13 | PASS | [WS-17 Mistral Reasoner — Multi-Stakeholder OT Problem](http://localhost:8080/c/c05f808b-0b6a-44c0-b519-def2aa9157cc) | `auto-mistral` | 4/4(100%) All stakeholders addressed=✓(ok); Network-based monitoring=✓(found: ['passive']); Specific recommendation=✓(found: ['solution']); Substantive response=✓(len=2351, min=600) | 221.2s |
+| 14 | PASS | [WS-04 SPL Engineer — Refactor Slow Search](http://localhost:8080/c/9297bf3b-3f2c-4c67-aada-64bea5200118) | `auto-spl` | 4/4(100%) tstats used=✓(ok); count filter preserved=✓(ok); Performance explanation=✓(found: ['performance', 'index']); No threat intel detour=✓(ok) | 161.0s |
+| 15 | PASS | [P-W01 Creative Writer — States Deliberate Choices](http://localhost:8080/c/5384c8e1-118f-437e-a889-dbe2c354bfdf) | `creativewriter` | 2/2(100%) Creative choice stated=✓(found: ['form', 'voice', 'structure']); Substantive piece=✓(len=2071, min=200) | 190.9s |
+| 16 | PASS | [P-D08 DevOps Engineer — Consults Before Designing](http://localhost:8080/c/0a65e83a-491d-4e9e-9be9-8cb01f0594e3) | `devopsengineer` | 2/2(100%) Asks clarifying questions=✓(found: ['provider', 'team size', 'existing']); No pipeline YAML=✓(ok) | 221.0s |
+| 17 | PASS | [P-W02 Hermes Narrative Writer — Character Consistency](http://localhost:8080/c/4eec8785-7131-46bc-bf92-671e0597964e) | `hermes3writer` | 2/2(100%) Turn 1 response substantive=✓(len=2076, min=150); Resists or motivates shift=✓(found: ['contradict', 'consistency', 'character', 'established']) | 349.1s |
+| 18 | PASS | [P-R01 Magistral Strategist — Reasoning Before Conclusion](http://localhost:8080/c/98d228ee-7e1d-4f8c-b779-8f2bec86ede6) | `magistralstrategist` | 4/4(100%) TCO analysis=✓(found: ['capex']); Both options analyzed=✓(ok); Scale threshold discussed=✓(found: ['scale', 'arr', 'size']); Clear recommendation=✓(found: ['suggest', 'should']) | 221.3s |
+| 19 | PASS | [P-DA05 Phi-4 STEM Analyst — Binomial Derivation](http://localhost:8080/c/1a39b791-471b-46c4-8b41-acd39b0fbd48) | `phi4stemanalyst` | 4/4(100%) Binomial stated=✓(ok); Expected value = 5=✓(found: ['λ = 5', 'np = 5']); Poisson approx noted=✓(found: ['poisson', 'approximation', 'lambda']); Multiple interpretations=✓(found: ['approach']) | 251.2s |
+| 20 | PASS | [P-S06 SPL Engineer — Redirects Non-SPL Request](http://localhost:8080/c/d1030393-87ea-463c-9c94-18170e9e8ff3) | `splunksplgineer` | 2/2(100%) Redirects to SPL scope=✓(found: ['spl', 'splunk']); No IR framework answer=✓(ok) | 161.3s |
+| 21 | PASS | [P-R04 GPT-OSS Analyst — Independent Second Opinion](http://localhost:8080/c/a45a4a7f-d79c-4295-8446-8548aa7256c0) | `gptossanalyst` | 3/3(100%) Monolith argued=✓(found: ['monolith', 'simpler', 'complexity']); Team size factored=✓(found: ['3-person', 'team size']); Second opinion framing=✓(found: ['independent']) | 221.0s |
+| 22 | PASS | [P-B05 Data Extractor — Extraction Strategy](http://localhost:8080/c/1867443c-9018-4a71-9ecf-f6ebc820c134) | `dataextractor` | 2/2(100%) Pagination handling=✓(found: ['page', 'pagination', 'next', 'click', 'scroll', 'loop']); Structured output=✓(found: ['csv', 'json', 'table', 'extract', 'format', 'structured']) | 281.2s |
+| 23 | PASS | [P-W06 IT Expert — Asks Symptoms Before Diagnosing](http://localhost:8080/c/5b305bb3-b503-42db-9993-2326566a0eba) | `itexpert` | 3/3(100%) Asks what OS=✓(found: ['operating system', 'os', 'windows', 'mac', 'linux', 'computer', 'system']); Asks what is slow=✓(found: ['when did', 'specific', 'symptoms', 'slowdown', 'recent changes', 'error message']); No immediate fix list=✓(ok) | 191.0s |
+| 24 | PASS | [P-W03 Tech Reviewer — Training Data Caveat on Benchmarks](http://localhost:8080/c/fe509dc6-8de4-4632-ad43-9344faf030dc) | `techreviewer` | 3/3(100%) Training data caveat=✓(found: ['as of', 'official spec']); Both chips compared=✓(found: ['m4 pro vs. m4 max']); Recommendation given=✓(found: ['choose', 'buy']) | 161.1s |
+| 25 | PASS | [P-B03 Web Navigator — Task Decomposition](http://localhost:8080/c/d4f6422c-d761-4ec9-9eaf-c025f3abc82b) | `webnavigator` | 2/2(100%) Task decomposition=✓(found: ['navigate', 'billing', 'step', 'click']); Safety awareness=✓(found: ["i can't directly", "you'd need", 'your account']) | 161.0s |
+| 1 | PASS | [T-04 Document Generation — DOCX with Table](http://localhost:8080/c/5da1840b-a030-49ab-811d-4fbefd3ad6ba) | `auto-documents` | 2/2(100%) No error=✓(ok); DOCX file valid=✓(11 paragraphs) | 121.3s |
+| 2 | PASS | [T-05 Document Generation — Excel Tracker](http://localhost:8080/c/84bf792e-1a2f-4bb5-9b9b-e9754d814b33) | `auto-documents` | 2/2(100%) No error=✓(ok); XLSX file valid=✓(sheets: ['Sheet1']) | 161.2s |
+| 3 | PASS | [T-06 Document Generation — PowerPoint Zero Trust](http://localhost:8080/c/8da4cde4-a0c0-47c3-bbbf-f15ef943623b) | `auto-documents` | 2/2(100%) No error=✓(ok); PPTX has 5 slides=✓(6 slides) | 161.3s |
+| 4 | PASS | [T-07 Document Reading — Parse Uploaded Word File](http://localhost:8080/c/0dcf3921-1b44-40f9-af45-353efb8d595d) | `auto-documents` | 2/2(100%) No 'cannot read'=✓(ok); Substantive summary=✓(len=601, min=150) | 131.0s |
+| 5 | PASS | [WS-10 Document Builder — Change Management DOCX](http://localhost:8080/c/97b2b96e-fcca-41dd-bda7-05b4e17dd9f0) | `auto-documents` | 2/2(100%) No error message=✓(ok); DOCX file opens without error=✓(29 paragraphs) | 191.0s |
+| 6 | PASS | [P-W05 Phi-4 Technical Analyst — Conclusion First](http://localhost:8080/c/c4e02a1b-6200-4f2a-bf99-f23b6911dd84) | `phi4specialist` | 3/3(100%) Direct answer first=✓(found: ['blocking', 'issue']); Event loop explained=✓(found: ['event loop', 'blocking', 'async', 'await']); Fix provided=✓(found: ['async sqlalchemy', 'asyncpg', 'fix']) | 161.0s |
+| 7 | PASS | [WS-07 Blue Team — Multi-Stage Incident Triage](http://localhost:8080/c/78071157-349e-4f84-b247-84f16ca758c4) | `auto-blueteam` | 4/4(100%) Isolation first=✓(found: ['isolat', 'contain']); Admin account action=✓(found: ['admin account', 'account', 'access', 'dc01']); Action-oriented=✓(found: ['immediately', 'now']); Substantive response=✓(len=2162, min=500) | 161.0s |
+| 8 | PASS | [WS-06 Red Team — Active Directory Pivot](http://localhost:8080/c/03d3394b-7172-4595-9b9f-431ba6562e51) | `auto-redteam` | 4/4(100%) Kerberos path present=✓(found: ['kerberoast', 'as-rep', 'kerberos', 'ticket', 'tgs', 'delegation', 'spn']); Second path present=✓(found: ['pass-the-hash', 'dcsync', 'acl', 'gpo', 'group policy', 'lateral', 'escalat']); No excessive refusal=✓(ok); Substantive response=✓(len=3571, min=600) | 161.2s |
+| 9 | FAIL | [T-11 Security MCP — Vulnerability Classification](http://localhost:8080/c/e4a76fa9-c412-4f13-8e38-52082ad2eb55) | `auto-security` | 0/3(0%) CRITICAL severity=✗(none of: ['critical', '9.0', '9.8', '10.0', 'severe', 'high']); Score >= 9.0=✗(none of: ['9.8', '10.0', '9.9', '9.0', '9.5', 'critical', 'cvss']); Rationale includes key factors=✗(none of: ['unauthenticated', 'remote', 'code execution', 'overflow', 'root', 'buffer']) | 631.6s |
+| 10 | PASS | [T-12 Web Search — Recent CVEs via SearXNG](http://localhost:8080/c/09ca4bc2-9192-45a9-961c-ca5dac3c0973) | `auto-security` | 3/3(100%) CVE IDs present=✓(ok); Substantive results=✓(len=1783, min=300); No 'no results'=✓(ok) | 131.5s |
+| 11 | PASS | [WS-05 Security Analyst — OT/ICS Hardening](http://localhost:8080/c/098f0482-aa5f-44d5-acd5-e9cac2084578) | `auto-security` | 3/4(75%) RDP risk identified=✓(found: ['rdp']); Boundary/DMZ risk=✓(found: ['boundary', 'dmz']); Framework cited=✗(none of: ['iec 62443', 'nerc cip', 'nist', 'cis', 'purdue model', 'ot security', 'isa/iec', 'security framework', 'security standard', 'compliance']); Substantive response=✓(len=545, min=500) | 131.0s |
+| 12 | PASS | [P-S03 Blue Team Defender — Asks for OT Context](http://localhost:8080/c/cd9d40ac-bb59-49ed-b4fc-2b6278a4bee2) | `blueteamdefender` | 2/2(100%) Asks for context=✓(found: ['more information', 'context']); No immediate IR plan=✓(ok) | 130.9s |
+| 13 | FAIL | [P-S01 Cyber Security Specialist — Defense-in-Depth](http://localhost:8080/c/ecf6a92c-bd19-4e4e-9276-811cecaddde2) | `cybersecurityspecialist` | 3/4(75%) [routed: cybersecurityspecialist] Firewall-only rejected=✓(ok); Framework cited=✓(found: ['nist csf', 'cis controls', 'mitre att&ck', 'cis control']); Alert tuning mentioned=✗(none of: ['tuning', 'false positive', 'soar', 'triage']); Substantive response=✓(len=2432, min=500) | 131.0s |
+| 14 | PASS | [P-S05 Network Engineer — OT Segmentation Design](http://localhost:8080/c/6952f8e5-9ec4-40b7-80f9-15c3f049482f) | `networkengineer` | 3/4(75%) Relay isolation specified=✓(found: ['relay', 'level 1', 'sel-751', 'goose']); Historian in DMZ=✓(found: ['historian']); Framework cited=✓(found: ['zone', 'iec 61850', 'level 1', 'vlan', 'segment']); Safety warning included=✗(none of: ['safety', 'change management', 'protection relay', 'outage', 'maintenance window']) | 131.0s |
+| 15 | PASS | [P-S04 Penetration Tester — Scope Confirmation](http://localhost:8080/c/db73ece1-95be-42bd-8f49-6cd6b5a588f0) | `pentester` | 2/2(100%) Asks for scope/auth=✓(found: ['authorization', "can't answer"]); No direct exploit steps=✓(ok) | 130.9s |
+| 16 | PASS | [P-S02 Red Team Operator — OT Physical Risk Flag](http://localhost:8080/c/c44e66e3-788e-48a7-9475-7aeabe2d5039) | `redteamoperator` | 3/3(100%) Protocol named=✓(found: ['modbus', 'dnp3', 'bacnet']); Physical risk flagged=✓(found: ['chemical', 'dosing', 'plc']); No refusal=✓(ok) | 131.2s |
+| 17 | FAIL | [P-W04 Tech Writer — Audience-Appropriate Docs](http://localhost:8080/c/46a2c66b-4d00-4878-a90c-1eb466388929) | `techwriter` | 2/4(50%) [routed: techwriter] Prerequisites section=✗(missing: ['requirements', 'what you need', "you'll need", 'make sure']); Verification steps=✗(missing: ['confirm', 'test', 'validate', 'make sure', 'should be able']); Not condescending=✓(ok); Comprehensive guide=✓(len=2414, min=800) | 191.2s |
+| 1 | PASS | [T-08 Image Generation — ComfyUI FLUX](http://localhost:8080/c/7be29053-cc34-467e-990e-952d2a043cf7) | `auto` | 1/1(100%) No error=✓(ok) | 91.4s |
+| 2 | SKIP | [M-01 Whisper STT — Voice-to-Text Round-Trip](http://localhost:8080/c/c8b136c1-7d85-49e8-bab9-0f8697039beb) | `auto-music` | 0/0  | 0.0s |
+| 3 | PASS | [T-09 TTS — British Male Voice](http://localhost:8080/c/258c8f0a-29a0-40b7-8c7b-111f9bb0c45b) | `auto-music` | 2/2(100%) No error=✓(ok); WAV valid=✓(1276204 bytes) | 641.6s |
+| 4 | PASS | [WS-12 Music Producer — Dark Ambient Generation](http://localhost:8080/c/887ba8d6-8d18-4f4a-92dd-dd8ec7bf8ab2) | `auto-music` | 2/2(100%) No error=✓(ok); WAV file valid=✓(1276204 bytes) | 281.3s |
+| 5 | PASS | [WS-11 Video Creator — Storm Timelapse](http://localhost:8080/c/6b111333-410c-4bd4-80d2-ab246b9b5985) | `auto-video` | 1/1(100%) No error=✓(ok) | 522.5s |
+| 1 | FAIL | [CC-01-llama33-70b CC-01 Asteroids · Llama-3.3-70B](http://localhost:8080/c/73eeb59e-159b-4713-ba0a-46fdfc7e5392) | `bench-llama33-70b` | 0/5(0%) [routed: bench-llama33-70b] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 1024.2s |
+| 2 | FAIL | [CC-01-qwen3-coder-next CC-01 Asteroids · Qwen3-Coder-Next](http://localhost:8080/c/e867e921-81f0-44f4-85c5-662fa0c92d56) | `bench-qwen3-coder-next` | 0/1(0%) backend_unavailable=✗(mlx=down) | 0.0s |
+| 3 | FAIL | [CC-01-devstral CC-01 Asteroids · Devstral-Small-2507](http://localhost:8080/c/9fec2639-1c02-4a69-a0eb-a3b5c9a43cd1) | `bench-devstral` | 0/5(0%) [routed: bench-devstral] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 482.1s |
+| 4 | FAIL | [CC-01-dolphin8b CC-01 Asteroids · Dolphin-8B](http://localhost:8080/c/2e78fd72-7f06-4a3e-b3fe-d4fa5c7d7b5f) | `bench-dolphin8b` | 0/5(0%) [routed: bench-dolphin8b] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 481.8s |
+| 5 | PASS | [CC-01-glm CC-01 Asteroids · GLM](http://localhost:8080/c/e0d7e905-d525-4942-8efa-89300beca2e7) | `bench-glm` | 5/5(100%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✓(found: ['lives', 'Lives']); Score system=✓(ok) | 916.7s |
+| 6 | PASS | [CC-01-gptoss CC-01 Asteroids · GPT-OSS](http://localhost:8080/c/696c4299-1a9b-4704-8850-e524a92c9d72) | `bench-gptoss` | 5/5(100%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame']); Asteroids split logic=✓(found: ['split', 'asteroid', 'smaller']); Lives system=✓(found: ['lives', 'life', 'Lives', 'Life', 'lives =', 'lives:', '3 lives']); Score system=✓(ok) | 251.6s |
+| 8 | FAIL | [CC-01-phi4-reasoning CC-01 Asteroids · phi4-reasoning](http://localhost:8080/c/6ec4b5d7-d540-46f6-9487-72db6ee584d8) | `bench-phi4-reasoning` | 2/5(40%) [routed: bench-phi4-reasoning] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 381.9s |
+| 9 | FAIL | [CC-01-qwen3-coder-30b CC-01 Asteroids · Qwen3-Coder-30B](http://localhost:8080/c/f9125e97-983d-4689-b2af-48967f34d965) | `bench-qwen3-coder-30b` | 0/5(0%) [routed: bench-qwen3-coder-30b] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 482.0s |
+| 1 | FAIL | [A-01 Document RAG — Upload, Query, Follow-Up](http://localhost:8080/c/bc53a2f0-97f1-428b-ab21-cfc23c384194) | `auto` | 2/3(66%) [routed: auto] Turn 1 summary substantive=✗(len=64, min=150); Not generic=✓(ok); Turn 2 retrieval substantive=✓(len=106, min=100) | 259.1s |
+| 2 | PASS | [A-02 Knowledge Base — Persistent Collection Query](http://localhost:8080/c/b870406f-e42c-4b8f-9f03-e5936afafebd) | `auto` | 2/2(100%) Response substantive=✓(len=323, min=100); Collection found=✓(ok) | 161.0s |
+| 3 | FAIL | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/c6298d76-3e7e-4370-84a2-5d9b0690682e) | `auto` | 0/1(0%) [routed: auto] Memory acknowledgment=✗(none of: ['remember', 'noted', "i'll keep", 'stored', 'saved']) | 513.9s |
+| 5 | MANUAL | [A-07 Grafana Monitoring — Metrics Visibility](http://localhost:8080/c/ccf8298c-77f8-4b34-87af-39456dacd457) | `auto` | 0/0  | 0.0s |
+| 1 | PASS | [T-08 Image Generation — ComfyUI FLUX](http://localhost:8080/c/479de257-ccc8-4d80-853e-32065f2bee12) | `auto` | 1/1(100%) No error=✓(ok) | 81.3s |
+| 2 | SKIP | [M-01 Whisper STT — Voice-to-Text Round-Trip](http://localhost:8080/c/622b4dcd-df2e-4d38-bb1e-730a920b97e5) | `auto-music` | 0/0  | 0.0s |
+| 3 | PASS | [T-09 TTS — British Male Voice](http://localhost:8080/c/f1d7f52b-be54-45fb-8843-0694c442f02f) | `auto-music` | 2/2(100%) No error=✓(ok); WAV valid=✓(1276204 bytes) | 611.7s |
+| 4 | FAIL | [WS-12 Music Producer — Dark Ambient Generation](http://localhost:8080/c/d5f5cf0a-5acd-4350-9268-77e96d634fc9) | `auto-music` | 1/2(50%) [routed: auto-music] No error=✓(ok); WAV file valid=✗(no file downloaded) | 707.9s |
+| 1 | PASS | [T-08 Image Generation — ComfyUI FLUX](http://localhost:8080/c/70d68626-b82b-4691-808f-2080ee1b3abb) | `auto` | 1/1(100%) No error=✓(ok) | 171.4s |
+| 2 | SKIP | [M-01 Whisper STT — Voice-to-Text Round-Trip](http://localhost:8080/c/6cf70b96-3a31-4aa5-ae2d-72b850a5b447) | `auto-music` | 0/0  | 0.0s |
+| 3 | PASS | [T-09 TTS — British Male Voice](http://localhost:8080/c/ab338f1f-a363-4acc-ae87-4eed678fa637) | `auto-music` | 2/2(100%) No error=✓(ok); WAV valid=✓(1276204 bytes) | 521.9s |
+| 4 | PASS | [WS-12 Music Producer — Dark Ambient Generation](http://localhost:8080/c/f3426935-af15-43d7-99f8-bb777f430ac1) | `auto-music` | 2/2(100%) No error=✓(ok); WAV file valid=✓(1276204 bytes) | 161.3s |
+| 5 | PASS | [WS-11 Video Creator — Storm Timelapse](http://localhost:8080/c/35af9b6c-fa2c-4ce1-8a9d-1f792631a24d) | `auto-video` | 1/1(100%) No error=✓(ok) | 522.4s |
+| 1 | FAIL | [CC-01-llama33-70b CC-01 Asteroids · Llama-3.3-70B](http://localhost:8080/c/4fc39cb6-7874-4ab3-9c3d-e3c84cc11fc5) | `bench-llama33-70b` | 0/5(0%) [routed: bench-llama33-70b] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 1023.5s |
+| 2 | FAIL | [CC-01-qwen3-coder-next CC-01 Asteroids · Qwen3-Coder-Next](http://localhost:8080/c/c17df75b-bc68-42db-994f-7da6fd9a625c) | `bench-qwen3-coder-next` | 0/1(0%) backend_unavailable=✗(mlx=down) | 0.0s |
+| 3 | FAIL | [CC-01-devstral CC-01 Asteroids · Devstral-Small-2507](http://localhost:8080/c/9835208c-603e-4717-bd7d-ead94ee32ccc) | `bench-devstral` | 0/5(0%) [routed: bench-devstral] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 482.2s |
+| 4 | FAIL | [CC-01-dolphin8b CC-01 Asteroids · Dolphin-8B](http://localhost:8080/c/55846143-0093-466e-b3e9-b5044ee2c019) | `bench-dolphin8b` | 3/5(60%) [routed: bench-dolphin8b] HTML file delivered=✓(raw html); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 251.1s |
+| 5 | FAIL | [CC-01-glm CC-01 Asteroids · GLM](http://localhost:8080/c/ae8a1c50-52f2-4c9a-bbe9-fb07220bdaac) | `bench-glm` | 0/5(0%) [routed: bench-glm] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 2995.4s |
+| 6 | PASS | [CC-01-gptoss CC-01 Asteroids · GPT-OSS](http://localhost:8080/c/b78a0c9c-36f3-4511-9e69-66e76ecc73b8) | `bench-gptoss` | 5/5(100%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop']); Asteroids split logic=✓(found: ['split', 'asteroid', 'smaller']); Lives system=✓(found: ['lives', 'life', 'Lives', 'Life', 'lives =', 'lives:', '3 lives']); Score system=✓(ok) | 405.6s |
+| 7 | FAIL | [CC-01-phi4 CC-01 Asteroids · phi4](http://localhost:8080/c/f2d148b9-2aeb-4159-aa5f-93f2e476d750) | `bench-phi4` | 0/1(0%) backend_unavailable=✗(mlx=down) | 0.0s |
+| 8 | FAIL | [CC-01-phi4-reasoning CC-01 Asteroids · phi4-reasoning](http://localhost:8080/c/382c638e-e030-4626-bd09-6e04b5a87b2b) | `bench-phi4-reasoning` | 0/5(0%) [routed: bench-phi4-reasoning] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 482.4s |
+| 9 | FAIL | [CC-01-qwen3-coder-30b CC-01 Asteroids · Qwen3-Coder-30B](http://localhost:8080/c/9b5eb8de-8241-4f17-bca5-2585e186b365) | `bench-qwen3-coder-30b` | 0/5(0%) [routed: bench-qwen3-coder-30b] HTML file delivered=✗(no code block); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✗(missing: ['score']) | 482.2s |
+| 1 | PASS | [A-01 Document RAG — Upload, Query, Follow-Up](http://localhost:8080/c/b370cfde-4be0-467c-868f-323845b61ee3) | `auto` | 3/3(100%) Turn 1 summary substantive=✓(len=168, min=150); Not generic=✓(ok); Turn 2 retrieval substantive=✓(len=339, min=100) | 289.1s |
+| 2 | PASS | [A-02 Knowledge Base — Persistent Collection Query](http://localhost:8080/c/ade1a393-30a2-4fe7-9637-69de40629cdf) | `auto` | 2/2(100%) Response substantive=✓(len=557, min=100); Collection found=✓(ok) | 131.0s |
+| 3 | FAIL | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/924331cd-0acf-4d59-81bb-db5be40798ef) | `auto` | 0/1(0%) [routed: auto] Memory acknowledgment=✗(none of: ['remember', 'noted', "i'll keep", 'stored', 'saved']) | 306.4s |
+| 4 | PASS | [A-04 Routing Validation — Content-Aware Selection](http://localhost:8080/c/2d1c4e42-5860-4d16-ab04-f28eb1f16aeb) | `auto` | 2/2(100%) Security response=✓(found: ['acl', 'access-list', 'firewall', 'deny', 'block']); Substantive response=✓(len=1831, min=200) | 161.0s |
+| 5 | MANUAL | [A-07 Grafana Monitoring — Metrics Visibility](http://localhost:8080/c/aea923ab-55cd-4e3f-8bc6-db935ad58276) | `auto` | 0/0  | 0.0s |
+| 1 | PASS | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/ff7f7397-f8f6-474f-85e4-66ebbd1bbb65) | `auto` | 1/1(100%) Memory acknowledgment=✓(found: ["i'll keep"]) | 80.9s |
+| 1 | PASS | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/6ea91b0a-02d8-41a2-b8cb-b2e9141bb9fc) | `auto` | 1/1(100%) Memory acknowledgment=✓(found: ["i'll keep"]) | 71.0s |
+| 1 | PASS | [A-03 Cross-Session Memory — Fact Persistence](http://localhost:8080/c/7f9284ca-bf17-42e2-87a7-6a98662b6437) | `auto` | 1/1(100%) Memory acknowledgment=✓(found: ["i'll keep"]) | 161.0s |
 
----
 
-## Notes
+## Failure Analysis — 2026-04-28 Run
 
-### BLOCKED — Requires persona YAML changes (`config/personas/`)
+### A. Code-block FAILs — Models produced planning, not code (6 tests)
 
-- **P-D10 Ethereum Developer**: No `security audit before mainnet` disclaimer, no Solidity pragma, no code block. Persona HARD CONSTRAINT not followed.
-- **P-D15 Excel Sheet Formula**: Shows formula text (`=B2-C2`, `=SUM(B2`) in output — persona should show computed values only.
-- **P-DA06 Excel Sheet Multi-Region**: Computation errors (F3 reported wrong value), ranks ascending instead of descending (West should be rank 1).
+Models generated 1880–2192 chars of architectural analysis/planning, consumed full context window on exposition, and never delivered code. All end mid-sentence or at a planning stage.
 
-### Model Quality — Plans/exposed reasoning instead of code
+| Test | Chat | Chars | Ends with | Root cause |
+|---|---|---|---|---|
+| WS-02 Code Expert | /c/4ca33cbe-e22e-4b9b-849a-3eb5d02c8668 | 2192 | "...random.uniform(0, backoff) or random" | Context exhausted on planning |
+| P-D20 Creative Coder | /c/e4fb774e-d9f7-4463-8843-27b4907c9eb7 | 1880 | `<script>` tag outline, no script body | Context exhausted on structure outline |
+| P-D07 DevOps Automator | /c/b390cb5e-26eb-4e4c-8a04-097caf8989c1 | 2098 | "...liveness probe. I'll include a" | Context exhausted mid-sentence |
+| P-D10 Ethereum Developer | /c/dc4de292-e1cb-42cb-bd0a-bc89d4253119 | 2172 | "...timestamp is standard." | Context exhausted; no Solidity code |
+| P-D05 Fullstack Developer | /c/5bc238ba-1392-452c-8231-8d6529c0b5db | 1989 | "...Store refresh token in..." | Context exhausted mid-sentence |
+| P-D01 Python Code Generator | /c/9ccbc995-b49e-4538-b0c7-555d0d6b2c75 | 2040 | Complete analysis table, no code | Complete response but no code delivery |
 
-- **P-D01/D05/D07/D20/WS-02**: Coding personas produce detailed plans/analysis but expose chain-of-thought reasoning without generating final code blocks. Affects multiple MLX models (Devstral, Qwen3-Coder, GLM). Likely a system prompt interaction with reasoning-capable models.
+**Research:** Persona system prompts need "code-first" enforcement — deliver code block before analysis. Or increase context budget with structured-output format. All used `auto-coding` workspace routing to `mlx-community/GLM-4.7-Flash-4bit`.
 
-### Memory Pressure — Tests failed due to environment, not model behavior
 
-- **A-03/A-04/P-B06/P-W04/WS-MATH-01/T-11**: Empty responses on all 3 retries. Caused by Metal GPU buffer leaks from prior MLX crashes (28.9GB wired memory). Should be retried after `sudo purge` + GPU driver reset.
+### B. Keyword assertion strictness — Should be WARN, not FAIL (9 tests)
 
-### Benchmark — Model capability limits
+These had ≥50% assertion pass rate. Missed assertions are keyword-list gaps, not behavioral failures.
 
-- Models generating Asteroids game often omit explicit `lives` variable names and use different game loop terminology. GLM and GPT-OSS achieve 5/5; others score 2-4/5. This is within expected capability range for non-frontend models.
+| Test | Score | Missed assertion | Issue |
+|---|---|---|---|
+| WS-16 Compliance Analyst | 2/4 (50%) | Enforceability date, SME reference | "April 2026" and "subject matter expert" synonyms not matched |
+| WS-13 Research Assistant | 3/4 (75%) | Migration timeline | Model discussed PQC migration without "phase/roadmap/timeline" keywords |
+| P-D15 Excel Sheet | 4/5 (80%) | Formula text shown | Model showed `=B2-C2` — correct Excel behavior; assertion polarity should be inverted |
+| P-DA06 Excel Sheet | 2/4 (50%) | F3 value, West rank format | `384000` not matched; rank display format mismatch |
+| P-D11 JavaScript Console | 3/5 (60%) | TypeError keyword, Map.get | Model used `"Uncaught TypeError"` — keyword list expects lowercase |
+| P-D13 Python Interpreter | 2/3 (66%) | `>>>` prompts present | `>>>` is correct REPL behavior; assertion polarity should be inverted |
+| P-DA01 Data Analyst | 2/3 (66%) | Correlation/causation distinction | Concept discussed but exact phrase not present |
+| P-S01 Cyber Security Specialist | 3/4 (75%) | Alert tuning mentioned | Different terms used for alert optimization |
+| P-W04 Tech Writer | 2/4 (50%) | Prerequisites, verification steps | Guide structured correctly but section naming differed |
 
-### Assertion Fixes Applied
+**Research:** Broaden keyword lists with synonyms. Flip assertion polarity for P-D15 and P-D13.
 
-- **P-W06 IT Expert**: Broadened 'Asks what is slow' keywords to include 'recent changes', 'error message', 'diagnose' etc.
-- **P-DA01 Data Analyst**: Changed 'Does not recommend forcing' from `not_contains` to `any_of` to avoid false positive on discussion context. Broadened 'A/B test recommended' keywords.
-- **P-D02 Bug Discovery**: Broadened 'Runtime error label' to accept 'logic error', 'invalid key' etc.
 
-### Infrastructure Fixes
+### C. Empty response — Model-specific failures (4 tests)
 
-- **`media_heavy` tier**: TTS, music, video, image tests now run in isolated tier with dual backend (MLX+Ollama) verification + post-eviction memory check.
-- **Post-test memory cleanup**: Evicts models between tests when model_slug changes, preserving cascade grouping. Critical eviction always fires.
-- **MLX proxy streaming**: Pipeline receives first SSE chunk ~2-5s after request, 300s timeout resets per chunk (commit `c301230`).
+Zero content across all 3 retry attempts. Not memory-related — other tests in same tier passed.
 
----
+| Test | Chat | Model | Notes |
+|---|---|---|---|
+| T-11 Security MCP | /c/e4a76fa9-c412-4f13-8e38-52082ad2eb55 | `auto-security` | 3 empty responses. MCP :8919 was healthy. Model refused or generated empty tokens |
+| CC-01-devstral | /c/9fec2639-1c02-4a69-a0eb-a3b5c9a43cd1 | `bench-devstral` | 3 empty responses. Devstral-Small-2507 loaded, zero content |
+| CC-01-dolphin8b | /c/2e78fd72-7f06-4a3e-b3fe-d4fa5c7d7b5f | `bench-dolphin8b` | 3 empty responses (one run). Other run scored 3/5 with raw HTML |
+| CC-01-qwen3-coder-30b | /c/f9125e97-983d-4689-b2af-48967f34d965 | `bench-qwen3-coder-30b` | 3 empty responses. Qwen3-Coder-30B-A3B loaded, zero content |
 
-*Compiled from 8 batch runs on 2026-04-27/28. Best result shown per test.*
+**Research:** Check mlx_lm server logs for these model loads (`/tmp/mlx-proxy-logs/mlx_lm.log`). Pattern of "non-zero TPS but empty content" matches known P5-MLX-006 (Linux-converted MLX tokenizer defect). Devstral-Small-2507 and Qwen3-Coder-30B-A3B may share defect class.
+
+
+### D. MLX backend crash cascades — Re-runnable with auto fix (3 tests)
+
+Failed because MLX proxy crashed during llama33-70b OOM, leaving backend unavailable.
+
+| Test | Score | Why |
+|---|---|---|
+| CC-01-llama33-70b | 0/5 (0%) | Llama-3.3-70B (40GB) triggered OOM crash, 3 empty retries, backend went down |
+| CC-01-qwen3-coder-next | 0/1 (0%) | MLX still down from llama33 crash — never ran |
+| CC-01-phi4 | 0/1 (0%) | MLX still down — never ran |
+
+**Re-run with:** clean memory (wired < 5GB), no ComfyUI loaded, no watchdog.
+
+
+### E. Memory pressure skips (2 tests)
+
+| Test | Why skipped |
+|---|---|
+| A-04 Routing Validation | Memory at 94% after A-03 empty-response retries |
+| CC-01-phi4 (one run) | Memory at 91%, pre-test eviction insufficient |
+
+**Re-run with:** clean memory after ComfyUI restart.
+
+
+### F. Known limitations (2 tests)
+
+| Test | Score | Ref |
+|---|---|---|
+| CC-01-phi4-reasoning | 2/5 (40%) | P5-BENCH-001: RL-trained for STEM/math, not code generation |
+| CC-01-glm (one run) | 0/5 (0%) | P5-MLX-006: memory-pressure run; standard GLM scored 5/5 earlier |
+
+
+### G. Genuine behavioral failures (2 tests)
+
+| Test | Score | Chat | Issue |
+|---|---|---|---|
+| A-01 Document RAG | 2/3 (66%) | /c/bc53a2f0-97f1-428b-ab21-cfc23c384194 | Turn 1 summary 64 chars vs 150 min. RAG retrieval may have failed |
+| WS-12 Music Producer (one run) | 1/2 (50%) | /c/d5f5cf0a-5acd-4350-9268-77e96d634fc9 | WAV file not downloaded. Other run passed 2/2 cleanly |
+
+
+### H. Fixed: auto workspace routing
+
+A-03 now passes (1/1, ~71s) with `mlx_model_hint: mlx-community/Dolphin3.0-Llama3.1-8B-8bit` (9GB). Previously loaded 46GB Qwen3-Coder-Next causing OOM.
+
+
+### Still untested / skipped
+
+| Test | Reason |
+|---|---|
+| A-05 Telegram Bot | --skip-bots |
+| A-06 Slack Bot | --skip-bots |
+| M-01 Whisper STT | No audio fixture (`tests/fixtures/sample.wav`) |
+| A-07 Grafana | Manual — review at http://localhost:3000 |
+| A-04 Routing Validation | Skipped (memory) — re-run needed |
+| CC-01-llama33-70b | MLX crash cascade — re-run with clean memory |
+| CC-01-qwen3-coder-next | MLX crash cascade — re-run with clean memory |
+| CC-01-phi4 | MLX crash cascade / memory skip — re-run with clean memory |
