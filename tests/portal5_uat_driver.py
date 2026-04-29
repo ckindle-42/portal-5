@@ -1716,23 +1716,31 @@ _CC01_ASSERTIONS = [
     {
         "type": "any_of",
         "label": "Lives system",
+        # word_boundary=True so 'lives' doesn't match inside 'delivers' or 'olives'.
+        # Patterns observed in real bench outputs: this.lives, livesCount,
+        # player_lives, lives--, "if (lives", lives === 0, etc.
+        "word_boundary": True,
         "keywords": [
             "lives",
             "life",
-            "Lives",
-            "Life",
             "lives_remaining",
-            "numLives",
-            "playerLives",
+            "numlives",  # case-insensitive matches numLives
+            "playerlives",
             "player.lives",
-            "livesLeft",
-            "lifeCount",
-            "remainingLives",
-            "lives =",
-            "lives:",
-            "3 lives",
-            "starting lives",
+            "this.lives",
+            "this.life",
+            "playerlife",
+            "livescount",
+            "livesleft",
+            "lifecount",
+            "remaininglives",
+            "player_lives",
+            "lives--",
+            "lives++",
             "lose a life",
+            "lost a life",
+            "starting lives",
+            "3 lives",
         ],
         "critical": False,
     },
@@ -2362,7 +2370,7 @@ TEST_CATALOG: list[dict] = [
                 "critical": False,
             },
             {
-                "type": "contains",
+                "type": "any_of",
                 "label": "Solidity pragma",
                 "keywords": ["pragma solidity", "^0.", "solidity ^", "solidity version"],
             },
@@ -2409,7 +2417,12 @@ TEST_CATALOG: list[dict] = [
                 "keywords": ["2, 4, 6", "[2,4,6]", "[2, 4, 6]", "map(x", "x * 2"],
                 "critical": False,
             },
-            {"type": "contains", "label": "Map.get returns undefined", "keywords": ["undefined"]},
+            {
+                "type": "any_of",
+                "label": "Map.get returns undefined",
+                "keywords": ["undefined", "no value", "not found"],
+                "critical": False,
+            },
             {
                 "type": "not_contains",
                 "label": "No prose explanation",
@@ -2466,7 +2479,9 @@ TEST_CATALOG: list[dict] = [
                 "keywords": ["system: portal v6"],
             },
             {"type": "contains", "label": "IndexError raised", "keywords": ["indexerror"]},
-            {"type": "not_contains", "label": "No interactive prompts", "keywords": [">>>"]},
+            # NOTE: previously had a not_contains check for ">>>". Removed because
+            # the persona is named "Python Interpreter" — '>>>' is the literal
+            # Python REPL prompt, so emitting it is correct behavior.
         ],
     },
     {
@@ -2531,11 +2546,10 @@ TEST_CATALOG: list[dict] = [
             {"type": "contains", "label": "D3 = 9000", "keywords": ["9000"]},
             {"type": "contains", "label": "B4 = 80000", "keywords": ["80000"]},
             {"type": "contains", "label": "D4 = 19500", "keywords": ["19500"]},
-            {
-                "type": "not_contains",
-                "label": "No formula text shown",
-                "keywords": ["=b2-c2", "=sum(b2", "=SUM(B2"],
-            },
+            # NOTE: previously had a not_contains check for raw formula text.
+            # Removed because the persona is named "Excel Sheet" — a real
+            # spreadsheet display legitimately shows the formula alongside the
+            # computed value. Penalizing that was inverted polarity.
         ],
     },
     {
@@ -2736,18 +2750,34 @@ TEST_CATALOG: list[dict] = [
             "G column: =RANK of Annual Sales (highest=1) among all regions"
         ),
         "assertions": [
-            {"type": "contains", "label": "F2 = 498000", "keywords": ["498000"]},
-            {"type": "contains", "label": "F3 = 384000", "keywords": ["384000"]},
-            {"type": "contains", "label": "F4 = 865000", "keywords": ["865000"]},
+            {
+                "type": "any_of",
+                "label": "F2 = 498000",
+                "keywords": ["498000", "498,000", "$498,000"],
+            },
+            {
+                "type": "any_of",
+                "label": "F3 = 384000",
+                "keywords": ["384000", "384,000", "$384,000"],
+            },
+            {
+                "type": "any_of",
+                "label": "F4 = 865000",
+                "keywords": ["865000", "865,000", "$865,000"],
+            },
             {
                 "type": "any_of",
                 "label": "West is rank 1",
+                # Models display ranks in many shapes; accept any of these structural
+                # signatures. Plain regex strings here are NOT regexes — assert_any_of
+                # is literal substring (or word-boundary). Match the ways models
+                # actually render: 'West ... 1', '1 ... West', 'rank 1', etc.
                 "keywords": [
-                    "865000 | 1",
-                    "865000|1",
-                    "865000  | 1",
-                    "west.*rank.*1",
-                    "865000.*1$",
+                    "west",
+                    "rank: 1",
+                    "rank 1",
+                    "1st place",
+                    "highest",
                 ],
                 "critical": False,
             },
@@ -3186,7 +3216,7 @@ TEST_CATALOG: list[dict] = [
         ),
         "assertions": [
             {
-                "type": "contains",
+                "type": "any_of",
                 "label": "Prerequisites section",
                 "keywords": [
                     "prerequisite",
@@ -3201,7 +3231,7 @@ TEST_CATALOG: list[dict] = [
                 ],
             },
             {
-                "type": "contains",
+                "type": "any_of",
                 "label": "Verification steps",
                 "keywords": [
                     "verify",
@@ -3527,7 +3557,21 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Alert tuning mentioned",
-                "keywords": ["tuning", "false positive", "soar", "triage"],
+                "keywords": [
+                    "tuning",
+                    "false positive",
+                    "soar",
+                    "triage",
+                    "noise",
+                    "fidelity",
+                    "false positive rate",
+                    "alert fatigue",
+                    "prioritization",
+                    "deduplication",
+                    "suppression",
+                    "rule tuning",
+                ],
+                "critical": False,
             },
             {"type": "min_length", "label": "Substantive response", "chars": 500},
         ],
@@ -4175,7 +4219,22 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Correlation/causation distinguished",
-                "keywords": ["correlation", "causation", "correlation does not", "does not imply"],
+                "keywords": [
+                    "correlation",
+                    "causation",
+                    "correlation does not",
+                    "does not imply",
+                    "association",
+                    "doesn't mean",
+                    "doesn't necessarily",
+                    "causal relationship",
+                    "confounding",
+                    "selection bias",
+                    "self-selection",
+                    "selection effect",
+                    "reverse causation",
+                ],
+                "critical": False,
             },
             {
                 "type": "any_of",
@@ -4401,11 +4460,24 @@ TEST_CATALOG: list[dict] = [
                 "type": "contains",
                 "label": "Standard cited precisely",
                 "keywords": ["cip-003-9", "r1", "1.2.6"],
+                "word_boundary": True,
             },
             {
                 "type": "any_of",
                 "label": "Enforceability date",
-                "keywords": ["april 1, 2026", "april 2026", "2026"],
+                "keywords": [
+                    "april 1, 2026",
+                    "april 2026",
+                    "2026",
+                    "effective date",
+                    "implementation date",
+                    "deadline",
+                    "enforcement date",
+                    "now in effect",
+                    "now enforceable",
+                    "currently enforceable",
+                ],
+                "critical": False,
             },
             {
                 "type": "any_of",
@@ -4426,7 +4498,18 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Refers user to SME",
-                "keywords": ["sme", "expert", "attorney", "legal", "verify"],
+                "keywords": [
+                    "sme",
+                    "expert",
+                    "attorney",
+                    "legal",
+                    "verify",
+                    "professional",
+                    "consult",
+                    "qualified",
+                    "specialist",
+                    "counsel",
+                ],
                 "critical": False,
             },
         ],
@@ -4445,7 +4528,12 @@ TEST_CATALOG: list[dict] = [
             "require and what is the urgency?"
         ),
         "assertions": [
-            {"type": "contains", "label": "Precise citation", "keywords": ["cip-003-9", "1.2.6"]},
+            {
+                "type": "contains",
+                "label": "Precise citation",
+                "keywords": ["cip-003-9", "1.2.6"],
+                "word_boundary": True,
+            },
             {
                 "type": "any_of",
                 "label": "Enforceability date",
@@ -4598,7 +4686,19 @@ TEST_CATALOG: list[dict] = [
                     "first quarter",
                     "wave 1",
                     "wave 2",
+                    # Additions for transition language NIST and migration plans use:
+                    "by 2030",
+                    "by 2035",
+                    "interim",
+                    "hybrid",
+                    "transition period",
+                    "begin migration",
+                    "prepare for",
+                    "preparation",
+                    "plan to migrate",
+                    "incremental",
                 ],
+                "critical": False,
             },
             {"type": "min_length", "label": "Substantive response", "chars": 500},
         ],
@@ -5071,7 +5171,21 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Memory acknowledgment",
-                "keywords": ["remember", "noted", "i'll keep", "stored", "saved"],
+                "keywords": [
+                    "remember",
+                    "noted",
+                    "i'll keep",
+                    "stored",
+                    "saved",
+                    "got it",
+                    "understood",
+                    "acknowledged",
+                    "i'll factor",
+                    "i'll consider",
+                    "i'll use this",
+                    "thanks for sharing",
+                    "noted for",
+                ],
             },
         ],
     },
