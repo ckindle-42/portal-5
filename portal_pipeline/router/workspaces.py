@@ -51,6 +51,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Reasoning/research → DeepSeek-R1. Other → general."
         ),
         "model_hint": "dolphin-llama3:8b",
+        "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
         "tools": [],
     },
     "auto-coding": {

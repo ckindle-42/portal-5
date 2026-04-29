@@ -2001,6 +2001,15 @@ async def _try_non_streaming(
         return None
     else:
         target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+
+    if enforce_hint:
+        logger.info(
+            "Non-stream routing: workspace=%s backend=%s model=%s",
+            workspace_id,
+            backend.id,
+            target_model,
+        )
+
     req_body = {**body, "model": target_model, "stream": False}
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
@@ -2359,6 +2368,14 @@ async def chat_completions(
                 )
         else:
             target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+
+        logger.info(
+            "Stream routing: workspace=%s backend=%s model=%s (1/%d candidates)",
+            workspace_id,
+            backend.id,
+            target_model,
+            len(candidates),
+        )
 
         backend_body = {**body, "model": target_model}
 
