@@ -1001,18 +1001,37 @@ async def _download_artifact(
 # ---------------------------------------------------------------------------
 
 
-def assert_contains(text: str, keywords: list, label: str) -> tuple:
-    missing = [k for k in keywords if k.lower() not in text.lower()]
+def _kw_in(keyword: str, text: str, *, word_boundary: bool) -> bool:
+    """Return True if ``keyword`` appears in ``text`` (case-insensitive).
+
+    With ``word_boundary=True``, the match is anchored on regex ``\\b`` boundaries
+    so short tokens like 'r1' or 'lives' don't match inside 'router 1' or 'olives'.
+    Boundaries only fire between \\w and \\W, so keywords that begin or end with
+    punctuation (e.g. '=B2-C2') still match correctly.
+    """
+    needle = keyword.lower()
+    haystack = text.lower()
+    if not word_boundary:
+        return needle in haystack
+    import re
+
+    return re.search(rf"\b{re.escape(needle)}\b", haystack) is not None
+
+
+def assert_contains(text: str, keywords: list, label: str, *, word_boundary: bool = False) -> tuple:
+    missing = [k for k in keywords if not _kw_in(k, text, word_boundary=word_boundary)]
     return (label, not missing, f"missing: {missing}" if missing else "ok")
 
 
-def assert_any_of(text: str, keywords: list, label: str) -> tuple:
-    found = [k for k in keywords if k.lower() in text.lower()]
+def assert_any_of(text: str, keywords: list, label: str, *, word_boundary: bool = False) -> tuple:
+    found = [k for k in keywords if _kw_in(k, text, word_boundary=word_boundary)]
     return (label, bool(found), f"found: {found}" if found else f"none of: {keywords}")
 
 
-def assert_not_contains(text: str, keywords: list, label: str) -> tuple:
-    found = [k for k in keywords if k.lower() in text.lower()]
+def assert_not_contains(
+    text: str, keywords: list, label: str, *, word_boundary: bool = False
+) -> tuple:
+    found = [k for k in keywords if _kw_in(k, text, word_boundary=word_boundary)]
     return (label, not found, f"found (bad): {found}" if found else "ok")
 
 
@@ -1088,11 +1107,23 @@ def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None 
         t = a["type"]
         label = a.get("label", t)
         if t == "contains":
-            results.append(assert_contains(text, a["keywords"], label))
+            results.append(
+                assert_contains(
+                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
+                )
+            )
         elif t == "any_of":
-            results.append(assert_any_of(text, a["keywords"], label))
+            results.append(
+                assert_any_of(
+                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
+                )
+            )
         elif t == "not_contains":
-            results.append(assert_not_contains(text, a["keywords"], label))
+            results.append(
+                assert_not_contains(
+                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
+                )
+            )
         elif t == "min_length":
             results.append(assert_min_length(text, a["chars"], label))
         elif t == "has_code":
@@ -1127,8 +1158,20 @@ def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None 
 
 
 def compute_status(assertions: list, assertions_spec: list) -> str:
-    """Percentage-based grading: PASS if >=70% assertions pass (no critical fail),
-    WARN if >=50% pass, FAIL otherwise."""
+    """Grade a test result.
+
+    By default every assertion is critical (a single failure produces FAIL).
+    To opt an assertion into the percentage-grading floor, mark it with
+    ``"critical": False`` in the spec. Behavior:
+
+    - Any spec entry with ``critical=True`` (the default) that fails -> FAIL.
+    - Otherwise, if all failing specs are ``critical=False``: PASS at >=70% pass
+      rate, WARN at >=50%, FAIL below.
+
+    The percentage rule only takes effect when no critical assertion fails.
+    Phase 2 adds ``critical: False`` markers to soft assertions in the catalog
+    that should fall under the percentage rule.
+    """
     if not assertions:
         return "FAIL"
     total = len(assertions)
@@ -1178,6 +1221,71 @@ def update_summary(counts: dict) -> None:
     RESULTS_FILE.write_text(text)
 
 
+def _parse_test_ids_from_results() -> set[str]:
+    """Return the set of test IDs already present as rows in UAT_RESULTS.md."""
+    if not RESULTS_FILE.exists():
+        return set()
+    import re as _re
+
+    text = RESULTS_FILE.read_text()
+    ids: set[str] = set()
+    # Result rows: "| N | STATUS | [TEST_ID name](url) | `model` | ... | Ns |"
+    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*\w+\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s")
+    for line in text.split("\n"):
+        m = pattern.match(line)
+        if m:
+            ids.add(m.group(1))
+    return ids
+
+
+def _remove_rows_for_test_ids(test_ids: set[str]) -> int:
+    """Remove existing rows from UAT_RESULTS.md whose test_id is in ``test_ids``.
+
+    Returns the number of rows removed. The summary header is NOT updated here —
+    callers should run ``_rebuild_summary_from_rows`` after the run completes.
+    """
+    if not RESULTS_FILE.exists():
+        return 0
+    import re as _re
+
+    text = RESULTS_FILE.read_text()
+    out_lines: list[str] = []
+    removed = 0
+    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*\w+\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s")
+    for line in text.split("\n"):
+        m = pattern.match(line)
+        if m and m.group(1) in test_ids:
+            removed += 1
+            continue
+        out_lines.append(line)
+    RESULTS_FILE.write_text("\n".join(out_lines))
+    return removed
+
+
+def _rebuild_summary_from_rows() -> None:
+    """Recompute the PASS/WARN/FAIL/SKIP/MANUAL counts in the summary header
+    by parsing the rows in UAT_RESULTS.md. Source of truth is the file contents,
+    not the in-memory ``counts`` dict (which is per-invocation).
+    """
+    if not RESULTS_FILE.exists():
+        return
+    import re as _re
+
+    text = RESULTS_FILE.read_text()
+    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIP": 0, "MANUAL": 0}
+    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*(\w+)\s*\|\s*\[")
+    for line in text.split("\n"):
+        m = pattern.match(line)
+        if m:
+            status = m.group(1).strip()
+            if status in counts:
+                counts[status] += 1
+    for status in counts:
+        old_re = _re.compile(rf"^- \*\*{status}\*\*: \d+", _re.MULTILINE)
+        text = old_re.sub(f"- **{status}**: {counts[status]}", text)
+    RESULTS_FILE.write_text(text)
+
+
 def record_result(
     n: int,
     status: str,
@@ -1192,7 +1300,7 @@ def record_result(
     passed = sum(1 for a in assertions if a[1])
     total = len(assertions)
     pct = f"{passed}/{total}({passed * 100 // total}%)" if total else "0/0"
-    detail = "; ".join(f"{a[0]}={'✓' if a[1] else '✗'}({a[2]})" for a in assertions[:5])
+    detail = "; ".join(f"{a[0]}={'✓' if a[1] else '✗'}({a[2]})" for a in assertions)
     if routed_model and status in ("FAIL", "WARN"):
         detail = f"[routed: {routed_model}] {detail}" if detail else f"[routed: {routed_model}]"
     with RESULTS_FILE.open("a") as f:
@@ -5969,6 +6077,16 @@ async def main() -> None:
         help="Append results to existing UAT_RESULTS.md (for re-runs)",
     )
     parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help=(
+            "Re-run mode: remove existing rows in UAT_RESULTS.md for the selected "
+            "test IDs before running. Implies --append. Use this when re-running a "
+            "phase after a fix; prevents duplicate rows. Requires --section, --test, "
+            "or --media to scope which tests to replace."
+        ),
+    )
+    parser.add_argument(
         "--migrate",
         action="store_true",
         help="Move existing root-level UAT chats into root UAT folder, then exit",
@@ -6066,6 +6184,24 @@ async def main() -> None:
         tier = t.get("workspace_tier", "any")
         tier_counts[tier] = tier_counts.get(tier, 0) + 1
     print(f"  Cascade order: {' > '.join(f'{t}({c})' for t, c in tier_counts.items())}")
+
+    # --rerun: remove existing rows for the selected tests so they don't duplicate
+    if args.rerun:
+        if not (args.test or args.section or args.media):
+            print(
+                "ERROR: --rerun requires --test, --section, or --media to scope the replacement",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        # --rerun implies --append (we're editing an existing file)
+        args.append = True
+        if RESULTS_FILE.exists():
+            target_ids = {t["id"] for t in tests}
+            removed = _remove_rows_for_test_ids(target_ids)
+            print(f"  --rerun: removed {removed} existing row(s) for {len(target_ids)} test ID(s)")
+        else:
+            print("  --rerun: no existing UAT_RESULTS.md to update — running fresh")
+            args.append = False
 
     # Skip conditions
     skip_conditions = evaluate_skip_conditions()
@@ -6242,7 +6378,27 @@ async def main() -> None:
             # but this catches issues right before a test starts)
             safe = _check_memory_before_test(f"{test['id']} {test['name']}")
             if not safe:
-                print(f"  [{i:02d}/{len(tests):02d}] {test['id']} SKIPPED (memory pressure)")
+                used_pct = _get_memory_pct()
+                print(
+                    f"  [{i:02d}/{len(tests):02d}] {test['id']} SKIPPED (memory pressure {used_pct:.0f}%)"
+                )
+                # Write a row so the skip is visible in UAT_RESULTS.md, not just summary count
+                record_result(
+                    n=i,
+                    status="SKIP",
+                    test_id=test["id"],
+                    name=test["name"],
+                    model=test["model_slug"],
+                    assertions=[
+                        (
+                            "memory_pressure_skip",
+                            False,
+                            f"used={used_pct:.0f}%, threshold={MEMORY_CRITICAL_PCT:.0f}%",
+                        )
+                    ],
+                    elapsed=0.0,
+                    chat_url=f"memory-skip://{used_pct:.0f}pct",
+                )
                 counts["SKIP"] = counts.get("SKIP", 0) + 1
                 continue
 
@@ -6330,17 +6486,9 @@ async def main() -> None:
         print("Next: review 'review_tag' fields (good/bad/skip), then run:")
         print(f"  python3 tests/portal5_uat_driver.py --emit-signals-from {cal_path}")
 
-    # Update summary counts in results file
-    if args.append:
-        # In append mode, add new counts to existing counts in the file
-        import re as _re
-
-        text = RESULTS_FILE.read_text()
-        for status in ("PASS", "WARN", "FAIL", "SKIP", "MANUAL"):
-            m = _re.search(rf"\*\*{status}\*\*: (\d+)", text)
-            existing = int(m.group(1)) if m else 0
-            counts[status] = counts.get(status, 0) + existing
-    update_summary(counts)
+    # Always rebuild the summary header from actual file rows, so the count
+    # is correct after partial / phased / rerun executions.
+    _rebuild_summary_from_rows()
 
     total = sum(counts.values())
     print(f"\n{'=' * 50}")
