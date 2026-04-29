@@ -104,3 +104,47 @@ def test_rebuild_summary_from_rows(tmp_path, monkeypatch):
     assert "- **SKIP**: 1" in text
     assert "- **WARN**: 0" in text
     assert "- **MANUAL**: 0" in text
+
+
+def test_word_boundary_keyword_with_trailing_nonword():
+    """Keywords ending in non-word chars (like 'lives--') CANNOT use word_boundary.
+
+    Regression test for the silent-mismatch bug: \\b only fires at \\w<->\\W
+    transitions. A keyword ending in '--' would need its closing \\b to find a
+    \\w after the '--', but in real JS code (`this.lives--;`) the next char is
+    ';' (non-word). No transition, no match.
+
+    This test pins the BEHAVIOR (silent fail) rather than fixing it, because
+    fixing would require either a different anchoring strategy or per-keyword
+    logic. The catalog must avoid combining word_boundary=True with keywords
+    that begin or end with non-word characters.
+    """
+    from portal5_uat_driver import _kw_in
+
+    # The keyword's trailing -- is non-word, and ;/whitespace after is also
+    # non-word, so \b doesn't fire. This is a known limitation of \b.
+    assert _kw_in("lives--", "this.lives--;", word_boundary=True) is False
+    assert _kw_in("lives--", "this.lives--;", word_boundary=False) is True
+
+    # Leading non-word: only fails when the preceding char is ALSO non-word.
+    # In "(--lives)", '(' is \W and '-' is \W — no \b between them.
+    assert _kw_in("--lives", "(--lives)", word_boundary=True) is False
+    assert _kw_in("--lives", "(--lives)", word_boundary=False) is True
+
+    # Keywords with non-word INSIDE (not at edges) work fine
+    assert _kw_in("player.lives", "if (player.lives <= 0)", word_boundary=True) is True
+
+
+def test_word_boundary_word_to_word_transition_does_not_fire():
+    """\\b only fires \\w<->\\W. Smashed keywords (R1.2.6) don't match '1.2.6'.
+
+    This documents another foot-gun: if a keyword is preceded immediately by
+    a word character (like 'R' before '1.2.6' in 'R1.2.6'), the leading \\b
+    in the regex doesn't fire and the match silently fails.
+    """
+    from portal5_uat_driver import _kw_in
+
+    # In 'R1.2.6', R is \w, 1 is \w, so no \b between them
+    assert _kw_in("1.2.6", "Reference R1.2.6 applies", word_boundary=True) is False
+    # But under legacy substring matching, it works
+    assert _kw_in("1.2.6", "Reference R1.2.6 applies", word_boundary=False) is True

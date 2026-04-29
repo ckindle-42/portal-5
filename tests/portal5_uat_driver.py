@@ -1735,8 +1735,10 @@ _CC01_ASSERTIONS = [
             "lifecount",
             "remaininglives",
             "player_lives",
-            "lives--",
-            "lives++",
+            # NOTE: "lives--" and "lives++" were here but were removed.
+            # word_boundary=True can't anchor `\b` after non-word chars `--`/`++`,
+            # so they silently never matched. The 'lives' or 'this.lives' keywords
+            # already cover any code path containing these patterns.
             "lose a life",
             "lost a life",
             "starting lives",
@@ -4460,7 +4462,10 @@ TEST_CATALOG: list[dict] = [
                 "type": "contains",
                 "label": "Standard cited precisely",
                 "keywords": ["cip-003-9", "r1", "1.2.6"],
-                "word_boundary": True,
+                # word_boundary intentionally not set: the original review plan's
+                # claim that 'r1' would substring-match 'router 1' was incorrect
+                # (the space prevents that). And word_boundary regresses on
+                # smashed forms like 'R1.2.6' (\b can't fire between word chars).
             },
             {
                 "type": "any_of",
@@ -4532,7 +4537,7 @@ TEST_CATALOG: list[dict] = [
                 "type": "contains",
                 "label": "Precise citation",
                 "keywords": ["cip-003-9", "1.2.6"],
-                "word_boundary": True,
+                # word_boundary intentionally not set — see WS-16 above.
             },
             {
                 "type": "any_of",
