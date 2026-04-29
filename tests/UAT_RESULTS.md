@@ -6,9 +6,9 @@
 
 ## Summary
 
-- **PASS**: 101
+- **PASS**: 104
 - **WARN**: 1
-- **FAIL**: 44
+- **FAIL**: 45
 - **SKIP**: 4
 - **MANUAL**: 2
 
@@ -282,3 +282,7 @@ A-03 now passes (1/1, ~71s) with `mlx_model_hint: mlx-community/Dolphin3.0-Llama
 | CC-01-llama33-70b | MLX crash cascade — re-run with clean memory |
 | CC-01-qwen3-coder-next | MLX crash cascade — re-run with clean memory |
 | CC-01-phi4 | MLX crash cascade / memory skip — re-run with clean memory |
+| 1 | PASS | [CC-01-llama33-70b CC-01 Asteroids · Llama-3.3-70B](http://localhost:8080/c/5bb3d9b5-a765-4c46-859a-eb587dc741d5) | `bench-llama33-70b` | 4/5(80%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame', 'game loop', 'gameloop']); Asteroids split logic=✓(found: ['asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 281.0s |
+| 2 | FAIL | [CC-01-qwen3-coder-next CC-01 Asteroids · Qwen3-Coder-Next](http://localhost:8080/c/9e9191a0-272f-414e-87e8-26b6e86d3aa8) | `bench-qwen3-coder-next` | 3/5(60%) [routed: bench-qwen3-coder-next] HTML file delivered=✓(code block present); Canvas game loop=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 191.1s |
+| 3 | PASS | [CC-01-phi4 CC-01 Asteroids · phi4](http://localhost:8080/c/534f0ba0-b259-4277-9662-cfa051c26a7c) | `bench-phi4` | 4/5(80%) HTML file delivered=✓(code block present); Canvas game loop=✓(found: ['requestanimationframe', 'requestAnimationFrame']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system=✗(none of: ['lives', 'life', 'Lives', 'Life', 'lives_remaining', 'numLives', 'playerLives', 'player.lives', 'livesLeft', 'lifeCount', 'remainingLives', 'lives =', 'lives:', '3 lives', 'starting lives', 'lose a life']); Score system=✓(ok) | 101.0s |
+| 4 | PASS | [A-04 Routing Validation — Content-Aware Selection](http://localhost:8080/c/813d97f4-d902-448d-b0db-63eb8c5ec537) | `auto` | 2/2(100%) Security response=✓(found: ['acl', 'access-list', 'firewall', 'deny', 'block']); Substantive response=✓(len=1520, min=200) | 161.0s |
