@@ -1452,3 +1452,37 @@ class TestPersonasHaveToolFields:
         assert "kb_list" in p["tools_allow"]
         assert "kb_search" in p["tools_allow"]
         assert "kb_search_all" in p["tools_allow"]
+
+
+class TestInjectMLXOptions:
+    """Unit tests for _inject_mlx_options (Phase 3 Section A)."""
+
+    def test_maps_predict_limit_to_max_tokens(self, monkeypatch):
+        from portal_pipeline.router_pipe import _inject_mlx_options
+        import portal_pipeline.router_pipe as rp
+
+        monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
+
+        body = {"messages": [{"role": "user", "content": "hi"}]}
+        out = _inject_mlx_options(body, "auto-coding")
+        assert out["max_tokens"] == 8192
+        assert "max_tokens" not in body  # original must not be mutated
+
+    def test_respects_explicit_max_tokens(self, monkeypatch):
+        from portal_pipeline.router_pipe import _inject_mlx_options
+        import portal_pipeline.router_pipe as rp
+
+        monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
+
+        body = {"messages": [], "max_tokens": 1024}
+        out = _inject_mlx_options(body, "auto-coding")
+        assert out["max_tokens"] == 1024  # caller's explicit value wins (setdefault)
+
+    def test_no_predict_limit_is_noop(self, monkeypatch):
+        from portal_pipeline.router_pipe import _inject_mlx_options
+        import portal_pipeline.router_pipe as rp
+
+        monkeypatch.setattr(rp, "WORKSPACES", {"x": {}})
+        body = {"messages": []}
+        out = _inject_mlx_options(body, "x")
+        assert "max_tokens" not in out

@@ -1477,6 +1477,31 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     return body
 
 
+def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
+    """Inject MLX-specific defaults not already in the request.
+
+    Only called for backends with type='mlx'. Translates the engine-agnostic
+    workspace-level ``predict_limit`` (originally Ollama-flavored) into the
+    OpenAI-format ``max_tokens`` field that mlx_lm.server / mlx_vlm.server
+    honor.
+
+    Without this injection, MLX requests rely on the inference server's
+    internal default, which can truncate the response while the model is
+    still in the analysis phase (observed: 2026-04-28 UAT §A, auto-coding
+    tests producing 1880-2192 chars of analysis before truncation, never
+    reaching the requested code block).
+
+    Uses setdefault() — never overrides an explicit ``max_tokens`` from the
+    caller (e.g. Open WebUI passing its own value).
+    """
+    body = dict(body)
+    ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+    predict_limit = ws_cfg_local.get("predict_limit")
+    if predict_limit:
+        body.setdefault("max_tokens", predict_limit)
+    return body
+
+
 def _init_notifications(registry: BackendRegistry) -> None:
     """Initialize the notification dispatcher and scheduler."""
     global _notification_dispatcher, _notification_scheduler
@@ -2013,6 +2038,8 @@ async def _try_non_streaming(
     req_body = {**body, "model": target_model, "stream": False}
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
+    elif backend.type == "mlx":
+        req_body = _inject_mlx_options(req_body, workspace_id)
 
     try:
         resp = await _http_client.post(backend.chat_url, json=req_body)
@@ -2379,10 +2406,12 @@ async def chat_completions(
 
         backend_body = {**body, "model": target_model}
 
-        # Inject keep_alive + num_batch for Ollama backends.
-        # Skipped for MLX (doesn't accept these fields) and vLLM (uses its own config).
+        # Inject keep_alive + num_batch for Ollama; predict_limit -> max_tokens for MLX.
+        # vLLM uses its own config and is not handled here.
         if backend.type == "ollama":
             backend_body = _inject_ollama_options(backend_body, workspace_id)
+        elif backend.type == "mlx":
+            backend_body = _inject_mlx_options(backend_body, workspace_id)
 
         # Resolve effective tool list for this request (M2)
         persona_data = _PERSONA_MAP.get(persona, {})
