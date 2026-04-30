@@ -703,7 +703,7 @@ services:
       - MEMORY_MCP_PORT=8920
       - MCP_PORT=8920
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
-      - MLX_EMBEDDING_URL=http://host.docker.internal:8081/v1/embeddings
+      - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
     command: ["python", "-m", "portal_mcp.memory.memory_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance
@@ -729,7 +729,7 @@ services:
       - MCP_PORT=8921
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
-      - MLX_EMBEDDING_URL=http://host.docker.internal:8081/v1/embeddings
+      - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
       - MLX_RERANK_URL=http://host.docker.internal:8081/v1/rerank
     command: ["python", "-m", "portal_mcp.rag.rag_mcp"]
     volumes:

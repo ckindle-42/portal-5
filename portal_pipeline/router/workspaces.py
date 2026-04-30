@@ -73,6 +73,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "sandbox_status",
             "read_word_document",
             "read_pdf",
+            "remember",
+            "recall",
         ],
     },
     "auto-agentic": {
