@@ -2867,8 +2867,12 @@ PLIST
     echo "  Installing mlx-vlm (supports Qwen3.5 VLM + vision models)..."
     pip3 install "mlx-vlm" --upgrade --quiet 2>/dev/null || \
         pip3 install "mlx-vlm" --upgrade --quiet --break-system-packages
-    # mlx-lm is pulled as a dependency of mlx-vlm and mlx-audio — no explicit pin needed.
-    # mlx-vlm 0.4.4 requires mlx-lm>=0.31.0; mlx-audio 0.4.2 pins mlx-lm==0.31.1.
+    # mlx-lm: upgrade explicitly after mlx-vlm to unpin any mlx-audio mlx-lm==x.y.z constraint.
+    # mlx-lm is actively developed — new model architectures (Laguna SWA, Mamba2, etc.) require
+    # staying current. mlx-audio and mlx-vlm are forward-compatible with newer mlx-lm versions.
+    echo "  Upgrading mlx-lm to latest (unpins mlx-audio dependency lock)..."
+    pip3 install "mlx-lm" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-lm" --upgrade --quiet --break-system-packages
     python3 -c "import mlx_lm; print(f'  ✅ mlx-lm {mlx_lm.__version__}')" 2>/dev/null || \
         echo "  ❌ mlx-lm not installed (should be pulled by mlx-vlm)"
     python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
@@ -3630,6 +3634,7 @@ PLIST
         "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
         "lmstudio-community/Devstral-Small-2507-MLX-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
+        "mlx-community/Laguna-XS.2-4bit"                          # ~19GB — Poolside AI MoE 33B-A3B, 68.2% SWE-bench, new lineage
         "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit"    # ~18GB — GLM 30B-A3B MoE, 59.2% SWE-bench, abliterated
         # Jackrong Reasoning (Qwopus3.5-v3 primary + Claude-4.6-Opus variants)
         "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                                    # ~22GB — primary auto-reasoning

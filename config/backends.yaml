@@ -46,6 +46,12 @@ backends:
         is_vlm: false
         supports_tools: true
         notes: "Devstral v1.1 4bit (~15GB, 53.6% SWE-bench) — bench-devstral pin, displaced by GLM-4.7-Flash for auto-coding"
+      - id: mlx-community/Laguna-XS.2-4bit
+        memory_gb: 19
+        big_model: false
+        is_vlm: false
+        supports_tools: true
+        notes: "Laguna XS.2 33B-A3B MoE 4bit (~18.8GB) — Poolside AI lineage (first non-Alibaba/Meta/Google/NVIDIA/Mistral coder in stack). 68.2% SWE-bench Verified. Native interleaved reasoning + tool calling. SWA+FP8 KV cache. Apache 2.0. Converted mlx-lm 0.31.3."
       # ── GLM-4.7 (Z.AI lineage — escapes Qwen+Gemma duopoly) ───────────────────
       - id: huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit
         memory_gb: 18
@@ -321,6 +327,7 @@ workspace_routing:
   bench-dolphin8b:         [mlx, general]           # Dolphin3.0-Llama3.1-8B (Cognitive Computations)
   bench-glm:               [coding, general]        # glm-4.7-flash (Zhipu AI — Ollama only)
   bench-gptoss:            [reasoning, general]     # gpt-oss:20b (OpenAI open-weight — Ollama only)
+  bench-laguna:            [mlx, coding, general]   # Laguna-XS.2-4bit (Poolside — new lineage)
 
 defaults:
   fallback_group: general

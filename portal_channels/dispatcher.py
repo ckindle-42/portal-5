@@ -57,6 +57,7 @@ VALID_WORKSPACES = frozenset(
         "bench-dolphin8b",
         "bench-glm",
         "bench-gptoss",
+        "bench-laguna",
     }
 )
 

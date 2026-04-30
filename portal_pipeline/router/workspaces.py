@@ -334,6 +334,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "tools": [],
     },
+    "bench-laguna": {
+        "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
+        "description": "Benchmark: Laguna-XS.2-4bit (MLX, Poolside AI, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified, interleaved reasoning)",
+        "model_hint": "glm-4.7-flash:q4_k_m",
+        "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
