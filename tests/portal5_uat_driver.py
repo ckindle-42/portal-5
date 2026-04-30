@@ -715,16 +715,23 @@ def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | Non
 
     import sys as _sys
     from pathlib import Path as _Path
+
     _sys.path.insert(0, str(_Path(__file__).parent))
 
     explicit = test.get("assert_routed_via")
     if explicit:
         from expected_models import model_matches_expected
-        ok = model_matches_expected(routed_model, explicit)
-        return (ok, f"explicit expectation: {explicit}" if ok
-                else f"explicit expectation NOT matched: {explicit}")
 
-    from expected_models import resolve_expected, model_matches_expected
+        ok = model_matches_expected(routed_model, explicit)
+        return (
+            ok,
+            f"explicit expectation: {explicit}"
+            if ok
+            else f"explicit expectation NOT matched: {explicit}",
+        )
+
+    from expected_models import model_matches_expected, resolve_expected
+
     slug = test.get("model_slug", "")
 
     mlx_state = "ready"
@@ -1055,6 +1062,7 @@ async def _download_artifact(
 # Think-block stripping
 # ---------------------------------------------------------------------------
 
+
 def _strip_think_blocks(text: str) -> str:
     """Strip <think>...</think> blocks from model output before running assertions.
 
@@ -1069,6 +1077,7 @@ def _strip_think_blocks(text: str) -> str:
     by Magistral. Trailing whitespace is normalized after stripping.
     """
     import re
+
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"\[THINK\].*?\[/THINK\]", "", text, flags=re.DOTALL | re.IGNORECASE)
     return text.strip()
@@ -1182,6 +1191,7 @@ def assert_wav_valid(
             return (label, False, f"not a valid WAV: {len(data)} bytes")
         if min_seconds > 0:
             import wave
+
             with wave.open(str(path), "rb") as w:
                 duration = w.getnframes() / float(w.getframerate())
             if duration < min_seconds:
@@ -1212,6 +1222,7 @@ def assert_png_valid(
         if min_width > 0 or min_height > 0:
             try:
                 from PIL import Image
+
                 with Image.open(path) as im:
                     w, h = im.size
                 if w < min_width or h < min_height:
@@ -1242,11 +1253,19 @@ def assert_mp4_valid(
             return (label, False, f"not an MP4: {data[:16]!r}")
         if min_seconds > 0:
             import subprocess
+
             try:
                 out = subprocess.check_output(
-                    ["ffprobe", "-v", "error", "-show_entries",
-                     "format=duration", "-of",
-                     "default=noprint_wrappers=1:nokey=1", str(path)],
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "default=noprint_wrappers=1:nokey=1",
+                        str(path),
+                    ],
                     text=True,
                     timeout=10,
                 ).strip()
@@ -2276,9 +2295,17 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Issue 3: input validation / unsafe concat",
                 "keywords": [
-                    "validate", "validation", "sanitize", "untrusted",
-                    "f-string", "f\"", "concatenat", "user input",
-                    "user-supplied", "shell", "shlex",
+                    "validate",
+                    "validation",
+                    "sanitize",
+                    "untrusted",
+                    "f-string",
+                    'f"',
+                    "concatenat",
+                    "user input",
+                    "user-supplied",
+                    "shell",
+                    "shlex",
                 ],
             },
         ],
@@ -5354,14 +5381,22 @@ TEST_CATALOG: list[dict] = [
             },
         ],
         "turn2_assertions": [
-            {"type": "min_length", "label": "Turn 2 retrieval substantive",
-             "chars": 100, "critical": False},
+            {
+                "type": "min_length",
+                "label": "Turn 2 retrieval substantive",
+                "chars": 100,
+                "critical": False,
+            },
             {
                 "type": "any_of",
                 "label": "Quotes content actually in fixture",
                 "keywords": [
-                    "access control", "rbac", "authentication",
-                    "authorization", "least privilege", "principle of",
+                    "access control",
+                    "rbac",
+                    "authentication",
+                    "authorization",
+                    "least privilege",
+                    "principle of",
                 ],
             },
         ],
@@ -5398,8 +5433,7 @@ TEST_CATALOG: list[dict] = [
             "My main focus is OT/ICS network segmentation. Please remember this."
         ),
         "turn2": (
-            "Without me restating it, what is my role and what tooling do I work with? "
-            "Be specific."
+            "Without me restating it, what is my role and what tooling do I work with? Be specific."
         ),
         "assertions": [
             {
@@ -5407,8 +5441,14 @@ TEST_CATALOG: list[dict] = [
                 "label": "Memory acknowledgment (turn 1)",
                 "critical": False,
                 "keywords": [
-                    "remember", "noted", "i'll keep", "stored", "saved",
-                    "got it", "understood", "acknowledged",
+                    "remember",
+                    "noted",
+                    "i'll keep",
+                    "stored",
+                    "saved",
+                    "got it",
+                    "understood",
+                    "acknowledged",
                 ],
             },
         ],
@@ -5426,8 +5466,13 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Recalls focus area",
-                "keywords": ["ot", "ics", "segmentation", "operational technology",
-                             "industrial control"],
+                "keywords": [
+                    "ot",
+                    "ics",
+                    "segmentation",
+                    "operational technology",
+                    "industrial control",
+                ],
             },
         ],
     },
@@ -5451,8 +5496,12 @@ TEST_CATALOG: list[dict] = [
                 "critical": False,
                 "keywords": ["acl", "access-list", "firewall", "policy", "deny", "block"],
             },
-            {"type": "min_length", "label": "Substantive response",
-             "chars": 200, "critical": False},
+            {
+                "type": "min_length",
+                "label": "Substantive response",
+                "chars": 200,
+                "critical": False,
+            },
         ],
     },
     # A-05 — Telegram bot dispatcher path. Drives the same call call_pipeline_async()
@@ -5578,9 +5627,16 @@ TEST_CATALOG: list[dict] = [
                 "label": "Chat 1: storage acknowledged",
                 "critical": False,
                 "keywords": [
-                    "stored", "saved", "remembered", "noted",
-                    "confirmed", "successfully", "i've stored",
-                    "i'll remember", "keeping", "tool call",
+                    "stored",
+                    "saved",
+                    "remembered",
+                    "noted",
+                    "confirmed",
+                    "successfully",
+                    "i've stored",
+                    "i'll remember",
+                    "keeping",
+                    "tool call",
                 ],
             },
         ],
@@ -5720,10 +5776,16 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Intersection points found",
                 "keywords": [
-                    "x=0", "x=2", "x = 0", "x = 2",
-                    "x=0 and x=2", "x = 0 and x = 2",
-                    "(0, 0)", "(2, 4)",
-                    "(0,0)", "(2,4)",
+                    "x=0",
+                    "x=2",
+                    "x = 0",
+                    "x = 2",
+                    "x=0 and x=2",
+                    "x = 0 and x = 2",
+                    "(0, 0)",
+                    "(2, 4)",
+                    "(0,0)",
+                    "(2,4)",
                     "0 and 2",
                 ],
             },
@@ -6116,9 +6178,14 @@ async def _run_two_chat_test(
             if folder_id:
                 owui_assign_chat_folder(token, chat_id, folder_id)
             record_result(
-                n, "FAIL", test_id, name, model,
+                n,
+                "FAIL",
+                test_id,
+                name,
+                model,
                 [("backend_unavailable", False, "tier not ready")],
-                0.0, chat_url,
+                0.0,
+                chat_url,
             )
             counts["FAIL"] = counts.get("FAIL", 0) + 1
             return
@@ -6175,15 +6242,11 @@ async def _run_two_chat_test(
             check1 = _check_routed_model(test, routed_model_1)
             if check1 is not None:
                 ok, det = check1
-                assertions_result.append(
-                    (f"Chat 1 routed: {routed_model_1[:30]}", ok, det)
-                )
+                assertions_result.append((f"Chat 1 routed: {routed_model_1[:30]}", ok, det))
             check2 = _check_routed_model(test, routed_model_2)
             if check2 is not None:
                 ok, det = check2
-                assertions_result.append(
-                    (f"Chat 2 routed: {routed_model_2[:30]}", ok, det)
-                )
+                assertions_result.append((f"Chat 2 routed: {routed_model_2[:30]}", ok, det))
         except NameError:
             # _check_routed_model not present — V1 not merged. Skip silently.
             pass
@@ -6225,26 +6288,36 @@ async def _run_two_chat_test(
     # Use chat 2 URL as the "primary" link in results — it's where the
     # actual recall behavior is visible to a reviewer.
     record_result(
-        n, status, test_id, name, model,
-        assertions_result, elapsed, chat2_url,
+        n,
+        status,
+        test_id,
+        name,
+        model,
+        assertions_result,
+        elapsed,
+        chat2_url,
         routed_model_2,
     )
     counts[status] = counts.get(status, 0) + 1
 
     if calibration_records is not None:
-        calibration_records.append({
-            "test_id": test_id,
-            "name": name,
-            "section": test.get("section", ""),
-            "workspace": test.get("model_slug", ""),
-            "prompt": test.get("prompt", "") + "\n\n[NEW CHAT]\n" + test.get("turn2_in_new_chat", ""),
-            "response_text": (
-                f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
-            ),
-            "chat_url": chat2_url,
-            "review_tag": "",
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        })
+        calibration_records.append(
+            {
+                "test_id": test_id,
+                "name": name,
+                "section": test.get("section", ""),
+                "workspace": test.get("model_slug", ""),
+                "prompt": test.get("prompt", "")
+                + "\n\n[NEW CHAT]\n"
+                + test.get("turn2_in_new_chat", ""),
+                "response_text": (
+                    f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
+                ),
+                "chat_url": chat2_url,
+                "review_tag": "",
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        )
 
 
 async def run_test(
@@ -6360,7 +6433,13 @@ async def run_test(
     # turns. Each chat shows up independently in OWUI history.
     if test.get("is_two_chat"):
         return await _run_two_chat_test(
-            page, test, token, n, counts, folder_id, calibration_records,
+            page,
+            test,
+            token,
+            n,
+            counts,
+            folder_id,
+            calibration_records,
         )
 
     tier = test.get("workspace_tier", "any")
@@ -6504,8 +6583,7 @@ async def run_test(
         )
         if status == "PASS" and not matched:
             status = "WARN"
-            print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}",
-                  flush=True)
+            print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}", flush=True)
 
     final_title = f"[{status}] UAT: {test_id} {name}"
     owui_rename_chat(token, chat_id, final_title)
@@ -6664,6 +6742,124 @@ def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_s
     print(f"Signals written to {output_path}")
     for sec, kws in sorted(section_keywords.items()):
         print(f"  {sec}: {kws}")
+
+
+def _git_sha() -> str:
+    """Get current git SHA."""
+    try:
+        import subprocess as _subprocess
+
+        return _subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+async def _send_notification(event_type: str, message: str, metadata: dict | None = None) -> None:
+    """Fire a notification via the Portal 5 notification dispatcher.
+
+    Gracefully handles missing dependencies or disabled notifications — never
+    crashes the test suite.
+    """
+    if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
+        return
+    try:
+        from portal_pipeline.notifications.channels.email import EmailChannel
+        from portal_pipeline.notifications.channels.pushover import PushoverChannel
+        from portal_pipeline.notifications.channels.slack import SlackChannel
+        from portal_pipeline.notifications.channels.telegram import TelegramChannel
+        from portal_pipeline.notifications.channels.webhook import WebhookChannel
+        from portal_pipeline.notifications.dispatcher import NotificationDispatcher
+        from portal_pipeline.notifications.events import AlertEvent, EventType
+
+        dispatcher = NotificationDispatcher()
+        for ch in [SlackChannel, TelegramChannel, EmailChannel, PushoverChannel, WebhookChannel]:
+            dispatcher.add_channel(ch())
+
+        event = AlertEvent(
+            type=EventType(event_type.lower()),
+            message=message,
+            workspace="uat-test",
+            metadata=metadata or {},
+        )
+        await dispatcher.dispatch(event)
+    except Exception as e:
+        print(f"  WARNING: Notification failed: {e}")
+
+
+async def _notify_test_start(sections: list[str] | None = None, test_count: int = 0) -> None:
+    """Send a notification that UAT testing has started."""
+    sections_str = ", ".join(sections) if sections else "all"
+    await _send_notification(
+        "test_start",
+        f"UAT test suite started — section(s): {sections_str} ({test_count} tests)\n"
+        f"Git: {_git_sha()}  |  Host: {os.uname().nodename}",
+        metadata={"sections": sections or [], "test_count": test_count},
+    )
+
+
+async def _notify_test_end(
+    sections: list[str] | None,
+    elapsed: int,
+    counts: dict[str, int],
+    test_count: int,
+) -> None:
+    """Send a notification that UAT testing has completed."""
+    summary_parts = [
+        f"PASS={counts.get('PASS', 0)}",
+        f"FAIL={counts.get('FAIL', 0)}",
+        f"WARN={counts.get('WARN', 0)}",
+        f"SKIP={counts.get('SKIP', 0)}",
+        f"MANUAL={counts.get('MANUAL', 0)}",
+    ]
+    sections_str = ", ".join(sections) if sections else "all"
+    await _send_notification(
+        "test_end",
+        f"UAT test suite completed — section(s): {sections_str} in {elapsed}s\n"
+        f"Results: {', '.join(summary_parts)}\n"
+        f"Git: {_git_sha()}",
+        metadata={"elapsed_s": elapsed, "counts": counts},
+    )
+
+
+async def _notify_test_summary(
+    counts: dict[str, int], elapsed: int, sections: list[str] | None, test_count: int
+) -> None:
+    """Send the narrative summary via all enabled notification channels."""
+    total = sum(counts.values())
+    failed = counts.get("FAIL", 0)
+    warned = counts.get("WARN", 0)
+
+    if failed:
+        narrative = f"{failed} test{'s' if failed > 1 else ''} failed"
+    elif warned:
+        narrative = f"All {total} tests passed with {warned} warning{'s' if warned > 1 else ''}"
+    else:
+        narrative = f"All {total} tests passed"
+
+    sections_str = ", ".join(sections) if sections else "all"
+    lines = [
+        narrative,
+        "",
+        f"Portal 5 UAT Driver — section(s): {sections_str}",
+        f"Duration: {elapsed}s  |  Tests: {test_count}",
+        f"Git: {_git_sha()}  |  Host: {os.uname().nodename}",
+        "",
+    ]
+    for s in ["PASS", "FAIL", "WARN", "SKIP", "MANUAL"]:
+        if s in counts:
+            lines.append(f"  {s}: {counts[s]}")
+    lines.append(f"  Total: {total}")
+
+    await _send_notification(
+        "test_summary",
+        "\n".join(lines),
+        metadata={"counts": counts, "elapsed_s": elapsed, "test_count": test_count},
+    )
 
 
 async def main() -> None:
@@ -6862,6 +7058,12 @@ async def main() -> None:
         page = await ctx.new_page()
         await _login(page)
         print("  Logged in to Open WebUI\n")
+
+        t_start = time.time()
+        await _notify_test_start(
+            sections=args.section,
+            test_count=len(tests),
+        )
 
         # Start continuous memory/health monitor (background task)
         monitor = MemoryMonitor(poll_interval=20.0)
@@ -7090,6 +7292,20 @@ async def main() -> None:
 
     # Final cleanup: evict all models to prevent OOM after UAT completes
     cleanup_after_uat()
+
+    elapsed = int(time.time() - t_start)
+    await _notify_test_end(
+        sections=args.section,
+        elapsed=elapsed,
+        counts=counts,
+        test_count=len(tests),
+    )
+    await _notify_test_summary(
+        counts=counts,
+        elapsed=elapsed,
+        sections=args.section,
+        test_count=len(tests),
+    )
 
     # Write calibration JSON if collected
     if calibration_records is not None:
