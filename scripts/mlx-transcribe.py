@@ -122,19 +122,48 @@ def _transcribe(audio_path: str, language: str | None) -> dict:
 
 
 def _diarize(audio_path: str, num_speakers: int | None) -> list[dict]:
-    """Run pyannote diarization. Returns sorted list of {start, end, speaker}."""
+    """Run pyannote diarization. Returns sorted list of {start, end, speaker}.
+
+    Converts to 16kHz mono WAV before diarization — pyannote raises ValueError
+    on MP3 files where compressed frame boundaries produce sample-count mismatches.
+    """
+    import subprocess, shutil
+
     pipeline = _get_diarization_pipeline()
-    kwargs: dict[str, Any] = {}
-    if num_speakers is not None:
-        kwargs["num_speakers"] = num_speakers
-    diarization = pipeline(audio_path, **kwargs)
+
+    # Convert to 16kHz mono WAV to avoid MP3 chunk-boundary sample-count errors
+    ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
+    wav_tmp = audio_path + "_diarize.wav"
+    try:
+        subprocess.run(
+            [ffmpeg, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav_tmp],
+            check=True, capture_output=True,
+        )
+        diarize_input = wav_tmp
+    except Exception as e:
+        logger.warning("WAV conversion failed (%s); falling back to original path", e)
+        diarize_input = audio_path
+
+    try:
+        kwargs: dict[str, Any] = {}
+        if num_speakers is not None:
+            kwargs["num_speakers"] = num_speakers
+        output = pipeline(diarize_input, **kwargs)
+        # pyannote 4.x returns DiarizeOutput(speaker_diarization=Annotation, ...)
+        # pyannote 3.x returns Annotation directly
+        annotation = getattr(output, "speaker_diarization", output)
+    finally:
+        import os
+        if diarize_input != audio_path:
+            os.unlink(wav_tmp)
+
     turns = [
         {
             "start": round(turn.start, 2),
             "end": round(turn.end, 2),
             "speaker": speaker,
         }
-        for turn, _, speaker in diarization.itertracks(yield_label=True)
+        for turn, _, speaker in annotation.itertracks(yield_label=True)
     ]
     turns.sort(key=lambda t: t["start"])
     return turns
