@@ -1168,13 +1168,101 @@ def assert_pptx_valid(path: Path | None, min_slides: int, label: str) -> tuple:
         return (label, False, str(e))
 
 
-def assert_wav_valid(path: Path | None, label: str) -> tuple:
+def assert_wav_valid(
+    path: Path | None,
+    label: str,
+    *,
+    min_seconds: float = 0.0,
+) -> tuple:
     if path is None:
         return (label, False, "no file downloaded")
     try:
         data = path.read_bytes()
-        ok = len(data) > 1000 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
-        return (label, ok, f"{len(data)} bytes")
+        if not (len(data) > 1000 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"):
+            return (label, False, f"not a valid WAV: {len(data)} bytes")
+        if min_seconds > 0:
+            import wave
+            with wave.open(str(path), "rb") as w:
+                duration = w.getnframes() / float(w.getframerate())
+            if duration < min_seconds:
+                return (
+                    label,
+                    False,
+                    f"too short: {duration:.1f}s < {min_seconds}s ({len(data)} bytes)",
+                )
+            return (label, True, f"{duration:.1f}s, {len(data)} bytes")
+        return (label, True, f"{len(data)} bytes")
+    except Exception as e:
+        return (label, False, str(e))
+
+
+def assert_png_valid(
+    path: Path | None,
+    label: str,
+    *,
+    min_width: int = 0,
+    min_height: int = 0,
+) -> tuple:
+    if path is None:
+        return (label, False, "no file downloaded")
+    try:
+        data = path.read_bytes()
+        if data[:8] != b"\x89PNG\r\n\x1a\n":
+            return (label, False, f"not a PNG: {data[:8]!r}")
+        if min_width > 0 or min_height > 0:
+            try:
+                from PIL import Image
+                with Image.open(path) as im:
+                    w, h = im.size
+                if w < min_width or h < min_height:
+                    return (
+                        label,
+                        False,
+                        f"too small: {w}x{h} < {min_width}x{min_height}",
+                    )
+                return (label, True, f"{w}x{h}, {len(data)} bytes")
+            except ImportError:
+                return (label, True, f"PIL unavailable; {len(data)} bytes")
+        return (label, True, f"{len(data)} bytes")
+    except Exception as e:
+        return (label, False, str(e))
+
+
+def assert_mp4_valid(
+    path: Path | None,
+    label: str,
+    *,
+    min_seconds: float = 0.0,
+) -> tuple:
+    if path is None:
+        return (label, False, "no file downloaded")
+    try:
+        data = path.read_bytes()
+        if b"ftyp" not in data[:32]:
+            return (label, False, f"not an MP4: {data[:16]!r}")
+        if min_seconds > 0:
+            import subprocess
+            try:
+                out = subprocess.check_output(
+                    ["ffprobe", "-v", "error", "-show_entries",
+                     "format=duration", "-of",
+                     "default=noprint_wrappers=1:nokey=1", str(path)],
+                    text=True,
+                    timeout=10,
+                ).strip()
+                duration = float(out)
+                if duration < min_seconds:
+                    return (
+                        label,
+                        False,
+                        f"too short: {duration:.1f}s < {min_seconds}s",
+                    )
+                return (label, True, f"{duration:.1f}s, {len(data)} bytes")
+            except FileNotFoundError:
+                return (label, len(data) > 50_000, f"{len(data)} bytes (no ffprobe)")
+            except Exception as e:
+                return (label, False, str(e))
+        return (label, True, f"{len(data)} bytes")
     except Exception as e:
         return (label, False, str(e))
 
@@ -1217,7 +1305,15 @@ def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None 
             min_slides = a.get("min_slides", 1)
             results.append(assert_pptx_valid(artifact_path, min_slides, label))
         elif t == "wav_valid":
-            results.append(assert_wav_valid(artifact_path, label))
+            min_s = float(a.get("min_seconds", 0.0))
+            results.append(assert_wav_valid(artifact_path, label, min_seconds=min_s))
+        elif t == "png_valid":
+            mw = int(a.get("min_width", 0))
+            mh = int(a.get("min_height", 0))
+            results.append(assert_png_valid(artifact_path, label, min_width=mw, min_height=mh))
+        elif t == "mp4_valid":
+            min_s = float(a.get("min_seconds", 0.0))
+            results.append(assert_mp4_valid(artifact_path, label, min_seconds=min_s))
         elif t == "quality_score":
             threshold = a.get("min", 0.5)
             cat = a.get("category", "general")
@@ -5108,7 +5204,7 @@ TEST_CATALOG: list[dict] = [
                 "label": "No error",
                 "keywords": ["error", "failed", "unavailable"],
             },
-            {"type": "wav_valid", "label": "WAV file valid"},
+            {"type": "wav_valid", "label": "WAV ≥5s", "min_seconds": 5.0},
         ],
     },
     {
@@ -5133,7 +5229,7 @@ TEST_CATALOG: list[dict] = [
                 "label": "No error",
                 "keywords": ["error", "failed", "unavailable"],
             },
-            {"type": "wav_valid", "label": "WAV valid"},
+            {"type": "wav_valid", "label": "WAV ≥1.5s", "min_seconds": 1.5},
         ],
     },
     # -----------------------------------------------------------------------
@@ -5161,6 +5257,7 @@ TEST_CATALOG: list[dict] = [
                 "label": "No error",
                 "keywords": ["error", "failed", "unavailable"],
             },
+            {"type": "mp4_valid", "label": "MP4 ≥1s", "min_seconds": 1.0},
         ],
     },
     {
@@ -5185,6 +5282,7 @@ TEST_CATALOG: list[dict] = [
                 "label": "No error",
                 "keywords": ["error", "failed", "unavailable", "comfyui not"],
             },
+            {"type": "png_valid", "label": "PNG ≥512px", "min_width": 512, "min_height": 512},
         ],
     },
     # -----------------------------------------------------------------------
