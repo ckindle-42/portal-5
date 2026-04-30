@@ -41,6 +41,16 @@ test -f tests/portal5_uat_driver.py && echo "Driver present" || echo "MISSING â€
 python3 -m py_compile tests/portal5_uat_driver.py && echo "Syntax OK"
 python3 tests/portal5_uat_driver.py --help
 
+# Docker Desktop â€” restart for a clean VM before any long test run.
+# Apple's Virtualization.framework accumulates instability across sleep/wake
+# cycles. A fresh VM avoids "Internal Virtualization error" mid-run crashes.
+osascript -e 'quit app "Docker"' 2>/dev/null
+sleep 5
+open -a Docker
+echo "Waiting for Docker Desktop to come up..."
+until docker info >/dev/null 2>&1; do sleep 5; done
+echo "Docker Desktop ready"
+
 # Stack health
 ./launch.sh status
 curl -sf http://localhost:8080/health && echo " OWUI OK"
@@ -433,7 +443,14 @@ curl -X POST 'http://localhost:8081/unload?ollama=true' | python3 -m json.tool
 
 ### Resume after a full system reboot:
 
-The same protocol applies. Stack health is the only extra step:
+The same protocol applies. Restart Docker Desktop for a clean VM, then bring up the stack:
+
+```bash
+# Restart Docker Desktop (clean VM, avoids vz Internal Virtualization error)
+osascript -e 'quit app "Docker"' 2>/dev/null
+sleep 5
+open -a Docker
+until docker info >/dev/null 2>&1; do sleep 5; done
 
 ```bash
 ./launch.sh status

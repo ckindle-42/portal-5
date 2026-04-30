@@ -694,8 +694,62 @@ def owui_get_routed_model(token: str, chat_id: str) -> str:
         return ""
 
 
+def _map_slug_to_workspace(slug: str) -> str:
+    """Resolve a persona slug to its workspace id, or return the slug 
+    if it's already a workspace id."""
+    from expected_models import _PERSONA_MAP, WORKSPACES
+    if slug in WORKSPACES:
+        return slug
+    p = _PERSONA_MAP.get(slug, {})
+    ws = p.get("workspace_model") or p.get("workspace") or ""
+    return ws if ws in WORKSPACES else ""
+
+
+def _get_backend_from_pipeline_logs(slug: str) -> str:
+    """Query pipeline Docker logs for the most recent routing decision
+    involving the given workspace/persona slug. Returns the resolved
+    backend model as a pipe-delimited string 'backend|model', or ''.
+
+    Log line pattern:
+      Routing workspace=auto → backend=mlx-apple-silicon model=mlx-community/Dolphin-0/Flushi-4bit stream=True (1/7 candidates)
+    """
+    import re
+    import subprocess
+
+    # Resolve persona slug to its workspace for log matching
+    ws = _map_slug_to_workspace(slug)
+
+    try:
+        result = subprocess.run(
+            ["docker", "logs", "portal5-pipeline", "--tail", "300"],
+            capture_output=True, text=True, timeout=10,
+        )
+        combined = result.stdout + result.stderr  # docker logs may use either stream
+        # Search for routing entries; use the workspace to match, and use the
+        # persona slug as well (non-stream routing uses persona directly)
+        for search_term in (ws, slug):
+            if not search_term:
+                continue
+            pattern = re.compile(
+                r'Routing workspace=' + re.escape(search_term)
+                + r'.*?backend=([^\s]+)\s+model=([^\s]+)'
+            )
+            matches = pattern.findall(combined)
+            if matches:
+                backend, model = matches[-1]  # most recent
+                return f"{backend}|{model}"
+    except Exception:
+        pass
+    return ""
+
+
 def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | None:
     """Validate routed_model against test expectation.
+
+    Two-source approach:
+      1. OWUI chat metadata via owui_get_routed_model (may store the
+         workspace/persona name, not the backend model)
+      2. Pipeline Docker logs — extracts the actual backend=xxx model=yyy
 
     Returns:
         None             - no expectation defined for this test, skip the check
@@ -718,20 +772,9 @@ def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | Non
 
     _sys.path.insert(0, str(_Path(__file__).parent))
 
-    explicit = test.get("assert_routed_via")
-    if explicit:
-        from expected_models import model_matches_expected
-
-        ok = model_matches_expected(routed_model, explicit)
-        return (
-            ok,
-            f"explicit expectation: {explicit}"
-            if ok
-            else f"explicit expectation NOT matched: {explicit}",
-        )
-
     from expected_models import model_matches_expected, resolve_expected
 
+    explicit = test.get("assert_routed_via")
     slug = test.get("model_slug", "")
 
     mlx_state = "ready"
@@ -749,8 +792,34 @@ def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | Non
     if not keys:
         return None
 
-    ok = model_matches_expected(routed_model, keys)
-    return (ok, f"matches {src}" if ok else f"expected {src}")
+    # 1st check: OWUI-stored model (may be the workspace/persona name)
+    ok_owui = model_matches_expected(routed_model, keys)
+
+    # 2nd check: pipeline logs (actual backend model)
+    backend_model = _get_backend_from_pipeline_logs(slug)
+
+    ok_pipeline = False
+    pipeline_detail = ""
+    if backend_model:
+        ok_pipeline = model_matches_expected(backend_model, keys)
+        pipeline_detail = f" (pipeline: {backend_model})"
+
+    if explicit:
+        ok = ok_owui or ok_pipeline
+        return (
+            ok,
+            f"explicit expectation: {explicit}{pipeline_detail}"
+            if ok
+            else f"explicit expectation NOT matched: {explicit}{pipeline_detail}",
+        )
+
+    if ok_owui or ok_pipeline:
+        detail = f"matches {src}"
+        if backend_model:
+            detail += f" — pipeline confirms: {backend_model}"
+        return (True, detail)
+
+    return (False, f"expected {src} (OWUI={routed_model}{pipeline_detail})")
 
 
 # ---------------------------------------------------------------------------
