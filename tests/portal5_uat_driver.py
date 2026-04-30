@@ -175,6 +175,37 @@ def _check_image_freshness() -> list[str]:
 
     if all_fresh:
         print("  [freshness] All images are current.", flush=True)
+
+    # ── MLX runtime version check ───────────────────────────────────────
+    proxy_deployed = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
+    proxy_repo = _REPO_ROOT / "scripts" / "mlx-proxy.py"
+    if proxy_deployed.exists() and proxy_repo.exists():
+        deployed_hash = proxy_deployed.stat().st_size
+        repo_hash = proxy_repo.stat().st_size
+        if deployed_hash != repo_hash:
+            print(
+                f"  [freshness] WARNING: mlx-proxy deployed ({deployed_hash}B) "
+                f"!= repo ({repo_hash}B) — run './launch.sh install-mlx'",
+                flush=True,
+            )
+            warnings.append("mlx-proxy")
+        else:
+            print("  [freshness]   mlx-proxy: deployed matches repo", flush=True)
+
+    try:
+        import mlx_lm
+        v = getattr(mlx_lm, "__version__", "?")
+        print(f"  [freshness]   mlx-lm {v}", flush=True)
+    except Exception:
+        pass
+
+    try:
+        import mlx_vlm
+        v = getattr(mlx_vlm, "__version__", "?")
+        print(f"  [freshness]   mlx-vlm {v}", flush=True)
+    except Exception:
+        pass
+
     return warnings
 
 
