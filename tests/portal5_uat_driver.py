@@ -54,9 +54,24 @@ OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
 SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
-PROGRESS_POLL_S = 30  # check for progress every 30s
+PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
 MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
 PROGRESS_LOG_INTERVAL = 120  # log a heartbeat every 2 min
+
+# Tiered polling intervals — replace the single 30s PROGRESS_POLL_S at the
+# decision points in _wait_for_completion. The 30s value remains in use as
+# a heartbeat reference but is no longer the polling resolution.
+PHASE1_FAST_S = 0.5             # poll every 0.5s while waiting for stream to start
+PHASE1_FAST_DURATION_S = 10     # for the first 10 seconds
+PHASE1_MID_S = 2.0              # then poll every 2s
+PHASE1_MID_DURATION_S = 30      # for the next 30 seconds (10s..40s elapsed)
+PHASE1_SLOW_S = 5.0             # then poll every 5s for very cold loads (40s+)
+
+PHASE2_STREAMING_POLL_S = 1.5   # poll every 1.5s while model is actively streaming
+PHASE2_DOM_STABLE_NEEDED = 3    # consecutive identical samples to declare DOM stable
+
+POST_STREAM_API_WAIT_S = 15.0   # bounded API poll after stream ends (replaces fixed sleep(5))
+BACKEND_SETTLE_WAIT_S = 15.0    # bounded backend-alive poll after retry (replaces sleep(15))
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
 SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
@@ -853,6 +868,68 @@ def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | Non
     return (False, f"expected {src} (OWUI={routed_model}{pipeline_detail})")
 
 
+async def _wait_for_response_arrival(
+    token: str,
+    chat_id: str,
+    max_wait: float = POST_STREAM_API_WAIT_S,
+) -> str:
+    """Poll OWUI API for assistant message arrival after streaming ends.
+
+    OWUI persists the assistant message at end-of-stream with a brief lag
+    (typically <500ms, occasionally a few seconds under load). This helper
+    replaces fixed asyncio.sleep(5) padding with an exponential-backoff
+    poll that returns as soon as content lands.
+
+    Returns content string on arrival, or "" on timeout. Caller decides
+    whether to escalate (retry, late-poll loop, etc.).
+    """
+    if not token or not chat_id:
+        await asyncio.sleep(2.0)
+        return ""
+
+    delays = [0.25, 0.5, 1.0, 2.0, 4.0]
+    deadline = time.monotonic() + max_wait
+    idx = 0
+    while time.monotonic() < deadline:
+        text = owui_get_last_response(token, chat_id)
+        if text:
+            return text
+        delay = delays[min(idx, len(delays) - 1)]
+        idx += 1
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(delay, remaining))
+    return ""
+
+
+async def _wait_for_backend_alive(tier: str, max_wait: float = BACKEND_SETTLE_WAIT_S) -> bool:
+    """Poll _backend_alive until the backend reports healthy or max_wait elapses.
+
+    Replaces blind asyncio.sleep(15) waits after retry-related actions
+    (zombie cleanup, manual settle). Returns True if backend recovered,
+    False on timeout. Polls at 0.5s for the first 5s, then 1s.
+    """
+    if tier not in ("mlx_large", "mlx_small", "ollama"):
+        await asyncio.sleep(min(2.0, max_wait))
+        return True
+    deadline = time.monotonic() + max_wait
+    while time.monotonic() < deadline:
+        try:
+            alive, _ = _backend_alive(tier)
+            if alive:
+                return True
+        except Exception:
+            pass
+        elapsed = max_wait - (deadline - time.monotonic())
+        delay = 0.5 if elapsed < 5.0 else 1.0
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(delay, remaining))
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Playwright helpers
 # ---------------------------------------------------------------------------
@@ -889,22 +966,30 @@ async def _wait_for_completion(
     test_id: str = "",
     tier: str = "any",
     max_wait_no_progress: int = MAX_WAIT_NO_PROGRESS,
+    *,
+    token: str = "",
+    chat_id: str = "",
 ) -> None:
-    """Progress-monitoring wait: polls every PROGRESS_POLL_S seconds until the
-    response is complete.  No hard timeout — we wait until the model finishes
-    or until we detect zero progress for MAX_WAIT_NO_PROGRESS seconds.
+    """Progress-monitoring wait with tiered polling.
 
-    Completion is detected by:
-      1. Stop button appeared and then disappeared (normal streaming)
-      2. DOM text stabilises (no changes for 3 consecutive polls)
+    Phase 1 (waiting for stream start): poll PHASE1_FAST_S → PHASE1_MID_S →
+    PHASE1_SLOW_S as elapsed time grows. This catches warm-load starts (<2s)
+    without forcing the same resolution on cold loads (30s+).
 
-    Crash detection: if the backend health endpoint reports "down" or
-    "degraded" for BACKEND_DEAD_STRIKES consecutive polls we abort early
-    rather than burning the full safety cap.
+    Phase 2 (waiting for stream end): poll PHASE2_STREAMING_POLL_S while
+    actively streaming. On stop-button-disappears edge, immediately verify
+    via OWUI API (no fixed sleep). On DOM-stable path, the same 3-sample
+    threshold now resolves in 4.5s instead of 90s.
+
+    When token+chat_id are provided, the OWUI API is used as a parallel
+    completion signal (early exit if content lands while DOM is stable)
+    and as the canonical post-stream persistence wait (replacing fixed
+    sleep(5)). When absent, falls back to a 2s safety buffer.
+
+    Backend crash detection unchanged: BACKEND_DEAD_STRIKES consecutive
+    health failures aborts early.
     """
-    BACKEND_DEAD_STRIKES = (
-        5  # consecutive down polls before we give up (MLX cold load can take 60s+)
-    )
+    BACKEND_DEAD_STRIKES = 5
 
     t_start = time.time()
     last_log = 0.0
@@ -912,19 +997,33 @@ async def _wait_for_completion(
     stable_count = 0
     stop_seen = False
     dead_strikes = 0
+    last_backend_check = 0.0
 
     def _log(msg: str) -> None:
         nonlocal last_log
         now = time.time()
-        if now - last_log >= PROGRESS_LOG_INTERVAL or "complete" in msg.lower():
+        msg_lower = msg.lower()
+        if (
+            now - last_log >= PROGRESS_LOG_INTERVAL
+            or "complete" in msg_lower
+            or "started" in msg_lower
+        ):
             elapsed = now - t_start
             tag = f"[{test_id}] " if test_id else ""
             print(f"  {tag}{msg} ({elapsed:.0f}s elapsed)", flush=True)
             last_log = now
 
     def _check_backend_crash() -> bool:
-        """Return True if backend looks crashed (should abort wait)."""
-        nonlocal dead_strikes
+        """Return True if backend looks crashed (should abort wait).
+
+        Rate-limited to ~once per 5s so high-frequency Phase 1/2 polls don't
+        spam the health endpoint.
+        """
+        nonlocal dead_strikes, last_backend_check
+        now = time.time()
+        if now - last_backend_check < 5.0:
+            return False
+        last_backend_check = now
         if tier not in ("mlx_large", "mlx_small", "ollama"):
             return False
         alive, detail = _backend_alive(tier)
@@ -941,6 +1040,14 @@ async def _wait_for_completion(
         else:
             dead_strikes = 0
         return False
+
+    def _phase1_interval(elapsed: float) -> float:
+        """Tiered poll interval for Phase 1 (waiting for stream start)."""
+        if elapsed < PHASE1_FAST_DURATION_S:
+            return PHASE1_FAST_S
+        if elapsed < PHASE1_FAST_DURATION_S + PHASE1_MID_DURATION_S:
+            return PHASE1_MID_S
+        return PHASE1_SLOW_S
 
     # Phase 1: wait for stop button to appear (model starts generating)
     _log("waiting for model to start…")
@@ -964,7 +1071,7 @@ async def _wait_for_completion(
         if elapsed > max_wait_no_progress:
             _log(f"hit {max_wait_no_progress}s safety cap waiting for start")
             return
-        await asyncio.sleep(PROGRESS_POLL_S)
+        await asyncio.sleep(_phase1_interval(elapsed))
 
     # Phase 2: wait for streaming to complete
     while True:
@@ -980,9 +1087,13 @@ async def _wait_for_completion(
                 stable_count = 0
                 _log("stop button appeared in Phase 2 — streaming active")
         elif stop_seen:
-            # Stop button was seen and is now gone → stream finished
+            # Stop button was seen and is now gone → stream finished.
+            # Replace fixed sleep(5) with bounded API poll for content arrival.
             _log("stream complete (stop button gone)")
-            await asyncio.sleep(5)  # let OWUI persist final content
+            if token and chat_id:
+                await _wait_for_response_arrival(token, chat_id)
+            else:
+                await asyncio.sleep(2.0)
             return
 
         # Check DOM stability as secondary signal — only when stop button is gone
@@ -994,15 +1105,27 @@ async def _wait_for_completion(
         if curr == prev_text:
             stable_count += 1
             stop_still_active = stop_seen and await _stop_button_visible(page)
-            if stable_count >= 3 and not stop_still_active:
+            if stable_count >= PHASE2_DOM_STABLE_NEEDED and not stop_still_active:
                 _log("stream complete (DOM stable)")
-                await asyncio.sleep(5)  # extra buffer for OWUI DB persistence
+                if token and chat_id:
+                    await _wait_for_response_arrival(token, chat_id)
+                else:
+                    await asyncio.sleep(2.0)
                 return
         else:
             stable_count = 0
             prev_text = curr
 
-        # Backend crash check — on every poll during streaming
+        # API-as-secondary-completion-signal: if content has landed in OWUI
+        # while DOM stability is accumulating, exit early. Cheap check —
+        # only runs once stable_count >= 1 (after at least one quiet sample).
+        if token and chat_id and stable_count >= 1 and not stop_seen:
+            text = owui_get_last_response(token, chat_id)
+            if text:
+                _log("stream complete (API has content)")
+                return
+
+        # Backend crash check — rate-limited inside _check_backend_crash
         if _check_backend_crash():
             return
 
@@ -1011,7 +1134,7 @@ async def _wait_for_completion(
             _log(f"hit {max_wait_no_progress}s safety cap during streaming")
             return
 
-        await asyncio.sleep(PROGRESS_POLL_S)
+        await asyncio.sleep(PHASE2_STREAMING_POLL_S)
 
 
 async def _send_and_wait(
@@ -1020,13 +1143,24 @@ async def _send_and_wait(
     test_id: str = "",
     tier: str = "any",
     max_wait_no_progress: int = MAX_WAIT_NO_PROGRESS,
+    *,
+    token: str = "",
+    chat_id: str = "",
 ) -> None:
-    """Send a prompt and wait for completion. Caller fetches via owui_get_last_response."""
+    """Send a prompt and wait for completion.
+
+    When token+chat_id are supplied, _wait_for_completion uses the OWUI API
+    as a parallel completion signal and replaces the fixed post-stream sleep
+    with a bounded content-arrival poll. Caller still fetches the response
+    via owui_get_last_response after this returns.
+    """
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
     await ta.fill(prompt)
     await ta.press("Enter")
-    await _wait_for_completion(page, test_id, tier, max_wait_no_progress)
+    await _wait_for_completion(
+        page, test_id, tier, max_wait_no_progress, token=token, chat_id=chat_id
+    )
 
 
 async def _enable_tool(page, tool_id: str) -> None:
@@ -6462,8 +6596,10 @@ async def _run_two_chat_test(
 
         # Chat 1
         await _navigate_to_chat(page, chat1_url)
-        await _send_and_wait(page, test["prompt"], test_id, tier, max_wait)
-        await asyncio.sleep(3)
+        await _send_and_wait(
+            page, test["prompt"], test_id, tier, max_wait,
+            token=token, chat_id=chat1_id,
+        )
         response1 = owui_get_last_response(token, chat1_id) or ""
         routed_model_1 = owui_get_routed_model(token, chat1_id)
 
@@ -6475,8 +6611,10 @@ async def _run_two_chat_test(
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
         await _navigate_to_chat(page, chat2_url)
-        await _send_and_wait(page, test["turn2_in_new_chat"], test_id, tier, max_wait)
-        await asyncio.sleep(3)
+        await _send_and_wait(
+            page, test["turn2_in_new_chat"], test_id, tier, max_wait,
+            token=token, chat_id=chat2_id,
+        )
         response2 = owui_get_last_response(token, chat2_id) or ""
         routed_model_2 = owui_get_routed_model(token, chat2_id)
 
@@ -6610,7 +6748,7 @@ async def run_test(
             + "\n\nReturn to this chat and pin your result with ✅ PASS / ⚠️ PARTIAL / ❌ FAIL + notes."
         )
         await _navigate_to_chat(page, chat_url)
-        await _send_and_wait(page, manual_prompt, test_id)
+        await _send_and_wait(page, manual_prompt, test_id, token=token, chat_id=chat_id)
         owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
         record_result(n, "MANUAL", test_id, name, model, [], 0.0, chat_url)
         counts["MANUAL"] = counts.get("MANUAL", 0) + 1
@@ -6730,6 +6868,7 @@ async def run_test(
     assertions_result: list = []
     status = "FAIL"
     response_text = ""
+    attempts_used: int = 1
 
     try:
         await _navigate_to_chat(page, chat_url)
@@ -6737,22 +6876,29 @@ async def run_test(
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
 
-        # Send first turn — retry up to 2 times on empty response (MLX cold load)
+        # Send first turn — retry up to 2 times on empty response (MLX cold load).
+        # This is RECOVERY logic (handle empty/crashed backend), not a
+        # validation strategy — same prompt is re-sent each time.
         max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
         response_text = ""
+        attempts_used = 0
         for attempt in range(3):
-            await _send_and_wait(page, test["prompt"], test_id, tier, max_wait)
-            await asyncio.sleep(5 if attempt > 0 else 3)  # extra persistence time on retries
+            attempts_used = attempt + 1
+            await _send_and_wait(
+                page, test["prompt"], test_id, tier, max_wait,
+                token=token, chat_id=chat_id,
+            )
             response_text = owui_get_last_response(token, chat_id)
             if response_text:
                 break
-            # DOM stable may have fired while reasoning model was still generating
-            # (collapsed <details> block makes innerText appear stable). Poll the
-            # API before declaring this attempt empty — mlx_large reasoning models
-            # can take 4-5 minutes; others are bounded to 90s.
-            _poll_limit = 27 if tier == "mlx_large" else 9  # 270s vs 90s
-            for _poll in range(_poll_limit):
-                await asyncio.sleep(10)
+            # Long-tail wait: DOM stable may have fired while reasoning model was
+            # still generating (collapsed <details> block makes innerText appear
+            # stable). Continue polling the API — mlx_large reasoning models can
+            # take 4-5 minutes; others bounded to ~90s.
+            _poll_cap_s = 270 if tier == "mlx_large" else 90
+            _poll_deadline = time.monotonic() + _poll_cap_s
+            while time.monotonic() < _poll_deadline:
+                await asyncio.sleep(5)
                 response_text = owui_get_last_response(token, chat_id)
                 if response_text:
                     break
@@ -6779,7 +6925,7 @@ async def run_test(
                         )
                         await _wait_for_backend(tier, max_wait=90)
                 else:
-                    await asyncio.sleep(15)  # wait for backend to settle
+                    await _wait_for_backend_alive(tier)
 
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
@@ -6790,8 +6936,10 @@ async def run_test(
         turn2 = test.get("turn2")
         turn2_response = ""
         if turn2:
-            await _send_and_wait(page, turn2, test_id, tier, max_wait)
-            await asyncio.sleep(3)
+            await _send_and_wait(
+                page, turn2, test_id, tier, max_wait,
+                token=token, chat_id=chat_id,
+            )
             # For turn2, get the second assistant message
             turn2_response = owui_get_last_response(token, chat_id)
 
@@ -6807,6 +6955,19 @@ async def run_test(
         # Combine all specs for status computation
         all_specs = test.get("assertions", []) + test.get("turn2_assertions", [])
         status = compute_status(assertions_result, all_specs)
+
+        # Surface retry-attempt count when recovery was needed. Appended
+        # without a corresponding spec — compute_status (already run above)
+        # zips assertions with spec and truncates extras, so this row is
+        # informational only and does not affect grading.
+        if attempts_used > 1:
+            assertions_result.append(
+                (
+                    f"Recovery: passed on attempt {attempts_used}/3",
+                    True,
+                    f"{attempts_used - 1} retries needed (backend instability signal)",
+                )
+            )
 
         # Take screenshot on failure
         if status in ("FAIL", "WARN"):

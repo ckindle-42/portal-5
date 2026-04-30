@@ -148,3 +148,125 @@ def test_word_boundary_word_to_word_transition_does_not_fire():
     assert _kw_in("1.2.6", "Reference R1.2.6 applies", word_boundary=True) is False
     # But under legacy substring matching, it works
     assert _kw_in("1.2.6", "Reference R1.2.6 applies", word_boundary=False) is True
+
+
+# ----- TASK_UAT_TIMING_V1 tests -----
+
+
+def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
+    """When the API has content on first poll, the helper returns it without sleeping."""
+    import asyncio
+
+    import portal5_uat_driver as drv
+
+    monkeypatch.setattr(drv, "owui_get_last_response", lambda t, c: "hello world")
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(s):
+        sleep_calls.append(s)
+
+    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+
+    result = asyncio.run(
+        drv._wait_for_response_arrival("tok", "chat-1", max_wait=15.0)
+    )
+    assert result == "hello world"
+    assert sleep_calls == [], "should not sleep when content is available immediately"
+
+
+def test_wait_for_response_arrival_no_token_falls_back_to_safety_buffer(monkeypatch):
+    """When token or chat_id is missing, helper sleeps a fixed 2s and returns ''."""
+    import asyncio
+
+    import portal5_uat_driver as drv
+
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(s):
+        sleep_calls.append(s)
+
+    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+
+    result = asyncio.run(
+        drv._wait_for_response_arrival("", "chat-1")
+    )
+    assert result == ""
+    assert sleep_calls == [2.0], f"expected single 2s safety buffer, got {sleep_calls}"
+
+
+def test_wait_for_backend_alive_returns_true_on_recovery(monkeypatch):
+    """Helper polls _backend_alive and returns True as soon as it reports alive."""
+    import asyncio
+
+    import portal5_uat_driver as drv
+
+    states = iter([(False, "down"), (False, "down"), (True, "ok")])
+    monkeypatch.setattr(drv, "_backend_alive", lambda tier: next(states))
+
+    async def fake_sleep(s):
+        pass
+
+    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+
+    result = asyncio.run(
+        drv._wait_for_backend_alive("mlx_small", max_wait=10.0)
+    )
+    assert result is True
+
+
+def test_wait_for_backend_alive_skips_polling_for_non_backend_tier(monkeypatch):
+    """For tier='any' or 'media_heavy', helper does not call _backend_alive."""
+    import asyncio
+
+    import portal5_uat_driver as drv
+
+    call_count = 0
+
+    def mock_backend_alive(tier):
+        nonlocal call_count
+        call_count += 1
+        return (False, "should not be called")
+
+    monkeypatch.setattr(drv, "_backend_alive", mock_backend_alive)
+
+    async def fake_sleep(s):
+        pass
+
+    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+
+    result = asyncio.run(
+        drv._wait_for_backend_alive("any", max_wait=10.0)
+    )
+    assert result is True
+    assert call_count == 0, "tier='any' should not poll backend"
+
+
+def test_polling_constants_present():
+    """The new tiered-polling constants exist at module level with expected types."""
+    import portal5_uat_driver as drv
+
+    assert isinstance(drv.PHASE1_FAST_S, (int, float)) and drv.PHASE1_FAST_S > 0
+    assert isinstance(drv.PHASE1_FAST_DURATION_S, (int, float))
+    assert isinstance(drv.PHASE1_MID_S, (int, float)) and drv.PHASE1_MID_S > drv.PHASE1_FAST_S
+    assert isinstance(drv.PHASE2_STREAMING_POLL_S, (int, float))
+    assert drv.PHASE2_STREAMING_POLL_S < drv.PROGRESS_POLL_S, (
+        "Phase 2 streaming poll must be tighter than legacy heartbeat"
+    )
+    assert isinstance(drv.PHASE2_DOM_STABLE_NEEDED, int)
+    assert drv.PHASE2_DOM_STABLE_NEEDED >= 2
+    assert isinstance(drv.POST_STREAM_API_WAIT_S, (int, float))
+
+
+def test_send_and_wait_signature_accepts_token_and_chat_id():
+    """_send_and_wait accepts token= and chat_id= kwargs (additive, backward compatible)."""
+    import inspect
+
+    import portal5_uat_driver as drv
+
+    sig = inspect.signature(drv._send_and_wait)
+    assert "token" in sig.parameters
+    assert "chat_id" in sig.parameters
+    assert sig.parameters["token"].kind == inspect.Parameter.KEYWORD_ONLY
+    assert sig.parameters["chat_id"].kind == inspect.Parameter.KEYWORD_ONLY
+    assert sig.parameters["token"].default == ""
+    assert sig.parameters["chat_id"].default == ""
