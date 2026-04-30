@@ -82,7 +82,7 @@ def _get_diarization_pipeline() -> Any:
         import torch
 
         logger.info("Loading diarization pipeline: %s", DIARIZATION_MODEL)
-        pipeline = Pipeline.from_pretrained(DIARIZATION_MODEL, use_auth_token=HF_TOKEN)
+        pipeline = Pipeline.from_pretrained(DIARIZATION_MODEL, token=HF_TOKEN)
         if torch.backends.mps.is_available():
             pipeline.to(torch.device("mps"))
             logger.info("Diarization pipeline placed on MPS")
@@ -195,7 +195,13 @@ def _run_pipeline(
     t_transcribe = time.time() - t0
 
     t1 = time.time()
-    speaker_turns = _diarize(audio_path, num_speakers)
+    diarization_warning: str | None = None
+    try:
+        speaker_turns = _diarize(audio_path, num_speakers)
+    except Exception as e:
+        diarization_warning = f"Diarization unavailable ({type(e).__name__}: {e}); using single-speaker fallback"
+        logger.warning(diarization_warning)
+        speaker_turns = []
     t_diarize = time.time() - t1
 
     merged = _merge(transcript["segments"], speaker_turns)
@@ -224,7 +230,7 @@ def _run_pipeline(
     markdown = _format_markdown(merged, meta, source_name)
     md_path.write_text(markdown)
 
-    return {
+    result = {
         **meta,
         "segments": merged,
         "markdown": markdown,
@@ -233,6 +239,9 @@ def _run_pipeline(
         "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
         "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
     }
+    if diarization_warning:
+        result["diarization_warning"] = diarization_warning
+    return result
 
 
 def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
