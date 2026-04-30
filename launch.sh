@@ -541,9 +541,9 @@ bootstrap_secrets() {
         changed=1
     fi
 
-    if grep -q "^WEBUI_SECRET_KEY=CHANGEME" "$tmp"; then
+    if grep -qE "^WEBUI_SECRET_KEY=CHANGEME(-AUTOGEN)?$" "$tmp"; then
         local key; key=$(generate_secret)
-        sed -i.bak "s|^WEBUI_SECRET_KEY=CHANGEME|WEBUI_SECRET_KEY=$key|" "$tmp"
+        sed -i.bak "s|^WEBUI_SECRET_KEY=CHANGEME.*|WEBUI_SECRET_KEY=$key|" "$tmp"
         echo "[portal-5] Generated WEBUI_SECRET_KEY"
         changed=1
     fi

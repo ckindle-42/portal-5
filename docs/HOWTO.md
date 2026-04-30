@@ -566,6 +566,30 @@ curl http://localhost:8924/health
 
 Both also downloadable via `http://localhost:8924/files/<filename>`.
 
+### Workflow A is finally working — what changed
+
+After TASK-OWUI-AUDIO-DROP-001 lands, three configuration items handle the gaps that previously broke chat-drop:
+
+1. **`AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA=1800`** lifts OWUI's default ~60s tool-call timeout to 30 minutes.
+2. **`WEBUI_SECRET_KEY`** is auto-generated and persistent so MCP tool registrations survive container rebuilds.
+3. **`scripts/openwebui_init.py`** auto-registers the `portal_mlx_transcribe` MCP server on launch — no manual UI clicks.
+
+**Sanity check after a fresh deploy:**
+```bash
+./tests/integration/test_owui_audio_drop.sh
+# Expected: all checks pass
+```
+
+### When chat-drop still doesn't work — the runner script
+
+Some OWUI builds enforce an additional internal 60s ceiling on tool calls that no env var lifts (open-webui#16902). If you hit that on a long file, use the manual runner:
+
+```bash
+./scripts/transcribe_and_complete.sh meeting.m4a --speakers 2
+```
+
+This script transcribes via curl, sends the transcript to the persona via OWUI's API, the persona renders the .docx via its `create_word_document` tool, then reviews its own output. Final .docx + transcript artifacts land next to your source audio. Same persona, same outputs, just orchestrated by the script instead of a chat session.
+
 ---
 
 ## 13. Web Search

@@ -590,6 +590,67 @@ def configure_audio_settings(client: httpx.Client, token: str) -> None:
     )
 
 
+def verify_persona_tool_bindings(client: httpx.Client, token: str) -> None:
+    """Verify personas have their declared tools bound at the model level.
+
+    The workspace tool list (router/workspaces.py) and the persona's OWUI
+    model entry must agree. If they don't, the persona can't actually call
+    the tool from chat.
+
+    TASK-OWUI-AUDIO-DROP-001: catches a silent failure mode where the YAML
+    declares a tool but the OWUI model record doesn't expose it.
+    """
+    # Personas that MUST have specific tools bound
+    required_bindings = {
+        "transcriptanalyst": [
+            "transcribe_with_speakers",
+            "create_word_document",
+            "read_word_document",
+        ],
+    }
+
+    try:
+        resp = client.get(
+            f"{OPENWEBUI_URL}/api/models",
+            headers=auth_headers(token),
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        models_data = resp.json()
+    except Exception as e:
+        print(f"  Warning: could not fetch model list for verification: {e}")
+        return
+
+    models = models_data.get("data", models_data) if isinstance(models_data, dict) else models_data
+    if not isinstance(models, list):
+        print("  Warning: unexpected model list shape; skipping binding verification")
+        return
+
+    for slug, required_tools in required_bindings.items():
+        match = next(
+            (m for m in models
+             if m.get("id") == slug or (isinstance(m.get("info"), dict) and m["info"].get("id") == slug)),
+            None,
+        )
+        if match is None:
+            print(f"  ERROR: Persona '{slug}' not found in OWUI model list")
+            continue
+
+        bound_tool_ids = (
+            (isinstance(match.get("info"), dict) and match["info"].get("meta", {}).get("toolIds"))
+            or match.get("meta", {}).get("toolIds")
+            or []
+        )
+        missing = [t for t in required_tools if t not in bound_tool_ids]
+        if missing:
+            print(
+                f"  ERROR: Persona '{slug}' is missing tool bindings: {missing}. "
+                f"Re-run openwebui_init.py or check Admin → Models → {slug} → Tools."
+            )
+        else:
+            print(f"  OK: Persona '{slug}' has all required tool bindings")
+
+
 def configure_tool_settings(client: httpx.Client, token: str) -> None:
     """Tool calling is enabled by default in Open WebUI.
 
@@ -692,6 +753,8 @@ async def main() -> int:
         )
     finally:
         await async_client.aclose()
+
+    verify_persona_tool_bindings(client, token)
 
     configure_user_settings(client, token)
     configure_audio_settings(client, token)

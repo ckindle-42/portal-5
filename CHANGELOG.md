@@ -16,6 +16,13 @@ All notable changes to Portal 5 will be documented in this file.
 ### Changed
 - `AUDIO_STT_ENGINE` disabled in OWUI config (set via `OWUI_AUDIO_STT_ENGINE` env, default empty). Audio uploads in chat remain as attachments instead of being auto-transcribed; personas process them via MCP tools. **Side effect:** OWUI microphone voice-input no longer transcribes. See KNOWN_LIMITATIONS.
 
+- **OWUI audio-drop UX gaps** (TASK-OWUI-AUDIO-DROP-001):
+  - OWUI tool-call timeout configuration: `AIOHTTP_CLIENT_TIMEOUT=1800` and `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA=1800` lift the default ~60s ceiling to 30 minutes for diarized transcription and other long-running MCP tool calls.
+  - `WEBUI_SECRET_KEY` auto-generation in `launch.sh` so MCP tool registrations survive container rebuilds.
+  - `scripts/openwebui_init.py` extended with `verify_persona_tool_bindings` so persona/tool linkages are verified automatically on launch.
+  - `tests/integration/test_owui_audio_drop.sh` smoke test verifying the four configuration changes are live and effective.
+  - HOWTO.md updated with the chat-drop workflow + fallback runner script reference.
+
 - **Diarized transcription** (TASK-TRANSCRIBE-001):
   - New host-native MCP server `scripts/mlx-transcribe.py` on port 8924 (mlx-whisper large-v3-turbo + pyannote.audio 3.1 on MPS). Apple Silicon primary path.
   - `whisper_mcp.py` extended with `transcribe_with_speakers` tool (faster-whisper + pyannote on CPU/CUDA) — cross-platform fallback.

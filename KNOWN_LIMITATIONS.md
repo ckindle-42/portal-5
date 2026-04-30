@@ -227,4 +227,12 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
+## OWUI Audio Drop UX (TASK-OWUI-AUDIO-DROP-001)
+
+- **OWUI internal 60s tool-call ceiling.** Some OWUI builds enforce an additional internal timeout on tool execution that the documented `AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA` env var does not affect (see open-webui/open-webui#16902). When this bites, the tool actually completes server-side — the persona just never sees the result. Mitigation: use `scripts/transcribe_and_complete.sh` for files where transcription wall time exceeds 60s. The runner script is unaffected because it goes around OWUI's tool-call layer entirely.
+- **WEBUI_SECRET_KEY rotation invalidates stored OAuth tokens.** If `.env` is regenerated and the secret key changes, all MCP tools using OAuth (Notion, GitHub, etc.) need re-authentication. The launch.sh auto-generation only runs when the value is unset or the placeholder; do not regenerate manually unless the operator accepts re-auth.
+- **Microphone voice input remains disabled.** The TASK-WORKSPACE-001 trade-off is unchanged. This task does not address it.
+
+---
+
 *Last updated: 2026-04-29*
