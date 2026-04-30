@@ -374,10 +374,14 @@ async def create_persona_presets_async(
         print("  Skipping — no persona YAML files found")
         return
 
-    # Get existing models to avoid duplicates
-    # Use /export (not /list) — /list is paginated (30/page) and would miss models beyond page 1
-    # Retry up to 3 times to handle race conditions during OW bootstrap.
+    # Get existing models to avoid duplicates.
+    # /export returns user-created presets only — does NOT include base models
+    # (pipeline connections registered via Admin > Connections). Persona slugs
+    # can collide with these connection IDs, producing 401 "already registered"
+    # on create. We check both endpoints and merge the ID sets.
     existing_ids: set[str] = set()
+
+    # 1. Fetch model presets via /export (unpaginated, returns all presets)
     for attempt in range(3):
         try:
             resp = await client.get(
@@ -385,7 +389,6 @@ async def create_persona_presets_async(
             )
             if resp.status_code == 200:
                 data = resp.json()
-                # Handle both list and dict response formats safely
                 items = (
                     data
                     if isinstance(data, list)
@@ -394,12 +397,27 @@ async def create_persona_presets_async(
                 for m in items:
                     if isinstance(m, dict):
                         existing_ids.add(m.get("id", ""))
-                break  # Success — exit retry loop
+                break
         except Exception as e:
             if attempt == 2:
-                print(f"  Warning: could not fetch existing models after 3 attempts: {e}")
+                print(f"  Warning: could not fetch presets after 3 attempts: {e}")
             else:
                 await asyncio.sleep(1)
+
+    # 2. Fetch base models (connections) via /api/models — these IDs also
+    #    collide with persona slug if they share the same value.
+    try:
+        resp2 = await client.get(
+            f"{OPENWEBUI_URL}/api/models", headers=auth_headers(token)
+        )
+        if resp2.status_code == 200:
+            base_data = resp2.json()
+            base_items = base_data.get("data", []) if isinstance(base_data, dict) else []
+            for m in base_items:
+                if isinstance(m, dict) and m.get("id"):
+                    existing_ids.add(m["id"])
+    except Exception:
+        pass  # Non-critical — /export already covers presets
 
     # Build persona payloads first (file reads, not network I/O)
     persona_payloads = []
@@ -473,6 +491,10 @@ async def create_persona_presets_async(
             if resp.status_code in (200, 201):
                 action = "reseeded" if FORCE_RESEED and slug in existing_ids else "created"
                 return (name, f"{action}:{workspace_model}")
+            # OWUI returns 401 when a model preset ID collides with an existing
+            # pipeline connection (base model). Treat as skip — the ID is taken.
+            if resp.status_code == 401 and "already registered" in resp.text:
+                return (name, "skip:exists (base model)")
             return (name, f"fail:{resp.status_code}")
         except Exception as e:
             return (name, f"error:{e}")
@@ -508,6 +530,8 @@ async def create_persona_presets_async(
             _, wm = status.split(":", 1)
             print(f"  Reseeded persona: {name} → {wm}")
             reseeded += 1
+        elif status.startswith("skip:"):
+            skipped += 1
         else:
             print(f"  Failed {name}: {status}")
             failed += 1
