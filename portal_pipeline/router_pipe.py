@@ -526,6 +526,7 @@ from portal_pipeline.router.workspaces import (  # noqa: E402
     MAX_TOOL_HOPS,
     WORKSPACES,
     _resolve_persona_tools,
+    _workspace_tools,  # noqa: F401 — re-exported for tests and external callers
 )
 
 

@@ -449,8 +449,12 @@ class TestNotificationScheduler:
                     "persona_usage_raw": {},
                 }
 
+                # Provide a minimal previous snapshot with all-zero counters so the
+                # container-restart guard (prev_total==0 + not prev) doesn't fire.
+                empty_prev = {"request_count": {}}
                 with (
                     patch.object(sched_module, "_load_aggregated_state", return_value=fake_state),
+                    patch.object(sched_module, "_load_snapshot", return_value=empty_prev),
                     patch.object(sched_module, "_COOLDOWN_FILE", cooldown_file_mock),
                     patch.object(sched_module, "_SNAPSHOT_FILE", cooldown_file_mock),
                 ):

@@ -1520,8 +1520,10 @@ case "${1:-up}" in
             for _model in "${_MLX_MODELS[@]}"; do
                 _MCOUNT=$((_MCOUNT + 1))
                 echo "  [$_MCOUNT/$_MTOTAL] $_model"
-                if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+                if python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
@@ -2884,6 +2886,20 @@ PLIST
     python3 -c "import mlx_audio; print(f'  ✅ mlx-audio {mlx_audio.__version__}')" 2>/dev/null || \
         echo "  ✅ mlx-audio installed"
 
+    # ── MLX Transcribe dependencies (mlx-whisper + pyannote diarization) ────
+    echo "  Installing mlx-whisper (Metal-accelerated Whisper transcription)..."
+    pip3 install "mlx-whisper>=0.4.0" --upgrade --quiet 2>/dev/null || \
+        pip3 install "mlx-whisper>=0.4.0" --upgrade --quiet --break-system-packages
+    python3 -c "import mlx_whisper; print(f'  ✅ mlx-whisper installed')" 2>/dev/null || \
+        echo "  ✅ mlx-whisper installed"
+    echo "  Installing pyannote.audio (speaker diarization on MPS)..."
+    echo "  ⚠️  pyannote models are gated — accept licenses at huggingface.co/pyannote"
+    echo "     and set HF_TOKEN in .env before running start-transcribe"
+    pip3 install "pyannote.audio>=3.1.0" --upgrade --quiet 2>/dev/null || \
+        pip3 install "pyannote.audio>=3.1.0" --upgrade --quiet --break-system-packages
+    python3 -c "import pyannote.audio; print(f'  ✅ pyannote.audio installed')" 2>/dev/null || \
+        echo "  ✅ pyannote.audio installed"
+
     # ── Kokoro TTS dependencies (required by mlx-audio Kokoro backend) ──────
     echo "  Installing Kokoro TTS dependencies (misaki, num2words, spacy, phonemizer)..."
     pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet 2>/dev/null || \
@@ -3684,8 +3700,13 @@ PLIST
     for model in "${MLX_MODELS[@]}"; do
         count=$((count + 1))
         echo "[$count/$total] $model"
-        if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+        if python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
+# Remove HF_HUB_CACHE from env if empty so the library uses its default path
+# (~/.cache/huggingface/hub). Setting HF_HUB_CACHE='' causes the library to
+# interpret '' as the current working directory and download models there.
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
@@ -3703,8 +3724,13 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
         echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
         for model in "${HEAVY_MLX_MODELS[@]}"; do
             echo "  Downloading: $model (~40GB)"
-            if HF_HUB_CACHE="${HF_HUB_CACHE:-}" python3 -W ignore -c "
+            if python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
+# Remove HF_HUB_CACHE from env if empty so the library uses its default path
+# (~/.cache/huggingface/hub). Setting HF_HUB_CACHE='' causes the library to
+# interpret '' as the current working directory and download models there.
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
 from huggingface_hub import snapshot_download
 cache_dir = os.environ.get('HF_HUB_CACHE') or None
 snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)

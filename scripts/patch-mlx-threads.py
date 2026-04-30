@@ -9,26 +9,20 @@ Problem (mlx 0.31.2):
     time (main thread). The _generate worker thread cannot use this stream:
         RuntimeError: There is no Stream(gpu, N) in current thread.
 
-  Bug 2 — server.py (new fix, root cause):
-    ModelProvider.__init__() calls self.load() in the MAIN THREAD, placing
-    model weights on Stream(gpu, 0) (main thread default). When _generate()
-    worker thread tries to use the model for inference, its own stream context
-    (Stream(gpu, 1+) cannot access weights from another thread's stream:
+  Bug 2 — server.py (root cause):
+    ModelProvider.__init__() called self.load() in the MAIN THREAD, placing
+    model weights on Stream(gpu, 0). When _generate() worker thread tried to
+    use the model, its stream context couldn't access the weights:
         RuntimeError: There is no Stream(gpu, 1) in current thread.
-    This caused ALL mlx_lm.server inference to silently hang.
 
 Fix 1 — generate.py:
   Change mx.new_stream() → mx.new_thread_local_stream() so the generation
   stream is resolved per-thread at use time.
 
-Fix 2 — server.py (root cause fix):
-  Remove self.load() call from ModelProvider.__init__() so the model loads
-  lazily in _generate() worker thread on first request. The default_model_map
-  mapping is preserved so the server still knows which model to load.
-
-Both fixes are required together. Fix 2 alone would still fail because
-generation_stream would be a cross-thread stream. Fix 1 alone would still fail
-because model weights would be on the main thread's stream.
+Fix 2 — server.py:
+  mlx-lm 0.31.2: patch ModelProvider.__init__ to defer self.load() call.
+  mlx-lm 0.31.3+: upstream refactored ModelProvider to use load_default()
+    called inside _generate() worker thread — no patch required, auto-detected.
 
 Scope: mlx_lm only. mlx_vlm uses uvicorn + asyncio (single event-loop thread)
 so it does not spawn worker threads and is not affected.
@@ -48,20 +42,16 @@ from pathlib import Path
 
 GENERATE_OLD = "generation_stream = mx.new_stream(mx.default_device())"
 GENERATE_NEW = (
-    "# mlx 0.31.2+: GPU streams are thread-local. Two patches required together:\n"
-    "# 1. new_thread_local_stream here — creates a per-thread stream instance so the\n"
-    "#    _generate worker thread gets its own stream (not the main thread's).\n"
-    "# 2. mlx_lm/server.py: ModelProvider.__init__ defers self.load() to the worker\n"
-    "#    thread — ensures model weights land on the same stream as inference.\n"
-    "# Without patch 2, model weights load on the main-thread stream which the worker\n"
-    "# thread cannot access, causing RuntimeError on mx.eval in _serve_single/_next.\n"
+    "# mlx 0.31.2+: GPU streams are thread-local. new_thread_local_stream creates\n"
+    "# a per-thread stream instance so the _generate worker thread gets its own\n"
+    "# stream (not the main thread's), preventing RuntimeError on mx.eval.\n"
     "generation_stream = mx.new_thread_local_stream(mx.default_device())"
 )
 
-# ── Patch 2: server.py — defer model loading to worker thread ─────────────────
+# ── Patch 2: server.py — defer model loading to worker thread (mlx-lm 0.31.2 only) ──
 
-# The block to find and replace in ModelProvider.__init__
-SERVER_OLD = (
+# mlx-lm 0.31.2 pattern: __init__ calls self.load() in main thread
+SERVER_OLD_031_2 = (
     "        # Preload the default model if it is provided\n"
     "        self.default_model_map = {}\n"
     "        if self.cli_args.model is not None:\n"
@@ -69,7 +59,7 @@ SERVER_OLD = (
     '            self.load(self.cli_args.model, draft_model_path="default_model")'
 )
 
-SERVER_NEW = (
+SERVER_NEW_031_2 = (
     "        # Register the default model path but defer actual loading to the\n"
     "        # generation worker thread (_generate). mlx 0.31.2+ uses thread-local GPU\n"
     "        # streams: model weights loaded in the main thread land on a stream that\n"
@@ -81,6 +71,10 @@ SERVER_NEW = (
     '            self.default_model_map[self.cli_args.model] = "default_model"\n'
     "            # DO NOT call self.load() here — deferred to _generate() worker thread"
 )
+
+# mlx-lm 0.31.3+ detection: load_default() exists AND is called inside _generate()
+SERVER_031_3_SIGNAL = "def load_default(self):"
+SERVER_031_3_DEFERRED = "self.model_provider.load_default()"
 
 
 def find_mlx_lm_file(filename: str) -> Path | None:
@@ -137,6 +131,14 @@ def apply_patch(target: Path, old: str, new: str, name: str) -> bool:
     return True
 
 
+def check_server_031_3(server_py: Path) -> bool:
+    """Return True if server.py already has the 0.31.3+ upstream deferred-load fix."""
+    text = server_py.read_text(encoding="utf-8")
+    has_load_default = SERVER_031_3_SIGNAL in text
+    has_deferred_call = SERVER_031_3_DEFERRED in text
+    return has_load_default and has_deferred_call
+
+
 def main() -> int:
     ok = True
 
@@ -154,9 +156,16 @@ def main() -> int:
     if not server_py:
         print("ERROR: could not locate mlx_lm/server.py", file=sys.stderr)
         return 1
-    print(f"Patching {server_py}")
-    if not apply_patch(server_py, SERVER_OLD, SERVER_NEW, "server.py"):
-        ok = False
+    print(f"Checking {server_py}")
+    if check_server_031_3(server_py):
+        print(
+            "  server.py: 0.31.3+ upstream fix detected (load_default() called in "
+            "_generate worker thread) — no patch needed."
+        )
+    else:
+        # Try the 0.31.2 patch
+        if not apply_patch(server_py, SERVER_OLD_031_2, SERVER_NEW_031_2, "server.py"):
+            ok = False
 
     if not ok:
         return 1
@@ -180,7 +189,7 @@ def main() -> int:
     except Exception as e:
         print(f"WARNING: could not run sanity check: {e}")
 
-    print("\nAll patches applied. Restart mlx-proxy to take effect.")
+    print("\nAll patches verified. Restart mlx-proxy to take effect.")
     return 0
 
 

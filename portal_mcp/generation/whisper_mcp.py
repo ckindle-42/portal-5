@@ -101,6 +101,33 @@ TOOLS_MANIFEST = [
             "required": ["audio_path"],
         },
     },
+    {
+        "name": "transcribe_with_speakers",
+        "description": (
+            "Transcribe an audio file with speaker diarization (Docker fallback path). "
+            "On Apple Silicon, prefer the host-native MLX path on port 8924 "
+            "(mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the "
+            "cross-platform fallback for Linux/CUDA nodes."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": "Audio reference: OWUI file ID, filename in uploads/, or absolute path",
+                },
+                "num_speakers": {
+                    "type": "integer",
+                    "description": "Hint for expected speaker count. Auto-detected if omitted.",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "ISO language code. Auto-detected if omitted.",
+                },
+            },
+            "required": ["file"],
+        },
+    },
 ]
 
 
