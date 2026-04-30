@@ -214,4 +214,17 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
+## Diarized Transcription (TASK-TRANSCRIBE-001)
+
+- **Pyannote model gating.** Diarization models (`pyannote/segmentation-3.0`, `pyannote/speaker-diarization-3.1`) require accepting their HuggingFace user agreements before download. Without `HF_TOKEN` in `.env` and licenses accepted, the service starts but diarization calls return 500. Upstream licensing, not a Portal 5 limitation.
+- **Overlapping speech.** Pyannote 3.1 under-performs when multiple speakers talk simultaneously. The merge logic assigns each transcribed segment to a single speaker by maximum overlap; rapid alternation may surface as one merged turn.
+- **Speaker count drift on long recordings.** For recordings >15–30 min, pyannote may register the same speaker as two separate IDs after long silence gaps. Pass `num_speakers=N` if the count is known. The `transcriptanalyst` persona surfaces suspicious counts and offers re-processing.
+- **No hard length limit, but practical scaling.** 10 min ≈ 60–130s; 35 min ≈ 3.5–7.5 min; 1 hour ≈ 6–13 min. Memory comfortable up to multi-hour files on 64 GB.
+- **OWUI tool-call timeout for long files.** OWUI's default MCP timeout is shorter than processing time for files >5 min. Operator must raise `TOOL_SERVER_REQUEST_TIMEOUT` (e.g., 1800s) or use the direct curl endpoint at `:8924`.
+- **First-call latency.** Pyannote pipeline takes ~10–15s to load on first call. `/health` returns `diarization_loaded: false` until then. Subsequent calls reuse the loaded pipeline.
+- **MLX path is macOS-only.** `scripts/mlx-transcribe.py` requires Apple Silicon. The Docker `whisper_mcp.py` fallback (faster-whisper + pyannote on CPU/CUDA) is the cross-platform alternative; significantly slower on Apple Silicon (CPU-bound).
+- **First-run model download.** Whisper-large-v3-turbo (~1.5 GB) + pyannote weights (~36 MB) download on first transcription. Subsequent calls use cached weights in `~/.cache/huggingface/`.
+
+---
+
 *Last updated: 2026-04-29*

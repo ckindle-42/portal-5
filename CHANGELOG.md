@@ -16,6 +16,24 @@ All notable changes to Portal 5 will be documented in this file.
 ### Changed
 - `AUDIO_STT_ENGINE` disabled in OWUI config (set via `OWUI_AUDIO_STT_ENGINE` env, default empty). Audio uploads in chat remain as attachments instead of being auto-transcribed; personas process them via MCP tools. **Side effect:** OWUI microphone voice-input no longer transcribes. See KNOWN_LIMITATIONS.
 
+- **Diarized transcription** (TASK-TRANSCRIBE-001):
+  - New host-native MCP server `scripts/mlx-transcribe.py` on port 8924 (mlx-whisper large-v3-turbo + pyannote.audio 3.1 on MPS). Apple Silicon primary path.
+  - `whisper_mcp.py` extended with `transcribe_with_speakers` tool (faster-whisper + pyannote on CPU/CUDA) — cross-platform fallback.
+  - New persona `transcriptanalyst` in `auto-documents` workspace; detects audio attachments, calls tool, displays markdown, chains to `create_word_document` for docx output.
+  - New launch commands: `./launch.sh start-transcribe` / `stop-transcribe`.
+  - Output: JSON + Markdown sidecar in workspace at `${AI_OUTPUT_DIR}/generated/transcripts/`. Both downloadable via `:8924/files/<name>`.
+  - Performance: ~60–130s for 10-min 2-speaker audio on M4 Pro (vs ~4–8 min on Docker fallback path).
+  - Tool surface: `transcribe_with_speakers(file, num_speakers, language)` — `file` accepts OWUI file ID, filename in uploads/, or absolute path (resolved via workspace helper).
+  - Pyannote models gated; requires accepting HuggingFace licenses + `HF_TOKEN` in `.env`.
+
+### Models pulled (via `./launch.sh pull-mlx-models`)
+- `mlx-community/whisper-large-v3-turbo` (~1.5 GB)
+- `pyannote/speaker-diarization-3.1` (~30 MB, gated)
+- `pyannote/segmentation-3.0` (~6 MB, gated)
+
+### Changed
+- `AUDIO_STT_ENGINE` disabled in OWUI config (set via `OWUI_AUDIO_STT_ENGINE` env, default empty). Audio uploads in chat remain as attachments instead of being auto-transcribed; personas process them via MCP tools. **Side effect:** OWUI microphone voice-input no longer transcribes. See KNOWN_LIMITATIONS.
+
 ### Migration notes
 - On first `./launch.sh up` after this change, the workspace structure is auto-created. If you have existing OWUI uploads in the named volume, run the migration step in TASK-WORKSPACE-001 §Phase 0 before restarting OWUI, or those files become hidden by the new bind mount.
 - `OUTPUT_DIR` env var is now an alias for `AI_OUTPUT_DIR` (same value). Existing MCPs that read `OUTPUT_DIR` continue to work without changes.

@@ -733,6 +733,13 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ❌  %-28s %s\n" "MLX Speech" "installed but not running — ./launch.sh start-speech"
         fi
 
+        # MLX Transcribe service status
+        if [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
+            printf "    ✅  %-28s %s\n" "MLX Transcribe" "running (PID $(cat /tmp/portal-mlx-transcribe.pid), :8924)"
+        elif [ -f scripts/mlx-transcribe.py ]; then
+            printf "    ❌  %-28s %s\n" "MLX Transcribe" "installed but not running — ./launch.sh start-transcribe"
+        fi
+
         # Embedding server
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:${EMBEDDING_HOST_PORT:-8917}/health', timeout=2)" &>/dev/null 2>&1; then
             printf "    ✅  %-28s %s\n" "Embedding" ":${EMBEDDING_HOST_PORT:-8917}"
@@ -3549,6 +3556,50 @@ PLIST
     done
     ;;
 
+  start-transcribe)
+    PORTAL_ROOT="${PORTAL_ROOT:-$(pwd)}"
+    mkdir -p "$HOME/.portal5/logs"
+    PID_FILE="/tmp/portal-mlx-transcribe.pid"
+    LOG_FILE="$HOME/.portal5/logs/mlx-transcribe.log"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      echo "MLX Transcribe already running (PID $(cat "$PID_FILE"))"
+      exit 0
+    fi
+    if [ ! -f "$PORTAL_ROOT/scripts/mlx-transcribe.py" ]; then
+      echo "❌ scripts/mlx-transcribe.py not found"
+      exit 1
+    fi
+    if [ -z "${HF_TOKEN:-}" ]; then
+      echo "⚠️  HF_TOKEN not set — diarization will fail on first call."
+      echo "   Set in .env after accepting pyannote model licenses on HuggingFace."
+    fi
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "Starting MLX Transcribe (port 8924)..."
+    nohup python3 "$PORTAL_ROOT/scripts/mlx-transcribe.py" >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    sleep 2
+    if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      echo "✅ MLX Transcribe started (PID $(cat "$PID_FILE"))"
+      echo "   Log: $LOG_FILE"
+    else
+      echo "❌ Failed to start. Check $LOG_FILE"
+      rm -f "$PID_FILE"
+      exit 1
+    fi
+    ;;
+
+  stop-transcribe)
+    PID_FILE="/tmp/portal-mlx-transcribe.pid"
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+      kill "$(cat "$PID_FILE")" 2>/dev/null || true
+      rm -f "$PID_FILE"
+      echo "MLX Transcribe stopped"
+    else
+      echo "MLX Transcribe not running"
+      rm -f "$PID_FILE"
+    fi
+    ;;
+
   pull-mlx-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     ARCH=$(uname -m)
@@ -3612,6 +3663,7 @@ PLIST
         "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit"  # ~0.8GB — create voices from descriptions
         "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"         # ~0.8GB — voice cloning from reference audio
         "mlx-community/Qwen3-ASR-1.7B-8bit"                    # ~0.8GB — speech recognition (replaces faster-whisper)
+        "mlx-community/whisper-large-v3-turbo"                 # ~1.5GB — Whisper transcription with timestamps (TASK-TRANSCRIBE-001)
     )
 
     # Heavy models — gated behind PULL_HEAVY=true
@@ -3761,7 +3813,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3777,6 +3829,8 @@ MEOF
     echo "  mlx-clean               Kill any zombie MLX server processes + reclaim GPU memory"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
+    echo "  start-transcribe      Start MLX Transcribe server (mlx-whisper + pyannote diarization, :8924)"
+    echo "  stop-transcribe       Stop MLX Transcribe server"
     echo ""
     echo "  workspace-init        Create shared workspace directory structure (uploads, generated/*)"
     echo "  workspace-status      Show file counts and disk usage per category"

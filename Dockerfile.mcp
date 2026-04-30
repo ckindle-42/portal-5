@@ -40,12 +40,14 @@ RUN pip install --no-cache-dir \
     "markdown>=3.6"
 
 # Audio / speech — kokoro-onnx is zero-setup, fish-speech optional
+# pyannote.audio added for transcribe_with_speakers (TASK-TRANSCRIBE-001)
 RUN pip install --no-cache-dir \
     "faster-whisper>=1.0.0" \
     "kokoro-onnx>=0.4.0" \
     "soundfile>=0.12.1" \
     "numpy>=1.24.0" \
-    "huggingface_hub>=0.20.0"
+    "huggingface_hub>=0.20.0" \
+    "pyannote.audio>=3.1.0"
 
 # Music generation via HuggingFace transformers (MusicGen — facebook/musicgen-*)
 # Works on aarch64 Linux (CPU), macOS (MPS), and Linux x86_64 (CUDA).

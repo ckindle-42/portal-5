@@ -8,6 +8,7 @@
     { "name": "Portal Documents",      "id": "portal_documents", "url": "http://host.docker.internal:8913/mcp", "api_key": "" },
     { "name": "Portal Code",           "id": "portal_code",      "url": "http://host.docker.internal:8914/mcp", "api_key": "" },
     { "name": "Portal Whisper",        "id": "portal_whisper",   "url": "http://host.docker.internal:8915/mcp", "api_key": "" },
+    { "name": "Portal MLX Transcribe", "id": "portal_mlx_transcribe", "url": "http://host.docker.internal:8924/mcp", "api_key": "" },
     { "name": "Portal TTS",            "id": "portal_tts",       "url": "http://host.docker.internal:8916/mcp", "api_key": "" },
     { "name": "Portal Security Tools", "id": "portal_security",  "url": "http://host.docker.internal:8919/mcp", "api_key": "" },
     { "name": "Portal Memory",         "id": "portal_memory",    "url": "http://host.docker.internal:8920/mcp", "api_key": "" },

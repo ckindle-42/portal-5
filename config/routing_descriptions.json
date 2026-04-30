@@ -11,7 +11,7 @@
   "auto-research": "Web research, information synthesis, fact-checking, literature review, summarising external sources, current events research.",
   "auto-vision": "Image understanding, visual analysis, multimodal tasks with attached images, diagram interpretation, object recognition, screenshot analysis.",
   "auto-creative": "Creative writing, fiction, storytelling, poetry, worldbuilding, content generation, marketing copy.",
-  "auto-documents": "Creating Word documents, Excel spreadsheets, PowerPoint presentations using MCP tool servers.",
+  "auto-documents": "Creating Word documents, Excel spreadsheets, PowerPoint presentations, and diarized audio transcripts (with speaker labels) using MCP tool servers.",
   "auto-music": "Generating music and audio via AudioCraft/MusicGen, describing musical ideas.",
   "auto-video": "Generating videos via ComfyUI/Wan2.2, describing video concepts.",
   "auto-mistral": "Structured strategic reasoning, business analysis, planning with explicit thinking mode, Mistral-lineage model requests.",

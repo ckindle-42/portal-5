@@ -166,6 +166,183 @@ async def transcribe_audio(file_path: str, language: str | None = None) -> dict:
     }
 
 
+# ── Diarization (TASK-TRANSCRIBE-001) ───────────────────────────────────────────
+# Cross-platform fallback for transcribe_with_speakers. Apple Silicon primary
+# is scripts/mlx-transcribe.py (mlx-whisper + pyannote on MPS). This Docker
+# path uses faster-whisper (CPU, or CUDA on Linux nodes) + pyannote.
+
+import json as _json
+import time as _time
+import uuid as _uuid
+
+from portal_mcp.core.workspace import (
+    get_generated_dir as _get_generated_dir,
+    resolve_upload_path as _resolve_upload_path,
+)
+
+_diarization_pipeline = None
+
+
+def _get_diarization_pipeline():
+    """Lazy-load pyannote diarization pipeline."""
+    global _diarization_pipeline
+    if _diarization_pipeline is None:
+        hf_token = os.getenv("HF_TOKEN", "")
+        if not hf_token:
+            raise RuntimeError(
+                "HF_TOKEN not set. Diarization models are gated — "
+                "accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1"
+            )
+        from pyannote.audio import Pipeline
+        import torch
+
+        pipeline = Pipeline.from_pretrained(
+            os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1"),
+            use_auth_token=hf_token,
+        )
+        if torch.cuda.is_available():
+            pipeline.to(torch.device("cuda"))
+        _diarization_pipeline = pipeline
+    return _diarization_pipeline
+
+
+def _merge_speakers(segments: list[dict], speaker_turns: list[dict]) -> list[dict]:
+    if not speaker_turns:
+        return [{**s, "speaker": "SPEAKER_00"} for s in segments]
+    labeled: list[dict] = []
+    for seg in segments:
+        best_speaker, best_overlap = "SPEAKER_UNKNOWN", 0.0
+        for t in speaker_turns:
+            overlap = min(seg["end"], t["end"]) - max(seg["start"], t["start"])
+            if overlap > best_overlap:
+                best_overlap, best_speaker = overlap, t["speaker"]
+        labeled.append({**seg, "speaker": best_speaker})
+    merged: list[dict] = []
+    for seg in labeled:
+        if merged and merged[-1]["speaker"] == seg["speaker"]:
+            merged[-1]["end"] = seg["end"]
+            merged[-1]["text"] = (merged[-1]["text"] + " " + seg["text"]).strip()
+        else:
+            merged.append(dict(seg))
+    return merged
+
+
+def _format_md(merged: list[dict], meta: dict, source_name: str = "audio") -> str:
+    lines = [
+        f"# Transcript: {source_name}",
+        "",
+        f"- **Duration**: {meta['duration']:.1f}s",
+        f"- **Language**: {meta['language']}",
+        f"- **Speakers**: {meta['speaker_count']}",
+        f"- **Generated**: {_time.strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "---",
+        "",
+    ]
+    for s in merged:
+        ts = f"[{int(s['start']) // 60:02d}:{int(s['start']) % 60:02d}]"
+        lines.append(f"**{s['speaker']}** {ts}")
+        lines.append(s["text"])
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _resolve_audio(file: str) -> tuple[Path | None, str]:
+    """Resolve a file ID, filename, or absolute path to a Path."""
+    if file.startswith("/") or file.startswith("~"):
+        p = Path(file).expanduser().resolve()
+        if p.is_file():
+            return p, p.name
+        return None, f"file not found at path: {file}"
+    p = _resolve_upload_path(file)
+    if p is not None:
+        return p, p.name
+    return None, f"upload not found: {file!r}"
+
+
+@mcp.tool()
+async def transcribe_with_speakers(
+    file: str,
+    num_speakers: int | None = None,
+    language: str | None = None,
+) -> dict:
+    """
+    Transcribe an audio file with speaker diarization (Docker fallback path).
+
+    On Apple Silicon, prefer the host-native MLX path on port 8924
+    (mlx-whisper + pyannote on MPS, ~5x faster). This Docker path is the
+    cross-platform fallback for Linux/CUDA nodes.
+
+    Args:
+        file: Audio reference. Accepts OWUI file ID, filename in uploads/,
+              or absolute path.
+        num_speakers: Hint for expected speaker count. Auto-detected if omitted.
+        language: ISO language code. Auto-detected if omitted.
+
+    Returns:
+        dict with text, language, duration, speaker_count, segments,
+        markdown, json_path, md_path, timing.
+    """
+    path, source_name = _resolve_audio(file)
+    if path is None:
+        return {"error": source_name}
+
+    t0 = _time.time()
+    base = await transcribe_audio(file_path=str(path), language=language)
+    if "error" in base:
+        return base
+    t_transcribe = _time.time() - t0
+
+    t1 = _time.time()
+    try:
+        pipeline = await asyncio.to_thread(_get_diarization_pipeline)
+        kwargs = {"num_speakers": num_speakers} if num_speakers is not None else {}
+        diarization = await asyncio.to_thread(pipeline, str(path), **kwargs)
+        speaker_turns = [
+            {"start": round(turn.start, 2), "end": round(turn.end, 2), "speaker": spk}
+            for turn, _, spk in diarization.itertracks(yield_label=True)
+        ]
+        speaker_turns.sort(key=lambda t: t["start"])
+    except Exception as e:
+        return {"error": f"diarization failed: {e}"}
+    t_diarize = _time.time() - t1
+
+    merged = _merge_speakers(base["segments"], speaker_turns)
+    speaker_count = len({s["speaker"] for s in merged}) if merged else 0
+
+    meta = {
+        "text": base["text"],
+        "language": base["language"],
+        "duration": base["duration"],
+        "speaker_count": speaker_count,
+        "timing": {
+            "transcribe_s": round(t_transcribe, 2),
+            "diarize_s": round(t_diarize, 2),
+            "total_s": round(_time.time() - t0, 2),
+        },
+    }
+
+    out_dir = _get_generated_dir("transcripts")
+    uid = _uuid.uuid4().hex[:12]
+    json_path = out_dir / f"transcript_{uid}.json"
+    md_path = out_dir / f"transcript_{uid}.md"
+    full_payload = {**meta, "segments": merged, "source": source_name}
+    json_path.write_text(_json.dumps(full_payload, indent=2))
+    markdown = _format_md(merged, meta, source_name)
+    md_path.write_text(markdown)
+
+    return {
+        **meta,
+        "segments": merged,
+        "markdown": markdown,
+        "json_path": str(json_path),
+        "md_path": str(md_path),
+    }
+
+
+# ── End diarization additions ──────────────────────────────────────────────────
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WHISPER_MCP_PORT", "8915"))
     mcp.settings.port = port

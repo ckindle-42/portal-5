@@ -27,6 +27,8 @@
     {"message": "what does this image show?", "workspace": "auto-vision", "confidence": 0.95},
     {"message": "write a short story about a robot detective", "workspace": "auto-creative", "confidence": 0.95},
     {"message": "create a Word document summarizing our Q3 results", "workspace": "auto-documents", "confidence": 0.97},
+    {"message": "transcribe this meeting recording with speaker labels", "workspace": "auto-documents", "confidence": 0.94},
+    {"message": "who said what in this audio file?", "workspace": "auto-documents", "confidence": 0.92},
     {"message": "generate a 30-second jazz track", "workspace": "auto-music", "confidence": 0.98},
     {"message": "generate a video of a sunset over mountains", "workspace": "auto-video", "confidence": 0.97},
     {"message": "use Magistral to reason through this strategic decision", "workspace": "auto-mistral", "confidence": 0.96},

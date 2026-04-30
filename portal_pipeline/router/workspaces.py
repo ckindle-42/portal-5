@@ -161,7 +161,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-documents": {
         "name": "📄 Portal Document Builder",
-        "description": "Create Word, Excel, PowerPoint via MCP tools",
+        "description": "Create Word, Excel, PowerPoint via MCP tools; diarized transcription",
         "model_hint": "qwen3.5:9b",
         "mlx_model_hint": "mlx-community/phi-4-8bit",
         "tools": [
@@ -172,6 +172,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "read_excel",
             "read_powerpoint",
             "read_pdf",
+            "transcribe_with_speakers",
         ],
     },
     "auto-video": {

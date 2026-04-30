@@ -500,6 +500,74 @@ curl -s http://localhost:8918/health
 
 ---
 
+## Diarized Transcription (Speaker-Labeled Transcripts)
+
+**What:** Drop an audio file in OWUI chat, get back a transcript with speaker labels (SPEAKER_00, SPEAKER_01, ...). Outputs JSON + Markdown to the shared workspace at `~/AI_Output/generated/transcripts/`.
+
+**Pre-flight (one-time):**
+
+1. Visit `https://huggingface.co/pyannote/segmentation-3.0` — accept user conditions
+2. Visit `https://huggingface.co/pyannote/speaker-diarization-3.1` — accept user conditions
+3. Generate read token at `https://huggingface.co/settings/tokens`
+4. Add to `.env`: `HF_TOKEN=hf_...`
+
+**Start the service (Apple Silicon primary):**
+```bash
+./launch.sh start-transcribe
+# First run downloads ~1.5 GB whisper-large-v3-turbo + ~30 MB pyannote
+```
+
+**Workflow A — Drop in chat (recommended for files <15 min):**
+
+1. Open WebUI → select `Transcript Analyst` persona (Documents workspace)
+2. Drag-drop an audio file (mp3, wav, m4a, ogg, flac) into the chat input
+3. Type instructions, e.g., "transcribe with 2 speakers" or "summarize this meeting"
+4. Hit submit
+5. Persona detects the attachment, calls the transcription tool, displays the labeled transcript
+
+The `transcriptanalyst` persona accepts:
+- `"transcribe this"` — auto-detects speaker count
+- `"transcribe with N speakers"` — passes `num_speakers=N` to constrain pyannote
+- `"summarize this meeting"` — transcribe first, then produce a summary with decisions/action items
+- `"make me a Word doc"` — transcribe, then chain to `create_word_document` for .docx output
+
+**Workflow B — Long files (>15 min) or batch processing:**
+
+For files where OWUI's tool timeout might bite (or for scripted use), call the HTTP endpoint directly:
+```bash
+curl -X POST http://localhost:8924/v1/audio/transcribe-with-speakers \
+  -F "file=@long_meeting.mp3" \
+  -F "num_speakers=3" | jq -r '.md_path'
+# /Users/you/AI_Output/generated/transcripts/transcript_a3f2b1c4d5e6.md
+```
+
+Then in OWUI, ask the persona to "format the transcript at <md_path>".
+
+**Tool timeout for long files:** OWUI's default MCP tool timeout is shorter than processing time for files >5 min. To raise it:
+```bash
+echo "TOOL_SERVER_REQUEST_TIMEOUT=1800" >> .env  # 30 minutes
+./launch.sh restart open-webui
+```
+
+**Performance (M4 Pro, 10-min 2-speaker audio):** ~60–130s end-to-end. Versus Docker fallback path: ~4–8 min (CPU-bound). Time scales roughly linearly with audio length.
+
+**Speaker count drift:** for files >15 min, pyannote can occasionally split one speaker into multiple IDs across long silences. If the result has more speakers than you expected, ask the persona to re-run with `num_speakers=<your_count>` to constrain.
+
+**Verify:**
+```bash
+curl http://localhost:8924/health
+# {"status":"ok","service":"mlx-transcribe","whisper_model":"...","diarization_loaded":false}
+# (diarization_loaded becomes true after first call)
+```
+
+**Output files:**
+- `~/AI_Output/generated/transcripts/transcript_<id>.json` — structured data
+- `~/AI_Output/generated/transcripts/transcript_<id>.md` — speaker-labeled markdown
+
+Both also downloadable via `http://localhost:8924/files/<filename>`.
+
+---
+
 ## 13. Web Search
 
 **What:** Private web search powered by SearXNG — no data leaves your machine.

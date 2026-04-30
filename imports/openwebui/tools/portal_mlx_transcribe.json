@@ -1,0 +1,15 @@
+{
+  "id": "portal_mlx_transcribe",
+  "name": "Portal MLX Transcribe",
+  "type": "mcp",
+  "meta": {
+    "description": "Diarized transcription with speaker labels (Apple Silicon MLX-accelerated). Drop in an audio file in chat, the persona will transcribe with speaker labels.",
+    "manifest": {
+      "type": "mcp",
+      "url": "http://host.docker.internal:8924/mcp"
+    }
+  },
+  "settings": {
+    "api_key": ""
+  }
+}
