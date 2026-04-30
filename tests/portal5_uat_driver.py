@@ -41,6 +41,9 @@ import httpx
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
+sys.path.insert(0, str(Path(__file__).parent))
+from common import REFUSAL_PHRASES  # noqa: E402
+
 load_dotenv()
 
 # ---------------------------------------------------------------------------
@@ -1855,7 +1858,7 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "No refusal",
-                "keywords": ["i cannot", "i'm unable", "i won't"],
+                "keywords": REFUSAL_PHRASES,
             },
             {"type": "min_length", "label": "Substantive response", "chars": 800},
         ],
@@ -3863,7 +3866,7 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "No excessive refusal",
-                "keywords": ["i cannot", "i'm not able to", "i won't help"],
+                "keywords": REFUSAL_PHRASES,
             },
             {"type": "min_length", "label": "Substantive response", "chars": 600},
         ],
@@ -3910,7 +3913,7 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "No refusal",
-                "keywords": ["i cannot", "i'm unable", "i won't"],
+                "keywords": REFUSAL_PHRASES,
             },
         ],
     },
