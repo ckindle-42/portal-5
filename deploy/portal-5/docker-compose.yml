@@ -142,6 +142,10 @@ services:
       - "${WEBUI_LISTEN_ADDR:-127.0.0.1}:8080:8080"
     volumes:
       - open-webui-data:/app/backend/data
+      # TASK-WORKSPACE-001: bind-mount uploads onto the named volume so
+      # files dropped in chat are visible to MCPs at the same physical path.
+      # The named volume retains everything else (database, RAG, config).
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}/uploads:/app/backend/data/uploads
     environment:
       # ── Model source ────────────────────────────────────────────────────────
       # Portal Pipeline is the SOLE model source — no direct Ollama access
@@ -216,16 +220,17 @@ services:
       - SAFE_MODE=false               # Allow full tool access for approved users
 
       # ── Speech (MLX-native on host via mlx-audio) ───────────────────────────
-      # Primary: mlx-speech server on host (:8918) — Qwen3-TTS + Qwen3-ASR + Kokoro
-      # Fallback: Docker mcp-tts (:8916) and mcp-whisper (:8915) still run as backup
+      # Primary: mlx-speech server on host (:8918) — Qwen3-TTS + Kokoro for TTS
+      # TTS still goes through mlx-speech; STT is DISABLED globally (TASK-WORKSPACE-001).
+      # Audio uploads in chat stay as attachments — personas handle them via the
+      # transcribe_with_speakers MCP tool. Side effect: voice-input via microphone
+      # is also disabled. See KNOWN_LIMITATIONS.md.
       - AUDIO_TTS_ENGINE=openai
       - AUDIO_TTS_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
       - AUDIO_TTS_OPENAI_API_KEY=portal-speech
       - AUDIO_TTS_MODEL=kokoro
       - AUDIO_TTS_VOICE=af_heart
-      - AUDIO_STT_ENGINE=openai
-      - AUDIO_STT_OPENAI_API_BASE_URL=${MLX_SPEECH_URL:-http://host.docker.internal:8918}
-      - AUDIO_STT_OPENAI_API_KEY=portal-speech
+      - AUDIO_STT_ENGINE=${OWUI_AUDIO_STT_ENGINE:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -338,9 +343,11 @@ services:
       - MCP_PORT=8915
       - HF_HOME=/app/data/hf_cache
       - HF_TOKEN=${HF_TOKEN:-}
+      - WORKSPACE_DIR=/workspace
     command: ["python", "-m", "portal_mcp.generation.whisper_mcp"]
     volumes:
       - portal5-hf-cache:/app/data/hf_cache
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8915/health"]
       interval: 30s
@@ -426,6 +433,7 @@ services:
       - SANDBOX_DIR=/app/data/sandbox
       # Point at DinD instead of host Docker
       - DOCKER_HOST=tcp://dind:2375
+      - WORKSPACE_DIR=/workspace
     # Run as root to chown shared volume on startup, then drop to portal
     user: root
     entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal_mcp.execution.code_sandbox_mcp'"]
@@ -434,6 +442,7 @@ services:
         condition: service_healthy
     volumes:
       - sandbox-work:/app/data/sandbox  # Shared with dind for code execution
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8914/health"]
       interval: 30s
@@ -517,10 +526,12 @@ services:
       - HUNYUAN_NSFW_LORA=${HUNYUAN_NSFW_LORA:-nsfw-e7.safetensors}
       - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-0.85}
       - VIDEO_TIMEOUT=${VIDEO_TIMEOUT:-1200}
+      - WORKSPACE_DIR=/workspace
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
     volumes:
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/app/data/generated
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8911/health"]
       interval: 30s

@@ -32,6 +32,7 @@ genuinely open future work beyond the current stable release.
 | P5-FUT-012 | P3 | Speech pipeline upgrade (mlx-audio) | DONE | Host-native `scripts/mlx-speech.py` using mlx-audio. Qwen3-TTS (1.7B, 3 variants: CustomVoice, VoiceDesign, Base/Clone) + Qwen3-ASR (1.7B) + Kokoro (82M). Voice cloning from 3s audio, emotion control, voice design from text, 10 languages, streaming. Docker TTS/ASR kept as fallback. |
 | P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | IN_PROGRESS | M4: config created (deploy/omlx/config.yaml), bench script created (bench_omlx.py), decision template (OMLX_DECISION.md). OMLX package not yet installable — evaluation deferred until available. |
 | P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | IN_PROGRESS | M4 Track 1: draft models (Qwen2.5-0.5B, Llama-3.2-1B) cataloged, DRAFT_MODEL_MAP in mlx-proxy.py, 8 targets mapped in backends.yaml. Bench validation pending (bench_tps.py --spec-decoding-tag). |
+| P5-FUT-015 | P2 | Unified shared workspace | DONE | TASK-WORKSPACE-001. Single `${AI_OUTPUT_DIR}` root mounted into OWUI (uploads overlay) and all participating MCPs (`/workspace`). New `portal_mcp.core.workspace` helper module. AUDIO_STT_ENGINE disabled — voice-input loss documented. Foundation for TASK-TRANSCRIBE-001 and future file-handling MCPs. |
 
 ---
 

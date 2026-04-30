@@ -788,6 +788,55 @@ docker compose -f deploy/portal-5/docker-compose.yml restart portal-pipeline
 
 ---
 
+## Shared Workspace
+
+**What:** A single host directory that all Portal 5 services read from and write to. Files dropped in OWUI chat, MCP-generated outputs, and host-native script outputs all live here. Eliminates cross-service file-bridging friction.
+
+**Where:** `${AI_OUTPUT_DIR}` on the host (default `~/AI_Output/`). Mounted into containers at `/workspace`. OWUI's uploads directory bind-mounts to `${AI_OUTPUT_DIR}/uploads`.
+
+**Layout:**
+```
+~/AI_Output/
+├── uploads/                ← Files dropped in OWUI chat
+└── generated/
+    ├── transcripts/        ← Diarized transcripts (mlx-transcribe, whisper)
+    ├── documents/          ← Word/Excel/PowerPoint (documents MCP)
+    ├── images/             ← ComfyUI outputs
+    ├── videos/             ← Video MCP outputs
+    ├── music/              ← Music MCP outputs
+    └── speech/             ← TTS outputs
+```
+
+**Initialize:**
+```bash
+./launch.sh workspace-init
+```
+(Run automatically on first `./launch.sh up`.)
+
+**Inspect:**
+```bash
+./launch.sh workspace-status     # File counts and sizes per category
+./launch.sh workspace-show       # Resolved paths (host vs container)
+```
+
+**Use from MCP code (new modules):**
+```python
+from portal_mcp.core import get_uploads_dir, get_generated_dir, resolve_upload_path
+
+# Read a file dropped by the user in OWUI chat
+audio_path = resolve_upload_path(file_id_from_chat)
+
+# Write your tool's output
+out = get_generated_dir("transcripts") / f"transcript_{uid}.json"
+out.write_text(json_payload)
+```
+
+**Drop-and-process workflow:** when a user drags an audio/document/image into OWUI chat, the file lands at `~/AI_Output/uploads/<file_id>`. The persona consuming the message can call any MCP tool and pass the file path; the MCP container sees the same file at `/workspace/uploads/<file_id>`.
+
+**Auto-STT note:** Open WebUI's auto-transcription (`AUDIO_STT_ENGINE`) is disabled. Audio file uploads in chat stay as attachments — personas process them via MCP tools (e.g., `transcribe_with_speakers`). **Side effect:** voice-input via the OWUI microphone button does not transcribe. To re-enable voice-input only, see KNOWN_LIMITATIONS.md.
+
+---
+
 ## 19. Backup & Restore
 
 ### Backup Open WebUI data (critical)

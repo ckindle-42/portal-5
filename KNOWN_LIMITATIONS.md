@@ -204,4 +204,14 @@ Architectural and design constraints that cannot be resolved without significant
 
 ---
 
-*Last updated: 2026-04-25*
+## Shared Workspace + Auto-STT Disabled (TASK-WORKSPACE-001)
+
+- **Voice-input via microphone is disabled.** Setting `AUDIO_STT_ENGINE` to empty (the default after this task) prevents auto-transcription of both file uploads AND microphone recordings in Open WebUI. Operators who want voice-input back must either re-enable the global STT (which re-enables auto-transcribe-on-file-upload) or implement a custom OWUI Function that scopes STT to recording-only. The global toggle is currently OWUI's only knob.
+- **Existing MCPs not migrated to /workspace.** `mcp-documents`, `mcp-tts`, and `mcp-comfyui` continue to write to `${AI_OUTPUT_DIR}` flat (their existing `OUTPUT_DIR=/app/data/generated` mount is unchanged). New MCPs and the helper module use `/workspace/generated/<category>/`. The two layouts coexist; migration is opportunistic, scheduled for whenever each MCP is next touched for unrelated reasons.
+- **OWUI named volume retains historical uploads visibility.** The bind-mount overlay on `/app/backend/data/uploads` hides any pre-existing files in the named volume's `uploads/` subdirectory. Pre-flight migration (Phase 0) handles this for current state; new operators have empty uploads on first launch (correct behavior).
+- **Permissions assume single-host deployment.** The 0775 mode on workspace directories assumes the operator's user owns the files and Docker containers run with compatible UIDs. On multi-tenant or hardened hosts, more careful UID mapping is required.
+- **No retention policy.** `${AI_OUTPUT_DIR}` grows unbounded. Future task adds `./launch.sh workspace-clean --age=Nd` for time-based pruning.
+
+---
+
+*Last updated: 2026-04-29*

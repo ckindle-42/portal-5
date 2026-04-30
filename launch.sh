@@ -837,6 +837,14 @@ case "${1:-up}" in
     # Generate any secrets still set to CHANGEME
     bootstrap_secrets "$ENV_FILE"
 
+    # TASK-WORKSPACE-001: ensure workspace exists before bind mounts go live
+    WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
+    if [ ! -d "${WS}/uploads" ] || [ ! -d "${WS}/generated/transcripts" ]; then
+      echo "Initializing workspace structure..."
+      mkdir -p "${WS}"/{uploads,generated/transcripts,generated/documents,generated/images,generated/videos,generated/music,generated/speech}
+      chmod -R 0775 "${WS}" 2>/dev/null || true
+    fi
+
     # Tear down any previously running stack so ports are clean before we start
     echo "[portal-5] Stopping any existing Portal 5 services..."
     _do_down
@@ -3497,6 +3505,50 @@ PLIST
     fi
     ;;
 
+  workspace-init)
+    WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
+    echo "Initializing workspace at: ${WS}"
+    mkdir -p "${WS}"/{uploads,generated/transcripts,generated/documents,generated/images,generated/videos,generated/music,generated/speech}
+    chmod -R 0775 "${WS}" 2>/dev/null || true
+    echo "✅ Workspace structure created"
+    ls -la "${WS}/" "${WS}/generated/"
+    ;;
+
+  workspace-status)
+    WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
+    if [ ! -d "${WS}" ]; then
+      echo "❌ Workspace not initialized. Run: ./launch.sh workspace-init"
+      exit 1
+    fi
+    echo "Workspace: ${WS}"
+    echo ""
+    printf "%-30s %10s %10s\n" "Path" "Files" "Size"
+    printf "%-30s %10s %10s\n" "----" "-----" "----"
+    for d in uploads generated/transcripts generated/documents generated/images generated/videos generated/music generated/speech; do
+      if [ -d "${WS}/${d}" ]; then
+        n=$(find "${WS}/${d}" -type f 2>/dev/null | wc -l | tr -d ' ')
+        s=$(du -sh "${WS}/${d}" 2>/dev/null | awk '{print $1}')
+        printf "%-30s %10s %10s\n" "${d}" "${n}" "${s}"
+      fi
+    done
+    echo ""
+    TOTAL=$(du -sh "${WS}" 2>/dev/null | awk '{print $1}')
+    echo "Total: ${TOTAL}"
+    ;;
+
+  workspace-show)
+    WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
+    echo "Workspace root (host):     ${WS}"
+    echo "Workspace root (container): /workspace"
+    echo "OWUI uploads (host):       ${WS}/uploads/"
+    echo "OWUI uploads (container):  /app/backend/data/uploads/"
+    echo ""
+    echo "Generated subdirs:"
+    for cat in transcripts documents images videos music speech; do
+      echo "  ${cat}: ${WS}/generated/${cat}/"
+    done
+    ;;
+
   pull-mlx-models)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     ARCH=$(uname -m)
@@ -3709,7 +3761,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3725,6 +3777,10 @@ MEOF
     echo "  mlx-clean               Kill any zombie MLX server processes + reclaim GPU memory"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
+    echo ""
+    echo "  workspace-init        Create shared workspace directory structure (uploads, generated/*)"
+    echo "  workspace-status      Show file counts and disk usage per category"
+    echo "  workspace-show        Print resolved paths for the current configuration"
     echo "  start-embedding-cpu-arm  Start native ARM64 embedding server (Apple Silicon, no Rosetta)"
     echo "  stop-embedding-cpu-arm   Stop ARM64 embedding server"
     echo "  install-embedding-service   Install launchd agent — embedding starts at login, auto-restarts on crash"

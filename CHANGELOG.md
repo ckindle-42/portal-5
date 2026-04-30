@@ -2,6 +2,24 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [6.1.0] — 2026-04-29
+
+### Added
+- **Shared workspace** (TASK-WORKSPACE-001): unified file-handling foundation.
+  - `${AI_OUTPUT_DIR}` (default `~/AI_Output`) is the canonical user-artifact root.
+  - OWUI uploads bind-mount to `${AI_OUTPUT_DIR}/uploads` — files dropped in chat are now visible to all MCPs.
+  - New helper module `portal_mcp.core.workspace` provides `get_uploads_dir()`, `get_generated_dir(category)`, `resolve_upload_path(file_id)`.
+  - New launch commands: `workspace-init`, `workspace-status`, `workspace-show`.
+  - `mcp-whisper`, `mcp-video`, `mcp-sandbox` now mount `/workspace`.
+  - CLAUDE.md Rule 11 added: shared workspace is the only path for user files.
+
+### Changed
+- `AUDIO_STT_ENGINE` disabled in OWUI config (set via `OWUI_AUDIO_STT_ENGINE` env, default empty). Audio uploads in chat remain as attachments instead of being auto-transcribed; personas process them via MCP tools. **Side effect:** OWUI microphone voice-input no longer transcribes. See KNOWN_LIMITATIONS.
+
+### Migration notes
+- On first `./launch.sh up` after this change, the workspace structure is auto-created. If you have existing OWUI uploads in the named volume, run the migration step in TASK-WORKSPACE-001 §Phase 0 before restarting OWUI, or those files become hidden by the new bind mount.
+- `OUTPUT_DIR` env var is now an alias for `AI_OUTPUT_DIR` (same value). Existing MCPs that read `OUTPUT_DIR` continue to work without changes.
+
 ## [6.0.7] — Media UAT section + remotely-addressable media URLs
 
 ### Added
