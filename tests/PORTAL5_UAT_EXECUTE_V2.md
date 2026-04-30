@@ -698,7 +698,7 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | `auto-music` | 2 | media_heavy | 6 | 10–15 min |
 | `auto-video` | 2 | media_heavy | 6 | 15–30 min |
 | `auto-math` | 2 | mlx_small | 4 | 5–10 min |
-| `advanced` | 7 | ollama + any | 8 | 15–20 min |
+| `advanced` | 8 | mixed (incl. mlx_small two-chat) | 8 | 18–25 min |
 | `benchmark` | 9 | mlx_large + mlx_small | 7 | 60–90 min |
 
 **Total run (phases 1–8, `--skip-bots`):** approximately 280–420 minutes.

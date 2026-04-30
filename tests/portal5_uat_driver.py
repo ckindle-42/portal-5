@@ -2042,25 +2042,33 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Training data caveat",
+                # Was 18 keywords including bare "current" / "verify" / "as of"
+                # which passed on any acknowledgment ("as of right now" / "verify
+                # the seller"). Tightened to phrases that ONLY appear when the
+                # model is hedging on knowledge currency.
                 "keywords": [
                     "training data",
-                    "verify",
-                    "current",
-                    "may have changed",
-                    "check apple",
+                    "training cutoff",
                     "knowledge cutoff",
-                    "double-check",
-                    "may not reflect",
-                    "subject to change",
-                    "outdated",
-                    "as of",
-                    "based on my training",
+                    "my training",
                     "since my data",
-                    "verify with",
-                    "manufacturer",
-                    "apple's website",
-                    "official spec",
-                    "latest specs",
+                    "based on my training",
+                    "may have changed",
+                    "may not reflect",
+                    "may be outdated",
+                    "subject to change",
+                    "verify with apple",
+                    "check apple's",
+                    "check apple website",
+                    "apple's official",
+                    "official apple",
+                    "apple.com",
+                    "before purchasing",
+                    "before you buy",
+                    "double-check the latest",
+                    "i don't have real-time",
+                    "i don't have current",
+                    "i may not have",
                 ],
             },
             # Was a `contains` requiring BOTH literal "m4 pro" and "m4 max" — too
@@ -5531,6 +5539,72 @@ TEST_CATALOG: list[dict] = [
         "assertions": [],
         "is_manual": True,
     },
+    # A-08 — True cross-session memory: stores a fact in chat 1, opens a
+    # SEPARATE chat 2, asks for the fact back. Tests model-driven memory
+    # tool use end-to-end. Distinct from A-03 (same-session) and S70-08
+    # (direct API, no model). Routes through auto-coding because that
+    # workspace's tool whitelist includes 'remember' and 'recall'.
+    {
+        "id": "A-08",
+        "name": "Cross-Session Memory — Two-Chat Persistence",
+        "section": "advanced",
+        "model_slug": "auto-coding",
+        "timeout": 240,
+        "workspace_tier": "mlx_small",
+        "is_two_chat": True,
+        # Chat 1: instruct the model to remember a specific, distinctive fact.
+        # We give it a marker phrase so the recall query in chat 2 is
+        # unambiguous and the assertion checks for content, not just any text.
+        "prompt": (
+            "Please use the 'remember' tool to store this fact for later: "
+            "My favorite Portal 5 deployment region is named Aurora-7 and the "
+            "operator on call is Hex-Lantern. Use category='preference' and "
+            "tag='uat-a08-marker'. Confirm when stored."
+        ),
+        # Chat 2: opened in a fresh OWUI chat with a different chat_id.
+        # The model must call 'recall' to answer; if it answers from chat 1
+        # context (which doesn't exist in this chat), there's no way to
+        # know our marker, so any correct answer evidences a recall hit.
+        "turn2_in_new_chat": (
+            "Use the 'recall' tool to find: what's my favorite Portal 5 "
+            "deployment region, and who's the operator on call? Search "
+            "for 'favorite Portal 5 deployment region'."
+        ),
+        "assertions": [
+            # Chat 1: model acknowledges storage. Soft — the actual signal
+            # is whether chat 2 recovers the fact.
+            {
+                "type": "any_of",
+                "label": "Chat 1: storage acknowledged",
+                "critical": False,
+                "keywords": [
+                    "stored", "saved", "remembered", "noted",
+                    "confirmed", "successfully", "i've stored",
+                    "i'll remember", "keeping", "tool call",
+                ],
+            },
+        ],
+        "turn2_assertions": [
+            # Chat 2: must produce one of the marker tokens. Without recall
+            # the model has no way to know these — they're not in chat 2's
+            # context. A correct answer here is hard evidence of cross-chat
+            # persistence.
+            {
+                "type": "any_of",
+                "label": "Chat 2: recalls region name",
+                "keywords": ["aurora-7", "aurora 7", "aurora7"],
+            },
+            {
+                "type": "any_of",
+                "label": "Chat 2: recalls operator name",
+                "keywords": ["hex-lantern", "hex lantern", "hexlantern"],
+                "critical": False,  # one marker is enough for PASS
+            },
+        ],
+        # Cleanup is non-trivial across chats — handled by post-test hook
+        # (see _cleanup_a08_marker below).
+        "cleanup_marker_tag": "uat-a08-marker",
+    },
     # -----------------------------------------------------------------------
     # GROUP benchmark
     # -----------------------------------------------------------------------
@@ -6013,6 +6087,166 @@ TEST_CATALOG: list[dict] = [
 # ---------------------------------------------------------------------------
 
 
+async def _run_two_chat_test(
+    page,
+    test: dict,
+    token: str,
+    n: int,
+    counts: dict,
+    folder_id: str | None = None,
+    calibration_records: list | None = None,
+) -> None:
+    """Two-chat orchestration for cross-session tests (A-08).
+
+    Creates two distinct OWUI chats in the same workspace. Sends `prompt`
+    in chat 1, then `turn2_in_new_chat` in chat 2. Assertions on both
+    responses. Best-effort cleanup of any matching memory records via the
+    Memory MCP forget API.
+    """
+    test_id = test["id"]
+    name = test["name"]
+    model = test["model_slug"]
+    tier = test.get("workspace_tier", "any")
+
+    # Backend health
+    if tier in ("mlx_large", "mlx_small", "ollama"):
+        backend_ready = await _wait_for_backend(tier, max_wait=120)
+        if not backend_ready:
+            chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
+            if folder_id:
+                owui_assign_chat_folder(token, chat_id, folder_id)
+            record_result(
+                n, "FAIL", test_id, name, model,
+                [("backend_unavailable", False, "tier not ready")],
+                0.0, chat_url,
+            )
+            counts["FAIL"] = counts.get("FAIL", 0) + 1
+            return
+
+    title1 = f"[...] UAT: {test_id} (1/2) {name}"
+    title2 = f"[...] UAT: {test_id} (2/2) {name}"
+    chat1_id, chat1_url = owui_create_chat(token, model, title1)
+    chat2_id, chat2_url = owui_create_chat(token, model, title2)
+    if folder_id:
+        owui_assign_chat_folder(token, chat1_id, folder_id)
+        owui_assign_chat_folder(token, chat2_id, folder_id)
+
+    t0 = time.time()
+    response1 = ""
+    response2 = ""
+    assertions_result: list = []
+    status = "FAIL"
+    routed_model_1 = ""
+    routed_model_2 = ""
+
+    try:
+        max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
+
+        # Chat 1
+        await _navigate_to_chat(page, chat1_url)
+        await _send_and_wait(page, test["prompt"], test_id, tier, max_wait)
+        await asyncio.sleep(3)
+        response1 = owui_get_last_response(token, chat1_id) or ""
+        routed_model_1 = owui_get_routed_model(token, chat1_id)
+
+        # Brief settle to let the memory write commit through embedding
+        # service before chat 2 queries it. The recall is vector-based and
+        # needs the entry to be visible in the LanceDB table.
+        await asyncio.sleep(5)
+
+        # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
+        # via the model calling 'recall' on the Memory MCP.
+        await _navigate_to_chat(page, chat2_url)
+        await _send_and_wait(page, test["turn2_in_new_chat"], test_id, tier, max_wait)
+        await asyncio.sleep(3)
+        response2 = owui_get_last_response(token, chat2_id) or ""
+        routed_model_2 = owui_get_routed_model(token, chat2_id)
+
+        # Assertions
+        assertions_result = run_assertions(response1, test.get("assertions", []))
+        t2_results = run_assertions(response2, test.get("turn2_assertions", []))
+        assertions_result.extend(t2_results)
+
+        all_specs = test.get("assertions", []) + test.get("turn2_assertions", [])
+        status = compute_status(assertions_result, all_specs)
+
+        # Routing observation (V1 Phase 2 helper) — append on best-effort basis
+        try:
+            check1 = _check_routed_model(test, routed_model_1)
+            if check1 is not None:
+                ok, det = check1
+                assertions_result.append(
+                    (f"Chat 1 routed: {routed_model_1[:30]}", ok, det)
+                )
+            check2 = _check_routed_model(test, routed_model_2)
+            if check2 is not None:
+                ok, det = check2
+                assertions_result.append(
+                    (f"Chat 2 routed: {routed_model_2[:30]}", ok, det)
+                )
+        except NameError:
+            # _check_routed_model not present — V1 not merged. Skip silently.
+            pass
+
+        if status in ("FAIL", "WARN"):
+            SCREENSHOT_DIR.mkdir(exist_ok=True)
+            await page.screenshot(path=str(SCREENSHOT_DIR / f"{test_id.lower()}_chat2.png"))
+
+    except Exception as exc:
+        assertions_result = [("exception", False, str(exc)[:120])]
+        status = "FAIL"
+    finally:
+        # Best-effort cleanup of memory marker — does not affect status.
+        # The model may or may not have actually called remember; either way
+        # we flush anything tagged with our marker to avoid accumulation.
+        marker_tag = test.get("cleanup_marker_tag")
+        if marker_tag:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    list_r = await client.post(
+                        "http://localhost:8920/tools/list_memories",
+                        json={"arguments": {"tags": [marker_tag], "limit": 50}},
+                    )
+                    if list_r.status_code == 200:
+                        for m in list_r.json().get("memories", []):
+                            await client.post(
+                                "http://localhost:8920/tools/forget",
+                                json={"arguments": {"id": m["id"]}},
+                            )
+            except Exception:
+                pass  # cleanup best-effort
+
+    elapsed = time.time() - t0
+    final_title_1 = f"[{status} 1/2] UAT: {test_id} {name}"
+    final_title_2 = f"[{status} 2/2] UAT: {test_id} {name}"
+    owui_rename_chat(token, chat1_id, final_title_1)
+    owui_rename_chat(token, chat2_id, final_title_2)
+
+    # Use chat 2 URL as the "primary" link in results — it's where the
+    # actual recall behavior is visible to a reviewer.
+    record_result(
+        n, status, test_id, name, model,
+        assertions_result, elapsed, chat2_url,
+        routed_model_2,
+    )
+    counts[status] = counts.get(status, 0) + 1
+
+    if calibration_records is not None:
+        calibration_records.append({
+            "test_id": test_id,
+            "name": name,
+            "section": test.get("section", ""),
+            "workspace": test.get("model_slug", ""),
+            "prompt": test.get("prompt", "") + "\n\n[NEW CHAT]\n" + test.get("turn2_in_new_chat", ""),
+            "response_text": (
+                f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
+            ),
+            "chat_url": chat2_url,
+            "review_tag": "",
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        })
+
+
 async def run_test(
     page,
     test: dict,
@@ -6120,6 +6354,14 @@ async def run_test(
         )
         counts[status] = counts.get(status, 0) + 1
         return
+
+    # Two-chat test: A-08 (cross-session memory). Creates two distinct
+    # OWUI chats, uses the same workspace, runs separate prompt+turn2_in_new_chat
+    # turns. Each chat shows up independently in OWUI history.
+    if test.get("is_two_chat"):
+        return await _run_two_chat_test(
+            page, test, token, n, counts, folder_id, calibration_records,
+        )
 
     tier = test.get("workspace_tier", "any")
 

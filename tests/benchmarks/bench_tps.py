@@ -1120,9 +1120,22 @@ def bench_tps(
 
     successful = [r for r in run_results if "tps" in r]
     if successful:
-        avg_tps = round(sum(r["tps"] for r in successful) / len(successful), 1)
-        min_tps = min(r["tps"] for r in successful)
-        max_tps = max(r["tps"] for r in successful)
+        import statistics  # noqa: PLC0415
+
+        tps_vals = [r["tps"] for r in successful]
+        avg_tps = round(sum(tps_vals) / len(tps_vals), 1)
+        min_tps = min(tps_vals)
+        max_tps = max(tps_vals)
+        # Sample stddev requires ≥2 runs. With one run, jitter is undefined.
+        stddev_tps = round(statistics.stdev(tps_vals), 2) if len(tps_vals) > 1 else None
+        # Coefficient of variation: stddev / mean. Dimensionless — comparable
+        # across models with different absolute TPS. <0.05 tight, 0.05-0.15
+        # normal, >0.15 unstable (warmup not done, memory pressure, etc.)
+        cv = (
+            round(stddev_tps / avg_tps, 3)
+            if (stddev_tps is not None and avg_tps > 0)
+            else None
+        )
         avg_tokens = round(sum(r["completion_tokens"] for r in successful) / len(successful))
         avg_elapsed = round(sum(r["elapsed_s"] for r in successful) / len(successful), 2)
         ttft_vals = [
@@ -1133,6 +1146,8 @@ def bench_tps(
         avg_ttft = round(sum(ttft_vals) / len(ttft_vals), 3) if ttft_vals else None
     else:
         avg_tps = min_tps = max_tps = 0.0
+        stddev_tps = None
+        cv = None
         avg_tokens = 0
         avg_elapsed = 0.0
         avg_ttft = None
@@ -1190,6 +1205,8 @@ def bench_tps(
         "avg_tps": avg_tps,
         "min_tps": min_tps,
         "max_tps": max_tps,
+        "stddev_tps": stddev_tps,        # None if <2 successful runs
+        "cv": cv,                        # coefficient of variation; None if avg_tps==0
         "avg_completion_tokens": avg_tokens,
         "avg_elapsed_s": avg_elapsed,
         "avg_ttft_s": avg_ttft,
@@ -1304,6 +1321,8 @@ def bench_direct(
                     "avg_tps": 0,
                     "min_tps": 0,
                     "max_tps": 0,
+                    "stddev_tps": None,
+                    "cv": None,
                     "avg_completion_tokens": 0,
                     "avg_elapsed_s": 0,
                     "runs": [],
@@ -1332,6 +1351,8 @@ def bench_direct(
                     "avg_tps": 0,
                     "min_tps": 0,
                     "max_tps": 0,
+                    "stddev_tps": None,
+                    "cv": None,
                     "avg_completion_tokens": 0,
                     "avg_elapsed_s": 0,
                     "runs": [],
@@ -1358,6 +1379,8 @@ def bench_direct(
                     "avg_tps": 0,
                     "min_tps": 0,
                     "max_tps": 0,
+                    "stddev_tps": None,
+                    "cv": None,
                     "avg_completion_tokens": 0,
                     "avg_elapsed_s": 0,
                     "runs": [],
@@ -1405,6 +1428,11 @@ def bench_direct(
             if r.get("expected_model_match") is False:
                 print(f"  ⚠ ROUTING: got {r['routed_model']}, "
                       f"expected {r['expected_model_detail']}", flush=True)
+            cv_val = r.get("cv")
+            if cv_val is not None and cv_val > 0.15:
+                print(f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
+                      f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
+                      flush=True)
             # Post-test: evict → reclaim → cooldown (always, after every model).
             # Mirrors real user behavior: no one loads a new model immediately after the last.
             # Flush Ollama (pipeline routing model can be loaded in background), evict MLX by
@@ -1509,12 +1537,14 @@ def bench_direct(
                     "groups": [g for g, ms in ollama_groups.items() if model in ms],
                     "runs_total": runs,
                     "runs_success": 0,
-                    "avg_tps": 0,
-                    "min_tps": 0,
-                    "max_tps": 0,
-                    "avg_completion_tokens": 0,
-                    "avg_elapsed_s": 0,
-                    "runs": [],
+                     "avg_tps": 0,
+                     "min_tps": 0,
+                     "max_tps": 0,
+                     "stddev_tps": None,
+                     "cv": None,
+                     "avg_completion_tokens": 0,
+                     "avg_elapsed_s": 0,
+                     "runs": [],
                 }
                 results.append(r)
                 if output_path:
@@ -1560,6 +1590,11 @@ def bench_direct(
             if r.get("expected_model_match") is False:
                 print(f"  ⚠ ROUTING: got {r['routed_model']}, "
                       f"expected {r['expected_model_detail']}", flush=True)
+            cv_val = r.get("cv")
+            if cv_val is not None and cv_val > 0.15:
+                print(f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
+                      f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
+                      flush=True)
             # Force Ollama to release this model from unified memory before next test.
             # Uses keep_alive=0 then polls /api/ps until Ollama reports no running
             # models — prevents the next model from loading into an already-full
@@ -1703,6 +1738,8 @@ def bench_model_cascade(
                 "avg_tps": 0,
                 "min_tps": 0,
                 "max_tps": 0,
+                "stddev_tps": None,
+                "cv": None,
                 "avg_completion_tokens": 0,
                 "avg_elapsed_s": 0,
                 "runs": [],
@@ -1739,6 +1776,8 @@ def bench_model_cascade(
                         "avg_tps": 0,
                         "min_tps": 0,
                         "max_tps": 0,
+                        "stddev_tps": None,
+                        "cv": None,
                         "avg_completion_tokens": 0,
                         "avg_elapsed_s": 0,
                         "runs": [],
