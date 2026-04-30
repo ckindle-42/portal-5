@@ -8,7 +8,7 @@
 
 - **PASS**: 87
 - **WARN**: 1
-- **FAIL**: 15
+- **FAIL**: 16
 - **SKIP**: 1
 - **MANUAL**: 1
 
@@ -121,3 +121,4 @@
 | 4 | PASS | [A-03 Same-Session Memory — Fact Recall](http://localhost:8080/c/efcbe060-c1cf-43a0-b97e-8e71a001cc95) | `auto` | 5/5(100%) Memory acknowledgment (turn 1)=✓(found: ["i'll keep", 'got it']); Recalls role (network security engineer)=✓(ok); Recalls tooling=✓(found: ['cisco', 'fortinet', 'splunk', 'ios']); Recalls focus area=✓(found: ['ot', 'ics', 'segmentation', 'operational technology', 'industrial control']); Routed model: auto=✓(matches MLX:dolphin3.0-llama3.1-8b-8bit | Ollama:dolphin-llama3 — pipeline confirms: mlx-apple-silicon|mlx-community/Dolphin3.0-Llama3.1-8B-8bit) | 379.2s |
 | 5 | PASS | [A-04 Routing Validation — Content-Aware Selection](http://localhost:8080/c/92dd6d01-feb4-4b31-bddb-d4ddf8f77985) | `auto` | 3/3(100%) Security response=✓(found: ['acl', 'access-list', 'firewall', 'deny', 'block']); Substantive response=✓(len=1520, min=200); Routed model: auto=✓(explicit expectation: ['baronllm', 'lily', 'xploiter'] (pipeline: mlx-apple-silicon|mlx-community/Dolphin3.0-Llama3.1-8B-8bit)) | 161.0s |
 | 6 | MANUAL | [A-07 Grafana Monitoring — Metrics Visibility](http://localhost:8080/c/63242c6e-3dd1-4be3-9123-69760020ed5c) | `auto` | 0/0  | 0.0s |
+| 1 | FAIL | [CC-01-laguna CC-01 Asteroids · Laguna-XS.2 (Poolside)](http://localhost:8080/c/33c7fca2-5b47-45b5-a996-404342090fc7) | `bench-laguna` | 1/10(10%) [routed: bench-laguna] HTML file delivered=✗(no code block); Game loop (behavioral)=✗(no code blocks extracted); Lives manipulation (behavioral)=✗(no code blocks extracted); Score increment (behavioral)=✗(no code blocks extracted); Asteroid split/push (behavioral)=✗(no code blocks extracted); Canvas game loop (keyword)=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✗(none of: ['split', 'asteroid', 'fragment', 'smaller']); Lives system (keyword)=✗(none of: ['lives', 'life', 'lives_remaining', 'numlives', 'playerlives', 'player.lives', 'this.lives', 'this.life', 'playerlife', 'livescount', 'livesleft', 'lifecount', 'remaininglives', 'player_lives', 'lose a life', 'lost a life', 'starting lives', '3 lives']); Score system=✗(missing: ['score']); Routed model: bench-laguna=✓(matches via workspace 'bench-laguna': MLX:laguna-xs.2-4bit | Ollama:glm-4.7-flash — pipeline confirms: mlx-apple-silicon|mlx-community/Laguna-XS.2-4bit) | 481.7s |

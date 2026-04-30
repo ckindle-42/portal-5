@@ -1206,6 +1206,66 @@ def assert_has_code(text: str, label: str) -> tuple:
     return (label, ok, detail)
 
 
+def _extract_code_blocks(text: str) -> str:
+    """Extract and concatenate content from markdown code blocks.
+
+    Handles fenced blocks (```lang ... ```), unclosed fenced blocks
+    (opening fence without closing — common in model output), and raw
+    HTML starting with <!DOCTYPE or <html>.
+    Returns the concatenated code text, or '' if no code blocks found.
+    """
+    import re
+
+    parts: list[str] = []
+    text_lower = text.lower()
+
+    # Fenced code blocks: ```optional_lang\n...\n```
+    for m in re.finditer(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL):
+        parts.append(m.group(1).strip())
+
+    # Unclosed fenced block: opening ``` anywhere, no closing ```
+    if not parts:
+        fence_match = re.search(r"```(?:\w+)?\n", text)
+        if fence_match and "```" not in text[fence_match.end():]:
+            code_text = text[fence_match.end():].strip()
+            parts.append(code_text)
+
+    # Raw HTML delivery (no markdown wrapper)
+    if not parts:
+        stripped = text.strip()
+        if stripped.startswith("<!DOCTYPE") or stripped.startswith("<html"):
+            parts.append(stripped)
+
+    return "\n".join(parts)
+
+
+def assert_code_pattern(text: str, patterns: list[dict], label: str) -> tuple:
+    """Run regex patterns against extracted code blocks (not full response).
+
+    Each pattern dict has:
+        regex: str   — regex pattern to search for
+        label: str   — human-readable description
+
+    Patterns are case-insensitive. If any pattern matches, the assertion passes.
+    This checks actual code behavior, not prose or variable naming conventions.
+    """
+    import re
+
+    code = _extract_code_blocks(text)
+    if not code:
+        return (label, False, "no code blocks extracted")
+
+    for p in patterns:
+        pattern = p["regex"]
+        try:
+            if re.search(pattern, code, re.IGNORECASE):
+                return (label, True, f"matched: {p.get('label', pattern)}")
+        except re.error as e:
+            return (label, False, f"invalid regex '{pattern}': {e}")
+
+    return (label, False, f"no pattern matched in code ({len(code)} chars)")
+
+
 def assert_has_table(text: str, label: str) -> tuple:
     return (label, "|" in text and "---" in text, "table present" if "|" in text else "no table")
 
@@ -1383,6 +1443,8 @@ def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None 
             results.append(assert_min_length(text, a["chars"], label))
         elif t == "has_code":
             results.append(assert_has_code(text, label))
+        elif t == "code_pattern":
+            results.append(assert_code_pattern(text, a.get("patterns", []), label))
         elif t == "has_table":
             results.append(assert_has_table(text, label))
         elif t == "docx_valid":
@@ -1958,18 +2020,66 @@ _CC01_PROMPT = (
 )
 _CC01_ASSERTIONS = [
     {"type": "has_code", "label": "HTML file delivered"},
+    # ── Behavioral checks (code patterns, not variable names) ──────────────
+    {
+        "type": "code_pattern",
+        "label": "Game loop (behavioral)",
+        "patterns": [
+            {"regex": r"requestAnimationFrame\s*\(", "label": "requestAnimationFrame() call"},
+            {"regex": r"setInterval\s*\(", "label": "setInterval() call"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Lives manipulation (behavioral)",
+        "patterns": [
+            {"regex": r"\blives\s*--", "label": "lives-- decrement"},
+            {"regex": r"\blives\s*-=\s*1", "label": "lives -= 1"},
+            {"regex": r"\blives\s*=\s*\blives\s*-\s*1", "label": "lives = lives - 1"},
+            {"regex": r"\bthis\.lives\s*--", "label": "this.lives--"},
+            {"regex": r"\bplayer\.lives\s*--", "label": "player.lives--"},
+            {"regex": r"\blose\s+a?\s*life", "label": "lose a life message"},
+            {"regex": r"\blives\s*[<>!=]=\s*0", "label": "lives <=/>=/==/!= 0 check"},
+            {"regex": r"\blives\s*<\s*1", "label": "lives < 1 (zero check)"},
+            {"regex": r"\blives\s*==\s*0", "label": "lives == 0 check"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Score increment (behavioral)",
+        "patterns": [
+            {"regex": r"\bscore\s*\+=\s*", "label": "score += (increment)"},
+            {"regex": r"\bscore\s*=\s*\bscore\s*\+", "label": "score = score +"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Asteroid split/push (behavioral)",
+        "patterns": [
+            {"regex": r"asteroid.*\.push\(", "label": "asteroid push"},
+            {"regex": r"\.push\(.*asteroid", "label": "push asteroid"},
+            {"regex": r"\.split\s*\(", "label": "split() method"},
+            {"regex": r"asteroids\.push\(", "label": "asteroids.push()"},
+        ],
+        "critical": False,
+    },
+    # ── Keyword checks (defense-in-depth, survives code-block extraction failure) ──
     {
         "type": "any_of",
-        "label": "Canvas game loop",
+        "label": "Canvas game loop (keyword)",
         "keywords": [
             "requestanimationframe",
             "requestAnimationFrame",
             "setinterval",
-            "setInterval",  # equivalent for simple game loop
+            "setInterval",
             "game loop",
             "gameloop",
             "game_loop",
         ],
+        "critical": False,
     },
     {
         "type": "any_of",
@@ -1978,34 +2088,15 @@ _CC01_ASSERTIONS = [
     },
     {
         "type": "any_of",
-        "label": "Lives system",
-        # word_boundary=True so 'lives' doesn't match inside 'delivers' or 'olives'.
-        # Patterns observed in real bench outputs: this.lives, livesCount,
-        # player_lives, lives--, "if (lives", lives === 0, etc.
+        "label": "Lives system (keyword)",
         "word_boundary": True,
         "keywords": [
-            "lives",
-            "life",
-            "lives_remaining",
-            "numlives",  # case-insensitive matches numLives
-            "playerlives",
-            "player.lives",
-            "this.lives",
-            "this.life",
-            "playerlife",
-            "livescount",
-            "livesleft",
-            "lifecount",
-            "remaininglives",
-            "player_lives",
-            # NOTE: "lives--" and "lives++" were here but were removed.
-            # word_boundary=True can't anchor `\b` after non-word chars `--`/`++`,
-            # so they silently never matched. The 'lives' or 'this.lives' keywords
-            # already cover any code path containing these patterns.
-            "lose a life",
-            "lost a life",
-            "starting lives",
-            "3 lives",
+            "lives", "life",
+            "lives_remaining", "numlives", "playerlives",
+            "player.lives", "this.lives", "this.life",
+            "playerlife", "livescount", "livesleft",
+            "lifecount", "remaininglives", "player_lives",
+            "lose a life", "lost a life", "starting lives", "3 lives",
         ],
         "critical": False,
     },
@@ -5824,6 +5915,16 @@ TEST_CATALOG: list[dict] = [
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
         "max_wait_no_progress": 1800,  # 30 min for 80B MoE
+    },
+    {
+        "id": "CC-01-laguna",
+        "name": "CC-01 Asteroids · Laguna-XS.2 (Poolside)",
+        "section": "benchmark",
+        "model_slug": "bench-laguna",
+        "timeout": 300,
+        "workspace_tier": "mlx_small",
+        "prompt": _CC01_PROMPT,
+        "assertions": _CC01_ASSERTIONS,
     },
     # -----------------------------------------------------------------------
     # GROUP auto-math
