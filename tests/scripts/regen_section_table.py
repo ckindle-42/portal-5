@@ -27,7 +27,6 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 ACCEPTANCE_FILE = ROOT / "tests" / "portal5_acceptance_v6.py"

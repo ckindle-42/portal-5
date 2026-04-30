@@ -204,6 +204,8 @@ import uuid as _uuid
 
 from portal_mcp.core.workspace import (
     get_generated_dir as _get_generated_dir,
+)
+from portal_mcp.core.workspace import (
     resolve_upload_path as _resolve_upload_path,
 )
 
@@ -220,8 +222,8 @@ def _get_diarization_pipeline():
                 "HF_TOKEN not set. Diarization models are gated — "
                 "accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1"
             )
-        from pyannote.audio import Pipeline
         import torch
+        from pyannote.audio import Pipeline
 
         pipeline = Pipeline.from_pretrained(
             os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1"),

@@ -78,8 +78,8 @@ def _get_diarization_pipeline() -> Any:
                 "accept terms at https://huggingface.co/pyannote/speaker-diarization-3.1 "
                 "and set HF_TOKEN in .env"
             )
-        from pyannote.audio import Pipeline
         import torch
+        from pyannote.audio import Pipeline
 
         logger.info("Loading diarization pipeline: %s", DIARIZATION_MODEL)
         pipeline = Pipeline.from_pretrained(DIARIZATION_MODEL, token=HF_TOKEN)
@@ -127,7 +127,8 @@ def _diarize(audio_path: str, num_speakers: int | None) -> list[dict]:
     Converts to 16kHz mono WAV before diarization — pyannote raises ValueError
     on MP3 files where compressed frame boundaries produce sample-count mismatches.
     """
-    import subprocess, shutil
+    import shutil
+    import subprocess
 
     pipeline = _get_diarization_pipeline()
 

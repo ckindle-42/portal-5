@@ -1458,8 +1458,8 @@ class TestInjectMLXOptions:
     """Unit tests for _inject_mlx_options (Phase 3 Section A)."""
 
     def test_maps_predict_limit_to_max_tokens(self, monkeypatch):
-        from portal_pipeline.router_pipe import _inject_mlx_options
         import portal_pipeline.router_pipe as rp
+        from portal_pipeline.router_pipe import _inject_mlx_options
 
         monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
 
@@ -1469,8 +1469,8 @@ class TestInjectMLXOptions:
         assert "max_tokens" not in body  # original must not be mutated
 
     def test_respects_explicit_max_tokens(self, monkeypatch):
-        from portal_pipeline.router_pipe import _inject_mlx_options
         import portal_pipeline.router_pipe as rp
+        from portal_pipeline.router_pipe import _inject_mlx_options
 
         monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
 
@@ -1479,8 +1479,8 @@ class TestInjectMLXOptions:
         assert out["max_tokens"] == 1024  # caller's explicit value wins (setdefault)
 
     def test_no_predict_limit_is_noop(self, monkeypatch):
-        from portal_pipeline.router_pipe import _inject_mlx_options
         import portal_pipeline.router_pipe as rp
+        from portal_pipeline.router_pipe import _inject_mlx_options
 
         monkeypatch.setattr(rp, "WORKSPACES", {"x": {}})
         body = {"messages": []}
