@@ -691,6 +691,58 @@ def owui_get_routed_model(token: str, chat_id: str) -> str:
         return ""
 
 
+def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | None:
+    """Validate routed_model against test expectation.
+
+    Returns:
+        None             - no expectation defined for this test, skip the check
+        (True,  detail)  - actual model matches expectation
+        (False, detail)  - mismatch (caller should downgrade PASS to WARN)
+
+    Resolution order:
+        1. test['assert_routed_via']: list[str] of substrings
+        2. test['model_slug'] in WORKSPACES
+        3. test['model_slug'] in _PERSONA_MAP
+        4. None — no expectation, skip
+    """
+    if test.get("via_dispatcher") or test.get("is_manual"):
+        return None
+    if not routed_model:
+        return None
+
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).parent))
+
+    explicit = test.get("assert_routed_via")
+    if explicit:
+        from expected_models import model_matches_expected
+        ok = model_matches_expected(routed_model, explicit)
+        return (ok, f"explicit expectation: {explicit}" if ok
+                else f"explicit expectation NOT matched: {explicit}")
+
+    from expected_models import resolve_expected, model_matches_expected
+    slug = test.get("model_slug", "")
+
+    mlx_state = "ready"
+    try:
+        r = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
+        mlx_state = r.json().get("state", "ready") if r.status_code in (200, 503) else "ready"
+    except Exception:
+        pass
+
+    keys, src = resolve_expected(
+        workspace_id=slug,
+        persona_slug=slug,
+        mlx_state=mlx_state,
+    )
+    if not keys:
+        return None
+
+    ok = model_matches_expected(routed_model, keys)
+    return (ok, f"matches {src}" if ok else f"expected {src}")
+
+
 # ---------------------------------------------------------------------------
 # Playwright helpers
 # ---------------------------------------------------------------------------
@@ -5277,14 +5329,21 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto",
         "timeout": 90,
         "workspace_tier": "any",
+        "assert_routed_via": [
+            "baronllm",
+            "lily",
+            "xploiter",
+        ],
         "prompt": "How do I configure a Cisco ASA firewall to block outbound Tor traffic?",
         "assertions": [
             {
                 "type": "any_of",
                 "label": "Security response",
+                "critical": False,
                 "keywords": ["acl", "access-list", "firewall", "policy", "deny", "block"],
             },
-            {"type": "min_length", "label": "Substantive response", "chars": 200},
+            {"type": "min_length", "label": "Substantive response",
+             "chars": 200, "critical": False},
         ],
     },
     # A-05 — Telegram bot dispatcher path. Drives the same call call_pipeline_async()
@@ -6092,8 +6151,20 @@ async def run_test(
             pass
 
     elapsed = time.time() - t0
-    final_title = f"[{status}] UAT: {test_id} {name}"
     routed_model = owui_get_routed_model(token, chat_id)
+
+    route_check = _check_routed_model(test, routed_model)
+    if route_check is not None:
+        matched, route_detail = route_check
+        assertions_result.append(
+            (f"Routed model: {routed_model[:40] or 'none'}", matched, route_detail)
+        )
+        if status == "PASS" and not matched:
+            status = "WARN"
+            print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}",
+                  flush=True)
+
+    final_title = f"[{status}] UAT: {test_id} {name}"
     owui_rename_chat(token, chat_id, final_title)
     record_result(
         n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model

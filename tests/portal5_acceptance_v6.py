@@ -666,6 +666,37 @@ async def _chat_with_model(
     return 503, "MLX proxy unreachable after retries", "", ""
 
 
+async def _assert_routing(
+    sec: str,
+    tid: str,
+    workspace: str,
+    actual_model: str,
+    *,
+    persona_slug: str = "",
+) -> tuple[str, str]:
+    from expected_models import (
+        model_matches_expected,
+        resolve_expected,
+    )
+
+    mlx_state, _ = await _mlx_health()
+    keys, src = resolve_expected(
+        workspace_id=workspace,
+        persona_slug=persona_slug,
+        mlx_state=mlx_state,
+    )
+    if not keys:
+        return "no_expectation", f"no routing expectation: {src}"
+    if not actual_model:
+        return "no_actual", "no model in response"
+    if model_matches_expected(actual_model, keys):
+        return "match", f"routed -> {actual_model[:40]} matches {src}"
+    return (
+        "mismatch",
+        f"ROUTING MISMATCH: got {actual_model[:40]}, expected {src}",
+    )
+
+
 def _curl_stream(
     workspace: str, prompt: str, max_tokens: int = 5, timeout_s: int = 360
 ) -> tuple[bool, str]:
@@ -2194,22 +2225,31 @@ async def S3a() -> None:
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
 
-            if found:
+            route_status, route_detail = await _assert_routing(
+                sec, tid, ws_id, model
+            )
+            if found and route_status == "match":
                 record(
-                    sec,
-                    tid,
-                    f"Workspace {ws_id}",
-                    "PASS",
-                    f"signals: {found[:3]} | model: {model[:40]}",
+                    sec, tid, f"Workspace {ws_id}", "PASS",
+                    f"signals: {found[:3]} | {route_detail}",
+                    t0=t0,
+                )
+            elif found and route_status == "mismatch":
+                record(
+                    sec, tid, f"Workspace {ws_id}", "WARN",
+                    f"signals OK but {route_detail}",
+                    t0=t0,
+                )
+            elif found:
+                record(
+                    sec, tid, f"Workspace {ws_id}", "PASS",
+                    f"signals: {found[:3]} | {route_detail}",
                     t0=t0,
                 )
             else:
                 record(
-                    sec,
-                    tid,
-                    f"Workspace {ws_id}",
-                    "WARN",
-                    f"no signals in: {response[:100]}",
+                    sec, tid, f"Workspace {ws_id}", "WARN",
+                    f"no signals in: {response[:80]} | {route_detail}",
                     t0=t0,
                 )
 
@@ -2499,12 +2539,16 @@ async def S6() -> None:
     )
     signals = ["sql", "inject", "sanitize", "parameter", "escape", "prepared"]
     found = [s for s in signals if s.lower() in response.lower()]
+    route_status, route_detail = await _assert_routing(sec, "S6-01", "auto-security", model)
+    if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
+        status = "PASS"
+    elif found and code == 200 and route_status == "mismatch":
+        status = "WARN"
+    else:
+        status = "WARN"
     record(
-        sec,
-        "S6-01",
-        "auto-security routing",
-        "PASS" if found and code == 200 else "WARN",
-        f"signals: {found[:3]} | model: {model[:30]}",
+        sec, "S6-01", "auto-security routing", status,
+        f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )
 
@@ -2518,12 +2562,16 @@ async def S6() -> None:
     )
     signals = ["recon", "scan", "exploit", "pentest", "OWASP", "vulnerability"]
     found = [s for s in signals if s.lower() in response.lower()]
+    route_status, route_detail = await _assert_routing(sec, "S6-02", "auto-redteam", model)
+    if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
+        status = "PASS"
+    elif found and code == 200 and route_status == "mismatch":
+        status = "WARN"
+    else:
+        status = "WARN"
     record(
-        sec,
-        "S6-02",
-        "auto-redteam routing",
-        "PASS" if found and code == 200 else "WARN",
-        f"signals: {found[:3]} | model: {model[:30]}",
+        sec, "S6-02", "auto-redteam routing", status,
+        f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )
 
@@ -2537,12 +2585,16 @@ async def S6() -> None:
     )
     signals = ["isolate", "contain", "backup", "incident", "response", "recover"]
     found = [s for s in signals if s.lower() in response.lower()]
+    route_status, route_detail = await _assert_routing(sec, "S6-03", "auto-blueteam", model)
+    if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
+        status = "PASS"
+    elif found and code == 200 and route_status == "mismatch":
+        status = "WARN"
+    else:
+        status = "WARN"
     record(
-        sec,
-        "S6-03",
-        "auto-blueteam routing",
-        "PASS" if found and code == 200 else "WARN",
-        f"signals: {found[:3]} | model: {model[:30]}",
+        sec, "S6-03", "auto-blueteam routing", status,
+        f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )
 
@@ -2996,14 +3048,20 @@ async def S10() -> None:
                 continue
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
-            record(
-                sec,
-                tid,
-                f"Persona {slug}",
-                "PASS" if found else "WARN",
-                f"signals: {found[:3]}" if found else f"no signals in: {response[:60]}",
-                t0=t0,
+            route_status, route_detail = await _assert_routing(
+                sec, tid, ws_id, model, persona_slug=slug,
             )
+            if found and route_status in ("match", "no_expectation", "no_actual"):
+                status = "PASS"
+            elif found and route_status == "mismatch":
+                status = "WARN"
+            else:
+                status = "WARN"
+            detail = (
+                f"signals: {found[:3]} | {route_detail}"
+                if found else f"no signals in: {response[:60]} | {route_detail}"
+            )
+            record(sec, tid, f"Persona {slug}", status, detail, t0=t0)
             test_num += 1
             await asyncio.sleep(0.5)
         await asyncio.sleep(2)
@@ -3247,23 +3305,29 @@ async def S11() -> None:
             found = [s for s in signals if s.lower() in response_lower]
             is_mlx = any(org in model for org in _MLX_ORGS)
             ollama_fallback = ":" in model and not is_mlx
+            route_status, route_detail = await _assert_routing(
+                sec, tid, ws_id, model, persona_slug=slug,
+            )
 
             if ollama_fallback:
-                mlx_state, _ = await _mlx_health()
-                if mlx_state in ("down", "switching"):
+                mlx_state_fb, _ = await _mlx_health()
+                if mlx_state_fb in ("down", "switching"):
                     status = "WARN"
                     detail = (
-                        f"Ollama fallback (MLX {mlx_state}) — infrastructure | model={model[:40]}"
+                        f"Ollama fallback (MLX {mlx_state_fb}) — infrastructure | {route_detail}"
                     )
                 else:
                     status = "FAIL"
-                    detail = f"Ollama fallback! model={model[:40]} (MLX state={mlx_state}, expected MLX-tier)"
-            elif found:
+                    detail = f"Ollama fallback! model={model[:40]} (MLX state={mlx_state_fb}, expected MLX-tier) | {route_detail}"
+            elif found and route_status in ("match", "no_expectation", "no_actual"):
                 status = "PASS"
-                detail = f"MLX:{is_mlx} model={model.split('/')[-1][:30]} | signals: {found[:2]}"
+                detail = f"MLX:{is_mlx} model={model.split('/')[-1][:30]} | signals: {found[:2]} | {route_detail}"
+            elif found and route_status == "mismatch":
+                status = "WARN"
+                detail = f"MLX:{is_mlx} model={model.split('/')[-1][:30]} | signals OK but {route_detail}"
             else:
                 status = "WARN"
-                detail = f"MLX:{is_mlx} model={model[:30]} | no signals in: {response[:60]}"
+                detail = f"MLX:{is_mlx} model={model[:30]} | no signals in: {response[:60]} | {route_detail}"
 
             record(sec, tid, f"Persona {slug} (MLX)", status, detail, t0=t0)
             test_num += 1
@@ -3428,6 +3492,13 @@ async def S21() -> None:
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
+    if routed_workspace in expected_security:
+        route_status, route_detail = await _assert_routing(
+            sec, "S21-03", routed_workspace, model,
+        )
+        if route_status == "mismatch":
+            record(sec, "S21-03b", f"Model identity for {routed_workspace}",
+                   "WARN", route_detail, t0=time.time())
 
     # S21-04: Test content-aware routing with coding keywords
     t0 = time.time()
@@ -3447,6 +3518,13 @@ async def S21() -> None:
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
+    if routed_workspace in expected_coding:
+        route_status, route_detail = await _assert_routing(
+            sec, "S21-04", routed_workspace, model,
+        )
+        if route_status == "mismatch":
+            record(sec, "S21-04b", f"Model identity for {routed_workspace}",
+                   "WARN", route_detail, t0=time.time())
 
     # S21-05: Test content-aware routing with compliance keywords
     t0 = time.time()
@@ -3466,6 +3544,13 @@ async def S21() -> None:
         f"routed→{routed_workspace or 'unknown'} | model: {model[:30]}",
         t0=t0,
     )
+    if routed_workspace in expected_compliance:
+        route_status, route_detail = await _assert_routing(
+            sec, "S21-05", routed_workspace, model,
+        )
+        if route_status == "mismatch":
+            record(sec, "S21-05b", f"Model identity for {routed_workspace}",
+                   "WARN", route_detail, t0=time.time())
 
     # S21-06: routing_descriptions.json valid
     t0 = time.time()

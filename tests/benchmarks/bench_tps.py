@@ -1158,6 +1158,29 @@ def bench_tps(
 
     tps_quality = round(avg_tps * qs, 1)
 
+    expected_match: bool | None = None
+    expected_detail = ""
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).parent.parent))
+        from expected_models import (
+            expected_model_keys,
+            model_matches_expected,
+        )
+        if routed_model:
+            if base_url == PIPELINE_URL:
+                keys, src = expected_model_keys(model)
+                if keys:
+                    expected_match = model_matches_expected(routed_model, keys)
+                    expected_detail = src
+            else:
+                requested_basename = model.split("/")[-1].lower()
+                expected_match = requested_basename in routed_model.lower()
+                expected_detail = f"requested {requested_basename}"
+    except Exception as e:
+        expected_detail = f"expected-check error: {e}"
+
     return {
         "model": model,
         "label": label,
@@ -1174,6 +1197,8 @@ def bench_tps(
         "quality_score": qs,
         "tps_quality": tps_quality,
         "reasoning_mode": _reasoning,
+        "expected_model_match": expected_match,
+        "expected_model_detail": expected_detail,
         "runs": run_results,
     }
 
@@ -1376,6 +1401,9 @@ def bench_direct(
             else:
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
+            if r.get("expected_model_match") is False:
+                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                      f"expected {r['expected_model_detail']}", flush=True)
             # Post-test: evict → reclaim → cooldown (always, after every model).
             # Mirrors real user behavior: no one loads a new model immediately after the last.
             # Flush Ollama (pipeline routing model can be loaded in background), evict MLX by
@@ -1528,6 +1556,9 @@ def bench_direct(
             else:
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
+            if r.get("expected_model_match") is False:
+                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                      f"expected {r['expected_model_detail']}", flush=True)
             # Force Ollama to release this model from unified memory before next test.
             # Uses keep_alive=0 then polls /api/ps until Ollama reports no running
             # models — prevents the next model from loading into an already-full
@@ -1742,6 +1773,9 @@ def bench_model_cascade(
                 print(f"{r['avg_tps']}t/s ", end="", flush=True)
             else:
                 print("FAIL ", end="", flush=True)
+            if r.get("expected_model_match") is False:
+                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                      f"expected {r['expected_model_detail']}", flush=True)
 
         # ── 3. Workspace tests (pipeline routes to loaded MLX model) ──
         if pipeline_available and pending_ws:
@@ -1770,6 +1804,9 @@ def bench_model_cascade(
                 tested_workspaces.add(ws)
                 tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
                 print(f" {ws}={tps_str}", end="", flush=True)
+                if r.get("expected_model_match") is False:
+                    print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                          f"expected {r['expected_model_detail']}", flush=True)
             print(") ", end="", flush=True)
 
         # ── 4. Persona tests (pipeline routes to loaded MLX model) ──
@@ -1805,6 +1842,9 @@ def bench_model_cascade(
                 tested_personas.add(slug)
                 tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
                 print(f" {slug}={tps_str}", end="", flush=True)
+                if r.get("expected_model_match") is False:
+                    print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                          f"expected {r['expected_model_detail']}", flush=True)
             print(") ", end="", flush=True)
 
         print("ok")
@@ -1893,6 +1933,9 @@ def bench_pipeline(
         else:
             errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
             print(f"FAIL ({', '.join(set(errors))})")
+        if r.get("expected_model_match") is False:
+            print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                  f"expected {r['expected_model_detail']}", flush=True)
 
     return results
 
@@ -1956,6 +1999,9 @@ def bench_personas(
         else:
             errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
             print(f"FAIL ({', '.join(set(errors))})")
+        if r.get("expected_model_match") is False:
+            print(f"  ⚠ ROUTING: got {r['routed_model']}, "
+                  f"expected {r['expected_model_detail']}", flush=True)
 
     return results
 
