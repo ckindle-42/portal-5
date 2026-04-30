@@ -197,6 +197,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-phi4-reasoning": "reasoning",
     "bench-dolphin8b": "creative",
     "bench-glm": "coding",
+    "bench-laguna": "reasoning",
     "bench-gptoss": "reasoning",
 }
 

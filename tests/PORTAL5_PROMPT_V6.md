@@ -4,8 +4,9 @@ Execute the acceptance workflow defined in:
 
 **PORTAL5_ACCEPTANCE_EXECUTE_V6.md**
 
-This is the v6 test suite covering all sections in TEST_CATALOG, 27 workspaces,
-91 personas, and features including LLM intent routing and MLX admission control.
+This is the v6 test suite covering all sections in TEST_CATALOG, 28 workspaces
+(18 auto-* + 10 bench-*) and 93 personas, plus features including LLM intent
+routing, MLX admission control, and routing-identity validation.
 
 The run may take 2-4 hours. Execution MUST remain interactive and continuously
 supervised. Do NOT background the process.
@@ -64,12 +65,12 @@ Never allow cascading failures to proceed without intervention.
 The test suite is organized into 6 phases to minimize model switching and
 manage the 64GB unified memory budget on Apple Silicon.
 
-### Phase 1 — No-Model Tests (S0, S1, S2, S12, S13, S40)
+### Phase 1 — No-Model Tests (S0, S1, S2, S12, S13, S15, S16, S40, S41, S42)
 
 Health checks, config validation, metrics. No models loaded.
 
 ```bash
-python3 portal5_acceptance_v6.py --section S0,S1,S2,S12,S13,S40
+python3 portal5_acceptance_v6.py --section S0,S1,S2,S12,S13,S15,S16,S40,S41,S42
 ```
 
 Checkpoint: **Stack healthy, config valid**
@@ -108,7 +109,7 @@ python3 portal5_acceptance_v6.py --section S21,S3b,S11,S20,S22,S23
 Document generation and code sandbox. Minimal memory.
 
 ```bash
-python3 portal5_acceptance_v6.py --section S4,S5
+python3 portal5_acceptance_v6.py --section S4,S5,S50,S60,S70
 ```
 
 ### Phase 5 — Audio Tests (S8, S9, S7)
@@ -322,7 +323,11 @@ git commit -m "chore: v6 acceptance run $(date +%Y-%m-%d) - all pass"
 | 1 | S2 | Service health | 16 |
 | 1 | S12 | Web search | 1 |
 | 1 | S13 | RAG/Embedding | 2 |
+| 1 | S15 | Shared workspace verification | 4 |
+| 1 | S16 | Security MCP tools (CIRCL VLAI) | 3 |
 | 1 | S40 | Metrics/Monitoring | 3 |
+| 1 | S41 | M6 production hardening | 7 |
+| 1 | S42 | M5 browser automation | 4 |
 | 2 | S3a | Workspaces (Ollama) | 7 |
 | 2 | S6 | Security workspaces | 4 |
 | 2 | S10 | Personas (Ollama) | 34 |
@@ -334,6 +339,9 @@ git commit -m "chore: v6 acceptance run $(date +%Y-%m-%d) - all pass"
 | 3 | S23 | Model Diversity | 6 |
 | 4 | S4 | Document generation | 4 |
 | 4 | S5 | Code sandbox | 3 |
+| 4 | S50 | Negative testing | 6 |
+| 4 | S60 | M2 tool-calling orchestration | 8 |
+| 4 | S70 | M3 information access MCPs | 9 |
 | 5 | S8 | Text-to-Speech | 2 |
 | 5 | S9 | Speech-to-Text | 2 |
 | 5 | S7 | Music generation | 2 |
@@ -362,3 +370,17 @@ Responsibilities:
 ---
 
 *Last updated: 2026-04-10*
+
+## Section Coverage Audit
+
+```bash
+# Verify all section functions defined in code are referenced in this file:
+COMMENT="Coverage check"
+DEFINED=$(grep -oE '^async def S[0-9]+[a-z]*' tests/portal5_acceptance_v6.py \
+          | sed 's/async def //' | sort)
+REFERENCED=$(grep -oE '\bS[0-9]+[a-z]?\b' tests/PORTAL5_PROMPT_V6.md | sort -u)
+echo "Defined but not referenced in prompt:"
+comm -23 <(echo "$DEFINED") <(echo "$REFERENCED")
+echo "Referenced but not defined:"
+comm -13 <(echo "$DEFINED") <(echo "$REFERENCED")
+```

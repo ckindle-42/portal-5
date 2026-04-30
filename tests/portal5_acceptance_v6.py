@@ -1233,6 +1233,11 @@ WORKSPACE_PROMPTS = {
         "Analyze the trade-offs between microservices and monolithic architectures.",
         ["trade", "scale", "complex", "deploy", "maintain"],
     ),
+    "auto-math": (
+        "Find the area enclosed by the curves y = x^2 and y = 2x. "
+        "Show your work step by step.",
+        ["integral", "intersection", "area", "4/3", "x^2", "2x"],
+    ),
 }
 
 # Persona test prompts and expected signals
