@@ -63,6 +63,38 @@ PIPELINE_URL = "http://localhost:9099"
 
 MAX_TOKENS = 256
 REQUEST_TIMEOUT = 180.0
+
+# Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
+# emit <think> blocks that consume tokens before generating output. Two adjustments:
+#   1. REASONING_MAX_TOKENS: larger budget so output isn't truncated mid-response.
+#   2. enable_thinking=False injected via chat_template_kwargs (mlx-lm only) so
+#      TPS reflects inference speed on actual output, not reasoning overhead.
+#      This makes bench numbers comparable across reasoning and non-reasoning models.
+REASONING_MAX_TOKENS = 512
+REASONING_WORKSPACES: frozenset[str] = frozenset({
+    "bench-laguna",
+    "bench-phi4-reasoning",
+    "auto-mistral",
+    "auto-reasoning",
+})
+# MLX model substrings that signal a reasoning model (for direct MLX runs)
+_REASONING_MLX_PATTERNS = (
+    "Laguna",
+    "Phi-4-reasoning",
+    "Magistral",
+    "Qwopus",
+    "DeepSeek-R1",
+    "Qwen3.5-27B-Claude",
+    "Qwen3.5-9B-Claude",
+    "Qwen3.5-35B-A3B-Claude",
+)
+
+
+def _is_reasoning_model(model: str, workspace_id: str = "") -> bool:
+    """Return True if this model/workspace uses think-block reasoning."""
+    if workspace_id in REASONING_WORKSPACES:
+        return True
+    return any(p in model for p in _REASONING_MLX_PATTERNS)
 RESULTS_DIR = Path(__file__).parent / "results"
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
@@ -966,12 +998,17 @@ def bench_tps(
     """
     import json as _json
 
+    _reasoning = _is_reasoning_model(model, label)
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
-        "max_tokens": MAX_TOKENS,
+        "max_tokens": REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS,
     }
+    if _reasoning and base_url == MLX_URL:
+        # Disable interleaved thinking for TPS runs — measures inference speed
+        # on actual output, not reasoning overhead. Keeps numbers comparable.
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
 
     headers: dict[str, str] = {}
     if base_url == PIPELINE_URL and PIPELINE_API_KEY:
@@ -1136,6 +1173,7 @@ def bench_tps(
         "prompt_category": prompt_category,
         "quality_score": qs,
         "tps_quality": tps_quality,
+        "reasoning_mode": _reasoning,
         "runs": run_results,
     }
 

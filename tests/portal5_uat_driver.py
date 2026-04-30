@@ -997,6 +997,29 @@ async def _download_artifact(
 
 
 # ---------------------------------------------------------------------------
+# Think-block stripping
+# ---------------------------------------------------------------------------
+
+def _strip_think_blocks(text: str) -> str:
+    """Strip <think>...</think> blocks from model output before running assertions.
+
+    Laguna-XS.2 (and Magistral, Phi-4-reasoning-plus, Qwopus) embed reasoning
+    inside content as <think> tags. Assertions must evaluate the *answer* — not
+    the reasoning — to avoid false positives (keyword hit inside think) or false
+    negatives (assert_has_code missing code that follows a large think block
+    when the block itself looks like prose).
+
+    Strips all <think>...</think> spans (case-insensitive, DOTALL so multi-line
+    blocks are handled). Also strips the common [THINK]...[/THINK] variant used
+    by Magistral. Trailing whitespace is normalized after stripping.
+    """
+    import re
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"\[THINK\].*?\[/THINK\]", "", text, flags=re.DOTALL | re.IGNORECASE)
+    return text.strip()
+
+
+# ---------------------------------------------------------------------------
 # Assertion engine
 # ---------------------------------------------------------------------------
 
@@ -1102,6 +1125,7 @@ def assert_wav_valid(path: Path | None, label: str) -> tuple:
 
 
 def run_assertions(text: str, assertions_spec: list, artifact_path: Path | None = None) -> list:
+    text = _strip_think_blocks(text)
     results = []
     for a in assertions_spec:
         t = a["type"]
