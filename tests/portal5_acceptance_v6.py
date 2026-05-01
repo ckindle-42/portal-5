@@ -29,7 +29,8 @@ Status model:
 
 Test Coverage (~27 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
-    S3a/S3b: 27 workspaces (18 auto-* + 9 bench-*) with content-aware routing
+    S3a/S3b: 28 workspaces tested directly (18 auto-* tested via S3a/S3b);
+              S41-02 verifies max_concurrent=1 for all 11 bench-* workspaces
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)

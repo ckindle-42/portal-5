@@ -6128,6 +6128,26 @@ TEST_CATALOG: list[dict] = [
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
+    {
+        "id": "CC-01-granite41-8b",
+        "name": "CC-01 Asteroids · Granite-4.1 8B (IBM)",
+        "section": "benchmark",
+        "model_slug": "bench-granite41-8b",
+        "timeout": 300,
+        "workspace_tier": "mlx_small",
+        "prompt": _CC01_PROMPT,
+        "assertions": _CC01_ASSERTIONS,
+    },
+    {
+        "id": "CC-01-granite41-30b",
+        "name": "CC-01 Asteroids · Granite-4.1 30B (IBM)",
+        "section": "benchmark",
+        "model_slug": "bench-granite41-30b",
+        "timeout": 360,
+        "workspace_tier": "mlx_small",
+        "prompt": _CC01_PROMPT,
+        "assertions": _CC01_ASSERTIONS,
+    },
     # -----------------------------------------------------------------------
     # GROUP auto-math
     # -----------------------------------------------------------------------

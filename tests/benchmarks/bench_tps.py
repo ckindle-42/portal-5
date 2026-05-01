@@ -199,6 +199,13 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-glm": "coding",
     "bench-laguna": "reasoning",
     "bench-gptoss": "reasoning",
+    # Granite 4.1 — IBM dense, no-think, tool-calling-first.
+    # CC-01 is a creative-coding bench, but to keep cross-bench numbers
+    # comparable Granite gets the same coding category as the other coders.
+    # Granite's *strength* is tool calling/IFEval, not creative coding —
+    # interpret a low CC-01 score against Laguna/GLM as expected, not a defect.
+    "bench-granite41-8b": "coding",
+    "bench-granite41-30b": "coding",
 }
 
 # Map Ollama backend group → prompt category
