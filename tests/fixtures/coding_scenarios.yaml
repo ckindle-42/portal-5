@@ -1,0 +1,115 @@
+# Coding scenario fixture for the persona matrix.
+#
+# Each scenario specifies: prompt, applies_to (persona slugs or coding:*),
+# assertions (subset registered in tests/lib/coding_assertions.py), and an
+# optional language/constraint tag that parameterized assertions consume.
+#
+# Adding a new scenario: append a row. Adding a new language/constraint:
+# extend _LANGUAGE_SIGNATURES / _STDLIB_VIOLATION_HINTS in
+# tests/lib/coding_assertions.py, then reference the new key by spec
+# language.<X> / constraint.<X>.
+
+scenarios:
+
+  # ── A. Self-evident task — "build it, don't ask" ──────────────────────
+  - id: self-evident-canvas-snake
+    description: >
+      Self-evident creative-coding ask. Persona must deliver a complete
+      single-file solution without stalling on clarification questions.
+    applies_to: ["coding:*"]
+    language: html
+    prompt: |
+      Build a playable Snake game in a single self-contained HTML file.
+      Use vanilla JavaScript and HTML Canvas. Arrow keys to control,
+      score displayed at the top, snake grows when it eats food, game
+      over on self-collision. Ship as one file ready to open in a browser.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.html
+      - constraint.html_single_file
+      - behavioral.no_clarification_stall
+
+  # ── B. Stdlib-only constraint ──────────────────────────────────────────
+  - id: stdlib-only-python-csv
+    description: >
+      Python task with explicit stdlib-only constraint. Tests whether the
+      model honors the constraint or reaches for pandas/numpy.
+    applies_to: ["coding:*"]
+    language: python
+    constraint: python_no_external
+    prompt: |
+      Write a Python script using ONLY the standard library (no pandas,
+      no numpy, no third-party packages) that:
+        - reads a CSV from stdin
+        - groups rows by the first column
+        - for each group, computes the mean of the second column
+          (treat as float; skip non-numeric)
+        - writes "<group>,<mean>" to stdout, sorted by group name
+
+      The script must be runnable as `python3 script.py < input.csv`.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.python
+      - constraint.python_no_external
+
+  # ── C. SQL with explicit join requirement ─────────────────────────────
+  - id: sql-join-with-aggregation
+    description: >
+      SQL query that requires both a JOIN and an aggregation. Tests
+      whether the model produces SQL syntax (vs. pseudocode prose).
+    applies_to: ["coding:*"]
+    language: sql
+    prompt: |
+      Given two tables:
+        users(id INT, name TEXT, signup_date DATE)
+        orders(id INT, user_id INT, amount DECIMAL, ordered_at DATE)
+
+      Write a single SQL query that returns each user's total order count
+      and total revenue, including users who have placed zero orders.
+      Order results by total revenue descending, then user name ascending.
+      Use ANSI SQL — no vendor-specific extensions.
+    assertions:
+      - structural.code_block_present
+      - language.sql
+
+  # ── D. Bash script with shebang + safe-mode ──────────────────────────
+  - id: bash-script-defensive
+    description: >
+      Asks for a defensive bash script. Tests structural delivery + that
+      the response is bash, not pseudocode.
+    applies_to: ["coding:*"]
+    language: bash
+    prompt: |
+      Write a single bash script that:
+        - takes a directory path as its first positional argument
+        - exits non-zero with a clear message if the path is missing or
+          not a directory
+        - prints, for each file in the directory (non-recursive), the
+          file size in bytes and the file name, sorted by size descending
+        - uses `set -euo pipefail` defensively
+
+      Provide the script as a complete, self-contained file with a
+      proper shebang line.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.bash
+
+  # ── E. Self-evident — Rust ─────────────────────────────────────────────
+  - id: self-evident-rust-fizzbuzz
+    description: >
+      Trivial language-fingerprint check. If the persona delivers Rust,
+      it should clearly look like Rust — not pseudocode.
+    applies_to: ["coding:*"]
+    language: rust
+    prompt: |
+      Write a complete Rust program that prints FizzBuzz for numbers 1
+      through 100. Use `cargo` conventions — name a single src/main.rs
+      and show it as one code block.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.rust
+      - behavioral.no_clarification_stall

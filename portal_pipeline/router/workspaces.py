@@ -225,7 +225,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
-        "description": "NERC CIP compliance, policy analysis, regulatory guidance",
+        "description": (
+            "Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, "
+            "SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, "
+            "CMMC, FFIEC, and state privacy laws (CCPA/CPRA, Texas TDPSA, "
+            "Connecticut CTDPA, etc.). Gap analysis, policy drafting, "
+            "evidence review, cross-framework control mapping, audit prep."
+        ),
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
         "predict_limit": 16384,

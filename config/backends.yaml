@@ -312,7 +312,7 @@ workspace_routing:
   auto-research:  [mlx, reasoning, general]
   auto-vision:    [mlx, vision, general]   # MLX gemma-4-31b-it-4bit primary; Ollama qwen3-vl:32b fallback
   auto-data:      [mlx, reasoning, general]
-  auto-compliance: [mlx, reasoning, general]  # NERC CIP gap analysis — MLX Qwen3.5-35B primary; reasoning group default (deepseek-r1:32b-q4_k_m) is Ollama fallback
+  auto-compliance: [mlx, reasoning, general]  # Multi-framework compliance: NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, state privacy laws. MLX Qwen3.5-35B primary; reasoning group fallback (deepseek-r1:32b-q4_k_m → granite4.1:30b → others). Personas: complianceanalyst (generalist), nerccipcomplianceanalyst, cippolicywriter, hipaaprivacyofficer, gdprdpoadvisor, soc2auditor.
   auto-mistral:    [mlx, reasoning, general]   # Magistral-Small dedicated reasoning — Mistral training lineage
   auto-math:       [mlx, coding, general]      # Qwen2.5-Math-7B primary; qwen3.5:9b Ollama fallback
   # ── Coding Capability Benchmark Workspaces ──────────────────────────────

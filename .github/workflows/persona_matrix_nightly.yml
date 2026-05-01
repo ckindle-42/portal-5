@@ -1,0 +1,121 @@
+# Nightly persona-matrix sweep + baseline diff.
+#
+# Runs on a schedule and on PRs that touch persona/fixture/assertion code.
+# Must run on a self-hosted runner with access to the Portal 5 stack
+# (MLX proxy + Ollama on host networking). Public GitHub-hosted runners
+# cannot host Portal 5's local backends.
+
+name: persona-matrix-nightly
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "Workspace to sweep"
+        default: "auto-compliance"
+        required: true
+        type: choice
+        options:
+          - auto-compliance
+          - auto-coding
+      backend:
+        description: "Backend filter (ollama|mlx|both)"
+        default: "ollama"
+        required: true
+        type: choice
+        options:
+          - ollama
+          - mlx
+          - both
+  pull_request:
+    paths:
+      - "config/personas/**"
+      - "config/backends.yaml"
+      - "tests/lib/**"
+      - "tests/fixtures/**"
+      - "tests/portal5_persona_matrix.py"
+
+jobs:
+  matrix-sweep:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pre-flight
+        run: |
+          curl -sf http://localhost:9099/health || \
+            { echo "::error::pipeline not reachable"; exit 1; }
+          curl -sf http://localhost:11434/api/version || \
+            { echo "::error::ollama not reachable"; exit 1; }
+          if [ "${{ inputs.backend || 'ollama' }}" != "ollama" ]; then
+            curl -sf http://localhost:8081/health || \
+              { echo "::warning::mlx down — sweep will skip MLX models"; }
+          fi
+
+      - name: Determine sweep parameters
+        id: params
+        run: |
+          WORKSPACE="${{ inputs.workspace || 'auto-compliance' }}"
+          BACKEND="${{ inputs.backend || 'ollama' }}"
+          BACKEND_FLAG=""
+          if [ "$BACKEND" != "both" ]; then
+            BACKEND_FLAG="--backend $BACKEND"
+          fi
+          MLX_WARMUP=""
+          if [ "$BACKEND" != "ollama" ]; then
+            MLX_WARMUP="--mlx-warmup"
+          fi
+          BASELINE="tests/benchmarks/results/persona_matrix_baseline_${WORKSPACE}.json"
+          TS=$(date -u +%Y%m%dT%H%M%SZ)
+          OUT="tests/benchmarks/results/persona_matrix_${WORKSPACE}_ci_${TS}.json"
+          echo "workspace=$WORKSPACE"        >> $GITHUB_OUTPUT
+          echo "backend_flag=$BACKEND_FLAG"  >> $GITHUB_OUTPUT
+          echo "mlx_warmup=$MLX_WARMUP"      >> $GITHUB_OUTPUT
+          echo "baseline=$BASELINE"          >> $GITHUB_OUTPUT
+          echo "out=$OUT"                    >> $GITHUB_OUTPUT
+
+      - name: Run sweep
+        id: sweep
+        continue-on-error: true
+        run: |
+          python3 tests/portal5_persona_matrix.py \
+            --workspace "${{ steps.params.outputs.workspace }}" \
+            ${{ steps.params.outputs.backend_flag }} \
+            ${{ steps.params.outputs.mlx_warmup }} \
+            --output "${{ steps.params.outputs.out }}" \
+            --baseline-compare "${{ steps.params.outputs.baseline }}" \
+            --regression-threshold 10
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+
+      - name: Upload sweep result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persona-matrix-${{ steps.params.outputs.workspace }}-${{ github.run_id }}
+          path: ${{ steps.params.outputs.out }}
+          retention-days: 30
+
+      - name: Generate diff summary
+        if: always()
+        run: |
+          if [ -f "${{ steps.params.outputs.baseline }}" ]; then
+            python3 tests/persona_matrix_diff.py \
+              "${{ steps.params.outputs.baseline }}" \
+              "${{ steps.params.outputs.out }}" \
+              --threshold 10 > diff_summary.txt 2>&1 || true
+            cat diff_summary.txt
+          else
+            echo "No baseline at ${{ steps.params.outputs.baseline }} — first run; nothing to diff."
+          fi
+
+      - name: Fail if regressions or FAIL cells
+        if: always() && steps.sweep.outputs.exit_code != '0'
+        run: |
+          echo "::error::matrix sweep exited with code ${{ steps.sweep.outputs.exit_code }}"
+          echo "  0 = clean"
+          echo "  1 = either FAIL cells or regressions"
+          echo "  2 = both"
+          exit "${{ steps.sweep.outputs.exit_code }}"

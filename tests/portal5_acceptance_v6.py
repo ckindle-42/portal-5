@@ -35,7 +35,8 @@ Test Coverage (~27 sections, ~300 tests):
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
     S7-S9:   Music generation, TTS, STT
-    S10-S11: 91 personas grouped by workspace (Ollama + MLX backends)
+    S10-S11: 84 non-compliance personas grouped by workspace; S10c drives
+              the 7 compliance personas via tests/fixtures/compliance_scenarios.yaml
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
     S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router — semantic routing via Llama-3.2-3B
@@ -1376,15 +1377,9 @@ PERSONA_PROMPTS = {
         ["systematic", "search", "inclusion", "database", "literature", "source", "criteria"],
     ),
     "excelsheet": ("Formula for VLOOKUP.", ["VLOOKUP", "formula", "range", "col_index", "FALSE"]),
-    # Compliance (2 personas)
-    "nerccipcomplianceanalyst": (
-        "CIP-007 patch management requirements.",
-        ["CIP", "patch", "35", "day", "compliance"],
-    ),
-    "cippolicywriter": (
-        "Write a policy for access control.",
-        ["access", "control", "policy", "authorize", "role"],
-    ),
+    # Compliance personas — handled by S10c via the fixture in
+    # tests/fixtures/compliance_scenarios.yaml. Do not add hardcoded prompts
+    # here. See TASK_COMPLIANCE_ACCEPT_003.md.
     # Systems (2 personas)
     "linuxterminal": ("List files by size.", ["ls", "-l", "sort", "size", "du"]),
     "sqlterminal": ("SELECT users with admin role.", ["SELECT", "FROM", "WHERE", "role", "admin"]),
@@ -1481,23 +1476,12 @@ PERSONA_PROMPTS = {
             "evidence",
         ],
     ),
-    # ── M1: Compliance personas ─────────────────────────────────────────
-    "soc2auditor": (
-        "What's the difference between control design and operating effectiveness in a SOC 2 Type II audit?",
-        ["design", "operating", "effectiveness", "type ii", "trust services"],
-    ),
-    "pcidssassessor": (
-        "We process 5 million card transactions per year. Which PCI-DSS merchant level applies and what validation does it require?",
-        ["level", "merchant", "report on compliance", "roc", "5 million", "6 million"],
-    ),
-    "gdprdpoadvisor": (
-        "Our SaaS company is based in California and serves EU residents. Does GDPR apply to us, and if so under which article?",
-        ["article 3", "territorial scope", "offering", "monitoring", "controller"],
-    ),
-    "hipaaprivacyofficer": (
-        "What is the 4-factor low probability of compromise test in HIPAA breach assessment?",
-        ["nature", "extent", "phi", "unauthorized", "acquired", "viewed", "extent of risk"],
-    ),
+    # ── M1: Compliance personas — handled by S10c via fixture ───────────
+    # The 6 compliance personas (soc2auditor, pcidssassessor, gdprdpoadvisor,
+    # hipaaprivacyofficer, nerccipcomplianceanalyst, cippolicywriter, plus
+    # the new complianceanalyst generalist) are tested by section S10c using
+    # behavioral assertions from tests/lib/compliance_assertions.py against
+    # scenarios in tests/fixtures/compliance_scenarios.yaml.
     # ── M1: Language personas ────────────────────────────────────────────
     "rustengineer": (
         "Write a thread-safe LRU cache in Rust with capacity bound and TTL eviction.",
@@ -2988,7 +2972,12 @@ async def S10() -> None:
     print("\n━━━ S10. PERSONAS (OLLAMA) ━━━")
     sec = "S10"
 
-    candidates = [p for p in PERSONAS if p.get("workspace_model") in OLLAMA_WORKSPACES]
+    # Compliance personas are driven by S10c via the fixture; skip here.
+    candidates = [
+        p for p in PERSONAS
+        if p.get("workspace_model") in OLLAMA_WORKSPACES
+        and p.get("category") != "compliance"
+    ]
     candidates.sort(key=lambda p: p["workspace_model"])
 
     test_num = 1
@@ -3035,6 +3024,107 @@ async def S10() -> None:
             test_num += 1
             await asyncio.sleep(0.5)
         await asyncio.sleep(2)
+
+
+async def S10c() -> None:
+    """S10c: Compliance persona tests — fixture-driven via auto-compliance.
+
+    Drives every compliance persona through every applicable scenario from
+    tests/fixtures/compliance_scenarios.yaml. Uses the behavioral assertions
+    in tests/lib/compliance_assertions.py instead of signal-string matching.
+
+    Pipeline-routed (workspace = "auto-compliance"). One model answers per
+    request — whichever the chain picks. Per-(persona,model) exhaustion of
+    the routing chain is in tests/portal5_persona_matrix.py (TASK 004).
+    """
+    print("\n━━━ S10c. PERSONAS (COMPLIANCE — FIXTURE) ━━━")
+    sec = "S10c"
+
+    try:
+        from tests.lib.compliance_fixtures import expand_scenarios, run_assertions
+    except ImportError as e:
+        record(sec, "S10c-00", "fixture import", "BLOCKED", str(e)[:120],
+               t0=time.time())
+        return
+
+    try:
+        scenarios = expand_scenarios()
+    except Exception as e:
+        record(sec, "S10c-00", "fixture expansion", "FAIL", str(e)[:120],
+               t0=time.time())
+        return
+
+    if not scenarios:
+        record(sec, "S10c-00", "fixture expansion", "FAIL",
+               "expand_scenarios() returned empty list",
+               t0=time.time())
+        return
+
+    record(sec, "S10c-00", "fixture loaded", "PASS",
+           f"{len(scenarios)} concrete scenarios across compliance personas",
+           t0=time.time())
+
+    # Group scenarios by persona for cleaner console output and to allow
+    # per-persona settling time between batches (model context warmth).
+    by_persona: dict[str, list] = {}
+    for s in scenarios:
+        by_persona.setdefault(s.persona_slug, []).append(s)
+
+    test_num = 1
+    for persona_slug in sorted(by_persona.keys()):
+        persona_scenarios = by_persona[persona_slug]
+        print(f"\n  ── Persona: {persona_slug} ({len(persona_scenarios)} scenarios) ──")
+
+        # Find this persona's system prompt for context preloading
+        persona_data = next(
+            (p for p in PERSONAS if p.get("slug") == persona_slug), None
+        )
+        if not persona_data:
+            record(sec, f"S10c-{test_num:02d}", f"persona {persona_slug}",
+                   "BLOCKED", "persona YAML not loaded by acceptance_v6 PERSONAS",
+                   t0=time.time())
+            test_num += 1
+            continue
+        system = persona_data.get("system_prompt", "")[:1200]
+
+        for scenario in persona_scenarios:
+            tid = f"S10c-{test_num:03d}"
+            t0 = time.time()
+            label = f"{persona_slug}/{scenario.scenario_id}[{scenario.framework_id or 'any'}]"
+
+            code, response, model, _route = await _chat_with_model(
+                "auto-compliance",
+                scenario.prompt,
+                system=system,
+                max_tokens=600,
+                timeout=240,
+            )
+
+            if code != 200:
+                record(sec, tid, label, "FAIL",
+                       f"HTTP {code}: {response[:100]}", t0=t0)
+                test_num += 1
+                continue
+
+            outcome = run_assertions(scenario, response)
+            status = outcome.status  # PASS / WARN / FAIL
+
+            # Compose detail summary
+            failed = [r for r in outcome.results if not r.passed]
+            if status == "PASS":
+                detail = f"all {len(outcome.results)} assertions OK | model={model[:40]}"
+            elif status == "WARN":
+                names = ", ".join(r.name for r in failed[:3])
+                detail = f"MUSTs OK; SHOULD failed: {names} | model={model[:40]}"
+            else:
+                names = ", ".join(r.name for r in failed[:3])
+                detail = f"MUST failed: {names} | model={model[:40]}"
+
+            record(sec, tid, label, status, detail, t0=t0)
+            test_num += 1
+            await asyncio.sleep(0.3)  # back off between requests
+
+        await asyncio.sleep(2)  # back off between personas
 
 
 async def _mlx_chat_direct(
@@ -4792,6 +4882,7 @@ ALL_SECTIONS = {
     "S6": S6,
     "S16": S16,
     "S10": S10,
+    "S10c": S10c,  # Compliance personas via fixture (TASK_COMPLIANCE_ACCEPT_003)
     # Phase 3: MLX tests
     "S21": S21,
     "S3b": S3b,

@@ -30,7 +30,7 @@ The v6 acceptance test framework validates **every documented feature** in Porta
 - Configuration consistency (backends.yaml ↔ router_pipe.py)
 
 ### Workspaces (Section S3)
-All 27 workspaces (18 auto-* + 9 bench-*) with content-aware routing validation:
+All 29 workspaces (17 auto-* + 12 bench-*, incl. bench-granite41-8b/30b) with content-aware routing validation:
 - Auto workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`, `auto-s50`, `auto-creative`, `auto-video`, `auto-music`
 - Bench workspaces: `bench-reasoning`, `bench-coding`, `bench-math`, `bench-vision`, `bench-agentic`, `bench-data`, `bench-research`, `bench-security`, `bench-creative`
 
@@ -71,7 +71,7 @@ All 27 workspaces (18 auto-* + 9 bench-*) with content-aware routing validation:
 - Round-trip TTS→ASR validation
 
 ### Personas (Sections S10-S11)
-All 91 personas grouped by workspace_model. Tests are grouped by **model, not category**,
+89 non-compliance personas (S10-S11) plus 7 compliance personas (S10c, via fixture). Tests are grouped by **model, not category**,
 to prevent model swapping timeouts on 64GB unified memory.
 
 For the full persona list, see `config/personas/*.yaml`. The test dynamically loads
@@ -82,6 +82,10 @@ all persona YAML files at runtime, grouping them by their `workspace_model` fiel
 
 **S11 — MLX-routed workspaces:**
 - MLX workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`
+
+### Personas Compliance via Fixture (Section S10c)
+- 7 compliance personas exercised via fixture rather than PERSONA_PROMPTS
+- Validates compliance persona behavior without full chat inference
 
 ### Web Search (Section S12)
 - SearXNG health

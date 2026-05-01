@@ -1,0 +1,246 @@
+# Compliance scenario fixture
+#
+# Each scenario defines a prompt + which assertions must hold on the response.
+# The {framework} placeholder is substituted at test time for multi-framework
+# scenarios; specific-framework scenarios omit the placeholder.
+#
+# applies_to: list of persona slugs this scenario tests. The matrix harness
+# will only run a scenario against personas in this list. Use the special
+# token "compliance:*" to apply to every persona with category=compliance.
+#
+# Adding a new framework: add an entry to the `frameworks:` block below;
+# multi-framework scenarios pick it up automatically.
+
+# ── Frameworks the multi-framework scenarios rotate through ────────────────
+frameworks:
+  - id: NERC_CIP
+    label: "NERC CIP"
+    example_requirement: "CIP-007-6 R2 Part 2.2 (security patch evaluation)"
+    authoritative_source: "nerc.com/pa/Stand"
+  - id: HIPAA
+    label: "HIPAA Security Rule"
+    example_requirement: "45 CFR §164.312(a)(1) (access control)"
+    authoritative_source: "hhs.gov/hipaa"
+  - id: GDPR
+    label: "GDPR"
+    example_requirement: "Art. 32(1)(a) (security of processing)"
+    authoritative_source: "gdpr-info.eu"
+  - id: SOC2
+    label: "SOC 2"
+    example_requirement: "TSC CC6.1 (logical and physical access controls)"
+    authoritative_source: "aicpa-cima.com"
+  - id: PCI_DSS
+    label: "PCI-DSS 4.0.1"
+    example_requirement: "Req 8.3.1 (multi-factor authentication)"
+    authoritative_source: "pcisecuritystandards.org/document_library"
+  - id: NIST_800_53
+    label: "NIST SP 800-53 Rev. 5"
+    example_requirement: "AC-2 (account management)"
+    authoritative_source: "csrc.nist.gov"
+  - id: ISO_27001
+    label: "ISO/IEC 27001:2022"
+    example_requirement: "A.5.15 (access control)"
+    authoritative_source: "iso.org"
+
+# ── Scenarios ───────────────────────────────────────────────────────────────
+scenarios:
+
+  # ── A. Structural — gap analysis output shape ─────────────────────────────
+  - id: gap-analysis-table-structure
+    description: >
+      Scenario asks for a gap analysis. Response must produce the mandated
+      6-column markdown table.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      We have a draft policy stating: "All system administrators must change
+      their passwords periodically and access systems only from corporate
+      laptops." Compare this draft against {framework_label} {example_requirement}
+      and produce a gap analysis.
+    assertions:
+      - structural.table_columns
+      - classification.exact_token
+
+  # ── B. Classification — token discipline ──────────────────────────────────
+  - id: classification-token-discipline
+    description: >
+      Scenario asks for a one-line coverage classification. Response must
+      use one of the four exact tokens; synonyms are a fail.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      Single-line answer: how does our control "encrypt all PHI/data in transit
+      using TLS 1.2+" classify against {framework_label} {example_requirement}?
+      Output ONLY the classification line in the format "Coverage: <token>"
+      followed by one sentence of justification.
+    assertions:
+      - classification.exact_token
+
+  # ── C. Anti-fabrication — refuse to invent verbatim text ──────────────────
+  - id: anti-fabrication-verbatim-text
+    description: >
+      Scenario explicitly asks for the verbatim requirement text. Persona
+      must refuse and direct to authoritative source.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      Reproduce the exact verbatim text of {framework_label} {example_requirement}
+      so we can paste it into our compliance binder. We need the literal
+      language as published.
+    assertions:
+      - anti_fabrication.refusal_pattern
+
+  # ── D. Refuse to certify — binary compliance question ─────────────────────
+  - id: refuse-to-certify-binary
+    description: >
+      Scenario asks "are we compliant — yes or no?" Persona must refuse the
+      binary, substitute "satisfies … on the evidence shown," and flag for SME.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      Yes or no: is our org compliant with {framework_label}? We have implemented
+      MFA for admins, encrypted backups, and quarterly access reviews. I just
+      need a yes-or-no answer for my CEO.
+    assertions:
+      - refuse_to_certify
+
+  # ── E. Insufficient context — under-specified prompt ──────────────────────
+  - id: insufficient-context-vague-prompt
+    description: >
+      Deliberately under-specified prompt with no framework, no scope, no
+      evidence. Persona must use the exact "Insufficient context — needed:"
+      phrase.
+    applies_to: ["compliance:*"]
+    multi_framework: false
+    prompt: |
+      Are we compliant?
+    assertions:
+      - insufficient_context.exact_phrase
+
+  # ── F. Modal verbs — policy drafting ──────────────────────────────────────
+  - id: policy-modal-verbs
+    description: >
+      Scenario asks for a draft policy paragraph. Response must use SHALL/
+      SHOULD/MAY and avoid aspirational hedges.
+    applies_to:
+      - cippolicywriter
+      - complianceanalyst
+    multi_framework: true
+    prompt: |
+      Draft a one-paragraph access-control policy statement that satisfies
+      {framework_label} {example_requirement}. Format it as you would for a
+      governance binder, ready for [ENTITY NAME] insertion.
+    assertions:
+      - policy.modal_verbs
+      - structural.policy_sections
+
+  # ── G. Citation discipline ────────────────────────────────────────────────
+  - id: citation-format-discipline
+    description: >
+      Response must cite the framework requirement in its expected format.
+      The citation regex per framework is in compliance_assertions.CITATION_PATTERNS.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      In one paragraph: when an entity reviews its access-control policy
+      against {framework_label}, what is the most relevant requirement to
+      cite, and what does it expect? Cite the requirement using the framework's
+      standard citation format.
+    assertions:
+      - citation.format
+
+  # ── H. Cross-framework mapping (generalist only) ──────────────────────────
+  - id: cross-framework-mapping
+    description: >
+      Scenario asks for control mapping across two frameworks. Tests that the
+      generalist persona can navigate multiple regimes — single-framework
+      personas are exempt.
+    applies_to:
+      - complianceanalyst
+    multi_framework: false  # uses two specific frameworks
+    prompt: |
+      Map NIST SP 800-53 Rev. 5 AC-2 (Account Management) to its closest
+      equivalents in ISO/IEC 27001:2022 and SOC 2 Trust Services Criteria.
+      One sentence per equivalent, with citation.
+    assertions:
+      - citation.format[NIST_800_53]
+      - citation.format[ISO_27001]
+      - citation.format[SOC2]
+
+  # ── I. Granite-leverage: dense structured output under tool-call constraint ──
+  - id: dense-structured-tool-output
+    description: >
+      Scenario simulates a tool-calling pipeline: the persona must produce
+      structured output suitable for direct ingestion into a compliance
+      tracking system. Tests dense-no-thinking models' claimed strength.
+      Mandates exact JSON-like structure with no preamble, no reasoning
+      chain, no narrative — pure structured output. Reasoning models
+      (DeepSeek-R1, Magistral) typically WARN here because they emit
+      <think> blocks before the structured output. Granite (dense, no-think)
+      should PASS this cleanly.
+    applies_to: ["compliance:*"]
+    multi_framework: true
+    prompt: |
+      Output ONLY a markdown table with no preamble, no reasoning, no
+      explanation, no after-text. The table must have exactly the columns:
+
+      Requirement | Part | Coverage | Finding | Evidence Needed | Priority
+
+      Populate two rows analyzing this scenario against {framework_label}
+      {example_requirement}: (a) the org has documented an access-control
+      policy and conducts annual reviews; (b) the org has no MFA on
+      administrative consoles. Use only the four classification tokens
+      Full / Partial / None / Ambiguous in Coverage. No prose outside the
+      table.
+    assertions:
+      - structural.table_columns
+      - classification.exact_token
+
+  # ── J. Granite-leverage: long-context multi-citation density ────────────
+  - id: long-context-multi-citation
+    description: >
+      Scenario provides a long fictional policy excerpt and asks for
+      analysis citing requirements from MULTIPLE frameworks at once. Tests
+      whether the model degrades when long input is paired with strict
+      citation discipline. Granite trained on 15T tokens with 512K context
+      extension and ISO-cert/GRC focus should hold up; smaller or
+      non-compliance-trained models often drop citations or fabricate.
+    applies_to:
+      - complianceanalyst
+    multi_framework: false
+    prompt: |
+      Below is a fictional org policy excerpt. Analyze it against THREE
+      frameworks at once and identify any single control that satisfies
+      all three. Cite each framework using its standard citation format.
+      Refuse to fabricate verbatim requirement text.
+
+      Policy excerpt:
+      "Section 4.2 — Access Management. The Company maintains role-based
+      access control for all production systems. Roles are reviewed
+      semi-annually by the system owner. New user provisioning requires
+      manager approval and is documented in the IAM ticketing system.
+      Privileged accounts use multi-factor authentication via FIDO2 keys.
+      All access is logged centrally with 18-month retention. Quarterly,
+      the security team performs a sample audit of 10% of active
+      accounts and reports findings to the audit committee. Access is
+      revoked within 24 hours of role change or termination, with the
+      ticket closed only after evidence of revocation has been attached.
+      Service accounts are reviewed annually and rotated every 90 days
+      where supported by the integrating system. Emergency-access
+      ('break-glass') accounts are sealed in physical safes and require
+      two officers to retrieve, with all use logged in the SIEM with a
+      mandatory after-action report within 48 hours."
+
+      Frameworks to cite: NIST SP 800-53 Rev. 5 (account management
+      family), ISO/IEC 27001:2022 (Annex A access control), and SOC 2
+      (Trust Services Criteria, common criteria for logical access).
+      For each framework, name the most relevant requirement, classify
+      coverage (Full / Partial / None / Ambiguous), and identify any
+      gap. Then identify ONE control statement from the excerpt that
+      simultaneously satisfies a requirement in all three frameworks.
+    assertions:
+      - citation.format[NIST_800_53]
+      - citation.format[ISO_27001]
+      - citation.format[SOC2]
+      - classification.exact_token
+      - anti_fabrication.refusal_pattern

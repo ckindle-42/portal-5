@@ -21,7 +21,7 @@ You are the **UAT execution agent**. You do not build or modify the driver. You 
 
 ## What the UAT Driver Tests
 
-102 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
+104 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
 
 The driver is NOT the acceptance suite. It validates user-observable behavioral contracts that keyword matching cannot catch: does the persona ask before diagnosing? Does the Excel Sheet compute values, not show formula text? Does the Code Review Assistant scope its review to the diff only?
 
@@ -330,7 +330,7 @@ Inter-Phase Check.
 
 ---
 
-## Phase 7 — Benchmark (CC-01 across 9 models)
+## Phase 7 — Benchmark (CC-01 across 11 models)
 
 Long, model-by-model. The `bench-*` personas all share a system prompt by design — what's measured is raw model capability on a fixed task. Per-model fail rates are the bench's signal, not bugs.
 
@@ -345,7 +345,7 @@ PHASE7_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 9 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
+  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 11 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
@@ -716,7 +716,7 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | `auto-video` | 2 | media_heavy | 6 | 15–30 min |
 | `auto-math` | 2 | mlx_small | 4 | 5–10 min |
 | `advanced` | 8 | mixed (incl. mlx_small two-chat) | 8 | 18–25 min |
-| `benchmark` | 9 | mlx_large + mlx_small | 7 | 60–90 min |
+| `benchmark` | 11 | mlx_large + mlx_small | 7 | 60–90 min |
 
 **Total run (phases 1–8, `--skip-bots`):** approximately 280–420 minutes.
 
