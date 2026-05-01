@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Patch mlx_lm after installation to fix cross-thread stream usage (mlx >= 0.31.2).
+"""Patch mlx_lm after installation to fix cross-thread stream usage (mlx >= 0.31.2)
+and install Laguna architecture plugins (not upstreamed as of 2026-04-30).
 
 Problem (mlx 0.31.2):
   mlx 0.31.2 made GPU streams strictly thread-local. Two bugs result:
@@ -34,9 +35,19 @@ The script is idempotent — safe to re-run.
 """
 
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# ── Laguna plugin files ───────────────────────────────────────────────────────
+# mlx-lm does not ship a Laguna model (Poolside AI, never upstreamed).
+# These files must be installed after any mlx-lm upgrade.
+SCRIPT_DIR = Path(__file__).parent
+LAGUNA_PLUGINS = [
+    (SCRIPT_DIR / "mlx-model-laguna.py",       "models/laguna.py"),
+    (SCRIPT_DIR / "mlx-tool-parser-laguna.py", "tool_parsers/laguna.py"),
+]
 
 # ── Patch 1: generate.py — thread-local generation stream ────────────────────
 
@@ -139,8 +150,45 @@ def check_server_031_3(server_py: Path) -> bool:
     return has_load_default and has_deferred_call
 
 
+def install_laguna_plugins(mlx_lm_dir: Path) -> bool:
+    """Copy Laguna architecture plugins into the mlx_lm package."""
+    ok = True
+    for src, rel_dst in LAGUNA_PLUGINS:
+        dst = mlx_lm_dir / rel_dst
+        if not src.exists():
+            print(f"  laguna plugin: WARNING — source {src} not found, skipping.")
+            ok = False
+            continue
+        if dst.exists():
+            # Check if already up-to-date by content comparison
+            if dst.read_bytes() == src.read_bytes():
+                print(f"  laguna plugin: {dst.name} already installed — nothing to do.")
+                continue
+        shutil.copy2(src, dst)
+        print(f"  laguna plugin: installed {src.name} → {dst}")
+    return ok
+
+
 def main() -> int:
     ok = True
+
+    # Detect mlx_lm package directory
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", "import mlx_lm; print(mlx_lm.__file__)"],
+            capture_output=True, text=True, timeout=10,
+        )
+        mlx_lm_dir = Path(result.stdout.strip()).parent if result.returncode == 0 else None
+    except Exception:
+        mlx_lm_dir = None
+
+    # Laguna plugins (before thread patches so sanity check picks them up)
+    if mlx_lm_dir:
+        print(f"Installing Laguna plugins into {mlx_lm_dir}")
+        if not install_laguna_plugins(mlx_lm_dir):
+            ok = False
+    else:
+        print("WARNING: could not locate mlx_lm package directory for Laguna plugins.")
 
     # Patch 1: generate.py
     generate_py = find_mlx_lm_file("generate.py")

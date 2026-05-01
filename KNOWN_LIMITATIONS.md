@@ -91,12 +91,12 @@ Architectural and design constraints that cannot be resolved without significant
 - **Acceptance test**: WS-13 acceptance prompt should produce non-zero substantive content after replacement.
 - **Last verified**: 2026-04-26
 
-### Laguna-XS.2-4bit: Model Architecture Not Supported by Current mlx-lm
+### Laguna-XS.2-4bit: mlx-lm Architecture Plugin (Manual — Not Upstreamed)
 - **ID**: P5-MLX-009
-- **Status**: **CONFIRMED BROKEN — mlx_lm cannot load "laguna" model type**
-- **Description**: UAT 2026-04-30 (M4 Pro, 64GB) CC-01-laguna benchmark test produced 3 empty responses. Root cause: `mlx_lm 0.22.1` raises `ValueError: Model type laguna not supported.` The Laguna-XS.2 architecture (`poolsideai/Laguna-XS.2`) uses a custom model type not yet registered in Apple's `mlx_lm` package. This is not a tokenizer defect — the model cannot be instantiated at all.
-- **Impact**: `bench-laguna` CC-01 test will FAIL with empty response. Model is registered in catalog but cannot serve inference until `mlx-lm` adds Laguna support.
-- **Next steps**: Monitor `mlx-lm` releases for Laguna architecture support. Remove catalog entry after 60 days if no upstream fix.
+- **Status**: **RESOLVED via local plugin — mlx_lm 0.31.3 + laguna.py patch**
+- **Description**: `mlx_lm 0.31.3` does not ship a Laguna model architecture (never upstreamed from the mlx-community conversion). Two files were installed manually into the mlx_lm package to fix this: `models/laguna.py` (MoE + sliding-window attention architecture) and `tool_parsers/laguna.py` (JSON tool call parser). Key bugs fixed during implementation: (1) gate.proj must be 8-bit (per config.json per-layer quantization, not the 4-bit default), (2) MoE routing weights must be normalized to sum=1 before applying `moe_routed_scaling_factor` to the aggregated output — skipping normalization caused 4-10x over-scaling and completely garbled output. Model now produces correct inference at ~92 tok/s on M4 Pro (18.97GB).
+- **Impact**: If `mlx_lm` is upgraded, the two plugin files must be re-installed. `patch-mlx-threads.py` can be extended to handle this. The upstream Laguna architecture PR is still open as of 2026-04-30.
+- **Next steps**: After any `mlx_lm` upgrade run: `cp /path/to/laguna.py $(python3 -c "import mlx_lm; import os; print(os.path.dirname(mlx_lm.__file__))")/models/laguna.py` and the tool_parsers equivalent.
 - **Last verified**: 2026-04-30
 
 ---
