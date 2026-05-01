@@ -266,6 +266,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen3-coder-next": {
@@ -275,6 +276,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen3-coder-30b": {
@@ -284,6 +286,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-llama33-70b": {
@@ -293,6 +296,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Llama-3.3-70B-Instruct-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-phi4": {
@@ -302,6 +306,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/phi-4-8bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-phi4-reasoning": {
@@ -311,6 +316,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-dolphin8b": {
@@ -320,6 +326,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-glm": {
@@ -343,6 +350,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
 }
