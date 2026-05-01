@@ -353,6 +353,31 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
+    "bench-granite41-8b": {
+        "name": "🔬 Bench · Granite-4.1 8B (IBM)",
+        "description": (
+            "Benchmark: granite4.1:8b (Ollama, IBM Research, dense 8B no-think, "
+            "~5.3GB Q4_K_M — Apache 2.0, ISO-certified. BFCL V3 68.3, IFEval 87.1, "
+            "GSM8K 92.5. Predictable-latency tool calling without reasoning chains.)"
+        ),
+        "model_hint": "granite4.1:8b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-granite41-30b": {
+        "name": "🔬 Bench · Granite-4.1 30B (IBM)",
+        "description": (
+            "Benchmark: granite4.1:30b (Ollama, IBM Research, dense 30B no-think, "
+            "~17GB Q4_K_M — Apache 2.0, ISO-certified, cryptographic signatures. "
+            "BFCL V3 73.7 (#1 on IBM chart), IFEval 89.7, GSM8K 94.2, EvalPlus 82.7. "
+            "Trained with GRC data curation — fits compliance/audit workflows.)"
+        ),
+        "model_hint": "granite4.1:30b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
