@@ -43,6 +43,26 @@ class AssertionResult:
         return f"[{marker} {self.severity:5}] {self.name}: {self.detail}"
 
 
+# ── Reasoning-model output normalization ──────────────────────────────────
+
+# Reasoning models (DeepSeek-R1, Qwopus, Qwen3.5-distilled) emit think blocks
+# that interfere with structural assertion pattern matching. Strip them before
+# checking for tables, classification tokens, or citations.
+
+_THINK_RE = re.compile(r"<(?:think|THINK)>[\s\S]*?</(?:think|THINK)>")
+_THINK_TAG_RE = re.compile(r"</?(?:think|THINK)>")
+
+
+def _strip_think_blocks(text: str) -> str:
+    """Remove <think>...</think> blocks and their enclosing tags."""
+    return _THINK_RE.sub("\n", text)
+
+
+def _normalize_response(text: str) -> str:
+    """Full normalization for assertion matching."""
+    return _strip_think_blocks(text)
+
+
 # ── Structural assertions ─────────────────────────────────────────────────
 
 # These columns are mandated by the reframed personas (TASK 001).
@@ -62,20 +82,17 @@ def assert_table_columns(
 ) -> AssertionResult:
     """Pass if all mandated columns appear inside a markdown-table header row.
 
-    A markdown table header looks like `| A | B | C |` followed by a
-    `|---|---|---|` separator. We don't require Markdown perfection — just that
-    every mandated column name appears in some row that also contains pipes,
-    case-insensitive. This tolerates models that use slightly different
-    capitalization or extra whitespace.
+    Strips <think> blocks (reasoning-model output) before checking.
     """
-    rows = [line for line in response.splitlines() if line.count("|") >= 3]
+    normalized = _normalize_response(response)
+    rows = [line for line in normalized.splitlines() if line.count("|") >= 3]
     if not rows:
         return AssertionResult(
             name="structural.table_columns",
             passed=False,
             detail="no markdown-table rows in response (need ≥3 pipes per row)",
         )
-    response_lower = response.lower()
+    response_lower = normalized.lower()
     missing = [c for c in columns if c.lower() not in response_lower]
     if missing:
         return AssertionResult(
@@ -147,14 +164,12 @@ CLASSIFICATION_SYNONYMS: tuple[str, ...] = (
 
 
 def assert_classification_token(response: str) -> AssertionResult:
-    """Pass if response uses ≥1 mandated token AND avoids synonym substitution
-    in classification context.
+    """Pass if response uses ≥1 mandated token in classification context.
 
-    The synonym check is deliberately strict: the personas mandate exact token
-    use because compliance reports are read by auditors who pattern-match on
-    these labels. Casual synonyms in narrative prose are fine; substituting
-    them in the Coverage column or as the headline classification is not.
+    Strips <think> blocks before checking so reasoning-model output
+    is evaluated on its final answer, not its chain of thought.
     """
+    normalized = _normalize_response(response)
     classification_patterns = [
         rf"\bCoverage[:\s|]+{re.escape(t)}\b" for t in CLASSIFICATION_TOKENS
     ] + [
@@ -168,7 +183,7 @@ def assert_classification_token(response: str) -> AssertionResult:
             for t, pat in zip(
                 CLASSIFICATION_TOKENS * 3, classification_patterns
             )
-            if re.search(pat, response, re.MULTILINE)
+            if re.search(pat, normalized, re.MULTILINE)
         ),
         None,
     )
@@ -394,8 +409,8 @@ CITATION_PATTERNS: dict[str, str] = {
     "NERC_CIP": r"\bCIP-\d{3}-\d+(?:\s*R\d+)?(?:\s*Part\s*\d+\.\d+)?\b",
     "HIPAA":    r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024])\b",
     "GDPR":     r"\b(?:GDPR\s*)?Art(?:icle|\.)\s*\d+(?:\(\d+\))?(?:\([a-z]\))?\b",
-    "SOC2":     r"\b(?:TSC|Trust Services Criteria)\s*[A-Z]{2}\d+(?:\.\d+)?\b",
-    "PCI_DSS":  r"\bPCI-?DSS(?:\s*\d\.\d(?:\.\d)?)?\s*Req(?:uirement)?\s*\d+(?:\.\d+)+\b",
+    "SOC2":     r"\b(?:TSC|Trust Services (?:Criteria|Criterion))\s*[A-Z]{2}\d+(?:\.\d+)?\b",
+    "PCI_DSS":  r"\bPCI(?:-| )?DSS(?:\s*\d\.\d(?:\.\d)?)?\s*Req(?:uirement)?\s*\d+(?:\.\d+)*\b",
     "NIST_800_53": r"\bNIST\s*SP\s*800-53(?:\s*Rev\.?\s*\d)?\s*[A-Z]{2}-\d+\b",
     "NIST_CSF": r"\bNIST\s*CSF(?:\s*\d\.\d)?\s*[A-Z]{2}\.[A-Z]{2}-\d+\b",
     "ISO_27001": r"\bISO(?:/IEC)?\s*27001(?::\d{4})?\s*A\.\d+\.\d+\b",
