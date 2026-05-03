@@ -242,12 +242,27 @@ async def _chat_direct(
 
 
 async def _ollama_unload(client: httpx.AsyncClient, model_id: str) -> None:
+    """Send keep_alive=0 AND wait until Ollama confirms model is evicted.
+
+    Without waiting for confirmation, Ollama keeps the model resident and
+    subsequent model loads accumulate, exhausting memory on 64GB systems.
+    """
     try:
         await client.post(
             f"{OLLAMA_URL}/api/generate",
             json={"model": model_id, "keep_alive": 0, "prompt": ""},
             timeout=10.0,
         )
+        # Wait for Ollama to actually free the model's memory
+        for _ in range(30):  # 30 × 2s = 60s max wait
+            await asyncio.sleep(2.0)
+            try:
+                r = await client.get(f"{OLLAMA_URL}/api/ps", timeout=5.0)
+                models = r.json().get("models", [])
+                if not any(m["name"] == model_id for m in models):
+                    return  # model successfully evicted
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -446,6 +461,16 @@ async def run_sweep(args) -> dict[str, Any]:
     async with httpx.AsyncClient() as client:
         for mi, model in enumerate(chain, start=1):
             print(f"\n  [{mi}/{len(chain)}] model: {model['backend_type']}/{model['id']}  ({model['memory_gb']:.1f}GB)")
+            # Pre-model cleanup: evict ALL Ollama models to ensure only one
+            # model is resident at a time. Without this, Ollama accumulates
+            # models and exhausts 64GB unified memory mid-sweep.
+            if model["backend_type"] == "ollama" and mi > 1:
+                try:
+                    r = await client.get(f"{OLLAMA_URL}/api/ps", timeout=5.0)
+                    for m in r.json().get("models", []):
+                        await _ollama_unload(client, m["name"])
+                except Exception:
+                    pass
             if args.mlx_warmup and model["backend_type"] == "mlx":
                 ok, warmup_s = await _mlx_warmup(client, model["id"])
                 print(
