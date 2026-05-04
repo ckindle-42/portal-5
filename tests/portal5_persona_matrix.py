@@ -98,6 +98,12 @@ OLLAMA_URL = "http://localhost:11434"
 MLX_URL = "http://localhost:8081"
 RESULTS_DIR = _REPO / "tests" / "benchmarks" / "results"
 
+# System prompt cap for matrix driver direct calls. Sized so the largest
+# current compliance persona (complianceanalyst at ~5000 chars) has 60%
+# headroom. Raise if a persona legitimately exceeds; do not silently
+# truncate. See TASK_MATRIX_DRIVER_REMEDIATION_V1 §RC-1.
+SYSTEM_PROMPT_CAP_CHARS = 8000
+
 REQUEST_TIMEOUT = 240.0
 EVICT_BACKOFF_S = 5.0
 
@@ -213,10 +219,25 @@ async def _chat_direct(
     user_prompt: str,
     timeout: float = REQUEST_TIMEOUT,
 ) -> tuple[int, str]:
+    """Direct backend call — pipeline bypassed.
+
+    System prompt cap: 8000 chars. The cap is intentionally well above the
+    largest current compliance persona (complianceanalyst at 4963 chars) so
+    the OUTPUT CONTRACT section is never silently dropped. Personas longer
+    than the cap will hit the assertion in run_cell() with a clear error
+    rather than being silently truncated.
+    """
+    if len(system) > SYSTEM_PROMPT_CAP_CHARS:
+        return 0, (
+            f"persona system prompt {len(system)} chars exceeds cap "
+            f"{SYSTEM_PROMPT_CAP_CHARS}; raise SYSTEM_PROMPT_CAP_CHARS or "
+            f"shorten the persona before re-running."
+        )
+
     base_url = MLX_URL if backend_type == "mlx" else OLLAMA_URL
     msgs = []
     if system:
-        msgs.append({"role": "system", "content": system[:1600]})
+        msgs.append({"role": "system", "content": system})
     msgs.append({"role": "user", "content": user_prompt})
     payload = {
         "model": model_id,
@@ -347,7 +368,9 @@ async def run_cell(
                 "id": scenario.scenario_id,
                 "framework": scenario.framework_id,
                 "status": "ERROR",
+                "http_status": code,
                 "detail": f"HTTP {code}: {response[:120]}",
+                "response_preview": response[:800],
                 "elapsed_s": round(elapsed, 2),
             })
             cell["summary"]["ERROR"] += 1
@@ -367,8 +390,10 @@ async def run_cell(
             "id": scenario.scenario_id,
             "framework": scenario.framework_id,
             "status": outcome.status,
+            "http_status": 200,
             "results": results_payload,
             "response_chars": len(response),
+            "response_preview": response[:800],
             "elapsed_s": round(elapsed, 2),
         })
         cell["summary"][outcome.status] += 1
