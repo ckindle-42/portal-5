@@ -1238,6 +1238,27 @@ async def _download_artifact(
             except Exception:
                 pass
 
+        # Try 1b: ComfyUI /view?filename=... URL (host-native ComfyUI at :8188).
+        # generate_image / generate_video return:
+        #   http://localhost:8188/view?filename=portal_xxx.png&type=output
+        # The /files/ pattern above never matches this shape.
+        comfyui_pat = rf"https?://[^\s)>\]]*/view\?filename=[^\s)>\]]*\.{re.escape(expected_ext)}[^\s)>\]]*"
+        comfyui_match = re.search(comfyui_pat, response_text)
+        if comfyui_match:
+            from urllib.parse import parse_qs, urlparse
+
+            download_url = comfyui_match.group(0)
+            qs = parse_qs(urlparse(download_url).query)
+            fname = qs.get("filename", ["unknown"])[0]
+            dest = ARTIFACT_DIR / Path(fname).name
+            try:
+                r = httpx.get(download_url, timeout=30)
+                if r.status_code == 200:
+                    dest.write_bytes(r.content)
+                    return dest
+            except Exception:
+                pass
+
         # Try 2: Match /app/data/generated/<filename>.<ext> container path
         container_pattern = rf"/app/data/generated/\S+\.{re.escape(expected_ext)}"
         container_match = re.search(container_pattern, response_text)
