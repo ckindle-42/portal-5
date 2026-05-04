@@ -75,12 +75,11 @@ TOOLS_MANIFEST = [
                     "description": "Video height in pixels",
                     "default": 480,
                 },
-                "frames": {"type": "integer", "description": "Number of frames", "default": 81},
-                "fps": {"type": "integer", "description": "Frames per second", "default": 16},
+                "frames": {"type": "integer", "description": "Number of frames", "default": 9},
                 "steps": {
                     "type": "integer",
                     "description": "Number of inference steps",
-                    "default": 20,
+                    "default": 2,
                 },
                 "cfg": {"type": "number", "description": "CFG scale", "default": 6.0},
                 "negative_prompt": {
@@ -88,7 +87,6 @@ TOOLS_MANIFEST = [
                     "description": "Negative prompt",
                     "default": "",
                 },
-                "model": {"type": "string", "description": "Model name (optional)"},
                 "seed": {"type": "integer", "description": "Random seed", "default": -1},
             },
             "required": ["prompt"],
@@ -144,6 +142,8 @@ VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "9"))
 VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "2"))
 VIDEO_MAX_WIDTH = int(os.getenv("VIDEO_MAX_WIDTH", "832"))
 VIDEO_MAX_HEIGHT = int(os.getenv("VIDEO_MAX_HEIGHT", "480"))
+# 9 frames at 8fps = 1.125s, which satisfies the UAT ≥1s requirement.
+VIDEO_OUTPUT_FPS = int(os.getenv("VIDEO_OUTPUT_FPS", "8"))
 
 # NSFW LoRA — applied when HUNYUAN_NSFW_LORA is set (non-empty).
 # Default: nsfw-e7.safetensors (TheYuriLover/HunyuanVideo_nfsw_lora, trigger: "nsfwsks")
@@ -356,7 +356,7 @@ async def generate_video(
     width: int = 832,
     height: int = 480,
     frames: int = 9,
-    fps: int = 16,
+    fps: int = VIDEO_OUTPUT_FPS,
     steps: int = 2,
     cfg: float = 6.0,
     negative_prompt: str = "",
@@ -372,9 +372,9 @@ async def generate_video(
         prompt: Text description of the video to generate
         width: Video width in pixels (default 832)
         height: Video height in pixels (default 480)
-        frames: Number of frames (default 9, ≈0.5s at 16fps). Max VIDEO_MAX_FRAMES.
-        fps: Output frames per second (default 16)
-        steps: Diffusion inference steps (default 8)
+        frames: Number of frames (default 9, ≈1.1s at 8fps). Max VIDEO_MAX_FRAMES.
+        fps: Output fps (default VIDEO_OUTPUT_FPS=8; not exposed in manifest)
+        steps: Diffusion inference steps (default 2)
         cfg: CFG scale (default 6.0)
         negative_prompt: Things to avoid in the video
         model: Override model name (optional, auto-detected from backend)
@@ -389,6 +389,7 @@ async def generate_video(
     steps = min(steps, VIDEO_MAX_STEPS)
     width = min(width, VIDEO_MAX_WIDTH)
     height = min(height, VIDEO_MAX_HEIGHT)
+    fps = min(fps, VIDEO_OUTPUT_FPS)
 
     workflow = _get_workflow()
 
@@ -412,7 +413,7 @@ async def generate_video(
         # KSamplerSelect(7), BasicScheduler(8), RandomNoise(9), FluxGuidance(10),
         # BasicGuider(11), SamplerCustomAdvanced(12), VAEDecodeTiled(13),
         # CreateVideo(14), SaveVideo(15)
-        if model:
+        if model and model.endswith(".safetensors"):
             workflow["1"]["inputs"]["unet_name"] = model
         workflow["4"]["inputs"]["text"] = prompt
         workflow["5"]["inputs"]["width"] = width
@@ -438,10 +439,12 @@ async def generate_video(
             "error": (f"ComfyUI not available at {COMFYUI_URL}: {e}. Ensure ComfyUI is running."),
         }
     except httpx.HTTPStatusError as e:
+        raw_body = e.response.text[:500]
+        logger.error("ComfyUI /prompt returned %d: %s", e.response.status_code, raw_body)
         try:
-            error_detail = e.response.json().get("error", e.response.text[:200])
+            error_detail = e.response.json().get("error", raw_body)
         except Exception:
-            error_detail = e.response.text[:200] if e.response.text else str(e)
+            error_detail = raw_body
         return {
             "success": False,
             "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
@@ -575,6 +578,34 @@ async def list_video_models() -> list[str]:
         return video_models if video_models else all_models
     except Exception as e:
         return [f"Error listing models: {e}"]
+
+
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request):
+    """REST dispatch endpoint used by portal-pipeline tool_registry."""
+    tool_name = request.path_params["tool_name"]
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", {})
+
+    try:
+        logger.info("invoke_tool: %s args=%s", tool_name, arguments)
+        if tool_name == "generate_video":
+            import inspect
+            valid = set(inspect.signature(generate_video).parameters.keys())
+            filtered = {k: v for k, v in arguments.items() if k in valid}
+            result = await generate_video(**filtered)
+            return JSONResponse(result)
+        elif tool_name == "list_video_models":
+            result = await list_video_models()
+            return JSONResponse({"models": result})
+        else:
+            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+    except Exception as e:
+        logger.exception("Tool invocation failed for %s", tool_name)
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
 if __name__ == "__main__":

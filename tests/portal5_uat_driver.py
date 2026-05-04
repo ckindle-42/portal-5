@@ -1310,6 +1310,45 @@ async def _download_artifact(
                         break
         except Exception:
             continue
+
+    # Try 4: ComfyUI direct download — query /history for the most recent
+    # portal_video_*.mp4. Video MCP outputs to host ComfyUI (not a container),
+    # so docker cp never finds it. This covers video gen without response_text.
+    # Recency guard: only accept videos generated in the last 15 minutes, to
+    # avoid picking up stale files from a previous test session.
+    if expected_ext == "mp4":
+        try:
+            import time as _time
+            now_ms = int(_time.time() * 1000)
+            cutoff_ms = now_ms - (15 * 60 * 1000)
+            r = httpx.get("http://localhost:8188/history", timeout=10)
+            if r.status_code == 200:
+                history = r.json()
+                best_ts: int = -1
+                best_fname: str | None = None
+                for job_data in history.values():
+                    if not job_data.get("status", {}).get("completed"):
+                        continue
+                    outputs = job_data.get("outputs", {})
+                    for node_outputs in outputs.values():
+                        for img in node_outputs.get("images", []):
+                            fname = img.get("filename", "")
+                            if fname.startswith("portal_video_") and fname.endswith(".mp4"):
+                                msgs = job_data.get("status", {}).get("messages", [])
+                                ts = msgs[0][1].get("timestamp", 0) if msgs else 0
+                                if ts >= cutoff_ms and ts > best_ts:
+                                    best_ts = ts
+                                    best_fname = fname
+                if best_fname:
+                    url = f"http://localhost:8188/view?filename={best_fname}&type=output"
+                    dest = ARTIFACT_DIR / best_fname
+                    r2 = httpx.get(url, timeout=60)
+                    if r2.status_code == 200 and len(r2.content) > 0:
+                        dest.write_bytes(r2.content)
+                        return dest
+        except Exception:
+            pass
+
     return None
 
 
@@ -6935,8 +6974,10 @@ async def run_test(
             # Long-tail wait: DOM stable may have fired while reasoning model was
             # still generating (collapsed <details> block makes innerText appear
             # stable). Continue polling the API — mlx_large reasoning models can
-            # take 4-5 minutes; others bounded to ~90s.
-            _poll_cap_s = 270 if tier == "mlx_large" else 90
+            # take 4-5 minutes; media_heavy (video/image gen) needs 240s for cold
+            # HunyuanVideo runs (9f×2steps takes 200s cold-start + 20s overhead +
+            # 5s model response + 5s OWUI persist = ~230s); others bounded to ~90s.
+            _poll_cap_s = 270 if tier == "mlx_large" else (240 if tier == "media_heavy" else 90)
             _poll_deadline = time.monotonic() + _poll_cap_s
             while time.monotonic() < _poll_deadline:
                 await asyncio.sleep(5)
@@ -6971,6 +7012,17 @@ async def run_test(
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
         if art_ext:
+            # Late arrival: slow tools (video gen ~131-200s) may stream past the
+            # poll window, OR the model may stream a partial non-empty response
+            # before the tool completes. Refresh response_text if it looks
+            # incomplete (empty, or has no artifact URL yet).
+            import re as _re
+            _art_url_present = _re.search(
+                rf"(?:/files/\S+?\.{_re.escape(art_ext)}|view\?filename=[^\s)>\]]*\.{_re.escape(art_ext)})",
+                response_text or "",
+            )
+            if not response_text or not _art_url_present:
+                response_text = owui_get_last_response(token, chat_id) or response_text or ""
             artifact_path = await _download_artifact(page, art_ext, response_text=response_text)
 
         # Multi-turn: send second message if defined
