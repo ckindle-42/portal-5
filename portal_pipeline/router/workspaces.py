@@ -50,8 +50,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. "
             "Reasoning/research → DeepSeek-R1. Other → general."
         ),
-        "model_hint": "dolphin-llama3:8b",
-        "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+        # AUTO primary swapped from dolphin to qwen3.5-abliterated for tool-call
+        # support and catalog consistency with ollama-general line 1. Uncensored
+        # property preserved (huihui-ai abliteration). See
+        # TASK_TOOL_SUPPORT_AUDIT_V1 §A7.
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "tools": [],
     },
     "auto-coding": {
@@ -186,7 +190,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-music": {
         "name": "🎵 Portal Music Producer",
         "description": "Generate music and audio via AudioCraft/MusicGen",
-        "model_hint": "dolphin-llama3:8b",
+        # auto-music dispatches via OWUI Path 2 (server:mcp:portal_music + portal_tts).
+        # Hint swapped to qwen3.5-abliterated for catalog consistency with AUTO.
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "tools": [],
     },
     "auto-research": {
@@ -382,6 +388,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "granite4.1:30b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-qwen35-abliterated": {
+        "name": "🧪 Bench — Qwen3.5-9B Abliterated (huihui-ai)",
+        "description": "Direct routing to huihui_ai/qwen3.5-abliterated:9b — uncensored, tool-capable AUTO primary baseline",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "tools": [],
     },
 }
