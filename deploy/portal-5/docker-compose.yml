@@ -114,6 +114,19 @@ services:
       - OLLAMA_KEEP_ALIVE_REQUEST=${OLLAMA_KEEP_ALIVE_REQUEST:--1}
       - OLLAMA_NUM_BATCH=${OLLAMA_NUM_BATCH:-2048}
       - SHOW_ROUTING_STATUS=${SHOW_ROUTING_STATUS:-false}
+      # MCP Tool server URLs (container-internal network — localhost doesn't resolve inside Docker)
+      - MCP_DOCUMENTS_URL=http://portal5-mcp-documents:8913
+      - MCP_EXECUTION_URL=http://portal5-mcp-sandbox:8914
+      - MCP_SECURITY_URL=http://portal5-mcp-security:8919
+      - MCP_COMFYUI_URL=http://portal5-mcp-comfyui:8910
+      - MCP_MUSIC_URL=http://portal5-mcp-music:8912
+      - MCP_VIDEO_URL=http://portal5-mcp-video:8911
+      - MCP_WHISPER_URL=http://portal5-mcp-whisper:8915
+      - MCP_TTS_URL=http://portal5-mcp-tts:8916
+      - MCP_RESEARCH_URL=http://portal5-mcp-research:8922
+      - MCP_MEMORY_URL=http://portal5-mcp-memory:8920
+      - MCP_RAG_URL=http://portal5-mcp-rag:8921
+      - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-120}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []
