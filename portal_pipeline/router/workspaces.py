@@ -180,7 +180,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-video": {
         "name": "🎬 Portal Video Creator",
         "description": "Generate videos via ComfyUI / Wan2.2",
-        "model_hint": "dolphin-llama3:8b",
+        "model_hint": "granite4.1:8b",
         "tools": [],
     },
     "auto-music": {
