@@ -1440,6 +1440,7 @@ case "${1:-up}" in
         if [ -n "$_OCMD" ]; then
             _MODELS=(
                 "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+                "huihui_ai/qwen3.5-abliterated:9b"   # NEW: AUTO + general line 1 (uncensored, tool-capable)
                 "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
                 "nomic-embed-text:latest"
         # Note: Harrier-0.6B is served by portal5-embedding container (TEI), not Ollama.
@@ -1456,6 +1457,8 @@ case "${1:-up}" in
                 "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
                 "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
                 "devstral:24b"
+                "granite4.1:8b"                       # backfill: auto-video primary (de96984), general line 4
+                "granite4.1:30b"                      # backfill: ollama-reasoning fallback line 6
                 "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
                 "gpt-oss:20b"
                 "huihui_ai/tongyi-deepresearch-abliterated"
@@ -1501,6 +1504,7 @@ case "${1:-up}" in
                 "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"
                 "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"
                 "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"
+                "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit"  # NEW: AUTO MLX primary (uncensored, tool-capable)
                 "mlx-community/Llama-3.2-3B-Instruct-8bit"
                 "mlx-community/gemma-4-31b-it-4bit"
                 "lmstudio-community/Magistral-Small-2509-MLX-8bit"
@@ -2175,6 +2179,7 @@ except Exception as e:
     MODELS=(
         # ── Core ──────────────────────────────────────────────────────────
         "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+        "huihui_ai/qwen3.5-abliterated:9b"   # NEW: AUTO + general line 1 (uncensored, tool-capable)
         "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
         "nomic-embed-text:latest"
         # ── Security ─────────────────────────────────────────────────────
@@ -2194,6 +2199,8 @@ except Exception as e:
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
+        "granite4.1:8b"                # backfill: auto-video primary (de96984), general line 4
+        "granite4.1:30b"               # backfill: ollama-reasoning fallback line 6
         # ── Reasoning / Research ──────────────────────────────────────────
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "gpt-oss:20b"
@@ -2409,6 +2416,7 @@ except Exception as e:
 
     MODELS=(
         "${DEFAULT_MODEL:-dolphin-llama3:8b}"
+        "huihui_ai/qwen3.5-abliterated:9b"   # NEW: AUTO + general line 1
         "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
         "nomic-embed-text:latest"
         "hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF"
@@ -2424,6 +2432,8 @@ except Exception as e:
         "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
+        "granite4.1:8b"                # backfill: auto-video primary
+        "granite4.1:30b"               # backfill: ollama-reasoning fallback
         "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
         "gpt-oss:20b"
         "huihui_ai/tongyi-deepresearch-abliterated"
@@ -3664,6 +3674,7 @@ PLIST
         "mlx-community/Qwen2.5-Math-7B-Instruct-4bit"                           # ~5GB — Qwen2.5-Math 7B, math/STEM specialist
         # Creative / general (uncensored)
         "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
+        "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit" # ~6GB — NEW: AUTO MLX primary, uncensored + tool-capable
         # General / fast routing
         "mlx-community/Llama-3.2-3B-Instruct-8bit"         # ~3GB — ultra-fast
         # Model diversity (non-Qwen/non-DeepSeek families)
