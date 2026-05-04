@@ -75,8 +75,14 @@ backends:
         memory_gb: 9
         big_model: false
         is_vlm: false
+        supports_tools: false
+        notes: "Dolphin 8B uncensored (~9GB). supports_tools flipped to false — Ollama-side dolphin demonstrably lacks tools (commit de96984), MLX dolphin shares the same chat template family and is unverified. Re-flag to true only after empirical verification via tests/portal5_persona_matrix.py --audit-tools."
+      - id: huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+        memory_gb: 6
+        big_model: false
+        is_vlm: false
         supports_tools: true
-        notes: "Dolphin 8B uncensored (~9GB)"
+        notes: "Qwen3.5 9B abliterated, MLX 4-bit (~6GB resident). PRIMARY for AUTO MLX path. Lineage parity with Ollama-side huihui_ai/qwen3.5-abliterated:9b. 256K ctx, vision-capable."
       - id: mlx-community/Llama-3.2-3B-Instruct-8bit
         memory_gb: 3
         big_model: false
@@ -214,15 +220,28 @@ backends:
         supports_tools: false
         notes: "Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB, uncensored vision+text)"
 
-  # ── General (fast default, function calling, creative) ─────────────────────
+  # ── General (uncensored-default + verified tool calling) ───────────────────
+  # Ordering: line 1 must be tool-tagged in Ollama and uncensored. Line 1 is
+  # what every workspace's [...general] fallback path lands on. Dolphin retained
+  # at line 2 for AUTO/auto-creative model_hint resolution (additive principle).
+  # See TASK_TOOL_SUPPORT_AUDIT_V1 §0 for the bug history.
   - id: ollama-general
     type: ollama
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: general
     models:
-      - dolphin-llama3:8b              # Default: fast, uncensored, strong function calling
-      - hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF  # Ultra-fast fallback (uncensored)
-      - granite4.1:8b                  # IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — strong tool calling (BFCL V3 68.3) + IFEval 87.1; primary use: structured docs, SPL, predictable-latency tool dispatch. Apache 2.0, ISO-certified.
+      - id: huihui_ai/qwen3.5-abliterated:9b
+        supports_tools: true
+        notes: "Qwen3.5 9B abliterated (~6.6GB Q4, 256K ctx, vision+tools+thinking tags). Active maintenance (huihui-ai). PRIMARY for general fallback path — replaces dolphin which lacks Ollama tools tag."
+      - id: dolphin-llama3:8b
+        supports_tools: false
+        notes: "Dolphin 3.0 Llama 3.1 8B (~6GB Q4_K_M, 128K ctx). RETAINED for AUTO + auto-creative + auto-music model_hint resolution and persona suggested_model continuity. NOT tool-capable in Ollama (template lacks .Tools); see commit de96984 and TASK_TOOL_SUPPORT_AUDIT_V1 §0."
+      - id: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF
+        supports_tools: false
+        notes: "Ultra-fast 3B abliterated fallback. Stock Llama-3.2-3B template doesn't declare .Tools; abliterated GGUF inherits."
+      - id: granite4.1:8b
+        supports_tools: true
+        notes: "IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — verified tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as auto-video primary (de96984)."
 
   # ── Coding (code generation, debugging, architecture) ─────────────────────
   - id: ollama-coding
@@ -230,31 +249,58 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: coding
     models:
-      - qwen3.5:9b
-      - qwen3-coder:30b                             # 30B-A3B MoE (3B active), 19GB — primary Ollama coding fallback
-      - deepseek-coder-v2:16b-lite-instruct-q4_K_M  # https://ollama.com/library/deepseek-coder-v2/tags
-      - devstral:24b
-      - glm-4.7-flash:q4_k_m             # was: hf.co/unsloth/GLM-4.7-Flash-GGUF
-      - deepseek-coder-v2-lite:q4_k_m    # was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF
-      - llama3.3:70b-q4_k_m              # was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY)
+      - id: qwen3.5:9b
+        supports_tools: true
+      - id: qwen3-coder:30b
+        supports_tools: true
+        notes: "30B-A3B MoE (3B active), 19GB — primary Ollama coding fallback"
+      - id: deepseek-coder-v2:16b-lite-instruct-q4_K_M
+        supports_tools: false
+        notes: "Older Coder V2, no Ollama tools tag verified"
+      - id: devstral:24b
+        supports_tools: true
+        notes: "Mistral devstral-small-2, tool-using coding agent"
+      - id: glm-4.7-flash:q4_k_m
+        supports_tools: true
+        notes: "was: hf.co/unsloth/GLM-4.7-Flash-GGUF — verified tools tag"
+      - id: deepseek-coder-v2-lite:q4_k_m
+        supports_tools: false
+        notes: "was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
+      - id: llama3.3:70b-q4_k_m
+        supports_tools: true
+        notes: "was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY) — Llama 3.3 native tool calling"
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
+  # supports_tools defaults to false here — operator verifies per-model with
+  # P11 --audit-tools and flips to true when confirmed.
   - id: ollama-security
     type: ollama
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: security
     models:
-      # ── Fast / always-available (native Ollama registry) ─────────────────
-      - huihui_ai/baronllm-abliterated
-      - xploiter/the-xploiter
-      - lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
-      - deepseek-r1:32b-q4_k_m               # Threat modeling + defensive analysis (shared with reasoning)
-      # ── Downloaded via huggingface-cli + imported ─────────────────────────
-      - baronllm:q6_k                    # was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_...
-      - lily-cybersecurity:7b-q4_k_m     # imported by pull-models from segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
-      - dolphin3-r1-mistral:24b-q4_k_m   # was: hf.co/cognitivecomputations/Dolphin3.0-R1-...
-      - whiterabbitneo:33b-v1.5-q4_k_m    # updated to match new import name
-      - dolphin-llama3:70b-q4_k_m         # dolphin-2.9.1-llama-3-70b (PULL_HEAVY)
+      - id: huihui_ai/baronllm-abliterated
+        supports_tools: false
+      - id: xploiter/the-xploiter
+        supports_tools: false
+      - id: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
+        supports_tools: false
+      - id: deepseek-r1:32b-q4_k_m
+        supports_tools: false
+        notes: "Threat modeling + defensive analysis (shared with reasoning). R1 is reasoning-trained, not tool-trained."
+      - id: baronllm:q6_k
+        supports_tools: false
+        notes: "was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_..."
+      - id: lily-cybersecurity:7b-q4_k_m
+        supports_tools: false
+        notes: "imported by pull-models from segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
+      - id: dolphin3-r1-mistral:24b-q4_k_m
+        supports_tools: false
+        notes: "Dolphin lineage, no Ollama tools tag"
+      - id: whiterabbitneo:33b-v1.5-q4_k_m
+        supports_tools: false
+      - id: dolphin-llama3:70b-q4_k_m
+        supports_tools: false
+        notes: "dolphin-2.9.1-llama-3-70b (PULL_HEAVY) — same template defect as 8B"
 
   # ── Reasoning / Research / Data Analysis ──────────────────────────────────
   - id: ollama-reasoning
@@ -262,12 +308,24 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: reasoning
     models:
-      - deepseek-r1:32b-q4_k_m           # Primary: strong reasoning + chain-of-thought
-      - gpt-oss:20b                       # ~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth
-      - dolphin-llama3:8b                 # Fast uncensored fallback
-      - huihui_ai/tongyi-deepresearch-abliterated
-      - supergemma4-26b-uncensored:q4_k_m  # Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage) — imported from hf.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2
-      - granite4.1:30b                   # IBM Granite 4.1 30B Q4_K_M (~17GB, 128K ctx, dense, no-think) — leaderboard #1 BFCL V3 (73.7) + IFEval 89.7; primary use: GRC/compliance, long-context structured analysis, high-trust tool dispatch. Apache 2.0, ISO-certified, cryptographic signatures. IBM Research lineage (NEW to stack).
+      - id: deepseek-r1:32b-q4_k_m
+        supports_tools: false
+        notes: "Primary: strong reasoning + chain-of-thought. Reasoning-trained, not tool-trained — supports_tools intentionally false to prevent reasoning-budget exhaustion mixing with tool-call rendering."
+      - id: gpt-oss:20b
+        supports_tools: true
+        notes: "~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use"
+      - id: granite4.1:8b
+        supports_tools: true
+        notes: "REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1 §A11). Granite 4.1 8B is tool-tagged (BFCL V3 68.27); dolphin-llama3:8b is not. Dolphin retained in ollama-general line 2 for model_hint continuity."
+      - id: huihui_ai/tongyi-deepresearch-abliterated
+        supports_tools: false
+        notes: "Unverified, fail-safe default. Verify via --audit-tools."
+      - id: supergemma4-26b-uncensored:q4_k_m
+        supports_tools: true
+        notes: "Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage)"
+      - id: granite4.1:30b
+        supports_tools: true
+        notes: "IBM Granite 4.1 30B Q4_K_M (~17GB, 128K ctx, dense, no-think) — leaderboard #1 BFCL V3 (73.7) + IFEval 89.7. Apache 2.0, ISO-certified, cryptographic signatures. IBM Research lineage."
 
   # ── Vision / Multimodal ──────────────────────────────────────────────────
   - id: ollama-vision
@@ -275,18 +333,32 @@ backends:
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: vision
     models:
-      - qwen3-vl:32b   # FIX: was qwen3-omni:30b (does not exist in Ollama library)
-      - llava:7b           # Fast: lightweight vision fallback
+      - id: qwen3-vl:32b
+        supports_tools: true
+        notes: "Qwen3-VL family carries tools tag."
+      - id: llava:7b
+        supports_tools: false
+        notes: "Older vision model, no tools tag."
 
   # ── Creative (writing, storytelling) ────────────────────────────────────
+  # Order intentionally preserved — auto-creative model_hint pins to dolphin
+  # and the creative tone is the most UX-sensitive surface. Dolphin's lack of
+  # tools tag does not affect this workspace because auto-creative has tools:[]
+  # (Path 2 only).
   - id: ollama-creative
     type: ollama
     url: "${OLLAMA_URL:-http://host.docker.internal:11434}"
     group: creative
     models:
-      - dolphin-llama3:8b                # Uncensored, strong creative
-      - hermes3:8b                      # NousResearch, long-form narrative coherence + character consistency
-      - huihui_ai/baronllm-abliterated   # No restrictions creative
+      - id: dolphin-llama3:8b
+        supports_tools: false
+        notes: "Uncensored, creative-tuned. Path 2 (OWUI MCP) dispatch only — pipeline never attaches tools to auto-creative requests."
+      - id: hermes3:8b
+        supports_tools: true
+        notes: "NousResearch, long-form narrative coherence. Tools-tagged in Ollama (Hermes function-calling format)."
+      - id: huihui_ai/baronllm-abliterated
+        supports_tools: false
+        notes: "No-restrictions creative. Unverified for tools."
 
   # ── FUTURE CLUSTER NODES ─────────────────────────────────────────────────
   # Uncomment and update URL as Mac Studios are added:
@@ -332,6 +404,7 @@ workspace_routing:
   bench-laguna:            [mlx, coding, general]   # Laguna-XS.2-4bit (Poolside — new lineage)
   bench-granite41-8b:      [general]                # granite4.1:8b (IBM, dense 8B no-think — Ollama only)
   bench-granite41-30b:     [reasoning, general]     # granite4.1:30b (IBM, dense 30B no-think — Ollama only)
+  bench-qwen35-abliterated: [mlx, general]           # huihui_ai/qwen3.5-abliterated:9b (MLX 4bit + Ollama Q4) — uncensored, tool-capable, AUTO + general line 1
 
 defaults:
   fallback_group: general
