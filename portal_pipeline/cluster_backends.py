@@ -89,10 +89,17 @@ class Backend:
     # Each entry: {id, memory_gb, big_model, is_vlm, supports_tools, notes}.
     # Empty list for non-MLX backends or when mlx_models key is absent (old format).
     mlx_metadata: list[dict] = None  # type: ignore[assignment]
+    # Rich per-model metadata for Ollama backends. Populated from dict-form entries
+    # in `models:` (e.g. `{id: foo, supports_tools: true}`). Empty list when entries
+    # are bare strings (legacy format) — those models default to supports_tools=False
+    # via _model_supports_tools(). See TASK_TOOL_SUPPORT_AUDIT_V1 §A2-A4.
+    ollama_metadata: list[dict] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.mlx_metadata is None:
             self.mlx_metadata = []
+        if self.ollama_metadata is None:
+            self.ollama_metadata = []
 
     @property
     def chat_url(self) -> str:
@@ -176,13 +183,29 @@ class BackendRegistry:
 
         # Load backends
         for be in cfg.get("backends", []):
-            # Accept both `mlx_models: [dict]` (new) and `models: [str]` (old).
-            # mlx_models is the canonical form for MLX backends; models is auto-derived.
+            # Accept `mlx_models: [dict]` (new) and `models: [str]` OR `models: [dict]`
+            # (both accepted). When models entries are dicts, populate ollama_metadata;
+            # when strings, leave ollama_metadata empty (treated as unflagged →
+            # supports_tools=False per fail-safe default).
+            # See TASK_TOOL_SUPPORT_AUDIT_V1 §A1-A4.
             mlx_meta: list[dict] = be.get("mlx_models", [])
+            ollama_meta: list[dict] = []
             if mlx_meta:
                 flat_models = [m["id"] for m in mlx_meta]
             else:
-                flat_models = be.get("models", [])
+                raw_models = be.get("models", [])
+                flat_models = []
+                for m in raw_models:
+                    if isinstance(m, dict):
+                        flat_models.append(m["id"])
+                        ollama_meta.append(m)
+                    elif isinstance(m, str):
+                        flat_models.append(m)
+                    else:
+                        logger.warning(
+                            "Backend %s: unexpected model entry type %s, skipping",
+                            be.get("id"), type(m).__name__,
+                        )
             backend = Backend(
                 id=be["id"],
                 type=be.get("type", "ollama"),
@@ -190,10 +213,14 @@ class BackendRegistry:
                 group=be.get("group", "general"),
                 models=flat_models,
                 mlx_metadata=mlx_meta,
+                ollama_metadata=ollama_meta,
             )
             self._backends[backend.id] = backend
             logger.info(
-                "Registered backend: %s (%s) in group '%s'", backend.id, backend.type, backend.group
+                "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata)",
+                backend.id, backend.type, backend.group,
+                len(flat_models),
+                len(ollama_meta) + len(mlx_meta),
             )
 
         # Load workspace routing
