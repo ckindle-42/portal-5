@@ -1429,11 +1429,22 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 
 
 def _model_supports_tools(model_id: str) -> bool:
-    """Return True if a model supports OpenAI tools schema (reads backends.yaml mlx_metadata)."""
-    if registry is None:
+    """Return True if a model supports OpenAI tools schema.
+
+    Reads supports_tools metadata from both mlx_metadata and ollama_metadata.
+    Default for any model not present in either metadata list is False — see
+    TASK_TOOL_SUPPORT_AUDIT_V1 §A4 for the fail-safe policy. The router
+    previously trusted every Ollama model unconditionally (line 2420), which
+    caused the dolphin-llama3:8b tool-call defect to propagate to every
+    workspace falling through to ollama-general (commit de96984).
+    """
+    if registry is None or not model_id:
         return False
     for be in registry.list_backends():
         for meta in be.mlx_metadata:
+            if meta.get("id") == model_id:
+                return bool(meta.get("supports_tools", False))
+        for meta in be.ollama_metadata:
             if meta.get("id") == model_id:
                 return bool(meta.get("supports_tools", False))
     return False
@@ -1563,9 +1574,16 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             logger.debug("Warmup skipped: no healthy auto backend")
             return
 
-        # Minimal prompt: one token of output, fastest model already in memory
+        # Minimal prompt: one token of output, fastest model already in memory.
+        # If backend.models is empty, the backend is misconfigured — skip warmup.
+        if not backend.models:
+            logger.warning(
+                "Warmup skipped: backend %s has empty models list — check config/backends.yaml",
+                backend.id,
+            )
+            return
         warmup_payload = {
-            "model": backend.models[0] if backend.models else "dolphin-llama3:8b",
+            "model": backend.models[0],
             "prompt": "ok",
             "stream": False,
             "options": {"num_predict": 1},
@@ -2014,7 +2032,13 @@ async def _try_non_streaming(
             )
             return None
         if not target_model:
-            target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+            if not backend.models:
+                logger.warning(
+                    "Backend %s has empty models — cannot resolve target_model. Skipping.",
+                    backend.id,
+                )
+                return None
+            target_model = backend.models[0]
     elif model_hint and model_hint in backend.models:
         target_model = model_hint
     elif model_hint and enforce_hint and backend.type != "mlx":
@@ -2026,7 +2050,13 @@ async def _try_non_streaming(
         )
         return None
     else:
-        target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+        if not backend.models:
+            logger.warning(
+                "Backend %s has empty models list — cannot resolve fallback. Skipping.",
+                backend.id,
+            )
+            return None
+        target_model = backend.models[0]
 
     if enforce_hint:
         logger.info(
@@ -2374,7 +2404,13 @@ async def chat_completions(
             if mlx_hint in backend.models:
                 target_model = mlx_hint
             else:
-                target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+                if not backend.models:
+                    logger.warning(
+                        "Backend %s has empty MLX models list — cannot fall back. Skipping.",
+                        backend.id,
+                    )
+                    return None
+                target_model = backend.models[0]
                 logger.warning(
                     "mlx_model_hint %r not in backend %s models — falling back to %r. "
                     "Add it to config/backends.yaml MLX list or correct the hint in WORKSPACES.",
@@ -2386,7 +2422,13 @@ async def chat_completions(
             if model_hint in backend.models:
                 target_model = model_hint
             else:
-                target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+                if not backend.models:
+                    logger.warning(
+                        "Backend %s has empty models list — cannot fall back. Skipping.",
+                        backend.id,
+                    )
+                    return None
+                target_model = backend.models[0]
                 logger.warning(
                     "model_hint %r not in backend %s models — falling back to %r. "
                     "Add it to config/backends.yaml or correct the hint in WORKSPACES.",
@@ -2395,7 +2437,13 @@ async def chat_completions(
                     target_model,
                 )
         else:
-            target_model = backend.models[0] if backend.models else "dolphin-llama3:8b"
+            if not backend.models:
+                logger.warning(
+                    "Backend %s has empty models list — cannot resolve. Skipping.",
+                    backend.id,
+                )
+                return None
+            target_model = backend.models[0]
 
         logger.info(
             "Stream routing: workspace=%s backend=%s model=%s (1/%d candidates)",
@@ -2417,10 +2465,20 @@ async def chat_completions(
         # Resolve effective tool list for this request (M2)
         persona_data = _PERSONA_MAP.get(persona, {})
         effective_tools = _resolve_persona_tools(persona_data, workspace_id)
-        backend_supports_tools = backend.type == "ollama" or (
-            backend.type == "mlx" and _model_supports_tools(target_model or "")
-        )
+        # Per-model supports_tools lookup for both backend types — see
+        # TASK_TOOL_SUPPORT_AUDIT_V1 §A4. The previous Ollama-default-true
+        # logic caused tool-using workspaces to error when their fallback
+        # chain landed on a non-tool-tagged Ollama model.
+        backend_supports_tools = _model_supports_tools(target_model or "")
         _has_tools = bool(effective_tools) and backend_supports_tools
+        if effective_tools and not backend_supports_tools:
+            logger.info(
+                "Tool-call: workspace=%s persona=%s model=%s does not declare "
+                "supports_tools — falling back to text-only response (no tools "
+                "attached). Set supports_tools=true in config/backends.yaml after "
+                "verification via tests/portal5_persona_matrix.py --audit-tools.",
+                workspace_id, persona, target_model,
+            )
 
         if _has_tools:
             from portal_pipeline.tool_registry import tool_registry
