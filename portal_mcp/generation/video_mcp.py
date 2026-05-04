@@ -136,11 +136,14 @@ VIDEO_MODEL_FILE = os.getenv(
     "hunyuan_video_t2v_720p_bf16.safetensors",
 )
 
-# Hard cap on frames to prevent LLM miscalculation from producing multi-hour jobs.
-# HunyuanVideo on MPS: 9 frames × 2 steps ≈ 90s (fits UAT 105s polling window).
-# Override with VIDEO_MAX_FRAMES / VIDEO_MAX_STEPS env vars for production quality.
+# Hard caps to prevent LLM overrides from producing broken or multi-hour jobs.
+# HunyuanVideo 720p model is designed for ≤1280×720; 832×480 is the reference resolution.
+# 9 frames × 2 steps ≈ 90s on MPS (fits UAT 105s polling window).
+# Override with VIDEO_MAX_* env vars for production quality.
 VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "9"))
 VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "2"))
+VIDEO_MAX_WIDTH = int(os.getenv("VIDEO_MAX_WIDTH", "832"))
+VIDEO_MAX_HEIGHT = int(os.getenv("VIDEO_MAX_HEIGHT", "480"))
 
 # NSFW LoRA — applied when HUNYUAN_NSFW_LORA is set (non-empty).
 # Default: nsfw-e7.safetensors (TheYuriLover/HunyuanVideo_nfsw_lora, trigger: "nsfwsks")
@@ -380,10 +383,12 @@ async def generate_video(
     if seed == -1:
         seed = int(time.time() * 1000) % (2**32)
 
-    # Clamp to hard caps — prevents LLM miscalculations (e.g. 3s×60fps=180 frames)
-    # from producing multi-hour jobs that block the OWUI response indefinitely.
+    # Clamp to hard caps — prevents LLM overrides from producing broken or multi-hour jobs.
+    # HunyuanVideo 720p model fails at resolutions above ~1280×720 with shape errors.
     frames = min(frames, VIDEO_MAX_FRAMES)
     steps = min(steps, VIDEO_MAX_STEPS)
+    width = min(width, VIDEO_MAX_WIDTH)
+    height = min(height, VIDEO_MAX_HEIGHT)
 
     workflow = _get_workflow()
 
