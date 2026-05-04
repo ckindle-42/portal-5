@@ -136,6 +136,12 @@ VIDEO_MODEL_FILE = os.getenv(
     "hunyuan_video_t2v_720p_bf16.safetensors",
 )
 
+# Hard cap on frames to prevent LLM miscalculation from producing multi-hour jobs.
+# HunyuanVideo on MPS: 25 frames × 8 steps ≈ 8 min; 73 frames × 8 steps ≈ 21 min.
+# Override with VIDEO_MAX_FRAMES / VIDEO_MAX_STEPS env vars for production quality.
+VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "25"))
+VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "20"))
+
 # NSFW LoRA — applied when HUNYUAN_NSFW_LORA is set (non-empty).
 # Default: nsfw-e7.safetensors (TheYuriLover/HunyuanVideo_nfsw_lora, trigger: "nsfwsks")
 # Download: hf download TheYuriLover/HunyuanVideo_nfsw_lora nsfw-e7.safetensors \
@@ -346,9 +352,9 @@ async def generate_video(
     prompt: str,
     width: int = 832,
     height: int = 480,
-    frames: int = 81,
+    frames: int = 25,
     fps: int = 16,
-    steps: int = 20,
+    steps: int = 8,
     cfg: float = 6.0,
     negative_prompt: str = "",
     model: str = "",
@@ -363,9 +369,9 @@ async def generate_video(
         prompt: Text description of the video to generate
         width: Video width in pixels (default 832)
         height: Video height in pixels (default 480)
-        frames: Number of frames (default 81, ≈5s at 16fps)
+        frames: Number of frames (default 25, ≈1.5s at 16fps). Max VIDEO_MAX_FRAMES.
         fps: Output frames per second (default 16)
-        steps: Diffusion inference steps (default 20)
+        steps: Diffusion inference steps (default 8)
         cfg: CFG scale (default 6.0)
         negative_prompt: Things to avoid in the video
         model: Override model name (optional, auto-detected from backend)
@@ -373,6 +379,11 @@ async def generate_video(
     """
     if seed == -1:
         seed = int(time.time() * 1000) % (2**32)
+
+    # Clamp to hard caps — prevents LLM miscalculations (e.g. 3s×60fps=180 frames)
+    # from producing multi-hour jobs that block the OWUI response indefinitely.
+    frames = min(frames, VIDEO_MAX_FRAMES)
+    steps = min(steps, VIDEO_MAX_STEPS)
 
     workflow = _get_workflow()
 
