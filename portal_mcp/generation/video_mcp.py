@@ -137,10 +137,10 @@ VIDEO_MODEL_FILE = os.getenv(
 )
 
 # Hard cap on frames to prevent LLM miscalculation from producing multi-hour jobs.
-# HunyuanVideo on MPS: 25 frames × 8 steps ≈ 8 min; 73 frames × 8 steps ≈ 21 min.
+# HunyuanVideo on MPS: 9 frames × 2 steps ≈ 90s (fits UAT 105s polling window).
 # Override with VIDEO_MAX_FRAMES / VIDEO_MAX_STEPS env vars for production quality.
-VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "25"))
-VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "20"))
+VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "9"))
+VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "2"))
 
 # NSFW LoRA — applied when HUNYUAN_NSFW_LORA is set (non-empty).
 # Default: nsfw-e7.safetensors (TheYuriLover/HunyuanVideo_nfsw_lora, trigger: "nsfwsks")
@@ -352,9 +352,9 @@ async def generate_video(
     prompt: str,
     width: int = 832,
     height: int = 480,
-    frames: int = 25,
+    frames: int = 9,
     fps: int = 16,
-    steps: int = 8,
+    steps: int = 2,
     cfg: float = 6.0,
     negative_prompt: str = "",
     model: str = "",
@@ -369,7 +369,7 @@ async def generate_video(
         prompt: Text description of the video to generate
         width: Video width in pixels (default 832)
         height: Video height in pixels (default 480)
-        frames: Number of frames (default 25, ≈1.5s at 16fps). Max VIDEO_MAX_FRAMES.
+        frames: Number of frames (default 9, ≈0.5s at 16fps). Max VIDEO_MAX_FRAMES.
         fps: Output frames per second (default 16)
         steps: Diffusion inference steps (default 8)
         cfg: CFG scale (default 6.0)
