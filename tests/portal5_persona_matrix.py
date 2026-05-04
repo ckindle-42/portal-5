@@ -107,6 +107,30 @@ SYSTEM_PROMPT_CAP_CHARS = 8000
 REQUEST_TIMEOUT = 240.0
 EVICT_BACKOFF_S = 5.0
 
+# ── Audit-tools mode fixture ──────────────────────────────────────────────
+# Sample tool used by --audit-tools to verify per-model tool-call support.
+# A single, simple tool definition is sufficient — we're testing whether the
+# Ollama API accepts the request and the model emits a structured tool_calls
+# response, not whether the model picks the right arguments.
+# See TASK_TOOL_SUPPORT_AUDIT_V1 §A14.
+
+AUDIT_TOOL_DEFINITION = {
+    "type": "function",
+    "function": {
+        "name": "get_current_time",
+        "description": "Get the current time for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string", "description": "The name of the city"},
+            },
+            "required": ["city"],
+        },
+    },
+}
+
+AUDIT_PROMPT = "What time is it in Paris right now?"
+
 
 # ── Backend enumeration ───────────────────────────────────────────────────
 
@@ -260,6 +284,123 @@ async def _chat_direct(
         return 408, "timeout"
     except Exception as e:
         return 0, str(e)[:200]
+
+
+async def _audit_tool_support(
+    client: httpx.AsyncClient,
+    backend_type: str,
+    model_id: str,
+    timeout: float = REQUEST_TIMEOUT,
+) -> dict:
+    """Send AUDIT_PROMPT with AUDIT_TOOL_DEFINITION attached and classify the response.
+
+    Returns: {outcome, http_status, detail, elapsed_s}
+    outcome ∈ {"tool_call", "text_only", "api_error", "exception"}
+    """
+    base_url = MLX_URL if backend_type == "mlx" else OLLAMA_URL
+    payload = {
+        "model": model_id,
+        "messages": [{"role": "user", "content": AUDIT_PROMPT}],
+        "tools": [AUDIT_TOOL_DEFINITION],
+        "tool_choice": "auto",
+        "max_tokens": 200,
+        "stream": False,
+    }
+    t0 = time.time()
+    try:
+        r = await client.post(
+            f"{base_url}/v1/chat/completions", json=payload, timeout=timeout
+        )
+        elapsed = round(time.time() - t0, 2)
+        if r.status_code != 200:
+            return {"outcome": "api_error", "http_status": r.status_code,
+                    "detail": r.text[:300], "elapsed_s": elapsed}
+        data = r.json()
+        msg = data.get("choices", [{}])[0].get("message", {})
+        tool_calls = msg.get("tool_calls")
+        if tool_calls:
+            return {"outcome": "tool_call", "http_status": 200,
+                    "detail": f"emitted {len(tool_calls)} tool_call(s); first={tool_calls[0].get('function', {}).get('name')}",
+                    "elapsed_s": elapsed}
+        content = msg.get("content", "") or ""
+        return {"outcome": "text_only", "http_status": 200,
+                "detail": f"no tool_calls; text response {len(content)} chars",
+                "elapsed_s": elapsed}
+    except httpx.ReadTimeout:
+        return {"outcome": "exception", "http_status": 408,
+                "detail": "timeout", "elapsed_s": round(time.time() - t0, 2)}
+    except Exception as e:
+        return {"outcome": "exception", "http_status": 0,
+                "detail": str(e)[:200], "elapsed_s": round(time.time() - t0, 2)}
+
+
+async def run_audit_tools(args) -> dict:
+    """Audit-tools sweep: per-(model, backend), verify tool-call support empirically."""
+    cfg = load_backends_yaml()
+    workspace_id = args.workspace
+    chain_models = chain_models_for_workspace(cfg, workspace_id)
+
+    if args.backend == "ollama":
+        chain_models = [m for m in chain_models if m["backend_type"] == "ollama"]
+    elif args.backend == "mlx":
+        chain_models = [m for m in chain_models if m["backend_type"] == "mlx"]
+
+    if args.model:
+        chain_models = [m for m in chain_models if args.model in m["id"]]
+
+    if not args.include_big_models:
+        chain_models = [m for m in chain_models if not m.get("big_model")]
+
+    print(f"\n=== Audit-tools sweep: workspace={workspace_id}, models={len(chain_models)} ===\n")
+
+    results = []
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        for i, m in enumerate(chain_models, 1):
+            print(f"  [{i}/{len(chain_models)}] {m['backend_type']:6} {m['id'][:60]:60} ... ",
+                  end="", flush=True)
+            audit = await _audit_tool_support(client, m["backend_type"], m["id"])
+            print(f"{audit['outcome']:10} ({audit['elapsed_s']:5.1f}s)")
+            results.append({
+                "model": m["id"], "backend": m["backend_type"],
+                "memory_gb": m.get("memory_gb"), **audit,
+            })
+            if m["backend_type"] == "ollama":
+                await _ollama_unload(client, m["id"])
+                await asyncio.sleep(EVICT_BACKOFF_S)
+
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "workspace": workspace_id,
+        "audit_prompt": AUDIT_PROMPT,
+        "audit_tool": AUDIT_TOOL_DEFINITION["function"]["name"],
+        "results": results,
+    }
+
+    output = (
+        Path(args.output) if args.output
+        else RESULTS_DIR / f"audit_tools_{workspace_id}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2))
+
+    print(f"\n=== Summary ===")
+    by_outcome: dict[str, int] = {}
+    for r in results:
+        by_outcome[r["outcome"]] = by_outcome.get(r["outcome"], 0) + 1
+    for outcome, count in sorted(by_outcome.items()):
+        print(f"  {outcome:12} {count}")
+    print(f"\nReport: {output}\n")
+
+    print("Models verified tool-capable (flip supports_tools to true):")
+    for r in results:
+        if r["outcome"] == "tool_call":
+            print(f"  - {r['model']} ({r['backend']})")
+    print("\nModels that errored (keep supports_tools false):")
+    for r in results:
+        if r["outcome"] == "api_error":
+            print(f"  - {r['model']} ({r['backend']}): {r['detail'][:80]}")
+
+    return report
 
 
 async def _ollama_unload(client: httpx.AsyncClient, model_id: str) -> None:
@@ -634,6 +775,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--audit-tools",
+        action="store_true",
+        help="Per-model tool-call verification mode. Skips persona/scenario "
+             "fixtures; sends AUDIT_PROMPT with AUDIT_TOOL_DEFINITION attached "
+             "and classifies the response. See TASK_TOOL_SUPPORT_AUDIT_V1 §A14.",
+    )
+    p.add_argument(
         "--output", help="JSON output path (default: results dir UTC-stamped)",
     )
     p.add_argument(
@@ -659,6 +807,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 async def amain(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.audit_tools:
+        await run_audit_tools(args)
+        return 0
     report = await run_sweep(args)
 
     if args.dry_run:
