@@ -244,3 +244,88 @@ Architectural and design constraints that cannot be resolved without significant
 ---
 
 *Last updated: 2026-04-29*
+
+---
+
+## P5-MATRIX-001 — Persona matrix methodology under remediation
+
+**Status**: Active limitation — under remediation
+**Filed**: 2026-05-04
+**Affected**: `tests/portal5_persona_matrix.py`, `tests/portal5_acceptance_v6.py` S10c, `.github/workflows/persona_matrix_nightly.yml`, `docs/COMPLIANCE_FALLBACK_POLICY.md` thresholds
+
+### Symptom
+
+After commit `a50fda7` (TASK 001-009), large-scale evaluation runs produced
+non-actionable failure rates:
+
+- Acceptance V6 S10c (2026-05-02): 85 PASS / 177 FAIL / 56 WARN against the
+  auto-compliance MLX primary
+- Persona matrix MLX sweep: 25 models, every cell 0/35 PASS
+- Persona matrix Ollama sweep: best model `granite4.1:8b` at 36.9% — below
+  the 60% reject threshold in `docs/COMPLIANCE_FALLBACK_POLICY.md`
+
+### Root cause (verified)
+
+1. Matrix driver truncated persona system prompts at 1600 chars; 5 of 7
+   compliance personas exceed that cap. Assertion-required structural
+   instructions were never reaching the model.
+2. Several compliance personas did not mandate the literal phrases the
+   assertion library tests for (`Full|Partial|None|Ambiguous`,
+   `"Insufficient context — needed:"`, etc.). The persona/assertion
+   contract was implicit and inconsistent.
+3. The matrix driver hits backends directly (bypassing pipeline); the
+   acceptance suite hits the pipeline. They measure different systems but
+   were treated as comparable.
+
+### Remediation
+
+`TASK_MATRIX_DRIVER_REMEDIATION_V1` (this task):
+
+- Lifted truncation cap to 8000 chars with explicit guard
+- Added response_preview + http_status capture for triage
+- Added explicit OUTPUT CONTRACT to all 7 compliance personas
+- Froze nightly CI as continue-on-error during remediation
+- Archived pre-fix matrix result files
+
+### Acceptance criteria
+
+This entry remains in `KNOWN_LIMITATIONS.md` until:
+
+1. A post-remediation matrix sweep is recorded as the new baseline
+2. The auto-compliance routing chain has at least one model above the
+   60% MUST-pass threshold per `docs/COMPLIANCE_FALLBACK_POLICY.md`
+3. Acceptance V6 S10c PASS rate recovers to ≥75% on the live primary
+4. Nightly CI is restored to a hard gate (continue-on-error removed)
+
+### Operator next steps (manual)
+
+After this task lands and is rebuilt, operator runs:
+
+```bash
+# Quick sanity — confirm response_preview captures real content
+python3 tests/portal5_persona_matrix.py \
+    --workspace auto-compliance \
+    --backend ollama \
+    --persona complianceanalyst \
+    --max-scenarios 2 \
+    --output tests/benchmarks/results/_smoke_post_remediation.json
+
+# Inspect a cell — response_preview should now be populated, not absent
+python3 -c "
+import json
+d = json.load(open('tests/benchmarks/results/_smoke_post_remediation.json'))
+sc = d['cells'][0]['scenarios'][0]
+assert 'response_preview' in sc, 'response_preview missing — Phase 1 not applied'
+assert sc.get('http_status') == 200, f'unexpected http_status: {sc.get(\"http_status\")}'
+print('smoke OK — response_preview length:', len(sc['response_preview']))
+"
+
+# Full re-baseline (90+ minutes)
+python3 tests/portal5_persona_matrix.py \
+    --workspace auto-compliance \
+    --output tests/benchmarks/results/persona_matrix_$(date -u +%Y%m%dT%H%M%SZ).json
+```
+
+The MLX 0% across-the-board pattern from the pre-fix sweep should not
+recur. If it does, captured response_preview values are the next data
+source — pull a representative MLX cell and inspect.
