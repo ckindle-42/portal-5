@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 WORKSPACE_TOOLS = {
-    "auto": [],
+    "auto": ["server:mcp:portal_comfyui"],
     "auto-coding": ["server:mcp:portal_code"],
     "auto-compliance": [],
     "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],

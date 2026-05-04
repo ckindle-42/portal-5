@@ -4,7 +4,9 @@
   "meta": {
     "description": "🤖 Portal Auto Router",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_comfyui"
+    ]
   },
   "params": {
     "system": "You are Portal, an AI assistant that intelligently selects the best approach for each request. You adapt your style and depth to the task at hand.",
