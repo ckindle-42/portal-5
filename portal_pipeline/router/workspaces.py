@@ -181,7 +181,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🎬 Portal Video Creator",
         "description": "Generate videos via ComfyUI / Wan2.2",
         "model_hint": "granite4.1:8b",
-        "tools": [],
+        "tools": ["generate_video", "generate_image", "list_video_models"],
     },
     "auto-music": {
         "name": "🎵 Portal Music Producer",
