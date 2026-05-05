@@ -3,7 +3,7 @@
 
 Sends every test in TEST_CATALOG through the real Open WebUI browser
 interface, creating permanent reviewable conversations in OWUI history.
-The catalog currently spans ~104 tests across 20 sections including
+The catalog currently spans ~110 tests across 20 sections including
 auto-* workspaces, benchmark workspaces, and an `advanced` section
 covering multi-turn / advanced flows.
 
@@ -6142,7 +6142,7 @@ TEST_CATALOG: list[dict] = [
         "section": "benchmark",
         "model_slug": "bench-glm",
         "timeout": 300,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
@@ -6152,7 +6152,7 @@ TEST_CATALOG: list[dict] = [
         "section": "benchmark",
         "model_slug": "bench-gptoss",
         "timeout": 300,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
@@ -6194,7 +6194,7 @@ TEST_CATALOG: list[dict] = [
         "section": "benchmark",
         "model_slug": "bench-granite41-8b",
         "timeout": 300,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
@@ -6204,7 +6204,7 @@ TEST_CATALOG: list[dict] = [
         "section": "benchmark",
         "model_slug": "bench-granite41-30b",
         "timeout": 360,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
