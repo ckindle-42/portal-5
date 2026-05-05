@@ -261,14 +261,14 @@ backends:
         supports_tools: true
         notes: "Mistral devstral-small-2, tool-using coding agent"
       - id: glm-4.7-flash:q4_k_m
-        supports_tools: true
-        notes: "was: hf.co/unsloth/GLM-4.7-Flash-GGUF — verified tools tag"
+        supports_tools: false
+        notes: "was: hf.co/unsloth/GLM-4.7-Flash-GGUF — verified NO Ollama tools tag (audit 2026-05-04: api_error)"
       - id: deepseek-coder-v2-lite:q4_k_m
         supports_tools: false
         notes: "was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
       - id: llama3.3:70b-q4_k_m
-        supports_tools: true
-        notes: "was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY) — Llama 3.3 native tool calling"
+        supports_tools: false
+        notes: "was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY) — verified NO Ollama tools tag on this GGUF (audit 2026-05-04: api_error). Llama 3.3 architecture supports tools natively, but this specific Ollama registry GGUF lacks the template declaration."
 
   # ── Security / Red Team / Blue Team ───────────────────────────────────────
   # supports_tools defaults to false here — operator verifies per-model with
@@ -318,8 +318,8 @@ backends:
         supports_tools: true
         notes: "REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1 §A11). Granite 4.1 8B is tool-tagged (BFCL V3 68.27); dolphin-llama3:8b is not. Dolphin retained in ollama-general line 2 for model_hint continuity."
       - id: huihui_ai/tongyi-deepresearch-abliterated
-        supports_tools: false
-        notes: "Unverified, fail-safe default. Verify via --audit-tools."
+        supports_tools: true
+        notes: "Verified tool-capable via --audit-tools 2026-05-04 (emitted tool_call). Abliterated Qwen3.5-abliterated lineage; tools tag confirmed."
       - id: supergemma4-26b-uncensored:q4_k_m
         supports_tools: true
         notes: "Gemma 4 26B A4B MoE uncensored GGUF (~17GB, tool-use, reasoning, Google lineage)"
