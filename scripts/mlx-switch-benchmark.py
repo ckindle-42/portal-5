@@ -32,32 +32,36 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+import yaml
 
 LM_PORT = 18081
 VLM_PORT = 18082
 PROXY_PORT = 8081
 RESULTS_FILE = "/tmp/mlx_switch_benchmark.json"
 
-LM_MODELS = [
-    "mlx-community/Qwen3-Coder-Next-4bit",
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-    "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
-    "mlx-community/Devstral-Small-2505-8bit",
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
-    "mlx-community/Llama-3.2-3B-Instruct-8bit",
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit",
-    "mlx-community/Llama-3.3-70B-Instruct-4bit",
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-    "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-]
 
-VLM_MODELS = [
-    "mlx-community/gemma-4-31b-it-4bit",
-    "mlx-community/Qwen3-VL-32B-Instruct-8bit",
-    "mlx-community/llava-1.5-7b-8bit",
-]
+def _load_mlx_model_lists() -> tuple[list[str], list[str]]:
+    """Build (LM_MODELS, VLM_MODELS) from backends.yaml is_vlm flag.
+
+    Single source of truth: config/backends.yaml mlx_models[].
+    """
+    cfg_path = Path(__file__).parent.parent / "config" / "backends.yaml"
+    cfg = yaml.safe_load(cfg_path.read_text())
+    lm: list[str] = []
+    vlm: list[str] = []
+    for backend in cfg.get("backends", []):
+        for m in backend.get("mlx_models", []) or []:
+            mid = m.get("id")
+            if not mid:
+                continue
+            if m.get("is_vlm") is True:
+                vlm.append(mid)
+            else:
+                lm.append(mid)
+    return lm, vlm
+
+
+LM_MODELS, VLM_MODELS = _load_mlx_model_lists()
 
 
 def _load_env() -> None:
