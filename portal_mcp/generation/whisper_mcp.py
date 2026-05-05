@@ -136,6 +136,37 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request):
+    """REST dispatch endpoint used by portal-pipeline tool_registry."""
+    tool_name = request.path_params["tool_name"]
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", {})
+
+    try:
+        if tool_name == "transcribe_audio":
+            import inspect
+            valid = set(inspect.signature(transcribe_audio).parameters.keys())
+            filtered = {k: v for k, v in arguments.items() if k in valid}
+            result = await transcribe_audio(**filtered)
+            return JSONResponse(result)
+        elif tool_name == "transcribe_with_speakers":
+            import inspect
+            valid = set(inspect.signature(transcribe_with_speakers).parameters.keys())
+            filtered = {k: v for k, v in arguments.items() if k in valid}
+            result = await transcribe_with_speakers(**filtered)
+            return JSONResponse(result)
+        else:
+            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).exception("Tool invocation failed for %s", tool_name)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "base")
 _model = None
 

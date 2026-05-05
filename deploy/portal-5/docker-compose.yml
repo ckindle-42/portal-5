@@ -122,6 +122,7 @@ services:
       - MCP_MUSIC_URL=http://portal5-mcp-music:8912
       - MCP_VIDEO_URL=http://portal5-mcp-video:8911
       - MCP_WHISPER_URL=http://portal5-mcp-whisper:8915
+      - MCP_MLX_TRANSCRIBE_URL=http://host.docker.internal:8924
       - MCP_TTS_URL=http://portal5-mcp-tts:8916
       - MCP_RESEARCH_URL=http://portal5-mcp-research:8922
       - MCP_MEMORY_URL=http://portal5-mcp-memory:8920
