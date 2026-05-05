@@ -735,7 +735,7 @@ class TestR23MLXSupport:
         assert "mlx_lm" in content  # text-only server (port 18081)
         assert "mlx_vlm" in content  # VLM server (port 18082)
         assert "mlx-proxy" in content  # auto-switching proxy
-        assert "Qwen3-Coder-Next-4bit" in content
+        assert "MLX_MODELS=" in content  # MLX model array present; don't pin a specific model
 
     def test_mlx_proxy_script_exists(self):
         """scripts/mlx-proxy.py exists and has the expected structure."""
@@ -1148,26 +1148,36 @@ class TestAgenticWorkspace:
         )
 
 
-class TestAutoCodingGLM47Upgrade:
-    """Verify auto-coding uses GLM-4.7-Flash-4bit (59.2% SWE-bench, TASK-MODELS-001)."""
+class TestAutoCodingWorkspace:
+    """Verify auto-coding workspace mlx_model_hint is a valid catalog entry."""
 
-    def test_auto_coding_mlx_hint_is_glm47_flash(self):
-        """auto-coding mlx_model_hint must be GLM-4.7-Flash-4bit (59.2% SWE-bench)."""
+    def test_auto_coding_mlx_hint_in_catalog(self):
+        """auto-coding mlx_model_hint must be a known non-VLM MLX model in backends.yaml."""
+        import yaml
+        from pathlib import Path
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
-        assert "GLM-4.7-Flash-4bit" in hint, (
-            f"auto-coding mlx_model_hint should be mlx-community/GLM-4.7-Flash-4bit (59.2% SWE-bench), "
-            f"got: {hint!r}. Displaced model (Devstral-Small-2507-MLX-4bit) remains in bench-devstral for rollback."
+        assert hint, "auto-coding workspace must have an mlx_model_hint"
+        cfg = yaml.safe_load((Path(__file__).parent.parent.parent / "config" / "backends.yaml").read_text())
+        catalog_ids = {
+            m["id"]
+            for b in cfg.get("backends", [])
+            for m in (b.get("mlx_models") or [])
+            if m.get("id") and not m.get("is_vlm")
+        }
+        assert hint in catalog_ids, (
+            f"auto-coding mlx_model_hint {hint!r} not found in backends.yaml non-VLM catalog. "
+            f"Update WORKSPACES['auto-coding']['mlx_model_hint'] to a current catalog entry."
         )
 
-    def test_auto_coding_mlx_hint_is_4bit_not_8bit(self):
-        """auto-coding must use 4bit GLM (15GB, not 22GB 8bit variant) for memory savings."""
+    def test_auto_coding_mlx_hint_is_4bit(self):
+        """auto-coding must use a 4bit model variant for memory headroom on 64GB systems."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
         assert "4bit" in hint, (
-            f"auto-coding mlx_model_hint should be 4bit variant for memory savings, got: {hint!r}"
+            f"auto-coding mlx_model_hint should be a 4bit variant for memory savings, got: {hint!r}"
         )
 
 
