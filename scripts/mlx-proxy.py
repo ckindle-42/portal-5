@@ -22,6 +22,7 @@ Monitoring: background watchdog detects crashes, /health reports true state.
 
 import json
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -1020,6 +1021,9 @@ def _big_model_pre_load(model: str) -> None:
 
 
 _warm_model: str = os.environ.get("MLX_WARM_MODEL", "mlx-community/Llama-3.2-3B-Instruct-8bit")
+# If 1 (default), load _warm_model as a sentinel on proxy startup after evicting any survivor.
+# Set MLX_STARTUP_SENTINEL=0 to keep idle-start behaviour (first request triggers cold load).
+_startup_sentinel: bool = os.environ.get("MLX_STARTUP_SENTINEL", "1") == "1"
 _big_model_active: bool = False
 _big_model_lock = threading.Lock()
 
@@ -1481,6 +1485,71 @@ if __name__ == "__main__":
     # Write PID file so external watchdog can track and recover us
     pid_file = Path("/tmp/mlx-proxy.pid")
     pid_file.write_text(str(os.getpid()))
+
+    # ── SIGTERM handler (P5-MLX-RESTART-001) ────────────────────────────────
+    # launchctl kickstart -k sends SIGTERM to the proxy PID only. mlx_lm.server
+    # is in a separate session (start_new_session=True) and survives. Without
+    # this handler, the new proxy re-attaches to the surviving child with a large
+    # model still loaded, negating any memory recovery benefit of the restart.
+    # This handler calls stop_all() before exit so children are killed first.
+    def _sigterm_handler(signum, frame):  # noqa: ARG001
+        print("[mlx-proxy] SIGTERM received — stopping child servers before exit", flush=True)
+        try:
+            stop_all()
+        except Exception as e:
+            print(f"[mlx-proxy] stop_all() in SIGTERM handler raised: {e}", flush=True)
+        finally:
+            pid_file.unlink(missing_ok=True)
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _sigterm_handler)
+
+    # ── Startup eviction + sentinel load (P5-MLX-RESTART-002) ───────────────
+    # Defense-in-depth against SIGKILL restarts where the SIGTERM handler cannot
+    # fire. If a mlx_lm/mlx_vlm process survived a hard proxy kill, it may hold
+    # 10–46 GB of GPU memory. Kill it now, before entering serve_forever().
+    # After eviction, optionally load the warm sentinel model so the proxy is
+    # ready to serve immediately without a cold-start penalty on the first request.
+    print("[mlx-proxy] startup: probing for surviving MLX servers...", flush=True)
+    try:
+        lm_alive, lm_model = _probe_server("lm")
+        vlm_alive, vlm_model = _probe_server("vlm")
+        if lm_alive or vlm_alive:
+            survivor_model = lm_model or vlm_model or "(unknown)"
+            print(
+                f"[mlx-proxy] startup eviction: found running server "
+                f"(lm={lm_alive} model={lm_model!r}, vlm={vlm_alive} model={vlm_model!r}) "
+                f"— evicting before entering service",
+                flush=True,
+            )
+            stop_all()
+            # Brief wait for Metal GPU pages to start releasing before we continue
+            time.sleep(2)
+            print(
+                f"[mlx-proxy] startup eviction complete (evicted: {survivor_model})",
+                flush=True,
+            )
+        else:
+            print("[mlx-proxy] startup: no surviving servers found — clean start", flush=True)
+    except Exception as _e:
+        print(f"[mlx-proxy] startup eviction probe failed ({_e}) — proceeding", flush=True)
+
+    if _startup_sentinel:
+        print(
+            f"[mlx-proxy] startup sentinel: loading warm model {_warm_model!r}...",
+            flush=True,
+        )
+        try:
+            start_server("lm", _warm_model)
+            print(
+                f"[mlx-proxy] startup sentinel ready — {_warm_model!r} loaded",
+                flush=True,
+            )
+        except Exception as _e:
+            print(
+                f"[mlx-proxy] startup sentinel load failed ({_e}) — proxy will cold-start on first request",
+                flush=True,
+            )
 
     print(
         f"[mlx-proxy] Listening on :{PROXY_PORT} (workers={MAX_WORKERS}, queue={MAX_QUEUE}, watchdog={WATCHDOG_INTERVAL}s)",
