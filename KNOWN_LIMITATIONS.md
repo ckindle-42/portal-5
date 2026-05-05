@@ -329,3 +329,89 @@ python3 tests/portal5_persona_matrix.py \
 The MLX 0% across-the-board pattern from the pre-fix sweep should not
 recur. If it does, captured response_preview values are the next data
 source — pull a representative MLX cell and inspect.
+
+---
+
+## P5-TOOL-001 — Ollama tool-support catalog audit + per-model verification cycle
+
+**Status**: Active limitation — under managed verification
+**Filed**: 2026-05-04
+**Affected**: `config/backends.yaml`, `portal_pipeline/router_pipe.py`, `portal_pipeline/cluster_backends.py`
+
+### Symptom
+
+Commit `de96984` (auto-video model swap) surfaced a systemic defect:
+`dolphin-llama3:8b` does not support Ollama tool calling — sending a
+request with a `tools` array returns an explicit Ollama API error. The
+router previously trusted every Ollama model unconditionally for tool
+support (`router_pipe.py:2420`), which propagated the dolphin defect to
+14 workspaces whose chains fell through to `ollama-general` (where
+dolphin sat at line 1) when their primary groups failed health checks.
+
+### Root cause
+
+1. Ollama determines tool support per-model by checking the model's
+   template for the `.Tools` template variable. Dolphin's stock Ollama
+   package does not include this variable. Other Ollama models in the
+   catalog have varying tool support that was never verified.
+2. `_model_supports_tools()` in `router_pipe.py` only consulted MLX
+   metadata. For Ollama, the router took it on faith.
+3. Six hardcoded `else "dolphin-llama3:8b"` defensive defaults
+   compounded the risk by routing tool-using requests to dolphin
+   whenever a backend's `models` list was empty.
+4. Pre-existing gap: `granite4.1:8b` and `granite4.1:30b` were added to
+   `config/backends.yaml` around the time of `de96984` but never
+   registered in `launch.sh` model pull arrays.
+
+### Remediation (`TASK_TOOL_SUPPORT_AUDIT_V1`)
+
+- Schema change: Ollama `models:` accepts list-of-dicts with per-model
+  metadata, parallel to existing MLX `mlx_models:`.
+- Catalog audit: `supports_tools` flag added to every Ollama model
+  entry. Verified-true for tools-tagged models; fail-safe-false for
+  unverified.
+- Router fix: `_model_supports_tools` reads both metadata sources;
+  default for unflagged models is False.
+- Hardcoded fallbacks removed: 6 sites now log and skip-this-backend.
+- Catalog reorder: `ollama-general` line 1 is now
+  `huihui_ai/qwen3.5-abliterated:9b` (uncensored + tool-tagged).
+- AUTO + auto-music model_hints swap to qwen3.5-abliterated.
+  auto-creative untouched.
+- Matrix driver gains `--audit-tools` mode for per-model verification.
+- launch.sh pull arrays register the new model + backfill granite4.1.
+- bench_tps + UAT + acceptance v6 register the new model in fixture maps.
+- New `bench-qwen35-abliterated` workspace + CC-01 fixture follows the
+  per-significant-model bench-* pattern.
+
+### Acceptance criteria
+
+This entry remains until:
+
+1. Operator runs `tests/portal5_persona_matrix.py --audit-tools` against
+   every Ollama backend group at least once.
+2. Every entry with `supports_tools: false` has been either:
+   - Confirmed false by audit, OR
+   - Flipped to `true` after audit confirmation, OR
+   - Documented as intentionally false.
+3. The matrix `--audit-tools` mode is wired into nightly CI.
+4. Acceptance V6 S10c PASS rate against the auto-compliance MLX primary
+   returns to ≥75%.
+
+### Operator next steps
+
+```bash
+for ws in auto auto-coding auto-compliance auto-research auto-security; do
+  python3 tests/portal5_persona_matrix.py --audit-tools \
+    --workspace "$ws" --backend ollama \
+    --output "tests/benchmarks/results/audit_tools_${ws}_$(date -u +%Y%m%dT%H%M%SZ).json"
+done
+
+jq '.results[] | select(.outcome == "tool_call") | .model' \
+   tests/benchmarks/results/audit_tools_*.json | sort -u
+```
+
+### Out of scope
+
+- Path 2 (OWUI MCP) tool dispatch verification.
+- Auto-creative re-evaluation (intentionally untouched).
+- vLLM tool-support metadata (schema is extensible; future task).
