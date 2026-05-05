@@ -49,3 +49,7 @@ data/
 
 # Agent task files
 coding_task/
+
+# Test outputs (bench_tps, matrix driver, UAT driver)
+tests/benchmarks/results/
+tests/fixtures/audio/
