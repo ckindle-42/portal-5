@@ -161,12 +161,18 @@ def models_in_group(cfg: dict[str, Any], group: str) -> list[dict[str, Any]]:
                 })
         else:
             for mid in be.get("models", []):
+                # Accept dict-form Ollama entries (new) and bare strings (legacy).
+                # Dict entries carry per-model metadata; strings imply defaults.
+                if isinstance(mid, dict):
+                    model_id = mid["id"]
+                else:
+                    model_id = mid
                 out.append({
-                    "id": mid,
+                    "id": model_id,
                     "backend_type": "ollama",
                     "big_model": False,
                     "is_vlm": False,
-                    "memory_gb": _ollama_size_estimate(mid),
+                    "memory_gb": _ollama_size_estimate(model_id),
                 })
     return out
 
