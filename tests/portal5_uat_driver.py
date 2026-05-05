@@ -496,19 +496,26 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 180) -> None:
+def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
     """Block until MLX proxy reports state=ready with a model loaded.
 
-    Cold-loading a large model takes 30-90s. Without this wait, the first
-    request to a freshly-loaded model produces an empty response, the driver
-    retries (triggering another cold-load), and the test cascades to FAIL.
+    Cold-loading a large model takes 30-90s; 35B+ MoE can take 2-3 min.
+    Without this wait, the first request produces empty responses that cascade
+    into retries and false FAILs.
 
-    Checks the proxy /health endpoint. On first request to a workspace, the
-    pipeline router selects a backend and the proxy begins loading. We poll
-    until state=ready with loaded_model set, or max_wait seconds pass.
+    Strategy:
+    1. If state=none (no model loaded), send a pipeline pre-warm request to
+       trigger cold-load, then poll for state=ready.
+    2. If state=switching (model loading), poll until ready.
+    3. If state=ready with model, return immediately.
+    4. If state=down or unresponsive, check if proxy process is alive.
+    5. If max_wait exceeded, escalate: kill orphaned servers, retry.
     """
     label = f"[{test_name}]" if test_name else ""
     t0 = time.time()
+    pre_warmed = False
+    fatal_count = 0
+
     while time.time() - t0 < max_wait:
         try:
             resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
@@ -516,20 +523,84 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 180) -> None:
                 data = resp.json()
                 state = data.get("state", "?")
                 model = data.get("loaded_model")
+
                 if state == "ready" and model:
                     elapsed = time.time() - t0
                     if elapsed > 1.0:
                         print(f"  {label} MLX ready ({model}, {elapsed:.0f}s cold-load)")
                     return
-                elif state == "none" and elapsed > 5:
-                    # Proxy idle — first request hasn't been sent yet.
-                    # The pipeline will route and load on first request.
-                    # Return so the test can fire (which triggers loading).
-                    return
+
+                if state == "none" and not pre_warmed:
+                    # Proxy idle — pre-warm to trigger cold-load via the pipeline.
+                    # Don't keep pre-warming on every poll; do it once.
+                    pre_warmed = True
+                    print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                    try:
+                        _pipeline_pre_warm()
+                    except Exception as e:
+                        print(f"  {label} pre-warm failed: {e}")
+
+                elif state == "switching":
+                    # Model is loading — wait for it.
+                    if int(time.time() - t0) % 30 < 2:
+                        print(f"  {label} MLX switching (loading model) — {int(time.time() - t0)}s elapsed")
+
+                elif state == "down":
+                    fatal_count += 1
+                    if fatal_count >= 3:
+                        print(f"  {label} MLX state=down after {fatal_count} checks — recovering...")
+                        unload_all_models()
+                        time.sleep(10)
+                        fatal_count = 0
+
         except Exception:
-            pass
-        time.sleep(2)
-    print(f"  {label} MLX not ready after {max_wait}s — proceeding anyway")
+            fatal_count += 1
+            if fatal_count >= 3:
+                print(f"  {label} MLX proxy unreachable ({fatal_count}x) — checking process...")
+                # Check if proxy process is alive
+                import subprocess
+                procs = subprocess.run(["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True)
+                if not procs.stdout.strip():
+                    print(f"  {label} MLX proxy process NOT running — attempting restart...")
+                    subprocess.run(["nohup", "python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(30)
+                fatal_count = 0
+
+        time.sleep(3)
+
+    # max_wait exceeded — report why before proceeding
+    try:
+        resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
+        data = resp.json() if resp.status_code == 200 else {}
+        state = data.get("state", "unreachable")
+        model = data.get("loaded_model", "-")
+        print(f"  {label} MLX still not ready after {max_wait}s (state={state}, model={model})")
+    except Exception:
+        print(f"  {label} MLX proxy unreachable after {max_wait}s")
+
+
+def _pipeline_pre_warm() -> None:
+    """Send a minimal request through the pipeline to trigger MLX model cold-load."""
+    pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
+    pipeline_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+    try:
+        httpx.post(
+            f"{pipeline_url}/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {pipeline_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "auto",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 1,
+                "stream": False,
+            },
+            timeout=30,
+        )
+    except Exception:
+        pass
 
 
 def unload_all_models() -> None:
