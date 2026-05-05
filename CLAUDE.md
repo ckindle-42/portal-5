@@ -282,7 +282,7 @@ Every feature must work from `./launch.sh up` without manual steps. Dependencies
 
 ## Known Limitations
 
-Before adding new tasks or filing issues, check `KNOWN_ISSUES.md` — some items are documented known limitations rather than bugs to fix. AI agents should read this file before proposing new work.
+Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some items are documented known limitations rather than bugs to fix. AI agents should read this file before proposing new work.
 
 ---
 
