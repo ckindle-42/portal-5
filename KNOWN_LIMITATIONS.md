@@ -41,6 +41,12 @@ Architectural and design constraints that cannot be resolved without significant
 
 ## Models
 
+### supergemma4-26b-uncensored-mlx-4bit-v2 Removed from MLX Catalog
+- **ID:** P5-MOD-REMOVED-001
+- **Status:** REMOVED
+- **Description:** `Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2` was added to the catalog for the `supergemma4researcher` persona but subsequently removed. The `supergemma4researcher` persona now routes via `auto-research` (mlx_model_hint: `mlx-community/gemma-4-31b-it-4bit`, Ollama fallback: `huihui_ai/tongyi-deepresearch-abliterated`).
+- **Last verified:** 2026-05-04
+
 ### auto-math Workspace Has No Reasoning-Block Support
 - **ID:** P5-MATH-001
 - **Status:** ACTIVE
