@@ -46,3 +46,6 @@ venv/
 volumes/
 data/
 .claude/
+
+# Agent task files
+coding_task/
