@@ -6208,6 +6208,16 @@ TEST_CATALOG: list[dict] = [
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
+    {
+        "id": "CC-01-qwen35-abliterated",
+        "name": "CC-01 Asteroids · Qwen3.5-9B-abliterated (huihui-ai)",
+        "section": "benchmark",
+        "model_slug": "bench-qwen35-abliterated",
+        "timeout": 300,
+        "workspace_tier": "mlx_small",
+        "prompt": _CC01_PROMPT,
+        "assertions": _CC01_ASSERTIONS,
+    },
     # -----------------------------------------------------------------------
     # GROUP auto-math
     # -----------------------------------------------------------------------

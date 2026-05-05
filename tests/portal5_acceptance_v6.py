@@ -819,6 +819,7 @@ _MLX_MODEL_FULL_PATHS = {
     "DeepSeek-Coder-V2-Lite-Instruct-8bit": "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
     "Devstral-Small-2507-MLX-4bit": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
     "Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
+    "Huihui-Qwen3.5-9B-abliterated-mlx-4bit": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
     "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
     "phi-4-8bit": "mlx-community/phi-4-8bit",
     "Magistral-Small-2509-MLX-8bit": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
@@ -840,6 +841,7 @@ _MLX_MODEL_SIZES_GB = {
     "DeepSeek-Coder-V2-Lite-Instruct-8bit": 12,
     "Devstral-Small-2507-MLX-4bit": 15,
     "Dolphin3.0-Llama3.1-8B-8bit": 9,
+    "Huihui-Qwen3.5-9B-abliterated-mlx-4bit": 6,
     "Llama-3.2-3B-Instruct-8bit": 3,
     "phi-4-8bit": 14,
     "Magistral-Small-2509-MLX-8bit": 24,
@@ -875,6 +877,7 @@ _MLX_MODEL_TO_WORKSPACE: dict[str, str] = {
     "mlx-community/Qwen3-Coder-Next-4bit": "auto-agentic",
     "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": "auto-spl",
     "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": "auto-creative",
+    "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit": "auto",
     "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": "auto-reasoning",
     "mlx-community/phi-4-8bit": "auto-documents",
     "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": "auto-research",  # Task 4: rerouted from 31B dense to 26B MoE abliterated (~35 vs ~20 TPS)
@@ -2145,7 +2148,9 @@ async def S3a() -> None:
 
     # Ollama-only workspaces (no MLX in routing chain)
     OLLAMA_WORKSPACES = [
-        # Group 1: General (dolphin-llama3:8b)
+        # Group 1: General — line 1 is huihui_ai/qwen3.5-abliterated:9b (P3 reorder).
+        # auto-video pins to granite4.1:8b (de96984); auto + auto-music pin to
+        # huihui_ai/qwen3.5-abliterated:9b (TASK_TOOL_SUPPORT_AUDIT_V1 §A7).
         ("Ollama general", ["auto", "auto-video", "auto-music"]),
         # Group 2: Security (baronllm, lily-cybersecurity, xploiter)
         ("Ollama security", ["auto-security", "auto-redteam", "auto-blueteam"]),
