@@ -3,9 +3,8 @@
 # Architecture: 256-expert MoE, mixed full/sliding-window attention,
 # per-layer head count, per-head gating, YaRN RoPE for full layers.
 
-import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import mlx.core as mx
 import mlx.nn as nn
@@ -39,10 +38,10 @@ class ModelArgs(BaseModelArgs):
     attention_bias: bool = False
     head_dim: int = 128
     tie_word_embeddings: bool = False
-    layer_types: List[str] = field(default_factory=list)
-    mlp_layer_types: List[str] = field(default_factory=list)
-    num_attention_heads_per_layer: List[int] = field(default_factory=list)
-    rope_parameters: Dict = field(default_factory=dict)
+    layer_types: list[str] = field(default_factory=list)
+    mlp_layer_types: list[str] = field(default_factory=list)
+    num_attention_heads_per_layer: list[int] = field(default_factory=list)
+    rope_parameters: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.layer_types:
@@ -182,8 +181,8 @@ class Attention(nn.Module):
     def __call__(
         self,
         x: mx.array,
-        mask: Optional[mx.array] = None,
-        cache: Optional[Any] = None,
+        mask: mx.array | None = None,
+        cache: Any | None = None,
     ) -> mx.array:
         B, L, _ = x.shape
 
@@ -238,8 +237,8 @@ class DecoderLayer(nn.Module):
     def __call__(
         self,
         x: mx.array,
-        mask: Optional[mx.array] = None,
-        cache: Optional[Any] = None,
+        mask: mx.array | None = None,
+        cache: Any | None = None,
     ) -> mx.array:
         r = self.self_attn(self.input_layernorm(x), mask, cache)
         h = x + r
@@ -260,7 +259,7 @@ class LagunaModel(nn.Module):
     def __call__(
         self,
         inputs: mx.array,
-        cache: Optional[Any] = None,
+        cache: Any | None = None,
     ) -> mx.array:
         h = self.embed_tokens(inputs)
 
@@ -305,7 +304,7 @@ class Model(nn.Module):
     def __call__(
         self,
         inputs: mx.array,
-        cache: Optional[Any] = None,
+        cache: Any | None = None,
     ) -> mx.array:
         out = self.model(inputs, cache)
         if self.args.tie_word_embeddings:
