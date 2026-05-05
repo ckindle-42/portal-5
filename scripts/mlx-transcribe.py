@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 # Workspace helpers — TASK-WORKSPACE-001
@@ -314,6 +314,70 @@ async def health() -> JSONResponse:
             "diarization_loaded": _diarization_pipeline is not None,
         }
     )
+
+
+@app.post("/tools/{tool_name}")
+async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
+    """REST dispatch endpoint used by portal-pipeline tool_registry."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", {})
+
+    if tool_name == "transcribe_with_speakers":
+        file_arg = arguments.get("file", "")
+        num_speakers = arguments.get("num_speakers")
+        language = arguments.get("language")
+        path, source_name = _resolve_audio_input(file_arg)
+        if path is None:
+            return JSONResponse({"error": source_name})
+        async with _pipeline_lock:
+            try:
+                result = await asyncio.to_thread(
+                    _run_pipeline, str(path), language, num_speakers, source_name
+                )
+                return JSONResponse(result)
+            except Exception as e:
+                logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
+                return JSONResponse({"error": str(e)}, status_code=500)
+    else:
+        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+
+
+@app.get("/tools")
+async def list_tools() -> JSONResponse:
+    return JSONResponse({
+        "tools": [
+            {
+                "name": "transcribe_with_speakers",
+                "description": (
+                    "Transcribe an audio file with speaker diarization (Apple Silicon MLX path). "
+                    "Uses mlx-whisper (Metal-accelerated, large-v3-turbo) + pyannote on MPS. "
+                    "Returns speaker-labeled transcript with timestamps. "
+                    "Accepts OWUI file ID, filename in uploads/, or absolute path."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path",
+                        },
+                        "num_speakers": {
+                            "type": "integer",
+                            "description": "Expected speaker count. Auto-detected if omitted. Recommended for >15 min audio.",
+                        },
+                        "language": {
+                            "type": "string",
+                            "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
+                        },
+                    },
+                    "required": ["file"],
+                },
+            }
+        ]
+    })
 
 
 @app.get("/files/{filename}", response_model=None)

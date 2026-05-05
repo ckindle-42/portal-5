@@ -29,6 +29,7 @@ MCP_SERVERS: dict[str, str] = {
     "music": os.environ.get("MCP_MUSIC_URL", "http://localhost:8912"),
     "video": os.environ.get("MCP_VIDEO_URL", "http://localhost:8911"),
     "whisper": os.environ.get("MCP_WHISPER_URL", "http://localhost:8915"),
+    "mlx_transcribe": os.environ.get("MCP_MLX_TRANSCRIBE_URL", "http://localhost:8924"),
     "tts": os.environ.get("MCP_TTS_URL", "http://localhost:8916"),
     # M3 additions:
     "research": os.environ.get("MCP_RESEARCH_URL", "http://localhost:8922"),
