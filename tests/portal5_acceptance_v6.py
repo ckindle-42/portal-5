@@ -29,8 +29,9 @@ Status model:
 
 Test Coverage (~27 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
-    S3a/S3b: 28 workspaces tested directly (18 auto-* tested via S3a/S3b);
-              S41-02 verifies max_concurrent=1 for all 11 bench-* workspaces
+    S3a/S3b: 18 auto-* workspaces tested directly (S3a Ollama-only,
+              S3b MLX-first); S41-02 verifies max_concurrent=1 for all
+              13 bench-* workspaces (data-driven from WORKSPACES dict)
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
@@ -867,27 +868,10 @@ _MLX_ORGS = [
     "unsloth/",
     "dealignai/",
     "huihui-ai/",
+    "divinetribe/",
 ]
 
-# Mapping from MLX model hint (HF path) → pipeline workspace name.
-# All persona YAMLs now use workspace IDs directly; this dict is used by S11
-# to know which MLX model to pre-load before testing each workspace.
-_MLX_MODEL_TO_WORKSPACE: dict[str, str] = {
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit": "auto-coding",
-    "mlx-community/Qwen3-Coder-Next-4bit": "auto-agentic",
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": "auto-spl",
-    "mlx-community/Dolphin3.0-Llama3.1-8B-8bit": "auto-creative",
-    "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit": "auto",
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": "auto-reasoning",
-    "mlx-community/phi-4-8bit": "auto-documents",
-    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": "auto-research",  # Task 4: rerouted from 31B dense to 26B MoE abliterated (~35 vs ~20 TPS)
-    "mlx-community/gemma-4-31b-it-4bit": "auto-vision",
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "auto-data",
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "auto-compliance",
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit": "auto-mistral",
-    # Phi-4-reasoning-plus has no pipeline workspace — it maps to auto-data (DeepSeek-R1)
-    # for production routing. Tested via auto-data workspace in S11.
-}
+
 
 
 async def _mlx_health() -> tuple[str, dict]:
@@ -1213,7 +1197,13 @@ WORKSPACE_PROMPTS = {
 }
 
 # Persona test prompts and expected signals
-# Full list of 48 personas from config/personas/*.yaml
+# Currently 76 entries against ~96 persona YAML files in config/personas/.
+# Personas without entries: 12 bench-* personas (covered by S3a/S3b/S41-02),
+# 7 compliance personas (covered by S10c via compliance_scenarios.yaml),
+# and a small number of attachment-driven personas (e.g. transcriptanalyst).
+PERSONA_PROMPTS_EXCLUDED: set[str] = {
+    "transcriptanalyst",  # audio-attachment driven; tested via S8/S9 flow
+}
 PERSONA_PROMPTS = {
     # Development (18 personas)
     # Real IndexError bug: no bounds check on lst, no empty-list guard
@@ -1865,91 +1855,94 @@ async def S1() -> None:
     except Exception as e:
         record(sec, "S1-07", "routing_examples.json", "FAIL", str(e)[:100], t0=t0)
 
-    # S1-08: MLX backend routing — VLM models in VLM_MODELS (routes to mlx_vlm)
-    # Checks that models requiring vision+audio are in the VLM_MODELS set in mlx-proxy.py
+    # S1-08: MLX backend routing — VLM models flagged is_vlm: true in backends.yaml.
+    # Source of truth: scripts/mlx-proxy.py:_load_mlx_metadata() reads is_vlm from
+    # config/backends.yaml. Previous implementation grepped the proxy source for
+    # an inline VLM_MODELS literal that no longer exists post-refactor.
     t0 = time.time()
     try:
-        proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
-        # VLM_MODELS section appears before ALL_MODELS in the proxy source
-        if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
-            vlm_section = proxy_src[proxy_src.index("VLM_MODELS") : proxy_src.index("ALL_MODELS")]
-            # Gemma 4 31B dense, E4B, JANG, and abliterated 26B MoE must be in VLM_MODELS (require mlx_vlm)
-            gemma_31b_vlm = "gemma-4-31b-it-4bit" in vlm_section
-            gemma_e4b_vlm = "gemma-4-e4b-it-4bit" in vlm_section
-            gemma_31b_all = "mlx-community/gemma-4-31b-it-4bit" in proxy_src
-            jang_vlm = "Gemma-4-31B-JANG_4M-CRACK" in vlm_section
-            jang_all = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in proxy_src
-            gemma_26b_abl_vlm = "supergemma4-26b-abliterated-multimodal-mlx-4bit" in vlm_section
-            gemma_26b_abl_all = (
-                "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in proxy_src
-            )
-            all_ok = (
-                gemma_31b_vlm
-                and gemma_e4b_vlm
-                and gemma_31b_all
-                and jang_vlm
-                and jang_all
-                and gemma_26b_abl_vlm
-                and gemma_26b_abl_all
-            )
-            record(
-                sec,
-                "S1-08",
-                "MLX routing: VLM models in VLM_MODELS (mlx_vlm backend)",
-                "PASS" if all_ok else "FAIL",
-                "✓ Gemma 4 31B + E4B + JANG + 26B-abl in VLM_MODELS"
-                if all_ok
-                else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all} 26b_abl_vlm={gemma_26b_abl_vlm} 26b_abl_all={gemma_26b_abl_all}",
-                t0=t0,
-            )
-        else:
-            record(
-                sec,
-                "S1-08",
-                "MLX routing: VLM models in VLM_MODELS",
-                "WARN",
-                "VLM_MODELS section not found",
-                t0=t0,
-            )
+        cfg = _load_backends_yaml()
+        vlm_ids: set[str] = set()
+        all_ids: set[str] = set()
+        for backend in cfg.get("backends", []):
+            for m in backend.get("mlx_models", []) or []:
+                mid = m.get("id")
+                if not mid:
+                    continue
+                all_ids.add(mid)
+                if m.get("is_vlm") is True:
+                    vlm_ids.add(mid)
+        # Gemma 4 31B dense, E4B, JANG, and abliterated 26B MoE must be VLM (require mlx_vlm)
+        gemma_31b_vlm = "mlx-community/gemma-4-31b-it-4bit" in vlm_ids
+        gemma_e4b_vlm = "mlx-community/gemma-4-e4b-it-4bit" in vlm_ids
+        gemma_31b_all = "mlx-community/gemma-4-31b-it-4bit" in all_ids
+        jang_vlm = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in vlm_ids
+        jang_all = "dealignai/Gemma-4-31B-JANG_4M-CRACK" in all_ids
+        gemma_26b_abl_vlm = (
+            "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in vlm_ids
+        )
+        gemma_26b_abl_all = (
+            "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit" in all_ids
+        )
+        all_ok = (
+            gemma_31b_vlm
+            and gemma_e4b_vlm
+            and gemma_31b_all
+            and jang_vlm
+            and jang_all
+            and gemma_26b_abl_vlm
+            and gemma_26b_abl_all
+        )
+        record(
+            sec,
+            "S1-08",
+            "MLX routing: VLM models flagged is_vlm in backends.yaml (mlx_vlm backend)",
+            "PASS" if all_ok else "FAIL",
+            "✓ Gemma 4 31B + E4B + JANG + 26B-abl flagged is_vlm"
+            if all_ok
+            else f"31b_vlm={gemma_31b_vlm} e4b_vlm={gemma_e4b_vlm} 31b_all={gemma_31b_all} jang_vlm={jang_vlm} jang_all={jang_all} 26b_abl_vlm={gemma_26b_abl_vlm} 26b_abl_all={gemma_26b_abl_all}",
+            t0=t0,
+        )
     except Exception as e:
-        record(sec, "S1-08", "MLX routing: VLM models in VLM_MODELS", "FAIL", str(e)[:100], t0=t0)
+        record(sec, "S1-08", "MLX routing: VLM models flagged is_vlm", "FAIL", str(e)[:100], t0=t0)
 
-    # S1-09: MLX backend routing — text-only models NOT in VLM_MODELS (routes to mlx_lm)
-    # Checks that reasoning models like Magistral and Phi-4 use mlx_lm, not mlx_vlm
+    # S1-09: MLX backend routing — text-only models NOT flagged is_vlm in backends.yaml.
+    # Magistral and Phi-4 must be loaded by mlx_lm, not mlx_vlm.
     t0 = time.time()
     try:
-        proxy_src = (ROOT / "scripts/mlx-proxy.py").read_text()
-        if "VLM_MODELS" in proxy_src and "ALL_MODELS" in proxy_src:
-            vlm_section = proxy_src[proxy_src.index("VLM_MODELS") : proxy_src.index("ALL_MODELS")]
-            magistral_in_all = "Magistral-Small-2509" in proxy_src
-            magistral_in_vlm = "Magistral-Small-2509" in vlm_section
-            phi4_in_all = "phi-4-8bit" in proxy_src
-            phi4_in_vlm = "phi-4-8bit" in vlm_section
-            lm_ok = magistral_in_all and not magistral_in_vlm and phi4_in_all and not phi4_in_vlm
-            record(
-                sec,
-                "S1-09",
-                "MLX routing: text-only models NOT in VLM_MODELS (mlx_lm backend)",
-                "PASS" if lm_ok else "FAIL",
-                "✓ Magistral + Phi-4 use mlx_lm"
-                if lm_ok
-                else f"magistral: all={magistral_in_all} vlm={magistral_in_vlm} | phi4: all={phi4_in_all} vlm={phi4_in_vlm}",
-                t0=t0,
-            )
-        else:
-            record(
-                sec,
-                "S1-09",
-                "MLX routing: text-only models NOT in VLM_MODELS",
-                "WARN",
-                "proxy source not found",
-                t0=t0,
-            )
+        cfg = _load_backends_yaml()
+        vlm_ids = set()
+        all_ids = set()
+        for backend in cfg.get("backends", []):
+            for m in backend.get("mlx_models", []) or []:
+                mid = m.get("id")
+                if not mid:
+                    continue
+                all_ids.add(mid)
+                if m.get("is_vlm") is True:
+                    vlm_ids.add(mid)
+        magistral_id = "lmstudio-community/Magistral-Small-2509-MLX-8bit"
+        phi4_id = "mlx-community/phi-4-8bit"
+        magistral_in_all = magistral_id in all_ids
+        magistral_in_vlm = magistral_id in vlm_ids
+        phi4_in_all = phi4_id in all_ids
+        phi4_in_vlm = phi4_id in vlm_ids
+        lm_ok = magistral_in_all and not magistral_in_vlm and phi4_in_all and not phi4_in_vlm
+        record(
+            sec,
+            "S1-09",
+            "MLX routing: text-only models NOT flagged is_vlm (mlx_lm backend)",
+            "PASS" if lm_ok else "FAIL",
+            "✓ Magistral + Phi-4 use mlx_lm"
+            if lm_ok
+            else f"magistral: all={magistral_in_all} vlm={magistral_in_vlm} | phi4: all={phi4_in_all} vlm={phi4_in_vlm}",
+            t0=t0,
+        )
     except Exception as e:
         record(
             sec,
             "S1-09",
-            "MLX routing: text-only models NOT in VLM_MODELS",
+            "MLX routing: text-only models NOT flagged is_vlm",
             "FAIL",
             str(e)[:100],
             t0=t0,
@@ -2148,10 +2141,12 @@ async def S3a() -> None:
 
     # Ollama-only workspaces (no MLX in routing chain)
     OLLAMA_WORKSPACES = [
-        # Group 1: General — line 1 is huihui_ai/qwen3.5-abliterated:9b (P3 reorder).
-        # auto-video pins to granite4.1:8b (de96984); auto + auto-music pin to
-        # huihui_ai/qwen3.5-abliterated:9b (TASK_TOOL_SUPPORT_AUDIT_V1 §A7).
-        ("Ollama general", ["auto", "auto-video", "auto-music"]),
+        # Group 1: General — auto-video pins to granite4.1:8b (de96984);
+        # auto-music pins to huihui_ai/qwen3.5-abliterated:9b
+        # (TASK_TOOL_SUPPORT_AUDIT_V1 §A7). `auto` moved to S3b: its
+        # workspace_routing is [mlx, security, coding, general] (MLX-first)
+        # with mlx_model_hint=huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit.
+        ("Ollama general", ["auto-video", "auto-music"]),
         # Group 2: Security (baronllm, lily-cybersecurity, xploiter)
         ("Ollama security", ["auto-security", "auto-redteam", "auto-blueteam"]),
         # auto-documents moved to S3b (now [mlx, coding, general] after T-08)
@@ -2235,12 +2230,14 @@ async def S3b() -> None:
             "MLX reasoning",
             ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-mistral"],
         ),
-        # Group 3: Creative (Dolphin-8B)
+        # Group 3: Creative (divinetribe/gemma-4-31b-abl)
         ("MLX creative", ["auto-creative"]),
         # Group 4: Vision (Gemma-4, Qwen3-VL)
         ("MLX vision", ["auto-vision"]),
         # Group 5: Documents (Phi-4 8bit, MLX primary — T-08)
         ("MLX documents", ["auto-documents"]),
+        # Group 6: Math (Qwen2.5-Math-7B-Instruct-4bit)
+        ("MLX math", ["auto-math"]),
     ]
 
     test_num = 1
@@ -2962,11 +2959,9 @@ async def S9() -> None:
 
 
 OLLAMA_WORKSPACES = {
-    "auto",
     "auto-security",
     "auto-redteam",
     "auto-blueteam",
-    "auto-creative",
     "auto-video",
     "auto-music",
 }
@@ -2993,6 +2988,13 @@ async def S10() -> None:
             slug = p["slug"]
             tid = f"S10-{test_num:02d}"
             t0 = time.time()
+            if slug in PERSONA_PROMPTS_EXCLUDED:
+                record(
+                    sec, tid, f"Persona {slug}", "INFO",
+                    "excluded from text-prompt smoke (attachment-driven)", t0=t0,
+                )
+                test_num += 1
+                continue
             if slug not in PERSONA_PROMPTS:
                 record(sec, tid, f"Persona {slug}", "FAIL", "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
@@ -3167,9 +3169,11 @@ async def _mlx_chat_direct(
 
 
 MLX_WORKSPACES = {
+    "auto",
     "auto-coding",
     "auto-agentic",
     "auto-spl",
+    "auto-creative",
     "auto-reasoning",
     "auto-research",
     "auto-data",
@@ -3180,24 +3184,28 @@ MLX_WORKSPACES = {
     "auto-math",
 }
 
-# Memory sizes from mlx-proxy.py MODEL_MEMORY dict (approximate)
-_MLX_MODEL_GB = {
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 17,
-    "mlx-community/Qwen3-Coder-Next-4bit": 22,
-    "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,
-    "Jackrong/MLX-Qwopus3.5-27B-v3-8bit": 22,
-    "mlx-community/gemma-4-31b-it-4bit": 18,
-    "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,
-    "Jiunsong/supergemma4-26b-uncensored-mlx-4bit-v2": 15,
-    "mlx-community/phi-4-8bit": 14,
-    "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit": 15,
-    "lmstudio-community/Magistral-Small-2509-MLX-8bit": 22,
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15,
-    "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34,
-    "mlx-community/gemma-4-e4b-it-4bit": 5,
-    "dealignai/Gemma-4-31B-JANG_4M-CRACK": 23,
-    "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit": 18,
-}
+def _load_mlx_model_gb() -> dict[str, int]:
+    """Build {hf_id → memory_gb} from config/backends.yaml mlx_models list.
+
+    Single source of truth: ``config/backends.yaml`` is also what
+    ``scripts/mlx-proxy.py:_load_mlx_metadata()`` reads. This eliminates
+    drift between the test fixture and the proxy.
+    """
+    cfg = _load_backends_yaml()
+    out: dict[str, int] = {}
+    for backend in cfg.get("backends", []):
+        for m in backend.get("mlx_models", []) or []:
+            mid = m.get("id")
+            mem = m.get("memory_gb")
+            if mid and mem is not None:
+                # round up to int — _ensure_free_ram_gb takes ints
+                out[mid] = int(round(float(mem)))
+    return out
+
+
+# Loaded once at module init; ``_MLX_MODEL_GB.get(hint, 10)`` keeps the
+# same default fallback for unknown models.
+_MLX_MODEL_GB: dict[str, int] = _load_mlx_model_gb()
 
 
 async def S11() -> None:
@@ -3326,6 +3334,13 @@ async def S11() -> None:
             slug = p["slug"]
             tid = f"S11-{test_num:02d}"
             t0 = time.time()
+            if slug in PERSONA_PROMPTS_EXCLUDED:
+                record(
+                    sec, tid, f"Persona {slug} (MLX)", "INFO",
+                    "excluded from text-prompt smoke (attachment-driven)", t0=t0,
+                )
+                test_num += 1
+                continue
             if slug not in PERSONA_PROMPTS:
                 record(sec, tid, f"Persona {slug} (MLX)", "FAIL", "no PERSONA_PROMPTS entry", t0=t0)
                 test_num += 1
