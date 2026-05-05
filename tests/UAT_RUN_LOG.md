@@ -27,3 +27,5 @@
 | 99. gate | PASS | 16:41Z | 16:41Z | — | — | wired=1.9GB after 0s |
 | 99. gate | PASS | 17:36Z | 17:36Z | — | — | wired=1.9GB after 70s |
 | 99. gate | PASS | 17:37Z | 17:37Z | — | — | wired=1.9GB after 70s |
+| 99. gate | PASS | 17:44Z | 17:44Z | — | — | wired=1.8GB after 70s |
+| 99. gate | PASS | 19:48Z | 19:48Z | — | — | wired=1.9GB after 70s |
