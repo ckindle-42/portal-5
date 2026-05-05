@@ -2987,7 +2987,9 @@ PLIST
     fi
     if [ -n "${HF_TOKEN:-}" ]; then
         printf '\n        <key>HF_TOKEN</key>\n        <string>%s</string>' "${HF_TOKEN}"
-    fi)
+    fi
+    printf '\n        <key>MLX_WARM_MODEL</key>\n        <string>%s</string>' "${MLX_WARM_MODEL:-mlx-community/Llama-3.2-3B-Instruct-8bit}"
+    printf '\n        <key>MLX_STARTUP_SENTINEL</key>\n        <string>%s</string>' "${MLX_STARTUP_SENTINEL:-1}")
     </dict>
 </dict>
 </plist>
