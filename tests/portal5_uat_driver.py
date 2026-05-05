@@ -496,6 +496,42 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 180) -> None:
+    """Block until MLX proxy reports state=ready with a model loaded.
+
+    Cold-loading a large model takes 30-90s. Without this wait, the first
+    request to a freshly-loaded model produces an empty response, the driver
+    retries (triggering another cold-load), and the test cascades to FAIL.
+
+    Checks the proxy /health endpoint. On first request to a workspace, the
+    pipeline router selects a backend and the proxy begins loading. We poll
+    until state=ready with loaded_model set, or max_wait seconds pass.
+    """
+    label = f"[{test_name}]" if test_name else ""
+    t0 = time.time()
+    while time.time() - t0 < max_wait:
+        try:
+            resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                state = data.get("state", "?")
+                model = data.get("loaded_model")
+                if state == "ready" and model:
+                    elapsed = time.time() - t0
+                    if elapsed > 1.0:
+                        print(f"  {label} MLX ready ({model}, {elapsed:.0f}s cold-load)")
+                    return
+                elif state == "none" and elapsed > 5:
+                    # Proxy idle — first request hasn't been sent yet.
+                    # The pipeline will route and load on first request.
+                    # Return so the test can fire (which triggers loading).
+                    return
+        except Exception:
+            pass
+        time.sleep(2)
+    print(f"  {label} MLX not ready after {max_wait}s — proceeding anyway")
+
+
 def unload_all_models() -> None:
     """Unload all running models via the proxy's /unload endpoint.
 
@@ -7413,6 +7449,11 @@ async def main() -> None:
         help="Append results to existing UAT_RESULTS.md (for re-runs)",
     )
     parser.add_argument(
+        "--no-unload",
+        action="store_true",
+        help="Skip startup /unload — use when model is pre-warmed",
+    )
+    parser.add_argument(
         "--rerun",
         action="store_true",
         help=(
@@ -7605,10 +7646,17 @@ async def main() -> None:
             if tier != _last_tier:
                 if _last_tier:
                     print(f"  Tier transition: {_last_tier} → {tier} — evicting models")
-                unload_all_models()
+                    unload_all_models()
+                elif args.no_unload:
+                    print(f"  Skipping startup /unload (--no-unload, model pre-warmed)")
+                else:
+                    unload_all_models()
 
                 # Verify prerequisites before proceeding
-                if tier in ("mlx_large", "mlx_small"):
+                # When --no-unload, skip all eviction — model was pre-warmed externally.
+                if args.no_unload:
+                    print("  [verify] Skipping Ollama/MLX eviction checks (--no-unload, model pre-warmed)")
+                elif tier in ("mlx_large", "mlx_small"):
                     # MLX tier: verify Ollama is completely unloaded
                     for retry in range(3):
                         try:
@@ -7708,6 +7756,13 @@ async def main() -> None:
                             )
 
                 _last_tier = tier
+
+            # Pre-flight: wait for model to be ready before firing the test.
+            # Without this, tests fire during cold-load (30-90s for large models),
+            # producing empty responses that cascade into retries and false FAILs.
+            # The proxy reports state=ready + loaded_model when the model is serving.
+            if test.get("workspace_tier") in ("mlx_large", "mlx_small"):
+                _wait_for_mlx_ready(test_name=f"{test['id']} {test['name']}")
 
             # Force-unload before heavy media tests (TTS, music, video, image)
             # that load large frameworks and risk OOM when run consecutively
