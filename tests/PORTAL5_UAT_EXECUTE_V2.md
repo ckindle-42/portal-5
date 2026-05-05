@@ -21,7 +21,7 @@ You are the **UAT execution agent**. You do not build or modify the driver. You 
 
 ## What the UAT Driver Tests
 
-104 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
+110 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
 
 The driver is NOT the acceptance suite. It validates user-observable behavioral contracts that keyword matching cannot catch: does the persona ask before diagnosing? Does the Excel Sheet compute values, not show formula text? Does the Code Review Assistant scope its review to the diff only?
 
@@ -274,7 +274,7 @@ PHASE4_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~22 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
+  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~25 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
@@ -282,9 +282,9 @@ Inter-Phase Check.
 
 ---
 
-## Phase 5 — Ollama-only (security, redteam, blueteam, docs)
+## Phase 5 — Ollama + mlx_small (security, redteam, blueteam, docs)
 
-Before this phase the driver will evict MLX. Wired memory should drop noticeably during the transition.
+MLX will be evicted at tier transitions within the invocation. `auto-docs` is predominantly `mlx_small` (6/7 tests); only `auto-security`, `auto-redteam`, and `auto-blueteam` are pure ollama. Wired memory drops noticeably when the driver moves past the last mlx_small test.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
@@ -322,7 +322,7 @@ PHASE6_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 6. media_heavy | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 4 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE6_EXIT |"
+  echo "| 6. media_heavy | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 5 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE6_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
@@ -330,7 +330,7 @@ Inter-Phase Check.
 
 ---
 
-## Phase 7 — Benchmark (CC-01 across 11 models)
+## Phase 7 — Benchmark (CC-01 across 13 models)
 
 Long, model-by-model. The `bench-*` personas all share a system prompt by design — what's measured is raw model capability on a fixed task. Per-model fail rates are the bench's signal, not bugs.
 
@@ -345,7 +345,7 @@ PHASE7_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 11 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
+  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 13 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
@@ -369,7 +369,7 @@ PHASE8_EXIT=$?
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
   TOTAL=$((PASS+WARN+FAIL))
-  echo "| 8. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~7 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE8_EXIT |"
+  echo "| 8. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~6 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE8_EXIT |"
   echo ""
   echo "## Run summary — $RUN_TS"
   echo ""
@@ -407,7 +407,7 @@ for t in uat: print(' ', t)
 " | head -20
 ```
 
-Expected after a complete run (excluding skips): 70–82 conversations. Fewer means at least one phase recorded results without OWUI chats — investigate `/tmp/uat_phase*.log` for the affected phase.
+Expected after a complete run with `--skip-bots` (excluding `--skip-artifacts`): **~108–110 conversations** (all 110 tests create OWUI chats; A-08 creates 2; A-05/A-06 are skipped). If `--skip-artifacts` is also set, subtract 5 (auto-music + auto-video). Fewer means at least one phase recorded results without OWUI chats — investigate `/tmp/uat_phase*.log` for the affected phase.
 
 ---
 
@@ -458,6 +458,14 @@ until docker info >/dev/null 2>&1; do sleep 5; done
 ```
 
 Then read `tests/UAT_RUN_LOG.md`, identify the last DONE row, and resume from the next phase.
+
+### Re-running a whole phase after a fix:
+
+```bash
+python3 tests/portal5_uat_driver.py --rerun --section auto-coding
+```
+
+`--rerun` removes existing rows in `UAT_RESULTS.md` for the selected tests before running, then appends fresh results. Use it when re-running a section after a fix to avoid duplicate rows. It implies `--append` and requires `--section`, `--test`, or `--media` to scope which rows to replace. Do NOT use `--rerun --all` — it would wipe the entire results file.
 
 ### Re-running a single test (diagnosis only — do NOT use during phased run):
 
@@ -698,12 +706,12 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | Section | Test count | Predominant tier | Phase | Approx time alone |
 |---|---|---|---|---|
 | `auto` | 4 | mlx_small + any | 1 (smoke), 4 | 5–10 min |
-| `auto-coding` | 26 | mlx_large + mlx_small | 3 | 40–60 min |
+| `auto-coding` | 26 | mlx_large + mlx_small + any | 3 | 40–60 min |
 | `auto-spl` | 2 | mlx_small | 4 | 8–12 min |
 | `auto-mistral` | 2 | mlx_small | 4 | 8–12 min |
 | `auto-creative` | 3 | mlx_small | 4 | 8–12 min |
 | `auto-docs` | 7 | mlx_small + ollama | 5 | 15–25 min |
-| `auto-agentic` | 2 | mlx_large | 2 | 20–35 min |
+| `auto-agentic` | 2 | mlx_large + mlx_small | 2 | 20–35 min |
 | `auto-security` | 5 | ollama | 5 | 10–15 min |
 | `auto-redteam` | 3 | ollama | 5 | 8–12 min |
 | `auto-blueteam` | 2 | ollama | 5 | 5–8 min |
@@ -742,4 +750,4 @@ Status values: `DONE`, `PAUSED`, `BLOCKED`, `SKIPPED`. The agent is responsible 
 
 ---
 
-*Last updated: 2026-04-28 (V2 — phased execution, resume tracker, model-grouping reinforcement; aligns with proxy `/unload` + `/health/wired` shipped in 6.0.5)*
+*Last updated: 2026-05-05 (corrected test count 104→110; phase 5 tier label; phase 6/7/8 hardcoded counts; auto-agentic/auto-coding tier tables; conversation estimate; added --rerun to resume protocol)*
