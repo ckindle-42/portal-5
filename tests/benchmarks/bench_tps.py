@@ -206,6 +206,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # interpret a low CC-01 score against Laguna/GLM as expected, not a defect.
     "bench-granite41-8b": "coding",
     "bench-granite41-30b": "coding",
+    "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
 }
 
 # Map Ollama backend group → prompt category
@@ -251,26 +252,9 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Dolphin": "creative",
     "hermes3": "creative",
     "Llama-3.2-3B": "general",
-    "phi-4": "reasoning",
-    "Magistral": "reasoning",
-    "Llama-3.3-70B": "coding",
-    "Qwopus": "reasoning",
-    "Qwen3.5-27B-Claude": "reasoning",
-    "Qwen3.5-9B-Claude": "reasoning",
-    "Qwen3.5-35B": "reasoning",
-    "DeepSeek-R1-Distill": "reasoning",
-    "gemma-4-31b": "vision",
-    "Qwen3-VL": "vision",
-    "gemma-4-e4b": "vision",
-    "gemma-4-26b": "vision",
-    "supergemma4-26b": "vision",  # Jiunsong abliterated Gemma 4 26B A4B MoE — multimodal VLM
-    "JANG_4M-CRACK": "vision",  # dealignai abliterated Gemma 4 31B VLM
-    "Phi-4-reasoning": "reasoning",
-    "Llama-3.2-11B-Vision": "vision",
-    "Qwen2.5-Math": "reasoning",
-    "Qwen2.5-0.5B": "general",
-    "Llama-3.2-1B": "general",
+    "Huihui-Qwen3.5-9B-abliterated": "general",  # AUTO + general line 1 — TASK_TOOL_SUPPORT_AUDIT_V1 §A19
 }
+
 
 
 def _get_prompt_for_model(model: str, group: str = "") -> str:
