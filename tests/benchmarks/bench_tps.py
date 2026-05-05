@@ -245,14 +245,46 @@ PERSONA_CATEGORY_PROMPT_MAP: dict[str, str] = {
 
 # MLX models don't have explicit groups in backends.yaml — infer from name/path
 _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
+    # ── Coding ────────────────────────────────────────────────────────────
     "Devstral": "coding",
     "Qwen3-Coder": "coding",
     "DeepSeek-Coder": "coding",
-    "Huihui-GLM": "coding",  # GLM-4.7-Flash — coding/tool-use model
+    "Llama-3.3-70B": "coding",  # bench-llama33-70b → coding
+    "Huihui-GLM": "coding",
+    "GLM-4.7-Flash": "coding",   # mlx-community/GLM-4.7-Flash-4bit (no Huihui prefix)
+    "glm-4.7-flash": "coding",   # mlx-community/glm-4.7-flash-abliterated-8bit (lowercase variant)
+
+    # ── Reasoning ─────────────────────────────────────────────────────────
+    # NOTE: longer Claude-distill patterns must come before "Qwopus3.5";
+    # "Phi-4-reasoning" must come before any future shorter "Phi-4".
+    "DeepSeek-R1-Distill": "reasoning",
+    "Phi-4-reasoning": "reasoning",
+    "phi-4": "reasoning",          # bench-phi4 → reasoning (lowercase id)
+    "Magistral": "reasoning",
+    "Laguna": "reasoning",         # bench-laguna → reasoning
+    "Qwen2.5-Math": "reasoning",
+    "Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
+    "Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
+    "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
+    "Qwopus3.5": "reasoning",      # Jackrong/MLX-Qwopus3.5-* (after specific Claude-distill ids)
+
+    # ── Vision (Gemma 4 family is multimodal-by-design in this stack) ─────
+    "Qwen3-VL": "vision",
+    "Vision-Instruct": "vision",   # Llama-3.2-11B-Vision-Instruct
+    "supergemma4": "vision",
+    "gemma-4-31b-it": "vision",
+    "gemma-4-e4b": "vision",
+    "Gemma-4-31B-JANG": "vision",  # dealignai/Gemma-4-31B-JANG_4M-CRACK
+
+    # ── Creative ──────────────────────────────────────────────────────────
     "Dolphin": "creative",
     "hermes3": "creative",
+
+    # ── General ───────────────────────────────────────────────────────────
     "Llama-3.2-3B": "general",
-    "Huihui-Qwen3.5-9B-abliterated": "general",  # AUTO + general line 1 — TASK_TOOL_SUPPORT_AUDIT_V1 §A19
+    "Llama-3.2-1B": "general",
+    "Qwen2.5-0.5B": "general",
+    "Huihui-Qwen3.5-9B-abliterated": "general",  # AUTO MLX primary; see TASK_TOOL_SUPPORT_AUDIT_V1 §A19
 }
 
 
@@ -717,13 +749,26 @@ def _config_mlx_models() -> list[str]:
 
 
 def _config_ollama_models_by_group() -> dict[str, list[str]]:
-    """Ollama models grouped by backend group from backends.yaml."""
+    """Ollama models grouped by backend group from backends.yaml.
+
+    Handles both legacy flat-string entries and the current dict form
+    (`{id, supports_tools, notes, …}`) introduced in commit 1af5b3c.
+    """
     cfg = _load_backends_config()
     groups: dict[str, list[str]] = {}
     for be in cfg.get("backends", []):
         if be.get("type") == "ollama":
             group = be.get("group", be.get("id", "unknown"))
-            groups[group] = list(be.get("models", []))
+            entries = be.get("models", []) or []
+            ids: list[str] = []
+            for m in entries:
+                if isinstance(m, dict):
+                    mid = m.get("id")
+                    if mid:
+                        ids.append(mid)
+                elif isinstance(m, str):
+                    ids.append(m)
+            groups[group] = ids
     return groups
 
 
@@ -1625,16 +1670,14 @@ def bench_model_cascade(
     order: str = "size",
     output_path: str = "",
 ) -> list[dict]:
-    """Optimized benchmark: for each MLX model, load once then run direct + workspace + persona tests.
+    """For each MLX model M, load M once for the direct TPS test, then
+    dispatch MLX-routed workspace + persona tests through the pipeline.
 
-    Instead of:
-      load M1 → test → evict → ... → load M1 again via pipeline → test → evict → ...
-
-    This does:
-      load M1 → direct test → workspace tests → persona tests → evict → load M2 → ...
-
-    This eliminates redundant model loads (~50% reduction in MLX switching time)
-    and captures pipeline TPS for each model in a single pass.
+    The pipeline may swap to a different MLX model for each workspace based
+    on the workspace's `mlx_model_hint`; that's intentional. The cascade
+    reduces total runtime primarily by amortizing direct + Ollama-direct
+    phases against a single warm MLX state, not by avoiding pipeline-driven
+    swaps.
 
     Workspaces and personas tested during the cascade are marked as done.
     Remaining non-MLX workspaces/personas are tested in a final pass.
@@ -1828,7 +1871,10 @@ def bench_model_cascade(
                 r["path"] = "pipeline"
                 r["workspace"] = ws
                 r["prompt_category"] = prompt_cat
-                r["active_mlx_model"] = model  # tag which model was loaded
+                r["cascade_iteration_model"] = model  # MLX model the cascade was on at dispatch
+                                                 # (pipeline may have switched to the
+                                                 # workspace's own mlx_model_hint and
+                                                 # evicted this one — see routed_model)
                 results.append(r)
                 if output_path:
                     _append_result(output_path, r)
@@ -1866,7 +1912,7 @@ def bench_model_cascade(
                 r["persona_category"] = cat
                 r["workspace_model"] = wm
                 r["prompt_category"] = prompt_cat
-                r["active_mlx_model"] = model
+                r["cascade_iteration_model"] = model
                 results.append(r)
                 if output_path:
                     _append_result(output_path, r)
