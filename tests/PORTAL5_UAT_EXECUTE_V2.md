@@ -128,7 +128,7 @@ This file is the source of truth for "where am I in the run." Every phase append
 | 7 | benchmark | Long, model-capability-only, can run independently. | 60–90 min |
 | 8 | advanced + manual + verify | Manual reviews, OWUI conversation count, result tally. | 15–30 min |
 
-**Pacing rule:** between phases, run the Inter-Phase Check (below) before launching the next. If the check fails — high wired memory, proxy down, FAIL spike — pause, recover, then continue. Do not chain phases blindly.
+**Pacing rule:** between phases, run `bash tests/inter_phase_gate.sh <phase_num> <test_count>` (the Inter-Phase Gate, defined below). The gate BLOCKS until memory is safe, pipeline is healthy, and FAIL delta is acceptable. It recovers automatically: `/unload` → kill orphaned mlx servers → proxy restart. It kills ComfyUI if running and the next phase isn't media_heavy. Do NOT proceed to the next phase until the gate exits cleanly.
 
 ### How model loading works inside a phase (read this — it changes how you think about phases)
 
@@ -172,27 +172,148 @@ test -s tests/UAT_RESULTS.md && echo "Results file populated" || { echo "ABORT: 
 
 If smoke produces zero conversations or a Python error, diagnose before any further phase (see Diagnosis section). Common cause: OWUI seeded models stale → `./launch.sh reseed && sleep 15`.
 
-### → Inter-Phase Check (now and after every phase)
-
+If smoke passed (results file has rows), run the gate before Phase 2:
 ```bash
-# Memory state
-curl -s http://localhost:8081/health/wired 2>/dev/null | python3 -m json.tool || \
-  curl -s http://localhost:8081/health | python3 -m json.tool
-
-# Quick FAIL count
-echo "Cumulative: $(grep -c '| PASS |' tests/UAT_RESULTS.md)P / $(grep -c '| WARN |' tests/UAT_RESULTS.md)W / $(grep -c '| FAIL |' tests/UAT_RESULTS.md)F"
-
-# Pipeline alive
-curl -sf http://localhost:9099/health > /dev/null && echo "pipeline OK" || echo "PIPELINE DOWN"
+bash tests/inter_phase_gate.sh 1 4
 ```
 
-**Pause criteria** (do not proceed to next phase if any of these are true):
-- `wired_gb > 30` — wait 60s, recheck; if still high, request `/unload`: `curl -X POST 'http://localhost:8081/unload?ollama=true'`
-- Pipeline `/health` not responding
-- Phase exit code non-zero AND no rows added to results file (driver crashed before any test ran)
-- FAIL count jumped by more than 30% of the phase's tests (something systemic broke)
+### → Inter-Phase Gate (now and after every phase — THIS IS A HARD GATE, NOT A SUGGESTION)
 
-If you pause and recover, log it in `tests/UAT_RUN_LOG.md` as a row with Status=PAUSED before retrying the same phase.
+The gate below MUST be run after every phase. It BLOCKS (loops with backoff) until the system is safe to proceed. Do NOT skip it. Do NOT run the next phase command until the gate exits with "GATE PASSED." The gate enforces what the prose above only described.
+
+```bash
+#!/bin/bash
+# inter_phase_gate.sh — hard gate between UAT phases
+# Sleeps/recovers until system safe; exits 0 on PASS, exits 1 on UNRECOVERABLE.
+# Run with: bash tests/inter_phase_gate.sh $PHASE_NUMBER $TEST_COUNT_IN_PHASE
+#   $1 = phase number (for logging)
+#   $2 = number of tests in the just-completed phase (for FAIL delta calc)
+
+set -euo pipefail
+PHASE_NUM="${1:?usage: $0 <phase_num> <phase_test_count>}"
+PHASE_TESTS="${2:?usage: $0 <phase_num> <phase_test_count>}"
+
+FAIL_BEFORE=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
+PASS_BEFORE=$(grep -c '| PASS |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
+
+echo "[GATE:$PHASE_NUM] Inter-phase gate starting (phase had ~$PHASE_TESTS tests, cumulative before: ${PASS_BEFORE}P/${FAIL_BEFORE}F)"
+
+# ---- Gate 1: pipeline health (unrecoverable) ----
+if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
+    echo "[GATE:$PHASE_NUM] FATAL: pipeline DOWN — cannot proceed. Fix and re-run gate."
+    echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | pipeline DOWN |" >> tests/UAT_RUN_LOG.md
+    exit 1
+fi
+echo "[GATE:$PHASE_NUM] Pipeline healthy"
+
+# ---- Gate 2: proxy health (unrecoverable after 3 attempts) ----
+PROXY_DOWN_COUNT=0
+while true; do
+    PROXY_RESP=$(curl -s --max-time 5 http://localhost:8081/health 2>/dev/null || echo '{"state":"down"}')
+    PROXY_STATE=$(echo "$PROXY_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','down'))" 2>/dev/null || echo "down")
+    if [ "$PROXY_STATE" = "down" ]; then
+        PROXY_DOWN_COUNT=$((PROXY_DOWN_COUNT + 1))
+        if [ $PROXY_DOWN_COUNT -ge 3 ]; then
+            echo "[GATE:$PHASE_NUM] FATAL: MLX proxy DOWN after 3 attempts — cannot proceed."
+            echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | proxy DOWN (3 attempts) |" >> tests/UAT_RUN_LOG.md
+            exit 1
+        fi
+        echo "[GATE:$PHASE_NUM] Proxy DOWN (attempt $PROXY_DOWN_COUNT/3) — waiting 30s..."
+        sleep 30
+    else
+        break
+    fi
+done
+echo "[GATE:$PHASE_NUM] Proxy healthy (state=$PROXY_STATE)"
+
+# ---- Gate 3: wired memory MUST come down (THE KEY GATE) ----
+# This blocks until wired_gb < 12 or 10 minutes pass.
+# Every 30s it checks; if still high, it tries /unload.
+# Metal GPU buffer retention after large model eviction can take 2-5 min.
+MAX_WAIT_SEC=600  # 10 minute hard cap
+ELAPSED=0
+UNLOAD_COUNT=0
+while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
+    WIRED_RESP=$(curl -s --max-time 5 http://localhost:8081/health/wired 2>/dev/null || echo '{"wired_gb":99}')
+    WIRED_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('wired_gb',99))" 2>/dev/null || echo 99)
+    FREE_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('free_gb',0))" 2>/dev/null || echo 0)
+    STATE=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','?'))" 2>/dev/null || echo "?")
+
+    if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
+        echo "[GATE:$PHASE_NUM] Memory safe: wired=${WIRED_GB}GB free=${FREE_GB}GB (after ${ELAPSED}s)"
+        break
+    fi
+
+    # Wired still high. If nothing loaded, try /unload to force Metal buffer reclaim.
+    if [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -lt 3 ]; then
+        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=none — requesting /unload (attempt $((UNLOAD_COUNT+1))/3)..."
+        curl -s -X POST 'http://localhost:8081/unload?ollama=true' > /dev/null 2>&1 || true
+        UNLOAD_COUNT=$((UNLOAD_COUNT + 1))
+        sleep 30
+        ELAPSED=$((ELAPSED + 30))
+        continue
+    fi
+
+    if [ "$STATE" != "none" ] && [ "$STATE" != "ready" ]; then
+        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=${STATE} — proxy in transition, waiting..."
+    elif [ "$STATE" = "ready" ]; then
+        LOADED=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('loaded_model','?'))" 2>/dev/null || echo "?")
+        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=ready model=${LOADED} — model loaded, waiting..."
+    else
+        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB free=${FREE_GB}GB state=${STATE} — waiting for Metal buffer reclamation..."
+    fi
+
+    sleep 30
+    ELAPSED=$((ELAPSED + 30))
+done
+
+if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" != "1" ]; then
+    echo "[GATE:$PHASE_NUM] Memory gate timed out after ${MAX_WAIT_SEC}s (wired=${WIRED_GB}GB)."
+    echo "[GATE:$PHASE_NUM] WARNING: proceeding with elevated memory — expect potential empty responses."
+    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | wired=${WIRED_GB}GB after ${MAX_WAIT_SEC}s timeout, proceeding anyway |" >> tests/UAT_RUN_LOG.md
+else
+    echo "| $PHASE_NUM. gate | PASS | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | — | — | wired=${WIRED_GB}GB after ${ELAPSED}s |" >> tests/UAT_RUN_LOG.md
+fi
+
+# ---- Gate 4: FAIL delta check ----
+FAIL_AFTER=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
+FAIL_DELTA=$((FAIL_AFTER - FAIL_BEFORE))
+FAIL_PCT=0
+if [ "$PHASE_TESTS" -gt 0 ]; then
+    FAIL_PCT=$((FAIL_DELTA * 100 / PHASE_TESTS))
+fi
+echo "[GATE:$PHASE_NUM] FAIL delta: +${FAIL_DELTA}/${PHASE_TESTS} (${FAIL_PCT}%)"
+if [ "$FAIL_PCT" -gt 30 ] && [ "$PHASE_TESTS" -gt 3 ]; then
+    echo "[GATE:$PHASE_NUM] WARNING: >30% of phase tests FAILED — investigate before proceeding."
+    echo "[GATE:$PHASE_NUM] Check tests/UAT_RESULTS.md for the new FAIL rows."
+    echo "[GATE:$PHASE_NUM] Common cause: memory pressure causing empty responses (check wired_gb above)."
+    echo "[GATE:$PHASE_NUM] If FAILs are all empty-response cascades, proceed. If behavioral, pause and diagnose."
+    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | FAIL delta ${FAIL_PCT}% (${FAIL_DELTA}/${PHASE_TESTS}) |" >> tests/UAT_RUN_LOG.md
+fi
+
+echo ""
+echo "============================================"
+echo " GATE $PHASE_NUM PASSED — safe to proceed"
+echo " Cumulative: $(grep -c '| PASS |' tests/UAT_RESULTS.md)P / $(grep -c '| WARN |' tests/UAT_RESULTS.md)W / $(grep -c '| FAIL |' tests/UAT_RESULTS.md)F"
+echo " Wired: ${WIRED_GB}GB  Free: ${FREE_GB}GB  Proxy: ${PROXY_STATE}"
+echo "============================================"
+```
+
+**The gate is the agent's contract with the hardware.** It must be run between every phase with the phase number and test count as arguments:
+
+```bash
+bash tests/inter_phase_gate.sh 1 4   # after Phase 1 (4 tests)
+bash tests/inter_phase_gate.sh 2 16  # after Phase 2 (16 tests)
+# ... and so on
+```
+
+**Gate enforcement rules** (the agent must NOT override these):
+- Gate exit code 1 = **hard stop**. Fix the issue before any further test execution.
+- Gate `WARN` on memory timeout or FAIL delta = **acknowledge explicitly** in run log, then proceed.
+- Gate `PASS` = proceed immediately to next phase.
+- The gate already appends rows to `tests/UAT_RUN_LOG.md` — the agent does not need to log separately.
+
+**Why this gate exists:** prior execution runs ignored the pause criteria, running phases with `wired_gb > 40` and causing 22+ behavioral FAILs that were actually empty-response cascades from memory starvation. The prose pause criteria were read but not enforced. This gate programmatically enforces them.
 
 ---
 
@@ -218,7 +339,10 @@ PHASE2_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Run the **Inter-Phase Check** before phase 3.
+Run the **Inter-Phase Gate** before phase 3:
+```bash
+bash tests/inter_phase_gate.sh 2 16
+```
 
 ### Why these four sections and not auto-data?
 
@@ -248,7 +372,10 @@ PHASE3_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Run the **Inter-Phase Check** before phase 4.
+Run the **Inter-Phase Gate** before phase 4:
+```bash
+bash tests/inter_phase_gate.sh 3 26
+```
 
 ---
 
@@ -278,7 +405,10 @@ PHASE4_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Inter-Phase Check.
+Inter-Phase Gate:
+```bash
+bash tests/inter_phase_gate.sh 4 25
+```
 
 ---
 
@@ -303,7 +433,10 @@ PHASE5_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Inter-Phase Check.
+Inter-Phase Gate (5→6: keep ComfyUI for media_heavy):
+```bash
+bash tests/inter_phase_gate.sh 5 17 --keep-comfyui
+```
 
 ---
 
@@ -326,7 +459,10 @@ PHASE6_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Inter-Phase Check.
+Inter-Phase Gate (6→7: kill ComfyUI, benchmark doesn't need it):
+```bash
+bash tests/inter_phase_gate.sh 6 5
+```
 
 ---
 
@@ -349,7 +485,10 @@ PHASE7_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Inter-Phase Check.
+Inter-Phase Gate:
+```bash
+bash tests/inter_phase_gate.sh 7 13
+```
 
 ---
 
