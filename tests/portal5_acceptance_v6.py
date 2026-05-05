@@ -18,7 +18,7 @@ Dependencies (auto-installed on first run):
 
 PROTECTED — never modify these files:
     portal_pipeline/**  portal_mcp/**  config/  deploy/  Dockerfile.*
-    scripts/openwebui_init.py  docs/HOWTO.md  imports/
+    scripts/openwebui_init.py  scripts/mlx-proxy.py  docs/HOWTO.md  imports/
 
 Status model:
     PASS    — verified working exactly as documented
@@ -857,19 +857,10 @@ _MLX_MODEL_SIZES_GB = {
     "Qwen3-VL-32B-Instruct-8bit": 36,
 }
 
-# Known MLX org prefixes
 # MLX org prefixes — workspace_model values starting with these are raw HF paths
 # that Open WebUI can never resolve (pipeline only exposes workspace IDs).
-_MLX_ORGS = [
-    "mlx-community/",
-    "lmstudio-community/",
-    "Jackrong/",
-    "Jiunsong/",
-    "unsloth/",
-    "dealignai/",
-    "huihui-ai/",
-    "divinetribe/",
-]
+# Single source of truth: tests/expected_models.py _MLX_ORG_PREFIXES.
+from expected_models import _MLX_ORG_PREFIXES as _MLX_ORGS  # noqa: E402
 
 
 
