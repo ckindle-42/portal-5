@@ -2477,7 +2477,9 @@ async def chat_completions(
                 "supports_tools — falling back to text-only response (no tools "
                 "attached). Set supports_tools=true in config/backends.yaml after "
                 "verification via tests/portal5_persona_matrix.py --audit-tools.",
-                workspace_id, persona, target_model,
+                workspace_id,
+                persona,
+                target_model,
             )
 
         if _has_tools:

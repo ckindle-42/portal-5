@@ -60,6 +60,7 @@ VALID_WORKSPACES = frozenset(
         "bench-laguna",
         "bench-granite41-8b",
         "bench-granite41-30b",
+        "bench-qwen35-abliterated",
     }
 )
 
