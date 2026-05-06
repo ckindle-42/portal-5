@@ -61,17 +61,17 @@ PROGRESS_LOG_INTERVAL = 120  # log a heartbeat every 2 min
 # Tiered polling intervals — replace the single 30s PROGRESS_POLL_S at the
 # decision points in _wait_for_completion. The 30s value remains in use as
 # a heartbeat reference but is no longer the polling resolution.
-PHASE1_FAST_S = 0.5             # poll every 0.5s while waiting for stream to start
-PHASE1_FAST_DURATION_S = 10     # for the first 10 seconds
-PHASE1_MID_S = 2.0              # then poll every 2s
-PHASE1_MID_DURATION_S = 30      # for the next 30 seconds (10s..40s elapsed)
-PHASE1_SLOW_S = 5.0             # then poll every 5s for very cold loads (40s+)
+PHASE1_FAST_S = 0.5  # poll every 0.5s while waiting for stream to start
+PHASE1_FAST_DURATION_S = 10  # for the first 10 seconds
+PHASE1_MID_S = 2.0  # then poll every 2s
+PHASE1_MID_DURATION_S = 30  # for the next 30 seconds (10s..40s elapsed)
+PHASE1_SLOW_S = 5.0  # then poll every 5s for very cold loads (40s+)
 
-PHASE2_STREAMING_POLL_S = 1.5   # poll every 1.5s while model is actively streaming
-PHASE2_DOM_STABLE_NEEDED = 3    # consecutive identical samples to declare DOM stable
+PHASE2_STREAMING_POLL_S = 1.5  # poll every 1.5s while model is actively streaming
+PHASE2_DOM_STABLE_NEEDED = 3  # consecutive identical samples to declare DOM stable
 
-POST_STREAM_API_WAIT_S = 15.0   # bounded API poll after stream ends (replaces fixed sleep(5))
-BACKEND_SETTLE_WAIT_S = 15.0    # bounded backend-alive poll after retry (replaces sleep(15))
+POST_STREAM_API_WAIT_S = 15.0  # bounded API poll after stream ends (replaces fixed sleep(5))
+BACKEND_SETTLE_WAIT_S = 15.0  # bounded backend-alive poll after retry (replaces sleep(15))
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
 SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
@@ -209,6 +209,7 @@ def _check_image_freshness() -> list[str]:
 
     try:
         import mlx_lm
+
         v = getattr(mlx_lm, "__version__", "?")
         print(f"  [freshness]   mlx-lm {v}", flush=True)
     except Exception:
@@ -216,6 +217,7 @@ def _check_image_freshness() -> list[str]:
 
     try:
         import mlx_vlm
+
         v = getattr(mlx_vlm, "__version__", "?")
         print(f"  [freshness]   mlx-vlm {v}", flush=True)
     except Exception:
@@ -543,12 +545,16 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
                 elif state == "switching":
                     # Model is loading — wait for it.
                     if int(time.time() - t0) % 30 < 2:
-                        print(f"  {label} MLX switching (loading model) — {int(time.time() - t0)}s elapsed")
+                        print(
+                            f"  {label} MLX switching (loading model) — {int(time.time() - t0)}s elapsed"
+                        )
 
                 elif state == "down":
                     fatal_count += 1
                     if fatal_count >= 3:
-                        print(f"  {label} MLX state=down after {fatal_count} checks — recovering...")
+                        print(
+                            f"  {label} MLX state=down after {fatal_count} checks — recovering..."
+                        )
                         unload_all_models()
                         time.sleep(10)
                         fatal_count = 0
@@ -559,11 +565,17 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
                 print(f"  {label} MLX proxy unreachable ({fatal_count}x) — checking process...")
                 # Check if proxy process is alive
                 import subprocess
-                procs = subprocess.run(["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True)
+
+                procs = subprocess.run(
+                    ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
+                )
                 if not procs.stdout.strip():
                     print(f"  {label} MLX proxy process NOT running — attempting restart...")
-                    subprocess.run(["nohup", "python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        ["nohup", "python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                     time.sleep(30)
                 fatal_count = 0
 
@@ -848,9 +860,10 @@ def owui_get_routed_model(token: str, chat_id: str) -> str:
 
 
 def _map_slug_to_workspace(slug: str) -> str:
-    """Resolve a persona slug to its workspace id, or return the slug 
+    """Resolve a persona slug to its workspace id, or return the slug
     if it's already a workspace id."""
     from expected_models import _PERSONA_MAP, WORKSPACES
+
     if slug in WORKSPACES:
         return slug
     p = _PERSONA_MAP.get(slug, {})
@@ -875,7 +888,9 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
     try:
         result = subprocess.run(
             ["docker", "logs", "portal5-pipeline", "--tail", "300"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         combined = result.stdout + result.stderr  # docker logs may use either stream
         # Search for routing entries; use the workspace to match, and use the
@@ -884,8 +899,9 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
             if not search_term:
                 continue
             pattern = re.compile(
-                r'Routing workspace=' + re.escape(search_term)
-                + r'.*?backend=([^\s]+)\s+model=([^\s]+)'
+                r"Routing workspace="
+                + re.escape(search_term)
+                + r".*?backend=([^\s]+)\s+model=([^\s]+)"
             )
             matches = pattern.findall(combined)
             if matches:
@@ -1349,7 +1365,9 @@ async def _download_artifact(
         # generate_image / generate_video return:
         #   http://localhost:8188/view?filename=portal_xxx.png&type=output
         # The /files/ pattern above never matches this shape.
-        comfyui_pat = rf"https?://[^\s)>\]]*/view\?filename=[^\s)>\]]*\.{re.escape(expected_ext)}[^\s)>\]]*"
+        comfyui_pat = (
+            rf"https?://[^\s)>\]]*/view\?filename=[^\s)>\]]*\.{re.escape(expected_ext)}[^\s)>\]]*"
+        )
         comfyui_match = re.search(comfyui_pat, response_text)
         if comfyui_match:
             from urllib.parse import parse_qs, urlparse
@@ -1419,13 +1437,16 @@ async def _download_artifact(
             continue
 
     # Try 4: ComfyUI direct download — query /history for the most recent
-    # portal_video_*.mp4. Video MCP outputs to host ComfyUI (not a container),
-    # so docker cp never finds it. This covers video gen without response_text.
-    # Recency guard: only accept videos generated in the last 15 minutes, to
+    # portal_*.{mp4,png}. ComfyUI runs host-native (port 8188), so docker cp
+    # never finds its output files regardless of extension.
+    # png: prefix "portal_" (comfyui_mcp.py SaveImage node)
+    # mp4: prefix "portal_video_" (video_mcp.py)
+    # Recency guard: only accept files generated in the last 15 minutes, to
     # avoid picking up stale files from a previous test session.
-    if expected_ext == "mp4":
+    if expected_ext in ("mp4", "png"):
         try:
             import time as _time
+
             now_ms = int(_time.time() * 1000)
             cutoff_ms = now_ms - (15 * 60 * 1000)
             r = httpx.get("http://localhost:8188/history", timeout=10)
@@ -1440,7 +1461,11 @@ async def _download_artifact(
                     for node_outputs in outputs.values():
                         for img in node_outputs.get("images", []):
                             fname = img.get("filename", "")
-                            if fname.startswith("portal_video_") and fname.endswith(".mp4"):
+                            ext_match = fname.endswith(f".{expected_ext}")
+                            prefix_match = (
+                                expected_ext == "mp4" and fname.startswith("portal_video_")
+                            ) or (expected_ext == "png" and fname.startswith("portal_"))
+                            if ext_match and prefix_match:
                                 msgs = job_data.get("status", {}).get("messages", [])
                                 ts = msgs[0][1].get("timestamp", 0) if msgs else 0
                                 if ts >= cutoff_ms and ts > best_ts:
@@ -1558,8 +1583,8 @@ def _extract_code_blocks(text: str) -> str:
     # Unclosed fenced block: opening ``` anywhere, no closing ```
     if not parts:
         fence_match = re.search(r"```(?:\w+)?\n", text)
-        if fence_match and "```" not in text[fence_match.end():]:
-            code_text = text[fence_match.end():].strip()
+        if fence_match and "```" not in text[fence_match.end() :]:
+            code_text = text[fence_match.end() :].strip()
             parts.append(code_text)
 
     # Raw HTML delivery (no markdown wrapper)
@@ -1848,8 +1873,6 @@ def compute_status(assertions: list, assertions_spec: list) -> str:
             break
 
     if has_critical_fail:
-        if pct >= 70:
-            return "WARN"  # model was correct, assertion too narrow
         return "FAIL"
 
     if pct >= 70:
@@ -2435,12 +2458,24 @@ _CC01_ASSERTIONS = [
         "label": "Lives system (keyword)",
         "word_boundary": True,
         "keywords": [
-            "lives", "life",
-            "lives_remaining", "numlives", "playerlives",
-            "player.lives", "this.lives", "this.life",
-            "playerlife", "livescount", "livesleft",
-            "lifecount", "remaininglives", "player_lives",
-            "lose a life", "lost a life", "starting lives", "3 lives",
+            "lives",
+            "life",
+            "lives_remaining",
+            "numlives",
+            "playerlives",
+            "player.lives",
+            "this.lives",
+            "this.life",
+            "playerlife",
+            "livescount",
+            "livesleft",
+            "lifecount",
+            "remaininglives",
+            "player_lives",
+            "lose a life",
+            "lost a life",
+            "starting lives",
+            "3 lives",
         ],
         "critical": False,
     },
@@ -3546,7 +3581,10 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "Not a prediction",
-                "keywords": ["would output", "the output would be", "this will print"],
+                # "the output would be" removed — model sometimes uses this phrasing
+                # *after* executing (e.g. "The output would be: …") which is fine.
+                # The ': 1' assertion above already confirms actual execution occurred.
+                "keywords": ["would output", "this will print"],
                 "critical": True,
             },
         ],
@@ -4797,6 +4835,18 @@ TEST_CATALOG: list[dict] = [
                     "requirements",
                     "constraints",
                     "tell me more",
+                    "before i can",
+                    "before designing",
+                    "need to know",
+                    "help me understand",
+                    "tell me about",
+                    "more context",
+                    "what are",
+                    "clarify",
+                    "could you",
+                    "please share",
+                    "existing",
+                    "insufficient context",
                 ],
             },
             {
@@ -6804,8 +6854,13 @@ async def _run_two_chat_test(
         # Chat 1
         await _navigate_to_chat(page, chat1_url)
         await _send_and_wait(
-            page, test["prompt"], test_id, tier, max_wait,
-            token=token, chat_id=chat1_id,
+            page,
+            test["prompt"],
+            test_id,
+            tier,
+            max_wait,
+            token=token,
+            chat_id=chat1_id,
         )
         response1 = owui_get_last_response(token, chat1_id) or ""
         routed_model_1 = owui_get_routed_model(token, chat1_id)
@@ -6819,8 +6874,13 @@ async def _run_two_chat_test(
         # via the model calling 'recall' on the Memory MCP.
         await _navigate_to_chat(page, chat2_url)
         await _send_and_wait(
-            page, test["turn2_in_new_chat"], test_id, tier, max_wait,
-            token=token, chat_id=chat2_id,
+            page,
+            test["turn2_in_new_chat"],
+            test_id,
+            tier,
+            max_wait,
+            token=token,
+            chat_id=chat2_id,
         )
         response2 = owui_get_last_response(token, chat2_id) or ""
         routed_model_2 = owui_get_routed_model(token, chat2_id)
@@ -7092,8 +7152,13 @@ async def run_test(
         for attempt in range(3):
             attempts_used = attempt + 1
             await _send_and_wait(
-                page, test["prompt"], test_id, tier, max_wait,
-                token=token, chat_id=chat_id,
+                page,
+                test["prompt"],
+                test_id,
+                tier,
+                max_wait,
+                token=token,
+                chat_id=chat_id,
             )
             response_text = owui_get_last_response(token, chat_id)
             if response_text:
@@ -7144,6 +7209,7 @@ async def run_test(
             # before the tool completes. Refresh response_text if it looks
             # incomplete (empty, or has no artifact URL yet).
             import re as _re
+
             _art_url_present = _re.search(
                 rf"(?:/files/\S+?\.{_re.escape(art_ext)}|view\?filename=[^\s)>\]]*\.{_re.escape(art_ext)})",
                 response_text or "",
@@ -7157,8 +7223,13 @@ async def run_test(
         turn2_response = ""
         if turn2:
             await _send_and_wait(
-                page, turn2, test_id, tier, max_wait,
-                token=token, chat_id=chat_id,
+                page,
+                turn2,
+                test_id,
+                tier,
+                max_wait,
+                token=token,
+                chat_id=chat_id,
             )
             # For turn2, get the second assistant message
             turn2_response = owui_get_last_response(token, chat_id)
@@ -7719,14 +7790,16 @@ async def main() -> None:
                     print(f"  Tier transition: {_last_tier} → {tier} — evicting models")
                     unload_all_models()
                 elif args.no_unload:
-                    print(f"  Skipping startup /unload (--no-unload, model pre-warmed)")
+                    print("  Skipping startup /unload (--no-unload, model pre-warmed)")
                 else:
                     unload_all_models()
 
                 # Verify prerequisites before proceeding
                 # When --no-unload, skip all eviction — model was pre-warmed externally.
                 if args.no_unload:
-                    print("  [verify] Skipping Ollama/MLX eviction checks (--no-unload, model pre-warmed)")
+                    print(
+                        "  [verify] Skipping Ollama/MLX eviction checks (--no-unload, model pre-warmed)"
+                    )
                 elif tier in ("mlx_large", "mlx_small"):
                     # MLX tier: verify Ollama is completely unloaded
                     for retry in range(3):

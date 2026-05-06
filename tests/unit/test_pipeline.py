@@ -353,11 +353,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 30 (18 production + 12 bench-* coding benchmark workspaces)."""
+        """Total workspace count is now 31 (19 production + 12 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 30, (
-            f"Expected 30 workspaces (18 production + 12 bench-*), got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 31, (
+            f"Expected 31 workspaces (19 production + 12 bench-*), got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):
@@ -384,7 +384,8 @@ class TestR17bModelExpansion:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         all_models = []
         for b in cfg["backends"]:
-            all_models.extend(b.get("models", []))
+            for m in b.get("models", []):
+                all_models.append(m["id"] if isinstance(m, dict) else m)
 
         required = [
             # R23: dolphin-3-llama3-70b-GGUF → imported as dolphin-llama3:70b-q4_k_m
@@ -431,7 +432,8 @@ class TestR18ModelCompleteness:
             if "mlx_models" in b:
                 all_models.extend(m["id"] for m in b["mlx_models"])
             else:
-                all_models.extend(b.get("models", []))
+                for m in b.get("models", []):
+                    all_models.append(m["id"] if isinstance(m, dict) else m)
 
         required = [
             # Security
@@ -444,7 +446,7 @@ class TestR18ModelCompleteness:
             # R20: Qwen3-Coder-Next-GGUF replaced with MLX (sharded GGUF incompatible with Ollama)
             "Qwen3-Coder-Next-4bit",
             "GLM-4.7-Flash",
-            "deepseek-coder-v2-lite",  # R23: updated to bartowski rehost
+            # deepseek-coder-v2-lite removed (P5-MLX-005) — gibberish output on Apple Silicon
             # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
             "llama3.3:70b-q4_k_m",  # R23: updated to bartowski rehost
             # Reasoning
@@ -624,20 +626,20 @@ class TestR22CodingModelUpdates:
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         coding = next(b for b in cfg["backends"] if b["id"] == "ollama-coding")
-        models = coding["models"]
+        model_ids = [m["id"] if isinstance(m, dict) else m for m in coding["models"]]
 
         # Llama 3.3 should be present (upgraded from 3.1)
-        assert any("llama3.3" in m.lower() for m in models), (
+        assert any("llama3.3" in m.lower() for m in model_ids), (
             "Llama 3.3-70B missing from coding group — should have replaced 3.1"
         )
 
         # Llama 3.1 should be gone
-        assert not any("Meta-Llama-3.1-70B" in m for m in models), (
+        assert not any("Meta-Llama-3.1-70B" in m for m in model_ids), (
             "Llama 3.1-70B still in coding group — should be replaced by 3.3"
         )
 
         # Qwen3.5-9B should be present
-        assert any("qwen3.5" in m.lower() or "Qwen3.5" in m for m in models), (
+        assert any("qwen3.5" in m.lower() or "Qwen3.5" in m for m in model_ids), (
             "qwen3.5:9b missing from coding group — fast coding slot"
         )
 
@@ -886,11 +888,11 @@ class TestSPLWorkspace:
         assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 30 (18 production + 12 bench-* coding benchmark workspaces)."""
+        """Total workspace count must be 31 (19 production + 12 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 30, (
-            f"Expected 30 workspaces (18 production + 12 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 31, (
+            f"Expected 31 workspaces (19 production + 12 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -1153,13 +1155,17 @@ class TestAutoCodingWorkspace:
 
     def test_auto_coding_mlx_hint_in_catalog(self):
         """auto-coding mlx_model_hint must be a known non-VLM MLX model in backends.yaml."""
-        import yaml
         from pathlib import Path
+
+        import yaml
+
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
         assert hint, "auto-coding workspace must have an mlx_model_hint"
-        cfg = yaml.safe_load((Path(__file__).parent.parent.parent / "config" / "backends.yaml").read_text())
+        cfg = yaml.safe_load(
+            (Path(__file__).parent.parent.parent / "config" / "backends.yaml").read_text()
+        )
         catalog_ids = {
             m["id"]
             for b in cfg.get("backends", [])

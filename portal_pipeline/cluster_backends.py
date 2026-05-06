@@ -204,7 +204,8 @@ class BackendRegistry:
                     else:
                         logger.warning(
                             "Backend %s: unexpected model entry type %s, skipping",
-                            be.get("id"), type(m).__name__,
+                            be.get("id"),
+                            type(m).__name__,
                         )
             backend = Backend(
                 id=be["id"],
@@ -218,7 +219,9 @@ class BackendRegistry:
             self._backends[backend.id] = backend
             logger.info(
                 "Registered backend: %s (%s) in group '%s' (%d models, %d with metadata)",
-                backend.id, backend.type, backend.group,
+                backend.id,
+                backend.type,
+                backend.group,
                 len(flat_models),
                 len(ollama_meta) + len(mlx_meta),
             )

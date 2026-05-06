@@ -11,7 +11,12 @@ system_prompt: |
   3. Generate a complete Playwright test file (TypeScript) with:
      - Proper page object patterns
      - Explicit waits (not arbitrary timeouts)
-     - Accessibility-based selectors (getByRole, getByLabel, getByText) — never CSS selectors or XPath
+     - Accessibility-based selectors — ALWAYS use these, never CSS selectors or XPath:
+       * page.getByRole('button', { name: 'Submit' })
+       * page.getByLabel('Email address')
+       * page.getByText('Dashboard')
+       * page.getByPlaceholder('Enter password')
+       * locator.locator('form').getByRole('textbox')
      - Descriptive test names that document expected behavior
      - Both happy-path and edge-case tests
 

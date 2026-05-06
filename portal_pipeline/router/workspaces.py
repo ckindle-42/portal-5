@@ -257,7 +257,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, "
             "[THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models."
         ),
-        "model_hint": "deepseek-r1:32b-q4_k_m",
+        # qwen3.5-abliterated:9b is in the general group (auto-mistral routing
+        # was [mlx, reasoning, general] but reasoning was removed because deepseek-r1
+        # exhausts its thinking budget on strategy tasks → empty responses).
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
         "predict_limit": 16384,
         "emits_reasoning": True,
