@@ -153,8 +153,12 @@ else
     echo "[GATE:$PHASE_NUM] No non-MLX memory pressure sources detected"
 fi
 
-# ---- Gate 3: wired memory MUST come down (THE KEY GATE) ----
-# This gate blocks until wired_gb < 12 or 10 minutes pass.
+# ---- Gate 3: wired + inactive memory MUST come down (THE KEY GATE) ----
+# This gate blocks until wired_gb < 12 AND inactive_gb < 20, or 10 minutes pass.
+# inactive_gb is critical: Metal GPU buffers released by a killed server go to inactive,
+# not free. The macOS VM pager reclaims inactive gradually, but until it does, new GPU
+# allocations can fail because Metal-inactive pages aren't instantly reusable. A high
+# inactive_gb with low wired_gb is the signature of a SIGKILL Metal leak.
 # Every polling cycle it prints a full snapshot so the operator can monitor in real time.
 # The agent MUST NOT proceed to the next phase until this gate passes or times out.
 
@@ -164,25 +168,37 @@ while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
     WIRED_RESP=$(curl -s --max-time 5 http://localhost:8081/health/wired 2>/dev/null || echo '{"wired_gb":99,"free_gb":0,"state":"?"}')
     WIRED_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('wired_gb',99))" 2>/dev/null || echo 99)
     FREE_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('free_gb',0))" 2>/dev/null || echo 0)
+    INACTIVE_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('inactive_gb',0))" 2>/dev/null || echo 0)
     STATE=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','?'))" 2>/dev/null || echo "?")
     LOADED=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('loaded_model','-'))" 2>/dev/null || echo "-")
     ACTIVE_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('active_gb','?'))" 2>/dev/null || echo "?")
 
     # Real-time snapshot for operator monitoring
-    echo "  [GATE:$PHASE_NUM +${ELAPSED}s] wired=${WIRED_GB}GB free=${FREE_GB}GB active=${ACTIVE_GB}GB state=${STATE} model=${LOADED}"
+    echo "  [GATE:$PHASE_NUM +${ELAPSED}s] wired=${WIRED_GB}GB free=${FREE_GB}GB active=${ACTIVE_GB}GB inactive=${INACTIVE_GB}GB state=${STATE} model=${LOADED}"
 
-    if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
-        echo "[GATE:$PHASE_NUM] Memory safe (wired=${WIRED_GB}GB < 12GB) after ${ELAPSED}s"
+    WIRED_SAFE=$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)
+    INACTIVE_SAFE=$(echo "$INACTIVE_GB < 20" | bc -l 2>/dev/null || echo 0)
+    if [ "$WIRED_SAFE" = "1" ] && [ "$INACTIVE_SAFE" = "1" ]; then
+        echo "[GATE:$PHASE_NUM] Memory safe (wired=${WIRED_GB}GB < 12GB, inactive=${INACTIVE_GB}GB < 20GB) after ${ELAPSED}s"
         break
     fi
 
     # ---- Recovery escalation ladder ----
     # Level 0: model loaded? /unload it.
-    # Level 1: state=none but wired high? /unload to force Metal reclaim.
+    # Level 1: state=none but wired/inactive high? /unload to force Metal reclaim.
     # Level 2: /unload returned freed=0 three times? Kill orphaned mlx servers holding GPU buffers.
-    # Level 3: wired still >30 after killing orphans? Restart the proxy (cleanest reclaim).
+    # Level 3: wired/inactive still high after killing orphans? Restart the proxy (cleanest reclaim).
+    # Level 4 (pre-escalation): inactive > 20GB while state=none -> proxy restart once.
+    #   /unload can reclaim wired memory but NOT kernel-level inactive Metal buffers.
+    #   A fresh proxy process MAY trigger the VM pager to clean stale Metal pages.
+    #   If inactive stays high after one restart, it's kernel-level and we accept it
+    #   (the kernel will recycle inactive pages when new GPU allocations demand memory).
 
-    if [ "$STATE" = "ready" ] && [ "$LOADED" != "-" ] && [ "$LOADED" != "null" ]; then
+    if [ "$INACTIVE_SAFE" != "1" ] && [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -lt 5 ]; then
+        echo "[GATE:$PHASE_NUM]  --> Inactive ${INACTIVE_GB}GB > 20GB, state=none — Metal leak, restarting proxy once"
+        UNLOAD_COUNT=5  # Jump to Level 3, which does the actual restart
+
+    elif [ "$STATE" = "ready" ] && [ "$LOADED" != "-" ] && [ "$LOADED" != "null" ]; then
         # Level 0: normal eviction
         echo "[GATE:$PHASE_NUM]  --> Level 0: state=ready with ${LOADED} — /unload"
         curl -s -X POST 'http://localhost:8081/unload?ollama=true' | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'       result: wired {d.get(\"wired_before_gb\",\"?\")}->{d.get(\"wired_after_gb\",\"?\")}GB freed={d.get(\"wired_freed_gb\",\"?\")}GB ollama_evicted={d.get(\"ollama_evicted\",\"?\")}')" 2>/dev/null || echo "       request sent"
@@ -201,29 +217,24 @@ while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
 
     elif [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -ge 3 ] && [ "$UNLOAD_COUNT" -lt 5 ]; then
         # Level 2: /unload returned freed=0 three times — kill orphaned mlx servers
-        # IMPORTANT: Never kill -9 a Metal process without trying SIGTERM first.
-        # Metal GPU driver can't reclaim buffers from a force-killed process.
-        # SIGTERM allows mlx_lm.server to run its own cleanup.
+        # Only SIGTERM. If servers survive SIGTERM, escalate to Level 3 (proxy restart)
+        # instead of SIGKILL — SIGKILL creates unreclaimable Metal GPU buffers.
         ORPHANS=$(pgrep -f "mlx_lm.server|mlx_vlm.server" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
             echo "[GATE:$PHASE_NUM]  --> Level 2: /unload freed 0GB 3x — orphaned mlx servers: $ORPHANS"
             for pid in $ORPHANS; do
                 CMD=$(ps -p $pid -o comm= 2>/dev/null || echo '?')
-                echo "[GATE:$PHASE_NUM]       SIGTERM to $CMD (PID=$pid) — graceful Metal cleanup..."
+                echo "[GATE:$PHASE_NUM]       SIGTERM to $CMD (PID=$pid)..."
                 kill -TERM "$pid" 2>/dev/null || true
             done
             sleep 5
-            # Check if they're still alive after SIGTERM
             STILL_ALIVE=$(pgrep -f "mlx_lm.server|mlx_vlm.server" 2>/dev/null || true)
             if [ -n "$STILL_ALIVE" ]; then
-                echo "[GATE:$PHASE_NUM]       Servers survived SIGTERM — SIGKILL (risk: Metal may leak)"
-                for pid in $STILL_ALIVE; do
-                    kill -9 "$pid" 2>/dev/null || true
-                done
+                echo "[GATE:$PHASE_NUM]       Servers survived SIGTERM — escalating to Level 3 (proxy restart, no SIGKILL)"
+                UNLOAD_COUNT=5  # Jump to Level 3
             else
                 echo "[GATE:$PHASE_NUM]       Servers shut down gracefully via SIGTERM"
             fi
-            echo "[GATE:$PHASE_NUM]       Waiting 30s for Metal buffer release..."
             sleep 30
             ELAPSED=$((ELAPSED + 35))
             UNLOAD_COUNT=$((UNLOAD_COUNT + 1))
@@ -232,38 +243,44 @@ while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
             UNLOAD_COUNT=5
         fi
 
-    elif [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -ge 5 ]; then
-        # Level 3: restart the MLX proxy (cleanest Metal reclaim)
-        # SIGTERM first — proxy handles graceful shutdown of child mlx servers.
-        # SIGKILL only if SIGTERM fails, and only after logging the Metal leak risk.
+    elif [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -ge 5 ] && [ "$UNLOAD_COUNT" -lt 50 ]; then
+        # Level 3: restart the MLX proxy (cleanest Metal reclaim). ONE ATTEMPT ONLY.
+        # The proxy process owns the Metal device context. Starting a fresh process forces
+        # the VM pager to release stale Metal allocations that /unload cannot touch.
+        # We SIGTERM the old proxy; if it survives, we start the new one anyway and
+        # the kernel will reclaim the old process's Metal memory when it finally exits.
+        # NEVER SIGKILL — that leaves Metal GPU buffers unreclaimable.
         PROXY_PID=$(pgrep -f "mlx-proxy.py" 2>/dev/null || true)
         if [ -n "$PROXY_PID" ]; then
-            echo "[GATE:$PHASE_NUM]  --> Level 3: wired=${WIRED_GB}GB after Level 0-2 — restarting MLX proxy"
-            echo "[GATE:$PHASE_NUM]       SIGTERM to proxy (PID=$PROXY_PID) — allows graceful child cleanup..."
+            echo "[GATE:$PHASE_NUM]  --> Level 3: wired=${WIRED_GB}GB inactive=${INACTIVE_GB}GB — restarting MLX proxy"
+            echo "[GATE:$PHASE_NUM]       SIGTERM to proxy (PID=$PROXY_PID) for graceful Metal buffer release..."
             kill -TERM "$PROXY_PID" 2>/dev/null || true
-            sleep 10
-            # Kill any remaining children after proxy down
+            # Wait for graceful shutdown
+            for i in $(seq 1 12); do
+                if ! kill -0 "$PROXY_PID" 2>/dev/null; then
+                    echo "[GATE:$PHASE_NUM]       Old proxy exited cleanly (SIGTERM)"
+                    break
+                fi
+                sleep 5
+            done
+            # Any remaining children get SIGTERM too (never SIGKILL)
             for pid in $(pgrep -f "mlx_lm.server|mlx_vlm.server" 2>/dev/null || true); do
                 echo "[GATE:$PHASE_NUM]       SIGTERM to lingering child $pid..."
                 kill -TERM "$pid" 2>/dev/null || true
             done
             sleep 5
-            # Only SIGKILL if still alive
-            for pid in $(pgrep -f "mlx_lm.server|mlx_vlm.server|mlx-proxy.py" 2>/dev/null || true); do
-                echo "[GATE:$PHASE_NUM]       SIGKILL $pid (last resort — Metal may leak)"
-                kill -9 "$pid" 2>/dev/null || true
-            done
-            # Restart from deployed copy
-            echo "[GATE:$PHASE_NUM]       Restarting proxy from ~/.portal5/mlx/mlx-proxy.py..."
-            nohup python3 ~/.portal5/mlx/mlx-proxy.py > /tmp/mlx-proxy-restart.log 2>&1 &
-            echo "[GATE:$PHASE_NUM]       Proxy restarted (PID=$!). Waiting 45s for startup..."
-            sleep 45
-            ELAPSED=$((ELAPSED + 60))
-            UNLOAD_COUNT=99
-        else
-            echo "[GATE:$PHASE_NUM]  --> Level 3: no proxy PID found — cannot restart"
-            UNLOAD_COUNT=99
         fi
+        # Start fresh proxy — the kernel will reclaim old process's Metal memory
+        echo "[GATE:$PHASE_NUM]       Starting fresh proxy from ~/.portal5/mlx/mlx-proxy.py..."
+        pkill -f "mlx_lm.server|mlx_vlm.server" 2>/dev/null || true  # safety: SIGTERM any stragglers
+        nohup python3 ~/.portal5/mlx/mlx-proxy.py > /tmp/mlx-proxy-restart.log 2>&1 &
+        NEW_PID=$!
+        echo "[GATE:$PHASE_NUM]       Proxy restarted (PID=$NEW_PID). Waiting 45s for startup..."
+        sleep 45
+            ELAPSED=$((ELAPSED + 60))
+            UNLOAD_COUNT=100  # Never re-enter Level 3 — one restart per gate run
+            # Reset the loop so we check the fresh proxy's inactive state
+            continue
 
     elif [ "$STATE" != "none" ] && [ "$STATE" != "ready" ]; then
         echo "[GATE:$PHASE_NUM]  --> Wait: proxy in transition (${STATE}) — allowing settle time"
@@ -275,12 +292,18 @@ while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
     ELAPSED=$((ELAPSED + 30))
 done
 
-if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" != "1" ]; then
-    echo "[GATE:$PHASE_NUM] Memory gate timed out after ${MAX_WAIT_SEC}s (wired=${WIRED_GB}GB)."
-    echo "[GATE:$PHASE_NUM] WARNING: proceeding with elevated memory — expect potential empty responses."
-    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | wired=${WIRED_GB}GB after ${MAX_WAIT_SEC}s timeout |" >> tests/UAT_RUN_LOG.md
+if [ "$WIRED_SAFE" != "1" ] || [ "$INACTIVE_SAFE" != "1" ]; then
+    WARN_MSG="wired=${WIRED_GB}GB inactive=${INACTIVE_GB}GB"
+    echo "[GATE:$PHASE_NUM] Memory gate timed out after ${MAX_WAIT_SEC}s (${WARN_MSG})."
+    if [ "$INACTIVE_SAFE" != "1" ] && [ "$WIRED_SAFE" = "1" ]; then
+        echo "[GATE:$PHASE_NUM] WARNING: inactive is high but wired is safe — kernel-level Metal leak, proceeding"
+        echo "[GATE:$PHASE_NUM] The kernel recycles inactive pages on demand; new model loads should work."
+    else
+        echo "[GATE:$PHASE_NUM] WARNING: proceeding with elevated memory — expect potential empty responses."
+    fi
+    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | ${WARN_MSG} after ${MAX_WAIT_SEC}s timeout |" >> tests/UAT_RUN_LOG.md
 else
-    echo "| $PHASE_NUM. gate | PASS | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | — | — | wired=${WIRED_GB}GB after ${ELAPSED}s |" >> tests/UAT_RUN_LOG.md
+    echo "| $PHASE_NUM. gate | PASS | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | — | — | wired=${WIRED_GB}GB inactive=${INACTIVE_GB}GB after ${ELAPSED}s |" >> tests/UAT_RUN_LOG.md
 fi
 
 # ---- Gate 4: FAIL delta check ----
@@ -303,5 +326,5 @@ echo ""
 echo "============================================"
 echo " GATE $PHASE_NUM PASSED — safe to proceed"
 echo " Cumulative: $(grep -c '| PASS |' tests/UAT_RESULTS.md)P / $(grep -c '| WARN |' tests/UAT_RESULTS.md)W / $(grep -c '| FAIL |' tests/UAT_RESULTS.md)F"
-echo " Wired: ${WIRED_GB}GB  Free: ${FREE_GB}GB  Proxy: ${PROXY_STATE}"
+echo " Wired: ${WIRED_GB}GB  Free: ${FREE_GB}GB  Inactive: ${INACTIVE_GB}GB  Proxy: ${PROXY_STATE}"
 echo "============================================"

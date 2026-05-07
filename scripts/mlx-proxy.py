@@ -1365,7 +1365,8 @@ class Handler(BaseHTTPRequestHandler):
             # Compact wired-memory endpoint for the watchdog leak detector.
             # Returns wired_gb plus enough state to decide whether high
             # wired memory is legitimate (model loaded) or a leak (state=none
-            # but wired stayed high).
+            # but wired stayed high). Also exposes inactive_gb: Metal GPU
+            # buffers released by a killed server go to inactive, not free.
             mem = memory_monitor.to_dict().get("current", {}) or {}
             self._send_json(
                 200,
@@ -1373,6 +1374,8 @@ class Handler(BaseHTTPRequestHandler):
                     "wired_gb": mem.get("wired_gb", 0.0),
                     "free_gb": mem.get("free_gb", 0.0),
                     "active_gb": mem.get("active_gb", 0.0),
+                    "inactive_gb": mem.get("inactive_gb", 0.0),
+                    "purgeable_gb": mem.get("purgeable_gb", 0.0),
                     "state": mlx_state.state,
                     "loaded_model": mlx_state.loaded_model,
                     "expected_wired_gb": MODEL_MEMORY.get(mlx_state.loaded_model, 0.0)

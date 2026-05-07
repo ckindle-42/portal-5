@@ -317,6 +317,42 @@ def _check_memory_before_test(test_name: str = "") -> bool:
     if used >= MEMORY_WARN_PCT:
         print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
 
+    # Even if used_pct is moderate, low free_gb means not enough contiguous
+    # GPU-accessible pages for a model load. < 8 GB free reliably causes
+    # empty responses on models. The kernel reclaims inactive pages on demand
+    # during new allocations, so inactive alone is not a reason to skip.
+    # (Inactive tracking + recovery lives in inter_phase_gate.sh between phases.)
+    try:
+        h = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+        free_gb = float(h.get("free_gb", 99))
+        if free_gb < 4:
+            print(
+                f"  [MEMORY] Low free memory: {free_gb:.1f}GB — evicting before {test_name}",
+                flush=True,
+            )
+            unload_all_models()
+            time.sleep(15)
+            h2 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+            free_after = float(h2.get("free_gb", 99))
+            if free_after < 4:
+                print(
+                    f"  [MEMORY] Only {free_after:.1f}GB free after eviction — "
+                    "restarting proxy to reclaim inactive Metal pages",
+                    flush=True,
+                )
+                _restart_proxy_for_reclaim()
+                time.sleep(15)
+                h3 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+                free_reclaim = float(h3.get("free_gb", 99))
+                if free_reclaim < 4:
+                    print(
+                        f"  [MEMORY] Still {free_reclaim:.1f}GB free after proxy restart — skipping",
+                        flush=True,
+                    )
+                    return False
+    except Exception:
+        pass
+
     return True
 
 
@@ -553,10 +589,10 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
                     fatal_count += 1
                     if fatal_count >= 3:
                         print(
-                            f"  {label} MLX state=down after {fatal_count} checks — recovering..."
+                            f"  {label} MLX state=down after {fatal_count} checks — restarting proxy"
                         )
-                        unload_all_models()
-                        time.sleep(10)
+                        _restart_proxy_for_reclaim()
+                        pre_warmed = False  # re-trigger pre-warm for new proxy
                         fatal_count = 0
 
         except Exception:
@@ -657,19 +693,98 @@ def unload_all_models() -> None:
         )
 
 
+def _restart_proxy_for_reclaim() -> bool:
+    """Restart the MLX proxy to reclaim kernel-level inactive Metal pages.
+
+    /unload frees the loaded model but cannot touch inactive Metal buffers
+    left by prior server kills. Only a fresh proxy process forces the VM
+    pager to release stale Metal allocations. Uses SIGTERM (never SIGKILL)
+    and waits for the new proxy to become ready.
+
+    Returns True if restart was successful and proxy is ready.
+    """
+    import subprocess
+
+    proxy_pid = None
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True, timeout=5
+        )
+        proxy_pid = int(result.stdout.strip().split("\n")[0])
+    except Exception:
+        pass
+
+    if proxy_pid:
+        print("  [reclaim] Restarting proxy to reclaim inactive Metal pages ...", flush=True)
+        try:
+            subprocess.run(["kill", "-TERM", str(proxy_pid)], timeout=10)
+        except Exception:
+            pass
+        time.sleep(5)
+        # SIGTERM any lingering mlx servers
+        try:
+            subprocess.run(["pkill", "-f", "mlx_lm.server|mlx_vlm.server"], timeout=5)
+        except Exception:
+            pass
+        time.sleep(5)
+
+    # Start fresh proxy
+    try:
+        subprocess.Popen(
+            ["python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        print(f"  [reclaim] Failed to start proxy: {e}", flush=True)
+        return False
+
+    # Wait for proxy to become ready, then wait for first memory sample
+    for _ in range(12):
+        time.sleep(5)
+        try:
+            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
+            if h.status_code == 200 and h.json().get("state") in ("ready", "none"):
+                # Wait for the proxy's MemoryMonitor to complete its first sample
+                # (reports all zeros until then)
+                print("  [reclaim] Proxy ready — waiting for memory sample ...", flush=True)
+                time.sleep(30)
+                try:
+                    w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+                    free = w.get("free_gb", 0)
+                    inactive = w.get("inactive_gb", 0)
+                    print(
+                        f"  [reclaim] free={free:.1f}GB inactive={inactive:.1f}GB",
+                        flush=True,
+                    )
+                    return free > 0  # Only return True if we got real data
+                except Exception:
+                    pass
+                return True
+        except Exception:
+            pass
+    print("  [reclaim] Proxy restart timed out", flush=True)
+    return False
+
+
 def cleanup_after_uat() -> None:
-    """Full cleanup after all UAT tests complete — prevents OOM post-run."""
+    """Full cleanup after all UAT tests complete — prevents OOM post-run.
+    
+    After /unload, restarts the proxy to reclaim kernel-level inactive Metal
+    pages that accumulate from model switch SIGTERMs during the run.
+    """
     print("\n  Post-UAT cleanup: evicting all models ...", end=" ", flush=True)
     unload_all_models()
-    # Check memory state
+    # Check memory state and reclaim inactive if needed
     try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-        mem = h.get("memory", {}).get("current", {})
-        used = mem.get("used_pct", 0)
-        if used > 70:
-            print(f"WARNING: memory still at {used:.0f}%")
+        w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+        free = w.get("free_gb", 0)
+        inactive = w.get("inactive_gb", 0)
+        if free < 8 and inactive > 10:
+            print(f"({free:.0f}GB free, {inactive:.0f}GB inactive — reclaiming)", flush=True)
+            _restart_proxy_for_reclaim()
         else:
-            print(f"ok ({used:.0f}% used)")
+            print(f"ok (free={free:.0f}GB, inactive={inactive:.0f}GB)", flush=True)
     except Exception:
         print("ok (proxy unreachable)")
 
@@ -1001,10 +1116,9 @@ async def _wait_for_response_arrival(
     OWUI persists the assistant message at end-of-stream with a brief lag
     (typically <500ms, occasionally a few seconds under load). This helper
     replaces fixed asyncio.sleep(5) padding with an exponential-backoff
-    poll that returns as soon as content lands.
+    poll that returns as soon as content lands and has stabilized.
 
-    Returns content string on arrival, or "" on timeout. Caller decides
-    whether to escalate (retry, late-poll loop, etc.).
+    Returns content string on arrival+stability, or "" on timeout.
     """
     if not token or not chat_id:
         await asyncio.sleep(2.0)
@@ -1016,7 +1130,17 @@ async def _wait_for_response_arrival(
     while time.monotonic() < deadline:
         text = owui_get_last_response(token, chat_id)
         if text:
-            return text
+            # Content arrived — wait 2s and re-poll to confirm the model
+            # isn't still streaming. Models that generate long sectioned
+            # responses (headers like "Key Takeaways") may pause briefly,
+            # causing DOM stability to fire prematurely.
+            await asyncio.sleep(2.0)
+            text2 = owui_get_last_response(token, chat_id)
+            if text2 and abs(len(text2) - len(text)) < 100:
+                # Length stable — model is truly done
+                return text2
+            # Length grew — model still streaming, keep polling
+            text = text2
         delay = delays[min(idx, len(delays) - 1)]
         idx += 1
         remaining = deadline - time.monotonic()
@@ -7905,7 +8029,9 @@ async def main() -> None:
             # Without this, tests fire during cold-load (30-90s for large models),
             # producing empty responses that cascade into retries and false FAILs.
             # The proxy reports state=ready + loaded_model when the model is serving.
-            if test.get("workspace_tier") in ("mlx_large", "mlx_small"):
+            # Called for ALL tiers: any-tier tests also route through MLX when
+            # the pipeline falls through, and a mid-switch proxy returns 503.
+            if test.get("workspace_tier") in ("mlx_large", "mlx_small", "any"):
                 _wait_for_mlx_ready(test_name=f"{test['id']} {test['name']}")
 
             # Force-unload before heavy media tests (TTS, music, video, image)
@@ -7969,7 +8095,19 @@ async def main() -> None:
                 if not same_model and mem_pct >= MEMORY_WARN_PCT:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
-                    time.sleep(5)
+                    # Wait for proxy to finish unload and reach stable state.
+                    # /unload sends SIGTERM to mlx servers — the proxy needs time
+                    # to kill them and release GPU memory. A blind sleep is not enough;
+                    # we must confirm state=none or state=ready before next test.
+                    for _ in range(12):
+                        time.sleep(5)
+                        try:
+                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+                            st = h.get("state", "")
+                            if st in ("none", "ready"):
+                                break
+                        except Exception:
+                            pass
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
                         print(
