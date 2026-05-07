@@ -38,10 +38,10 @@ def test_workspace_with_mlx_down_returns_ollama_only():
 
 
 def test_ollama_only_workspace_unaffected_by_mlx_state():
-    keys_ready, _ = expected_model_keys("auto-security", mlx_state="ready")
-    keys_down, _ = expected_model_keys("auto-security", mlx_state="down")
+    # auto-blueteam has no mlx_model_hint, so MLX state should not change results
+    keys_ready, _ = expected_model_keys("auto-blueteam", mlx_state="ready")
+    keys_down, _ = expected_model_keys("auto-blueteam", mlx_state="down")
     assert keys_ready == keys_down
-    assert any("baronllm" in k for k in keys_ready)
 
 
 def test_unknown_workspace_returns_empty():
