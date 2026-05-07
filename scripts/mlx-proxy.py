@@ -839,6 +839,15 @@ def start_server(stype: str, model: str = "") -> int:
     if model:
         cmd.extend(["--model", model])
 
+    # Raise the server-level max_tokens default from mlx_lm's hardcoded 512 to a
+    # value that covers full code generation tasks (Asteroids ~6K tok, research
+    # responses ~8K tok). The pipeline's _inject_mlx_options still applies
+    # workspace-level predict_limit as a per-request cap; this flag is only the
+    # fallback when no max_tokens arrives in the request body.
+    mlx_max_tokens = os.environ.get("MLX_SERVER_MAX_TOKENS", "16384")
+    if stype == "lm":
+        cmd.extend(["--max-tokens", mlx_max_tokens])
+
     # ── mlx_vlm performance flags ───────────────────────────────────────────
     if stype == "vlm":
         if MLX_VLM_KV_BITS:

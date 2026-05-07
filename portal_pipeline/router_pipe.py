@@ -1489,28 +1489,32 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     return body
 
 
+# Pipeline-level fallback for mlx_lm.server requests that have no max_tokens.
+# mlx_lm.server's CLI default is 512 tokens — enough for a short paragraph, not
+# for code generation (Asteroids HTML ~6K tok) or research responses (~8K tok).
+# This floor fires only when the workspace has no predict_limit AND the caller
+# (Open WebUI) did not pass max_tokens. Overrideable via env var.
+_MLX_DEFAULT_MAX_TOKENS: int = int(os.environ.get("MLX_DEFAULT_MAX_TOKENS", "8192"))
+
+
 def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
     """Inject MLX-specific defaults not already in the request.
 
     Only called for backends with type='mlx'. Translates the engine-agnostic
-    workspace-level ``predict_limit`` (originally Ollama-flavored) into the
-    OpenAI-format ``max_tokens`` field that mlx_lm.server / mlx_vlm.server
-    honor.
+    workspace-level ``predict_limit`` into the OpenAI-format ``max_tokens``
+    field that mlx_lm.server / mlx_vlm.server honor.
 
-    Without this injection, MLX requests rely on the inference server's
-    internal default, which can truncate the response while the model is
-    still in the analysis phase (observed: 2026-04-28 UAT §A, auto-coding
-    tests producing 1880-2192 chars of analysis before truncation, never
-    reaching the requested code block).
+    Falls back to _MLX_DEFAULT_MAX_TOKENS (8192) when no workspace predict_limit
+    is configured — prevents mlx_lm.server's 512-token default from silently
+    truncating responses mid-generation.
 
     Uses setdefault() — never overrides an explicit ``max_tokens`` from the
     caller (e.g. Open WebUI passing its own value).
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
-    predict_limit = ws_cfg_local.get("predict_limit")
-    if predict_limit:
-        body.setdefault("max_tokens", predict_limit)
+    predict_limit = ws_cfg_local.get("predict_limit") or _MLX_DEFAULT_MAX_TOKENS
+    body.setdefault("max_tokens", predict_limit)
     return body
 
 
