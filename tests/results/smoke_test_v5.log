@@ -2,155 +2,177 @@
 === Smoke mlx-community/Olmo-3-1125-32B-4bit (text) ===
 {
   "model": "mlx-community/Olmo-3-1125-32B-4bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "aris.\nuser\nIn one sentence, what is the capital of France?\nassistant\nThe capital\n==========\nPrompt: 19 tokens, 29.546 tokens-per-sec\nGeneration: 50 tokens, 13.537 tokens-per-sec\nPeak memory: 18.214 GB",
+  "body_chars": 243
 }
 
 === Smoke mlx-community/Olmo-3-1125-32B-6bit (text) ===
 {
   "model": "mlx-community/Olmo-3-1125-32B-6bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "er\nWhat is the capital of France?\nassistant\nThe capital of France is Paris.\nuser\n\n==========\nPrompt: 19 tokens, 12.359 tokens-per-sec\nGeneration: 50 tokens, 9.621 tokens-per-sec\nPeak memory: 26.271 GB",
+  "body_chars": 235
 }
 
 === Smoke mlx-community/Olmo-3-1125-32B-8bit (text) ===
 {
   "model": "mlx-community/Olmo-3-1125-32B-8bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": " Paris.\nuser\nIn one sentence, what is the capital of France?\nassistant\nThe capital\n==========\nPrompt: 19 tokens, 5.565 tokens-per-sec\nGeneration: 50 tokens, 7.196 tokens-per-sec\nPeak memory: 34.328 GB",
+  "body_chars": 241
 }
 
 === Smoke mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit (text) ===
 {
   "model": "mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "t Paris is a major city,, but is it the capital? I remember learning that capitals\n==========\nPrompt: 15 tokens, 4.733 tokens-per-sec\nGeneration: 50 tokens, 8.008 tokens-per-sec\nPeak memory: 30.995 GB",
+  "body_chars": 230
 }
 
 === Smoke mlx-community/DeepSeek-R1-Distill-Llama-70B-4bit (text) ===
 {
   "model": "mlx-community/DeepSeek-R1-Distill-Llama-70B-4bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": " Let me think... I remember learning in school that Paris is the capital. But wait\n==========\nPrompt: 15 tokens, 2.945 tokens-per-sec\nGeneration: 50 tokens, 6.369 tokens-per-sec\nPeak memory: 39.804 GB",
+  "body_chars": 236
 }
 
 === Smoke mlx-community/granite-4.1-30b-mxfp4 (text) ===
 {
   "model": "mlx-community/granite-4.1-30b-mxfp4",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 19 tokens, 35.347 tokens-per-sec\nGeneration: 8 tokens, 17.370 tokens-per-sec\nPeak memory: 15.473 GB",
+  "body_chars": 107
 }
 
 === Smoke mlx-community/granite-4.1-30b-mxfp8 (text) ===
 {
   "model": "mlx-community/granite-4.1-30b-mxfp8",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 19 tokens, 12.586 tokens-per-sec\nGeneration: 8 tokens, 9.581 tokens-per-sec\nPeak memory: 29.884 GB",
+  "body_chars": 106
 }
 
 === Smoke mlx-community/granite-4.1-30b-nvfp4 (text) ===
 {
   "model": "mlx-community/granite-4.1-30b-nvfp4",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 19 tokens, 35.183 tokens-per-sec\nGeneration: 8 tokens, 16.743 tokens-per-sec\nPeak memory: 16.353 GB",
+  "body_chars": 107
 }
 
 === Smoke mlx-community/gemma-4-26b-a4b-it-4bit (vlm) ===
 {
   "model": "mlx-community/gemma-4-26b-a4b-it-4bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "<turn|>\n<|turn>model\n<|channel>thought\n<channel|>\nThe capital of France is Paris.\n==========\nPrompt: 24 tokens, 63.243 tokens-per-sec\nGeneration: 8 tokens, 79.265 tokens-per-sec\nPeak memory: 15.691 GB",
+  "body_chars": 295
 }
 
 === Smoke mlx-community/gemma-4-26b-a4b-it-6bit (vlm) ===
 {
   "model": "mlx-community/gemma-4-26b-a4b-it-6bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "<turn|>\n<|turn>model\n<|channel>thought\n<channel|>\nThe capital of France is Paris.\n==========\nPrompt: 24 tokens, 73.684 tokens-per-sec\nGeneration: 8 tokens, 63.090 tokens-per-sec\nPeak memory: 21.857 GB",
+  "body_chars": 295
 }
 
 === Smoke mlx-community/gemma-4-26b-a4b-it-8bit (vlm) ===
 {
   "model": "mlx-community/gemma-4-26b-a4b-it-8bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "turn|>\n<|turn>model\n<|channel>thought\n<channel|>\nThe capital of France is Paris.\n==========\nPrompt: 24 tokens, 158.134 tokens-per-sec\nGeneration: 8 tokens, 56.367 tokens-per-sec\nPeak memory: 28.030 GB",
+  "body_chars": 296
 }
 
 === Smoke mlx-community/gemma-4-31b-8bit (vlm) ===
 {
   "model": "mlx-community/gemma-4-31b-8bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "t is the capital of Spain?\n\nIn one sentence, what is the capital of Portugal?\n\nIn\n==========\nPrompt: 12 tokens, 24.504 tokens-per-sec\nGeneration: 50 tokens, 7.410 tokens-per-sec\nPeak memory: 34.031 GB",
+  "body_chars": 376
 }
 
 === Smoke mlx-community/gemma-4-26B-A4B-it-heretic-4bit (vlm) ===
 {
   "model": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "turn|>\n<|turn>model\n<|channel>thought\n<channel|>\nThe capital of France is Paris.\n==========\nPrompt: 24 tokens, 190.416 tokens-per-sec\nGeneration: 8 tokens, 81.714 tokens-per-sec\nPeak memory: 15.691 GB",
+  "body_chars": 296
 }
 
 === Smoke mlx-community/Devstral-Small-2505-4bit (text) ===
 {
   "model": "mlx-community/Devstral-Small-2505-4bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 185 tokens, 121.387 tokens-per-sec\nGeneration: 8 tokens, 21.564 tokens-per-sec\nPeak memory: 13.534 GB",
+  "body_chars": 109
 }
 
 === Smoke mlx-community/Devstral-Small-2505-4bit-DWQ (text) ===
 {
   "model": "mlx-community/Devstral-Small-2505-4bit-DWQ",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 185 tokens, 130.511 tokens-per-sec\nGeneration: 8 tokens, 20.874 tokens-per-sec\nPeak memory: 13.534 GB",
+  "body_chars": 109
 }
 
 === Smoke mlx-community/Devstral-Small-2505-6bit (text) ===
 {
   "model": "mlx-community/Devstral-Small-2505-6bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 185 tokens, 123.618 tokens-per-sec\nGeneration: 8 tokens, 15.237 tokens-per-sec\nPeak memory: 19.418 GB",
+  "body_chars": 109
 }
 
 === Smoke mlx-community/Devstral-Small-2505-8bit (text) ===
 {
   "model": "mlx-community/Devstral-Small-2505-8bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 185 tokens, 121.839 tokens-per-sec\nGeneration: 8 tokens, 11.581 tokens-per-sec\nPeak memory: 25.256 GB",
+  "body_chars": 109
 }
 
 === Smoke mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit (text) ===
 {
   "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "the constraint:** \"In one sentence\"\n3.  **Formulate the answer:** The capital of\n==========\nPrompt: 21 tokens, 31.645 tokens-per-sec\nGeneration: 50 tokens, 15.971 tokens-per-sec\nPeak memory: 15.419 GB",
+  "body_chars": 212
 }
 
 === Smoke mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-6Bit (text) ===
 {
   "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-6Bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "nstraint:** The answer must be in exactly one sentence.\n3.  **Retrieve knowledge\n==========\nPrompt: 21 tokens, 33.213 tokens-per-sec\nGeneration: 50 tokens, 11.599 tokens-per-sec\nPeak memory: 22.113 GB",
+  "body_chars": 233
 }
 
 === Smoke mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-8Bit (text) ===
 {
   "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-8Bit",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "onstraint:** The answer must be in exactly one sentence.\n3.  **Retrieve knowledge\n==========\nPrompt: 21 tokens, 40.690 tokens-per-sec\nGeneration: 50 tokens, 8.940 tokens-per-sec\nPeak memory: 28.831 GB",
+  "body_chars": 232
 }
 
 === Smoke mlx-community/granite-4.1-3b-mxfp8 (text) ===
 {
   "model": "mlx-community/granite-4.1-3b-mxfp8",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "PASS",
+  "stdout_tail": "==========\nThe capital of France is Paris.\n==========\nPrompt: 19 tokens, 204.088 tokens-per-sec\nGeneration: 8 tokens, 73.131 tokens-per-sec\nPeak memory: 3.624 GB",
+  "body_chars": 107
 }
 
 === Smoke mlx-community/gemma-4-26b-a4b-it-bf16 (vlm) ===
 {
   "model": "mlx-community/gemma-4-26b-a4b-it-bf16",
-  "status": "FAIL_EXCEPTION",
-  "err": "[Errno 2] No such file or directory: 'python'"
+  "status": "FAIL_RUNTIME",
+  "stderr_tail": "/18 [00:00<00:00, 24159.19it/s]\n/opt/homebrew/lib/python3.14/site-packages/transformers/audio_utils.py:549: UserWarning: At least one mel filter has all zero values. The value for `num_mel_filters` (128) may be set too high. Or, the value for `num_frequency_bins` (257) may be set too low.\n  warnings.warn(\nlibc++abi: terminating due to uncaught exception of type std::runtime_error: [METAL] Command buffer execution failed: Insufficient Memory (00000008:kIOGPUCommandBufferCallbackErrorOutOfMemory)\n",
+  "stdout_tail": "Calling `python -m mlx_vlm.generate ...` directly is deprecated. Use `mlx_vlm generate` or `python -m mlx_vlm generate` instead."
 }
 
-PASS: 0  FAIL: 22  SKIP: 1
+PASS: 21  FAIL: 1  SKIP: 1

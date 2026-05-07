@@ -51,11 +51,13 @@ PROMPT = "In one sentence, what is the capital of France?"
 
 
 def smoke_one(model_id: str, kind: str) -> dict:
+    import sys as _sys
+    exe = _sys.executable
     cmd = (
-        ["python", "-m", "mlx_vlm.generate", "--model", model_id,
+        [exe, "-m", "mlx_vlm.generate", "--model", model_id,
          "--prompt", PROMPT, "--max-tokens", "50", "--temperature", "0.0"]
         if kind == "vlm" else
-        ["python", "-m", "mlx_lm.generate", "--model", model_id,
+        [exe, "-m", "mlx_lm", "generate", "--model", model_id,
          "--prompt", PROMPT, "--max-tokens", "50", "--temp", "0"]
     )
     env = os.environ.copy()
