@@ -42,7 +42,7 @@ class AlertEvent:
             EventType.TEST_SUMMARY: ":clipboard:",
         }.get(self.type, ":bell:")
 
-        lines = [f"{emoji} *Portal 5 Alert — {self.type.value}*"]
+        lines = [f"{emoji} *Portal 5 Alert — {self.type.value.replace('_', ' ')}*"]
         lines.append(self.message)
         if self.backend_id:
             lines.append(f"`backend_id`: {self.backend_id}")
@@ -69,7 +69,7 @@ class AlertEvent:
             EventType.TEST_SUMMARY: "[TEST SUMMARY]",
         }.get(self.type, "[ALERT]")
 
-        lines = [f"{prefix} Portal 5 — {self.type.value}", "", self.message]
+        lines = [f"{prefix} — Portal 5 — {self.type.value.replace('_', ' ')}", "", self.message]
         if self.backend_id:
             lines.append(f"Backend: {self.backend_id}")
         if self.workspace:
@@ -87,7 +87,7 @@ class AlertEvent:
         """Format for email notification."""
         sep = "\n" if plaintext else "<br>"
         lines = [
-            f"<b>Portal 5 — {_html.escape(self.type.value.upper())}</b>",
+            f"<b>Portal 5 — {_html.escape(self.type.value.replace('_', ' ').upper())}</b>",
             "",
             _html.escape(self.message),
         ]

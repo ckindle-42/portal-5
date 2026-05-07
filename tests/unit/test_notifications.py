@@ -26,7 +26,7 @@ class TestAlertEvent:
         )
         formatted = event.format_slack()
         assert ":warning:" in formatted
-        assert "backend_down" in formatted  # enum value, not ALL_CAPS
+        assert "backend down" in formatted
         assert "ollama-1" in formatted
 
     def test_format_telegram(self):
@@ -38,7 +38,7 @@ class TestAlertEvent:
         )
         formatted = event.format_telegram()
         assert "[CRITICAL]" in formatted
-        assert "all_backends_down" in formatted  # type value
+        assert "all backends down" in formatted  # type value
 
     def test_format_pushover_truncates(self):
         from portal_pipeline.notifications.events import AlertEvent, EventType
@@ -60,7 +60,7 @@ class TestAlertEvent:
         )
         formatted = event.format_email()
         assert "<b>" in formatted
-        assert "CONFIG_ERROR" in formatted
+        assert "CONFIG ERROR" in formatted
 
 
 class TestSummaryEvent:
