@@ -1496,7 +1496,6 @@ case "${1:-up}" in
                 "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"
                 "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"
                 "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
-                "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit"
                 "lmstudio-community/Devstral-Small-2507-MLX-4bit"
                 "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"
                 "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit"

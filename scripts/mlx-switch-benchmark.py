@@ -275,7 +275,7 @@ def _is_vlm(model: str) -> bool:
     return model.split("/")[-1] in {
         "gemma-4-31b-it-4bit",
         "Qwen3-VL-32B-Instruct-8bit",
-        "llava-1.5-7b-8bit",
+        "gemma-4-e4b-it-4bit",
     }
 
 
