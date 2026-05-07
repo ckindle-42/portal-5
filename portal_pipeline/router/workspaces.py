@@ -125,6 +125,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
+        "mlx_model_hint": "mlx-community/glm-4.7-flash-abliterated-8bit",
         "tools": [
             "classify_vulnerability",
             "execute_python",
@@ -139,6 +140,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
+        "mlx_model_hint": "mlx-community/glm-4.7-flash-abliterated-8bit",
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
@@ -198,7 +200,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",
+        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [
