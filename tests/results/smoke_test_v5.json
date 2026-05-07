@@ -1,0 +1,116 @@
+[
+  {
+    "model": "mlx-community/Olmo-3-1125-32B-4bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Olmo-3-1125-32B-6bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Olmo-3-1125-32B-8bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/DeepSeek-R1-Distill-Llama-70B-4bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/granite-4.1-30b-mxfp4",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/granite-4.1-30b-mxfp8",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/granite-4.1-30b-nvfp4",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-26b-a4b-it-6bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-26b-a4b-it-8bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-31b-8bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Devstral-Small-2505-4bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Devstral-Small-2505-4bit-DWQ",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Devstral-Small-2505-6bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Devstral-Small-2505-8bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-6Bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-8Bit",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "cs2764/DeepSeek-R1-Distill-Llama-70B-Abliterated-MLX-4Bit",
+    "status": "SKIP_NOT_DOWNLOADED"
+  },
+  {
+    "model": "mlx-community/granite-4.1-3b-mxfp8",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  },
+  {
+    "model": "mlx-community/gemma-4-26b-a4b-it-bf16",
+    "status": "FAIL_EXCEPTION",
+    "err": "[Errno 2] No such file or directory: 'python'"
+  }
+]
