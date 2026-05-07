@@ -435,3 +435,53 @@ jq '.results[] | select(.outcome == "tool_call") | .model' \
 - Path 2 (OWUI MCP) tool dispatch verification.
 - Auto-creative re-evaluation (intentionally untouched).
 - vLLM tool-support metadata (schema is extensible; future task).
+
+---
+
+## P5-MTP-001 — MTP speculative decoding pending mlx-proxy.py support
+**Date**: 2026-05-07
+**Severity**: Enhancement opportunity (LOW priority per V5)
+
+Multi-Token Prediction speculative decoding for Gemma 4 26B-A4B BF16 (3.94×
+speedup verified at temp=0 byte-identical) requires `mlx-proxy.py` extension
+to pass `--draft-model` and `--draft-kind mtp` flags. Current proxy doesn't.
+
+V5 §15.4 deprioritizes this work because even with 3.94× speedup, the BF16+MTP
+path lands at ~12 TPS vs 4-bit MoE alternatives at 25-40 TPS. Bench measurements
+in `tests/benchmarks/results/bench_tps_v5_ladders.json` will confirm or refute.
+
+Resolution: TASK_MTP_PROXY_V1.md (LOW priority).
+
+---
+
+## P5-SPEED-001 — 70B dense models on M4 Pro 64GB
+**Date**: 2026-05-07
+**Severity**: Hardware constraint, but with V5 escape hatch
+
+V4 §14.5 found that Llama-3.3-70B-Instruct-4bit and DeepSeek-R1-Distill-Llama-70B-4bit
+measure 3.5 TPS warm — unusable for daily routed workspaces.
+
+V5 D7 experiment: `mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit` (~28GB)
+theoretical TPS ~9.7 (273GB/s ÷ 28GB). If bench measures ≥6 TPS AND smoke PASS
+AND 3-bit quality holds in T-RSN-1/T-RSN-2 shootouts (pending follow-on task),
+70B reasoning becomes viable on this hardware. See bench_tps_v5_ladders.json.
+
+---
+
+## P5-MODEL-REFRESH-V5 — Pending workspace promotions
+**Date**: 2026-05-07
+
+V5 added 24 quantization-ladder catalog entries and ran bench_tps.py for
+empirical TPS measurements. NO workspace primary swaps applied in V5.
+
+The following workspace MLX hint changes are gated on:
+1. V5 bench data (in `tests/benchmarks/results/bench_tps_v5_ladders.json`)
+2. Smoke test results (in `tests/results/smoke_test_v5.json`)
+3. Quality probes (T-* shootouts, follow-on tasks)
+
+Affected workspaces: auto-vision, auto-creative, auto-reasoning, auto-compliance,
+auto-coding, auto-security, auto-redteam.
+
+The operator reviews `tests/results/V5_quantization_ladder_analysis.md` and
+opens `TASK_WORKSPACE_PROMOTION_V1.md` to flip workspace MLX hints based on
+real measurements + quality assessment.
