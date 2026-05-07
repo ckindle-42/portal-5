@@ -63,13 +63,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Code generation, debugging, architecture review",
         "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/GLM-4.7-Flash-4bit",
-        # Output budget — GLM-4.7-Flash is verbose-by-default and can spend an
-        # entire short response on analysis before reaching the code block.
-        # 8192 tokens (~6000 words / ~24K chars) is enough for analysis +
-        # production-grade code with comments. Mirrors auto-research /
-        # auto-reasoning tier (which use 16384 for longer prose responses).
-        # See UAT 2026-04-28 §A — auto-coding "planning instead of code" failures.
-        "predict_limit": 8192,
+        # Output budget raised to 16384 — full-game HTML (Asteroids, particle
+        # systems, etc.) sits at 6-10K tokens; the prior 8192 cap cut responses
+        # while still in the analysis phase for complex deliverables.
+        # See UAT 2026-04-28 §A and run-21 streaming-cutoff analysis.
+        "predict_limit": 16384,
         "tools": [
             "execute_python",
             "execute_nodejs",
@@ -347,9 +345,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
-        "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhipu AI — distinct Chinese research lineage, ~6GB)",
+        "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhiyu AI — distinct Chinese research lineage, ~6GB)",
         "model_hint": "glm-4.7-flash:q4_k_m",
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-gptoss": {
@@ -357,6 +356,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level — configurable thinking depth)",
         "model_hint": "gpt-oss:20b",
         "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
     "bench-laguna": {
@@ -399,6 +399,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Direct routing to huihui_ai/qwen3.5-abliterated:9b — uncensored, tool-capable AUTO primary baseline",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "predict_limit": 8192,
         "tools": [],
     },
 }

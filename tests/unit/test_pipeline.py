@@ -1494,11 +1494,13 @@ class TestInjectMLXOptions:
         out = _inject_mlx_options(body, "auto-coding")
         assert out["max_tokens"] == 1024  # caller's explicit value wins (setdefault)
 
-    def test_no_predict_limit_is_noop(self, monkeypatch):
+    def test_no_predict_limit_uses_global_default(self, monkeypatch):
+        """Workspace with no predict_limit gets the global default injected,
+        preventing mlx_lm.server's hardcoded 512-token fallback from firing."""
         import portal_pipeline.router_pipe as rp
-        from portal_pipeline.router_pipe import _inject_mlx_options
+        from portal_pipeline.router_pipe import _inject_mlx_options, _MLX_DEFAULT_MAX_TOKENS
 
         monkeypatch.setattr(rp, "WORKSPACES", {"x": {}})
         body = {"messages": []}
         out = _inject_mlx_options(body, "x")
-        assert "max_tokens" not in out
+        assert out["max_tokens"] == _MLX_DEFAULT_MAX_TOKENS
