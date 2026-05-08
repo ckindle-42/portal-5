@@ -45,6 +45,7 @@ Output: JSON file with raw TPS data for every model/workspace/persona.
 """
 
 import argparse
+import contextlib
 import json
 import os
 import platform
@@ -2432,6 +2433,19 @@ def main() -> None:
         for key in PROMPTS:
             PROMPTS[key] = args.prompt
 
+    # Pause the MLX watchdog for the duration of this bench run.
+    # The watchdog's recovery and zombie-kill actions conflict with bench_tps's
+    # own controlled proxy-restart and memory-reclaim sequences. Creating the
+    # sentinel puts the watchdog in passive (monitor-only) mode; removing it
+    # restores full watchdog operation immediately after the bench finishes.
+    _watchdog_sentinel = Path("/tmp/mlx-watchdog-paused")
+    _sentinel_created = False
+    try:
+        _watchdog_sentinel.touch()
+        _sentinel_created = True
+    except Exception:
+        pass  # non-fatal: watchdog may not be running
+
     try:
         _run_main(args)
     finally:
@@ -2442,6 +2456,10 @@ def main() -> None:
         if _bench_client is not None:
             _bench_client.close()
             _bench_client = None
+        # Resume watchdog
+        if _sentinel_created:
+            with contextlib.suppress(Exception):
+                _watchdog_sentinel.unlink(missing_ok=True)
 
 
 def _check_image_freshness() -> None:
