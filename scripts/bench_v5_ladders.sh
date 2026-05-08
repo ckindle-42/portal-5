@@ -46,6 +46,16 @@ echo "Smoke-PASSed models to bench:"
 echo "$PASSED_MODELS"
 echo
 
+# ── Pause mlx-watchdog for the duration of this bench ────────────────────────
+# The watchdog's zombie-kill and proxy-restart actions conflict with the bench's
+# own controlled restart sequence below. The sentinel puts it in passive (monitor-
+# only) mode. Removed in the EXIT trap so it's always cleaned up, even on error.
+WATCHDOG_SENTINEL="/tmp/mlx-watchdog-paused"
+touch "$WATCHDOG_SENTINEL" 2>/dev/null || true
+trap 'rm -f "$WATCHDOG_SENTINEL"' EXIT
+echo "  Watchdog passive mode: $WATCHDOG_SENTINEL created (removed on exit)"
+echo
+
 # ── Step 1: Proxy restart to clear Metal inactive pages ───────────────────────
 # smoke_test_mlx.py calls mlx_lm generate / mlx_vlm generate as subprocesses,
 # bypassing the proxy. Each subprocess loads a model into Metal then exits,

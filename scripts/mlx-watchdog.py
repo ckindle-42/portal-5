@@ -123,8 +123,10 @@ class Config:
     # Zombie kill behavior
     zombie_sigterm_grace_s: int = int(os.environ.get("MLX_ZOMBIE_SIGTERM_GRACE", "3"))
     zombie_kill_wait_s: int = int(os.environ.get("MLX_ZOMBIE_KILL_WAIT_S", "30"))
-    zombie_min_proxy_state_age_s: int = int(os.environ.get("MLX_ZOMBIE_MIN_AGE", "120"))
-    """If proxy reports state=switching with state_duration < this, skip zombie checks."""
+    zombie_min_proxy_state_age_s: int = int(os.environ.get("MLX_ZOMBIE_MIN_AGE", "300"))
+    """If proxy reports state=switching with state_duration < this, skip zombie checks.
+    Raised to 300s (was 120s): 32-36GB models can take 90-180s to load under memory
+    pressure; 120s caused false-positive zombie kills on legitimately-loading servers."""
 
     # Memory pressure (GB)
     memory_critical_gb: float = float(os.environ.get("MLX_MEMORY_CRITICAL_GB", "8"))
@@ -184,6 +186,17 @@ class Config:
     pushover_user: str = os.environ.get("PUSHOVER_USER_KEY", "")
     slack_webhook_url: str = os.environ.get("SLACK_WEBHOOK_URL", "")
     webhook_url: str = os.environ.get("WEBHOOK_URL", "")
+
+    # Passive-mode sentinel file
+    passive_sentinel: Path = field(
+        default_factory=lambda: Path(
+            os.environ.get("MLX_WATCHDOG_PASSIVE_SENTINEL", "/tmp/mlx-watchdog-paused")
+        )
+    )
+    """If this file exists, the watchdog monitors and logs but takes no recovery or kill
+    actions. bench scripts (bench_tps.py, bench_v5_ladders.sh) create this file before
+    starting controlled proxy restarts and remove it when done. This prevents the watchdog
+    from fighting deliberate memory-reclaim sequences during testing."""
 
     # Lock files
     watchdog_pid_file: Path = field(
@@ -1009,6 +1022,20 @@ async def watchdog_cycle(
     """
     state.cycle_count += 1
     metrics.observe_cycle()
+
+    # ── Passive-mode check ────────────────────────────────────────────────────
+    # If the sentinel file exists, a bench or UAT run has claimed the MLX
+    # subsystem for controlled memory management. Monitor and log only — do not
+    # kill zombies or restart the proxy. The bench removes the file when done.
+    if config.passive_sentinel.exists():
+        logger.info(
+            "Passive mode active (%s exists) — monitoring only, no recovery actions",
+            config.passive_sentinel,
+        )
+        # Still probe so state is up-to-date when passive mode ends
+        proxy_health = await probe_proxy(client, config)
+        metrics.observe_proxy(proxy_health, state.proxy)
+        return proxy_health if proxy_health.reachable else last_known_proxy
 
     # ── 1. Probe proxy + servers concurrently ──
     proxy_task = asyncio.create_task(probe_proxy(client, config))
