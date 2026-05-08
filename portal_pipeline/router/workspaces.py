@@ -136,6 +136,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # Thinking enabled — AEON needs its reasoning chain for complex security
         # analysis (attack paths, multi-step pivots). emits_reasoning strips the
         # <think> chain from visible output so analysts see clean conclusions.
+        # No predict_limit: AEON must complete its thinking chain before generating
+        # content. A 2000-token cap cuts off mid-think, leaving content="" in OWUI.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
         "emits_reasoning": True,
         "tools": [
@@ -154,6 +156,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "baronllm:q6_k",
         # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
         # Thinking enabled (same reason as auto-security — complex multi-path reasoning).
+        # No predict_limit — same reason as auto-security (2000-token cap = empty content).
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
         "emits_reasoning": True,
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],

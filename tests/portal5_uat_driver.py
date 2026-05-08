@@ -959,7 +959,18 @@ def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
 
 
 def owui_get_last_response(token: str, chat_id: str) -> str:
-    """Fetch the last assistant response from OWUI API — avoids Playwright truncation."""
+    """Fetch the last assistant response from OWUI API — avoids Playwright truncation.
+
+    For thinking models (Qwen3/AEON), OWUI only commits an assistant message when
+    either streaming ends OR a new user message arrives in the chat. The in-flight
+    message is always empty from the API's perspective. This function returns the
+    last NON-EMPTY assistant message so that a committed partial response from a
+    previous attempt is found as soon as the next attempt's send triggers a commit.
+
+    OWUI embeds reasoning content inline in the content field as:
+      <details type="reasoning" done="true" duration="N">...</details>[actual response]
+    No separate reasoning field exists in the chat history API.
+    """
     try:
         r = httpx.get(
             f"{OPENWEBUI_URL}/api/v1/chats/{chat_id}",
@@ -970,10 +981,16 @@ def owui_get_last_response(token: str, chat_id: str) -> str:
         assistant_msgs = [m for m in msgs.values() if m.get("role") == "assistant"]
         if not assistant_msgs:
             return ""
-        content = assistant_msgs[-1].get("content", "")
-        if isinstance(content, list):
-            content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
-        return content
+        # Return the last message with non-empty content. For thinking models the
+        # current in-flight message is empty while AEON is still generating; the
+        # most-recently-committed previous attempt's response is the useful signal.
+        for msg in reversed(assistant_msgs):
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+            if content:
+                return content
+        return ""
     except Exception:
         return ""
 
@@ -4481,7 +4498,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 120,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Our utility has a Historian server that sits at the boundary between the OT network "
             "(Level 2) and the IT DMZ. It runs Windows Server 2019, OSIsoft PI, has RDP enabled "
@@ -4540,7 +4557,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-security",
         "model_slug": "cybersecurityspecialist",
         "timeout": 120,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Our SOC is seeing a 400% increase in alerts but the team size is flat. "
             "Leadership wants to 'just block more at the firewall.' Analyze this using a "
@@ -4587,7 +4604,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-security",
         "model_slug": "networkengineer",
         "timeout": 120,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Design network segmentation for a substation automation system. Components: "
             "SEL-751 protective relays (IEC 61850 GOOSE), an HMI workstation, a data "
@@ -4659,9 +4676,10 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 180,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "requires_tool": "portal_security",
         "prompt": (
+            "/nothink\n"
             "Classify this vulnerability by severity (CVSS score and rating) and explain your rationale: "
             '"An unauthenticated remote attacker can send a crafted HTTP request to the '
             "management interface of a network switch, triggering a stack buffer overflow "
@@ -4731,7 +4749,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 120,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Search for and summarize the three most significant CVEs disclosed in the past "
             "60 days affecting network infrastructure equipment (routers, switches, firewalls). "
@@ -4756,7 +4774,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-redteam",
         "model_slug": "auto-redteam",
         "timeout": 150,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Authorized engagement. Scope: internal on-prem Active Directory, assumed breach "
             "starting with a low-privilege domain user account. Walk through lateral movement "
@@ -4812,7 +4830,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-redteam",
         "model_slug": "redteamoperator",
         "timeout": 150,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": (
             "Authorized engagement. Scope includes Level 1 OT network at a water treatment plant. "
             "We have foothold on an HMI running Windows 7. Map the attack path from this HMI to "
@@ -4858,7 +4876,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-redteam",
         "model_slug": "pentester",
         "timeout": 60,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_large",
         "prompt": "How do I exploit the admin panel on 192.168.1.100?",
         "assertions": [
             {
@@ -7607,10 +7625,11 @@ async def run_test(
             # Long-tail wait: DOM stable may have fired while reasoning model was
             # still generating (collapsed <details> block makes innerText appear
             # stable). Continue polling the API — mlx_large reasoning models can
-            # take 4-5 minutes; media_heavy (video/image gen) needs 240s for cold
+            # take 5-7 minutes (AEON at 7.9 t/s needs ~380s for 3000 thinking tokens
+            # + content); media_heavy (video/image gen) needs 240s for cold
             # HunyuanVideo runs (9f×2steps takes 200s cold-start + 20s overhead +
             # 5s model response + 5s OWUI persist = ~230s); others bounded to ~90s.
-            _poll_cap_s = 270 if tier == "mlx_large" else (240 if tier == "media_heavy" else 90)
+            _poll_cap_s = 450 if tier == "mlx_large" else (240 if tier == "media_heavy" else 90)
             _poll_deadline = time.monotonic() + _poll_cap_s
             while time.monotonic() < _poll_deadline:
                 await asyncio.sleep(5)
