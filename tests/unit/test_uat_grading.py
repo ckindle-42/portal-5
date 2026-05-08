@@ -154,7 +154,8 @@ def test_word_boundary_word_to_word_transition_does_not_fire():
 
 
 def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
-    """When the API has content on first poll, the helper returns it without sleeping."""
+    """When the API has content on first poll, the helper returns it after the 2s
+    stability re-poll (guards against paused streaming mid-section-header)."""
     import asyncio
 
     import portal5_uat_driver as drv
@@ -171,7 +172,7 @@ def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
         drv._wait_for_response_arrival("tok", "chat-1", max_wait=15.0)
     )
     assert result == "hello world"
-    assert sleep_calls == [], "should not sleep when content is available immediately"
+    assert sleep_calls == [2.0], "should sleep 2s stability check then return"
 
 
 def test_wait_for_response_arrival_no_token_falls_back_to_safety_buffer(monkeypatch):

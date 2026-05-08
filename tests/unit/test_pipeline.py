@@ -279,13 +279,15 @@ class TestComplianceWorkspace:
         )
 
     def test_compliance_workspace_uses_mlx_model_hint(self):
-        """auto-compliance must use MLX Qwen3.5-35B as primary — not an Ollama GGUF tag."""
+        """auto-compliance must use an MLX primary — not an Ollama GGUF tag.
+        V5 promotion: granite-4.1-30b-mxfp4 (IBM GRC-trained, 7.8 t/s, 15GB).
+        """
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-compliance"].get("mlx_model_hint", "")
         assert hint, "auto-compliance workspace missing mlx_model_hint"
-        assert "Qwen3.5-35B-A3B" in hint, (
-            f"auto-compliance should use Qwen3.5-35B-A3B Claude-distilled for long-context policy analysis, "
+        assert "granite-4.1-30b" in hint, (
+            f"auto-compliance should use granite-4.1-30b-mxfp4 (V5 bench winner, IBM GRC), "
             f"got: {hint}"
         )
 

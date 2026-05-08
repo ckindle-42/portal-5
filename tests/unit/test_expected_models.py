@@ -23,16 +23,18 @@ def test_mlx_model_detected_by_org_prefix():
 
 
 def test_workspace_with_both_hints_returns_mlx_first_when_ready():
+    # V5 promotion: auto-coding MLX primary is now Laguna-XS.2-4bit (GLM-4.7-Flash
+    # had P5-MLX-006 chat-template defect producing 0 tokens).
     keys, src = expected_model_keys("auto-coding", mlx_state="ready")
     assert keys, f"expected at least one key, got {keys} ({src})"
-    assert keys[0].startswith("glm"), f"MLX preferred when ready, got {keys}"
+    assert keys[0].startswith("laguna"), f"MLX preferred when ready, got {keys}"
     assert any("qwen3-coder" in k for k in keys)
 
 
 def test_workspace_with_mlx_down_returns_ollama_only():
     keys, src = expected_model_keys("auto-coding", mlx_state="down")
     assert keys, f"expected Ollama hint, got {keys} ({src})"
-    assert not any("glm" in k for k in keys), \
+    assert not any("laguna" in k for k in keys), \
         f"MLX hint must be excluded when down, got {keys}"
     assert any("qwen3-coder" in k for k in keys)
 
