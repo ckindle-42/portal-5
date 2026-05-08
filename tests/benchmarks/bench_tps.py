@@ -87,6 +87,16 @@ _REASONING_MLX_PATTERNS = (
     "Qwen3.5-27B-Claude",
     "Qwen3.5-9B-Claude",
     "Qwen3.5-35B-A3B-Claude",
+    "Qwen3.6",
+    "AEON",
+)
+
+# Models that use /nothink in the user message to suppress thinking chain.
+# Used in addition to enable_thinking=False for models where the proxy may
+# not forward chat_template_kwargs to the mlx_lm backend.
+_NOTHINK_PATTERNS = (
+    "Qwen3.6",
+    "AEON",
 )
 
 
@@ -635,6 +645,128 @@ def _wait_mlx_memory_available(
     return False
 
 
+# ── Proxy crash recovery ─────────────────────────────────────────────────────
+
+
+def _detect_mlx_crash_errors(errors: list[str]) -> bool:
+    """Return True if error strings indicate the mlx_lm/vlm server crashed.
+
+    HTTP 502 means the proxy couldn't reach its mlx backend (server died).
+    ConnectError/RemoteProtocol means the mlx server process died mid-request.
+    Excludes 503 "Insufficient memory" — that is a normal admission rejection,
+    not a crash; restarting the proxy won't help and wastes 90s of settle time.
+    """
+    crash_signals = ("HTTP 502", "ConnectError", "Connect", "RemoteProtocol")
+    return any(any(sig in e for sig in crash_signals) for e in errors)
+
+
+def _mlx_proxy_alive() -> bool:
+    """Return True if the MLX proxy process is responding to health checks.
+
+    Both 200 (model loaded) and 503 (idle, load-on-demand) mean the proxy
+    is up. Anything else — connection refused, timeout, other 5xx — means
+    the proxy process itself has crashed or is unresponsive.
+    """
+    try:
+        r = httpx.get(f"{MLX_URL}/health", timeout=5.0)
+        return r.status_code in (200, 503)
+    except Exception:
+        return False
+
+
+def _restart_proxy_for_crash_reclaim(reason: str = "crash detected") -> bool:
+    """Restart the MLX proxy to reclaim Metal inactive pages after an OOM crash.
+
+    When mlx_lm/mlx_vlm exits uncleanly (OOM kill, SIGKILL), Metal buffers
+    remain in the macOS 'inactive' pool indefinitely. The proxy's own evict
+    endpoint cannot reach across a crashed server process to reclaim them —
+    only a fresh proxy process triggers the VM pager to release stale Metal
+    allocations from the inactive pool.
+
+    Sequence mirrors UAT driver _restart_proxy_for_reclaim():
+      1. SIGTERM proxy (graceful: proxy sends SIGTERM to its mlx_lm/vlm child)
+      2. SIGTERM any residual mlx server processes (handles crash survivors)
+      3. Start fresh proxy (new process → VM pager reclaims inactive pages)
+      4. Poll /health/wired until state=ready and free_gb >= 4
+
+    Returns True if proxy recovered within 90s, False if it didn't come back.
+    """
+    print(f"\n  ⚠  Proxy restart ({reason}) ...", end=" ", flush=True)
+
+    # 1. SIGTERM the proxy (graceful shutdown stops the mlx_lm/vlm child too)
+    try:
+        result = subprocess.run(
+            ["launchctl", "list", "com.portal5.mlx-proxy"],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode == 0:
+            subprocess.run(
+                ["launchctl", "stop", "com.portal5.mlx-proxy"],
+                capture_output=True, timeout=10,
+            )
+        else:
+            subprocess.run(
+                ["pkill", "-TERM", "-f", "mlx-proxy.py"],
+                capture_output=True, timeout=5,
+            )
+    except Exception:
+        pass
+    time.sleep(5)
+
+    # 2. SIGTERM any residual mlx server processes (crash survivors)
+    for pattern in ("mlx_lm.server", "mlx_vlm.server"):
+        try:
+            subprocess.run(["pkill", "-TERM", "-f", pattern],
+                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+    time.sleep(5)
+
+    # 3. Start fresh proxy (new process forces VM pager to release inactive pool)
+    try:
+        result = subprocess.run(
+            ["launchctl", "list", "com.portal5.mlx-proxy"],
+            capture_output=True, timeout=5,
+        )
+        if result.returncode == 0:
+            subprocess.run(
+                ["launchctl", "start", "com.portal5.mlx-proxy"],
+                capture_output=True, timeout=10,
+            )
+        else:
+            proxy_path = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
+            log_path = Path.home() / ".portal5" / "logs" / "mlx-proxy.log"
+            if proxy_path.exists():
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(log_path, "a") as _lf:
+                    subprocess.Popen(
+                        [sys.executable, str(proxy_path)],
+                        stdout=_lf,
+                        stderr=subprocess.STDOUT,
+                    )
+    except Exception:
+        pass
+
+    # 4. Poll /health/wired until proxy reports ready + adequate free memory
+    deadline = time.time() + 90.0
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"{MLX_URL}/health/wired", timeout=3.0)
+            if r.status_code == 200:
+                d = r.json()
+                if d.get("state") == "ready" and d.get("free_gb", 0) >= 4.0:
+                    free = d["free_gb"]
+                    inactive = d.get("inactive_gb", 0)
+                    print(f"ok (free={free:.1f}GB inactive={inactive:.1f}GB)")
+                    return True
+        except Exception:
+            pass
+        time.sleep(5)
+
+    print("WARNING: proxy did not recover within 90s — proceeding anyway")
+    return False
+
+
 def _parse_ollama_sizes_from_config() -> dict[str, float]:
     """Parse model→GB size estimates from backends.yaml.
 
@@ -1036,9 +1168,11 @@ def bench_tps(
     import json as _json
 
     _reasoning = _is_reasoning_model(model, label)
+    _nothink = any(p in model for p in _NOTHINK_PATTERNS)
+    content = "/nothink\n" + prompt if _nothink else prompt
     payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content}],
         "stream": True,
         "max_tokens": REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS,
     }
@@ -1401,6 +1535,12 @@ def bench_direct(
             print("(warm-up) ", end="", flush=True)
             warm_ok = _warmup_mlx_model(model)
             if not warm_ok:
+                # If proxy is unreachable, the mlx server crashed — restart to
+                # reclaim Metal inactive pages before trying the next model.
+                if not _mlx_proxy_alive():
+                    _restart_proxy_for_crash_reclaim(
+                        "proxy unreachable after warmup failure"
+                    )
                 print("FAIL (model load failed after retries)")
                 r = {
                     "model": model,
@@ -1461,6 +1601,11 @@ def bench_direct(
             else:
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
+                # Crash detection: 502/ConnectError/RemoteProtocol mean the mlx
+                # server process died mid-bench. Restart the proxy to reclaim the
+                # inactive Metal pages it left behind before loading the next model.
+                if _detect_mlx_crash_errors(errors):
+                    _restart_proxy_for_crash_reclaim("mlx server crash detected mid-bench")
             if r.get("expected_model_match") is False:
                 print(f"  ⚠ ROUTING: got {r['routed_model']}, "
                       f"expected {r['expected_model_detail']}", flush=True)

@@ -701,65 +701,89 @@ def _restart_proxy_for_reclaim() -> bool:
     pager to release stale Metal allocations. Uses SIGTERM (never SIGKILL)
     and waits for the new proxy to become ready.
 
+    Sequence:
+      1. SIGTERM proxy via launchctl (if managed) or kill -TERM (fallback)
+      2. SIGTERM mlx_lm.server and mlx_vlm.server (separate calls — pkill -f
+         does not support | alternation on macOS without -E)
+      3. Start fresh proxy via launchctl start (if managed) or Popen (fallback)
+      4. Poll /health/wired until state=ready and free_gb > 0
+
     Returns True if restart was successful and proxy is ready.
     """
     import subprocess
+    import sys
 
-    proxy_pid = None
+    print("  [reclaim] Restarting proxy to reclaim inactive Metal pages ...", flush=True)
+
+    # 1. SIGTERM the proxy — try launchctl first, fall back to kill -TERM
+    launchd_managed = False
     try:
         result = subprocess.run(
-            ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True, timeout=5
+            ["launchctl", "list", "com.portal5.mlx-proxy"],
+            capture_output=True, timeout=5,
         )
-        proxy_pid = int(result.stdout.strip().split("\n")[0])
+        if result.returncode == 0:
+            launchd_managed = True
+            subprocess.run(
+                ["launchctl", "stop", "com.portal5.mlx-proxy"],
+                capture_output=True, timeout=10,
+            )
     except Exception:
         pass
 
-    if proxy_pid:
-        print("  [reclaim] Restarting proxy to reclaim inactive Metal pages ...", flush=True)
+    if not launchd_managed:
         try:
+            result = subprocess.run(
+                ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True, timeout=5
+            )
+            proxy_pid = int(result.stdout.strip().split("\n")[0])
             subprocess.run(["kill", "-TERM", str(proxy_pid)], timeout=10)
         except Exception:
             pass
-        time.sleep(5)
-        # SIGTERM any lingering mlx servers
+    time.sleep(5)
+
+    # 2. SIGTERM mlx servers (two separate calls — macOS pkill -f treats | literally)
+    for pattern in ("mlx_lm.server", "mlx_vlm.server"):
         try:
-            subprocess.run(["pkill", "-f", "mlx_lm.server|mlx_vlm.server"], timeout=5)
+            subprocess.run(["pkill", "-TERM", "-f", pattern], capture_output=True, timeout=5)
         except Exception:
             pass
-        time.sleep(5)
+    time.sleep(5)
 
-    # Start fresh proxy
+    # 3. Start fresh proxy (new process → VM pager releases inactive Metal pages)
     try:
-        subprocess.Popen(
-            ["python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        if launchd_managed:
+            subprocess.run(
+                ["launchctl", "start", "com.portal5.mlx-proxy"],
+                capture_output=True, timeout=10,
+            )
+        else:
+            proxy_path = os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")
+            log_path = os.path.expanduser("~/.portal5/logs/mlx-proxy.log")
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            with open(log_path, "a") as _lf:
+                subprocess.Popen(
+                    [sys.executable, proxy_path],
+                    stdout=_lf,
+                    stderr=subprocess.STDOUT,
+                )
     except Exception as e:
         print(f"  [reclaim] Failed to start proxy: {e}", flush=True)
         return False
 
-    # Wait for proxy to become ready, then wait for first memory sample
-    for _ in range(12):
+    # 4. Poll /health/wired until proxy reports ready with real memory data
+    for _ in range(18):  # 90s max (18 × 5s)
         time.sleep(5)
         try:
-            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-            if h.status_code == 200 and h.json().get("state") in ("ready", "none"):
-                # Wait for the proxy's MemoryMonitor to complete its first sample
-                # (reports all zeros until then)
-                print("  [reclaim] Proxy ready — waiting for memory sample ...", flush=True)
-                time.sleep(30)
-                try:
-                    w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-                    free = w.get("free_gb", 0)
-                    inactive = w.get("inactive_gb", 0)
-                    print(
-                        f"  [reclaim] free={free:.1f}GB inactive={inactive:.1f}GB",
-                        flush=True,
-                    )
-                    return free > 0  # Only return True if we got real data
-                except Exception:
-                    pass
+            w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+            free = w.get("free_gb", 0)
+            inactive = w.get("inactive_gb", 0)
+            state = w.get("state", "")
+            if state == "ready" and free > 0:
+                print(
+                    f"  [reclaim] free={free:.1f}GB inactive={inactive:.1f}GB",
+                    flush=True,
+                )
                 return True
         except Exception:
             pass
@@ -1313,6 +1337,8 @@ async def _wait_for_completion(
             break
         # Backend crash check — don't burn 900s on a dead model
         if _check_backend_crash():
+            # Restart proxy to reclaim Metal inactive pages before the next test
+            _restart_proxy_for_reclaim()
             return
         # Hard safety cap
         if elapsed > max_wait_no_progress:
@@ -1374,6 +1400,8 @@ async def _wait_for_completion(
 
         # Backend crash check — rate-limited inside _check_backend_crash
         if _check_backend_crash():
+            # Restart proxy to reclaim Metal inactive pages before the next test
+            _restart_proxy_for_reclaim()
             return
 
         # Safety cap
