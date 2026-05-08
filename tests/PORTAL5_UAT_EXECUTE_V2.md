@@ -120,10 +120,10 @@ This file is the source of truth for "where am I in the run." Every phase append
 | # | Phase | Why this phase exists | Approx time |
 |---|---|---|---|
 | 1 | Smoke (auto) | Confirm driver, OWUI, browser, results file all wire up. 4 tests, fast feedback before committing real time. | 5–10 min |
-| 2 | mlx_large-heavy sections | Big models loaded while memory is freshest. Catches OOM early. | 60–90 min |
+| 2 | mlx_large-heavy sections | Big models loaded while memory is freshest. Catches OOM early. | 75–110 min |
 | 3 | mlx_small-heavy coding/reasoning | Bulk of the suite. Models in the 8–18 GB range. | 90–120 min |
 | 4 | mlx_small-heavy data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 30–45 min |
-| 5 | ollama-only sections | MLX evicted before this phase starts. | 30–45 min |
+| 5 | ollama + mlx_small sections | MLX evicted before this phase starts. | 15–25 min |
 | 6 | media_heavy (music/video) | Always last among inference. ComfyUI/Wan2.2 footprint. | 30–60 min |
 | 7 | benchmark | Long, model-capability-only, can run independently. | 60–90 min |
 | 8 | advanced + manual + verify | Manual reviews, OWUI conversation count, result tally. | 15–30 min |
@@ -303,7 +303,7 @@ echo "============================================"
 
 ```bash
 bash tests/inter_phase_gate.sh 1 4   # after Phase 1 (4 tests)
-bash tests/inter_phase_gate.sh 2 16  # after Phase 2 (16 tests)
+bash tests/inter_phase_gate.sh 2 24  # after Phase 2 (24 tests)
 # ... and so on
 ```
 
@@ -317,9 +317,9 @@ bash tests/inter_phase_gate.sh 2 16  # after Phase 2 (16 tests)
 
 ---
 
-## Phase 2 — mlx_large-heavy sections (compliance, agentic, vision, research, data, big coding)
+## Phase 2 — mlx_large-heavy sections (compliance, agentic, vision, research, security, redteam)
 
-These sections contain most of the `mlx_large` tier tests. Run them while memory is freshest.
+These sections contain all pure-`mlx_large` tier tests. Run them while memory is freshest. `auto-security` and `auto-redteam` are included here because they are now pure `mlx_large` (AEON 27B) — running them in Phase 5 would load a large model after the bulk of the suite has already stressed memory.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
@@ -327,6 +327,8 @@ python3 tests/portal5_uat_driver.py --append \
   --section auto-agentic \
   --section auto-vision \
   --section auto-research \
+  --section auto-security \
+  --section auto-redteam \
   2>&1 | tee /tmp/uat_phase2.log
 PHASE2_EXIT=$?
 
@@ -341,10 +343,10 @@ PHASE2_EXIT=$?
 
 Run the **Inter-Phase Gate** before phase 3:
 ```bash
-bash tests/inter_phase_gate.sh 2 16
+bash tests/inter_phase_gate.sh 2 24
 ```
 
-### Why these four sections and not auto-data?
+### Why these six sections and not auto-data?
 
 `auto-data` mixes mlx_large and mlx_small with significant `any`-tier admin work (knowledge base list/create). It runs more reliably in phase 3 alongside the small-tier coding work, where memory is already settled.
 
@@ -412,14 +414,12 @@ bash tests/inter_phase_gate.sh 4 25
 
 ---
 
-## Phase 5 — Ollama + mlx_small (security, redteam, blueteam, docs)
+## Phase 5 — Ollama + mlx_small (blueteam, docs)
 
-MLX will be evicted at tier transitions within the invocation. `auto-docs` is predominantly `mlx_small` (6/7 tests); only `auto-security`, `auto-redteam`, and `auto-blueteam` are pure ollama. Wired memory drops noticeably when the driver moves past the last mlx_small test.
+`auto-security` and `auto-redteam` moved to Phase 2 (they are now pure `mlx_large`/AEON). This phase is the remaining non-mlx_large sections: `auto-blueteam` (pure ollama) and `auto-docs` (mlx_small + ollama, 6/7 tests mlx_small). No large model loads here — wired memory stays low throughout.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
-  --section auto-security \
-  --section auto-redteam \
   --section auto-blueteam \
   --section auto-docs \
   2>&1 | tee /tmp/uat_phase5.log
@@ -429,13 +429,13 @@ PHASE5_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 5. ollama tier | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~17 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE5_EXIT |"
+  echo "| 5. ollama + mlx_small | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~9 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE5_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Inter-Phase Gate (5→6: keep ComfyUI for media_heavy):
 ```bash
-bash tests/inter_phase_gate.sh 5 17 --keep-comfyui
+bash tests/inter_phase_gate.sh 5 9 --keep-comfyui
 ```
 
 ---
@@ -851,8 +851,8 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | `auto-creative` | 3 | mlx_small | 4 | 8–12 min |
 | `auto-docs` | 7 | mlx_small + ollama | 5 | 15–25 min |
 | `auto-agentic` | 2 | mlx_large + mlx_small | 2 | 20–35 min |
-| `auto-security` | 5 | ollama | 5 | 10–15 min |
-| `auto-redteam` | 3 | ollama | 5 | 8–12 min |
+| `auto-security` | 5 | mlx_large | 2 | 10–15 min |
+| `auto-redteam` | 3 | mlx_large | 2 | 8–12 min |
 | `auto-blueteam` | 2 | ollama | 5 | 5–8 min |
 | `auto-reasoning` | 5 | mlx_large + mlx_small + ollama | 4 | 20–30 min |
 | `auto-data` | 7 | mlx_large + mlx_small + any | 4 | 15–20 min |
@@ -889,4 +889,4 @@ Status values: `DONE`, `PAUSED`, `BLOCKED`, `SKIPPED`. The agent is responsible 
 
 ---
 
-*Last updated: 2026-05-05 (corrected test count 104→110; phase 5 tier label; phase 6/7/8 hardcoded counts; auto-agentic/auto-coding tier tables; conversation estimate; added --rerun to resume protocol)*
+*Last updated: 2026-05-08 (auto-security + auto-redteam promoted to mlx_large/AEON — moved from Phase 5 to Phase 2; Phase 2 gate 16→24 tests; Phase 5 gate 17→9 tests; section reference tier labels corrected; Phase 5 header/description updated)*
