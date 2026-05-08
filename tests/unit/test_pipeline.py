@@ -320,7 +320,7 @@ class TestComplianceWorkspace:
         assert "CIP" in ws["params"]["system"], "System prompt must reference CIP standards"
 
     def test_compliance_mlx_model_in_mlx_backend(self):
-        """Qwen3.5-35B-A3B Claude-distilled must be in an MLX backend — it's the primary routing target."""
+        """granite-4.1-30b-mxfp4 must be in an MLX backend — it's the primary routing target (V5 bench winner)."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
@@ -333,9 +333,9 @@ class TestComplianceWorkspace:
                 all_models.extend(m["id"] for m in b["mlx_models"])
             else:
                 all_models.extend(b.get("models", []))
-        assert any("Qwen3.5-35B-A3B" in m for m in all_models), (
-            f"Qwen3.5-35B-A3B Claude-distilled not in any MLX backend models: {all_models}\n"
-            "This is the primary model for auto-compliance — must be present."
+        assert any("granite-4.1-30b" in m for m in all_models), (
+            f"granite-4.1-30b-mxfp4 not in any MLX backend models: {all_models}\n"
+            "This is the primary model for auto-compliance (V5 bench winner, IBM GRC) — must be present."
         )
 
     def test_compliance_personas_exist_with_mlx_model(self):

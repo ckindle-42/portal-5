@@ -1453,8 +1453,6 @@ case "${1:-up}" in
                 "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
                 "qwen3.5:9b"
                 "qwen3-coder:30b"
-                "hf.co/unsloth/GLM-4.7-Flash-GGUF"
-                "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
                 "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
                 "devstral:24b"
                 "granite4.1:8b"                       # backfill: auto-video primary (de96984), general line 4
@@ -1810,16 +1808,6 @@ PYEOF
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
-            unsloth/GLM-4.7-Flash-GGUF)
-                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
-                filename="GLM-4.7-Flash-Q4_K_M.gguf"
-                ollama_name="glm-4.7-flash:q4_k_m"
-                ;;
-            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
-                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
-                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
-                ollama_name="deepseek-coder-v2-lite:q4_k_m"
-                ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)
                 actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
                 filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
@@ -1992,18 +1980,6 @@ except Exception:
                 ;;
 
             # ── Coding models ────────────────────────────────────────────────
-            unsloth/GLM-4.7-Flash-GGUF)
-                # Source: https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/blob/main/GLM-4.7-Flash-Q4_K_M.gguf
-                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
-                filename="GLM-4.7-Flash-Q4_K_M.gguf"
-                ollama_name="glm-4.7-flash:q4_k_m"
-                ;;
-            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
-                # Source: https://huggingface.co/bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF
-                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
-                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
-                ollama_name="deepseek-coder-v2-lite:q4_k_m"
-                ;;
             MiniMaxAI/MiniMax-M2.1-GGUF)
                 # Q4_K_M = 138 GB — does not fit in 48 GB unified memory
                 echo "  ⚠️  Skipping MiniMax-M2.1: smallest useful quant is 138 GB (requires ~160 GB RAM)"
@@ -2194,8 +2170,6 @@ except Exception as e:
         # Use MLX backend instead: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
         "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
         "qwen3-coder:30b"              # 30B-A3B MoE (3B active), 19GB
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF"
-        "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
         "granite4.1:8b"                # backfill: auto-video primary (de96984), general line 4
@@ -2315,16 +2289,6 @@ except Exception:
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
-            unsloth/GLM-4.7-Flash-GGUF)
-                actual_repo="unsloth/GLM-4.7-Flash-GGUF"
-                filename="GLM-4.7-Flash-Q4_K_M.gguf"
-                ollama_name="glm-4.7-flash:q4_k_m"
-                ;;
-            deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF)
-                actual_repo="bartowski/DeepSeek-Coder-V2-Lite-Base-GGUF"
-                filename="DeepSeek-Coder-V2-Lite-Base-Q4_K_M.gguf"
-                ollama_name="deepseek-coder-v2-lite:q4_k_m"
-                ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)
                 actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
                 filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
@@ -2427,8 +2391,6 @@ except Exception as e:
         "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
         "qwen3.5:9b"
         "qwen3-coder:30b"
-        "hf.co/unsloth/GLM-4.7-Flash-GGUF"
-        "hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
         "devstral:24b"
         "granite4.1:8b"                # backfill: auto-video primary
