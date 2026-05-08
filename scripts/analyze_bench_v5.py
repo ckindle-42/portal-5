@@ -78,12 +78,12 @@ def main():
     # Build smoke status lookup
     smoke_status = {r["model"]: r["status"] for r in smoke_data}
 
-    # Aggregate bench results per model
+    # Aggregate bench results per model (bench_tps.py uses avg_tps)
     per_model_tps: dict[str, list[float]] = defaultdict(list)
     for result in bench_data.get("results", []):
         model = result.get("model")
-        tps = result.get("tps") or result.get("tokens_per_sec")
-        if model and tps is not None:
+        tps = result.get("avg_tps") or result.get("tps") or result.get("tokens_per_sec")
+        if model and tps is not None and tps > 0:
             per_model_tps[model].append(tps)
 
     # Build per-workspace tables
