@@ -54,6 +54,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # support and catalog consistency with ollama-general line 1. Uncensored
         # property preserved (huihui-ai abliteration). See
         # TASK_TOOL_SUPPORT_AUDIT_V1 §A7.
+        # V5 bench: Huihui-Qwen3.5-9B warmup FAIL (proxy cannot load model).
+        # MLX path falls back to Ollama huihui_ai/qwen3.5-abliterated:9b.
+        # A censored replacement (e.g. granite-4.1-3b) is not acceptable —
+        # auto workspace must remain uncensored. Pending uncensored MLX alternative.
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "tools": [],
@@ -62,7 +66,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/GLM-4.7-Flash-4bit",
+        # V5 bench: GLM-4.7-Flash-4bit FAIL (0 tokens, P5-MLX-006 chat template defect).
+        # Promoted to Laguna-XS.2-4bit (Poolside AI, 40.3 t/s, 19GB, smoke PASS).
+        "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
         # Output budget raised to 16384 — full-game HTML (Asteroids, particle
         # systems, etc.) sits at 6-10K tokens; the prior 8192 cap cut responses
         # while still in the analysis phase for complex deliverables.
@@ -125,7 +131,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
-        "mlx_model_hint": "mlx-community/glm-4.7-flash-abliterated-8bit",
+        # V5 bench: glm-4.7-flash-abliterated-8bit FAIL (0 tokens, P5-MLX-008).
+        # Promoted to AEON-4Bit (Qwen3.6 27B uncensored, 7.9 t/s, 14GB, smoke PASS).
+        # mlx_chat_template_kwargs disables thinking mode — security analysts want
+        # direct answers, not visible CoT blocks. Matches bench conditions.
+        "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": [
             "classify_vulnerability",
             "execute_python",
@@ -140,7 +151,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
-        "mlx_model_hint": "mlx-community/glm-4.7-flash-abliterated-8bit",
+        # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
+        "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
@@ -218,7 +231,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks",
         "model_hint": "qwen3-vl:32b",
-        "mlx_model_hint": "mlx-community/gemma-4-31b-it-4bit",
+        # V5 bench: gemma-4-31b-it-4bit at 3.5 t/s → gemma-4-26b-a4b-it-4bit at
+        # 23.4 t/s (6.7× speedup, 13GB vs 18GB, Apache 2.0, smoke PASS). Same
+        # Gemma 4 family, MoE architecture serves vision + audio identically.
+        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "tools": ["transcribe_audio"],
     },
     "auto-data": {
@@ -240,7 +256,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "evidence review, cross-framework control mapping, audit prep."
         ),
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
+        # V5 bench: Jackrong 35B-A3B unbenched. Promoted to granite-4.1-30b-mxfp4
+        # (IBM, 7.8 t/s, 15GB, smoke PASS) — purpose-built for GRC compliance
+        # workflows, Apache 2.0, ISO-certified training data, BFCL V3 73.7.
+        "mlx_model_hint": "mlx-community/granite-4.1-30b-mxfp4",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [

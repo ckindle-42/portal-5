@@ -1508,13 +1508,20 @@ def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
     is configured — prevents mlx_lm.server's 512-token default from silently
     truncating responses mid-generation.
 
-    Uses setdefault() — never overrides an explicit ``max_tokens`` from the
-    caller (e.g. Open WebUI passing its own value).
+    Also injects ``chat_template_kwargs`` when the workspace defines
+    ``mlx_chat_template_kwargs`` — used to disable thinking mode on AEON/Qwen3
+    models in workspaces that don't want CoT reasoning traces in the output.
+
+    Uses setdefault() — never overrides an explicit value from the caller
+    (e.g. Open WebUI passing its own max_tokens).
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
     predict_limit = ws_cfg_local.get("predict_limit") or _MLX_DEFAULT_MAX_TOKENS
     body.setdefault("max_tokens", predict_limit)
+    mlx_ctk = ws_cfg_local.get("mlx_chat_template_kwargs")
+    if mlx_ctk:
+        body.setdefault("chat_template_kwargs", mlx_ctk)
     return body
 
 
