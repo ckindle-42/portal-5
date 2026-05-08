@@ -318,13 +318,19 @@ def _check_memory_before_test(test_name: str = "") -> bool:
         print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
 
     # Even if used_pct is moderate, low free_gb means not enough contiguous
-    # GPU-accessible pages for a model load. < 8 GB free reliably causes
+    # GPU-accessible pages for a model load. < 4 GB free reliably causes
     # empty responses on models. The kernel reclaims inactive pages on demand
     # during new allocations, so inactive alone is not a reason to skip.
-    # (Inactive tracking + recovery lives in inter_phase_gate.sh between phases.)
+    # Guard: if proxy MemoryMonitor hasn't completed its first sample yet,
+    # both free_gb and inactive_gb will be 0.0 (not "truly zero" — just
+    # "no data"). Treat that as "unknown, proceed" to avoid false skips
+    # immediately after a proxy restart.
     try:
         h = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
         free_gb = float(h.get("free_gb", 99))
+        inactive_gb = float(h.get("inactive_gb", 0))
+        if free_gb == 0.0 and inactive_gb == 0.0:
+            free_gb = 99.0  # No monitor data yet — don't penalise
         if free_gb < 4:
             print(
                 f"  [MEMORY] Low free memory: {free_gb:.1f}GB — evicting before {test_name}",

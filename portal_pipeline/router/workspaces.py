@@ -133,10 +133,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "baronllm:q6_k",
         # V5 bench: glm-4.7-flash-abliterated-8bit FAIL (0 tokens, P5-MLX-008).
         # Promoted to AEON-4Bit (Qwen3.6 27B uncensored, 7.9 t/s, 14GB, smoke PASS).
-        # mlx_chat_template_kwargs disables thinking mode — security analysts want
-        # direct answers, not visible CoT blocks. Matches bench conditions.
+        # Thinking enabled — AEON needs its reasoning chain for complex security
+        # analysis (attack paths, multi-step pivots). emits_reasoning strips the
+        # <think> chain from visible output so analysts see clean conclusions.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
+        "emits_reasoning": True,
         "tools": [
             "classify_vulnerability",
             "execute_python",
@@ -152,8 +153,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
         # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
+        # Thinking enabled (same reason as auto-security — complex multi-path reasoning).
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
+        "emits_reasoning": True,
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
