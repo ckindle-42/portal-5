@@ -138,14 +138,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # <think> chain from visible output so analysts see clean conclusions.
         # No predict_limit: AEON must complete its thinking chain before generating
         # content. A 2000-token cap cuts off mid-think, leaving content="" in OWUI.
+        # web_search/web_fetch removed (UAT5): AEON issues parallel tool-call bursts
+        # (5+ simultaneous searches) that exhaust KV cache and trigger mid-stream
+        # eviction. AEON's training covers CVEs/ATT&CK well enough without live search.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
         "emits_reasoning": True,
         "tools": [
             "classify_vulnerability",
             "execute_python",
             "execute_bash",
-            "web_search",
-            "web_fetch",
             "kb_search",
             "kb_list",
         ],
@@ -157,6 +158,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
         # Thinking enabled (same reason as auto-security — complex multi-path reasoning).
         # No predict_limit — same reason as auto-security (2000-token cap = empty content).
+        # web_search intentionally excluded — same parallel-burst eviction risk as
+        # auto-security. Redteam work is reasoning-heavy, not search-heavy.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
         "emits_reasoning": True,
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
@@ -371,8 +374,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
-        "description": "Benchmark: glm-4.7-flash:q4_k_m (Ollama, Zhiyu AI — distinct Chinese research lineage, ~6GB)",
-        "model_hint": "glm-4.7-flash:q4_k_m",
+        "description": "Benchmark: GLM-4.7-Flash-4bit (MLX, Zhiyu AI — distinct Chinese research lineage, ~15GB, 59.2% SWE-bench)",
+        "model_hint": "qwen3-coder:30b",
+        "mlx_model_hint": "mlx-community/GLM-4.7-Flash-4bit",
+        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -388,7 +393,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-laguna": {
         "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
         "description": "Benchmark: Laguna-XS.2-4bit (MLX, Poolside AI, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified, interleaved reasoning)",
-        "model_hint": "glm-4.7-flash:q4_k_m",
+        "model_hint": "qwen3-coder:30b",
         "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
         "mlx_only": True,
         "max_concurrent": 1,

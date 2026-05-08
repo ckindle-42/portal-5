@@ -53,24 +53,12 @@ backends:
         supports_tools: true
         notes: "Laguna XS.2 33B-A3B MoE 4bit (~18.8GB) — Poolside AI lineage (first non-Alibaba/Meta/Google/NVIDIA/Mistral coder in stack). 68.2% SWE-bench Verified. Native interleaved reasoning + tool calling. SWA+FP8 KV cache. Apache 2.0. Converted mlx-lm 0.31.3."
       # ── GLM-4.7 (Z.AI lineage — escapes Qwen+Gemma duopoly) ───────────────────
-      - id: huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit
-        memory_gb: 18
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~18GB), 59.2% SWE-bench, abliterated, 200K ctx — KNOWN BROKEN P5-MLX-006: empty content on Apple Metal (Linux-conversion tokenizer defect). Replacement in catalog: mlx-community/glm-4.7-flash-abliterated-8bit. Kept registered for upstream-fix monitoring."
       - id: mlx-community/GLM-4.7-Flash-4bit
         memory_gb: 15
         big_model: false
         is_vlm: false
         supports_tools: true
         notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~15GB) — mlx-community Apple-Silicon conversion of zai-org/GLM-4.7-Flash. Z.AI lineage (escapes Qwen+Gemma duopoly). 59.2% SWE-bench, 79.5% τ²-Bench tool use, 200K ctx. PRIMARY for auto-coding."
-      - id: mlx-community/glm-4.7-flash-abliterated-8bit
-        memory_gb: 22
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "GLM-4.7-Flash 30B-A3B abliterated 8bit (~22GB) — mlx-community Apple-Silicon conversion of huihui abliterated source. Replaces broken huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit (P5-MLX-006). Z.AI lineage uncensored. Catalog-only pending workspace MLX-hint architecture for security tier."
       - id: mlx-community/Dolphin3.0-Llama3.1-8B-8bit
         memory_gb: 9
         big_model: false
@@ -95,39 +83,6 @@ backends:
         is_vlm: false
         supports_tools: true
         notes: "Microsoft Phi-4 14B (~14GB, MIT, synthetic data — distinct methodology)"
-      # ── V5: Reasoning quantization ladder (auto-reasoning candidates) ──────
-      # Allen AI Olmo 3 32B Think — fully open Dolma 3 + Dolci RLVR.
-      # Ladder lets bench measure the speed-quality Pareto.
-      - id: mlx-community/Olmo-3-1125-32B-4bit
-        memory_gb: 17
-        big_model: false
-        is_vlm: false
-        supports_tools: false
-        notes: "Allen AI Olmo 3 32B 4-bit DENSE (~17GB, Apache 2.0, NOT Qwen). bench-only — auto-reasoning candidate. supports_tools FALSE pending T-TUL probe. V5 ladder."
-      - id: mlx-community/Olmo-3-1125-32B-6bit
-        memory_gb: 24
-        big_model: false
-        is_vlm: false
-        supports_tools: false
-        notes: "Allen AI Olmo 3 32B 6-bit DENSE (~24GB). V5 ladder middle-ground variant."
-      - id: mlx-community/Olmo-3-1125-32B-8bit
-        memory_gb: 34
-        big_model: true
-        is_vlm: false
-        supports_tools: false
-        notes: "Allen AI Olmo 3 32B 8-bit DENSE (~34GB). V5 ladder high-quality variant. BIG_MODEL territory."
-      - id: mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit
-        memory_gb: 28
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "DeepSeek-R1-Distill Llama 70B 3-bit DENSE (~28GB, MIT/Llama 3.3). V5 D7 EXPERIMENT — could turn 70B from BENCH-ONLY into viable primary IF measured TPS >=6 AND smoke PASS AND quality holds at 3-bit. Theoretical TPS ~9.7 (273GB/s ÷ 28GB)."
-      - id: mlx-community/DeepSeek-R1-Distill-Llama-70B-4bit
-        memory_gb: 38
-        big_model: true
-        is_vlm: false
-        supports_tools: true
-        notes: "DeepSeek-R1-Distill Llama 70B 4-bit DENSE (~38GB, MIT/Llama 3.3). BENCH-ONLY per V4 §14 — 3.5 TPS measured warm on M4 Pro 64GB. Useful for offline reference benchmarking."
       # ── V5: Compliance quantization ladder (auto-compliance candidates) ────
       - id: mlx-community/granite-4.1-30b-mxfp4
         memory_gb: 15
@@ -154,30 +109,6 @@ backends:
         supports_tools: true
         notes: "IBM Granite 4.1 3B 8-bit MX DENSE (~3GB, Apache 2.0, ~50-70 TPS theoretical). AUTO speed-class candidate."
       # ── V5: Coding quantization ladder (auto-coding candidates) ────────────
-      - id: mlx-community/Devstral-Small-2505-4bit
-        memory_gb: 13
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Mistral Devstral Small 2505 4-bit DENSE 24B (~13GB, Apache 2.0). V5 coding ladder — uniform 4-bit reference."
-      - id: mlx-community/Devstral-Small-2505-4bit-DWQ
-        memory_gb: 13
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Mistral Devstral Small 2505 4-bit DWQ DENSE 24B (~13GB, Apache 2.0). Apple Silicon Dynamic Weight Quantization. V5 ladder vs uniform 4-bit."
-      - id: mlx-community/Devstral-Small-2505-6bit
-        memory_gb: 19
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Mistral Devstral Small 2505 6-bit DENSE 24B (~19GB). V5 ladder middle-ground."
-      - id: mlx-community/Devstral-Small-2505-8bit
-        memory_gb: 26
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Mistral Devstral Small 2505 8-bit DENSE 24B (~26GB). V5 ladder high-quality variant."
       # ── V5: Security/Redteam quantization ladder ───────────────────────────
       - id: mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit
         memory_gb: 14
@@ -185,24 +116,6 @@ backends:
         is_vlm: false
         supports_tools: true
         notes: "Qwen3.6 27B AEON-Ultimate-Uncensored 4-bit DENSE (~14GB, Apache 2.0). V5 security/redteam ladder. AEON-7 abliteration + fernflower-ssm-repair Apple Metal patch."
-      - id: mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-6Bit
-        memory_gb: 22
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Qwen3.6 27B AEON 6-bit DENSE (~22GB). V5 ladder middle-ground."
-      - id: mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-8Bit
-        memory_gb: 29
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Qwen3.6 27B AEON 8-bit DENSE (~29GB). V5 ladder high-quality variant."
-      - id: cs2764/DeepSeek-R1-Distill-Llama-70B-Abliterated-MLX-4Bit
-        memory_gb: 38
-        big_model: true
-        is_vlm: false
-        supports_tools: true
-        notes: "DeepSeek-R1-Distill Llama 70B abliterated 4-bit DENSE (~38GB). V5 redteam-extreme candidate — abliterated 70B reasoning. BENCH-ONLY pending TPS measurement (parent 70B-4bit measures 3.5 TPS unusable; abliteration overhead may differ)."
       - id: lmstudio-community/Magistral-Small-2509-MLX-8bit
         memory_gb: 24
         big_model: false
@@ -228,24 +141,6 @@ backends:
         is_vlm: false
         supports_tools: true
         notes: "Reasoning alt: 27B v2 4bit (~14GB, tighter CoT, Claude-4.6-Opus)"
-      - id: Jackrong/MLX-Qwopus3.5-9B-v3-8bit
-        memory_gb: 9
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Available 9B slot (~9GB, v3)"
-      - id: Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit
-        memory_gb: 9
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Available 9B Claude-4.6 slot (~9GB)"
-      - id: Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
-        memory_gb: 28
-        big_model: false
-        is_vlm: false
-        supports_tools: true
-        notes: "Compliance: 35B MoE 8bit, 3B active (~28GB)"
       - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit
         memory_gb: 34
         big_model: false
@@ -303,12 +198,6 @@ backends:
         is_vlm: true
         supports_tools: false
         notes: "Gemma 4 E4B VLM fallback (~5GB, vision+audio, 128K ctx)"
-      - id: Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit
-        memory_gb: 15
-        big_model: false
-        is_vlm: true
-        supports_tools: false
-        notes: "Abliterated Gemma 4 26B A4B MoE (~15GB, uncensored vision, 256K ctx) — KNOWN BROKEN P5-MLX-008: empty content on Apple Metal (UAT 2026-04-26 WS-13 len=0). Kept registered for monitoring."
       - id: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
         memory_gb: 8
         big_model: false
@@ -321,12 +210,6 @@ backends:
         is_vlm: true
         supports_tools: false
         notes: "Uncensored VLM 11B 4bit (~7GB, Karakeep vision)"
-      - id: dealignai/Gemma-4-31B-JANG_4M-CRACK
-        memory_gb: 23
-        big_model: false
-        is_vlm: true
-        supports_tools: false
-        notes: "Abliterated Gemma 4 31B JANG v2 5.1-bit (~23GB, uncensored vision+text)"
       # ── V5: Vision quantization ladder (auto-vision candidates) ────────────
       # Gemma 4 26B-A4B MoE 4B-active multimodal text+image+video+audio.
       # Per Google blog only 11 LMArena pts behind dense 31B for ~5x the speed.
@@ -337,24 +220,6 @@ backends:
         is_vlm: true
         supports_tools: true
         notes: "Gemma 4 26B-A4B 4-bit MoE (~13GB, Apache 2.0, multimodal). V5 vision ladder — fastest variant, decode bound on 4B active."
-      - id: mlx-community/gemma-4-26b-a4b-it-6bit
-        memory_gb: 19
-        big_model: false
-        is_vlm: true
-        supports_tools: true
-        notes: "Gemma 4 26B-A4B 6-bit MoE (~19GB). V5 ladder middle-ground."
-      - id: mlx-community/gemma-4-26b-a4b-it-8bit
-        memory_gb: 26
-        big_model: false
-        is_vlm: true
-        supports_tools: true
-        notes: "Gemma 4 26B-A4B 8-bit MoE (~26GB, multimodal). V5 vision PRIMARY candidate. Replaces gemma-4-31b-it-4bit if bench confirms TPS advantage. Lineage diversification — Google."
-      - id: mlx-community/gemma-4-31b-8bit
-        memory_gb: 31
-        big_model: false
-        is_vlm: true
-        supports_tools: true
-        notes: "Gemma 4 31B 8-bit DENSE (~31GB, Apache 2.0). V5 vision dense comparator vs 26B-A4B MoE."
       # ── V5: Creative ladder (auto-creative abliterated candidate) ──────────
       - id: mlx-community/gemma-4-26B-A4B-it-heretic-4bit
         memory_gb: 13
@@ -362,20 +227,6 @@ backends:
         is_vlm: true
         supports_tools: true
         notes: "Gemma 4 26B-A4B HERETIC-abliterated 4-bit MoE (~13GB, Gemma ToU). V5 creative candidate. DavidAU HERETIC method on Gemma 4 base."
-      # ── V5: MTP bench pair ──────────────────────────────────────────────────
-      - id: mlx-community/gemma-4-26b-a4b-it-bf16
-        memory_gb: 52
-        big_model: true
-        is_vlm: true
-        supports_tools: true
-        mtp_drafter: mlx-community/gemma-4-26B-A4B-it-assistant-bf16
-        notes: "Gemma 4 26B-A4B BF16 MTP TARGET (51.6GB). 3.94x speedup with drafter at temp=0 byte-identical. BIG_MODEL single-resident. Bench-only pending TASK_MTP_PROXY_V1."
-      - id: mlx-community/gemma-4-26B-A4B-it-assistant-bf16
-        memory_gb: 1
-        big_model: false
-        is_vlm: false
-        supports_tools: false
-        notes: "Gemma 4 26B-A4B MTP DRAFTER (~0.8GB). 4-layer assistant for speculative decoding. Loaded alongside target only."
 
   # ── General (uncensored-default + verified tool calling) ───────────────────
   # Ordering: line 1 must be tool-tagged in Ollama and uncensored. Line 1 is
@@ -417,12 +268,6 @@ backends:
       - id: devstral:24b
         supports_tools: true
         notes: "Mistral devstral-small-2, tool-using coding agent"
-      - id: glm-4.7-flash:q4_k_m
-        supports_tools: false
-        notes: "was: hf.co/unsloth/GLM-4.7-Flash-GGUF — verified NO Ollama tools tag (audit 2026-05-04: api_error)"
-      - id: deepseek-coder-v2-lite:q4_k_m
-        supports_tools: false
-        notes: "was: hf.co/deepseek-ai/DeepSeek-Coder-V2-Lite-Base-GGUF"
       - id: llama3.3:70b-q4_k_m
         supports_tools: false
         notes: "was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY) — verified NO Ollama tools tag on this GGUF (audit 2026-05-04: api_error). Llama 3.3 architecture supports tools natively, but this specific Ollama registry GGUF lacks the template declaration."
@@ -560,7 +405,7 @@ workspace_routing:
   bench-phi4:              [mlx, coding, general]   # Phi-4-8bit (Microsoft)
   bench-phi4-reasoning:    [mlx, coding, general]   # Phi-4-reasoning-plus (Microsoft RL)
   bench-dolphin8b:         [mlx, general]           # Dolphin3.0-Llama3.1-8B (Cognitive Computations)
-  bench-glm:               [coding, general]        # glm-4.7-flash (Zhipu AI — Ollama only)
+  bench-glm:               [mlx, coding, general]   # GLM-4.7-Flash-4bit (Zhiyu AI — MLX only)
   bench-gptoss:            [reasoning, general]     # gpt-oss:20b (OpenAI open-weight — Ollama only)
   bench-laguna:            [mlx, coding, general]   # Laguna-XS.2-4bit (Poolside — new lineage)
   bench-granite41-8b:      [general]                # granite4.1:8b (IBM, dense 8B no-think — Ollama only)
