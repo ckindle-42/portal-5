@@ -7,8 +7,8 @@
 ## Summary
 
 - **PASS**: 53
-- **WARN**: 4
-- **FAIL**: 4
+- **WARN**: 5
+- **FAIL**: 3
 - **SKIP**: 50
 - **MANUAL**: 0
 
@@ -127,3 +127,36 @@
 | 1 | PASS | [A-03 Same-Session Memory — Fact Recall](http://localhost:8080/c/0cca1890-7c47-44f8-9f4b-e6588c1fd608) | `auto` | 5/5(100%) Memory acknowledgment (turn 1)=✓(found: ['understood']); Recalls role (network security engineer)=✓(ok); Recalls tooling=✓(found: ['cisco', 'fortinet', 'splunk', 'ios']); Recalls focus area=✓(found: ['ot', 'ics', 'segmentation', 'operational technology', 'industrial control']); Routed model: auto=✓(matches MLX:huihui-qwen3.5-9b-abliterated-mlx-4bit | Ollama:qwen3.5-abliterated — pipeline confirms: mlx-apple-silicon|mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit) | 96.4s |
 | 1 | FAIL | [A-08 Cross-Session Memory — Two-Chat Persistence](http://localhost:8080/c/3f794900-2d6b-40db-be20-8f22b18c89d1) | `auto-coding` | 2/5(40%) [routed: auto-coding] Chat 1: storage acknowledged=✗(none of: ['stored', 'saved', 'remembered', 'noted', 'confirmed', 'successfully', "i've stored", "i'll remember", 'keeping', 'tool call']); Chat 2: recalls region name=✗(none of: ['aurora-7', 'aurora 7', 'aurora7']); Chat 2: recalls operator name=✗(none of: ['hex-lantern', 'hex lantern', 'hexlantern']); Chat 1 routed: auto-coding=✓(matches MLX:laguna-xs.2-4bit | Ollama:qwen3-coder); Chat 2 routed: auto-coding=✓(matches MLX:laguna-xs.2-4bit | Ollama:qwen3-coder) | 47.3s |
 | 1 | FAIL | [A-01 Document RAG — Upload, Query, Follow-Up](http://localhost:8080/c/a9558183-47ff-4239-9187-63dee31473f1) | `auto` | 5/6(83%) [routed: auto] Turn 1 summary substantive=✓(len=26562, min=80); Not generic=✓(ok); Turn 2 retrieval substantive=✓(len=26562, min=100); Quotes content actually in fixture=✗(none of: ['access control', 'rbac', 'authentication', 'authorization', 'least privilege', 'principle of']); Recovery: passed on attempt 2/3=✓(1 retries needed (backend instability signal)); Routed model: auto=✓(matches MLX:huihui-qwen3.5-9b-abliterated-mlx-4bit | Ollama:qwen3.5-abliterated — pipeline confirms: mlx-apple-silicon|huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit) | 324.4s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.2s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.2s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.2s |
+Call log:
+  - waiting for locator("textarea, [contenteditable='true']").first
+ ) | 33.1s |

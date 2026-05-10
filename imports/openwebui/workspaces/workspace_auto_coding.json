@@ -5,7 +5,8 @@
     "description": "💻 Portal Code Expert",
     "profile_image_url": "",
     "toolIds": [
-      "server:mcp:portal_code"
+      "server:mcp:portal_code",
+      "server:mcp:portal_memory"
     ]
   },
   "params": {
