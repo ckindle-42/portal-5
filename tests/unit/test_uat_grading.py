@@ -160,7 +160,7 @@ def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
 
     import portal5_uat_driver as drv
 
-    monkeypatch.setattr(drv, "owui_get_last_response", lambda t, c: "hello world")
+    monkeypatch.setattr(drv, "owui_get_last_response", lambda t, c, min_messages=1: "hello world")
     sleep_calls: list[float] = []
 
     async def fake_sleep(s):
