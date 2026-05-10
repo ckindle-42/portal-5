@@ -959,7 +959,7 @@ def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
     return moved
 
 
-def owui_get_last_response(token: str, chat_id: str) -> str:
+def owui_get_last_response(token: str, chat_id: str, min_messages: int = 1) -> str:
     """Fetch the last assistant response from OWUI API — avoids Playwright truncation.
 
     For thinking models (Qwen3/AEON), OWUI only commits an assistant message when
@@ -971,6 +971,11 @@ def owui_get_last_response(token: str, chat_id: str) -> str:
     OWUI embeds reasoning content inline in the content field as:
       <details type="reasoning" done="true" duration="N">...</details>[actual response]
     No separate reasoning field exists in the chat history API.
+
+    min_messages: minimum number of non-empty assistant messages required before
+    returning. Use min_messages=2 for multi-turn turn-2 detection to prevent
+    turn-1's committed response from satisfying the completion signal prematurely.
+    Returns "" (falsy) until the required count of non-empty messages exists.
     """
     try:
         r = httpx.get(
@@ -982,16 +987,21 @@ def owui_get_last_response(token: str, chat_id: str) -> str:
         assistant_msgs = [m for m in msgs.values() if m.get("role") == "assistant"]
         if not assistant_msgs:
             return ""
-        # Return the last message with non-empty content. For thinking models the
-        # current in-flight message is empty while AEON is still generating; the
-        # most-recently-committed previous attempt's response is the useful signal.
-        for msg in reversed(assistant_msgs):
+        # Collect all non-empty assistant messages in order.
+        non_empty: list[str] = []
+        for msg in assistant_msgs:
             content = msg.get("content", "")
             if isinstance(content, list):
                 content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
             if content:
-                return content
-        return ""
+                non_empty.append(content)
+        # Guard: for turn-2 in multi-turn tests (min_messages=2), return "" until
+        # the second non-empty assistant message has been committed by OWUI.
+        # For thinking models, in-flight messages are always empty; the most-recently-
+        # committed previous attempt's response is the useful signal (min_messages=1).
+        if len(non_empty) < min_messages:
+            return ""
+        return non_empty[-1]
     except Exception:
         return ""
 
@@ -1158,6 +1168,7 @@ async def _wait_for_response_arrival(
     token: str,
     chat_id: str,
     max_wait: float = POST_STREAM_API_WAIT_S,
+    min_messages: int = 1,
 ) -> str:
     """Poll OWUI API for assistant message arrival after streaming ends.
 
@@ -1165,6 +1176,9 @@ async def _wait_for_response_arrival(
     (typically <500ms, occasionally a few seconds under load). This helper
     replaces fixed asyncio.sleep(5) padding with an exponential-backoff
     poll that returns as soon as content lands and has stabilized.
+
+    min_messages: passed to owui_get_last_response. Set to 2 for multi-turn
+    turn-2 to require the second committed assistant response.
 
     Returns content string on arrival+stability, or "" on timeout.
     """
@@ -1176,14 +1190,14 @@ async def _wait_for_response_arrival(
     deadline = time.monotonic() + max_wait
     idx = 0
     while time.monotonic() < deadline:
-        text = owui_get_last_response(token, chat_id)
+        text = owui_get_last_response(token, chat_id, min_messages=min_messages)
         if text:
             # Content arrived — wait 2s and re-poll to confirm the model
             # isn't still streaming. Models that generate long sectioned
             # responses (headers like "Key Takeaways") may pause briefly,
             # causing DOM stability to fire prematurely.
             await asyncio.sleep(2.0)
-            text2 = owui_get_last_response(token, chat_id)
+            text2 = owui_get_last_response(token, chat_id, min_messages=min_messages)
             if text2 and abs(len(text2) - len(text)) < 100:
                 # Length stable — model is truly done
                 return text2
@@ -1264,6 +1278,7 @@ async def _wait_for_completion(
     *,
     token: str = "",
     chat_id: str = "",
+    min_messages: int = 1,
 ) -> None:
     """Progress-monitoring wait with tiered polling.
 
@@ -1388,7 +1403,7 @@ async def _wait_for_completion(
             # Replace fixed sleep(5) with bounded API poll for content arrival.
             _log("stream complete (stop button gone)")
             if token and chat_id:
-                await _wait_for_response_arrival(token, chat_id)
+                await _wait_for_response_arrival(token, chat_id, min_messages=min_messages)
             else:
                 await asyncio.sleep(2.0)
             return
@@ -1405,7 +1420,7 @@ async def _wait_for_completion(
             if stable_count >= PHASE2_DOM_STABLE_NEEDED and not stop_still_active:
                 _log("stream complete (DOM stable)")
                 if token and chat_id:
-                    await _wait_for_response_arrival(token, chat_id)
+                    await _wait_for_response_arrival(token, chat_id, min_messages=min_messages)
                 else:
                     await asyncio.sleep(2.0)
                 return
@@ -1417,7 +1432,7 @@ async def _wait_for_completion(
         # while DOM stability is accumulating, exit early. Cheap check —
         # only runs once stable_count >= 1 (after at least one quiet sample).
         if token and chat_id and stable_count >= 1 and not stop_seen:
-            text = owui_get_last_response(token, chat_id)
+            text = owui_get_last_response(token, chat_id, min_messages=min_messages)
             if text:
                 _log("stream complete (API has content)")
                 return
@@ -1445,6 +1460,7 @@ async def _send_and_wait(
     *,
     token: str = "",
     chat_id: str = "",
+    min_messages: int = 1,
 ) -> None:
     """Send a prompt and wait for completion.
 
@@ -1452,13 +1468,18 @@ async def _send_and_wait(
     as a parallel completion signal and replaces the fixed post-stream sleep
     with a bounded content-arrival poll. Caller still fetches the response
     via owui_get_last_response after this returns.
+
+    min_messages: forwarded to _wait_for_completion. Set to 2 for multi-turn
+    turn-2 calls so completion detection requires ≥ 2 committed assistant
+    responses, preventing turn-1's stable content from firing a false early exit.
     """
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
     await ta.fill(prompt)
     await ta.press("Enter")
     await _wait_for_completion(
-        page, test_id, tier, max_wait_no_progress, token=token, chat_id=chat_id
+        page, test_id, tier, max_wait_no_progress, token=token, chat_id=chat_id,
+        min_messages=min_messages,
     )
 
 
@@ -7703,9 +7724,12 @@ async def run_test(
                 max_wait,
                 token=token,
                 chat_id=chat_id,
+                min_messages=2,  # require ≥2 non-empty responses — prevents turn-1
+                                 # stable content from satisfying the completion signal
             )
-            # For turn2, get the second assistant message
-            turn2_response = owui_get_last_response(token, chat_id)
+            # For turn2, require ≥2 non-empty assistant messages so we don't
+            # return turn-1's committed response as the turn-2 completion signal.
+            turn2_response = owui_get_last_response(token, chat_id, min_messages=2)
 
         # Run assertions on turn 1
         assertions_result = run_assertions(response_text, test.get("assertions", []), artifact_path)

@@ -223,7 +223,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        # Previous hint (Qwen3.5-9B) was a 9B general routing model — mismatched
+        # for a workspace with emits_reasoning+predict_limit (those apply to the
+        # Ollama tongyi fallback). Promoted to gemma-4-26b-a4b-it-4bit (VLM,
+        # thinking, 256K ctx, ~23 TPS) — same model as auto-vision primary,
+        # confirmed working on Apple Silicon.
+        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [
