@@ -317,10 +317,11 @@ def _check_memory_before_test(test_name: str = "") -> bool:
     if used >= MEMORY_WARN_PCT:
         print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
 
-    # Even if used_pct is moderate, low free_gb means not enough contiguous
-    # GPU-accessible pages for a model load. < 4 GB free reliably causes
-    # empty responses on models. The kernel reclaims inactive pages on demand
-    # during new allocations, so inactive alone is not a reason to skip.
+    # Free memory guard — only enforce when overall memory pressure is high.
+    # The proxy keeps a warm model loaded (~3GB) so free_gb is typically
+    # low even under normal conditions. When used_pct is moderate (< CRITICAL),
+    # the warm model + inactive pages are recyclable on demand by the kernel.
+    # Only enforce the free-gb threshold when the system is genuinely tight.
     # Guard: if proxy MemoryMonitor hasn't completed its first sample yet,
     # both free_gb and inactive_gb will be 0.0 (not "truly zero" — just
     # "no data"). Treat that as "unknown, proceed" to avoid false skips
@@ -331,7 +332,7 @@ def _check_memory_before_test(test_name: str = "") -> bool:
         inactive_gb = float(h.get("inactive_gb", 0))
         if free_gb == 0.0 and inactive_gb == 0.0:
             free_gb = 99.0  # No monitor data yet — don't penalise
-        if free_gb < 4:
+        if free_gb < 4 and used >= MEMORY_CRITICAL_PCT:
             print(
                 f"  [MEMORY] Low free memory: {free_gb:.1f}GB — evicting before {test_name}",
                 flush=True,
@@ -5545,7 +5546,8 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-data",
         "model_slug": "phi4stemanalyst",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        # DeepSeek-R1-32B thinking model — needs ~5 min for reasoning chain
+        "workspace_tier": "mlx_large",
         "prompt": (
             "A network packet filter runs as an independent Bernoulli trial on each packet. "
             "P(packet blocked) = 0.001. In a stream of 5,000 packets, what is the probability "

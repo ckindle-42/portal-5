@@ -78,7 +78,11 @@ class AlertEvent:
             lines.append("")
             lines.append("MLX Context:")
             for k, v in self.metadata.items():
-                key = k.replace("mlx_", "")
+                key = k.replace("mlx_", "").replace("_", " ")
+                if isinstance(v, list):
+                    v = ", ".join(str(x) for x in v)
+                elif not isinstance(v, (str, int, float, bool)):
+                    v = str(v)
                 lines.append(f"  {key}: {v}")
         lines.append(f"Sent at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}")
         return "\n".join(lines)

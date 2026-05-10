@@ -182,7 +182,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-        "predict_limit": 16384,
+        # Thinking model: Qwopus3.5 spends 8-12K tok on reasoning before content.
+        # 16384 was insufficient — truncated mid-answer. Raised to 32768.
+        "predict_limit": 32768,
         "emits_reasoning": True,
         "tools": [],
     },
@@ -250,7 +252,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
         "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-        "predict_limit": 16384,
+        # Thinking model: DeepSeek-R1 spends 10-16K tok on reasoning before
+        # content. 16384 was insufficient — truncated mid-answer (P-DA05 UAT).
+        # Raised to 32768 so reasoning + full derivation both fit.
+        "predict_limit": 32768,
         "emits_reasoning": True,
         "tools": ["execute_python", "create_excel", "kb_search"],
     },
