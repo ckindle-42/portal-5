@@ -564,7 +564,7 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
     while time.time() - t0 < max_wait:
         try:
             resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-            if resp.status_code == 200:
+            if resp.status_code in (200, 503):
                 data = resp.json()
                 state = data.get("state", "?")
                 model = data.get("loaded_model")
@@ -627,7 +627,7 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
     # max_wait exceeded — report why before proceeding
     try:
         resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-        data = resp.json() if resp.status_code == 200 else {}
+        data = resp.json() if resp.status_code in (200, 503) else {}
         state = data.get("state", "unreachable")
         model = data.get("loaded_model", "-")
         print(f"  {label} MLX still not ready after {max_wait}s (state={state}, model={model})")
@@ -7317,6 +7317,11 @@ async def _run_two_chat_test(
 
     try:
         max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
+
+        # Ensure MLX model is loaded before sending — two-chat flow skips
+        # the main runner's per-test _wait_for_mlx_ready call.
+        if tier in ("mlx_large", "mlx_small"):
+            _wait_for_mlx_ready(test_id)
 
         # Chat 1
         await _navigate_to_chat(page, chat1_url)
