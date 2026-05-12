@@ -1221,46 +1221,51 @@ async def _wait_for_response_arrival(
     max_wait: float = POST_STREAM_API_WAIT_S,
     min_messages: int = 1,
 ) -> str:
-    """Poll OWUI API for assistant message arrival after streaming ends.
+    """Poll OWUI API until response content stabilizes (log-driven, not timer-based).
+
+    Polls every 2s and declares done when content length hasn't grown by more
+    than 50 chars across 3 consecutive polls. This is content-driven completion:
+    the API response log drives the exit decision rather than a fixed sleep.
 
     OWUI persists the assistant message at end-of-stream with a brief lag
-    (typically <500ms, occasionally a few seconds under load). This helper
-    replaces fixed asyncio.sleep(5) padding with an exponential-backoff
-    poll that returns as soon as content lands and has stabilized.
+    (typically <500ms, occasionally a few seconds under load).
 
     min_messages: passed to owui_get_last_response. Set to 2 for multi-turn
     turn-2 to require the second committed assistant response.
 
-    Returns content string on arrival+stability, or "" on timeout.
+    Returns last stable content string, or "" on timeout.
     """
     if not token or not chat_id:
         await asyncio.sleep(2.0)
         return ""
 
-    delays = [0.25, 0.5, 1.0, 2.0, 4.0]
+    STABLE_COUNT = 2     # consecutive polls with no meaningful growth (OWUI commits atomically)
+    STABLE_THRESHOLD = 50  # chars; ignores minor whitespace/punctuation flushes
+
     deadline = time.monotonic() + max_wait
-    idx = 0
+    len_history: list[int] = []
+    last_text = ""
+
     while time.monotonic() < deadline:
         text = owui_get_last_response(token, chat_id, min_messages=min_messages)
+        cur_len = len(text)
         if text:
-            # Content arrived — wait 2s and re-poll to confirm the model
-            # isn't still streaming. Models that generate long sectioned
-            # responses (headers like "Key Takeaways") may pause briefly,
-            # causing DOM stability to fire prematurely.
-            await asyncio.sleep(2.0)
-            text2 = owui_get_last_response(token, chat_id, min_messages=min_messages)
-            if text2 and abs(len(text2) - len(text)) < 100:
-                # Length stable — model is truly done
-                return text2
-            # Length grew — model still streaming, keep polling
-            text = text2
-        delay = delays[min(idx, len(delays) - 1)]
-        idx += 1
+            last_text = text
+        len_history.append(cur_len)
+        if len(len_history) > STABLE_COUNT:
+            len_history.pop(0)
+
+        # Stable: enough samples, content exists, and max growth < threshold
+        if len(len_history) == STABLE_COUNT and cur_len > 0:
+            if max(len_history) - min(len_history) <= STABLE_THRESHOLD:
+                return text
+
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
-        await asyncio.sleep(min(delay, remaining))
-    return ""
+        await asyncio.sleep(min(2.0, remaining))
+
+    return last_text
 
 
 async def _wait_for_backend_alive(tier: str, max_wait: float = BACKEND_SETTLE_WAIT_S) -> bool:
@@ -1359,6 +1364,9 @@ async def _wait_for_completion(
     stop_seen = False
     dead_strikes = 0
     last_backend_check = 0.0
+    # API-driven tracking: content length from last poll. Used in Phase 2 to
+    # prevent DOM-stable from firing while the model is still generating output.
+    _prev_api_len = 0
 
     def _log(msg: str) -> None:
         nonlocal last_log
@@ -1466,6 +1474,23 @@ async def _wait_for_completion(
                     await asyncio.sleep(2.0)
                 return
 
+        # API-driven content tracking: fetch current API response length each poll.
+        # If content grew since last poll (model still generating response), reset
+        # DOM stable count — prevents <details type="reasoning"> collapsed blocks
+        # from triggering a false DOM-stable exit while the model is still active.
+        # This is the log-driven completion signal: content changes drive the
+        # decision, not wall-clock timers.
+        _cur_api_text = ""
+        if token and chat_id:
+            _cur_api_text = owui_get_last_response(token, chat_id, min_messages=min_messages)
+            _cur_api_len = len(_cur_api_text)
+            if _cur_api_len > _prev_api_len + 100:
+                # Content actively growing — model still generating; don't let DOM
+                # stability fire prematurely
+                stable_count = 0
+                _log(f"API content growing ({_prev_api_len}→{_cur_api_len} chars) — resuming")
+            _prev_api_len = _cur_api_len
+
         # Check DOM stability as secondary signal — only when stop button is gone
         # (or never appeared). Reasoning models emit <details type="reasoning">
         # blocks that collapse in the DOM, making innerText appear stable while
@@ -1476,24 +1501,30 @@ async def _wait_for_completion(
             stable_count += 1
             stop_still_active = stop_seen and await _stop_button_visible(page)
             if stable_count >= PHASE2_DOM_STABLE_NEEDED and not stop_still_active:
-                _log("stream complete (DOM stable)")
+                # Before declaring done via DOM, verify via API (reuse _cur_api_text
+                # already fetched this poll — no extra HTTP request).
+                # If API has content → run stabilization-wait then done.
+                # If API is empty but we have credentials → keep polling; the model
+                # may still be in the reasoning phase and hasn't started output yet.
                 if token and chat_id:
-                    await _wait_for_response_arrival(token, chat_id, min_messages=min_messages)
+                    if _cur_api_text:
+                        _log("stream complete (DOM stable + API has content)")
+                        await _wait_for_response_arrival(
+                            token, chat_id, min_messages=min_messages
+                        )
+                        return
+                    else:
+                        # DOM stable but API empty — reasoning model still thinking;
+                        # reset stable_count and keep polling the API
+                        stable_count = 0
+                        _log("DOM stable but API empty — model still reasoning, continuing")
                 else:
+                    _log("stream complete (DOM stable)")
                     await asyncio.sleep(2.0)
-                return
+                    return
         else:
             stable_count = 0
             prev_text = curr
-
-        # API-as-secondary-completion-signal: if content has landed in OWUI
-        # while DOM stability is accumulating, exit early. Cheap check —
-        # only runs once stable_count >= 1 (after at least one quiet sample).
-        if token and chat_id and stable_count >= 1 and not stop_seen:
-            text = owui_get_last_response(token, chat_id, min_messages=min_messages)
-            if text:
-                _log("stream complete (API has content)")
-                return
 
         # Backend crash check — rate-limited inside _check_backend_crash
         if _check_backend_crash():
@@ -1745,22 +1776,29 @@ async def _download_artifact(
 
 
 def _strip_think_blocks(text: str) -> str:
-    """Strip <think>...</think> blocks from model output before running assertions.
+    """Strip reasoning blocks from model output before running assertions.
 
-    Laguna-XS.2 (and Magistral, Phi-4-reasoning-plus, Qwopus) embed reasoning
-    inside content as <think> tags. Assertions must evaluate the *answer* — not
-    the reasoning — to avoid false positives (keyword hit inside think) or false
-    negatives (assert_has_code missing code that follows a large think block
-    when the block itself looks like prose).
+    Three reasoning formats are handled:
+    - <think>...</think>: Laguna-XS.2, Phi-4-reasoning-plus, Qwopus
+    - [THINK]...[/THINK]: Magistral
+    - <details type="reasoning">...</details>: AEON/Qwen3 as committed by OWUI API
+      (OWUI inlines reasoning in the content field; the actual response follows
+      the closing tag — without stripping, keywords like "error" or "failed" that
+      appear naturally in reasoning traces cause false not_contains failures)
 
-    Strips all <think>...</think> spans (case-insensitive, DOTALL so multi-line
-    blocks are handled). Also strips the common [THINK]...[/THINK] variant used
-    by Magistral. Trailing whitespace is normalized after stripping.
+    Strips all variants case-insensitively with DOTALL so multi-line blocks are
+    handled. Trailing whitespace is normalized after stripping.
     """
     import re
 
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"\[THINK\].*?\[/THINK\]", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(
+        r'<details[^>]*type=["\']reasoning["\'][^>]*>.*?</details>',
+        "",
+        text,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
     return text.strip()
 
 
