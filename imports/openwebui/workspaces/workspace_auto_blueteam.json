@@ -5,6 +5,7 @@
     "description": "🔵 Portal Blue Team",
     "profile_image_url": "",
     "toolIds": [
+      "server:mcp:portal_research",
       "server:mcp:portal_code"
     ]
   },
