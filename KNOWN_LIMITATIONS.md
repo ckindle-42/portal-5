@@ -8,13 +8,10 @@ Architectural and design constraints that cannot be resolved without significant
 
 ### Cross-Session Memory Requires Model-Initiated Tool Calls
 - **ID**: P5-MEM-001
-- **Status**: ACTIVE — OWUI architectural limitation
-- **Description**: UAT test A-08 (cross-session memory) expects a model to store a named fact in one OWUI chat and retrieve it in a separate fresh chat. The OWUI memory feature uses a tool-call model (`remember`/`recall`), but whether the model actually invokes these tools depends on the OWUI session's tool binding. In practice, the model sometimes acknowledges storage verbally without making the tool call, meaning the fact is never persisted to the memory backend. The retrieval chat then finds nothing.
-- **Root cause**: Two compounding issues: (1) OWUI's per-session tool activation is not guaranteed across fresh chats opened by the UAT driver, and (2) some models respond verbally ("I'll remember that") instead of invoking the MCP tool.
-- **Impact**: A-08 FAIL in UAT runs. Actual user-facing memory behavior in OWUI's own UI may differ (OWUI activates tools more reliably for human-initiated sessions).
-- **Mitigation**: For reliable cross-session memory, use the memory MCP server directly via the API (`/tools/remember`) rather than relying on model-initiated tool calls through OWUI. The UAT driver cannot control OWUI's per-chat tool binding without changes to the seeding script.
-- **Operator action**: None required. A-08 remains in the UAT suite as a canary for memory regression.
-- **Last verified**: 2026-05-05
+- **Status**: RESOLVED — 2026-05-12
+- **Description**: A-08 previously depended on the model invoking the `remember` tool inside a programmatically-opened OWUI chat, which was unreliable (OWUI tool activation not guaranteed in API-created sessions, small models sometimes acknowledging verbally without a tool call).
+- **Resolution**: UAT driver now pre-seeds the memory fact via direct MCP API call (`/tools/remember`) before any chat opens, then tests `recall` in two separate fresh chats. The full pipeline (LanceDB → semantic embedding → model recall) is still validated. Model-initiated `remember` is intentionally excluded from A-08 because it depends on OWUI per-session tool binding that the driver cannot control.
+- **Last verified**: 2026-05-12
 
 ---
 

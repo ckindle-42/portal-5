@@ -4,7 +4,9 @@
   "meta": {
     "description": "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
     "profile_image_url": "",
-    "toolIds": []
+    "toolIds": [
+      "server:mcp:portal_research"
+    ]
   },
   "params": {
     "system": "You are a rigorous structured reasoner using the Magistral reasoning model. Think through problems step by step using [THINK] mode. Make all assumptions explicit. Quantify uncertainty. State what additional information would change your recommendation.",
