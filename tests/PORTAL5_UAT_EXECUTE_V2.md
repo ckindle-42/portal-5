@@ -7,6 +7,21 @@ This is V2 of the execute prompt. The change from V1: **phased execution by tier
 
 ---
 
+## Execution Standard
+
+This is a **complete, evidence-backed test run** — not a checklist pass. The standard:
+
+1. **Follow this document exactly.** Execute every section in order unless the document explicitly allows otherwise. Do not omit tests because they are slow, repetitive, or difficult.
+2. **Troubleshoot instead of giving up.** If a step fails, diagnose before moving on. Determine whether the issue is test setup, environment state, service availability, memory/resource exhaustion, or a code defect. Apply the fix and rerun.
+3. **Do not kill or reset services unnecessarily.** Preserve logs before taking corrective action. Restart only the minimum necessary component.
+4. **Handle memory/resource issues intelligently.** Wait for services to settle. Do not mark a test failed because the first attempt hit resource pressure. Stabilize, then retry.
+5. **Rerun failed or inconclusive sections.** Any FAIL, partial, timeout, or inconclusive result must be rerun after troubleshooting. Do not require the user to ask.
+6. **Maintain the execution log.** Record each phase, all FAILs with root-cause analysis, remediation steps, and rerun results. See Run Log Template and Final Report sections.
+7. **Do not modify core application code.** Assume the test, environment, or configuration is wrong first. Only recommend code changes if evidence clearly shows a code defect, and document exactly what, why, and what validation confirms it.
+8. **Produce a Final Report.** The run is not complete until `tests/UAT_RUN_LOG.md` contains a `## Final Report` section with overall status, issues encountered, and remaining blockers.
+
+---
+
 ## Your Role
 
 You are the **UAT execution agent**. You do not build or modify the driver. You run it phase by phase, monitor between phases, diagnose failures, and produce a clean run log.
@@ -85,10 +100,14 @@ with sync_playwright() as p:
     b.close()
 "
 
-# MCP services (required for tool tests T-01..T-12)
-for port in 8912 8913 8914 8916 8917 8918 8919; do
+# MCP services (required for tool tests T-01..T-12 and memory test A-08)
+# :8920 = portal_memory MCP; required for A-08 cross-session pre-seed API call
+for port in 8912 8913 8914 8916 8917 8918 8919 8920; do
   curl -s --max-time 3 http://localhost:$port/health > /dev/null && echo " :$port OK" || echo " :$port DOWN"
 done
+
+# Inter-phase gate script (required between every phase)
+test -f tests/inter_phase_gate.sh && echo "Gate script present" || { echo "ABORT: tests/inter_phase_gate.sh MISSING"; exit 1; }
 ```
 
 **Hard stop:** if anything above fails, fix the environment first. Do not run tests against a degraded stack.
@@ -179,139 +198,35 @@ bash tests/inter_phase_gate.sh 1 4
 
 ### → Inter-Phase Gate (now and after every phase — THIS IS A HARD GATE, NOT A SUGGESTION)
 
-The gate below MUST be run after every phase. It BLOCKS (loops with backoff) until the system is safe to proceed. Do NOT skip it. Do NOT run the next phase command until the gate exits with "GATE PASSED." The gate enforces what the prose above only described.
+The gate is implemented in `tests/inter_phase_gate.sh`. **Do not recreate it inline.** Run it with the phase number and test count after every phase. It blocks until the system is safe to proceed, auto-recovers where possible, and exits 1 on unrecoverable failure.
+
+What the gate checks, in order:
+
+| Gate | Check | Failure action |
+|---|---|---|
+| 1 | Pipeline health `http://localhost:9099/health` | Exit 1 — unrecoverable, fix first |
+| 2 | MLX proxy health `http://localhost:8081/health` | 3 retries × 30s backoff, then exit 1 |
+| 2.5 | Non-MLX memory pressure (ComfyUI, Ollama) | ComfyUI: API→SIGTERM→SIGKILL; Ollama: direct `/api/delete`; skipped if `--keep-comfyui` |
+| 3 | Wired < 12 GB AND inactive < 20 GB | Loops up to 10 min; 4-level recovery: `/unload` → zombie kill → proxy restart → watchdog wait; WARN on timeout |
+| 4 | FAIL delta ≤ 30% of phase tests | WARN if exceeded — investigate before proceeding |
+
+The gate appends rows to `tests/UAT_RUN_LOG.md` automatically.
+
+**The gate is the agent's contract with the hardware.** Run it between every phase:
 
 ```bash
-#!/bin/bash
-# inter_phase_gate.sh — hard gate between UAT phases
-# Sleeps/recovers until system safe; exits 0 on PASS, exits 1 on UNRECOVERABLE.
-# Run with: bash tests/inter_phase_gate.sh $PHASE_NUMBER $TEST_COUNT_IN_PHASE
-#   $1 = phase number (for logging)
-#   $2 = number of tests in the just-completed phase (for FAIL delta calc)
-
-set -euo pipefail
-PHASE_NUM="${1:?usage: $0 <phase_num> <phase_test_count>}"
-PHASE_TESTS="${2:?usage: $0 <phase_num> <phase_test_count>}"
-
-FAIL_BEFORE=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
-PASS_BEFORE=$(grep -c '| PASS |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
-
-echo "[GATE:$PHASE_NUM] Inter-phase gate starting (phase had ~$PHASE_TESTS tests, cumulative before: ${PASS_BEFORE}P/${FAIL_BEFORE}F)"
-
-# ---- Gate 1: pipeline health (unrecoverable) ----
-if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
-    echo "[GATE:$PHASE_NUM] FATAL: pipeline DOWN — cannot proceed. Fix and re-run gate."
-    echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | pipeline DOWN |" >> tests/UAT_RUN_LOG.md
-    exit 1
-fi
-echo "[GATE:$PHASE_NUM] Pipeline healthy"
-
-# ---- Gate 2: proxy health (unrecoverable after 3 attempts) ----
-PROXY_DOWN_COUNT=0
-while true; do
-    PROXY_RESP=$(curl -s --max-time 5 http://localhost:8081/health 2>/dev/null || echo '{"state":"down"}')
-    PROXY_STATE=$(echo "$PROXY_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','down'))" 2>/dev/null || echo "down")
-    if [ "$PROXY_STATE" = "down" ]; then
-        PROXY_DOWN_COUNT=$((PROXY_DOWN_COUNT + 1))
-        if [ $PROXY_DOWN_COUNT -ge 3 ]; then
-            echo "[GATE:$PHASE_NUM] FATAL: MLX proxy DOWN after 3 attempts — cannot proceed."
-            echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | proxy DOWN (3 attempts) |" >> tests/UAT_RUN_LOG.md
-            exit 1
-        fi
-        echo "[GATE:$PHASE_NUM] Proxy DOWN (attempt $PROXY_DOWN_COUNT/3) — waiting 30s..."
-        sleep 30
-    else
-        break
-    fi
-done
-echo "[GATE:$PHASE_NUM] Proxy healthy (state=$PROXY_STATE)"
-
-# ---- Gate 3: wired memory MUST come down (THE KEY GATE) ----
-# This blocks until wired_gb < 12 or 10 minutes pass.
-# Every 30s it checks; if still high, it tries /unload.
-# Metal GPU buffer retention after large model eviction can take 2-5 min.
-MAX_WAIT_SEC=600  # 10 minute hard cap
-ELAPSED=0
-UNLOAD_COUNT=0
-while [ $ELAPSED -lt $MAX_WAIT_SEC ]; do
-    WIRED_RESP=$(curl -s --max-time 5 http://localhost:8081/health/wired 2>/dev/null || echo '{"wired_gb":99}')
-    WIRED_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('wired_gb',99))" 2>/dev/null || echo 99)
-    FREE_GB=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('free_gb',0))" 2>/dev/null || echo 0)
-    STATE=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('state','?'))" 2>/dev/null || echo "?")
-
-    if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
-        echo "[GATE:$PHASE_NUM] Memory safe: wired=${WIRED_GB}GB free=${FREE_GB}GB (after ${ELAPSED}s)"
-        break
-    fi
-
-    # Wired still high. If nothing loaded, try /unload to force Metal buffer reclaim.
-    if [ "$STATE" = "none" ] && [ "$UNLOAD_COUNT" -lt 3 ]; then
-        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=none — requesting /unload (attempt $((UNLOAD_COUNT+1))/3)..."
-        curl -s -X POST 'http://localhost:8081/unload?ollama=true' > /dev/null 2>&1 || true
-        UNLOAD_COUNT=$((UNLOAD_COUNT + 1))
-        sleep 30
-        ELAPSED=$((ELAPSED + 30))
-        continue
-    fi
-
-    if [ "$STATE" != "none" ] && [ "$STATE" != "ready" ]; then
-        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=${STATE} — proxy in transition, waiting..."
-    elif [ "$STATE" = "ready" ]; then
-        LOADED=$(echo "$WIRED_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('loaded_model','?'))" 2>/dev/null || echo "?")
-        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB state=ready model=${LOADED} — model loaded, waiting..."
-    else
-        echo "[GATE:$PHASE_NUM] ${ELAPSED}s: wired=${WIRED_GB}GB free=${FREE_GB}GB state=${STATE} — waiting for Metal buffer reclamation..."
-    fi
-
-    sleep 30
-    ELAPSED=$((ELAPSED + 30))
-done
-
-if [ "$(echo "$WIRED_GB < 12" | bc -l 2>/dev/null || echo 0)" != "1" ]; then
-    echo "[GATE:$PHASE_NUM] Memory gate timed out after ${MAX_WAIT_SEC}s (wired=${WIRED_GB}GB)."
-    echo "[GATE:$PHASE_NUM] WARNING: proceeding with elevated memory — expect potential empty responses."
-    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | wired=${WIRED_GB}GB after ${MAX_WAIT_SEC}s timeout, proceeding anyway |" >> tests/UAT_RUN_LOG.md
-else
-    echo "| $PHASE_NUM. gate | PASS | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | — | — | wired=${WIRED_GB}GB after ${ELAPSED}s |" >> tests/UAT_RUN_LOG.md
-fi
-
-# ---- Gate 4: FAIL delta check ----
-FAIL_AFTER=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
-FAIL_DELTA=$((FAIL_AFTER - FAIL_BEFORE))
-FAIL_PCT=0
-if [ "$PHASE_TESTS" -gt 0 ]; then
-    FAIL_PCT=$((FAIL_DELTA * 100 / PHASE_TESTS))
-fi
-echo "[GATE:$PHASE_NUM] FAIL delta: +${FAIL_DELTA}/${PHASE_TESTS} (${FAIL_PCT}%)"
-if [ "$FAIL_PCT" -gt 30 ] && [ "$PHASE_TESTS" -gt 3 ]; then
-    echo "[GATE:$PHASE_NUM] WARNING: >30% of phase tests FAILED — investigate before proceeding."
-    echo "[GATE:$PHASE_NUM] Check tests/UAT_RESULTS.md for the new FAIL rows."
-    echo "[GATE:$PHASE_NUM] Common cause: memory pressure causing empty responses (check wired_gb above)."
-    echo "[GATE:$PHASE_NUM] If FAILs are all empty-response cascades, proceed. If behavioral, pause and diagnose."
-    echo "| $PHASE_NUM. gate | WARN | $(date -u +%H:%MZ) | — | — | — | FAIL delta ${FAIL_PCT}% (${FAIL_DELTA}/${PHASE_TESTS}) |" >> tests/UAT_RUN_LOG.md
-fi
-
-echo ""
-echo "============================================"
-echo " GATE $PHASE_NUM PASSED — safe to proceed"
-echo " Cumulative: $(grep -c '| PASS |' tests/UAT_RESULTS.md)P / $(grep -c '| WARN |' tests/UAT_RESULTS.md)W / $(grep -c '| FAIL |' tests/UAT_RESULTS.md)F"
-echo " Wired: ${WIRED_GB}GB  Free: ${FREE_GB}GB  Proxy: ${PROXY_STATE}"
-echo "============================================"
-```
-
-**The gate is the agent's contract with the hardware.** It must be run between every phase with the phase number and test count as arguments:
-
-```bash
-bash tests/inter_phase_gate.sh 1 4   # after Phase 1 (4 tests)
-bash tests/inter_phase_gate.sh 2 24  # after Phase 2 (24 tests)
-# ... and so on
+bash tests/inter_phase_gate.sh 1 4    # after Phase 1 (4 tests)
+bash tests/inter_phase_gate.sh 2 24   # after Phase 2 (24 tests)
+bash tests/inter_phase_gate.sh 3 26   # after Phase 3 (26 tests)
+# ... and so on — see exact commands in each phase section below
 ```
 
 **Gate enforcement rules** (the agent must NOT override these):
-- Gate exit code 1 = **hard stop**. Fix the issue before any further test execution.
-- Gate `WARN` on memory timeout or FAIL delta = **acknowledge explicitly** in run log, then proceed.
-- Gate `PASS` = proceed immediately to next phase.
-- The gate already appends rows to `tests/UAT_RUN_LOG.md` — the agent does not need to log separately.
+- Gate exit code 1 = **hard stop**. Do not run any further tests. Diagnose and fix, then re-run the gate.
+- Gate `WARN` on memory timeout = acknowledge in run log note, then proceed. Expect potential empty responses.
+- Gate `WARN` on FAIL delta = investigate the new FAILs before proceeding. If all are empty-response cascades from memory pressure that the gate already cleared, proceed. If behavioral, pause and diagnose.
+- Gate `PASS` = proceed immediately to next phase. No additional wait needed.
+- The gate appends its own log rows — the agent does not need to duplicate them.
 
 **Why this gate exists:** prior execution runs ignored the pause criteria, running phases with `wired_gb > 40` and causing 22+ behavioral FAILs that were actually empty-response cascades from memory starvation. The prose pause criteria were read but not enforced. This gate programmatically enforces them.
 
@@ -636,110 +551,183 @@ Full workflow: `docs/UAT_CALIBRATION.md`. Use `--section <n>` to calibrate one s
 
 ---
 
-## Diagnosing FAILs
+## Failure Investigation Protocol
 
-Open `tests/UAT_RESULTS.md`. For each FAIL, click the linked OWUI conversation and read what the model actually said BEFORE touching the assertion.
+**This is a complete troubleshooting workflow, not a reference table. Follow it in order for every FAIL before accepting the result.**
 
-### Classification table
+### Step 1 — Read the conversation first
 
-| What you see in the OWUI conversation | Action |
-|---|---|
-| Response is correct, just used synonyms | Expand keyword list; add synonyms; change `contains` → `any_of` |
-| Response is correct but inside a code block (assertion checks prose) | Verify `inner_text()` includes code block content; fix extraction if needed |
-| Behavioral hard constraint violated (e.g. P-D06 coded without asking framework) | See Retry Protocol below |
-| Empty response | Check wired memory and proxy state — see Memory State Checks below |
-| Artifact test: no file appeared | Check MCP health for the relevant port — see Tool Failures |
-| Security test: model refused (abliterated workspace) | Check routing — model may have fallen back to a censored fallback |
+Open `tests/UAT_RESULTS.md`. Click the OWUI conversation link for the failing test. **Read what the model actually said before touching any assertion or keyword.** A failing assertion does not mean the model behaved incorrectly — the keyword may be too strict.
 
-### Retry protocol for behavioral failures
+Do NOT rerun the test before you have read the conversation.
+
+### Step 2 — Classify the failure
+
+| What you see in the OWUI conversation | Classification | Go to |
+|---|---|---|
+| Empty chat — no response at all | Resource failure | Step 3a |
+| Response is correct, uses synonyms ("vulnerability" vs. "vuln") | Keyword mismatch | Step 3b |
+| Response is correct but assertion expected different phrasing | Keyword mismatch | Step 3b |
+| Response is present but wrong behavior (e.g. coded without asking framework) | Behavioral failure | Step 3c |
+| No artifact file (DOCX, WAV, MP4, PNG) despite correct response | Tool/MCP failure | Step 3d |
+| Security model refused entirely (not "I'll help but...") | Routing failure | Step 3e |
+
+### Step 3a — Empty response (resource failure)
 
 ```bash
-# 1. Read the persona system prompt
-cat config/personas/<slug>.yaml | grep -A50 "system_prompt"
+# Check memory state
+curl -s http://localhost:8081/health/wired | python3 -m json.tool
+curl -s http://localhost:8081/health | python3 -m json.tool
+curl -s http://localhost:11434/api/ps | python3 -m json.tool
 
-# 2. Confirm persona is seeded in OWUI
+# If wired_gb > 12 or a model is still loaded from a previous tier:
+curl -X POST 'http://localhost:8081/unload?ollama=true' | python3 -m json.tool
+# Wait for state=none and wired_gb to drop (2-5 min for large models)
+sleep 120
+curl -s http://localhost:8081/health/wired | python3 -m json.tool
+
+# Rerun the single test:
+python3 tests/portal5_uat_driver.py --append --test <TEST_ID>
+```
+
+If the rerun passes → resource issue, not a code defect. Log root cause as "empty response / memory pressure, cleared by unload." Continue.
+
+If the rerun still produces an empty response, check for a zombie MLX process:
+```bash
+ps aux | grep mlx_lm
+# If a process has been running >5 min and /health is dead, kill it:
+kill -TERM <pid>
+sleep 30
+python3 tests/portal5_uat_driver.py --append --test <TEST_ID>
+```
+
+### Step 3b — Keyword mismatch (assertion too strict)
+
+The model's behavior is correct but the keyword list doesn't match its phrasing. This is an assertion calibration issue, not a model defect.
+
+Acceptable fixes (in order of preference):
+1. Add synonyms to `any_of` keywords
+2. Switch `contains` → `any_of` if only one of several acceptable phrasings is needed
+3. Broaden the keyword (e.g. `"vuln"` catches `"vulnerability"`, `"vulnerable"`)
+
+Do NOT weaken assertions to pass content that doesn't meet the behavioral contract. If the model genuinely failed the behavioral requirement (not just the keyword), go to Step 3c.
+
+After editing the keyword list, rerun with `--rerun`:
+```bash
+python3 tests/portal5_uat_driver.py --rerun --test <TEST_ID>
+```
+
+### Step 3c — Behavioral failure (model didn't follow system prompt)
+
+```bash
+# 1. Read the persona's system prompt and hard constraints
+grep -A 60 "system_prompt" config/personas/<slug>.yaml
+
+# 2. Confirm the persona is seeded in OWUI with the correct system prompt
 python3 -c "
 import httpx
 from dotenv import dotenv_values
 env = dotenv_values('.env')
 tok = httpx.post('http://localhost:8080/api/v1/auths/signin',
     json={'email': env['OPENWEBUI_ADMIN_EMAIL'], 'password': env['OPENWEBUI_ADMIN_PASSWORD']}).json()['token']
-models = httpx.get('http://localhost:8080/api/v1/models/',
-    headers={'Authorization': f'Bearer {tok}'}).json()
+models = httpx.get('http://localhost:8080/api/v1/models/', headers={'Authorization': f'Bearer {tok}'}).json()
 names = [m.get('id','') for m in (models if isinstance(models,list) else models.get('data',[]))]
-print([n for n in names if '<slug>' in n])
-"
+print([n for n in names if 'SLUG' in n])
+" 
 
-# 3. If not seeded:
+# 3. If not seeded or stale:
 ./launch.sh reseed && sleep 15
 
-# 4. Manual reproduction via the pipeline
+# 4. Reproduce manually via the pipeline with a direct curl call
 curl -s -X POST http://localhost:9099/v1/chat/completions \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   -H "Content-Type: application/json" \
-  -d '{"model": "<model_slug>", "messages": [{"role": "user", "content": "<prompt>"}], "stream": false, "max_tokens": 600}' \
+  -d '{"model": "<model_slug>", "messages": [{"role": "user", "content": "<original prompt>"}], "stream": false, "max_tokens": 600}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['choices'][0]['message']['content'])"
 
-# 5. Try 2 more prompt phrasings. If all 3 produce wrong behavior → BLOCKED.
+# 5. Try 2 more distinct prompt phrasings (different wording, not just shuffled words).
+#    All 3 must produce wrong behavior before you mark BLOCKED.
 ```
 
-### Memory state checks (use the proxy, not pkill)
+If any of the 3 phrasings produces correct behavior → adjust the test prompt. Rerun.
 
-The proxy now exposes graceful unload. Use it; do not `pkill -f mlx-proxy.py`.
+If all 3 phrasings produce genuinely wrong behavior AND the fix requires changing a protected file → mark BLOCKED (see BLOCKED section below).
 
-```bash
-# Wired-memory snapshot
-curl -s http://localhost:8081/health/wired | python3 -m json.tool
-
-# Full proxy health
-curl -s http://localhost:8081/health | python3 -m json.tool
-
-# Ollama loaded models
-curl -s http://localhost:11434/api/ps | python3 -m json.tool
-
-# Graceful unload (proxy handles SIGTERM grace, GPU buffer reclaim, optional Ollama eviction)
-curl -X POST 'http://localhost:8081/unload?ollama=true' | python3 -m json.tool
-
-# Pre-warm a model group before re-running its tests
-curl -s -X POST http://localhost:9099/v1/chat/completions \
-  -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "auto-coding", "messages": [{"role":"user","content":"hi"}], "max_tokens":5}'
-sleep 30
-```
-
-If wired memory stays high (`wired_gb > threshold` per the watchdog config) for several minutes after `/unload`, the watchdog will detect a leak and restart the proxy via `launchctl kickstart -k`. You should not need to intervene; check `~/.portal5/logs/mlx-watchdog.log` if you suspect it didn't fire.
-
-`sudo purge` is no longer part of any recovery path. If a guide tells you to run it, that guide is stale.
-
-### Routing checks (for workspace tests)
+### Step 3d — Tool/MCP failure (no artifact)
 
 ```bash
-docker logs portal5-pipeline --tail 30 | grep "Routing workspace="
-```
-
-### Tool failures (T-01 to T-12)
-
-```bash
-# MCP port health
-curl -s http://localhost:8913/health  # Documents (T-04..T-07)
+# Check MCP service health for the relevant port:
+curl -s http://localhost:8913/health  # Documents (T-04..T-07, DOCX/XLSX/PPTX)
 curl -s http://localhost:8914/health  # Code sandbox (T-01..T-03)
-curl -s http://localhost:8916/health  # TTS (T-09)
+curl -s http://localhost:8916/health  # TTS (T-09, WAV)
 curl -s http://localhost:8919/health  # Security (T-11)
+curl -s http://localhost:8920/health  # Memory (A-08)
+curl -s http://localhost:8910/health  # ComfyUI bridge (T-10, PNG)
 
-# Pipeline tool-call evidence
-docker logs portal5-pipeline --tail 100 | grep -i "tool\|mcp\|error"
+# Pipeline-side tool call evidence
+docker logs portal5-pipeline --tail 100 | grep -iE "tool|mcp|error"
 
-# Document MCP artifact creation
+# MCP container logs
 docker logs portal5-mcp-documents --tail 50
+docker logs portal5-mcp-sandbox --tail 50
 ```
 
-### BLOCKED — when and how
+If an MCP service is down, restart it:
+```bash
+docker compose -f deploy/portal-5/docker-compose.yml restart portal-mcp-<name>
+sleep 10
+# Then rerun:
+python3 tests/portal5_uat_driver.py --append --test <TEST_ID>
+```
 
-Mark BLOCKED only after all of:
+### Step 3e — Routing failure (wrong model served)
+
+```bash
+# Check pipeline routing log
+docker logs portal5-pipeline --tail 30 | grep -E "Routing|workspace|fallback"
+
+# Check what model the OWUI conversation says was used
+# (visible in the conversation header in the browser)
+
+# If model fell back to a censored base model:
+./launch.sh reseed && sleep 15
+python3 tests/portal5_uat_driver.py --rerun --test <TEST_ID>
+```
+
+### Step 4 — Rerun decision
+
+After diagnosing and applying a fix, use this decision tree:
+
+| Situation | Rerun command |
+|---|---|
+| Single test, environment fix applied | `python3 tests/portal5_uat_driver.py --append --test <ID>` |
+| Keyword edit applied | `python3 tests/portal5_uat_driver.py --rerun --test <ID>` |
+| Whole section had resource failures | `python3 tests/portal5_uat_driver.py --rerun --section <name>` |
+| Phase partially completed before interruption | Resume from that phase command with `--append` |
+| >30% of phase FAILed, all empty-response | Run gate, clear memory, rerun section with `--rerun` |
+
+**Never mark a test FAIL without at least one rerun attempt after diagnosing the root cause.** The standard is: the result must reflect the best validated outcome after remediation, not the outcome of the first cold attempt.
+
+### Step 5 — Log the outcome
+
+For every FAIL that required investigation, append a note to `tests/UAT_RUN_LOG.md`:
+
+```
+### Investigation: <TEST_ID> — <one-line symptom>
+- **Root cause**: <what was actually wrong>
+- **Remediation**: <what was done>
+- **Rerun result**: PASS / FAIL / BLOCKED
+- **Evidence**: <log line, wired_gb reading, or conversation observation>
+```
+
+---
+
+## BLOCKED — when and how
+
+Mark BLOCKED only after ALL of the following:
 1. Three distinct prompt phrasings all produce the same wrong behavior
-2. The persona's HARD CONSTRAINTS confirm the expected behavior
-3. The fix requires modifying a protected file or a model upgrade
+2. The persona's hard constraints in `config/personas/<slug>.yaml` confirm the expected behavior
+3. The fix requires modifying a protected file (see Constraints) or a model upgrade
 
 Append to `tests/UAT_RESULTS.md`:
 
@@ -747,12 +735,13 @@ Append to `tests/UAT_RESULTS.md`:
 ## BLOCKED-N: <test name>
 
 **Test ID**: <id>  **Model slug**: <slug>
-**Expected**: <quote from persona system_prompt>
+**Expected**: <exact quote from persona system_prompt hard constraint>
 **Actual**: <copy model response verbatim>
 **Retry 1**: [prompt variant] → [result summary]
 **Retry 2**: [prompt variant] → [result summary]
 **Retry 3**: [prompt variant] → [result summary]
 **Protected file requiring change**: config/personas/<slug>.yaml — system_prompt
+**Recommended fix**: <what change would resolve this, for the operator to action>
 ```
 
 ---
@@ -764,10 +753,41 @@ WARN = test ran, some assertions passed but not all (≥50% with no critical fai
 | WARN cause | Correct action |
 |---|---|
 | `min_length` failed on a truncated response | 32K context cap in big-model mode — known limitation. Note it, accept if behavior was correct. |
-| Keyword appeared in code block but extraction missed it | Ensure `inner_text()` on message element captures code block text; fix extractor if not. |
+| Keyword appeared in code block but extraction missed it | Check the OWUI conversation; the API response is used, not DOM text. Accept if behavior was correct. |
 | Ollama fallback served instead of MLX primary | Response may still be correct. Check routing log. Accept if behavior matches. |
 | MCP tool transient error | Retry once: `python3 tests/portal5_uat_driver.py --append --test <id>` |
-| Cold model load timeout | Driver evicts and reloads at tier transitions. If still slow, increase `--timeout 360` for that section. |
+| Cold model load timeout | Driver retries 3×. If WARN persists, check proxy state and rerun section. |
+
+---
+
+## Memory State Commands (reference)
+
+The proxy exposes graceful unload. Use it; never use `pkill -f mlx-proxy.py`.
+
+```bash
+# Wired + inactive memory snapshot
+curl -s http://localhost:8081/health/wired | python3 -m json.tool
+
+# Full proxy health (state, loaded model, uptime)
+curl -s http://localhost:8081/health | python3 -m json.tool
+
+# Ollama currently loaded models
+curl -s http://localhost:11434/api/ps | python3 -m json.tool
+
+# Graceful unload — evicts MLX model + Ollama models, triggers GPU buffer reclaim
+curl -X POST 'http://localhost:8081/unload?ollama=true' | python3 -m json.tool
+
+# Pre-warm before re-running a section (optional, speeds up first test)
+curl -s -X POST http://localhost:9099/v1/chat/completions \
+  -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "auto-coding", "messages": [{"role":"user","content":"hi"}], "max_tokens":5}'
+sleep 30
+```
+
+`sudo purge` is no longer part of any recovery path. If a guide tells you to run it, that guide is stale.
+
+If wired memory stays high for >5 min after `/unload`, the watchdog detects the leak and restarts the proxy via `launchctl kickstart -k`. Check `~/.portal5/logs/mlx-watchdog.log` if you suspect it didn't fire.
 
 ---
 
@@ -871,7 +891,9 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 
 ## Run Log Template
 
-`tests/UAT_RUN_LOG.md` is what the agent writes. It accumulates across the run and is the resume reference. Format:
+`tests/UAT_RUN_LOG.md` is what the agent writes. It accumulates across the run and is the resume reference. The gate script appends gate rows automatically; the agent appends phase rows and investigation notes.
+
+### Phase row format
 
 ```markdown
 # UAT Run Log — <YYYYMMDDTHHMMZ>
@@ -879,14 +901,77 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | Phase | Status | Started | Completed | Tests | P/W/F | Notes |
 |---|---|---|---|---|---|---|
 | 1. smoke (auto) | DONE | 14:02Z | 14:08Z | 4 | 4P/0W/0F | exit=0 |
-| 2. mlx_large heavy | DONE | 14:09Z | 15:23Z | 16 | 14P/1W/1F (cum: 18P/1W/1F) | exit=0 |
+| 2. mlx_large heavy | DONE | 14:09Z | 15:23Z | 24 | 20P/2W/2F (cum: 24P/2W/2F) | exit=0 |
 | 3. auto-coding | PAUSED | 15:24Z | — | 12/26 | 9P/1W/2F (partial) | watchdog restart at 15:51Z |
-| 3. auto-coding | DONE | 16:08Z | 17:01Z | 26 | resumed via --test for 14 remaining | 22P/2W/2F (cum) |
-| ...
+| 3. auto-coding | DONE | 16:08Z | 17:01Z | 26 | resumed --test for 14 remaining | 22P/2W/2F (cum) |
 ```
 
-Status values: `DONE`, `PAUSED`, `BLOCKED`, `SKIPPED`. The agent is responsible for appending a row at the end of each phase or when it pauses.
+Status values: `DONE`, `PAUSED`, `BLOCKED`, `SKIPPED`.
+
+### Investigation note format (append below phase table)
+
+For each FAIL that required investigation, append:
+
+```markdown
+### Investigation: <TEST_ID> — <one-line symptom>
+- **Root cause**: <what was wrong>
+- **Remediation**: <what was done>
+- **Rerun result**: PASS / FAIL / BLOCKED
+- **Evidence**: <wired_gb reading, log excerpt, or OWUI conversation observation>
+```
 
 ---
 
-*Last updated: 2026-05-08 (auto-security + auto-redteam promoted to mlx_large/AEON — moved from Phase 5 to Phase 2; Phase 2 gate 16→24 tests; Phase 5 gate 17→9 tests; section reference tier labels corrected; Phase 5 header/description updated)*
+## Final Report
+
+After Phase 8 completes (or the run is declared final), append a `## Final Report` section to `tests/UAT_RUN_LOG.md`. The report must contain all of the following:
+
+```markdown
+## Final Report — <RUN_TS>
+
+### Overall Status: PASS / PARTIAL / FAIL
+
+### Totals
+- Total tests run: N
+- PASS: N  WARN: N  FAIL: N  BLOCKED: N  SKIPPED: N
+- Pass rate (excl. SKIP): N%
+
+### Phases Completed
+| Phase | Result | Notes |
+|---|---|---|
+| 1. smoke | PASS | |
+| 2. mlx_large heavy | PASS | |
+| ... | | |
+
+### Issues Encountered and Resolved
+For each issue that required investigation and was resolved:
+- **<TEST_ID>**: <symptom> → <root cause> → <remediation> → PASS
+
+### Persistent Failures (FAIL after remediation)
+For each test that FAILed after at least one rerun attempt:
+- **<TEST_ID>**: <final symptom and why remediation did not resolve>
+
+### BLOCKED Items
+For each BLOCKED test (copy from the BLOCKED entries in UAT_RESULTS.md):
+- **<BLOCKED-N>**: <test name> — <recommended fix>
+
+### Skipped with Justification
+- `--skip-bots`: Telegram/Slack containers not configured (A-05, A-06)
+- `--skip-artifacts`: ComfyUI/Wan2.2 not available (if applicable)
+
+### Evidence References
+- Driver log: `/tmp/uat_phase*.log`
+- Screenshots: `/tmp/uat_screenshots/`
+- Artifacts: `/tmp/uat_artifacts/`
+- Results file: `tests/UAT_RESULTS.md`
+- Run log: `tests/UAT_RUN_LOG.md`
+
+### Recommended Follow-Up
+List any items that need operator action after this run.
+```
+
+**The report is the deliverable.** A run that ends without a report has not completed, regardless of how many tests passed.
+
+---
+
+*Last updated: 2026-05-12 (gate script inlined block removed — replaced with reference to tests/inter_phase_gate.sh; port 8920 memory MCP added to Phase 0 preflight; gate script verification added to Phase 0; Diagnosing FAILs restructured as step-by-step Failure Investigation Protocol with rerun decision tree; BLOCKED template expanded with recommended fix field; Memory State Commands split into dedicated section; Final Report template added; last-updated text expanded)*
