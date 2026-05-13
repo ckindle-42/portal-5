@@ -174,7 +174,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
         "model_hint": "dolphin-llama3:8b",
-        "mlx_model_hint": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
+        # V6 fix (TASK_MODEL_REFRESH_V6): divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
+        # was catalog-only pending mlx-lm 0.31.2 server reasoning-content regression,
+        # leaving auto-creative MLX path dead (falls back to dolphin Ollama).
+        # Swapped to gemma-4-26B-A4B-it-heretic-4bit (V5 ladder catalog, same Gemma 4
+        # MoE architecture as auto-vision/auto-research primary). Different arch from
+        # divinetribe so the 0.31.2 server regression does not apply.
+        "mlx_model_hint": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit",
         "tools": [],
     },
     "auto-reasoning": {
@@ -440,6 +446,84 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Direct routing to huihui_ai/qwen3.5-abliterated:9b — uncensored, tool-capable AUTO primary baseline",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
+    "bench-qwen36-27b": {
+        "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
+        "description": (
+            "Benchmark: froggeric/Qwen3.6-27B-MLX-4bit (MLX, Alibaba Apr 2026, dense 27B + "
+            "vision encoder, ~16GB, 262K ctx). Self-reported SWE-bench Verified 77.2%. "
+            "froggeric variant ships fixed Jinja chat templates (|items/|safe filter "
+            "crashes resolved). Thinking-mode default."
+        ),
+        "model_hint": "qwen3-coder:30b",
+        "mlx_model_hint": "froggeric/Qwen3.6-27B-MLX-4bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-qwen36-35b-a3b": {
+        "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
+        "description": (
+            "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit (MLX, Alibaba Apr 2026, "
+            "35B total / 3B active MoE, ~20GB, 262K ctx). Alibaba positioning: "
+            "'Agentic Coding Power, Now Open to All.' Self-reported SWE-bench "
+            "Verified 73.4%, AIME26 92.7%, Terminal-Bench 2.0 51.5%."
+        ),
+        "model_hint": "huihui_ai/Qwen3.6-abliterated",
+        "mlx_model_hint": "mlx-community/Qwen3.6-35B-A3B-4bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-omnicoder2": {
+        "name": "🔬 Bench · OmniCoder-2-9B (Tesslate)",
+        "description": (
+            "Benchmark: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B "
+            "base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / "
+            "Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition "
+            "loops + bloated thinking + agentic-loop instability. Ollama only — MLX "
+            "path deferred until mlx-community/OmniCoder-2-9B-* is published or "
+            "self-converted from safetensors."
+        ),
+        "model_hint": "hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-negentropy": {
+        "name": "🔬 Bench · Negentropy-9B (Jackrong)",
+        "description": (
+            "Benchmark: Jackrong/Negentropy-claude-opus-4.7-9B-6bit (MLX, Qwen3.5-9B "
+            "base, trace-inversion methodology — Trace-Inverter-4B reconstructs full "
+            "CoT from Claude Opus compressed reasoning bubbles, then SFT on reconstructed "
+            "traces). Apache 2.0, ~7GB. Lineage overlap with existing auto-reasoning "
+            "primary (MLX-Qwopus3.5-27B-v3-8bit, same author). Card-acknowledged: "
+            "'logic-style hallucinations' possible — unsuited for compliance/NERC CIP work."
+        ),
+        "model_hint": "deepseek-r1:32b-q4_k_m",
+        "mlx_model_hint": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-olmo3-32b": {
+        "name": "🔬 Bench · Olmo-3-32B (Allen AI)",
+        "description": (
+            "Benchmark: mlx-community/Olmo-3-1125-32B-4bit (MLX, Allen AI dense 32B, "
+            "~17GB, Apache 2.0, NOT Qwen lineage). V5 Pareto winner for auto-reasoning "
+            "candidates (8.6 TPS, smoke PASS). supports_tools=false per V5 catalog."
+        ),
+        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
+        "mlx_model_hint": "mlx-community/Olmo-3-1125-32B-4bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },

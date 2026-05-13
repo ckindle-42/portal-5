@@ -1808,6 +1808,11 @@ PYEOF
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
+            Tesslate/OmniCoder-2-9B-GGUF)
+                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
+                filename="omnicoder-2-9b-q4_k_m.gguf"
+                ollama_name="omnicoder2:9b-q4_k_m"
+                ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)
                 actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
                 filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
@@ -1980,6 +1985,14 @@ except Exception:
                 ;;
 
             # ── Coding models ────────────────────────────────────────────────
+            Tesslate/OmniCoder-2-9B-GGUF)
+                # Source: https://huggingface.co/Tesslate/OmniCoder-2-9B-GGUF
+                # V6 bench candidate (TASK_MODEL_REFRESH_V6). Qwen3.5-9B SFT on
+                # agentic traces. v2 fixes v1's repetition loops + bloated thinking.
+                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
+                filename="omnicoder-2-9b-q4_k_m.gguf"
+                ollama_name="omnicoder2:9b-q4_k_m"
+                ;;
             MiniMaxAI/MiniMax-M2.1-GGUF)
                 # Q4_K_M = 138 GB — does not fit in 48 GB unified memory
                 echo "  ⚠️  Skipping MiniMax-M2.1: smallest useful quant is 138 GB (requires ~160 GB RAM)"
@@ -2182,6 +2195,9 @@ except Exception as e:
         # ── Vision ───────────────────────────────────────────────────────
         "qwen3-vl:32b"
         "llava:7b"
+        # ── V6 adds (TASK_MODEL_REFRESH_V6) ──────────────────────────────
+        "huihui_ai/Qwen3.6-abliterated"                         # ~20GB Q4 — Qwen3.6 35B-A3B abliterated, lineage successor to qwen3.5-abliterated:9b
+        "hf.co/Tesslate/OmniCoder-2-9B-GGUF"                    # ~5.7GB — Qwen3.5-9B SFT on agentic traces (v2 fixes v1's known issues)
     )
 
     total=${#MODELS[@]}
@@ -2288,6 +2304,11 @@ except Exception:
                 actual_repo="dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF"
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
+                ;;
+            Tesslate/OmniCoder-2-9B-GGUF)
+                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
+                filename="omnicoder-2-9b-q4_k_m.gguf"
+                ollama_name="omnicoder2:9b-q4_k_m"
                 ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)
                 actual_repo="bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF"
@@ -3659,6 +3680,11 @@ PLIST
         "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"         # ~0.8GB — voice cloning from reference audio
         "mlx-community/Qwen3-ASR-1.7B-8bit"                    # ~0.8GB — speech recognition (replaces faster-whisper)
         "mlx-community/whisper-large-v3-turbo"                 # ~1.5GB — Whisper transcription with timestamps (TASK-TRANSCRIBE-001)
+        # ── V6 adds (TASK_MODEL_REFRESH_V6) ─────────────────────────────────
+        "mlx-community/Olmo-3-1125-32B-4bit"                   # ~17GB — Allen AI dense 32B reasoning candidate (V5 ladder backfill — was in backends.yaml but absent from this pull array)
+        "froggeric/Qwen3.6-27B-MLX-4bit"                       # ~16GB — Qwen3.6 27B + vision, template-fix variant (auto-coding probe)
+        "mlx-community/Qwen3.6-35B-A3B-4bit"                   # ~20GB — Qwen3.6 35B-A3B MoE (auto-agentic probe)
+        "Jackrong/Negentropy-claude-opus-4.7-9B-6bit"          # ~7GB — Trace-inversion reasoning 9B comparator
     )
 
     # Heavy models — gated behind PULL_HEAVY=true
