@@ -1,31 +1,25 @@
-# UAT Test Fixtures
+# tests/fixtures
 
-Optional fixtures for Portal 5 UAT driver tests. All tests that require a fixture
-skip cleanly when the file is absent — no fixture, no test failure.
+Test fixtures for portal5_uat_driver.py and the acceptance suite.
 
 ## Audio
 
-| File | Test | Purpose |
-|------|------|---------|
-| `sample.wav` | M-01 | Whisper STT round-trip — upload an audio clip and verify transcription is returned correctly. Any WAV file with clear speech works; 10-30 seconds is ideal. |
+`sample.wav` — Whisper STT round-trip fixture for test M-01. Generated locally;
+not committed. To regenerate on macOS:
 
-Place a WAV file at `tests/fixtures/sample.wav` to activate M-01.
-Without it, the test SKIPs with `no_audio_fixture` and the full suite still passes.
+```bash
+say -o /tmp/sample.aiff "The quick brown fox jumps over the lazy dog at the Portal acceptance test."
+afconvert -f WAVE -d LEI16@16000 /tmp/sample.aiff tests/fixtures/sample.wav
+rm /tmp/sample.aiff
+```
 
-## Document
+Format: 16-bit signed-LE PCM @ 16 kHz mono (Whisper's preferred input — no resample needed).
+Content must include at least one of: `portal`, `five`, `acceptance`, `quick`, `brown`, `fox`
+(see portal5_uat_driver.py M-01 assertion list).
 
-| File | Test | Purpose |
-|------|------|---------|
-| `sample.docx` | A-01 | Document RAG — upload a Word document and query its contents. Any `.docx` with structured text (headings, paragraphs) works. |
+## Other fixtures
 
-## Image
-
-| File | Test | Purpose |
-|------|------|---------|
-| `sample.png` | Various vision tests | Image-based tests that use the Playwright file-upload path. |
-
-## Knowledge Base
-
-| Path | Test | Purpose |
-|------|------|---------|
-| `tests/fixtures/knowledge_base/` | A-02 | Persistent collection query — populated through OWUI's Knowledge interface. Files in this directory should be indexed via Admin > Knowledge. |
+- `sample.docx`, `sample.pdf`, `sample.pptx`, `sample.xlsx`, `sample.png` — document-reading
+  and vision fixtures, committed to the repo.
+- `coding_scenarios.yaml`, `compliance_scenarios.yaml` — multi-turn scenario specs.
+- `knowledge_base/` — RAG ingestion test data.
