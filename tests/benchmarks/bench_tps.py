@@ -218,11 +218,14 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-granite41-8b": "coding",
     "bench-granite41-30b": "coding",
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
-    # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) ──────────────────────────
+    # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
+    # 9B tier
+    "bench-omnicoder2":     "coding",    # Tesslate OmniCoder-2 9B (Ollama) — Qwen3.5-9B SFT on agentic traces
+    "bench-negentropy":     "reasoning", # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
+    # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
     "bench-qwen36-27b":     "coding",    # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
     "bench-qwen36-35b-a3b": "coding",    # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
-    "bench-omnicoder2":     "coding",    # hf.co/Tesslate/OmniCoder-2-9B-GGUF — Qwen3.5-9B SFT on agentic traces
-    "bench-negentropy":     "reasoning", # Jackrong/Negentropy-claude-opus-4.7-9B-6bit — trace-inversion CoT
+    # 32B standalone
     "bench-olmo3-32b":      "reasoning", # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
 }
 
