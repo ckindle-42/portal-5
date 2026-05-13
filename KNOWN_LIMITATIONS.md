@@ -465,20 +465,23 @@ AND 3-bit quality holds in T-RSN-1/T-RSN-2 shootouts (pending follow-on task),
 
 ---
 
-## P5-MODEL-REFRESH-V5 — Pending workspace promotions
-**Date**: 2026-05-07
+## P5-MODEL-REFRESH-V5 — Workspace promotions applied
+**Date**: 2026-05-07 (opened) → 2026-05-08 (resolved)
+**Status**: **RESOLVED** — applied in commit `74cb483` (feat(workspaces): V5 quantization ladder workspace promotions)
 
-V5 added 24 quantization-ladder catalog entries and ran bench_tps.py for
-empirical TPS measurements. NO workspace primary swaps applied in V5.
+V5 ladder bench data + smoke test results drove the following workspace MLX
+primary swaps (all merged 2026-05-08):
 
-The following workspace MLX hint changes are gated on:
-1. V5 bench data (in `tests/benchmarks/results/bench_tps_v5_ladders.json`)
-2. Smoke test results (in `tests/results/smoke_test_v5.json`)
-3. Quality probes (T-* shootouts, follow-on tasks)
+- `auto-coding`: GLM-4.7-Flash-4bit → Laguna-XS.2-4bit (40.3 t/s, 19 GB, Poolside MoE 33B-A3B, smoke PASS). GLM had P5-MLX-006 chat-template defect (0 tokens).
+- `auto-security` + `auto-redteam`: glm-4.7-flash-abliterated-8bit → AEON-Ultimate-4Bit (Qwen3.6 27B uncensored, 7.9 t/s, 14 GB, smoke PASS). GLM abliterated had same P5-MLX-008 defect.
+- `auto-vision`: gemma-4-31b-it-4bit (3.5 t/s) → gemma-4-26b-a4b-it-4bit (23.4 t/s, 13 GB — 6.7× speedup, 5 GB lighter, same Gemma 4 family).
+- `auto-compliance`: Jackrong/Qwen3.5-35B-A3B (unbenched) → granite-4.1-30b-mxfp4 (IBM GRC-trained, 7.8 t/s, 15 GB, Apache 2.0, BFCL V3 73.7, smoke PASS).
 
-Affected workspaces: auto-vision, auto-creative, auto-reasoning, auto-compliance,
-auto-coding, auto-security, auto-redteam.
+Subsequent validations:
+- Coding Shootout V2 (commits `3959338` and `4063dfc`, 2026-05-13) confirmed Laguna-XS.2 at 94.1% overall vs 55.9–73.5% for the field — V5 auto-coding repin validated empirically.
+- `mlx_chat_template_kwargs` workspace field added by the same commit for AEON `enable_thinking=False` injection.
 
-The operator reviews `tests/results/V5_quantization_ladder_analysis.md` and
-opens `TASK_WORKSPACE_PROMOTION_V1.md` to flip workspace MLX hints based on
-real measurements + quality assessment.
+Remaining V5 gaps that did NOT swap in commit `74cb483`:
+- `auto` workspace MLX primary (huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit) still warmup-FAILs on M4 Pro. Falls back to Ollama. Tracked separately as a follow-on task (uncensored MLX 3–9B alternative needed).
+- `auto-creative` MLX path was still pinned to a catalog-only model after V5. Fixed in commit applying TASK_MODEL_REFRESH_V6 (gemma-4-26B-A4B-it-heretic-4bit).
+- `auto-reasoning` (Jackrong Qwopus27B v3) was not swapped in V5; bench-tier Olmo-3-32B added by V6 as a non-Qwen-lineage comparator for future repin consideration.

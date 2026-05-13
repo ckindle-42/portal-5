@@ -61,6 +61,12 @@ VALID_WORKSPACES = frozenset(
         "bench-granite41-8b",
         "bench-granite41-30b",
         "bench-qwen35-abliterated",
+        # V6 candidate benches (TASK_MODEL_REFRESH_V6)
+        "bench-qwen36-27b",
+        "bench-qwen36-35b-a3b",
+        "bench-omnicoder2",
+        "bench-negentropy",
+        "bench-olmo3-32b",
     }
 )
 

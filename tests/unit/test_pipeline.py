@@ -355,11 +355,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 31 (19 production + 12 bench-* coding benchmark workspaces)."""
+        """Total workspace count is now 36 (19 production + 17 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 31, (
-            f"Expected 31 workspaces (19 production + 12 bench-*), got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 36, (
+            f"Expected 36 workspaces (19 production + 17 bench-*), got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):
@@ -896,11 +896,11 @@ class TestSPLWorkspace:
         assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 31 (19 production + 12 bench-* coding benchmark workspaces)."""
+        """Total workspace count must be 36 (19 production + 17 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 31, (
-            f"Expected 31 workspaces (19 production + 12 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 36, (
+            f"Expected 36 workspaces (19 production + 17 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -1506,7 +1506,7 @@ class TestInjectMLXOptions:
         """Workspace with no predict_limit gets the global default injected,
         preventing mlx_lm.server's hardcoded 512-token fallback from firing."""
         import portal_pipeline.router_pipe as rp
-        from portal_pipeline.router_pipe import _inject_mlx_options, _MLX_DEFAULT_MAX_TOKENS
+        from portal_pipeline.router_pipe import _MLX_DEFAULT_MAX_TOKENS, _inject_mlx_options
 
         monkeypatch.setattr(rp, "WORKSPACES", {"x": {}})
         body = {"messages": []}

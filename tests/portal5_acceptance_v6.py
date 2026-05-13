@@ -863,8 +863,6 @@ _MLX_MODEL_SIZES_GB = {
 from expected_models import _MLX_ORG_PREFIXES as _MLX_ORGS  # noqa: E402
 
 
-
-
 async def _mlx_health() -> tuple[str, dict]:
     """Get MLX proxy health state.
 

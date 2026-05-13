@@ -1,4 +1,4 @@
-# Portal 6.0.4 — Backend Registry
+# Portal 6.1.0 — Backend Registry
 # OPERATOR FILE: Edit this to add cluster nodes. No code changes needed.
 # After editing: docker compose restart portal-pipeline
 
@@ -226,7 +226,49 @@ backends:
         big_model: false
         is_vlm: true
         supports_tools: true
-        notes: "Gemma 4 26B-A4B HERETIC-abliterated 4-bit MoE (~13GB, Gemma ToU). V5 creative candidate. DavidAU HERETIC method on Gemma 4 base."
+        notes: "Gemma 4 26B-A4B HERETIC-abliterated 4-bit MoE (~13GB, Gemma ToU). V5 creative candidate. DavidAU HERETIC method on Gemma 4 base. PROMOTED to auto-creative primary in V6 (TASK_MODEL_REFRESH_V6) — replaces divinetribe/gemma-4-31b-it-abliterated-4bit-mlx which was catalog-only pending mlx-lm 0.31.2 server fix."
+      # ── V6 candidates (TASK_MODEL_REFRESH_V6 — bench-only) ─────────────────
+      # Apr 2026 Alibaba release. 27B dense + vision encoder. Self-reported
+      # SWE-bench Verified 77.2%. froggeric variant chosen for fixed Jinja chat
+      # templates (resolves |items / |safe filter crashes on MLX/LM Studio).
+      # is_vlm: true — vision encoder routes through mlx_vlm.server even for
+      # text-only inputs. Bench-pin only; promotion gated on V2 shootout vs Laguna.
+      - id: froggeric/Qwen3.6-27B-MLX-4bit
+        memory_gb: 16
+        big_model: false
+        is_vlm: true
+        supports_tools: true
+        notes: "Qwen3.6 27B base 4-bit MLX (~16GB, Apache 2.0). V6 bench candidate — non-AEON Qwen3.6 sibling for auto-coding probe. froggeric template-fix variant resolves |items/|safe Jinja crashes on MLX/LM Studio. Vision encoder routes through mlx_vlm."
+      # Apr 2026 Alibaba MoE sibling — 35B total / 3B active per token.
+      # Self-reported SWE-bench Verified 73.4, AIME26 92.7, Terminal-Bench 2.0 51.5.
+      # MoE-first matches Portal 5's daily-routed principle; possible auto-agentic
+      # alternative to Qwen3-Coder-Next 80B (46GB BIG_MODEL with ~60s cold load).
+      - id: mlx-community/Qwen3.6-35B-A3B-4bit
+        memory_gb: 20
+        big_model: false
+        is_vlm: true
+        supports_tools: true
+        notes: "Qwen3.6 35B-A3B MoE 4-bit MLX (~20GB, Apache 2.0). V6 bench candidate — 3B-active MoE for fast agentic coding. Alibaba positioning: 'Agentic Coding Power, Now Open to All.' Vision encoder routes through mlx_vlm."
+      # Jackrong author lineage parity with existing auto-reasoning primary
+      # (MLX-Qwopus3.5-27B-v3-8bit). 9B variant of the trace-inversion methodology.
+      # Lineage overlap is real — bench-tier add for size/speed comparison only.
+      # Self-acknowledged limitation: 'logic-style hallucinations' (facts wrong
+      # even when reasoning format is perfect) — unsuited for compliance/NERC CIP.
+      - id: Jackrong/Negentropy-claude-opus-4.7-9B-6bit
+        memory_gb: 7
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Jackrong Negentropy 9B 6-bit MLX (~7GB, Apache 2.0). V6 bench candidate — trace-inversion reasoning methodology, 9B comparator to existing Qwopus27B reasoning primary. supports_tools=false: card does not benchmark tool use; reasoning models historically have supports_tools=false to prevent thinking-budget mixing with tool rendering."
+      # Allen AI dense 32B — only major non-Qwen 32B reasoning candidate in catalog.
+      # V5 Pareto winner (8.6 TPS, smoke PASS). workspace_routing pin was added without
+      # the catalog entry; adding both together in V6 (TASK_MODEL_REFRESH_V6).
+      - id: mlx-community/Olmo-3-1125-32B-4bit
+        memory_gb: 17
+        big_model: false
+        is_vlm: false
+        supports_tools: false
+        notes: "Allen AI Olmo-3 dense 32B 4-bit MLX (~17GB, Apache 2.0). V6 catalog add (workspace pin present since V5, model entry added V6). Non-Qwen lineage — diversifies reasoning candidates. supports_tools=false: Olmo-3 does not follow OpenAI tools schema."
 
   # ── General (uncensored-default + verified tool calling) ───────────────────
   # Ordering: line 1 must be tool-tagged in Ollama and uncensored. Line 1 is
@@ -250,6 +292,9 @@ backends:
       - id: granite4.1:8b
         supports_tools: true
         notes: "IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — verified tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as auto-video primary (de96984)."
+      - id: huihui_ai/Qwen3.6-abliterated
+        supports_tools: true
+        notes: "V6 add (TASK_MODEL_REFRESH_V6). Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Lineage successor to huihui_ai/qwen3.5-abliterated:9b (line 1). MoE 3B active — fast decode, larger uncensored fallback for AUTO. Same author lineage as baronllm-abliterated and tongyi-deepresearch-abliterated. supports_tools=true per Qwen3.6 family tool-tagging (verify with --audit-tools before workspace promotion)."
 
   # ── Coding (code generation, debugging, architecture) ─────────────────────
   - id: ollama-coding
@@ -262,6 +307,9 @@ backends:
       - id: qwen3-coder:30b
         supports_tools: true
         notes: "30B-A3B MoE (3B active), 19GB — primary Ollama coding fallback"
+      - id: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M
+        supports_tools: false
+        notes: "V6 bench candidate (TASK_MODEL_REFRESH_V6). Tesslate OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0). Qwen3.5-9B base, SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. v2 fixes v1's repetition loops, bloated thinking, agentic-loop instability (cosine LR died at step 60 in v1). supports_tools=false until verified via tests/portal5_persona_matrix.py --audit-tools (card describes tool format as 'flexible' — not OpenAI-schema confirmed)."
       - id: deepseek-coder-v2:16b-lite-instruct-q4_K_M
         supports_tools: false
         notes: "Older Coder V2, no Ollama tools tag verified"
@@ -411,6 +459,12 @@ workspace_routing:
   bench-granite41-8b:      [general]                # granite4.1:8b (IBM, dense 8B no-think — Ollama only)
   bench-granite41-30b:     [reasoning, general]     # granite4.1:30b (IBM, dense 30B no-think — Ollama only)
   bench-qwen35-abliterated: [mlx, general]           # huihui_ai/qwen3.5-abliterated:9b (MLX 4bit + Ollama Q4) — uncensored, tool-capable, AUTO + general line 1
+  # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ──────────────────────────
+  bench-qwen36-27b:        [mlx, coding, general]   # froggeric/Qwen3.6-27B-MLX-4bit (Alibaba, dense 27B + vision, ~16GB)
+  bench-qwen36-35b-a3b:    [mlx, coding, general]   # mlx-community/Qwen3.6-35B-A3B-4bit (Alibaba MoE 3B active, ~20GB)
+  bench-omnicoder2:        [coding, general]        # hf.co/Tesslate/OmniCoder-2-9B-GGUF (Qwen3.5-9B SFT on agentic traces, Ollama only)
+  bench-negentropy:        [mlx, reasoning, general]  # Jackrong/Negentropy-claude-opus-4.7-9B-6bit (trace-inversion reasoning, ~7GB)
+  bench-olmo3-32b:         [mlx, reasoning, general]  # mlx-community/Olmo-3-1125-32B-4bit (Allen AI dense 32B, non-Qwen lineage)
 
 defaults:
   fallback_group: general
