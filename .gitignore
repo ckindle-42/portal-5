@@ -53,3 +53,6 @@ coding_task/
 # Test outputs (bench_tps, matrix driver, UAT driver)
 tests/benchmarks/results/
 tests/fixtures/audio/
+
+# Test fixtures generated locally
+tests/fixtures/sample.wav

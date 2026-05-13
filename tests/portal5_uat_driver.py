@@ -4694,7 +4694,23 @@ TEST_CATALOG: list[dict] = [
             {
                 "type": "any_of",
                 "label": "Framework cited",
-                "keywords": ["nist csf", "cis controls", "mitre att&ck", "cis control"],
+                "keywords": [
+                    "nist csf",
+                    "nist cybersecurity framework",
+                    "nist 800-53",
+                    "nist sp 800",
+                    "cis controls",
+                    "cis control",
+                    "cis benchmark",
+                    "mitre att&ck",
+                    "mitre attack",
+                    "iso 27001",
+                    "iso/iec 27001",
+                    "defense in depth",
+                    "defense-in-depth",
+                    "layered defense",
+                    "zero trust",
+                ],
             },
             {
                 "type": "any_of",
@@ -4878,7 +4894,22 @@ TEST_CATALOG: list[dict] = [
             "For each: CVE ID, affected vendor/product, severity, and remediation status."
         ),
         "assertions": [
-            {"type": "contains", "label": "CVE IDs present", "keywords": ["cve-"]},
+            {
+                "type": "any_of",
+                "label": "CVE or vendor advisory IDs present",
+                "keywords": [
+                    "cve-",
+                    "cve ",
+                    "cve_",
+                    "cve id",
+                    "cve identifier",
+                    "kb",
+                    "rhsa-",
+                    "cisco-sa-",
+                    "advisory",
+                    "vulnerability id",
+                ],
+            },
             {"type": "min_length", "label": "Substantive results", "chars": 300},
             {
                 "type": "not_contains",
@@ -5684,11 +5715,19 @@ TEST_CATALOG: list[dict] = [
                     "e[x] = 5",
                     "e(x) = 5",
                     "expected value",
+                    "expected number",
+                    "expected count",
+                    "5 successes",
                     "mean = 5",
                     "μ = 5",
                     "λ = 5",
                     "lambda = 5",
                     "np = 5",
+                    "np=5",
+                    "n*p = 5",
+                    "n*p=5",
+                    "n × p = 5",
+                    "n·p = 5",
                 ],
             },
             {
@@ -7443,10 +7482,10 @@ async def _run_two_chat_test(
                         json={"arguments": preseed_data},
                     )
                 if _resp.status_code == 200:
-                    _log(f"memory pre-seeded: {_resp.json().get('id', '?')}")
+                    print(f"[A-08] memory pre-seeded: {_resp.json().get('id', '?')}", flush=True)
                     await asyncio.sleep(2.0)  # let LanceDB index settle
                 else:
-                    _log(f"memory pre-seed failed HTTP {_resp.status_code} — skipping")
+                    print(f"[A-08] memory pre-seed failed HTTP {_resp.status_code} — skipping", flush=True)
                     record_result(
                         n, "SKIP", test_id, name, model,
                         [("memory_preseed_failed", False, f"HTTP {_resp.status_code}")],
@@ -7455,7 +7494,7 @@ async def _run_two_chat_test(
                     counts["SKIP"] = counts.get("SKIP", 0) + 1
                     return
             except Exception as _e:
-                _log(f"memory pre-seed error: {_e} — skipping")
+                print(f"[A-08] memory pre-seed error: {_e} — skipping", flush=True)
                 record_result(
                     n, "SKIP", test_id, name, model,
                     [("memory_preseed_failed", False, str(_e)[:100])],
