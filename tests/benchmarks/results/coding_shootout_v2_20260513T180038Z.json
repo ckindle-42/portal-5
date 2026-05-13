@@ -1,0 +1,3036 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-13T18:22:08.470268+00:00",
+  "elapsed_s": 1289.3,
+  "plan": {
+    "workspace": "auto-coding-bench",
+    "personas": [
+      "sqlterminal",
+      "linuxterminal",
+      "pythoninterpreter",
+      "javascriptconsole",
+      "codereviewer",
+      "softwarequalityassurancetester",
+      "bugdiscoverycodeassistant",
+      "codereviewassistant",
+      "e2etestauthor",
+      "e2edebugger",
+      "fullstacksoftwaredeveloper",
+      "creativecoder",
+      "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "devopsautomator",
+      "githubexpert"
+    ],
+    "models": [
+      {
+        "id": "mlx-community/GLM-4.7-Flash-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "mlx-community/Laguna-XS.2-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 19.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 22.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-Next-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": true,
+        "memory_gb": 46.0
+      }
+    ],
+    "scenarios_total": 75,
+    "cells_total": 75
+  },
+  "cells": [
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 sql signatures matched"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 2885,
+          "response_preview": "The user wants me to simulate a SQL terminal, specifically one that mimics PostgreSQL behavior, although the prompt header says \"Microsoft SQL Server 2022\". However, the user's specific request in the prompt is to respond \"as a real PostgreSQL REPL would\".\n\nLet's look at the specific request: \"Respond as a real PostgreSQL REPL would \u2014 show the result of each statement (row count, returned rows, or INSERT/UPDATE acks).\"\n\nThe user provided a block of SQL statements:\n1. `CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT NOT NULL, role TEXT);`\n   - In PostgreSQL, `SERIAL` is a sequence-based auto-increment. In SQL Server, it would be `IDENTITY`.\n2. `INSERT INTO users (username, role) VALUES ('alice', 'analyst'), ('bob', 'admin'), ('carol', 'analyst');`\n3. `SELECT username, role FROM use",
+          "elapsed_s": 14.36,
+          "tps": 200.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "linux-terminal-stateful",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 3108,
+          "response_preview": "The user wants me to simulate a Linux terminal session.\nI need to execute a specific sequence of commands:\n1. `mkdir -p /tmp/portal_test`\n2. `cd /tmp/portal_test`\n3. `echo \"hello portal\" > greeting.txt`\n4. `cat greeting.txt`\n5. `pwd`\n6. `ls -la`\n\nConstraints:\n- Output only the terminal output.\n- No explanations.\n- No code blocks (the user said \"just what the terminal would print\", but the prompt instructions say \"Reply ONLY with terminal output inside a single code block.\" Wait, let me re-read the prompt instructions vs the user prompt.\n- The user prompt says: \"Show only the terminal output for each command \u2014 no prose, no code blocks, just what the terminal would print.\"\n- The system instructions say: \"Reply ONLY with terminal output inside a single code block.\"\n- Usually, the system instr",
+          "elapsed_s": 14.51,
+          "tps": 214.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "python-repl-traceback",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 2193,
+          "response_preview": "```python\nNone\nSystem: portal v6\nNone\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: list index out of range\n``` The user wants me to simulate a Python 3.11 REPL.\nI need to execute the provided statements one by one and print the output exactly as a REPL would.\n\nInput 1: `system = \"portal v6\"`\n- This is an assignment. In a REPL, if a statement doesn't print anything, it just returns `None`.\n- Output: `None`\n\nInput 2: `print(f\"System: {system}\")`\n- This prints the formatted string.\n- Output: `System: portal v6`\n\nInput 3: `data = [1, 2, 3]`\n- This is an assignment.\n- Output: `None`\n\nInput 4: `print(data[10])`\n- This tries to access index 10 of a list with 3 elements.\n- This will raise an `IndexError`.\n- Output: `Traceback (most recent call last):\n  File ",
+          "elapsed_s": 12.59,
+          "tps": 174.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "js-console-strict-output",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2672,
+          "response_preview": "The user wants me to simulate a JavaScript console.\nI need to output the result of four specific expressions, one by one, as if I were a V8 console.\nThe user explicitly requested \"No prose. No code fences.\" and \"Output exactly what each statement prints.\"\n\nLet's analyze each expression:\n\n1.  `typeof null`\n    *   In JavaScript, `typeof null` returns the string `\"object\"`. This is a historical quirk in the language.\n\n2.  `[].foo`\n    *   `[]` is an empty array. `foo` is a property on the array object. Arrays do not have a `foo` property by default, so accessing it returns `undefined`.\n    *   The prompt asks for what it \"prints\". In a console, `undefined` is the value, and it is displayed as `undefined`.\n\n3.  `[1,2,3].map(x => x * 2)`\n    *   This maps an array of numbers to their doubles.\n",
+          "elapsed_s": 14.15,
+          "tps": 188.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[HIGH]']"
+            }
+          ],
+          "response_chars": 2931,
+          "response_preview": "Let me analyze this Python function for correctness and security issues.\n\n```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base\n    for k, v in override.items():\n        if isinstance(v, dict) and k in result:\n            result[k] = merge_configs(result[k], v)\n        else:\n            result[k] = v\n    return result\n```\n\n## Issues I can identify:\n\n### 1. Aliasing/Mutation Bug - CRITICAL\nThe line `result = base` creates an alias, not a copy. The function modifies the original `base` dictionary, which is a serious correctness issue. The function claims to return a merged dict, but it mutates the input.\n\n**Severity:** Critical (Correctness)\n**Confidence:** High\n\n### 2. Unbounded Recursion Risk - HIGH\nThe function recursively calls itself, but there's no protecti",
+          "elapsed_s": 14.78,
+          "tps": 198.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "qa-test-enumeration",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['malicious']"
+            }
+          ],
+          "response_chars": 2035,
+          "response_preview": "1.  **Analyze the Request:**\n    *   **Target:** File-upload endpoint.\n    *   **Constraints:** Accepts .pdf, .docx, .xlsx; max 10MB; virus scan via ClamAV; 400 on rejection, 201 on success.\n    *   **Output:** Test plan with at least 8 distinct test cases.\n    *   **Tags:** [SECURITY], [BOUNDARY], [INTEGRATION], [HAPPY-PATH], [ERROR-PATH].\n    *   **Details per case:** Input, Expected Output, Rationale2.  **Deconstruct the Requirements & Constraints:**\n    *   *File Types:* .pdf, .docx, .xlsx.\n    *   *Size Limit:* 10MB.\n    *   *Virus Scan:* ClamAV integration.\n    *   *HTTP Status Codes:* 400 (Bad Request) for rejection, 201 (Created) for success.\n    *   *Test Categories:*\n        *   [SECURITY]: Malware, injection, unauthorized access (though less relevant for a file upload endpoint, ",
+          "elapsed_s": 14.49,
+          "tps": 140.4
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "bug-classification-by-type",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[SECURITY]', '[RUNTIME]']"
+            }
+          ],
+          "response_chars": 2667,
+          "response_preview": "The user wants a bug analysis of a specific Python function.\nThe function is `get_user(username)`.\nIt takes a `username`.\nIt imports `os`.\nIt runs `os.system(f\"grep {username} /etc/passwd\")`.\nIt splits the result by `,`.\nIt returns `users[5]`.\n\nLet's analyze the code line by line, but keep the \"Read full code\" instruction in mind (which I have done).\n\n**Line 1: `def get_user(username):`**\n- Standard function definition.\n\n**Line 2: `import os`**\n- Imports the `os` module. Standard.\n\n**Line 3: `result = os.system(f\"grep {username} /etc/passwd\")`**\n- This is the core of the problem.\n- `os.system` executes a shell command.\n- The command is `grep {username} /etc/passwd`.\n- The input `username` is interpolated into the command string.\n- This is a classic **Command Injection** vulnerability.\n- If",
+          "elapsed_s": 14.24,
+          "tps": 187.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-pr-scope",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2710,
+          "response_preview": "The user wants a code review of a specific diff.\nThe diff shows a change in a `login` function.\nOriginal code: `token = jwt.encode({\"user\": req.user}, \"secret\")`\nNew code: `token = jwt.encode({\"user\": req.user, \"exp\": time.time() + 3600}, SECRET_KEY, algorithm=\"HS256\")`\n\nLet's analyze the changes:\n1.  **Secret Key**: Changed from hardcoded `\"secret\"` to a variable `SECRET_KEY`.\n2.  **Algorithm**: Added `algorithm=\"HS256\"`. This is good practice, though `jwt.encode` defaults to HS256 if not specified, so it's explicit.\n3.  **Expiration**: Added `exp` (expiration) claim to the payload. The value is `time.time() + 3600` (one hour).\n\nLet's evaluate against the review focus:\n- **Correctness**: The code looks syntactically correct. The logic is sound: encoding a user with an expiration time.\n- *",
+          "elapsed_s": 14.7,
+          "tps": 184.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2824,
+          "response_preview": "The user wants a Playwright test in JavaScript (not TypeScript) for a login form at `https://example.com/login`.\nThe requirements are:\n1.  **Selectors**: Must use `getByRole`, `getByLabel`, `getByText`, `getByPlaceholder`, etc. (No CSS or XPath).\n2.  **Happy Path**: Correct credentials -> Redirect to `/dashboard`.\n3.  **Error Path**: Wrong password -> Error message visible.\n4.  **API**: `page.goto`, `expect`, `async/await`.\n5.  **Output**: A single fenced code block containing the `.spec.js` file.\n\n**Analysis of the URL**: `https://example.com/login`\n*Note: `example.com` is a reserved domain for documentation and examples. It usually doesn't have a real login form. However, the prompt asks to write the test *for* that URL, implying I should write the code as if the page exists there, or pe",
+          "elapsed_s": 14.0,
+          "tps": 201.6
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-debugger-root-cause",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['retry']"
+            }
+          ],
+          "response_chars": 2691,
+          "response_preview": "The user is asking for a root cause analysis of a flaky Playwright test.\nThe specific error is a 10% failure rate with a `TimeoutError: page.goto timeout 30000ms`.\nThe failure manifests in two ways:\n1.  The test hangs on a JS modal.\n2.  The page loads slowly under CI load.\n\nThe user wants a comprehensive analysis covering:\n1.  **Timing-side investigation** (timeouts, retries, waits).\n2.  **Browser-side investigation** (DOM inspection, console errors, network panel).\n\nI need to structure the response to act like a debugging expert, explaining the \"Why\" and then the \"How to investigate/fix\".\n\n**Step 1: Analyze the Symptoms & Context**\n*   **Symptom:** 10% flakiness, 30s timeout, two specific failure modes (Modal vs. Slow Load).\n*   **Context:** CI environment (usually less resources, less re",
+          "elapsed_s": 13.95,
+          "tps": 192.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "jwt-three-endpoints",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 python signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2858,
+          "response_preview": "The user wants a single Python file implementing three Flask endpoints: login, protected, and refresh.\nThe user specified:\n1.  **Stack**: Flask, Python, `python-jose`.\n2.  **Endpoints**:\n    *   `POST /auth/login`: Accepts `{username, password}`, returns a JWT.\n    *   `GET /protected`: Requires `Authorization: Bearer <token>`.\n    *   `POST /auth/refresh`: Refreshes a near-expiring token.\n3.  **Security**: `exp` claim (1 hour), read secret from `os.environ`.\n4.  **Format**: Single fenced code block.\n5.  **Constraints**: No hardcoding secrets, no floating versions (though I can't pin versions in a single file snippet, I should mention them or use a requirements.txt style if needed, but the prompt asks for a \"complete file\"). The prompt says \"Provide the complete file in a single fenced cod",
+          "elapsed_s": 14.63,
+          "tps": 195.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "creative-particle-system",
+          "framework": "html",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 html signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2493,
+          "response_preview": "The user wants a self-contained HTML file with a canvas particle system.\nKey requirements:\n1.  **Single file**: HTML, CSS, JS all in one.\n2.  **Canvas**: Use the 2D context.\n3.  **Particle System**:\n    *   Emit on space-bar.\n    *   Fall with gravity.\n    *   Fade out over 2 seconds.\n4.  **No libraries**: Vanilla JS only.\n5.  **No clarifying questions**: Just build it.\n6.  **Aesthetic**: Retro-arcade, dark background, glow effects (as per my persona).\n\n**Plan:**\n*   **HTML Structure**: A simple container, a `<canvas>` element, and a UI overlay for instructions.\n*   **CSS**: Dark background (`#111`), full screen canvas, centered text for instructions, retro font (monospace), glowing text.\n*   **JavaScript**:\n    *   **Setup**: Get canvas, resize to window, get context.\n    *   **Particle C",
+          "elapsed_s": 14.87,
+          "tps": 167.6
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 python signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2785,
+          "response_preview": "The user wants a Python function `fetch_with_retry` that uses `httpx.AsyncClient`.\nIt needs to handle specific HTTP status codes (429, 500, 502, 503, 504) with retries.\nIt needs exponential backoff (starting at 1s, doubling each time) using `asyncio.sleep`.\nIt should return the response body on success or raise an exception if all attempts fail.\nIt requires full type hints.\nIt must be a single fenced code block.\n\n**Constraints Check:**\n- \"No prose outside the code block.\" -> The user explicitly asked for a single fenced code block and said \"No prose outside the code block\" in the prompt, although the system prompt says \"prose second\". The user's specific instruction overrides the general system instruction regarding the format of the response. I will provide just the code block.\n- \"No plac",
+          "elapsed_s": 14.61,
+          "tps": 190.6
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "k8s-manifest-complete",
+          "framework": "html",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['readinessProbe']"
+            }
+          ],
+          "response_chars": 2610,
+          "response_preview": "The user wants a complete, runnable Kubernetes manifest for a Python web service.\nI need to adhere to the strict constraints:\n- **Fenced Code Block**: The YAML must be inside a code block.\n- **No Placeholders**: All values must be concrete (e.g., `image: myorg/webapp:v1.2.3`).\n- **Pin Versions**: The `image` tag is `v1.2.3`.\n- **Specific Requirements**:\n    - Image: `myorg/webapp` (tag `v1.2.3`).\n    - Readiness probe: `/health`.\n    - Resource limits: 512Mi memory, 0.5 CPU.\n    - Replicas: 3.\n    - Rolling update strategy.\n- **Rollback**: Include a `kubectl rollout undo` command in a comment.\n- **Structure**: Artifact (YAML) -> Operational Notes -> Rollback Procedure -> Verification Steps.\n\n**Drafting the YAML:**\n- `apiVersion`: `apps/v1` (for Deployment).\n- `kind`: `Deployment`.\n- `metad",
+          "elapsed_s": 15.24,
+          "tps": 171.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "github-destructive-warning",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['rotate']"
+            }
+          ],
+          "response_chars": 2898,
+          "response_preview": "The user is in a critical situation: a shared feature branch has 3 commits, one of which contains a leaked API key. Two teammates have already pulled this branch. The user needs to fix this immediately to prevent the API key from being exposed in the repository history.\n\n**Constraints Checklist & Confidence Score:**\n1.  Never provide a destructive command (force push, branch deletion, history rewrite, reset --hard) without explicitly warning about data loss risk and recommending a backup or dry-run step first. -> **Yes, need to warn heavily.**\n2.  Do not assume the user's Git version or GitHub plan. -> **N/A, this is a Git/GitHub issue, not specific to a plan, but I should mention GitHub specific cleanup.**\n3.  Never fabricate GitHub API endpoints, Actions syntax, or workflow behavior. -> ",
+          "elapsed_s": 14.35,
+          "tps": 201.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 sql signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 169,
+          "response_preview": "```\nCREATE TABLE\nINSERT 0 3\n username | role\n----------+----------\n alice    | analyst\n carol    | analyst\n(2 rows)\n\nINSERT 0 1\n username\n----------\n newuser\n(1 row)\n```",
+          "elapsed_s": 45.16,
+          "tps": 3.7
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "linux-terminal-stateful",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 187,
+          "response_preview": "```\nhello portal\n/tmp/portal_test\ntotal 8\ndrwxrwxr-x 2 user user 4096 Oct  5 12:34 .\ndrwxrwxr-x 5 user user 4096 Oct  5 12:34 ..\n-rw-rw-r-- 1 user user    12 Oct  5 12:34 greeting.txt\n```",
+          "elapsed_s": 10.42,
+          "tps": 18.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "python-repl-traceback",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 134,
+          "response_preview": "```\nSystem: portal v6\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: list index out of range\n```",
+          "elapsed_s": 5.51,
+          "tps": 24.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "js-console-strict-output",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 46,
+          "response_preview": "```\n\"object\"\nundefined\n[2, 4, 6]\nundefined\n```",
+          "elapsed_s": 4.64,
+          "tps": 9.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['alias', '[HIGH]']"
+            }
+          ],
+          "response_chars": 3060,
+          "response_preview": "### Audit of `merge_configs` Function\n\n#### Findings:\n\n1. **Severity: High**\n   **Category: Correctness**\n   **Location: `result = base`**\n   **Issue:** The function mutates the input `base` dictionary directly, which is unexpected and can lead to side effects in the caller's code.\n   **Root Cause:** The function assigns `result` to `base`, so any modifications to `result` will also modify `base`.\n   **Fix:**\n   ```python\n   def merge_configs(base: dict, override: dict) -> dict:\n       result = base.copy()  # Create a shallow copy to avoid mutating the original\n       for k, v in override.items():\n           if isinstance(v, dict) and k in result:\n               result[k] = merge_configs(result[k], v)\n           else:\n               result[k] = v\n       return result\n   ```\n   **Confidence",
+          "elapsed_s": 47.98,
+          "tps": 63.8
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "qa-test-enumeration",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['malicious']"
+            }
+          ],
+          "response_chars": 2473,
+          "response_preview": "### Test Plan for File-Upload Endpoint\n\n#### Test Case 1: [HAPPY-PATH]\n- **Input:** Valid .pdf file (e.g., `test.pdf`, 5MB, no virus)\n- **Expected Output:** 201 Created\n- **Rationale:** Verify that the endpoint correctly accepts a valid .pdf file within the size limit and without a virus.\n\n#### Test Case 2: [HAPPY-PATH]\n- **Input:** Valid .docx file (e.g., `test.docx`, 8MB, no virus)\n- **Expected Output:** 201 Created\n- **Rationale:** Verify that the endpoint correctly accepts a valid .docx file within the size limit and without a virus.\n\n#### Test Case 3: [HAPPY-PATH]\n- **Input:** Valid .xlsx file (e.g., `test.xlsx`, 10MB, no virus)\n- **Expected Output:** 201 Created\n- **Rationale:** Verify that the endpoint correctly accepts a valid .xlsx file at the maximum size limit and without a viru",
+          "elapsed_s": 44.13,
+          "tps": 56.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "bug-classification-by-type",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2760,
+          "response_preview": "### Bug Analysis for `get_user` Function\n\n#### Issues Identified:\n\n1. **Type: [SECURITY]**\n   - **Severity: Critical**\n   - **Location: `os.system(f\"grep {username} /etc/passwd\")`**\n   - **Root Cause:** The function uses `os.system` with unsanitized user input, which is vulnerable to command injection. An attacker could pass a malicious `username` like `\"; rm -rf / #` to execute arbitrary commands.\n   - **Reproduction Condition:** Any user input containing shell metacharacters (e.g., `;`, `|`, `&&`).\n   - **Fix:** Use a safer method to read the file, such as Python's built-in file operations or `subprocess` with proper argument handling.\n   - **Confidence: High**\n\n2. **Type: [SECURITY]**\n   - **Severity: High**\n   - **Location: `os.system(f\"grep {username} /etc/passwd\")`**\n   - **Root Caus",
+          "elapsed_s": 44.6,
+          "tps": 61.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-pr-scope",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['3600']"
+            }
+          ],
+          "response_chars": 805,
+          "response_preview": "```\n\ud83d\udfe1 Medium `def login(req):`\n**Issue:** The JWT token now includes an expiration time and uses a constant `SECRET_KEY` instead of a hardcoded string. This is a breaking change if consumers expect the old token format. Also, using `time.time()` for expiration is not ideal\u2014consider using a library function for this.\n**Suggestion:** Ensure the PR description documents this breaking change. Use `datetime.utcnow()` + `timedelta` for expiration to avoid timezone issues.\n\n## Review Summary\n- \ud83d\udd34 Critical: 0  \ud83d\udfe0 High: 0  \ud83d\udfe1 Medium: 1  \ud83d\udd35 Low: 0  \ud83d\udcac Nitpick: 0\n- **Must fix before merge:** Document the breaking change in the PR description\n- **Approve with:** Clear documentation of the API change and consideration of timezone-safe expiration\n- **Done well:** Added expiration to the JWT token for securit",
+          "elapsed_s": 17.0,
+          "tps": 47.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1341,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form', () => {\n  test('should successfully login with correct credentials and redirect to dashboard', async ({ page }) => {\n    await page.goto('https://example.com/login');\n\n    // Fill in the email and password fields\n    await page.getByLabel('Email address').fill('correct@example.com');\n    await page.getByPlaceholder('Enter password').fill('correctpassword');\n\n    // Click the login button\n    await page.getByRole('button', { name: 'Login' }).click();\n\n    // Wait for navigation to the dashboard\n    await expect(page).toHaveURL('https://example.com/dashboard');\n\n    // Assert that the dashboard page is visible\n    await expect(page.getByText('Dashboard')).toBeVisible();\n  });\n\n  test('should show",
+          "elapsed_s": 20.45,
+          "tps": 65.6
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-debugger-root-cause",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 3147,
+          "response_preview": "### Root-Cause Analysis for Playwright Test Failure\n\n#### **Timing-Side Investigation**\n\n1. **Timeout Configuration:**\n   - The test is configured with a timeout of 30,000ms (30 seconds) for `page.goto`. This is a reasonable default, but it might not account for variability in network conditions or server load, especially in CI environments.\n\n2. **Flaky Network Conditions:**\n   - CI environments often have variable network performance. The test might be failing due to intermittent network issues causing delays in page loading.\n\n3. **Server Load and Performance:**\n   - The server hosting the page might be under heavy load during CI runs, causing slower response times. This could be due to other tests running concurrently or resource constraints.\n\n4. **JavaScript Modal Interference:**\n   - T",
+          "elapsed_s": 42.93,
+          "tps": 73.3
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "jwt-three-endpoints",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['os.environ']"
+            }
+          ],
+          "response_chars": 2813,
+          "response_preview": "```python\nfrom flask import Flask, request, jsonify\nfrom functools import wraps\nimport os\nimport jwt\nfrom datetime import datetime, timedelta\nfrom jose import JWTError, jwt as jose_jwt\n\napp = Flask(__name__)\n\n# Read the secret from environment variables\nSECRET_KEY = os.getenv('JWT_SECRET')\nif not SECRET_KEY:\n    raise ValueError(\"JWT_SECRET environment variable not set\")\n\n# Helper function to create a JWT\ndef create_jwt(user_id):\n    payload = {\n        'user_id': user_id,\n        'exp': datetime.utcnow() + timedelta(hours=1)\n    }\n    return jose_jwt.encode(payload, SECRET_KEY, algorithm='HS256')\n\n# Helper function to decode a JWT\ndef decode_jwt(token):\n    try:\n        payload = jose_jwt.decode(token, SECRET_KEY, algorithms=['HS256'])\n        return payload\n    except JWTError:\n        r",
+          "elapsed_s": 46.74,
+          "tps": 60.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "creativecoder",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "creative-particle-system",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "11 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 3015,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Particle System</title>\n    <style>\n        body {\n            margin: 0;\n            overflow: hidden;\n            background: #000;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            height: 100vh;\n            color: #fff;\n            font-family: Arial, sans-serif;\n        }\n        canvas {\n            display: block;\n        }\n        .controls {\n            position: absolute;\n            top: 10px;\n            left: 10px;\n            background: rgba(0, 0, 0, 0.5);\n            padding: 10px;\n            border-radius: 5px;\n        }\n    </style>\n</head>\n<body>\n    <di",
+          "elapsed_s": 47.43,
+          "tps": 63.6
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1310,
+          "response_preview": "```python\nimport asyncio\nimport httpx\nfrom typing import Any\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> str:\n    \"\"\"\n    Asynchronously fetch a URL with retry logic for specific HTTP status codes.\n\n    Args:\n        url (str): The URL to fetch.\n        max_attempts (int, optional): Maximum number of attempts to fetch the URL. Defaults to 3.\n\n    Returns:\n        str: The response body if the request is successful.\n\n    Raises:\n        httpx.HTTPStatusError: If the request fails after max_attempts.\n    \"\"\"\n    attempt = 0\n    delay = 1  # Initial delay in seconds\n\n    while attempt < max_attempts:\n        try:\n            async with httpx.AsyncClient() as client:\n                response = await client.get(url)\n                response.raise_for_status()\n               ",
+          "elapsed_s": 24.03,
+          "tps": 54.5
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "k8s-manifest-complete",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1881,
+          "response_preview": "```yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: python-webapp\n  labels:\n    app: python-webapp\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: python-webapp\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxUnavailable: 1\n      maxSurge: 1\n  template:\n    metadata:\n      labels:\n        app: python-webapp\n    spec:\n      containers:\n      - name: python-webapp\n        image: myorg/webapp:v1.2.3\n        ports:\n        - containerPort: 80\n        readinessProbe:\n          httpGet:\n            path: /health\n            port: 80\n          initialDelaySeconds: 5\n          periodSeconds: 10\n        resources:\n          limits:\n            memory: \"512Mi\"\n            cpu: \"500m\"\n          requests:\n            memory: \"256Mi\"\n            cpu: \"250m\"\n---\nap",
+          "elapsed_s": 35.17,
+          "tps": 53.5
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "githubexpert",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "github-destructive-warning",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['rotate']"
+            }
+          ],
+          "response_chars": 1736,
+          "response_preview": "**Context:** You need to remove sensitive data (API key) from the shared feature branch history, which has already been pushed and pulled by teammates.\n\n**Solution:**\n\n1. **Remove the API key from the working directory and staging area:**\n   ```bash\n   git rm --cached <file-containing-api-key>\n   echo \"API_KEY=\" >> <file-containing-api-key>\n   git add <file-containing-api-key>\n   git commit --amend --no-edit\n   ```\n\n2. **Rewrite history to remove the API key from all commits:**\n   ```bash\n   git rebase -i --root\n   ```\n   - Mark all commits that contain the API key as `edit`\n   - For each commit, remove the API key and amend the commit:\n     ```bash\n     git rm --cached <file-containing-api-key>\n     echo \"API_KEY=\" >> <file-containing-api-key>\n     git add <file-containing-api-key>\n     g",
+          "elapsed_s": 28.31,
+          "tps": 61.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 sql signatures matched"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 2750,
+          "response_preview": "The user wants me to simulate a PostgreSQL REPL session. They've provided a block of SQL statements and want me to show the output as if they were run in a psql terminal.\n\nLet me go through each statement:\n\n1. `CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT NOT NULL, role TEXT);`\n   - This creates a table. In psql, this would typically show nothing (just the command running) or a success message.\n\n2. `INSERT INTO users (username, role) VALUES ('alice', 'analyst'), ('bob', 'admin'), ('carol', 'analyst');`\n   - This inserts 3 rows. psql would show \"(3 rows affected)\"\n\n3. `SELECT username, role FROM users WHERE role = 'analyst';`\n   - This selects 2 rows (alice and carrod). psql would show the result table with headers and 2 rows, then \"(2 rows affected)\"\n\n4. `INSERT INTO users (use",
+          "elapsed_s": 50.92,
+          "tps": 54.0
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "linux-terminal-stateful",
+          "framework": "bash",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.bash",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 764,
+          "response_preview": "$ mkdir -p /tmp/portal_test\n$ cd /tmp/portal_test\n$ echo \"hello portal\" > greeting.txt\n$ cat greeting.txt\nhello portal\n$ pwd\n/tmp/portal_test\n$ ls -la\ntotal 8\ndrwxr-xr-x 2 user user 4096 [date] /tmp/portal_test\n-rw-r--r-- 1 user user   12 [date] greeting.txt\n$\n \nThe user wants me to execute a series of commands in sequence and show the terminal output. Let me go through each command:\n\n1. `mkdir -p /tmp/portal_test` - Creates directory, no output\n2. `cd /tmp/portal_test` - Changes directory, no output\n3. `echo \"hello portal\" > greeting.txt` - Creates file with content, no output\n4. `cat greeting.txt` - Shows content: \"hello portal\"\n5. `pwd` - Shows current directory: /tmp/portal_test\n6. `ls -lift` - Lists files with details\n\nLet me simulate this properly.",
+          "elapsed_s": 4.32,
+          "tps": 176.7
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "python-repl-traceback",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 738,
+          "response_preview": ">>> system = \"portal v6\"\n>>> print(f\"System: {system}\")\nSystem: portal v6\n>>> data = [1, 2, 3]\n>>> print(data[10])\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: list index out of range\n \nThe user wants me to act as a Python 3.11 REPL and execute statements one by one, printing exactly what the REPL would print after each statement.\n\nLet me go through each statement:\n\n1. `system = \"portal v6\"` - This is an assignment, so nothing is printed.\n2. `print(f\"System: {system}\")` - This will print \"System: portal v\u6e38\"\n3. `data = [1, 2, 3]` - Assignment, nothing printed\n4. `print(data[10])` - This will raise an IndexError because the list only has indices 0, 1, 2\n\nLet me simulate this as a REPL would.",
+          "elapsed_s": 4.08,
+          "tps": 181.1
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "js-console-strict-output",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 761,
+          "response_preview": "> typeof null\n'object'\n> [].foo\nundefined\n> [1,2,3].map(x => x * 2)\n[2, 4, 6]\n> new Map().get('nothing')\nundefined\n \nThe user wants me to simulate a JavaScript console and output exactly what each statement would print. Let me go through each one:\n\n1. `typeof null` - This returns 'object' in JavaScript (historical bug)\n2. `[].foo` - This accesses a non-existent property on an empty array, which is undefined\n3. `[1,2,nothrow].map(x => x * 2)` - Wait, the user wrote `nothrow` but I think they meant `3`. Let me check... Actually looking at the input, it says `[1,2,3].map(x => x * 2)` so this should return [2, 2, 6]\n4. `new Map().get('nothing')` - This returns undefined since the map is empty\n\nLet me output these exactly as they would appear in a console.",
+          "elapsed_s": 4.19,
+          "tps": 181.5
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[HIGH]']"
+            }
+          ],
+          "response_chars": 2985,
+          "response_preview": "## Audit Findings\n\n### 1. Aliasing/Mutation Bug\n**Severity:** Critical  \n**Category:** Correctness  \n**Location:** Line 2 (`result = base`)  \n**Issue:** `result = base` creates a reference to the same dictionary object, not a copy. Any modifications to `result` will mutate the caller's `base` dictionary, causing unexpected side effects.  \n**Root Cause:** Intentional assignment for performance, but ignores Python's reference semantics.  \n**Confidence:** HIGH  \n**Fix:**\n```python\nresult = base.copy()  # shallow copy\n# OR for deep merge:\nimport copy\nresult = copy.deepcopy(base)\n```\n\n### 2. Unbounded Recursion Risk\n**Severity:** High  \n**Category:** Security / Correctness  \n**Location:** Line 6 (`merge_configs(result[k], v)`)  \n**Issue:** The function recursively calls itself without depth lim",
+          "elapsed_s": 11.38,
+          "tps": 262.4
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "qa-test-enumeration",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2761,
+          "response_preview": "The user wants me to design a test plan for a file-upload endpoint with specific constraints. Let me break down the requirements:\n\n1. Accepts only .pdf, .docx, .xlsx\n2. Max file size 10MB\n3. Virus-scans via ClamAV before storage\n\n# File Upload Endpoint Test Plan\n\n## Test Environment Setup\n- Base URL: `https://api.example.com/v1/upload`\n- Content-Type: `multipart/form-data`\n- Headers: `Authorization: Bearer <token>`\n\n---\n\n## Test Cases\n\n### 1. [HAPPY-PATH] Valid PDF Upload\n**Input:** 5MB PDF file with valid content  \n**Expected Output:** HTTP 2OK with response body containing file ID and status \"uploaded\"  \n**Rationale:** Verifies basic successful upload flow with supported file type within size limit\n\n### 2. [HAPPY-PATH] Valid DOCX Upload\n**Input:** 3MB DOCX file with valid content  \n**Exp",
+          "elapsed_s": 11.11,
+          "tps": 248.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "bug-classification-by-type",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 3003,
+          "response_preview": "I'll analyze this function systematically, identifying all issues with their types and severity.\n\n## Issues Found\n\n### 1. **[ \nLet me analyze this function carefully:\n\n```python\ndef get_user(username):\n    import os\n    result = os.system(f\"grep {username} /etc/passwd\")\n    users = result.split(\",\")\n    return users[5]\n```\n\nLet me identify all the issues:\n\n1. **SECURITY - Command Injection**: The function uses `os.system()` with unsanitized user input directly interpolated into a shell command. This is a critical security vulnerability. An attacker could pass something like `username = \"; rm -rf /\"` or `username = \"$(malicious_command)\"` to execute arbitrary commands.\n\n2. **RUNTIME - Wrong return type**: `os.system()` returns the exit status of the command (an integer), not the output. The",
+          "elapsed_s": 11.0,
+          "tps": 273.1
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-pr-scope",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2145,
+          "response_preview": "dle\n## Review Summary\n- \ud83d\udd34 Critical: 0  \ud83d\udfe0 High: 0  \ud83d\udfe1 Medium: 1  \ud83d\udd35 Low: 0  \ud83d\udcac Nitpick: 0\n- **Must fix before merge:** None\n- **Approve with:** Verify `SECRET_KEY` is properly defined and imported\n- **Done well:** Adding token expiration and explicit algorithm are security improvements\n---\n\n**\ud83d\udfe1 Medium** `jwt.encode()` call\n**Issue:** The `SECRET_KEY` variable is referenced but not shown in this diff. If this variable isn't properly defined and imported, the code will raise a `NameError` at runtime.\n**Suggestion:** Ensure `SECRET_KEY` is imported from a secure configuration source (e.g., `from config import SECRET_KEY` or similar). Consider using environment variables for production deployments.\n\n**\u2705 Good changes:**\n- Adding `\"exp\": time.time() + 3OK` prevents indefinite token validity\n- Explic",
+          "elapsed_s": 8.76,
+          "tps": 244.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2459,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form Tests', () => {\n  test('should successfully log in with correct credentials and redirect to dashboard', async ({ page }) => {\n    // Navigate to login page\n    await page.goto('https://example.com/login');\n\n    // Fill in correct email\n    await page.getByLabel('Email address').fill('test@example.com');\n\n    // Fill in correct password\n    await page.getByLabel('Password').fill('correct-password');\n\n    // Click the login button\n    await page.getByRole('button', { name: 'Login' }).click();\n\n    // Assert that the user is redirected to the dashboard\n    await expect(page).toHaveURL('/dashboard');\n  });\n\n  test('should display error message with wrong password', async ({ page }) => {\n    // Naviga",
+          "elapsed_s": 9.1,
+          "tps": 270.1
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-debugger-root-cause",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2899,
+          "response_preview": "nothrow\n</think>\nI'll help you debug this flaky Playwright test. Let me start by asking some clarifying questions and then provide a comprehensive root-cause analysis framework.\n\n## Initial Questions\n\nTo properly diagnose this issue, I need to understand:\n\n1. **Test Structure**: Can you share the test code? Specifically how `page.goto()` is called and what happens after navigation\n2. **Environment**: Is this running locally or CI? What's the CI provider?\n3. **Application**: What type of app is this (SPA, SSR, static)? Any heavy client-side JS?\n4. **Modal Details**: What triggers the modal? Is it a cookie consent, auth modal, or something else?\n\n## Root-Cause Analysis Framework\n\nHere's my systematic approach to investigate both timing and browser issues:\n\n### 1. Timing-Side Investigation\n\n*",
+          "elapsed_s": 10.71,
+          "tps": 270.8
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "jwt-three-endpoints",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2818,
+          "response_preview": "The user wants me to implement three Flask endpoints with JWT authentication using python-jose. Let me break down the requirements:\n\n1. POST /auth/login - accepts {username, password}, returns JWT\n2. GET /protected - requires Authorization: Bearer <token>\n3. POST /auth/refresh - refreshes a near-expiring token\n\nRequirements:\n- Use python-jose for JWT\n- Include an `exp` claim (1 hour)\n- Read the secret from os.environ (never hardcode)\n- Single Python file\n- Complete working code\n\nI need to implement this securely. Let me think about the security considerations:\n\n1. JWT handling with python-jose\n2. Token expiration (1 hour as specified)\n3. Refresh token mechanism\n4. Secret from environment variable\n5. Proper error handling\n\nFor the refresh token, I'll need to:\n- Store refresh tokens (in-memo",
+          "elapsed_s": 11.39,
+          "tps": 247.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "creative-particle-system",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2135,
+          "response_preview": "nothon\n</think>\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Particle System</title>\n<style>\n  * { margin: 0; padding: 0; box-sizing: border-box; }\n  body { \n    background: #0a0a0f;\n    font-family: monospace;\n    overflow: hidden;\n  }\n  canvas { display: block; }\n  .ui {\n    position: fixed;\n    top:  20px;\n    left: 20px;\n    color: #fff;\n    font-size: 14px;\n    line-height: 1.4;\n    background: rgba(0,0,0,0.5);\n    padding: 10px 15px;\n    border-radius: 6px;\n  }\n</style>\n</head>\n<body>\n<canvas id=\"c\"></canvas>\n<div class=\"ui\">\n  <div>Particle System</div>\n  <div style=\"opacity:0.7;\">Press SPACE to emit particles</div>\n  <div style=\"opacity:0.5; font-size:12px;\">Particles fall with g",
+          "elapsed_s": 11.51,
+          "tps": 185.5
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1991,
+          "response_preview": "```python\n\"\"\"Async HTTP client with retry logic for transient failures.\"\"\"\n\nimport asyncio\nfrom typing import Any\n\nimport httpx\n\n\nasync def fetch_with_retry(\n    url: str,\n    max_attempts: int = 3,\n) -> Any:\n    \"\"\"Fetch a URL with exponential backoff retry on transient HTTP errors.\n\n    Retries on HTTP 429, 500, 502, 503, 504 with exponential backoff\n    starting at 1 second (doubles each retry).\n\n    Args:\n        url: The URL to fetch.\n        max_attempts: Maximum number of retry attempts (default: 3).\n\n    Returns:\n        The response body (parsed JSON if possible, otherwise text).\n\n    Raises:\n        httpx.HTTPStatusError: If all retry attempts are exhausted.\n        httpx.RequestError: If a network-level error occurs.\n\n    Example:\n        >>> response = await fetch_with_retry(\"h",
+          "elapsed_s": 8.5,
+          "tps": 234.3
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "k8s-manifest-complete",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2546,
+          "response_preview": "nothon\n```yaml\n# Deployment and Service for Python web application\n# Requirements:\n# - Image: myorg/webapp:v1.2.3\n# - Readiness probe on /health\n# - Resource limits: 512Mi memory, 0.5 CPU\n# - 3 replicas\n# - Rolling update strategy\n#\n# Rollback: kubectl rollout undo deployment/python-webapp\n# Verification: kubectl get pods -l app=python-webapp\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: python-webapp\n  labels:\n    app: python-webapp\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: python-webapp\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxSurge: 1\n      maxUnavailable: 0\n  template:\n    metadata:\n      labels:\n        app: python-webapp\n    spec:\n      containers:\n        - name: webapp\n          image: myorg/webapp:v1.2.\n          ports:\n          ",
+          "elapsed_s": 11.62,
+          "tps": 219.1
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "github-destructive-warning",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2863,
+          "response_preview": "## Context\nYou've pushed 3 commits with a leaked API key to a shared feature branch, and 2 teammates have already pulled. This is a **security incident** requiring immediate action.\n\n## Immediate Steps\n\n### 1. **Rotate the API Key NOW** \ud83d\udd25\n- **Revoke the exposed key immediately** (don't wait)\n- Generate a new API key\n- Update any services using the old key\n\n### 2. **Remove the Key from History**\n\nSince this is a shared branch, you'll need to rewrite history and coordinate with your team.\n\n**Option A: Using git filter-repo (Recommended)**\n```bash\n# Install if needed: pip install git-filter-repo\ngit fetch origin\ngit filter-repo --invert-paths --path path/to/file-with-key --force\ngit push --force-with-lease origin feature-branch\n```\n\n**Option B: Using git filter-branch (if filter-repo unavaila",
+          "elapsed_s": 11.02,
+          "tps": 259.7
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 sql signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 220,
+          "response_preview": "{The system is configured for Microsoft SQL Server, not PostgreSQL. The provided syntax and commands are PostgreSQL-specific and will not execute in this environment. Please use Microsoft SQL Server syntax for queries.}\n",
+          "elapsed_s": 47.41,
+          "tps": 4.6
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "linux-terminal-stateful",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 182,
+          "response_preview": "hello portal\n/tmp/portal_test\ntotal 12\ndrwxrwxr-x  2 user user 4096 Apr  5 10:00 .\ndrwxrwxr-x  2 user user 4096 Apr  5 10:00 ..\n-rw-rw-r--  1 user user   13 Apr  5 10:00 greeting.txt",
+          "elapsed_s": 3.01,
+          "tps": 60.5
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "python-repl-traceback",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 127,
+          "response_preview": "System: portal v6\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: list index out of range\n",
+          "elapsed_s": 1.55,
+          "tps": 82.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "js-console-strict-output",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['object']"
+            }
+          ],
+          "response_chars": 34,
+          "response_preview": "null\nundefined\n[2, 4, 6]\nundefined",
+          "elapsed_s": 1.21,
+          "tps": 28.0
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['mutation', '[HIGH]']"
+            }
+          ],
+          "response_chars": 2465,
+          "response_preview": "```\nSeverity:   High\nCategory:   Correctness\nLocation:   Line 2\nIssue:      The function mutates the original `base` dictionary by assigning `result = base`, creating an alias. Any modifications to `result` will also modify `base`, which is a hidden side effect and violates the principle of immutability.\nRoot Cause: The assignment `result = base` creates a reference to the same dictionary object, not a copy.\nFix:        Change `result = base` to `result = base.copy()` to create a shallow copy of the base dictionary.\nConfidence: High\n\nSeverity:   High\nCategory:   Security\nLocation:   Line 4\nIssue:      The function is vulnerable to unbounded recursion when the input dictionaries contain circular references. If `override` or `base` contains a dictionary that references itself or forms a cycl",
+          "elapsed_s": 12.18,
+          "tps": 202.4
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "qa-test-enumeration",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2741,
+          "response_preview": "# Test Plan: File Upload Endpoint\n\n## Test Cases\n\n### Test Case 1: [HAPPY-PATH]\n**ID:** TC001  \n**Title:** Upload valid PDF file under 10MB limit  \n**Preconditions:** \n- Server is running\n- File upload endpoint is accessible\n- Valid PDF file (size < 10MB) exists  \n**Steps:**\n1. Send POST request to /upload endpoint\n2. Include valid PDF file in request body\n3. Set appropriate Content-Type header\n**Expected Result:** HTTP 201 Created response with success message  \n**Rationale:** Validates core functionality for accepted file type within size limits\n\n### Test Case 2: [SECURITY]\n**ID:** TC002  \n**Title:** Upload malicious file with embedded virus  \n**Preconditions:** \n- Server is running\n- ClamAV scanning is active\n- Malicious file (e.g., test virus file) exists  \n**Steps:**\n1. Send POST requ",
+          "elapsed_s": 15.38,
+          "tps": 178.2
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "bug-classification-by-type",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2957,
+          "response_preview": "**Type:** [SECURITY]  \n**Severity:** Critical  \n**Location:** Line 3  \n**Root Cause:** Command injection vulnerability due to direct string interpolation of user input into a shell command.  \n**Reproduction Condition:** When `username` contains shell metacharacters like `;`, `|`, `&`, or backticks.  \n**Fix:** Use `shlex.quote()` to properly escape the username for shell usage, or better yet, avoid shell commands entirely by reading `/etc/passwd` directly in Python.  \n**Confidence:** High  \n\n---\n\n**Type:** [LOGIC]  \n**Severity:** High  \n**Location:** Line 4  \n**Root Cause:** Incorrect assumption that `os.system()` returns a string that can be split by comma. `os.system()` returns an exit code (integer), not the output of the command.  \n**Reproduction Condition:** Any call to `get_user()` wi",
+          "elapsed_s": 15.21,
+          "tps": 194.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-pr-scope",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 1435,
+          "response_preview": "**[Medium]** `login(req)`\n**Issue:** The JWT token generation has been updated to include an expiration time and use a proper algorithm, which is good for security. However, the `SECRET_KEY` variable is referenced but not defined in the provided code snippet, which will cause a `NameError` at runtime. This could lead to authentication failures and potential security vulnerabilities if not properly handled.\n\n**Suggestion:** Ensure that `SECRET_KEY` is properly defined and accessible in the scope where this function is executed. Consider using environment variables for the secret key to avoid hardcoding it in the source code.\n\n```python\n# Example of how to define SECRET_KEY properly:\nimport os\nSECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-default-secret-key')\n```\n\n**[Medium]** `login(r",
+          "elapsed_s": 7.17,
+          "tps": 200.2
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1276,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form', () => {\n  test('should log in successfully with correct credentials', async ({ page }) => {\n    await page.goto('https://example.com/login');\n    \n    // Fill in the login form\n    await page.getByLabel('Email address').fill('user@example.com');\n    await page.getByLabel('Password').fill('correctpassword');\n    \n    // Submit the form\n    await page.getByRole('button', { name: 'Sign in' }).click();\n    \n    // Verify successful login by checking redirect to dashboard\n    await expect(page).toHaveURL(/dashboard/);\n    await expect(page.getByText('Welcome back')).toBeVisible();\n  });\n\n  test('should show error message with incorrect password', async ({ page }) => {\n    await page.goto('https://ex",
+          "elapsed_s": 6.48,
+          "tps": 196.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-debugger-root-cause",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 3041,
+          "response_preview": "# Root Cause Analysis: Playwright TimeoutError in page.goto\n\n## Problem Summary\nThe Playwright test fails 10% of the time with `TimeoutError: page.goto timeout 30000ms`. The intermittent nature suggests timing issues rather than consistent failures.\n\n## Root Cause Investigation\n\n### 1. Timing-Side Investigation\n\n**Timeout Configuration Analysis:**\n- Default 30s timeout may be insufficient for:\n  - CI environment load (slower hardware)\n  - Network latency in CI\n  - Heavy JavaScript execution\n  - Page resources (images, scripts) taking longer to load\n\n**Retry Strategy Issues:**\n- No retry mechanism for flaky navigation\n- Test assumes stable network/execution environment\n- No exponential backoff for retries\n\n**Race Condition Analysis:**\n- JS modal appears before page fully loads\n- Navigation ",
+          "elapsed_s": 14.71,
+          "tps": 206.8
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "jwt-three-endpoints",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "8 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 3150,
+          "response_preview": "```python\nfrom flask import Flask, request, jsonify\nimport os\nimport datetime\nfrom jose import jwt, JWTError\nfrom functools import wraps\n\napp = Flask(__name__)\n\n# Read secret from environment variable\nSECRET_KEY = os.environ.get('JWT_SECRET_KEY')\nif not SECRET_KEY:\n    raise ValueError(\"JWT_SECRET_KEY environment variable is required\")\n\n# In-memory user store (replace with database in production)\nusers = {\n    \"admin\": \"password123\",\n    \"user\": \"mypassword\"\n}\n\ndef create_access_token(username):\n    \"\"\"Create a JWT access token with expiration\"\"\"\n    payload = {\n        'sub': username,\n        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)\n    }\n    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')\n\ndef verify_token(token):\n    \"\"\"Verify JWT token and return paylo",
+          "elapsed_s": 15.73,
+          "tps": 200.2
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "creative-particle-system",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "8 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2887,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Particle System</title>\n    <style>\n        body {\n            margin: 0;\n            padding: 0;\n            background-color: #000;\n            overflow: hidden;\n            font-family: 'Courier New', monospace;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            justify-content: center;\n            height: 100vh;\n            color: #0f0;\n        }\n        canvas {\n            border: 1px solid #0f0;\n            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);\n        }\n        #instructions {\n            margin-top: 15px;\n            text-align: center;\n            font-size: 14",
+          "elapsed_s": 16.2,
+          "tps": 178.2
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2339,
+          "response_preview": "```python\nimport asyncio\nimport httpx\nfrom typing import Union\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> bytes:\n    \"\"\"\n    Fetches content from a URL with retry logic for specific HTTP status codes.\n    \n    Retries on HTTP 429, 500, 502, 503, 504 with exponential backoff.\n    \n    Args:\n        url: The URL to fetch content from\n        max_attempts: Maximum number of retry attempts (default: 3)\n        \n    Returns:\n        The response body as bytes\n        \n    Raises:\n        httpx.HTTPStatusError: When the request fails after all retries\n        httpx.RequestError: When there's a network error or timeout\n        ValueError: When max_attempts is not positive\n        \n    Example:\n        >>> import asyncio\n        >>> async def main():\n        ...     result = a",
+          "elapsed_s": 11.73,
+          "tps": 199.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "k8s-manifest-complete",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2192,
+          "response_preview": "```yaml\n# Kubernetes Deployment and Service for Python webapp\n# Requires: Kubernetes 1.28+\n# Deployment strategy: RollingUpdate with maxSurge=1, maxUnavailable=1\n# Service type: ClusterIP\n# Rollback command: kubectl rollout undo deployment/webapp-deployment\n\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: webapp-deployment\n  labels:\n    app: webapp\nspec:\n  replicas: 3\n  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxSurge: 1\n      maxUnavailable: 1\n  selector:\n    matchLabels:\n      app: webapp\n  template:\n    metadata:\n      labels:\n        app: webapp\n    spec:\n      containers:\n      - name: webapp\n        image: myorg/webapp:v1.2.3\n        ports:\n        - containerPort: 8000\n        readinessProbe:\n          httpGet:\n            path: /health\n            port: 80",
+          "elapsed_s": 13.63,
+          "tps": 160.8
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "github-destructive-warning",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['force']"
+            }
+          ],
+          "response_chars": 1560,
+          "response_preview": "Context \u2192 Command/Solution (with syntax and flag explanations) \u2192 Verification step \u2192 Rollback option (if applicable)\n\n## Context\nYou've pushed 3 commits containing a leaked API key to a shared feature branch that two teammates have already pulled. This is a security-sensitive situation requiring immediate action to prevent further exposure of the credential.\n\n## Command/Solution\n**Immediate action required:**\n1. **Revert the commits** (safest approach for shared branches):\n```bash\ngit revert HEAD~2..HEAD\n```\nThis creates new commits that undo the changes, preserving history while removing the sensitive content.\n\n2. **If you must rewrite history** (only if you can coordinate with all team members):\n```bash\ngit reset --hard HEAD~3\n```\n\u26a0\ufe0f **Warning**: This rewrites history and will break othe",
+          "elapsed_s": 8.25,
+          "tps": 189.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "sqlterminal",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 sql signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 324,
+          "response_preview": "{error: 'This session simulates Microsoft SQL Server 2022, not PostgreSQL. SQL syntax and output format differ. For example, PostgreSQL uses SERIAL for auto-increment, while SQL Server uses IDENTITY. Also, psql-style output (e.g., \"Query OK, 3 rows affected\") is not supported \u2014 only SQL Server result formats are allowed.'}",
+          "elapsed_s": 56.85,
+          "tps": 5.7
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "linuxterminal",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "linux-terminal-stateful",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 185,
+          "response_preview": "```\nhello portal\n/tmp/portal_test\ntotal 8\ndrwxrwxr-x 2 user user 4096 Apr  5 10:30 .\ndrwxrwxrwt 1 root root 4096 Apr  5 10:30 ..\n-rw-rw-r-- 1 user user  13 Apr  5 10:30 greeting.txt\n```",
+          "elapsed_s": 3.09,
+          "tps": 59.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoninterpreter",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "python-repl-traceback",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            },
+            {
+              "name": "behavioral.stateful_session.python",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 140,
+          "response_preview": "```python\nSystem: portal v6\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: list index out of range\n```",
+          "elapsed_s": 1.74,
+          "tps": 80.3
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "javascriptconsole",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "js-console-strict-output",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 38,
+          "response_preview": "\"object\"\nundefined\n[2, 4, 6]\nundefined",
+          "elapsed_s": 1.32,
+          "tps": 28.8
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[HIGH]']"
+            }
+          ],
+          "response_chars": 2895,
+          "response_preview": "Let\u2019s audit the `merge_configs` function.\n\n---\n\n### \ud83d\udd0d **Issue 1: Destructive mutation of `base` (aliasing bug)**  \n**Severity:** High  \n**Category:** Correctness  \n**Location:** Line 2 (`result = base`)  \n**Issue:**  \n`result = base` does *not* copy the dictionary \u2014 it creates a reference to the same object. Therefore, mutations to `result` (e.g., `result[k] = v`) mutate the original `base` passed in by the caller. This violates the expected semantics of a *merge* function (typically non-destructive to inputs), and can cause subtle, hard-to-debug side effects \u2014 especially if `base` is reused elsewhere.\n\n**Root Cause:**  \nConfusing assignment with copying. In Python, dict assignment is by reference unless explicitly copied.\n\n**Fix (for highest-confidence issue):**  \nUse a *deep copy* of `ba",
+          "elapsed_s": 14.49,
+          "tps": 199.8
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "softwarequalityassurancetester",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "qa-test-enumeration",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[BOUNDARY]', '10MB', 'malicious']"
+            }
+          ],
+          "response_chars": 2375,
+          "response_preview": "Here's a comprehensive test plan for the file-upload endpoint, designed to validate functional correctness, security, and integration with ClamAV. The endpoint is assumed to be a REST API (e.g., `POST /api/v1/uploads`) accepting `multipart/form-data` with a `file` field.\n\n---\n\n### **Test Plan Overview**\n- **Endpoint**: `POST /api/v1/uploads`\n- **Request Format**: `multipart/form-data` with field `file`\n- **Allowed Extensions**: `.pdf`, `.docx`, `.xlsx`\n- **Max File Size**: 10 MB (10 \u00d7 1024 \u00d7 1024 bytes)\n- **Virus Scanning**: ClamAV integration \u2014 scan occurs *before* persistent storage\n- **Response Codes**:\n  - `201 Created` on successful upload & scan\n  - `400 Bad Request` on validation failure (extension, size, or virus)\n- **Assumptions**:\n  - ClamAV returns `CLEAN`, `FOUND_VIRUS`, or err",
+          "elapsed_s": 14.17,
+          "tps": 167.7
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bugdiscoverycodeassistant",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "bug-classification-by-type",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2661,
+          "response_preview": "Let's analyze the function line by line and identify all issues.\n\n```python\ndef get_user(username):\n    import os\n    result = os.system(f\"grep {username} /etc/passwd\")\n    users = result.split(\",\")\n    return users[5]\n```\n\n---\n\n### \ud83d\udd0d **Issue 1: [SECURITY] \u2014 Command Injection Vulnerability**\n\n- **Location**: `os.system(f\"grep {username} /etc/passwd\")`\n- **Root Cause**: The `username` is interpolated directly into a shell command string without sanitization or escaping. An attacker could pass something like `\"; rm -rf /\"` or `\"admin; cat /etc/shadow\"` to execute arbitrary commands.\n- **Reproduction Condition**: `get_user('\"; malicious_command #')`\n- **Fix**: Use `subprocess.run([...], capture_output=True, text=True)` with arguments passed as a list to avoid shell interpretation.\n- **Confide",
+          "elapsed_s": 14.03,
+          "tps": 189.6
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewassistant",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-pr-scope",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['3600']"
+            }
+          ],
+          "response_chars": 1135,
+          "response_preview": "```\n**[High]** `token = jwt.encode(...)`\n**Issue:** The token expiration (`exp`) is added correctly, but the secret key is now referenced as `SECRET_KEY` \u2014 if this variable is not defined in scope (e.g., imported from config or environment), this will raise a `NameError` at runtime. Also, hardcoding `\"secret\"` was insecure; while the change improves security by using a proper key constant, the implementation is incomplete without ensuring `SECRET_KEY` is properly configured.\n**Suggestion:** Ensure `SECRET_KEY` is defined (e.g., `from config import SECRET_KEY` or `os.environ[\"SECRET_KEY\"]`) and validate it is a strong, non-default value. Add a comment or type hint to clarify its source and expected format (e.g., base64-encoded 256-bit key for HS256).\n```\n\n## Review Summary\n- \ud83d\udd34 Critical: 0  ",
+          "elapsed_s": 6.7,
+          "tps": 169.5
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1551,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login form', () => {\n  test('should redirect to dashboard with valid credentials', async ({ page }) => {\n    // Navigate to login page\n    await page.goto('https://example.com/login');\n\n    // Fill in email\n    await page.getByLabel('Email address').fill('user@example.com');\n    \n    // Fill in password\n    await page.getByLabel('Password').fill('correct-password');\n    \n    // Click login button\n    const loginButton = page.getByRole('button', { name: 'Log in' });\n    await loginButton.click();\n\n    // Wait for navigation to dashboard\n    await expect(page).toHaveURL('**/dashboard');\n    \n    // Verify dashboard is accessible\n    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();",
+          "elapsed_s": 7.37,
+          "tps": 210.3
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2edebugger",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-debugger-root-cause",
+          "framework": null,
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['browser']"
+            }
+          ],
+          "response_chars": 2597,
+          "response_preview": "Let\u2019s walk through a **structured root-cause analysis** for your Playwright test that fails ~10% of the time with `TimeoutError: page.goto timeout 30000ms`, with symptoms like hanging on JS modals or slow page loads under CI.\n\nWe\u2019ll split the analysis into two complementary angles:\n\n---\n\n## \ud83d\udd0d **I. Timing-Side Investigation**  \n*(Focus: test logic, Playwright waits, retries, flaky timing assumptions)*\n\n### 1. **Check `page.goto()` usage**\n- \u274c **Common anti-pattern**: Using `page.goto(url)` *without* a timeout override or navigation wait strategy.\n  ```ts\n  // \u274c Risky: default timeout (30s) + no wait for JS to settle\n  await page.goto('/dashboard');\n  ```\n- \u2705 **Fix**: Use `waitUntil: 'networkidle'` or `'domcontentloaded'`, and/or increase timeout *only if needed*:\n  ```ts\n  await page.goto('",
+          "elapsed_s": 13.69,
+          "tps": 189.7
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "fullstacksoftwaredeveloper",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "jwt-three-endpoints",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "8 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 3220,
+          "response_preview": "```python\nimport os\nimport datetime\nfrom functools import wraps\nfrom flask import Flask, request, jsonify\nfrom werkzeug.security import check_password_hash, generate_password_hash\nfrom jose import jwt, JWTError\n\napp = Flask(__name__)\n\n# Configuration\nSECRET_KEY = os.environ.get('JWT_SECRET_KEY')\nif not SECRET_KEY:\n    raise ValueError(\"JWT_SECRET_KEY environment variable must be set\")\n\n# In-memory user store for demo purposes (in production, use a database)\nUSERS = {\n    \"alice\": generate_password_hash(\"password123\"),\n    \"bob\": generate_password_hash(\"securepass456\")\n}\n\ndef create_token(username, expires_delta_minutes=60):\n    \"\"\"Create a JWT token with the given username and expiration time.\"\"\"\n    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta_minutes)\n  ",
+          "elapsed_s": 14.3,
+          "tps": 225.1
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "creativecoder",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "creative-particle-system",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "10 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 3 required elements present"
+            }
+          ],
+          "response_chars": 2981,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Canvas Particle System</title>\n    <style>\n        body {\n            margin: 0;\n            padding: 0;\n            background-color: #111;\n            color: #eee;\n            font-family: sans-serif;\n            overflow: hidden;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            height: 100vh;\n        }\n        canvas {\n            display: block;\n            box-shadow: 0 0 20px rgba(0,0,0,0.5);\n        }\n        #instructions {\n            position: absolute;\n            top: 20px;\n            width: 100%;\n            text-align: center;\n            pointer-events: non",
+          "elapsed_s": 14.59,
+          "tps": 204.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "pythoncodegeneratorcleanoptimizedproduction-ready",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1750,
+          "response_preview": "```python\nimport asyncio\nimport httpx\nfrom typing import Union\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> str:\n    \"\"\"\n    Fetch a URL with exponential backoff retry on specific HTTP status codes.\n\n    Args:\n        url (str): The URL to fetch.\n        max_attempts (int): Maximum number of attempts (default: 3).\n\n    Returns:\n        str: The response body as a string.\n\n    Raises:\n        httpx.HTTPStatusError: If the final attempt results in an HTTP error.\n        httpx.RequestError: If all attempts fail due to network issues.\n    \"\"\"\n    if max_attempts < 1:\n        raise ValueError(\"max_attempts must be at least 1\")\n\n    backoff = 1.0  # Start with 1 second\n    last_exception = None\n\n    async with httpx.AsyncClient() as client:\n        for attempt in range(1, max_",
+          "elapsed_s": 8.49,
+          "tps": 206.0
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "devopsautomator",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "k8s-manifest-complete",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2616,
+          "response_preview": "```yaml\n# Kubernetes Deployment and Service for Python webapp\n# Requirements met:\n#   - Image: myorg/webapp:v1.2.3 (pinned)\n#   - Readiness probe on /health endpoint\n#   - Resource limits: 512Mi memory, 0.5 CPU\n#   - 3 replicas\n#   - Rolling update strategy (maxSurge=1, maxUnavailable=1)\n#   - Rollback command: kubectl rollout undo deployment/webapp-deployment\n#\n# Pre-requisites:\n#   - Kubernetes cluster with kubectl access\n#   - Namespace 'default' (or update metadata.namespace below)\n#   - Image pull secret if using private registry (not needed for public registries)\n#\n# Failure modes:\n#   - Pod fails to start: Check logs via `kubectl logs <pod-name> -f`\n#   - Readiness probe fails: Verify /health endpoint responds with 200 OK\n#   - Resource pressure: Increase limits if OOMKilled or CPU ",
+          "elapsed_s": 14.73,
+          "tps": 177.6
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "githubexpert",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "github-destructive-warning",
+          "framework": null,
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2676,
+          "response_preview": "This is a **security incident** \u2014 you need to act quickly and carefully to prevent further exposure of the API key. Here's a step-by-step guide:\n\n---\n\n### \ud83d\udd12 **Immediate Actions**\n\n#### 1. **Revoke the leaked API key immediately**\n- Go to the service where the key was issued (e.g., AWS, GitHub, Stripe, etc.)\n- **Revoke or rotate the key** \u2014 do *not* just delete it if it's used in production.\n- Treat this as urgent \u2014 the key is now public (in Git history) and could be scraped.\n\n> \u26a0\ufe0f **Do not wait** \u2014 even if you plan to rewrite history, the key is already exposed.\n\n---\n\n#### 2. **Assess exposure**\n- Check if the key was committed in plain text, base64-encoded, or in logs/configs.\n- Search your repo\u2019s history (including other branches) for the key:\n  ```bash\n  git log -p --all -S \"your-api-ke",
+          "elapsed_s": 14.16,
+          "tps": 188.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    }
+  ]
+}

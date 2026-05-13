@@ -83,13 +83,70 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
     "auto-coding-bench": {
         "assertions_module": "tests.lib.coding_assertions",
         "fixtures_module": "tests.lib.coding_fixtures",
+        # persona_categories is retained as a fallback if persona_slugs_explicit is
+        # cleared, but V2 routes through the slug list. See A2/A7.
         "persona_categories": ("benchmark",),
-        "threshold_doc": "TASK_CODING_SHOOTOUT_V1.md",
+        "threshold_doc": "TASK_CODING_SHOOTOUT_V2.md",
+        # V2 enumerates the production personas the workspace actually serves,
+        # pruned per A3. Categories-based filtering can't express this set
+        # because it spans multiple persona categories AND requires exclusions
+        # within those categories. See TASK_CODING_SHOOTOUT_V2.md §A2-A4.
+        "persona_slugs_explicit": (
+            # REPL shape (UAT 0/3 — Laguna's catastrophic miss; javascriptconsole
+            # is regression guard, the only REPL persona that PASSed)
+            "sqlterminal",
+            "linuxterminal",
+            "pythoninterpreter",
+            "javascriptconsole",
+            # Audit shape (UAT 0/2 FAIL on strict contracts; PASS on relaxed)
+            "codereviewer",
+            "softwarequalityassurancetester",
+            "bugdiscoverycodeassistant",
+            "codereviewassistant",
+            # Composite shape (UAT 0/3 — multi-element output)
+            "e2etestauthor",
+            "e2edebugger",
+            "fullstacksoftwaredeveloper",
+            # Ship-It shape (UAT mostly PASS — regression guard)
+            "creativecoder",
+            "pythoncodegeneratorcleanoptimizedproduction-ready",
+            "devopsautomator",
+            "githubexpert",
+        ),
+        # Persona-shape mapping for the analyzer. The matrix's columns are
+        # derived from this dict. Keys must match persona_slugs_explicit exactly.
+        "persona_shapes": {
+            "sqlterminal": "REPL",
+            "linuxterminal": "REPL",
+            "pythoninterpreter": "REPL",
+            "javascriptconsole": "REPL",
+            "codereviewer": "Audit",
+            "softwarequalityassurancetester": "Audit",
+            "bugdiscoverycodeassistant": "Audit",
+            "codereviewassistant": "Audit",
+            "e2etestauthor": "Composite",
+            "e2edebugger": "Composite",
+            "fullstacksoftwaredeveloper": "Composite",
+            "creativecoder": "Ship-It",
+            "pythoncodegeneratorcleanoptimizedproduction-ready": "Ship-It",
+            "devopsautomator": "Ship-It",
+            "githubexpert": "Ship-It",
+        },
         "models_explicit": (
             "mlx-community/Laguna-XS.2-4bit",
             "mlx-community/GLM-4.7-Flash-4bit",
             "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
             "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+            # Reference column only — auto-agentic's production pin. NOT an
+            # auto-coding repin candidate. See A5 / A8.
+            "mlx-community/Qwen3-Coder-Next-4bit",
+        ),
+        # Models that should be flagged in the matrix as "reference" rather than
+        # "candidate" — the analyzer excludes these from the overall-column
+        # ranking so a reference column dominating doesn't get misread as a
+        # repin signal. See A5.
+        "models_reference_only": (
+            "mlx-community/Qwen3-Coder-Next-4bit",
         ),
     },
 }
@@ -261,6 +318,44 @@ def load_personas_for_workspace(
     return out
 
 
+def load_personas_by_slugs(slugs: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Return parsed YAML for personas whose slug is in `slugs`, preserving
+    the order of the input list.
+
+    Used by workspaces that set persona_slugs_explicit in their registry
+    entry. The category filter is bypassed entirely — this lets a single
+    workspace (e.g. auto-coding-bench) sample production personas across
+    multiple categories without pulling in everything in those categories.
+
+    See TASK_CODING_SHOOTOUT_V2.md §A2 / §A7.
+    """
+    by_slug: dict[str, dict[str, Any]] = {}
+    for f in sorted((_REPO / "config" / "personas").glob("*.yaml")):
+        try:
+            d = yaml.safe_load(f.read_text()) or {}
+            slug = d.get("slug")
+            if slug in slugs:
+                by_slug[slug] = d
+        except Exception:
+            continue
+    # Preserve input order; report missing personas immediately
+    out: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for slug in slugs:
+        if slug in by_slug:
+            out.append(by_slug[slug])
+        else:
+            missing.append(slug)
+    if missing:
+        print(
+            f"persona_slugs_explicit references unknown personas (not found in "
+            f"config/personas/*.yaml): {missing}",
+            file=sys.stderr,
+        )
+        sys.exit(5)
+    return out
+
+
 # ── Direct backend calls ──────────────────────────────────────────────────
 
 async def _chat_direct(
@@ -411,7 +506,7 @@ async def run_audit_tools(args) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2))
 
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     by_outcome: dict[str, int] = {}
     for r in results:
         by_outcome[r["outcome"]] = by_outcome.get(r["outcome"], 0) + 1
@@ -585,7 +680,17 @@ async def run_sweep(args) -> dict[str, Any]:
     ca = ca_module
     cf = cf_module
 
-    personas = load_personas_for_workspace(workspace_id, persona_categories)
+    # If the registry entry pins specific persona slugs (V2 capability survey),
+    # bypass the category-based loader and load exactly those slugs in order.
+    # Otherwise fall through to the production category-filtered loader.
+    # See TASK_CODING_SHOOTOUT_V2.md §A2 / §A7.
+    _ws_cfg = WORKSPACE_REGISTRY.get(workspace_id, {})
+    _persona_slugs_explicit = _ws_cfg.get("persona_slugs_explicit")
+    if _persona_slugs_explicit:
+        personas = load_personas_by_slugs(_persona_slugs_explicit)
+    else:
+        personas = load_personas_for_workspace(workspace_id, persona_categories)
+
     if args.persona:
         personas = [p for p in personas if args.persona in p["slug"]]
         if not personas:
