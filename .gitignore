@@ -56,3 +56,7 @@ tests/fixtures/audio/
 
 # Test fixtures generated locally
 tests/fixtures/sample.wav
+
+# UAT response corpus — run artifacts; schema doc README.md is tracked
+tests/uat_corpus/*.jsonl
+tests/uat_corpus/*.json

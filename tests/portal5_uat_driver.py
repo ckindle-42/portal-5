@@ -7413,6 +7413,7 @@ async def _run_two_chat_test(
     counts: dict,
     folder_id: str | None = None,
     calibration_records: list | None = None,
+    corpus_run_id: str = "",
 ) -> None:
     """Two-chat orchestration for cross-session tests (A-08).
 
@@ -7627,6 +7628,30 @@ async def _run_two_chat_test(
             }
         )
 
+    # Always-on corpus emission for two-chat tests. The prompt and
+    # response carry the same dual-chat formatting as the calibration
+    # record above so a single corpus reader handles both shapes.
+    if corpus_run_id:
+        _composite_test = dict(test)
+        _composite_test["prompt"] = (
+            test.get("prompt", "")
+            + "\n\n[NEW CHAT]\n"
+            + test.get("turn2_in_new_chat", "")
+        )
+        _composite_response = (
+            f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
+        )
+        _emit_corpus_row(
+            corpus_run_id=corpus_run_id,
+            test=_composite_test,
+            routed_model=routed_model_2,
+            response_text=_composite_response,
+            chat_url=chat2_url,
+            status=status,
+            assertions_result=assertions_result,
+            elapsed=elapsed,
+        )
+
 
 async def run_test(
     page,
@@ -7638,6 +7663,7 @@ async def run_test(
     headed: bool = False,
     folder_id: str | None = None,
     calibration_records: list | None = None,
+    corpus_run_id: str = "",
 ) -> None:
     test_id = test["id"]
     name = test["name"]
@@ -7748,6 +7774,7 @@ async def run_test(
             counts,
             folder_id,
             calibration_records,
+            corpus_run_id=corpus_run_id,
         )
 
     tier = test.get("workspace_tier", "any")
@@ -7965,6 +7992,77 @@ async def run_test(
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         )
+
+    # Always-on corpus emission — see TASK_UAT_CORPUS_CAPTURE_V1.md §A2.
+    if corpus_run_id:
+        _emit_corpus_row(
+            corpus_run_id=corpus_run_id,
+            test=test,
+            routed_model=routed_model,
+            response_text=response_text,
+            chat_url=chat_url,
+            status=status,
+            assertions_result=assertions_result,
+            elapsed=elapsed,
+        )
+
+
+def _emit_corpus_row(
+    corpus_run_id: str,
+    test: dict,
+    routed_model: str,
+    response_text: str,
+    chat_url: str,
+    status: str,
+    assertions_result: list,
+    elapsed: float,
+) -> None:
+    """Append one JSONL row to the UAT response corpus.
+
+    The corpus is always-on (no flag required) and one file per UAT run.
+    Emission is incremental — each call opens the file in append mode,
+    writes one line, and closes, so a crashed run leaves valid JSONL.
+
+    See TASK_UAT_CORPUS_CAPTURE_V1.md for schema + rationale.
+    """
+    import json as _json
+
+    corpus_dir = Path("tests/uat_corpus")
+    corpus_dir.mkdir(parents=True, exist_ok=True)
+    corpus_path = corpus_dir / f"uat_{corpus_run_id}.jsonl"
+
+    # Convert tuple assertion results to JSON-safe lists. The in-memory
+    # format is tuples of (label:str, passed:bool, detail:str); JSON has
+    # no tuple type, so we serialize as lists.
+    safe_assertions = [
+        list(a) if isinstance(a, tuple) else a
+        for a in (assertions_result or [])
+    ]
+
+    row = {
+        "schema_version": 1,
+        "corpus_run_id": corpus_run_id,
+        "test_id": test.get("id", ""),
+        "test_name": test.get("name", ""),
+        "section": test.get("section", ""),
+        "workspace": test.get("model_slug", ""),
+        "expected_models": test.get("expected_models", {}),
+        "routed_model": routed_model or "",
+        "prompt": test.get("prompt", ""),
+        "response_text": response_text or "",
+        "chat_url": chat_url or "",
+        "status": status,
+        "assertions_result": safe_assertions,
+        "elapsed_seconds": float(elapsed) if elapsed is not None else 0.0,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    try:
+        with corpus_path.open("a", encoding="utf-8") as f:
+            f.write(_json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        # Corpus emission is best-effort — never fail a test because the
+        # corpus write failed. Log and continue.
+        print(f"  [corpus] WARN: failed to write {test.get('id','?')}: {exc}", flush=True)
 
 
 def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_signals.py") -> None:
@@ -8413,6 +8511,10 @@ async def main() -> None:
     if args.calibrate:
         print(f"  Calibration mode — responses will be saved to {args.calibrate_output}")
 
+    # Always-on response corpus. See TASK_UAT_CORPUS_CAPTURE_V1.md §A2.
+    corpus_run_id: str = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    print(f"  Corpus: tests/uat_corpus/uat_{corpus_run_id}.jsonl")
+
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
         ctx = await browser.new_context(
@@ -8628,6 +8730,7 @@ async def main() -> None:
                 headed=args.headed,
                 folder_id=folder_id,
                 calibration_records=calibration_records,
+                corpus_run_id=corpus_run_id,
             )
 
             # Post-test memory cleanup: only evict when the NEXT test uses a
