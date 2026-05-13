@@ -1,0 +1,212 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-13T19:58:24.021944+00:00",
+  "elapsed_s": 302.5,
+  "plan": {
+    "workspace": "auto-coding-bench",
+    "personas": [
+      "codereviewer"
+    ],
+    "models": [
+      {
+        "id": "mlx-community/GLM-4.7-Flash-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "mlx-community/Laguna-XS.2-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 19.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 22.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-Next-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": true,
+        "memory_gb": 46.0
+      }
+    ],
+    "scenarios_total": 75,
+    "cells_total": 5
+  },
+  "cells": [
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2931,
+          "response_preview": "Let me analyze this Python function for correctness and security issues.\n\n```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base\n    for k, v in override.items():\n        if isinstance(v, dict) and k in result:\n            result[k] = merge_configs(result[k], v)\n        else:\n            result[k] = v\n    return result\n```\n\n## Issues I can identify:\n\n### 1. Aliasing/Mutation Bug - CRITICAL\nThe line `result = base` creates an alias, not a copy. The function modifies the original `base` dictionary, which is a serious correctness issue. The function claims to return a merged dict, but it mutates the input.\n\n**Severity:** Critical (Correctness)\n**Confidence:** High\n\n### 2. Unbounded Recursion Risk - HIGH\nThe function recursively calls itself, but there's no protecti",
+          "elapsed_s": 13.76,
+          "tps": 213.0
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['alias']"
+            }
+          ],
+          "response_chars": 3060,
+          "response_preview": "### Audit of `merge_configs` Function\n\n#### Findings:\n\n1. **Severity: High**\n   **Category: Correctness**\n   **Location: `result = base`**\n   **Issue:** The function mutates the input `base` dictionary directly, which is unexpected and can lead to side effects in the caller's code.\n   **Root Cause:** The function assigns `result` to `base`, so any modifications to `result` will also modify `base`.\n   **Fix:**\n   ```python\n   def merge_configs(base: dict, override: dict) -> dict:\n       result = base.copy()  # Create a shallow copy to avoid mutating the original\n       for k, v in override.items():\n           if isinstance(v, dict) and k in result:\n               result[k] = merge_configs(result[k], v)\n           else:\n               result[k] = v\n       return result\n   ```\n   **Confidence",
+          "elapsed_s": 84.56,
+          "tps": 36.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2982,
+          "response_preview": "## Audit Findings\n\n### 1. Aliasing/Mutation Bug\n**Severity:** Critical  \n**Category:** Correctness  \n**Location:** Line 2 (`result = base`)  \n**Issue:** `result = base` creates a reference to the same dictionary object, not a copy. Any modifications to `result` will mutate the caller's `base` dictionary, causing unexpected side effects.  \n**Root Cause:** Misunderstanding of Python assignment semantics - assignment creates references, not copies.  \n**Fix:**\n```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base.copy()  # Creates a shallow copy\n    for k, v in override.items():\n        if isinstance(v, dict) and k in result:\n            result[k] = merge_configs(result[k], v)\n        else \nLet me analyze this Python function carefully for correctness and security ",
+          "elapsed_s": 51.23,
+          "tps": 58.2
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['mutation']"
+            }
+          ],
+          "response_chars": 2895,
+          "response_preview": "```\nSeverity:   High\nCategory:   Correctness\nLocation:   Line 2\nIssue:      The function mutates the original `base` dictionary by aliasing it to `result`. This means changes to `result` directly affect `base`, which is a dangerous side effect that violates the principle of immutability and can cause unexpected behavior in calling code.\nRoot Cause: Assigning `result = base` creates a reference to the same dictionary object, not a copy.\nFix:        Change `result = base` to `result = base.copy()` to create a shallow copy of the base dictionary.\nConfidence: High\n\nSeverity:   High\nCategory:   Security\nLocation:   Line 4\nIssue:      The function is vulnerable to unbounded recursion when the input dictionaries contain circular references. If `override` or `base` contains a dictionary that refer",
+          "elapsed_s": 59.19,
+          "tps": 48.9
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "codereviewer",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2895,
+          "response_preview": "Let\u2019s audit the `merge_configs` function.\n\n---\n\n### \ud83d\udd0d **Issue 1: Destructive mutation of `base` (aliasing bug)**  \n**Severity:** High  \n**Category:** Correctness  \n**Location:** Line 2 (`result = base`)  \n**Issue:**  \n`result = base` does *not* copy the dictionary \u2014 it creates a reference to the same object. Therefore, mutations to `result` (e.g., `result[k] = v`) mutate the original `base` passed in by the caller. This violates the expected semantics of a *merge* function (typically non-destructive to inputs), and can cause subtle, hard-to-debug side effects \u2014 especially if `base` is reused elsewhere.\n\n**Root Cause:**  \nConfusing assignment with copying. In Python, dict assignment is by reference unless explicitly copied.\n\n**Fix (for highest-confidence issue):**  \nUse a *deep copy* of `ba",
+          "elapsed_s": 67.74,
+          "tps": 42.7
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    }
+  ]
+}

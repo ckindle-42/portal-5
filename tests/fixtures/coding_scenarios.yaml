@@ -212,8 +212,14 @@ scenarios:
             - "mutation"
             - "alias"
             - "recursion"
-            - "[HIGH]"
             - "fix"
+            # [HIGH] removed per TASK_V2_SCENARIO_FIXES_V1.md section A1 — 0/5 models
+            # produced the exact bracketed token; they reliably produce
+            # equivalent confidence-framing language (High, **HIGH**,
+            # severity: high, etc.) but the AND-logic required-elements
+            # check cannot accept any-of variants. The remaining four
+            # elements carry the audit-shape signal; confidence labeling
+            # is stylistic and not a model-capability gate.
 
   # ── I. Solidity audit disclaimer + reentrancy (UAT P-D10 predecessor) ─
   # V2: ethereumdeveloper PRUNED per A3 — Solidity is a niche shape outside

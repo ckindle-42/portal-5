@@ -105,6 +105,14 @@ _LANGUAGE_SIGNATURES: dict[str, tuple[str, ...]] = {
         r"=>\s*[{(]",
         r"\bdocument\.",
         r"\bwindow\.",
+        # Playwright / JS-test idioms — short .spec.js files were failing
+        # the >=2-signature threshold because they use these patterns
+        # rather than the more general patterns above. See
+        # TASK_V2_SCENARIO_FIXES_V1.md section A2.
+        r"\bimport\s*\{\s*test\b",
+        r"\bawait\s+page\.",
+        r"\bexpect\s*\([^)]+\)\.to",
+        r"\.spec\.js\b|\.test\.js\b",
     ),
     "html": (
         r"<!DOCTYPE\s+html",

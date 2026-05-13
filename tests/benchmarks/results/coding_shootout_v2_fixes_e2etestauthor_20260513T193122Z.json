@@ -1,0 +1,302 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-13T20:04:05.256669+00:00",
+  "elapsed_s": 327.8,
+  "plan": {
+    "workspace": "auto-coding-bench",
+    "personas": [
+      "e2etestauthor"
+    ],
+    "models": [
+      {
+        "id": "mlx-community/GLM-4.7-Flash-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "mlx-community/Laguna-XS.2-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 19.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 22.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-Next-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": true,
+        "memory_gb": 46.0
+      }
+    ],
+    "scenarios_total": 75,
+    "cells_total": 5
+  },
+  "cells": [
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['/dashboard']"
+            }
+          ],
+          "response_chars": 2934,
+          "response_preview": "The user wants a Playwright test in JavaScript (not TypeScript) for a login form at `https://example.com/login`.\nThe requirements are:\n- Use `getByRole` and `getByLabel` selectors (no CSS or XPath).\n- Cover a happy path (correct credentials -> redirect).\n- Cover an error path (wrong password -> error message).\n- Use `page.goto`, `expect`, and `async/await`.\n- Output a single fenced code block for a `.spec.js` file.\n\n**Analysis of the Request:**\n- **Target URL:** `https://example.com/login`\n- **Selectors:** Since I don't have access to the live browser tool to inspect `https://example.com/login` (which is a generic example site, often just a placeholder or a specific static site, but usually, I need to infer the structure or assume a standard structure if I can't browse, or if the prompt im",
+          "elapsed_s": 83.46,
+          "tps": 35.2
+        }
+      ],
+      "summary": {
+        "PASS": 0,
+        "WARN": 0,
+        "FAIL": 1,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1341,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form', () => {\n  test('should successfully login with correct credentials and redirect to dashboard', async ({ page }) => {\n    await page.goto('https://example.com/login');\n\n    // Fill in the email and password fields\n    await page.getByLabel('Email address').fill('correct@example.com');\n    await page.getByPlaceholder('Enter password').fill('correctpassword');\n\n    // Click the login button\n    await page.getByRole('button', { name: 'Login' }).click();\n\n    // Wait for navigation to the dashboard\n    await expect(page).toHaveURL('https://example.com/dashboard');\n\n    // Assert that the dashboard page is visible\n    await expect(page.getByText('Dashboard')).toBeVisible();\n  });\n\n  test('should show",
+          "elapsed_s": 58.43,
+          "tps": 22.9
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1726,
+          "response_preview": "The user wants me to write a Playwright test in JavaScript (not TypeScript) for a login form. Let me break down the requirements:\n\n1. Test a login form at https://example.com/login\n2. Use getByRole/getByLabel selectors (NOT CSS or XPath)\n3. Cover one happy path (correct credentials \u2192 redirect to /dashboard)\n4. Cover one error path (wrong password \u2192 error message visible)\n\nHere's the complete Playwright test file:\n\n```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form Tests', () => {\n  test('should successfully log in with correct credentials and redirect to dashboard', async ({ page }) => {\n    // Navigate to login page\n    await page.goto('https://example.com/login');\n\n    // Fill in correct email\n    await page.getByLabel('Email address').fill('te",
+          "elapsed_s": 47.09,
+          "tps": 36.7
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1302,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form', () => {\n  test('should log in successfully with correct credentials', async ({ page }) => {\n    await page.goto('https://example.com/login');\n    \n    // Fill in the login form\n    await page.getByLabel('Email address').fill('user@example.com');\n    await page.getByPlaceholder('Enter password').fill('correctpassword');\n    \n    // Submit the form\n    await page.getByRole('button', { name: 'Sign in' }).click();\n    \n    // Verify successful login by checking redirect to dashboard\n    await expect(page).toHaveURL('/dashboard');\n    await expect(page.getByText('Welcome back')).toBeVisible();\n  });\n\n  test('should show error message with incorrect password', async ({ page }) => {\n    await page.got",
+          "elapsed_s": 51.78,
+          "tps": 25.1
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "e2etestauthor",
+      "model": "mlx-community/Qwen3-Coder-Next-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1551,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login form', () => {\n  test('should redirect to dashboard with valid credentials', async ({ page }) => {\n    // Navigate to login page\n    await page.goto('https://example.com/login');\n\n    // Fill in email\n    await page.getByLabel('Email address').fill('user@example.com');\n    \n    // Fill in password\n    await page.getByLabel('Password').fill('correct-password');\n    \n    // Click login button\n    const loginButton = page.getByRole('button', { name: 'Log in' });\n    await loginButton.click();\n\n    // Wait for navigation to dashboard\n    await expect(page).toHaveURL('**/dashboard');\n    \n    // Verify dashboard is accessible\n    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();",
+          "elapsed_s": 60.95,
+          "tps": 25.4
+        }
+      ],
+      "summary": {
+        "PASS": 1,
+        "WARN": 0,
+        "FAIL": 0,
+        "ERROR": 0
+      }
+    }
+  ]
+}

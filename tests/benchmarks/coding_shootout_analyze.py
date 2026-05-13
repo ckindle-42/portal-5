@@ -134,11 +134,12 @@ def summarize_per_model_per_shape(
     return out
 
 
-def render_markdown(per_model: dict, source: Path, reference: set[str]) -> str:
+def render_markdown(per_model: dict, sources: list[Path], reference: set[str], report_cells: list[dict] | None = None) -> str:
     lines: list[str] = []
     lines.append("# Coding Shootout V2 — Capability Matrix")
     lines.append("")
-    lines.append(f"**Source matrix run**: `{source.name}`")
+    source_names = ", ".join(p.name for p in sources)
+    lines.append(f"**Source matrix run(s)**: `{source_names}`")
     lines.append("")
     lines.append("This matrix shows per-shape assertion-pass-rate for each model.")
     lines.append("No single-winner verdict — the matrix is the deliverable.")
@@ -206,7 +207,8 @@ def render_markdown(per_model: dict, source: Path, reference: set[str]) -> str:
     lines.append("")
     lines.append("| Model | Persona | Scenario | Pass | Total | Status |")
     lines.append("|---|---|---|---|---|---|")
-    for cell in source_cells(source):
+    cells = report_cells if report_cells is not None else source_cells(sources[0]) if sources else []
+    for cell in cells:
         model = cell.get("model", "?")
         persona = cell.get("persona", "?")
         for sc in cell.get("scenarios", []):
@@ -243,17 +245,53 @@ def source_cells(source_path: Path):
     return json.load(source_path.open()).get("cells", [])
 
 
+def _merge_reports(inputs: list[Path]) -> dict:
+    """Merge multiple result JSONs. Cell identity is (model, persona, scenario_id).
+    Later inputs win — they replace any earlier cell with the same identity.
+    """
+    merged_cells: dict[tuple[str, str, str], dict] = {}
+    base_meta: dict = {}
+    for p in inputs:
+        r = json.load(p.open())
+        if not base_meta:
+            base_meta = {k: v for k, v in r.items() if k != "cells"}
+        for cell in r.get("cells", []):
+            model = cell.get("model", "")
+            persona = cell.get("persona", "")
+            scenarios = cell.get("scenarios", [])
+            for sc in scenarios:
+                key = (model, persona, sc.get("id", ""))
+                merged_cells[key] = {
+                    **{k: v for k, v in cell.items() if k != "scenarios"},
+                    "scenarios": [sc],
+                }
+    # Re-aggregate scenarios back into per-(model, persona) cells
+    by_mp: dict[tuple[str, str], dict] = {}
+    for (model, persona, _), cell in merged_cells.items():
+        mp = (model, persona)
+        if mp not in by_mp:
+            by_mp[mp] = {**cell, "scenarios": list(cell["scenarios"])}
+        else:
+            by_mp[mp]["scenarios"].extend(cell["scenarios"])
+    return {**base_meta, "cells": list(by_mp.values())}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--input", required=True, type=Path)
+    # --input may be passed multiple times. Later inputs override earlier
+    # ones for the same (model, persona, scenario) cell. Used by
+    # TASK_V2_SCENARIO_FIXES_V1.md to apply fix-run cells on top of the
+    # original V2 results without rewriting the original JSON.
+    ap.add_argument("--input", required=True, type=Path, action="append")
     ap.add_argument("--output", required=True, type=Path)
     args = ap.parse_args(argv)
 
-    if not args.input.exists():
-        print(f"input not found: {args.input}", file=sys.stderr)
-        return 2
+    for p in args.input:
+        if not p.exists():
+            print(f"input not found: {p}", file=sys.stderr)
+            return 2
 
-    report = json.load(args.input.open())
+    report = _merge_reports(args.input)
     persona_shapes = _persona_shape_map_from_results(report)
     reference = _reference_models()
     per_model = summarize_per_model_per_shape(report, persona_shapes)
@@ -261,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         print("no per-model data extracted — check matrix JSON shape", file=sys.stderr)
         return 3
 
-    md = render_markdown(per_model, args.input, reference)
+    md = render_markdown(per_model, args.input, reference, report.get("cells"))
     args.output.write_text(md)
     print(md)
     return 0
