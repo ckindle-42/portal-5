@@ -218,6 +218,12 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-granite41-8b": "coding",
     "bench-granite41-30b": "coding",
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
+    # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) ──────────────────────────
+    "bench-qwen36-27b":     "coding",    # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
+    "bench-qwen36-35b-a3b": "coding",    # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
+    "bench-omnicoder2":     "coding",    # hf.co/Tesslate/OmniCoder-2-9B-GGUF — Qwen3.5-9B SFT on agentic traces
+    "bench-negentropy":     "reasoning", # Jackrong/Negentropy-claude-opus-4.7-9B-6bit — trace-inversion CoT
+    "bench-olmo3-32b":      "reasoning", # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
 }
 
 # Map Ollama backend group → prompt category
