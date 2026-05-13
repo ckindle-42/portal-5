@@ -1,0 +1,30 @@
+
+=== PERSONA MATRIX SWEEP — workspace=auto-coding-bench ===
+  personas:  1  (e2etestauthor)
+  models:    5  (smallest-first)
+  scenarios: 75
+  cells:     5
+
+  [1/5] model: mlx/mlx-community/GLM-4.7-Flash-4bit  (15.0GB)
+    [1/1] e2etestauthor                        PASS=  0 WARN= 0 FAIL= 1 ERR= 0  (83.7s)
+
+  [2/5] model: mlx/lmstudio-community/Devstral-Small-2507-MLX-4bit  (15.0GB)
+    [1/1] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (58.6s)
+
+  [3/5] model: mlx/mlx-community/Laguna-XS.2-4bit  (19.0GB)
+    [1/1] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (47.3s)
+
+  [4/5] model: mlx/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (22.0GB)
+    [1/1] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (52.0s)
+
+  [5/5] model: mlx/mlx-community/Qwen3-Coder-Next-4bit  (46.0GB)
+    [1/1] e2etestauthor                        PASS=  1 WARN= 0 FAIL= 0 ERR= 0  (61.2s)
+
+=== SWEEP COMPLETE — 328s ===
+
+wrote tests/benchmarks/results/coding_shootout_v2_fixes_e2etestauthor_20260513T193122Z.json
+
+--- MATRIX (PASS/WARN/FAIL per cell) ---
+               | GLM-4.7-Flash-4bit | Devstral-Small-2507-MLX- | Laguna-XS.2-4bit | Qwen3-Coder-30B-A3B-Inst | Qwen3-Coder-Next-4bit
+------------------------------------------------------------------------------------------------------------------------------------
+e2etestauthor  | P0/W0/F1                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                 | P1/W0/F0                
