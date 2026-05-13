@@ -250,3 +250,98 @@ def assert_no_clarification_stall(response: str) -> AssertionResult:
         passed=True,
         detail="response did not stall with clarifying questions",
     )
+
+
+# ── Stateful session handling (SQL REPL, Linux terminal) ──────────────────
+
+_STATEFUL_RESULT_MARKERS: dict[str, tuple[str, ...]] = {
+    "sql": (
+        r"\b\d+\s+row(?:s)?\b",
+        r"\(\s*\d+\s+row(?:s)?\s*(?:returned|affected)?\s*\)",
+        r"\|\s*\w+\s*\|",          # ASCII table row
+        r"-{3,}\+\-{3,}",          # ASCII table separator
+        r"INSERT\s+0\s+\d+",       # postgres-style insert ack
+    ),
+    "bash": (
+        r"^\$\s+",                  # shell prompt echoed
+        r"\b\d+\s+bytes\b",
+        r"^/[\w/.-]+$",            # absolute path output
+    ),
+    "python": (
+        r">>>\s+",                  # REPL prompt
+        r"\bTraceback\b",
+        r"\bError\b.*:.*",
+    ),
+}
+
+
+def assert_handles_stateful_session(response: str, language: str) -> AssertionResult:
+    """Pass if response shows evidence of in-order, stateful multi-statement
+    execution — not a single one-shot answer.
+
+    For SQL: query results, row counts, INSERT acknowledgements.
+    For bash: shell prompts, file listings, path output.
+    For python REPL: prompts, tracebacks, error messages.
+
+    A persona that answers a stateful question with prose only (no
+    statement-level output markers) fails this assertion even if the prose
+    is correct — the test verifies the model maintained the REPL/terminal
+    contract.
+    """
+    markers = _STATEFUL_RESULT_MARKERS.get(language.lower())
+    if not markers:
+        return AssertionResult(
+            name=f"behavioral.stateful_session.{language}",
+            passed=False,
+            detail=f"no markers registered for language '{language}'",
+            severity="INFO",
+        )
+    hits = [pat for pat in markers if re.search(pat, response, re.MULTILINE)]
+    if len(hits) >= 2:
+        return AssertionResult(
+            name=f"behavioral.stateful_session.{language}",
+            passed=True,
+            detail=f"{len(hits)} stateful-session markers matched",
+        )
+    return AssertionResult(
+        name=f"behavioral.stateful_session.{language}",
+        passed=False,
+        detail=f"only {len(hits)} stateful-session markers (need ≥2)",
+    )
+
+
+# ── Required-elements check (named primitives by API/library/language) ────
+
+
+def assert_contains_required_elements(
+    response: str, elements: list[str]
+) -> AssertionResult:
+    """Pass if every element in `elements` appears in the response.
+
+    Elements are matched case-insensitively as plain substrings. Use for
+    APIs/identifiers that have specific spellings (httpx.AsyncClient,
+    pragma solidity, nonReentrant, exp claim, etc.). Not regex — keep
+    scenarios YAML-readable.
+
+    Severity is MUST: a missing required element is a hard fail.
+    """
+    if not elements:
+        return AssertionResult(
+            name="structural.required_elements",
+            passed=False,
+            detail="no elements provided",
+            severity="INFO",
+        )
+    lower = response.lower()
+    missing = [e for e in elements if e.lower() not in lower]
+    if missing:
+        return AssertionResult(
+            name="structural.required_elements",
+            passed=False,
+            detail=f"missing: {missing}",
+        )
+    return AssertionResult(
+        name="structural.required_elements",
+        passed=True,
+        detail=f"all {len(elements)} required elements present",
+    )

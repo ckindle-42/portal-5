@@ -113,3 +113,158 @@ scenarios:
       - structural.no_truncation_or_placeholders
       - language.rust
       - behavioral.no_clarification_stall
+
+  # ── F. Async HTTP with retry/backoff (UAT WS-02 predecessor) ─────────
+  - id: async-http-retry-wrapper
+    description: >
+      Async HTTP wrapper that handles 4xx/5xx with exponential backoff.
+      UAT WS-02 (Code Expert) scored 1/6 on this with Laguna because the
+      model produced no code block. Tests structural delivery + httpx
+      idiom + retry-status-code recognition.
+    applies_to: ["coding:*"]
+    language: python
+    prompt: |
+      Write an async Python function `fetch_with_retry(url, max_attempts=3)`
+      that uses httpx.AsyncClient. It must:
+        - retry on HTTP 429, 500, 502, 503, 504
+        - use exponential backoff with asyncio.sleep (start 1s, double each retry)
+        - return the response body on success, raise on exhaustion
+        - use full type hints
+
+      Provide the function in a single fenced code block. No prose outside
+      the code block.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.python
+      - structural.required_elements:
+          elements:
+            - "httpx.AsyncClient"
+            - "asyncio.sleep"
+            - "429"
+            - "503"
+            - "->"   # type-hint arrow proxy
+
+  # ── G. SQL stateful session (UAT P-D14 predecessor) ──────────────────
+  - id: sql-stateful-multi-statement
+    description: >
+      Multi-statement SQL session — CREATE, INSERT, SELECT in sequence,
+      with row results between statements. UAT P-D14 scored 1/4 because
+      Laguna returned prose without row counts or stated INSERT acks.
+      Tests the SQL REPL contract.
+    applies_to: ["coding:*"]
+    language: sql
+    prompt: |
+      You are a SQL terminal. I will give you statements one block at a time.
+      Respond as a real PostgreSQL REPL would — show the result of each
+      statement (row count, returned rows, or INSERT/UPDATE acks).
+
+      Block 1:
+        CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT NOT NULL, role TEXT);
+        INSERT INTO users (username, role) VALUES ('alice', 'analyst'), ('bob', 'admin'), ('carol', 'analyst');
+        SELECT username, role FROM users WHERE role = 'analyst';
+        INSERT INTO users (username, role) VALUES ('newuser', 'analyst');
+        SELECT username FROM users WHERE username = 'newuser';
+
+      Show the output of each statement in order, in the format a psql
+      terminal would print.
+    assertions:
+      - structural.code_block_present
+      - language.sql
+      - behavioral.stateful_session:
+          language: sql
+
+  # ── H. Code review with confidence labels (UAT P-D04 predecessor) ────
+  - id: code-review-with-confidence
+    description: >
+      Deep code-audit task requiring confidence labels per finding. UAT
+      P-D04 scored 1/4 because Laguna missed the mutation/aliasing bug
+      and omitted confidence levels entirely. Tests structured audit
+      output.
+    applies_to: ["coding:*"]
+    language: python
+    prompt: |
+      Audit this Python function for correctness and security. For each
+      issue, label it [HIGH], [MEDIUM], or [LOW] confidence:
+
+      ```python
+      def merge_configs(base: dict, override: dict) -> dict:
+          result = base
+          for k, v in override.items():
+              if isinstance(v, dict) and k in result:
+                  result[k] = merge_configs(result[k], v)
+              else:
+                  result[k] = v
+          return result
+      ```
+
+      List every issue you find. Required elements in your audit:
+        - flag the aliasing/mutation bug (result = base mutates the caller)
+        - flag the unbounded recursion risk
+        - assign a confidence label to each finding
+        - propose a fix for the highest-confidence issue
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "mutation"
+            - "alias"
+            - "recursion"
+            - "[HIGH]"
+            - "fix"
+
+  # ── I. Solidity audit disclaimer + reentrancy (UAT P-D10 predecessor) ─
+  - id: solidity-vault-with-disclaimer
+    description: >
+      Solidity contract task with explicit security-mode requirements.
+      UAT P-D10 scored 2/5 because Laguna omitted the pragma, the
+      reentrancy guard, and produced no code block. Tests both code
+      delivery and audit-discipline language.
+    applies_to: ["coding:*"]
+    language: javascript    # closest registered signature; constraint elsewhere
+    prompt: |
+      Write a Solidity smart contract for a simple ETH vault with deposit
+      and withdraw functions. Requirements:
+        - pragma solidity ^0.8.20
+        - use OpenZeppelin ReentrancyGuard (nonReentrant modifier on withdraw)
+        - emit Deposit and Withdraw events
+        - close with a clear audit disclaimer ("DO NOT DEPLOY TO MAINNET WITHOUT
+          A PROFESSIONAL SECURITY AUDIT") at the top or bottom of your response
+
+      Provide the contract in a single fenced code block.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - structural.required_elements:
+          elements:
+            - "pragma solidity"
+            - "nonReentrant"
+            - "ReentrancyGuard"
+            - "mainnet"
+
+  # ── J. E2E Playwright test with selectors (UAT P-B01 predecessor) ────
+  - id: e2e-playwright-login-test
+    description: >
+      End-to-end Playwright test with explicit selector strategy. UAT
+      P-B01 scored 2/5 because Laguna produced no code block and used
+      no Playwright primitives. Tests modern selector idiom.
+    applies_to: ["coding:*"]
+    language: javascript
+    prompt: |
+      Write a Playwright test in JavaScript (NOT TypeScript) that tests
+      a login form at https://example.com/login. The test must:
+        - use getByRole/getByLabel selectors (NOT CSS or XPath)
+        - cover one happy path (correct credentials → redirect to /dashboard)
+        - cover one error path (wrong password → error message visible)
+        - use page.goto, expect, and async/await
+
+      Provide the complete .spec.js file in a single fenced code block.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.javascript
+      - structural.required_elements:
+          elements:
+            - "getByRole"
+            - "page.goto"
+            - "expect"
+            - "/dashboard"

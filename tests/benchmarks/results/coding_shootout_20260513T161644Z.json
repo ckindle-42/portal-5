@@ -1,0 +1,1373 @@
+{
+  "schema": "portal5.persona_matrix.v1",
+  "timestamp_utc": "2026-05-13T16:28:24.504610+00:00",
+  "elapsed_s": 700.1,
+  "plan": {
+    "workspace": "auto-coding-bench",
+    "personas": [
+      "bench-laguna"
+    ],
+    "models": [
+      {
+        "id": "mlx-community/GLM-4.7-Flash-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 15.0
+      },
+      {
+        "id": "mlx-community/Laguna-XS.2-4bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 19.0
+      },
+      {
+        "id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "backend": "mlx",
+        "group": "mlx",
+        "big_model": false,
+        "memory_gb": 22.0
+      }
+    ],
+    "scenarios_total": 120,
+    "cells_total": 4
+  },
+  "cells": [
+    {
+      "persona": "bench-laguna",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "self-evident-canvas-snake",
+          "framework": "html",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 html signatures (need \u22652)"
+            },
+            {
+              "name": "constraint.html_single_file",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of html_single_file"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 2362,
+          "response_preview": "The user wants a Snake game in a single HTML file.\nConstraints:\n1.  Single file (HTML, CSS, JS).\n2.  Vanilla JS + Canvas 2D.\n3.  Arrow keys control.\n4.  Score display.\n5.  Snake grows on eating food.\n6.  Game over on self-collision.\n7.  \"Most interesting version\" (per persona).\n7.  No build steps, no external dependencies (unless necessary, but vanilla is preferred).\n8.  Dark, retro-arcade aesthetic.\n\n**Plan:**\n1.  **Structure:** Standard HTML5 boilerplate.\n2.  **Styling (CSS):** Dark background, neon green/retro font, centered canvas, UI overlay for Game Over/Start.\n3.  **Game Loop:** `requestAnimationFrame` for smooth rendering, but use a timestamp check to control the \"tick\" rate (Snake speed). This is better than `setInterval` for games.\n4.  **State Management:** `gameState` ('menu', '",
+          "elapsed_s": 54.54,
+          "tps": 43.3
+        },
+        {
+          "id": "stdlib-only-python-csv",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "5 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "constraint.python_no_external",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of python_no_external"
+            }
+          ],
+          "response_chars": 2889,
+          "response_preview": "The user wants a Python script.\nIt needs to read CSV data from `stdin`.\nIt needs to group rows by the first column.\nIt needs to compute the mean of the second column (as a float, skipping non-numeric).\nIt needs to write output in the format `group,mean` to `stdout`.\nThe output must be sorted by the group name.\nConstraint: **Only standard library** (no pandas, numpy, etc.).\nConstraint: Must be runnable as `python3 script.py < input.csv`.\n\nLet's break down the implementation steps:\n1.  **Input**: Read from `sys.stdin`. Since it's a CSV, I need to handle line splitting. `sys.stdin.read()` or iterating over `sys.stdin` is fine. I need to handle potential trailing newlines.\n2.  **Parsing**: Split lines by newline. Split each line by comma. Handle potential quoting? The prompt says \"reads a CSV\"",
+          "elapsed_s": 14.17,
+          "tps": 203.8
+        },
+        {
+          "id": "sql-join-with-aggregation",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 0 sql signatures (need \u22652)"
+            }
+          ],
+          "response_chars": 3172,
+          "response_preview": "The user is asking for a SQL query, not a web game or interactive visual.\nHowever, the prompt instructions say: \"You are a creative coder who builds playable, visual, and interactive things in the browser... Your default output is a complete, working, single-file HTML deliverable.\"\n\nThere is a conflict here. The user is asking for a specific, non-visual, text-based SQL query. If I strictly follow the persona of a \"creative coder who builds playable, visual, and interactive things,\" I should probably build a tool to visualize or run this query, or at least explain the query in a visually interesting way.\n\nHowever, the prompt also says: \"Never ask for a framework, toolchain, or dependency preference... Never produce incomplete code... Do not lecture about accessibility... Make it look good: ",
+          "elapsed_s": 13.89,
+          "tps": 228.3
+        },
+        {
+          "id": "bash-script-defensive",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 bash signatures (need \u22652)"
+            }
+          ],
+          "response_chars": 2441,
+          "response_preview": "The user wants a bash script.\nThe script needs to:\n1.  Take a directory path as the first argument.\n2.  Validate the argument (check if it exists and is a directory). If not, exit with a non-zero status and a clear message.\n3.  List files in that directory (non-recursive).\n4.  Print file size (bytes) and filename.\n5.  Sort the output by size descending.\n6.  Use `set -euo pipefail` for safety.\n7.  Be a single, self-contained file with a shebang.\n\nLet's draft the logic.\n\n*   Shebang: `#!/bin/bash`\n*   Safety: `set -euo pipefail`\n*   Argument check: `if [ -z \"${1:-}\" ] || [ ! -d \"$1\" ]; then echo \"Error: ...\"; exit 1; fi`\n*   The loop: `for file in \"$1\"/*; do ... done`\n    *   Wait, if the directory is empty, `\"$1\"/*` might expand to literally the string `\"$1\"/*` if globbing is off, or if the",
+          "elapsed_s": 13.9,
+          "tps": 175.7
+        },
+        {
+          "id": "self-evident-rust-fizzbuzz",
+          "framework": "rust",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.rust",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 rust signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 3044,
+          "response_preview": "The user is asking for a Rust program, but my instructions are to build a \"complete, working, single-file HTML deliverable\" and act as a creative coder who builds browser-based things. The user is explicitly asking for a Rust program, which is a compiled language, not a web-based one.\n\nHowever, I need to be careful here. The user is asking for a specific, simple task (FizzBuzz in Rust). This is a common programming exercise, and the user is asking for a Rust program, not a web page.\n\nLet me re-read my instructions:\n1. \"Your default output is a complete, working, single-file HTML deliverable.\"\n2. \"Build the most interesting version of the idea, not the safest one.\"\n3. \"Never ask for a framework, toolchain, or dependency preference \u2014 vanilla JS and Canvas are your default.\"\n\nThe user is aski",
+          "elapsed_s": 13.79,
+          "tps": 220.8
+        },
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2656,
+          "response_preview": "The user wants a Python function `fetch_with_retry`.\nIt needs to be asynchronous.\nIt needs to use `httpx.AsyncClient`.\nIt needs to handle specific HTTP status codes (429, 500, 502, 503, 504) with retry logic.\nIt needs exponential backoff (starting at 1s, doubling each time) using `asyncio.sleep`.\nIt needs to return the response body on success.\nIt needs to raise an exception if all attempts fail.\nIt needs full type hints.\n\nThe user explicitly requested: \"Provide the function in a single fenced code block. No prose outside the code block.\"\n\nI need to write the code inside a markdown code block.\n\nLet's draft the code:\n- Import `httpx`, `asyncio`, `typing`.\n- Define the function.\n- Define the status codes to retry.\n- Use a loop for attempts.\n- Calculate delay: `delay = 2 ** (attempt - 1)`.\n- ",
+          "elapsed_s": 13.91,
+          "tps": 190.9
+        },
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 sql signatures matched"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 2052,
+          "response_preview": "The user wants me to act as a SQL terminal, specifically simulating a PostgreSQL REPL.\nThey have provided a block of SQL statements to execute.\nI need to output the results of these statements in the format a real terminal would show.\n\n**Input Block 1:**\n```sql\nCREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT NOT NULL, role TEXT);\nINSERT INTO users (username, role) VALUES ('alice', 'analyst'), ('bob', 'admin'), ('carol', 'analyst');\nSELECT username, role FROM users WHERE role = 'analyst';\nINSERT INTO users (username, role) VALUES ('newuser', 'analyst');\nSELECT username FROM users WHERE username = 'newuser';\n```\n\n**Execution Plan:**\n\n1.  **`CREATE TABLE users ...`**\n    *   Output: `CREATE TABLE`\n    *   (No explicit error, so it succeeded).\n\n2.  **`INSERT INTO users ...` (Batch 1)*",
+          "elapsed_s": 14.04,
+          "tps": 146.2
+        },
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['[HIGH]']"
+            }
+          ],
+          "response_chars": 2738,
+          "response_preview": "The user wants me to audit a specific Python function for correctness and security.\nThe function is `merge_configs(base: dict, override: dict) -> dict`.\nIt recursively merges two dictionaries.\n\n**Analysis of the Code:**\n```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base  # ISSUE 1: Aliasing/Mutation\n    for k, v in override.items():\n        if isinstance(v, dict) and k in result2: # Wait, typo in user code? No, user code says `k in result`\n            result[k] = merge_configs(result[k], v2) # Typo in user code? No, user code says `v`\n        else:\n            result[k] = v\n    return result\n```\n\nLet's look closely at the provided code block in the prompt:\n```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    result = base\n    for k, v in over",
+          "elapsed_s": 14.09,
+          "tps": 194.4
+        },
+        {
+          "id": "solidity-vault-with-disclaimer",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "no code block (fenced, tilded, or indented) in response"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "missing: ['mainnet']"
+            }
+          ],
+          "response_chars": 2993,
+          "response_preview": "The user is asking for a Solidity smart contract.\nThey have specific requirements:\n1.  `pragma solidity ^0.8.20`\n2.  Use OpenZeppelin `ReentrancyGuard`.\n3.  `nonReentrant` modifier on `withdraw`.\n4.  Emit `Deposit` and `Withdraw` events.\n5.  Disclaimer at the top or bottom.\n6.  Single fenced code block.\n\nThe user also included a \"HARD CONSTRAINTS\" section in the system prompt, which is a persona instruction for me (the AI). However, the user's request is a direct request for code, not a request to build a game or interactive web app. The user is asking for a specific, functional piece of code (a smart contract).\n\nWait, the system prompt says: \"You are a creative coder who builds playable, visual, and interactive things in the browser... Your default output is a complete, working, single-fi",
+          "elapsed_s": 13.97,
+          "tps": 214.3
+        },
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2878,
+          "response_preview": "The user wants a Playwright test in JavaScript (not TypeScript) for a login form at `https://example.com/login`.\nThe requirements are:\n- Use `getByRole` and `getByLabel` selectors (no CSS or XPath).\n- Cover a happy path (correct credentials -> redirect to /dashboard).\n- Cover an error path (wrong password -> error message visible).\n- Use `page.goto`, `expect`, and `async/await`.\n- Output a single fenced code block with the `.spec.js` file.\n\n**Analysis:**\n- The URL `https://example.com/login` is a placeholder. In reality, example.com doesn't have a login form, but for the purpose of the code snippet, I must write the code as if it exists there, or use a mock. The prompt says \"tests a login form at https://example.com/login\", so I will write the code targeting that URL.\n- The selectors `getB",
+          "elapsed_s": 14.0,
+          "tps": 205.6
+        }
+      ],
+      "summary": {
+        "PASS": 3,
+        "WARN": 0,
+        "FAIL": 7,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bench-laguna",
+      "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "self-evident-canvas-snake",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "13 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "constraint.html_single_file",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of html_single_file"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 3027,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Snake Game</title>\n    <style>\n        body {\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            height: 100vh;\n            margin: 0;\n            background-color: #000;\n            color: #fff;\n            font-family: 'Arial', sans-serif;\n        }\n        canvas {\n            border: 2px solid #fff;\n        }\n        #score {\n            position: absolute;\n            top: 10px;\n            left: 50%;\n            transform: translateX(-50%);\n            font-size: 24px;\n        }\n    </style>\n</head>\n<body>\n    <div id=\"score\">Score: 0</div>\n    <canvas id=\"gameCanvas\" ",
+          "elapsed_s": 83.84,
+          "tps": 36.1
+        },
+        {
+          "id": "stdlib-only-python-csv",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "constraint.python_no_external",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of python_no_external"
+            }
+          ],
+          "response_chars": 565,
+          "response_preview": "```python\nimport sys\nimport csv\nfrom collections import defaultdict\n\ndef main():\n    reader = csv.reader(sys.stdin)\n    next(reader)  # Skip header\n    group_data = defaultdict(list)\n\n    for row in reader:\n        group = row[0]\n        try:\n            value = float(row[1])\n            group_data[group].append(value)\n        except ValueError:\n            continue\n\n    for group in sorted(group_data.keys()):\n        values = group_data[group]\n        mean = sum(values) / len(values)\n        print(f\"{group},{mean}\")\n\nif __name__ == \"__main__\":\n    main()\n```",
+          "elapsed_s": 9.05,
+          "tps": 62.4
+        },
+        {
+          "id": "sql-join-with-aggregation",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 sql signatures matched"
+            }
+          ],
+          "response_chars": 2294,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>SQL Query Visualizer</title>\n  <style>\n    body {\n      font-family: 'Courier New', Courier, monospace;\n      background-color: #121212;\n      color: #ffffff;\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n      justify-content: center;\n      height: 100vh;\n      margin: 0;\n    }\n    #container {\n      text-align: center;\n    }\n    table {\n      border-collapse: collapse;\n      margin-top: 20px;\n    }\n    th, td {\n      border: 1px solid #444;\n      padding: 8px;\n      text-align: left;\n    }\n    th {\n      background-color: #222;\n    }\n    tr:nth-child(even) {\n      background-color: #333;\n    }\n  </style>",
+          "elapsed_s": 42.27,
+          "tps": 54.3
+        },
+        {
+          "id": "bash-script-defensive",
+          "framework": "bash",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.bash",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 bash signatures (need \u22652)"
+            }
+          ],
+          "response_chars": 447,
+          "response_preview": "```bash\n#!/bin/bash\nset -euo pipefail\n\n# Check if the directory path is provided\nif [ $# -ne 1 ]; then\n  echo \"Usage: $0 <directory_path>\"\n  exit 1\nfi\n\n# Check if the provided path exists and is a directory\nDIR_PATH=\"$1\"\nif [ ! -d \"$DIR_PATH\" ]; then\n  echo \"Error: '$DIR_PATH' is not a valid directory.\"\n  exit 1\nfi\n\n# Print file sizes and names, sorted by size descending\nfind \"$DIR_PATH\" -maxdepth 1 -type f -exec ls -s {} + | sort -nr -k 1\n```",
+          "elapsed_s": 9.62,
+          "tps": 46.5
+        },
+        {
+          "id": "self-evident-rust-fizzbuzz",
+          "framework": "rust",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.rust",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 rust signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 659,
+          "response_preview": "```rust\n// src/main.rs\nfn main() {\n    for i in 1..=100 {\n        match (i % 3 == 0, i % 5 == 0) {\n            (true, true) => println!(\"FizzBuzz\"),\n            (true, false) => println!(\"Fizz\"),\n            (false, true) => println!(\"Buzz\"),\n            (false, false) => println!(\"{}\", i),\n        }\n    }\n}\n```\n\n**Craft Notes:**\nThis is a straightforward implementation of FizzBuzz in Rust. The `match` statement efficiently checks for divisibility by 3 and 5, printing the appropriate string or number. The range `1..=100` is used to include the upper bound in the loop. This program adheres to Cargo conventions and can be built and run with `cargo run`.",
+          "elapsed_s": 11.35,
+          "tps": 58.1
+        },
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1163,
+          "response_preview": "```python\nimport asyncio\nimport httpx\nfrom typing import Any\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> Any:\n    \"\"\"\n    Fetch a URL with retries on specific HTTP errors using exponential backoff.\n\n    Args:\n        url (str): The URL to fetch.\n        max_attempts (int): Maximum number of attempts to fetch the URL.\n\n    Returns:\n        Any: The response body on success.\n\n    Raises:\n        httpx.HTTPStatusError: If the request fails after max_attempts.\n    \"\"\"\n    delay = 1  # Initial delay in seconds\n    for attempt in range(1, max_attempts + 1):\n        async with httpx.AsyncClient() as client:\n            try:\n                response = await client.get(url)\n                response.raise_for_status()\n                return response.json()  # Assuming the respons",
+          "elapsed_s": 17.4,
+          "tps": 66.8
+        },
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 sql signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 176,
+          "response_preview": "```sql\nCREATE TABLE\nINSERT 0 3\n username  | role\n-----------+----------\n alice     | analyst\n carol     | analyst\n(2 rows)\n\nINSERT 0 1\n username\n----------\n newuser\n(1 row)\n```",
+          "elapsed_s": 4.85,
+          "tps": 36.3
+        },
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2801,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Python Function Audit</title>\n    <style>\n        body {\n            background-color: #121212;\n            color: #ffffff;\n            font-family: 'Courier New', Courier, monospace;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            justify-content: center;\n            height: 100vh;\n            margin: 0;\n            padding: 20px;\n        }\n        pre {\n            background-color: #1e1e1e;\n            padding: 20px;\n            border-radius: 8px;\n            overflow: auto;\n            max-width: 80%;\n            max-height: 80%;\n        }\n        .issue {\n           ",
+          "elapsed_s": 40.89,
+          "tps": 68.5
+        },
+        {
+          "id": "solidity-vault-with-disclaimer",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1494,
+          "response_preview": "```solidity\n// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\nimport \"@openzeppelin/contracts/security/ReentrancyGuard.sol\";\n\ncontract SimpleETHVault is ReentrancyGuard {\n    address public owner;\n    mapping(address => uint256) public balances;\n\n    event Deposit(address indexed user, uint256 amount);\n    event Withdraw(address indexed user, uint256 amount);\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    function deposit() external payable {\n        require(msg.value > 0, \"Deposit amount must be greater than zero\");\n        balances[msg.sender] += msg.value;\n        emit Deposit(msg.sender, msg.value);\n    }\n\n    function withdraw(uint256 amount) external nonReentrant {\n        require(amount > 0, \"Withdrawal amount must be greater than zero\");\n        require(balance",
+          "elapsed_s": 22.3,
+          "tps": 67.0
+        },
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 javascript signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 829,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest('Login form happy path', async ({ page }) => {\n  await page.goto('https://example.com/login');\n\n  await page.getByLabel('Username').fill('correctUser');\n  await page.getByLabel('Password').fill('correctPassword');\n\n  await page.getByRole('button', { name: 'Login' }).click();\n\n  await expect(page).toHaveURL('https://example.com/dashboard');\n});\n\ntest('Login form error path', async ({ page }) => {\n  await page.goto('https://example.com/login');\n\n  await page.getByLabel('Username').fill('correctUser');\n  await page.getByLabel('Password').fill('wrongPassword');\n\n  await page.getByRole('button', { name: 'Login' }).click();\n\n  const errorMessage = await page.getByText('Invalid username or password');\n  await expect(errorMe",
+          "elapsed_s": 13.04,
+          "tps": 63.6
+        }
+      ],
+      "summary": {
+        "PASS": 7,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bench-laguna",
+      "model": "mlx-community/Laguna-XS.2-4bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "self-evident-canvas-snake",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "constraint.html_single_file",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of html_single_file"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 2546,
+          "response_preview": "nothon:\n</no>\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Snake Game</title>\n    <style>\n        * {\n            margin: 0;\n            padding: 0;\n            box-sizing: border-box;\n        }\n        body {\n            background: #000;\n            font-family: 'Courier New', monospace;\n            display: flex;\n            justify-content: center;\nnothon:3;\n            align-items: center;\n            min-height: 100vh;\n            color: #00ff00;\n        }\n        canvas {\n            border: 2px solid #00ff00;\n            background: #000;\n        }\n        .ui {\n            position: absolute;\n            top: 20px;\n            color: #00ff0nothon0;\n            font-s",
+          "elapsed_s": 50.98,
+          "tps": 49.9
+        },
+        {
+          "id": "stdlib-only-python-csv",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 python signatures matched"
+            },
+            {
+              "name": "constraint.python_no_external",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of python_no_external"
+            }
+          ],
+          "response_chars": 1097,
+          "response_preview": "```python\n#!/usr/bin/env python3\nimport sys\nimport csv\nfrom collections import defaultdict\n\ndef main():\n    reader = csv.reader(sys.stdin)\n    groups = defaultdict(list)\n    \n    for row in reader:\n        if len(row) < 2:\n            continue\n        group = row[0]\n        try:\n            value = float(row[1])\n            groups[group].append(value)\n        except ValueError:\n            continue\n    \n    results = []\n    for group in sorted(groups.keys()):\n        values = groups[group]\n        if values:\n            mean = sum(values) / len(values)\n            results.append(f\"{group},{mean}\")\n    \n    sys.stdout.write(\"\\n\".join(results) + \"\\n\")\n\nif __name__ == \"__main__\":\n    main()\n```\n \nThe user wants a Python script that:\n1. Reads CSV from stdin\n2. Groups rows by the first column\n3",
+          "elapsed_s": 4.57,
+          "tps": 240.0
+        },
+        {
+          "id": "sql-join-with-aggregation",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 sql signatures matched"
+            }
+          ],
+          "response_chars": 1446,
+          "response_preview": "```sql\nSELECT \n    u.id AS user_id,\n    u.name AS user_name,\n    COUNT(o.id) AS total_order_count,\n    COALESCE(SUM(o.amount), 0) AS total_revenue\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.id, u.name\nORDER BY total_revenue DESC, user_name ASC;\n```\n \nThe user wants me to write a SQL query that:\n1. Returns each user's total order count and total revenue\n2. Includes users who have placed zero orders\n3. Orders by total revenue descending, then user name ascending\n4. Uses ANSI SQL (no vendor-specific extensions)\n\nThis requires:\n- A LEFT JOIN from users to orders (to include users with zero orders)\n- Aggregation with COUNT and SUM\n- GROUP BY for users\n- ORDER BY for sorting\n\nLet me write this query:\n\n```sql\nSELECT \n    u.id AS user_id,\n    u.name AS user_name,\n    COUNT(o.id",
+          "elapsed_s": 6.02,
+          "tps": 240.3
+        },
+        {
+          "id": "bash-script-defensive",
+          "framework": "bash",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.bash",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 bash signatures matched"
+            }
+          ],
+          "response_chars": 2384,
+          "response_preview": "The user wants a bash script that:\n1. Takes a directory path as its first positional argument\n2. Exits non-zero with a clear message if the path is missing or not a directory\n3. Prints, for each file in the directory (non-recursive), the file size in bytes and the file name, sorted by size descending\n4. Uses `set -euo pipefail` defensively\n\nLet me write this script:\n\n```bash\n#!/bin/bash\nset -euo pipefail\n\n# Check if argument is provided\nif [[ $# -eq 0 ]]; then\n    echo \"Error: No directory path provided\" >&2\n    exit 1\nfi\n\ndir=\"$1\"\n\n# Check if the path exists and is a directory\nif [[ ! -d \"$dir\" ]]; then\n    echo \"Error: '$dir' is not a directory or does not exist\" >&2\ns\n    exit 1\nfi\n\n# List files with their sizes, sorted by size descending\n# Using find to get files (not directories), the",
+          "elapsed_s": 10.58,
+          "tps": 225.4
+        },
+        {
+          "id": "self-evident-rust-fizzbuzz",
+          "framework": "rust",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.rust",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 rust signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 539,
+          "response_preview": "```rust\nfn main() {\n    for n in 1..=100 {\n        if n % 15 == 0 {\n            println!(\"FizzBuzz\");\n        } else if n % 3 == 0 {\n            println!(\"Fizz\");\n        } else if n % 5 == 0 {\n            println!(\"Buzz\");\n        } else {\n            println!(\"{}\", n);\n        }\n    }\n}\n```\n \nThe user wants a complete Rust program that prints FizzBuzz for numbers 1 through 100, using cargo conventions with src/main.rs. This is straightforward - I'll write a simple Rust program that does FizzBuzz.\n\nLet me write the complete program:",
+          "elapsed_s": 2.57,
+          "tps": 209.7
+        },
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1276,
+          "response_preview": "```python\nimport asyncio\nfrom typing import Any\n\nimport httpx\n\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> Any:\n    retry_status_codes = {429, 500, 502, 503, 504}\n    backoff_seconds = 1.0\n\n    async with httpx.AsyncClient() as client:\n        for attempt in range(max_attempts):\n            response = await client.get(url)\n            \n            if response.status_code not in retry_status_codes or attempt == max_attempts - 1:\n                if response.status_code >= 400:\n                    raise httpx.HTTPStatusError(\n                        f\"HTTP {response.status_code}\",\n                        request=response.request,\n                        response=response,\n                    )\n                return response.text\n            \n            await asyncio.slee",
+          "elapsed_s": 5.11,
+          "tps": 249.7
+        },
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 sql signatures matched"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 stateful-session markers matched"
+            }
+          ],
+          "response_chars": 1575,
+          "response_preview": "```\npostgres=# CREATE TABLE users (id SERIAL PRIMARY KEY, username TEXT NOT NULL, role TEXT);\nCREATE TABLE\npostgres=# \npostgres=# INSERT INTO users (username, role) VALUES ('alice', 'analyst'), ('bob', 'admin'), ('carol', 'analyst');\nINSERT 3\npostgres=# \npostgres=# SELECT username, role FROM users WHERE role = 'analyst';\n username |  role  \n----------+--------\n alice    | analyst\n carol    | analyst\n(2 rows)\npostgres=# \npostgres=# INSERT INTO users (username, role) VALUES ('newuser', 'analyst');\nINSERT \npostgres=# \npostgres=# SELECT username FROM users WHERE username = 'newuser';\n username \n----------\n newuser\n(1 row)\npostgres=# \n```\n \nThe user wants me to act as a PostgreSQL REPL and execute SQL statements one block at a time, showing the output as psql would.\n\nLet me process each stateme",
+          "elapsed_s": 6.57,
+          "tps": 239.6
+        },
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 3059,
+          "response_preview": "## Python Function Audit\n\n### Issues Found:\n\n**[HIGH] Aliasing/Mutation Bug**\n- `result = base` creates a reference to the original `base` dict, not a copy\n- The caller's `base` dictionary will be mutated when `result[k] = v` is executed\n- This violates the principle of least surprise and can cause hard-to-debug side effects\n\n**[MEDIUM] Unbounded Recursion Risk**\n- Deeply nested dictionaries could exceed Python's recursion limit\n- No depth limit or iterative fallback for pathological cases\n- Could cause stack overflow with malicious or malformed input\n\n**[MEDIUM] Type Safety Issue**\n- No validation that `base` is actually a dict (could be None, causing `TypeError`)\n- No handling for non-dict values in `base`\n\n**[LOW] Missing Return Value Consistency**\n- If `base` is None, the function will",
+          "elapsed_s": 10.7,
+          "tps": 285.8
+        },
+        {
+          "id": "solidity-vault-with-disclaimer",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2306,
+          "response_preview": "nothreat\n```solidity\n// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\nimport \"@openzeppelin/contracts/security/ReentrancyGuard.sol\";\n\n/**\n * @title SimpleETHVault\n * @dev A simple ETH vault with deposit and withdraw functionality\n */\ncontract SimpleETHVault is ReentrancyGuard {\n    // Events\n    event Deposit(address indexed donor, uint256 amount);\n    event Withdraw(address indexed withdrawer, uint256 amount);\n\n    // Mapping to track balances per address\n    mapping(address => uint25nothreat => public balances;\n\n    /**\n     * @dev Deposit ETH into the vault\n     */\n    function deposit() external payable {\n        require(msg.value > 0, \"Deposit amount must be greater than 0\");\n        \n        balances[msg.sender] += msg.value;\n        \n        emit Deposit(msg.sender, msg.val",
+          "elapsed_s": 9.12,
+          "tps": 253.0
+        },
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 2009,
+          "response_preview": "nothist\n</think>\n```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest.describe('Login Form Tests', () => {\n  test('happy path - correct credentials redirects to dashboard', async ({ page }) => {\n    // Navigate to login page\n    await page.goto('https://example.com/login');\n\n    // Fill in correct credentials using getByLabel\n    await page.getByLabel('Email').fill('user@example.com');\n    await page.getByLabel('Password').fill('correct-password');\n\n    // Click login button using getByRole\n    await page.getByRole('button', { name: 'Login' }).click();\n\n    // Expect to be redirected to dashboard\n    await expect(page).toHaveURL('/dashboard');\n  });\n\n  test('error path - wrong password shows error message', async ({ page }) => {\n    // Navigate to login page\n    await ",
+          "elapsed_s": 7.29,
+          "tps": 275.5
+        }
+      ],
+      "summary": {
+        "PASS": 8,
+        "WARN": 0,
+        "FAIL": 2,
+        "ERROR": 0
+      }
+    },
+    {
+      "persona": "bench-laguna",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+      "backend": "mlx",
+      "group": "mlx",
+      "scenarios": [
+        {
+          "id": "self-evident-canvas-snake",
+          "framework": "html",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.html",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "4 html signatures matched"
+            },
+            {
+              "name": "constraint.html_single_file",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of html_single_file"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 2578,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Classic Snake Game</title>\n    <style>\n        body {\n            background-color: #111;\n            display: flex;\n            flex-direction: column;\n            align-items: center;\n            justify-content: center;\n            height: 100vh;\n            margin: 0;\n            font-family: 'Courier New', monospace;\n            color: #0f0;\n            overflow: hidden;\n        }\n        #game-container {\n            position: relative;\n        }\n        #game-canvas {\n            background-color: #000;\n            border: 2px solid #0f0;\n            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);\n        }\n        #score {\n     ",
+          "elapsed_s": 60.9,
+          "tps": 42.3
+        },
+        {
+          "id": "stdlib-only-python-csv",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "constraint.python_no_external",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no violations of python_no_external"
+            }
+          ],
+          "response_chars": 782,
+          "response_preview": "```python\nimport csv\nimport sys\nfrom collections import defaultdict\n\n# Read CSV from stdin\nreader = csv.reader(sys.stdin)\ngroups = defaultdict(list)\n\n# Group rows by first column and collect second column values\nfor row in reader:\n    if len(row) >= 2:\n        group = row[0]\n        try:\n            value = float(row[1])\n            groups[group].append(value)\n        except ValueError:\n            # Skip non-numeric values\n            continue\n\n# Calculate means and output sorted results\nresults = []\nfor group, values in groups.items():\n    if values:  # Only process groups with numeric values\n        mean = sum(values) / len(values)\n        results.append((group, mean))\n\n# Sort by group name and output\nfor group, mean in sorted(results):\n    print(f\"{group},{mean}\")\n```",
+          "elapsed_s": 3.98,
+          "tps": 196.7
+        },
+        {
+          "id": "sql-join-with-aggregation",
+          "framework": "sql",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 sql signatures matched"
+            }
+          ],
+          "response_chars": 241,
+          "response_preview": "```sql\nSELECT \n    u.id,\n    u.name,\n    COUNT(o.id) AS total_order_count,\n    COALESCE(SUM(o.amount), 0) AS total_revenue\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.id, u.name\nORDER BY total_revenue DESC, u.name ASC;\n```",
+          "elapsed_s": 1.93,
+          "tps": 124.6
+        },
+        {
+          "id": "bash-script-defensive",
+          "framework": "bash",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "1 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.bash",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 bash signatures matched"
+            }
+          ],
+          "response_chars": 481,
+          "response_preview": "```bash\n#!/bin/bash\nset -euo pipefail\n\n# Check if directory path is provided\nif [[ $# -eq 0 ]]; then\n    echo \"Error: Directory path is required\" >&2\n    exit 1\nfi\n\n# Get the directory path\ndir_path=\"$1\"\n\n# Check if path exists and is a directory\nif [[ ! -d \"$dir_path\" ]]; then\n    echo \"Error: '$dir_path' is not a directory\" >&2\n    exit 1\nfi\n\n# Print file sizes and names sorted by size descending\nfind \"$dir_path\" -maxdepth 1 -type f -exec stat -c \"%s %n\" {} \\; | sort -nr\n```",
+          "elapsed_s": 3.53,
+          "tps": 136.4
+        },
+        {
+          "id": "self-evident-rust-fizzbuzz",
+          "framework": "rust",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.rust",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 rust signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.no_clarification_stall",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "response did not stall with clarifying questions"
+            }
+          ],
+          "response_chars": 1066,
+          "response_preview": "```rust\nfn main() {\n    for i in 1..=100 {\n        match (i % 3, i % 5) {\n            (0, 0) => println!(\"FizzBuzz\"),\n            (0, _) => println!(\"Fizz\"),\n            (_, 0) => println!(\"Buzz\"),\n            _ => println!(\"{}\", i),\n        }\n    }\n}\n```\n\nThis Rust program implements the classic FizzBuzz challenge using pattern matching for clean, readable logic. The program iterates through numbers 1 to 100, checking divisibility by 3 and 5 using the modulo operator. The match expression efficiently handles all four cases:\n1. Numbers divisible by both 3 and 5 (i.e., 15) print \"FizzBuzz\"\n2. Numbers divisible by 3 only print \"Fizz\"\n3. Numbers divisible by 5 only print \"Buzz\"\n4. All other numbers print their numeric value\n\nThe implementation follows Rust best practices with concise pattern ",
+          "elapsed_s": 5.74,
+          "tps": 185.6
+        },
+        {
+          "id": "async-http-retry-wrapper",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.python",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "2 python signatures matched"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 1720,
+          "response_preview": "```python\nimport asyncio\nimport httpx\nfrom typing import Optional\n\nasync def fetch_with_retry(url: str, max_attempts: int = 3) -> Optional[bytes]:\n    \"\"\"\n    Fetch a URL with retry logic for specific HTTP status codes.\n    \n    Args:\n        url: The URL to fetch\n        max_attempts: Maximum number of retry attempts\n        \n    Returns:\n        Response body as bytes on success\n        \n    Raises:\n        httpx.HTTPStatusError: When all retry attempts are exhausted\n    \"\"\"\n    retryable_status_codes = {429, 500, 502, 503, 504}\n    backoff_seconds = 1\n    \n    async with httpx.AsyncClient() as client:\n        for attempt in range(max_attempts):\n            try:\n                response = await client.get(url)\n                if response.status_code not in retryable_status_codes:\n       ",
+          "elapsed_s": 7.28,
+          "tps": 236.3
+        },
+        {
+          "id": "sql-stateful-multi-statement",
+          "framework": "sql",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "language.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 sql signatures (need \u22652)"
+            },
+            {
+              "name": "behavioral.stateful_session.sql",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 stateful-session markers (need \u22652)"
+            }
+          ],
+          "response_chars": 2469,
+          "response_preview": "```html\n<!DOCTYPE html>\n<html>\n<head>\n    <title>SQL Terminal</title>\n    <style>\n        body {\n            background-color: #0a0a0a;\n            color: #00ff00;\n            font-family: 'Courier New', monospace;\n            margin: 0;\n            padding: 20px;\n            overflow: hidden;\n        }\n        .terminal {\n            background-color: #001100;\n            border: 1px solid #00aa00;\n            border-radius: 4px;\n            padding: 15px;\n            width: 90%;\n            height: 80vh;\n            overflow-y: auto;\n            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);\n        }\n        .prompt {\n            color: #00ff00;\n            margin-right: 10px;\n        }\n        .output {\n            margin: 5px 0;\n            white-space: pre-wrap;\n        }\n        .succes",
+          "elapsed_s": 15.32,
+          "tps": 161.1
+        },
+        {
+          "id": "code-review-with-confidence",
+          "framework": "python",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 5 required elements present"
+            }
+          ],
+          "response_chars": 2079,
+          "response_preview": "```python\ndef merge_configs(base: dict, override: dict) -> dict:\n    # [HIGH] Aliasing/Mutation Bug: result = base creates a reference, not a copy\n    # This mutates the original base dictionary passed in\n    result = base.copy()  # Fix: Create a shallow copy\n    \n    for k, v in override.items():\n        if isinstance(v, dict) and k in result:\n            # [MEDIUM] Unbounded Recursion Risk: No depth limit or cycle detection\n            # If override contains a circular reference to base, this will recurse infinitely\n            result[k] = merge_configs(result[k], v)\n        else:\n            result[k] = v\n    return result\n\n# Alternative safer implementation with recursion limit\ndef merge_configs_safe(base: dict, override: dict, max_depth: int = 100) -> dict:\n    if max_depth <= 0:\n    ",
+          "elapsed_s": 10.03,
+          "tps": 207.3
+        },
+        {
+          "id": "solidity-vault-with-disclaimer",
+          "framework": "javascript",
+          "status": "PASS",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "6 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1901,
+          "response_preview": "```solidity\n// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\nimport \"@openzeppelin/contracts/security/ReentrancyGuard.sol\";\nimport \"@openzeppelin/contracts/token/ERC20/IERC20.sol\";\n\n/**\n * DO NOT DEPLOY TO MAINNET WITHOUT A PROFESSIONAL SECURITY AUDIT\n */\n\ncontract EthVault is ReentrancyGuard {\n    IERC20 public token;\n    address public owner;\n    \n    event Deposit(address indexed user, uint256 amount);\n    event Withdraw(address indexed user, uint256 amount);\n    \n    constructor(address _token) {\n        token = IERC20(_token);\n        owner = msg.sender;\n    }\n    \n    function deposit(uint256 amount) external nonReentrant {\n        token.transferFrom(msg.sender, address(this), amount);\n        emit Deposit(msg.sender, amount);\n    }\n    \n    function withdraw(uint256 amount)",
+          "elapsed_s": 8.84,
+          "tps": 215.1
+        },
+        {
+          "id": "e2e-playwright-login-test",
+          "framework": "javascript",
+          "status": "FAIL",
+          "http_status": 200,
+          "results": [
+            {
+              "name": "structural.code_block_present",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "3 code block(s) found"
+            },
+            {
+              "name": "structural.no_truncation_or_placeholders",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "no placeholder/truncation markers"
+            },
+            {
+              "name": "language.javascript",
+              "passed": false,
+              "severity": "MUST",
+              "detail": "only 1 javascript signatures (need \u22652)"
+            },
+            {
+              "name": "structural.required_elements",
+              "passed": true,
+              "severity": "MUST",
+              "detail": "all 4 required elements present"
+            }
+          ],
+          "response_chars": 1211,
+          "response_preview": "```javascript\nconst { test, expect } = require('@playwright/test');\n\ntest('login form tests', async ({ page }) => {\n  // Navigate to login page\n  await page.goto('https://example.com/login');\n\n  // Happy path test - correct credentials\n  await test.step('Test successful login', async () => {\n    // Fill in username and password\n    await page.getByLabel('Username').fill('validuser');\n    await page.getByLabel('Password').fill('validpassword');\n    \n    // Submit form\n    await page.getByRole('button', { name: 'Login' }).click();\n    \n    // Expect redirect to dashboard\n    await expect(page).toHaveURL('/dashboard');\n  });\n\n  // Navigate back to login page for error test\n  await page.goto('https://example.com/login');\n\n  // Error path test - wrong password\n  await test.step('Test login with",
+          "elapsed_s": 6.07,
+          "tps": 199.6
+        }
+      ],
+      "summary": {
+        "PASS": 7,
+        "WARN": 0,
+        "FAIL": 3,
+        "ERROR": 0
+      }
+    }
+  ]
+}

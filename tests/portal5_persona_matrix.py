@@ -70,6 +70,28 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
         "persona_categories": ("coding", "software", "development", "systems"),
         "threshold_doc": "docs/CODING_FALLBACK_POLICY.md",
     },
+    # Shootout-only registry entry — same assertions and fixtures as auto-coding,
+    # but filters by the benchmark persona category so bench-* personas (each
+    # pinned to a single model) participate. The Creative Coder system prompt
+    # is identical across all bench personas — only the model varies, which is
+    # the controlled-experiment shape the shootout requires.
+    #
+    # models_explicit overrides the production workspace_routing chain. This
+    # entry is NOT registered in backends.yaml's workspace_routing table — the
+    # shootout is a test harness, not a production routing target. See
+    # TASK_CODING_SHOOTOUT_V1.md §A2 and §T3.
+    "auto-coding-bench": {
+        "assertions_module": "tests.lib.coding_assertions",
+        "fixtures_module": "tests.lib.coding_fixtures",
+        "persona_categories": ("benchmark",),
+        "threshold_doc": "TASK_CODING_SHOOTOUT_V1.md",
+        "models_explicit": (
+            "mlx-community/Laguna-XS.2-4bit",
+            "mlx-community/GLM-4.7-Flash-4bit",
+            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+            "lmstudio-community/Devstral-Small-2507-MLX-4bit",
+        ),
+    },
 }
 
 # Module-level aliases reassigned by run_sweep() based on --workspace.
@@ -542,6 +564,7 @@ async def run_cell(
             "response_chars": len(response),
             "response_preview": response[:800],
             "elapsed_s": round(elapsed, 2),
+            "tps": round(len(response) / elapsed, 1) if elapsed > 0 else 0.0,
         })
         cell["summary"][outcome.status] += 1
         await asyncio.sleep(0.2)
@@ -569,7 +592,55 @@ async def run_sweep(args) -> dict[str, Any]:
             print(f"no persona matched filter '{args.persona}'", file=sys.stderr)
             sys.exit(2)
 
-    chain = chain_models_for_workspace(cfg, workspace_id)
+    # If the registry entry pins specific models, use them (shootout harness).
+    # Otherwise fall through to the production workspace_routing chain.
+    # See TASK_CODING_SHOOTOUT_V1.md §T3.
+    _ws_cfg = WORKSPACE_REGISTRY.get(workspace_id, {})
+    _models_explicit = _ws_cfg.get("models_explicit")
+    if _models_explicit:
+        # Build the chain by looking up each named model in backends.yaml.
+        # An explicit model that is not registered is a hard error — fail
+        # fast rather than silently producing partial results.
+        all_models: dict[str, dict[str, Any]] = {}
+        for be in cfg.get("backends", []):
+            be_type = be.get("type", "ollama")
+            if be_type == "mlx":
+                for m in be.get("mlx_models", []):
+                    all_models[m["id"]] = {
+                        "id": m["id"],
+                        "backend_type": "mlx",
+                        "big_model": bool(m.get("big_model", False)),
+                        "is_vlm": bool(m.get("is_vlm", False)),
+                        "memory_gb": float(m.get("memory_gb", 20.0)),
+                        "group": be.get("group", "mlx"),
+                    }
+            else:
+                for mid in be.get("models", []):
+                    model_id = mid["id"] if isinstance(mid, dict) else mid
+                    all_models[model_id] = {
+                        "id": model_id,
+                        "backend_type": "ollama",
+                        "big_model": False,
+                        "is_vlm": False,
+                        "memory_gb": _ollama_size_estimate(model_id),
+                        "group": be.get("group", "general"),
+                    }
+        chain = []
+        missing = []
+        for mid in _models_explicit:
+            if mid in all_models:
+                chain.append(all_models[mid])
+            else:
+                missing.append(mid)
+        if missing:
+            print(
+                f"workspace '{workspace_id}' models_explicit references unregistered "
+                f"models (not found in backends.yaml): {missing}",
+                file=sys.stderr,
+            )
+            sys.exit(4)
+    else:
+        chain = chain_models_for_workspace(cfg, workspace_id)
 
     if args.backend:
         chain = [m for m in chain if m["backend_type"] == args.backend]
@@ -595,7 +666,16 @@ async def run_sweep(args) -> dict[str, Any]:
             )
             sys.exit(3)
 
-    scenarios = list(cf.expand_scenarios())
+    # Thread the workspace's persona_categories down into the fixtures loader so
+    # auto-coding (production) and auto-coding-bench (shootout) load different
+    # persona sets from the same coding_scenarios.yaml. See
+    # TASK_CODING_SHOOTOUT_V1.md §T1.5 for rationale.
+    _ws_cfg = WORKSPACE_REGISTRY.get(args.workspace, {})
+    _persona_categories = tuple(_ws_cfg.get("persona_categories", ()))
+    if _persona_categories:
+        scenarios = list(cf.expand_scenarios(categories=_persona_categories))
+    else:
+        scenarios = list(cf.expand_scenarios())
     if args.max_scenarios:
         kept: dict[str, int] = {}
         scenarios = [

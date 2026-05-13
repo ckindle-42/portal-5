@@ -31,15 +31,26 @@ def load_scenarios_yaml(path: Path = SCENARIOS_PATH) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
+DEFAULT_CODING_CATEGORIES: tuple[str, ...] = (
+    "coding", "software", "development", "systems",
+)
+
+
 def load_coding_persona_slugs(
     personas_dir: Path = PERSONAS_DIR,
+    categories: tuple[str, ...] = DEFAULT_CODING_CATEGORIES,
 ) -> tuple[str, ...]:
+    """Load persona slugs whose `category` is in `categories`.
+
+    The default matches the production auto-coding workspace. The
+    shootout (auto-coding-bench) passes ('benchmark',) to enumerate the
+    bench-* personas instead.
+    """
     out: list[str] = []
-    coding_cats = ("coding", "software", "development", "systems")
     for f in sorted(glob.glob(str(personas_dir / "*.yaml"))):
         try:
             d = yaml.safe_load(open(f)) or {}
-            if d.get("category") in coding_cats and d.get("slug"):
+            if d.get("category") in categories and d.get("slug"):
                 out.append(d["slug"])
         except Exception:
             continue
@@ -62,9 +73,10 @@ def _resolve_personas(
 def expand_scenarios(
     raw: dict[str, Any] | None = None,
     personas_dir: Path = PERSONAS_DIR,
+    categories: tuple[str, ...] = DEFAULT_CODING_CATEGORIES,
 ) -> tuple[ConcreteScenario, ...]:
     raw = raw or load_scenarios_yaml()
-    coding_personas = load_coding_persona_slugs(personas_dir)
+    coding_personas = load_coding_persona_slugs(personas_dir, categories=categories)
     out: list[ConcreteScenario] = []
 
     for scenario in raw.get("scenarios", []):
@@ -102,10 +114,36 @@ def _resolve_parameterized_assertion(
 def run_assertions(
     scenario: ConcreteScenario, response: str
 ):
-    from tests.lib.compliance_assertions import ScenarioOutcome
+    from tests.lib.compliance_assertions import AssertionResult, ScenarioOutcome
 
     results: list = []
-    for spec in scenario.assertion_specs:
+    for raw_spec in scenario.assertion_specs:
+        # Spec may be a string ("structural.code_block_present") or a single-key
+        # dict carrying kwargs ({"structural.required_elements": {"elements": [...]}}).
+        if isinstance(raw_spec, dict):
+            if len(raw_spec) != 1:
+                results.append(AssertionResult(
+                    name=str(raw_spec),
+                    passed=False,
+                    detail="parameterized assertion must be a single-key dict",
+                    severity="INFO",
+                ))
+                continue
+            spec, kwargs = next(iter(raw_spec.items()))
+            if kwargs is None:
+                kwargs = {}
+            elif not isinstance(kwargs, dict):
+                results.append(AssertionResult(
+                    name=str(spec),
+                    passed=False,
+                    detail=f"parameterized assertion args must be a dict, got {type(kwargs).__name__}",
+                    severity="INFO",
+                ))
+                continue
+        else:
+            spec = raw_spec
+            kwargs = {}
+
         base, param = _resolve_parameterized_assertion(spec)
         if base == "language":
             results.append(ca.assert_uses_language(response, param or ""))
@@ -114,26 +152,32 @@ def run_assertions(
             results.append(ca.assert_respects_constraint(response, param or ""))
             continue
 
-        dispatch = {
-            "structural.code_block_present": ca.assert_code_block_present,
-            "structural.no_truncation_or_placeholders":
-                ca.assert_no_truncation_or_placeholders,
-            "behavioral.no_clarification_stall":
-                ca.assert_no_clarification_stall,
-        }
-        fn = dispatch.get(spec)
-        if fn is None:
-            from tests.lib.compliance_assertions import AssertionResult
-            results.append(
-                AssertionResult(
-                    name=spec,
-                    passed=False,
-                    detail=f"unknown coding assertion '{spec}'",
-                    severity="INFO",
-                )
-            )
+        # Dispatch by full spec string. Parameterized assertions read their
+        # kwargs out of the dict form above.
+        if spec == "structural.code_block_present":
+            results.append(ca.assert_code_block_present(response))
             continue
-        results.append(fn(response))
+        if spec == "structural.no_truncation_or_placeholders":
+            results.append(ca.assert_no_truncation_or_placeholders(response))
+            continue
+        if spec == "behavioral.no_clarification_stall":
+            results.append(ca.assert_no_clarification_stall(response))
+            continue
+        if spec == "structural.required_elements":
+            elements = kwargs.get("elements", [])
+            results.append(ca.assert_contains_required_elements(response, elements))
+            continue
+        if spec == "behavioral.stateful_session":
+            language = kwargs.get("language", "")
+            results.append(ca.assert_handles_stateful_session(response, language))
+            continue
+
+        results.append(AssertionResult(
+            name=spec,
+            passed=False,
+            detail=f"unknown coding assertion '{spec}'",
+            severity="INFO",
+        ))
 
     return ScenarioOutcome(
         scenario_id=scenario.scenario_id,

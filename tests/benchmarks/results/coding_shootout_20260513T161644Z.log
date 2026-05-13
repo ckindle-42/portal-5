@@ -1,0 +1,27 @@
+
+=== PERSONA MATRIX SWEEP — workspace=auto-coding-bench ===
+  personas:  1  (bench-laguna)
+  models:    4  (smallest-first)
+  scenarios: 120
+  cells:     4
+
+  [1/4] model: mlx/mlx-community/GLM-4.7-Flash-4bit  (15.0GB)
+    [1/1] bench-laguna                         PASS=  3 WARN= 0 FAIL= 7 ERR= 0  (182.3s)
+
+  [2/4] model: mlx/lmstudio-community/Devstral-Small-2507-MLX-4bit  (15.0GB)
+    [1/1] bench-laguna                         PASS=  7 WARN= 0 FAIL= 3 ERR= 0  (256.6s)
+
+  [3/4] model: mlx/mlx-community/Laguna-XS.2-4bit  (19.0GB)
+    [1/1] bench-laguna                         PASS=  8 WARN= 0 FAIL= 2 ERR= 0  (115.5s)
+
+  [4/4] model: mlx/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (22.0GB)
+    [1/1] bench-laguna                         PASS=  7 WARN= 0 FAIL= 3 ERR= 0  (125.6s)
+
+=== SWEEP COMPLETE — 700s ===
+
+wrote tests/benchmarks/results/coding_shootout_20260513T161644Z.json
+
+--- MATRIX (PASS/WARN/FAIL per cell) ---
+              | GLM-4.7-Flash-4bit | Devstral-Small-2507-MLX- | Laguna-XS.2-4bit | Qwen3-Coder-30B-A3B-Inst
+-----------------------------------------------------------------------------------------------------------
+bench-laguna  | P3/W0/F7                 | P7/W0/F3                 | P8/W0/F2                 | P7/W0/F3                
