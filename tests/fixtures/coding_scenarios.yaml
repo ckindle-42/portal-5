@@ -120,8 +120,11 @@ scenarios:
       Async HTTP wrapper that handles 4xx/5xx with exponential backoff.
       UAT WS-02 (Code Expert) scored 1/6 on this with Laguna because the
       model produced no code block. Tests structural delivery + httpx
-      idiom + retry-status-code recognition.
-    applies_to: ["coding:*"]
+      idiom + retry-status-code recognition. V2: bound to
+      pythoncodegeneratorcleanoptimizedproduction-ready (Ship-It shape) —
+      the most general "produce well-typed async Python" persona in the
+      Ship-It cohort.
+    applies_to: ["pythoncodegeneratorcleanoptimizedproduction-ready"]
     language: python
     prompt: |
       Write an async Python function `fetch_with_retry(url, max_attempts=3)`
@@ -151,8 +154,8 @@ scenarios:
       Multi-statement SQL session — CREATE, INSERT, SELECT in sequence,
       with row results between statements. UAT P-D14 scored 1/4 because
       Laguna returned prose without row counts or stated INSERT acks.
-      Tests the SQL REPL contract.
-    applies_to: ["coding:*"]
+      Tests the SQL REPL contract. V2: bound to sqlterminal (REPL shape).
+    applies_to: ["sqlterminal"]
     language: sql
     prompt: |
       You are a SQL terminal. I will give you statements one block at a time.
@@ -180,8 +183,8 @@ scenarios:
       Deep code-audit task requiring confidence labels per finding. UAT
       P-D04 scored 1/4 because Laguna missed the mutation/aliasing bug
       and omitted confidence levels entirely. Tests structured audit
-      output.
-    applies_to: ["coding:*"]
+      output. V2: bound to codereviewer (Audit shape, FAIL row).
+    applies_to: ["codereviewer"]
     language: python
     prompt: |
       Audit this Python function for correctness and security. For each
@@ -213,13 +216,17 @@ scenarios:
             - "fix"
 
   # ── I. Solidity audit disclaimer + reentrancy (UAT P-D10 predecessor) ─
+  # V2: ethereumdeveloper PRUNED per A3 — Solidity is a niche shape outside
+  # auto-coding's primary load. Scenario retained in the file for future use
+  # but applies_to is the empty list so no V2 cell is produced.
   - id: solidity-vault-with-disclaimer
     description: >
       Solidity contract task with explicit security-mode requirements.
       UAT P-D10 scored 2/5 because Laguna omitted the pragma, the
-      reentrancy guard, and produced no code block. Tests both code
-      delivery and audit-discipline language.
-    applies_to: ["coding:*"]
+      reentrancy guard, and produced no code block. Pruned from V2 per A3
+      (Solidity is a niche shape, not core auto-coding). Retained for any
+      future security-coding workspace.
+    applies_to: []
     language: javascript    # closest registered signature; constraint elsewhere
     prompt: |
       Write a Solidity smart contract for a simple ETH vault with deposit
@@ -246,8 +253,9 @@ scenarios:
     description: >
       End-to-end Playwright test with explicit selector strategy. UAT
       P-B01 scored 2/5 because Laguna produced no code block and used
-      no Playwright primitives. Tests modern selector idiom.
-    applies_to: ["coding:*"]
+      no Playwright primitives. Tests modern selector idiom. V2: bound to
+      e2etestauthor (Composite shape).
+    applies_to: ["e2etestauthor"]
     language: javascript
     prompt: |
       Write a Playwright test in JavaScript (NOT TypeScript) that tests
@@ -268,3 +276,297 @@ scenarios:
             - "page.goto"
             - "expect"
             - "/dashboard"
+
+  # ── K. Linux terminal stateful (UAT P-D12 predecessor, REPL shape) ───
+  - id: linux-terminal-stateful
+    description: >
+      Multi-command bash session — cd, echo to file, cat, pwd in sequence,
+      with state preserved between commands. UAT P-D12 scored 2/4 because
+      Laguna lost the working directory between commands and didn't show
+      cat output. Tests bash REPL state contract.
+    applies_to: ["linuxterminal"]
+    language: bash
+    prompt: |
+      You are a Linux terminal. Execute these commands in sequence,
+      preserving working-directory and file-system state between them.
+      Show only the terminal output for each command — no prose, no code
+      blocks, just what the terminal would print.
+
+      $ mkdir -p /tmp/portal_test
+      $ cd /tmp/portal_test
+      $ echo "hello portal" > greeting.txt
+      $ cat greeting.txt
+      $ pwd
+      $ ls -la
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "hello portal"
+            - "/tmp/portal_test"
+            - "greeting.txt"
+      - behavioral.stateful_session:
+          language: bash
+
+  # ── L. Python REPL traceback (UAT P-D13 predecessor, REPL shape) ─────
+  - id: python-repl-traceback
+    description: >
+      Python REPL session that prints, then raises IndexError. UAT P-D13
+      scored 1/3 because Laguna gave prose explanation instead of REPL
+      output (>>> prompt, Traceback line). Tests Python REPL contract.
+    applies_to: ["pythoninterpreter"]
+    language: python
+    prompt: |
+      You are a Python 3.11 REPL. Execute these statements one by one,
+      printing exactly what the REPL would print after each. No prose,
+      no commentary — just the REPL output.
+
+      >>> system = "portal v6"
+      >>> print(f"System: {system}")
+      >>> data = [1, 2, 3]
+      >>> print(data[10])
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "System: portal v6"
+            - "IndexError"
+            - "Traceback"
+      - behavioral.stateful_session:
+          language: python
+
+  # ── M. QA test enumeration (UAT P-D18 predecessor, Audit shape) ──────
+  - id: qa-test-enumeration
+    description: >
+      File-upload validation test design — must enumerate security, boundary,
+      and integration tests. UAT P-D18 scored 2/5 because Laguna mentioned
+      validation in general but didn't name security/boundary/multiple
+      test types. Tests structured Audit-shape enumeration.
+    applies_to: ["softwarequalityassurancetester"]
+    prompt: |
+      Design a test plan for a file-upload endpoint with these constraints:
+        - accepts only .pdf, .docx, .xlsx
+        - max file size 10MB
+        - virus-scans via ClamAV before storage
+        - returns 400 on rejection, 201 on success
+
+      Enumerate at least 8 distinct test cases, each tagged by category:
+        [SECURITY], [BOUNDARY], [INTEGRATION], [HAPPY-PATH], [ERROR-PATH]
+      For each test, specify input, expected output, and rationale.
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "[SECURITY]"
+            - "[BOUNDARY]"
+            - "10MB"
+            - "ClamAV"
+            - "malicious"
+
+  # ── N. JavaScript console strict output (UAT P-D11 PASS regression) ──
+  - id: js-console-strict-output
+    description: >
+      JS console exact-output test. UAT P-D11 PASSED with Laguna — included
+      as a REPL-shape regression guard. A candidate that breaks this while
+      gaining a FAIL persona is a worse trade.
+    applies_to: ["javascriptconsole"]
+    language: javascript
+    prompt: |
+      You are a strict V8 JavaScript console. Output exactly what each
+      statement prints. No prose. No code fences.
+
+      > typeof null
+      > [].foo
+      > [1,2,3].map(x => x * 2)
+      > new Map().get('nothing')
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "object"
+            - "undefined"
+            - "2"
+            - "4"
+            - "6"
+
+  # ── O. GitHub destructive warning (UAT P-D09 PASS regression) ────────
+  - id: github-destructive-warning
+    description: >
+      Git destructive-command guidance. UAT P-D09 PASSED with Laguna —
+      Ship-It-shape regression guard. The "knowledge + warning" shape is
+      the loosest fit in Ship-It (see A4 note on githubexpert).
+    applies_to: ["githubexpert"]
+    prompt: |
+      I pushed 3 commits to a shared feature branch but realized they
+      contain a leaked API key. Two teammates have already pulled. What
+      do I do?
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "rotate"
+            - "force"
+            - "teammates"
+            - "warning"
+
+  # ── P. Bug discovery enumeration (UAT P-D02 PASS regression) ─────────
+  - id: bug-classification-by-type
+    description: >
+      Multi-bug enumeration by type. UAT P-D02 PASSED with Laguna —
+      Audit-shape regression guard, relaxed contract version.
+    applies_to: ["bugdiscoverycodeassistant"]
+    language: python
+    prompt: |
+      Find every issue in this function. For each, label the type:
+        [SECURITY], [LOGIC], [RUNTIME], [STYLE]
+
+      ```python
+      def get_user(username):
+          import os
+          result = os.system(f"grep {username} /etc/passwd")
+          users = result.split(",")
+          return users[5]
+      ```
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "[SECURITY]"
+            - "injection"
+            - "command"
+            - "[RUNTIME]"
+
+  # ── Q. Code review PR scope (UAT P-D03 PASS regression) ──────────────
+  - id: code-review-pr-scope
+    description: >
+      Constrained PR review — only critique the changed lines, not the
+      whole file. UAT P-D03 PASSED with Laguna — Audit-shape regression
+      guard. Tests scope discipline (don't critique check_db, which is
+      unchanged context).
+    applies_to: ["codereviewassistant"]
+    language: python
+    prompt: |
+      Review only the lines marked CHANGED in this diff. Do not critique
+      unchanged context lines.
+
+      ```python
+      def login(req):
+      -     token = jwt.encode({"user": req.user}, "secret")
+      +     token = jwt.encode(  # CHANGED
+      +         {"user": req.user, "exp": time.time() + 3600},  # CHANGED
+      +         SECRET_KEY,  # CHANGED
+      +         algorithm="HS256",  # CHANGED
+      +     )
+            check_db()  # unchanged context
+            return token
+      ```
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "exp"
+            - "SECRET_KEY"
+            - "3600"
+
+  # ── R. JWT three endpoints (UAT P-D05 predecessor, Composite shape) ──
+  - id: jwt-three-endpoints
+    description: >
+      Three-endpoint JWT auth implementation in one file — /auth/login,
+      /protected, /auth/refresh. UAT P-D05 scored 2/5 because Laguna
+      produced no code block and missed two of the three endpoints. Tests
+      Composite-shape multi-element coordination.
+    applies_to: ["fullstacksoftwaredeveloper"]
+    language: python
+    prompt: |
+      Implement three Flask endpoints in a single Python file:
+        - POST /auth/login — accepts {username, password}, returns JWT
+        - GET /protected — requires Authorization: Bearer <token>
+        - POST /auth/refresh — refreshes a near-expiring token
+
+      Use python-jose for JWT, include an `exp` claim (1 hour), read the
+      secret from os.environ (never hardcode). Provide the complete file
+      in a single fenced code block.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.python
+      - structural.required_elements:
+          elements:
+            - "/auth/login"
+            - "/protected"
+            - "/auth/refresh"
+            - "exp"
+            - "os.environ"
+
+  # ── S. E2E debugger root cause (UAT P-B04 predecessor, Composite) ────
+  - id: e2e-debugger-root-cause
+    description: >
+      Flaky-test debugging — must propose timing + browser-inspection
+      strategies in one response. UAT P-B04 scored 2/3 because Laguna
+      identified timing but didn't suggest browser inspection. Tests
+      Composite-shape multi-strategy reasoning.
+    applies_to: ["e2edebugger"]
+    prompt: |
+      A Playwright test fails 10% of runs with "TimeoutError: page.goto
+      timeout 30000ms". Logs show the test sometimes hangs on a JS modal,
+      sometimes the page loads slowly under CI load. Propose root-cause
+      analysis covering BOTH timing-side investigation (timeouts, retries,
+      waits) AND browser-side investigation (DOM inspection, console
+      errors, network panel).
+    assertions:
+      - structural.required_elements:
+          elements:
+            - "timeout"
+            - "retry"
+            - "console"
+            - "network"
+            - "browser"
+
+  # ── T. K8s manifest complete (UAT P-D07 PASS regression, Ship-It) ────
+  - id: k8s-manifest-complete
+    description: >
+      Complete K8s Deployment+Service manifest with readiness probe,
+      resource limits, image pin. UAT P-D07 PASSED with Laguna — Ship-It
+      regression guard.
+    applies_to: ["devopsautomator"]
+    language: html    # YAML signatures not registered; html proxy for fenced-block
+    prompt: |
+      Provide a complete Kubernetes manifest (Deployment + Service) for
+      a Python web service with these requirements:
+        - image: myorg/webapp pinned to tag v1.2.3
+        - readiness probe on /health
+        - resource limits: 512Mi memory, 0.5 CPU
+        - 3 replicas
+        - rolling update strategy
+        - includes a `kubectl rollout undo` command in a comment for
+          rollback reference
+
+      Single fenced code block. Complete YAML, no placeholders.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - structural.required_elements:
+          elements:
+            - "v1.2.3"
+            - "readinessProbe"
+            - "/health"
+            - "512Mi"
+            - "rollout undo"
+
+  # ── U. Creative coder particle system (UAT P-D20 PASS regression) ────
+  - id: creative-particle-system
+    description: >
+      Self-contained HTML/JS particle system. UAT P-D20 PASSED with
+      Laguna (this is the shape Laguna was selected for). Ship-It
+      regression guard — overlaps with V1's self-evident-canvas-snake
+      but is specific to the creativecoder persona.
+    applies_to: ["creativecoder"]
+    language: html
+    prompt: |
+      Build a self-contained HTML file with a canvas particle system:
+      particles emit on space-bar, fall with gravity, fade out over 2
+      seconds. Vanilla JS, no libraries. Ship it as one file, ready to
+      open in a browser. Don't ask clarifying questions.
+    assertions:
+      - structural.code_block_present
+      - structural.no_truncation_or_placeholders
+      - language.html
+      - behavioral.no_clarification_stall
+      - structural.required_elements:
+          elements:
+            - "canvas"
+            - "gravity"
+            - "space"
