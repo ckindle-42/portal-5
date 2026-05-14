@@ -1,17 +1,17 @@
 # P5_ROADMAP.md — Portal 5 Future Enhancements
 
 ```
-Portal 6.0.0 Roadmap
+Portal 6.1.0 Roadmap
 ==================
-Last updated: April 7, 2026
-Version: 6.0.0 (production-ready)
+Last updated: May 14, 2026
+Version: 6.1.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
-STATUS: DONE, IN_PROGRESS, FUTURE
+STATUS: DONE, BLOCKED, CANCELED
 ```
 
-All v5.0–v5.2 items are marked DONE in CHANGELOG.md. This document tracks
-genuinely open future work beyond the current stable release.
+All v5.0–v6.1.0 items are marked DONE in CHANGELOG.md. This document tracks
+genuinely open future work. Completed items are kept for reference only.
 
 ---
 
@@ -27,25 +27,33 @@ genuinely open future work beyond the current stable release.
 | P5-FUT-MATH | P3 | Math/STEM model + persona | DONE | M1: `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` + `mathreasoner` persona + `auto-math` workspace. |
 | P5-FUT-REASONING | P2 | Reasoning content passthrough to OWUI | DONE | M1: `reasoning_content` SSE field forwarded; `emits_reasoning: True` flag on workspaces. |
 | P5-FUT-PERSONAS-M1 | P3 | 18 frontier-gap personas | DONE | M1: compliance/language/workplace/specialty/vision personas added. |
-| P5-FUT-010 | P2 | Abliterated Qwen3.5 Ollama upgrade | FUTURE | Replace `qwen3.5:9b` and `deepseek-r1:32b-q4_k_m` Ollama slots with `huihui_ai/qwen3.5-abliterated` variants (same trusted provider as existing baronllm-abliterated and tongyi-deepresearch-abliterated). Sizes: 9B for coding/documents, 35B-A3B for reasoning/compliance. Uncensored — 0 refusals on standard abliteration benchmarks. |
-| P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | FUTURE | Self-convert `huihui-ai/Huihui-Qwen3.5-35B-A3B-abliterated` to MLX via `mlx_lm.convert` for `auto-compliance` primary slot. Replaces Jackrong Claude-4.6-Opus distillation with native uncensored Qwen3.5 (vision, thinking mode, 262K context). Alternatively use `HauhauCS/Qwen3.5-35B-A3B-Uncensored-HauhauCS-Aggressive` GGUF via Ollama as fallback. |
+| P5-FUT-010 | P2 | Abliterated Qwen3.5 Ollama upgrade | DONE | `huihui_ai/qwen3.5-abliterated:9b` is line 1 of ollama-general (TASK_TOOL_SUPPORT_AUDIT_V1, commit de96984). `huihui_ai/Qwen3.6-abliterated:27b` added as V6 larger fallback. |
+| P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | CANCELED | `auto-compliance` primary is now `granite-4.1-30b-mxfp4` (IBM GRC-trained, Apache 2.0, BFCL V3 73.7, 7.8 t/s). Granite won the V5 ladder bench over all Qwen3.5 variants. Uncensored MLX conversion no longer needed for this slot. |
 | P5-FUT-012 | P3 | Speech pipeline upgrade (mlx-audio) | DONE | Host-native `scripts/mlx-speech.py` using mlx-audio. Qwen3-TTS (1.7B, 3 variants: CustomVoice, VoiceDesign, Base/Clone) + Qwen3-ASR (1.7B) + Kokoro (82M). Voice cloning from 3s audio, emotion control, voice design from text, 10 languages, streaming. Docker TTS/ASR kept as fallback. |
-| P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | IN_PROGRESS | M4: config created (deploy/omlx/config.yaml), bench script created (bench_omlx.py), decision template (OMLX_DECISION.md). OMLX package not yet installable — evaluation deferred until available. |
-| P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | IN_PROGRESS | M4 Track 1: draft models (Qwen2.5-0.5B, Llama-3.2-1B) cataloged, DRAFT_MODEL_MAP in mlx-proxy.py, 8 targets mapped in backends.yaml. Bench validation pending (bench_tps.py --spec-decoding-tag). |
+| P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | CANCELED | Full bake-off completed 2026-04-25 (see OMLX_DECISION.md). Decision: RETIRE. KV cache not functional (warm TTFT 31% slower than cold). mlx-proxy wins on TPS and stability. |
+| P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | BLOCKED | Draft models cataloged and proxy logic built, but `speculative_decoding.draft_models: {}` in backends.yaml — disabled because mlx_lm 0.31.2 changed default cache to ArraysCache which is not trimmable. Re-enable when mlx_lm fixes cache trimming. |
 | P5-FUT-015 | P2 | Unified shared workspace | DONE | TASK-WORKSPACE-001. Single `${AI_OUTPUT_DIR}` root mounted into OWUI (uploads overlay) and all participating MCPs (`/workspace`). New `portal_mcp.core.workspace` helper module. AUDIO_STT_ENGINE disabled — voice-input loss documented. Foundation for TASK-TRANSCRIBE-001 and future file-handling MCPs. |
 | P5-FUT-014 | P3 | Diarized transcription (speaker-labeled) | DONE | TASK-TRANSCRIBE-001 (built on TASK-WORKSPACE-001 foundation). Host-native `scripts/mlx-transcribe.py` (mlx-whisper + pyannote.audio on MPS) primary on Apple Silicon, port 8924. Docker `whisper_mcp.py` extended with same `transcribe_with_speakers` tool for cross-platform fallback. New `transcriptanalyst` persona in `auto-documents` workspace handles full flow: detects audio attachments, calls tool, formats output, chains to `create_word_document` for docx. Uses `portal_mcp.core.workspace` helpers for file resolution. HF_TOKEN required (gated pyannote models). |
 
 ---
 
-## Implementation Notes
+## Open Items
 
-### P5-FUT-003: Usage Analytics Dashboard
+### P5-FUT-SPEC: Speculative Decoding — Waiting on mlx_lm Cache Fix
 
-IMPLEMENTED: `portal5_overview.json` v3 adds 6 new Usage Analytics panels (ids 13-18):
-workspace request trends, tokens by workspace, top workspaces, model×workspace matrix, and
-current request rate. All use existing Prometheus metrics — no new instrumentation needed.
+Infrastructure is built (draft models in `backends.yaml`, proxy logic in `mlx-proxy.py`) but disabled. `mlx_lm 0.31.2` changed the default cache to `ArraysCache` which is not trimmable — speculative decoding requires a trimmable cache to function. Re-enable by setting `draft_models` in `config/backends.yaml` once the mlx_lm upstream fix lands.
 
-Per-user analytics remain blocked: Open WebUI does not expose user IDs to the Pipeline.
+### P5-MTP-001: Multi-Token Prediction Proxy Support (LOW priority)
+
+MTP speculative decoding (3.94× speedup verified at temp=0) requires passing `--draft-model` and `--draft-kind mtp` to `mlx_lm.server`. The proxy does not currently support this. Deprioritized because even with MTP, BF16 path (~12 TPS) is slower than 4-bit MoE alternatives (25–40 TPS). Create TASK_MTP_PROXY_V1.md to implement if this changes.
+
+### workspace-clean Utility (LOW priority)
+
+`${AI_OUTPUT_DIR}` grows unbounded. Planned command `./launch.sh workspace-clean --age=Nd` deletes generated artifacts older than N days. Not yet implemented.
+
+---
+
+## Implementation Notes (completed items)
 
 ### P5-FUT-004: Webhook-Based Event Notifications
 
@@ -99,41 +107,9 @@ MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 
 ---
 
-### P5-FUT-013: OMLX Evaluation
+### P5-FUT-013: OMLX Evaluation — CANCELED
 
-**NOT YET STARTED** — spike evaluation only, not a replacement commitment.
-
-**What OMLX offers** (validated from repo, v0.3.x as of 2026-04-20):
-- Continuous batching via mlx-lm BatchGenerator (configurable concurrency, default: 8)
-- Two-tier KV cache: hot (RAM) + cold (SSD, safetensors format), survives restarts
-- Multi-model serving: LLMs, VLMs, embeddings, rerankers in one process
-- LRU eviction + model pinning + per-model TTL + process memory enforcement
-- OpenAI /v1/chat/completions + Anthropic API compatible
-- Native macOS menu bar app (PyObjC, not Electron) OR CLI `omlx serve`
-- DFlash speculative decoding (experimental, 3-4x speedup on supported models)
-- mlx-audio integration: STT (Whisper, Qwen3-ASR), TTS (Qwen3-TTS, Kokoro)
-- Built-in admin dashboard with benchmarking
-
-**What Portal 5 would need to verify**:
-1. Can OMLX enforce the MODEL_MEMORY admission control checks?
-   - OMLX has `--max-model-memory` and `--max-process-memory` — may cover this
-2. Can OMLX replicate the VLM_MODELS routing (mlx_lm ↔ mlx_vlm auto-switch)?
-   - OMLX has VLMEngine with auto-detection — likely yes, needs testing
-3. Can OMLX handle BIG_MODEL_SET eviction (unload everything, load 46GB model)?
-   - OMLX has manual load/unload + LRU eviction — likely yes
-4. Does OMLX work with mlx-lm<0.31 pin (qwen3_next architecture)?
-   - OMLX uses its own mlx-lm fork — version compatibility unknown
-5. Does OMLX respect the 0.0.0.0 binding requirement for LAN access?
-   - CLI supports `--host 0.0.0.0` — yes
-6. Can OMLX integrate with existing Prometheus metrics?
-   - OMLX has persistent stats — may need a metrics bridge
-7. Does OMLX's mlx-audio subsystem overlap/conflict with mlx-speech.py?
-   - Both use Qwen3-TTS/Kokoro — potential consolidation opportunity
-
-**Evaluation approach**: Install OMLX on host alongside existing mlx-proxy on port 8000
-(proxy stays on 8081). Run the same bench_tps.py benchmark against both. Compare TPS,
-model switch latency, and memory behavior. If parity + improvement confirmed, plan
-migration as a separate task file.
+Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md` for full results. KV cache persistence not functional (warm TTFT 31% *slower* than cold). mlx-proxy retains the production inference role.
 
 ---
 
