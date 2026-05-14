@@ -1,11 +1,3 @@
-# ──────────────────────────────────────────────────────────────────────────
-# CI FREEZE — 2026-05-04 — see TASK_MATRIX_DRIVER_REMEDIATION_V1
-# Nightly matrix is in continue-on-error mode while the methodology is
-# under remediation. Re-enable as a hard gate after operator runs the
-# post-remediation baseline and is satisfied with PASS rates.
-# Tracking: KNOWN_LIMITATIONS.md → P5-MATRIX-001
-# ──────────────────────────────────────────────────────────────────────────
-
 # Nightly persona-matrix sweep + baseline diff.
 #
 # Runs on a schedule and on PRs that touch persona/fixture/assertion code.
@@ -49,7 +41,7 @@ jobs:
   matrix-sweep:
     runs-on: self-hosted
     timeout-minutes: 120
-    continue-on-error: true   # FREEZE — see banner above
+    continue-on-error: false
     steps:
       - uses: actions/checkout@v4
 
