@@ -292,7 +292,7 @@ backends:
       - id: granite4.1:8b
         supports_tools: true
         notes: "IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) — verified tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as auto-video primary (de96984)."
-      - id: huihui_ai/Qwen3.6-abliterated
+      - id: huihui_ai/Qwen3.6-abliterated:27b
         supports_tools: true
         notes: "V6 add (TASK_MODEL_REFRESH_V6). Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Lineage successor to huihui_ai/qwen3.5-abliterated:9b (line 1). MoE 3B active — fast decode, larger uncensored fallback for AUTO. Same author lineage as baronllm-abliterated and tongyi-deepresearch-abliterated. supports_tools=true per Qwen3.6 family tool-tagging (verify with --audit-tools before workspace promotion)."
 
@@ -307,9 +307,9 @@ backends:
       - id: qwen3-coder:30b
         supports_tools: true
         notes: "30B-A3B MoE (3B active), 19GB — primary Ollama coding fallback"
-      - id: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M
+      - id: hf.co/mradermacher/OmniCoder-2-9B-GGUF:Q4_K_M
         supports_tools: false
-        notes: "V6 bench candidate (TASK_MODEL_REFRESH_V6). Tesslate OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0). Qwen3.5-9B base, SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. v2 fixes v1's repetition loops, bloated thinking, agentic-loop instability (cosine LR died at step 60 in v1). supports_tools=false until verified via tests/portal5_persona_matrix.py --audit-tools (card describes tool format as 'flexible' — not OpenAI-schema confirmed)."
+        notes: "V6 bench candidate (TASK_MODEL_REFRESH_V6). mradermacher OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0). Qwen3.5-9B base, SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. v2 fixes v1's repetition loops, bloated thinking, agentic-loop instability. Repo changed from Tesslate/OmniCoder-2-9B-GGUF (404) to mradermacher/OmniCoder-2-9B-GGUF (verified public). supports_tools=false until verified via tests/portal5_persona_matrix.py --audit-tools."
       - id: deepseek-coder-v2:16b-lite-instruct-q4_K_M
         supports_tools: false
         notes: "Older Coder V2, no Ollama tools tag verified"
@@ -462,7 +462,7 @@ workspace_routing:
   # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ──────────────────────────
   bench-qwen36-27b:        [mlx, coding, general]   # froggeric/Qwen3.6-27B-MLX-4bit (Alibaba, dense 27B + vision, ~16GB)
   bench-qwen36-35b-a3b:    [mlx, coding, general]   # mlx-community/Qwen3.6-35B-A3B-4bit (Alibaba MoE 3B active, ~20GB)
-  bench-omnicoder2:        [coding, general]        # hf.co/Tesslate/OmniCoder-2-9B-GGUF (Qwen3.5-9B SFT on agentic traces, Ollama only)
+  bench-omnicoder2:        [coding, general]        # hf.co/mradermacher/OmniCoder-2-9B-GGUF (Qwen3.5-9B SFT on agentic traces, Ollama only)
   bench-negentropy:        [mlx, reasoning, general]  # Jackrong/Negentropy-claude-opus-4.7-9B-6bit (trace-inversion reasoning, ~7GB)
   bench-olmo3-32b:         [mlx, reasoning, general]  # mlx-community/Olmo-3-1125-32B-4bit (Allen AI dense 32B, non-Qwen lineage)
 
