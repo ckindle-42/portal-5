@@ -702,6 +702,32 @@ def _detect_mlx_crash_errors(errors: list[str]) -> bool:
     return any(any(sig in e for sig in crash_signals) for e in errors)
 
 
+_MLX_TINY_MODEL = "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
+
+
+def _mlx_preevict_if_pressure_high(threshold_pct: float = 80.0) -> None:
+    """If memory pressure is high, load the smallest MLX model to evict
+    whatever large model is currently in Metal before the main pressure check.
+
+    The pressure check fires BEFORE the warmup switch, so a large model
+    sitting in Metal can cause a false-positive SKIP even when loading the
+    target model would reduce net usage. Pre-evicting here lets the check
+    see the post-eviction state instead.
+    """
+    safe, used = _check_memory_pressure(threshold_pct=threshold_pct)
+    if safe:
+        return
+    try:
+        h = httpx.get(f"{MLX_URL}/health", timeout=3.0).json()
+        loaded = h.get("loaded_model", "")
+        if loaded and loaded != _MLX_TINY_MODEL and h.get("state") == "ready":
+            print(f"(pre-evict @{used:.0f}%) ", end="", flush=True)
+            _warmup_mlx_model(_MLX_TINY_MODEL)
+            time.sleep(3)
+    except Exception:
+        pass
+
+
 def _mlx_proxy_alive() -> bool:
     """Return True if the MLX proxy process is responding to health checks.
 
@@ -1606,6 +1632,9 @@ def bench_direct(
             prompt = _get_prompt_for_model(model)
             # Mutual exclusion: evict Ollama before loading MLX (shared unified memory)
             _ensure_ollama_evicted()
+            # Pre-evict large MLX model if memory is tight — the warmup switch
+            # would free it anyway, but the pressure check fires before warmup.
+            _mlx_preevict_if_pressure_high(threshold_pct=80.0)
             # Memory pressure check
             safe, used = _check_memory_pressure(threshold_pct=80.0)
             if not safe:
