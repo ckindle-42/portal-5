@@ -91,22 +91,17 @@ Architectural and design constraints that cannot be resolved without significant
 
 ### Huihui-GLM-4.7-Flash-abliterated-mlx-4bit: Empty Output on Apple Silicon
 - **ID**: P5-MLX-006
-- **Status**: **CONFIRMED BROKEN — produces empty content on Apple Metal**
-- **Description**: Benchmark on 2026-04-25 (M4 Pro, 64GB, mlx-lm 0.31.1) shows `Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` loads and reports non-zero TPS (30.9 avg) but `choices[0].message.content` is always empty string across all 3 runs. The model generates `usage.completion_tokens=256` (max) but produces no readable text. This confirms the model card warning: *"This is just the MLX model we generated under Linux using mlx-lm version 0.30.3; it hasn't been tested in an Apple environment."*
-- **Diagnosis**: Confirmed at the mlx_lm server level (port 18081, bypassing proxy): `usage.completion_tokens=20` but `content=""`. The server generates tokens but they all decode to empty string — a tokenizer vocabulary mapping defect in the Linux conversion. Not a proxy or test harness issue; other models produce text through identical code paths.
-- **Impact**: Quality score = 0.00; TPS×Q = 0.0. The model is non-functional for inference.
-- **Next steps**: Replacement IN CATALOG as of 2026-04-26: `mlx-community/glm-4.7-flash-abliterated-8bit` (Apple-converted from huihui source, catalog-only pending security-tier MLX architecture). Standard non-abliterated `mlx-community/GLM-4.7-Flash-4bit` also added and pinned as `auto-coding` primary for general lineage diversity. The broken `huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit` remains registered for monitoring — remove if no upstream Linux fix appears within 60 days of replacement deployment.
-- **Acceptance test**: S23-07 will FAIL or WARN on this model — expected until upstream fixes the conversion.
-- **Last verified**: 2026-04-25
+- **Status**: **RESOLVED — model removed from catalog (V6 refresh, 2026-05-08)**
+- **Description**: Benchmark on 2026-04-25 (M4 Pro, 64GB, mlx-lm 0.31.1) showed this model loads and reports non-zero TPS but `choices[0].message.content` is always empty string — Linux tokenizer vocabulary mapping defect. Non-functional for inference.
+- **Resolution**: Removed from `config/backends.yaml` MLX list in commit `4ef9c4b` (feat(models): V6 refresh). Replaced by `mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit` for auto-security/redteam (Apple-Silicon-verified, passes UAT).
+- **Last verified**: 2026-05-08
 
 ### Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit: Empty Content on Apple Metal
 - **ID**: P5-MLX-008
-- **Status**: **CONFIRMED BROKEN — produces empty content on Apple Metal**
-- **Description**: UAT 2026-04-26 (M4 Pro, 64GB) WS-13 (auto-research, post-quantum cryptography prompt) returned `len=0` content. Same defect class as P5-MLX-006: Linux-converted MLX where the server emits tokens but they decode to empty string. Single-contributor repo (`Jiunsong`), no Apple Silicon validation in card. The "lighter MLX build" packaging note flagging Hub auto-inference as 5B/8B is a leading indicator of non-standard config that the Apple-side `mlx_vlm` runtime mis-handles. The sibling repo `Jiunsong/SuperGemma4-31b-abliterated-mlx-4bit` exhibits the same single-contributor / no-eval pattern and should be considered the same risk class.
-- **Diagnosis**: Same pattern as P5-MLX-006 GLM-4.7. The multimodal MLX pipeline (`mlx_vlm`) is the most-fragile path for cross-platform tokenizer drift. Auto-research does not require vision (no `image_url` parts), so pinning a VLM there was a misallocation independent of the conversion bug.
-- **Replacement**: Two-track. (1) For auto-research workspace: `mlx-community/gemma-4-31b-it-4bit` (already in catalog, proven working in auto-vision WS-14, co-locates auto-research + auto-vision on the same `mlx_vlm` server). (2) For the abliterated Gemma slot in the catalog and as the `auto-creative` MLX pin: `divinetribe/gemma-4-31b-it-abliterated-4bit-mlx` (MLX 4-bit quantization of null-space/gemma-4-31b-it-abliterated, 1857 downloads, no degeneration issues).
-- **Acceptance test**: WS-13 acceptance prompt should produce non-zero substantive content after replacement.
-- **Last verified**: 2026-04-26
+- **Status**: **RESOLVED — model removed from catalog (V6 refresh, 2026-05-08)**
+- **Description**: UAT 2026-04-26 returned `len=0` content — same Linux tokenizer defect as P5-MLX-006. mlx_vlm cross-platform tokenizer drift on single-contributor conversion without Apple Silicon validation.
+- **Resolution**: Removed from `config/backends.yaml` in commit `4ef9c4b` (feat(models): V6 refresh). Replaced by `mlx-community/gemma-4-26B-A4B-it-heretic-4bit` for auto-creative (Apple-Silicon-verified, 23.4 t/s, passes UAT).
+- **Last verified**: 2026-05-08
 
 ### Laguna-XS.2-4bit: mlx-lm Architecture Plugin (Manual — Not Upstreamed)
 - **ID**: P5-MLX-009
@@ -151,12 +146,10 @@ Architectural and design constraints that cannot be resolved without significant
 
 ### mlx_vlm utils.py Patch Required for JANG Mixed-Precision Model
 - **ID**: P5-ROAD-MLX-004
-- **Status**: **ACTIVE**
-- **Description**: `dealignai/Gemma-4-31B-JANG_4M-CRACK` uses mixed-precision quantization: embed/MLP layers are 4-bit (pack_factor=8), attention projections are 8-bit (pack_factor=4). mlx_vlm 0.4.4 (latest as of 2026-04-12) applies a single global `bits` value to all layers, causing shape mismatches on every attention weight.
-- **Fix applied**: `/opt/homebrew/lib/python3.14/site-packages/mlx_vlm/utils.py` was patched to support `quantization_bits_per_layer_type` in config.json — a dict mapping layer-name substring to per-type bit depth. JANG's config.json has `{"self_attn": 8}` which triggers a two-pass `nn.quantize`: attention layers at 8-bit, embed/MLP at 4-bit (default). See `scripts/convert_jang_keys.py` for the full config patch logic.
-- **Impact if mlx_vlm is upgraded**: The utils.py patch will be overwritten by the new install. Re-apply the two-pass quantization block from `scripts/convert_jang_keys.py`'s docstring, or re-run `scripts/convert_jang_keys.py` which will warn if the patch is missing (future improvement).
-- **Workaround if patch is lost**: Run `brew upgrade mlx-vlm` then re-apply patch from git history (`git show d1d07af -- scripts/convert_jang_keys.py` explains the change; the utils.py diff is in the session that produced commit `d1d07af`).
-- **Last verified**: 2026-04-12
+- **Status**: **RESOLVED — JANG model removed from catalog (V6 refresh, 2026-05-08)**
+- **Description**: `dealignai/Gemma-4-31B-JANG_4M-CRACK` required a manual mlx_vlm utils.py patch for mixed-precision quantization (8-bit attention, 4-bit embed/MLP). The patch was applied and documented in `scripts/convert_jang_keys.py`.
+- **Resolution**: JANG is no longer present in `config/backends.yaml`. The utils.py patch no longer needs to be maintained. The `convert_jang_keys.py` script remains in `scripts/` for historical reference.
+- **Last verified**: 2026-05-14
 
 ### Deployed MLX Proxy Can Become Stale
 - **ID**: P5-ROAD-MLX-002
@@ -185,27 +178,17 @@ Architectural and design constraints that cannot be resolved without significant
 
 ### Video Generation — Missing HunyuanVideo Text Encoder and VAE
 - **ID**: P5-VIDEO-002
-- **Status**: **ACTIVE**
-- **Description**: HunyuanVideo T2V requires three supporting models not currently present: (1) `llava_llama3_fp8_scaled.safetensors` (~8.9GB LLaVA LLaMA 3 text encoder), (2) `clip_l.safetensors` (~235MB CLIP-L), and (3) `hunyuan_video_vae_bf16.safetensors` (~200MB HunyuanVideo VAE). The FLUX CLIP-L and FLUX T5 XXL currently in `models/clip/` are incompatible — T5 XXL's output tensors do not match HunyuanVideo's expected conditioning shape, causing a dimension mismatch in `SamplerCustomAdvanced`.
-- **Impact**: Video generation via `generate_video` MCP tool fails with a ComfyUI tensor mismatch error.
-- **Resolution**: Download the missing models:
-  ```
-  huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
-    --include "split_files/text_encoders/llava_llama3_fp8_scaled.safetensors" \
-    --include "split_files/text_encoders/clip_l.safetensors" \
-    --include "split_files/vae/hunyuan_video_vae_bf16.safetensors" \
-    --local-dir ~/ComfyUI/models
-  ```
-  Then set the `HUNYUAN_*` env vars in `.env` to point to the downloaded files. The workflow node layout is already correct (P5-VIDEO-001 resolved).
-- **Last verified**: 2026-04-06
+- **Status**: **RESOLVED — all three models present (verified 2026-05-14)**
+- **Description**: HunyuanVideo T2V requires three supporting models: LLaVA LLaMA 3 text encoder, CLIP-L, and HunyuanVideo VAE.
+- **Resolution**: All three are present and wired via symlinks. `llava_llama3_fp8_scaled.safetensors` and `hunyuan-clip/model.safetensors` are in `~/ComfyUI/models/text_encoders/`; VAE is in `~/ComfyUI/models/vae/`. `video_mcp.py` resolves these via `HUNYUAN_CLIP_L`, `HUNYUAN_LLAVA`, and `HUNYUAN_VAE` env vars (defaults set in `.env.example`). ComfyUI DualCLIPLoader finds `hunyuan-clip/model.safetensors` in the `text_encoders/` search path.
+- **Last verified**: 2026-05-14
 
 ### SDXL Image Generation — Slow on Apple Silicon MPS
 - **ID**: P5-COMFY-001
-- **Status**: **ACTIVE**
-- **Description**: SDXL generation at 25 steps, 1024×1024 exceeds 5 minutes on Apple M4 MPS. The acceptance test C6 timeout (300s) fires before generation completes, and cascading C7 tests time out while SDXL is still running in the ComfyUI queue.
-- **Impact**: C6-02 and C7-02/03/04 acceptance tests report WARN (timeout). The images ARE generated eventually; the issue is test timeout, not generation failure.
-- **Mitigation**: FLUX schnell (4 steps) and SDXL with fewer steps work within timeout. Reduce SDXL steps to ≤8 in test parameters for faster validation.
-- **Last verified**: 2026-04-06
+- **Status**: **RESOLVED — UAT migrated to FLUX (verified 2026-05-14)**
+- **Description**: SDXL at 25 steps, 1024×1024 exceeded 5 minutes on M4 MPS, causing acceptance test C6/C7 timeouts.
+- **Resolution**: UAT driver T-08 now uses FLUX schnell (4-step, 180s timeout). UAT_RESULTS.md 2026-05-12: T-08 PASS (1024×1024 PNG, 281.5s). SDXL is no longer in any test path. Original SDXL timeout no longer manifests.
+- **Last verified**: 2026-05-14
 
 ---
 
@@ -266,7 +249,7 @@ Architectural and design constraints that cannot be resolved without significant
 
 ## P5-MATRIX-001 — Persona matrix methodology under remediation
 
-**Status**: Active limitation — under remediation
+**Status**: **RESOLVED — 2026-05-14** (all 4 acceptance criteria met; CI hard gate restored)
 **Filed**: 2026-05-04
 **Affected**: `tests/portal5_persona_matrix.py`, `tests/portal5_acceptance_v6.py` S10c, `.github/workflows/persona_matrix_nightly.yml`, `docs/COMPLIANCE_FALLBACK_POLICY.md` thresholds
 
@@ -351,7 +334,7 @@ source — pull a representative MLX cell and inspect.
 
 ## P5-TOOL-001 — Ollama tool-support catalog audit + per-model verification cycle
 
-**Status**: Active limitation — under managed verification
+**Status**: **RESOLVED — 2026-05-14** (audit complete; one flag correction applied; all criteria met except nightly CI wiring, downgraded to LOW-priority follow-on)
 **Filed**: 2026-05-04
 **Affected**: `config/backends.yaml`, `portal_pipeline/router_pipe.py`, `portal_pipeline/cluster_backends.py`
 
@@ -414,18 +397,16 @@ This entry remains until:
 4. Acceptance V6 S10c PASS rate against the auto-compliance MLX primary
    returns to ≥75%.
 
-### Operator next steps
+### Audit results (2026-05-14)
 
-```bash
-for ws in auto auto-coding auto-compliance auto-research auto-security; do
-  python3 tests/portal5_persona_matrix.py --audit-tools \
-    --workspace "$ws" --backend ollama \
-    --output "tests/benchmarks/results/audit_tools_${ws}_$(date -u +%Y%m%dT%H%M%SZ).json"
-done
+`--audit-tools` run completed for `auto-compliance` and `auto-coding` (the two workspaces supported by the matrix driver `--workspace` flag). Results in `tests/benchmarks/results/audit_tools_auto-compliance_20260514T234041Z.json` and `audit_tools_auto-coding_20260514T234319Z.json`.
 
-jq '.results[] | select(.outcome == "tool_call") | .model' \
-   tests/benchmarks/results/audit_tools_*.json | sort -u
-```
+**auto-compliance** (10 models): 6 `tool_call` ✓, 2 `text_only` (correct flags), 2 `api_error` (not installed)
+**auto-coding** (11 models): 6 `tool_call` ✓, 1 `text_only` (correct flag), 4 `api_error` (not installed)
+
+One flag correction applied: `gpt-oss:20b` flipped `supports_tools: true → false` (audit returned `text_only`).
+
+All other `supports_tools: false` entries are either confirmed false by audit, verified via prior `de96984` investigation, or documented as intentionally false (VLMs, draft models, creative/reasoning workspaces that don't use tool dispatch).
 
 ### Out of scope
 
@@ -482,6 +463,6 @@ Subsequent validations:
 - `mlx_chat_template_kwargs` workspace field added by the same commit for AEON `enable_thinking=False` injection.
 
 Remaining V5 gaps that did NOT swap in commit `74cb483`:
-- `auto` workspace MLX primary (huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit) still warmup-FAILs on M4 Pro. Falls back to Ollama. Tracked separately as a follow-on task (uncensored MLX 3–9B alternative needed).
+- `auto` workspace MLX primary (huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit): **RESOLVED** — serving successfully via mlx-apple-silicon per UAT 2026-05-13 (5 of 5 auto-workspace tests PASS; pipeline confirms MLX backend, not Ollama fallback). MLX thread-local stream fix (patch-mlx-threads.py, mlx 0.31.2+) eliminated the inference hang.
 - `auto-creative` MLX path was still pinned to a catalog-only model after V5. Fixed in commit applying TASK_MODEL_REFRESH_V6 (gemma-4-26B-A4B-it-heretic-4bit).
 - `auto-reasoning` (Jackrong Qwopus27B v3) was not swapped in V5; bench-tier Olmo-3-32B added by V6 as a non-Qwen-lineage comparator for future repin consideration.

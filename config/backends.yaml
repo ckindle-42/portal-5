@@ -362,8 +362,8 @@ backends:
         supports_tools: false
         notes: "Primary: strong reasoning + chain-of-thought. Reasoning-trained, not tool-trained — supports_tools intentionally false to prevent reasoning-budget exhaustion mixing with tool-call rendering."
       - id: gpt-oss:20b
-        supports_tools: true
-        notes: "~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use"
+        supports_tools: false
+        notes: "~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools set to false: --audit-tools 2026-05-14 returned text_only (no tool_call emitted despite model card claims)."
       - id: granite4.1:8b
         supports_tools: true
         notes: "REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1 §A11). Granite 4.1 8B is tool-tagged (BFCL V3 68.27); dolphin-llama3:8b is not. Dolphin retained in ollama-general line 2 for model_hint continuity."
