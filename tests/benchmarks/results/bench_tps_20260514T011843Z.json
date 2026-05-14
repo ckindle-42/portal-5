@@ -496,58 +496,6 @@
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
-      "model": "auto-redteam",
-      "label": "pipeline",
-      "runs_total": 5,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0.0,
-      "avg_ttft_s": null,
-      "routed_model": "",
-      "prompt_category": "security",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": null,
-      "expected_model_detail": "",
-      "runs": [
-        {
-          "run": 1,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 2,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 3,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 4,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 5,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        }
-      ],
-      "backend": "pipeline",
-      "path": "pipeline",
-      "workspace": "auto-redteam",
-      "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
       "model": "auto-creative",
       "label": "pipeline",
       "runs_total": 5,
@@ -3759,86 +3707,6 @@
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
-      "model": "auto-agentic",
-      "label": "persona",
-      "runs_total": 5,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 16.33,
-      "avg_ttft_s": null,
-      "routed_model": "auto-agentic",
-      "prompt_category": "coding",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "MLX:qwen3-coder-next-4bit | Ollama:qwen3-coder",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 62.66,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-agentic",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 4.76,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-agentic",
-          "response_text": ""
-        },
-        {
-          "run": 3,
-          "elapsed_s": 4.73,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-agentic",
-          "response_text": ""
-        },
-        {
-          "run": 4,
-          "elapsed_s": 4.75,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-agentic",
-          "response_text": ""
-        },
-        {
-          "run": 5,
-          "elapsed_s": 4.75,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-agentic",
-          "response_text": ""
-        }
-      ],
-      "backend": "pipeline",
-      "path": "persona",
-      "persona_slug": "codebasewikidocumentationskill",
-      "persona_name": "Codebase WIKI Documentation Skill",
-      "persona_category": "development",
-      "workspace_model": "auto-agentic",
-      "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
       "model": "auto-coding",
       "label": "persona",
       "runs_total": 5,
@@ -4285,52 +4153,6 @@
       "workspace": "bench-omnicoder2"
     },
     {
-      "model": "auto-music",
-      "label": "pipeline",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 14.49,
-      "avg_ttft_s": null,
-      "routed_model": "auto-music",
-      "prompt_category": "creative",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "Ollama:qwen3.5-abliterated",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 14.81,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-music",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 14.17,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "auto-music",
-          "response_text": ""
-        }
-      ],
-      "backend": "pipeline",
-      "path": "pipeline",
-      "workspace": "auto-music"
-    },
-    {
       "model": "auto-video",
       "label": "pipeline",
       "runs_total": 2,
@@ -4467,52 +4289,6 @@
       "backend": "pipeline",
       "path": "pipeline",
       "workspace": "auto-redteam"
-    },
-    {
-      "model": "bench-gptoss",
-      "label": "pipeline",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 8.38,
-      "avg_ttft_s": null,
-      "routed_model": "bench-gptoss",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "Ollama:gpt-oss",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 11.78,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "bench-gptoss",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 4.97,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "bench-gptoss",
-          "response_text": ""
-        }
-      ],
-      "backend": "pipeline",
-      "path": "pipeline",
-      "workspace": "bench-gptoss"
     },
     {
       "model": "bench-granite41-30b",
@@ -4882,61 +4658,6 @@
       "est_memory_gb": 5.0
     },
     {
-      "model": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 6.28,
-      "avg_ttft_s": null,
-      "routed_model": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
-      "prompt_category": "general",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested huihui-qwen3.5-9b-abliterated-mlx-4bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 6.91,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 5.5,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 5.65,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 6.0
-    },
-    {
       "model": "mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit",
       "label": "mlx-direct",
       "runs_total": 2,
@@ -4990,116 +4711,6 @@
       "path": "direct",
       "available": true,
       "est_memory_gb": 7.0
-    },
-    {
-      "model": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 10.56,
-      "avg_ttft_s": null,
-      "routed_model": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
-      "prompt_category": "general",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested negentropy-claude-opus-4.7-9b-6bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 11.44,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 9.68,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 7.0
-    },
-    {
-      "model": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 20.4,
-      "avg_ttft_s": null,
-      "routed_model": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested phi-4-reasoning-plus-mlx-4bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 19.44,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 21.36,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 8.0
     },
     {
       "model": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
@@ -5322,80 +4933,6 @@
       "est_memory_gb": 14.0
     },
     {
-      "model": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "reset: retrying after HF access granted",
-      "est_memory_gb": 14.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
-    },
-    {
-      "model": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 36.2,
-      "avg_ttft_s": null,
-      "routed_model": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested mlx-qwen3.5-27b-claude-4.6-opus-reasoning-distilled-v2-4bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 37.29,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 14.3,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.2,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 35.12,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.2,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.2,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 14.0
-    },
-    {
       "model": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
       "label": "mlx-direct",
       "runs_total": 2,
@@ -5442,61 +4979,6 @@
           "memory_free_gb_before": 0.1,
           "memory_used_gb_before": 0.0,
           "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 15.0
-    },
-    {
-      "model": "mlx-community/GLM-4.7-Flash-4bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 4.83,
-      "avg_ttft_s": null,
-      "routed_model": "mlx-community/GLM-4.7-Flash-4bit",
-      "prompt_category": "coding",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested glm-4.7-flash-4bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 4.99,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/GLM-4.7-Flash-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.1,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.3,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 4.67,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/GLM-4.7-Flash-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.3,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.3,
           "memory_used_gb_after": 0.0
         }
       ],
@@ -5836,61 +5318,6 @@
       "est_memory_gb": 19.0
     },
     {
-      "model": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 20.7,
-      "avg_ttft_s": null,
-      "routed_model": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
-      "prompt_category": "vision",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested gemma-4-31b-it-abliterated-4bit-mlx",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 21.39,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
-          "response_text": "",
-          "memory_free_gb_before": 18.6,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.3,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 20.02,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
-          "response_text": "",
-          "memory_free_gb_before": 0.3,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.3,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 20.0
-    },
-    {
       "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
       "label": "mlx-direct",
       "runs_total": 2,
@@ -5992,61 +5419,6 @@
           "memory_free_gb_before": 19.5,
           "memory_used_gb_before": 0.0,
           "memory_free_gb_after": 19.5,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 22.0
-    },
-    {
-      "model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 62.62,
-      "avg_ttft_s": null,
-      "routed_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested mlx-qwopus3.5-27b-v3-8bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 63.53,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.0,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.2,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 61.71,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.2,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.4,
           "memory_used_gb_after": 0.0
         }
       ],
@@ -6883,106 +6255,6 @@
       ]
     },
     {
-      "model": "huihui_ai/qwen3.5-abliterated:9b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 10.1,
-      "avg_ttft_s": null,
-      "routed_model": "huihui_ai/qwen3.5-abliterated:9b",
-      "prompt_category": "general",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested qwen3.5-abliterated:9b",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 10.1,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 10.1,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/qwen3.5-abliterated:9b",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 5.4,
-      "groups": [
-        "general"
-      ]
-    },
-    {
-      "model": "qwen3.5:9b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 10.29,
-      "avg_ttft_s": null,
-      "routed_model": "qwen3.5:9b",
-      "prompt_category": "coding",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested qwen3.5:9b",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 10.31,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "qwen3.5:9b",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 10.27,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "qwen3.5:9b",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 5.4,
-      "groups": [
-        "coding"
-      ]
-    },
-    {
       "model": "omnicoder2:9b-q4_k_m",
       "label": "ollama-direct",
       "runs_total": 2,
@@ -7083,56 +6355,6 @@
       ]
     },
     {
-      "model": "gpt-oss:20b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 5.11,
-      "avg_ttft_s": null,
-      "routed_model": "gpt-oss:20b",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested gpt-oss:20b",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 5.2,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "gpt-oss:20b",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 5.01,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "gpt-oss:20b",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 12.0,
-      "groups": [
-        "reasoning"
-      ]
-    },
-    {
       "model": "devstral:24b",
       "label": "ollama-direct",
       "runs_total": 2,
@@ -7230,106 +6452,6 @@
       "est_memory_gb": 14.4,
       "groups": [
         "security"
-      ]
-    },
-    {
-      "model": "supergemma4-26b-uncensored:q4_k_m",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 4.95,
-      "avg_ttft_s": null,
-      "routed_model": "supergemma4-26b-uncensored:q4_k_m",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested supergemma4-26b-uncensored:q4_k_m",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 5.09,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "supergemma4-26b-uncensored:q4_k_m",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 4.81,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "supergemma4-26b-uncensored:q4_k_m",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 15.6,
-      "groups": [
-        "reasoning"
-      ]
-    },
-    {
-      "model": "huihui_ai/Qwen3.6-abliterated:27b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 58.15,
-      "avg_ttft_s": null,
-      "routed_model": "huihui_ai/Qwen3.6-abliterated:27b",
-      "prompt_category": "general",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested qwen3.6-abliterated:27b",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 58.21,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/Qwen3.6-abliterated:27b",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 58.09,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/Qwen3.6-abliterated:27b",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 16.2,
-      "groups": [
-        "general"
       ]
     },
     {
@@ -7481,56 +6603,6 @@
       "groups": [
         "security",
         "reasoning"
-      ]
-    },
-    {
-      "model": "qwen3-vl:32b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 24.15,
-      "avg_ttft_s": null,
-      "routed_model": "qwen3-vl:32b",
-      "prompt_category": "vision",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested qwen3-vl:32b",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 25.19,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "qwen3-vl:32b",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 23.11,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "qwen3-vl:32b",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 19.2,
-      "groups": [
-        "vision"
       ]
     },
     {
@@ -7735,56 +6807,6 @@
       ]
     },
     {
-      "model": "huihui_ai/tongyi-deepresearch-abliterated",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 4.16,
-      "avg_ttft_s": null,
-      "routed_model": "huihui_ai/tongyi-deepresearch-abliterated",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "requested tongyi-deepresearch-abliterated",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 4.32,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/tongyi-deepresearch-abliterated",
-          "response_text": ""
-        },
-        {
-          "run": 2,
-          "elapsed_s": 3.99,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "huihui_ai/tongyi-deepresearch-abliterated",
-          "response_text": ""
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 20.0,
-      "groups": [
-        "reasoning"
-      ]
-    },
-    {
       "model": "llama3.3:70b-q4_k_m",
       "label": "ollama-direct",
       "runs_total": 2,
@@ -7885,116 +6907,6 @@
       ]
     },
     {
-      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 42.11,
-      "avg_ttft_s": null,
-      "routed_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested deepseek-r1-distill-qwen-32b-abliterated-4bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 42.69,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 29.9,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 29.9,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 41.54,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-          "response_text": "",
-          "memory_free_gb_before": 29.9,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 12.4,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 18.0
-    },
-    {
-      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-      "label": "mlx-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": 0.0,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 76.96,
-      "avg_ttft_s": null,
-      "routed_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": true,
-      "expected_model_detail": "requested deepseek-r1-distill-qwen-32b-mlx-8bit",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 76.9,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-          "response_text": "",
-          "memory_free_gb_before": 12.4,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.2,
-          "memory_used_gb_after": 0.0
-        },
-        {
-          "run": 2,
-          "elapsed_s": 77.02,
-          "prompt_tokens": 0,
-          "completion_tokens": 0,
-          "tps": 0.0,
-          "time_to_first_token_s": null,
-          "response_model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-          "response_text": "",
-          "memory_free_gb_before": 0.2,
-          "memory_used_gb_before": 0.0,
-          "memory_free_gb_after": 0.1,
-          "memory_used_gb_after": 0.0
-        }
-      ],
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 34.0
-    },
-    {
       "model": "auto-agentic",
       "label": "persona",
       "runs_total": 2,
@@ -8042,86 +6954,6 @@
       "persona_name": "Codebase WIKI Documentation Skill",
       "persona_category": "development",
       "workspace_model": "auto-agentic",
-      "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "auto-data",
-      "label": "persona",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0.0,
-      "avg_ttft_s": null,
-      "routed_model": "",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": null,
-      "expected_model_detail": "",
-      "runs": [
-        {
-          "run": 1,
-          "error": "HTTP 503: {\"detail\":\"Server busy \u2014 too many concurrent requests. Please retry.\"}",
-          "elapsed_s": 0.05
-        },
-        {
-          "run": 2,
-          "error": "HTTP 503: {\"detail\":\"Server busy \u2014 too many concurrent requests. Please retry.\"}",
-          "elapsed_s": 0.06
-        }
-      ],
-      "backend": "pipeline",
-      "path": "persona",
-      "persona_slug": "databasearchitect",
-      "persona_name": "\ud83d\uddc4\ufe0f Database Architect",
-      "persona_category": "data",
-      "workspace_model": "auto-data",
-      "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "auto-data",
-      "label": "persona",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0.0,
-      "avg_ttft_s": null,
-      "routed_model": "",
-      "prompt_category": "reasoning",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": false,
-      "expected_model_match": null,
-      "expected_model_detail": "",
-      "runs": [
-        {
-          "run": 1,
-          "error": "HTTP 503: {\"detail\":\"Server busy \u2014 too many concurrent requests. Please retry.\"}",
-          "elapsed_s": 0.06
-        },
-        {
-          "run": 2,
-          "error": "HTTP 503: {\"detail\":\"Server busy \u2014 too many concurrent requests. Please retry.\"}",
-          "elapsed_s": 0.06
-        }
-      ],
-      "backend": "pipeline",
-      "path": "persona",
-      "persona_slug": "dataextractor",
-      "persona_name": "\ud83d\udcca Data Extractor",
-      "persona_category": "data",
-      "workspace_model": "auto-data",
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
@@ -9021,46 +7853,6 @@
       "persona_category": "vision",
       "workspace_model": "auto-vision",
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "huihui_ai/Qwen3.6-abliterated:27b",
-      "label": "ollama-direct",
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0.0,
-      "min_tps": 0.0,
-      "max_tps": 0.0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0.0,
-      "avg_ttft_s": null,
-      "routed_model": "",
-      "prompt_category": "general",
-      "quality_score": 0.0,
-      "tps_quality": 0.0,
-      "reasoning_mode": true,
-      "expected_model_match": null,
-      "expected_model_detail": "",
-      "runs": [
-        {
-          "run": 1,
-          "error": "HTTP 500: {\"error\":{\"message\":\"model runner has unexpectedly stopped, this may be due to r",
-          "elapsed_s": 18.7
-        },
-        {
-          "run": 2,
-          "error": "HTTP 500: {\"error\":{\"message\":\"model runner has unexpectedly stopped, this may be due to r",
-          "elapsed_s": 19.5
-        }
-      ],
-      "backend": "ollama",
-      "path": "direct",
-      "available": true,
-      "est_memory_gb": 16.2,
-      "groups": [
-        "general"
-      ]
     },
     {
       "model": "auto-vision",
@@ -10065,25 +8857,6 @@
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
-      "model": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "model load failed (503 insufficient memory or timeout)",
-      "est_memory_gb": 8.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
-    },
-    {
       "model": "auto-research",
       "label": "persona",
       "runs_total": 2,
@@ -10132,25 +8905,6 @@
       "persona_category": "research",
       "workspace_model": "auto-research",
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "model load failed (503 insufficient memory or timeout)",
-      "est_memory_gb": 14.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
     },
     {
       "model": "auto-math",
@@ -10310,25 +9064,6 @@
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
-      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "model load failed (503 insufficient memory or timeout)",
-      "est_memory_gb": 18.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
-    },
-    {
       "model": "auto-security",
       "label": "persona",
       "runs_total": 2,
@@ -10379,25 +9114,6 @@
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
-      "model": "divinetribe/gemma-4-31b-it-abliterated-4bit-mlx",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "model load failed (503 insufficient memory or timeout)",
-      "est_memory_gb": 20.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
-    },
-    {
       "model": "auto-vision",
       "label": "persona",
       "runs_total": 2,
@@ -10446,44 +9162,6 @@
       "persona_category": "vision",
       "workspace_model": "auto-vision",
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "memory pressure too high (88%)",
-      "est_memory_gb": 22.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
-    },
-    {
-      "model": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-      "label": "mlx-direct",
-      "backend": "mlx",
-      "path": "direct",
-      "available": true,
-      "error": "memory pressure too high (88%)",
-      "est_memory_gb": 34.0,
-      "runs_total": 2,
-      "runs_success": 0,
-      "avg_tps": 0,
-      "min_tps": 0,
-      "max_tps": 0,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 0,
-      "avg_elapsed_s": 0,
-      "runs": []
     },
     {
       "model": "auto-research",
