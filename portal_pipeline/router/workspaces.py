@@ -481,16 +481,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-omnicoder2": {
-        "name": "🔬 Bench · OmniCoder-2-9B (mradermacher)",
+        "name": "🔬 Bench · OmniCoder-2-9B",
         "description": (
-            "Benchmark: hf.co/mradermacher/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B "
+            "Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B "
             "base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / "
             "Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition "
             "loops + bloated thinking + agentic-loop instability. Ollama only — MLX "
             "path deferred until mlx-community/OmniCoder-2-9B-* is published or "
             "self-converted from safetensors."
         ),
-        "model_hint": "hf.co/mradermacher/OmniCoder-2-9B-GGUF:Q4_K_M",
+        "model_hint": "omnicoder2:9b-q4_k_m",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],

@@ -64,6 +64,12 @@ PIPELINE_URL = "http://localhost:9099"
 
 MAX_TOKENS = 256
 REQUEST_TIMEOUT = 180.0
+# Big models (>=34 GB) need extra time: eviction + load can take 60-120s before
+# first token, leaving little room within REQUEST_TIMEOUT for actual inference.
+BIG_MODEL_TIMEOUT = 360.0
+# Pipeline/workspace/persona tests go through the router which may cold-load
+# an MLX model. Use a timeout between REQUEST_TIMEOUT and BIG_MODEL_TIMEOUT.
+WORKSPACE_TIMEOUT = 270.0
 
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
 # emit <think> blocks that consume tokens before generating output. Two adjustments:
@@ -77,14 +83,20 @@ REASONING_WORKSPACES: frozenset[str] = frozenset({
     "bench-phi4-reasoning",
     "auto-mistral",
     "auto-reasoning",
+    "auto-security",   # AEON Qwen3.6-27B is a thinking model
+    "auto-redteam",    # same — needs 512-token budget to avoid empty responses
 })
 # MLX model substrings that signal a reasoning model (for direct MLX runs)
+# Also applied case-insensitively to Ollama model IDs (e.g. "deepseek-r1:32b-q4_k_m")
+# so Ollama reasoning models get REASONING_MAX_TOKENS and don't exhaust their
+# thinking budget within the smaller MAX_TOKENS cap.
 _REASONING_MLX_PATTERNS = (
     "Laguna",
     "Phi-4-reasoning",
     "Magistral",
     "Qwopus",
     "DeepSeek-R1",
+    "deepseek-r1",     # Ollama IDs are lowercase; case-insensitive match below
     "Qwen3.5-27B-Claude",
     "Qwen3.5-9B-Claude",
     "Qwen3.5-35B-A3B-Claude",
@@ -105,7 +117,8 @@ def _is_reasoning_model(model: str, workspace_id: str = "") -> bool:
     """Return True if this model/workspace uses think-block reasoning."""
     if workspace_id in REASONING_WORKSPACES:
         return True
-    return any(p in model for p in _REASONING_MLX_PATTERNS)
+    model_lower = model.lower()
+    return any(p.lower() in model_lower for p in _REASONING_MLX_PATTERNS)
 RESULTS_DIR = Path(__file__).parent / "results"
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
@@ -220,7 +233,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier
-    "bench-omnicoder2":     "coding",    # Tesslate OmniCoder-2 9B (Ollama) — Qwen3.5-9B SFT on agentic traces
+    "bench-omnicoder2":     "coding",    # omnicoder2:9b-q4_k_m (Ollama) — Qwen3.5-9B SFT on agentic traces
     "bench-negentropy":     "reasoning", # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
     # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
     "bench-qwen36-27b":     "coding",    # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
@@ -1165,6 +1178,7 @@ def bench_tps(
     runs: int = 3,
     label: str = "",
     prompt_category: str = "",
+    request_timeout: float = REQUEST_TIMEOUT,
 ) -> dict:
     """Benchmark TPS for a single model/endpoint. Returns summary dict.
 
@@ -1211,7 +1225,8 @@ def bench_tps(
 
         try:
             with client.stream(
-                "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers
+                "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers,
+                timeout=request_timeout,
             ) as resp:
                 if resp.status_code != 200:
                     body = resp.read()[:200].decode(errors="replace")
@@ -1256,7 +1271,7 @@ def bench_tps(
                 "elapsed_s": round(time.perf_counter() - t0, 2),
             }
         except httpx.ReadTimeout:
-            return {"run": run_num, "error": "timeout", "elapsed_s": REQUEST_TIMEOUT}
+            return {"run": run_num, "error": "timeout", "elapsed_s": request_timeout}
         except Exception as e:
             return {
                 "run": run_num,
@@ -1590,6 +1605,7 @@ def bench_direct(
                     print("ok")
                 continue
             prompt_cat = _prompt_category_for_model(model)
+            _timeout = BIG_MODEL_TIMEOUT if size_gb >= 34 else REQUEST_TIMEOUT
             r = bench_tps(
                 MLX_URL,
                 model,
@@ -1597,6 +1613,7 @@ def bench_direct(
                 runs=runs,
                 label="mlx-direct",
                 prompt_category=prompt_cat,
+                request_timeout=_timeout,
             )
             r["backend"] = "mlx"
             r["path"] = "direct"
@@ -1982,6 +1999,7 @@ def bench_model_cascade(
         if not direct_done and warm_ok:
             prompt = _get_prompt_for_model(model)
             prompt_cat = _prompt_category_for_model(model)
+            _timeout = BIG_MODEL_TIMEOUT if size_gb >= 34 else REQUEST_TIMEOUT
             r = bench_tps(
                 MLX_URL,
                 model,
@@ -1989,6 +2007,7 @@ def bench_model_cascade(
                 runs=runs,
                 label="mlx-direct",
                 prompt_category=prompt_cat,
+                request_timeout=_timeout,
             )
             r["backend"] = "mlx"
             r["path"] = "direct"
@@ -2021,6 +2040,7 @@ def bench_model_cascade(
                     runs=runs,
                     label="pipeline",
                     prompt_category=prompt_cat,
+                    request_timeout=WORKSPACE_TIMEOUT,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "pipeline"
@@ -2059,6 +2079,7 @@ def bench_model_cascade(
                     runs=runs,
                     label="persona",
                     prompt_category=prompt_cat,
+                    request_timeout=WORKSPACE_TIMEOUT,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "persona"
@@ -2151,7 +2172,8 @@ def bench_pipeline(
         prompt = _get_prompt_for_workspace(ws)
         prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
         r = bench_tps(
-            PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline", prompt_category=prompt_cat
+            PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline",
+            prompt_category=prompt_cat, request_timeout=WORKSPACE_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
@@ -2214,7 +2236,8 @@ def bench_personas(
         prompt = _get_prompt_for_persona_category(cat)
         prompt_cat = _prompt_category_for_persona(cat)
         r = bench_tps(
-            PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona", prompt_category=prompt_cat
+            PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona",
+            prompt_category=prompt_cat, request_timeout=WORKSPACE_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "persona"
@@ -2418,6 +2441,15 @@ def main() -> None:
     parser.add_argument("--output", default=RESULTS_FILE, help="Output JSON path")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
     parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help=(
+            "Resume from the most recent results file, skipping successful entries "
+            "and re-testing only failed ones. Pair with --mode to target a specific tier "
+            "(e.g. --mode pipeline --retry-failed retests only failed workspaces)."
+        ),
+    )
+    parser.add_argument(
         "--cooldown",
         type=float,
         default=10.0,
@@ -2436,6 +2468,16 @@ def main() -> None:
         help="Label this run as 'spec_decoding=on/off' for later comparison (M4 Track 1)",
     )
     args = parser.parse_args()
+
+    # --retry-failed: find the most recent results file and use it as --output so
+    # successful entries are skipped and failures are re-run automatically.
+    if args.retry_failed and args.output == RESULTS_FILE:
+        candidates = sorted(RESULTS_DIR.glob("bench_tps_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if candidates:
+            args.output = str(candidates[0])
+            print(f"--retry-failed: resuming from {candidates[0].name}")
+        else:
+            print("--retry-failed: no previous results file found in results/, starting fresh")
 
     original_prompts = dict(PROMPTS) if args.prompt else None
     if args.prompt:
