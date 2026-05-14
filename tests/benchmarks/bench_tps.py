@@ -63,13 +63,32 @@ OLLAMA_URL = "http://localhost:11434"
 PIPELINE_URL = "http://localhost:9099"
 
 MAX_TOKENS = 256
+
+# Timeout philosophy: event-driven, not timer-driven.
+#
+# WARMUP_TIMEOUT: max time to wait for a warmup probe to return (the response
+#   IS the "model ready" event — no guessing, no sleep). Used by both
+#   _warmup_mlx_model and _warmup_pipeline_model.
+WARMUP_TIMEOUT = 300.0
+#
+# INFERENCE_TIMEOUT: per-byte inactivity cap during active streaming.
+#   This is NOT a wall-clock limit. httpx ReadTimeout fires only when no
+#   bytes arrive for this many seconds. If tokens are flowing (even at 2 t/s),
+#   this never triggers. It only catches a stuck/crashed backend.
+#   Applies after warmup confirms the model is loaded.
+INFERENCE_TIMEOUT = 90.0
+#
+# PIPELINE_INACTIVITY_TIMEOUT: same idea, but pipeline calls may buffer
+#   reasoning <think> blocks before forwarding any bytes. Allow more headroom
+#   so a complex security/redteam query doesn't abort mid-think.
+PIPELINE_INACTIVITY_TIMEOUT = 270.0
+#
+# REQUEST_TIMEOUT kept as a fallback for one-shot non-streaming calls (health,
+# warmup probes, Ollama direct). Not used in the main bench streaming path.
 REQUEST_TIMEOUT = 180.0
-# Big models (>=34 GB) need extra time: eviction + load can take 60-120s before
-# first token, leaving little room within REQUEST_TIMEOUT for actual inference.
-BIG_MODEL_TIMEOUT = 360.0
-# Pipeline/workspace/persona tests go through the router which may cold-load
-# an MLX model. Use a timeout between REQUEST_TIMEOUT and BIG_MODEL_TIMEOUT.
-WORKSPACE_TIMEOUT = 270.0
+# Legacy aliases — remove once all call sites are migrated.
+BIG_MODEL_TIMEOUT = INFERENCE_TIMEOUT     # model already loaded after warmup
+WORKSPACE_TIMEOUT = PIPELINE_INACTIVITY_TIMEOUT  # pipeline may buffer think
 
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
 # emit <think> blocks that consume tokens before generating output. Two adjustments:
@@ -1171,6 +1190,57 @@ def _mlx_memory_snapshot() -> dict[str, float]:
     return {}
 
 
+def _warmup_pipeline_model(
+    model_id: str,
+    timeout_s: float = WARMUP_TIMEOUT,
+) -> bool:
+    """Fire a 1-token request through the pipeline and block until it responds.
+
+    The HTTP response IS the "model loaded" event — no timers, no sleep loops.
+    Returns True when the pipeline replies (model is ready for timed runs).
+    Returns False only if the pipeline never responds within timeout_s (failsafe).
+
+    After this returns True, bench_tps should use INFERENCE_TIMEOUT (or
+    PIPELINE_INACTIVITY_TIMEOUT for reasoning workspaces), not WARMUP_TIMEOUT,
+    because the model is already loaded.
+    """
+    headers: dict[str, str] = {}
+    if PIPELINE_API_KEY:
+        headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
+    payload = {
+        "model": model_id,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+        "max_tokens": 1,
+    }
+    deadline = time.time() + timeout_s
+    attempt = 0
+    while time.time() < deadline:
+        attempt += 1
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            break
+        try:
+            with httpx.Client(timeout=min(remaining, 30.0)) as c:
+                r = c.post(
+                    f"{PIPELINE_URL}/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                if r.status_code == 200:
+                    return True
+                if r.status_code in (503, 502) and attempt < 5:
+                    time.sleep(3)
+                    continue
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError):
+            if time.time() < deadline:
+                time.sleep(3)
+            continue
+        except Exception:
+            break
+    return False
+
+
 def bench_tps(
     base_url: str,
     model: str,
@@ -1605,7 +1675,6 @@ def bench_direct(
                     print("ok")
                 continue
             prompt_cat = _prompt_category_for_model(model)
-            _timeout = BIG_MODEL_TIMEOUT if size_gb >= 34 else REQUEST_TIMEOUT
             r = bench_tps(
                 MLX_URL,
                 model,
@@ -1613,7 +1682,7 @@ def bench_direct(
                 runs=runs,
                 label="mlx-direct",
                 prompt_category=prompt_cat,
-                request_timeout=_timeout,
+                request_timeout=INFERENCE_TIMEOUT,
             )
             r["backend"] = "mlx"
             r["path"] = "direct"
@@ -1999,7 +2068,6 @@ def bench_model_cascade(
         if not direct_done and warm_ok:
             prompt = _get_prompt_for_model(model)
             prompt_cat = _prompt_category_for_model(model)
-            _timeout = BIG_MODEL_TIMEOUT if size_gb >= 34 else REQUEST_TIMEOUT
             r = bench_tps(
                 MLX_URL,
                 model,
@@ -2007,7 +2075,7 @@ def bench_model_cascade(
                 runs=runs,
                 label="mlx-direct",
                 prompt_category=prompt_cat,
-                request_timeout=_timeout,
+                request_timeout=INFERENCE_TIMEOUT,
             )
             r["backend"] = "mlx"
             r["path"] = "direct"
@@ -2033,6 +2101,11 @@ def bench_model_cascade(
                     continue
                 prompt = _get_prompt_for_workspace(ws)
                 prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
+                # Warmup: block until pipeline responds (the response is the "ready"
+                # event). After this returns the model is loaded; timed runs measure
+                # inference only, not cold-load latency.
+                _warmup_pipeline_model(ws)
+                _inactivity = PIPELINE_INACTIVITY_TIMEOUT
                 r = bench_tps(
                     PIPELINE_URL,
                     ws,
@@ -2040,7 +2113,7 @@ def bench_model_cascade(
                     runs=runs,
                     label="pipeline",
                     prompt_category=prompt_cat,
-                    request_timeout=WORKSPACE_TIMEOUT,
+                    request_timeout=_inactivity,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "pipeline"
@@ -2072,6 +2145,7 @@ def bench_model_cascade(
                 cat = p["category"]
                 prompt = _get_prompt_for_persona_category(cat)
                 prompt_cat = _prompt_category_for_persona(cat)
+                _warmup_pipeline_model(wm)
                 r = bench_tps(
                     PIPELINE_URL,
                     wm,
@@ -2079,7 +2153,7 @@ def bench_model_cascade(
                     runs=runs,
                     label="persona",
                     prompt_category=prompt_cat,
-                    request_timeout=WORKSPACE_TIMEOUT,
+                    request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "persona"
@@ -2171,9 +2245,11 @@ def bench_pipeline(
             continue
         prompt = _get_prompt_for_workspace(ws)
         prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
+        print("(warm-up) ", end="", flush=True)
+        _warmup_pipeline_model(ws)
         r = bench_tps(
             PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline",
-            prompt_category=prompt_cat, request_timeout=WORKSPACE_TIMEOUT,
+            prompt_category=prompt_cat, request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
@@ -2235,9 +2311,10 @@ def bench_personas(
             continue
         prompt = _get_prompt_for_persona_category(cat)
         prompt_cat = _prompt_category_for_persona(cat)
+        _warmup_pipeline_model(wm)
         r = bench_tps(
             PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona",
-            prompt_category=prompt_cat, request_timeout=WORKSPACE_TIMEOUT,
+            prompt_category=prompt_cat, request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "persona"
