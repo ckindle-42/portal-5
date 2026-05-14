@@ -1456,7 +1456,7 @@ def bench_tps(
     if successful:
         last_ok = successful[-1]
         routed_model = last_ok.get("response_model", "")
-        last_response_text = last_ok.get("response_text", "")
+        last_response_text = last_ok.get("response_text", "") or last_ok.get("reasoning_text", "")
 
     # Quality scoring: measure signal coverage for this prompt category
     try:

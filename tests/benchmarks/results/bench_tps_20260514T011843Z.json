@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-05-14T22:24:54.047398+00:00",
+  "timestamp": "2026-05-14T23:07:35.351450+00:00",
   "mode": "all",
   "order": "size",
   "cooldown_s": 10.0,
   "runs_per_model": 5,
   "spec_decoding": "unspecified",
-  "total_wall_time_s": 116.2,
+  "total_wall_time_s": 128.0,
   "hardware": {
     "platform": "Darwin",
     "machine": "arm64",
@@ -436,63 +436,6 @@
       "backend": "pipeline",
       "path": "pipeline",
       "workspace": "auto-spl",
-      "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
-    },
-    {
-      "model": "auto-security",
-      "label": "pipeline",
-      "runs_total": 5,
-      "runs_success": 1,
-      "avg_tps": 12.4,
-      "min_tps": 12.4,
-      "max_tps": 12.4,
-      "stddev_tps": null,
-      "cv": null,
-      "avg_completion_tokens": 166,
-      "avg_elapsed_s": 13.36,
-      "avg_ttft_s": 13.365,
-      "routed_model": "auto-security",
-      "prompt_category": "security",
-      "quality_score": 0.5,
-      "tps_quality": 6.2,
-      "reasoning_mode": false,
-      "expected_model_match": true,
-      "expected_model_detail": "MLX:qwen3.6-27b-aeon-ultimate-uncensored-bf16-mlx-4bit | Ollama:baronllm",
-      "runs": [
-        {
-          "run": 1,
-          "elapsed_s": 13.36,
-          "prompt_tokens": 0,
-          "completion_tokens": 166,
-          "tps": 12.4,
-          "time_to_first_token_s": 13.365,
-          "response_model": "auto-security",
-          "response_text": "### 1. Classification\n**Tactic:** Initially, the observed behavior aligns with \"Exploitation of Service\" specifically 'Remote Services' techniques which include T1040 - System Network Disruption and potentially other attack vectors if subsequent malicious steps are discovered post-investigation (e.g., T1055 \u2013 Process Injection). However, since the actions specifically target SSH brute-force attempts, a more precise classification aligns with 'Lateral Movement', especially considering T1027 \u2013 Reconnaisance through brute force. For this scenario: **Exploitation of Service** > **Authentication** > **T1040/1219.**\n\n### 2. Immediate Containment Actions\n**Immediate Response:** The first containment action would involve the blocking of the suspicious IPs (particularly those listed on CrowdSec community blocklist) at network perimeter firewalls and/or SIEM\u2019s configured output list. Additionally, it may be appropriate to change temporary or default SSH credentials to prevent potential already-compromised accounts. Immediate review of any SSH logs in suspect 2-hour timeframe with timestamps might reveal additional intrusion steps. \n\n### 3. Detection Rule Construction\n**Rule Logic:** For a SIEM-based rule, \"Detect Repeated SSH Attempts by Multiple Hosts in Short Span.\""
-        },
-        {
-          "run": 2,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 3,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 4,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        },
-        {
-          "run": 5,
-          "error": "timeout",
-          "elapsed_s": 180.0
-        }
-      ],
-      "backend": "pipeline",
-      "path": "pipeline",
-      "workspace": "auto-security",
       "cascade_iteration_model": "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
     },
     {
@@ -11644,6 +11587,87 @@
       "path": "direct",
       "available": true,
       "est_memory_gb": 14.0
+    },
+    {
+      "model": "auto-security",
+      "label": "pipeline",
+      "runs_total": 5,
+      "runs_success": 5,
+      "avg_tps": 7.2,
+      "min_tps": 5.7,
+      "max_tps": 7.6,
+      "stddev_tps": 0.84,
+      "cv": 0.117,
+      "avg_completion_tokens": 132,
+      "avg_elapsed_s": 18.58,
+      "avg_ttft_s": 1.429,
+      "routed_model": "auto-security",
+      "prompt_category": "security",
+      "quality_score": 0.5,
+      "tps_quality": 3.6,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "MLX:qwen3.6-27b-aeon-ultimate-uncensored-bf16-mlx-4bit | Ollama:baronllm",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 23.19,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 5.7,
+          "time_to_first_token_s": 6.054,
+          "response_model": "auto-security",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process that leads to the suggested response:\n\n1.  **Analyze the Request:**\n    *   **Role:** Cybersecurity Analyst (precise, cite frameworks).\n    *   **Scenario:** SIEM detects repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n    *   **Output Format:** Structured response with 4 specific items.\n    *   **Constraint:** Each item must be 2-3 sentences long.\n\n2.  **Deconstruct the Scenario:**\n    *   *Event:* SSH brute-force.\n    *   *Volume:* 47 unique IPs.\n    *   *Duration:* 2 hours.\n    *   *Target:* Port 22 (SSH) on 3 DMZ servers.\n    *   *Context:* 2 IPs on CrowdSec blocklist (implies some are known bad actors, others might be new or part of a botnet).\n\n3.  **Drafting Content - Item by Item:**\n\n    *   **Item 1: Classification (MITRE ATT&CK)**\n"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 17.38,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 7.6,
+          "time_to_first_token_s": 0.302,
+          "response_model": "auto-security",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process that leads to the suggested response:\n\n1.  **Analyze the Request:**\n    *   **Role:** Cybersecurity Analyst (precise, cite frameworks).\n    *   **Scenario:** SIEM detects repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n    *   **Output Format:** Structured response with 4 specific items.\n    *   **Constraint:** Each item must be 2-3 sentences long.\n\n2.  **Deconstruct the Scenario:**\n    *   *Event:* SSH brute-force.\n    *   *Volume:* 47 unique IPs.\n    *   *Duration:* 2 hours.\n    *   *Target:* Port 22 (SSH) on 3 DMZ servers.\n    *   *Context:* 2 IPs on CrowdSec blocklist (implies some are known bad actors, others might be new or part of a botnet).\n\n3.  **Drafting Content - Item by Item:**\n\n    *   **Item 1: Classification (MITRE ATT&CK)**\n"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 17.43,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 7.6,
+          "time_to_first_token_s": 0.291,
+          "response_model": "auto-security",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process that leads to the suggested response:\n\n1.  **Analyze the Request:**\n    *   **Role:** Cybersecurity Analyst (precise, cite frameworks).\n    *   **Scenario:** SIEM detects repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n    *   **Output Format:** Structured response with 4 specific items.\n    *   **Constraint:** Each item must be 2-3 sentences long.\n\n2.  **Deconstruct the Scenario:**\n    *   *Event:* SSH brute-force.\n    *   *Volume:* 47 unique IPs.\n    *   *Duration:* 2 hours.\n    *   *Target:* Port 22 (SSH) on 3 DMZ servers.\n    *   *Context:* 2 IPs on CrowdSec blocklist (implies some are known bad actors, others might be new or part of a botnet).\n\n3.  **Drafting Content - Item by Item:**\n\n    *   **Item 1: Classification (MITRE ATT&CK)**\n"
+        },
+        {
+          "run": 4,
+          "elapsed_s": 17.36,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 7.6,
+          "time_to_first_token_s": 0.246,
+          "response_model": "auto-security",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process that leads to the suggested response:\n\n1.  **Analyze the Request:**\n    *   **Role:** Cybersecurity Analyst (precise, cite frameworks).\n    *   **Scenario:** SIEM detects repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n    *   **Output Format:** Structured response with 4 specific items.\n    *   **Constraint:** Each item must be 2-3 sentences long.\n\n2.  **Deconstruct the Scenario:**\n    *   *Event:* SSH brute-force.\n    *   *Volume:* 47 unique IPs.\n    *   *Duration:* 2 hours.\n    *   *Target:* Port 22 (SSH) on 3 DMZ servers.\n    *   *Context:* 2 IPs on CrowdSec blocklist (implies some are known bad actors, others might be new or part of a botnet).\n\n3.  **Drafting Content - Item by Item:**\n\n    *   **Item 1: Classification (MITRE ATT&CK)**\n"
+        },
+        {
+          "run": 5,
+          "elapsed_s": 17.52,
+          "prompt_tokens": 0,
+          "completion_tokens": 132,
+          "tps": 7.5,
+          "time_to_first_token_s": 0.254,
+          "response_model": "auto-security",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process that leads to the suggested response:\n\n1.  **Analyze the Request:**\n    *   **Role:** Cybersecurity Analyst (precise, cite frameworks).\n    *   **Scenario:** SIEM detects repeated SSH brute-force attempts from 47 unique IPs over 2 hours targeting port 22 on 3 servers in the DMZ. Two IPs are on the CrowdSec community blocklist.\n    *   **Output Format:** Structured response with 4 specific items.\n    *   **Constraint:** Each item must be 2-3 sentences long.\n\n2.  **Deconstruct the Scenario:**\n    *   *Event:* SSH brute-force.\n    *   *Volume:* 47 unique IPs.\n    *   *Duration:* 2 hours.\n    *   *Target:* Port 22 (SSH) on 3 DMZ servers.\n    *   *Context:* 2 IPs on CrowdSec blocklist (implies some are known bad actors, others might be new or part of a botnet).\n\n3.  **Drafting Content - Item by Item:**\n\n    *   **Item 1: Classification (MITRE ATT&CK)**\n"
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "auto-security"
     }
   ],
   "prompts": {
