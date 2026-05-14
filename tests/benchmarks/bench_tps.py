@@ -1291,6 +1291,7 @@ def bench_tps(
         completion_tokens = 0
         prompt_tokens = 0
         response_text = ""
+        reasoning_text = ""
         response_model = ""
 
         try:
@@ -1322,9 +1323,11 @@ def bench_tps(
                         continue
                     delta = obj.get("choices", [{}])[0].get("delta", {})
                     chunk_text = delta.get("content") or ""
-                    if chunk_text and t_first_token is None:
+                    reasoning_chunk = delta.get("reasoning") or ""
+                    if (chunk_text or reasoning_chunk) and t_first_token is None:
                         t_first_token = time.perf_counter()
                     response_text += chunk_text
+                    reasoning_text += reasoning_chunk
                     if not response_model:
                         response_model = obj.get("model", "")
                     # Usage may appear in the final chunk
@@ -1350,9 +1353,11 @@ def bench_tps(
             }
 
         elapsed = time.perf_counter() - t0
-        # Fallback token count: estimate from response text if server didn't emit usage
-        if completion_tokens == 0 and response_text:
-            completion_tokens = max(1, len(response_text.split()))
+        # Fallback token count: estimate from response + reasoning text if server didn't emit usage.
+        # Reasoning tokens (delta.reasoning) count toward TPS — they represent real generation work.
+        combined_text = response_text + (" " + reasoning_text if reasoning_text else "")
+        if completion_tokens == 0 and combined_text.strip():
+            completion_tokens = max(1, len(combined_text.split()))
         tps = completion_tokens / elapsed if elapsed > 0 else 0.0
         ttft = round(t_first_token - t0, 3) if t_first_token is not None else None
 
@@ -1367,6 +1372,8 @@ def bench_tps(
             "response_model": response_model,
             "response_text": response_text,
         }
+        if reasoning_text:
+            result["reasoning_text"] = reasoning_text
         if mem_before:
             result["memory_free_gb_before"] = mem_before.get("free_gb")
             result["memory_used_gb_before"] = mem_before.get("used_gb")
