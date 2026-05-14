@@ -1017,6 +1017,93 @@ case "${1:-up}" in
         echo "[portal-5] 🧹 $_PRUNED"
     fi
 
+    # Background MLX model freshness check — non-blocking, offline-tolerant.
+    # Compares local HF cache refs/main SHAs against HF API latest commit SHA.
+    # Prints stale/missing models a few seconds after the stack is started.
+    (
+        sleep 3
+        python3 -W ignore - 2>/dev/null <<'__MLX_FRESHNESS__'
+import os, sys, json
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+import urllib.request
+
+root = os.environ.get('PORTAL_ROOT', '.')
+cfg_path = os.path.join(root, 'config', 'backends.yaml')
+if not os.path.exists(cfg_path):
+    sys.exit(0)
+
+with open(cfg_path) as f:
+    cfg = yaml.safe_load(f)
+
+mlx_ids = []
+for b in cfg.get('backends', []):
+    if b.get('type') == 'mlx':
+        for m in b.get('mlx_models', []):
+            mlx_ids.append(m['id'] if isinstance(m, dict) else m)
+
+if not mlx_ids:
+    sys.exit(0)
+
+hf_cache = Path(os.environ.get('HF_HUB_CACHE',
+    os.environ.get('HUGGINGFACE_HUB_CACHE',
+        str(Path.home() / '.cache' / 'huggingface' / 'hub'))))
+
+
+def _check(model_id):
+    parts = model_id.split('/')
+    if len(parts) != 2:
+        return model_id, 'skip'
+    org, name = parts
+    cache_dir = hf_cache / f'models--{org}--{name}'
+    if not cache_dir.exists():
+        return model_id, 'missing'
+    refs_main = cache_dir / 'refs' / 'main'
+    local_sha = refs_main.read_text().strip() if refs_main.exists() else ''
+    try:
+        token = os.environ.get('HF_TOKEN') or ''
+        hdrs = {'User-Agent': 'portal-5/freshness'}
+        if token:
+            hdrs['Authorization'] = f'Bearer {token}'
+        req = urllib.request.Request(
+            f'https://huggingface.co/api/models/{model_id}?fields=sha',
+            headers=hdrs)
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            remote_sha = json.loads(resp.read()).get('sha', '')
+        if local_sha and remote_sha and local_sha[:12] != remote_sha[:12]:
+            return model_id, f'stale:{local_sha[:8]}->{remote_sha[:8]}'
+        return model_id, 'ok'
+    except Exception:
+        return model_id, 'offline'
+
+
+stale, missing = [], []
+with ThreadPoolExecutor(max_workers=10) as ex:
+    futures = {ex.submit(_check, m): m for m in mlx_ids}
+    for fut in as_completed(futures):
+        try:
+            model_id, status = fut.result()
+        except Exception:
+            continue
+        if status.startswith('stale:'):
+            stale.append(f'{model_id} ({status[6:]})')
+        elif status == 'missing':
+            missing.append(model_id)
+
+if stale or missing:
+    print('[portal-5] MLX model freshness:')
+    for s in sorted(stale):
+        print(f'  ⚠  stale:   {s}')
+    for m in sorted(missing):
+        print(f'  ✗  missing: {m}')
+    print('  Run: ./launch.sh pull-mlx-models')
+__MLX_FRESHNESS__
+    ) &
+
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
         echo "  Open WebUI:  http://$(hostname -f 2>/dev/null || hostname):8080  (remote access enabled)"
@@ -1808,9 +1895,9 @@ PYEOF
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
-            Tesslate/OmniCoder-2-9B-GGUF)
-                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
-                filename="omnicoder-2-9b-q4_k_m.gguf"
+            mradermacher/OmniCoder-2-9B-GGUF)
+                actual_repo="mradermacher/OmniCoder-2-9B-GGUF"
+                filename="OmniCoder-2-9B.Q4_K_M.gguf"
                 ollama_name="omnicoder2:9b-q4_k_m"
                 ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)
@@ -1985,12 +2072,12 @@ except Exception:
                 ;;
 
             # ── Coding models ────────────────────────────────────────────────
-            Tesslate/OmniCoder-2-9B-GGUF)
-                # Source: https://huggingface.co/Tesslate/OmniCoder-2-9B-GGUF
+            mradermacher/OmniCoder-2-9B-GGUF)
+                # Source: https://huggingface.co/mradermacher/OmniCoder-2-9B-GGUF
                 # V6 bench candidate (TASK_MODEL_REFRESH_V6). Qwen3.5-9B SFT on
                 # agentic traces. v2 fixes v1's repetition loops + bloated thinking.
-                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
-                filename="omnicoder-2-9b-q4_k_m.gguf"
+                actual_repo="mradermacher/OmniCoder-2-9B-GGUF"
+                filename="OmniCoder-2-9B.Q4_K_M.gguf"
                 ollama_name="omnicoder2:9b-q4_k_m"
                 ;;
             MiniMaxAI/MiniMax-M2.1-GGUF)
@@ -2196,8 +2283,8 @@ except Exception as e:
         "qwen3-vl:32b"
         "llava:7b"
         # ── V6 adds (TASK_MODEL_REFRESH_V6) ──────────────────────────────
-        "huihui_ai/Qwen3.6-abliterated"                         # ~20GB Q4 — Qwen3.6 35B-A3B abliterated, lineage successor to qwen3.5-abliterated:9b
-        "hf.co/Tesslate/OmniCoder-2-9B-GGUF"                    # ~5.7GB — Qwen3.5-9B SFT on agentic traces (v2 fixes v1's known issues)
+        "huihui_ai/Qwen3.6-abliterated:27b"                     # ~20GB Q4 — Qwen3.6 35B-A3B abliterated, lineage successor to qwen3.5-abliterated:9b
+        "hf.co/mradermacher/OmniCoder-2-9B-GGUF"                # ~5.7GB — Qwen3.5-9B SFT on agentic traces (v2 fixes v1's known issues)
     )
 
     total=${#MODELS[@]}
@@ -2305,9 +2392,9 @@ except Exception:
                 filename="ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf"
                 ollama_name="whiterabbitneo:33b-v1.5-q4_k_m"
                 ;;
-            Tesslate/OmniCoder-2-9B-GGUF)
-                actual_repo="Tesslate/OmniCoder-2-9B-GGUF"
-                filename="omnicoder-2-9b-q4_k_m.gguf"
+            mradermacher/OmniCoder-2-9B-GGUF)
+                actual_repo="mradermacher/OmniCoder-2-9B-GGUF"
+                filename="OmniCoder-2-9B.Q4_K_M.gguf"
                 ollama_name="omnicoder2:9b-q4_k_m"
                 ;;
             deepseek-ai/DeepSeek-R1-32B-GGUF)

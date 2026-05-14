@@ -473,7 +473,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "'Agentic Coding Power, Now Open to All.' Self-reported SWE-bench "
             "Verified 73.4%, AIME26 92.7%, Terminal-Bench 2.0 51.5%."
         ),
-        "model_hint": "huihui_ai/Qwen3.6-abliterated",
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "mlx_model_hint": "mlx-community/Qwen3.6-35B-A3B-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
@@ -481,16 +481,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-omnicoder2": {
-        "name": "🔬 Bench · OmniCoder-2-9B (Tesslate)",
+        "name": "🔬 Bench · OmniCoder-2-9B (mradermacher)",
         "description": (
-            "Benchmark: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B "
+            "Benchmark: hf.co/mradermacher/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B "
             "base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / "
             "Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition "
             "loops + bloated thinking + agentic-loop instability. Ollama only — MLX "
             "path deferred until mlx-community/OmniCoder-2-9B-* is published or "
             "self-converted from safetensors."
         ),
-        "model_hint": "hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M",
+        "model_hint": "hf.co/mradermacher/OmniCoder-2-9B-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
