@@ -65,6 +65,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Workspace | Select this when... | Routes to |
 |-----------|---------------------|-----------|
 | Portal Auto Router | You're unsure | Qwen3.5-abliterated (MLX / Ollama) |
+| Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B (MLX, 57.8 TPS) · Qwen3.5-abliterated (Ollama) |
 | Portal Code Expert | Writing or reviewing code | Laguna-XS.2 (MLX) · Qwen3-Coder-30B (Ollama) |
 | Portal Security Analyst | Security questions | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
 | Portal Red Team | Offensive security | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
@@ -93,7 +94,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 18 production workspace IDs (auto, auto-coding, auto-agentic, auto-spl, auto-security, auto-redteam, auto-blueteam, auto-creative, auto-reasoning, auto-documents, auto-video, auto-music, auto-research, auto-vision, auto-data, auto-compliance, auto-mistral, auto-math) plus bench-* workspaces
+# Expected: 19 production workspace IDs (auto, auto-daily, auto-coding, auto-agentic, auto-spl, auto-security, auto-redteam, auto-blueteam, auto-creative, auto-reasoning, auto-documents, auto-video, auto-music, auto-research, auto-vision, auto-data, auto-compliance, auto-mistral, auto-math) plus bench-* workspaces
 ```
 
 ---
@@ -104,13 +105,13 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (84 production + 17 benchmark = 101 total):**
+**Available personas (85 production + 17 benchmark = 102 total):**
 
 | Category | Count | Personas |
 |----------|-------|----------|
 | Development | 24 | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Codebase WIKI Documentation, Creative Coder, DevOps Automator, DevOps Engineer, E2E Debugger, E2E Test Author, Ethereum Developer, Form Filler, Fullstack Developer, GitHub Expert, Go Engineer, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Rust Engineer, Senior Frontend Dev, Senior Software Engineer, Software QA Tester, TypeScript Engineer, UX/UI Developer |
 | Data | 10 | Dashboard Architect, Data Analyst, Data Extractor, Data Scientist, Database Architect, Excel Sheet, Machine Learning Engineer, Phi-4 STEM Analyst, Research Analyst, Statistician |
-| General | 8 | Agent Orchestrator, Business Analyst, Interview Coach, IT Expert, Personal Assistant, Product Manager, Tech Reviewer, Web Navigator |
+| General | 9 | Agent Orchestrator, Business Analyst, Daily Driver, Interview Coach, IT Expert, Personal Assistant, Product Manager, Tech Reviewer, Web Navigator |
 | Research | 7 | Fact Checker, Gemma Research Analyst, Knowledge Base Navigator, Market Analyst, Paywalled Researcher, SuperGemma4 Uncensored Researcher, Web Researcher |
 | Security | 7 | Blue Team Defender, Cyber Security Specialist, Network Engineer, Penetration Tester, Red Team Operator, Splunk Detection Author, Splunk SPL Engineer |
 | Vision | 7 | Chart Analyst, Code Screenshot Reader, Diagram Reader, Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Whiteboard Converter |
@@ -1221,7 +1222,7 @@ handles all model selection automatically. No manual switching needed.
 | `mlx-community/Olmo-3-1125-32B-4bit` | ~17GB | mlx_lm | Bench-only — Allen AI dense 32B (non-Qwen lineage) |
 | `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Primary VLM (Gemma 4 dense 31B, thinking+vision, 256K ctx) |
 | `mlx-community/gemma-4-26B-A4B-it-heretic-4bit` | ~13GB | mlx_vlm | auto-creative primary (Gemma 4 26B HERETIC abliterated) |
-| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~13GB | mlx_vlm | Gemma 4 26B-A4B MoE vision (bench/vision ladder) |
+| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~13GB | mlx_vlm | auto-daily primary + auto-vision/auto-research primary (Gemma 4 26B-A4B MoE, 57.8 TPS, Apache 2.0) |
 | `mlx-community/gemma-4-e4b-it-4bit` | ~5GB | mlx_vlm | Gemma 4 E4B — text+vision+audio (ASR), 128K ctx |
 | `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Heavy VLM (Qwen3-VL 32B, BIG_MODEL) |
 | `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (11B, research) |
