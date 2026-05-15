@@ -133,16 +133,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "baronllm:q6_k",
         # V5 bench: glm-4.7-flash-abliterated-8bit FAIL (0 tokens, P5-MLX-008).
         # Promoted to AEON-4Bit (Qwen3.6 27B uncensored, 7.9 t/s, 14GB, smoke PASS).
-        # Thinking enabled — AEON needs its reasoning chain for complex security
-        # analysis (attack paths, multi-step pivots). emits_reasoning strips the
-        # <think> chain from visible output so analysts see clean conclusions.
-        # No predict_limit: AEON must complete its thinking chain before generating
-        # content. A 2000-token cap cuts off mid-think, leaving content="" in OWUI.
+        # Thinking disabled (enable_thinking=False): AEON outputs directly to
+        # delta.content, avoiding the mlx_lm regression where all output routes
+        # to delta.reasoning leaving content="" in OWUI. Direct answers are
+        # sufficient — security analysis quality held at Q=0.50 baseline.
         # web_search/web_fetch removed (UAT5): AEON issues parallel tool-call bursts
         # (5+ simultaneous searches) that exhaust KV cache and trigger mid-stream
         # eviction. AEON's training covers CVEs/ATT&CK well enough without live search.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "emits_reasoning": True,
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": [
             "classify_vulnerability",
             "execute_python",
@@ -156,12 +155,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
         # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
-        # Thinking enabled (same reason as auto-security — complex multi-path reasoning).
-        # No predict_limit — same reason as auto-security (2000-token cap = empty content).
+        # Thinking disabled (same reason as auto-security — direct content output).
         # web_search intentionally excluded — same parallel-burst eviction risk as
         # auto-security. Redteam work is reasoning-heavy, not search-heavy.
         "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "emits_reasoning": True,
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
