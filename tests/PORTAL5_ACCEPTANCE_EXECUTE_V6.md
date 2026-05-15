@@ -158,6 +158,11 @@ Read these files before doing anything else:
 grep -E "PIPELINE_API_KEY|OPENWEBUI_ADMIN_PASSWORD|GRAFANA_PASSWORD" .env
 curl -s http://localhost:9099/health | python3 -m json.tool
 
+# Stop the MLX watchdog — it interferes with test-driven model loads by
+# triggering its own evictions/restarts while the runner is waiting for
+# a model to become ready. Stop it before running any tests; restart after.
+./launch.sh stop-mlx-watchdog
+
 # Start MLX readiness watcher — REQUIRED before running any inference sections.
 # Writes /tmp/portal5-mlx-readiness.json every 10s; acceptance runner reads it
 # for stable model-load detection instead of direct proxy polling.
@@ -406,11 +411,14 @@ For any item that cannot pass without modifying a protected file:
 ## Step 10 — Final Deliverables
 
 ```bash
-# Stop the MLX readiness watcher now that the run is complete
+# Stop the MLX readiness watcher
 if [ -f /tmp/mlx-readiness.pid ]; then
   kill "$(cat /tmp/mlx-readiness.pid)" 2>/dev/null && echo "MLX watcher stopped"
   rm -f /tmp/mlx-readiness.pid /tmp/portal5-mlx-readiness.json
 fi
+
+# Restart the MLX watchdog now that testing is complete
+./launch.sh start-mlx-watchdog
 ```
 
 Produce these files in the repo root:

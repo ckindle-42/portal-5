@@ -1031,8 +1031,8 @@ async def _remediate_mlx_crash(reason: str = "crash") -> bool:
     Uses SIGTERM (never SIGKILL) for mlx_lm.server and mlx_vlm.server — SIGKILL on a
     Metal process leaves GPU buffers unreclaimable and can require a reboot to clear.
     The proxy itself gets SIGTERM first; only falls back to port-based cleanup if the
-    process doesn't exit within 10s. mlx-watchdog is intentionally NOT killed so it
-    can resume auto-recovery after the proxy restarts.
+    process doesn't exit within 10s. The watchdog is stopped before test runs begin
+    (Step 2 pre-flight) so there is nothing to preserve or restart here.
     """
     print(f"  🔧 MLX remediation: {reason}")
 
@@ -1703,26 +1703,29 @@ async def S0() -> None:
         t0=t0,
     )
 
-    # S0-06: MLX watchdog status (informational — watchdog may run during tests).
-    # The watchdog's check_server_zombies() is now gated on proxy state=switching,
-    # so it no longer fights with test-driven model loads. It is intentionally left
-    # running to provide zombie detection during the test run.
+    # S0-06: MLX watchdog must be STOPPED during testing.
+    # The watchdog triggers its own evictions and proxy restarts while the runner
+    # is waiting for a model to load, causing interference and false empty responses.
+    # Step 2 pre-flight stops it; this check enforces that it stayed stopped.
     t0 = time.time()
     try:
         r = subprocess.run(
             ["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5
         )
         running = r.returncode == 0 and bool(r.stdout.strip())
-        record(
-            sec,
-            "S0-06",
-            "MLX watchdog status",
-            "INFO",
-            f"watchdog {'running (PID ' + r.stdout.strip() + ') — provides zombie detection during tests' if running else 'not running — start with ./launch.sh start-mlx-watchdog'}",
-            t0=t0,
-        )
+        if running:
+            record(
+                sec,
+                "S0-06",
+                "MLX watchdog stopped",
+                "WARN",
+                f"watchdog still running (PID {r.stdout.strip()}) — stop it: ./launch.sh stop-mlx-watchdog",
+                t0=t0,
+            )
+        else:
+            record(sec, "S0-06", "MLX watchdog stopped", "PASS", "watchdog not running — safe to test", t0=t0)
     except Exception as e:
-        record(sec, "S0-06", "MLX watchdog status", "WARN", str(e)[:80], t0=t0)
+        record(sec, "S0-06", "MLX watchdog stopped", "WARN", str(e)[:80], t0=t0)
 
     # S0-07: Deployed MLX proxy matches source (catches P5-ROAD-MLX-002 staleness)
     t0 = time.time()

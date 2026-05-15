@@ -72,6 +72,11 @@ curl -sf http://localhost:8080/health && echo " OWUI OK"
 curl -sf http://localhost:9099/health | python3 -m json.tool
 curl -sf http://localhost:8081/health | python3 -m json.tool   # MLX proxy
 
+# Stop the MLX watchdog — it interferes with test-driven model loads by
+# triggering its own evictions/restarts while the driver is waiting for a
+# model to become ready. Stop before Phase 1; restart after Phase 8.
+./launch.sh stop-mlx-watchdog
+
 # Start MLX readiness watcher — REQUIRED before any inference phase.
 # The UAT driver reads /tmp/portal5-mlx-readiness.json (written every 10s)
 # instead of implementing its own timer loops. Without this, tests with
@@ -439,6 +444,9 @@ if [ -f /tmp/mlx-readiness.pid ]; then
   rm -f /tmp/mlx-readiness.pid /tmp/portal5-mlx-readiness.json
 fi
 
+# Restart the MLX watchdog now that testing is complete
+./launch.sh start-mlx-watchdog
+
 {
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
@@ -534,8 +542,9 @@ until docker info >/dev/null 2>&1; do sleep 5; done
 
 Then read `tests/UAT_RUN_LOG.md`, identify the last DONE row, and resume from the next phase.
 
-**Restart the MLX readiness watcher** — it does not survive a reboot:
+**Stop the watchdog and restart the MLX readiness watcher** — neither survives a reboot:
 ```bash
+./launch.sh stop-mlx-watchdog
 python3 scripts/mlx-readiness.py > /tmp/mlx-readiness.log 2>&1 &
 echo $! > /tmp/mlx-readiness.pid && sleep 22
 python3 scripts/mlx-readiness.py --read
@@ -815,7 +824,7 @@ sleep 30
 
 `sudo purge` is no longer part of any recovery path. If a guide tells you to run it, that guide is stale.
 
-If wired memory stays high for >5 min after `/unload`, the watchdog detects the leak and restarts the proxy via `launchctl kickstart -k`. Check `~/.portal5/logs/mlx-watchdog.log` if you suspect it didn't fire.
+If wired memory stays high for >5 min after `/unload`, the inter-phase gate's Level 3 recovery (proxy restart) will handle it. The watchdog is stopped during test runs to prevent interference.
 
 ---
 
@@ -839,9 +848,9 @@ If wired memory stays high for >5 min after `/unload`, the watchdog detects the 
 - Run `--all` in a single invocation — phased execution is the V2 contract
 
 ### Memory safety (handled by the system, not the agent)
-The driver evicts at every tier transition. The proxy exposes `POST /unload[?ollama=true]` for explicit graceful eviction. The watchdog detects Metal GPU wired-buffer leaks (`state=none AND wired_gb > threshold` for N consecutive cycles) and recovers via `/unload` first, `launchctl kickstart -k` second. After all phases, `cleanup_after_uat()` runs automatically.
+The driver evicts at every tier transition. The proxy exposes `POST /unload[?ollama=true]` for explicit graceful eviction. The inter-phase gate handles Metal GPU wired-buffer leaks via a 4-level recovery ladder. After all phases, `cleanup_after_uat()` runs automatically.
 
-The agent's role is to observe, not to manage processes. Trust the system; if something is genuinely stuck, the watchdog will recover or notify.
+The agent's role is to observe, not to manage processes. Trust the driver and gate; if something is genuinely stuck, the gate will recover it or hard-stop with a clear reason.
 
 ### MLX on-demand loading rules
 - **MLX loads models on request, not at startup.** A 503 from the proxy means it's idle and healthy — not crashed.
@@ -879,7 +888,7 @@ await page.screenshot(path=f"/tmp/uat_screenshots/debug_{test_id}.png")
 | Stream never ends | Model stuck | Increase `--timeout`; `curl http://localhost:8081/health` |
 | No artifact download | Wrong selector or MCP error | `--headed` + `/tmp/uat_screenshots/`; check MCP port health |
 | Persona missing from OWUI | Not seeded | `./launch.sh reseed && sleep 15` |
-| MLX 503 / OOM | Both MLX + Ollama loaded | Watchdog auto-evicts. If recurrent, check watchdog log. |
+| MLX 503 / OOM | Both MLX + Ollama loaded | Gate auto-evicts at phase boundary. Driver evicts at tier transitions. |
 | `[monitor]` warnings | Memory pressure rising | Watchdog handles it. Check `wired_gb` via `/health/wired`. |
 | auto-agentic timeout | 80B MoE slow | `--timeout 360`; 3+ min per prompt is normal |
 | Bench persona hard-fails | MLX bench model not loaded | `./launch.sh logs \| grep <model-name>` |
