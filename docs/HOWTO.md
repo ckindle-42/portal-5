@@ -744,7 +744,7 @@ Future sessions will remember this context.
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
 
-**Available workspaces:** `auto`, `auto-coding`, `auto-compliance`, `auto-mistral`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`, `auto-agentic`
+**Available workspaces:** `auto`, `auto-daily`, `auto-coding`, `auto-compliance`, `auto-mistral`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`, `auto-agentic`, `auto-math`
 
 ### Verify
 
@@ -1071,7 +1071,7 @@ PIPELINE_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $PIPELINE_API_KEY" \
   | python3 -m json.tool | grep '"id"'
-# Returns: auto, auto-coding, auto-security, auto-vision, ... + all 67 personas
+# Returns: auto, auto-daily, auto-coding, auto-security, auto-vision, ... + all 102 personas
 ```
 
 ### Chat (blocking)

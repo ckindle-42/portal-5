@@ -54,7 +54,7 @@ portal-5/
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 101 persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 102 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
