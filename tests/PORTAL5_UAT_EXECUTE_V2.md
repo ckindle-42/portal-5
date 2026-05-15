@@ -125,6 +125,13 @@ done
 
 # Inter-phase gate script (required between every phase)
 test -f tests/inter_phase_gate.sh && echo "Gate script present" || { echo "ABORT: tests/inter_phase_gate.sh MISSING"; exit 1; }
+
+# Verify pipeline API key works (driver auto-loads from .env, but confirm here)
+PIPELINE_KEY=$(grep "^PIPELINE_API_KEY=" .env | cut -d= -f2)
+curl -s --max-time 5 http://localhost:9099/v1/models \
+  -H "Authorization: Bearer $PIPELINE_KEY" \
+  -o /dev/null -w "%{http_code}" | grep -qE "^2" && echo "Pipeline API key OK" \
+  || echo "WARNING: Pipeline API key invalid — driver pre-warm will fail silently (check PIPELINE_API_KEY in .env)"
 ```
 
 **Hard stop:** if anything above fails, fix the environment first. Do not run tests against a degraded stack.
@@ -233,7 +240,7 @@ The gate appends rows to `tests/UAT_RUN_LOG.md` automatically.
 
 ```bash
 bash tests/inter_phase_gate.sh 1 4    # after Phase 1 (4 tests)
-bash tests/inter_phase_gate.sh 2 24   # after Phase 2 (24 tests)
+bash tests/inter_phase_gate.sh 2 35   # after Phase 2 (35 tests — verify count in driver output header)
 bash tests/inter_phase_gate.sh 3 26   # after Phase 3 (26 tests)
 # ... and so on — see exact commands in each phase section below
 ```
@@ -275,7 +282,7 @@ PHASE2_EXIT=$?
 
 Run the **Inter-Phase Gate** before phase 3:
 ```bash
-bash tests/inter_phase_gate.sh 2 24
+bash tests/inter_phase_gate.sh 2 35   # count from "N test(s) selected" in driver header
 ```
 
 ### Why these six sections and not auto-data?
@@ -731,6 +738,75 @@ docker logs portal5-pipeline --tail 30 | grep -E "Routing|workspace|fallback"
 python3 tests/portal5_uat_driver.py --rerun --test <TEST_ID>
 ```
 
+### Step 3f — Driver silent after startup unload (no test output for 5+ minutes)
+
+**Symptom**: Driver printed "Unload OK" (or equivalent) and then produced no further output for 5+ minutes. No `[01/XX]` test header visible.
+
+**Root cause**: The pre-warm auth failure pattern. The driver sends a minimal request to the pipeline to trigger MLX model cold-load before each test. If `PIPELINE_API_KEY` was not set in the environment, the pipeline returned 401 and the pre-warm failed silently. The driver then waits up to 1200s inside `_wait_for_mlx_ready()` for the model to appear on its own.
+
+**As of the current driver version**: The driver auto-loads `PIPELINE_API_KEY` from `.env` in the repo root — this should be resolved without manual intervention. If it recurs, diagnose as follows:
+
+```bash
+# 1. Check if pipeline rejected the pre-warm (127.0.0.1 = from host driver)
+docker logs portal5-pipeline --since 5m 2>/dev/null | grep "127.0.0.1.*401"
+
+# 2. Check proxy state — if state=none and no load attempt logged, pre-warm never reached proxy
+curl -s http://localhost:8081/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state'))"
+tail -5 ~/.portal5/logs/mlx-proxy.log
+
+# 3. Confirm API key works manually
+PIPELINE_KEY=$(grep "^PIPELINE_API_KEY=" .env | cut -d= -f2)
+curl -s --max-time 5 http://localhost:9099/v1/models \
+  -H "Authorization: Bearer $PIPELINE_KEY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('data',[])), 'models')"
+```
+
+**Recovery**: Kill the driver, run the gate (to reclaim any partially-loaded Metal buffers), then rerun the phase. The driver's auto-load fix will pick up the key from `.env`.
+
+```bash
+kill $(pgrep -f uat_driver.py) 2>/dev/null
+pkill -f chrome-headless-shell 2>/dev/null
+bash tests/inter_phase_gate.sh <N> <expected_count>
+python3 tests/portal5_uat_driver.py --rerun --section <sections...> 2>&1 | tee /tmp/uat_phaseN.log
+```
+
+### Step 3g — High wired memory after interrupted model load
+
+**Symptom**: Wired memory is 30–45GB, proxy state=none, free memory is < 4GB. This happens when a model load is interrupted mid-way (driver killed, gate ran while model was loading, or load aborted by admission control).
+
+**Root cause**: Metal GPU buffers from the in-progress load are still held by the OS. The proxy state is "none" (model not serving) but the buffers haven't been released. The proxy's `/unload` endpoint cannot release buffers not associated with a running server — only a proxy restart does.
+
+**Recovery**: Run the inter-phase gate. Its Level 3 recovery detects `inactive > 20GB` and restarts the proxy, which forces the VM pager to release all Metal allocations.
+
+```bash
+bash tests/inter_phase_gate.sh <N> <expected_count>
+# Gate Level 3 will print: "[GATE] wired=NN.NGB inactive=NN.NGB — restarting MLX proxy"
+# After restart, wired should drop to 2-3GB baseline
+curl -s http://localhost:8081/health/wired | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"wired={d.get('wired_gb')}GB free={d.get('free_gb')}GB\")"
+```
+
+### Step 3h — Driver stuck between tests (state=none persists >2 min after an eviction)
+
+**Symptom**: After a test completes and the driver evicts the model (prints "Unload OK: wired X→Y, loaded_before=..."), the log shows no `[NN/XX]` test header for 2+ minutes. Proxy state=none. Memory is clean (wired ≤ 3GB).
+
+**Root cause**: After a successful /unload, the proxy's Metal buffers are released asynchronously. If the driver's pre-warm fires *before* buffers are released (wired still 40-45GB), the proxy may reject the load request via admission control. The driver's `pre_warmed=True` flag then prevents any retry, so the driver silently polls state=none for up to 1200s.
+
+**As of the current driver version**: Fixed in `_wait_for_mlx_ready()` — pre-warm retries every 90s when state remains "none". You should see "MLX still idle after Xs — retrying pre-warm..." in the log before manual intervention is needed. If you see this on a version without the fix (or want to speed things up), trigger loading manually:
+
+```bash
+PIPELINE_KEY=$(grep "^PIPELINE_API_KEY=" .env | cut -d= -f2)
+# Use the workspace for the NEXT test (check cascade order in log header)
+curl -s --max-time 120 http://localhost:9099/v1/chat/completions \
+  -H "Authorization: Bearer $PIPELINE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto-agentic","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}' \
+  -o /dev/null -w "%{http_code}\n"
+# 200 = model loaded; driver will detect it on next readiness poll (≤10s)
+```
+
+**Diagnosing which workspace to pre-warm**: The driver prints the cascade order at startup: `mlx_large(N) > mlx_small(N) > any(N)`. The log shows which test number is next (e.g., `[02/35]`). Cross-reference with the test definitions in the driver to find the workspace (model_slug).
+
+**Why this can still happen despite the retry fix**: The proxy's `admission_control_gb` threshold may block all loads when wired is high. The gate's Level 3 proxy restart is the definitive fix — it clears all Metal buffers and resets wired to baseline.
+
 ### Step 4 — Rerun decision
 
 After diagnosing and applying a fix, use this decision tree:
@@ -893,6 +969,10 @@ await page.screenshot(path=f"/tmp/uat_screenshots/debug_{test_id}.png")
 | auto-agentic timeout | 80B MoE slow | `--timeout 360`; 3+ min per prompt is normal |
 | Bench persona hard-fails | MLX bench model not loaded | `./launch.sh logs \| grep <model-name>` |
 | Wired memory stuck high after phase | Metal buffer leak | `curl -X POST 'http://localhost:8081/unload?ollama=true'` |
+| Driver silent 5+ min after "Unload OK", no `[01/XX]` output | Pre-warm auth failure (driver polling 1200s timeout) | Kill driver, run gate, rerun — driver now auto-loads key from `.env` |
+| Driver silent 2+ min *between* tests (state=none, wired clean) | Pre-warm fired while metal still hot post-eviction; `pre_warmed=True` blocked retry | Manually curl pipeline to trigger load (Step 3h) — driver now auto-retries every 90s |
+| Wired 30–45GB, state=none, free < 4GB | Interrupted model load, Metal buffers held | Run gate: `bash tests/inter_phase_gate.sh N <count>` — Level 3 restarts proxy |
+| Gate fails: "syntax error in expression" | `grep -c` exit 1 on zero matches + `|| echo 0` double-output | Already fixed in gate script (uses `|| true` + `${VAR:-0}` pattern) |
 
 ---
 
@@ -1013,4 +1093,4 @@ List any items that need operator action after this run.
 
 ---
 
-*Last updated: 2026-05-15 (MLX readiness watcher added to Phase 0 pre-flight — starts mlx-readiness.py in background, stores PID in /tmp/mlx-readiness.pid, verified with --read before Phase 1; watcher stop added to Phase 8 cleanup; auto-daily section added to Phase 4 invocation with 8 WS-DD tests, ~33 test count; Section Reference updated; Resume after reboot: watcher restart step added; NEVER RUN: pkill mlx-readiness.py added; total run estimate updated)*
+*Last updated: 2026-05-15 (MLX readiness watcher, pipeline API key auto-load, pre-warm retry every 90s when state=none persists — Step 3h added; Quick Reference updated; driver _wait_for_mlx_ready() no longer silently waits 1200s after first pre-warm attempt fails due to hot metal buffers post-eviction)*
