@@ -420,7 +420,7 @@ backends:
 
 workspace_routing:
   auto:           [mlx, security, coding, general]  # Content-aware routing handles redirection; these are fallbacks
-  auto-daily:     [mlx, general]   # Daily-driver: MLX gemma-4-26b-a4b primary, Ollama qwen3.5-abliterated:9b fallback. No coding/security groups — persona redirects out-of-lane requests.
+  auto-daily:     [mlx, general]   # Daily-driver: MLX gemma-4-26b-a4b primary, Ollama dolphin-llama3:8b fallback (non-thinking). No coding/security groups — persona redirects out-of-lane requests.
   auto-coding:    [mlx, coding, general]
   auto-agentic:   [mlx, coding, general]
   auto-spl:       [mlx, coding, general]

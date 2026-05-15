@@ -72,14 +72,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": (
             "Fast everyday assistant: chat, writing, editing, summarization, "
             "planning, light technical help. MLX gemma-4-26b-a4b primary "
-            "(57.8 TPS, MoE 4B active, VLM, Apache 2.0); Ollama qwen3.5-"
-            "abliterated:9b fallback. Daily-driver lane — escalates to "
-            "specialist workspaces (auto-coding, auto-reasoning, etc.) when "
+            "(57.8 TPS, MoE 4B active, VLM, Apache 2.0); Ollama dolphin-"
+            "llama3:8b fallback (non-thinking). Daily-driver lane — escalates "
+            "to specialist workspaces (auto-coding, auto-reasoning, etc.) when "
             "the persona detects out-of-lane requests. No reasoning chain, "
             "no <think> emission — predict_limit capped and thinking mode "
             "explicitly disabled to keep responses snappy."
         ),
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "model_hint": "dolphin-llama3:8b",
         "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "predict_limit": 4096,
         # Suppress thinking mode on Gemma 4 (chat-template kwarg honored by

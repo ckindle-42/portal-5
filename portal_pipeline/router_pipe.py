@@ -2227,6 +2227,11 @@ async def chat_completions(
             _concurrent_requests.dec()
             raise HTTPException(status_code=400, detail="Invalid JSON body") from None
         workspace_id = body.get("model") or "auto"
+        # Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
+        if workspace_id not in WORKSPACES:
+            _persona_ws = _PERSONA_MAP.get(workspace_id, {}).get("workspace_model")
+            if _persona_ws and _persona_ws in WORKSPACES:
+                workspace_id = _persona_ws
         stream = body.get("stream", False)
 
         # Content-aware routing for 'auto' workspace
