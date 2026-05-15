@@ -158,6 +158,7 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 | 8921 | MCP RAG |
 | 8922 | MCP Research |
 | 8923 | MCP Browser (Playwright) |
+| 8924 | MLX Transcribe (mlx-whisper + pyannote diarization, host-native) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |
@@ -294,7 +295,9 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Persona catalog (101 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
-| Speech pipeline (MLX-native TTS) | `docs/FISH_SPEECH_SETUP.md` |
+| Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
+| Voice cloning (fish-speech, optional) | `docs/FISH_SPEECH_SETUP.md` |
+| Diarized transcription | `docs/HOWTO.md` (§ Transcription) |
 | IDE MCP tooling (filesystem, fetch, git, docker) | `docs/MCP_DEV_TOOLING.md` |
 | Cluster scaling | `docs/CLUSTER_SCALE.md` |
 | Admin guide | `docs/ADMIN_GUIDE.md` |

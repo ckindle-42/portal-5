@@ -79,7 +79,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 | Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
 | Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | DeepSeek-Coder-V2-Lite (MLX) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | GLM-4.7-Flash (MLX, auto-spl) |
 | Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next (MLX big-model) |
 
 **Example — coding:**
@@ -93,7 +93,7 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 17 workspace IDs (auto, auto-coding, auto-compliance, auto-mistral, auto-security, auto-redteam, auto-spl, auto-agentic, etc.)
+# Expected: 18 production workspace IDs (auto, auto-coding, auto-agentic, auto-spl, auto-security, auto-redteam, auto-blueteam, auto-creative, auto-reasoning, auto-documents, auto-video, auto-music, auto-research, auto-vision, auto-data, auto-compliance, auto-mistral, auto-math) plus bench-* workspaces
 ```
 
 ---
@@ -104,23 +104,22 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (67 total):**
+**Available personas (84 production + 17 benchmark = 101 total):**
 
-| Category | Personas |
-|----------|-------------|
-| Development (18) | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Creative Coder, DevOps Automator, DevOps Engineer, Ethereum Developer, Full Stack Developer, GitHub Expert, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Senior Frontend Dev, Senior Software Engineer, QA Tester, UX/UI Developer, Codebase Wiki Documentation |
-| Languages (3) | Rust Engineer, Go Engineer, TypeScript Engineer |
-| Security (6) | Cyber Security Specialist, Network Engineer, Red Team Operator, Blue Team Defender, Pentester, Splunk SPL Engineer |
-| Data (7) | Data Analyst, Data Scientist, ML Engineer, Statistician, Research Analyst, Excel Sheet, Phi-4 STEM Analyst |
-| Architecture (1) | IT Architect |
-| Compliance (6) | NERC CIP Compliance Analyst, CIP Policy Writer, SOC 2 Auditor, PCI-DSS Assessor, GDPR DPO, HIPAA Privacy Officer |
-| Systems (2) | Linux Terminal, SQL Terminal |
-| General (6) | IT Expert, Tech Reviewer, Product Manager, Business Analyst, Proofreader, Interview Coach |
-| Writing (3) | Creative Writer, Tech Writer, Hermes Narrative Writer |
-| Reasoning (4) | Magistral Strategist, GPT-OSS Analyst, Phi-4 Technical Analyst, Math Reasoner |
-| Research (2) | Gemma Research Analyst, SuperGemma4 Uncensored Researcher |
-| Vision (4) | Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Diagram Reader |
-| Specialties (5) | Splunk Detection Author, Terraform Writer, Documentation Architect, Database Architect, Dashboard Architect |
+| Category | Count | Personas |
+|----------|-------|----------|
+| Development | 24 | Bug Discovery Code Assistant, Code Review Assistant, Code Reviewer, Codebase WIKI Documentation, Creative Coder, DevOps Automator, DevOps Engineer, E2E Debugger, E2E Test Author, Ethereum Developer, Form Filler, Fullstack Developer, GitHub Expert, Go Engineer, JavaScript Console, K8s/Docker Learning, Python Code Generator, Python Interpreter, Rust Engineer, Senior Frontend Dev, Senior Software Engineer, Software QA Tester, TypeScript Engineer, UX/UI Developer |
+| Data | 10 | Dashboard Architect, Data Analyst, Data Extractor, Data Scientist, Database Architect, Excel Sheet, Machine Learning Engineer, Phi-4 STEM Analyst, Research Analyst, Statistician |
+| General | 8 | Agent Orchestrator, Business Analyst, Interview Coach, IT Expert, Personal Assistant, Product Manager, Tech Reviewer, Web Navigator |
+| Research | 7 | Fact Checker, Gemma Research Analyst, Knowledge Base Navigator, Market Analyst, Paywalled Researcher, SuperGemma4 Uncensored Researcher, Web Researcher |
+| Security | 7 | Blue Team Defender, Cyber Security Specialist, Network Engineer, Penetration Tester, Red Team Operator, Splunk Detection Author, Splunk SPL Engineer |
+| Vision | 7 | Chart Analyst, Code Screenshot Reader, Diagram Reader, Gemma 4 Edge Vision, Gemma 4 JANG Unfiltered Vision, OCR Specialist, Whiteboard Converter |
+| Compliance | 7 | CIP Policy Writer, Compliance Analyst (Multi-Framework), GDPR DPO, HIPAA Privacy Officer, NERC CIP Compliance Analyst, PCI-DSS Assessor, SOC 2 Auditor |
+| Writing | 6 | Creative Writer, Documentation Architect, Hermes Narrative Writer, Proofreader, Tech Writer, Transcript Analyst |
+| Reasoning | 4 | GPT-OSS Analyst, Magistral Strategist, Math Reasoner, Phi-4 Technical Analyst |
+| Systems | 3 | Linux Terminal, SQL Terminal, Terraform Writer |
+| Architecture | 1 | IT Architect |
+| Benchmark | 17 | bench-devstral, bench-dolphin8b, bench-glm, bench-gptoss, bench-granite41-8b, bench-granite41-30b, bench-laguna, bench-llama33-70b, bench-negentropy, bench-olmo3-32b, bench-omnicoder2, bench-phi4, bench-phi4-reasoning, bench-qwen36-27b, bench-qwen36-35b-a3b, bench-qwen3-coder-30b, bench-qwen3-coder-next |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
@@ -1198,29 +1197,34 @@ handles all model selection automatically. No manual switching needed.
 
 | Model | RAM | Server | Best for |
 |-------|-----|--------|----------|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | Code generation (80B MoE, 4bit required on 64GB) |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder |
-| `mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit` | ~12GB | mlx_lm | SPL specialist |
-| `lmstudio-community/Devstral-Small-2507-MLX-4bit` | ~15GB | mlx_lm | Agentic dev workflows (v1.1, 53.6% SWE-bench) |
+| `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | Primary coder (80B MoE, BIG_MODEL — 64GB system) |
+| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder (30B MoE) |
+| `mlx-community/GLM-4.7-Flash-4bit` | ~15GB | mlx_lm | auto-coding primary (30B-A3B MoE, 59.2% SWE-bench, Z.AI) |
+| `mlx-community/Laguna-XS.2-4bit` | ~19GB | mlx_lm | High SWE-bench coder (33B-A3B MoE, 68.2%, Poolside AI) |
+| `lmstudio-community/Devstral-Small-2507-MLX-4bit` | ~15GB | mlx_lm | Devstral v1.1 (53.6% SWE-bench, Mistral) |
 | `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
+| `huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit` | ~6GB | mlx_lm | auto MLX path primary (uncensored, 256K ctx) |
 | `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline / LLM router |
-| `mlx-community/phi-4-8bit` | ~14GB | mlx_lm | STEM reasoning (Microsoft Phi-4, synthetic data) |
-| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | Mistral reasoning, [THINK] mode |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (PULL_HEAVY only) |
-| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | Reasoning primary (v3, auto-reasoning workspace) |
-| `Jackrong/MLX-Qwopus3.5-9B-v3-8bit` | ~9GB | mlx_lm | Fast reasoning (v3) |
-| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit` | ~14GB | mlx_lm | Reasoning alt (Claude-4.6-Opus distill) |
-| `Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~9GB | mlx_lm | Fast Claude-4.6-Opus distill |
-| `Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit` | ~28GB | mlx_lm | Compliance / policy (MoE) |
-| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit` | ~34GB | mlx_lm | Data analysis (R1 Distill 32B) |
-| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning |
-| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Google Gemma 4 dense 31B, thinking+vision, 256K ctx |
-| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Vision / multimodal |
+| `mlx-community/phi-4-8bit` | ~14GB | mlx_lm | Phi-4 14B STEM reasoning (Microsoft, synthetic data) |
+| `mlx-community/granite-4.1-30b-mxfp4` | ~15GB | mlx_lm | auto-compliance primary (IBM Granite 4.1 30B, Apache 2.0) |
+| `mlx-community/granite-4.1-3b-mxfp8` | ~3GB | mlx_lm | Ultra-fast compliance (IBM Granite 4.1 3B) |
+| `mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit` | ~14GB | mlx_lm | Security/redteam (AEON uncensored 27B) |
+| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | auto-mistral workspace, Mistral reasoning, [THINK] mode |
+| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (PULL_HEAVY only, BIG_MODEL) |
+| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | auto-reasoning primary (Qwopus 27B v3) |
+| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit` | ~14GB | mlx_lm | Reasoning alt (Claude-4.6-Opus distill, 4-bit) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit` | ~34GB | mlx_lm | Data analysis (R1 Distill Qwen 32B 8-bit) |
+| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning (R1 Distill 4-bit) |
+| `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` | ~5GB | mlx_lm | auto-math primary (Qwen Math specialist) |
+| `lmstudio-community/Phi-4-reasoning-plus-MLX-4bit` | ~8GB | mlx_lm | STEM/math reasoning (Microsoft RL-trained) |
+| `Jackrong/Negentropy-claude-opus-4.7-9B-6bit` | ~7GB | mlx_lm | Bench-only — trace-inversion reasoning 9B |
+| `mlx-community/Olmo-3-1125-32B-4bit` | ~17GB | mlx_lm | Bench-only — Allen AI dense 32B (non-Qwen lineage) |
+| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Primary VLM (Gemma 4 dense 31B, thinking+vision, 256K ctx) |
+| `mlx-community/gemma-4-26B-A4B-it-heretic-4bit` | ~13GB | mlx_vlm | auto-creative primary (Gemma 4 26B HERETIC abliterated) |
+| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~13GB | mlx_vlm | Gemma 4 26B-A4B MoE vision (bench/vision ladder) |
 | `mlx-community/gemma-4-e4b-it-4bit` | ~5GB | mlx_vlm | Gemma 4 E4B — text+vision+audio (ASR), 128K ctx |
-| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~15GB | mlx_vlm | Gemma 4 26B A4B MoE, vision, 256K ctx |
-| `lmstudio-community/Phi-4-reasoning-plus-MLX-4bit` | ~7GB | mlx_vlm | STEM/math reasoning (RL-trained, Microsoft) |
-| `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (Karakeep / research) |
-| `dealignai/Gemma-4-31B-JANG_4M-CRACK` | ~23GB | mlx_vlm | Abliterated Gemma 4 31B, uncensored vision+text, thinking mode (JANG v2 5.1-bit) |
+| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Heavy VLM (Qwen3-VL 32B, BIG_MODEL) |
+| `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (11B, research) |
 
 ### Memory coexistence (64GB system)
 

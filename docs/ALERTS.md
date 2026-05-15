@@ -133,8 +133,8 @@ ALERT_NO_HEALTHY_BACKENDS=true
 # Enable/disable daily summary (default: true)
 ALERT_SUMMARY_ENABLED=true
 
-# Hour to send summary (0-23, default: 9)
-ALERT_SUMMARY_HOUR=9
+# Hour to send summary (0-23, default: 8)
+ALERT_SUMMARY_HOUR=8
 
 # Timezone for the schedule (default: UTC)
 ALERT_SUMMARY_TIMEZONE=UTC
