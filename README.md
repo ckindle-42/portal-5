@@ -65,6 +65,7 @@ Everything runs with a single command. No manual configuration.
 | SearXNG | Private web search for research | (internal) |
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
 | 12 MCP Servers | Documents (:8913), Code sandbox (:8914), Security (:8919), Whisper (:8915), TTS (:8916), ComfyUI (:8910), Video (:8911), Music (:8912, host-native — requires `./launch.sh install-music`), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923) | (internal) |
+| MLX Transcribe | Diarized transcription (mlx-whisper + pyannote speaker labeling, Apple Silicon only) | :8924 (internal) |
 | MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (host-native, Apple Silicon only) | :8918 (internal) |
 | Embedding | Harrier-0.6B text embeddings for RAG | :8917 (internal) |
 | Prometheus | Metrics collection | http://localhost:9090 |
@@ -77,7 +78,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **18 functional workspaces** (plus 9 benchmark workspaces for performance comparison).
+Portal 5 includes **18 functional workspaces** (plus 18 benchmark workspaces for performance comparison).
 
 ### Functional Workspaces
 
@@ -110,11 +111,20 @@ These pin a specific model for direct performance comparison. Not intended for d
 |---|---|
 | `bench-devstral` | Devstral-Small-2507 (MLX 4-bit) |
 | `bench-dolphin8b` | Dolphin 3.0 Llama 3.1 8B (MLX 8-bit) |
-| `bench-glm` | GLM-4.7-Flash abliterated (MLX 4-bit) |
-| `bench-gptoss` | GPT-4o style open-source model |
+| `bench-glm` | GLM-4.7-Flash (MLX 4-bit) |
+| `bench-gptoss` | GPT-OSS 20B (Ollama) |
+| `bench-granite41-8b` | Granite 4.1 8B (Ollama) |
+| `bench-granite41-30b` | Granite 4.1 30B (Ollama) |
+| `bench-laguna` | Laguna-XS.2 33B-A3B (MLX 4-bit) |
 | `bench-llama33-70b` | Llama 3.3 70B (MLX 4-bit) |
+| `bench-negentropy` | Negentropy 9B (Jackrong MLX 6-bit) |
+| `bench-olmo3-32b` | Olmo-3 32B (Allen AI MLX 4-bit) |
+| `bench-omnicoder2` | OmniCoder-2 9B (Ollama) |
 | `bench-phi4` | Phi-4 (MLX 8-bit) |
 | `bench-phi4-reasoning` | Phi-4 reasoning plus (MLX 4-bit) |
+| `bench-qwen35-abliterated` | Qwen3.5-9B abliterated (MLX 4-bit + Ollama) |
+| `bench-qwen36-27b` | Qwen3.6-27B (MLX 4-bit) |
+| `bench-qwen36-35b-a3b` | Qwen3.6-35B-A3B MoE (MLX 4-bit) |
 | `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B (MLX 8-bit) |
 | `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE (MLX 4-bit) |
 
@@ -218,8 +228,8 @@ These pin a specific model for direct performance comparison. Not intended for d
 - **Vision:** Qwen3-VL 32B, LLaVA-7B
 
 ### MLX models (Apple Silicon, pulled with `./launch.sh pull-mlx-models`)
-- **Text-only (mlx_lm):** Qwen3-Coder-Next-4bit, Qwen3-Coder-30B-8bit, DeepSeek-R1-32B, Devstral-Small-2507, Llama 3.2/3.3, Qwopus3.5-27B, Qwopus3.5-9B, Magistral-Small, DeepSeek-Coder-V2-Lite, Dolphin3-Llama3.1-8B, Qwen3.5-35B-A3B-Claude
-- **VLM (mlx_vlm):** Qwen3-VL-32B, LLaVA-7B, Gemma-4-31B
+- **Text-only (mlx_lm):** Qwen3-Coder-Next (80B MoE), Qwen3-Coder-30B, GLM-4.7-Flash, Laguna-XS.2, Devstral-Small-2507, Qwopus3.5-27B, AEON Qwen3.6-27B, DeepSeek-R1-32B, Granite-4.1-30B, Qwen2.5-Math-7B, Dolphin3-Llama3.1-8B, Phi-4, Magistral-Small, Llama 3.2/3.3
+- **VLM (mlx_vlm):** Gemma-4-31B (primary), Gemma-4-26B-A4B, Qwen3-VL-32B, Llama-3.2-11B-Vision
 - The MLX proxy auto-switches between these servers — only one runs at a time
 
 ### Image generation (downloaded automatically on first run, ~12 GB)
