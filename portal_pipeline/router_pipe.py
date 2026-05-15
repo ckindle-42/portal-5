@@ -968,12 +968,10 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
     "auto-redteam": {
         "keywords": _REDTEAM_KEYWORDS,
         "threshold": 4,
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
     },
     "auto-security": {
         "keywords": _SECURITY_KEYWORDS,
         "threshold": 3,
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
     },
     "auto-spl": {
         "keywords": _SPL_KEYWORDS,
