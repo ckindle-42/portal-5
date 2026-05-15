@@ -64,28 +64,28 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 
 | Workspace | Select this when... | Routes to |
 |-----------|---------------------|-----------|
-| Portal Auto Router | You're unsure | Best available model |
-| Portal Code Expert | Writing or reviewing code | Qwen3-Coder-Next (MLX) |
-| Portal Security Analyst | Security questions | BaronLLM |
-| Portal Red Team | Offensive security | BaronLLM |
-| Portal Blue Team | Incident response | Lily-Cybersecurity |
-| Portal Creative Writer | Stories, scripts | Dolphin Llama3 |
-| Portal Deep Reasoner | Complex analysis | DeepSeek-R1 |
-| Portal Document Builder | Word/Excel/PPT files | Qwen + Documents MCP |
-| Portal Video Creator | Text-to-video | Dolphin + Video MCP |
-| Portal Music Producer | Generate music | Dolphin + Music MCP |
-| Portal Research Assistant | Web research | DeepSeek-R1 |
-| Portal Vision | Image analysis | Qwen3-VL |
-| Portal Data Analyst | Statistics, analysis | DeepSeek-R1 |
-| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Qwen3.5-35B |
-| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | GLM-4.7-Flash (MLX, auto-spl) |
-| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next (MLX big-model) |
+| Portal Auto Router | You're unsure | Qwen3.5-abliterated (MLX / Ollama) |
+| Portal Code Expert | Writing or reviewing code | Laguna-XS.2 (MLX) · Qwen3-Coder-30B (Ollama) |
+| Portal Security Analyst | Security questions | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
+| Portal Red Team | Offensive security | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
+| Portal Blue Team | Incident response | Lily-Cybersecurity (Ollama) |
+| Portal Creative Writer | Stories, scripts | Gemma-4-heretic (MLX) · Dolphin (Ollama) |
+| Portal Deep Reasoner | Complex analysis | Qwopus3.5-27B (MLX) · DeepSeek-R1 (Ollama) |
+| Portal Document Builder | Word/Excel/PPT files | Phi-4 (MLX) · Qwen3.5-9B (Ollama) + Documents MCP |
+| Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
+| Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
+| Portal Research Assistant | Web research | Gemma-4-26B-A4B (MLX) · Tongyi-DeepResearch (Ollama) |
+| Portal Vision | Image analysis | Gemma-4-26B-A4B (MLX) · Qwen3-VL (Ollama) |
+| Portal Data Analyst | Statistics, analysis | DeepSeek-R1-32B (MLX + Ollama) |
+| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (MLX) · DeepSeek-R1 (Ollama) |
+| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (MLX) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (MLX) · DeepSeek-Coder-V2 (Ollama) |
+| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (MLX big-model) |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
 2. Type: `Write a Python function that finds the longest palindromic substring`
-3. The pipeline routes to `mlx-community/Qwen3-Coder-Next-4bit` via MLX (or Ollama fallback)
+3. The pipeline routes to `mlx-community/Laguna-XS.2-4bit` via MLX (or `qwen3-coder:30b` Ollama fallback)
 4. The code sandbox MCP is auto-activated
 
 **Verify workspace routing:**
