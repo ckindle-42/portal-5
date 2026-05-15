@@ -886,8 +886,12 @@ async def _mlx_health() -> tuple[str, dict]:
         return "unreachable", {"error": str(e)}
 
 
-async def _wait_for_mlx_ready(timeout: int = 120) -> bool:
-    """Wait for MLX proxy to be ready (any model)."""
+async def _wait_for_mlx_ready(timeout: int = 600) -> bool:
+    """Wait for MLX proxy to be ready (any model).
+
+    Default 600s: large models (26B MoE, 32B) take 1-3 min to load; 70B takes 3-5 min.
+    120s was too tight for cold starts on large models.
+    """
     start = time.time()
     while time.time() - start < timeout:
         state, _ = await _mlx_health()
@@ -1022,42 +1026,61 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
 
 
 async def _remediate_mlx_crash(reason: str = "crash") -> bool:
-    """Recover from MLX proxy 'down' state: kill all MLX procs and restart proxy.
+    """Recover from MLX proxy 'down' state: gracefully stop MLX procs and restart proxy.
 
-    Ported from v4 acceptance tests.  Returns True if proxy is back and healthy.
+    Uses SIGTERM (never SIGKILL) for mlx_lm.server and mlx_vlm.server — SIGKILL on a
+    Metal process leaves GPU buffers unreclaimable and can require a reboot to clear.
+    The proxy itself gets SIGTERM first; only falls back to port-based cleanup if the
+    process doesn't exit within 10s. mlx-watchdog is intentionally NOT killed so it
+    can resume auto-recovery after the proxy restarts.
     """
     print(f"  🔧 MLX remediation: {reason}")
 
-    # Step 1: Kill all MLX server processes and the proxy
-    for pattern in ["mlx_lm.server", "mlx_vlm.server", "mlx-proxy.py", "mlx-watchdog"]:
-        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)
+    # Step 1: SIGTERM mlx servers (NEVER SIGKILL — Metal GPU buffers must release cleanly)
+    for pattern in ["mlx_lm.server", "mlx_vlm.server"]:
+        subprocess.run(["pkill", "-TERM", "-f", pattern], capture_output=True)
 
-    # Force-kill anything still on the MLX ports
-    for port in [18081, 18082, 8081]:
-        try:
-            r = subprocess.run(
-                ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
-            )
-            for pid in r.stdout.strip().split("\n"):
-                if pid.strip():
-                    try:
-                        os.kill(int(pid.strip()), 9)
-                    except (ProcessLookupError, ValueError):
-                        pass
-        except Exception:
-            pass
+    # Step 2: SIGTERM the proxy (graceful shutdown)
+    proxy_pids = subprocess.run(
+        ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
+    ).stdout.strip().split()
+    for pid in proxy_pids:
+        if pid.strip():
+            try:
+                os.kill(int(pid.strip()), 15)  # SIGTERM
+            except (ProcessLookupError, ValueError):
+                pass
 
-    # Wait for ports to clear
+    # Wait up to 10s for graceful exit before port-based cleanup
+    for _ in range(10):
+        await asyncio.sleep(1)
+        r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
+        if not r.stdout.strip():
+            break
+
+    # If proxy is still holding port 8081 after graceful wait, use SIGTERM on the port owner
+    # (still not SIGKILL — we accept a longer wait over a Metal buffer leak)
+    r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
+    for pid in r.stdout.strip().split("\n"):
+        if pid.strip():
+            try:
+                os.kill(int(pid.strip()), 15)  # SIGTERM
+            except (ProcessLookupError, ValueError):
+                pass
+
+    # Wait for ports to clear (up to 20s)
     for _ in range(20):
         r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
         if not r.stdout.strip():
             break
         await asyncio.sleep(1)
 
+    # Allow Metal GPU buffers time to release after SIGTERM
+    await asyncio.sleep(10)
     free = _free_ram_gb()
-    print(f"  ── RAM after kill: {free:.1f} GB free ──")
+    print(f"  ── RAM after graceful stop: {free:.1f} GB free ──")
 
-    # Step 2: Restart proxy from deployed script
+    # Step 3: Restart proxy from deployed script
     proxy_script = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
     if not proxy_script.exists():
         proxy_script = ROOT / "scripts" / "mlx-proxy.py"
@@ -1067,7 +1090,7 @@ async def _remediate_mlx_crash(reason: str = "crash") -> bool:
         stderr=subprocess.STDOUT,
     )
 
-    # Step 3: Wait for proxy to respond
+    # Step 4: Wait for proxy to respond (state=none is healthy for on-demand proxy)
     for _ in range(30):
         await asyncio.sleep(2)
         try:
