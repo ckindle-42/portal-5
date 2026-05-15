@@ -78,13 +78,14 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **18 functional workspaces** (plus 18 benchmark workspaces for performance comparison).
+Portal 5 includes **19 functional workspaces** (plus 18 benchmark workspaces for performance comparison).
 
 ### Functional Workspaces
 
 | Workspace | Purpose | Auto-activates |
 |---|---|---|
 | `auto` | General — routes to best model | — |
+| `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning (gemma-4-26b-a4b, 57.8 TPS) | Research + Memory |
 | `auto-coding` | Code generation and review | Code sandbox |
 | `auto-agentic` | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) | Code sandbox |
 | `auto-security` | Security analysis and hardening | Code sandbox |

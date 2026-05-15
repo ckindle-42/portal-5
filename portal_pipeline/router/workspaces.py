@@ -54,13 +54,50 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # support and catalog consistency with ollama-general line 1. Uncensored
         # property preserved (huihui-ai abliteration). See
         # TASK_TOOL_SUPPORT_AUDIT_V1 §A7.
-        # V5 bench: Huihui-Qwen3.5-9B warmup FAIL (proxy cannot load model).
-        # MLX path falls back to Ollama huihui_ai/qwen3.5-abliterated:9b.
-        # A censored replacement (e.g. granite-4.1-3b) is not acceptable —
-        # auto workspace must remain uncensored. Pending uncensored MLX alternative.
+        # MLX path: huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit. Healthy as
+        # of 2026-05-12 UAT (WS-01 / P-W06 / P-W03 / P-B03 PASS via pipeline,
+        # routed model confirmed). Earlier "V5 warmup FAIL" condition was
+        # resolved by V6 refresh; previous comment block was stale.
+        # Constraint: auto workspace must remain uncensored — any future MLX
+        # repin candidate must be abliterated or otherwise uncensored.
+        # For snappier daily-driver flows that bypass the LLM intent
+        # classifier, users should pick the `auto-daily` workspace
+        # (pinned to mlx-community/gemma-4-26b-a4b-it-4bit, 57.8 TPS).
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "tools": [],
+    },
+    "auto-daily": {
+        "name": "🪶 Portal Daily Driver",
+        "description": (
+            "Fast everyday assistant: chat, writing, editing, summarization, "
+            "planning, light technical help. MLX gemma-4-26b-a4b primary "
+            "(57.8 TPS, MoE 4B active, VLM, Apache 2.0); Ollama qwen3.5-"
+            "abliterated:9b fallback. Daily-driver lane — escalates to "
+            "specialist workspaces (auto-coding, auto-reasoning, etc.) when "
+            "the persona detects out-of-lane requests. No reasoning chain, "
+            "no <think> emission — predict_limit capped and thinking mode "
+            "explicitly disabled to keep responses snappy."
+        ),
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "predict_limit": 4096,
+        # Suppress thinking mode on Gemma 4 (chat-template kwarg honored by
+        # mlx_lm.server / mlx_vlm.server). Same pattern as auto-security /
+        # auto-redteam in WORKSPACES (commit 7462c1b) — keeps content in
+        # delta.content rather than delta.reasoning under streaming. Consumed
+        # by _inject_mlx_options() in router_pipe.py.
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
+        "tools": [
+            "web_search",
+            "web_fetch",
+            "kb_search",
+            "kb_list",
+            "read_pdf",
+            "read_word_document",
+            "remember",
+            "recall",
+        ],
     },
     "auto-coding": {
         "name": "💻 Portal Code Expert",

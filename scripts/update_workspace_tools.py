@@ -6,6 +6,7 @@ from pathlib import Path
 
 WORKSPACE_TOOLS = {
     "auto": ["server:mcp:portal_comfyui"],
+    "auto-daily": ["server:mcp:portal_research", "server:mcp:portal_memory"],
     "auto-coding": ["server:mcp:portal_code", "server:mcp:portal_memory"],
     "auto-compliance": ["server:mcp:portal_research"],
     "auto-documents": ["server:mcp:portal_documents", "server:mcp:portal_code"],

@@ -32,6 +32,7 @@ VALID_WORKSPACES = frozenset(
         "auto",
         "auto-agentic",
         "auto-coding",
+        "auto-daily",
         "auto-spl",
         "auto-security",
         "auto-redteam",
