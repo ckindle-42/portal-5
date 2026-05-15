@@ -12,9 +12,9 @@ if [ "${3:-}" = "--keep-comfyui" ]; then
     KEEP_COMFYUI=true
 fi
 ELAPSED=0  # accumulated wait time across all gates, credited against 600s memory cap
-FAIL_BEFORE=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
-PASS_BEFORE=$(grep -c '| PASS |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
-WARN_BEFORE=$(grep -c '| WARN |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
+FAIL_BEFORE=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || true); FAIL_BEFORE=${FAIL_BEFORE:-0}
+PASS_BEFORE=$(grep -c '| PASS |' tests/UAT_RESULTS.md 2>/dev/null || true); PASS_BEFORE=${PASS_BEFORE:-0}
+WARN_BEFORE=$(grep -c '| WARN |' tests/UAT_RESULTS.md 2>/dev/null || true); WARN_BEFORE=${WARN_BEFORE:-0}
 
 # ---- Top-level utilities (must be defined before use) ----
 
@@ -334,7 +334,7 @@ else
 fi
 
 # ---- Gate 4: FAIL delta check ----
-FAIL_AFTER=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || echo 0)
+FAIL_AFTER=$(grep -c '| FAIL |' tests/UAT_RESULTS.md 2>/dev/null || true); FAIL_AFTER=${FAIL_AFTER:-0}
 FAIL_DELTA=$((FAIL_AFTER - FAIL_BEFORE))
 FAIL_PCT=0
 if [ "$PHASE_TESTS" -gt 0 ]; then

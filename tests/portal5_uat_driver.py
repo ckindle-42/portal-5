@@ -580,6 +580,8 @@ def _wait_for_mlx_ready(
     label = f"[{test_name}]" if test_name else ""
     t0 = time.time()
     pre_warmed = False
+    last_prewarm_t = 0.0
+    PRE_WARM_RETRY_S = 90  # retry pre-warm if state=none persists this long
     fatal_count = 0
     consecutive_ready = 0
     STABLE_POLLS = 2   # consecutive ready observations before we trust it
@@ -615,13 +617,22 @@ def _wait_for_mlx_ready(
                         _pipeline_pre_warm(workspace_id)
                     except Exception as e:
                         print(f"  {label} pre-warm failed: {e}")
-            elif state == "none" and not pre_warmed:
-                pre_warmed = True
-                print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
-                try:
-                    _pipeline_pre_warm(workspace_id)
-                except Exception as e:
-                    print(f"  {label} pre-warm failed: {e}")
+            elif state == "none":
+                # Retry pre-warm if: never sent, or sent >90s ago with no state change
+                if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
+                    if pre_warmed:
+                        print(
+                            f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
+                            " — retrying pre-warm..."
+                        )
+                    else:
+                        print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                    pre_warmed = True
+                    last_prewarm_t = time.time()
+                    try:
+                        _pipeline_pre_warm(workspace_id)
+                    except Exception as e:
+                        print(f"  {label} pre-warm failed: {e}")
             elif state == "switching":
                 switch_elapsed = rdata.get("switch_elapsed") or 0
                 if int(switch_elapsed) % 30 < STABLE_POLLS:
@@ -671,13 +682,21 @@ def _wait_for_mlx_ready(
                 else:
                     consecutive_ready = 0
 
-                if state == "none" and not pre_warmed:
-                    pre_warmed = True
-                    print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
-                    try:
-                        _pipeline_pre_warm(workspace_id)
-                    except Exception as e:
-                        print(f"  {label} pre-warm failed: {e}")
+                if state == "none":
+                    if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
+                        if pre_warmed:
+                            print(
+                                f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
+                                " — retrying pre-warm..."
+                            )
+                        else:
+                            print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                        pre_warmed = True
+                        last_prewarm_t = time.time()
+                        try:
+                            _pipeline_pre_warm(workspace_id)
+                        except Exception as e:
+                            print(f"  {label} pre-warm failed: {e}")
                 elif state == "switching":
                     if int(_elapsed()) % 30 < 3:
                         print(
@@ -732,8 +751,23 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
     not whatever model 'auto' would pick (which may differ and cause a second switch).
     """
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
-    pipeline_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
+    pipeline_key = os.environ.get("PIPELINE_API_KEY", "")
+    if not pipeline_key:
+        try:
+            env_path = Path(__file__).parent.parent / ".env"
+            for _line in env_path.read_text().splitlines():
+                if _line.startswith("PIPELINE_API_KEY="):
+                    pipeline_key = _line.split("=", 1)[1].strip()
+                    break
+        except Exception:
+            pass
+    if not pipeline_key:
+        pipeline_key = "portal-pipeline"
     try:
+        # Timeout must exceed the longest cold-load time for any model.
+        # AEON 27B loads in 60-120s, Qwen3-32B/70B can take 90-180s.
+        # 30s was too short: the pipeline fell back to Ollama before MLX
+        # finished loading, leaving pre_warmed=True but the proxy at none.
         httpx.post(
             f"{pipeline_url}/v1/chat/completions",
             headers={
@@ -746,7 +780,7 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
                 "max_tokens": 1,
                 "stream": False,
             },
-            timeout=30,
+            timeout=180,
         )
     except Exception:
         pass
@@ -1901,6 +1935,28 @@ def _strip_think_blocks(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+_UNICODE_DASH_TABLE = str.maketrans(
+    "".join([
+        "‐",  # hyphen
+        "‑",  # non-breaking hyphen
+        "‒",  # figure dash
+        "–",  # en dash
+        "—",  # em dash
+        "―",  # horizontal bar
+        "−",  # minus sign
+        "─",  # box-drawing horizontal
+        "﹘",  # small em dash
+        "﹣",  # small hyphen-minus
+        "－",  # fullwidth hyphen-minus
+    ]),
+    "-" * 11,
+)
+
+
+def _normalize_dashes(s: str) -> str:
+    return s.translate(_UNICODE_DASH_TABLE)
+
+
 def _kw_in(keyword: str, text: str, *, word_boundary: bool) -> bool:
     """Return True if ``keyword`` appears in ``text`` (case-insensitive).
 
@@ -1908,9 +1964,13 @@ def _kw_in(keyword: str, text: str, *, word_boundary: bool) -> bool:
     so short tokens like 'r1' or 'lives' don't match inside 'router 1' or 'olives'.
     Boundaries only fire between \\w and \\W, so keywords that begin or end with
     punctuation (e.g. '=B2-C2') still match correctly.
+
+    Unicode dash variants (em-dash, en-dash, non-breaking hyphen, etc.) are
+    normalised to ASCII hyphen before matching — models frequently use typographic
+    dashes in structured names like CIP‑003‑9.
     """
-    needle = keyword.lower()
-    haystack = text.lower()
+    needle = _normalize_dashes(keyword.lower())
+    haystack = _normalize_dashes(text.lower())
     if not word_boundary:
         return needle in haystack
     import re
