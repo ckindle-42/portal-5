@@ -42,11 +42,38 @@ for m in models:
     fi
 }
 
-# ---- Gate 1: pipeline health (unrecoverable) ----
+# ---- Gate 0: MLX readiness watcher health (auto-restart if dead) ----
+# The watcher writes /tmp/portal5-mlx-readiness.json every 10s. If it crashed,
+# the driver falls back to slow-path proxy polling — not fatal, but restart it
+# so the fast path is available for the next phase.
+if [ -f /tmp/mlx-readiness.pid ]; then
+    WATCHER_PID=$(cat /tmp/mlx-readiness.pid)
+    if ! kill -0 "$WATCHER_PID" 2>/dev/null; then
+        echo "[GATE:$PHASE_NUM] MLX readiness watcher (PID $WATCHER_PID) is dead — restarting..."
+        python3 scripts/mlx-readiness.py > /tmp/mlx-readiness.log 2>&1 &
+        NEW_WATCHER_PID=$!
+        echo $NEW_WATCHER_PID > /tmp/mlx-readiness.pid
+        echo "[GATE:$PHASE_NUM] Watcher restarted (PID $NEW_WATCHER_PID)"
+        sleep 12
+    else
+        echo "[GATE:$PHASE_NUM] MLX readiness watcher running (PID $WATCHER_PID)"
+    fi
+else
+    echo "[GATE:$PHASE_NUM] WARNING: /tmp/mlx-readiness.pid not found — watcher may not have been started in Phase 0"
+fi
+
+# ---- Gate 1: pipeline health (auto-restart attempt before hard stop) ----
 if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
-    echo "[GATE:$PHASE_NUM] FATAL: pipeline DOWN — cannot proceed. Fix and re-run gate."
-    echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | pipeline DOWN |" >> tests/UAT_RUN_LOG.md
-    exit 1
+    echo "[GATE:$PHASE_NUM] Pipeline DOWN — attempting Docker restart (one attempt)..."
+    docker restart portal5-pipeline 2>/dev/null || true
+    echo "[GATE:$PHASE_NUM] Waiting 30s for pipeline to come up..."
+    sleep 30
+    if ! curl -sf --max-time 5 http://localhost:9099/health > /dev/null; then
+        echo "[GATE:$PHASE_NUM] FATAL: pipeline still DOWN after restart — cannot proceed."
+        echo "| $PHASE_NUM. gate | BLOCKED | $(date -u +%H:%MZ) | — | — | — | pipeline DOWN (restart failed) |" >> tests/UAT_RUN_LOG.md
+        exit 1
+    fi
+    echo "[GATE:$PHASE_NUM] Pipeline recovered after restart"
 fi
 echo "[GATE:$PHASE_NUM] Pipeline healthy"
 

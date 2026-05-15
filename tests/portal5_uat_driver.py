@@ -880,9 +880,9 @@ def _restart_proxy_for_reclaim() -> bool:
             free = w.get("free_gb", 0)
             inactive = w.get("inactive_gb", 0)
             state = w.get("state", "")
-            if state == "ready" and free > 0:
+            if state in ("none", "ready") and free > 0:
                 print(
-                    f"  [reclaim] free={free:.1f}GB inactive={inactive:.1f}GB",
+                    f"  [reclaim] proxy up (state={state}) free={free:.1f}GB inactive={inactive:.1f}GB",
                     flush=True,
                 )
                 return True
