@@ -157,6 +157,15 @@ Read these files before doing anything else:
 ./launch.sh status
 grep -E "PIPELINE_API_KEY|OPENWEBUI_ADMIN_PASSWORD|GRAFANA_PASSWORD" .env
 curl -s http://localhost:9099/health | python3 -m json.tool
+
+# Start MLX readiness watcher — REQUIRED before running any inference sections.
+# Writes /tmp/portal5-mlx-readiness.json every 10s; acceptance runner reads it
+# for stable model-load detection instead of direct proxy polling.
+python3 scripts/mlx-readiness.py > /tmp/mlx-readiness.log 2>&1 &
+echo $! > /tmp/mlx-readiness.pid
+echo "MLX readiness watcher started (PID $(cat /tmp/mlx-readiness.pid))"
+sleep 22
+python3 scripts/mlx-readiness.py --read && echo "Watcher OK" || echo "WARNING: watcher not yet ready"
 ```
 
 Workspace count in `/health` must match the count in `portal_pipeline/router_pipe.py`:
@@ -396,6 +405,14 @@ For any item that cannot pass without modifying a protected file:
 
 ## Step 10 — Final Deliverables
 
+```bash
+# Stop the MLX readiness watcher now that the run is complete
+if [ -f /tmp/mlx-readiness.pid ]; then
+  kill "$(cat /tmp/mlx-readiness.pid)" 2>/dev/null && echo "MLX watcher stopped"
+  rm -f /tmp/mlx-readiness.pid /tmp/portal5-mlx-readiness.json
+fi
+```
+
 Produce these files in the repo root:
 
 1. **`ACCEPTANCE_RESULTS.md`** — auto-written by the suite:
@@ -428,6 +445,8 @@ Produce these files in the repo root:
 ### NEVER run:
 - `docker compose down -v` — destroys pulled Ollama models
 - `docker compose down` — tears down the stack unnecessarily
+- `pkill -9 -f mlx_lm.server` or `pkill -9 -f mlx_vlm.server` — SIGKILL on Metal processes leaves GPU buffers unreclaimable; use SIGTERM and let the proxy manage lifecycle
+- `pkill -f mlx-readiness.py` — use `kill $(cat /tmp/mlx-readiness.pid)` for clean shutdown
 
 ### DO NOT:
 - Modify test assertions to make a broken feature appear green
@@ -513,4 +532,4 @@ Produce these files in the repo root:
 
 ---
 
-*Last updated: 2026-04-20*
+*Last updated: 2026-05-15 (MLX readiness watcher added to Step 2 pre-flight and Step 10 cleanup; NEVER RUN: SIGKILL on Metal processes and pkill mlx-readiness.py added; _remediate_mlx_crash converted from pkill -9 to SIGTERM to prevent Metal buffer leaks; _wait_for_mlx_ready default timeout increased 120s→600s for large model cold starts)*
