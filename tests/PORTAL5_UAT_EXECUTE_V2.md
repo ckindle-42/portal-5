@@ -72,6 +72,18 @@ curl -sf http://localhost:8080/health && echo " OWUI OK"
 curl -sf http://localhost:9099/health | python3 -m json.tool
 curl -sf http://localhost:8081/health | python3 -m json.tool   # MLX proxy
 
+# Start MLX readiness watcher — REQUIRED before any inference phase.
+# The UAT driver reads /tmp/portal5-mlx-readiness.json (written every 10s)
+# instead of implementing its own timer loops. Without this, tests with
+# mlx_model declared will fall back to direct proxy polling (slower and
+# less stable). The watcher must be running before Phase 1 starts.
+python3 scripts/mlx-readiness.py > /tmp/mlx-readiness.log 2>&1 &
+echo $! > /tmp/mlx-readiness.pid
+echo "MLX readiness watcher started (PID $(cat /tmp/mlx-readiness.pid))"
+# Give it two poll cycles to write its first state file
+sleep 22
+python3 scripts/mlx-readiness.py --read && echo "Watcher state OK" || echo "WARNING: state file not yet written — watcher may be slow to start"
+
 # OWUI auth + chat API (the driver's critical path)
 python3 -c "
 import httpx, uuid
@@ -141,7 +153,7 @@ This file is the source of truth for "where am I in the run." Every phase append
 | 1 | Smoke (auto) | Confirm driver, OWUI, browser, results file all wire up. 4 tests, fast feedback before committing real time. | 5–10 min |
 | 2 | mlx_large-heavy sections | Big models loaded while memory is freshest. Catches OOM early. | 75–110 min |
 | 3 | mlx_small-heavy coding/reasoning | Bulk of the suite. Models in the 8–18 GB range. | 90–120 min |
-| 4 | mlx_small-heavy data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 30–45 min |
+| 4 | mlx_small-heavy daily/data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 40–55 min |
 | 5 | ollama + mlx_small sections | MLX evicted before this phase starts. | 15–25 min |
 | 6 | media_heavy (music/video) | Always last among inference. ComfyUI/Wan2.2 footprint. | 30–60 min |
 | 7 | benchmark | Long, model-capability-only, can run independently. | 60–90 min |
@@ -302,6 +314,7 @@ bash tests/inter_phase_gate.sh 3 26
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
+  --section auto-daily \
   --section auto-data \
   --section auto-reasoning \
   --section auto-creative \
@@ -313,18 +326,20 @@ python3 tests/portal5_uat_driver.py --append \
 PHASE4_EXIT=$?
 # Note: auto was already run in smoke; phase 4 reruns it but --append keeps both rows.
 # That's fine — auto is small and acts as a regression spot-check after phases 2-3.
+# auto-daily (WS-DD-01..08) uses gemma-4-26b MLX — same tier as auto-coding's mlx_small
+# tests; batching here lets cascade ordering group by model_slug across sections.
 
 {
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~25 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
+  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~33 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Inter-Phase Gate:
 ```bash
-bash tests/inter_phase_gate.sh 4 25
+bash tests/inter_phase_gate.sh 4 33
 ```
 
 ---
@@ -417,6 +432,12 @@ python3 tests/portal5_uat_driver.py --append \
   --skip-bots \
   2>&1 | tee /tmp/uat_phase8.log
 PHASE8_EXIT=$?
+
+# Stop the MLX readiness watcher — no longer needed after final phase
+if [ -f /tmp/mlx-readiness.pid ]; then
+  kill "$(cat /tmp/mlx-readiness.pid)" 2>/dev/null && echo "MLX watcher stopped" || echo "MLX watcher already stopped"
+  rm -f /tmp/mlx-readiness.pid /tmp/portal5-mlx-readiness.json
+fi
 
 {
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
@@ -512,6 +533,13 @@ until docker info >/dev/null 2>&1; do sleep 5; done
 ```
 
 Then read `tests/UAT_RUN_LOG.md`, identify the last DONE row, and resume from the next phase.
+
+**Restart the MLX readiness watcher** — it does not survive a reboot:
+```bash
+python3 scripts/mlx-readiness.py > /tmp/mlx-readiness.log 2>&1 &
+echo $! > /tmp/mlx-readiness.pid && sleep 22
+python3 scripts/mlx-readiness.py --read
+```
 
 ### Re-running a whole phase after a fix:
 
@@ -801,6 +829,7 @@ If wired memory stays high for >5 min after `/unload`, the watchdog detects the 
 - `docker compose down -v` — destroys Ollama model weights
 - Concurrent inference requests — Metal/MLX crash risk
 - `pkill -f mlx-proxy.py` — use `POST /unload` and let the watchdog handle proxy lifecycle
+- `pkill -f mlx-readiness.py` — use `kill $(cat /tmp/mlx-readiness.pid)` for clean shutdown
 - `sudo purge` — no longer part of any recovery path
 
 ### DO NOT
@@ -865,6 +894,7 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | Section | Test count | Predominant tier | Phase | Approx time alone |
 |---|---|---|---|---|
 | `auto` | 4 | mlx_small + any | 1 (smoke), 4 | 5–10 min |
+| `auto-daily` | 8 | mlx_small (gemma-4-26b) | 4 | 15–25 min |
 | `auto-coding` | 26 | mlx_large + mlx_small + any | 3 | 40–60 min |
 | `auto-spl` | 2 | mlx_small | 4 | 8–12 min |
 | `auto-mistral` | 2 | mlx_small | 4 | 8–12 min |
@@ -885,7 +915,7 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | `advanced` | 8 | mixed (incl. mlx_small two-chat) | 8 | 18–25 min |
 | `benchmark` | 13 | mlx_large + mlx_small + ollama | 7 | 60–90 min |
 
-**Total run (phases 1–8, `--skip-bots`):** approximately 280–420 minutes.
+**Total run (phases 1–8, `--skip-bots`):** approximately 295–440 minutes.
 
 ---
 
@@ -974,4 +1004,4 @@ List any items that need operator action after this run.
 
 ---
 
-*Last updated: 2026-05-12 (gate script inlined block removed — replaced with reference to tests/inter_phase_gate.sh; port 8920 memory MCP added to Phase 0 preflight; gate script verification added to Phase 0; Diagnosing FAILs restructured as step-by-step Failure Investigation Protocol with rerun decision tree; BLOCKED template expanded with recommended fix field; Memory State Commands split into dedicated section; Final Report template added; last-updated text expanded)*
+*Last updated: 2026-05-15 (MLX readiness watcher added to Phase 0 pre-flight — starts mlx-readiness.py in background, stores PID in /tmp/mlx-readiness.pid, verified with --read before Phase 1; watcher stop added to Phase 8 cleanup; auto-daily section added to Phase 4 invocation with 8 WS-DD tests, ~33 test count; Section Reference updated; Resume after reboot: watcher restart step added; NEVER RUN: pkill mlx-readiness.py added; total run estimate updated)*
