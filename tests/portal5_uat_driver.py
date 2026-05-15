@@ -31,8 +31,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json as _json
 import os
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -88,6 +90,15 @@ MEMORY_CRITICAL_PCT = (
     90.0  # Force eviction before next test (MLX admission control handles below this)
 )
 MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
+# Same-model eviction: even when the next test uses the same model, evict if
+# memory exceeds this after the previous test. KV cache from long inference
+# compounds into the next test's KV cache allocation and can cause mlx_vlm
+# SIGABRT at >90%. (Observed: gemma-4-26b at 82% post-P-V02 crashed at 92%
+# during P-R06. Same model, no eviction, compounding KV cache = crash.)
+MEMORY_SAME_MODEL_EVICT_PCT = 78.0
+# Metal GPU buffer drain thresholds used by crash recovery
+METAL_SAFE_WIRED_GB = 20.0   # wired below this = model + Metal buffers released
+METAL_DRAIN_TIMEOUT_S = 180  # max seconds to wait for Metal drain before forcing proxy restart
 
 # ---------------------------------------------------------------------------
 # Codebase freshness check
@@ -2776,6 +2787,165 @@ class MemoryMonitor:
         # watchdog's wired-leak detector will escalate to launchctl kickstart.
         unload_all_models()
         await asyncio.sleep(15)  # let watchdog observe state and act if needed
+
+
+# ---------------------------------------------------------------------------
+# Crash watcher — detects mlx_lm/mlx_vlm crashes via macOS DiagnosticReports
+# ---------------------------------------------------------------------------
+
+_DIAG_DIR = Path.home() / "Library/Logs/DiagnosticReports"
+
+
+class CrashWatcher:
+    """Background thread that watches DiagnosticReports for mlx-proxy coalition crashes.
+
+    When a new .ips or .crash file appears whose content references the
+    com.portal5.mlx-proxy coalition (i.e. mlx_lm.server or mlx_vlm.server
+    died), the watcher sets crash_pending=True and logs a [CRASH DETECTED]
+    line immediately — before the next test starts.
+
+    The main test loop calls wait_for_recovery() when crash_pending is True.
+    That function:
+      1. POSTs /unload to evict whatever is still allocated
+      2. Polls wired memory every 10 s until wired < METAL_SAFE_WIRED_GB
+      3. After 120 s with no drain, restarts the proxy to force Metal reclaim
+      4. Clears crash_pending when the system is safe again
+
+    This ensures testing never attempts a model load into a Metal-starved
+    system, which would crash again immediately and make things worse.
+    """
+
+    POLL_INTERVAL_S = 15
+
+    def __init__(self) -> None:
+        self.crash_pending = False
+        self._stop = threading.Event()
+        self._known: set[Path] = set()
+        self.crash_log: list[str] = []
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if _DIAG_DIR.exists():
+            self._known = set(_DIAG_DIR.glob("*.ips")) | set(_DIAG_DIR.glob("*.crash"))
+        self._thread = threading.Thread(target=self._loop, daemon=True, name="crash-watcher")
+        self._thread.start()
+        print("  [crash-watcher] Started — watching DiagnosticReports for mlx-proxy crashes", flush=True)
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def _loop(self) -> None:
+        while not self._stop.wait(timeout=self.POLL_INTERVAL_S):
+            try:
+                self._check()
+            except Exception as exc:
+                print(f"  [crash-watcher] error: {exc}", flush=True)
+
+    def _check(self) -> None:
+        if not _DIAG_DIR.exists():
+            return
+        current = set(_DIAG_DIR.glob("*.ips")) | set(_DIAG_DIR.glob("*.crash"))
+        new_files = current - self._known
+        self._known = current
+        for f in new_files:
+            self._handle(f)
+
+    def _handle(self, f: Path) -> None:
+        try:
+            content = f.read_text(errors="replace")
+        except Exception:
+            return
+        # Header is the first line — a small JSON object
+        proc = f.name
+        try:
+            header = _json.loads(content.split("\n", 1)[0])
+            proc = header.get("app_name", proc)
+        except Exception:
+            pass
+        # Coalition name lives in the body (first 3 KB is always enough)
+        is_mlx = any(
+            tok in content[:3000]
+            for tok in ("com.portal5.mlx-proxy", "mlx_lm.server", "mlx_vlm.server", "mlx-proxy.py")
+        )
+        try:
+            mem_pct = _get_memory_pct()
+            hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=2).json()
+            wired = hw.get("wired_gb", "?")
+            free = hw.get("free_gb", "?")
+        except Exception:
+            mem_pct, wired, free = 0.0, "?", "?"
+
+        tag = " [MLX INFERENCE CRASH]" if is_mlx else ""
+        msg = (
+            f"  [CRASH DETECTED]{tag} proc={proc} file={f.name} "
+            f"mem={mem_pct:.0f}% wired={wired}GB free={free}GB"
+        )
+        print(msg, flush=True)
+        self.crash_log.append(msg)
+        if is_mlx:
+            self.crash_pending = True
+
+    def wait_for_recovery(self, label: str = "") -> None:
+        """Block until Metal buffers have drained and the proxy is idle-ready.
+
+        Called by the test loop when crash_pending is True.  Does not return
+        until it is safe to load the next model.
+        """
+        tag = f"[{label}] " if label else ""
+        print(f"  {tag}[recovery] MLX crash detected — pausing tests, draining Metal...", flush=True)
+
+        # 1. Evict whatever is still allocated
+        try:
+            unload_all_models()
+        except Exception as exc:
+            print(f"  {tag}[recovery] /unload failed: {exc}", flush=True)
+
+        # 2. Poll wired memory until Metal releases or we hit the timeout
+        t0 = time.time()
+        proxy_restarted = False
+        while True:
+            elapsed = time.time() - t0
+            try:
+                hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+                wired_gb = float(hw.get("wired_gb", 99))
+                free_gb = float(hw.get("free_gb", 0))
+                mem_pct = _get_memory_pct()
+                print(
+                    f"  {tag}[recovery] wired={wired_gb:.1f}GB free={free_gb:.1f}GB "
+                    f"mem={mem_pct:.0f}% ({elapsed:.0f}s)",
+                    flush=True,
+                )
+                if wired_gb < METAL_SAFE_WIRED_GB or mem_pct < 55:
+                    print(f"  {tag}[recovery] Metal drained — wired={wired_gb:.1f}GB, system clear", flush=True)
+                    break
+            except Exception:
+                pass
+
+            if not proxy_restarted and elapsed >= 120:
+                print(
+                    f"  {tag}[recovery] Metal not draining after 120 s — restarting proxy to force reclaim",
+                    flush=True,
+                )
+                _restart_proxy_for_reclaim()
+                proxy_restarted = True
+
+            if elapsed >= METAL_DRAIN_TIMEOUT_S:
+                mem_pct = _get_memory_pct()
+                print(
+                    f"  {tag}[recovery] drain timeout ({METAL_DRAIN_TIMEOUT_S}s) — "
+                    f"proceeding at mem={mem_pct:.0f}% (risky if still high)",
+                    flush=True,
+                )
+                break
+
+            time.sleep(10)
+
+        self.crash_pending = False
+        print(f"  {tag}[recovery] Complete — resuming testing", flush=True)
+
+
+# Module-level singleton — started in main(), stopped after last test
+_crash_watcher = CrashWatcher()
 
 
 # ---------------------------------------------------------------------------
@@ -9766,6 +9936,9 @@ async def main() -> None:
         monitor = MemoryMonitor(poll_interval=20.0)
         monitor.start()
 
+        # Start crash watcher (background thread — watches DiagnosticReports)
+        _crash_watcher.start()
+
         _last_tier: str = ""
         for i, test in enumerate(tests, start=1):
             tier = test.get("workspace_tier", "any")
@@ -9955,6 +10128,13 @@ async def main() -> None:
             elif not needs_comfyui and _comfyui_running():
                 _stop_comfyui()
 
+            # If the crash watcher saw an mlx_lm/mlx_vlm crash since the last
+            # test, block here until Metal has fully drained before loading
+            # another model — attempting a load into a crash-starved Metal
+            # heap crashes again immediately and makes memory worse.
+            if _crash_watcher.crash_pending:
+                _crash_watcher.wait_for_recovery(f"{test['id']} {test['name']}")
+
             # Pre-test memory check (monitor runs continuously in background,
             # but this catches issues right before a test starts)
             safe = _check_memory_before_test(f"{test['id']} {test['name']}")
@@ -10029,6 +10209,29 @@ async def main() -> None:
                             f"  [mem] Memory still {mem_after:.0f}% after eviction — extending settling delay"
                         )
                         time.sleep(15)
+                elif same_model and mem_pct >= MEMORY_SAME_MODEL_EVICT_PCT:
+                    # KV cache from this test's inference will compound with the next
+                    # test's allocation even when the same model stays loaded.
+                    # Evict to reset Metal allocations before the next inference run.
+                    print(
+                        f"  [mem] Post-test memory at {mem_pct:.0f}% (same model) "
+                        "— evicting to clear KV cache residuals"
+                    )
+                    unload_all_models()
+                    for _ in range(18):  # up to 90 s
+                        time.sleep(5)
+                        try:
+                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+                            if h.get("state", "") in ("none", "ready"):
+                                break
+                        except Exception:
+                            pass
+                    mem_after = _get_memory_pct()
+                    if mem_after >= MEMORY_SAME_MODEL_EVICT_PCT:
+                        print(
+                            f"  [mem] Memory still {mem_after:.0f}% after same-model eviction "
+                            "— Metal may not have drained yet"
+                        )
                 elif mem_pct >= MEMORY_CRITICAL_PCT:
                     # Always evict if critical, even on same model
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — critical eviction")
@@ -10064,8 +10267,13 @@ async def main() -> None:
             pass
         await browser.close()
 
-    # Stop continuous monitor and print stats
+    # Stop continuous monitor and crash watcher
     await monitor.stop()
+    _crash_watcher.stop()
+    if _crash_watcher.crash_log:
+        print(f"  [crash-watcher] {len(_crash_watcher.crash_log)} crash(es) detected during run:", flush=True)
+        for entry in _crash_watcher.crash_log:
+            print(f"    {entry}", flush=True)
 
     # Final cleanup: evict all models to prevent OOM after UAT completes
     cleanup_after_uat()
