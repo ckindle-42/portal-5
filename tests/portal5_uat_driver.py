@@ -77,6 +77,7 @@ SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
+MLX_READINESS_FILE = os.environ.get("MLX_READINESS_FILE", "/tmp/portal5-mlx-readiness.json")
 
 # Sections that require all models unloaded before running for max memory headroom.
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
@@ -541,57 +542,147 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
-    """Block until MLX proxy reports state=ready with a model loaded.
+def _read_mlx_readiness() -> dict | None:
+    """Read the shared MLX readiness state file written by mlx-readiness.py watcher.
 
-    Cold-loading a large model takes 30-90s; 35B+ MoE can take 2-3 min.
-    Without this wait, the first request produces empty responses that cascade
-    into retries and false FAILs.
+    Returns None if file is absent, unreadable, or older than 60 seconds (stale).
+    """
+    try:
+        import json as _json
+        with open(MLX_READINESS_FILE) as fh:
+            payload = _json.load(fh)
+        age = time.time() - payload.get("timestamp", 0)
+        if age > 60.0:
+            return None
+        return payload
+    except Exception:
+        return None
 
-    Strategy:
-    1. If state=none (no model loaded), send a pipeline pre-warm request to
-       trigger cold-load, then poll for state=ready.
-    2. If state=switching (model loading), poll until ready.
-    3. If state=ready with model, return immediately.
-    4. If state=down or unresponsive, check if proxy process is alive.
-    5. If max_wait exceeded, escalate: kill orphaned servers, retry.
+
+def _wait_for_mlx_ready(
+    test_name: str = "",
+    expected_model: str | None = None,
+    workspace_id: str = "auto",
+    max_wait: int = 1200,
+) -> bool:
+    """Block until MLX proxy is stable-ready, optionally for a specific model.
+
+    Returns True when the proxy is stable-ready (and model matches if expected_model
+    is given). Returns False if max_wait is exceeded without the right model loaded —
+    callers can treat this as BLOCKED rather than silently proceeding with fallback.
+
+    Fast path: reads the state file written by mlx-readiness.py (background watcher).
+    Slow path: polls the proxy directly when no fresh state file is available.
+
+    Cold-loading a 26B MoE model takes 1-3 min; 70B can take 5+ min. The 1200s
+    (20 min) ceiling gives generous room without blocking indefinitely.
     """
     label = f"[{test_name}]" if test_name else ""
     t0 = time.time()
     pre_warmed = False
     fatal_count = 0
+    consecutive_ready = 0
+    STABLE_POLLS = 2   # consecutive ready observations before we trust it
 
-    while time.time() - t0 < max_wait:
+    def _elapsed() -> float:
+        return time.time() - t0
+
+    while _elapsed() < max_wait:
+        # --- fast path: read the shared readiness file ---
+        rdata = _read_mlx_readiness()
+        if rdata is not None:
+            state = rdata.get("state", "unknown")
+            model = rdata.get("loaded_model")
+            stable = rdata.get("stable", False)
+
+            if state == "ready" and stable:
+                model_ok = expected_model is None or (model and expected_model in model)
+                if model_ok:
+                    if _elapsed() > 1.0:
+                        print(
+                            f"  {label} MLX ready ({model}, {_elapsed():.0f}s, "
+                            f"via readiness file)"
+                        )
+                    return True
+                # Ready but wrong model — pre-warm to trigger the right model
+                if not pre_warmed and model:
+                    pre_warmed = True
+                    print(
+                        f"  {label} MLX loaded={model}, expected={expected_model} "
+                        f"— pre-warming correct workspace..."
+                    )
+                    try:
+                        _pipeline_pre_warm(workspace_id)
+                    except Exception as e:
+                        print(f"  {label} pre-warm failed: {e}")
+            elif state == "none" and not pre_warmed:
+                pre_warmed = True
+                print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                try:
+                    _pipeline_pre_warm(workspace_id)
+                except Exception as e:
+                    print(f"  {label} pre-warm failed: {e}")
+            elif state == "switching":
+                switch_elapsed = rdata.get("switch_elapsed") or 0
+                if int(switch_elapsed) % 30 < STABLE_POLLS:
+                    print(
+                        f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed"
+                    )
+            elif state == "down":
+                fatal_count += 1
+                if fatal_count >= 3:
+                    print(f"  {label} MLX state=down after {fatal_count} checks — restarting proxy")
+                    _restart_proxy_for_reclaim()
+                    pre_warmed = False
+                    fatal_count = 0
+            time.sleep(10)
+            continue
+
+        # --- slow path: no watcher running, poll proxy directly ---
         try:
             resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
             if resp.status_code in (200, 503):
-                data = resp.json()
-                state = data.get("state", "?")
-                model = data.get("loaded_model")
+                pdata = resp.json()
+                state = pdata.get("state", "?")
+                model = pdata.get("loaded_model")
 
                 if state == "ready" and model:
-                    elapsed = time.time() - t0
-                    if elapsed > 1.0:
-                        print(f"  {label} MLX ready ({model}, {elapsed:.0f}s cold-load)")
-                    return
+                    model_ok = expected_model is None or expected_model in model
+                    if model_ok:
+                        consecutive_ready += 1
+                        if consecutive_ready >= STABLE_POLLS:
+                            if _elapsed() > 1.0:
+                                print(
+                                    f"  {label} MLX ready ({model}, {_elapsed():.0f}s cold-load)"
+                                )
+                            return True
+                    else:
+                        consecutive_ready = 0
+                        if not pre_warmed:
+                            pre_warmed = True
+                            print(
+                                f"  {label} MLX loaded={model}, expected={expected_model} "
+                                f"— pre-warming correct workspace..."
+                            )
+                            try:
+                                _pipeline_pre_warm(workspace_id)
+                            except Exception as e:
+                                print(f"  {label} pre-warm failed: {e}")
+                else:
+                    consecutive_ready = 0
 
                 if state == "none" and not pre_warmed:
-                    # Proxy idle — pre-warm to trigger cold-load via the pipeline.
-                    # Don't keep pre-warming on every poll; do it once.
                     pre_warmed = True
                     print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
                     try:
-                        _pipeline_pre_warm()
+                        _pipeline_pre_warm(workspace_id)
                     except Exception as e:
                         print(f"  {label} pre-warm failed: {e}")
-
                 elif state == "switching":
-                    # Model is loading — wait for it.
-                    if int(time.time() - t0) % 30 < 2:
+                    if int(_elapsed()) % 30 < 3:
                         print(
-                            f"  {label} MLX switching (loading model) — {int(time.time() - t0)}s elapsed"
+                            f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed"
                         )
-
                 elif state == "down":
                     fatal_count += 1
                     if fatal_count >= 3:
@@ -599,16 +690,14 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
                             f"  {label} MLX state=down after {fatal_count} checks — restarting proxy"
                         )
                         _restart_proxy_for_reclaim()
-                        pre_warmed = False  # re-trigger pre-warm for new proxy
+                        pre_warmed = False
                         fatal_count = 0
 
         except Exception:
             fatal_count += 1
             if fatal_count >= 3:
                 print(f"  {label} MLX proxy unreachable ({fatal_count}x) — checking process...")
-                # Check if proxy process is alive
                 import subprocess
-
                 procs = subprocess.run(
                     ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
                 )
@@ -624,19 +713,24 @@ def _wait_for_mlx_ready(test_name: str = "", max_wait: int = 300) -> None:
 
         time.sleep(3)
 
-    # max_wait exceeded — report why before proceeding
+    # max_wait exceeded
     try:
         resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-        data = resp.json() if resp.status_code in (200, 503) else {}
-        state = data.get("state", "unreachable")
-        model = data.get("loaded_model", "-")
+        pdata = resp.json() if resp.status_code in (200, 503) else {}
+        state = pdata.get("state", "unreachable")
+        model = pdata.get("loaded_model", "-")
         print(f"  {label} MLX still not ready after {max_wait}s (state={state}, model={model})")
     except Exception:
         print(f"  {label} MLX proxy unreachable after {max_wait}s")
+    return False
 
 
-def _pipeline_pre_warm() -> None:
-    """Send a minimal request through the pipeline to trigger MLX model cold-load."""
+def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
+    """Send a minimal request through the pipeline to trigger MLX model cold-load.
+
+    Uses the actual workspace_id for this test so the right model is pre-loaded,
+    not whatever model 'auto' would pick (which may differ and cause a second switch).
+    """
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
     pipeline_key = os.environ.get("PIPELINE_API_KEY", "portal-pipeline")
     try:
@@ -647,7 +741,7 @@ def _pipeline_pre_warm() -> None:
                 "Content-Type": "application/json",
             },
             json={
-                "model": "auto",
+                "model": workspace_id,
                 "messages": [{"role": "user", "content": "hi"}],
                 "max_tokens": 1,
                 "stream": False,
@@ -2187,7 +2281,7 @@ def init_results(run_ts: str) -> None:
         f"**Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  \n"
         f"**Reviewer:** (fill in)\n\n"
         f"## Summary\n\n"
-        f"- **PASS**: 0\n- **WARN**: 0\n- **FAIL**: 0\n- **SKIP**: 0\n- **MANUAL**: 0\n\n"
+        f"- **PASS**: 0\n- **WARN**: 0\n- **FAIL**: 0\n- **SKIP**: 0\n- **BLOCKED**: 0\n- **MANUAL**: 0\n\n"
         f"## Results\n\n"
         f"| # | Status | Test | Model | Detail | Elapsed |\n"
         f"|---|--------|------|-------|--------|---------|\n"
@@ -2196,7 +2290,7 @@ def init_results(run_ts: str) -> None:
 
 def update_summary(counts: dict) -> None:
     text = RESULTS_FILE.read_text()
-    for status in ("PASS", "WARN", "FAIL", "SKIP", "MANUAL"):
+    for status in ("PASS", "WARN", "FAIL", "SKIP", "BLOCKED", "MANUAL"):
         old = f"- **{status}**: "
         lines = [l for l in text.split("\n") if l.startswith(old)]
         if lines:
@@ -2255,7 +2349,7 @@ def _rebuild_summary_from_rows() -> None:
     import re as _re
 
     text = RESULTS_FILE.read_text()
-    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIP": 0, "MANUAL": 0}
+    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIP": 0, "BLOCKED": 0, "MANUAL": 0}
     pattern = _re.compile(r"^\|\s*\d+\s*\|\s*(\w+)\s*\|\s*\[")
     for line in text.split("\n"):
         m = pattern.match(line)
@@ -2291,7 +2385,7 @@ def record_result(
             f"| {n} | {status} | [{test_id} {name}]({chat_url}) | "
             f"`{model}` | {pct} {detail} | {elapsed:.1f}s |\n"
         )
-    icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "MANUAL": "✎"}.get(status, "?")
+    icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "BLOCKED": "⊘", "MANUAL": "✎"}.get(status, "?")
     routed_suffix = f" [→{routed_model}]" if routed_model else ""
     print(
         f"  [{icon} {status}] {test_id} {name} ({passed}/{total}={passed * 100 // total if total else 0}%) ({elapsed:.1f}s){routed_suffix}"
@@ -3038,6 +3132,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-daily",
         "timeout": 60,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": "What's a quick lunch I can make in 10 minutes if I have eggs, bread, and a tomato?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 200},
@@ -3056,6 +3151,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 60,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": "Hi! What can you help me with today?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 200},
@@ -3082,6 +3178,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 60,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": (
             "Rewrite this for clarity, keep my voice: 'so basically what we found "
             "is that the thing we thought was broken wasn't actually broken it was "
@@ -3104,6 +3201,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 90,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": (
             "Summarize this passage in 4 sentences:\n\n"
             "It is a truth universally acknowledged, that a single man in possession "
@@ -3143,6 +3241,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 90,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": (
             "Help me plan a focused 90-minute work block for tomorrow: I need to "
             "reply to 4 emails, draft a one-page memo, and review a colleague's PR."
@@ -3181,6 +3280,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 60,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": "What does this git command do, and is it safe? git reset --hard origin/main",
         "assertions": [
             {"type": "min_length", "label": "Substantive answer", "chars": 200},
@@ -3211,6 +3311,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "dailydriver",
         "timeout": 120,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": (
             "Write a complete production-grade Python web server with JWT auth, "
             "rate limiting, OpenAPI docs, and pytest tests for every route."
@@ -3250,6 +3351,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "personalassistant",
         "timeout": 60,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "prompt": "Hello, what's your role here?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 150},
@@ -8548,7 +8650,7 @@ async def _notify_test_summary(
         f"Git: {_git_sha()}  |  Host: {os.uname().nodename}",
         "",
     ]
-    for s in ["PASS", "FAIL", "WARN", "SKIP", "MANUAL"]:
+    for s in ["PASS", "FAIL", "WARN", "SKIP", "BLOCKED", "MANUAL"]:
         if s in counts:
             lines.append(f"  {s}: {counts[s]}")
     lines.append(f"  Total: {total}")
@@ -8906,8 +9008,42 @@ async def main() -> None:
             # The proxy reports state=ready + loaded_model when the model is serving.
             # Called for ALL tiers: any-tier tests also route through MLX when
             # the pipeline falls through, and a mid-switch proxy returns 503.
+            #
+            # When a test declares mlx_model, we wait for that specific model.
+            # If it doesn't load within max_wait, we BLOCK the test rather than
+            # letting Ollama fallback silently answer — which would give false
+            # confidence and mask regressions in the MLX model path.
             if test.get("workspace_tier") in ("mlx_large", "mlx_small", "any"):
-                _wait_for_mlx_ready(test_name=f"{test['id']} {test['name']}")
+                expected_mlx = test.get("mlx_model")
+                ws_id = test.get("model_slug", "auto")
+                mlx_ready = _wait_for_mlx_ready(
+                    test_name=f"{test['id']} {test['name']}",
+                    expected_model=expected_mlx,
+                    workspace_id=ws_id,
+                )
+                if not mlx_ready and expected_mlx:
+                    print(
+                        f"  [{i:02d}/{len(tests):02d}] {test['id']} BLOCKED "
+                        f"(MLX model {expected_mlx} not ready after {1200}s)"
+                    )
+                    record_result(
+                        n=i,
+                        status="BLOCKED",
+                        test_id=test["id"],
+                        name=test["name"],
+                        model=test["model_slug"],
+                        assertions=[
+                            (
+                                "mlx_model_ready",
+                                False,
+                                f"expected={expected_mlx}, not loaded within 1200s",
+                            )
+                        ],
+                        elapsed=0.0,
+                        chat_url=f"blocked://mlx-not-ready",
+                    )
+                    counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
+                    continue
 
             # Force-unload before heavy media tests (TTS, music, video, image)
             # that load large frameworks and risk OOM when run consecutively
@@ -9079,7 +9215,7 @@ async def main() -> None:
     print(
         f"Results: {counts.get('PASS', 0)}P / {counts.get('WARN', 0)}W / "
         f"{counts.get('FAIL', 0)}F / {counts.get('SKIP', 0)}S / "
-        f"{counts.get('MANUAL', 0)}M  ({total} total)"
+        f"{counts.get('BLOCKED', 0)}B / {counts.get('MANUAL', 0)}M  ({total} total)"
     )
     print(f"Report:  {RESULTS_FILE}")
     print(f"Chats:   {OPENWEBUI_URL}")
