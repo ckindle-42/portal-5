@@ -1,9 +1,9 @@
 [
   {
     "id": "auto",
-    "name": "\ud83e\udd16 Portal Auto Router",
+    "name": "🤖 Portal Auto Router",
     "meta": {
-      "description": "\ud83e\udd16 Portal Auto Router",
+      "description": "🤖 Portal Auto Router",
       "profile_image_url": ""
     },
     "params": {
@@ -12,10 +12,27 @@
     }
   },
   {
-    "id": "auto-coding",
-    "name": "\ud83d\udcbb Portal Code Expert",
+    "id": "auto-daily",
+    "name": "🪶 Portal Daily Driver",
     "meta": {
-      "description": "\ud83d\udcbb Portal Code Expert",
+      "description": "🪶 Portal Daily Driver — fast everyday assistant (gemma-4-26b-a4b, 57.8 TPS, MoE 4B active). Chat, writing, summarization, planning, light technical help. Redirects to specialist workspaces when out of lane.",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_research",
+        "server:mcp:portal_memory"
+      ]
+    },
+    "params": {
+      "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
+      "model": "auto-daily",
+      "enable_web_search": true
+    }
+  },
+  {
+    "id": "auto-coding",
+    "name": "💻 Portal Code Expert",
+    "meta": {
+      "description": "💻 Portal Code Expert",
       "profile_image_url": ""
     },
     "params": {
@@ -25,9 +42,9 @@
   },
   {
     "id": "auto-security",
-    "name": "\ud83d\udd12 Portal Security Analyst",
+    "name": "🔒 Portal Security Analyst",
     "meta": {
-      "description": "\ud83d\udd12 Portal Security Analyst",
+      "description": "🔒 Portal Security Analyst",
       "profile_image_url": ""
     },
     "params": {
@@ -37,9 +54,9 @@
   },
   {
     "id": "auto-redteam",
-    "name": "\ud83d\udd34 Portal Red Team",
+    "name": "🔴 Portal Red Team",
     "meta": {
-      "description": "\ud83d\udd34 Portal Red Team",
+      "description": "🔴 Portal Red Team",
       "profile_image_url": ""
     },
     "params": {
@@ -49,9 +66,9 @@
   },
   {
     "id": "auto-blueteam",
-    "name": "\ud83d\udd35 Portal Blue Team",
+    "name": "🔵 Portal Blue Team",
     "meta": {
-      "description": "\ud83d\udd35 Portal Blue Team",
+      "description": "🔵 Portal Blue Team",
       "profile_image_url": ""
     },
     "params": {
@@ -61,9 +78,9 @@
   },
   {
     "id": "auto-creative",
-    "name": "\u270d\ufe0f  Portal Creative Writer",
+    "name": "✍️  Portal Creative Writer",
     "meta": {
-      "description": "\u270d\ufe0f  Portal Creative Writer",
+      "description": "✍️  Portal Creative Writer",
       "profile_image_url": ""
     },
     "params": {
@@ -73,9 +90,9 @@
   },
   {
     "id": "auto-reasoning",
-    "name": "\ud83e\udde0 Portal Deep Reasoner",
+    "name": "🧠 Portal Deep Reasoner",
     "meta": {
-      "description": "\ud83e\udde0 Portal Deep Reasoner",
+      "description": "🧠 Portal Deep Reasoner",
       "profile_image_url": ""
     },
     "params": {
@@ -85,9 +102,9 @@
   },
   {
     "id": "auto-documents",
-    "name": "\ud83d\udcc4 Portal Document Builder",
+    "name": "📄 Portal Document Builder",
     "meta": {
-      "description": "\ud83d\udcc4 Portal Document Builder",
+      "description": "📄 Portal Document Builder",
       "profile_image_url": ""
     },
     "params": {
@@ -97,9 +114,9 @@
   },
   {
     "id": "auto-video",
-    "name": "\ud83c\udfac Portal Video Creator",
+    "name": "🎬 Portal Video Creator",
     "meta": {
-      "description": "\ud83c\udfac Portal Video Creator",
+      "description": "🎬 Portal Video Creator",
       "profile_image_url": ""
     },
     "params": {
@@ -109,9 +126,9 @@
   },
   {
     "id": "auto-music",
-    "name": "\ud83c\udfb5 Portal Music Producer",
+    "name": "🎵 Portal Music Producer",
     "meta": {
-      "description": "\ud83c\udfb5 Portal Music Producer",
+      "description": "🎵 Portal Music Producer",
       "profile_image_url": ""
     },
     "params": {
@@ -121,9 +138,9 @@
   },
   {
     "id": "auto-research",
-    "name": "\ud83d\udd0d Portal Research Assistant",
+    "name": "🔍 Portal Research Assistant",
     "meta": {
-      "description": "\ud83d\udd0d Portal Research Assistant",
+      "description": "🔍 Portal Research Assistant",
       "profile_image_url": ""
     },
     "params": {
@@ -133,9 +150,9 @@
   },
   {
     "id": "auto-vision",
-    "name": "\ud83d\udc41\ufe0f  Portal Vision",
+    "name": "👁️  Portal Vision",
     "meta": {
-      "description": "\ud83d\udc41\ufe0f  Portal Vision",
+      "description": "👁️  Portal Vision",
       "profile_image_url": ""
     },
     "params": {
@@ -145,9 +162,9 @@
   },
   {
     "id": "auto-data",
-    "name": "\ud83d\udcca Portal Data Analyst",
+    "name": "📊 Portal Data Analyst",
     "meta": {
-      "description": "\ud83d\udcca Portal Data Analyst",
+      "description": "📊 Portal Data Analyst",
       "profile_image_url": ""
     },
     "params": {
@@ -157,22 +174,22 @@
   },
   {
     "id": "auto-compliance",
-    "name": "\u2696\ufe0f  Portal Compliance Analyst",
+    "name": "⚖️  Portal Compliance Analyst",
     "meta": {
       "description": "NERC CIP gap analysis and policy-to-standard mapping",
       "profile_image_url": "",
       "toolIds": []
     },
     "params": {
-      "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap \u2014 what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
+      "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap — what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
       "model": "auto-compliance"
     }
   },
   {
     "id": "auto-spl",
-    "name": "\ud83d\udd0d Portal SPL Engineer",
+    "name": "🔍 Portal SPL Engineer",
     "meta": {
-      "description": "\ud83d\udd0d Portal SPL Engineer \u2014 Splunk query authoring, pipeline explanation, detection search",
+      "description": "🔍 Portal SPL Engineer — Splunk query authoring, pipeline explanation, detection search",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -183,9 +200,9 @@
   },
   {
     "id": "auto-mistral",
-    "name": "\ud83e\uddea Portal Mistral Reasoner",
+    "name": "🧪 Portal Mistral Reasoner",
     "meta": {
-      "description": "Structured reasoning via Magistral-Small-2509 \u2014 Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
+      "description": "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -196,9 +213,9 @@
   },
   {
     "id": "auto-math",
-    "name": "\ud83e\uddee Portal Math Reasoner",
+    "name": "🧮 Portal Math Reasoner",
     "meta": {
-      "description": "Mathematical problem solving, proofs, calculus, algebra, statistics \u2014 powered by Qwen2.5-Math-7B",
+      "description": "Mathematical problem solving, proofs, calculus, algebra, statistics — powered by Qwen2.5-Math-7B",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -213,7 +230,9 @@
     "meta": {
       "description": "Benchmark: Devstral-Small-2507 — Mistral/Codestral lineage, ~15GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -226,7 +245,9 @@
     "meta": {
       "description": "Benchmark: Qwen3-Coder-Next-4bit — Alibaba, 80B MoE, ~46GB, cold load ~60s",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -239,7 +260,9 @@
     "meta": {
       "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit — Alibaba, 30B MoE, ~22GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -252,7 +275,9 @@
     "meta": {
       "description": "Benchmark: Llama-3.3-70B-Instruct-4bit — Meta, ~40GB, cold load ~60s",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -265,7 +290,9 @@
     "meta": {
       "description": "Benchmark: phi-4-8bit — Microsoft, 14B, synthetic training, ~14GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -278,7 +305,9 @@
     "meta": {
       "description": "Benchmark: Phi-4-reasoning-plus — Microsoft RL-trained, ~7GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -291,7 +320,9 @@
     "meta": {
       "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit — Cognitive Computations, ~9GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -304,7 +335,9 @@
     "meta": {
       "description": "Benchmark: glm-4.7-flash:q4_k_m — Zhipu AI, Ollama only, ~6GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
@@ -317,7 +350,9 @@
     "meta": {
       "description": "Benchmark: gpt-oss:20b — OpenAI open-weight MoE, Ollama only, ~12GB",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
