@@ -9067,6 +9067,11 @@ async def _run_two_chat_test(
         # the main runner's per-test _wait_for_mlx_ready call.
         if tier in ("mlx_large", "mlx_small"):
             _wait_for_mlx_ready(test_id)
+        elif tier == "ollama":
+            # Evict any loaded MLX model so the pipeline falls through to Ollama.
+            # Without this, auto-daily routes to Gemma via MLX even for ollama-tier
+            # two-chat tests, and Gemma doesn't emit proper tool_calls JSON.
+            unload_all_models()
 
         # Pre-seed memory via direct MCP API. Decouples test reliability from
         # model-initiated 'remember' (flaky in programmatic OWUI sessions).
