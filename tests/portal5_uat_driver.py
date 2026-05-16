@@ -10021,7 +10021,7 @@ async def main() -> None:
     # then run them through the same cascade logic as a normal run.
     # Tests are sorted by tier (mlx_large → mlx_small → ollama → any) so
     # model loads are grouped and tier-transition eviction guards fire correctly.
-    _RERUN_FAILED_STATE = pathlib.Path("/tmp/portal5-rerun-failed-state.json")
+    _RERUN_FAILED_STATE = Path("/tmp/portal5-rerun-failed-state.json")
 
     if args.rerun_failed:
         failed_ids = _parse_failed_test_ids()
