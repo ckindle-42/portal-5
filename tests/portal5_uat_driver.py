@@ -3796,6 +3796,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-coding",
         "timeout": 240,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/Laguna-XS.2-4bit",
         "prompt": (
             "Write a Python async HTTP retry wrapper using httpx.AsyncClient. "
             "Requirements: exponential backoff with jitter, max 3 retries, retry only on "
@@ -7890,6 +7891,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "e2etestauthor",
         "timeout": 120,
         "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/Laguna-XS.2-4bit",
         "prompt": (
             "Write a Playwright test for a login page: POST /login accepts email+password, "
             "redirects to /dashboard on success, shows error toast on failure. "
