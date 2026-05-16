@@ -2295,6 +2295,21 @@ async def chat_completions(
                     }
                     body = {**body, "messages": [vision_system] + messages}
 
+        # Workspace-level system_prompt_append — appended to existing system message
+        # or injected as a new system message if none is present.
+        _prompt_append = WORKSPACES.get(workspace_id, {}).get("system_prompt_append", "")
+        if _prompt_append:
+            messages = body.get("messages", [])
+            sys_idx = next((i for i, m in enumerate(messages) if m.get("role") == "system"), None)
+            if sys_idx is not None:
+                updated = dict(messages[sys_idx])
+                updated["content"] = updated.get("content", "") + _prompt_append
+                messages = list(messages)
+                messages[sys_idx] = updated
+                body = {**body, "messages": messages}
+            else:
+                body = {**body, "messages": [{"role": "system", "content": _prompt_append}] + messages}
+
         # Per-workspace semaphore (M6-T05)
         _ws_sem = await _acquire_workspace_sem(workspace_id)
         try:
