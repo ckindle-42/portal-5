@@ -619,17 +619,40 @@ def _wait_for_mlx_ready(
                             f"via readiness file)"
                         )
                     return True
-                # Ready but wrong model — pre-warm to trigger the right model
-                if not pre_warmed and model:
+                # Ready but wrong model — kick proxy directly with the specific model
+                # to force a switch. Pipeline pre-warm won't help because the pipeline
+                # routes to whatever is already loaded (the wrong model).
+                if expected_model and (
+                    not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S
+                ):
+                    if pre_warmed:
+                        print(
+                            f"  {label} MLX still not switched after "
+                            f"{int(time.time() - last_prewarm_t)}s "
+                            f"(model={model}, expected={expected_model}) — retrying...",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            f"  {label} MLX loaded={model}, expected={expected_model} "
+                            f"— kicking proxy directly to load correct model...",
+                            flush=True,
+                        )
                     pre_warmed = True
-                    print(
-                        f"  {label} MLX loaded={model}, expected={expected_model} "
-                        f"— pre-warming correct workspace..."
-                    )
+                    last_prewarm_t = time.time()
                     try:
-                        _pipeline_pre_warm(workspace_id)
+                        httpx.post(
+                            f"{MLX_PROXY_URL}/v1/chat/completions",
+                            json={
+                                "model": expected_model,
+                                "messages": [{"role": "user", "content": "hi"}],
+                                "max_tokens": 1,
+                                "stream": False,
+                            },
+                            timeout=360,
+                        )
                     except Exception as e:
-                        print(f"  {label} pre-warm failed: {e}")
+                        print(f"  {label} direct model kick failed: {e}", flush=True)
             elif state == "none":
                 # Retry pre-warm if: never sent, or sent >PRE_WARM_RETRY_S ago with no change.
                 # PRE_WARM_RETRY_S=240s gives 27-70B models time to cold-load without
@@ -716,16 +739,37 @@ def _wait_for_mlx_ready(
                             return True
                     else:
                         consecutive_ready = 0
-                        if not pre_warmed:
+                        if expected_model and (
+                            not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S
+                        ):
+                            if pre_warmed:
+                                print(
+                                    f"  {label} MLX still not switched after "
+                                    f"{int(time.time() - last_prewarm_t)}s "
+                                    f"(model={model}, expected={expected_model}) — retrying...",
+                                    flush=True,
+                                )
+                            else:
+                                print(
+                                    f"  {label} MLX loaded={model}, expected={expected_model} "
+                                    f"— kicking proxy directly to load correct model...",
+                                    flush=True,
+                                )
                             pre_warmed = True
-                            print(
-                                f"  {label} MLX loaded={model}, expected={expected_model} "
-                                f"— pre-warming correct workspace..."
-                            )
+                            last_prewarm_t = time.time()
                             try:
-                                _pipeline_pre_warm(workspace_id)
+                                httpx.post(
+                                    f"{MLX_PROXY_URL}/v1/chat/completions",
+                                    json={
+                                        "model": expected_model,
+                                        "messages": [{"role": "user", "content": "hi"}],
+                                        "max_tokens": 1,
+                                        "stream": False,
+                                    },
+                                    timeout=360,
+                                )
                             except Exception as e:
-                                print(f"  {label} pre-warm failed: {e}")
+                                print(f"  {label} direct model kick failed: {e}", flush=True)
                 else:
                     consecutive_ready = 0
 

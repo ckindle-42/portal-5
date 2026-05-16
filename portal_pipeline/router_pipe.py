@@ -545,7 +545,7 @@ async def _dispatch_tool_call(
     from portal_pipeline.tool_registry import tool_registry
 
     fn = tool_call.get("function", {})
-    tool_name = fn.get("name", "")
+    tool_name = fn.get("name", "").strip()
     arguments_str = fn.get("arguments", "{}")
     tool_call_id = tool_call.get("id", "")
 
@@ -2984,6 +2984,12 @@ async def _stream_with_tool_loop_impl(
                 all_tool_calls = tool_calls_buf
 
             if not all_tool_calls:
+                logger.warning(
+                    "Tool loop hop %d: finish_reason=tool_calls but no tool_calls "
+                    "extracted (backend=%s workspace=%s). "
+                    "Check backend tool parser compatibility.",
+                    hop, backend_url, workspace_id,
+                )
                 return
 
             _tool_loop_hops.labels(workspace=workspace_id).observe(hop)
