@@ -2891,24 +2891,54 @@ class CrashWatcher:
         Called by the test loop when crash_pending is True.  Does not return
         until it is safe to load the next model.
 
-        Recovery strategy: restart the proxy immediately rather than waiting
-        for macOS to reclaim Metal pages organically (which takes 2-14 min).
-        A fresh proxy process destroys the old MTLDevice context, which causes
-        the IOKit Metal allocator to release the pages much faster (~30-60s
-        total vs 2+ min of passive waiting).  sudo purge does NOT help for
-        Metal GPU allocations — they are not file-backed VM pages.
+        Recovery strategy — DO NOT restart the proxy immediately:
+          Restarting the proxy can trigger auto-load of the previous model
+          into a Metal-starved heap, causing an immediate re-crash that makes
+          things worse.  Instead:
+
+          1. POST /unload — tells the proxy to stop managing mlx servers and
+             set state=none.  Proxy auto-restart of crashed children stops.
+          2. pkill -9 any lingering mlx_lm/mlx_vlm processes — ensures the
+             crashed process's Metal device handle is fully released.
+          3. Poll wired memory every 10s until wired < METAL_SAFE_WIRED_GB.
+             Metal pages are released by macOS once the process holding the
+             MTLDevice is fully gone (~30-60s after kill).
+          4. Only if wired hasn't drained after 60s, fall back to a full
+             proxy restart — accepted risk at that point since passive drain
+             has already failed.
+
+        sudo purge does NOT help — Metal GPU allocations are not file-backed
+        VM pages and are not reclaimed by the purge mechanism.
         """
+        import subprocess
+
         tag = f"[{label}] " if label else ""
-        print(f"  {tag}[recovery] MLX crash detected — restarting proxy immediately to reclaim Metal...", flush=True)
+        print(
+            f"  {tag}[recovery] MLX crash — stopping mlx servers, waiting for Metal to drain...",
+            flush=True,
+        )
 
-        # Restart the proxy now — don't wait 120s first.  The crashed mlx process
-        # is already dead; /unload is redundant.  The restart kills any lingering
-        # mlx servers, starts a fresh proxy with no MTLDevice, and lets the kernel
-        # reclaim the old allocations far faster than passive polling would.
-        _restart_proxy_for_reclaim()
+        # 1. /unload tells proxy to stop auto-restarting crashed mlx servers
+        try:
+            httpx.post(f"{MLX_PROXY_URL}/unload?ollama=false", timeout=30)
+        except Exception:
+            pass
 
-        # Poll wired memory until Metal releases or timeout
+        # 2. Hard-kill any lingering mlx server processes (SIGTERM may not
+        #    have worked if the process is stuck in a kernel Metal call)
+        for pattern in ("mlx_lm.server", "mlx_vlm.server"):
+            try:
+                result = subprocess.run(
+                    ["pkill", "-9", "-f", pattern], capture_output=True, timeout=5
+                )
+                if result.returncode == 0:
+                    print(f"  {tag}[recovery] killed lingering {pattern}", flush=True)
+            except Exception:
+                pass
+
+        # 3. Poll until Metal drains — no proxy restart yet
         t0 = time.time()
+        restart_attempted = False
         while True:
             elapsed = time.time() - t0
             try:
@@ -2922,16 +2952,27 @@ class CrashWatcher:
                     flush=True,
                 )
                 if wired_gb < METAL_SAFE_WIRED_GB or mem_pct < 55:
-                    print(f"  {tag}[recovery] Metal drained — wired={wired_gb:.1f}GB, system clear", flush=True)
+                    print(f"  {tag}[recovery] Metal drained — system clear", flush=True)
                     break
             except Exception:
                 pass
 
+            # 4. Fallback: if Metal still hasn't drained after 60s, restart
+            #    the proxy as a last resort (accepts auto-load risk at this point
+            #    since passive drain clearly isn't working)
+            if not restart_attempted and elapsed >= 60:
+                print(
+                    f"  {tag}[recovery] Metal not draining after 60s — restarting proxy as last resort",
+                    flush=True,
+                )
+                _restart_proxy_for_reclaim()
+                restart_attempted = True
+
             if elapsed >= METAL_DRAIN_TIMEOUT_S:
                 mem_pct = _get_memory_pct()
                 print(
-                    f"  {tag}[recovery] drain timeout ({METAL_DRAIN_TIMEOUT_S}s) — "
-                    f"proceeding at mem={mem_pct:.0f}% (risky if still high)",
+                    f"  {tag}[recovery] timeout ({METAL_DRAIN_TIMEOUT_S}s) — "
+                    f"proceeding at mem={mem_pct:.0f}%",
                     flush=True,
                 )
                 break
