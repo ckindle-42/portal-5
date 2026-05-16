@@ -3845,6 +3845,11 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "=== Checking Qwen3.5 MLX watch (future publishes) ==="
     echo "  ℹ️  Claude-distilled models: enabled (see backends.yaml)"
     echo ""
+
+    echo "=== Patching MLX model chat templates ==="
+    echo "  Embedding chat_template.jinja into tokenizer_config.json for tool-calling support..."
+    python3 "$(dirname "$0")/scripts/patch-mlx-templates.py"
+    echo ""
     ;;
 
   import-gguf)
