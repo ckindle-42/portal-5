@@ -231,6 +231,7 @@ def wait_for_stable(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    global READINESS_FILE
     parser = argparse.ArgumentParser(description="MLX Proxy Readiness Watcher")
     parser.add_argument(
         "--proxy-url",
@@ -276,7 +277,6 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    global READINESS_FILE
     READINESS_FILE = args.state_file
 
     if args.read:
