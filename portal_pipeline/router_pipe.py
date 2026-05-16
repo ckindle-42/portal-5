@@ -2016,6 +2016,7 @@ async def _try_non_streaming(
     start_time: float,
     *,
     enforce_hint: bool = True,
+    persona: str = "",
 ) -> JSONResponse | None:
     """Try non-streaming completion from a single backend.
 
@@ -2024,6 +2025,9 @@ async def _try_non_streaming(
     don't carry the hinted model are skipped (returns None) so the loop tries
     the next backend. Set enforce_hint=False on the last candidate to accept
     any model as fallback.
+
+    persona: used for tool resolution (same logic as streaming path). When
+    empty, falls back to workspace-level tool list.
     """
     if _http_client is None:
         return None
@@ -2082,6 +2086,28 @@ async def _try_non_streaming(
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "mlx":
         req_body = _inject_mlx_options(req_body, workspace_id)
+
+    # Inject tool schemas — same logic as the streaming path. Required when
+    # _try_non_streaming is used as a fallback after a streaming attempt fails
+    # (e.g. MLX streaming emits empty chunks for tool_calls), so the tool schemas
+    # aren't silently dropped in the fallback.
+    _persona_data = _PERSONA_MAP.get(persona, {}) if persona else {}
+    _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
+    if _ns_tools and _model_supports_tools(target_model):
+        from portal_pipeline.tool_registry import tool_registry  # noqa: PLC0415
+
+        await tool_registry.refresh()
+        _tools_arr = tool_registry.get_openai_tools(_ns_tools)
+        if _tools_arr:
+            req_body["tools"] = _tools_arr
+            req_body.setdefault("tool_choice", "auto")
+            logger.info(
+                "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools",
+                workspace_id,
+                persona or "(none)",
+                target_model,
+                len(_tools_arr),
+            )
 
     try:
         resp = await _http_client.post(backend.chat_url, json=req_body)
@@ -2394,6 +2420,7 @@ async def chat_completions(
                     workspace_id,
                     start_time,
                     enforce_hint=True if _mlx_only else (not is_last),
+                    persona=persona,
                 )
                 if result is not None:
                     resolved_model = backend.models[0] if backend.models else "unknown"
@@ -2625,7 +2652,8 @@ async def chat_completions(
                 for j, fb in enumerate(remaining):
                     fb_last = j == len(remaining) - 1
                     result = await _try_non_streaming(
-                        fb, fallback_body, workspace_id, start_time, enforce_hint=not fb_last
+                        fb, fallback_body, workspace_id, start_time,
+                        enforce_hint=not fb_last, persona=persona,
                     )
                     if result is not None:
                         # Wrap non-streaming response as SSE for Open WebUI
