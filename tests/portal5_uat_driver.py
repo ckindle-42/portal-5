@@ -689,7 +689,7 @@ def _wait_for_mlx_ready(
                                 httpx.post(
                                     f"{MLX_PROXY_URL}/v1/chat/completions",
                                     json={
-                                        "model": "auto",
+                                        "model": expected_model or "auto",
                                         "messages": [{"role": "user", "content": "hi"}],
                                         "max_tokens": 1,
                                         "stream": False,
@@ -797,7 +797,7 @@ def _wait_for_mlx_ready(
                                 print(f"  {label} [warn] Proxy still none after pipeline prewarm — kicking directly", flush=True)
                                 httpx.post(
                                     f"{MLX_PROXY_URL}/v1/chat/completions",
-                                    json={"model": "auto", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                                    json={"model": expected_model or "auto", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
                                     timeout=360,
                                 )
                         except Exception:
