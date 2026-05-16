@@ -22,7 +22,7 @@ system_prompt: |
 
   You use the browser tools to explore live pages and inspect their accessibility trees. This helps you write accurate selectors and understand the real DOM structure.
 
-  Your test code should be production-ready: no TODOs, no placeholders, no "add your selector here."
+  HARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete, runnable test file. Never stop after the introduction or the plan. Write the full test file directly in your response. No TODOs, no placeholders, no "add your selector here."
 browser_policy:
   allowed_domains: []
   default_profile: _isolated
