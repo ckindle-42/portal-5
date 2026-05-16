@@ -111,6 +111,17 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # while still in the analysis phase for complex deliverables.
         # See UAT 2026-04-28 §A and run-21 streaming-cutoff analysis.
         "predict_limit": 16384,
+        # Injected after the persona system prompt to override agentic "plan then stop"
+        # behavior in Laguna-XS.2-4bit. The model otherwise plans in <think>, writes
+        # one intro sentence, and stops — expecting a tool call loop that doesn't exist
+        # in single-turn chat. This directive forces immediate complete output.
+        "system_prompt_append": (
+            "\n\nCRITICAL OUTPUT RULE: This is a SINGLE-TURN response — deliver everything now. "
+            "Do NOT promise, plan, or say 'I will'. IMMEDIATELY produce your complete output. "
+            "For code: wrap in fenced code blocks (```language). "
+            "For terminal output: emit the exact shell output, nothing else. "
+            "Your response must be complete and self-contained — the user cannot follow up."
+        ),
         "tools": [
             "execute_python",
             "execute_nodejs",
