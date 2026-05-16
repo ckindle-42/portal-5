@@ -7459,10 +7459,9 @@ TEST_CATALOG: list[dict] = [
         "id": "A-08",
         "name": "Cross-Session Memory — Two-Chat Persistence",
         "section": "advanced",
-        "model_slug": "auto-daily",   # has recall tool; Gemma-4-26b-a4b primary (MLX)
+        "model_slug": "auto-daily",   # granite4.1:8b via Ollama — BFCL verified tool calling
         "timeout": 240,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",   # force Ollama general group; granite4.1:8b is verified tool-capable
         "requires_tool": "portal_memory",
         "is_two_chat": True,
         # Pre-seed data injected by _run_two_chat_test before any chat opens.
