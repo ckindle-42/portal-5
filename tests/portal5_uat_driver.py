@@ -1836,6 +1836,7 @@ async def _enable_tool(page, tool_id: str) -> None:
     tool_display_names = {
         "portal_code": "Portal Code",
         "portal_documents": "Portal Documents",
+        "portal_memory": "Portal Memory",
         "portal_music": "Portal Music",
         "portal_tts": "Portal TTS",
         "portal_video": "Portal Video",
@@ -7462,6 +7463,7 @@ TEST_CATALOG: list[dict] = [
         "timeout": 240,
         "workspace_tier": "mlx_small",
         "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "requires_tool": "portal_memory",
         "is_two_chat": True,
         # Pre-seed data injected by _run_two_chat_test before any chat opens.
         "memory_preseed": {
@@ -9102,6 +9104,9 @@ async def _run_two_chat_test(
 
         # Chat 1
         await _navigate_to_chat(page, chat1_url)
+        req_tool = test.get("requires_tool")
+        if req_tool:
+            await _enable_tool(page, req_tool)
         await _send_and_wait(
             page,
             test["prompt"],
@@ -9122,6 +9127,8 @@ async def _run_two_chat_test(
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
         await _navigate_to_chat(page, chat2_url)
+        if req_tool:
+            await _enable_tool(page, req_tool)
         await _send_and_wait(
             page,
             test["turn2_in_new_chat"],
