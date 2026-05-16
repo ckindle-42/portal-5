@@ -7458,9 +7458,10 @@ TEST_CATALOG: list[dict] = [
         "id": "A-08",
         "name": "Cross-Session Memory — Two-Chat Persistence",
         "section": "advanced",
-        "model_slug": "auto-daily",   # has recall tool; lighter model than auto-coding/Laguna
+        "model_slug": "auto-daily",   # has recall tool; Gemma-4-26b-a4b primary (MLX)
         "timeout": 240,
-        "workspace_tier": "ollama",   # dolphin-llama3:8b — fast, tool-capable, right for recall
+        "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "is_two_chat": True,
         # Pre-seed data injected by _run_two_chat_test before any chat opens.
         "memory_preseed": {
