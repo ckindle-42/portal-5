@@ -638,18 +638,20 @@ def _wait_for_mlx_ready(
                     if pre_warmed:
                         print(
                             f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
-                            " — retrying pre-warm..."
+                            " — retrying pre-warm...",
+                            flush=True,
                         )
                     else:
-                        print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                        print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...", flush=True)
                     pre_warmed = True
                     last_prewarm_t = time.time()
                     try:
                         _pipeline_pre_warm(workspace_id)
                     except Exception as e:
-                        print(f"  {label} pre-warm failed: {e}")
+                        print(f"  {label} pre-warm failed: {e}", flush=True)
                     # Post-pre-warm check: if proxy still none 15s after pre-warm returned,
-                    # the request likely routed to Ollama (fallback). Log so we know.
+                    # the pipeline likely fell back to Ollama. Kick the proxy directly
+                    # to guarantee MLX loads regardless of pipeline routing decisions.
                     time.sleep(15)
                     try:
                         _check = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
@@ -657,11 +659,24 @@ def _wait_for_mlx_ready(
                         if _st == "none":
                             print(
                                 f"  {label} [warn] Proxy still state=none 15s after pre-warm "
-                                "— request may have routed to Ollama. Will retry after "
-                                f"{PRE_WARM_RETRY_S}s."
+                                "— pipeline routed to Ollama. Kicking proxy directly...",
+                                flush=True,
                             )
+                            try:
+                                httpx.post(
+                                    f"{MLX_PROXY_URL}/v1/chat/completions",
+                                    json={
+                                        "model": "auto",
+                                        "messages": [{"role": "user", "content": "hi"}],
+                                        "max_tokens": 1,
+                                        "stream": False,
+                                    },
+                                    timeout=360,
+                                )
+                            except Exception as _ke:
+                                print(f"  {label} [warn] Direct proxy kick failed: {_ke}", flush=True)
                         elif _st == "switching":
-                            print(f"  {label} Proxy entered switching state — model loading")
+                            print(f"  {label} Proxy entered switching state — model loading", flush=True)
                     except Exception:
                         pass
                     continue  # skip the sleep(10) below; just checked the state
@@ -719,16 +734,30 @@ def _wait_for_mlx_ready(
                         if pre_warmed:
                             print(
                                 f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
-                                " — retrying pre-warm..."
+                                " — retrying pre-warm...",
+                                flush=True,
                             )
                         else:
-                            print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...")
+                            print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...", flush=True)
                         pre_warmed = True
                         last_prewarm_t = time.time()
                         try:
                             _pipeline_pre_warm(workspace_id)
                         except Exception as e:
-                            print(f"  {label} pre-warm failed: {e}")
+                            print(f"  {label} pre-warm failed: {e}", flush=True)
+                        # If pipeline fell back to Ollama, kick proxy directly
+                        time.sleep(10)
+                        try:
+                            _chk = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+                            if _chk.get("state") == "none":
+                                print(f"  {label} [warn] Proxy still none after pipeline prewarm — kicking directly", flush=True)
+                                httpx.post(
+                                    f"{MLX_PROXY_URL}/v1/chat/completions",
+                                    json={"model": "auto", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                                    timeout=360,
+                                )
+                        except Exception:
+                            pass
                 elif state == "switching":
                     if int(_elapsed()) % 30 < 3:
                         print(
