@@ -592,7 +592,9 @@ def _wait_for_mlx_ready(
     t0 = time.time()
     pre_warmed = False
     last_prewarm_t = 0.0
-    PRE_WARM_RETRY_S = 90  # retry pre-warm if state=none persists this long
+    PRE_WARM_RETRY_S = 240  # retry pre-warm if state=none persists this long
+    # 240s gives mlx_large models (30-70B) enough cold-load time before we
+    # retry and potentially interrupt an in-progress load cycle.
     fatal_count = 0
     consecutive_ready = 0
     STABLE_POLLS = 2   # consecutive ready observations before we trust it
@@ -629,7 +631,9 @@ def _wait_for_mlx_ready(
                     except Exception as e:
                         print(f"  {label} pre-warm failed: {e}")
             elif state == "none":
-                # Retry pre-warm if: never sent, or sent >90s ago with no state change
+                # Retry pre-warm if: never sent, or sent >PRE_WARM_RETRY_S ago with no change.
+                # PRE_WARM_RETRY_S=240s gives 27-70B models time to cold-load without
+                # us interrupting the in-progress load cycle with a second request.
                 if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
                     if pre_warmed:
                         print(
@@ -644,6 +648,23 @@ def _wait_for_mlx_ready(
                         _pipeline_pre_warm(workspace_id)
                     except Exception as e:
                         print(f"  {label} pre-warm failed: {e}")
+                    # Post-pre-warm check: if proxy still none 15s after pre-warm returned,
+                    # the request likely routed to Ollama (fallback). Log so we know.
+                    time.sleep(15)
+                    try:
+                        _check = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+                        _st = _check.get("state", "?")
+                        if _st == "none":
+                            print(
+                                f"  {label} [warn] Proxy still state=none 15s after pre-warm "
+                                "— request may have routed to Ollama. Will retry after "
+                                f"{PRE_WARM_RETRY_S}s."
+                            )
+                        elif _st == "switching":
+                            print(f"  {label} Proxy entered switching state — model loading")
+                    except Exception:
+                        pass
+                    continue  # skip the sleep(10) below; just checked the state
             elif state == "switching":
                 switch_elapsed = rdata.get("switch_elapsed") or 0
                 if int(switch_elapsed) % 30 < STABLE_POLLS:
@@ -774,11 +795,36 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
             pass
     if not pipeline_key:
         pipeline_key = "portal-pipeline"
+    import threading as _threading
+
+    # Print progress every 30s so the driver never looks frozen during cold-load.
+    # A 27B model takes 60-120s; 70B can take 3-5 min. Without this the log goes
+    # silent for minutes and looks like a hang.
+    _prewarm_done = _threading.Event()
+
+    def _prewarm_ticker() -> None:
+        tick = 0
+        while not _prewarm_done.wait(timeout=30):
+            tick += 30
+            try:
+                h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=2).json()
+                state = h.get("state", "?")
+                model = h.get("loaded_model") or "none"
+            except Exception:
+                state, model = "?", "?"
+            print(
+                f"  [pre-warm] {tick}s elapsed — proxy state={state} model={model}",
+                flush=True,
+            )
+
+    ticker = _threading.Thread(target=_prewarm_ticker, daemon=True, name="prewarm-ticker")
+    ticker.start()
+
     try:
-        # Timeout must exceed the longest cold-load time for any model.
-        # AEON 27B loads in 60-120s, Qwen3-32B/70B can take 90-180s.
-        # 30s was too short: the pipeline fell back to Ollama before MLX
-        # finished loading, leaving pre_warmed=True but the proxy at none.
+        # Timeout must exceed cold-load + first-token time for the largest model.
+        # AEON 27B: 60-120s load + ~30s inference = ~150s worst case.
+        # Qwen3-32B: 90-150s load + ~40s = ~190s.
+        # 360s gives 2× headroom and prevents Ollama fallback mid-load.
         httpx.post(
             f"{pipeline_url}/v1/chat/completions",
             headers={
@@ -791,10 +837,12 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
                 "max_tokens": 1,
                 "stream": False,
             },
-            timeout=180,
+            timeout=360,
         )
     except Exception:
         pass
+    finally:
+        _prewarm_done.set()
 
 
 def unload_all_models() -> None:
@@ -10229,19 +10277,31 @@ async def main() -> None:
                 if not same_model and mem_pct >= MEMORY_WARN_PCT:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
-                    # Wait for proxy to finish unload and reach stable state.
-                    # /unload sends SIGTERM to mlx servers — the proxy needs time
-                    # to kill them and release GPU memory. A blind sleep is not enough;
-                    # we must confirm state=none or state=ready before next test.
-                    for _ in range(12):
+                    # Wait for proxy to reach state=none AND for wired memory to
+                    # actually drop. /unload fires SIGTERM immediately and returns,
+                    # but Metal buffers can take 30-60s to release after the server
+                    # process exits. "Unload OK" just means the proxy accepted the
+                    # request — not that GPU memory is free. If we start the next
+                    # model load before Metal releases, the new load competes for
+                    # the same physical pages and can OOM.
+                    _evict_t0 = time.time()
+                    for _ in range(24):  # up to 120s
                         time.sleep(5)
                         try:
-                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-                            st = h.get("state", "")
-                            if st in ("none", "ready"):
+                            hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+                            st = hw.get("state", "")
+                            wired = float(hw.get("wired_gb", 99))
+                            if st in ("none", "ready") and wired < 12.0:
                                 break
                         except Exception:
                             pass
+                    _evict_elapsed = int(time.time() - _evict_t0)
+                    try:
+                        _hw2 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
+                        _w2 = float(_hw2.get("wired_gb", 0))
+                        print(f"  [mem] Post-eviction: wired={_w2:.1f}GB ({_evict_elapsed}s)")
+                    except Exception:
+                        pass
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
                         print(
