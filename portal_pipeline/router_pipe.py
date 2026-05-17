@@ -1522,6 +1522,11 @@ def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
     mlx_ctk = ws_cfg_local.get("mlx_chat_template_kwargs")
     if mlx_ctk:
         body.setdefault("chat_template_kwargs", mlx_ctk)
+        # mlx_vlm.server reads enable_thinking as a top-level request field,
+        # not from chat_template_kwargs. Inject it directly so VLM servers
+        # (Gemma, Phi-4-Vision) honor the workspace thinking-mode setting.
+        if "enable_thinking" in mlx_ctk:
+            body.setdefault("enable_thinking", mlx_ctk["enable_thinking"])
     return body
 
 
@@ -2158,16 +2163,46 @@ async def _try_non_streaming(
         # exhausts max_tokens. Promote reasoning→content so Open WebUI and all callers
         # always find the response in the standard OpenAI content field.
         try:
+            import re as _re_think
+
             for choice in data.get("choices") or []:
                 msg = choice.get("message") or {}
-                if not msg.get("content") and msg.get("reasoning"):
+                content = msg.get("content") or ""
+                reasoning = msg.get("reasoning") or ""
+                reasoning_content = msg.get("reasoning_content") or ""
+
+                if not content and reasoning:
                     logger.debug(
                         "Backend %s: reasoning→content promotion for workspace=%s "
                         "(thinking chain consumed all tokens)",
                         backend.id,
                         workspace_id,
                     )
-                    msg["content"] = msg["reasoning"]
+                    msg["content"] = reasoning
+
+                elif not content and reasoning_content:
+                    # mlx_vlm with enable_thinking=True returns reasoning_content
+                    # separately. When content is empty, surface the reasoning as
+                    # content so OWUI commits the answer instead of an empty message.
+                    msg["content"] = reasoning_content
+
+                elif content and "<think>" in content:
+                    # Model put answer inside <think>...</think> with empty actual
+                    # content (Gemma 4 with enable_thinking=False). Strip wrapper
+                    # and surface the inner text as regular content.
+                    stripped = _re_think.sub(
+                        r"<think>.*?</think>", "", content, flags=_re_think.DOTALL | _re_think.IGNORECASE
+                    ).strip()
+                    if not stripped:
+                        inner = _re_think.sub(
+                            r"<think>(.*?)</think>",
+                            r"\1",
+                            content,
+                            flags=_re_think.DOTALL | _re_think.IGNORECASE,
+                        ).strip()
+                        if inner:
+                            msg["content"] = inner
+
         except Exception:
             pass  # Never let normalisation break a valid response
 
@@ -2939,7 +2974,12 @@ async def _stream_with_tool_loop_impl(
                                     elapsed_seconds=elapsed,
                                 )
                     else:
-                        # OpenAI SSE path — detect tool_calls in delta
+                        # OpenAI SSE path — detect tool_calls in delta.
+                        # Tool-call chunks are handled internally; suppress
+                        # them from the OWUI SSE stream so OWUI never sees
+                        # tool_calls and cannot trigger its own dispatch
+                        # loop (which would create extra turns with empty
+                        # tool results, overwriting the pipeline's answer).
                         chunk_text = chunk.decode("utf-8", errors="replace")
                         for line in chunk_text.splitlines():
                             if not line.startswith("data: "):
@@ -2947,7 +2987,11 @@ async def _stream_with_tool_loop_impl(
                                 continue
                             data_str = line[6:].strip()
                             if data_str == "[DONE]":
-                                yield b"data: [DONE]\n\n"
+                                # Suppress hop-N [DONE] when more hops follow.
+                                # Hop 2+ will emit their own [DONE] after the
+                                # final answer is streamed.
+                                if finish_reason != "tool_calls" or not tool_calls_buf:
+                                    yield b"data: [DONE]\n\n"
                                 continue
                             try:
                                 obj = json.loads(data_str)
@@ -2958,7 +3002,7 @@ async def _stream_with_tool_loop_impl(
                             choice = (obj.get("choices") or [{}])[0]
                             delta = choice.get("delta", {})
 
-                            if "tool_calls" in delta:
+                            if delta.get("tool_calls"):
                                 for tc_delta in delta["tool_calls"]:
                                     idx = tc_delta.get("index", 0)
                                     while len(tool_calls_buf) <= idx:
@@ -2978,9 +3022,68 @@ async def _stream_with_tool_loop_impl(
                                             buf["function"]["name"] += fn["name"]
                                         if "arguments" in fn:
                                             buf["function"]["arguments"] += fn["arguments"]
+                                # mlx_vlm sends tool_calls + finish_reason in the
+                                # same final chunk — capture finish_reason here so
+                                # the dispatch gate fires after the stream ends.
+                                if choice.get("finish_reason"):
+                                    finish_reason = choice["finish_reason"]
+                                # Suppress tool_call delta — pipeline owns dispatch
+                                continue
 
                             if choice.get("finish_reason"):
                                 finish_reason = choice["finish_reason"]
+                                if finish_reason == "tool_calls":
+                                    # Suppress finish_reason=tool_calls chunk too
+                                    continue
+
+                            # When thinking is disabled, Gemma 4 puts its answer in
+                            # reasoning_content with empty content, or inside <think>
+                            # tags in content. Both render as <details type="reasoning">
+                            # in OWUI and get stripped by the test driver. Convert to
+                            # regular content so the answer is visible.
+                            _thinking_off = not current_body.get("enable_thinking", True)
+                            _rc = delta.get("reasoning_content")
+                            _ct = delta.get("content") or ""
+
+                            if _rc and not _ct and _thinking_off:
+                                # reasoning_content with no content — surface as content
+                                _new_delta = {
+                                    k: v
+                                    for k, v in delta.items()
+                                    if k != "reasoning_content"
+                                }
+                                _new_delta["content"] = _rc
+                                _new_obj = dict(obj)
+                                _new_obj["choices"] = [
+                                    dict(choice, delta=_new_delta)
+                                ]
+                                yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                                continue
+
+                            if _ct and "<think>" in _ct and _thinking_off:
+                                # <think>answer</think> in content with empty actual
+                                # response — strip wrapper and surface inner text.
+                                import re as _re_s
+
+                                _stripped = _re_s.sub(
+                                    r"<think>.*?</think>", "", _ct, flags=_re_s.DOTALL | _re_s.IGNORECASE
+                                ).strip()
+                                if not _stripped:
+                                    _inner = _re_s.sub(
+                                        r"<think>(.*?)</think>",
+                                        r"\1",
+                                        _ct,
+                                        flags=_re_s.DOTALL | _re_s.IGNORECASE,
+                                    ).strip()
+                                    if _inner:
+                                        _new_delta = dict(delta)
+                                        _new_delta["content"] = _inner
+                                        _new_obj = dict(obj)
+                                        _new_obj["choices"] = [
+                                            dict(choice, delta=_new_delta)
+                                        ]
+                                        yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                                        continue
 
                             yield (line + "\n\n").encode()
         except Exception as e:
@@ -3050,18 +3153,6 @@ async def _stream_with_tool_loop_impl(
                     for tc in all_tool_calls
                 ],
             )
-
-            # Emit tool_result SSE events
-            for _tc, result in zip(all_tool_calls, dispatch_results, strict=False):
-                tool_result_event = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "tool_result": result,
-                    "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
-                }
-                yield f"event: tool_result\ndata: {json.dumps(tool_result_event)}\n\n".encode()
 
             # Append assistant turn and tool results to message list
             assistant_msg = {

@@ -9109,9 +9109,12 @@ async def _run_two_chat_test(
 
         # Chat 1
         await _navigate_to_chat(page, chat1_url)
-        req_tool = test.get("requires_tool")
-        if req_tool:
-            await _enable_tool(page, req_tool)
+        # Note: do NOT call _enable_tool here. The portal pipeline injects
+        # and dispatches tools internally for auto-daily (and any workspace
+        # with effective_tools). Enabling the tool in OWUI causes OWUI to
+        # also dispatch tool_calls it sees in the SSE stream (double-dispatch),
+        # which creates a second conversation turn with empty tool results that
+        # overwrites the pipeline's correct answer. Pipeline owns dispatch.
         await _send_and_wait(
             page,
             test["prompt"],
@@ -9132,8 +9135,6 @@ async def _run_two_chat_test(
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
         await _navigate_to_chat(page, chat2_url)
-        if req_tool:
-            await _enable_tool(page, req_tool)
         await _send_and_wait(
             page,
             test["turn2_in_new_chat"],
