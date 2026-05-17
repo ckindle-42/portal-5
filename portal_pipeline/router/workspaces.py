@@ -220,11 +220,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
         "model_hint": "dolphin-llama3:8b",
-        # MLX path intentionally removed: gemma-4-26B-A4B-it-heretic routes through
-        # mlx_vlm (VLM server) for text-only requests and returns empty visible content
-        # (thinking block only, no response text). Reverted to dolphin Ollama which was
-        # the working path before V6. Re-enable MLX when a text-only Gemma-4 MLX model
-        # is confirmed to return non-empty content via mlx_lm (not mlx_vlm).
+        # MLX: gemma-4-26b-a4b-it-4bit (standard variant, same model as auto-vision/auto-research).
+        # The previous V6 model (gemma-4-26B-A4B-it-heretic) was the HERETIC-abliterated variant —
+        # that abliteration broke non-thinking output, returning empty content via mlx_vlm.
+        # The standard (non-abliterated) gemma-4-26b-a4b-it-4bit works correctly via mlx_vlm.
+        # predict_limit: Gemma-4 thinking model; needs 32768 to fit reasoning + response.
+        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "predict_limit": 32768,
         "tools": [],
     },
     "auto-reasoning": {
