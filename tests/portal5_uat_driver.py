@@ -8765,7 +8765,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "proofreader",
         "timeout": 60,
         "workspace_tier": "mlx_large",  # auto-creative routes to gemma-4-26B MoE (~1024s thinking)
-        "max_wait_no_progress": 1200,   # allow full thinking block before polling
+        "max_wait_no_progress": 1800,   # thinking ~8K tok + response; predict_limit now 32768
         "prompt": (
             "Proofread this sentence and explain all corrections: "
             "'The team have agreed, that they will meet on tuesday at 3pm "
