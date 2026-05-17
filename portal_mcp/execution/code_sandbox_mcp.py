@@ -312,6 +312,69 @@ async def sandbox_status() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# REST dispatch endpoints — called by portal-pipeline tool_registry.py via
+# POST /tools/<tool_name> with body {"arguments": {...}, "request_id": "..."}
+# ---------------------------------------------------------------------------
+
+
+@mcp.custom_route("/tools/execute_python", methods=["POST"])
+async def execute_python_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    code = args.get("code", "")
+    if not code:
+        return JSONResponse({"error": "code is required"}, status_code=400)
+    timeout = min(int(args.get("timeout", DEFAULT_TIMEOUT)), 120)
+    result = await execute_python(code=code, timeout=timeout)
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/execute_nodejs", methods=["POST"])
+async def execute_nodejs_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    code = args.get("code", "")
+    if not code:
+        return JSONResponse({"error": "code is required"}, status_code=400)
+    timeout = min(int(args.get("timeout", DEFAULT_TIMEOUT)), 120)
+    result = await execute_nodejs(code=code, timeout=timeout)
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/execute_bash", methods=["POST"])
+async def execute_bash_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    # Accept both 'code' (FastMCP schema) and 'command' (legacy/GLM tool call format)
+    code = args.get("code") or args.get("command", "")
+    if not code:
+        return JSONResponse({"error": "code is required"}, status_code=400)
+    timeout = min(int(args.get("timeout", DEFAULT_TIMEOUT)), 60)
+    # If the script is invoking Python directly, route to execute_python for
+    # guaranteed Python availability (Alpine bash image lacks python3).
+    stripped = code.strip()
+    if stripped.startswith("python3 -c ") or stripped.startswith("python -c "):
+        # Extract the inline code from the python3 -c "..." invocation
+        import shlex
+        try:
+            parts = shlex.split(stripped)
+            py_code = parts[2] if len(parts) >= 3 else ""
+        except Exception:
+            py_code = ""
+        if py_code:
+            result = await execute_python(code=py_code, timeout=min(timeout, 120))
+            return JSONResponse(result)
+    result = await execute_bash(code=code, timeout=timeout)
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/sandbox_status", methods=["POST"])
+async def sandbox_status_endpoint(request):
+    result = await sandbox_status()
+    return JSONResponse(result)
+
+
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))
     mcp.settings.port = port
