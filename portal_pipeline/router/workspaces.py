@@ -220,16 +220,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
         "model_hint": "dolphin-llama3:8b",
-        # V6 fix (TASK_MODEL_REFRESH_V6): divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
-        # was catalog-only pending mlx-lm 0.31.2 server reasoning-content regression,
-        # leaving auto-creative MLX path dead (falls back to dolphin Ollama).
-        # Swapped to gemma-4-26B-A4B-it-heretic-4bit (V5 ladder catalog, same Gemma 4
-        # MoE architecture as auto-vision/auto-research primary). Different arch from
-        # divinetribe so the 0.31.2 server regression does not apply.
-        # predict_limit: gemma-4-26B is a thinking model; default 8192 is exhausted by
-        # reasoning alone, leaving zero tokens for the response. Match auto-reasoning budget.
-        "mlx_model_hint": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit",
-        "predict_limit": 32768,
+        # MLX path intentionally removed: gemma-4-26B-A4B-it-heretic routes through
+        # mlx_vlm (VLM server) for text-only requests and returns empty visible content
+        # (thinking block only, no response text). Reverted to dolphin Ollama which was
+        # the working path before V6. Re-enable MLX when a text-only Gemma-4 MLX model
+        # is confirmed to return non-empty content via mlx_lm (not mlx_vlm).
         "tools": [],
     },
     "auto-reasoning": {
