@@ -2091,6 +2091,13 @@ async def _try_non_streaming(
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "mlx":
         req_body = _inject_mlx_options(req_body, workspace_id)
+        # Synthesis hop: if the request contains tool results, enable thinking
+        # so the model generates a substantive answer with recalled content.
+        if any(m.get("role") == "tool" for m in body.get("messages", [])):
+            req_body["enable_thinking"] = True
+            _ctk = dict(req_body.get("chat_template_kwargs") or {})
+            _ctk["enable_thinking"] = True
+            req_body["chat_template_kwargs"] = _ctk
 
     # Inject tool schemas — same logic as the streaming path. Required when
     # _try_non_streaming is used as a fallback after a streaming attempt fails
@@ -2118,6 +2125,42 @@ async def _try_non_streaming(
         resp = await _http_client.post(backend.chat_url, json=req_body)
         resp.raise_for_status()
         data = resp.json()
+
+        # Non-streaming tool loop: if the model returned tool_calls, dispatch them
+        # and call the model once more for synthesis. This handles OWUI's second
+        # non-streaming request (which it always sends when workspace tools are enabled)
+        # so that the committed DB response contains the recalled content, not a stub.
+        _ns_tool_calls: list[dict] = []
+        for _c in data.get("choices") or []:
+            _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
+
+        if _ns_tool_calls and _ns_tools:
+            _ns_dispatch = await asyncio.gather(*[
+                _dispatch_tool_call(tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}")
+                for tc in _ns_tool_calls
+            ])
+            _synth_messages = (req_body.get("messages") or []) + [
+                {"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}
+            ] + list(_ns_dispatch)
+            _synth_body = {
+                **req_body,
+                "messages": _synth_messages,
+                "tools": None,
+                "tool_choice": None,
+            }
+            if backend.type == "mlx":
+                _synth_body["enable_thinking"] = True
+                _ctk = dict(_synth_body.get("chat_template_kwargs") or {})
+                _ctk["enable_thinking"] = True
+                _synth_body["chat_template_kwargs"] = _ctk
+            _synth_resp = await _http_client.post(backend.chat_url, json=_synth_body)
+            _synth_resp.raise_for_status()
+            data = _synth_resp.json()
+            logger.info(
+                "Non-stream tool loop: workspace=%s dispatched %d tool(s), synthesis complete",
+                workspace_id,
+                len(_ns_tool_calls),
+            )
 
         # Translate Ollama's native non-streaming format to OpenAI format
         # Ollama returns: {"message": {"role": "assistant", "content": "..."}, "eval_count": N, ...}
@@ -3045,8 +3088,10 @@ async def _stream_with_tool_loop_impl(
                             _rc = delta.get("reasoning_content")
                             _ct = delta.get("content") or ""
 
-                            if _rc and not _ct and _thinking_off:
-                                # reasoning_content with no content — surface as content
+                            if _rc and not _ct and (_thinking_off or hop > 1):
+                                # reasoning_content with no content — surface as content.
+                                # hop > 1: synthesis hops always surface reasoning as content
+                                # so recalled keywords are visible, not buried in <details>.
                                 _new_delta = {
                                     k: v
                                     for k, v in delta.items()
