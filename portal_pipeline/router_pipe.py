@@ -2059,6 +2059,15 @@ async def _try_non_streaming(
                 )
                 return None
             target_model = backend.models[0]
+    elif backend.type == "mlx" and not mlx_hint:
+        # No mlx_model_hint for this workspace — skip MLX entirely so the routing
+        # loop tries the next (Ollama) candidate instead of picking a random MLX model.
+        logger.info(
+            "Skipping MLX backend %s for workspace %s (no mlx_model_hint set).",
+            backend.id,
+            workspace_id,
+        )
+        return None
     elif model_hint and model_hint in backend.models:
         target_model = model_hint
     elif model_hint and enforce_hint and backend.type != "mlx":
@@ -2534,6 +2543,22 @@ async def chat_completions(
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
         mlx_hint = ws_cfg.get("mlx_model_hint", "")
+
+        # Skip MLX backends when workspace has no mlx_model_hint. Without a hint, the
+        # routing code would silently pick an arbitrary MLX model (backends[0]) instead
+        # of the intended Ollama model — producing wrong-model inference with no error.
+        if backend.type == "mlx" and not mlx_hint:
+            non_mlx = [c for c in candidates if c.type != "mlx"]
+            if non_mlx:
+                logger.info(
+                    "Workspace %s has no mlx_model_hint — skipping MLX backend %s, routing to %s",
+                    workspace_id,
+                    backend.id,
+                    non_mlx[0].id,
+                )
+                backend = non_mlx[0]
+                candidates = non_mlx
+            # else: only MLX available — fall through, use it as last resort
 
         # Pick the right hint for the backend type
         if backend.type == "mlx" and mlx_hint:
