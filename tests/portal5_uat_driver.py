@@ -7581,6 +7581,7 @@ TEST_CATALOG: list[dict] = [
         "prompt": _CC01_PROMPT,
         # P5-BENCH-001: RL-trained STEM model; code block not expected.
         "assertions": _CC01_ASSERTIONS_BENCH,
+        "max_wait_no_progress": 1800,  # 30 min for RL reasoning model with extended traces
     },
     {
         "id": "CC-01-dolphin8b",
@@ -9048,6 +9049,7 @@ TEST_CATALOG: list[dict] = [
         "workspace_tier": "mlx_small",
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
+        "max_wait_no_progress": 1800,  # 30 min for 32B dense at ~8 TPS
     },
 ]
 

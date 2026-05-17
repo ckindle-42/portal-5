@@ -421,7 +421,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
-        "predict_limit": 8192,
+        "predict_limit": 16384,
         "tools": [],
     },
     "bench-dolphin8b": {
@@ -570,7 +570,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "mlx-community/Olmo-3-1125-32B-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
-        "predict_limit": 8192,
+        "predict_limit": 16384,
         "tools": [],
     },
 }
