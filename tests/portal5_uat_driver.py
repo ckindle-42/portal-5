@@ -2052,6 +2052,7 @@ def _strip_think_blocks(text: str) -> str:
     """
     import re
 
+    original = text
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"\[THINK\].*?\[/THINK\]", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(
@@ -2060,7 +2061,17 @@ def _strip_think_blocks(text: str) -> str:
         text,
         flags=re.DOTALL | re.IGNORECASE,
     )
-    return text.strip()
+    result = text.strip()
+    if not result:
+        # Model put entire answer inside reasoning block — extract inner content
+        m = re.search(
+            r'<details[^>]*>.*?<summary>.*?</summary>(.*?)</details>',
+            original,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if m:
+            return m.group(1).strip()
+    return result
 
 
 # ---------------------------------------------------------------------------
