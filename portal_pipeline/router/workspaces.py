@@ -226,7 +226,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # Swapped to gemma-4-26B-A4B-it-heretic-4bit (V5 ladder catalog, same Gemma 4
         # MoE architecture as auto-vision/auto-research primary). Different arch from
         # divinetribe so the 0.31.2 server regression does not apply.
+        # predict_limit: gemma-4-26B is a thinking model; default 8192 is exhausted by
+        # reasoning alone, leaving zero tokens for the response. Match auto-reasoning budget.
         "mlx_model_hint": "mlx-community/gemma-4-26B-A4B-it-heretic-4bit",
+        "predict_limit": 32768,
         "tools": [],
     },
     "auto-reasoning": {
