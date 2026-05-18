@@ -219,14 +219,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
+        # Ollama dolphin-llama3:8b primary — fast, uncensored, creative-tuned.
+        # MLX removed from cascade (backends.yaml): Gemma 4 VLM is a thinking model
+        # (10-15 min reasoning phase) — wrong tool for proofreading and creative writing.
         "model_hint": "dolphin-llama3:8b",
-        # MLX: gemma-4-26b-a4b-it-4bit (standard variant, same model as auto-vision/auto-research).
-        # The previous V6 model (gemma-4-26B-A4B-it-heretic) was the HERETIC-abliterated variant —
-        # that abliteration broke non-thinking output, returning empty content via mlx_vlm.
-        # The standard (non-abliterated) gemma-4-26b-a4b-it-4bit works correctly via mlx_vlm.
-        # predict_limit: Gemma-4 thinking model; needs 32768 to fit reasoning + response.
-        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
-        "predict_limit": 32768,
         "tools": [],
     },
     "auto-reasoning": {
@@ -302,6 +298,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # 23.4 t/s (6.7× speedup, 13GB vs 18GB, Apache 2.0, smoke PASS). Same
         # Gemma 4 family, MoE architecture serves vision + audio identically.
         "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        # Gemma-4 is a thinking model; vision description tasks don't need reasoning traces.
+        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": ["transcribe_audio"],
     },
     "auto-data": {

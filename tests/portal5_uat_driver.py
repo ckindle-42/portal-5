@@ -8769,8 +8769,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-creative",
         "model_slug": "proofreader",
         "timeout": 60,
-        "workspace_tier": "any",          # auto-creative → gemma-4-26b-a4b-it-4bit via MLX VLM
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",  # forces correct VLM pre-warm
+        "workspace_tier": "ollama",        # auto-creative → dolphin-llama3:8b via Ollama (Gemma 4 VLM thinking model is wrong for text tasks)
         "prompt": (
             "Proofread this sentence and explain all corrections: "
             "'The team have agreed, that they will meet on tuesday at 3pm "
