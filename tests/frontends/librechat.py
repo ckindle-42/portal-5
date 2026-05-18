@@ -330,9 +330,17 @@ async def wait_for_completion(
 
     t_start = time.time()
     last_log = 0.0
-    # Use the pre-send snapshot captured by send_prompt() so Phase 1 growth
-    # detection works even for fast models that respond before wait_for_completion
-    # would otherwise observe the page. Falls back to current state if not supplied.
+    # Track assistant message count at the point we start waiting.
+    # [data-message-role="assistant"] only matches assistant bubbles, so this
+    # count increases only when the model actually responds — not when the user
+    # message appears. Used by the fast-completion path in Phase 1.
+    _ASST_SEL = '[data-message-role="assistant"], .assistant-message, [data-testid*="assistant"]'
+    try:
+        asst_count_start = await page.locator(_ASST_SEL).count()
+    except Exception:
+        asst_count_start = 0
+    # Phase 2 DOM-stable baseline: use pre-send snapshot if the caller provided
+    # one, otherwise fall back to the current page state.
     if pre_send_content:
         prev_text = pre_send_content
     else:
@@ -387,7 +395,12 @@ async def wait_for_completion(
             return PHASE1_MID_S
         return PHASE1_SLOW_S
 
-    # Phase 1: wait for stream to start
+    # Phase 1: wait for stream to start.
+    # Primary signal: stop button appears (streaming in progress).
+    # Fast-completion path: a new assistant message element appeared AND the
+    # stop button is already gone — the model responded faster than our poll
+    # interval (common for pre-loaded small models). In that case we skip
+    # Phase 2 and return immediately after a brief settle.
     _log("waiting for model to start…")
     while True:
         elapsed = time.time() - t_start
@@ -395,11 +408,15 @@ async def wait_for_completion(
             stop_seen = True
             _log("model streaming started")
             break
-        curr = await page.evaluate("document.body.innerText")
-        if curr != prev_text and len(curr) > len(prev_text) + 50:
-            _log("text growing without stop button — treating as streaming")
-            prev_text = curr
-            break
+        # Fast-completion: new assistant element exists and stop button gone
+        try:
+            ac = await page.locator(_ASST_SEL).count()
+            if ac > asst_count_start and not await _stop_visible():
+                _log("fast completion — assistant message appeared without stop button")
+                await asyncio.sleep(2.0)  # settle for DOM render
+                return
+        except Exception:
+            pass
         if _check_backend_crash():
             return
         if elapsed > max_wait_no_progress:
