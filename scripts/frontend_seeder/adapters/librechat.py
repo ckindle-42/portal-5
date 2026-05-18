@@ -42,7 +42,7 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
         mcp_block[key] = {"url": srv["url"]}
 
     config: dict[str, Any] = {
-        "version": "1.2.1",
+        "version": "1.3.11",
         "cache": True,
         "registration": {
             "socialLogins": ["openid"],
@@ -81,7 +81,7 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
 async def _wait_healthy(client: httpx.AsyncClient, max_wait: int = 120) -> None:
     for _ in range(max_wait // 5):
         try:
-            r = await client.get(f"{LIBRECHAT_URL}/api/health")
+            r = await client.get(f"{LIBRECHAT_URL}/health")
             if r.status_code == 200:
                 return
         except Exception:

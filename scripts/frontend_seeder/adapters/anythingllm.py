@@ -1,9 +1,20 @@
-"""AnythingLLM adapter — seeds workspaces and agent settings via API."""
+"""AnythingLLM adapter — seeds workspaces via API.
+
+Auth flow (single-user mode):
+  1. Ensure an API key exists in the SQLite DB (ANYTHINGLLM_DB_PATH mounted from data volume)
+  2. Use that API key Bearer token for all /api/v1 workspace calls
+
+Why direct DB access: AnythingLLM's single-user mode blocks admin API endpoints
+(/admin/generate-api-key) with 401 since they require multi-user mode. The only
+reliable seeding path is inserting the key directly into the SQLite database,
+which is safe to do once at startup before any user traffic.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import os
+import sqlite3
 import sys
 from typing import Any
 
@@ -13,8 +24,11 @@ from frontend_seeder.source import load_workspaces, production_workspaces
 
 ANYTHINGLLM_URL = os.environ.get("ANYTHINGLLM_URL", "http://anythingllm:3001")
 ANYTHINGLLM_ADMIN_PASSWORD = os.environ.get("ANYTHINGLLM_ADMIN_PASSWORD", "")
+ANYTHINGLLM_DB_PATH = os.environ.get("ANYTHINGLLM_DB_PATH", "/storage/anythingllm.db")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099/v1")
+
+_SEEDER_API_KEY_NAME = "portal5-seeder"
 
 
 async def _wait_healthy(client: httpx.AsyncClient, max_wait: int = 120) -> None:
@@ -29,37 +43,41 @@ async def _wait_healthy(client: httpx.AsyncClient, max_wait: int = 120) -> None:
     raise RuntimeError(f"AnythingLLM not healthy after {max_wait}s")
 
 
-async def _setup_or_login(client: httpx.AsyncClient) -> str:
-    """Run initial setup if needed, then return API token."""
-    # Check if setup is already done
-    r = await client.get(f"{ANYTHINGLLM_URL}/api/v1/auth")
-    data = r.json()
+def _ensure_api_key(known_secret: str) -> str:
+    """Insert a known API key into the SQLite DB if not already present."""
+    if not os.path.exists(ANYTHINGLLM_DB_PATH):
+        raise RuntimeError(f"AnythingLLM DB not found at {ANYTHINGLLM_DB_PATH}")
 
-    if not data.get("isMultiUserMode") and data.get("requiresAuth") is False:
-        # Fresh install — run setup
-        r = await client.post(
-            f"{ANYTHINGLLM_URL}/api/v1/system/update-env",
-            json={"AuthToken": ANYTHINGLLM_ADMIN_PASSWORD},
+    conn = sqlite3.connect(ANYTHINGLLM_DB_PATH, timeout=10)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT secret FROM api_keys WHERE secret = ?", (known_secret,))
+        if cur.fetchone():
+            return known_secret  # already exists
+
+        cur.execute(
+            "INSERT INTO api_keys (name, secret) VALUES (?, ?)",
+            (_SEEDER_API_KEY_NAME, known_secret),
         )
-        if r.status_code not in (200, 201):
-            print(f"  [anythingllm] Setup warning: {r.status_code} {r.text[:120]}")
+        conn.commit()
+        print("  [anythingllm] Seeder API key inserted into database")
+        return known_secret
+    finally:
+        conn.close()
 
-    # Login with the token directly (AnythingLLM uses a single admin token)
-    return ANYTHINGLLM_ADMIN_PASSWORD
 
-
-async def _get_existing_workspaces(client: httpx.AsyncClient, token: str) -> set[str]:
-    headers = {"Authorization": f"Bearer {token}"}
+async def _get_existing_workspaces(client: httpx.AsyncClient, api_key: str) -> set[str]:
+    headers = {"Authorization": f"Bearer {api_key}"}
     r = await client.get(f"{ANYTHINGLLM_URL}/api/v1/workspaces", headers=headers)
     if r.status_code == 200:
         return {ws.get("name", "") for ws in r.json().get("workspaces", [])}
     return set()
 
 
-async def _seed_workspaces(client: httpx.AsyncClient, token: str) -> None:
-    headers = {"Authorization": f"Bearer {token}"}
+async def _seed_workspaces(client: httpx.AsyncClient, api_key: str) -> None:
+    headers = {"Authorization": f"Bearer {api_key}"}
     workspaces = production_workspaces(load_workspaces())
-    existing = await _get_existing_workspaces(client, token)
+    existing = await _get_existing_workspaces(client, api_key)
 
     created = skipped = 0
     for ws_id, ws_cfg in workspaces.items():
@@ -68,7 +86,6 @@ async def _seed_workspaces(client: httpx.AsyncClient, token: str) -> None:
             skipped += 1
             continue
 
-        # Create workspace
         r = await client.post(
             f"{ANYTHINGLLM_URL}/api/v1/workspace/new",
             json={"name": name},
@@ -83,7 +100,7 @@ async def _seed_workspaces(client: httpx.AsyncClient, token: str) -> None:
             created += 1
             continue
 
-        # Configure workspace to use Portal 5 pipeline
+        # Bind workspace to Portal 5 pipeline model
         settings: dict[str, Any] = {
             "openAiModel": ws_id,
             "openAiKey": PIPELINE_API_KEY,
@@ -107,24 +124,6 @@ async def _seed_workspaces(client: httpx.AsyncClient, token: str) -> None:
     print(f"  [anythingllm] Workspaces: {created} created, {skipped} skipped")
 
 
-async def _configure_llm(client: httpx.AsyncClient, token: str) -> None:
-    """Set the global LLM provider to Portal 5 pipeline."""
-    headers = {"Authorization": f"Bearer {token}"}
-    r = await client.post(
-        f"{ANYTHINGLLM_URL}/api/v1/system/update-env",
-        json={
-            "LLMProvider": "openai",
-            "OpenAiKey": PIPELINE_API_KEY,
-            "OpenAiModelPref": "auto",
-            "OpenAiBaseUrl": PIPELINE_URL,
-        },
-        headers=headers,
-    )
-    if r.status_code in (200, 201):
-        print("  [anythingllm] Global LLM configured → Portal 5 pipeline")
-    else:
-        print(f"  [anythingllm] LLM config warning: {r.status_code} {r.text[:120]}")
-
 
 async def seed() -> None:
     if not ANYTHINGLLM_ADMIN_PASSWORD:
@@ -134,10 +133,8 @@ async def seed() -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         print("[anythingllm] Waiting for AnythingLLM to be healthy...")
         await _wait_healthy(client)
-        print("[anythingllm] Authenticating...")
-        token = await _setup_or_login(client)
-        print("[anythingllm] Configuring LLM provider...")
-        await _configure_llm(client, token)
+        print("[anythingllm] Ensuring API key exists in database...")
+        api_key = _ensure_api_key(ANYTHINGLLM_ADMIN_PASSWORD)
         print("[anythingllm] Seeding workspaces...")
-        await _seed_workspaces(client, token)
+        await _seed_workspaces(client, api_key)
     print("[anythingllm] Seeding complete.")

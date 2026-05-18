@@ -17,7 +17,8 @@ PORTAL_ROOT = Path(__file__).resolve().parent.parent.parent
 def load_personas(personas_dir: Path | None = None) -> list[dict[str, Any]]:
     """Return all persona dicts from config/personas/*.yaml, sorted by slug."""
     if personas_dir is None:
-        personas_dir = PORTAL_ROOT / "config" / "personas"
+        env_dir = os.environ.get("PERSONAS_DIR")
+        personas_dir = Path(env_dir) if env_dir else PORTAL_ROOT / "config" / "personas"
     personas = []
     for yf in sorted(personas_dir.glob("*.yaml")):
         try:
@@ -30,16 +31,44 @@ def load_personas(personas_dir: Path | None = None) -> list[dict[str, Any]]:
 
 
 def load_workspaces() -> dict[str, dict[str, Any]]:
-    """Return the WORKSPACES dict from the pipeline, keyed by workspace ID."""
-    # Import from the pipeline package if available; otherwise parse the file
+    """Return the WORKSPACES dict from the pipeline, keyed by workspace ID.
+
+    Primary: import directly from portal_pipeline (fast, no network).
+    Fallback: fetch from live pipeline /v1/models (used inside init containers).
+    """
     try:
         sys.path.insert(0, str(PORTAL_ROOT))
         from portal_pipeline.router.workspaces import WORKSPACES  # noqa: PLC0415
         return dict(WORKSPACES)
     except ImportError:
         pass
-    # Fallback: fetch from live pipeline /v1/models
-    return {}
+
+    # Fallback: live pipeline /v1/models endpoint — used in Docker init containers
+    import urllib.request  # noqa: PLC0415
+    pipeline_url = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099/v1")
+    pipeline_key = os.environ.get("PIPELINE_API_KEY", "")
+    models_url = pipeline_url.rstrip("/v1").rstrip("/") + "/v1/models"
+    try:
+        req = urllib.request.Request(
+            models_url,
+            headers={"Authorization": f"Bearer {pipeline_key}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        workspaces: dict[str, dict[str, Any]] = {}
+        for m in data.get("data", []):
+            ws_id = m["id"]
+            workspaces[ws_id] = {
+                "name": m.get("name", ws_id),
+                "description": m.get("description", ""),
+                "category": m.get("category", ""),
+                "tags": m.get("tags", []),
+                "tools": m.get("tools", []),
+            }
+        return workspaces
+    except Exception as e:
+        print(f"  [warn] load_workspaces fallback failed: {e}", file=sys.stderr)
+        return {}
 
 
 def load_mcp_servers(mcp_file: Path | None = None) -> list[dict[str, Any]]:
