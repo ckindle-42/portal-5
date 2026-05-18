@@ -43,9 +43,25 @@
 - Reasoning blocks rendered visibly: LibreChat does NOT inject `<details type="reasoning">` wrappers — thinking content appears inline in the message text. DOM-stable completion detection works without OWUI's API-polling workaround.
 
 ### Routed-model readout
-- Source: NOT surfaced in the message footer in v0.8.6-rc1 (no model badge or footer text observed on assistant messages)
-- Selector: n/a — model name not found in message-level DOM
-- Notes: In v0.8.6-rc1, the model used is tracked in the conversation metadata but not rendered in the message. The `get_routed_model()` function will return `""` until a verified selector is found. The operator workflow accepts this limitation — check the conversation's active model via the model picker UI if needed.
+- Source: **Pipeline logs** (`docker logs portal5-pipeline`) — not the DOM
+- Selector: n/a — by design, no DOM scraping for this field
+- Notes:
+  - LibreChat v0.8.6-rc1 does NOT surface the backend model name (e.g.
+    `gemma-4-26b-a4b-it-4bit`) anywhere in the message UI: not in footers,
+    tooltips, badges, or data attributes. The model picker shows the
+    selected agent (workspace slug like `auto`) but not which physical
+    model the pipeline routed the request to.
+  - The pipeline already emits the routing decision as a log line on every
+    request:
+    `Routing workspace=auto → backend=mlx-apple-silicon model=mlx-community/Dolphin-0/Flushi-4bit stream=True (1/7 candidates)`
+  - The UAT driver reads this directly via `_get_backend_from_pipeline_logs(slug)`
+    in `tests/portal5_uat_driver.py` (existing helper, unchanged). The
+    LibreChat path in `_fe_get_routed_model` calls it; there is no DOM
+    path. Verifying the routed model is therefore frontend-independent.
+  - **Do not re-introduce DOM scraping for this field.** If a future
+    LibreChat release adds a model badge in the UI, the pipeline-log path
+    still wins (it sees the *actual* model after fallback cascades, not the
+    *selected* model the UI advertises).
 
 ### File attachment download
 - Container: `a[download], a[href*=".{ext}"], button:has-text("Download")` (PROVISIONAL — not confirmed during recon; no artifact-generating test was run)
@@ -60,7 +76,7 @@
 
 1. **Stop button not confirmed during recon.** No streaming response was observed in v0.8.6-rc1 during headless recon. The `wait_for_completion` function uses `button[aria-label*="Stop" i], button[title*="Stop"], button:has-text("Stop")` which covers common LibreChat patterns. If none of these work, fall back to pure DOM-stability detection.
 
-2. **Routed-model display NOT surfaced in v0.8.6-rc1.** The model name does not appear in the assistant message footer or as a badge. `get_routed_model()` returns `""` on this version. This is documented as a known limitation — the model used is still correct (the pipeline routes it), it's just not visible in the LibreChat message UI.
+2. **Routed-model is read from pipeline logs, not the DOM (architectural decision).** LibreChat v0.8.6-rc1 does not display the backend model in its UI; the pipeline emits the routing decision in its container logs, and the UAT driver reads it from there via `_get_backend_from_pipeline_logs(slug)`. This is frontend-independent and is the right source even when a UI display is available — the pipeline log records the actual routed model after fallback cascades, which the UI cannot. See § Routed-model readout above. The LibreChat `get_routed_model()` DOM helper that existed in the initial track has been removed.
 
 3. **Agent selection required before sending.** LibreChat v0.8.6-rc1 requires selecting an Agent (persona/preset or workspace model) before the textarea becomes message-ready. The `start_new_chat` function handles this by either clicking a preset or selecting a workspace model from the picker.
 
