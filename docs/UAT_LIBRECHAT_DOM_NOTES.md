@@ -19,9 +19,9 @@
 - Select workspace model (e.g. auto-coding): Click `button[aria-label="Select a model"]`, then click the target model row in the dropdown list. Models are listed by their portal workspace slug.
 
 ### Preset menu
-- Open: `button[aria-label="Presets"]` — icon button in the chat header area
+- Open: `#presets-button` (ID), fallback `button[aria-label=" Presets"]` (note: leading space in aria-label) — icon button in the chat header area
 - Filter by text: Not directly filterable in v0.8.6-rc1 — presets appear in a scrollable list
-- Click preset row by title `🎭 {name}`: Click the preset button, then locate and click the row by its text content. Each preset appears with the `🎭` emoji prefix as seeded.
+- Click preset row by title `🎭 {name}`: Click the preset button, then locate and click the row by its text content via `get_by_text(title, exact=False)`. Each preset appears with the `🎭` emoji prefix as seeded.
 
 ### Custom Instructions / promptPrefix UI
 - Open settings panel: `button[aria-label="MCP Settings"]` or `button[aria-label="Account Settings"]` — LibreChat v0.8.6-rc1 does NOT expose a per-conversation "Custom Instructions" textarea in the standard UI. The primary mechanism for injecting a system prompt is through Agents (seeded presets).
