@@ -122,3 +122,10 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "browser: Playwright browser tests — require running frontends and 'playwright install chromium'",
+    "timeout: Per-test timeout in seconds (decorative, enforced externally)",
+]
+filterwarnings = [
+    "ignore::pytest.PytestUnknownMarkWarning",
+]

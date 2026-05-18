@@ -1823,14 +1823,18 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     else
         echo "HUGGINGCHAT_LISTEN_ADDR=${HUGGINGCHAT_LISTEN_ADDR}" >> "$ENV_FILE"
     fi
-    echo "[portal-5] Starting HuggingChat (port 8084) + generating models.yaml..."
+    echo "[portal-5] Starting HuggingChat (port 8084) + generating models config..."
     cd "$PORTAL_ROOT"
-    python3 -c "
-import sys; sys.path.insert(0, 'scripts')
-from frontend_seeder.adapters.huggingchat import generate_models_yaml
-from pathlib import Path
-generate_models_yaml(Path('config/huggingchat/models.yaml'))
-" 2>/dev/null || echo "  [warn] Config gen skipped — using committed models.yaml"
+    export HUGGINGCHAT_MODELS=$(python3 -c "
+import sys, os; sys.path.insert(0, 'scripts')
+os.environ.setdefault('PIPELINE_API_KEY', os.environ.get('PIPELINE_API_KEY', ''))
+os.environ.setdefault('PIPELINE_URL', 'http://portal-pipeline:9099/v1')
+from frontend_seeder.adapters.huggingchat import generate_models_json
+print(generate_models_json())
+" 2>/dev/null) || true
+    if [ -z "$HUGGINGCHAT_MODELS" ]; then
+        echo "  [warn] Model config generation failed — HuggingChat may show default models"
+    fi
     cd "$COMPOSE_DIR"
     docker compose --profile huggingchat up -d
     echo "[portal-5] HuggingChat starting at http://${HUGGINGCHAT_LISTEN_ADDR}:8084"
@@ -1853,6 +1857,14 @@ generate_models_yaml(Path('config/huggingchat/models.yaml'))
     done
     [ "$ADDR" = "0.0.0.0" ] && echo "[portal-5] Remote access enabled — all frontends listening on 0.0.0.0"
     echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083, HuggingChat :8084)..."
+    cd "$PORTAL_ROOT"
+    export HUGGINGCHAT_MODELS=$(python3 -c "
+import sys, os; sys.path.insert(0, 'scripts')
+os.environ.setdefault('PIPELINE_API_KEY', os.environ.get('PIPELINE_API_KEY', ''))
+os.environ.setdefault('PIPELINE_URL', 'http://portal-pipeline:9099/v1')
+from frontend_seeder.adapters.huggingchat import generate_models_json
+print(generate_models_json())
+" 2>/dev/null) || true
     cd "$COMPOSE_DIR"
     docker compose --profile all-frontends up -d
     echo "[portal-5] All frontends starting:"
