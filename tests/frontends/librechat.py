@@ -264,17 +264,28 @@ async def _set_custom_instructions(page, sysprompt: str) -> None:
 # ── Send + completion ────────────────────────────────────────────────────────
 
 
-async def send_prompt(page, prompt: str) -> None:
-    """Fill the composer and submit.
+async def send_prompt(page, prompt: str) -> str:
+    """Fill the composer and submit. Returns the pre-send body text as a baseline.
+
+    The caller should pass the returned value to wait_for_completion as
+    pre_send_content so Phase 1 can detect response growth even for fast
+    models that respond in <500 ms (before wait_for_completion would otherwise
+    capture its own baseline).
 
     LibreChat v0.8.6-rc1: Enter alone does NOT send — must click the Send button.
     """
+    # Capture baseline BEFORE filling — the model has definitely not responded yet.
+    try:
+        pre_send_body = await page.evaluate("document.body.innerText")
+    except Exception:
+        pre_send_body = ""
     ta = page.locator("textarea").first
     await ta.click()
     await ta.fill(prompt)
     await asyncio.sleep(0.3)
     # Click the Send button (Enter does not submit in LibreChat)
     await page.locator('button[aria-label="Send message"]').first.click()
+    return pre_send_body
 
 
 async def wait_for_completion(
@@ -283,6 +294,8 @@ async def wait_for_completion(
     tier: str = "any",
     max_wait_no_progress: int = 900,
     backend_alive_fn=None,
+    *,
+    pre_send_content: str = "",
 ) -> None:
     """Wait for the LibreChat streaming response to finish.
 
@@ -317,13 +330,16 @@ async def wait_for_completion(
 
     t_start = time.time()
     last_log = 0.0
-    # Baseline: capture current page content so Phase 1 "text growing" only
-    # fires when the response actually appears, not on the initial page state.
-    # Without this, prev_text="" causes an immediate break on the first iteration.
-    try:
-        prev_text = await page.evaluate("document.body.innerText")
-    except Exception:
-        prev_text = ""
+    # Use the pre-send snapshot captured by send_prompt() so Phase 1 growth
+    # detection works even for fast models that respond before wait_for_completion
+    # would otherwise observe the page. Falls back to current state if not supplied.
+    if pre_send_content:
+        prev_text = pre_send_content
+    else:
+        try:
+            prev_text = await page.evaluate("document.body.innerText")
+        except Exception:
+            prev_text = ""
     stable_count = 0
     stop_seen = False
     dead_strikes = 0

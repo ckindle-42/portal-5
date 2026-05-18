@@ -1367,13 +1367,14 @@ async def _fe_send_and_wait(
 ) -> None:
     """Send a prompt and wait for streaming to complete."""
     if FRONTEND_MODE == "librechat":
-        await _lc.send_prompt(page, prompt)
+        pre_send_content = await _lc.send_prompt(page, prompt)
         await _lc.wait_for_completion(
             page,
             test_id=test_id,
             tier=tier,
             max_wait_no_progress=max_wait_no_progress,
             backend_alive_fn=_backend_alive,
+            pre_send_content=pre_send_content,
         )
     else:
         await _send_and_wait(
