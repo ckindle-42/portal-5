@@ -1395,10 +1395,29 @@ async def _fe_get_last_response(page, token: str, chat_id: str, min_messages: in
     return owui_get_last_response(token, chat_id, min_messages=min_messages)
 
 
-async def _fe_get_routed_model(page, token: str, chat_id: str) -> str:
-    """Best-effort routed-model name. Empty string is acceptable on LibreChat."""
+async def _fe_get_routed_model(test: dict, page, token: str, chat_id: str) -> str:
+    """Resolve the actual backend model that handled the most recent response.
+
+    OWUI path: reads OWUI's stored chat metadata (the workspace/persona name
+    captured from the pipeline's SSE stream). The model itself is confirmed
+    against pipeline logs downstream by _check_routed_model.
+
+    LibreChat path: reads directly from pipeline logs via
+    _get_backend_from_pipeline_logs(test["model_slug"]). LibreChat v0.8.6-rc1
+    does not surface the backend model in its UI (verified — see
+    docs/UAT_LIBRECHAT_DOM_NOTES.md § Routed-model readout). The pipeline log
+    is the authoritative source and is frontend-independent, so we go to it
+    directly rather than emulating OWUI's two-source layout.
+
+    Returns "" if no source is available (e.g. pipeline logs unreachable, or
+    no routing entry yet emitted for this slug). _check_routed_model handles
+    the empty-string case by skipping validation.
+    """
     if FRONTEND_MODE == "librechat":
-        return await _lc.get_routed_model(page)
+        slug = test.get("model_slug", "")
+        if not slug:
+            return ""
+        return _get_backend_from_pipeline_logs(slug)
     return owui_get_routed_model(token, chat_id)
 
 
@@ -9561,7 +9580,7 @@ async def _run_two_chat_test(
         )
         chat1_url = _fe_current_chat_url(page, fallback=chat1_url)
         response1 = await _fe_get_last_response(page, token, chat1_id) or ""
-        routed_model_1 = await _fe_get_routed_model(page, token, chat1_id)
+        routed_model_1 = await _fe_get_routed_model(test, page, token, chat1_id)
 
         # Brief settle to let the memory write commit through embedding
         # service before chat 2 queries it. The recall is vector-based and
@@ -9583,7 +9602,7 @@ async def _run_two_chat_test(
         )
         chat2_url = _fe_current_chat_url(page, fallback=chat2_url)
         response2 = await _fe_get_last_response(page, token, chat2_id) or ""
-        routed_model_2 = await _fe_get_routed_model(page, token, chat2_id)
+        routed_model_2 = await _fe_get_routed_model(test, page, token, chat2_id)
 
         # Assertions
         assertions_result = run_assertions(response1, test.get("assertions", []))
@@ -10060,7 +10079,7 @@ async def run_test(
             pass
 
     elapsed = time.time() - t0
-    routed_model = await _fe_get_routed_model(page, token, chat_id)
+    routed_model = await _fe_get_routed_model(test, page, token, chat_id)
 
     route_check = _check_routed_model(test, routed_model)
     if route_check is not None:

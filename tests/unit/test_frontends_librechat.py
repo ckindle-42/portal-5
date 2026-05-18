@@ -96,12 +96,3 @@ async def test_get_last_response_falls_through_candidates() -> None:
     page.inner_text = AsyncMock(return_value="<body fallback>")
     result = await lc.get_last_response(page)
     assert result == "Hello from the assistant."
-
-
-@pytest.mark.asyncio
-async def test_get_routed_model_returns_empty_when_no_selector_matches() -> None:
-    page = MagicMock()
-    loc_empty = MagicMock()
-    loc_empty.count = AsyncMock(return_value=0)
-    page.locator = MagicMock(return_value=loc_empty)
-    assert await lc.get_routed_model(page) == ""
