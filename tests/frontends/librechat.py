@@ -192,7 +192,8 @@ async def _select_preset(page, preset_title: str) -> None:
     in the chat header area.
     """
     # Open the presets popover
-    preset_btn = page.locator('button[aria-label="Presets"]').first
+    # Note: aria-label has a leading space (" Presets", not "Presets")
+    preset_btn = page.locator('#presets-button, button[aria-label=" Presets"]').first
     try:
         await preset_btn.click(timeout=5000)
     except Exception as exc:
