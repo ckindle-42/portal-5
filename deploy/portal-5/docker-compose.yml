@@ -914,11 +914,11 @@ services:
       - anythingllm-data:/app/server/storage
     environment:
       - STORAGE_DIR=/app/server/storage
-      - LLM_PROVIDER=openai
-      - OPEN_AI_KEY=${PIPELINE_API_KEY}
-      - OPEN_AI_MODEL_PREF=auto
-      - OPEN_MODEL_TOKEN_LIMIT=4096
-      - OPENAI_BASE_PATH=http://portal-pipeline:9099/v1
+      - LLM_PROVIDER=generic-openai
+      - GENERIC_OPEN_AI_BASE_PATH=http://portal-pipeline:9099/v1
+      - GENERIC_OPEN_AI_API_KEY=${PIPELINE_API_KEY}
+      - GENERIC_OPEN_AI_MODEL_PREF=auto
+      - GENERIC_OPEN_AI_MODEL_TOKEN_LIMIT=4096
       - AUTH_TOKEN=${ANYTHINGLLM_ADMIN_PASSWORD}
       - JWT_SECRET=${ANYTHINGLLM_JWT_SECRET}
       - DISABLE_TELEMETRY=true
@@ -984,15 +984,13 @@ services:
       - all-frontends
     ports:
       - "${HUGGINGCHAT_LISTEN_ADDR:-127.0.0.1}:8084:3000"
-    volumes:
-      - ../../config/huggingchat/models.yaml:/app/models.yaml:ro
     environment:
       - MONGODB_URL=mongodb://huggingchat-mongodb:27017/chat-ui
       - HF_ACCESS_TOKEN=local
       - PUBLIC_APP_NAME=Portal 5
       - PUBLIC_APP_DESCRIPTION=Local AI platform powered by Portal 5
       - ALLOW_INSECURE_COOKIES=true
-      - MODELS_PATH=/app/models.yaml
+      - MODELS=${HUGGINGCHAT_MODELS}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
