@@ -7609,7 +7609,7 @@ TEST_CATALOG: list[dict] = [
         "section": "benchmark",
         "model_slug": "bench-glm",
         "timeout": 300,
-        "workspace_tier": "ollama",
+        "workspace_tier": "mlx_small",  # bench-glm is mlx_only; driver must pre-warm MLX
         "prompt": _CC01_PROMPT,
         # P5-BENCH-001: model capability limit; code block not expected.
         "assertions": _CC01_ASSERTIONS_BENCH,
@@ -8154,6 +8154,7 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "whiteboardconverter",
         "timeout": 60,
         "workspace_tier": "any",
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",  # auto-vision VLM pre-warm
         "prompt": (
             "If I send you a whiteboard photo of a system architecture sketch "
             "with boxes labeled 'API Gateway', 'Auth Service', 'User DB', and "
@@ -8768,7 +8769,8 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-creative",
         "model_slug": "proofreader",
         "timeout": 60,
-        "workspace_tier": "any",          # auto-creative → dolphin Ollama (non-thinking, ~60s)
+        "workspace_tier": "any",          # auto-creative → gemma-4-26b-a4b-it-4bit via MLX VLM
+        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",  # forces correct VLM pre-warm
         "prompt": (
             "Proofread this sentence and explain all corrections: "
             "'The team have agreed, that they will meet on tuesday at 3pm "

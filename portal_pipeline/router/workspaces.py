@@ -421,7 +421,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
-        "predict_limit": 16384,
+        # Raised from 16384: RL reasoning traces consume 8-12K tokens before code begins;
+        # 16384 left insufficient budget for a complete 6-8K token game implementation.
+        "predict_limit": 32768,
         "tools": [],
     },
     "bench-dolphin8b": {
