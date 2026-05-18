@@ -12,7 +12,6 @@ import httpx
 import yaml as _yaml
 
 from frontend_seeder.source import (
-    PORTAL_ROOT,
     load_mcp_servers,
     load_personas,
     load_workspaces,
@@ -114,7 +113,7 @@ async def _register_admin(client: httpx.AsyncClient) -> None:
     if r.status_code in (200, 201):
         print(f"  [librechat] Admin account created: {LIBRECHAT_ADMIN_EMAIL}")
     elif r.status_code == 422 or "already" in r.text.lower():
-        print(f"  [librechat] Admin account already exists")
+        print("  [librechat] Admin account already exists")
     else:
         print(f"  [librechat] Register returned {r.status_code}: {r.text[:120]}")
 

@@ -110,13 +110,12 @@ ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
 ```bash
 ./launch.sh up-librechat      # LibreChat + MongoDB + Meilisearch → :8082
 ./launch.sh up-anythingllm   # AnythingLLM → :8083
-./launch.sh up-huggingchat   # HuggingChat + MongoDB → :8084
-./launch.sh up-all-frontends # All three simultaneously
+./launch.sh up-all-frontends # Both simultaneously
 ```
 
 Each command:
 1. Derives the listen address from `ENABLE_REMOTE_ACCESS` (same as Open WebUI)
-2. Persists `LIBRECHAT_LISTEN_ADDR` / `ANYTHINGLLM_LISTEN_ADDR` / `HUGGINGCHAT_LISTEN_ADDR` to `.env`
+2. Persists `LIBRECHAT_LISTEN_ADDR` / `ANYTHINGLLM_LISTEN_ADDR` to `.env`
 3. Starts the Docker Compose profile
 4. Runs an init container that seeds workspaces + personas
 
@@ -129,7 +128,7 @@ Each command:
 
 ### Remote access
 
-All three frontends follow `ENABLE_REMOTE_ACCESS` automatically:
+Both frontends follow `ENABLE_REMOTE_ACCESS` automatically:
 
 ```bash
 # In .env:
@@ -141,7 +140,6 @@ Per-frontend overrides:
 ```bash
 LIBRECHAT_LISTEN_ADDR=0.0.0.0    # override for LibreChat only
 ANYTHINGLLM_LISTEN_ADDR=0.0.0.0  # override for AnythingLLM only
-HUGGINGCHAT_LISTEN_ADDR=0.0.0.0  # override for HuggingChat only
 ```
 
 ### What gets seeded
@@ -150,14 +148,12 @@ HUGGINGCHAT_LISTEN_ADDR=0.0.0.0  # override for HuggingChat only
 |---|---|
 | LibreChat | 19 workspace presets + 102 persona presets (🎭 prefix) |
 | AnythingLLM | 19 workspaces (each bound to the pipeline model ID) |
-| HuggingChat | `config/huggingchat/models.yaml` generated with 19 models |
 
 ### Log access
 
 ```bash
 ./launch.sh logs librechat       # LibreChat app logs
 ./launch.sh logs anythingllm     # AnythingLLM logs
-./launch.sh logs huggingchat     # HuggingChat logs
 ```
 
 ### MCP tools in LibreChat
@@ -177,7 +173,6 @@ Critical data is in Docker volumes:
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
 - `portal-5_librechat-mongodb` — LibreChat conversations and user accounts (if using LibreChat)
 - `portal-5_anythingllm-data` — AnythingLLM workspaces and documents (if using AnythingLLM)
-- `portal-5_huggingchat-mongodb` — HuggingChat conversations (if using HuggingChat)
 
 ```bash
 # Easiest: use the launch script (saves to ./backups/)

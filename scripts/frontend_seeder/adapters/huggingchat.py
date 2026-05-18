@@ -15,7 +15,6 @@ from typing import Any
 import yaml as _yaml
 
 from frontend_seeder.source import (
-    PORTAL_ROOT,
     load_workspaces,
     production_workspaces,
 )
@@ -27,7 +26,10 @@ PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099/v1")
 def _build_model_list(api_key: str = "", pipeline_url: str = "") -> list[dict[str, Any]]:
     """Build the model list dict shared by YAML and JSON generators."""
     key = api_key or PIPELINE_API_KEY
-    url = pipeline_url or PIPELINE_URL
+    url = (pipeline_url or PIPELINE_URL).rstrip("/")
+    # chat-ui openai endpoint appends /chat/completions to the url; ensure /v1 is present
+    if not url.endswith("/v1"):
+        url = url + "/v1"
     workspaces = production_workspaces(load_workspaces())
     models: list[dict[str, Any]] = []
     for ws_id, ws_cfg in workspaces.items():

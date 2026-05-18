@@ -10,7 +10,6 @@ from typing import Any
 
 import yaml
 
-
 PORTAL_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
