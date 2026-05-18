@@ -43,11 +43,11 @@ import httpx
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
+load_dotenv()  # must precede frontend imports so module-level env reads are populated
+
 sys.path.insert(0, str(Path(__file__).parent))
 from common import REFUSAL_PHRASES  # noqa: E402
 from frontends import librechat as _lc  # noqa: E402
-
-load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Config

@@ -317,7 +317,13 @@ async def wait_for_completion(
 
     t_start = time.time()
     last_log = 0.0
-    prev_text = ""
+    # Baseline: capture current page content so Phase 1 "text growing" only
+    # fires when the response actually appears, not on the initial page state.
+    # Without this, prev_text="" causes an immediate break on the first iteration.
+    try:
+        prev_text = await page.evaluate("document.body.innerText")
+    except Exception:
+        prev_text = ""
     stable_count = 0
     stop_seen = False
     dead_strikes = 0
