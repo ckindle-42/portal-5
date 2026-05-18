@@ -595,98 +595,21 @@ Full workflow: `docs/UAT_CALIBRATION.md`. Use `--section <n>` to calibrate one s
 
 ---
 
-## Phase 9 — LibreChat parity (after the OWUI run completes)
+## Phase 9 — LibreChat parity (separate execute doc)
 
-**What:** Re-run the same `TEST_CATALOG` against LibreChat at `http://localhost:8082` to validate frontend-UX parity with Open WebUI. Same tests, same assertions, same scoring — a separate results file at `tests/UAT_RESULTS_LIBRECHAT.md` so the two runs can be diffed side-by-side.
+After Phases 1–8 complete and `tests/UAT_RESULTS.md` is finalized, the LibreChat parity track runs through its own execute prompt:
 
-**Why a second run is the right model:**
-- LibreChat is a like-for-like frontend (102 personas as presets, 19 workspaces, 13 MCP servers).
-- The pipeline / model / tool layer is identical — the UX layer is the variable being tested.
-- If a test passes on OWUI and fails on LibreChat, that's a LibreChat-UX finding, not a pipeline regression.
+→ **`tests/PORTAL5_UAT_LIBRECHAT_EXECUTE_V1.md`**
 
-**Prerequisites:**
-```bash
-# .env must include the LibreChat secrets (see .env.example § Alternative Frontends).
-grep -E "^LIBRECHAT_(ADMIN_PASSWORD|JWT_SECRET|JWT_REFRESH_SECRET|CREDS_KEY|CREDS_IV)=" .env
+The LibreChat run uses `--frontend librechat` against the same `TEST_CATALOG`, writes to `tests/UAT_RESULTS_LIBRECHAT.md`, and produces a parity diff against this OWUI run. The two runs are diffed side-by-side; deltas indicate LibreChat UX divergence rather than pipeline regressions.
 
-# LibreChat must be running and seeded.
-./launch.sh up-librechat
-curl -sf http://localhost:8082/health   # expect "OK"
+Do not try to execute the LibreChat track from this V2 doc — the dedicated prompt has its own Phase 0 (LibreChat pre-flight), Phase 0.5 (selector calibration), failure investigation for LibreChat-specific symptoms (`persona_preset_unreachable`, preset menu selector drift, etc.), and a Parity Findings section in the final report.
 
-# Validate DOM selectors are still current (one-shot calibration).
-test -f docs/UAT_LIBRECHAT_DOM_NOTES.md \
-  && head -20 docs/UAT_LIBRECHAT_DOM_NOTES.md
-```
-
-**Calibration first (one-time per LibreChat version):**
-```bash
-# Capture 5-10 representative test runs to verify the LibreChat selectors are
-# still producing correct response text and routed-model readings.
-python3 tests/portal5_uat_driver.py \
-  --frontend librechat \
-  --test WS-01 --test WS-DD-01 --test P-W06 --test P-D01 --test A-08 \
-  --calibrate --calibrate-output calibration_librechat.json
-
-# Review the JSON. Flag any entry where:
-# - The captured response is shorter than expected (selector picked wrong container)
-# - The routed_model field is empty when the OWUI run shows a model name
-# - A persona test ran without its preset (response style differs from OWUI)
-```
-
-If calibration reveals stale selectors, update `tests/frontends/librechat.py` AND `docs/UAT_LIBRECHAT_DOM_NOTES.md` before proceeding.
-
-**Phased run (same tier order as OWUI Phase 1-8):**
-```bash
-# Phase plan mirrors the OWUI cascade — run section groups, append, gate between phases.
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto                # smoke
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto-compliance --section auto-agentic \
-                                    --section auto-vision --section auto-research \
-                                    --section auto-security --section auto-redteam --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto-coding --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto-data --section auto-reasoning \
-                                    --section auto-creative --section auto-mistral \
-                                    --section auto-spl --section auto-math --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto-blueteam --section auto-docs --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section auto-music --section auto-video --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section benchmark --append
-python3 tests/portal5_uat_driver.py --frontend librechat --section advanced --append
-```
-
-**Differences from OWUI run (known and expected):**
-
-1. **`via_dispatcher` tests SKIP automatically** — they bypass both frontends. Already covered in OWUI Phase 8.
-2. **No folder organisation** — LibreChat uses conversation tags, not folders. Sort the conversation list by date in the LibreChat UI for review.
-3. **Persona presets** — every persona test attempts to click the seeded `🎭 {name}` preset first. If a preset is missing (seeder didn't run cleanly), the test records SKIP with `persona_preset_unreachable`. To fix: re-run `./launch.sh seed-librechat` and rerun the failed test with `--rerun-failed`.
-4. **Routed-model column may be empty on some rows** — LibreChat surfaces the model differently per UI version. See `docs/UAT_LIBRECHAT_DOM_NOTES.md` for the current selector status. Empty routed-model is not a FAIL signal on this frontend.
-5. **Reasoning models render thinking content visibly** — LibreChat does NOT inject `<details type="reasoning">`, so the OWUI workaround (API-polling fallback) does not apply. Completion detection is purely DOM-driven. This is faster and simpler; the operator does not need to do anything different.
-
-**Diffing the two runs:**
-
-After both runs complete:
-```bash
-# Quick diff of FAIL/PASS deltas between frontends
-python3 - <<'PY'
-import re
-def parse(path):
-    rows = {}
-    for line in open(path).read().split("\n"):
-        m = re.match(r"^\|\s*\d+\s*\|\s*(\w+)\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s", line)
-        if m:
-            rows[m.group(2)] = m.group(1)
-    return rows
-owui = parse("tests/UAT_RESULTS.md")
-libre = parse("tests/UAT_RESULTS_LIBRECHAT.md")
-all_ids = sorted(set(owui) | set(libre))
-print(f"{'TEST':<30} {'OWUI':<10} LIBRECHAT")
-for tid in all_ids:
-    o = owui.get(tid, "—")
-    l = libre.get(tid, "—")
-    flag = "  ⚠ DELTA" if o != l and "—" not in (o, l) else ""
-    print(f"{tid:<30} {o:<10} {l:<10}{flag}")
-PY
-```
-
-Any row flagged `⚠ DELTA` is a real frontend-UX divergence worth investigating. PASS/SKIP differences where one side is SKIP (e.g. `via_dispatcher` on LibreChat) are not deltas — those are by design.
+**Prerequisites for handing off to the LibreChat track:**
+- `tests/UAT_RESULTS.md` is populated (this V2 run completed)
+- `tests/UAT_RUN_LOG.md` Final Report is filled in
+- LibreChat is up and seeded (`./launch.sh up-librechat`)
+- `.env` includes the LibreChat secrets (see `.env.example` § Alternative Frontends)
 
 ---
 
