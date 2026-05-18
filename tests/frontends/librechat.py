@@ -49,6 +49,9 @@ LIBRECHAT_PASSWORD = os.environ.get("LIBRECHAT_ADMIN_PASSWORD", "")
 _API_TOKEN: str = ""
 _API_TOKEN_EXPIRY: float = 0.0  # epoch seconds
 
+# Thinking-model artifacts that leak into content[*].text parts — skip these.
+_THINK_ARTIFACTS = ("nothink", "nothon", "</think>", "<think>", "<|/think|>", "<|think|>")
+
 # ── Persona preset map ────────────────────────────────────────────────────────
 
 _PERSONAS_MAP: dict[str, str] | None = None
@@ -408,6 +411,40 @@ async def wait_for_completion(
 _last_conv_id: str = ""
 
 
+def _extract_text_from_message(msg: dict) -> str:
+    """Extract visible response text from a LibreChat message dict.
+
+    Thinking models (Qwen3, Gemma4, DeepSeek-R1) leave text="" and put the
+    response in content[*] as {type: "text", text: "..."} parts mixed with
+    {type: "think", think: "..."} reasoning blocks.  We collect the text
+    parts, skip thinking-leak artifacts, and join them.
+    """
+    text = msg.get("text", "")
+    if text.strip():
+        return text
+
+    content = msg.get("content", [])
+    if isinstance(content, str):
+        return content.strip()
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "text":
+                continue
+            t = part.get("text", "")
+            stripped = t.strip()
+            if not stripped:
+                continue
+            if any(stripped.startswith(a) for a in _THINK_ARTIFACTS):
+                continue
+            parts.append(t)
+        if parts:
+            return "".join(parts)
+
+    return ""
+
+
 async def get_last_response(page) -> str:
     """Return the last assistant message text via the messages API.
 
@@ -423,7 +460,7 @@ async def get_last_response(page) -> str:
             msgs = await _api_get_messages(conv_id)
             asst_msgs = [msg for msg in msgs if not msg.get("isCreatedByUser", True)]
             if asst_msgs:
-                text = asst_msgs[-1].get("text", "")
+                text = _extract_text_from_message(asst_msgs[-1])
                 if text.strip():
                     return text
         except Exception:
