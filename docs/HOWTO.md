@@ -1350,4 +1350,60 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-*Last updated: 2026-04-07 | Portal 6.0.0*
+## 24. Alternative Frontends (LibreChat, AnythingLLM, HuggingChat)
+
+**What:** Three additional chat UIs that all connect to the same Portal Pipeline. Each is opt-in — the default `./launch.sh up` only starts Open WebUI.
+
+**Prerequisites:** Add these secrets to `.env` before first launch:
+```bash
+LIBRECHAT_ADMIN_EMAIL=admin@portal.local
+LIBRECHAT_ADMIN_PASSWORD=<password>
+LIBRECHAT_JWT_SECRET=$(openssl rand -hex 32)
+LIBRECHAT_JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+LIBRECHAT_CREDS_KEY=$(openssl rand -hex 32)
+LIBRECHAT_CREDS_IV=$(openssl rand -hex 16)
+ANYTHINGLLM_ADMIN_PASSWORD=<password>
+ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
+```
+
+**How to start:**
+```bash
+./launch.sh up-librechat      # → http://localhost:8082
+./launch.sh up-anythingllm   # → http://localhost:8083
+./launch.sh up-huggingchat   # → http://localhost:8084
+./launch.sh up-all-frontends # All three simultaneously
+```
+
+**What happens on first start:**
+1. Docker images are pulled (LibreChat ~600MB, AnythingLLM ~1.5GB, HuggingChat ~400MB)
+2. Dependencies start (MongoDB, Meilisearch where needed)
+3. An init container runs and seeds all workspaces + personas automatically
+4. The UI is ready at the assigned port
+
+**Re-seed after adding new personas or workspaces:**
+```bash
+./launch.sh seed-librechat    # skips existing, adds new ones
+./launch.sh seed-anythingllm
+```
+
+**Remote access:** All frontends follow `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and each frontend binds to `0.0.0.0` on its respective port, matching Open WebUI's behaviour. Restart with `./launch.sh up-librechat` (or the appropriate command) after changing the value.
+
+**Choosing a frontend:**
+
+| Use case | Best frontend |
+|---|---|
+| MCP tool use, agent workflows | LibreChat (:8082) |
+| Document Q&A, RAG pipelines | AnythingLLM (:8083) |
+| Reasoning models, `<think>` display | HuggingChat (:8084) |
+| Default (everything) | Open WebUI (:8080) |
+
+**Verify:**
+```bash
+curl http://localhost:8082/health       # LibreChat: "OK"
+curl http://localhost:8083/api/v1/health # AnythingLLM: 200 (HTML SPA = healthy)
+curl -o /dev/null -w "%{http_code}" http://localhost:8084/  # HuggingChat: 200
+```
+
+---
+
+*Last updated: 2026-05-18 | Portal 6.1.0*

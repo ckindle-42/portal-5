@@ -71,6 +71,18 @@ Everything runs with a single command. No manual configuration.
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
+### Alternative Frontends (opt-in)
+
+Three additional chat UIs are available as Docker Compose profiles — none start with `./launch.sh up`. Each connects to the same Portal Pipeline and gets the same workspaces and personas automatically seeded.
+
+| Frontend | Port | Strengths | Launch |
+|---|---|---|---|
+| **LibreChat** | 8082 | MCP agents, multi-model chats, Assistants API | `./launch.sh up-librechat` |
+| **AnythingLLM** | 8083 | Workspace-first RAG, document Q&A, vector search | `./launch.sh up-anythingllm` |
+| **HuggingChat** | 8084 | Native `<think>` rendering, multimodal, Svelte UI | `./launch.sh up-huggingchat` |
+
+All three honour `ENABLE_REMOTE_ACCESS` — set it to `true` in `.env` to expose them on the same interface as Open WebUI. See **[Alternative Frontends setup →](docs/ADMIN_GUIDE.md#alternative-frontends)**.
+
 ---
 
 ## Workspaces
@@ -161,6 +173,14 @@ These pin a specific model for direct performance comparison. Not intended for d
 ./launch.sh up-telegram     # Start Telegram bot
 ./launch.sh up-slack        # Start Slack bot
 ./launch.sh up-channels     # Start both
+
+# Alternative frontends (opt-in, each seeded automatically)
+./launch.sh up-librechat    # LibreChat on :8082 (agents, MCP, multi-model)
+./launch.sh up-anythingllm  # AnythingLLM on :8083 (workspace RAG)
+./launch.sh up-huggingchat  # HuggingChat on :8084 (multimodal, <think> render)
+./launch.sh up-all-frontends # Start all three simultaneously
+./launch.sh seed-librechat  # Re-seed LibreChat presets without restart
+./launch.sh seed-anythingllm # Re-seed AnythingLLM workspaces without restart
 
 # Backup and restore
 ./launch.sh backup          # Save all data to ./backups/
@@ -322,7 +342,7 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 |---|---|
 | [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature, including remote API access |
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
-| [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
+| [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security, alternative frontends |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
 | [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
@@ -347,15 +367,17 @@ Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
 ## Architecture
 
 ```
-                     ┌─────────────────────────────────┐
-                     │         Open WebUI :8080         │
-                     │   (chat, workspaces, personas)   │
-                     └──────────┬──────────────────────┘
-                                │
-                     ┌──────────▼──────────────────────┐
-                     │    Portal Pipeline :9099          │
-                     │  (routing, auth, metrics, MCP)   │
-                     └──┬───┬───┬───┬──────────────────┘
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  Open WebUI  │ │  LibreChat   │ │ AnythingLLM  │ │  HuggingChat │
+│    :8080     │ │    :8082     │ │    :8083     │ │    :8084     │
+│  (default)  │ │  (opt-in)    │ │  (opt-in)    │ │  (opt-in)    │
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+       └─────────────────┴────────────────┴────────────────┘
+                                  │
+                     ┌────────────▼───────────────────┐
+                     │    Portal Pipeline :9099         │
+                     │  (routing, auth, metrics, MCP)  │
+                     └──┬───┬───┬───┬─────────────────┘
                         │   │   │   │
            ┌────────────┘   │   │   └─────────────┐
            │                │   │                 │

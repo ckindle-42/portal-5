@@ -83,19 +83,117 @@ The pipeline API (port 9099) and all MCP servers (8910–8923) are always bound 
 
 > **Note:** Grafana (port 3000) binds to `0.0.0.0:3000` and **is** reachable from other machines on your network. Grafana requires login (`admin` / `GRAFANA_PASSWORD` from `.env`) and does not expose inference data — but if your LAN is untrusted, restrict it with a firewall rule or set `GF_SERVER_HTTP_ADDR=127.0.0.1` in `docker-compose.yml`.
 
+## Alternative Frontends
+
+Three additional chat UIs ship as opt-in Docker Compose profiles. They all connect to the same Portal Pipeline and are seeded automatically from the same source of truth (personas + workspaces).
+
+### Required `.env` secrets
+
+Add these to `.env` before running any frontend command. The `launch.sh` first-run auto-generation does **not** create them — you must set them manually.
+
+```bash
+# LibreChat
+LIBRECHAT_ADMIN_EMAIL=admin@portal.local
+LIBRECHAT_ADMIN_PASSWORD=<strong-password>
+LIBRECHAT_JWT_SECRET=$(openssl rand -hex 32)
+LIBRECHAT_JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+LIBRECHAT_CREDS_KEY=$(openssl rand -hex 32)   # must be exactly 64 hex chars (32 bytes)
+LIBRECHAT_CREDS_IV=$(openssl rand -hex 16)    # must be exactly 32 hex chars (16 bytes)
+
+# AnythingLLM
+ANYTHINGLLM_ADMIN_PASSWORD=<strong-password>
+ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
+```
+
+### Start each frontend
+
+```bash
+./launch.sh up-librechat      # LibreChat + MongoDB + Meilisearch → :8082
+./launch.sh up-anythingllm   # AnythingLLM → :8083
+./launch.sh up-huggingchat   # HuggingChat + MongoDB → :8084
+./launch.sh up-all-frontends # All three simultaneously
+```
+
+Each command:
+1. Derives the listen address from `ENABLE_REMOTE_ACCESS` (same as Open WebUI)
+2. Persists `LIBRECHAT_LISTEN_ADDR` / `ANYTHINGLLM_LISTEN_ADDR` / `HUGGINGCHAT_LISTEN_ADDR` to `.env`
+3. Starts the Docker Compose profile
+4. Runs an init container that seeds workspaces + personas
+
+### Re-seed without restart
+
+```bash
+./launch.sh seed-librechat    # Re-runs preset seeding (idempotent — skips existing)
+./launch.sh seed-anythingllm  # Re-runs workspace seeding
+```
+
+### Remote access
+
+All three frontends follow `ENABLE_REMOTE_ACCESS` automatically:
+
+```bash
+# In .env:
+ENABLE_REMOTE_ACCESS=true    # → all frontends bind 0.0.0.0
+ENABLE_REMOTE_ACCESS=false   # → all frontends bind 127.0.0.1 (default)
+```
+
+Per-frontend overrides:
+```bash
+LIBRECHAT_LISTEN_ADDR=0.0.0.0    # override for LibreChat only
+ANYTHINGLLM_LISTEN_ADDR=0.0.0.0  # override for AnythingLLM only
+HUGGINGCHAT_LISTEN_ADDR=0.0.0.0  # override for HuggingChat only
+```
+
+### What gets seeded
+
+| Frontend | Seeded content |
+|---|---|
+| LibreChat | 19 workspace presets + 102 persona presets (🎭 prefix) |
+| AnythingLLM | 19 workspaces (each bound to the pipeline model ID) |
+| HuggingChat | `config/huggingchat/models.yaml` generated with 19 models |
+
+### Log access
+
+```bash
+./launch.sh logs librechat       # LibreChat app logs
+./launch.sh logs anythingllm     # AnythingLLM logs
+./launch.sh logs huggingchat     # HuggingChat logs
+```
+
+### MCP tools in LibreChat
+
+All 13 Portal MCP servers are pre-registered in `config/librechat/librechat.yaml`. They appear as tool options within LibreChat conversations automatically. To regenerate the config after adding new MCP servers:
+
+```bash
+python3 scripts/librechat_init.py --config-only
+```
+
+---
+
 ## Backup
 
 Critical data is in Docker volumes:
 - `portal-5_open-webui-data` — all user accounts, chat history, settings
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
+- `portal-5_librechat-mongodb` — LibreChat conversations and user accounts (if using LibreChat)
+- `portal-5_anythingllm-data` — AnythingLLM workspaces and documents (if using AnythingLLM)
+- `portal-5_huggingchat-mongodb` — HuggingChat conversations (if using HuggingChat)
 
 ```bash
 # Easiest: use the launch script (saves to ./backups/)
 ./launch.sh backup
 
-# Or manually:
+# Or manually (Open WebUI):
 docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
     alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
+
+# LibreChat (if running):
+docker run --rm -v portal-5_librechat-mongodb:/data -v $(pwd):/backup \
+    alpine tar czf /backup/librechat-backup-$(date +%Y%m%d).tar.gz /data
+
+# AnythingLLM (if running):
+docker run --rm -v portal-5_anythingllm-data:/data -v $(pwd):/backup \
+    alpine tar czf /backup/anythingllm-backup-$(date +%Y%m%d).tar.gz /data
 ```
 
 ## MLX Health Monitoring
