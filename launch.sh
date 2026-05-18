@@ -1762,6 +1762,70 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     FORCE_RESEED=true docker compose run --rm -e FORCE_RESEED=true openwebui-init
     echo "[portal-5] Reseed complete."
     ;;
+  up-librechat)
+    cd "$COMPOSE_DIR"
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Starting LibreChat (port 8082) + generating config..."
+    # Generate librechat.yaml from current workspaces before starting
+    cd "$PORTAL_ROOT"
+    python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+from frontend_seeder.adapters.librechat import generate_librechat_yaml
+from pathlib import Path
+generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
+" 2>/dev/null || echo "  [warn] Config gen skipped (portal_pipeline not importable here — using committed config)"
+    cd "$COMPOSE_DIR"
+    docker compose --profile librechat up -d
+    echo "[portal-5] LibreChat starting at http://127.0.0.1:8082"
+    echo "  Seeding will run automatically via librechat-init container."
+    echo "  Watch logs: ./launch.sh logs librechat"
+    ;;
+  up-anythingllm)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Starting AnythingLLM (port 8083)..."
+    docker compose --profile anythingllm up -d
+    echo "[portal-5] AnythingLLM starting at http://127.0.0.1:8083"
+    echo "  Seeding will run automatically via anythingllm-init container."
+    echo "  Watch logs: ./launch.sh logs anythingllm"
+    ;;
+  up-huggingchat)
+    cd "$COMPOSE_DIR"
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Starting HuggingChat (port 8084) + generating models.yaml..."
+    cd "$PORTAL_ROOT"
+    python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+from frontend_seeder.adapters.huggingchat import generate_models_yaml
+from pathlib import Path
+generate_models_yaml(Path('config/huggingchat/models.yaml'))
+" 2>/dev/null || echo "  [warn] Config gen skipped — using committed models.yaml"
+    cd "$COMPOSE_DIR"
+    docker compose --profile huggingchat up -d
+    echo "[portal-5] HuggingChat starting at http://127.0.0.1:8084"
+    echo "  Watch logs: ./launch.sh logs huggingchat"
+    ;;
+  up-all-frontends)
+    cd "$COMPOSE_DIR"
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083, HuggingChat :8084)..."
+    docker compose --profile all-frontends up -d
+    echo "[portal-5] All frontends starting:"
+    echo "  LibreChat  → http://127.0.0.1:8082"
+    echo "  AnythingLLM → http://127.0.0.1:8083"
+    echo "  HuggingChat → http://127.0.0.1:8084"
+    ;;
+  seed-librechat)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Re-seeding LibreChat presets..."
+    docker compose --profile librechat run --rm librechat-init
+    echo "[portal-5] LibreChat seed complete."
+    ;;
+  seed-anythingllm)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Re-seeding AnythingLLM workspaces..."
+    docker compose --profile anythingllm run --rm anythingllm-init
+    echo "[portal-5] AnythingLLM seed complete."
+    ;;
   sync-readme)
     if [ ! -f "${PORTAL_ROOT}/ACCEPTANCE_RESULTS.md" ]; then
       echo "No ACCEPTANCE_RESULTS.md to sync from. Run acceptance tests first:"
@@ -3936,7 +4000,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-huggingchat|up-all-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3969,7 +4033,13 @@ MEOF
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"
     echo "                          --yes / -y      Skip confirmation prompts"
-    echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
+    echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
+  echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
+  echo "  up-huggingchat        Start HuggingChat on :8084 (profile: huggingchat) + generate models.yaml"
+  echo "  up-all-frontends      Start all three alternative frontends simultaneously"
+  echo "  seed-librechat        Re-seed LibreChat presets (personas + workspaces) without restart"
+  echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
+  echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
     echo "  up-channels           Force-start both Telegram and Slack bots"
     echo "  test                  Run end-to-end smoke tests against the live stack"

@@ -1,0 +1,279 @@
+- name: 🤖 Portal Auto Router
+  displayName: 🤖 Portal Auto Router
+  description: Intelligently routes to the best specialist model based on your question.
+    Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. Reasoning/research →
+    DeepSeek-R1. Other → general.
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Intelligently routes to the best specialist model based on your
+      question. Security/redteam topics → BaronLLM. Coding → Qwen3-Coder. Reasoning/research
+      → DeepSeek-R1. Other → general.
+- name: 🪶 Portal Daily Driver
+  displayName: 🪶 Portal Daily Driver
+  description: 'Fast everyday assistant: chat, writing, editing, summarization, planning,
+    light technical help. MLX gemma-4-26b-a4b primary (57.8 TPS, MoE 4B active, VLM,
+    Apache 2.0); Ollama dolphin-llama3:8b fallback (non-thinking). Daily-driver lane
+    — escalates to specialist workspaces (auto-coding, auto-reasoning, etc.) when
+    the persona detects out-of-lane requests. No reasoning chain, no <think> emission
+    — predict_limit capped and thinking mode explicitly disabled to keep responses
+    snappy.'
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-daily
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: 'Fast everyday assistant: chat, writing, editing, summarization,
+      planning, light technical help. MLX gemma-4-26b-a4b primary (57.8 TPS, MoE 4B
+      active, VLM, Apache 2.0); Ollama dolphin-llama3:8b fallback (non-thinking).
+      Daily-driver lane — escalates to specialist workspaces (auto-coding, auto-reasoning,
+      etc.) when the persona detects out-of-lane requests. No reasoning chain, no
+      <think> emission — predict_limit capped and thinking mode explicitly disabled
+      to keep responses snappy.'
+- name: 💻 Portal Code Expert
+  displayName: 💻 Portal Code Expert
+  description: Code generation, debugging, architecture review
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-coding
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Code generation, debugging, architecture review
+- name: ⚡ Portal Agentic Coder (Heavy)
+  displayName: ⚡ Portal Agentic Coder (Heavy)
+  description: 'Full-power agentic coding via Qwen3-Coder-Next-4bit (80B MoE, 3B active,
+    256K ctx). Triggers big-model mode: unloads all Ollama + MLX models before loading.
+    Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex
+    refactors. Not for interactive chat — load time ~60s, context capped at 32K.'
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-agentic
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: 'Full-power agentic coding via Qwen3-Coder-Next-4bit (80B MoE,
+      3B active, 256K ctx). Triggers big-model mode: unloads all Ollama + MLX models
+      before loading. Use for long-horizon multi-file tasks, SWE-agent-style workflows,
+      and complex refactors. Not for interactive chat — load time ~60s, context capped
+      at 32K.'
+- name: 🔍 Portal SPL Engineer
+  displayName: 🔍 Portal SPL Engineer
+  description: Splunk SPL queries, pipeline explanation, detection search authoring
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-spl
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Splunk SPL queries, pipeline explanation, detection search authoring
+- name: 🔒 Portal Security Analyst
+  displayName: 🔒 Portal Security Analyst
+  description: Security analysis, hardening, vulnerability assessment
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-security
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Security analysis, hardening, vulnerability assessment
+- name: 🔴 Portal Red Team
+  displayName: 🔴 Portal Red Team
+  description: Offensive security, penetration testing, exploit research
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-redteam
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Offensive security, penetration testing, exploit research
+- name: 🔵 Portal Blue Team
+  displayName: 🔵 Portal Blue Team
+  description: Defensive security, incident response, threat hunting
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-blueteam
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Defensive security, incident response, threat hunting
+- name: ✍️  Portal Creative Writer
+  displayName: ✍️  Portal Creative Writer
+  description: Creative writing, storytelling, content generation
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-creative
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Creative writing, storytelling, content generation
+- name: 🧠 Portal Deep Reasoner
+  displayName: 🧠 Portal Deep Reasoner
+  description: Complex analysis, research synthesis, step-by-step reasoning
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-reasoning
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Complex analysis, research synthesis, step-by-step reasoning
+- name: 📄 Portal Document Builder
+  displayName: 📄 Portal Document Builder
+  description: Create Word, Excel, PowerPoint via MCP tools; diarized transcription
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-documents
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Create Word, Excel, PowerPoint via MCP tools; diarized transcription
+- name: 🎬 Portal Video Creator
+  displayName: 🎬 Portal Video Creator
+  description: Generate videos via ComfyUI / Wan2.2
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-video
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Generate videos via ComfyUI / Wan2.2
+- name: 🎵 Portal Music Producer
+  displayName: 🎵 Portal Music Producer
+  description: Generate music and audio via AudioCraft/MusicGen
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-music
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Generate music and audio via AudioCraft/MusicGen
+- name: 🔍 Portal Research Assistant
+  displayName: 🔍 Portal Research Assistant
+  description: Web research, information synthesis, fact-checking
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-research
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Web research, information synthesis, fact-checking
+- name: 👁️  Portal Vision
+  displayName: 👁️  Portal Vision
+  description: Image understanding, visual analysis, multimodal tasks
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-vision
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Image understanding, visual analysis, multimodal tasks
+- name: 📊 Portal Data Analyst
+  displayName: 📊 Portal Data Analyst
+  description: Data analysis, statistics, visualization guidance
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-data
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Data analysis, statistics, visualization guidance
+- name: ⚖️  Portal Compliance Analyst
+  displayName: ⚖️  Portal Compliance Analyst
+  description: 'Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC 2,
+    PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state privacy
+    laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis, policy drafting,
+    evidence review, cross-framework control mapping, audit prep.'
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-compliance
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: 'Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC
+      2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state
+      privacy laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis,
+      policy drafting, evidence review, cross-framework control mapping, audit prep.'
+- name: 🧪 Portal Mistral Reasoner
+  displayName: 🧪 Portal Mistral Reasoner
+  description: Structured reasoning via Magistral-Small-2509 — Mistral training lineage,
+    [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models.
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-mistral
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Structured reasoning via Magistral-Small-2509 — Mistral training
+      lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning
+      models.
+- name: 🧮 Portal Math Reasoner
+  displayName: 🧮 Portal Math Reasoner
+  description: Mathematical problem solving, proofs, calculus, algebra, statistics
+  endpoints:
+  - type: openai
+    url: http://portal-pipeline:9099/v1
+    authorization: 'Bearer '
+    apiKey: ''
+    model: auto-math
+  parameters:
+    temperature: 0.7
+    max_new_tokens: 4096
+    system_prompt: Mathematical problem solving, proofs, calculus, algebra, statistics

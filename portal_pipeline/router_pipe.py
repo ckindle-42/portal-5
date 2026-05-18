@@ -1977,17 +1977,30 @@ async def metrics() -> PlainTextResponse:
 async def list_models(authorization: str | None = Header(None)) -> dict:
     _verify_key(authorization)
     ts = int(time.time())
-    models = [
-        {
+    models = []
+    for ws_id, ws_cfg in WORKSPACES.items():
+        is_benchmark = ws_id.startswith("bench-")
+        # Derive category from workspace ID: auto-coding → coding, bench-* → benchmark
+        if is_benchmark:
+            category = "benchmark"
+        elif ws_id.startswith("auto-"):
+            category = ws_id[5:]  # strip "auto-"
+        else:
+            category = ws_id
+        category = ws_cfg.get("category", category)
+        models.append({
             "id": ws_id,
             "object": "model",
             "created": ts,
             "owned_by": "portal-5",
             "name": ws_cfg["name"],
-            "description": ws_cfg["description"],
-        }
-        for ws_id, ws_cfg in WORKSPACES.items()
-    ]
+            "description": ws_cfg.get("description", ""),
+            # Extended metadata consumed by alternative frontends (LibreChat, AnythingLLM, etc.)
+            "category": category,
+            "tags": ws_cfg.get("tags", [category]),
+            "tools": ws_cfg.get("tools", []),
+            "is_benchmark": is_benchmark,
+        })
     return {"object": "list", "data": models}
 
 
