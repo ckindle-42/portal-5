@@ -1763,10 +1763,20 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     echo "[portal-5] Reseed complete."
     ;;
   up-librechat)
-    cd "$COMPOSE_DIR"
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    # Derive listen address from ENABLE_REMOTE_ACCESS — same pattern as WEBUI_LISTEN_ADDR
+    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
+        export LIBRECHAT_LISTEN_ADDR="0.0.0.0"
+        echo "[portal-5] Remote access enabled — LibreChat will listen on 0.0.0.0:8082"
+    else
+        export LIBRECHAT_LISTEN_ADDR="${LIBRECHAT_LISTEN_ADDR:-127.0.0.1}"
+    fi
+    if grep -q "^LIBRECHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+        sed -i.bak "s|^LIBRECHAT_LISTEN_ADDR=.*|LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    else
+        echo "LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}" >> "$ENV_FILE"
+    fi
     echo "[portal-5] Starting LibreChat (port 8082) + generating config..."
-    # Generate librechat.yaml from current workspaces before starting
     cd "$PORTAL_ROOT"
     python3 -c "
 import sys; sys.path.insert(0, 'scripts')
@@ -1776,21 +1786,43 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
 " 2>/dev/null || echo "  [warn] Config gen skipped (portal_pipeline not importable here — using committed config)"
     cd "$COMPOSE_DIR"
     docker compose --profile librechat up -d
-    echo "[portal-5] LibreChat starting at http://127.0.0.1:8082"
+    echo "[portal-5] LibreChat starting at http://${LIBRECHAT_LISTEN_ADDR}:8082"
     echo "  Seeding will run automatically via librechat-init container."
     echo "  Watch logs: ./launch.sh logs librechat"
     ;;
   up-anythingllm)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
+        export ANYTHINGLLM_LISTEN_ADDR="0.0.0.0"
+        echo "[portal-5] Remote access enabled — AnythingLLM will listen on 0.0.0.0:8083"
+    else
+        export ANYTHINGLLM_LISTEN_ADDR="${ANYTHINGLLM_LISTEN_ADDR:-127.0.0.1}"
+    fi
+    if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+        sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    else
+        echo "ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}" >> "$ENV_FILE"
+    fi
     cd "$COMPOSE_DIR"
     echo "[portal-5] Starting AnythingLLM (port 8083)..."
     docker compose --profile anythingllm up -d
-    echo "[portal-5] AnythingLLM starting at http://127.0.0.1:8083"
+    echo "[portal-5] AnythingLLM starting at http://${ANYTHINGLLM_LISTEN_ADDR}:8083"
     echo "  Seeding will run automatically via anythingllm-init container."
     echo "  Watch logs: ./launch.sh logs anythingllm"
     ;;
   up-huggingchat)
-    cd "$COMPOSE_DIR"
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
+        export HUGGINGCHAT_LISTEN_ADDR="0.0.0.0"
+        echo "[portal-5] Remote access enabled — HuggingChat will listen on 0.0.0.0:8084"
+    else
+        export HUGGINGCHAT_LISTEN_ADDR="${HUGGINGCHAT_LISTEN_ADDR:-127.0.0.1}"
+    fi
+    if grep -q "^HUGGINGCHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+        sed -i.bak "s|^HUGGINGCHAT_LISTEN_ADDR=.*|HUGGINGCHAT_LISTEN_ADDR=${HUGGINGCHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    else
+        echo "HUGGINGCHAT_LISTEN_ADDR=${HUGGINGCHAT_LISTEN_ADDR}" >> "$ENV_FILE"
+    fi
     echo "[portal-5] Starting HuggingChat (port 8084) + generating models.yaml..."
     cd "$PORTAL_ROOT"
     python3 -c "
@@ -1801,18 +1833,32 @@ generate_models_yaml(Path('config/huggingchat/models.yaml'))
 " 2>/dev/null || echo "  [warn] Config gen skipped — using committed models.yaml"
     cd "$COMPOSE_DIR"
     docker compose --profile huggingchat up -d
-    echo "[portal-5] HuggingChat starting at http://127.0.0.1:8084"
+    echo "[portal-5] HuggingChat starting at http://${HUGGINGCHAT_LISTEN_ADDR}:8084"
     echo "  Watch logs: ./launch.sh logs huggingchat"
     ;;
   up-all-frontends)
-    cd "$COMPOSE_DIR"
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    # Apply ENABLE_REMOTE_ACCESS to all three frontends in one pass
+    _frontend_addr() {
+        if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
+    }
+    ADDR=$(_frontend_addr)
+    for _var in LIBRECHAT_LISTEN_ADDR ANYTHINGLLM_LISTEN_ADDR HUGGINGCHAT_LISTEN_ADDR; do
+        export "${_var}=${ADDR}"
+        if grep -q "^${_var}=" "$ENV_FILE" 2>/dev/null; then
+            sed -i.bak "s|^${_var}=.*|${_var}=${ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+        else
+            echo "${_var}=${ADDR}" >> "$ENV_FILE"
+        fi
+    done
+    [ "$ADDR" = "0.0.0.0" ] && echo "[portal-5] Remote access enabled — all frontends listening on 0.0.0.0"
     echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083, HuggingChat :8084)..."
+    cd "$COMPOSE_DIR"
     docker compose --profile all-frontends up -d
     echo "[portal-5] All frontends starting:"
-    echo "  LibreChat  → http://127.0.0.1:8082"
-    echo "  AnythingLLM → http://127.0.0.1:8083"
-    echo "  HuggingChat → http://127.0.0.1:8084"
+    echo "  LibreChat   → http://${ADDR}:8082"
+    echo "  AnythingLLM → http://${ADDR}:8083"
+    echo "  HuggingChat → http://${ADDR}:8084"
     ;;
   seed-librechat)
     cd "$COMPOSE_DIR"
