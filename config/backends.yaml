@@ -427,7 +427,7 @@ workspace_routing:
   auto-security:  [mlx, security, general]
   auto-redteam:   [mlx, security, general]
   auto-blueteam:  [security, general]
-  auto-creative:  [mlx, creative, general]
+  auto-creative:  [creative, general]     # dolphin-llama3:8b primary — MLX VLM (Gemma 4) is a thinking model, wrong for proofreading/creative text tasks
   auto-reasoning: [mlx, reasoning, general]
   auto-documents: [mlx, coding, general]  # MLX Phi-4-8bit primary; qwen3.5:9b fallback
   auto-video:     [general]
