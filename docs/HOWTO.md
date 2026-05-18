@@ -1350,9 +1350,9 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-## 24. Alternative Frontends (LibreChat, AnythingLLM, HuggingChat)
+## 24. Alternative Frontends (LibreChat, AnythingLLM)
 
-**What:** Three additional chat UIs that all connect to the same Portal Pipeline. Each is opt-in — the default `./launch.sh up` only starts Open WebUI.
+**What:** Two additional chat UIs that connect to the same Portal Pipeline. Each is opt-in — the default `./launch.sh up` only starts Open WebUI.
 
 **Prerequisites:** Add these secrets to `.env` before first launch:
 ```bash
@@ -1370,12 +1370,11 @@ ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
 ```bash
 ./launch.sh up-librechat      # → http://localhost:8082
 ./launch.sh up-anythingllm   # → http://localhost:8083
-./launch.sh up-huggingchat   # → http://localhost:8084
-./launch.sh up-all-frontends # All three simultaneously
+./launch.sh up-all-frontends # Both simultaneously
 ```
 
 **What happens on first start:**
-1. Docker images are pulled (LibreChat ~600MB, AnythingLLM ~1.5GB, HuggingChat ~400MB)
+1. Docker images are pulled (LibreChat ~600MB, AnythingLLM ~1.5GB)
 2. Dependencies start (MongoDB, Meilisearch where needed)
 3. An init container runs and seeds all workspaces + personas automatically
 4. The UI is ready at the assigned port
@@ -1386,7 +1385,7 @@ ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
 ./launch.sh seed-anythingllm
 ```
 
-**Remote access:** All frontends follow `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and each frontend binds to `0.0.0.0` on its respective port, matching Open WebUI's behaviour. Restart with `./launch.sh up-librechat` (or the appropriate command) after changing the value.
+**Remote access:** Both frontends follow `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and each frontend binds to `0.0.0.0` on its respective port, matching Open WebUI's behaviour. Restart with `./launch.sh up-librechat` (or the appropriate command) after changing the value.
 
 **Choosing a frontend:**
 
@@ -1394,14 +1393,14 @@ ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
 |---|---|
 | MCP tool use, agent workflows | LibreChat (:8082) |
 | Document Q&A, RAG pipelines | AnythingLLM (:8083) |
-| Reasoning models, `<think>` display | HuggingChat (:8084) |
 | Default (everything) | Open WebUI (:8080) |
+
+**Why not HuggingChat?** HuggingChat (chat-ui v2) was evaluated but removed. The v2 architecture requires a valid HuggingFace API token for inference and fetches its model list exclusively from `router.huggingface.co`. The `MODELS` env var for local-only configuration is not supported in the v2 UI layer.
 
 **Verify:**
 ```bash
 curl http://localhost:8082/health       # LibreChat: "OK"
 curl http://localhost:8083/api/v1/health # AnythingLLM: 200 (HTML SPA = healthy)
-curl -o /dev/null -w "%{http_code}" http://localhost:8084/  # HuggingChat: 200
 ```
 
 ---

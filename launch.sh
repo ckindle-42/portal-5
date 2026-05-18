@@ -1810,44 +1810,14 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     echo "  Seeding will run automatically via anythingllm-init container."
     echo "  Watch logs: ./launch.sh logs anythingllm"
     ;;
-  up-huggingchat)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
-        export HUGGINGCHAT_LISTEN_ADDR="0.0.0.0"
-        echo "[portal-5] Remote access enabled — HuggingChat will listen on 0.0.0.0:8084"
-    else
-        export HUGGINGCHAT_LISTEN_ADDR="${HUGGINGCHAT_LISTEN_ADDR:-127.0.0.1}"
-    fi
-    if grep -q "^HUGGINGCHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-        sed -i.bak "s|^HUGGINGCHAT_LISTEN_ADDR=.*|HUGGINGCHAT_LISTEN_ADDR=${HUGGINGCHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    else
-        echo "HUGGINGCHAT_LISTEN_ADDR=${HUGGINGCHAT_LISTEN_ADDR}" >> "$ENV_FILE"
-    fi
-    echo "[portal-5] Starting HuggingChat (port 8084) + generating models config..."
-    cd "$PORTAL_ROOT"
-    export HUGGINGCHAT_MODELS=$(python3 -c "
-import sys, os; sys.path.insert(0, 'scripts')
-os.environ.setdefault('PIPELINE_API_KEY', os.environ.get('PIPELINE_API_KEY', ''))
-os.environ.setdefault('PIPELINE_URL', 'http://portal-pipeline:9099/v1')
-from frontend_seeder.adapters.huggingchat import generate_models_json
-print(generate_models_json())
-" 2>/dev/null) || true
-    if [ -z "$HUGGINGCHAT_MODELS" ]; then
-        echo "  [warn] Model config generation failed — HuggingChat may show default models"
-    fi
-    cd "$COMPOSE_DIR"
-    docker compose --profile huggingchat up -d
-    echo "[portal-5] HuggingChat starting at http://${HUGGINGCHAT_LISTEN_ADDR}:8084"
-    echo "  Watch logs: ./launch.sh logs huggingchat"
-    ;;
   up-all-frontends)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    # Apply ENABLE_REMOTE_ACCESS to all three frontends in one pass
+    # Apply ENABLE_REMOTE_ACCESS to both frontends in one pass
     _frontend_addr() {
         if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
     }
     ADDR=$(_frontend_addr)
-    for _var in LIBRECHAT_LISTEN_ADDR ANYTHINGLLM_LISTEN_ADDR HUGGINGCHAT_LISTEN_ADDR; do
+    for _var in LIBRECHAT_LISTEN_ADDR ANYTHINGLLM_LISTEN_ADDR; do
         export "${_var}=${ADDR}"
         if grep -q "^${_var}=" "$ENV_FILE" 2>/dev/null; then
             sed -i.bak "s|^${_var}=.*|${_var}=${ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
@@ -1856,21 +1826,12 @@ print(generate_models_json())
         fi
     done
     [ "$ADDR" = "0.0.0.0" ] && echo "[portal-5] Remote access enabled — all frontends listening on 0.0.0.0"
-    echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083, HuggingChat :8084)..."
-    cd "$PORTAL_ROOT"
-    export HUGGINGCHAT_MODELS=$(python3 -c "
-import sys, os; sys.path.insert(0, 'scripts')
-os.environ.setdefault('PIPELINE_API_KEY', os.environ.get('PIPELINE_API_KEY', ''))
-os.environ.setdefault('PIPELINE_URL', 'http://portal-pipeline:9099/v1')
-from frontend_seeder.adapters.huggingchat import generate_models_json
-print(generate_models_json())
-" 2>/dev/null) || true
+    echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083)..."
     cd "$COMPOSE_DIR"
     docker compose --profile all-frontends up -d
     echo "[portal-5] All frontends starting:"
     echo "  LibreChat   → http://${ADDR}:8082"
     echo "  AnythingLLM → http://${ADDR}:8083"
-    echo "  HuggingChat → http://${ADDR}:8084"
     ;;
   seed-librechat)
     cd "$COMPOSE_DIR"
@@ -4058,7 +4019,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-huggingchat|up-all-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-all-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4093,8 +4054,7 @@ MEOF
     echo "                          --yes / -y      Skip confirmation prompts"
     echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
   echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
-  echo "  up-huggingchat        Start HuggingChat on :8084 (profile: huggingchat) + generate models.yaml"
-  echo "  up-all-frontends      Start all three alternative frontends simultaneously"
+  echo "  up-all-frontends      Start both alternative frontends (LibreChat + AnythingLLM) simultaneously"
   echo "  seed-librechat        Re-seed LibreChat presets (personas + workspaces) without restart"
   echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
   echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
