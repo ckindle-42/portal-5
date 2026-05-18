@@ -804,6 +804,220 @@ services:
     command: >
       sh -c "pip install huggingface_hub --quiet && python /scripts/download_comfyui_models.py"
 
+  # ── LibreChat — Alternative frontend (opt-in: --profile librechat) ────────
+  librechat-mongodb:
+    image: mongo:7
+    container_name: portal5-librechat-mongodb
+    restart: unless-stopped
+    profiles:
+      - librechat
+      - all-frontends
+    volumes:
+      - librechat-mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  librechat-meilisearch:
+    image: getmeili/meilisearch:v1.7
+    container_name: portal5-librechat-meilisearch
+    restart: unless-stopped
+    profiles:
+      - librechat
+      - all-frontends
+    volumes:
+      - librechat-meilisearch:/meili_data
+    environment:
+      - MEILI_NO_ANALYTICS=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 20s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    pull_policy: always
+    container_name: portal5-librechat
+    restart: unless-stopped
+    profiles:
+      - librechat
+      - all-frontends
+    ports:
+      - "${LIBRECHAT_LISTEN_ADDR:-127.0.0.1}:8082:3080"
+    volumes:
+      - librechat-data:/app/data
+      - ../../config/librechat/librechat.yaml:/app/librechat.yaml:ro
+    environment:
+      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
+      - MEILI_HOST=http://librechat-meilisearch:7700
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_URL=http://portal-pipeline:9099/v1
+      - ALLOW_REGISTRATION=true
+      - SESSION_SECRET=${WEBUI_SECRET_KEY}
+      - CREDS_KEY=${WEBUI_SECRET_KEY}
+      - CREDS_IV=${PIPELINE_API_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      librechat-mongodb:
+        condition: service_healthy
+      portal-pipeline:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  librechat-init:
+    image: python:3.11-slim
+    container_name: portal5-librechat-init
+    restart: "no"
+    profiles:
+      - librechat
+      - all-frontends
+    depends_on:
+      librechat:
+        condition: service_healthy
+    environment:
+      - LIBRECHAT_URL=http://librechat:3080
+      - LIBRECHAT_ADMIN_EMAIL=${LIBRECHAT_ADMIN_EMAIL:-admin@portal.local}
+      - LIBRECHAT_ADMIN_PASSWORD=${LIBRECHAT_ADMIN_PASSWORD}
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_URL=http://portal-pipeline:9099/v1
+    volumes:
+      - ../../scripts:/scripts:ro
+      - ../../config/personas:/personas:ro
+    command: >
+      sh -c "pip install httpx pyyaml --quiet && python /scripts/librechat_init.py --seed-only"
+
+  # ── AnythingLLM — Alternative frontend (opt-in: --profile anythingllm) ────
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    pull_policy: always
+    container_name: portal5-anythingllm
+    restart: unless-stopped
+    profiles:
+      - anythingllm
+      - all-frontends
+    ports:
+      - "${ANYTHINGLLM_LISTEN_ADDR:-127.0.0.1}:8083:3001"
+    volumes:
+      - anythingllm-data:/app/server/storage
+    environment:
+      - STORAGE_DIR=/app/server/storage
+      - LLM_PROVIDER=openai
+      - OPEN_AI_KEY=${PIPELINE_API_KEY}
+      - OPEN_AI_MODEL_PREF=auto
+      - OPEN_MODEL_TOKEN_LIMIT=4096
+      - OPENAI_BASE_PATH=${PIPELINE_URL:-http://portal-pipeline:9099/v1}
+      - AUTH_TOKEN=${ANYTHINGLLM_ADMIN_PASSWORD}
+      - DISABLE_TELEMETRY=true
+      - VECTOR_DB=lancedb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      portal-pipeline:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+  anythingllm-init:
+    image: python:3.11-slim
+    container_name: portal5-anythingllm-init
+    restart: "no"
+    profiles:
+      - anythingllm
+      - all-frontends
+    depends_on:
+      anythingllm:
+        condition: service_healthy
+    environment:
+      - ANYTHINGLLM_URL=http://anythingllm:3001
+      - ANYTHINGLLM_ADMIN_PASSWORD=${ANYTHINGLLM_ADMIN_PASSWORD}
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_URL=http://portal-pipeline:9099/v1
+    volumes:
+      - ../../scripts:/scripts:ro
+    command: >
+      sh -c "pip install httpx pyyaml --quiet && python /scripts/anythingllm_init.py"
+
+  # ── HuggingChat (chat-ui) — Alternative frontend (opt-in: --profile huggingchat)
+  huggingchat-mongodb:
+    image: mongo:7
+    container_name: portal5-huggingchat-mongodb
+    restart: unless-stopped
+    profiles:
+      - huggingchat
+      - all-frontends
+    volumes:
+      - huggingchat-mongodb:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 20s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+
+  huggingchat:
+    image: ghcr.io/huggingface/chat-ui:latest
+    pull_policy: always
+    container_name: portal5-huggingchat
+    restart: unless-stopped
+    profiles:
+      - huggingchat
+      - all-frontends
+    ports:
+      - "${HUGGINGCHAT_LISTEN_ADDR:-127.0.0.1}:8084:3000"
+    volumes:
+      - ../../config/huggingchat/models.yaml:/app/models.yaml:ro
+    environment:
+      - MONGODB_URL=mongodb://huggingchat-mongodb:27017/chat-ui
+      - HF_ACCESS_TOKEN=local
+      - PUBLIC_APP_NAME=Portal 5
+      - PUBLIC_APP_DESCRIPTION=Local AI platform powered by Portal 5
+      - ALLOW_INSECURE_COOKIES=true
+      - MODELS_PATH=/app/models.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      huggingchat-mongodb:
+        condition: service_healthy
+      portal-pipeline:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 5
+
+  huggingchat-init:
+    image: python:3.11-slim
+    container_name: portal5-huggingchat-init
+    restart: "no"
+    profiles:
+      - huggingchat
+      - all-frontends
+    environment:
+      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
+      - PIPELINE_URL=http://portal-pipeline:9099/v1
+    volumes:
+      - ../../scripts:/scripts:ro
+      - ../../config/huggingchat:/config/huggingchat
+    command: >
+      sh -c "pip install pyyaml --quiet && python /scripts/huggingchat_init.py"
+
   # ── Prometheus — Metrics collection ──────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -861,3 +1075,8 @@ volumes:
   security-hf-cache:       # HuggingFace model cache for security MCP (CIRCL VLAI)
   portal5-lance:           # LanceDB vector storage (memory + RAG)
   portal5-kb-sources:      # Knowledge base source files for RAG ingestion
+  librechat-mongodb:       # LibreChat MongoDB persistence
+  librechat-meilisearch:   # LibreChat Meilisearch (search index)
+  librechat-data:          # LibreChat app data
+  anythingllm-data:        # AnythingLLM storage (documents, vectors)
+  huggingchat-mongodb:     # HuggingChat MongoDB persistence
