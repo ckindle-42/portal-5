@@ -45,6 +45,7 @@ from playwright.async_api import async_playwright
 
 sys.path.insert(0, str(Path(__file__).parent))
 from common import REFUSAL_PHRASES  # noqa: E402
+from frontends import librechat as _lc  # noqa: E402
 
 load_dotenv()
 
@@ -55,6 +56,18 @@ load_dotenv()
 OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
+
+# LibreChat (alternative frontend, --frontend librechat).
+# Pure Playwright path — no /api/* calls. Auth via the login form.
+LIBRECHAT_URL = os.environ.get("LIBRECHAT_URL", "http://localhost:8082")
+LIBRECHAT_EMAIL = os.environ.get("LIBRECHAT_ADMIN_EMAIL", ADMIN_EMAIL)
+LIBRECHAT_PASSWORD = os.environ.get("LIBRECHAT_ADMIN_PASSWORD", "")
+
+# Mode selector — set in main() after argparse. "openwebui" preserves all
+# existing behaviour; "librechat" dispatches every page operation through
+# tests/frontends/librechat.py.
+FRONTEND_MODE = "openwebui"
+
 SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
 PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
 MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
@@ -74,7 +87,13 @@ PHASE2_DOM_STABLE_NEEDED = 3  # consecutive identical samples to declare DOM sta
 
 POST_STREAM_API_WAIT_S = 15.0  # bounded API poll after stream ends (replaces fixed sleep(5))
 BACKEND_SETTLE_WAIT_S = 15.0  # bounded backend-alive poll after retry (replaces sleep(15))
+# Selected at runtime in main() based on FRONTEND_MODE. The default value
+# keeps every existing helper that reads `RESULTS_FILE` (init_results,
+# update_summary, _remove_rows_for_test_ids, _parse_failed_test_ids,
+# record_result, _rebuild_summary_from_rows) working unchanged.
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
+RESULTS_FILE_OWUI = Path("tests/UAT_RESULTS.md")
+RESULTS_FILE_LIBRECHAT = Path("tests/UAT_RESULTS_LIBRECHAT.md")
 SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -560,6 +579,7 @@ def _read_mlx_readiness() -> dict | None:
     """
     try:
         import json as _json
+
         with open(MLX_READINESS_FILE) as fh:
             payload = _json.load(fh)
         age = time.time() - payload.get("timestamp", 0)
@@ -597,7 +617,7 @@ def _wait_for_mlx_ready(
     # retry and potentially interrupt an in-progress load cycle.
     fatal_count = 0
     consecutive_ready = 0
-    STABLE_POLLS = 2   # consecutive ready observations before we trust it
+    STABLE_POLLS = 2  # consecutive ready observations before we trust it
 
     def _elapsed() -> float:
         return time.time() - t0
@@ -615,8 +635,7 @@ def _wait_for_mlx_ready(
                 if model_ok:
                     if _elapsed() > 1.0:
                         print(
-                            f"  {label} MLX ready ({model}, {_elapsed():.0f}s, "
-                            f"via readiness file)"
+                            f"  {label} MLX ready ({model}, {_elapsed():.0f}s, via readiness file)"
                         )
                     return True
                 # Ready but wrong model — kick proxy directly with the specific model
@@ -660,12 +679,15 @@ def _wait_for_mlx_ready(
                 if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
                     if pre_warmed:
                         print(
-                            f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
+                            f"  {label} MLX still idle after {int(time.time() - last_prewarm_t)}s"
                             " — retrying pre-warm...",
                             flush=True,
                         )
                     else:
-                        print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...", flush=True)
+                        print(
+                            f"  {label} MLX idle — sending pre-warm request to trigger cold-load...",
+                            flush=True,
+                        )
                     pre_warmed = True
                     last_prewarm_t = time.time()
                     try:
@@ -697,18 +719,21 @@ def _wait_for_mlx_ready(
                                     timeout=360,
                                 )
                             except Exception as _ke:
-                                print(f"  {label} [warn] Direct proxy kick failed: {_ke}", flush=True)
+                                print(
+                                    f"  {label} [warn] Direct proxy kick failed: {_ke}", flush=True
+                                )
                         elif _st == "switching":
-                            print(f"  {label} Proxy entered switching state — model loading", flush=True)
+                            print(
+                                f"  {label} Proxy entered switching state — model loading",
+                                flush=True,
+                            )
                     except Exception:
                         pass
                     continue  # skip the sleep(10) below; just checked the state
             elif state == "switching":
                 switch_elapsed = rdata.get("switch_elapsed") or 0
                 if int(switch_elapsed) % 30 < STABLE_POLLS:
-                    print(
-                        f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed"
-                    )
+                    print(f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed")
             elif state == "down":
                 fatal_count += 1
                 if fatal_count >= 3:
@@ -733,9 +758,7 @@ def _wait_for_mlx_ready(
                         consecutive_ready += 1
                         if consecutive_ready >= STABLE_POLLS:
                             if _elapsed() > 1.0:
-                                print(
-                                    f"  {label} MLX ready ({model}, {_elapsed():.0f}s cold-load)"
-                                )
+                                print(f"  {label} MLX ready ({model}, {_elapsed():.0f}s cold-load)")
                             return True
                     else:
                         consecutive_ready = 0
@@ -777,12 +800,15 @@ def _wait_for_mlx_ready(
                     if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
                         if pre_warmed:
                             print(
-                                f"  {label} MLX still idle after {int(time.time()-last_prewarm_t)}s"
+                                f"  {label} MLX still idle after {int(time.time() - last_prewarm_t)}s"
                                 " — retrying pre-warm...",
                                 flush=True,
                             )
                         else:
-                            print(f"  {label} MLX idle — sending pre-warm request to trigger cold-load...", flush=True)
+                            print(
+                                f"  {label} MLX idle — sending pre-warm request to trigger cold-load...",
+                                flush=True,
+                            )
                         pre_warmed = True
                         last_prewarm_t = time.time()
                         try:
@@ -794,10 +820,18 @@ def _wait_for_mlx_ready(
                         try:
                             _chk = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
                             if _chk.get("state") == "none":
-                                print(f"  {label} [warn] Proxy still none after pipeline prewarm — kicking directly", flush=True)
+                                print(
+                                    f"  {label} [warn] Proxy still none after pipeline prewarm — kicking directly",
+                                    flush=True,
+                                )
                                 httpx.post(
                                     f"{MLX_PROXY_URL}/v1/chat/completions",
-                                    json={"model": expected_model or "auto", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                                    json={
+                                        "model": expected_model or "auto",
+                                        "messages": [{"role": "user", "content": "hi"}],
+                                        "max_tokens": 1,
+                                        "stream": False,
+                                    },
                                     timeout=360,
                                 )
                         except Exception:
@@ -822,6 +856,7 @@ def _wait_for_mlx_ready(
             if fatal_count >= 3:
                 print(f"  {label} MLX proxy unreachable ({fatal_count}x) — checking process...")
                 import subprocess
+
                 procs = subprocess.run(
                     ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
                 )
@@ -987,13 +1022,15 @@ def _restart_proxy_for_reclaim() -> bool:
     try:
         result = subprocess.run(
             ["launchctl", "list", "com.portal5.mlx-proxy"],
-            capture_output=True, timeout=5,
+            capture_output=True,
+            timeout=5,
         )
         if result.returncode == 0:
             launchd_managed = True
             subprocess.run(
                 ["launchctl", "stop", "com.portal5.mlx-proxy"],
-                capture_output=True, timeout=10,
+                capture_output=True,
+                timeout=10,
             )
     except Exception:
         pass
@@ -1022,7 +1059,8 @@ def _restart_proxy_for_reclaim() -> bool:
         if launchd_managed:
             subprocess.run(
                 ["launchctl", "start", "com.portal5.mlx-proxy"],
-                capture_output=True, timeout=10,
+                capture_output=True,
+                timeout=10,
             )
         else:
             proxy_path = os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")
@@ -1075,7 +1113,8 @@ def _start_comfyui(wait_s: int = 45) -> bool:
     try:
         subprocess.run(
             ["launchctl", "start", "com.portal5.comfyui"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
     except Exception as e:
         print(f"  [comfyui] launchctl start failed: {e}", flush=True)
@@ -1100,7 +1139,8 @@ def _stop_comfyui() -> None:
     try:
         subprocess.run(
             ["launchctl", "stop", "com.portal5.comfyui"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
         # Wait briefly for Metal to release
         time.sleep(5)
@@ -1111,7 +1151,7 @@ def _stop_comfyui() -> None:
 
 def cleanup_after_uat() -> None:
     """Full cleanup after all UAT tests complete — prevents OOM post-run.
-    
+
     After /unload, restarts the proxy to reclaim kernel-level inactive Metal
     pages that accumulate from model switch SIGTERMs during the run.
     """
@@ -1268,6 +1308,130 @@ def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
     except Exception as e:
         print(f"  WARNING: migrate error — {e}")
     return moved
+
+
+# ---------------------------------------------------------------------------
+# Frontend dispatch shims — _fe_* functions route to OWUI or LibreChat helpers
+# based on the module-level FRONTEND_MODE. Each shim accepts the union of
+# arguments both backends might need; the unused-side ignores extras.
+# ---------------------------------------------------------------------------
+
+
+async def _fe_login(page) -> None:
+    """Dispatch login to the active frontend."""
+    if FRONTEND_MODE == "librechat":
+        await _lc.login(page)
+    else:
+        await _login(page)
+
+
+async def _fe_start_chat(page, token: str, model_slug: str, title: str) -> tuple[str, str]:
+    """Create / open a fresh chat. Returns (chat_id, chat_url).
+
+    On OWUI: chat_id is the OWUI UUID (used by API helpers). chat_url is
+    `{OPENWEBUI_URL}/c/{chat_id}`.
+
+    On LibreChat: chat_id is "" (LibreChat has no externally-meaningful chat ID
+    until after the first message; downstream code that reads responses uses
+    the Playwright page, not the chat_id). chat_url is captured after the
+    response settles via _fe_current_chat_url(page).
+    """
+    if FRONTEND_MODE == "librechat":
+        try:
+            url = await _lc.start_new_chat(
+                page, model_slug, title, personas_map=_lc.load_personas_map()
+            )
+            return "", url
+        except _lc.PresetUnreachableError as exc:
+            # Signal SKIP via a sentinel — run_test recognises this.
+            raise _PresetUnreachableError(str(exc)) from exc
+    chat_id, chat_url = owui_create_chat(token, model_slug, title)
+    await _navigate_to_chat(page, chat_url)
+    return chat_id, chat_url
+
+
+class _PresetUnreachableError(RuntimeError):
+    """Raised by _fe_start_chat when a persona test cannot select its preset."""
+
+
+async def _fe_send_and_wait(
+    page,
+    prompt: str,
+    test_id: str = "",
+    tier: str = "any",
+    max_wait_no_progress: int = MAX_WAIT_NO_PROGRESS,
+    *,
+    token: str = "",
+    chat_id: str = "",
+    min_messages: int = 1,
+) -> None:
+    """Send a prompt and wait for streaming to complete."""
+    if FRONTEND_MODE == "librechat":
+        await _lc.send_prompt(page, prompt)
+        await _lc.wait_for_completion(
+            page,
+            test_id=test_id,
+            tier=tier,
+            max_wait_no_progress=max_wait_no_progress,
+            backend_alive_fn=_backend_alive,
+        )
+    else:
+        await _send_and_wait(
+            page,
+            prompt,
+            test_id=test_id,
+            tier=tier,
+            max_wait_no_progress=max_wait_no_progress,
+            token=token,
+            chat_id=chat_id,
+            min_messages=min_messages,
+        )
+
+
+async def _fe_get_last_response(page, token: str, chat_id: str, min_messages: int = 1) -> str:
+    """Read the most recent assistant message."""
+    if FRONTEND_MODE == "librechat":
+        return await _lc.get_last_response(page)
+    return owui_get_last_response(token, chat_id, min_messages=min_messages)
+
+
+async def _fe_get_routed_model(page, token: str, chat_id: str) -> str:
+    """Best-effort routed-model name. Empty string is acceptable on LibreChat."""
+    if FRONTEND_MODE == "librechat":
+        return await _lc.get_routed_model(page)
+    return owui_get_routed_model(token, chat_id)
+
+
+async def _fe_enable_tool(page, tool_id: str) -> None:
+    if FRONTEND_MODE == "librechat":
+        await _lc.enable_tool(page, tool_id)
+    else:
+        await _enable_tool(page, tool_id)
+
+
+async def _fe_assign_folder(page, token: str, chat_id: str, folder_id: str | None) -> None:
+    if FRONTEND_MODE == "librechat":
+        await _lc.assign_folder(page, folder_id or "")
+    else:
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
+
+
+async def _fe_download_artifact(
+    page, expected_ext: str, response_text: str = "", timeout_ms: int = 120_000
+) -> Path | None:
+    if FRONTEND_MODE == "librechat":
+        return await _lc.download_artifact(page, expected_ext, response_text, timeout_ms)
+    return await _download_artifact(page, expected_ext, timeout_ms, response_text)
+
+
+def _fe_current_chat_url(page, fallback: str) -> str:
+    """Return the current URL on LibreChat (post-settlement); the API-given
+    chat_url on OWUI."""
+    if FRONTEND_MODE == "librechat":
+        url = _lc.current_chat_url(page)
+        return url or fallback
+    return fallback
 
 
 def owui_get_last_response(token: str, chat_id: str, min_messages: int = 1) -> str:
@@ -1499,7 +1663,7 @@ async def _wait_for_response_arrival(
         await asyncio.sleep(2.0)
         return ""
 
-    STABLE_COUNT = 2     # consecutive polls with no meaningful growth (OWUI commits atomically)
+    STABLE_COUNT = 2  # consecutive polls with no meaningful growth (OWUI commits atomically)
     STABLE_THRESHOLD = 50  # chars; ignores minor whitespace/punctuation flushes
 
     deadline = time.monotonic() + max_wait
@@ -1769,9 +1933,7 @@ async def _wait_for_completion(
                 if token and chat_id:
                     if _cur_api_text:
                         _log("stream complete (DOM stable + API has content)")
-                        await _wait_for_response_arrival(
-                            token, chat_id, min_messages=min_messages
-                        )
+                        await _wait_for_response_arrival(token, chat_id, min_messages=min_messages)
                         return
                     else:
                         # DOM stable but API empty — reasoning model still thinking;
@@ -1827,7 +1989,12 @@ async def _send_and_wait(
     await ta.fill(prompt)
     await ta.press("Enter")
     await _wait_for_completion(
-        page, test_id, tier, max_wait_no_progress, token=token, chat_id=chat_id,
+        page,
+        test_id,
+        tier,
+        max_wait_no_progress,
+        token=token,
+        chat_id=chat_id,
         min_messages=min_messages,
     )
 
@@ -2065,7 +2232,7 @@ def _strip_think_blocks(text: str) -> str:
     if not result:
         # Model put entire answer inside reasoning block — extract inner content
         m = re.search(
-            r'<details[^>]*>.*?<summary>.*?</summary>(.*?)</details>',
+            r"<details[^>]*>.*?<summary>.*?</summary>(.*?)</details>",
             original,
             re.DOTALL | re.IGNORECASE,
         )
@@ -2080,19 +2247,21 @@ def _strip_think_blocks(text: str) -> str:
 
 
 _UNICODE_DASH_TABLE = str.maketrans(
-    "".join([
-        "‐",  # hyphen
-        "‑",  # non-breaking hyphen
-        "‒",  # figure dash
-        "–",  # en dash
-        "—",  # em dash
-        "―",  # horizontal bar
-        "−",  # minus sign
-        "─",  # box-drawing horizontal
-        "﹘",  # small em dash
-        "﹣",  # small hyphen-minus
-        "－",  # fullwidth hyphen-minus
-    ]),
+    "".join(
+        [
+            "‐",  # hyphen
+            "‑",  # non-breaking hyphen
+            "‒",  # figure dash
+            "–",  # en dash
+            "—",  # em dash
+            "―",  # horizontal bar
+            "−",  # minus sign
+            "─",  # box-drawing horizontal
+            "﹘",  # small em dash
+            "﹣",  # small hyphen-minus
+            "－",  # fullwidth hyphen-minus
+        ]
+    ),
     "-" * 11,
 )
 
@@ -2614,7 +2783,9 @@ def record_result(
             f"| {n} | {status} | [{test_id} {name}]({chat_url}) | "
             f"`{model}` | {pct} {detail} | {elapsed:.1f}s |\n"
         )
-    icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "BLOCKED": "⊘", "MANUAL": "✎"}.get(status, "?")
+    icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "BLOCKED": "⊘", "MANUAL": "✎"}.get(
+        status, "?"
+    )
     routed_suffix = f" [→{routed_model}]" if routed_model else ""
     print(
         f"  [{icon} {status}] {test_id} {name} ({passed}/{total}={passed * 100 // total if total else 0}%) ({elapsed:.1f}s){routed_suffix}"
@@ -2987,7 +3158,10 @@ class CrashWatcher:
             self._known = set(_DIAG_DIR.glob("*.ips")) | set(_DIAG_DIR.glob("*.crash"))
         self._thread = threading.Thread(target=self._loop, daemon=True, name="crash-watcher")
         self._thread.start()
-        print("  [crash-watcher] Started — watching DiagnosticReports for mlx-proxy crashes", flush=True)
+        print(
+            "  [crash-watcher] Started — watching DiagnosticReports for mlx-proxy crashes",
+            flush=True,
+        )
 
     def stop(self) -> None:
         self._stop.set()
@@ -7490,7 +7664,7 @@ TEST_CATALOG: list[dict] = [
         "id": "A-08",
         "name": "Cross-Session Memory — Two-Chat Persistence",
         "section": "advanced",
-        "model_slug": "auto-daily",   # Gemma-4-26b-a4b via MLX — primary for auto-daily
+        "model_slug": "auto-daily",  # Gemma-4-26b-a4b via MLX — primary for auto-daily
         "timeout": 240,
         "workspace_tier": "mlx_small",
         "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
@@ -8227,7 +8401,7 @@ TEST_CATALOG: list[dict] = [
         "id": "P-N01",
         "name": "Goal Decomposition — Research & Deliver Plan",
         "section": "advanced",
-        "model_slug": "auto-daily",   # gemma-4-26b — fast, non-thinking; agentic execution test is A-09
+        "model_slug": "auto-daily",  # gemma-4-26b — fast, non-thinking; agentic execution test is A-09
         "timeout": 90,
         "workspace_tier": "mlx_small",
         "max_wait_no_progress": 600,
@@ -8276,8 +8450,14 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Asks clarifying questions or lists open questions",
                 "keywords": [
-                    "what do you mean", "clarif", "more specific", "which",
-                    "who", "stakeholder", "open question", "understand",
+                    "what do you mean",
+                    "clarif",
+                    "more specific",
+                    "which",
+                    "who",
+                    "stakeholder",
+                    "open question",
+                    "understand",
                 ],
             },
         ],
@@ -8332,8 +8512,15 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Design principle applied",
                 "keywords": [
-                    "above the fold", "headline", "primary", "key metric",
-                    "data-ink", "few", "tufte", "single", "focus",
+                    "above the fold",
+                    "headline",
+                    "primary",
+                    "key metric",
+                    "data-ink",
+                    "few",
+                    "tufte",
+                    "single",
+                    "focus",
                 ],
             },
         ],
@@ -8355,16 +8542,29 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Tenancy model discussed",
                 "keywords": [
-                    "row-level", "schema-per", "database-per", "shared schema",
-                    "tenant_id", "tenancy", "isolation", "separate schema",
+                    "row-level",
+                    "schema-per",
+                    "database-per",
+                    "shared schema",
+                    "tenant_id",
+                    "tenancy",
+                    "isolation",
+                    "separate schema",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Trade-offs acknowledged",
                 "keywords": [
-                    "trade-off", "cost", "isolation", "complexity", "performance",
-                    "easier", "harder", "pros", "cons",
+                    "trade-off",
+                    "cost",
+                    "isolation",
+                    "complexity",
+                    "performance",
+                    "easier",
+                    "harder",
+                    "pros",
+                    "cons",
                 ],
             },
             {"type": "has_code", "label": "Schema DDL or pseudo-code present"},
@@ -8391,8 +8591,14 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Output format mentioned",
                 "keywords": [
-                    "mermaid", "markdown", "text", "structured", "format",
-                    "describe", "represent", "list",
+                    "mermaid",
+                    "markdown",
+                    "text",
+                    "structured",
+                    "format",
+                    "describe",
+                    "represent",
+                    "list",
                 ],
             },
         ],
@@ -8414,16 +8620,26 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Diátaxis modes or equivalents",
                 "keywords": [
-                    "tutorial", "how-to", "reference", "explanation",
-                    "guide", "conceptual", "diataxis",
+                    "tutorial",
+                    "how-to",
+                    "reference",
+                    "explanation",
+                    "guide",
+                    "conceptual",
+                    "diataxis",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "OpenAPI limitation acknowledged",
                 "keywords": [
-                    "spec", "reference only", "not enough", "also need",
-                    "beyond the spec", "openapi alone", "just a spec",
+                    "spec",
+                    "reference only",
+                    "not enough",
+                    "also need",
+                    "beyond the spec",
+                    "openapi alone",
+                    "just a spec",
                 ],
                 "critical": False,
             },
@@ -8445,16 +8661,29 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Authoritative source identified",
                 "keywords": [
-                    "tiobe", "stackoverflow", "github", "source", "survey",
-                    "index", "primary", "authoritative", "redmonk",
+                    "tiobe",
+                    "stackoverflow",
+                    "github",
+                    "source",
+                    "survey",
+                    "index",
+                    "primary",
+                    "authoritative",
+                    "redmonk",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Nuance or context noted",
                 "keywords": [
-                    "depends", "definition", "metric", "measure", "context",
-                    "how you define", "varies", "depends on",
+                    "depends",
+                    "definition",
+                    "metric",
+                    "measure",
+                    "context",
+                    "how you define",
+                    "varies",
+                    "depends on",
                 ],
             },
         ],
@@ -8476,16 +8705,25 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Article 6 or lawful basis identified",
                 "keywords": [
-                    "article 6", "art. 6", "lawful basis", "legitimate interest",
-                    "balancing test", "lia", "legitimate interests assessment",
+                    "article 6",
+                    "art. 6",
+                    "lawful basis",
+                    "legitimate interest",
+                    "balancing test",
+                    "lia",
+                    "legitimate interests assessment",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Right to object mentioned",
                 "keywords": [
-                    "opt-out", "right to object", "article 21", "unsubscribe",
-                    "object", "oppose",
+                    "opt-out",
+                    "right to object",
+                    "article 21",
+                    "unsubscribe",
+                    "object",
+                    "oppose",
                 ],
             },
             {
@@ -8538,8 +8776,13 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Breach assessment step",
                 "keywords": [
-                    "risk assessment", "assess", "determine", "evaluate",
-                    "whether", "reportable", "notification required",
+                    "risk assessment",
+                    "assess",
+                    "determine",
+                    "evaluate",
+                    "whether",
+                    "reportable",
+                    "notification required",
                 ],
             },
             {
@@ -8576,8 +8819,14 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Evaluation criteria mentioned",
                 "keywords": [
-                    "clarif", "requirement", "trade-off", "scale", "bottleneck",
-                    "evaluate", "looking for", "interviewers",
+                    "clarif",
+                    "requirement",
+                    "trade-off",
+                    "scale",
+                    "bottleneck",
+                    "evaluate",
+                    "looking for",
+                    "interviewers",
                 ],
             },
         ],
@@ -8598,16 +8847,28 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "KB listing step described",
                 "keywords": [
-                    "kb_list", "list", "available", "check", "first", "which kb",
-                    "what kbs", "knowledge base", "collections",
+                    "kb_list",
+                    "list",
+                    "available",
+                    "check",
+                    "first",
+                    "which kb",
+                    "what kbs",
+                    "knowledge base",
+                    "collections",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Search strategy described",
                 "keywords": [
-                    "search", "query", "look for", "retrieve", "kb_search",
-                    "find", "locate",
+                    "search",
+                    "query",
+                    "look for",
+                    "retrieve",
+                    "kb_search",
+                    "find",
+                    "locate",
                 ],
             },
         ],
@@ -8628,8 +8889,15 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Market players or segments mentioned",
                 "keywords": [
-                    "ollama", "llm", "local", "inference", "open source",
-                    "model", "deployment", "on-premise", "self-hosted",
+                    "ollama",
+                    "llm",
+                    "local",
+                    "inference",
+                    "open source",
+                    "model",
+                    "deployment",
+                    "on-premise",
+                    "self-hosted",
                 ],
             },
             {"type": "min_length", "label": "Substantive analysis", "chars": 200},
@@ -8651,7 +8919,11 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Limit definition stated",
                 "keywords": [
-                    "lim", "h→0", "h -> 0", "limit", "definition of derivative",
+                    "lim",
+                    "h→0",
+                    "h -> 0",
+                    "limit",
+                    "definition of derivative",
                     "difference quotient",
                 ],
             },
@@ -8659,8 +8931,12 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Sine addition formula used",
                 "keywords": [
-                    "sin(x+h)", "sin(a+b)", "addition formula", "sum formula",
-                    "trig identity", "sin x cos h",
+                    "sin(x+h)",
+                    "sin(a+b)",
+                    "addition formula",
+                    "sum formula",
+                    "trig identity",
+                    "sin x cos h",
                 ],
             },
             {
@@ -8686,16 +8962,27 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Layout detection mentioned",
                 "keywords": [
-                    "column", "layout", "two-column", "region", "detect",
-                    "identify", "structure",
+                    "column",
+                    "layout",
+                    "two-column",
+                    "region",
+                    "detect",
+                    "identify",
+                    "structure",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Table extraction strategy",
                 "keywords": [
-                    "row", "header", "cell", "table", "csv", "json",
-                    "structured", "delimit",
+                    "row",
+                    "header",
+                    "cell",
+                    "table",
+                    "csv",
+                    "json",
+                    "structured",
+                    "delimit",
                 ],
             },
         ],
@@ -8740,23 +9027,35 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Problem or user need section",
                 "keywords": [
-                    "problem", "user need", "pain point", "opportunity",
-                    "why", "objective",
+                    "problem",
+                    "user need",
+                    "pain point",
+                    "opportunity",
+                    "why",
+                    "objective",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Success metrics included",
                 "keywords": [
-                    "metric", "kpi", "success", "measure", "adoption",
-                    "engagement", "target",
+                    "metric",
+                    "kpi",
+                    "success",
+                    "measure",
+                    "adoption",
+                    "engagement",
+                    "target",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Out of scope or assumptions",
                 "keywords": [
-                    "out of scope", "assumption", "constraint", "non-goal",
+                    "out of scope",
+                    "assumption",
+                    "constraint",
+                    "non-goal",
                     "not in scope",
                 ],
                 "critical": False,
@@ -8769,7 +9068,7 @@ TEST_CATALOG: list[dict] = [
         "section": "auto-creative",
         "model_slug": "proofreader",
         "timeout": 60,
-        "workspace_tier": "ollama",        # auto-creative → dolphin-llama3:8b via Ollama (Gemma 4 VLM thinking model is wrong for text tasks)
+        "workspace_tier": "ollama",  # auto-creative → dolphin-llama3:8b via Ollama (Gemma 4 VLM thinking model is wrong for text tasks)
         "prompt": (
             "Proofread this sentence and explain all corrections: "
             "'The team have agreed, that they will meet on tuesday at 3pm "
@@ -8780,8 +9079,12 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Subject-verb agreement noted",
                 "keywords": [
-                    "team has", "subject-verb", "collective noun", "singular",
-                    "have → has", "has agreed",
+                    "team has",
+                    "subject-verb",
+                    "collective noun",
+                    "singular",
+                    "have → has",
+                    "has agreed",
                 ],
             },
             {
@@ -8819,7 +9122,10 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "File reading idiom",
                 "keywords": [
-                    "fs::read_to_string", "file::open", "read_to_string", "buf_reader",
+                    "fs::read_to_string",
+                    "file::open",
+                    "read_to_string",
+                    "buf_reader",
                 ],
             },
         ],
@@ -8841,16 +9147,26 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Security criteria identified",
                 "keywords": [
-                    "cc6", "cc5", "common criteria", "security", "access control",
-                    "logical access", "cc6.1", "cc6.2",
+                    "cc6",
+                    "cc5",
+                    "common criteria",
+                    "security",
+                    "access control",
+                    "logical access",
+                    "cc6.1",
+                    "cc6.2",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "MFA or access review gap",
                 "keywords": [
-                    "mfa", "multi-factor", "access review", "periodic review",
-                    "user access", "logical access",
+                    "mfa",
+                    "multi-factor",
+                    "access review",
+                    "periodic review",
+                    "user access",
+                    "logical access",
                 ],
             },
         ],
@@ -8878,8 +9194,15 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Geographic or timing logic",
                 "keywords": [
-                    "geo", "location", "distance", "ip", "60 minute",
-                    "time window", "span", "earliest", "latest",
+                    "geo",
+                    "location",
+                    "distance",
+                    "ip",
+                    "60 minute",
+                    "time window",
+                    "span",
+                    "earliest",
+                    "latest",
                 ],
             },
         ],
@@ -8907,8 +9230,11 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Security controls present",
                 "keywords": [
-                    "versioning", "encryption", "server_side_encryption",
-                    "block_public", "public_access",
+                    "versioning",
+                    "encryption",
+                    "server_side_encryption",
+                    "block_public",
+                    "public_access",
                 ],
             },
         ],
@@ -8929,8 +9255,13 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Transcript or summary output described",
                 "keywords": [
-                    "transcript", "summary", "action item", "speaker",
-                    "key point", "decision", "formatted",
+                    "transcript",
+                    "summary",
+                    "action item",
+                    "speaker",
+                    "key point",
+                    "decision",
+                    "formatted",
                 ],
             },
             {
@@ -8985,16 +9316,28 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Multi-source or verification strategy",
                 "keywords": [
-                    "multiple source", "cross-reference", "verify", "source",
-                    "arxiv", "papers", "different", "cross-check",
+                    "multiple source",
+                    "cross-reference",
+                    "verify",
+                    "source",
+                    "arxiv",
+                    "papers",
+                    "different",
+                    "cross-check",
                 ],
             },
             {
                 "type": "any_of",
                 "label": "Research process described",
                 "keywords": [
-                    "web_search", "search", "first", "then", "step",
-                    "protocol", "approach", "fetch",
+                    "web_search",
+                    "search",
+                    "first",
+                    "then",
+                    "step",
+                    "protocol",
+                    "approach",
+                    "fetch",
                 ],
             },
         ],
@@ -9090,9 +9433,12 @@ async def _run_two_chat_test(
     if tier in ("mlx_large", "mlx_small", "ollama"):
         backend_ready = await _wait_for_backend(tier, max_wait=120)
         if not backend_ready:
-            chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
-            if folder_id:
-                owui_assign_chat_folder(token, chat_id, folder_id)
+            if FRONTEND_MODE == "openwebui":
+                chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
+                if folder_id:
+                    owui_assign_chat_folder(token, chat_id, folder_id)
+            else:
+                chat_id, chat_url = "", ""
             record_result(
                 n,
                 "FAIL",
@@ -9108,11 +9454,25 @@ async def _run_two_chat_test(
 
     title1 = f"[...] UAT: {test_id} (1/2) {name}"
     title2 = f"[...] UAT: {test_id} (2/2) {name}"
-    chat1_id, chat1_url = owui_create_chat(token, model, title1)
-    chat2_id, chat2_url = owui_create_chat(token, model, title2)
+    try:
+        chat1_id, chat1_url = await _fe_start_chat(page, token, model, title1)
+        chat2_id, chat2_url = await _fe_start_chat(page, token, model, title2)
+    except _PresetUnreachableError as exc:
+        record_result(
+            n,
+            "SKIP",
+            test_id,
+            name,
+            model,
+            [("persona_preset_unreachable", False, str(exc)[:160])],
+            0.0,
+            "",
+        )
+        counts["SKIP"] = counts.get("SKIP", 0) + 1
+        return
     if folder_id:
-        owui_assign_chat_folder(token, chat1_id, folder_id)
-        owui_assign_chat_folder(token, chat2_id, folder_id)
+        await _fe_assign_folder(page, token, chat1_id, folder_id)
+        await _fe_assign_folder(page, token, chat2_id, folder_id)
 
     t0 = time.time()
     response1 = ""
@@ -9150,33 +9510,47 @@ async def _run_two_chat_test(
                     print(f"[A-08] memory pre-seeded: {_resp.json().get('id', '?')}", flush=True)
                     await asyncio.sleep(2.0)  # let LanceDB index settle
                 else:
-                    print(f"[A-08] memory pre-seed failed HTTP {_resp.status_code} — skipping", flush=True)
+                    print(
+                        f"[A-08] memory pre-seed failed HTTP {_resp.status_code} — skipping",
+                        flush=True,
+                    )
                     record_result(
-                        n, "SKIP", test_id, name, model,
+                        n,
+                        "SKIP",
+                        test_id,
+                        name,
+                        model,
                         [("memory_preseed_failed", False, f"HTTP {_resp.status_code}")],
-                        0.0, "memory-preseed-fail://",
+                        0.0,
+                        "memory-preseed-fail://",
                     )
                     counts["SKIP"] = counts.get("SKIP", 0) + 1
                     return
             except Exception as _e:
                 print(f"[A-08] memory pre-seed error: {_e} — skipping", flush=True)
                 record_result(
-                    n, "SKIP", test_id, name, model,
+                    n,
+                    "SKIP",
+                    test_id,
+                    name,
+                    model,
                     [("memory_preseed_failed", False, str(_e)[:100])],
-                    0.0, "memory-preseed-fail://",
+                    0.0,
+                    "memory-preseed-fail://",
                 )
                 counts["SKIP"] = counts.get("SKIP", 0) + 1
                 return
 
         # Chat 1
-        await _navigate_to_chat(page, chat1_url)
+        if FRONTEND_MODE == "openwebui":
+            await _navigate_to_chat(page, chat1_url)
         # Note: do NOT call _enable_tool here. The portal pipeline injects
         # and dispatches tools internally for auto-daily (and any workspace
         # with effective_tools). Enabling the tool in OWUI causes OWUI to
         # also dispatch tool_calls it sees in the SSE stream (double-dispatch),
         # which creates a second conversation turn with empty tool results that
         # overwrites the pipeline's correct answer. Pipeline owns dispatch.
-        await _send_and_wait(
+        await _fe_send_and_wait(
             page,
             test["prompt"],
             test_id,
@@ -9185,8 +9559,9 @@ async def _run_two_chat_test(
             token=token,
             chat_id=chat1_id,
         )
-        response1 = owui_get_last_response(token, chat1_id) or ""
-        routed_model_1 = owui_get_routed_model(token, chat1_id)
+        chat1_url = _fe_current_chat_url(page, fallback=chat1_url)
+        response1 = await _fe_get_last_response(page, token, chat1_id) or ""
+        routed_model_1 = await _fe_get_routed_model(page, token, chat1_id)
 
         # Brief settle to let the memory write commit through embedding
         # service before chat 2 queries it. The recall is vector-based and
@@ -9195,8 +9570,9 @@ async def _run_two_chat_test(
 
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
-        await _navigate_to_chat(page, chat2_url)
-        await _send_and_wait(
+        if FRONTEND_MODE == "openwebui":
+            await _navigate_to_chat(page, chat2_url)
+        await _fe_send_and_wait(
             page,
             test["turn2_in_new_chat"],
             test_id,
@@ -9205,8 +9581,9 @@ async def _run_two_chat_test(
             token=token,
             chat_id=chat2_id,
         )
-        response2 = owui_get_last_response(token, chat2_id) or ""
-        routed_model_2 = owui_get_routed_model(token, chat2_id)
+        chat2_url = _fe_current_chat_url(page, fallback=chat2_url)
+        response2 = await _fe_get_last_response(page, token, chat2_id) or ""
+        routed_model_2 = await _fe_get_routed_model(page, token, chat2_id)
 
         # Assertions
         assertions_result = run_assertions(response1, test.get("assertions", []))
@@ -9261,8 +9638,10 @@ async def _run_two_chat_test(
     elapsed = time.time() - t0
     final_title_1 = f"[{status} 1/2] UAT: {test_id} {name}"
     final_title_2 = f"[{status} 2/2] UAT: {test_id} {name}"
-    owui_rename_chat(token, chat1_id, final_title_1)
-    owui_rename_chat(token, chat2_id, final_title_2)
+    if FRONTEND_MODE == "openwebui":
+        owui_rename_chat(token, chat1_id, final_title_1)
+        owui_rename_chat(token, chat2_id, final_title_2)
+    # LibreChat: no rename — conversation titles auto-set from first message
 
     # Use chat 2 URL as the "primary" link in results — it's where the
     # actual recall behavior is visible to a reviewer.
@@ -9304,13 +9683,9 @@ async def _run_two_chat_test(
     if corpus_run_id:
         _composite_test = dict(test)
         _composite_test["prompt"] = (
-            test.get("prompt", "")
-            + "\n\n[NEW CHAT]\n"
-            + test.get("turn2_in_new_chat", "")
+            test.get("prompt", "") + "\n\n[NEW CHAT]\n" + test.get("turn2_in_new_chat", "")
         )
-        _composite_response = (
-            f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
-        )
+        _composite_response = f"=== Chat 1 ===\n{response1}\n\n=== Chat 2 (recall) ===\n{response2}"
         _emit_corpus_row(
             corpus_run_id=corpus_run_id,
             test=_composite_test,
@@ -9344,27 +9719,37 @@ async def run_test(
     # Skip check
     skip_if = test.get("skip_if")
     if skip_if and skip_conditions.get(skip_if, False):
-        chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
-        owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {skip_if}")
-        if folder_id:
-            owui_assign_chat_folder(token, chat_id, folder_id)
+        if FRONTEND_MODE == "openwebui":
+            chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
+            owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {skip_if}")
+            if folder_id:
+                owui_assign_chat_folder(token, chat_id, folder_id)
+        else:
+            chat_id, chat_url = "", ""
         record_result(n, "SKIP", test_id, name, model, [], 0.0, chat_url)
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
 
     # Manual test
     if test.get("is_manual"):
-        chat_id, chat_url = owui_create_chat(token, model, title_pending)
-        if folder_id:
-            owui_assign_chat_folder(token, chat_id, folder_id)
+        if FRONTEND_MODE == "openwebui":
+            chat_id, chat_url = owui_create_chat(token, model, title_pending)
+            if folder_id:
+                owui_assign_chat_folder(token, chat_id, folder_id)
+        else:
+            chat_id, chat_url = "", ""
         manual_prompt = (
             "🔧 MANUAL TEST: "
             + test["prompt"]
             + "\n\nReturn to this chat and pin your result with ✅ PASS / ⚠️ PARTIAL / ❌ FAIL + notes."
         )
-        await _navigate_to_chat(page, chat_url)
-        await _send_and_wait(page, manual_prompt, test_id, token=token, chat_id=chat_id)
-        owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
+        if FRONTEND_MODE == "openwebui":
+            await _navigate_to_chat(page, chat_url)
+            await _send_and_wait(page, manual_prompt, test_id, token=token, chat_id=chat_id)
+            owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
+        else:
+            await _fe_send_and_wait(page, manual_prompt, test_id)
+            chat_url = _fe_current_chat_url(page, fallback=chat_url)
         record_result(n, "MANUAL", test_id, name, model, [], 0.0, chat_url)
         counts["MANUAL"] = counts.get("MANUAL", 0) + 1
         return
@@ -9374,6 +9759,28 @@ async def run_test(
     # inbound bot message: a direct POST to the Pipeline with PIPELINE_API_KEY.
     # Bypasses Open WebUI and Playwright entirely.
     if test.get("via_dispatcher"):
+        # No UX to validate on a non-OWUI frontend — the dispatcher path is
+        # frontend-independent. SKIP rather than execute (we already cover
+        # this on the OWUI run; running again here only duplicates results).
+        if FRONTEND_MODE == "librechat":
+            record_result(
+                n,
+                "SKIP",
+                test_id,
+                name,
+                model,
+                [
+                    (
+                        "not_applicable_to_frontend",
+                        False,
+                        f"via_dispatcher skipped on --frontend {FRONTEND_MODE}",
+                    )
+                ],
+                0.0,
+                "",
+            )
+            counts["SKIP"] = counts.get("SKIP", 0) + 1
+            return
         # Pre-check: bot container running, if specified.
         required_container = test.get("requires_container")
         if required_container:
@@ -9460,9 +9867,12 @@ async def run_test(
             backend_ready = await _wait_for_backend(tier, max_wait=60)
         if not backend_ready:
             _, detail = _backend_alive(tier)
-            chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
-            if folder_id:
-                owui_assign_chat_folder(token, chat_id, folder_id)
+            if FRONTEND_MODE == "openwebui":
+                chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
+                if folder_id:
+                    owui_assign_chat_folder(token, chat_id, folder_id)
+            else:
+                chat_id, chat_url = "", ""
             record_result(
                 n,
                 "FAIL",
@@ -9477,9 +9887,23 @@ async def run_test(
             return
 
     # Create chat
-    chat_id, chat_url = owui_create_chat(token, model, title_pending)
+    try:
+        chat_id, chat_url = await _fe_start_chat(page, token, model, title_pending)
+    except _PresetUnreachableError as exc:
+        record_result(
+            n,
+            "SKIP",
+            test_id,
+            name,
+            model,
+            [("persona_preset_unreachable", False, str(exc)[:160])],
+            0.0,
+            "",
+        )
+        counts["SKIP"] = counts.get("SKIP", 0) + 1
+        return
     if folder_id:
-        owui_assign_chat_folder(token, chat_id, folder_id)
+        await _fe_assign_folder(page, token, chat_id, folder_id)
 
     t0 = time.time()
     artifact_path: Path | None = None
@@ -9489,7 +9913,8 @@ async def run_test(
     attempts_used: int = 1
 
     try:
-        await _navigate_to_chat(page, chat_url)
+        if FRONTEND_MODE == "openwebui":
+            await _navigate_to_chat(page, chat_url)
 
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
@@ -9502,7 +9927,7 @@ async def run_test(
         attempts_used = 0
         for attempt in range(3):
             attempts_used = attempt + 1
-            await _send_and_wait(
+            await _fe_send_and_wait(
                 page,
                 test["prompt"],
                 test_id,
@@ -9511,7 +9936,8 @@ async def run_test(
                 token=token,
                 chat_id=chat_id,
             )
-            response_text = owui_get_last_response(token, chat_id)
+            chat_url = _fe_current_chat_url(page, fallback=chat_url)
+            response_text = await _fe_get_last_response(page, token, chat_id)
             if response_text:
                 break
             # Long-tail wait: DOM stable may have fired while reasoning model was
@@ -9525,7 +9951,7 @@ async def run_test(
             _poll_deadline = time.monotonic() + _poll_cap_s
             while time.monotonic() < _poll_deadline:
                 await asyncio.sleep(5)
-                response_text = owui_get_last_response(token, chat_id)
+                response_text = await _fe_get_last_response(page, token, chat_id)
                 if response_text:
                     break
                 elapsed_now = time.time() - t0
@@ -9567,14 +9993,16 @@ async def run_test(
                 response_text or "",
             )
             if not response_text or not _art_url_present:
-                response_text = owui_get_last_response(token, chat_id) or response_text or ""
-            artifact_path = await _download_artifact(page, art_ext, response_text=response_text)
+                response_text = (
+                    await _fe_get_last_response(page, token, chat_id) or response_text or ""
+                )
+            artifact_path = await _fe_download_artifact(page, art_ext, response_text=response_text)
 
         # Multi-turn: send second message if defined
         turn2 = test.get("turn2")
         turn2_response = ""
         if turn2:
-            await _send_and_wait(
+            await _fe_send_and_wait(
                 page,
                 turn2,
                 test_id,
@@ -9583,11 +10011,12 @@ async def run_test(
                 token=token,
                 chat_id=chat_id,
                 min_messages=2,  # require ≥2 non-empty responses — prevents turn-1
-                                 # stable content from satisfying the completion signal
+                # stable content from satisfying the completion signal
             )
+            chat_url = _fe_current_chat_url(page, fallback=chat_url)
             # For turn2, require ≥2 non-empty assistant messages so we don't
             # return turn-1's committed response as the turn-2 completion signal.
-            turn2_response = owui_get_last_response(token, chat_id, min_messages=2)
+            turn2_response = await _fe_get_last_response(page, token, chat_id, min_messages=2)
 
         # Run assertions on turn 1
         assertions_result = run_assertions(response_text, test.get("assertions", []), artifact_path)
@@ -9631,7 +10060,7 @@ async def run_test(
             pass
 
     elapsed = time.time() - t0
-    routed_model = owui_get_routed_model(token, chat_id)
+    routed_model = await _fe_get_routed_model(page, token, chat_id)
 
     route_check = _check_routed_model(test, routed_model)
     if route_check is not None:
@@ -9644,7 +10073,9 @@ async def run_test(
             print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}", flush=True)
 
     final_title = f"[{status}] UAT: {test_id} {name}"
-    owui_rename_chat(token, chat_id, final_title)
+    if FRONTEND_MODE == "openwebui":
+        owui_rename_chat(token, chat_id, final_title)
+    # LibreChat: no rename — conversation titles auto-set from first message
     record_result(
         n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model
     )
@@ -9706,10 +10137,7 @@ def _emit_corpus_row(
     # Convert tuple assertion results to JSON-safe lists. The in-memory
     # format is tuples of (label:str, passed:bool, detail:str); JSON has
     # no tuple type, so we serialize as lists.
-    safe_assertions = [
-        list(a) if isinstance(a, tuple) else a
-        for a in (assertions_result or [])
-    ]
+    safe_assertions = [list(a) if isinstance(a, tuple) else a for a in (assertions_result or [])]
 
     row = {
         "schema_version": 1,
@@ -9734,7 +10162,7 @@ def _emit_corpus_row(
     except Exception as exc:
         # Corpus emission is best-effort — never fail a test because the
         # corpus write failed. Log and continue.
-        print(f"  [corpus] WARN: failed to write {test.get('id','?')}: {exc}", flush=True)
+        print(f"  [corpus] WARN: failed to write {test.get('id', '?')}: {exc}", flush=True)
 
 
 def _emit_signals_from_calibration(json_path: str, output_path: str = "updated_signals.py") -> None:
@@ -9993,6 +10421,16 @@ async def _notify_test_summary(
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 UAT Conversation Driver")
+    parser.add_argument(
+        "--frontend",
+        choices=("openwebui", "librechat"),
+        default="openwebui",
+        help=(
+            "Web frontend to drive: openwebui (default — http://localhost:8080) or "
+            "librechat (http://localhost:8082). LibreChat path is pure Playwright; "
+            "writes to tests/UAT_RESULTS_LIBRECHAT.md."
+        ),
+    )
     parser.add_argument("--all", action="store_true", help="Run all tests")
     parser.add_argument("--section", action="append", help="Run tests from section(s)")
     parser.add_argument(
@@ -10063,14 +10501,35 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    print("\nPortal 5 UAT Driver")
-    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}\n")
+    # ── Frontend selection — sets module globals consumed by _fe_* shims ────
+    global FRONTEND_MODE, RESULTS_FILE
+    FRONTEND_MODE = args.frontend
+    if FRONTEND_MODE == "librechat":
+        RESULTS_FILE = RESULTS_FILE_LIBRECHAT
+        if not LIBRECHAT_PASSWORD:
+            print(
+                "ERROR: --frontend librechat requires LIBRECHAT_ADMIN_PASSWORD in .env "
+                "(see .env.example § Alternative Frontends).",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print("\nPortal 5 UAT Driver")
+        print(f"LibreChat: {LIBRECHAT_URL}  |  User: {LIBRECHAT_EMAIL}")
+        print(f"Results:   {RESULTS_FILE}\n")
+        # LibreChat auth is browser-cookie based; no separate token needed.
+        # `token` stays unset for the LibreChat path; _fe_* shims ignore it.
+        token = ""
+    else:
+        RESULTS_FILE = RESULTS_FILE_OWUI
+        print("\nPortal 5 UAT Driver")
+        print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
+        print(f"Results: {RESULTS_FILE}\n")
 
-    # Auth
-    token = owui_token()
-    if not token:
-        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
-        sys.exit(1)
+        # Auth (OWUI path only)
+        token = owui_token()
+        if not token:
+            print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
+            sys.exit(1)
 
     # Codebase freshness — warn if running images predate latest git commits.
     # Stale images mean test results reflect old code, not HEAD.
@@ -10107,6 +10566,7 @@ async def main() -> None:
             # interrupted before completing. Check for a saved state file.
             if _RERUN_FAILED_STATE.exists():
                 import json as _json_rf
+
                 saved = _json_rf.loads(_RERUN_FAILED_STATE.read_text())
                 failed_ids = set(saved.get("ids", []))
                 if failed_ids:
@@ -10138,9 +10598,7 @@ async def main() -> None:
             tier = t.get("workspace_tier", "any")
             tier_groups.setdefault(tier, []).append(t["id"])
 
-        plan = " → ".join(
-            f"{tier}({len(ids)})" for tier, ids in tier_groups.items()
-        )
+        plan = " → ".join(f"{tier}({len(ids)})" for tier, ids in tier_groups.items())
         print(f"  --rerun-failed: {len(candidate_tests)} test(s) across {len(tier_groups)} tier(s)")
         print(f"  Cascade plan: {plan}")
         for tier, ids in tier_groups.items():
@@ -10155,10 +10613,10 @@ async def main() -> None:
         # Save state before removing rows — if this run is interrupted, the
         # next --rerun-failed invocation can restore from here.
         import json as _json_rf2
-        _RERUN_FAILED_STATE.write_text(
-            _json_rf2.dumps({"ids": [t["id"] for t in candidate_tests]})
-        )
+
+        _RERUN_FAILED_STATE.write_text(_json_rf2.dumps({"ids": [t["id"] for t in candidate_tests]}))
         import atexit as _atexit
+
         _atexit.register(lambda: _RERUN_FAILED_STATE.unlink(missing_ok=True))
 
         args.test = [t["id"] for t in candidate_tests]
@@ -10240,18 +10698,28 @@ async def main() -> None:
     # stopped; UAT doesn't do that.
 
     # ---- Folder hierarchy: UAT/ (root) → YYYY-MM-DD/ (per-run subfolder) ----
-    uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
-    run_date = time.strftime("%Y-%m-%d")
+    # OWUI only. LibreChat has no folder concept (conversations use tags) so
+    # folder_id stays None and _fe_assign_folder becomes a no-op.
     folder_id: str | None = None
-    if uat_root_id:
-        folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
-        if folder_id:
-            print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
+    if FRONTEND_MODE == "openwebui":
+        uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
+        run_date = time.strftime("%Y-%m-%d")
+        if uat_root_id:
+            folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+            if folder_id:
+                print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
+            else:
+                print(
+                    f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder"
+                )
+                folder_id = uat_root_id
         else:
-            print(f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder")
-            folder_id = uat_root_id
+            print("  WARNING: could not get/create root UAT folder — chats will be in root")
     else:
-        print("  WARNING: could not get/create root UAT folder — chats will be in root")
+        print(
+            "  LibreChat: folder organisation skipped (LibreChat uses conversation "
+            "tags, not folders). Review chats sorted by date in the conversation list."
+        )
 
     # Init results file
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -10274,8 +10742,11 @@ async def main() -> None:
             accept_downloads=True,
         )
         page = await ctx.new_page()
-        await _login(page)
-        print("  Logged in to Open WebUI\n")
+        await _fe_login(page)
+        if FRONTEND_MODE == "librechat":
+            print("  Logged in to LibreChat\n")
+        else:
+            print("  Logged in to Open WebUI\n")
 
         t_start = time.time()
         await _notify_test_start(
@@ -10432,17 +10903,30 @@ async def main() -> None:
                         # Wait for Metal GPU buffers to release (wired < 6GB or 120s)
                         for _drain_i in range(24):
                             _h_drain = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            _wired = _h_drain.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
+                            _wired = (
+                                _h_drain.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
+                            )
                             if _wired < 6.0:
-                                print(f"  [pre-test] Metal drained (wired={_wired:.1f}GB after {_drain_i*5}s)", flush=True)
+                                print(
+                                    f"  [pre-test] Metal drained (wired={_wired:.1f}GB after {_drain_i * 5}s)",
+                                    flush=True,
+                                )
                                 break
                             if _drain_i % 4 == 0:
-                                print(f"  [pre-test] Draining Metal: wired={_wired:.1f}GB ({_drain_i*5}s)...", flush=True)
+                                print(
+                                    f"  [pre-test] Draining Metal: wired={_wired:.1f}GB ({_drain_i * 5}s)...",
+                                    flush=True,
+                                )
                             time.sleep(5)
                         else:
                             _h_final = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            _wf = _h_final.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
-                            print(f"  [pre-test] WARNING: Metal still wired={_wf:.1f}GB after 120s — proceeding", flush=True)
+                            _wf = (
+                                _h_final.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
+                            )
+                            print(
+                                f"  [pre-test] WARNING: Metal still wired={_wf:.1f}GB after 120s — proceeding",
+                                flush=True,
+                            )
                 except Exception:
                     pass
 
@@ -10484,7 +10968,7 @@ async def main() -> None:
                             )
                         ],
                         elapsed=0.0,
-                        chat_url=f"blocked://mlx-not-ready",
+                        chat_url="blocked://mlx-not-ready",
                     )
                     counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
                     continue
@@ -10500,8 +10984,7 @@ async def main() -> None:
             # actually need it. Stop it before non-ComfyUI tests to reclaim GPU
             # memory; start it (with warmup wait) before ComfyUI-dependent tests.
             needs_comfyui = (
-                test.get("requires_tool") == "portal_comfyui"
-                or test.get("skip_if") == "no_comfyui"
+                test.get("requires_tool") == "portal_comfyui" or test.get("skip_if") == "no_comfyui"
             )
             if needs_comfyui and not _comfyui_running():
                 # Bring ComfyUI up and give Metal a 30s warmup before the test
@@ -10666,7 +11149,10 @@ async def main() -> None:
     await monitor.stop()
     _crash_watcher.stop()
     if _crash_watcher.crash_log:
-        print(f"  [crash-watcher] {len(_crash_watcher.crash_log)} crash(es) detected during run:", flush=True)
+        print(
+            f"  [crash-watcher] {len(_crash_watcher.crash_log)} crash(es) detected during run:",
+            flush=True,
+        )
         for entry in _crash_watcher.crash_log:
             print(f"    {entry}", flush=True)
 
