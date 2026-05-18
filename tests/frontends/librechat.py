@@ -330,9 +330,12 @@ async def wait_for_completion(
 
     t_start = time.time()
     last_log = 0.0
-    # Capture .message-content count right now (after send_prompt, so the user
-    # message is already in the DOM). When the model responds, a new element
-    # appears — count goes above this baseline. Used by fast-completion path.
+    # Brief settle so the user message bubble has finished rendering before we
+    # snapshot the baseline count. React renders in <100ms; 300ms is plenty.
+    await asyncio.sleep(0.3)
+    # Capture .message-content count (after send_prompt, so user message is
+    # already in DOM). When the model responds a new element appears — count
+    # exceeds this baseline. Used by the fast-completion path in Phase 1.
     try:
         msg_count_start = await page.locator(".message-content").count()
     except Exception:
