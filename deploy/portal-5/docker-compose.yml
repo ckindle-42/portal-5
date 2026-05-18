@@ -858,9 +858,10 @@ services:
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_URL=http://portal-pipeline:9099/v1
       - ALLOW_REGISTRATION=true
-      - SESSION_SECRET=${WEBUI_SECRET_KEY}
-      - CREDS_KEY=${WEBUI_SECRET_KEY}
-      - CREDS_IV=${PIPELINE_API_KEY}
+      - JWT_SECRET=${LIBRECHAT_JWT_SECRET}
+      - JWT_REFRESH_SECRET=${LIBRECHAT_JWT_REFRESH_SECRET}
+      - CREDS_KEY=${LIBRECHAT_CREDS_KEY}
+      - CREDS_IV=${LIBRECHAT_CREDS_IV}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -869,10 +870,10 @@ services:
       portal-pipeline:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3080/api/health"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3080/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
-      start_period: 60s
+      start_period: 90s
       retries: 5
 
   librechat-init:
@@ -891,6 +892,7 @@ services:
       - LIBRECHAT_ADMIN_PASSWORD=${LIBRECHAT_ADMIN_PASSWORD}
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_URL=http://portal-pipeline:9099/v1
+      - PERSONAS_DIR=/personas
     volumes:
       - ../../scripts:/scripts:ro
       - ../../config/personas:/personas:ro
@@ -916,8 +918,9 @@ services:
       - OPEN_AI_KEY=${PIPELINE_API_KEY}
       - OPEN_AI_MODEL_PREF=auto
       - OPEN_MODEL_TOKEN_LIMIT=4096
-      - OPENAI_BASE_PATH=${PIPELINE_URL:-http://portal-pipeline:9099/v1}
+      - OPENAI_BASE_PATH=http://portal-pipeline:9099/v1
       - AUTH_TOKEN=${ANYTHINGLLM_ADMIN_PASSWORD}
+      - JWT_SECRET=${ANYTHINGLLM_JWT_SECRET}
       - DISABLE_TELEMETRY=true
       - VECTOR_DB=lancedb
     extra_hosts:
@@ -945,10 +948,12 @@ services:
     environment:
       - ANYTHINGLLM_URL=http://anythingllm:3001
       - ANYTHINGLLM_ADMIN_PASSWORD=${ANYTHINGLLM_ADMIN_PASSWORD}
+      - ANYTHINGLLM_DB_PATH=/storage/anythingllm.db
       - PIPELINE_API_KEY=${PIPELINE_API_KEY}
       - PIPELINE_URL=http://portal-pipeline:9099/v1
     volumes:
       - ../../scripts:/scripts:ro
+      - anythingllm-data:/storage
     command: >
       sh -c "pip install httpx pyyaml --quiet && python /scripts/anythingllm_init.py"
 
