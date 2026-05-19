@@ -661,8 +661,22 @@ def _evict_ollama_models() -> None:
             except Exception as e:
                 print(f"[big-model] failed to evict {model_name!r}: {e}", flush=True)
 
-    # Brief settle time for Ollama to release unified memory pages
-    time.sleep(3)
+    # Poll until Ollama releases unified memory pages (replaces fixed sleep).
+    baseline = _get_free_memory_gb()
+    deadline = time.time() + 15.0
+    while time.time() < deadline:
+        time.sleep(1)
+        free_now = _get_free_memory_gb()
+        if free_now >= baseline + 0.5:
+            print(
+                f"[big-model] post-Ollama-evict: {free_now:.1f}GB free "
+                f"(+{free_now - baseline:.1f}GB in {15.0 - (deadline - time.time()):.0f}s)",
+                flush=True,
+            )
+            break
+    else:
+        free_now = _get_free_memory_gb()
+        print(f"[big-model] post-Ollama-evict settle timeout — {free_now:.1f}GB free", flush=True)
     free_after = _get_free_memory_gb()
     print(f"[big-model] post-Ollama-evict free memory: {free_after:.1f} GB", flush=True)
 
@@ -672,30 +686,44 @@ def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0)
 
     On Apple Silicon, Metal GPU memory is reclaimed asynchronously after a
     process exits. Starting a new model before the old memory is released
-    causes command buffer errors (crash). We actively poll free memory
-    and wait until it stabilizes, indicating reclamation is complete.
+    causes command buffer errors (crash).
 
-    Uses STRICT free pages (not available) because inactive pages may still
-    hold Metal GPU allocations that haven't been released yet.
+    Polls every 2s starting immediately. Stability is only counted once free
+    memory has risen above the post-kill baseline — this gates out false
+    'stable' readings taken before Metal has started releasing pages.
+
+    min_wait: kept for call-site backward compat, no longer used as a blind
+    sleep. max_wait: total poll window before giving up and proceeding anyway.
     """
-    time.sleep(min_wait)  # Minimum wait for process teardown + Metal reclaim
-    free_before = _get_free_memory_gb()
+    baseline = _get_free_memory_gb()
+    print(f"[proxy] Metal reclaim watch: baseline {baseline:.1f}GB free — polling", flush=True)
+    peak = baseline
     stable_count = 0
     deadline = time.time() + max_wait
     while time.time() < deadline:
-        time.sleep(3)
+        time.sleep(2)
         free_now = _get_free_memory_gb()
-        if free_now >= free_before - 0.5:  # memory stable or increasing
+        if free_now > peak:
+            # Memory still rising — Metal actively releasing pages
+            peak = free_now
+            stable_count = 0
+            print(
+                f"[proxy] Metal reclaim active: {free_now:.1f}GB free "
+                f"(+{free_now - baseline:.1f}GB from baseline)",
+                flush=True,
+            )
+        elif free_now >= peak - 0.5 and free_now > baseline + 0.5:
+            # Memory stable AND meaningfully above baseline — reclaim complete
             stable_count += 1
             if stable_count >= 2:
                 print(
-                    f"[proxy] GPU memory reclaimed: {free_now:.1f}GB free (stable)",
+                    f"[proxy] GPU memory reclaimed: {free_now:.1f}GB free "
+                    f"(+{free_now - baseline:.1f}GB, stable)",
                     flush=True,
                 )
                 return
         else:
             stable_count = 0
-            free_before = free_now
     print(
         f"[proxy] WARNING: memory reclaim wait timed out ({max_wait}s) — "
         f"free={_get_free_memory_gb():.1f}GB, proceeding anyway",
