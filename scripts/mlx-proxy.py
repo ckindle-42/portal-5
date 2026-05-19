@@ -13,7 +13,9 @@ Switching takes ~30s for the new server to load.
 Concurrency protection: bounded thread pool prevents kernel panic under load.
   - MAX_WORKERS: max concurrent requests (default 4)
   - MAX_QUEUE: max queued requests before 503 (default 8)
-  - REQUEST_TIMEOUT: max seconds per request (default 300s)
+  - REQUEST_TIMEOUT: connect/write/pool timeout in seconds (default 30s)
+  - MLX_PROXY_INFERENCE_TIMEOUT: max seconds to wait for first streaming byte
+    during prefill (default 1800s — covers 200K token prefill on large models)
 
 Monitoring: background watchdog detects crashes, /health reports true state.
   - WATCHDOG_INTERVAL: seconds between health polls (default 15)
@@ -40,7 +42,10 @@ PROXY_PORT = 8081
 
 MAX_WORKERS = int(os.environ.get("MLX_PROXY_MAX_WORKERS", "4"))
 MAX_QUEUE = int(os.environ.get("MLX_PROXY_MAX_QUEUE", "8"))
-REQUEST_TIMEOUT = int(os.environ.get("MLX_PROXY_REQUEST_TIMEOUT", "300"))
+REQUEST_TIMEOUT = int(os.environ.get("MLX_PROXY_REQUEST_TIMEOUT", "30"))
+# Prefill for 200K tokens takes 300-600s on large models. The read timeout
+# must exceed that — it governs how long we wait for the FIRST streaming byte.
+INFERENCE_TIMEOUT = int(os.environ.get("MLX_PROXY_INFERENCE_TIMEOUT", "1800"))
 WATCHDOG_INTERVAL = int(os.environ.get("MLX_WATCHDOG_INTERVAL", "15"))
 
 # ── mlx_vlm performance tuning ──────────────────────────────────────────────
@@ -964,7 +969,7 @@ def start_server(stype: str, model: str = "") -> int:
     NOTE (mlx 0.31.2+): mlx_lm/server.py is patched to defer model loading
     to the _generate() worker thread (avoids cross-thread GPU stream errors).
     "Starting httpd" now signals HTTP-ready, not model-loaded. The model loads
-    lazily on the first inference request within the 300s REQUEST_TIMEOUT.
+    lazily on the first inference request within the INFERENCE_TIMEOUT window.
     See: mlx_lm/server.py ModelProvider.__init__ patch.
     """
     port = LM_PORT if stype == "lm" else VLM_PORT
@@ -1464,7 +1469,9 @@ class Handler(BaseHTTPRequestHandler):
         # large models (70B @ 17min) because the pipeline saw no bytes until
         # the entire generation finished. With streaming, the first SSE chunk
         # arrives at the pipeline as soon as the first token is generated.
-        with httpx.Client(timeout=REQUEST_TIMEOUT) as c:
+        with httpx.Client(
+            timeout=httpx.Timeout(REQUEST_TIMEOUT, read=INFERENCE_TIMEOUT)
+        ) as c:
             with c.stream("POST", url, content=body, headers=hdrs) as resp:
                 self.send_response(resp.status_code)
                 for k, v in resp.headers.items():
