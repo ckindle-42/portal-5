@@ -688,37 +688,46 @@ def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0)
     process exits. Starting a new model before the old memory is released
     causes command buffer errors (crash).
 
-    Polls every 2s starting immediately. Stability is only counted once free
-    memory has risen above the post-kill baseline — this gates out false
-    'stable' readings taken before Metal has started releasing pages.
+    Uses available memory (free + inactive + purgeable): Metal releases pages
+    to the inactive pool first, so strict "Pages free" never rises. Polls
+    every 2s. Stability is gated by min_wait elapsed (matching the old blind
+    sleep duration) to avoid false-positive "stable" readings taken before
+    Metal has started releasing. Once memory has stabilised for two polls AND
+    min_wait has elapsed, we proceed.
 
-    min_wait: kept for call-site backward compat, no longer used as a blind
-    sleep. max_wait: total poll window before giving up and proceeding anyway.
+    min_wait: minimum seconds before accepting a stability reading (replaces
+    the old blind sleep — same duration, now with active polling during the
+    wait). max_wait: total window before giving up and proceeding anyway.
     """
-    baseline = _get_free_memory_gb()
-    print(f"[proxy] Metal reclaim watch: baseline {baseline:.1f}GB free — polling", flush=True)
+    baseline = _get_available_memory_gb()
+    print(
+        f"[proxy] Metal reclaim watch: baseline {baseline:.1f}GB available — polling",
+        flush=True,
+    )
     peak = baseline
     stable_count = 0
-    deadline = time.time() + max_wait
+    start = time.time()
+    deadline = start + max_wait
     while time.time() < deadline:
         time.sleep(2)
-        free_now = _get_free_memory_gb()
-        if free_now > peak:
-            # Memory still rising — Metal actively releasing pages
-            peak = free_now
+        avail = _get_available_memory_gb()
+        elapsed = time.time() - start
+        if avail > peak:
+            # Available memory rising — Metal releasing pages to inactive pool
+            peak = avail
             stable_count = 0
             print(
-                f"[proxy] Metal reclaim active: {free_now:.1f}GB free "
-                f"(+{free_now - baseline:.1f}GB from baseline)",
+                f"[proxy] Metal reclaim active: {avail:.1f}GB available "
+                f"(+{avail - baseline:.1f}GB from baseline, {elapsed:.0f}s)",
                 flush=True,
             )
-        elif free_now >= peak - 0.5 and free_now > baseline + 0.5:
-            # Memory stable AND meaningfully above baseline — reclaim complete
+        elif avail >= peak - 0.5 and elapsed >= min_wait:
+            # Memory stable AND minimum settle time elapsed — safe to proceed
             stable_count += 1
             if stable_count >= 2:
                 print(
-                    f"[proxy] GPU memory reclaimed: {free_now:.1f}GB free "
-                    f"(+{free_now - baseline:.1f}GB, stable)",
+                    f"[proxy] GPU memory reclaimed: {avail:.1f}GB available "
+                    f"(+{avail - baseline:.1f}GB, stable at {elapsed:.0f}s)",
                     flush=True,
                 )
                 return
@@ -726,7 +735,7 @@ def _wait_for_gpu_memory_reclaim(min_wait: float = 10.0, max_wait: float = 60.0)
             stable_count = 0
     print(
         f"[proxy] WARNING: memory reclaim wait timed out ({max_wait}s) — "
-        f"free={_get_free_memory_gb():.1f}GB, proceeding anyway",
+        f"available={_get_available_memory_gb():.1f}GB, proceeding anyway",
         flush=True,
     )
 
