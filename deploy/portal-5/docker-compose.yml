@@ -862,6 +862,8 @@ services:
       - JWT_REFRESH_SECRET=${LIBRECHAT_JWT_REFRESH_SECRET}
       - CREDS_KEY=${LIBRECHAT_CREDS_KEY}
       - CREDS_IV=${LIBRECHAT_CREDS_IV}
+      - SESSION_EXPIRY=${LIBRECHAT_SESSION_EXPIRY:-604800000}
+      - REFRESH_TOKEN_EXPIRY=${LIBRECHAT_REFRESH_TOKEN_EXPIRY:-2592000000}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -897,7 +899,7 @@ services:
       - ../../scripts:/scripts:ro
       - ../../config/personas:/personas:ro
     command: >
-      sh -c "pip install httpx pyyaml --quiet && python /scripts/librechat_init.py --seed-only"
+      sh -c "pip install httpx pyyaml pymongo bcrypt --quiet && python /scripts/librechat_init.py --seed-only"
 
   # ── AnythingLLM — Alternative frontend (opt-in: --profile anythingllm) ────
   anythingllm:
