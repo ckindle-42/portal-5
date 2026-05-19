@@ -49,6 +49,22 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ## MLX Proxy
 
+### Single-Model Constraint: Concurrent Sessions Using Different MLX Models Cause Eviction Cycles
+- **ID**: P5-MLX-010
+- **Affects**: All frontends (Open WebUI, LibreChat) — any concurrent usage
+- **Description**: The MLX proxy holds exactly one model in GPU memory at a time. When two browser tabs (or two conversations in the same frontend) target different MLX-backed models simultaneously, every request switch evicts the current model and loads the requested one. Each eviction+reload takes **30–90s for ≤26B models, 90–180s for 32–70B models**.
+- **Trigger patterns**:
+  - OWUI: switching between two open tabs that use different workspaces (e.g., `auto-daily` → `auto-reasoning`) while both are generating
+  - LibreChat: navigating to a new conversation with `?endpoint=Portal+5&model=<workspace>` — the URL params cause background pipeline requests that can switch the loaded model even before the user sends a message
+  - Any API client making concurrent requests to two different MLX workspaces
+- **Impact**: The in-flight request on the first model is left waiting (or times out) while the proxy loads the second model. The first model reloads when that tab becomes active again. On a busy system this creates a thrashing loop where neither conversation makes progress.
+- **This is a GPU memory constraint, not a software defect.** Apple Silicon M-series chips have a single unified memory pool; MLX loads the full model into it. There is no way to partially share GPU memory across two large models simultaneously.
+- **Mitigation**:
+  1. **Use the same workspace across open tabs.** Sessions sharing one MLX model (e.g., all tabs on `auto-daily`) never trigger eviction — the model stays loaded.
+  2. **Prefer Ollama-backed workspaces for short, parallel tasks.** Ollama (GGUF models on port 11434) can hold multiple models in its cache and round-robins requests without full eviction. Good for `auto-coding`, `auto-security`, and other workspaces where conversational depth is short.
+  3. **Avoid model-switching URL params in LibreChat.** Navigate to the conversation list (`:8082`) rather than `/c/new?endpoint=Portal+5&model=<name>` bookmarks — the latter fires background prefetch requests that switch the proxy before you type.
+  4. **Single-user, sequential workflow.** The system is designed for one active MLX conversation at a time. Finishing one conversation before starting another in a different workspace avoids all eviction overhead.
+
 ### MLX Proxy Has Slow Startup (Cold Boot)
 - **ID**: P5-ROAD-MLX-001
 - **Description**: On cold boot or restart, the MLX proxy takes 60–300+ seconds to become ready while `mlx_lm.server` or `mlx_vlm.server` loads the model. The proxy returns HTTP 503 during this window — this is normal, not a crash.
@@ -124,4 +140,4 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ---
 
-*Last updated: 2026-05-14*
+*Last updated: 2026-05-19*
