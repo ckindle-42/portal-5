@@ -191,6 +191,34 @@ MODEL_KV_CONFIG: dict[str, dict] = _load_mlx_kv_config()
 if MODEL_KV_CONFIG:
     print(f"[proxy] KV config loaded for {len(MODEL_KV_CONFIG)} models", flush=True)
 
+
+def _load_mlx_chat_template_overrides() -> dict[str, str]:
+    """Read per-model chat_template_override from backends.yaml.
+    Returns {model_id: family} where family ∈ {"qwen3.5", "qwen3.6"}.
+    """
+    try:
+        with open(_backends_yaml_path()) as f:
+            cfg = yaml.safe_load(f.read())
+    except Exception:
+        return {}
+    mlx_be = next((b for b in cfg.get("backends", []) if b.get("type") == "mlx"), None)
+    if not mlx_be:
+        return {}
+    return {
+        it["id"]: str(it["chat_template_override"])
+        for it in mlx_be.get("mlx_models", [])
+        if it.get("chat_template_override")
+    }
+
+
+MODEL_CHAT_TEMPLATE_OVERRIDE: dict[str, str] = _load_mlx_chat_template_overrides()
+if MODEL_CHAT_TEMPLATE_OVERRIDE:
+    print(
+        f"[proxy] chat-template overrides loaded for "
+        f"{len(MODEL_CHAT_TEMPLATE_OVERRIDE)} models",
+        flush=True,
+    )
+
 DRAFT_MODEL_MAP: dict[str, str] = _load_draft_model_map()
 if DRAFT_MODEL_MAP:
     print(f"[proxy] speculative decoding map loaded: {len(DRAFT_MODEL_MAP)} pairs", flush=True)
@@ -994,6 +1022,39 @@ def start_server(stype: str, model: str = "") -> int:
     if stype == "vlm" and MLX_VLM_PREFILL_STEP_SIZE:
         cmd.extend(["--prefill-step-size", MLX_VLM_PREFILL_STEP_SIZE])
 
+    # ── Qwen chat-template override (TASK_QWEN_TEMPLATE_PROXY_V1) ───────────
+    # Belt-and-suspenders alongside disk patch from scripts/patch-qwen-templates.py.
+    # mlx_lm.server 0.31.3 supports --chat-template (inline string); mlx_vlm does
+    # not (disk patch is primary for vlm). See docs/QWEN_TEMPLATE_PROBE.md.
+    tpl_fam = MODEL_CHAT_TEMPLATE_OVERRIDE.get(model, "") if model else ""
+    if tpl_fam:
+        import os as _os
+
+        tpl_path = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+            "config",
+            "chat_templates",
+            tpl_fam,
+            "chat_template.jinja",
+        )
+        if _os.path.isfile(tpl_path):
+            if "--chat-template" in help_out:
+                with open(tpl_path) as _tpl_f:
+                    cmd.extend(["--chat-template", _tpl_f.read()])
+                print(
+                    f"[proxy] chat-template override applied: {tpl_fam} -> {model!r}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"[proxy] note: chat_template_override={tpl_fam} for {model!r} "
+                    f"relies on disk patch (--chat-template not supported by "
+                    f"mlx_{stype}.server)",
+                    flush=True,
+                )
+        else:
+            print(f"[proxy] WARN: vendored template missing at {tpl_path}", flush=True)
+
     # ── Speculative decoding via --draft-model (M4 Track 1) ─────────────────
     if stype == "lm" and model and DRAFT_MODEL_MAP:
         draft_model = DRAFT_MODEL_MAP.get(model, "")
@@ -1495,6 +1556,9 @@ class Handler(BaseHTTPRequestHandler):
                     "max_kv_size": eff_max_kv or None,
                     "source": kv_eff["source"],
                 }
+                state_info["chat_template_override"] = (
+                    MODEL_CHAT_TEMPLATE_OVERRIDE.get(loaded) or None
+                )
             state = state_info["state"]
             code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)
