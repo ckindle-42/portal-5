@@ -326,7 +326,7 @@ _ensure_native_services() {
 _do_down() {
     # ── Stop Docker stack ─────────────────────────────────────────────────
     cd "$COMPOSE_DIR"
-    docker compose down
+    docker compose --profile librechat --profile anythingllm --profile all-frontends down
     echo "[portal-5] Docker stack stopped."
 
     # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
@@ -831,6 +831,20 @@ except Exception as e:
         fi
         echo ""
     fi
+
+    # ── Alternative frontends (shown when any are running) ───────────────────
+    _LC=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-librechat" || echo "0")
+    _AL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-anythingllm" || echo "0")
+    if [ "$_LC" -ge 1 ] || [ "$_AL" -ge 1 ]; then
+        echo "  ALTERNATIVE FRONTENDS"
+        if [ "$_LC" -ge 1 ]; then
+            printf "    ✅  %-28s %s\n" "LibreChat" "running — http://localhost:8082"
+        fi
+        if [ "$_AL" -ge 1 ]; then
+            printf "    ✅  %-28s %s\n" "AnythingLLM" "running — http://localhost:8083"
+        fi
+        echo ""
+    fi
 }
 
 case "${1:-up}" in
@@ -850,6 +864,15 @@ case "${1:-up}" in
       echo "Initializing workspace structure..."
       mkdir -p "${WS}"/{uploads,generated/transcripts,generated/documents,generated/images,generated/videos,generated/music,generated/speech}
       chmod -R 0775 "${WS}" 2>/dev/null || true
+    fi
+
+    # Remember which alternative frontends were running so we can restore them after up
+    _ACTIVE_FRONTENDS=""
+    if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "portal5-librechat"; then
+        _ACTIVE_FRONTENDS="$_ACTIVE_FRONTENDS librechat"
+    fi
+    if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "portal5-anythingllm"; then
+        _ACTIVE_FRONTENDS="$_ACTIVE_FRONTENDS anythingllm"
     fi
 
     # Tear down any previously running stack so ports are clean before we start
@@ -957,6 +980,15 @@ case "${1:-up}" in
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose $_PROFILES up -d
+
+    # Restore any alternative frontends that were running before this up
+    if [ -n "$_ACTIVE_FRONTENDS" ]; then
+        echo "[portal-5] Restoring previously-running alternative frontends..."
+        for _fp in $_ACTIVE_FRONTENDS; do
+            echo "[portal-5]   Starting $_fp..."
+            docker compose --profile "$_fp" up -d 2>/dev/null
+        done
+    fi
 
     # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
     if [ "$(uname -m)" = "arm64" ]; then
@@ -1379,7 +1411,7 @@ __MLX_FRESHNESS__
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
 
     # Stop stack before restore
-    cd "$COMPOSE_DIR" && docker compose down 2>/dev/null; cd - > /dev/null
+    cd "$COMPOSE_DIR" && docker compose --profile librechat --profile anythingllm --profile all-frontends down 2>/dev/null; cd - > /dev/null
 
     # Restore Open WebUI data
     if [ -f "${BACKUP_PATH}/openwebui-data.tar.gz" ]; then
@@ -1728,7 +1760,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
-    docker compose down
+    docker compose --profile librechat --profile anythingllm --profile all-frontends down
 
     echo "[portal-5] Removing Open WebUI data volume..."
     # Remove only the open-webui-data volume — NOT ollama-models
@@ -1744,7 +1776,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     ;;
   clean-all)
     cd "$COMPOSE_DIR"
-    docker compose down -v --remove-orphans 2>/dev/null || true
+    docker compose --profile librechat --profile anythingllm --profile all-frontends down -v --remove-orphans 2>/dev/null || true
     docker volume rm portal-5_ollama-models 2>/dev/null || true
     echo "[portal-5] Full clean complete (all volumes removed including Ollama models)."
     echo "WARNING: Models will re-download on next up (several GB)."
@@ -1844,6 +1876,27 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     echo "[portal-5] Re-seeding AnythingLLM workspaces..."
     docker compose --profile anythingllm run --rm anythingllm-init
     echo "[portal-5] AnythingLLM seed complete."
+    ;;
+  down-librechat)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Stopping LibreChat..."
+    docker compose --profile librechat stop librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
+    docker compose --profile librechat rm -sf librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
+    echo "[portal-5] LibreChat stopped. Main stack is still running."
+    ;;
+  down-anythingllm)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Stopping AnythingLLM..."
+    docker compose --profile anythingllm stop anythingllm 2>/dev/null || true
+    docker compose --profile anythingllm rm -sf anythingllm 2>/dev/null || true
+    echo "[portal-5] AnythingLLM stopped. Main stack is still running."
+    ;;
+  down-frontends)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Stopping all alternative frontends..."
+    docker compose --profile all-frontends stop librechat librechat-mongodb librechat-meilisearch anythingllm 2>/dev/null || true
+    docker compose --profile all-frontends rm -sf librechat librechat-mongodb librechat-meilisearch anythingllm 2>/dev/null || true
+    echo "[portal-5] All alternative frontends stopped. Main stack is still running."
     ;;
   sync-readme)
     if [ ! -f "${PORTAL_ROOT}/ACCEPTANCE_RESULTS.md" ]; then
@@ -4019,7 +4072,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-all-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-all-frontends|down-librechat|down-anythingllm|down-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4052,12 +4105,15 @@ MEOF
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"
     echo "                          --yes / -y      Skip confirmation prompts"
-    echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
-  echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
-  echo "  up-all-frontends      Start both alternative frontends (LibreChat + AnythingLLM) simultaneously"
-  echo "  seed-librechat        Re-seed LibreChat presets (personas + workspaces) without restart"
-  echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
-  echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
+      echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
+    echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
+    echo "  up-all-frontends      Start both alternative frontends (LibreChat + AnythingLLM) simultaneously"
+    echo "  down-librechat        Stop LibreChat only (main stack keeps running)"
+    echo "  down-anythingllm      Stop AnythingLLM only (main stack keeps running)"
+    echo "  down-frontends        Stop all alternative frontends (main stack keeps running)"
+    echo "  seed-librechat        Re-seed LibreChat presets (personas + workspaces) without restart"
+    echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
+    echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
     echo "  up-channels           Force-start both Telegram and Slack bots"
     echo "  test                  Run end-to-end smoke tests against the live stack"
@@ -4065,7 +4121,7 @@ MEOF
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
     echo "  seed                  Re-run Open WebUI seeding (workspaces + personas + tools)"
-    echo "  logs [svc]            Tail logs (default: portal-pipeline)"
+    echo "  logs [svc]            Tail logs (default: portal-pipeline; also: librechat, anythingllm, open-webui, searxng)"
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  refresh-models        Check all models for updates (skips unchanged models)"
