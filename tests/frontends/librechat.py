@@ -29,10 +29,10 @@ request is read from pipeline logs (frontend-independent).
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import os
 import re
 import time
+import urllib.parse
 from pathlib import Path
 
 import httpx
@@ -181,88 +181,39 @@ async def start_new_chat(
     *,
     personas_map: dict[str, str] | None = None,
 ) -> str:
-    """Open a fresh conversation. Returns the current page URL."""
+    """Open a fresh conversation via URL params (model + promptPrefix).
+
+    Uses direct URL navigation instead of UI clicking so the correct model and
+    system prompt are always applied, regardless of prior session state.
+    LibreChat reads ?endpoint=, ?model=, and ?promptPrefix= on page load.
+    """
     if personas_map is None:
         personas_map = load_personas_map()
 
-    await page.goto(f"{LIBRECHAT_URL}/c/new", wait_until="domcontentloaded", timeout=30_000)
-    await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
-    await asyncio.sleep(1.0)
+    systems = getattr(load_personas_map, "_systems", {})
+    models_map = getattr(load_personas_map, "_models", {})
 
     if model_slug in personas_map:
-        try:
-            await _select_preset(page, personas_map[model_slug])
-            return page.url
-        except _PresetNotFoundError:
-            pass
-
-        systems = getattr(load_personas_map, "_systems", {})
-        models = getattr(load_personas_map, "_models", {})
-        ws_model = models.get(model_slug, "auto")
+        ws_model = models_map.get(model_slug, "auto")
         sysprompt = systems.get(model_slug, "")
-        try:
-            await _select_workspace_model(page, ws_model)
-            if sysprompt:
-                await _set_custom_instructions(page, sysprompt)
-            return page.url
-        except _CustomInstructionsNotFoundError as exc:
-            raise PresetUnreachableError(
-                f"persona '{model_slug}' preset not visible and Custom Instructions UI not found: {exc}"
-            ) from exc
     else:
-        await _select_workspace_model(page, model_slug)
-        return page.url
+        ws_model = model_slug
+        sysprompt = ""
+
+    params: list[tuple[str, str]] = [("endpoint", "Portal 5"), ("model", ws_model)]
+    if sysprompt:
+        params.append(("promptPrefix", sysprompt))
+
+    url = f"{LIBRECHAT_URL}/c/new?{urllib.parse.urlencode(params)}"
+    await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
+    await asyncio.sleep(1.0)
+    return page.url
 
 
 class PresetUnreachableError(RuntimeError):
     pass
 
-
-class _PresetNotFoundError(RuntimeError):
-    pass
-
-
-class _CustomInstructionsNotFoundError(RuntimeError):
-    pass
-
-
-async def _select_preset(page, preset_title: str) -> None:
-    preset_btn = page.locator('#presets-button, button[aria-label=" Presets"]').first
-    try:
-        await preset_btn.click(timeout=5000)
-    except Exception as exc:
-        raise _PresetNotFoundError(f"Presets button not clickable: {exc}") from exc
-    await asyncio.sleep(0.5)
-    try:
-        await page.get_by_text(preset_title, exact=False).first.click(timeout=5000)
-    except Exception as exc:
-        raise _PresetNotFoundError(f"preset row '{preset_title}' not clickable: {exc}") from exc
-    await asyncio.sleep(0.5)
-
-
-async def _select_workspace_model(page, model_slug: str) -> None:
-    model_btn = page.locator('button[aria-label="Select a model"]').first
-    try:
-        await model_btn.click(timeout=5000)
-    except Exception:
-        try:
-            await page.locator('button[aria-label*="model" i]').first.click(timeout=5000)
-        except Exception as exc:
-            raise RuntimeError(f"model picker not clickable: {exc}") from exc
-    await asyncio.sleep(0.5)
-    try:
-        await page.get_by_text(model_slug, exact=True).first.click(timeout=5000)
-    except Exception:
-        with contextlib.suppress(Exception):
-            await page.get_by_text(model_slug, exact=False).first.click(timeout=5000)
-    await asyncio.sleep(0.5)
-
-
-async def _set_custom_instructions(page, sysprompt: str) -> None:
-    raise _CustomInstructionsNotFoundError(
-        "LibreChat v0.8.6-rc1 does not have a per-conversation system-prompt textarea. "
-        "Use preset-based persona selection instead."
-    )
 
 
 # ── Send ──────────────────────────────────────────────────────────────────────
@@ -552,8 +503,8 @@ async def download_artifact(
             except Exception:
                 pass
 
-    # Try 3: docker cp for container-local paths
-    container_pat = rf"/app/data/generated/\S+\.{re.escape(expected_ext)}"
+    # Try 3: docker cp for container-local paths (/app/data or /workspace)
+    container_pat = rf"(?:/app/data/generated|/workspace/generated)/\S+\.{re.escape(expected_ext)}"
     match = re.search(container_pat, response_text)
     if match:
         container_path = match.group(0)
