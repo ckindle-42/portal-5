@@ -882,7 +882,18 @@ case "${1:-up}" in
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
     cd "$COMPOSE_DIR"
-    docker compose pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
+    # Quick env source to detect configured frontends for profile-aware pull
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    _lc_configured() { [ -n "${LIBRECHAT_ADMIN_PASSWORD:-}" ] && [ "${LIBRECHAT_ADMIN_PASSWORD}" != "CHANGEME" ]; }
+    _al_configured() { [ -n "${ANYTHINGLLM_ADMIN_PASSWORD:-}" ] && [ "${ANYTHINGLLM_ADMIN_PASSWORD}" != "CHANGEME" ]; }
+    _PULL_PROFILES=""
+    _lc_configured && _PULL_PROFILES="$_PULL_PROFILES --profile librechat"
+    _al_configured && _PULL_PROFILES="$_PULL_PROFILES --profile anythingllm"
+    # Also pull for any previously-active frontends (restore path) so their images stay current
+    for _fp in $_ACTIVE_FRONTENDS; do
+        echo "$_PULL_PROFILES" | grep -q -- "--profile $_fp" || _PULL_PROFILES="$_PULL_PROFILES --profile $_fp"
+    done
+    docker compose $_PULL_PROFILES pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services
@@ -956,6 +967,24 @@ case "${1:-up}" in
         echo "WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}" >> "$ENV_FILE"
     fi
 
+    # Derive listen addresses for optional frontends — tracks ENABLE_REMOTE_ACCESS same as OWUI
+    if _lc_configured || echo "$_ACTIVE_FRONTENDS" | grep -q librechat; then
+        export LIBRECHAT_LISTEN_ADDR="${WEBUI_LISTEN_ADDR}"
+        if grep -q "^LIBRECHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+            sed -i.bak "s|^LIBRECHAT_LISTEN_ADDR=.*|LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+        else
+            echo "LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}" >> "$ENV_FILE"
+        fi
+    fi
+    if _al_configured || echo "$_ACTIVE_FRONTENDS" | grep -q anythingllm; then
+        export ANYTHINGLLM_LISTEN_ADDR="${WEBUI_LISTEN_ADDR}"
+        if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+            sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+        else
+            echo "ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}" >> "$ENV_FILE"
+        fi
+    fi
+
     if [ -n "${PORTAL_PUBLIC_URL:-}" ]; then
         _BASE="${PORTAL_PUBLIC_URL%/}"
         export MUSIC_PUBLIC_URL="${_BASE}/files/music"
@@ -976,16 +1005,36 @@ case "${1:-up}" in
         _PROFILES="$_PROFILES --profile slack"
         echo "[portal-5] Slack tokens configured — including Slack bot"
     fi
+    if _lc_configured; then
+        cd "$PORTAL_ROOT"
+        python3 -c "
+import sys; sys.path.insert(0, 'scripts')
+from frontend_seeder.adapters.librechat import generate_librechat_yaml
+from pathlib import Path
+generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
+" 2>/dev/null || echo "  [warn] LibreChat config gen skipped — using committed config"
+        cd "$COMPOSE_DIR"
+        _PROFILES="$_PROFILES --profile librechat"
+        echo "[portal-5] LibreChat configured — including in stack"
+    fi
+    if _al_configured; then
+        _PROFILES="$_PROFILES --profile anythingllm"
+        echo "[portal-5] AnythingLLM configured — including in stack"
+    fi
 
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose $_PROFILES up -d
 
     # Restore any alternative frontends that were running before this up
+    # (skips any already managed via ENABLE_LIBRECHAT/ENABLE_ANYTHINGLLM above)
     if [ -n "$_ACTIVE_FRONTENDS" ]; then
-        echo "[portal-5] Restoring previously-running alternative frontends..."
         for _fp in $_ACTIVE_FRONTENDS; do
-            echo "[portal-5]   Starting $_fp..."
+            if echo "$_PROFILES" | grep -q -- "--profile $_fp"; then
+                continue
+            fi
+            echo "[portal-5] Restoring previously-running frontend: $_fp"
+            echo "  Tip: set the $_fp credentials in .env to have it start automatically."
             docker compose --profile "$_fp" up -d 2>/dev/null
         done
     fi
