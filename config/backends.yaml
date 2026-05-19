@@ -252,10 +252,7 @@ backends:
         big_model: false
         is_vlm: true
         supports_tools: true
-        kv_bits: "4.5"
-        kv_quant_scheme: turboquant
-        max_kv_size: 131072
-        notes: "Gemma 4 26B-A4B 4-bit MoE (~13GB, Apache 2.0, multimodal). V5 vision ladder — fastest variant, decode bound on 4B active. TurboQuant (4.5-bit KV) promoted: baseline bench confirms 131K OK (30 TPS), 200K fails at timeout; KV-quant targets 200K reachability."
+        notes: "Gemma 4 26B-A4B 4-bit MoE (~13GB, Apache 2.0, multimodal). V5 vision ladder — fastest variant, decode bound on 4B active. bench_kv_longctx 2026-05-19: baseline 131K=30TPS OK, 200K FAIL (502@300s). TurboQuant 4.5-bit tested and REVERTED: KV dequant overhead on MoE causes 71% TPS loss at 32K and 91% at 131K; 200K still fails. No KV quant for this model."
       # ── V5: Creative ladder (auto-creative abliterated candidate) ──────────
       - id: mlx-community/gemma-4-26B-A4B-it-heretic-4bit
         memory_gb: 13
