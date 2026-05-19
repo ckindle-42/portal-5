@@ -114,10 +114,20 @@ def _make_synthetic_prompt(target_tokens: int) -> str:
 
 
 def _probe_health() -> dict:
-    """Read mlx-proxy /health. Returns dict with at least 'state' and 'memory'."""
+    """Read mlx-proxy /health. Returns dict with at least 'state' and 'memory'.
+
+    Normalises the proxy's nested memory.current structure into a flat
+    'used_gb' field so the rest of the bench can read it uniformly.
+    """
     try:
         r = httpx.get(f"{MLX_URL}/health", timeout=5.0)
-        return r.json()
+        d = r.json()
+        cur = (d.get("memory") or {}).get("current") or {}
+        total = cur.get("total_gb", 0.0)
+        pct = cur.get("used_pct", 0.0)
+        if total and pct:
+            (d.setdefault("memory", {}))["used_gb"] = round(total * pct / 100, 1)
+        return d
     except Exception as e:
         return {"state": "unreachable", "error": str(e)}
 
