@@ -450,7 +450,10 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
         h = _mlx_health()
         state = h.get("state", "unknown")
         # "none" = proxy is up, no model loaded (on-demand loading is normal)
-        return state in ("ready", "switching", "none"), f"mlx={state}"
+        # "loading" = model switch in progress (30-90s for large models); treat
+        # as alive so wait_for_completion doesn't bail out mid-tool-loop.
+        # max_wait_no_progress caps the total wait if loading never completes.
+        return state in ("ready", "switching", "none", "loading"), f"mlx={state}"
     if tier == "ollama":
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
