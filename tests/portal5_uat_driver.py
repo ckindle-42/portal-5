@@ -9564,6 +9564,13 @@ async def _run_two_chat_test(
         # Chat 1
         if FRONTEND_MODE == "openwebui":
             await _navigate_to_chat(page, chat1_url)
+        elif FRONTEND_MODE == "librechat":
+            # Both _fe_start_chat calls navigate to /c/new?... so after chat2's
+            # call the page has moved away from chat1. Re-navigate to chat1_url
+            # (still a fresh /c/new page) to get proper cross-session isolation.
+            await page.goto(chat1_url, wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
+            await asyncio.sleep(1.0)
         # Note: do NOT call _enable_tool here. The portal pipeline injects
         # and dispatches tools internally for auto-daily (and any workspace
         # with effective_tools). Enabling the tool in OWUI causes OWUI to
@@ -9590,8 +9597,29 @@ async def _run_two_chat_test(
 
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
+
+        # For LibreChat/MLX: the proxy may have switched models during the
+        # inter-chat sleep (background health checks or other requests). Re-check
+        # readiness with the expected model before navigating to Chat 2.
+        if FRONTEND_MODE == "librechat" and tier in ("mlx_large", "mlx_small"):
+            _wait_for_mlx_ready(test_id, expected_model=test.get("mlx_model"))
+
         if FRONTEND_MODE == "openwebui":
             await _navigate_to_chat(page, chat2_url)
+        elif FRONTEND_MODE == "librechat":
+            # Navigate to a fresh /c/new page for true cross-session isolation.
+            await page.goto(chat2_url, wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
+            await asyncio.sleep(1.0)
+
+        # For LibreChat/MLX: the page navigation above fires background
+        # prefetch requests that can switch the MLX proxy off the test model.
+        # Wait 5s for those requests to land, then re-verify the correct model
+        # is loaded before submitting Chat 2's prompt.
+        if FRONTEND_MODE == "librechat" and tier in ("mlx_large", "mlx_small"):
+            await asyncio.sleep(5)
+            _wait_for_mlx_ready(test_id, expected_model=test.get("mlx_model"))
+
         await _fe_send_and_wait(
             page,
             test["turn2_in_new_chat"],

@@ -24,3 +24,11 @@
 | 8. gate | PASS | 14:27Z | 14:27Z | — | — | wired=2.5GB inactive=15.9GB after 70s |
 | 8. gate | PASS | 15:45Z | 15:45Z | — | — | wired=1.9GB inactive=11.7GB after 70s |
 | 8. gate | PASS | 16:45Z | 16:45Z | — | — | wired=1.8GB inactive=12.5GB after 70s |
+| 1. gate | PASS | 19:39Z | 19:39Z | — | — | wired=0.0GB inactive=0.0GB after 70s |
+| 2. gate | PASS | 21:58Z | 21:58Z | — | — | wired=2.8GB inactive=17.2GB after 70s |
+| 3. gate | PASS | 23:49Z | 23:49Z | — | — | wired=0.0GB inactive=0.0GB after 200s |
+| 4. gate | PASS | 01:34Z | 01:34Z | — | — | wired=2.8GB inactive=4.9GB after 140s |
+| 5. gate | PASS | 02:08Z | 02:08Z | — | — | wired=0.0GB inactive=0.0GB after 200s |
+| 6. gate | PASS | 02:21Z | 02:21Z | — | — | wired=3.4GB inactive=6.9GB after 70s |
+| 7. gate | PASS | 03:23Z | 03:23Z | — | — | wired=0.0GB inactive=0.0GB after 320s |
+| 8. gate | PASS | 04:21Z | 04:21Z | — | — | wired=0.0GB inactive=0.0GB after 200s |

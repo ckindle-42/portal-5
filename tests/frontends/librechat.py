@@ -369,6 +369,10 @@ def _extract_text_from_message(msg: dict) -> str:
     response in content[*] as {type: "text", text: "..."} parts mixed with
     {type: "think", think: "..."} reasoning blocks.  We collect the text
     parts, skip thinking-leak artifacts, and join them.
+
+    Fallback: if only think blocks exist (pipeline stripped the <think> wrapper
+    but LibreChat stored the content under type="think"), return the think
+    content so assertions can still find keywords like aurora-7 / hex-lantern.
     """
     text = msg.get("text", "")
     if text.strip():
@@ -380,18 +384,30 @@ def _extract_text_from_message(msg: dict) -> str:
 
     if isinstance(content, list):
         parts: list[str] = []
+        think_parts: list[str] = []
         for part in content:
-            if not isinstance(part, dict) or part.get("type") != "text":
+            if not isinstance(part, dict):
                 continue
-            t = part.get("text", "")
-            stripped = t.strip()
-            if not stripped:
-                continue
-            if any(stripped.startswith(a) for a in _THINK_ARTIFACTS):
-                continue
-            parts.append(t)
+            ptype = part.get("type", "")
+            if ptype == "text":
+                t = part.get("text", "")
+                stripped = t.strip()
+                if not stripped:
+                    continue
+                if any(stripped.startswith(a) for a in _THINK_ARTIFACTS):
+                    continue
+                parts.append(t)
+            elif ptype == "think":
+                t = part.get("think", "")
+                if t.strip():
+                    think_parts.append(t)
         if parts:
             return "".join(parts)
+        # No text blocks — fall back to think content.  Gemma-4 sometimes puts
+        # the entire answer in a reasoning block when the pipeline emits content
+        # as reasoning_content and LibreChat stores it with type="think".
+        if think_parts:
+            return "".join(think_parts)
 
     return ""
 
