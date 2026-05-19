@@ -46,7 +46,10 @@ backends:
         big_model: true
         is_vlm: false
         supports_tools: true
-        notes: "Primary coder: 80B MoE 4bit, 3B active (~46GB, 256k ctx, BIG_MODEL)"
+        kv_bits: "4"
+        kv_quant_scheme: turboquant
+        max_kv_size: 65536
+        notes: "Primary coder: 80B MoE 4bit, 3B active (~46GB, 256k ctx, BIG_MODEL). KV-quant promoted by TASK_KV_PROMOTE_V1; max_kv_size overrides BIG_MODEL_CTX env default for this entry (bench-conservative on 64GB, update from bench_kv_long_context.py when mlx_lm gains --kv-bits)."
       - id: mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit
         memory_gb: 22
         big_model: false
@@ -71,7 +74,10 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~15GB) — mlx-community Apple-Silicon conversion of zai-org/GLM-4.7-Flash. Z.AI lineage (escapes Qwen+Gemma duopoly). 59.2% SWE-bench, 79.5% τ²-Bench tool use, 200K ctx. PRIMARY for auto-coding."
+        kv_bits: "4"
+        kv_quant_scheme: turboquant
+        max_kv_size: 131072
+        notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~15GB) — mlx-community Apple-Silicon conversion of zai-org/GLM-4.7-Flash. Z.AI lineage (escapes Qwen+Gemma duopoly). 59.2% SWE-bench, 79.5% τ²-Bench tool use, 200K ctx. PRIMARY for auto-coding. KV-quant promoted by TASK_KV_PROMOTE_V1 (max_kv_size conservative; update from bench_kv_long_context.py when mlx_lm gains --kv-bits)."
       - id: mlx-community/Dolphin3.0-Llama3.1-8B-8bit
         memory_gb: 9
         big_model: false
@@ -103,7 +109,10 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "IBM Granite 4.1 30B mxfp4 DENSE (~15GB, Apache 2.0). PRIMARY auto-compliance candidate per V4 D6 — drops precision (4-bit) for ~14-16 TPS while preserving 30B dense architecture for S10c structural form. PROMOTION GATED on smoke PASS + S10c >= 70% PASS."
+        kv_bits: "4"
+        kv_quant_scheme: turboquant
+        max_kv_size: 131072
+        notes: "IBM Granite 4.1 30B mxfp4 DENSE (~15GB, Apache 2.0). PRIMARY auto-compliance candidate per V4 D6 — drops precision (4-bit) for ~14-16 TPS while preserving 30B dense architecture for S10c structural form. PROMOTION GATED on smoke PASS + S10c >= 70% PASS. KV-quant promoted by TASK_KV_PROMOTE_V1 — compliance prompts carry long policy text + citations."
       - id: mlx-community/granite-4.1-30b-mxfp8
         memory_gb: 30
         big_model: false
@@ -149,7 +158,10 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "Reasoning primary: 27B v3 8bit (~22GB, v3 structural alignment)"
+        kv_bits: "4"
+        kv_quant_scheme: turboquant
+        max_kv_size: 65536
+        notes: "Reasoning primary: 27B v3 8bit (~22GB, v3 structural alignment). KV-quant promoted by TASK_KV_PROMOTE_V1 — thinking chains amplify KV pressure; 4-bit KV recovers headroom for predict_limit=32768 workloads."
       - id: Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit
         memory_gb: 14
         big_model: false
@@ -161,7 +173,10 @@ backends:
         big_model: false
         is_vlm: false
         supports_tools: true
-        notes: "Data analysis: R1 Distill Qwen 32B 8bit (~34GB)"
+        kv_bits: "4"
+        kv_quant_scheme: turboquant
+        max_kv_size: 32768
+        notes: "Data analysis: R1 Distill Qwen 32B 8bit (~34GB). KV-quant promoted by TASK_KV_PROMOTE_V1 — R1 thinking-chain growth is the worst KV-pressure class at 8-bit weights; max_kv_size conservative given 34GB model footprint."
       - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit
         memory_gb: 18
         big_model: false
@@ -200,7 +215,10 @@ backends:
         big_model: false
         is_vlm: true
         supports_tools: false
-        notes: "Primary VLM: Gemma 4 dense 31B 4bit (~18GB, thinking+vision, 256K ctx)"
+        kv_bits: "4.5"
+        kv_quant_scheme: turboquant
+        max_kv_size: 131072
+        notes: "Primary VLM: Gemma 4 dense 31B 4bit (~18GB, thinking+vision, 256K ctx). TurboQuant (4.5-bit KV) promoted by TASK_KV_PROMOTE_V1 — this is the original target of the MLX_VLM_KV_BITS plumbing; per-model YAML overrides the env var. max_kv_size conservative; update from bench_kv_long_context.py."
       - id: mlx-community/Qwen3-VL-32B-Instruct-8bit
         memory_gb: 36
         big_model: true
