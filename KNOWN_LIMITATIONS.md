@@ -79,6 +79,12 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 - **Description**: `mlx_lm` does not ship a Laguna architecture. Two plugin files are manually installed: `models/laguna.py` and `tool_parsers/laguna.py`. These are overwritten by any `mlx_lm` upgrade.
 - **Mitigation**: After any `mlx_lm` upgrade, run `scripts/patch-mlx-threads.py` — it reinstalls the Laguna plugin files alongside the thread-local stream fix. Do not upgrade `mlx_lm` without re-running the patch.
 
+### Qwen 3.5 / 3.6 Chat-Template Patch Is Lost on Re-Download
+- **ID**: P5-QWEN-TPL-001
+- **Description**: Qwen 3.5 and 3.6 official chat templates use Python-only Jinja filters (`|items`, `|safe`) that crash on `mlx_lm.server` / `mlx_vlm.server` when tool calls are emitted. Portal 5 vendors fixed templates from `huggingface.co/froggeric/Qwen-Fixed-Chat-Templates` at `config/chat_templates/`. Models opt in via `chat_template_override:` in `config/backends.yaml`, and the patch is applied to each model directory by `scripts/patch-qwen-templates.py`. The proxy also injects `--chat-template` at server start for mlx_lm models as belt-and-suspenders.
+- **Impact**: Running `huggingface-cli download` against a patched model overwrites `chat_template.jinja` with the broken upstream version. The `.portal5-backup` sidecar stays in place, but the patch must be re-applied. `pull-mlx-models` runs the patcher automatically after download; standalone `huggingface-cli` calls do not.
+- **Mitigation**: After any `huggingface-cli download` or `./launch.sh pull-mlx-models` run, `./launch.sh patch-qwen-templates` can be run explicitly. The patcher is idempotent — re-running is safe when nothing has drifted. To revert one model: `./scripts/patch-qwen-templates.py --rollback <model_id>`.
+
 ### Deployed MLX Proxy Can Become Stale
 - **ID**: P5-ROAD-MLX-002
 - **Description**: `./launch.sh up` starts the MLX proxy from `~/.portal5/mlx/mlx-proxy.py`, a copy deployed by `./launch.sh install-mlx`. If `scripts/mlx-proxy.py` is updated but `install-mlx` is not re-run, the deployed copy is stale.

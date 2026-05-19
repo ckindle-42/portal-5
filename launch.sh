@@ -4044,6 +4044,17 @@ snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index
     echo "  Embedding chat_template.jinja into tokenizer_config.json for tool-calling support..."
     python3 "$(dirname "$0")/scripts/patch-mlx-templates.py"
     echo ""
+
+    echo "=== Patching Qwen 3.5/3.6 chat templates ==="
+    echo "  Replacing broken |items/|safe templates with froggeric-fixed versions..."
+    python3 "$(dirname "$0")/scripts/patch-qwen-templates.py"
+    echo ""
+    ;;
+
+  patch-qwen-templates)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Patching Qwen chat templates in MLX model dirs..."
+    python3 "$(dirname "$0")/scripts/patch-qwen-templates.py" "${@:2}"
     ;;
 
   import-gguf)
@@ -4139,6 +4150,7 @@ MEOF
     echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm + mlx-audio) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
+  echo "  patch-qwen-templates  Patch Qwen 3.5/3.6 chat templates per backends.yaml overrides (run after pull-mlx-models)"
     echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
     echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
     echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
