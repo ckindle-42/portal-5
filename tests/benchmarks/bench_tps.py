@@ -1093,6 +1093,7 @@ def _init_output(
         "cooldown_s": args.cooldown,
         "runs_per_model": args.runs,
         "spec_decoding": args.spec_decoding_tag or "unspecified",
+        "kv_quant_tag": args.kv_quant_tag or "unspecified",
         "total_wall_time_s": 0,
         "hardware": hw,
         "config_summary": {
@@ -2579,6 +2580,13 @@ def main() -> None:
         type=str,
         default="",
         help="Label this run as 'spec_decoding=on/off' for later comparison (M4 Track 1)",
+    )
+    parser.add_argument(
+        "--kv-quant-tag",
+        default="",
+        help="Label appended to output JSON tagging the KV-quant configuration "
+             "active during the run (e.g. 'off', 'lm-kv4.5', 'vlm-kv4.5'). "
+             "Used for before/after comparison across TASK_KV_PROMOTE_V1 runs.",
     )
     args = parser.parse_args()
 
