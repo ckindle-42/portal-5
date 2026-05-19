@@ -34,7 +34,6 @@ endpoints:
     titleConvo: true
     titleModel: auto
     modelDisplayLabel: Portal 5
-    iconURL: https://raw.githubusercontent.com/ckindle-42/portal-5/main/docs/portal5-icon.png
 mcpServers:
   portal-comfyui:
     url: http://host.docker.internal:8910/mcp

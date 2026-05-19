@@ -1926,6 +1926,15 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     docker compose --profile anythingllm run --rm anythingllm-init
     echo "[portal-5] AnythingLLM seed complete."
     ;;
+  librechat-reset)
+    cd "$COMPOSE_DIR"
+    echo "[portal-5] Resetting LibreChat user database (preserves conversations/data volumes)..."
+    echo "  This clears the MongoDB users collection so the new .env password takes effect."
+    docker compose --profile librechat stop librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
+    docker compose --profile librechat rm -sf librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
+    docker volume rm portal-5_librechat-mongodb 2>/dev/null || docker volume rm portal5_librechat-mongodb 2>/dev/null || true
+    echo "[portal-5] MongoDB volume removed. Run './launch.sh up-librechat' to re-initialize with the new password."
+    ;;
   down-librechat)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping LibreChat..."
@@ -4157,6 +4166,7 @@ MEOF
       echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
     echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
     echo "  up-all-frontends      Start both alternative frontends (LibreChat + AnythingLLM) simultaneously"
+    echo "  librechat-reset       Reset LibreChat MongoDB (use after changing LIBRECHAT_ADMIN_PASSWORD in .env)"
     echo "  down-librechat        Stop LibreChat only (main stack keeps running)"
     echo "  down-anythingllm      Stop AnythingLLM only (main stack keeps running)"
     echo "  down-frontends        Stop all alternative frontends (main stack keeps running)"

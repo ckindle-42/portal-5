@@ -60,7 +60,6 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
                     "titleConvo": True,
                     "titleModel": "auto",
                     "modelDisplayLabel": "Portal 5",
-                    "iconURL": "https://raw.githubusercontent.com/ckindle-42/portal-5/main/docs/portal5-icon.png",
                 }
             ]
         },
@@ -97,6 +96,32 @@ async def _get_token(client: httpx.AsyncClient) -> str:
     if r.status_code != 200:
         raise RuntimeError(f"LibreChat login failed: {r.status_code} {r.text[:200]}")
     return r.json()["token"]
+
+
+def _reset_password_via_mongo() -> bool:
+    """Reset admin password directly in MongoDB when .env password has changed."""
+    try:
+        import bcrypt
+        import pymongo
+    except ImportError:
+        return False
+    try:
+        client = pymongo.MongoClient("mongodb://librechat-mongodb:27017/LibreChat", serverSelectionTimeoutMS=5000)
+        db = client["LibreChat"]
+        hashed = bcrypt.hashpw(LIBRECHAT_ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
+        result = db.users.update_one(
+            {"email": LIBRECHAT_ADMIN_EMAIL},
+            {"$set": {"password": hashed}},
+        )
+        client.close()
+        if result.modified_count > 0:
+            print(f"  [librechat] Password updated in MongoDB for {LIBRECHAT_ADMIN_EMAIL}")
+            return True
+        print(f"  [librechat] No user found in MongoDB for {LIBRECHAT_ADMIN_EMAIL}")
+        return False
+    except Exception as e:
+        print(f"  [librechat] MongoDB password reset failed: {e}")
+        return False
 
 
 async def _register_admin(client: httpx.AsyncClient) -> None:
@@ -190,7 +215,19 @@ async def seed() -> None:
         print("[librechat] Registering admin account...")
         await _register_admin(client)
         print("[librechat] Logging in...")
-        token = await _get_token(client)
+        try:
+            token = await _get_token(client)
+        except RuntimeError as e:
+            if "login failed" in str(e).lower():
+                print(f"  [librechat] Login failed — .env password may have changed. Attempting MongoDB reset...")
+                if _reset_password_via_mongo():
+                    token = await _get_token(client)
+                else:
+                    print("  [librechat] ERROR: Could not reset password. To recover, run:", file=sys.stderr)
+                    print("    ./launch.sh librechat-reset", file=sys.stderr)
+                    raise
+            else:
+                raise
         print("[librechat] Seeding presets...")
         await _seed_presets(client, token)
     print("[librechat] Seeding complete.")
