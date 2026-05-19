@@ -236,3 +236,124 @@ class TestVLMAdmissionCredit:
         # The debug assertion in ensure_server() checks needs_vlm(loaded_model) agrees
         expected = "vlm" if proxy_module.needs_vlm(vlm_model) else "lm"
         assert state.active_server == expected
+
+
+# ── TASK_KV_PROXY_V1 tests ────────────────────────────────────────────────────
+
+
+class TestKVResolver:
+    """Tests for _resolve_kv_config() precedence: per-model > env > off."""
+
+    def test_resolve_off_by_default(self, proxy_module):
+        """No env, no YAML field → source=off, bits empty, max_kv_size=0."""
+        proxy_module.MODEL_KV_CONFIG.clear()
+        orig_lm = proxy_module.MLX_LM_KV_BITS
+        orig_vlm = proxy_module.MLX_VLM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = ""
+        proxy_module.MLX_VLM_KV_BITS = ""
+        try:
+            r = proxy_module._resolve_kv_config("lm", "any-model")
+            assert r["source"] == "off"
+            assert r["bits"] == ""
+            assert r["max_kv_size"] == 0
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig_lm
+            proxy_module.MLX_VLM_KV_BITS = orig_vlm
+
+    def test_resolve_env_lm(self, proxy_module):
+        """MLX_LM_KV_BITS set → source=env, bits matches env."""
+        proxy_module.MODEL_KV_CONFIG.clear()
+        orig = proxy_module.MLX_LM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = "4.5"
+        try:
+            r = proxy_module._resolve_kv_config("lm", "any-model")
+            assert r["source"] == "env"
+            assert r["bits"] == "4.5"
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig
+
+    def test_resolve_per_model_overrides_env(self, proxy_module):
+        """Per-model YAML wins over env."""
+        orig = proxy_module.MLX_LM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = "4.5"
+        proxy_module.MODEL_KV_CONFIG["mlx-community/foo"] = {
+            "kv_bits": "4",
+            "max_kv_size": 65536,
+        }
+        try:
+            r = proxy_module._resolve_kv_config("lm", "mlx-community/foo")
+            assert r["source"] == "per_model"
+            assert r["bits"] == "4"
+            assert r["max_kv_size"] == 65536
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig
+            proxy_module.MODEL_KV_CONFIG.pop("mlx-community/foo", None)
+
+    def test_resolve_vlm_reads_vlm_env(self, proxy_module):
+        """vlm server type reads MLX_VLM_KV_BITS, not MLX_LM_KV_BITS."""
+        proxy_module.MODEL_KV_CONFIG.clear()
+        orig_lm = proxy_module.MLX_LM_KV_BITS
+        orig_vlm = proxy_module.MLX_VLM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = "4"
+        proxy_module.MLX_VLM_KV_BITS = "4.5"
+        try:
+            r_lm = proxy_module._resolve_kv_config("lm", "any")
+            r_vlm = proxy_module._resolve_kv_config("vlm", "any")
+            assert r_lm["bits"] == "4"
+            assert r_vlm["bits"] == "4.5"
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig_lm
+            proxy_module.MLX_VLM_KV_BITS = orig_vlm
+
+    def test_resolve_max_kv_from_per_model_no_bits(self, proxy_module):
+        """max_kv_size on per-model entry surfaces even when kv_bits is absent."""
+        proxy_module.MODEL_KV_CONFIG["mlx-community/bar"] = {"max_kv_size": 131072}
+        orig = proxy_module.MLX_LM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = ""
+        try:
+            r = proxy_module._resolve_kv_config("lm", "mlx-community/bar")
+            assert r["max_kv_size"] == 131072
+            assert r["bits"] == ""
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig
+            proxy_module.MODEL_KV_CONFIG.pop("mlx-community/bar", None)
+
+    def test_load_mlx_kv_config_parses_fields(self, tmp_path, proxy_module, monkeypatch):
+        """_load_mlx_kv_config picks up kv_bits / kv_quant_scheme / max_kv_size."""
+        yaml_text = """
+backends:
+  - id: mlx-test
+    type: mlx
+    url: "http://x"
+    group: mlx
+    mlx_models:
+      - id: model-without-kv
+        memory_gb: 5
+      - id: model-with-kv
+        memory_gb: 15
+        kv_bits: "4.5"
+        kv_quant_scheme: turboquant
+        max_kv_size: 65536
+"""
+        p = tmp_path / "backends.yaml"
+        p.write_text(yaml_text)
+        monkeypatch.setattr(proxy_module, "_backends_yaml_path", lambda: str(p))
+        cfg = proxy_module._load_mlx_kv_config()
+        assert "model-without-kv" not in cfg
+        assert cfg["model-with-kv"]["kv_bits"] == "4.5"
+        assert cfg["model-with-kv"]["max_kv_size"] == 65536
+
+    def test_backward_compat_empty_env_is_off(self, proxy_module):
+        """With empty env vars and no YAML fields, resolver returns source=off."""
+        proxy_module.MODEL_KV_CONFIG.clear()
+        orig_lm = proxy_module.MLX_LM_KV_BITS
+        orig_vlm = proxy_module.MLX_VLM_KV_BITS
+        proxy_module.MLX_LM_KV_BITS = ""
+        proxy_module.MLX_VLM_KV_BITS = ""
+        try:
+            r = proxy_module._resolve_kv_config("lm", "mlx-community/GLM-4.7-Flash-4bit")
+            assert r["source"] == "off"
+            assert r["bits"] == ""
+        finally:
+            proxy_module.MLX_LM_KV_BITS = orig_lm
+            proxy_module.MLX_VLM_KV_BITS = orig_vlm

@@ -21,11 +21,24 @@ backends:
     # to `models: [id]` for routing. mlx-proxy.py reads memory_gb/big_model/is_vlm
     # for admission control. Add a model here — it appears everywhere automatically.
     # Fields:
-    #   id:             full HuggingFace model path
-    #   memory_gb:      estimated peak VRAM (weights + KV cache at default ctx)
-    #   big_model:      true = requires full-evict load sequence (see BIG_MODEL_CTX)
-    #   is_vlm:         true = requires mlx_vlm server (port 8082), false = mlx_lm
-    #   supports_tools: true = model reliably handles OpenAI tools schema in mlx_lm
+    #   id:               full HuggingFace model path
+    #   memory_gb:        estimated peak VRAM (weights + KV cache at default ctx)
+    #   big_model:        true = requires full-evict load sequence (see BIG_MODEL_CTX)
+    #   is_vlm:           true = requires mlx_vlm server (port 8082), false = mlx_lm
+    #   supports_tools:   true = model reliably handles OpenAI tools schema in mlx_lm
+    #   kv_bits:          (optional) KV-cache quantization bits. Fractional values
+    #                     (e.g. "4.5") auto-enable TurboQuant on mlx_vlm. Overrides
+    #                     MLX_LM_KV_BITS / MLX_VLM_KV_BITS env defaults for this model.
+    #                     Absent = use env-var default. Note: mlx_lm 0.31.3 does not
+    #                     support --kv-bits yet; field is forward-compatible wiring only.
+    #   kv_quant_scheme:  (optional) KV-quant scheme. Default "turboquant".
+    #   max_kv_size:      (optional) max KV-cache size in tokens. Caps usable ctx
+    #                     server-side via --max-kv-size (vlm only for now; lm flag absent).
+    #                     Set this to the largest ctx that benched OK in bench_kv_long_context.py.
+    #                     Absent + big_model: true → falls back to MLX_BIG_MODEL_CTX.
+    #   chat_template_override: (optional) "qwen3.5" or "qwen3.6" — installs the vendored
+    #                     fixed template from config/chat_templates/ via
+    #                     scripts/patch-qwen-templates.py. Fixes |items/|safe Jinja crashes.
     mlx_models:
       # ── Text-only (mlx_lm, port 8081) ────────────────────────────────────────
       - id: mlx-community/Qwen3-Coder-Next-4bit

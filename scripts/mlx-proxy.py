@@ -53,6 +53,19 @@ MLX_VLM_KV_BITS = os.environ.get("MLX_VLM_KV_BITS", "")
 MLX_VLM_KV_QUANT_SCHEME = os.environ.get("MLX_VLM_KV_QUANT_SCHEME", "turboquant")
 MLX_VLM_PREFILL_STEP_SIZE = os.environ.get("MLX_VLM_PREFILL_STEP_SIZE", "")
 
+# ── mlx_lm KV-cache quantization (TASK_KV_PROXY_V1) ─────────────────────────
+# Symmetric env-var pair to MLX_VLM_KV_BITS for the text-only path. When
+# MLX_LM_KV_BITS is empty (default), no --kv-bits flag is passed to mlx_lm.
+# Per mlx_lm 0.31.3 probe: --kv-bits is currently ABSENT on mlx_lm.server —
+# injection is gated by runtime --help probe so future versions activate
+# automatically without code changes (see docs/MLX_KV_FLAG_PROBE.md).
+#
+# Per-model overrides live on individual entries in config/backends.yaml under
+# mlx_models[] as optional `kv_bits`, `kv_quant_scheme`, `max_kv_size`. The
+# per-model value wins over the env var (see _resolve_kv_config()).
+MLX_LM_KV_BITS = os.environ.get("MLX_LM_KV_BITS", "")
+MLX_LM_KV_QUANT_SCHEME = os.environ.get("MLX_LM_KV_QUANT_SCHEME", "turboquant")
+
 # Context ceiling for big-model requests — suppresses KV cache spike.
 # 256K default context + KV cache can push memory over the edge.
 # At 32K the KV cache is ~2 GB instead of ~16 GB.
@@ -143,6 +156,40 @@ print(
     f"({len(BIG_MODEL_SET)} big, {len(VLM_MODELS)} VLM)",
     flush=True,
 )
+
+
+def _load_mlx_kv_config() -> dict[str, dict]:
+    """Read per-model KV config from backends.yaml mlx_models[].
+
+    Each entry may carry any/all of: kv_bits, kv_quant_scheme, max_kv_size.
+    Returns: {model_id: {kv_bits?, kv_quant_scheme?, max_kv_size?}}
+    Models with no KV-related fields are omitted (lookup miss = use env default).
+    """
+    try:
+        with open(_backends_yaml_path()) as f:
+            cfg = yaml.safe_load(f.read())
+    except Exception:
+        return {}
+    mlx_be = next((b for b in cfg.get("backends", []) if b.get("type") == "mlx"), None)
+    if not mlx_be:
+        return {}
+    out: dict[str, dict] = {}
+    for it in mlx_be.get("mlx_models", []):
+        sub: dict = {}
+        if "kv_bits" in it:
+            sub["kv_bits"] = str(it["kv_bits"])
+        if "kv_quant_scheme" in it:
+            sub["kv_quant_scheme"] = str(it["kv_quant_scheme"])
+        if "max_kv_size" in it:
+            sub["max_kv_size"] = int(it["max_kv_size"])
+        if sub:
+            out[it["id"]] = sub
+    return out
+
+
+MODEL_KV_CONFIG: dict[str, dict] = _load_mlx_kv_config()
+if MODEL_KV_CONFIG:
+    print(f"[proxy] KV config loaded for {len(MODEL_KV_CONFIG)} models", flush=True)
 
 DRAFT_MODEL_MAP: dict[str, str] = _load_draft_model_map()
 if DRAFT_MODEL_MAP:
@@ -822,6 +869,64 @@ def stop_all():
     _wait_for_gpu_memory_reclaim()
 
 
+def _resolve_kv_config(stype: str, model: str) -> dict:
+    """Resolve effective KV configuration for a (server-type, model) pair.
+
+    Precedence: per-model YAML > env-var default > off.
+    Returns: {bits: str, scheme: str, max_kv_size: int, source: str}
+        source ∈ {"per_model", "env", "off"}
+    """
+    per_model = MODEL_KV_CONFIG.get(model, {})
+    if per_model.get("kv_bits"):
+        return {
+            "bits": per_model["kv_bits"],
+            "scheme": per_model.get(
+                "kv_quant_scheme",
+                MLX_VLM_KV_QUANT_SCHEME if stype == "vlm" else MLX_LM_KV_QUANT_SCHEME,
+            ),
+            "max_kv_size": int(per_model.get("max_kv_size", 0)),
+            "source": "per_model",
+        }
+    env_bits = MLX_VLM_KV_BITS if stype == "vlm" else MLX_LM_KV_BITS
+    env_scheme = MLX_VLM_KV_QUANT_SCHEME if stype == "vlm" else MLX_LM_KV_QUANT_SCHEME
+    if env_bits:
+        return {
+            "bits": env_bits,
+            "scheme": env_scheme,
+            "max_kv_size": int(per_model.get("max_kv_size", 0)),
+            "source": "env",
+        }
+    return {
+        "bits": "",
+        "scheme": env_scheme,
+        "max_kv_size": int(per_model.get("max_kv_size", 0)),
+        "source": "off",
+    }
+
+
+_SERVER_HELP_CACHE: dict[str, str] = {}
+
+
+def _server_help_output(stype: str) -> str:
+    """Capture `mlx_<stype>.server --help` combined stdout+stderr. Cached."""
+    if stype in _SERVER_HELP_CACHE:
+        return _SERVER_HELP_CACHE[stype]
+    import subprocess as _sp
+
+    try:
+        out = _sp.run(
+            ["python3", "-m", f"mlx_{stype}.server", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        helptext = (out.stdout or "") + (out.stderr or "")
+    except Exception:
+        helptext = ""
+    _SERVER_HELP_CACHE[stype] = helptext
+    return helptext
+
+
 def start_server(stype: str, model: str = "") -> int:
     """Start mlx_lm.server or mlx_vlm.server and wait for it to be serving.
 
@@ -848,35 +953,46 @@ def start_server(stype: str, model: str = "") -> int:
     if stype == "lm":
         cmd.extend(["--max-tokens", mlx_max_tokens])
 
-    # ── mlx_vlm performance flags ───────────────────────────────────────────
-    if stype == "vlm":
-        if MLX_VLM_KV_BITS:
-            cmd.extend(["--kv-bits", MLX_VLM_KV_BITS])
-            cmd.extend(["--kv-quant-scheme", MLX_VLM_KV_QUANT_SCHEME])
-        if MLX_VLM_PREFILL_STEP_SIZE:
-            cmd.extend(["--prefill-step-size", MLX_VLM_PREFILL_STEP_SIZE])
+    # ── KV-cache quantization + max-kv-size (TASK_KV_PROXY_V1) ──────────────
+    # Single resolver covers lm and vlm; precedence per-model YAML > env > off.
+    # Flag injection is gated by runtime --help probe so older/newer mlx versions
+    # degrade or activate gracefully. See docs/MLX_KV_FLAG_PROBE.md for current
+    # flag availability per server type.
+    help_out = _server_help_output(stype) if model else ""
+    kv = (
+        _resolve_kv_config(stype, model)
+        if model
+        else {"bits": "", "scheme": "", "max_kv_size": 0, "source": "off"}
+    )
 
-    # KV cache quantization (int8) saves 2-4GB on 32B models but requires mlx_lm ≥ 0.22.
-    # Check support at runtime to avoid crashing on older installs.
-    if stype == "lm":
-        import subprocess as _sp
-
-        help_out = (
-            _sp.run(
-                ["python3", "-m", "mlx_lm.server", "--help"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            ).stdout
-            + _sp.run(
-                ["python3", "-m", "mlx_lm.server", "--help"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            ).stderr
+    if kv["bits"] and "--kv-bits" in help_out:
+        cmd.extend(["--kv-bits", kv["bits"]])
+        if "--kv-quant-scheme" in help_out:
+            cmd.extend(["--kv-quant-scheme", kv["scheme"]])
+        print(
+            f"[proxy] kv-quant enabled for {model!r}: bits={kv['bits']} "
+            f"scheme={kv['scheme']} source={kv['source']}",
+            flush=True,
         )
-        if "--kv-cache-quantization" in help_out:
-            cmd.extend(["--kv-cache-quantization", "int8"])
+
+    # max-kv-size enforcement: per-model field always wins; BIG_MODEL_CTX is the
+    # fallback for big_model entries when no per-model value is set.
+    effective_max_kv = kv["max_kv_size"]
+    if not effective_max_kv and model in BIG_MODEL_SET:
+        effective_max_kv = BIG_MODEL_CTX
+    if effective_max_kv and "--max-kv-size" in help_out:
+        cmd.extend(["--max-kv-size", str(effective_max_kv)])
+        print(f"[proxy] max-kv-size={effective_max_kv} applied for {model!r}", flush=True)
+    elif effective_max_kv:
+        print(
+            f"[proxy] note: max-kv-size={effective_max_kv} requested for {model!r} "
+            f"but --max-kv-size not supported by mlx_{stype}.server (see probe doc)",
+            flush=True,
+        )
+
+    # mlx_vlm prefill-step-size is a vlm-only knob; behavior unchanged from HEAD.
+    if stype == "vlm" and MLX_VLM_PREFILL_STEP_SIZE:
+        cmd.extend(["--prefill-step-size", MLX_VLM_PREFILL_STEP_SIZE])
 
     # ── Speculative decoding via --draft-model (M4 Track 1) ─────────────────
     if stype == "lm" and model and DRAFT_MODEL_MAP:
@@ -1366,6 +1482,19 @@ class Handler(BaseHTTPRequestHandler):
             state_info["memory"] = memory_monitor.to_dict()
             state_info["big_model_active"] = _big_model_active
             state_info["big_model_ctx_cap"] = BIG_MODEL_CTX if _big_model_active else None
+            loaded = mlx_state.loaded_model
+            if loaded:
+                stype_hint = "vlm" if loaded in VLM_MODELS else "lm"
+                kv_eff = _resolve_kv_config(stype_hint, loaded)
+                eff_max_kv = kv_eff["max_kv_size"]
+                if not eff_max_kv and loaded in BIG_MODEL_SET:
+                    eff_max_kv = BIG_MODEL_CTX
+                state_info["kv_config"] = {
+                    "bits": kv_eff["bits"] or None,
+                    "scheme": kv_eff["scheme"] if kv_eff["bits"] else None,
+                    "max_kv_size": eff_max_kv or None,
+                    "source": kv_eff["source"],
+                }
             state = state_info["state"]
             code = 200 if state in ("ready", "switching") else 503
             self._send_json(code, state_info)
