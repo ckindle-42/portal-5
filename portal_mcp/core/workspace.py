@@ -67,28 +67,39 @@ def get_generated_dir(category: str) -> Path:
 def resolve_upload_path(file_id_or_name: str) -> Path | None:
     """Resolve an OWUI upload reference to an absolute path on disk.
 
-    Args:
-        file_id_or_name: Either a bare file ID (UUID-like, no extension) as
-            OWUI stores it, or a full filename. Tries direct match first,
-            then prefix match against entries in the uploads directory.
+    OWUI stores uploads as ``{uuid}_{original_filename}``.  Accepts:
+    - Full stored filename (``ba61aacb-..._meeting.mp3``)
+    - UUID prefix only (``ba61aacb-...``)
+    - Original filename only (``meeting.mp3``)
+    - Partial URL fragment (``/api/v1/files/{id}/content`` → extracts the id)
 
     Returns:
         Absolute Path if found, None otherwise.
     """
     uploads = get_uploads_dir()
 
-    # Direct match
+    # Strip OWUI API URL wrapper if the model passes a full path like
+    # "/api/v1/files/<id>/content" — extract just the id segment.
+    import re as _re
+    _url_match = _re.search(r"/files/([^/]+)/", file_id_or_name)
+    if _url_match:
+        file_id_or_name = _url_match.group(1)
+
+    # Direct match (exact stored filename)
     direct = uploads / file_id_or_name
     if direct.is_file():
         return direct.resolve()
 
-    # Prefix match (file_id without extension)
+    # Prefix match — UUID prefix (``{uuid}`` matches ``{uuid}_{filename}``)
     candidates = list(uploads.glob(f"{file_id_or_name}*"))
     candidates = [c for c in candidates if c.is_file()]
-    if len(candidates) == 1:
+    if candidates:
+        candidates.sort(key=lambda c: c.stat().st_mtime, reverse=True)
         return candidates[0].resolve()
-    if len(candidates) > 1:
-        # Ambiguous — prefer exact prefix + most recent
+
+    # Suffix match — original filename only (``meeting.mp3`` matches ``{uuid}_meeting.mp3``)
+    candidates = [f for f in uploads.iterdir() if f.is_file() and f.name.endswith(f"_{file_id_or_name}")]
+    if candidates:
         candidates.sort(key=lambda c: c.stat().st_mtime, reverse=True)
         return candidates[0].resolve()
 

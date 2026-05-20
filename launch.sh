@@ -3864,11 +3864,11 @@ PLIST
       echo "❌ scripts/mlx-transcribe.py not found"
       exit 1
     fi
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     if [ -z "${HF_TOKEN:-}" ]; then
       echo "⚠️  HF_TOKEN not set — diarization will fail on first call."
       echo "   Set in .env after accepting pyannote model licenses on HuggingFace."
     fi
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     echo "Starting MLX Transcribe (port 8924)..."
     nohup python3 "$PORTAL_ROOT/scripts/mlx-transcribe.py" >> "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"

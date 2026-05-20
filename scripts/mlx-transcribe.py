@@ -27,6 +27,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import time
@@ -274,6 +275,22 @@ def _run_pipeline(
     return result
 
 
+_AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
+_PLACEHOLDER_RE = re.compile(r"^[<\[{].*[>\]}]$")  # matches <file_id>, [filename], {arg}, etc.
+
+
+def _latest_audio_upload() -> Path | None:
+    """Return the most recently modified audio file in the uploads directory."""
+    uploads = get_uploads_dir()
+    candidates = [
+        f for f in uploads.iterdir()
+        if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda f: f.stat().st_mtime)
+
+
 def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
     """Resolve a tool input to an absolute path.
 
@@ -281,9 +298,20 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
       - OWUI file ID (e.g., 'abc-123' or 'abc-123_meeting.mp3')
       - Filename in the uploads directory
       - Absolute path on the host filesystem
+      - Empty string or template placeholder → auto-detects most recent upload
 
     Returns (path, source_name) or (None, error_message).
     """
+    # Empty or literal template placeholder (e.g. '<file_id_or_filename>') →
+    # OWUI doesn't surface file references to the pipeline, so auto-detect
+    # the most recently uploaded audio file.
+    if not file or _PLACEHOLDER_RE.match(file.strip()):
+        p = _latest_audio_upload()
+        if p is not None:
+            logger.info("Auto-detected most recent audio upload: %s", p.name)
+            return p, p.name
+        return None, "no audio file found in uploads directory — please upload an audio file first"
+
     # Looks like an absolute path
     if file.startswith("/") or file.startswith("~"):
         p = Path(file).expanduser().resolve()
@@ -295,12 +323,29 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
     p = resolve_upload_path(file)
     if p is not None:
         return p, p.name
+
+    # Last resort: fall back to most recent audio upload with a warning
+    fallback = _latest_audio_upload()
+    if fallback is not None:
+        logger.warning("Could not resolve %r — falling back to most recent upload: %s", file, fallback.name)
+        return fallback, fallback.name
     return None, f"upload not found: {file!r} (no match in uploads directory)"
 
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Portal 5 MLX Transcribe", version="1.0.0")
+# MCP is defined later (needs the tool functions), then the session manager
+# lifespan is wired in here so mounted sub-apps get their task group initialized.
+from contextlib import asynccontextmanager  # noqa: E402
+
+
+@asynccontextmanager
+async def _lifespan(app: "FastAPI"):
+    async with _mcp_session_manager.run():
+        yield
+
+
+app = FastAPI(title="Portal 5 MLX Transcribe", version="1.0.0", lifespan=_lifespan)
 
 
 @app.get("/health")
@@ -439,7 +484,7 @@ async def http_transcribe(
 
 from portal_mcp.mcp_server.fastmcp import FastMCP  # noqa: E402
 
-mcp = FastMCP("mlx-transcribe", host=HOST)
+mcp = FastMCP("mlx-transcribe", host=HOST, streamable_http_path="/")
 
 
 @mcp.tool()
@@ -477,8 +522,10 @@ async def transcribe_with_speakers(
 
         On error: {"error": "..."}
     """
+    logger.info("transcribe_with_speakers called: file=%r num_speakers=%r language=%r", file, num_speakers, language)
     path, source_name = _resolve_audio_input(file)
     if path is None:
+        logger.warning("file not resolved: %r — %s", file, source_name)
         return {"error": source_name}  # source_name carries the error message
 
     async with _pipeline_lock:
@@ -491,8 +538,12 @@ async def transcribe_with_speakers(
             return {"error": str(e)}
 
 
-# Mount MCP at /mcp
-app.mount("/mcp", mcp.streamable_http_app())
+# Initialize session manager (must happen after tool definitions, before app start).
+# streamable_http_app() lazily creates _session_manager; we surface it so the
+# parent lifespan (_lifespan above) can run the task group.
+_mcp_sub_app = mcp.streamable_http_app()
+_mcp_session_manager = mcp.session_manager  # noqa: F821 — defined above
+app.mount("/mcp", _mcp_sub_app)
 
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────────
