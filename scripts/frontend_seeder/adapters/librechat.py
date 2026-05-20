@@ -35,10 +35,21 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
     # Build model list for static declaration (also fetched live via fetch:true)
     model_ids = list(workspaces.keys())
 
+    # portal_browser uses a custom REST API, not the MCP protocol — skip it.
+    _LIBRECHAT_SKIP = {"portal_browser"}
+    # mlx-transcribe requires trailing slash to avoid redirect that LibreChat blocks.
+    _TRAILING_SLASH = {"portal_mlx_transcribe"}
+
     mcp_block: dict[str, Any] = {}
     for srv in mcp_servers:
-        key = srv["id"].replace("portal_", "portal-")
-        mcp_block[key] = {"url": srv["url"]}
+        srv_id = srv["id"]
+        if srv_id in _LIBRECHAT_SKIP:
+            continue
+        key = srv_id.replace("portal_", "portal-")
+        url = srv["url"]
+        if srv_id in _TRAILING_SLASH and not url.endswith("/"):
+            url = url + "/"
+        mcp_block[key] = {"url": url, "type": "streamable-http"}
 
     config: dict[str, Any] = {
         "version": "1.3.11",
@@ -46,6 +57,23 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
         "registration": {
             "socialLogins": ["openid"],
             "allowedDomains": [],
+        },
+        "fileConfig": {
+            "serverFileSizeLimit": 500,
+            "endpoints": {
+                "default": {
+                    "fileLimit": 5,
+                    "fileSizeLimit": 500,
+                    "totalSizeLimit": 500,
+                    "supportedMimeTypes": [
+                        "audio/mpeg", "audio/mp4", "audio/wav", "audio/ogg",
+                        "audio/webm", "audio/x-m4a", "audio/flac",
+                        "video/mp4", "video/quicktime",
+                        "application/pdf", "text/plain",
+                        "image/jpeg", "image/png", "image/gif", "image/webp",
+                    ],
+                }
+            },
         },
         "endpoints": {
             "custom": [
@@ -62,6 +90,9 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
                     "modelDisplayLabel": "Portal 5",
                 }
             ]
+        },
+        "mcpSettings": {
+            "allowedDomains": ["host.docker.internal"],
         },
         "mcpServers": mcp_block,
     }
@@ -143,65 +174,78 @@ async def _register_admin(client: httpx.AsyncClient) -> None:
         print(f"  [librechat] Register returned {r.status_code}: {r.text[:120]}")
 
 
+async def _upsert_preset(
+    client: httpx.AsyncClient,
+    headers: dict,
+    preset: dict,
+    existing: dict[str, str],
+) -> str:
+    """Create or update a preset. Returns 'created', 'updated', or 'failed'."""
+    title = preset["title"]
+    if title in existing:
+        preset_id = existing[title]
+        r = await client.post(
+            f"{LIBRECHAT_URL}/api/presets",
+            json={**preset, "presetId": preset_id},
+            headers=headers,
+        )
+        return "updated" if r.status_code in (200, 201) else "failed"
+    else:
+        r = await client.post(f"{LIBRECHAT_URL}/api/presets", json=preset, headers=headers)
+        return "created" if r.status_code in (200, 201) else "failed"
+
+
 async def _seed_presets(client: httpx.AsyncClient, token: str) -> None:
-    """Seed workspace + persona presets."""
+    """Seed workspace + persona presets (upsert — always syncs latest content)."""
     headers = {"Authorization": f"Bearer {token}"}
     workspaces = production_workspaces(load_workspaces())
     personas = load_personas()
 
-    # Fetch existing presets to avoid duplicates
+    # Fetch existing presets: title → presetId
     r = await client.get(f"{LIBRECHAT_URL}/api/presets", headers=headers)
-    existing_titles: set[str] = set()
+    existing: dict[str, str] = {}
     if r.status_code == 200:
         for p in r.json():
-            existing_titles.add(p.get("title", ""))
+            existing[p.get("title", "")] = p.get("presetId", p.get("_id", ""))
 
-    created = skipped = 0
+    created = updated = failed = 0
 
-    # Workspace presets (one per workspace)
+    # Workspace presets
     for ws_id, ws_cfg in workspaces.items():
-        title = ws_cfg["name"]
-        if title in existing_titles:
-            skipped += 1
-            continue
         preset = {
-            "title": title,
+            "title": ws_cfg["name"],
             "endpoint": "Portal 5",
             "model": ws_id,
             "chatGptLabel": ws_cfg["name"],
             "promptPrefix": ws_cfg.get("description", ""),
         }
-        r = await client.post(f"{LIBRECHAT_URL}/api/presets", json=preset, headers=headers)
-        if r.status_code in (200, 201):
-            created += 1
+        result = await _upsert_preset(client, headers, preset, existing)
+        if result == "created": created += 1
+        elif result == "updated": updated += 1
         else:
-            print(f"  [librechat] Preset create failed ({ws_id}): {r.status_code}")
-    print(f"  [librechat] Workspace presets: {created} created, {skipped} skipped")
+            failed += 1
+            print(f"  [librechat] Workspace preset failed ({ws_id})")
+    print(f"  [librechat] Workspace presets: {created} created, {updated} updated, {failed} failed")
 
     # Persona presets
-    created = skipped = 0
+    created = updated = failed = 0
     for persona in personas:
         slug = persona.get("slug", "")
         name = persona.get("name", slug)
-        title = f"🎭 {name}"
-        if title in existing_titles:
-            skipped += 1
-            continue
-        ws_model = persona.get("workspace_model", "auto")
-        system = persona.get("system_prompt", "")
         preset = {
-            "title": title,
+            "title": f"🎭 {name}",
             "endpoint": "Portal 5",
-            "model": ws_model,
+            "model": persona.get("workspace_model", "auto"),
             "chatGptLabel": name,
-            "promptPrefix": system,
+            "promptPrefix": persona.get("system_prompt", ""),
         }
-        r = await client.post(f"{LIBRECHAT_URL}/api/presets", json=preset, headers=headers)
-        if r.status_code in (200, 201):
-            created += 1
+        result = await _upsert_preset(client, headers, preset, existing)
+        if result == "created": created += 1
+        elif result == "updated": updated += 1
         else:
-            print(f"  [librechat] Persona preset failed ({slug}): {r.status_code}")
-    print(f"  [librechat] Persona presets: {created} created, {skipped} skipped")
+            failed += 1
+            print(f"  [librechat] Persona preset failed ({slug})")
+    print(f"  [librechat] Persona presets: {created} created, {updated} updated, {failed} failed")
 
 
 async def seed() -> None:
@@ -219,7 +263,7 @@ async def seed() -> None:
             token = await _get_token(client)
         except RuntimeError as e:
             if "login failed" in str(e).lower():
-                print(f"  [librechat] Login failed — .env password may have changed. Attempting MongoDB reset...")
+                print("  [librechat] Login failed — .env password may have changed. Attempting MongoDB reset...")
                 if _reset_password_via_mongo():
                     token = await _get_token(client)
                 else:

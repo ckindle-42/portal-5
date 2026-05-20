@@ -852,6 +852,7 @@ services:
     volumes:
       - librechat-data:/app/data
       - ../../config/librechat/librechat.yaml:/app/librechat.yaml:ro
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
     environment:
       - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
       - MEILI_HOST=http://librechat-meilisearch:7700
@@ -864,6 +865,9 @@ services:
       - CREDS_IV=${LIBRECHAT_CREDS_IV}
       - SESSION_EXPIRY=${LIBRECHAT_SESSION_EXPIRY:-604800000}
       - REFRESH_TOKEN_EXPIRY=${LIBRECHAT_REFRESH_TOKEN_EXPIRY:-2592000000}
+      # Route file uploads into shared workspace so host-native MCP services
+      # (mlx-transcribe :8924, documents :8913) can read them without copying.
+      - UPLOAD_DIR=/workspace/uploads
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -2436,6 +2436,38 @@ async def chat_completions(
             else:
                 body = {**body, "messages": [{"role": "system", "content": _prompt_append}] + messages}
 
+        # File attachment injection — OWUI sends uploaded files in body["files"] but
+        # does not include them in the messages array. Inject a note into the last
+        # user message so the model can reference audio/document file IDs in tool calls.
+        _attached_files = body.get("files") or []
+        if _attached_files:
+            _file_notes: list[str] = []
+            for _f in _attached_files:
+                _fid = _f.get("id") or ""
+                _fname = _f.get("name") or _f.get("filename") or ""
+                _ftype = _f.get("type") or _f.get("meta", {}).get("content_type") or ""
+                if _fid or _fname:
+                    _file_notes.append(
+                        f"[Attached file — id: {_fid!r}, name: {_fname!r}, type: {_ftype!r}]"
+                    )
+            if _file_notes:
+                _msgs = list(body.get("messages", []))
+                _note = "\n".join(_file_notes)
+                # Append to last user message so the model sees it in context
+                for _i in range(len(_msgs) - 1, -1, -1):
+                    if _msgs[_i].get("role") == "user":
+                        _c = _msgs[_i].get("content", "")
+                        if isinstance(_c, str):
+                            _msgs[_i] = {**_msgs[_i], "content": _c + "\n\n" + _note}
+                        elif isinstance(_c, list):
+                            _msgs[_i] = {
+                                **_msgs[_i],
+                                "content": _c + [{"type": "text", "text": _note}],
+                            }
+                        break
+                body = {**body, "messages": _msgs}
+                logger.debug("Injected %d file reference(s) into messages", len(_file_notes))
+
         # Per-workspace semaphore (M6-T05)
         _ws_sem = await _acquire_workspace_sem(workspace_id)
         try:
