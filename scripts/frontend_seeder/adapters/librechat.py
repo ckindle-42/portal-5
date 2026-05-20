@@ -27,6 +27,7 @@ PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://portal-pipeline:9099/v1")
 
 # ── Config file generator ────────────────────────────────────────────────────
 
+
 def generate_librechat_yaml(output_path: Path | None = None) -> str:
     """Generate librechat.yaml with Portal 5 pipeline endpoint + MCP servers."""
     mcp_servers = load_mcp_servers()
@@ -49,7 +50,11 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
         url = srv["url"]
         if srv_id in _TRAILING_SLASH and not url.endswith("/"):
             url = url + "/"
-        mcp_block[key] = {"url": url, "type": "streamable-http"}
+        mcp_block[key] = {
+            "url": url,
+            "type": "streamable-http",
+            "chatMenu": True,
+        }
 
     config: dict[str, Any] = {
         "version": "1.3.11",
@@ -57,6 +62,17 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
         "registration": {
             "socialLogins": ["openid"],
             "allowedDomains": [],
+        },
+        "interface": {
+            # Renders the MCPSelect dropdown under the composer.
+            # Without this block, the chat-area MCP picker is hidden in
+            # LibreChat 0.7.9+, and per-conversation tool attachment via the
+            # UI is impossible. See:
+            #   - https://www.librechat.ai/docs/features/mcp
+            #   - https://github.com/danny-avila/LibreChat/pull/7988
+            "mcpServers": {
+                "placeholder": "MCP Servers",
+            },
         },
         "fileConfig": {
             "serverFileSizeLimit": 500,
@@ -66,11 +82,21 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
                     "fileSizeLimit": 500,
                     "totalSizeLimit": 500,
                     "supportedMimeTypes": [
-                        "audio/mpeg", "audio/mp4", "audio/wav", "audio/ogg",
-                        "audio/webm", "audio/x-m4a", "audio/flac",
-                        "video/mp4", "video/quicktime",
-                        "application/pdf", "text/plain",
-                        "image/jpeg", "image/png", "image/gif", "image/webp",
+                        "audio/mpeg",
+                        "audio/mp4",
+                        "audio/wav",
+                        "audio/ogg",
+                        "audio/webm",
+                        "audio/x-m4a",
+                        "audio/flac",
+                        "video/mp4",
+                        "video/quicktime",
+                        "application/pdf",
+                        "text/plain",
+                        "image/jpeg",
+                        "image/png",
+                        "image/gif",
+                        "image/webp",
                     ],
                 }
             },
@@ -107,6 +133,7 @@ def generate_librechat_yaml(output_path: Path | None = None) -> str:
 
 # ── API seeder ───────────────────────────────────────────────────────────────
 
+
 async def _wait_healthy(client: httpx.AsyncClient, max_wait: int = 120) -> None:
     for _ in range(max_wait // 5):
         try:
@@ -137,7 +164,9 @@ def _reset_password_via_mongo() -> bool:
     except ImportError:
         return False
     try:
-        client = pymongo.MongoClient("mongodb://librechat-mongodb:27017/LibreChat", serverSelectionTimeoutMS=5000)
+        client = pymongo.MongoClient(
+            "mongodb://librechat-mongodb:27017/LibreChat", serverSelectionTimeoutMS=5000
+        )
         db = client["LibreChat"]
         hashed = bcrypt.hashpw(LIBRECHAT_ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
         result = db.users.update_one(
@@ -220,8 +249,10 @@ async def _seed_presets(client: httpx.AsyncClient, token: str) -> None:
             "promptPrefix": ws_cfg.get("description", ""),
         }
         result = await _upsert_preset(client, headers, preset, existing)
-        if result == "created": created += 1
-        elif result == "updated": updated += 1
+        if result == "created":
+            created += 1
+        elif result == "updated":
+            updated += 1
         else:
             failed += 1
             print(f"  [librechat] Workspace preset failed ({ws_id})")
@@ -240,8 +271,10 @@ async def _seed_presets(client: httpx.AsyncClient, token: str) -> None:
             "promptPrefix": persona.get("system_prompt", ""),
         }
         result = await _upsert_preset(client, headers, preset, existing)
-        if result == "created": created += 1
-        elif result == "updated": updated += 1
+        if result == "created":
+            created += 1
+        elif result == "updated":
+            updated += 1
         else:
             failed += 1
             print(f"  [librechat] Persona preset failed ({slug})")
@@ -263,11 +296,16 @@ async def seed() -> None:
             token = await _get_token(client)
         except RuntimeError as e:
             if "login failed" in str(e).lower():
-                print("  [librechat] Login failed — .env password may have changed. Attempting MongoDB reset...")
+                print(
+                    "  [librechat] Login failed — .env password may have changed. Attempting MongoDB reset..."
+                )
                 if _reset_password_via_mongo():
                     token = await _get_token(client)
                 else:
-                    print("  [librechat] ERROR: Could not reset password. To recover, run:", file=sys.stderr)
+                    print(
+                        "  [librechat] ERROR: Could not reset password. To recover, run:",
+                        file=sys.stderr,
+                    )
                     print("    ./launch.sh librechat-reset", file=sys.stderr)
                     raise
             else:
