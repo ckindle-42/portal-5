@@ -400,14 +400,14 @@ async def list_tools() -> JSONResponse:
                     "Transcribe an audio file with speaker diarization (Apple Silicon MLX path). "
                     "Uses mlx-whisper (Metal-accelerated, large-v3-turbo) + pyannote on MPS. "
                     "Returns speaker-labeled transcript with timestamps. "
-                    "Accepts OWUI file ID, filename in uploads/, or absolute path."
+                    "Call with no arguments to auto-detect the most recently uploaded audio file."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "file": {
                             "type": "string",
-                            "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path",
+                            "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
                         },
                         "num_speakers": {
                             "type": "integer",
@@ -418,7 +418,7 @@ async def list_tools() -> JSONResponse:
                             "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
                         },
                     },
-                    "required": ["file"],
+                    "required": [],
                 },
             }
         ]
@@ -489,7 +489,7 @@ mcp = FastMCP("mlx-transcribe", host=HOST, streamable_http_path="/")
 
 @mcp.tool()
 async def transcribe_with_speakers(
-    file: str,
+    file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
 ) -> dict:
@@ -501,7 +501,8 @@ async def transcribe_with_speakers(
     directory. The full markdown is included in the response.
 
     Args:
-        file: Audio file reference. Accepts:
+        file: Audio file reference. Omit (or leave empty) to auto-detect the
+              most recently uploaded audio file. Otherwise accepts:
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
               - Absolute path on the host (e.g., '/Users/me/audio.wav')
