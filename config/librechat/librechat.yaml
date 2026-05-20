@@ -4,6 +4,32 @@ registration:
   socialLogins:
   - openid
   allowedDomains: []
+interface:
+  mcpServers:
+    placeholder: MCP Servers
+fileConfig:
+  serverFileSizeLimit: 500
+  endpoints:
+    default:
+      fileLimit: 5
+      fileSizeLimit: 500
+      totalSizeLimit: 500
+      supportedMimeTypes:
+      - audio/mpeg
+      - audio/mp4
+      - audio/wav
+      - audio/ogg
+      - audio/webm
+      - audio/x-m4a
+      - audio/flac
+      - video/mp4
+      - video/quicktime
+      - application/pdf
+      - text/plain
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
 endpoints:
   custom:
   - name: Portal 5
@@ -34,66 +60,55 @@ endpoints:
     titleConvo: true
     titleModel: auto
     modelDisplayLabel: Portal 5
-fileConfig:
-  serverFileSizeLimit: 500
-  endpoints:
-    default:
-      fileLimit: 5
-      fileSizeLimit: 500
-      totalSizeLimit: 500
-      supportedMimeTypes:
-        - "audio/mpeg"
-        - "audio/mp4"
-        - "audio/wav"
-        - "audio/ogg"
-        - "audio/webm"
-        - "audio/x-m4a"
-        - "audio/flac"
-        - "video/mp4"
-        - "video/quicktime"
-        - "application/pdf"
-        - "text/plain"
-        - "image/jpeg"
-        - "image/png"
-        - "image/gif"
-        - "image/webp"
 mcpSettings:
   allowedDomains:
-    - host.docker.internal
+  - host.docker.internal
 mcpServers:
   portal-comfyui:
     url: http://host.docker.internal:8910/mcp
     type: streamable-http
+    chatMenu: true
   portal-video:
     url: http://host.docker.internal:8911/mcp
     type: streamable-http
+    chatMenu: true
   portal-music:
     url: http://host.docker.internal:8912/mcp
     type: streamable-http
+    chatMenu: true
   portal-documents:
     url: http://host.docker.internal:8913/mcp
     type: streamable-http
+    chatMenu: true
   portal-code:
     url: http://host.docker.internal:8914/mcp
     type: streamable-http
+    chatMenu: true
   portal-whisper:
     url: http://host.docker.internal:8915/mcp
     type: streamable-http
+    chatMenu: true
   portal-mlx_transcribe:
     url: http://host.docker.internal:8924/mcp/
     type: streamable-http
+    chatMenu: true
   portal-tts:
     url: http://host.docker.internal:8916/mcp
     type: streamable-http
+    chatMenu: true
   portal-security:
     url: http://host.docker.internal:8919/mcp
     type: streamable-http
+    chatMenu: true
   portal-memory:
     url: http://host.docker.internal:8920/mcp
     type: streamable-http
+    chatMenu: true
   portal-rag:
     url: http://host.docker.internal:8921/mcp
     type: streamable-http
+    chatMenu: true
   portal-research:
     url: http://host.docker.internal:8922/mcp
     type: streamable-http
+    chatMenu: true
