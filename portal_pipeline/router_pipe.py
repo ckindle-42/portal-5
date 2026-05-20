@@ -2790,15 +2790,63 @@ async def chat_completions(
             except Exception:
                 stream_failed = True
 
-            if stream_failed and remaining:
+            if stream_failed:
                 logger.info(
-                    "Stream from %s failed, falling back to non-streaming for workspace=%s",
+                    "Stream from %s failed, retrying same backend in non-streaming for workspace=%s",
                     backend.id,
                     workspace_id,
                 )
                 fallback_body = {**body, "stream": False}
-                for j, fb in enumerate(remaining):
-                    fb_last = j == len(remaining) - 1
+                result = await _try_non_streaming(
+                    backend, fallback_body, workspace_id, start_time,
+                    enforce_hint=True, persona=persona,
+                )
+                if result is not None:
+                    import json as _json
+                    data = _json.loads(result.body)
+                    ts = int(time.time())
+                    rid = f"chatcmpl-p5-{ts}"
+                    role_payload = {
+                        "id": rid,
+                        "object": "chat.completion.chunk",
+                        "created": ts,
+                        "model": workspace_id,
+                        "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+                    }
+                    yield f"data: {_json.dumps(role_payload)}\n\n".encode()
+                    content = (
+                        data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", "")
+                    )
+                    if content:
+                        content_payload = {
+                            "id": rid,
+                            "object": "chat.completion.chunk",
+                            "created": ts,
+                            "model": workspace_id,
+                            "choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}],
+                        }
+                        yield f"data: {_json.dumps(content_payload)}\n\n".encode()
+                    done_payload = {
+                        "id": rid,
+                        "object": "chat.completion.chunk",
+                        "created": ts,
+                        "model": workspace_id,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                    }
+                    yield f"data: {_json.dumps(done_payload)}\n\n".encode()
+                    yield b"data: [DONE]\n\n"
+                    return
+
+                if remaining:
+                    logger.info(
+                        "Non-streaming retry on %s failed, falling back to remaining backends for workspace=%s",
+                        backend.id,
+                        workspace_id,
+                    )
+                    for j, fb in enumerate(remaining):
+                        fb_last = j == len(remaining) - 1
                     result = await _try_non_streaming(
                         fb, fallback_body, workspace_id, start_time,
                         enforce_hint=not fb_last, persona=persona,

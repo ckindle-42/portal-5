@@ -200,6 +200,29 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request):
+    """REST dispatch endpoint used by portal-pipeline tool_registry."""
+    tool_name = request.path_params.get("tool_name", "")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", body)
+
+    try:
+        fn = globals().get(tool_name)
+        if fn is None or not callable(fn):
+            return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+        result = fn(**arguments)
+        return JSONResponse(result)
+    except TypeError as e:
+        return JSONResponse({"error": f"Invalid arguments for '{tool_name}': {e}"}, status_code=400)
+    except Exception as e:
+        logger.error("invoke_tool %s failed: %s", tool_name, e, exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 logger = logging.getLogger(__name__)
 
 
