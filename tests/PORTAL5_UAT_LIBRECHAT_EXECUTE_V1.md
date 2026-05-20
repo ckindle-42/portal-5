@@ -41,11 +41,16 @@ The UAT driver validates the same user-observable behavioral contracts. What's e
 - Login form fill (Playwright, no API)
 - Endpoint/model picker click flow
 - Preset menu click flow for persona tests (`🎭 {name}` seeded presets)
+- **MCPSelect dropdown click for tests with `requires_tool` set (NEW
+  post-2026-05-20)**
 - Composer interaction (Send button click — Enter does NOT submit in v0.8.6-rc1)
-- Streaming completion detection (DOM stable + stop button; no `<details type="reasoning">` workaround)
+- Streaming completion detection (DOM stable + stop button; no
+  `<details type="reasoning">` workaround)
 - Assistant message DOM scraping (`.message-content`)
 - Per-conversation URL capture (post-first-message `/c/{conversation_id}`)
 - File attachment download flow
+- **Pre-stage of audio fixtures into `${AI_OUTPUT_DIR}/uploads/` for TR-01
+  (NEW post-2026-05-20)**
 
 What is NOT exercised differently — same code path as OWUI:
 - Routing decisions (validated via pipeline logs in both runs)
@@ -135,22 +140,36 @@ EOF
 
 **Why this exists:** LibreChat ships UI changes between minor releases. Selectors verified on v0.8.6-rc1 may not work on v0.9.x. Calibration confirms the selectors in `tests/frontends/librechat.py` still hit the right DOM elements before committing 8+ hours to a full run.
 
-Skip Phase 0.5 only if:
-1. The LibreChat image digest matches the one recorded in `docs/UAT_LIBRECHAT_DOM_NOTES.md` § header, AND
-2. A prior LibreChat run on this image completed in `tests/UAT_RESULTS_LIBRECHAT.md` within the last week.
+**Phase 0.5 is mandatory after the 2026-05-20 MCP-enablement change**
+(`TASK_LIBRECHAT_UAT_MCP_ENABLEMENT_V1`). The MCPSelect dropdown click is new
+browser interaction; selector drift between LibreChat releases will silently
+return every tool-requiring test to FAIL without it.
+
+The skip-criteria below ONLY apply once at least one post-MCP-enablement run
+on the current image has completed cleanly. Until then, run Phase 0.5
+unconditionally.
+
+Skip Phase 0.5 only if ALL of:
+1. The LibreChat image digest matches the one recorded in `docs/UAT_LIBRECHAT_DOM_NOTES.md` § header.
+2. A prior LibreChat run on this image AND on a commit at or after `TASK_LIBRECHAT_UAT_MCP_ENABLEMENT_V1` completed in `tests/UAT_RESULTS_LIBRECHAT.md` within the last week.
+3. The most recent `tests/UAT_LIBRECHAT_RUN_LOG.md` Final Report shows M-01, T-04, T-08, and TR-01 all PASS.
 
 Otherwise run it:
 
 ```bash
-# Five representative tests across the surfaces that differ on LibreChat:
+# Seven representative tests across the surfaces that differ on LibreChat,
+# plus two MCP-enablement canaries (M-01, TR-01) added post-2026-05-20:
 #   WS-01     — workspace model picker (no preset)
 #   WS-DD-01  — auto-daily routing (sanity)
 #   P-W06     — persona preset click (IT Expert)
 #   P-D01     — persona preset with code output
 #   A-08      — two-chat cross-session memory (URL capture per chat)
+#   M-01      — single-MCP attachment (portal_mlx_transcribe) + tool call
+#   TR-01     — two-MCP chain (portal_mlx_transcribe + portal_documents)
 python3 tests/portal5_uat_driver.py \
   --frontend librechat \
   --test WS-01 --test WS-DD-01 --test P-W06 --test P-D01 --test A-08 \
+  --test M-01 --test TR-01 \
   --calibrate --calibrate-output calibration_librechat.json --headed
 
 # Review calibration_librechat.json by hand. For each entry, check:
@@ -164,6 +183,12 @@ python3 tests/portal5_uat_driver.py \
 
 | Outcome | Action |
 |---|---|
+| `M-01` or `TR-01` produced empty `response_text` AND pipeline logs show no
+MCP tool calls in `portal5-mcp-mlx-transcribe` | MCPSelect dropdown click did
+not land. Open the headed browser, click the composer's MCP dropdown manually,
+note the actual selector for the popover rows, update
+`select_mcp_servers` candidates and `docs/UAT_LIBRECHAT_DOM_NOTES.md` §
+MCPSelect, re-run Phase 0.5. |
 | All 5 entries look correct | Proceed to Phase 1 |
 | `response_text` includes UI chrome (sidebar, header, etc.) | Selector for `.message-content` is wrong on this image → update `tests/frontends/librechat.py::get_last_response` and `docs/UAT_LIBRECHAT_DOM_NOTES.md` before any phase |
 | `routed_model` empty on every entry | Pipeline logs unreachable or log format changed — verify `docker logs portal5-pipeline --tail 5` is producing the `Routing workspace=... → backend=... model=...` line |
@@ -586,6 +611,36 @@ grep -A5 "async def send_prompt" tests/frontends/librechat.py | head -10
 
 **Fix:** This is a pipeline routing investigation, not LibreChat. Cross-reference V2 § Step 3e — Routing failure.
 
+### Step 3-LC-g — Tool-requiring test FAIL with no MCP error visible
+
+**Symptom:** A test with `requires_tool` set produces a response but the
+assertion fails because the model described what it would do instead of
+actually calling the tool. Common shape: model says "I'll call the
+transcribe_with_speakers tool now..." then narrates a transcript instead of
+showing real MCP output.
+
+**Cause:** The MCPSelect click landed but no MCP server was actually
+attached — the model has no tool surface, so it hallucinates the result.
+
+**Investigate:**
+
+```bash
+# 1. Pipeline logs should show a tool dispatch on a successful run
+docker logs portal5-pipeline --tail 100 | grep -E "tool_calls|mcp|portal-"
+# Expected: lines like `... tool_use ... portal-mlx_transcribe ...`
+
+# 2. MCP server logs — were any requests received?
+docker logs portal5-mcp-mlx-transcribe --tail 30 2>/dev/null || \
+  ssh-or-similar-to-host journalctl -u mlx-transcribe --since "10 min ago"
+# Expected: `transcribe_with_speakers called: file=... num_speakers=2 ...`
+
+# 3. If neither log shows tool activity, the MCPSelect click missed.
+# Headed-browser the test, watch the dropdown click, capture the real selector.
+```
+
+**Fix:** Update `select_mcp_servers` row_selectors in
+`tests/frontends/librechat.py`. Re-run Phase 0.5.
+
 ---
 
 ## BLOCKED — when and how
@@ -672,6 +727,28 @@ Copy from Phase 9's diff output. For each row in the "Real deltas" table, add on
 ### Recommended Follow-Up
 - LibreChat selector updates needed (with file:line refs)
 - LibreChat seeding gaps (which presets are missing)
+
+---
+
+## Expected parity delta after MCP-enablement fix
+
+The 2026-05-18 run reported 48 LibreChat FAILs vs OWUI baseline of 1 FAIL.
+After `TASK_LIBRECHAT_UAT_MCP_ENABLEMENT_V1`, the following tests are expected
+to flip from FAIL -> PASS (MCP attachment now works):
+
+| Test | Pre-fix | Post-fix expected | Reason for the flip |
+|------|---------|--------------------|----------------------|
+| M-01 | FAIL | PASS | portal_mlx_transcribe now attached |
+| T-04, T-05, T-08, T-11 | FAIL | PASS | portal_documents / portal_comfyui / portal_tts now attached |
+| WS-08, WS-09, WS-10, WS-11 | FAIL | PASS | requires_tool now honored |
+| P-D* persona docs tests with tool calls | FAIL | PASS | persona preset + MCP attachment both work |
+| TR-01 | (new) | PASS | new test, golden-path validation |
+
+A-08, A-01, A-03 (OWUI-native memory / RAG features) remain FAIL on LibreChat
+-- they are not MCP-attachable. Document them as parity-by-design.
+
+Expected post-fix score: ~125-135 PASS of 142 (88-95%), up from 59 (42%).
+Anything below 110 indicates the fix did not land cleanly -- re-run Phase 0.5.
 - Pipeline issues that surfaced on both runs (file as separate fix tasks)
 ```
 
