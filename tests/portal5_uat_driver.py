@@ -1328,7 +1328,14 @@ async def _fe_login(page) -> None:
         await _login(page)
 
 
-async def _fe_start_chat(page, token: str, model_slug: str, title: str) -> tuple[str, str]:
+async def _fe_start_chat(
+    page,
+    token: str,
+    model_slug: str,
+    title: str,
+    *,
+    requires_tool: str | list[str] | None = None,
+) -> tuple[str, str]:
     """Create / open a fresh chat. Returns (chat_id, chat_url).
 
     On OWUI: chat_id is the OWUI UUID (used by API helpers). chat_url is
@@ -1342,7 +1349,11 @@ async def _fe_start_chat(page, token: str, model_slug: str, title: str) -> tuple
     if FRONTEND_MODE == "librechat":
         try:
             url = await _lc.start_new_chat(
-                page, model_slug, title, personas_map=_lc.load_personas_map()
+                page,
+                model_slug,
+                title,
+                personas_map=_lc.load_personas_map(),
+                requires_tool=requires_tool,
             )
             return "", url
         except _lc.PresetUnreachableError as exc:
@@ -2839,6 +2850,7 @@ def evaluate_skip_conditions() -> dict:
     fixtures = Path(__file__).parent / "fixtures"
     conditions["no_image_upload"] = not (fixtures / "sample.png").exists()
     conditions["no_audio_fixture"] = not (fixtures / "sample.wav").exists()
+    conditions["no_two_speaker_audio_fixture"] = not (fixtures / "sample_two_speakers.wav").exists()
     conditions["no_docx_fixture"] = not (fixtures / "sample.docx").exists()
     conditions["no_knowledge_base"] = not (fixtures / "knowledge_base").is_dir()
     return conditions
@@ -7397,7 +7409,7 @@ TEST_CATALOG: list[dict] = [
         "timeout": 90,
         "workspace_tier": "media_heavy",
         "media_kind": "voice",
-        "requires_tool": "portal_whisper",
+        "requires_tool": "portal_mlx_transcribe",
         "skip_if": "no_audio_fixture",
         "force_unload_before": True,
         "fixture": "sample.wav",
@@ -7421,6 +7433,62 @@ TEST_CATALOG: list[dict] = [
                 "type": "any_of",
                 "label": "Transcript matches fixture content",
                 "keywords": ["portal", "five", "acceptance", "quick", "brown", "fox"],
+            },
+        ],
+    },
+    # -----------------------------------------------------------------------
+    # GROUP auto-documents — Transcript Analyst golden-path chain
+    # (transcribe_with_speakers → create_word_document)
+    # -----------------------------------------------------------------------
+    {
+        "id": "TR-01",
+        "name": "Transcript Analyst — Diarize + Word Doc (Golden Path)",
+        "section": "auto-documents",
+        "model_slug": "transcriptanalyst",  # seeded persona preset
+        "timeout": 240,  # transcribe 60-130s + docx + gen
+        "workspace_tier": "any",  # auto-documents → MLX small
+        "media_kind": "voice",
+        # Two-MCP chain. LibreChat attaches both via MCPSelect; OWUI ignores
+        # this field (toolIds are seeded at workspace level).
+        "requires_tool": ["portal_mlx_transcribe", "portal_documents"],
+        "skip_if": "no_two_speaker_audio_fixture",
+        "force_unload_before": True,
+        "fixture": "sample_two_speakers.wav",
+        "pre_stage_audio": True,
+        "prompt": (
+            "I just uploaded an audio file. Please transcribe it with 2 speakers, "
+            "then create a Word document from the result titled "
+            "'Two-Speaker Transcript'."
+        ),
+        "assertions": [
+            {
+                "type": "not_contains",
+                "label": "No tool error",
+                "keywords": ["error", "failed", "unavailable", "no audio file found"],
+            },
+            {
+                "type": "all_of",
+                "label": "Diarization produced >=2 speakers (transcribe_with_speakers ran)",
+                "keywords": ["SPEAKER_00", "SPEAKER_01"],
+                "critical": True,
+            },
+            {
+                "type": "any_of",
+                "label": "Response references a .docx artifact (create_word_document ran)",
+                "keywords": ["/files/", "/workspace/generated/documents/", "download_url"],
+                "critical": True,
+            },
+            {
+                "type": "any_of",
+                "label": "Filename pattern is docx",
+                "keywords": [".docx"],
+                "critical": True,
+            },
+            {
+                "type": "min_length",
+                "label": "Transcript body has substance",
+                "chars": 50,
+                "critical": False,
             },
         ],
     },
@@ -9478,8 +9546,20 @@ async def _run_two_chat_test(
     title1 = f"[...] UAT: {test_id} (1/2) {name}"
     title2 = f"[...] UAT: {test_id} (2/2) {name}"
     try:
-        chat1_id, chat1_url = await _fe_start_chat(page, token, model, title1)
-        chat2_id, chat2_url = await _fe_start_chat(page, token, model, title2)
+        chat1_id, chat1_url = await _fe_start_chat(
+            page,
+            token,
+            model,
+            title1,
+            requires_tool=test.get("requires_tool"),
+        )
+        chat2_id, chat2_url = await _fe_start_chat(
+            page,
+            token,
+            model,
+            title2,
+            requires_tool=test.get("requires_tool"),
+        )
     except _PresetUnreachableError as exc:
         record_result(
             n,
@@ -9939,7 +10019,13 @@ async def run_test(
 
     # Create chat
     try:
-        chat_id, chat_url = await _fe_start_chat(page, token, model, title_pending)
+        chat_id, chat_url = await _fe_start_chat(
+            page,
+            token,
+            model,
+            title_pending,
+            requires_tool=test.get("requires_tool"),
+        )
     except _PresetUnreachableError as exc:
         record_result(
             n,
@@ -9966,6 +10052,27 @@ async def run_test(
     try:
         if FRONTEND_MODE == "openwebui":
             await _navigate_to_chat(page, chat_url)
+
+        # Pre-stage audio fixture for tests that drive the mlx-transcribe MCP.
+        # The MCP auto-detects the most recently modified audio file in the
+        # workspace uploads dir when called with no `file` arg
+        # (see scripts/mlx-transcribe.py::_latest_audio_upload). Mirrors how
+        # operators drop audio into the UI; OWUI's M-01 already relies on
+        # the same path.
+        if test.get("pre_stage_audio"):
+            import shutil as _shutil
+
+            _fixture_path = Path(__file__).parent / "fixtures" / test.get("fixture", "")
+            _ai_output = Path(os.environ.get("AI_OUTPUT_DIR") or (Path.home() / "AI_Output"))
+            _uploads = _ai_output / "uploads"
+            _uploads.mkdir(parents=True, exist_ok=True)
+            _staged = _uploads / _fixture_path.name
+            if _fixture_path.exists():
+                _shutil.copy2(_fixture_path, _staged)
+                _staged.touch()  # ensure newest-mtime wins
+                print(f"  [TR pre-stage] staged {_fixture_path.name} → {_uploads}", flush=True)
+            else:
+                print(f"  [TR pre-stage] WARN: fixture missing at {_fixture_path}", flush=True)
 
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
