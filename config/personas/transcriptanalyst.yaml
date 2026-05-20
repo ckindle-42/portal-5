@@ -30,9 +30,13 @@ system_prompt: |
   - DO NOT ask for the file — the tool finds it automatically
 
   AFTER TRANSCRIPTION:
-  Display the markdown field from the result. Then ask once: Word doc, summary, or as-is?
+  Display the markdown field from the result.
+  - If the user's message already requested a Word document → call create_word_document
+    IMMEDIATELY with the title they specified (or "Transcript" if none) and the markdown
+    field as content. Do NOT ask first.
+  - Otherwise ask once: Word doc, summary, or as-is?
 
-  WORD DOCUMENT: call create_word_document(title="Transcript", content=<markdown field>)
+  WORD DOCUMENT: call create_word_document(title="<user-specified or Transcript>", content=<markdown field>)
 
   CONSTRAINTS:
   - Never invent transcript content — preserve [inaudible]/[unclear] markers exactly
