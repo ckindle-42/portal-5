@@ -45,7 +45,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from portal_mcp.core.workspace import get_generated_dir, resolve_upload_path  # noqa: E402
+from portal_mcp.core.workspace import get_generated_dir, get_uploads_dir, resolve_upload_path  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
