@@ -85,3 +85,73 @@
 5. **Enter does NOT submit.** LibreChat requires clicking `button[aria-label="Send message"]` to send. The `send_prompt` function should click this button rather than pressing Enter.
 
 6. **LibreChat version mismatch.** The running image is v0.8.6-rc1 while `config/librechat/librechat.yaml` declares `version: 1.3.11`. The YAML schema version and runtime version are different concepts, but UI selectors may change across LibreChat releases. Re-run recon when the image is updated.
+
+## MCPSelect dropdown (per-conversation tool attachment)
+
+### When this matters
+
+This dropdown is the **only** mechanism for attaching MCP servers to a
+non-Agent conversation in LibreChat 0.8.x. Until 2026-05-20, the UAT driver
+did not click it, which is why every tool-requiring test FAILed on LibreChat
+(`M-01`, `T-04`, `T-05`, `T-08`, `T-11`, `WS-08–11`, `P-D*`/`P-N*` docs
+personas, etc.). See `TASK_LIBRECHAT_UAT_MCP_ENABLEMENT_V1.md` for the fix.
+
+### Visibility prerequisites (config side)
+
+Both must be in `config/librechat/librechat.yaml`:
+
+1. `interface.mcpServers.placeholder: "MCP Servers"` — renders the dropdown
+   label.
+2. `chatMenu: true` on each server in `mcpServers` — keeps the server visible
+   in the dropdown (default true; we set it explicitly).
+
+These come from `scripts/frontend_seeder/adapters/librechat.py` and are written
+on every `./launch.sh up-librechat`. Do NOT hand-edit the YAML.
+
+### Selectors (verified on v0.8.6-rc1)
+
+| Element | Selector (in order of preference) |
+|---|---|
+| Dropdown button | `[data-testid="mcp-select"]` → `button:has-text("MCP Servers")` → `button[aria-label*="MCP" i]` |
+| Popover row (server) | `[role="menuitem"]:has-text("{key}")` → `label:has-text("{key}")` → `button:has-text("{key}")` |
+| Already-selected indicator | `aria-checked="true"` on the row (LibreChat React state) |
+| Close dropdown | Click `textarea` (composer) or press `Escape` |
+
+The `{key}` placeholder is the librechat.yaml key — `portal-documents`,
+`portal-mlx_transcribe`, etc. The driver translates `requires_tool:
+portal_documents` → `portal-documents` automatically.
+
+### What the driver does
+
+`tests/frontends/librechat.py::select_mcp_servers` opens the dropdown, clicks
+each server row in `requires_tool`, and closes. It is called from
+`start_new_chat(page, model, title, requires_tool=...)`. The OWUI shim accepts
+the same kwarg and ignores it (OWUI uses workspace-level toolIds seeding).
+
+### Phase 0.5 calibration is mandatory after this change
+
+The MCPSelect click is new browser interaction. Re-run Phase 0.5 calibration
+on the next LibreChat UAT run before committing to a full 7-9 hour phased
+sweep. Expected after fix: M-01 PASS, T-04/T-05/T-08/T-11 PASS, TR-01 PASS.
+
+### Failure modes to watch for
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `[librechat-mcp] MCPSelect dropdown not found` log line in every test | `interface.mcpServers` block missing from generated YAML | Task 1 not applied; re-run seeder |
+| `WARN: server row not found for portal-X` | Row label doesn't match `{key}` — LibreChat UI may show display name | Add the display name as a candidate in `select_mcp_servers` row_selectors |
+| Tool calls happen on first message but fail on the second (multi-turn) | Selection cleared between turns by `/c/new` navigation | This task's `start_new_chat` is per-chat — multi-turn within one chat should keep state |
+| LibreChat conversation log shows `tools: []` despite picker click | Dropdown click landed but row click didn't — re-check selectors | Phase 0.5 |
+
+## Audio upload (TR-01 golden path)
+
+`TR-01` does not click a file-picker in the LibreChat UI. The driver pre-stages
+`tests/fixtures/sample_two_speakers.wav` into `${AI_OUTPUT_DIR}/uploads/` via
+`shutil.copy2`, then calls `_staged.touch()` to guarantee the newest mtime. The
+`mlx-transcribe` MCP's `_latest_audio_upload` picks it up when the persona
+calls `transcribe_with_speakers` with no `file` argument.
+
+This mirrors OWUI's M-01 (the OWUI driver has no `set_input_files` call
+anywhere either) and exercises the production code path the
+`transcriptanalyst` persona uses. A future task can add real UI uploads
+symmetrically across both frontends — that work is out of scope here.
