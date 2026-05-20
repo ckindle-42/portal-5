@@ -180,6 +180,7 @@ async def start_new_chat(
     title: str,
     *,
     personas_map: dict[str, str] | None = None,
+    requires_tool: str | list[str] | None = None,
 ) -> str:
     """Open a fresh conversation via URL params (model + promptPrefix).
 
@@ -208,12 +209,112 @@ async def start_new_chat(
     await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
     await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
     await asyncio.sleep(1.0)
+
+    # Per-conversation MCP server attachment.
+    # OWUI seeds toolIds at workspace level; LibreChat requires a UI click.
+    # This is the one piece of test infrastructure that differs between
+    # frontends — and the reason every tool-requiring test FAILed on the
+    # 2026-05-18 LibreChat parity run before this change.
+    if requires_tool:
+        keys = [requires_tool] if isinstance(requires_tool, str) else list(requires_tool)
+        await select_mcp_servers(page, keys)
+
     return page.url
+
+
+# ── MCP server selection ──────────────────────────────────────────────────────
+
+
+async def select_mcp_servers(page, server_keys: list[str]) -> None:
+    """Open the MCPSelect dropdown and check each server in `server_keys`.
+
+    Maps a `requires_tool` value like `portal_documents` to the librechat.yaml
+    key `portal-documents` and clicks the checkbox row in the MCPSelect popover.
+
+    Idempotent: if a server is already checked (or another test ran in this
+    Playwright context and left it checked), the click no-ops. Safe to call
+    on an empty list — returns immediately.
+
+    Selectors verified against LibreChat v0.8.6-rc1. If a newer image moves
+    them, update docs/UAT_LIBRECHAT_DOM_NOTES.md § MCPSelect and re-run Phase
+    0.5 calibration.
+    """
+    if not server_keys:
+        return
+
+    # Map driver tool IDs (portal_documents) to librechat.yaml keys (portal-documents)
+    yaml_keys = [k.replace("portal_", "portal-") for k in server_keys]
+
+    # Open the dropdown. Candidate selectors, in order of preference:
+    #   1. The MCPSelect button by data-testid (most stable)
+    #   2. The button by visible placeholder text "MCP Servers"
+    #   3. Any button whose aria-label contains "MCP"
+    dropdown_button_selectors = [
+        '[data-testid="mcp-select"]',
+        'button:has-text("MCP Servers")',
+        'button[aria-label*="MCP" i]',
+    ]
+    opened = False
+    for sel in dropdown_button_selectors:
+        try:
+            loc = page.locator(sel).first
+            if await loc.count() > 0:
+                await loc.click(timeout=5000)
+                opened = True
+                break
+        except Exception:
+            continue
+    if not opened:
+        print(
+            f"  [librechat-mcp] MCPSelect dropdown not found; tools NOT attached: {yaml_keys}",
+            flush=True,
+        )
+        return
+
+    # Wait for the popover to render
+    await asyncio.sleep(0.5)
+
+    # Click each server. Each row is a button or label containing the server key.
+    for key in yaml_keys:
+        # The row text may be the raw key or a human label. Try both.
+        row_selectors = [
+            f'[role="menuitem"]:has-text("{key}")',
+            f'label:has-text("{key}")',
+            f'button:has-text("{key}")',
+            # Some LibreChat versions camel-case or title-case the server name
+            f'[role="menuitem"]:has-text("{key.replace("-", " ").title()}")',
+        ]
+        clicked = False
+        for sel in row_selectors:
+            try:
+                loc = page.locator(sel).first
+                if await loc.count() > 0:
+                    # Check if already selected — look for aria-checked attribute
+                    try:
+                        checked = await loc.get_attribute("aria-checked")
+                        if checked == "true":
+                            clicked = True
+                            break
+                    except Exception:
+                        pass
+                    await loc.click(timeout=3000)
+                    clicked = True
+                    break
+            except Exception:
+                continue
+        if not clicked:
+            print(f"  [librechat-mcp] WARN: server row not found for {key}", flush=True)
+
+    # Close the dropdown by clicking outside (the composer area)
+    try:
+        await page.locator("textarea").first.click(timeout=3000)
+    except Exception:
+        await page.keyboard.press("Escape")
+    await asyncio.sleep(0.3)
 
 
 class PresetUnreachableError(RuntimeError):
     pass
-
 
 
 # ── Send ──────────────────────────────────────────────────────────────────────
@@ -264,7 +365,7 @@ async def wait_for_completion(
     on a separate cadence to abort early on MLX/Ollama crashes.
     """
     POLL_INTERVAL_S = 2.0
-    URL_WAIT_S = 60      # max wait for /c/new → /c/{uuid} navigation
+    URL_WAIT_S = 60  # max wait for /c/new → /c/{uuid} navigation
     BACKEND_CHECK_S = 10
     BACKEND_DEAD_STRIKES = 5
 
@@ -275,7 +376,9 @@ async def wait_for_completion(
     def _log(msg: str) -> None:
         nonlocal last_log
         now = time.time()
-        if now - last_log >= 120 or any(w in msg.lower() for w in ("complete", "started", "error", "timeout", "cap")):
+        if now - last_log >= 120 or any(
+            w in msg.lower() for w in ("complete", "started", "error", "timeout", "cap")
+        ):
             print(f"  {tag}{msg} ({now - t_start:.0f}s elapsed)", flush=True)
             last_log = now
 
@@ -313,7 +416,9 @@ async def wait_for_completion(
                 alive, detail = backend_alive_fn(tier)
                 if not alive:
                     dead_strikes += 1
-                    _log(f"backend not responding ({detail}), strike {dead_strikes}/{BACKEND_DEAD_STRIKES}")
+                    _log(
+                        f"backend not responding ({detail}), strike {dead_strikes}/{BACKEND_DEAD_STRIKES}"
+                    )
                     if dead_strikes >= BACKEND_DEAD_STRIKES:
                         return
                 else:
@@ -453,7 +558,11 @@ async def get_last_response(page) -> str:
 
 
 async def enable_tool(page, tool_id: str) -> None:
-    """No-op. LibreChat tools are global per librechat.yaml mcpServers map."""
+    """No-op. LibreChat MCP attachment now happens in start_new_chat via the
+    `requires_tool` kwarg. Kept as a no-op so the OWUI/LibreChat shim
+    interface stays symmetric — the driver's _fe_enable_tool dispatcher does
+    not need to branch on FRONTEND_MODE for the post-start enable path.
+    """
     return None
 
 
