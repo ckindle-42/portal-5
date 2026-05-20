@@ -2806,6 +2806,7 @@ async def chat_completions(
                     data = _json.loads(result.body)
                     ts = int(time.time())
                     rid = f"chatcmpl-p5-{ts}"
+                    msg = data.get("choices", [{}])[0].get("message", {})
                     role_payload = {
                         "id": rid,
                         "object": "chat.completion.chunk",
@@ -2814,11 +2815,7 @@ async def chat_completions(
                         "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
                     }
                     yield f"data: {_json.dumps(role_payload)}\n\n".encode()
-                    content = (
-                        data.get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content", "")
-                    )
+                    content = msg.get("content", "")
                     if content:
                         content_payload = {
                             "id": rid,
@@ -2828,12 +2825,31 @@ async def chat_completions(
                             "choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}],
                         }
                         yield f"data: {_json.dumps(content_payload)}\n\n".encode()
+                    tool_calls = msg.get("tool_calls") or []
+                    for i, tc in enumerate(tool_calls):
+                        tc_payload = {
+                            "id": rid,
+                            "object": "chat.completion.chunk",
+                            "created": ts,
+                            "model": workspace_id,
+                            "choices": [{"index": 0, "delta": {"tool_calls": [{
+                                "index": i,
+                                "id": tc.get("id", f"call_{i}"),
+                                "type": "function",
+                                "function": {
+                                    "name": tc.get("function", {}).get("name", ""),
+                                    "arguments": tc.get("function", {}).get("arguments", ""),
+                                },
+                            }]}, "finish_reason": None}],
+                        }
+                        yield f"data: {_json.dumps(tc_payload)}\n\n".encode()
+                    finish_reason = "tool_calls" if tool_calls else "stop"
                     done_payload = {
                         "id": rid,
                         "object": "chat.completion.chunk",
                         "created": ts,
                         "model": workspace_id,
-                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
                     }
                     yield f"data: {_json.dumps(done_payload)}\n\n".encode()
                     yield b"data: [DONE]\n\n"
