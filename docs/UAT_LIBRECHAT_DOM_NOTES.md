@@ -108,14 +108,24 @@ Both must be in `config/librechat/librechat.yaml`:
 These come from `scripts/frontend_seeder/adapters/librechat.py` and are written
 on every `./launch.sh up-librechat`. Do NOT hand-edit the YAML.
 
-### Selectors (verified on v0.8.6-rc1)
+### Selectors (verified on v0.8.6-rc1, calibrated 2026-05-20)
 
 | Element | Selector (in order of preference) |
 |---|---|
-| Dropdown button | `[data-testid="mcp-select"]` → `button:has-text("MCP Servers")` → `button[aria-label*="MCP" i]` |
-| Popover row (server) | `[role="menuitem"]:has-text("{key}")` → `label:has-text("{key}")` → `button:has-text("{key}")` |
-| Already-selected indicator | `aria-checked="true"` on the row (LibreChat React state) |
+| Dropdown button | `[data-testid="mcp-select"]` → `button:has-text("MCP Servers")` (verified) |
+| Popover container | `[data-radix-popper-content-wrapper]` (Radix popover — scoped search root) |
+| Popover row (server) | `get_by_text(key, exact=True)` on the popover container, with `scroll_into_view_if_needed` |
+| Already-selected indicator | None observed — click is idempotent (toggling back off is harmless for UAT purposes) |
 | Close dropdown | Click `textarea` (composer) or press `Escape` |
+
+**IMPORTANT:** The third original selector `button[aria-label*="MCP" i]` was REMOVED. It matched
+`button[aria-label="MCP Settings"]` (the account/profile menu), opening the user account
+dropdown instead of the MCPSelect popover. The "MCP Servers" button itself has `aria-label=""`
+and `data-testid=""` — only `button:has-text("MCP Servers")` matches it reliably.
+
+**Row structure:** Rows in the MCPSelect popover are plain `div` elements — no ARIA `role="menuitem"`,
+`role="option"`, or `role="listitem"`. The server name (exactly the YAML key, e.g. `portal-memory`)
+is the row's visible text. The list scrolls; `portal-mlx_transcribe` is below the initial fold.
 
 The `{key}` placeholder is the librechat.yaml key — `portal-documents`,
 `portal-mlx_transcribe`, etc. The driver translates `requires_tool:
