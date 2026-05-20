@@ -240,7 +240,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools; diarized transcription",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "mlx_model_hint": "mlx-community/phi-4-8bit",
         "predict_limit": 8192,
         "tools": [
             "create_word_document",
