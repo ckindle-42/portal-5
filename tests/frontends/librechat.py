@@ -171,6 +171,33 @@ async def login(page) -> None:
     await _api_authenticate()
 
 
+# ── Session health ────────────────────────────────────────────────────────────
+
+
+async def _ensure_authenticated(page) -> None:
+    """Re-login if LibreChat has silently redirected to the login page.
+
+    After long idle periods (e.g. a 600s model pre-warm), LibreChat can expire
+    the session and redirect to /login. The chat composer — including the
+    MCPSelect button — only renders in authenticated state. This check detects
+    that condition and re-logs in before proceeding.
+    """
+    url = page.url
+    if "/login" in url or "/register" in url:
+        print("  [session] Detected login redirect — re-authenticating", flush=True)
+        await login(page)
+        return
+    # Also check: if the input box says "sign in" or email field is visible, we
+    # got redirected mid-SPA without a URL change.
+    try:
+        email_visible = await page.locator('input[type="email"]').is_visible(timeout=500)
+        if email_visible:
+            print("  [session] Email input visible — re-authenticating", flush=True)
+            await login(page)
+    except Exception:
+        pass
+
+
 # ── Chat creation ─────────────────────────────────────────────────────────────
 
 
@@ -208,7 +235,8 @@ async def start_new_chat(
     url = f"{LIBRECHAT_URL}/c/new?{urllib.parse.urlencode(params)}"
     await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
     await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
-    await asyncio.sleep(1.0)
+    # Re-login if a long idle (e.g. model pre-warm) expired the session.
+    await _ensure_authenticated(page)
 
     # Per-conversation MCP server attachment.
     # OWUI seeds toolIds at workspace level; LibreChat requires a UI click.
@@ -217,7 +245,19 @@ async def start_new_chat(
     # 2026-05-18 LibreChat parity run before this change.
     if requires_tool:
         keys = [requires_tool] if isinstance(requires_tool, str) else list(requires_tool)
+        # Wait up to 12s for the MCPSelect button to appear before trying to click
+        # it. The button renders after the composer hydrates and the endpoint's MCP
+        # server list loads — both can be slow after a session re-auth or long idle.
+        try:
+            await page.wait_for_selector(
+                '[data-testid="mcp-select"], button:has-text("MCP Servers")',
+                timeout=12_000,
+            )
+        except Exception:
+            pass  # select_mcp_servers will log "not found" if it still isn't there
         await select_mcp_servers(page, keys)
+    else:
+        await asyncio.sleep(1.0)
 
     return page.url
 
@@ -258,7 +298,12 @@ async def select_mcp_servers(page, server_keys: list[str]) -> None:
     for sel in dropdown_button_selectors:
         try:
             loc = page.locator(sel).first
-            if await loc.count() > 0:
+            cnt = await loc.count()
+            if cnt > 0:
+                lbl = await loc.get_attribute("aria-label") or ""
+                # Skip the account "MCP Settings" button — it opens the account menu
+                if "settings" in lbl.lower():
+                    continue
                 await loc.click(timeout=5000)
                 opened = True
                 break
@@ -271,39 +316,40 @@ async def select_mcp_servers(page, server_keys: list[str]) -> None:
         )
         return
 
-    # Wait for the popover to render
-    await asyncio.sleep(0.5)
+    # Wait for the popover to render — LibreChat v0.8.6-rc1 uses a Radix popover.
+    # The rows are plain div elements with the YAML key as visible text; no ARIA role.
+    await asyncio.sleep(0.8)
 
-    # Click each server. Each row is a button or label containing the server key.
+    # Scope to the Radix popover container when available; fall back to page-wide search.
+    _popover = page.locator('[data-radix-popper-content-wrapper]')
+    _search_root = _popover if await _popover.count() > 0 else page
+
+    # Click each server. Rows display the exact YAML key as their visible text label.
     for key in yaml_keys:
-        # The row text may be the raw key or a human label. Try both.
-        row_selectors = [
-            f'[role="menuitem"]:has-text("{key}")',
-            f'label:has-text("{key}")',
-            f'button:has-text("{key}")',
-            # Some LibreChat versions camel-case or title-case the server name
-            f'[role="menuitem"]:has-text("{key.replace("-", " ").title()}")',
-        ]
         clicked = False
-        for sel in row_selectors:
+        try:
+            # get_by_text with exact=True scrolls into view automatically.
+            row = _search_root.get_by_text(key, exact=True).first
+            if await row.count() > 0:
+                await row.scroll_into_view_if_needed(timeout=2000)
+                await row.click(timeout=3000)
+                clicked = True
+        except Exception:
+            pass
+        if not clicked:
+            # Fallback: has-text substring match on the popover container
             try:
-                loc = page.locator(sel).first
-                if await loc.count() > 0:
-                    # Check if already selected — look for aria-checked attribute
-                    try:
-                        checked = await loc.get_attribute("aria-checked")
-                        if checked == "true":
-                            clicked = True
-                            break
-                    except Exception:
-                        pass
-                    await loc.click(timeout=3000)
+                row = _search_root.locator(f':has-text("{key}")').last
+                if await row.count() > 0:
+                    await row.scroll_into_view_if_needed(timeout=2000)
+                    await row.click(timeout=3000)
                     clicked = True
-                    break
             except Exception:
-                continue
+                pass
         if not clicked:
             print(f"  [librechat-mcp] WARN: server row not found for {key}", flush=True)
+        else:
+            print(f"  [librechat-mcp] attached {key}", flush=True)
 
     # Close the dropdown by clicking outside (the composer area)
     try:
@@ -365,7 +411,10 @@ async def wait_for_completion(
     on a separate cadence to abort early on MLX/Ollama crashes.
     """
     POLL_INTERVAL_S = 2.0
-    URL_WAIT_S = 60  # max wait for /c/new → /c/{uuid} navigation
+    # MCP tool-calling tests take >60s before LibreChat gets the first streaming
+    # token (tool call runs first). Cap at max_wait / 2 but at least 180s so
+    # tool-heavy tests don't time out at the URL-wait step.
+    URL_WAIT_S = max(180, max_wait_no_progress // 2)
     BACKEND_CHECK_S = 10
     BACKEND_DEAD_STRIKES = 5
 

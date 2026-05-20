@@ -310,6 +310,39 @@ def _get_memory_pct() -> float:
     return 0.0
 
 
+def _wait_for_drain(
+    threshold_pct: float = MEMORY_CRITICAL_PCT,
+    timeout_s: float = 90.0,
+    poll_s: float = 2.0,
+    label: str = "",
+) -> bool:
+    """Wait for memory to drop below threshold_pct after model eviction.
+
+    Polls proxy /health every poll_s seconds and breaks as soon as
+    memory.current.used_pct < threshold_pct. Does not use blind fixed sleeps —
+    exits immediately when the condition is met. Hard timeout is the only timer.
+
+    Returns True if memory cleared within timeout_s, False on timeout.
+    """
+    deadline = time.time() + timeout_s
+    prefix = f"  [drain{' ' + label if label else ''}]"
+    while time.time() < deadline:
+        try:
+            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+            mem = h.get("memory", {}).get("current", {})
+            used_pct = float(mem.get("used_pct", 100))
+            state = h.get("state", "unknown")
+            if used_pct < threshold_pct:
+                print(f"{prefix} Clear at {used_pct:.0f}% (state={state}) — safe to proceed", flush=True)
+                return True
+            remaining = int(deadline - time.time())
+            print(f"{prefix} {used_pct:.0f}% (state={state}, {remaining}s left)", flush=True)
+        except Exception:
+            pass
+        time.sleep(poll_s)
+    return False
+
+
 def _check_memory_before_test(test_name: str = "") -> bool:
     """Check memory pressure before running a test. Returns True if safe to proceed.
 
@@ -340,10 +373,10 @@ def _check_memory_before_test(test_name: str = "") -> bool:
             flush=True,
         )
         unload_all_models()
-        time.sleep(8)
-        used_after = _get_memory_pct()
-        print(f"  [MEMORY] After eviction: {used_after:.0f}%", flush=True)
-        return used_after < MEMORY_CRITICAL_PCT
+        if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=90.0, label=test_name):
+            print(f"  [MEMORY] Still above {MEMORY_CRITICAL_PCT:.0f}% after 90s drain — skipping {test_name}", flush=True)
+            return False
+        return True
 
     if used >= MEMORY_WARN_PCT:
         print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
@@ -358,9 +391,10 @@ def _check_memory_before_test(test_name: str = "") -> bool:
     # "no data"). Treat that as "unknown, proceed" to avoid false skips
     # immediately after a proxy restart.
     try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-        free_gb = float(h.get("free_gb", 99))
-        inactive_gb = float(h.get("inactive_gb", 0))
+        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
+        mem = h.get("memory", {}).get("current", {})
+        free_gb = float(mem.get("free_gb", 99))
+        inactive_gb = float(mem.get("inactive_gb", 0))
         if free_gb == 0.0 and inactive_gb == 0.0:
             free_gb = 99.0  # No monitor data yet — don't penalise
         if free_gb < 4 and used >= MEMORY_CRITICAL_PCT:
@@ -369,24 +403,15 @@ def _check_memory_before_test(test_name: str = "") -> bool:
                 flush=True,
             )
             unload_all_models()
-            time.sleep(15)
-            h2 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-            free_after = float(h2.get("free_gb", 99))
-            if free_after < 4:
+            if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=60.0, label=test_name):
                 print(
-                    f"  [MEMORY] Only {free_after:.1f}GB free after eviction — "
+                    f"  [MEMORY] Still low free memory after 60s drain — "
                     "restarting proxy to reclaim inactive Metal pages",
                     flush=True,
                 )
                 _restart_proxy_for_reclaim()
-                time.sleep(15)
-                h3 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-                free_reclaim = float(h3.get("free_gb", 99))
-                if free_reclaim < 4:
-                    print(
-                        f"  [MEMORY] Still {free_reclaim:.1f}GB free after proxy restart — skipping",
-                        flush=True,
-                    )
+                if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=30.0, label="post-restart"):
+                    print(f"  [MEMORY] Still tight after proxy restart — skipping", flush=True)
                     return False
     except Exception:
         pass
@@ -11027,19 +11052,8 @@ async def main() -> None:
                             break
                     # Post-eviction memory verification — wait until memory is
                     # actually freed before running memory-intensive media tests
-                    for mem_retry in range(5):
-                        mem_pct = _get_memory_pct()
-                        if mem_pct < 75.0:
-                            print(f"  [mem] Memory clear at {mem_pct:.0f}% — safe to proceed")
-                            break
-                        print(
-                            f"  [mem] Memory at {mem_pct:.0f}% after eviction — waiting ({mem_retry + 1}/5)"
-                        )
-                        time.sleep(10)
-                        if mem_retry == 4:
-                            print(
-                                f"  [mem] WARNING: Memory still at {mem_pct:.0f}% after 5 retries — may risk OOM"
-                            )
+                    if not _wait_for_drain(threshold_pct=75.0, timeout_s=90.0, label="tier-transition"):
+                        print("  [mem] WARNING: Memory still high after 90s drain — may risk OOM", flush=True)
 
                 _last_tier = tier
 
