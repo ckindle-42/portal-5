@@ -1477,10 +1477,17 @@ async def _fe_assign_folder(page, token: str, chat_id: str, folder_id: str | Non
 
 
 async def _fe_download_artifact(
-    page, expected_ext: str, response_text: str = "", timeout_ms: int = 120_000
+    page,
+    expected_ext: str,
+    response_text: str = "",
+    timeout_ms: int = 120_000,
+    *,
+    since_ts: float = 0.0,
 ) -> Path | None:
     if FRONTEND_MODE == "librechat":
-        return await _lc.download_artifact(page, expected_ext, response_text, timeout_ms)
+        return await _lc.download_artifact(
+            page, expected_ext, response_text, timeout_ms, since_ts=since_ts
+        )
     return await _download_artifact(page, expected_ext, timeout_ms, response_text)
 
 
@@ -10303,7 +10310,7 @@ async def run_test(
                 response_text = (
                     await _fe_get_last_response(page, token, chat_id) or response_text or ""
                 )
-            artifact_path = await _fe_download_artifact(page, art_ext, response_text=response_text)
+            artifact_path = await _fe_download_artifact(page, art_ext, response_text=response_text, since_ts=t0)
 
         # Multi-turn: send second message if defined
         turn2 = test.get("turn2")
