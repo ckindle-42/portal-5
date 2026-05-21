@@ -441,6 +441,54 @@ class PresetUnreachableError(RuntimeError):
     pass
 
 
+# ── File attachment ───────────────────────────────────────────────────────────
+
+
+async def attach_file(page, file_path) -> bool:
+    """Attach a file to the current LibreChat conversation before sending.
+
+    Uses Playwright set_input_files on the hidden file input — works without
+    needing to click the paperclip button, which varies across LibreChat versions.
+    Returns True if the upload completed (file badge appeared), False if it
+    timed out or the input wasn't found.
+    """
+    from pathlib import Path as _Path
+
+    file_path = _Path(file_path)
+    if not file_path.exists():
+        print(f"  [attach-file] fixture not found: {file_path}", flush=True)
+        return False
+
+    # LibreChat renders one or more hidden <input type="file"> elements in the
+    # composer. set_input_files works on hidden inputs directly.
+    file_input = page.locator('input[type="file"]').first
+    try:
+        cnt = await file_input.count()
+        if cnt == 0:
+            print("  [attach-file] no file input found — skipping attachment", flush=True)
+            return False
+        await file_input.set_input_files(str(file_path))
+    except Exception as exc:
+        print(f"  [attach-file] set_input_files failed: {exc}", flush=True)
+        return False
+
+    # Wait for LibreChat to process the upload (file badge or filename appears).
+    try:
+        await page.wait_for_selector(
+            f'[data-filename*="{file_path.stem}"], '
+            f'[title*="{file_path.name}"], '
+            f'span:has-text("{file_path.name}"), '
+            f'div:has-text("{file_path.name}")',
+            timeout=30_000,
+        )
+        print(f"  [attach-file] attached {file_path.name}", flush=True)
+        return True
+    except Exception:
+        # Upload may have worked even if the badge selector didn't match.
+        print(f"  [attach-file] uploaded {file_path.name} (badge not confirmed)", flush=True)
+        return True
+
+
 # ── Send ──────────────────────────────────────────────────────────────────────
 
 

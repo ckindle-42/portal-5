@@ -7658,6 +7658,7 @@ TEST_CATALOG: list[dict] = [
         "workspace_tier": "any",
         "is_multi_turn": True,
         "skip_if": "no_docx_fixture",
+        "fixture": "sample.docx",
         "prompt": "Summarize the key points of this document in 5 bullet points.",
         "turn2": "What does the document say about access control? Quote the relevant section.",
         "assertions": [
@@ -10251,6 +10252,12 @@ async def run_test(
 
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
+
+        # Attach fixture file (LibreChat only) — for RAG/document tests that need a
+        # file uploaded before the first prompt (e.g. A-01 Document RAG).
+        if FRONTEND_MODE == "librechat" and test.get("fixture"):
+            _fixture_path = Path(__file__).parent / "fixtures" / test["fixture"]
+            await _lc.attach_file(page, _fixture_path)
 
         # Send first turn — retry up to 2 times on empty response (MLX cold load).
         # This is RECOVERY logic (handle empty/crashed backend), not a
