@@ -10195,6 +10195,25 @@ async def run_test(
         )
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
+    except Exception as exc:
+        # SPA navigation timeout or other startup error — record as BLOCKED and
+        # continue to the next test rather than crashing the entire run.
+        print(
+            f"  [BLOCKED] {test_id} — chat start failed: {type(exc).__name__}: {str(exc)[:120]}",
+            flush=True,
+        )
+        record_result(
+            n,
+            "BLOCKED",
+            test_id,
+            name,
+            model,
+            [("chat_start_failed", False, f"{type(exc).__name__}: {str(exc)[:160]}")],
+            0.0,
+            "",
+        )
+        counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
+        return
     if folder_id:
         await _fe_assign_folder(page, token, chat_id, folder_id)
 
