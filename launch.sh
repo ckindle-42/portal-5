@@ -326,7 +326,7 @@ _ensure_native_services() {
 _do_down() {
     # ── Stop Docker stack ─────────────────────────────────────────────────
     cd "$COMPOSE_DIR"
-    docker compose --profile librechat --profile anythingllm --profile all-frontends down
+    docker compose --profile anythingllm --profile all-frontends down
     echo "[portal-5] Docker stack stopped."
 
     # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
@@ -833,16 +833,10 @@ except Exception as e:
     fi
 
     # ── Alternative frontends (shown when any are running) ───────────────────
-    _LC=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-librechat" || echo "0")
     _AL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-anythingllm" || echo "0")
-    if [ "$_LC" -ge 1 ] || [ "$_AL" -ge 1 ]; then
+    if [ "$_AL" -ge 1 ]; then
         echo "  ALTERNATIVE FRONTENDS"
-        if [ "$_LC" -ge 1 ]; then
-            printf "    ✅  %-28s %s\n" "LibreChat" "running — http://localhost:8082"
-        fi
-        if [ "$_AL" -ge 1 ]; then
-            printf "    ✅  %-28s %s\n" "AnythingLLM" "running — http://localhost:8083"
-        fi
+        printf "    ✅  %-28s %s\n" "AnythingLLM" "running — http://localhost:8083"
         echo ""
     fi
 }
@@ -868,9 +862,6 @@ case "${1:-up}" in
 
     # Remember which alternative frontends were running so we can restore them after up
     _ACTIVE_FRONTENDS=""
-    if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "portal5-librechat"; then
-        _ACTIVE_FRONTENDS="$_ACTIVE_FRONTENDS librechat"
-    fi
     if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "portal5-anythingllm"; then
         _ACTIVE_FRONTENDS="$_ACTIVE_FRONTENDS anythingllm"
     fi
@@ -884,10 +875,8 @@ case "${1:-up}" in
     cd "$COMPOSE_DIR"
     # Quick env source to detect configured frontends for profile-aware pull
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    _lc_configured() { [ -n "${LIBRECHAT_ADMIN_PASSWORD:-}" ] && [ "${LIBRECHAT_ADMIN_PASSWORD}" != "CHANGEME" ]; }
     _al_configured() { [ -n "${ANYTHINGLLM_ADMIN_PASSWORD:-}" ] && [ "${ANYTHINGLLM_ADMIN_PASSWORD}" != "CHANGEME" ]; }
     _PULL_PROFILES=""
-    _lc_configured && _PULL_PROFILES="$_PULL_PROFILES --profile librechat"
     _al_configured && _PULL_PROFILES="$_PULL_PROFILES --profile anythingllm"
     # Also pull for any previously-active frontends (restore path) so their images stay current
     for _fp in $_ACTIVE_FRONTENDS; do
@@ -968,14 +957,6 @@ case "${1:-up}" in
     fi
 
     # Derive listen addresses for optional frontends — tracks ENABLE_REMOTE_ACCESS same as OWUI
-    if _lc_configured || echo "$_ACTIVE_FRONTENDS" | grep -q librechat; then
-        export LIBRECHAT_LISTEN_ADDR="${WEBUI_LISTEN_ADDR}"
-        if grep -q "^LIBRECHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-            sed -i.bak "s|^LIBRECHAT_LISTEN_ADDR=.*|LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-        else
-            echo "LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}" >> "$ENV_FILE"
-        fi
-    fi
     if _al_configured || echo "$_ACTIVE_FRONTENDS" | grep -q anythingllm; then
         export ANYTHINGLLM_LISTEN_ADDR="${WEBUI_LISTEN_ADDR}"
         if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
@@ -1005,18 +986,6 @@ case "${1:-up}" in
         _PROFILES="$_PROFILES --profile slack"
         echo "[portal-5] Slack tokens configured — including Slack bot"
     fi
-    if _lc_configured; then
-        cd "$PORTAL_ROOT"
-        python3 -c "
-import sys; sys.path.insert(0, 'scripts')
-from frontend_seeder.adapters.librechat import generate_librechat_yaml
-from pathlib import Path
-generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
-" 2>/dev/null || echo "  [warn] LibreChat config gen skipped — using committed config"
-        cd "$COMPOSE_DIR"
-        _PROFILES="$_PROFILES --profile librechat"
-        echo "[portal-5] LibreChat configured — including in stack"
-    fi
     if _al_configured; then
         _PROFILES="$_PROFILES --profile anythingllm"
         echo "[portal-5] AnythingLLM configured — including in stack"
@@ -1027,7 +996,7 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     docker compose $_PROFILES up -d
 
     # Restore any alternative frontends that were running before this up
-    # (skips any already managed via ENABLE_LIBRECHAT/ENABLE_ANYTHINGLLM above)
+    # (skips any already managed via ENABLE_ANYTHINGLLM above)
     if [ -n "$_ACTIVE_FRONTENDS" ]; then
         for _fp in $_ACTIVE_FRONTENDS; do
             if echo "$_PROFILES" | grep -q -- "--profile $_fp"; then
@@ -1460,7 +1429,7 @@ __MLX_FRESHNESS__
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
 
     # Stop stack before restore
-    cd "$COMPOSE_DIR" && docker compose --profile librechat --profile anythingllm --profile all-frontends down 2>/dev/null; cd - > /dev/null
+    cd "$COMPOSE_DIR" && docker compose --profile anythingllm --profile all-frontends down 2>/dev/null; cd - > /dev/null
 
     # Restore Open WebUI data
     if [ -f "${BACKUP_PATH}/openwebui-data.tar.gz" ]; then
@@ -1809,7 +1778,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
-    docker compose --profile librechat --profile anythingllm --profile all-frontends down
+    docker compose --profile anythingllm --profile all-frontends down
 
     echo "[portal-5] Removing Open WebUI data volume..."
     # Remove only the open-webui-data volume — NOT ollama-models
@@ -1825,7 +1794,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     ;;
   clean-all)
     cd "$COMPOSE_DIR"
-    docker compose --profile librechat --profile anythingllm --profile all-frontends down -v --remove-orphans 2>/dev/null || true
+    docker compose --profile anythingllm --profile all-frontends down -v --remove-orphans 2>/dev/null || true
     docker volume rm portal-5_ollama-models 2>/dev/null || true
     echo "[portal-5] Full clean complete (all volumes removed including Ollama models)."
     echo "WARNING: Models will re-download on next up (several GB)."
@@ -1842,34 +1811,6 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     echo "[portal-5] This updates persona prompts, workspace toolIds, and all model presets."
     FORCE_RESEED=true docker compose run --rm -e FORCE_RESEED=true openwebui-init
     echo "[portal-5] Reseed complete."
-    ;;
-  up-librechat)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    # Derive listen address from ENABLE_REMOTE_ACCESS — same pattern as WEBUI_LISTEN_ADDR
-    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
-        export LIBRECHAT_LISTEN_ADDR="0.0.0.0"
-        echo "[portal-5] Remote access enabled — LibreChat will listen on 0.0.0.0:8082"
-    else
-        export LIBRECHAT_LISTEN_ADDR="${LIBRECHAT_LISTEN_ADDR:-127.0.0.1}"
-    fi
-    if grep -q "^LIBRECHAT_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-        sed -i.bak "s|^LIBRECHAT_LISTEN_ADDR=.*|LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    else
-        echo "LIBRECHAT_LISTEN_ADDR=${LIBRECHAT_LISTEN_ADDR}" >> "$ENV_FILE"
-    fi
-    echo "[portal-5] Starting LibreChat (port 8082) + generating config..."
-    cd "$PORTAL_ROOT"
-    python3 -c "
-import sys; sys.path.insert(0, 'scripts')
-from frontend_seeder.adapters.librechat import generate_librechat_yaml
-from pathlib import Path
-generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
-" 2>/dev/null || echo "  [warn] Config gen skipped (portal_pipeline not importable here — using committed config)"
-    cd "$COMPOSE_DIR"
-    docker compose --profile librechat up -d
-    echo "[portal-5] LibreChat starting at http://${LIBRECHAT_LISTEN_ADDR}:8082"
-    echo "  Seeding will run automatically via librechat-init container."
-    echo "  Watch logs: ./launch.sh logs librechat"
     ;;
   up-anythingllm)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
@@ -1893,54 +1834,28 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
     ;;
   up-all-frontends)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    # Apply ENABLE_REMOTE_ACCESS to both frontends in one pass
     _frontend_addr() {
         if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
     }
     ADDR=$(_frontend_addr)
-    for _var in LIBRECHAT_LISTEN_ADDR ANYTHINGLLM_LISTEN_ADDR; do
-        export "${_var}=${ADDR}"
-        if grep -q "^${_var}=" "$ENV_FILE" 2>/dev/null; then
-            sed -i.bak "s|^${_var}=.*|${_var}=${ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-        else
-            echo "${_var}=${ADDR}" >> "$ENV_FILE"
-        fi
-    done
+    export "ANYTHINGLLM_LISTEN_ADDR=${ADDR}"
+    if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
+        sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+    else
+        echo "ANYTHINGLLM_LISTEN_ADDR=${ADDR}" >> "$ENV_FILE"
+    fi
     [ "$ADDR" = "0.0.0.0" ] && echo "[portal-5] Remote access enabled — all frontends listening on 0.0.0.0"
-    echo "[portal-5] Starting all alternative frontends (LibreChat :8082, AnythingLLM :8083)..."
+    echo "[portal-5] Starting all alternative frontends (AnythingLLM :8083)..."
     cd "$COMPOSE_DIR"
     docker compose --profile all-frontends up -d
     echo "[portal-5] All frontends starting:"
-    echo "  LibreChat   → http://${ADDR}:8082"
     echo "  AnythingLLM → http://${ADDR}:8083"
-    ;;
-  seed-librechat)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Re-seeding LibreChat presets..."
-    docker compose --profile librechat run --rm librechat-init
-    echo "[portal-5] LibreChat seed complete."
     ;;
   seed-anythingllm)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Re-seeding AnythingLLM workspaces..."
     docker compose --profile anythingllm run --rm anythingllm-init
     echo "[portal-5] AnythingLLM seed complete."
-    ;;
-  librechat-reset)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Resetting LibreChat user database (preserves conversations/data volumes)..."
-    echo "  This clears the MongoDB users collection so the new .env password takes effect."
-    docker compose --profile librechat stop librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
-    docker compose --profile librechat rm -sf librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
-    docker volume rm portal-5_librechat-mongodb 2>/dev/null || docker volume rm portal5_librechat-mongodb 2>/dev/null || true
-    echo "[portal-5] MongoDB volume removed. Run './launch.sh up-librechat' to re-initialize with the new password."
-    ;;
-  down-librechat)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Stopping LibreChat..."
-    docker compose --profile librechat stop librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
-    docker compose --profile librechat rm -sf librechat librechat-mongodb librechat-meilisearch 2>/dev/null || true
-    echo "[portal-5] LibreChat stopped. Main stack is still running."
     ;;
   down-anythingllm)
     cd "$COMPOSE_DIR"
@@ -1952,8 +1867,8 @@ generate_librechat_yaml(Path('config/librechat/librechat.yaml'))
   down-frontends)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping all alternative frontends..."
-    docker compose --profile all-frontends stop librechat librechat-mongodb librechat-meilisearch anythingllm 2>/dev/null || true
-    docker compose --profile all-frontends rm -sf librechat librechat-mongodb librechat-meilisearch anythingllm 2>/dev/null || true
+    docker compose --profile all-frontends stop anythingllm 2>/dev/null || true
+    docker compose --profile all-frontends rm -sf anythingllm 2>/dev/null || true
     echo "[portal-5] All alternative frontends stopped. Main stack is still running."
     ;;
   sync-readme)
@@ -4141,7 +4056,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-librechat|up-anythingllm|up-all-frontends|down-librechat|down-anythingllm|down-frontends|seed-librechat|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-anythingllm|up-all-frontends|down-anythingllm|down-frontends|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4175,14 +4090,10 @@ MEOF
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"
     echo "                          --yes / -y      Skip confirmation prompts"
-      echo "  up-librechat          Start LibreChat on :8082 (profile: librechat) + auto-seed presets"
     echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
-    echo "  up-all-frontends      Start both alternative frontends (LibreChat + AnythingLLM) simultaneously"
-    echo "  librechat-reset       Reset LibreChat MongoDB (use after changing LIBRECHAT_ADMIN_PASSWORD in .env)"
-    echo "  down-librechat        Stop LibreChat only (main stack keeps running)"
+    echo "  up-all-frontends      Start all alternative frontends (AnythingLLM) simultaneously"
     echo "  down-anythingllm      Stop AnythingLLM only (main stack keeps running)"
     echo "  down-frontends        Stop all alternative frontends (main stack keeps running)"
-    echo "  seed-librechat        Re-seed LibreChat presets (personas + workspaces) without restart"
     echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
     echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
@@ -4192,7 +4103,7 @@ MEOF
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
     echo "  seed                  Re-run Open WebUI seeding (workspaces + personas + tools)"
-    echo "  logs [svc]            Tail logs (default: portal-pipeline; also: librechat, anythingllm, open-webui, searxng)"
+    echo "  logs [svc]            Tail logs (default: portal-pipeline; also: anythingllm, open-webui, searxng)"
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  refresh-models        Check all models for updates (skips unchanged models)"

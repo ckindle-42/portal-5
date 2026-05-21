@@ -26,8 +26,7 @@ Content must include at least one of: `portal`, `five`, `acceptance`, `quick`, `
 
 ## sample_two_speakers.wav
 
-- **Purpose:** drives `TR-01` (LibreChat / OWUI parity, diarized transcription
-  → Word doc chain).
+- **Purpose:** drives `TR-01` (diarized transcription → Word doc chain).
 - **Format:** WAV, 16 kHz, mono, ≤30 seconds, ≤500 KB.
 - **Speakers:** 2 distinct voices, alternating turns.
 - **Content:** any English sentences; the test asserts on speaker tokens and
