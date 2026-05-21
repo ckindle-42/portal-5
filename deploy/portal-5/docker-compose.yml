@@ -804,107 +804,6 @@ services:
     command: >
       sh -c "pip install huggingface_hub --quiet && python /scripts/download_comfyui_models.py"
 
-  # ── LibreChat — Alternative frontend (opt-in: --profile librechat) ────────
-  librechat-mongodb:
-    image: mongo:7
-    container_name: portal5-librechat-mongodb
-    restart: unless-stopped
-    profiles:
-      - librechat
-      - all-frontends
-    volumes:
-      - librechat-mongodb:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 20s
-      timeout: 10s
-      start_period: 30s
-      retries: 5
-
-  librechat-meilisearch:
-    image: getmeili/meilisearch:v1.7
-    container_name: portal5-librechat-meilisearch
-    restart: unless-stopped
-    profiles:
-      - librechat
-      - all-frontends
-    volumes:
-      - librechat-meilisearch:/meili_data
-    environment:
-      - MEILI_NO_ANALYTICS=true
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 20s
-      timeout: 5s
-      start_period: 20s
-      retries: 5
-
-  librechat:
-    image: ghcr.io/danny-avila/librechat:latest
-    pull_policy: always
-    container_name: portal5-librechat
-    restart: unless-stopped
-    profiles:
-      - librechat
-      - all-frontends
-    ports:
-      - "${LIBRECHAT_LISTEN_ADDR:-127.0.0.1}:8082:3080"
-    volumes:
-      - librechat-data:/app/data
-      - ../../config/librechat/librechat.yaml:/app/librechat.yaml:ro
-      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
-    environment:
-      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
-      - MEILI_HOST=http://librechat-meilisearch:7700
-      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
-      - PIPELINE_URL=http://portal-pipeline:9099/v1
-      - ALLOW_REGISTRATION=true
-      - JWT_SECRET=${LIBRECHAT_JWT_SECRET}
-      - JWT_REFRESH_SECRET=${LIBRECHAT_JWT_REFRESH_SECRET}
-      - CREDS_KEY=${LIBRECHAT_CREDS_KEY}
-      - CREDS_IV=${LIBRECHAT_CREDS_IV}
-      - SESSION_EXPIRY=${LIBRECHAT_SESSION_EXPIRY:-604800000}
-      - REFRESH_TOKEN_EXPIRY=${LIBRECHAT_REFRESH_TOKEN_EXPIRY:-2592000000}
-      # Route file uploads into shared workspace so host-native MCP services
-      # (mlx-transcribe :8924, documents :8913) can read them without copying.
-      - UPLOAD_DIR=/workspace/uploads
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      librechat-mongodb:
-        condition: service_healthy
-      portal-pipeline:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3080/health', r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      start_period: 90s
-      retries: 5
-
-  librechat-init:
-    image: python:3.11-slim
-    container_name: portal5-librechat-init
-    restart: "no"
-    profiles:
-      - librechat
-      - all-frontends
-    depends_on:
-      librechat:
-        condition: service_healthy
-    environment:
-      - LIBRECHAT_URL=http://librechat:3080
-      - LIBRECHAT_ADMIN_EMAIL=${LIBRECHAT_ADMIN_EMAIL:-admin@portal.local}
-      - LIBRECHAT_ADMIN_PASSWORD=${LIBRECHAT_ADMIN_PASSWORD}
-      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
-      - PIPELINE_URL=http://portal-pipeline:9099/v1
-      - PERSONAS_DIR=/personas
-    volumes:
-      - ../../scripts:/scripts:ro
-      - ../../config/personas:/personas:ro
-    command: >
-      sh -c "pip install httpx pyyaml pymongo bcrypt --quiet && python /scripts/librechat_init.py --seed-only"
-
   # ── AnythingLLM — Alternative frontend (opt-in: --profile anythingllm) ────
   anythingllm:
     image: mintplexlabs/anythingllm:latest
@@ -1020,7 +919,4 @@ volumes:
   security-hf-cache:       # HuggingFace model cache for security MCP (CIRCL VLAI)
   portal5-lance:           # LanceDB vector storage (memory + RAG)
   portal5-kb-sources:      # Knowledge base source files for RAG ingestion
-  librechat-mongodb:       # LibreChat MongoDB persistence
-  librechat-meilisearch:   # LibreChat Meilisearch (search index)
-  librechat-data:          # LibreChat app data
   anythingllm-data:        # AnythingLLM storage (documents, vectors)

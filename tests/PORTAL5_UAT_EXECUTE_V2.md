@@ -595,24 +595,6 @@ Full workflow: `docs/UAT_CALIBRATION.md`. Use `--section <n>` to calibrate one s
 
 ---
 
-## Phase 9 — LibreChat parity (separate execute doc)
-
-After Phases 1–8 complete and `tests/UAT_RESULTS.md` is finalized, the LibreChat parity track runs through its own execute prompt:
-
-→ **`tests/PORTAL5_UAT_LIBRECHAT_EXECUTE_V1.md`**
-
-The LibreChat run uses `--frontend librechat` against the same `TEST_CATALOG`, writes to `tests/UAT_RESULTS_LIBRECHAT.md`, and produces a parity diff against this OWUI run. The two runs are diffed side-by-side; deltas indicate LibreChat UX divergence rather than pipeline regressions.
-
-Do not try to execute the LibreChat track from this V2 doc — the dedicated prompt has its own Phase 0 (LibreChat pre-flight), Phase 0.5 (selector calibration), failure investigation for LibreChat-specific symptoms (`persona_preset_unreachable`, preset menu selector drift, etc.), and a Parity Findings section in the final report.
-
-**Prerequisites for handing off to the LibreChat track:**
-- `tests/UAT_RESULTS.md` is populated (this V2 run completed)
-- `tests/UAT_RUN_LOG.md` Final Report is filled in
-- LibreChat is up and seeded (`./launch.sh up-librechat`)
-- `.env` includes the LibreChat secrets (see `.env.example` § Alternative Frontends)
-
----
-
 ## Failure Investigation Protocol
 
 **This is a complete troubleshooting workflow, not a reference table. Follow it in order for every FAIL before accepting the result.**

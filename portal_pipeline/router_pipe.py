@@ -1995,7 +1995,7 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
             "owned_by": "portal-5",
             "name": ws_cfg["name"],
             "description": ws_cfg.get("description", ""),
-            # Extended metadata consumed by alternative frontends (LibreChat, AnythingLLM, etc.)
+            # Extended metadata consumed by alternative frontends (e.g. AnythingLLM)
             "category": category,
             "tags": ws_cfg.get("tags", [category]),
             "tools": ws_cfg.get("tools", []),
@@ -2677,8 +2677,7 @@ async def chat_completions(
         # chain landed on a non-tool-tagged Ollama model.
         backend_supports_tools = _model_supports_tools(target_model or "")
         # Strip any client-injected tools from the request body when the backend
-        # model doesn't support tool calls. LibreChat sends all registered MCP tool
-        # schemas globally with every request — without this strip, Ollama returns
+        # model doesn't support tool calls — without this strip, Ollama returns
         # HTTP 400 "does not support tools" even for non-tool workspaces.
         if not backend_supports_tools:
             backend_body.pop("tools", None)

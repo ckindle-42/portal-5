@@ -73,14 +73,13 @@ Everything runs with a single command. No manual configuration.
 
 ### Alternative Frontends (opt-in)
 
-Three additional chat UIs are available as Docker Compose profiles — none start with `./launch.sh up`. Each connects to the same Portal Pipeline and gets the same workspaces and personas automatically seeded.
+AnythingLLM is available as an opt-in Docker Compose profile — it does not start with `./launch.sh up`. It connects to the same Portal Pipeline and gets the same workspaces automatically seeded.
 
 | Frontend | Port | Strengths | Launch |
 |---|---|---|---|
-| **LibreChat** | 8082 | MCP agents, multi-model chats, Assistants API | `./launch.sh up-librechat` |
 | **AnythingLLM** | 8083 | Workspace-first RAG, document Q&A, vector search | `./launch.sh up-anythingllm` |
 
-Both honour `ENABLE_REMOTE_ACCESS` — set it to `true` in `.env` to expose them on the same interface as Open WebUI. See **[Alternative Frontends setup →](docs/ADMIN_GUIDE.md#alternative-frontends)**.
+It honours `ENABLE_REMOTE_ACCESS` — set it to `true` in `.env` to expose it on the same interface as Open WebUI. See **[Alternative Frontends setup →](docs/ADMIN_GUIDE.md#alternative-frontends)**.
 
 ---
 
@@ -173,11 +172,8 @@ These pin a specific model for direct performance comparison. Not intended for d
 ./launch.sh up-slack        # Start Slack bot
 ./launch.sh up-channels     # Start both
 
-# Alternative frontends (opt-in, each seeded automatically)
-./launch.sh up-librechat    # LibreChat on :8082 (agents, MCP, multi-model)
+# Alternative frontends (opt-in, auto-seeded)
 ./launch.sh up-anythingllm  # AnythingLLM on :8083 (workspace RAG)
-./launch.sh up-all-frontends # Start both simultaneously
-./launch.sh seed-librechat  # Re-seed LibreChat presets without restart
 ./launch.sh seed-anythingllm # Re-seed AnythingLLM workspaces without restart
 
 # Backup and restore
@@ -365,13 +361,13 @@ Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
 ## Architecture
 
 ```
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Open WebUI  │ │  LibreChat   │ │ AnythingLLM  │
-│    :8080     │ │    :8082     │ │    :8083     │
-│  (default)  │ │  (opt-in)    │ │  (opt-in)    │
-└──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-       └─────────────────┴────────────────┘
-                                  │
+┌──────────────┐ ┌──────────────┐
+│  Open WebUI  │ │ AnythingLLM  │
+│    :8080     │ │    :8083     │
+│  (default)   │ │  (opt-in)    │
+└──────┬───────┘ └──────┬───────┘
+       └────────────────┘
+                │
                      ┌────────────▼───────────────────┐
                      │    Portal Pipeline :9099         │
                      │  (routing, auth, metrics, MCP)  │

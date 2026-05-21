@@ -43,11 +43,10 @@ import httpx
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
-load_dotenv()  # must precede frontend imports so module-level env reads are populated
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent))
 from common import REFUSAL_PHRASES  # noqa: E402
-from frontends import librechat as _lc  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Config
@@ -56,17 +55,6 @@ from frontends import librechat as _lc  # noqa: E402
 OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
 ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
-
-# LibreChat (alternative frontend, --frontend librechat).
-# Pure Playwright path — no /api/* calls. Auth via the login form.
-LIBRECHAT_URL = os.environ.get("LIBRECHAT_URL", "http://localhost:8082")
-LIBRECHAT_EMAIL = os.environ.get("LIBRECHAT_ADMIN_EMAIL", ADMIN_EMAIL)
-LIBRECHAT_PASSWORD = os.environ.get("LIBRECHAT_ADMIN_PASSWORD", "")
-
-# Mode selector — set in main() after argparse. "openwebui" preserves all
-# existing behaviour; "librechat" dispatches every page operation through
-# tests/frontends/librechat.py.
-FRONTEND_MODE = "openwebui"
 
 SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
 PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
@@ -87,13 +75,7 @@ PHASE2_DOM_STABLE_NEEDED = 3  # consecutive identical samples to declare DOM sta
 
 POST_STREAM_API_WAIT_S = 15.0  # bounded API poll after stream ends (replaces fixed sleep(5))
 BACKEND_SETTLE_WAIT_S = 15.0  # bounded backend-alive poll after retry (replaces sleep(15))
-# Selected at runtime in main() based on FRONTEND_MODE. The default value
-# keeps every existing helper that reads `RESULTS_FILE` (init_results,
-# update_summary, _remove_rows_for_test_ids, _parse_failed_test_ids,
-# record_result, _rebuild_summary_from_rows) working unchanged.
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
-RESULTS_FILE_OWUI = Path("tests/UAT_RESULTS.md")
-RESULTS_FILE_LIBRECHAT = Path("tests/UAT_RESULTS_LIBRECHAT.md")
 SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -1339,18 +1321,13 @@ def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Frontend dispatch shims — _fe_* functions route to OWUI or LibreChat helpers
-# based on the module-level FRONTEND_MODE. Each shim accepts the union of
-# arguments both backends might need; the unused-side ignores extras.
+# Frontend dispatch shims — thin wrappers over OWUI helpers.
 # ---------------------------------------------------------------------------
 
 
 async def _fe_login(page) -> None:
-    """Dispatch login to the active frontend."""
-    if FRONTEND_MODE == "librechat":
-        await _lc.login(page)
-    else:
-        await _login(page)
+    """Login to Open WebUI."""
+    await _login(page)
 
 
 async def _fe_start_chat(
@@ -1358,32 +1335,12 @@ async def _fe_start_chat(
     token: str,
     model_slug: str,
     title: str,
-    *,
-    requires_tool: str | list[str] | None = None,
 ) -> tuple[str, str]:
     """Create / open a fresh chat. Returns (chat_id, chat_url).
 
-    On OWUI: chat_id is the OWUI UUID (used by API helpers). chat_url is
+    chat_id is the OWUI UUID (used by API helpers). chat_url is
     `{OPENWEBUI_URL}/c/{chat_id}`.
-
-    On LibreChat: chat_id is "" (LibreChat has no externally-meaningful chat ID
-    until after the first message; downstream code that reads responses uses
-    the Playwright page, not the chat_id). chat_url is captured after the
-    response settles via _fe_current_chat_url(page).
     """
-    if FRONTEND_MODE == "librechat":
-        try:
-            url = await _lc.start_new_chat(
-                page,
-                model_slug,
-                title,
-                personas_map=_lc.load_personas_map(),
-                requires_tool=requires_tool,
-            )
-            return "", url
-        except _lc.PresetUnreachableError as exc:
-            # Signal SKIP via a sentinel — run_test recognises this.
-            raise _PresetUnreachableError(str(exc)) from exc
     chat_id, chat_url = owui_create_chat(token, model_slug, title)
     await _navigate_to_chat(page, chat_url)
     return chat_id, chat_url
@@ -1405,75 +1362,40 @@ async def _fe_send_and_wait(
     min_messages: int = 1,
 ) -> None:
     """Send a prompt and wait for streaming to complete."""
-    if FRONTEND_MODE == "librechat":
-        pre_send_content = await _lc.send_prompt(page, prompt)
-        await _lc.wait_for_completion(
-            page,
-            test_id=test_id,
-            tier=tier,
-            max_wait_no_progress=max_wait_no_progress,
-            backend_alive_fn=_backend_alive,
-            pre_send_content=pre_send_content,
-        )
-    else:
-        await _send_and_wait(
-            page,
-            prompt,
-            test_id=test_id,
-            tier=tier,
-            max_wait_no_progress=max_wait_no_progress,
-            token=token,
-            chat_id=chat_id,
-            min_messages=min_messages,
-        )
+    await _send_and_wait(
+        page,
+        prompt,
+        test_id=test_id,
+        tier=tier,
+        max_wait_no_progress=max_wait_no_progress,
+        token=token,
+        chat_id=chat_id,
+        min_messages=min_messages,
+    )
 
 
 async def _fe_get_last_response(page, token: str, chat_id: str, min_messages: int = 1) -> str:
     """Read the most recent assistant message."""
-    if FRONTEND_MODE == "librechat":
-        return await _lc.get_last_response(page)
     return owui_get_last_response(token, chat_id, min_messages=min_messages)
 
 
 async def _fe_get_routed_model(test: dict, page, token: str, chat_id: str) -> str:
     """Resolve the actual backend model that handled the most recent response.
 
-    OWUI path: reads OWUI's stored chat metadata (the workspace/persona name
-    captured from the pipeline's SSE stream). The model itself is confirmed
-    against pipeline logs downstream by _check_routed_model.
-
-    LibreChat path: reads directly from pipeline logs via
-    _get_backend_from_pipeline_logs(test["model_slug"]). LibreChat v0.8.6-rc1
-    does not surface the backend model in its UI (verified — see
-    docs/UAT_LIBRECHAT_DOM_NOTES.md § Routed-model readout). The pipeline log
-    is the authoritative source and is frontend-independent, so we go to it
-    directly rather than emulating OWUI's two-source layout.
-
-    Returns "" if no source is available (e.g. pipeline logs unreachable, or
-    no routing entry yet emitted for this slug). _check_routed_model handles
-    the empty-string case by skipping validation.
+    Reads OWUI's stored chat metadata (the workspace/persona name captured from
+    the pipeline's SSE stream). Returns "" if no source is available.
+    _check_routed_model handles the empty-string case by skipping validation.
     """
-    if FRONTEND_MODE == "librechat":
-        slug = test.get("model_slug", "")
-        if not slug:
-            return ""
-        return _get_backend_from_pipeline_logs(slug)
     return owui_get_routed_model(token, chat_id)
 
 
 async def _fe_enable_tool(page, tool_id: str) -> None:
-    if FRONTEND_MODE == "librechat":
-        await _lc.enable_tool(page, tool_id)
-    else:
-        await _enable_tool(page, tool_id)
+    await _enable_tool(page, tool_id)
 
 
 async def _fe_assign_folder(page, token: str, chat_id: str, folder_id: str | None) -> None:
-    if FRONTEND_MODE == "librechat":
-        await _lc.assign_folder(page, folder_id or "")
-    else:
-        if folder_id:
-            owui_assign_chat_folder(token, chat_id, folder_id)
+    if folder_id:
+        owui_assign_chat_folder(token, chat_id, folder_id)
 
 
 async def _fe_download_artifact(
@@ -1484,19 +1406,11 @@ async def _fe_download_artifact(
     *,
     since_ts: float = 0.0,
 ) -> Path | None:
-    if FRONTEND_MODE == "librechat":
-        return await _lc.download_artifact(
-            page, expected_ext, response_text, timeout_ms, since_ts=since_ts
-        )
     return await _download_artifact(page, expected_ext, timeout_ms, response_text)
 
 
 def _fe_current_chat_url(page, fallback: str) -> str:
-    """Return the current URL on LibreChat (post-settlement); the API-given
-    chat_url on OWUI."""
-    if FRONTEND_MODE == "librechat":
-        url = _lc.current_chat_url(page)
-        return url or fallback
+    """Return the API-given chat_url."""
     return fallback
 
 
@@ -2891,10 +2805,6 @@ def evaluate_skip_conditions() -> dict:
     conditions["no_two_speaker_audio_fixture"] = not (fixtures / "sample_two_speakers.wav").exists()
     conditions["no_docx_fixture"] = not (fixtures / "sample.docx").exists()
     conditions["no_knowledge_base"] = not (fixtures / "knowledge_base").is_dir()
-    # LibreChat in-chat file attachment requires a separate rag_api service that
-    # is not included in the Portal 5 compose stack. Tests that upload files to
-    # chat (not the knowledge-base) get HTTP 404 from LibreChat's file processor.
-    conditions["no_librechat_file_rag"] = FRONTEND_MODE == "librechat"
     return conditions
 
 
@@ -4949,7 +4859,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-coding",
         "timeout": 90,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_code",
         "prompt": (
             "Run this code and show me the exact output:\n\n"
             "from collections import Counter\n"
@@ -4979,7 +4888,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-coding",
         "timeout": 90,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_code",
         "prompt": (
             "Run this bash command and show exact output:\n\n"
             'printf "%s\\n" apple banana cherry apple banana apple | sort | uniq -c | sort -rn'
@@ -4997,7 +4905,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-coding",
         "timeout": 60,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_code",
         "prompt": (
             'Run this code:\n\nimport urllib.request\nurllib.request.urlopen("http://example.com")'
         ),
@@ -5407,7 +5314,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_documents",
         "artifact_ext": "docx",
         "prompt": (
             'Create a Word document: "Change Management Procedure for OT Environments". '
@@ -5512,7 +5418,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_documents",
         "artifact_ext": "docx",
         "prompt": (
             'Create a Word document: "Vendor Security Assessment Checklist". '
@@ -5537,7 +5442,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_documents",
         "artifact_ext": "xlsx",
         "prompt": (
             'Create an Excel workbook: "Security Incident Tracker". '
@@ -5561,7 +5465,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_documents",
         "artifact_ext": "pptx",
         "prompt": (
             'Create a 5-slide PowerPoint: "Introduction to Zero Trust Networking". '
@@ -5591,7 +5494,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-documents",
         "timeout": 120,
         "workspace_tier": "mlx_small",
-        "requires_tool": "portal_documents",
         "skip_if": "no_docx_fixture",
         "prompt": (
             "Read this document. Tell me: how many sections or headings it has, "
@@ -5899,7 +5801,6 @@ TEST_CATALOG: list[dict] = [
         "model_slug": "auto-security",
         "timeout": 180,
         "workspace_tier": "mlx_large",
-        "requires_tool": "portal_security",
         "prompt": (
             "/nothink\n"
             "Classify this vulnerability by severity (CVSS score and rating) and explain your rationale: "
@@ -7462,7 +7363,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 180,
         "workspace_tier": "media_heavy",
         "media_kind": "sound",
-        "requires_tool": "portal_music",
         "artifact_ext": "wav",
         "force_unload_before": True,
         "prompt": (
@@ -7486,7 +7386,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 120,
         "workspace_tier": "media_heavy",
         "media_kind": "voice",
-        "requires_tool": "portal_tts",
         "artifact_ext": "wav",
         "force_unload_before": True,
         "prompt": (
@@ -7514,7 +7413,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 360,
         "workspace_tier": "media_heavy",
         "media_kind": "video",
-        "requires_tool": "portal_video",
         "artifact_ext": "mp4",
         "skip_if": "no_comfyui",
         "force_unload_before": True,
@@ -7539,7 +7437,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 180,
         "workspace_tier": "media_heavy",
         "media_kind": "image",
-        "requires_tool": "portal_comfyui",
         "artifact_ext": "png",
         "skip_if": "no_comfyui",
         "force_unload_before": True,
@@ -7567,7 +7464,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 90,
         "workspace_tier": "media_heavy",
         "media_kind": "voice",
-        "requires_tool": "portal_mlx_transcribe",
         "skip_if": "no_audio_fixture",
         "force_unload_before": True,
         "fixture": "sample.wav",
@@ -7606,9 +7502,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 240,  # transcribe 60-130s + docx + gen
         "workspace_tier": "any",  # auto-documents → MLX small
         "media_kind": "voice",
-        # Two-MCP chain. LibreChat attaches both via MCPSelect; OWUI ignores
-        # this field (toolIds are seeded at workspace level).
-        "requires_tool": ["portal_mlx_transcribe", "portal_documents"],
         "skip_if": "no_two_speaker_audio_fixture",
         "force_unload_before": True,
         "fixture": "sample_two_speakers.wav",
@@ -7661,8 +7554,7 @@ TEST_CATALOG: list[dict] = [
         "timeout": 120,
         "workspace_tier": "any",
         "is_multi_turn": True,
-        "skip_if": ["no_docx_fixture", "no_librechat_file_rag"],
-        "fixture": "sample.docx",
+        "skip_if": "no_docx_fixture",
         "prompt": "Summarize the key points of this document in 5 bullet points.",
         "turn2": "What does the document say about access control? Quote the relevant section.",
         "assertions": [
@@ -7918,7 +7810,6 @@ TEST_CATALOG: list[dict] = [
         "timeout": 240,
         "workspace_tier": "mlx_small",
         "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
-        "requires_tool": "portal_memory",
         "is_two_chat": True,
         # Pre-seed data injected by _run_two_chat_test before any chat opens.
         "memory_preseed": {
@@ -9683,12 +9574,9 @@ async def _run_two_chat_test(
     if tier in ("mlx_large", "mlx_small", "ollama"):
         backend_ready = await _wait_for_backend(tier, max_wait=120)
         if not backend_ready:
-            if FRONTEND_MODE == "openwebui":
-                chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
-                if folder_id:
-                    owui_assign_chat_folder(token, chat_id, folder_id)
-            else:
-                chat_id, chat_url = "", ""
+            chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
+            if folder_id:
+                owui_assign_chat_folder(token, chat_id, folder_id)
             record_result(
                 n,
                 "FAIL",
@@ -9710,14 +9598,12 @@ async def _run_two_chat_test(
             token,
             model,
             title1,
-            requires_tool=test.get("requires_tool"),
         )
         chat2_id, chat2_url = await _fe_start_chat(
             page,
             token,
             model,
             title2,
-            requires_tool=test.get("requires_tool"),
         )
     except _PresetUnreachableError as exc:
         record_result(
@@ -9804,15 +9690,7 @@ async def _run_two_chat_test(
                 return
 
         # Chat 1
-        if FRONTEND_MODE == "openwebui":
-            await _navigate_to_chat(page, chat1_url)
-        elif FRONTEND_MODE == "librechat":
-            # Both _fe_start_chat calls navigate to /c/new?... so after chat2's
-            # call the page has moved away from chat1. Re-navigate to chat1_url
-            # (still a fresh /c/new page) to get proper cross-session isolation.
-            await page.goto(chat1_url, wait_until="domcontentloaded", timeout=30_000)
-            await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
-            await asyncio.sleep(1.0)
+        await _navigate_to_chat(page, chat1_url)
         # Note: do NOT call _enable_tool here. The portal pipeline injects
         # and dispatches tools internally for auto-daily (and any workspace
         # with effective_tools). Enabling the tool in OWUI causes OWUI to
@@ -9839,28 +9717,7 @@ async def _run_two_chat_test(
 
         # Chat 2 — fresh chat_url, ZERO context shared with chat 1 except
         # via the model calling 'recall' on the Memory MCP.
-
-        # For LibreChat/MLX: the proxy may have switched models during the
-        # inter-chat sleep (background health checks or other requests). Re-check
-        # readiness with the expected model before navigating to Chat 2.
-        if FRONTEND_MODE == "librechat" and tier in ("mlx_large", "mlx_small"):
-            _wait_for_mlx_ready(test_id, expected_model=test.get("mlx_model"))
-
-        if FRONTEND_MODE == "openwebui":
-            await _navigate_to_chat(page, chat2_url)
-        elif FRONTEND_MODE == "librechat":
-            # Navigate to a fresh /c/new page for true cross-session isolation.
-            await page.goto(chat2_url, wait_until="domcontentloaded", timeout=30_000)
-            await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
-            await asyncio.sleep(1.0)
-
-        # For LibreChat/MLX: the page navigation above fires background
-        # prefetch requests that can switch the MLX proxy off the test model.
-        # Wait 5s for those requests to land, then re-verify the correct model
-        # is loaded before submitting Chat 2's prompt.
-        if FRONTEND_MODE == "librechat" and tier in ("mlx_large", "mlx_small"):
-            await asyncio.sleep(5)
-            _wait_for_mlx_ready(test_id, expected_model=test.get("mlx_model"))
+        await _navigate_to_chat(page, chat2_url)
 
         await _fe_send_and_wait(
             page,
@@ -9929,10 +9786,8 @@ async def _run_two_chat_test(
     elapsed = time.time() - t0
     final_title_1 = f"[{status} 1/2] UAT: {test_id} {name}"
     final_title_2 = f"[{status} 2/2] UAT: {test_id} {name}"
-    if FRONTEND_MODE == "openwebui":
-        owui_rename_chat(token, chat1_id, final_title_1)
-        owui_rename_chat(token, chat2_id, final_title_2)
-    # LibreChat: no rename — conversation titles auto-set from first message
+    owui_rename_chat(token, chat1_id, final_title_1)
+    owui_rename_chat(token, chat2_id, final_title_2)
 
     # Use chat 2 URL as the "primary" link in results — it's where the
     # actual recall behavior is visible to a reviewer.
@@ -10011,38 +9866,28 @@ async def run_test(
     skip_if = test.get("skip_if")
     _skip_keys = [skip_if] if isinstance(skip_if, str) else (skip_if or [])
     if any(skip_conditions.get(k, False) for k in _skip_keys):
-        if FRONTEND_MODE == "openwebui":
-            _matched_key = next((k for k in _skip_keys if skip_conditions.get(k, False)), skip_if)
-            chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
-            owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {_matched_key}")
-            if folder_id:
-                owui_assign_chat_folder(token, chat_id, folder_id)
-        else:
-            chat_id, chat_url = "", ""
+        _matched_key = next((k for k in _skip_keys if skip_conditions.get(k, False)), skip_if)
+        chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
+        owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {_matched_key}")
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
         record_result(n, "SKIP", test_id, name, model, [], 0.0, chat_url)
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
 
     # Manual test
     if test.get("is_manual"):
-        if FRONTEND_MODE == "openwebui":
-            chat_id, chat_url = owui_create_chat(token, model, title_pending)
-            if folder_id:
-                owui_assign_chat_folder(token, chat_id, folder_id)
-        else:
-            chat_id, chat_url = "", ""
+        chat_id, chat_url = owui_create_chat(token, model, title_pending)
+        if folder_id:
+            owui_assign_chat_folder(token, chat_id, folder_id)
         manual_prompt = (
             "🔧 MANUAL TEST: "
             + test["prompt"]
             + "\n\nReturn to this chat and pin your result with ✅ PASS / ⚠️ PARTIAL / ❌ FAIL + notes."
         )
-        if FRONTEND_MODE == "openwebui":
-            await _navigate_to_chat(page, chat_url)
-            await _send_and_wait(page, manual_prompt, test_id, token=token, chat_id=chat_id)
-            owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
-        else:
-            await _fe_send_and_wait(page, manual_prompt, test_id)
-            chat_url = _fe_current_chat_url(page, fallback=chat_url)
+        await _navigate_to_chat(page, chat_url)
+        await _send_and_wait(page, manual_prompt, test_id, token=token, chat_id=chat_id)
+        owui_rename_chat(token, chat_id, f"[MANUAL] UAT: {test_id} {name}")
         record_result(n, "MANUAL", test_id, name, model, [], 0.0, chat_url)
         counts["MANUAL"] = counts.get("MANUAL", 0) + 1
         return
@@ -10052,28 +9897,6 @@ async def run_test(
     # inbound bot message: a direct POST to the Pipeline with PIPELINE_API_KEY.
     # Bypasses Open WebUI and Playwright entirely.
     if test.get("via_dispatcher"):
-        # No UX to validate on a non-OWUI frontend — the dispatcher path is
-        # frontend-independent. SKIP rather than execute (we already cover
-        # this on the OWUI run; running again here only duplicates results).
-        if FRONTEND_MODE == "librechat":
-            record_result(
-                n,
-                "SKIP",
-                test_id,
-                name,
-                model,
-                [
-                    (
-                        "not_applicable_to_frontend",
-                        False,
-                        f"via_dispatcher skipped on --frontend {FRONTEND_MODE}",
-                    )
-                ],
-                0.0,
-                "",
-            )
-            counts["SKIP"] = counts.get("SKIP", 0) + 1
-            return
         # Pre-check: bot container running, if specified.
         required_container = test.get("requires_container")
         if required_container:
@@ -10161,12 +9984,9 @@ async def run_test(
             backend_ready = await _wait_for_backend(tier, max_wait=60)
         if not backend_ready:
             _, detail = _backend_alive(tier)
-            if FRONTEND_MODE == "openwebui":
-                chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
-                if folder_id:
-                    owui_assign_chat_folder(token, chat_id, folder_id)
-            else:
-                chat_id, chat_url = "", ""
+            chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
+            if folder_id:
+                owui_assign_chat_folder(token, chat_id, folder_id)
             record_result(
                 n,
                 "FAIL",
@@ -10187,7 +10007,6 @@ async def run_test(
             token,
             model,
             title_pending,
-            requires_tool=test.get("requires_tool"),
         )
     except _PresetUnreachableError as exc:
         record_result(
@@ -10232,8 +10051,7 @@ async def run_test(
     attempts_used: int = 1
 
     try:
-        if FRONTEND_MODE == "openwebui":
-            await _navigate_to_chat(page, chat_url)
+        await _navigate_to_chat(page, chat_url)
 
         # Pre-stage audio fixture for tests that drive the mlx-transcribe MCP.
         # The MCP auto-detects the most recently modified audio file in the
@@ -10258,12 +10076,6 @@ async def run_test(
 
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
-
-        # Attach fixture file (LibreChat only) — for RAG/document tests that need a
-        # file uploaded before the first prompt (e.g. A-01 Document RAG).
-        if FRONTEND_MODE == "librechat" and test.get("fixture"):
-            _fixture_path = Path(__file__).parent / "fixtures" / test["fixture"]
-            await _lc.attach_file(page, _fixture_path)
 
         # Send first turn — retry up to 2 times on empty response (MLX cold load).
         # This is RECOVERY logic (handle empty/crashed backend), not a
@@ -10420,9 +10232,7 @@ async def run_test(
             print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}", flush=True)
 
     final_title = f"[{status}] UAT: {test_id} {name}"
-    if FRONTEND_MODE == "openwebui":
-        owui_rename_chat(token, chat_id, final_title)
-    # LibreChat: no rename — conversation titles auto-set from first message
+    owui_rename_chat(token, chat_id, final_title)
     record_result(
         n, status, test_id, name, model, assertions_result, elapsed, chat_url, routed_model
     )
@@ -10768,16 +10578,6 @@ async def _notify_test_summary(
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Portal 5 UAT Conversation Driver")
-    parser.add_argument(
-        "--frontend",
-        choices=("openwebui", "librechat"),
-        default="openwebui",
-        help=(
-            "Web frontend to drive: openwebui (default — http://localhost:8080) or "
-            "librechat (http://localhost:8082). LibreChat path is pure Playwright; "
-            "writes to tests/UAT_RESULTS_LIBRECHAT.md."
-        ),
-    )
     parser.add_argument("--all", action="store_true", help="Run all tests")
     parser.add_argument("--section", action="append", help="Run tests from section(s)")
     parser.add_argument(
@@ -10848,35 +10648,15 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    # ── Frontend selection — sets module globals consumed by _fe_* shims ────
-    global FRONTEND_MODE, RESULTS_FILE
-    FRONTEND_MODE = args.frontend
-    if FRONTEND_MODE == "librechat":
-        RESULTS_FILE = RESULTS_FILE_LIBRECHAT
-        if not LIBRECHAT_PASSWORD:
-            print(
-                "ERROR: --frontend librechat requires LIBRECHAT_ADMIN_PASSWORD in .env "
-                "(see .env.example § Alternative Frontends).",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        print("\nPortal 5 UAT Driver")
-        print(f"LibreChat: {LIBRECHAT_URL}  |  User: {LIBRECHAT_EMAIL}")
-        print(f"Results:   {RESULTS_FILE}\n")
-        # LibreChat auth is browser-cookie based; no separate token needed.
-        # `token` stays unset for the LibreChat path; _fe_* shims ignore it.
-        token = ""
-    else:
-        RESULTS_FILE = RESULTS_FILE_OWUI
-        print("\nPortal 5 UAT Driver")
-        print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
-        print(f"Results: {RESULTS_FILE}\n")
+    print("\nPortal 5 UAT Driver")
+    print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
+    print(f"Results: {RESULTS_FILE}\n")
 
-        # Auth (OWUI path only)
-        token = owui_token()
-        if not token:
-            print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
-            sys.exit(1)
+    # Auth
+    token = owui_token()
+    if not token:
+        print("ERROR: Could not authenticate with Open WebUI", file=sys.stderr)
+        sys.exit(1)
 
     # Codebase freshness — warn if running images predate latest git commits.
     # Stale images mean test results reflect old code, not HEAD.
@@ -11045,28 +10825,20 @@ async def main() -> None:
     # stopped; UAT doesn't do that.
 
     # ---- Folder hierarchy: UAT/ (root) → YYYY-MM-DD/ (per-run subfolder) ----
-    # OWUI only. LibreChat has no folder concept (conversations use tags) so
-    # folder_id stays None and _fe_assign_folder becomes a no-op.
     folder_id: str | None = None
-    if FRONTEND_MODE == "openwebui":
-        uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
-        run_date = time.strftime("%Y-%m-%d")
-        if uat_root_id:
-            folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
-            if folder_id:
-                print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
-            else:
-                print(
-                    f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder"
-                )
-                folder_id = uat_root_id
+    uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
+    run_date = time.strftime("%Y-%m-%d")
+    if uat_root_id:
+        folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+        if folder_id:
+            print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
         else:
-            print("  WARNING: could not get/create root UAT folder — chats will be in root")
+            print(
+                f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder"
+            )
+            folder_id = uat_root_id
     else:
-        print(
-            "  LibreChat: folder organisation skipped (LibreChat uses conversation "
-            "tags, not folders). Review chats sorted by date in the conversation list."
-        )
+        print("  WARNING: could not get/create root UAT folder — chats will be in root")
 
     # Init results file
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -11090,10 +10862,7 @@ async def main() -> None:
         )
         page = await ctx.new_page()
         await _fe_login(page)
-        if FRONTEND_MODE == "librechat":
-            print("  Logged in to LibreChat\n")
-        else:
-            print("  Logged in to Open WebUI\n")
+        print("  Logged in to Open WebUI\n")
 
         t_start = time.time()
         await _notify_test_start(
@@ -11319,9 +11088,7 @@ async def main() -> None:
             # ComfyUI lifecycle: only keep ComfyUI running during tests that
             # actually need it. Stop it before non-ComfyUI tests to reclaim GPU
             # memory; start it (with warmup wait) before ComfyUI-dependent tests.
-            needs_comfyui = (
-                test.get("requires_tool") == "portal_comfyui" or test.get("skip_if") == "no_comfyui"
-            )
+            needs_comfyui = test.get("skip_if") == "no_comfyui"
             if needs_comfyui and not _comfyui_running():
                 # Bring ComfyUI up and give Metal a 30s warmup before the test
                 started = _start_comfyui(wait_s=60)

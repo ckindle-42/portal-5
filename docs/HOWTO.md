@@ -1350,56 +1350,35 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-## 24. Alternative Frontends (LibreChat, AnythingLLM)
+## 24. Alternative Frontends (AnythingLLM)
 
-**What:** Two additional chat UIs that connect to the same Portal Pipeline. Each is opt-in — the default `./launch.sh up` only starts Open WebUI.
+**What:** An additional chat UI that connects to the same Portal Pipeline. It is opt-in — the default `./launch.sh up` only starts Open WebUI.
 
 **Prerequisites:** Add these secrets to `.env` before first launch:
 ```bash
-LIBRECHAT_ADMIN_EMAIL=admin@portal.local
-LIBRECHAT_ADMIN_PASSWORD=<password>
-LIBRECHAT_JWT_SECRET=$(openssl rand -hex 32)
-LIBRECHAT_JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-LIBRECHAT_CREDS_KEY=$(openssl rand -hex 32)
-LIBRECHAT_CREDS_IV=$(openssl rand -hex 16)
 ANYTHINGLLM_ADMIN_PASSWORD=<password>
 ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
 ```
 
 **How to start:**
 ```bash
-./launch.sh up-librechat      # → http://localhost:8082
 ./launch.sh up-anythingllm   # → http://localhost:8083
-./launch.sh up-all-frontends # Both simultaneously
 ```
 
 **What happens on first start:**
-1. Docker images are pulled (LibreChat ~600MB, AnythingLLM ~1.5GB)
-2. Dependencies start (MongoDB, Meilisearch where needed)
-3. An init container runs and seeds all workspaces + personas automatically
-4. The UI is ready at the assigned port
+1. Docker image is pulled (AnythingLLM ~1.5GB)
+2. An init container runs and seeds all workspaces automatically
+3. The UI is ready at port 8083
 
-**Re-seed after adding new personas or workspaces:**
+**Re-seed after adding new workspaces:**
 ```bash
-./launch.sh seed-librechat    # skips existing, adds new ones
 ./launch.sh seed-anythingllm
 ```
 
-**Remote access:** Both frontends follow `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and each frontend binds to `0.0.0.0` on its respective port, matching Open WebUI's behaviour. Restart with `./launch.sh up-librechat` (or the appropriate command) after changing the value.
-
-**Choosing a frontend:**
-
-| Use case | Best frontend |
-|---|---|
-| MCP tool use, agent workflows | LibreChat (:8082) |
-| Document Q&A, RAG pipelines | AnythingLLM (:8083) |
-| Default (everything) | Open WebUI (:8080) |
-
-**Why not HuggingChat?** HuggingChat (chat-ui v2) was evaluated but removed. The v2 architecture requires a valid HuggingFace API token for inference and fetches its model list exclusively from `router.huggingface.co`. The `MODELS` env var for local-only configuration is not supported in the v2 UI layer.
+**Remote access:** AnythingLLM follows `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and it binds to `0.0.0.0:8083`, matching Open WebUI's behaviour.
 
 **Verify:**
 ```bash
-curl http://localhost:8082/health       # LibreChat: "OK"
 curl http://localhost:8083/api/v1/health # AnythingLLM: 200 (HTML SPA = healthy)
 ```
 

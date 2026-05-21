@@ -1,5 +1,5 @@
 """
-Frontend reasoning display test — OWUI vs alternative frontends.
+Frontend reasoning display test — OWUI.
 
 Background
 ----------
@@ -12,22 +12,13 @@ The original UAT failure (AEON/Qwen3 on auto-security workspace):
   fallback. When that fallback also races with OWUI's deferred commit behaviour,
   intermittent empty-response failures occur.
 
-  LibreChat and AnythingLLM do NOT inject <details type="reasoning"> — they expose
-  thinking content in visible text flow, making standard DOM polling reliable.
-
 This test verifies:
   1. The pipeline returns valid thinking + content for a reasoning workspace (API)
   2. OWUI buries <think> tokens inside <details type="reasoning"> (DOM check)
-  3. The alternative frontends do NOT bury them in hidden <details> elements (DOM)
-
-NOTE: HuggingChat (chat-ui) was evaluated but removed. chat-ui v2 (2025+) fetches
-  model lists exclusively from router.huggingface.co and requires a valid HF_TOKEN
-  for inference. The MODELS env var for local-only configuration is not supported
-  in the v2 UI layer. A valid HF_TOKEN with inference credits is required.
 
 Running
 -------
-  # Requires all frontends running (./launch.sh up-all-frontends)
+  # Requires OWUI running (./launch.sh up)
   # and Playwright browsers installed (playwright install chromium)
   pytest tests/frontend/test_reasoning_display.py -v -s --timeout=300
 
@@ -39,8 +30,6 @@ Environment variables
   OPENWEBUI_URL            default http://localhost:8080
   OPENWEBUI_ADMIN_EMAIL    default admin@portal.local
   OPENWEBUI_ADMIN_PASSWORD (required for OWUI Playwright login)
-  LIBRECHAT_URL            default http://localhost:8082
-  LIBRECHAT_ADMIN_EMAIL / LIBRECHAT_ADMIN_PASSWORD
   PIPELINE_URL             default http://localhost:9099
   PIPELINE_API_KEY
 """
@@ -59,10 +48,6 @@ import pytest
 OWUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
 OWUI_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
 OWUI_PASSWORD = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
-
-LIBRECHAT_URL = os.environ.get("LIBRECHAT_URL", "http://localhost:8082")
-LIBRECHAT_EMAIL = os.environ.get("LIBRECHAT_ADMIN_EMAIL", "admin@portal.local")
-LIBRECHAT_PASSWORD = os.environ.get("LIBRECHAT_ADMIN_PASSWORD", "")
 
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
@@ -263,63 +248,3 @@ def test_owui_thinking_hidden_in_details(browser_context):
     finally:
         page.close()
 
-
-
-@pytest.mark.browser
-@pytest.mark.timeout(RESPONSE_TIMEOUT_S + 60)
-def test_librechat_reasoning_response_nonempty(browser_context):
-    """LibreChat returns a non-empty response for auto-security (AEON/reasoning workspace).
-
-    Tests the API path through LibreChat's custom endpoint. Specifically verifies
-    that LibreChat's streaming doesn't drop thinking tokens in a way that leaves
-    the response empty — the failure mode that caused OWUI UAT to need polling.
-    """
-    if not LIBRECHAT_PASSWORD:
-        pytest.skip("LIBRECHAT_ADMIN_PASSWORD not set")
-
-    page = browser_context.new_page()
-    try:
-        # LibreChat uses WebSockets — "networkidle" never fires; wait for login form instead
-        page.goto(LIBRECHAT_URL, wait_until="domcontentloaded", timeout=30_000)
-        page.wait_for_selector('input[type="email"], input[name="email"]', timeout=20_000)
-
-        # Log in to LibreChat
-        try:
-            page.fill('input[type="email"], input[name="email"]', LIBRECHAT_EMAIL)
-            page.fill('input[type="password"], input[name="password"]', LIBRECHAT_PASSWORD)
-            page.click('button[type="submit"]')
-            # Wait for chat input to appear rather than networkidle
-            page.wait_for_selector("textarea, [contenteditable='true']", timeout=20_000)
-        except Exception as e:
-            pytest.skip(f"LibreChat login failed: {e}")
-
-        # Select Portal 5 auto-security preset if available
-        try:
-            preset_btn = page.locator('button:has-text("Presets"), [aria-label*="preset"]').first
-            if preset_btn.is_visible(timeout=3000):
-                preset_btn.click()
-                page.get_by_text("Security", exact=False).first.click()
-                time.sleep(1)
-        except Exception:
-            pass
-
-        # Send the reasoning prompt
-        chat_input = page.locator("textarea, [contenteditable='true']").first
-        chat_input.fill(REASONING_PROMPT)
-        chat_input.press("Enter")
-
-        _wait_for_response_complete(page, timeout_ms=RESPONSE_TIMEOUT_S * 1000)
-
-        # Check response is non-empty
-        response_area = page.locator('[data-message-role="assistant"], .message-content').last
-        response_text = response_area.inner_text() if response_area.count() > 0 else page.inner_text("body")
-
-        reasoning_count = page.locator("details[type='reasoning']").count()
-        print(f"\n[librechat] Response text length: {len(response_text)}")
-        print(f"[librechat] <details type='reasoning'> count: {reasoning_count}")
-
-        assert response_text.strip(), "LibreChat returned empty response for auto-security workspace"
-        print("[librechat] PASS: non-empty response received through LibreChat")
-
-    finally:
-        page.close()
