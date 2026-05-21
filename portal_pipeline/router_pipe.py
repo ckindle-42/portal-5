@@ -1995,7 +1995,6 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
             "owned_by": "portal-5",
             "name": ws_cfg["name"],
             "description": ws_cfg.get("description", ""),
-            # Extended metadata consumed by alternative frontends (e.g. AnythingLLM)
             "category": category,
             "tags": ws_cfg.get("tags", [category]),
             "tools": ws_cfg.get("tools", []),

@@ -83,73 +83,11 @@ The pipeline API (port 9099) and all MCP servers (8910–8923) are always bound 
 
 > **Note:** Grafana (port 3000) binds to `0.0.0.0:3000` and **is** reachable from other machines on your network. Grafana requires login (`admin` / `GRAFANA_PASSWORD` from `.env`) and does not expose inference data — but if your LAN is untrusted, restrict it with a firewall rule or set `GF_SERVER_HTTP_ADDR=127.0.0.1` in `docker-compose.yml`.
 
-## Alternative Frontends
-
-AnythingLLM ships as an opt-in Docker Compose profile. It connects to the same Portal Pipeline and is seeded automatically.
-
-### Required `.env` secrets
-
-Add these to `.env` before running. The `launch.sh` first-run auto-generation does **not** create them — you must set them manually.
-
-```bash
-# AnythingLLM
-ANYTHINGLLM_ADMIN_PASSWORD=<strong-password>
-ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
-```
-
-### Start AnythingLLM
-
-```bash
-./launch.sh up-anythingllm   # AnythingLLM → :8083
-```
-
-Each command:
-1. Derives the listen address from `ENABLE_REMOTE_ACCESS` (same as Open WebUI)
-2. Persists `ANYTHINGLLM_LISTEN_ADDR` to `.env`
-3. Starts the Docker Compose profile
-4. Runs an init container that seeds workspaces
-
-### Re-seed without restart
-
-```bash
-./launch.sh seed-anythingllm  # Re-runs workspace seeding
-```
-
-### Remote access
-
-AnythingLLM follows `ENABLE_REMOTE_ACCESS` automatically:
-
-```bash
-# In .env:
-ENABLE_REMOTE_ACCESS=true    # → AnythingLLM binds 0.0.0.0
-ENABLE_REMOTE_ACCESS=false   # → AnythingLLM binds 127.0.0.1 (default)
-```
-
-Per-frontend override:
-```bash
-ANYTHINGLLM_LISTEN_ADDR=0.0.0.0  # override for AnythingLLM only
-```
-
-### What gets seeded
-
-| Frontend | Seeded content |
-|---|---|
-| AnythingLLM | 19 workspaces (each bound to the pipeline model ID) |
-
-### Log access
-
-```bash
-./launch.sh logs anythingllm     # AnythingLLM logs
-```
-
----
-
 ## Backup
 
 Critical data is in Docker volumes:
 - `portal-5_open-webui-data` — all user accounts, chat history, settings
 - `portal-5_ollama-models` — downloaded model weights (replaceable, not personal data)
-- `portal-5_anythingllm-data` — AnythingLLM workspaces and documents (if using AnythingLLM)
 
 ```bash
 # Easiest: use the launch script (saves to ./backups/)
@@ -158,10 +96,6 @@ Critical data is in Docker volumes:
 # Or manually (Open WebUI):
 docker run --rm -v portal-5_open-webui-data:/data -v $(pwd):/backup \
     alpine tar czf /backup/openwebui-backup-$(date +%Y%m%d).tar.gz /data
-
-# AnythingLLM (if running):
-docker run --rm -v portal-5_anythingllm-data:/data -v $(pwd):/backup \
-    alpine tar czf /backup/anythingllm-backup-$(date +%Y%m%d).tar.gz /data
 ```
 
 ## MLX Health Monitoring

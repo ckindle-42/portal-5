@@ -71,16 +71,6 @@ Everything runs with a single command. No manual configuration.
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
-### Alternative Frontends (opt-in)
-
-AnythingLLM is available as an opt-in Docker Compose profile — it does not start with `./launch.sh up`. It connects to the same Portal Pipeline and gets the same workspaces automatically seeded.
-
-| Frontend | Port | Strengths | Launch |
-|---|---|---|---|
-| **AnythingLLM** | 8083 | Workspace-first RAG, document Q&A, vector search | `./launch.sh up-anythingllm` |
-
-It honours `ENABLE_REMOTE_ACCESS` — set it to `true` in `.env` to expose it on the same interface as Open WebUI. See **[Alternative Frontends setup →](docs/ADMIN_GUIDE.md#alternative-frontends)**.
-
 ---
 
 ## Workspaces
@@ -171,10 +161,6 @@ These pin a specific model for direct performance comparison. Not intended for d
 ./launch.sh up-telegram     # Start Telegram bot
 ./launch.sh up-slack        # Start Slack bot
 ./launch.sh up-channels     # Start both
-
-# Alternative frontends (opt-in, auto-seeded)
-./launch.sh up-anythingllm  # AnythingLLM on :8083 (workspace RAG)
-./launch.sh seed-anythingllm # Re-seed AnythingLLM workspaces without restart
 
 # Backup and restore
 ./launch.sh backup          # Save all data to ./backups/
@@ -336,7 +322,7 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 |---|---|
 | [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature, including remote API access |
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
-| [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security, alternative frontends |
+| [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |
 | [Alerts & Notifications](docs/ALERTS.md) | Operational alerts and daily summaries |
 | [ComfyUI Setup](docs/COMFYUI_SETUP.md) | Advanced image/video model configuration |
 | [Fish Speech Setup](docs/FISH_SPEECH_SETUP.md) | Optional voice cloning TTS backend |
@@ -361,12 +347,10 @@ Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
 ## Architecture
 
 ```
-┌──────────────┐ ┌──────────────┐
-│  Open WebUI  │ │ AnythingLLM  │
-│    :8080     │ │    :8083     │
-│  (default)   │ │  (opt-in)    │
-└──────┬───────┘ └──────┬───────┘
-       └────────────────┘
+┌──────────────┐
+│  Open WebUI  │
+│    :8080     │
+└──────┬───────┘
                 │
                      ┌────────────▼───────────────────┐
                      │    Portal Pipeline :9099         │

@@ -804,64 +804,6 @@ services:
     command: >
       sh -c "pip install huggingface_hub --quiet && python /scripts/download_comfyui_models.py"
 
-  # ── AnythingLLM — Alternative frontend (opt-in: --profile anythingllm) ────
-  anythingllm:
-    image: mintplexlabs/anythingllm:latest
-    pull_policy: always
-    container_name: portal5-anythingllm
-    restart: unless-stopped
-    profiles:
-      - anythingllm
-      - all-frontends
-    ports:
-      - "${ANYTHINGLLM_LISTEN_ADDR:-127.0.0.1}:8083:3001"
-    volumes:
-      - anythingllm-data:/app/server/storage
-    environment:
-      - STORAGE_DIR=/app/server/storage
-      - LLM_PROVIDER=generic-openai
-      - GENERIC_OPEN_AI_BASE_PATH=http://portal-pipeline:9099/v1
-      - GENERIC_OPEN_AI_API_KEY=${PIPELINE_API_KEY}
-      - GENERIC_OPEN_AI_MODEL_PREF=auto
-      - GENERIC_OPEN_AI_MODEL_TOKEN_LIMIT=4096
-      - AUTH_TOKEN=${ANYTHINGLLM_ADMIN_PASSWORD}
-      - JWT_SECRET=${ANYTHINGLLM_JWT_SECRET}
-      - DISABLE_TELEMETRY=true
-      - VECTOR_DB=lancedb
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      portal-pipeline:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 5
-
-  anythingllm-init:
-    image: python:3.11-slim
-    container_name: portal5-anythingllm-init
-    restart: "no"
-    profiles:
-      - anythingllm
-      - all-frontends
-    depends_on:
-      anythingllm:
-        condition: service_healthy
-    environment:
-      - ANYTHINGLLM_URL=http://anythingllm:3001
-      - ANYTHINGLLM_ADMIN_PASSWORD=${ANYTHINGLLM_ADMIN_PASSWORD}
-      - ANYTHINGLLM_DB_PATH=/storage/anythingllm.db
-      - PIPELINE_API_KEY=${PIPELINE_API_KEY}
-      - PIPELINE_URL=http://portal-pipeline:9099/v1
-    volumes:
-      - ../../scripts:/scripts:ro
-      - anythingllm-data:/storage
-    command: >
-      sh -c "pip install httpx pyyaml --quiet && python /scripts/anythingllm_init.py"
-
   # ── Prometheus — Metrics collection ──────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.51.0
@@ -919,4 +861,3 @@ volumes:
   security-hf-cache:       # HuggingFace model cache for security MCP (CIRCL VLAI)
   portal5-lance:           # LanceDB vector storage (memory + RAG)
   portal5-kb-sources:      # Knowledge base source files for RAG ingestion
-  anythingllm-data:        # AnythingLLM storage (documents, vectors)
