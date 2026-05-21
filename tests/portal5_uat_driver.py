@@ -2891,6 +2891,10 @@ def evaluate_skip_conditions() -> dict:
     conditions["no_two_speaker_audio_fixture"] = not (fixtures / "sample_two_speakers.wav").exists()
     conditions["no_docx_fixture"] = not (fixtures / "sample.docx").exists()
     conditions["no_knowledge_base"] = not (fixtures / "knowledge_base").is_dir()
+    # LibreChat in-chat file attachment requires a separate rag_api service that
+    # is not included in the Portal 5 compose stack. Tests that upload files to
+    # chat (not the knowledge-base) get HTTP 404 from LibreChat's file processor.
+    conditions["no_librechat_file_rag"] = FRONTEND_MODE == "librechat"
     return conditions
 
 
@@ -7657,7 +7661,7 @@ TEST_CATALOG: list[dict] = [
         "timeout": 120,
         "workspace_tier": "any",
         "is_multi_turn": True,
-        "skip_if": "no_docx_fixture",
+        "skip_if": ["no_docx_fixture", "no_librechat_file_rag"],
         "fixture": "sample.docx",
         "prompt": "Summarize the key points of this document in 5 bullet points.",
         "turn2": "What does the document say about access control? Quote the relevant section.",
@@ -10003,12 +10007,14 @@ async def run_test(
 
     title_pending = f"[...] UAT: {test_id} {name}"
 
-    # Skip check
+    # Skip check — skip_if can be a string or list of strings (any match skips)
     skip_if = test.get("skip_if")
-    if skip_if and skip_conditions.get(skip_if, False):
+    _skip_keys = [skip_if] if isinstance(skip_if, str) else (skip_if or [])
+    if any(skip_conditions.get(k, False) for k in _skip_keys):
         if FRONTEND_MODE == "openwebui":
+            _matched_key = next((k for k in _skip_keys if skip_conditions.get(k, False)), skip_if)
             chat_id, chat_url = owui_create_chat(token, model, f"[SKIP] UAT: {test_id} {name}")
-            owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {skip_if}")
+            owui_rename_chat(token, chat_id, f"[SKIP] UAT: {test_id} {name} — {_matched_key}")
             if folder_id:
                 owui_assign_chat_folder(token, chat_id, folder_id)
         else:
