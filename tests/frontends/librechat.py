@@ -713,9 +713,18 @@ def current_chat_url(page) -> str:
 
 
 async def download_artifact(
-    page, expected_ext: str, response_text: str = "", timeout_ms: int = 120_000
+    page,
+    expected_ext: str,
+    response_text: str = "",
+    timeout_ms: int = 120_000,
+    *,
+    since_ts: float = 0.0,
 ) -> Path | None:
-    """Try to obtain the generated artifact file."""
+    """Try to obtain the generated artifact file.
+
+    since_ts: Unix timestamp — workspace-scan fallback only considers files
+    created after this time. Defaults to 10 minutes ago if not supplied.
+    """
     import subprocess as _sp
 
     artifact_dir = Path("/tmp/uat_artifacts")
@@ -775,6 +784,12 @@ async def download_artifact(
             if result.returncode == 0 and dest.exists():
                 return dest
 
+    import os as _os
+    import shutil as _shutil
+    import time as _time
+
+    workspace = Path(_os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
+
     # Try 4: bare filename in response → MCP file server or host workspace copy
     bare_match = re.search(rf"([\w.-]{{5,80}}\.{re.escape(expected_ext)})", response_text)
     if bare_match:
@@ -792,15 +807,31 @@ async def download_artifact(
             except Exception:
                 pass
         # 4b: host workspace directory (AI_Output or generated subdir)
-        import os as _os
-        import shutil as _shutil
-
-        workspace = Path(_os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
         for base in [workspace, workspace / "generated" / "documents"]:
             candidate = base / filename
             if candidate.exists():
                 dest = artifact_dir / filename
                 _shutil.copy2(candidate, dest)
                 return dest
+
+    # Try 5: time-based workspace scan — find the most recently created file with
+    # the right extension created after since_ts (handles tool-hop limit cases
+    # where response text contains no filename but the MCP did create the file)
+    cutoff = since_ts if since_ts > 0 else (_time.time() - 600)
+    candidates: list[tuple[float, Path]] = []
+    for base in [workspace, workspace / "generated" / "documents"]:
+        try:
+            for f in base.glob(f"*.{expected_ext}"):
+                mtime = f.stat().st_mtime
+                if mtime > cutoff:
+                    candidates.append((mtime, f))
+        except Exception:
+            pass
+    if candidates:
+        candidates.sort(reverse=True)
+        newest = candidates[0][1]
+        dest = artifact_dir / newest.name
+        _shutil.copy2(newest, dest)
+        return dest
 
     return None
