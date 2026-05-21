@@ -2676,6 +2676,13 @@ async def chat_completions(
         # logic caused tool-using workspaces to error when their fallback
         # chain landed on a non-tool-tagged Ollama model.
         backend_supports_tools = _model_supports_tools(target_model or "")
+        # Strip any client-injected tools from the request body when the backend
+        # model doesn't support tool calls. LibreChat sends all registered MCP tool
+        # schemas globally with every request — without this strip, Ollama returns
+        # HTTP 400 "does not support tools" even for non-tool workspaces.
+        if not backend_supports_tools:
+            backend_body.pop("tools", None)
+            backend_body.pop("tool_choice", None)
         _has_tools = bool(effective_tools) and backend_supports_tools
         if effective_tools and not backend_supports_tools:
             logger.info(

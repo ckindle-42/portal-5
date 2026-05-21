@@ -319,6 +319,18 @@ async def start_new_chat(
             await _ensure_authenticated(page)
             try:
                 await page.wait_for_selector(_mcp_sel, timeout=30_000)
+                _found = True
+            except Exception:
+                pass
+        if not _found:
+            # Second retry: full hard reload — handles SPA state after memory pressure
+            # or proxy recovery events that leave the toolbar in an uninitialised state.
+            print("  [mcp-retry2] MCPSelect still absent — hard reload + 10s settle", flush=True)
+            await page.reload(wait_until="domcontentloaded", timeout=30_000)
+            await asyncio.sleep(10.0)
+            await _ensure_authenticated(page)
+            try:
+                await page.wait_for_selector(_mcp_sel, timeout=30_000)
             except Exception:
                 pass  # select_mcp_servers will log "not found" if still absent
         await select_mcp_servers(page, keys)
@@ -794,8 +806,8 @@ async def download_artifact(
     bare_match = re.search(rf"([\w.-]{{5,80}}\.{re.escape(expected_ext)})", response_text)
     if bare_match:
         filename = bare_match.group(1)
-        # 4a: MCP file server (portal-documents serves at :8913/files/<name>)
-        for port in [8913, 8916, 8910]:
+        # 4a: MCP file server (:8913=documents, :8916=tts, :8912=music, :8910=comfyui)
+        for port in [8913, 8916, 8912, 8910]:
             try:
                 file_url = f"http://localhost:{port}/files/{filename}"
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -806,8 +818,15 @@ async def download_artifact(
                     return dest
             except Exception:
                 pass
-        # 4b: host workspace directory (AI_Output or generated subdir)
-        for base in [workspace, workspace / "generated" / "documents"]:
+        # 4b: host workspace directory (AI_Output or any generated subdir)
+        for base in [
+            workspace,
+            workspace / "generated" / "documents",
+            workspace / "generated" / "speech",
+            workspace / "generated" / "music",
+            workspace / "generated" / "images",
+            workspace / "generated" / "videos",
+        ]:
             candidate = base / filename
             if candidate.exists():
                 dest = artifact_dir / filename
@@ -819,7 +838,14 @@ async def download_artifact(
     # where response text contains no filename but the MCP did create the file)
     cutoff = since_ts if since_ts > 0 else (_time.time() - 600)
     candidates: list[tuple[float, Path]] = []
-    for base in [workspace, workspace / "generated" / "documents"]:
+    for base in [
+        workspace,
+        workspace / "generated" / "documents",
+        workspace / "generated" / "speech",
+        workspace / "generated" / "music",
+        workspace / "generated" / "images",
+        workspace / "generated" / "videos",
+    ]:
         try:
             for f in base.glob(f"*.{expected_ext}"):
                 mtime = f.stat().st_mtime
