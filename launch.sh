@@ -326,7 +326,7 @@ _ensure_native_services() {
 _do_down() {
     # ── Stop Docker stack ─────────────────────────────────────────────────
     cd "$COMPOSE_DIR"
-    docker compose --profile anythingllm --profile all-frontends down
+    docker compose down
     echo "[portal-5] Docker stack stopped."
 
     # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
@@ -832,13 +832,6 @@ except Exception as e:
         echo ""
     fi
 
-    # ── Alternative frontends (shown when any are running) ───────────────────
-    _AL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-anythingllm" || echo "0")
-    if [ "$_AL" -ge 1 ]; then
-        echo "  ALTERNATIVE FRONTENDS"
-        printf "    ✅  %-28s %s\n" "AnythingLLM" "running — http://localhost:8083"
-        echo ""
-    fi
 }
 
 case "${1:-up}" in
@@ -860,12 +853,6 @@ case "${1:-up}" in
       chmod -R 0775 "${WS}" 2>/dev/null || true
     fi
 
-    # Remember which alternative frontends were running so we can restore them after up
-    _ACTIVE_FRONTENDS=""
-    if docker ps --format "{{.Names}}" 2>/dev/null | grep -q "portal5-anythingllm"; then
-        _ACTIVE_FRONTENDS="$_ACTIVE_FRONTENDS anythingllm"
-    fi
-
     # Tear down any previously running stack so ports are clean before we start
     echo "[portal-5] Stopping any existing Portal 5 services..."
     _do_down
@@ -873,16 +860,7 @@ case "${1:-up}" in
     # Pull latest Docker images before bringing the stack up
     echo "[portal-5] Pulling latest Docker images..."
     cd "$COMPOSE_DIR"
-    # Quick env source to detect configured frontends for profile-aware pull
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    _al_configured() { [ -n "${ANYTHINGLLM_ADMIN_PASSWORD:-}" ] && [ "${ANYTHINGLLM_ADMIN_PASSWORD}" != "CHANGEME" ]; }
-    _PULL_PROFILES=""
-    _al_configured && _PULL_PROFILES="$_PULL_PROFILES --profile anythingllm"
-    # Also pull for any previously-active frontends (restore path) so their images stay current
-    for _fp in $_ACTIVE_FRONTENDS; do
-        echo "$_PULL_PROFILES" | grep -q -- "--profile $_fp" || _PULL_PROFILES="$_PULL_PROFILES --profile $_fp"
-    done
-    docker compose $_PULL_PROFILES pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
+    docker compose pull || echo "[portal-5] ⚠️  Some images could not be pulled — using cached versions."
 
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services
@@ -956,16 +934,6 @@ case "${1:-up}" in
         echo "WEBUI_LISTEN_ADDR=${WEBUI_LISTEN_ADDR}" >> "$ENV_FILE"
     fi
 
-    # Derive listen addresses for optional frontends — tracks ENABLE_REMOTE_ACCESS same as OWUI
-    if _al_configured || echo "$_ACTIVE_FRONTENDS" | grep -q anythingllm; then
-        export ANYTHINGLLM_LISTEN_ADDR="${WEBUI_LISTEN_ADDR}"
-        if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-            sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-        else
-            echo "ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}" >> "$ENV_FILE"
-        fi
-    fi
-
     if [ -n "${PORTAL_PUBLIC_URL:-}" ]; then
         _BASE="${PORTAL_PUBLIC_URL%/}"
         export MUSIC_PUBLIC_URL="${_BASE}/files/music"
@@ -986,27 +954,10 @@ case "${1:-up}" in
         _PROFILES="$_PROFILES --profile slack"
         echo "[portal-5] Slack tokens configured — including Slack bot"
     fi
-    if _al_configured; then
-        _PROFILES="$_PROFILES --profile anythingllm"
-        echo "[portal-5] AnythingLLM configured — including in stack"
-    fi
-
     echo "[portal-5] Starting stack..."
     cd "$COMPOSE_DIR"
     docker compose $_PROFILES up -d
 
-    # Restore any alternative frontends that were running before this up
-    # (skips any already managed via ENABLE_ANYTHINGLLM above)
-    if [ -n "$_ACTIVE_FRONTENDS" ]; then
-        for _fp in $_ACTIVE_FRONTENDS; do
-            if echo "$_PROFILES" | grep -q -- "--profile $_fp"; then
-                continue
-            fi
-            echo "[portal-5] Restoring previously-running frontend: $_fp"
-            echo "  Tip: set the $_fp credentials in .env to have it start automatically."
-            docker compose --profile "$_fp" up -d 2>/dev/null
-        done
-    fi
 
     # Auto-start ARM64 native embedding server on Apple Silicon (TEI image is x86-only)
     if [ "$(uname -m)" = "arm64" ]; then
@@ -1429,7 +1380,7 @@ __MLX_FRESHNESS__
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || { echo "Aborted."; exit 0; }
 
     # Stop stack before restore
-    cd "$COMPOSE_DIR" && docker compose --profile anythingllm --profile all-frontends down 2>/dev/null; cd - > /dev/null
+    cd "$COMPOSE_DIR" && docker compose down 2>/dev/null; cd - > /dev/null
 
     # Restore Open WebUI data
     if [ -f "${BACKUP_PATH}/openwebui-data.tar.gz" ]; then
@@ -1778,7 +1729,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
   clean)
     cd "$COMPOSE_DIR"
     echo "[portal-5] Stopping services..."
-    docker compose --profile anythingllm --profile all-frontends down
+    docker compose down
 
     echo "[portal-5] Removing Open WebUI data volume..."
     # Remove only the open-webui-data volume — NOT ollama-models
@@ -1794,7 +1745,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     ;;
   clean-all)
     cd "$COMPOSE_DIR"
-    docker compose --profile anythingllm --profile all-frontends down -v --remove-orphans 2>/dev/null || true
+    docker compose down -v --remove-orphans 2>/dev/null || true
     docker volume rm portal-5_ollama-models 2>/dev/null || true
     echo "[portal-5] Full clean complete (all volumes removed including Ollama models)."
     echo "WARNING: Models will re-download on next up (several GB)."
@@ -1811,65 +1762,6 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     echo "[portal-5] This updates persona prompts, workspace toolIds, and all model presets."
     FORCE_RESEED=true docker compose run --rm -e FORCE_RESEED=true openwebui-init
     echo "[portal-5] Reseed complete."
-    ;;
-  up-anythingllm)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
-        export ANYTHINGLLM_LISTEN_ADDR="0.0.0.0"
-        echo "[portal-5] Remote access enabled — AnythingLLM will listen on 0.0.0.0:8083"
-    else
-        export ANYTHINGLLM_LISTEN_ADDR="${ANYTHINGLLM_LISTEN_ADDR:-127.0.0.1}"
-    fi
-    if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-        sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    else
-        echo "ANYTHINGLLM_LISTEN_ADDR=${ANYTHINGLLM_LISTEN_ADDR}" >> "$ENV_FILE"
-    fi
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Starting AnythingLLM (port 8083)..."
-    docker compose --profile anythingllm up -d
-    echo "[portal-5] AnythingLLM starting at http://${ANYTHINGLLM_LISTEN_ADDR}:8083"
-    echo "  Seeding will run automatically via anythingllm-init container."
-    echo "  Watch logs: ./launch.sh logs anythingllm"
-    ;;
-  up-all-frontends)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    _frontend_addr() {
-        if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
-    }
-    ADDR=$(_frontend_addr)
-    export "ANYTHINGLLM_LISTEN_ADDR=${ADDR}"
-    if grep -q "^ANYTHINGLLM_LISTEN_ADDR=" "$ENV_FILE" 2>/dev/null; then
-        sed -i.bak "s|^ANYTHINGLLM_LISTEN_ADDR=.*|ANYTHINGLLM_LISTEN_ADDR=${ADDR}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
-    else
-        echo "ANYTHINGLLM_LISTEN_ADDR=${ADDR}" >> "$ENV_FILE"
-    fi
-    [ "$ADDR" = "0.0.0.0" ] && echo "[portal-5] Remote access enabled — all frontends listening on 0.0.0.0"
-    echo "[portal-5] Starting all alternative frontends (AnythingLLM :8083)..."
-    cd "$COMPOSE_DIR"
-    docker compose --profile all-frontends up -d
-    echo "[portal-5] All frontends starting:"
-    echo "  AnythingLLM → http://${ADDR}:8083"
-    ;;
-  seed-anythingllm)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Re-seeding AnythingLLM workspaces..."
-    docker compose --profile anythingllm run --rm anythingllm-init
-    echo "[portal-5] AnythingLLM seed complete."
-    ;;
-  down-anythingllm)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Stopping AnythingLLM..."
-    docker compose --profile anythingllm stop anythingllm 2>/dev/null || true
-    docker compose --profile anythingllm rm -sf anythingllm 2>/dev/null || true
-    echo "[portal-5] AnythingLLM stopped. Main stack is still running."
-    ;;
-  down-frontends)
-    cd "$COMPOSE_DIR"
-    echo "[portal-5] Stopping all alternative frontends..."
-    docker compose --profile all-frontends stop anythingllm 2>/dev/null || true
-    docker compose --profile all-frontends rm -sf anythingllm 2>/dev/null || true
-    echo "[portal-5] All alternative frontends stopped. Main stack is still running."
     ;;
   sync-readme)
     if [ ! -f "${PORTAL_ROOT}/ACCEPTANCE_RESULTS.md" ]; then
@@ -4056,7 +3948,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-anythingllm|up-all-frontends|down-anythingllm|down-frontends|seed-anythingllm|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4090,12 +3982,7 @@ MEOF
     echo "                          --skip-models   Skip Ollama + MLX model refresh"
     echo "                          --models-only   Only refresh models (Ollama + MLX)"
     echo "                          --yes / -y      Skip confirmation prompts"
-    echo "  up-anythingllm        Start AnythingLLM on :8083 (profile: anythingllm) + auto-seed workspaces"
-    echo "  up-all-frontends      Start all alternative frontends (AnythingLLM) simultaneously"
-    echo "  down-anythingllm      Stop AnythingLLM only (main stack keeps running)"
-    echo "  down-frontends        Stop all alternative frontends (main stack keeps running)"
-    echo "  seed-anythingllm      Re-seed AnythingLLM workspaces without restart"
-    echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
+      echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
     echo "  up-channels           Force-start both Telegram and Slack bots"
     echo "  test                  Run end-to-end smoke tests against the live stack"
@@ -4103,7 +3990,7 @@ MEOF
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
     echo "  seed                  Re-run Open WebUI seeding (workspaces + personas + tools)"
-    echo "  logs [svc]            Tail logs (default: portal-pipeline; also: anythingllm, open-webui, searxng)"
+    echo "  logs [svc]            Tail logs (default: portal-pipeline; also: open-webui, searxng)"
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  refresh-models        Check all models for updates (skips unchanged models)"

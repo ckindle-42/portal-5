@@ -164,7 +164,6 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 | 11434 | Ollama |
 | 9090 | Prometheus |
 | 3000 | Grafana |
-| 8083 | AnythingLLM (opt-in profile: `anythingllm`) |
 
 Port assignments are enforced in `.env.example`. Do not reassign without updating both.
 

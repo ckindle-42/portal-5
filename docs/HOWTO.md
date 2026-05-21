@@ -1350,38 +1350,4 @@ pytest tests/ -v --tb=short # Run unit tests (no Docker needed)
 
 ---
 
-## 24. Alternative Frontends (AnythingLLM)
-
-**What:** An additional chat UI that connects to the same Portal Pipeline. It is opt-in — the default `./launch.sh up` only starts Open WebUI.
-
-**Prerequisites:** Add these secrets to `.env` before first launch:
-```bash
-ANYTHINGLLM_ADMIN_PASSWORD=<password>
-ANYTHINGLLM_JWT_SECRET=$(openssl rand -hex 32)
-```
-
-**How to start:**
-```bash
-./launch.sh up-anythingllm   # → http://localhost:8083
-```
-
-**What happens on first start:**
-1. Docker image is pulled (AnythingLLM ~1.5GB)
-2. An init container runs and seeds all workspaces automatically
-3. The UI is ready at port 8083
-
-**Re-seed after adding new workspaces:**
-```bash
-./launch.sh seed-anythingllm
-```
-
-**Remote access:** AnythingLLM follows `ENABLE_REMOTE_ACCESS`. Set `ENABLE_REMOTE_ACCESS=true` in `.env` and it binds to `0.0.0.0:8083`, matching Open WebUI's behaviour.
-
-**Verify:**
-```bash
-curl http://localhost:8083/api/v1/health # AnythingLLM: 200 (HTML SPA = healthy)
-```
-
----
-
-*Last updated: 2026-05-18 | Portal 6.1.0*
+*Last updated: 2026-05-21 | Portal 6.1.0*
