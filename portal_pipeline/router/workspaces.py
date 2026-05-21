@@ -306,7 +306,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
+        # Switched from 8-bit (34GB, needs 44GB) to 4-bit (18GB, needs 28GB).
+        # The 8-bit version was rejected by admission control when Ollama models
+        # occupied memory (~18-20GB), leaving only 37-38GB available (6GB short).
+        # The 4-bit abliterated version fits in 28GB — always clears on this host.
+        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
         # Thinking model: DeepSeek-R1 spends 10-16K tok on reasoning before
         # content. 16384 was insufficient — truncated mid-answer (P-DA05 UAT).
         # Raised to 32768 so reasoning + full derivation both fit.
