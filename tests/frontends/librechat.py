@@ -149,6 +149,39 @@ async def _api_get_messages(conv_id: str) -> list[dict]:
     return []
 
 
+async def _api_find_recent_conv_id(since_ts: float) -> str:
+    """Query /api/convos for the most recently created conversation after since_ts.
+
+    Used as a fallback when LibreChat's SPA never navigates from /c/new to
+    /c/<uuid> (e.g. long promptPrefix URLs that confuse the SPA router).
+    """
+    import datetime
+
+    try:
+        token = await _api_authenticate()
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"{LIBRECHAT_URL}/api/convos",
+                params={"pageSize": 10, "sortBy": "createdAt", "sortOrder": "desc"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        if r.status_code != 200:
+            return ""
+        data = r.json()
+        convs = data.get("conversations", [])
+        for conv in convs:
+            created = conv.get("createdAt", "")
+            try:
+                ct = datetime.datetime.fromisoformat(created.replace("Z", "+00:00"))
+                if ct.timestamp() > since_ts - 30:
+                    return conv.get("conversationId", "")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return ""
+
+
 # ── Playwright auth ───────────────────────────────────────────────────────────
 
 
@@ -233,8 +266,25 @@ async def start_new_chat(
         params.append(("promptPrefix", sysprompt))
 
     url = f"{LIBRECHAT_URL}/c/new?{urllib.parse.urlencode(params)}"
-    await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-    await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
+    # Navigate with resilient retry — after long model sessions (>5min) the SPA can
+    # become unresponsive and fail to render basic DOM elements in 20s. Hard-reset
+    # to root first, then retry, to recover from stale SPA state.
+    _basic_sel = "textarea, nav, [class*='sidebar']"
+    for _nav_try in range(4):
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=45_000)
+            await page.wait_for_selector(_basic_sel, timeout=60_000)
+            break
+        except Exception as _nav_err:
+            if _nav_try == 3:
+                raise
+            print(
+                f"  [lc-nav] SPA unresponsive (attempt {_nav_try + 1}): {type(_nav_err).__name__}; "
+                f"hard-resetting to root and retrying",
+                flush=True,
+            )
+            await page.goto(LIBRECHAT_URL, wait_until="domcontentloaded", timeout=45_000)
+            await asyncio.sleep(8.0)
     # Re-login if a long idle (e.g. model pre-warm) expired the session.
     await _ensure_authenticated(page)
 
@@ -245,16 +295,32 @@ async def start_new_chat(
     # 2026-05-18 LibreChat parity run before this change.
     if requires_tool:
         keys = [requires_tool] if isinstance(requires_tool, str) else list(requires_tool)
-        # Wait up to 12s for the MCPSelect button to appear before trying to click
-        # it. The button renders after the composer hydrates and the endpoint's MCP
-        # server list loads — both can be slow after a session re-auth or long idle.
+        # Wait up to 30s for the MCPSelect button. After long model pre-warm waits
+        # (up to 618s idle), the LibreChat SPA connection can stale — the button
+        # needs time to re-render after page.goto() re-establishes the session.
+        # Give the toolbar 2s to render after the basic DOM is ready, then check.
+        # If it still isn't found, hard-navigate to root first (resets SPA MCP
+        # state after prior tool use) then reload the conversation URL and retry.
+        _mcp_sel = '[data-testid="mcp-select"], button:has-text("MCP Servers")'
+        await asyncio.sleep(2.0)
+        _found = False
         try:
-            await page.wait_for_selector(
-                '[data-testid="mcp-select"], button:has-text("MCP Servers")',
-                timeout=12_000,
-            )
+            await page.wait_for_selector(_mcp_sel, timeout=30_000)
+            _found = True
         except Exception:
-            pass  # select_mcp_servers will log "not found" if it still isn't there
+            pass
+        if not _found:
+            print("  [mcp-retry] MCPSelect not found after 30s — hard-resetting SPA and retrying", flush=True)
+            await page.goto(LIBRECHAT_URL, wait_until="domcontentloaded", timeout=30_000)
+            await asyncio.sleep(2.0)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_selector("textarea, nav, [class*='sidebar']", timeout=20_000)
+            await asyncio.sleep(2.0)
+            await _ensure_authenticated(page)
+            try:
+                await page.wait_for_selector(_mcp_sel, timeout=30_000)
+            except Exception:
+                pass  # select_mcp_servers will log "not found" if still absent
         await select_mcp_servers(page, keys)
     else:
         await asyncio.sleep(1.0)
@@ -443,9 +509,16 @@ async def wait_for_completion(
         await asyncio.sleep(0.5)
 
     if not conv_id:
-        # URL never updated — the message may not have been accepted
-        _log("conversation URL never updated from /c/new — timing out")
-        return
+        # URL never updated — try API fallback (long promptPrefix URLs can confuse
+        # the LibreChat SPA router so the page stays at /c/new despite the
+        # conversation being created server-side).
+        found = await _api_find_recent_conv_id(t_start)
+        if found:
+            conv_id = found
+            _log(f"URL never updated — found conversation via API: {conv_id[:8]}")
+        else:
+            _log("conversation URL never updated from /c/new — timing out")
+            return
 
     _log("model streaming started")
 
@@ -556,6 +629,11 @@ def _extract_text_from_message(msg: dict) -> str:
                 if t.strip():
                     think_parts.append(t)
         if parts:
+            if think_parts:
+                # Prepend thinking so driver can search it when the test sets
+                # include_thinking_in_assertions=True.  _strip_think_blocks removes
+                # it for all other tests, so existing behaviour is unchanged.
+                return "<think>" + "".join(think_parts) + "</think>\n\n" + "".join(parts)
             return "".join(parts)
         # No text blocks — fall back to think content.  Gemma-4 sometimes puts
         # the entire answer in a reasoning block when the pipeline emits content
@@ -695,6 +773,34 @@ async def download_artifact(
                 timeout=10,
             )
             if result.returncode == 0 and dest.exists():
+                return dest
+
+    # Try 4: bare filename in response → MCP file server or host workspace copy
+    bare_match = re.search(rf"([\w.-]{{5,80}}\.{re.escape(expected_ext)})", response_text)
+    if bare_match:
+        filename = bare_match.group(1)
+        # 4a: MCP file server (portal-documents serves at :8913/files/<name>)
+        for port in [8913, 8916, 8910]:
+            try:
+                file_url = f"http://localhost:{port}/files/{filename}"
+                async with httpx.AsyncClient(timeout=30) as client:
+                    r = await client.get(file_url)
+                if r.status_code == 200:
+                    dest = artifact_dir / filename
+                    dest.write_bytes(r.content)
+                    return dest
+            except Exception:
+                pass
+        # 4b: host workspace directory (AI_Output or generated subdir)
+        import os as _os
+        import shutil as _shutil
+
+        workspace = Path(_os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
+        for base in [workspace, workspace / "generated" / "documents"]:
+            candidate = base / filename
+            if candidate.exists():
+                dest = artifact_dir / filename
+                _shutil.copy2(candidate, dest)
                 return dest
 
     return None
