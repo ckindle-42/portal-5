@@ -1,12 +1,13 @@
 # Portal 5 — ComfyUI / Image & Video Acceptance Test Results
 
-**Run:** 2026-05-22 08:32:02 (33s)  
-**Git SHA:** 28d29d6  
+**Run:** 2026-05-22 10:15:40 (447s)  
+**Git SHA:** f8afcf0  
 
 ## Summary
 
-- **PASS**: 6
-- **Total**: 6
+- **PASS**: 7
+- **INFO**: 1
+- **Total**: 8
 
 ## All Results
 
@@ -16,9 +17,18 @@
 | 2 | PASS | C0 | Portal pipeline reachable (http://localhost:9099) | HTTP 200 | 0.0s |
 | 3 | PASS | C0 | ComfyUI process running on host | PIDs: 3194 | 0.0s |
 | 4 | PASS | C0 | ComfyUI API reachable (http://localhost:8188) | HTTP 200 | 0.0s |
-| 5 | PASS | C9 | auto-video workspace: cinematic shot description | matched 8/8 signals: ['wave', 'ocean', 'camera', 'light', 'golden', 'lens', 'focal', 'shot'] ∣ preview: **Cinematic 5‑Second Shot: Ocean Waves at Golden Hour**
- | 13.2s |
-| 6 | PASS | C9 | auto-video workspace: ComfyUI workflow parameter question | matched 9/12: ['workflow', 'comfyui', 'frame', 'resolution', 'parameter', 'fps'] ∣ preview: To create a **5‑second, 4K (3840 × 2160) aerial landscape video** in | 10.4s |
+| 5 | PASS | C11 | LoRA inventory | 2 LoRA(s) installed: flux_dev_frostinglane_araminta_k.safetensors, nsfw-e7.safetensors | 0.1s |
+| 6 | INFO | C11 | LoRA base models | schnell=flux1-schnell.safetensors, dev=flux1-dev.safetensors | 0.0s |
+| 7 | PASS | C11 | LoRA: flux_dev_frostinglane_araminta_k.safetensors (20s, flu | {
+  "success": true,
+  "filename": "portal__00192_.png",
+  "url": "http://localhost:8188/view?filename=portal__00192_.png&type=output",
+  "prompt": "portrait of | 340.8s |
+| 8 | PASS | C11 | LoRA: nsfw-e7.safetensors (4s, flux1-schnell.safete) | {
+  "success": true,
+  "filename": "portal__00193_.png",
+  "url": "http://localhost:8188/view?filename=portal__00193_.png&type=output",
+  "prompt": "nsfwsks, ph | 96.5s |
 
 ## Blocked Items Register
 
