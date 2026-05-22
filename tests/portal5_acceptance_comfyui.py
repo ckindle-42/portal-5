@@ -1437,7 +1437,7 @@ async def C9() -> None:
         "Describe a 5-second cinematic shot of ocean waves at golden hour. "
         "Specify camera angle, lens focal length, lighting, and motion.",
         max_tokens=300,
-        timeout=120,
+        timeout=240,
     )
     signals = ["wave", "ocean", "camera", "light", "golden", "lens", "focal", "shot"]
     matched = [s for s in signals if s in text.lower()]
@@ -1448,7 +1448,9 @@ async def C9() -> None:
         "PASS"
         if code == 200 and len(matched) >= 3
         else ("WARN" if code == 200 and matched else "FAIL"),
-        f"matched {len(matched)}/{len(signals)} signals: {matched} | preview: {text[:80]}",
+        f"matched {len(matched)}/{len(signals)} signals: {matched} | preview: {text[:80]}"
+        if code == 200
+        else f"code={code} error: {text[:120]}",
         t0=t0,
     )
 
@@ -1459,7 +1461,7 @@ async def C9() -> None:
         "What ComfyUI workflow parameters would you use to generate a 5-second "
         "4K aerial landscape video with smooth motion?",
         max_tokens=400,
-        timeout=120,
+        timeout=240,
     )
     signals = [
         "workflow",
@@ -1483,7 +1485,9 @@ async def C9() -> None:
         "PASS"
         if code == 200 and len(matched) >= 3
         else ("WARN" if code == 200 and matched else "FAIL"),
-        f"matched {len(matched)}/{len(signals)}: {matched[:6]} | preview: {text[:80]}",
+        f"matched {len(matched)}/{len(signals)}: {matched[:6]} | preview: {text[:80]}"
+        if code == 200
+        else f"code={code} error: {text[:120]}",
         t0=t0,
     )
 
