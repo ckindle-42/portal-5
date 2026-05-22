@@ -1,0 +1,13 @@
+{
+  "id": "bench-granite41-30b",
+  "name": "🔬 Bench · Granite-4.1 30B (IBM)",
+  "meta": {
+    "description": "Benchmark: granite4.1:30b — IBM Research, Ollama only, ~17GB Q4_K_M, BFCL V3 73.7 (#1), IFEval 89.7",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-granite41-30b"
+  }
+}

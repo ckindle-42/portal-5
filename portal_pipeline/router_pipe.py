@@ -1410,16 +1410,25 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     for be in registry.list_backends():
         group_models.setdefault(be.group, set()).update(be.models)
 
+    # MLX models live in group='mlx'; mlx_model_hint is always validated against
+    # that group, not against the workspace's Ollama routing groups.
+    mlx_models: set[str] = group_models.get("mlx", set())
+
     errors: list[str] = []
     for ws_id, ws_cfg in WORKSPACES.items():
         groups = registry._workspace_routes.get(ws_id, [])
-        available: set[str] = set()
+        ollama_available: set[str] = set()
         for g in groups:
-            available |= group_models.get(g, set())
+            ollama_available |= group_models.get(g, set())
 
         for hint_key in ("model_hint", "mlx_model_hint"):
+            if ws_cfg.get("mlx_only") and hint_key == "model_hint":
+                continue
             hint = ws_cfg.get(hint_key)
-            if hint and hint not in available:
+            if not hint:
+                continue
+            available = mlx_models if hint_key == "mlx_model_hint" else ollama_available
+            if hint not in available:
                 errors.append(
                     f"workspace={ws_id!r} {hint_key}={hint!r} "
                     f"not in any backend's models for groups={groups}. "

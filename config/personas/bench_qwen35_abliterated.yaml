@@ -1,14 +1,13 @@
-name: 🔬 Bench · Qwen3.6-27B (Alibaba)
-slug: bench-qwen36-27b
+name: 🧪 Bench · Qwen3.5-9B Abliterated (huihui-ai)
+slug: bench-qwen35-abliterated
 category: benchmark
-workspace_model: bench-qwen36-27b
-# Routes to: mlx-community/Qwen3.6-27B-4bit (MLX primary, official convert, Alibaba Apr 2026, ~16GB)
-# Fallback: qwen3-coder:30b (Ollama coding — different model family, graceful degradation only)
-# Previous pin: froggeric/Qwen3.6-27B-MLX-4bit (pre-release; still in backends.yaml catalog)
-# BENCHMARK NOTE: Verify MLX loaded mlx-community/Qwen3.6-27B-4bit before recording results.
-# Check: ./launch.sh logs | grep "Switching to model"
-# Qwen3.6-27B has native thinking mode (default on) and vision encoder.
-# Routes through mlx_vlm.server (is_vlm: true). Text-only benchmarks need no image input.
+workspace_model: bench-qwen35-abliterated
+# Routes to: huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit (MLX primary, ~6GB)
+# Fallback: huihui_ai/qwen3.5-abliterated:9b (Ollama — same model, same author)
+# mlx_only: false — both backends are valid; this is the AUTO primary model, either path OK.
+# BENCHMARK NOTE: This is the AUTO path baseline. Use to evaluate the uncensored primary
+# directly, bypassing routing overhead. Check which backend served:
+#   ./launch.sh logs | grep "model_hint\|mlx_model_hint"
 system_prompt: |
   You are a creative coder who builds playable, visual, and interactive things
   in the browser. Your default output is a complete, working, single-file HTML
@@ -60,5 +59,6 @@ tags:
   - games
   - canvas
   - javascript
-  - qwen3.6
-  - alibaba
+  - qwen3.5
+  - abliterated
+  - uncensored
