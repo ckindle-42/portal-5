@@ -310,14 +310,17 @@ backends:
       primary target (froggeric retained in catalog as fallback reference only).
       chat_template_override: qwen3.6 — same Jinja fix applied to AEON and 35B-A3B variants."
   - id: mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit
-    memory_gb: 58
+    memory_gb: 38
     big_model: true
     is_vlm: true
     supports_tools: true
-    notes: "Meta Llama 4 Scout 109B MoE / 17B active 4-bit MLX (~58GB, Llama 4 Community License).
-      Converted via mlx-vlm 0.1.21. bench-llama4-scout pin. 64GB machine: ~6GB OS headroom at Q4
-      — OOM probe required before first bench run. Native multimodal (early fusion, text+image).
-      BIG_MODEL=true, cold-load ~90-120s. Do NOT co-load with other BIG_MODEL entries.
+    max_kv_size: 4096
+    notes: "Meta Llama 4 Scout 109B MoE / 17B active 4-bit MLX (~58GB on disk, ~38GB Metal resident,
+      Llama 4 Community License). Converted via mlx-vlm 0.1.21. bench-llama4-scout pin.
+      memory_gb=38 reflects actual Metal allocation (loads at 41GB free+inactive on 64GB M4 Pro);
+      max_kv_size=4096: 32768 ctx OOMs on 64GB M4 Pro (57.8GB weights + KV cache exceeds Metal limit).
+      config.json patched: attn_temperature_tuning int->bool (transformers 4.51->5.7 compat).
+      BIG_MODEL=true, cold-load ~20s mlx_vlm. Do NOT co-load with other BIG_MODEL entries.
       Lineage: Meta (first non-Qwen/Gemma/IBM frontier MoE in the bench fleet)."
 - id: ollama-general
   type: ollama
