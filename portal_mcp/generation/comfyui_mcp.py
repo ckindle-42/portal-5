@@ -329,7 +329,7 @@ async def generate_image(
         workflow["6"]["inputs"]["width"] = width
         workflow["6"]["inputs"]["height"] = height
         workflow["8"]["inputs"]["seed"] = seed
-        workflow["8"]["inputs"]["steps"] = min(max(steps, 1), 20)
+        workflow["8"]["inputs"]["steps"] = min(max(steps, 1), 50)
         workflow["8"]["inputs"]["cfg"] = min(max(cfg, 0), 10)
         # Checkpoint (UNet), CLIP, and VAE filenames from env vars with installed defaults
         workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
