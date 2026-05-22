@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("video-generation", host="0.0.0.0")
 
-# Configurable timeout: VIDEO_TIMEOUT env var (seconds, default 1200 = 20 min).
-# Video generation can be very slow on CPU/MPS — 32 frames at 8 steps can exceed 10 min.
-VIDEO_TIMEOUT = int(os.environ.get("VIDEO_TIMEOUT", "1200"))
+# Configurable timeout: VIDEO_TIMEOUT env var (seconds, default 3600 = 1 hr).
+# 9 frames × 50 steps on Apple Silicon MPS ≈ 30-40 min; 1hr gives safe headroom.
+VIDEO_TIMEOUT = int(os.environ.get("VIDEO_TIMEOUT", "3600"))
 
 # Module-level httpx client — created once per process, reused for all requests.
 # Eliminates TCP/TLS handshake overhead on every video generation call (P9).
@@ -136,10 +136,10 @@ VIDEO_MODEL_FILE = os.getenv(
 
 # Hard caps to prevent LLM overrides from producing broken or multi-hour jobs.
 # HunyuanVideo 720p model is designed for ≤1280×720; 832×480 is the reference resolution.
-# 9 frames × 2 steps ≈ 90s on MPS (fits UAT 105s polling window).
-# Override with VIDEO_MAX_* env vars for production quality.
+# Default VIDEO_MAX_STEPS=50 allows quality output; set to 2-4 in UAT environments
+# where the 105s polling window requires fast generation.
 VIDEO_MAX_FRAMES = int(os.getenv("VIDEO_MAX_FRAMES", "9"))
-VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "2"))
+VIDEO_MAX_STEPS = int(os.getenv("VIDEO_MAX_STEPS", "50"))
 VIDEO_MAX_WIDTH = int(os.getenv("VIDEO_MAX_WIDTH", "832"))
 VIDEO_MAX_HEIGHT = int(os.getenv("VIDEO_MAX_HEIGHT", "480"))
 # 9 frames at 8fps = 1.125s, which satisfies the UAT ≥1s requirement.
@@ -594,6 +594,7 @@ async def invoke_tool(request):
         logger.info("invoke_tool: %s args=%s", tool_name, arguments)
         if tool_name == "generate_video":
             import inspect
+
             valid = set(inspect.signature(generate_video).parameters.keys())
             filtered = {k: v for k, v in arguments.items() if k in valid}
             result = await generate_video(**filtered)
