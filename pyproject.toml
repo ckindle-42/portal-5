@@ -122,6 +122,9 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# -v: show each test name + PASSED/FAILED/ERROR as it runs (no dots)
+# --tb=short: compact traceback on failures — enough to diagnose without wall of text
+addopts = "-v --tb=short"
 markers = [
     "browser: Playwright browser tests — require running frontends and 'playwright install chromium'",
     "timeout: Per-test timeout in seconds (decorative, enforced externally)",
