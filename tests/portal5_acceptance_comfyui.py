@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -295,8 +296,16 @@ async def _mcp(
     ok_fn,
     detail_fn=None,
     warn_if: list[str] | None = None,
-    timeout: int = 30,
+    timeout: int | None = None,
 ) -> None:
+    """Call an MCP tool and record the result.
+
+    timeout: seconds before giving up. Pass None (default) for generation tools —
+    the MCP server's internal COMFYUI_TIMEOUT / VIDEO_TIMEOUT already gates how long
+    it will wait for ComfyUI to finish. Adding a test-side timeout on top causes false
+    WARNs when generation is simply slow. Use a small explicit timeout only for
+    near-instant tools (health checks, list_*, etc.).
+    """
     t0 = time.time()
     try:
         from mcp import ClientSession
@@ -306,7 +315,12 @@ async def _mcp(
         async with streamablehttp_client(url) as (read, write, _):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
+                if timeout is not None:
+                    result = await asyncio.wait_for(
+                        session.call_tool(tool, args), timeout=timeout
+                    )
+                else:
+                    result = await session.call_tool(tool, args)
                 text = ""
                 for block in result.content:
                     if hasattr(block, "text"):
@@ -323,15 +337,14 @@ async def _mcp(
     except ImportError:
         record(section, tid, name, "FAIL", "pip install mcp --break-system-packages", t0=t0)
     except BaseException as e:
-        # Python 3.11+ asyncio.wait_for cancellation inside TaskGroup raises ExceptionGroup
-        # (BaseExceptionGroup subtype) rather than bare TimeoutError. Detect and treat as WARN.
         err_str = str(e)
         if (
             "TaskGroup" in err_str
             or "Cancel" in type(e).__name__
             or isinstance(e, BaseExceptionGroup)
         ):
-            record(section, tid, name, "WARN", f"timeout after {timeout}s (TaskGroup)", t0=t0)
+            label = f"timeout after {timeout}s (TaskGroup)" if timeout else f"cancelled ({err_str[:80]})"
+            record(section, tid, name, "WARN", label, t0=t0)
         else:
             record(section, tid, name, "FAIL", err_str[:200], t0=t0)
 
@@ -447,6 +460,50 @@ async def _wait_for_comfyui_queue(prompt_id: str, timeout: int = 600) -> tuple[b
         await asyncio.sleep(2)
 
     return False, f"timed out after {timeout}s"
+
+
+async def _comfyui_watchdog(interval: int = 60, stall_limit: int = 600) -> None:
+    """Background task that prints periodic progress for long-running generations.
+
+    Polls ComfyUI /queue every `interval` seconds and logs the running prompt.
+    If the queue has been non-empty with no state change for `stall_limit` seconds,
+    prints a STUCK warning so the operator knows to investigate.
+    This runs alongside generation calls (not instead of them) — completion is still
+    event-driven from the MCP server; this only surfaces stuck-job visibility.
+    """
+    last_running_id: str = ""
+    stall_start: float = 0.0
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            async with httpx.AsyncClient(timeout=5) as c:
+                r = await c.get(f"{COMFYUI_URL}/queue")
+                q = r.json()
+            running = q.get("queue_running", [])
+            pending = q.get("queue_pending", [])
+            if running:
+                rid = running[0][1] if len(running[0]) > 1 else str(running[0])
+                elapsed = time.time() - stall_start if last_running_id == rid else 0
+                if last_running_id != rid:
+                    last_running_id = rid
+                    stall_start = time.time()
+                    elapsed = 0
+                elapsed_min = int(elapsed // 60)
+                elapsed_sec = int(elapsed % 60)
+                print(
+                    f"  ⏳ ComfyUI generating… {elapsed_min}m{elapsed_sec:02d}s elapsed"
+                    f"  (queue: {len(pending)} pending)"
+                )
+                if elapsed > stall_limit:
+                    print(
+                        f"  ⚠️  WATCHDOG: same job running for >{stall_limit//60}min — "
+                        "may be stuck. Check ComfyUI logs."
+                    )
+            else:
+                last_running_id = ""
+                stall_start = 0.0
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -873,8 +930,7 @@ async def C4() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected", "not available"],
-        timeout=600,
-    )
+            )
 
     # Verify output accessible from ComfyUI /view endpoint
     t0 = time.time()
@@ -990,8 +1046,7 @@ async def C5() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
-        timeout=1200,
-    )
+            )
 
     # LoRA tests — verify both regular and NSFW LoRAs work with image generation
     code, lora_data = await _comfyui_get("/object_info/LoraLoader", timeout=15)
@@ -1024,8 +1079,7 @@ async def C5() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-            timeout=600,
-        )
+                    )
     else:
         record(
             sec, "C5-03", "LoRA generation (regular)", "WARN", "no regular LoRA installed", t0=None
@@ -1063,8 +1117,7 @@ async def C5() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-            timeout=600,
-        )
+                    )
     else:
         record(
             sec,
@@ -1184,8 +1237,7 @@ async def C6() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-            timeout=1200,
-        )
+                    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1249,8 +1301,7 @@ async def C7() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=600,
-    )
+            )
 
     # Different step count — fast vs quality comparison
     await _wait_for_comfyui_idle()
@@ -1269,8 +1320,7 @@ async def C7() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=600,
-    )
+            )
 
     # Negative prompt support
     await _wait_for_comfyui_idle()
@@ -1295,8 +1345,7 @@ async def C7() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=600,
-    )
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1362,8 +1411,7 @@ async def C8() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-        timeout=4000,
-    )
+            )
 
     # Second full-quality clip — different subject
     await _wait_for_comfyui_idle()
@@ -1384,8 +1432,7 @@ async def C8() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-        timeout=4000,
-    )
+            )
 
     # NSFW video test — HunyuanVideo with nsfw-e7 LoRA (trigger: nsfwsks)
     await _wait_for_comfyui_idle()
@@ -1406,8 +1453,7 @@ async def C8() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-        timeout=4000,
-    )
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1722,11 +1768,9 @@ async def C11() -> None:
         if is_dev_lora and flux_dev:
             checkpoint = flux_dev
             steps = 28
-            timeout = 900
         else:
             checkpoint = flux_schnell or flux_dev
             steps = 4
-            timeout = 300
 
         if any(k in lo for k in ["nsfw", "explicit", "adult", "hentai", "nude", "erotic"]):
             prompt = "nsfwsks, photorealistic portrait, dramatic studio lighting, 8k detail"
@@ -1753,7 +1797,6 @@ async def C11() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed"],
-            timeout=timeout,
         )
 
 
@@ -1884,11 +1927,17 @@ async def main() -> int:
     print(f"  ComfyUI: {COMFYUI_URL}")
     print(f"{'═' * 65}\n")
 
-    for sid in run:
-        fn = SECTIONS[sid]
-        result = await fn()
-        # C1 returns checkpoints — ignore for now (already recorded)
-        _ = result
+    watchdog_task = asyncio.create_task(_comfyui_watchdog())
+    try:
+        for sid in run:
+            fn = SECTIONS[sid]
+            result = await fn()
+            # C1 returns checkpoints — ignore for now (already recorded)
+            _ = result
+    finally:
+        watchdog_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await watchdog_task
 
     elapsed = int(time.time() - start)
     counts = _write_results(elapsed, sha)
