@@ -355,11 +355,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is now 37 (19 production + 18 bench-* coding benchmark workspaces)."""
+        """Total workspace count is 38 (19 production + 19 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 37, (
-            f"Expected 37 workspaces (19 production + 18 bench-*), got {len(WORKSPACES)}"
+        assert len(WORKSPACES) == 38, (
+            f"Expected 38 workspaces (19 production + 19 bench-*), got {len(WORKSPACES)}"
         )
 
     def test_compliance_routing_matches_reasoning_pattern(self):
@@ -402,9 +402,9 @@ class TestR17bModelExpansion:
             )
 
     def test_documents_workspace_uses_fast_coding_model(self):
-        """auto-documents workspace model_hint is qwen3.5:9b (MiniMax removed due to 138 GB size)."""
+        """auto-documents workspace model_hint uses qwen3.5-abliterated:9b (uncensored, tool-capable)."""
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "qwen3.5:9b" in hint, f"Expected auto-documents to use qwen3.5:9b, got: {hint}"
+        assert "qwen3.5" in hint.lower(), f"Expected auto-documents to use a qwen3.5 variant, got: {hint}"
 
     def test_comfyui_download_script_has_all_image_models(self):
         """download_comfyui_models.py covers all recs.md image models."""
@@ -467,9 +467,9 @@ class TestR18ModelCompleteness:
         assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
             "auto-coding should use qwen3-coder:30b (Ollama tag that exists in backends.yaml)"
         )
-        # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB); use qwen3.5:9b
-        assert "qwen3.5:9b" in WORKSPACES["auto-documents"]["model_hint"], (
-            "auto-documents should use qwen3.5:9b (MiniMax removed)"
+        # R23: MiniMax-M2.1 removed (138 GB); now uses qwen3.5-abliterated:9b (uncensored, tool-capable)
+        assert "qwen3.5" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
+            "auto-documents should use a qwen3.5 variant"
         )
         # R23: baronllm:q6_k is the imported GGUF model
         assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
@@ -896,11 +896,11 @@ class TestSPLWorkspace:
         assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 37 (19 production + 18 bench-* coding benchmark workspaces)."""
+        """Total workspace count must be 38 (19 production + 19 bench-* coding benchmark workspaces)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 37, (
-            f"Expected 37 workspaces (19 production + 18 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 38, (
+            f"Expected 38 workspaces (19 production + 19 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

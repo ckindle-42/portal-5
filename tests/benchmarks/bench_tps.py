@@ -259,6 +259,10 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen36-35b-a3b": "coding",    # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
     # 32B standalone
     "bench-olmo3-32b":      "reasoning", # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
+    # Llama 4 Scout — Meta MoE 17B-16E, multimodal (vision + text), mlx-vlm
+    "bench-llama4-scout":   "vision",
+    # Auto workspaces added after TC-6 audit — fall back to "general" without these
+    "auto-daily":           "general",   # gemma-4-26b daily driver, non-thinking fast lane
 }
 
 # Map Ollama backend group → prompt category

@@ -299,6 +299,26 @@ backends:
       \ (workspace pin present since V5, model entry added V6). Non-Qwen lineage \u2014\
       \ diversifies reasoning candidates. supports_tools=false: Olmo-3 does not follow\
       \ OpenAI tools schema."
+  - id: mlx-community/Qwen3.6-27B-4bit
+    memory_gb: 16
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "Qwen3.6-27B official mlx-community 4-bit convert (~16GB, Apache 2.0, Apr 2026).
+      Dense 27B + vision encoder. Replaces froggeric/Qwen3.6-27B-MLX-4bit as bench-qwen36-27b
+      primary target (froggeric retained in catalog as fallback reference only).
+      chat_template_override: qwen3.6 — same Jinja fix applied to AEON and 35B-A3B variants."
+  - id: mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit
+    memory_gb: 58
+    big_model: true
+    is_vlm: true
+    supports_tools: true
+    notes: "Meta Llama 4 Scout 109B MoE / 17B active 4-bit MLX (~58GB, Llama 4 Community License).
+      Converted via mlx-vlm 0.1.21. bench-llama4-scout pin. 64GB machine: ~6GB OS headroom at Q4
+      — OOM probe required before first bench run. Native multimodal (early fusion, text+image).
+      BIG_MODEL=true, cold-load ~90-120s. Do NOT co-load with other BIG_MODEL entries.
+      Lineage: Meta (first non-Qwen/Gemma/IBM frontier MoE in the bench fleet)."
 - id: ollama-general
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -585,6 +605,10 @@ workspace_routing:
   bench-olmo3-32b:
   - mlx
   - reasoning
+  - general
+  bench-llama4-scout:
+  - mlx
+  - vision
   - general
 defaults:
   fallback_group: general

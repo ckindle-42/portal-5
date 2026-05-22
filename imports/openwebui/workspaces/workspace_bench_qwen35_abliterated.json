@@ -1,0 +1,13 @@
+{
+  "id": "bench-qwen35-abliterated",
+  "name": "🧪 Bench · Qwen3.5-9B Abliterated (huihui-ai)",
+  "meta": {
+    "description": "Benchmark: Qwen3.5-9B abliterated — AUTO primary baseline, uncensored, tool-capable, MLX + Ollama",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-qwen35-abliterated"
+  }
+}

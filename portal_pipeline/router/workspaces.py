@@ -503,13 +503,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-qwen36-27b": {
         "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
         "description": (
-            "Benchmark: froggeric/Qwen3.6-27B-MLX-4bit (MLX, Alibaba Apr 2026, dense 27B + "
-            "vision encoder, ~16GB, 262K ctx). Self-reported SWE-bench Verified 77.2%. "
-            "froggeric variant ships fixed Jinja chat templates (|items/|safe filter "
-            "crashes resolved). Thinking-mode default."
+            "Benchmark: mlx-community/Qwen3.6-27B-4bit (MLX, Alibaba Apr 2026, dense 27B + "
+            "vision encoder, ~16GB, 262K ctx, Apache 2.0). Official mlx-community convert. "
+            "SWE-bench Verified 73.4%. Fallback: froggeric/Qwen3.6-27B-MLX-4bit "
+            "(pre-release, still in backends.yaml catalog, chat templates fixed)."
         ),
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "froggeric/Qwen3.6-27B-MLX-4bit",
+        "mlx_model_hint": "mlx-community/Qwen3.6-27B-4bit",
         "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
@@ -575,6 +575,24 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 16384,
+        "tools": [],
+    },
+    # ── May 2026 additions (TASK_BENCH_COVERAGE_V1) ──────────────────────────
+    "bench-llama4-scout": {
+        "name": "🔬 Bench · Llama-4-Scout (Meta MoE)",
+        "description": (
+            "Benchmark: mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit (MLX, Meta Apr 2026, "
+            "109B MoE / 17B active, ~58GB Q4 — BIG_MODEL, cold-load ~90-120s). "
+            "Native multimodal via early fusion (text + image). Llama 4 Community License. "
+            "⚠ OOM PROBE REQUIRED on 64GB machine before use: "
+            "python3 tests/benchmarks/bench_tps.py "
+            "--model mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit --mode direct"
+        ),
+        "model_hint": "llama3.3:70b-q4_k_m",
+        "mlx_model_hint": "mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 8192,
         "tools": [],
     },
 }
