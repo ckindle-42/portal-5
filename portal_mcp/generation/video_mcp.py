@@ -93,6 +93,46 @@ TOOLS_MANIFEST = [
         },
     },
     {
+        "name": "start_video_generation",
+        "description": (
+            "Start video generation and return immediately with a job_id. "
+            "HunyuanVideo takes 30-60 min — use this instead of generate_video in OWUI. "
+            "Follow up with get_video_status(job_id) to retrieve the result."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "frames": {"type": "integer", "default": 9},
+                "steps": {"type": "integer", "default": 50},
+                "cfg": {"type": "number", "default": 6.0},
+                "seed": {"type": "integer", "default": -1},
+            },
+            "required": ["prompt"],
+        },
+    },
+    {
+        "name": "get_video_status",
+        "description": "Check status of a video generation job. Returns URL when complete.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string"},
+            },
+            "required": ["job_id"],
+        },
+    },
+    {
+        "name": "get_latest_videos",
+        "description": "Get the most recently generated videos from ComfyUI.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "default": 5},
+            },
+        },
+    },
+    {
         "name": "list_video_models",
         "description": "List available video model checkpoints in ComfyUI",
         "parameters": {"type": "object", "properties": {}},
@@ -364,9 +404,8 @@ async def generate_video(
     seed: int = -1,
 ) -> dict:
     """
-    Generate a video using ComfyUI with a local video model (Wan2.2 or CogVideoX).
-
-    Returns a URL to the generated video served by ComfyUI.
+    Generate a video and block until complete. WARNING: takes 30-60 minutes.
+    For Open WebUI / chat use, prefer start_video_generation + get_video_status instead.
 
     Args:
         prompt: Text description of the video to generate
@@ -380,77 +419,11 @@ async def generate_video(
         model: Override model name (optional, auto-detected from backend)
         seed: Random seed, -1 for random
     """
-    if seed == -1:
-        seed = int(time.time() * 1000) % (2**32)
-
-    # Clamp to hard caps — prevents LLM overrides from producing broken or multi-hour jobs.
-    # HunyuanVideo 720p model fails at resolutions above ~1280×720 with shape errors.
-    frames = min(frames, VIDEO_MAX_FRAMES)
-    steps = min(steps, VIDEO_MAX_STEPS)
-    width = min(width, VIDEO_MAX_WIDTH)
-    height = min(height, VIDEO_MAX_HEIGHT)
-    fps = min(fps, VIDEO_OUTPUT_FPS)
-
-    workflow = _get_workflow()
-
-    # Apply workflow-specific parameters
-    if VIDEO_BACKEND == "cogvideox":
-        # CogVideoX: CheckpointLoaderSimple(1), CLIPTextEncode(2),
-        # EmptyMochiLatentVideo(3), KSampler(4), VAEDecode(5), VHS_VideoCombine(6)
-        model_name = model if model else "cogvideox_5b.safetensors"
-        workflow["1"]["inputs"]["ckpt_name"] = model_name
-        workflow["2"]["inputs"]["text"] = prompt
-        workflow["3"]["inputs"]["width"] = width
-        workflow["3"]["inputs"]["height"] = height
-        workflow["3"]["inputs"]["length"] = frames
-        workflow["4"]["inputs"]["seed"] = seed
-        workflow["4"]["inputs"]["steps"] = steps
-        workflow["4"]["inputs"]["cfg"] = cfg
-        workflow["6"]["inputs"]["fps"] = fps
-    else:
-        # HunyuanVideo: UNETLoader(1), DualCLIPLoader(2), VAELoader(3),
-        # CLIPTextEncode(4), EmptyHunyuanLatentVideo(5), ModelSamplingSD3(6),
-        # KSamplerSelect(7), BasicScheduler(8), RandomNoise(9), FluxGuidance(10),
-        # BasicGuider(11), SamplerCustomAdvanced(12), VAEDecodeTiled(13),
-        # CreateVideo(14), SaveVideo(15)
-        if model and model.endswith(".safetensors"):
-            workflow["1"]["inputs"]["unet_name"] = model
-        workflow["4"]["inputs"]["text"] = prompt
-        workflow["5"]["inputs"]["width"] = width
-        workflow["5"]["inputs"]["height"] = height
-        workflow["5"]["inputs"]["length"] = frames
-        workflow["8"]["inputs"]["steps"] = steps
-        workflow["9"]["inputs"]["noise_seed"] = seed
-        workflow["10"]["inputs"]["guidance"] = cfg
-        workflow["14"]["inputs"]["fps"] = float(fps)
-
-    client_id = str(uuid.uuid4())
-
-    client = await _get_client()
-    try:
-        resp = await client.post(
-            f"{COMFYUI_URL}/prompt",
-            json={"prompt": workflow, "client_id": client_id},
-        )
-        resp.raise_for_status()
-    except httpx.ConnectError as e:
-        return {
-            "success": False,
-            "error": (f"ComfyUI not available at {COMFYUI_URL}: {e}. Ensure ComfyUI is running."),
-        }
-    except httpx.HTTPStatusError as e:
-        raw_body = e.response.text[:500]
-        logger.error("ComfyUI /prompt returned %d: %s", e.response.status_code, raw_body)
-        try:
-            error_detail = e.response.json().get("error", raw_body)
-        except Exception:
-            error_detail = raw_body
-        return {
-            "success": False,
-            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
-        }
-
-    prompt_id = resp.json()["prompt_id"]
+    workflow, seed = _build_video_workflow(prompt, width, height, frames, fps, steps, cfg, model, seed)
+    prompt_id, err = await _submit_comfyui(workflow)
+    if err:
+        logger.error("ComfyUI /prompt error: %s", err)
+        return err
 
     # Poll for completion (video generation can take 5–20 minutes depending on hardware)
     poll_interval = 2
@@ -528,6 +501,289 @@ async def generate_video(
     }
 
 
+def _eta_video(frames: int, steps: int) -> int:
+    """Estimate video generation time in seconds for Apple Silicon MPS."""
+    # HunyuanVideo processes all frames as a 3D attention tensor per step.
+    # Observed: 9 frames × 50 steps ≈ 2400s on M-series. ~48s/step + 120s overhead.
+    per_step = 50
+    return int(steps * per_step) + 120
+
+
+def _eta_human(seconds: int) -> str:
+    if seconds < 90:
+        return f"~{seconds}s"
+    return f"~{round(seconds / 60)} min"
+
+
+def _extract_video_url(outputs: dict) -> str | None:
+    """Extract the first video filename from ComfyUI output dict, return public URL or None."""
+    for node_output in outputs.values():
+        images = node_output.get("images", [])
+        animated = node_output.get("animated", [])
+        video_files = (
+            node_output.get("videos")
+            or node_output.get("gifs")
+            or (images if any(animated) else [])
+            or []
+        )
+        if video_files and isinstance(video_files, list):
+            filename = (
+                video_files[0].get("filename")
+                if isinstance(video_files[0], dict)
+                else str(video_files[0])
+            )
+            if filename:
+                return f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
+    return None
+
+
+async def _submit_comfyui(workflow: dict) -> tuple[str | None, dict | None]:
+    """Submit workflow to ComfyUI. Returns (prompt_id, None) or (None, error_dict)."""
+    client_id = str(uuid.uuid4())
+    client = await _get_client()
+    try:
+        resp = await client.post(
+            f"{COMFYUI_URL}/prompt",
+            json={"prompt": workflow, "client_id": client_id},
+        )
+        resp.raise_for_status()
+        return resp.json()["prompt_id"], None
+    except httpx.ConnectError as e:
+        return None, {
+            "success": False,
+            "error": f"ComfyUI not available at {COMFYUI_URL}: {e}. Ensure ComfyUI is running.",
+        }
+    except httpx.HTTPStatusError as e:
+        raw_body = e.response.text[:500]
+        try:
+            error_detail = e.response.json().get("error", raw_body)
+        except Exception:
+            error_detail = raw_body
+        return None, {
+            "success": False,
+            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
+        }
+
+
+def _build_video_workflow(
+    prompt: str,
+    width: int,
+    height: int,
+    frames: int,
+    fps: int,
+    steps: int,
+    cfg: float,
+    model: str,
+    seed: int,
+) -> tuple[dict, int]:
+    """Build video workflow dict. Returns (workflow, resolved_seed)."""
+    if seed == -1:
+        seed = int(time.time() * 1000) % (2**32)
+
+    frames = min(frames, VIDEO_MAX_FRAMES)
+    steps = min(steps, VIDEO_MAX_STEPS)
+    width = min(width, VIDEO_MAX_WIDTH)
+    height = min(height, VIDEO_MAX_HEIGHT)
+    fps = min(fps, VIDEO_OUTPUT_FPS)
+
+    workflow = _get_workflow()
+
+    if VIDEO_BACKEND == "cogvideox":
+        model_name = model if model else "cogvideox_5b.safetensors"
+        workflow["1"]["inputs"]["ckpt_name"] = model_name
+        workflow["2"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["width"] = width
+        workflow["3"]["inputs"]["height"] = height
+        workflow["3"]["inputs"]["length"] = frames
+        workflow["4"]["inputs"]["seed"] = seed
+        workflow["4"]["inputs"]["steps"] = steps
+        workflow["4"]["inputs"]["cfg"] = cfg
+        workflow["6"]["inputs"]["fps"] = fps
+    else:
+        if model and model.endswith(".safetensors"):
+            workflow["1"]["inputs"]["unet_name"] = model
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["width"] = width
+        workflow["5"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["length"] = frames
+        workflow["8"]["inputs"]["steps"] = steps
+        workflow["9"]["inputs"]["noise_seed"] = seed
+        workflow["10"]["inputs"]["guidance"] = cfg
+        workflow["14"]["inputs"]["fps"] = float(fps)
+
+    return workflow, seed
+
+
+@mcp.tool()
+async def start_video_generation(
+    prompt: str,
+    width: int = 832,
+    height: int = 480,
+    frames: int = 9,
+    steps: int = 50,
+    cfg: float = 6.0,
+    negative_prompt: str = "",
+    model: str = "",
+    seed: int = -1,
+) -> dict:
+    """
+    Start video generation and return immediately with a job_id.
+
+    Use this in Open WebUI / chat interfaces — HunyuanVideo takes 30-60 minutes.
+    After calling this, tell the user the estimated wait time and use
+    get_video_status(job_id) when they ask for the result.
+
+    Args:
+        prompt: Text description of the video. Include 'nsfwsks' trigger for NSFW LoRA.
+        frames: Number of frames (default 9 ≈ 1.1s at 8fps)
+        steps: Diffusion steps (default 50 for quality; min 20 for faster preview)
+        cfg: Guidance scale (default 6.0)
+        seed: -1 for random
+    """
+    fps = VIDEO_OUTPUT_FPS
+    workflow, seed = _build_video_workflow(
+        prompt, width, height, frames, fps, steps, cfg, model, seed
+    )
+    prompt_id, err = await _submit_comfyui(workflow)
+    if err:
+        return err
+
+    actual_frames = min(frames, VIDEO_MAX_FRAMES)
+    actual_steps = min(steps, VIDEO_MAX_STEPS)
+    eta = _eta_video(actual_frames, actual_steps)
+    eta_str = _eta_human(eta)
+    return {
+        "success": True,
+        "job_id": prompt_id,
+        "eta_seconds": eta,
+        "eta_human": eta_str,
+        "seed": seed,
+        "frames": actual_frames,
+        "fps": fps,
+        "message": (
+            f"Video generation started ({actual_frames} frames, {actual_steps} steps). "
+            f"Estimated time: {eta_str}. "
+            f"Use get_video_status('{prompt_id}') to check progress and retrieve the result."
+        ),
+    }
+
+
+@mcp.tool()
+async def get_video_status(job_id: str) -> dict:
+    """
+    Check the status of a video generation job started with start_video_generation.
+
+    Returns the video URL when complete, or current queue position if still running.
+
+    Args:
+        job_id: The job_id returned by start_video_generation
+    """
+    client = await _get_client()
+
+    try:
+        history_resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
+        history = history_resp.json()
+    except Exception as e:
+        return {"status": "error", "job_id": job_id, "message": str(e)}
+
+    if job_id in history:
+        entry = history[job_id]
+        status_str = entry.get("status", {}).get("status_str", "unknown")
+
+        if status_str == "error":
+            msgs = entry.get("status", {}).get("messages", [])
+            for msg in reversed(msgs):
+                if isinstance(msg, list) and msg[0] == "execution_error":
+                    err = msg[1] if len(msg) > 1 else {}
+                    return {
+                        "status": "error",
+                        "job_id": job_id,
+                        "message": (
+                            f"ComfyUI error in {err.get('node_type', '?')}: "
+                            f"{err.get('exception_message', 'unknown error')}"
+                        ),
+                    }
+            return {"status": "error", "job_id": job_id, "message": "Generation failed."}
+
+        url = _extract_video_url(entry.get("outputs", {}))
+        if url:
+            return {
+                "status": "complete",
+                "job_id": job_id,
+                "url": url,
+                "message": f"Video ready. [Download video]({url})",
+            }
+        return {
+            "status": "complete",
+            "job_id": job_id,
+            "message": "Generation complete but no video output found — check ComfyUI logs.",
+        }
+
+    # Not in history — check live queue
+    try:
+        queue_resp = await client.get(f"{COMFYUI_URL}/queue")
+        queue = queue_resp.json()
+    except Exception:
+        return {"status": "unknown", "job_id": job_id, "message": "Could not reach ComfyUI queue."}
+
+    running = [e for e in queue.get("queue_running", []) if len(e) > 1 and e[1] == job_id]
+    pending = queue.get("queue_pending", [])
+    pending_ids = [e[1] for e in pending if len(e) > 1]
+
+    if running:
+        return {
+            "status": "running",
+            "job_id": job_id,
+            "message": "Video is currently generating. HunyuanVideo takes 30-60 min — check back later.",
+        }
+    if job_id in pending_ids:
+        pos = pending_ids.index(job_id)
+        return {
+            "status": "queued",
+            "job_id": job_id,
+            "queue_position": pos,
+            "message": f"Job is queued ({pos} job(s) ahead).",
+        }
+
+    return {
+        "status": "not_found",
+        "job_id": job_id,
+        "message": "Job not found in queue or history. It may have expired or never started.",
+    }
+
+
+@mcp.tool()
+async def get_latest_videos(count: int = 5) -> list[dict]:
+    """
+    Get the most recently generated videos from ComfyUI.
+
+    Args:
+        count: Number of recent videos to return (default 5)
+    """
+    client = await _get_client()
+    try:
+        resp = await client.get(f"{COMFYUI_URL}/history")
+        history = resp.json()
+    except Exception as e:
+        return [{"error": str(e)}]
+
+    videos: list[dict] = []
+    for prompt_id, entry in history.items():
+        if entry.get("status", {}).get("status_str") != "success":
+            continue
+        url = _extract_video_url(entry.get("outputs", {}))
+        if url:
+            filename = url.split("filename=")[-1].split("&")[0]
+            videos.append({
+                "filename": filename,
+                "url": url,
+                "job_id": prompt_id,
+            })
+
+    videos.sort(key=lambda x: x["filename"], reverse=True)
+    return videos[:count]
+
+
 @mcp.tool()
 async def list_video_models() -> list[str]:
     """List available video model checkpoints in ComfyUI."""
@@ -591,19 +847,24 @@ async def invoke_tool(request):
     arguments = body.get("arguments", {})
 
     try:
+        import inspect
         logger.info("invoke_tool: %s args=%s", tool_name, arguments)
-        if tool_name == "generate_video":
-            import inspect
-
-            valid = set(inspect.signature(generate_video).parameters.keys())
-            filtered = {k: v for k, v in arguments.items() if k in valid}
-            result = await generate_video(**filtered)
-            return JSONResponse(result)
-        elif tool_name == "list_video_models":
-            result = await list_video_models()
-            return JSONResponse({"models": result})
-        else:
+        dispatch = {
+            "generate_video": generate_video,
+            "start_video_generation": start_video_generation,
+            "get_video_status": get_video_status,
+            "get_latest_videos": get_latest_videos,
+            "list_video_models": list_video_models,
+        }
+        if tool_name not in dispatch:
             return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
+        fn = dispatch[tool_name]
+        valid = set(inspect.signature(fn).parameters.keys())
+        filtered = {k: v for k, v in arguments.items() if k in valid}
+        result = await fn(**filtered)
+        if tool_name == "list_video_models":
+            return JSONResponse({"models": result})
+        return JSONResponse(result if isinstance(result, dict) else {"result": result})
     except Exception as e:
         logger.exception("Tool invocation failed for %s", tool_name)
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)

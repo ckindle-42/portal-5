@@ -1,7 +1,8 @@
 """
 ComfyUI MCP Server
 Wraps the ComfyUI workflow API as MCP tools.
-Exposes: generate_image, list_workflows, get_generation_status
+Exposes: generate_image, start_image_generation, get_image_status, get_latest_images,
+         list_workflows, get_generation_status
 
 Requires: ComfyUI running at COMFYUI_URL (default :8188)
 Start with: python -m mcp.generation.comfyui_mcp
@@ -52,46 +53,69 @@ async def health_check(request):
 # Tool manifest for discovery
 TOOLS_MANIFEST = [
     {
-        "name": "generate_image",
-        "description": "Generate an image using FLUX.1 or SDXL via ComfyUI",
+        "name": "start_image_generation",
+        "description": (
+            "Start image generation and return immediately with a job_id. "
+            "Use this for OWUI/chat — generation takes 1-40 min depending on model. "
+            "Follow up with get_image_status(job_id) to retrieve the result."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "Text description of the image to generate",
-                },
+                "prompt": {"type": "string", "description": "Text description of the image"},
                 "model": {
                     "type": "string",
-                    "description": "Model to use: 'flux' (fast), 'flux-uncensored' (uncensored), 'sdxl' (high quality). Defaults to IMAGE_BACKEND env var or 'flux'.",
+                    "description": "Model: 'flux' (schnell, fast), 'flux-uncensored', 'sdxl'",
                     "default": "flux",
                 },
-                "width": {
-                    "type": "integer",
-                    "description": "Image width in pixels",
-                    "default": 1024,
-                },
-                "height": {
-                    "type": "integer",
-                    "description": "Image height in pixels",
-                    "default": 1024,
-                },
-                "steps": {
-                    "type": "integer",
-                    "description": "Number of diffusion steps",
-                    "default": 4,
-                },
-                "cfg": {"type": "number", "description": "CFG scale", "default": 1.0},
-                "negative_prompt": {
-                    "type": "string",
-                    "description": "Negative prompt",
-                    "default": "",
-                },
-                "seed": {
-                    "type": "integer",
-                    "description": "Random seed (-1 for random)",
-                    "default": -1,
-                },
+                "width": {"type": "integer", "default": 1024},
+                "height": {"type": "integer", "default": 1024},
+                "steps": {"type": "integer", "default": 4},
+                "cfg": {"type": "number", "default": 1.0},
+                "negative_prompt": {"type": "string", "default": ""},
+                "seed": {"type": "integer", "default": -1},
+            },
+            "required": ["prompt"],
+        },
+    },
+    {
+        "name": "get_image_status",
+        "description": "Check status of an image generation job. Returns URL when complete.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "job_id": {"type": "string", "description": "job_id from start_image_generation"},
+            },
+            "required": ["job_id"],
+        },
+    },
+    {
+        "name": "get_latest_images",
+        "description": "Get the most recently generated images from ComfyUI.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "description": "Number of images to return", "default": 5},
+            },
+        },
+    },
+    {
+        "name": "generate_image",
+        "description": (
+            "Generate an image and block until complete. WARNING: takes 1-40 minutes. "
+            "Prefer start_image_generation for interactive use."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "model": {"type": "string", "default": "flux"},
+                "width": {"type": "integer", "default": 1024},
+                "height": {"type": "integer", "default": 1024},
+                "steps": {"type": "integer", "default": 4},
+                "cfg": {"type": "number", "default": 1.0},
+                "negative_prompt": {"type": "string", "default": ""},
+                "seed": {"type": "integer", "default": -1},
             },
             "required": ["prompt"],
         },
@@ -103,7 +127,7 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "get_generation_status",
-        "description": "Check the status of a generation task",
+        "description": "Check the status of a generation task (legacy — prefer get_image_status)",
         "parameters": {
             "type": "object",
             "properties": {
@@ -242,11 +266,7 @@ _MODEL_CKPT_MAP = {
 
 
 def _get_workflow(model: str | None = None) -> dict:
-    """Get a deep copy of the workflow for the selected model.
-
-    Args:
-        model: Model name ('flux', 'flux-uncensored', 'sdxl') or None to use IMAGE_BACKEND env var.
-    """
+    """Get a deep copy of the workflow for the selected model."""
     import copy
 
     selected = model or IMAGE_BACKEND
@@ -256,18 +276,320 @@ def _get_workflow(model: str | None = None) -> dict:
 
 
 def _get_checkpoint(model: str | None = None) -> str:
-    """Get the checkpoint filename for the selected model.
-
-    Args:
-        model: Model name or None to use IMAGE_BACKEND env var.
-    Returns:
-        Checkpoint filename from FLUX_CKPT_FILE env var (if set) or auto-selected based on model.
-    """
-    # If FLUX_CKPT_FILE is explicitly set, respect it
+    """Get the checkpoint filename for the selected model."""
     if os.getenv("FLUX_CKPT_FILE"):
         return os.getenv("FLUX_CKPT_FILE")
     selected = model or IMAGE_BACKEND
     return _MODEL_CKPT_MAP.get(selected, "flux1-schnell.safetensors")
+
+
+def _build_image_workflow(
+    prompt: str,
+    width: int,
+    height: int,
+    steps: int,
+    cfg: float,
+    negative_prompt: str,
+    seed: int,
+    model: str,
+    checkpoint: str,
+    lora: str,
+    lora_strength: float,
+) -> tuple[dict, int]:
+    """Build the ComfyUI workflow dict. Returns (workflow, resolved_seed)."""
+    import copy
+
+    if seed == -1:
+        seed = int(time.time() * 1000) % (2**32)
+
+    workflow = _get_workflow(model)
+    selected_model = model or IMAGE_BACKEND
+
+    if selected_model == "sdxl":
+        workflow["2"]["inputs"]["text"] = prompt
+        workflow["3"]["inputs"]["text"] = negative_prompt
+        workflow["4"]["inputs"]["width"] = width
+        workflow["4"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["seed"] = seed
+        workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 50)
+        workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
+    else:
+        # FLUX / flux-uncensored split-loader workflow
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["text"] = negative_prompt or ""
+        workflow["6"]["inputs"]["width"] = width
+        workflow["6"]["inputs"]["height"] = height
+        workflow["8"]["inputs"]["seed"] = seed
+        workflow["8"]["inputs"]["steps"] = min(max(steps, 1), 50)
+        # FLUX: KSampler cfg must be 1.0 — guidance is controlled by FluxGuidance(7).
+        # Passing cfg > 1.0 into KSampler applies broken CFG extrapolation on top of
+        # flow-matching, producing noise. The `cfg` parameter routes to FluxGuidance.
+        workflow["8"]["inputs"]["cfg"] = 1.0
+        workflow["7"]["inputs"]["guidance"] = min(max(cfg, 0.0), 10.0)
+        workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
+        workflow["2"]["inputs"]["clip_name1"] = os.getenv(
+            "FLUX_CLIP_L_FILE", "text_encoder/model.safetensors"
+        )
+        workflow["2"]["inputs"]["clip_name2"] = os.getenv(
+            "FLUX_CLIP_T5_FILE", "text_encoder_2/model-00001-of-00002.safetensors"
+        )
+        workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
+        if checkpoint:
+            workflow["1"]["inputs"]["ckpt_name"] = checkpoint
+
+    if lora:
+        wf = copy.deepcopy(workflow)
+        if selected_model == "sdxl":
+            wf["10"] = {
+                "inputs": {
+                    "model": ["1", 0],
+                    "clip": ["1", 1],
+                    "lora_name": lora,
+                    "strength_model": lora_strength,
+                    "strength_clip": lora_strength,
+                },
+                "class_type": "LoraLoader",
+            }
+            wf["5"]["inputs"]["model"] = ["10", 0]
+            wf["2"]["inputs"]["clip"] = ["10", 1]
+            wf["3"]["inputs"]["clip"] = ["10", 1]
+        else:
+            # FLUX: LoraLoader applies both model AND CLIP/T5 weights.
+            # LoraLoaderModelOnly skips CLIP — most FLUX dev LoRAs include text encoder
+            # weights; skipping them misaligns conditioning and produces noise/static.
+            wf["11"] = {
+                "inputs": {
+                    "model": ["1", 0],
+                    "clip": ["2", 0],
+                    "lora_name": lora,
+                    "strength_model": lora_strength,
+                    "strength_clip": lora_strength,
+                },
+                "class_type": "LoraLoader",
+            }
+            wf["8"]["inputs"]["model"] = ["11", 0]
+            wf["4"]["inputs"]["clip"] = ["11", 1]
+            wf["5"]["inputs"]["clip"] = ["11", 1]
+        workflow = wf
+
+    return workflow, seed
+
+
+def _eta_image(model: str, steps: int, width: int, height: int) -> int:
+    """Estimate generation time in seconds for Apple Silicon MPS (no --force-fp16)."""
+    scale = (width * height) / (1024 * 1024)
+    if model == "sdxl":
+        per_step = 10
+    else:
+        # FLUX (schnell and dev): ~26-28s/step at 1024x1024 on MPS without fp16
+        per_step = 28
+    return int(steps * per_step * max(scale, 0.25)) + 60
+
+
+def _eta_human(seconds: int) -> str:
+    if seconds < 90:
+        return f"~{seconds}s"
+    return f"~{round(seconds / 60)} min"
+
+
+async def _submit_comfyui(workflow: dict) -> tuple[str | None, dict | None]:
+    """Submit workflow to ComfyUI. Returns (prompt_id, None) or (None, error_dict)."""
+    client_id = str(uuid.uuid4())
+    client = await _get_client()
+    try:
+        resp = await client.post(
+            f"{COMFYUI_URL}/prompt",
+            json={"prompt": workflow, "client_id": client_id},
+        )
+        resp.raise_for_status()
+        return resp.json()["prompt_id"], None
+    except httpx.ConnectError as e:
+        return None, {
+            "success": False,
+            "error": (
+                f"ComfyUI not available at {COMFYUI_URL}: {e}. "
+                "Ensure ComfyUI is running and a model is installed."
+            ),
+        }
+    except httpx.HTTPStatusError as e:
+        try:
+            error_detail = e.response.json().get("error", e.response.text[:200])
+        except Exception:
+            error_detail = e.response.text[:200] if e.response.text else str(e)
+        return None, {
+            "success": False,
+            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
+        }
+
+
+@mcp.tool()
+async def start_image_generation(
+    prompt: str,
+    width: int = 1024,
+    height: int = 1024,
+    steps: int = 4,
+    cfg: float = 1.0,
+    negative_prompt: str = "",
+    seed: int = -1,
+    model: str = "flux",
+    checkpoint: str = "",
+    lora: str = "",
+    lora_strength: float = 1.0,
+) -> dict:
+    """
+    Start image generation and return immediately with a job_id.
+
+    Use this in Open WebUI / chat interfaces where the connection cannot stay open
+    for 1-40 minutes. After calling this, tell the user the estimated wait time
+    and use get_image_status(job_id) when they ask for the result.
+
+    Args:
+        prompt: Text description of the image
+        model: 'flux' (schnell, fast ~1min), 'sdxl' (~8min), or 'flux-uncensored'
+        steps: Diffusion steps — flux schnell default 4, flux dev 28, sdxl 35
+        cfg: Guidance scale (FLUX: 1.0-5.0 maps to FluxGuidance; SDXL: 5.0-10.0)
+        checkpoint: Override checkpoint filename (e.g. 'flux1-dev.safetensors')
+        lora: LoRA filename to apply (optional)
+        seed: -1 for random
+    """
+    workflow, seed = _build_image_workflow(
+        prompt, width, height, steps, cfg, negative_prompt, seed, model, checkpoint, lora, lora_strength
+    )
+    prompt_id, err = await _submit_comfyui(workflow)
+    if err:
+        return err
+
+    eta = _eta_image(model or IMAGE_BACKEND, steps, width, height)
+    eta_str = _eta_human(eta)
+    return {
+        "success": True,
+        "job_id": prompt_id,
+        "eta_seconds": eta,
+        "eta_human": eta_str,
+        "seed": seed,
+        "message": (
+            f"Image generation started. Estimated time: {eta_str}. "
+            f"Use get_image_status('{prompt_id}') to check progress and retrieve the result."
+        ),
+    }
+
+
+@mcp.tool()
+async def get_image_status(job_id: str) -> dict:
+    """
+    Check the status of an image generation job started with start_image_generation.
+
+    Returns the image URL when complete, or current queue position if still running.
+
+    Args:
+        job_id: The job_id returned by start_image_generation
+    """
+    client = await _get_client()
+
+    # Check history first (completed jobs)
+    try:
+        history_resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
+        history = history_resp.json()
+    except Exception as e:
+        return {"status": "error", "job_id": job_id, "message": str(e)}
+
+    if job_id in history:
+        entry = history[job_id]
+        status_str = entry.get("status", {}).get("status_str", "unknown")
+        if status_str == "error":
+            return {
+                "status": "error",
+                "job_id": job_id,
+                "message": "Generation failed. Check ComfyUI logs.",
+            }
+        outputs = entry.get("outputs", {})
+        for node_output in outputs.values():
+            images = node_output.get("images", [])
+            if images:
+                filename = images[0]["filename"]
+                url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
+                return {
+                    "status": "complete",
+                    "job_id": job_id,
+                    "url": url,
+                    "filename": filename,
+                    "message": f"Image ready. [View image]({url})",
+                }
+        return {
+            "status": "complete",
+            "job_id": job_id,
+            "message": "Generation complete but no image output found — check ComfyUI logs.",
+        }
+
+    # Not in history — check live queue
+    try:
+        queue_resp = await client.get(f"{COMFYUI_URL}/queue")
+        queue = queue_resp.json()
+    except Exception:
+        return {"status": "unknown", "job_id": job_id, "message": "Could not reach ComfyUI queue."}
+
+    running = [e for e in queue.get("queue_running", []) if len(e) > 1 and e[1] == job_id]
+    pending = queue.get("queue_pending", [])
+    pending_ids = [e[1] for e in pending if len(e) > 1]
+
+    if running:
+        return {
+            "status": "running",
+            "job_id": job_id,
+            "message": "Image is currently generating. Check back in a few minutes.",
+        }
+    if job_id in pending_ids:
+        pos = pending_ids.index(job_id)
+        return {
+            "status": "queued",
+            "job_id": job_id,
+            "queue_position": pos,
+            "message": f"Job is queued ({pos} job(s) ahead). Check back later.",
+        }
+
+    return {
+        "status": "not_found",
+        "job_id": job_id,
+        "message": "Job not found in queue or history. It may have expired or never started.",
+    }
+
+
+@mcp.tool()
+async def get_latest_images(count: int = 5) -> list[dict]:
+    """
+    Get the most recently generated images from ComfyUI.
+
+    Useful for retrieving results without tracking job_ids, or for showing the user
+    what has been generated in this session.
+
+    Args:
+        count: Number of recent images to return (default 5)
+    """
+    client = await _get_client()
+    try:
+        resp = await client.get(f"{COMFYUI_URL}/history")
+        history = resp.json()
+    except Exception as e:
+        return [{"error": str(e)}]
+
+    images: list[dict] = []
+    for prompt_id, entry in history.items():
+        if entry.get("status", {}).get("status_str") != "success":
+            continue
+        for node_output in entry.get("outputs", {}).values():
+            for img in node_output.get("images", []):
+                filename = img.get("filename", "")
+                # Skip video files that appear as image frames
+                if filename and not any(filename.endswith(ext) for ext in (".mp4", ".webm", ".gif")):
+                    images.append({
+                        "filename": filename,
+                        "url": f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output",
+                        "job_id": prompt_id,
+                    })
+
+    # Sort by filename — portal__XXXXX_.png sequential numbering gives recency order
+    images.sort(key=lambda x: x["filename"], reverse=True)
+    return images[:count]
 
 
 @mcp.tool()
@@ -285,8 +607,11 @@ async def generate_image(
     lora_strength: float = 1.0,
 ) -> dict:
     """
-    Generate an image using FLUX.1 or SDXL via ComfyUI.
+    Generate an image using FLUX.1 or SDXL via ComfyUI. Blocks until complete.
     Returns a URL to the generated image file.
+
+    WARNING: Takes 1-40 minutes depending on model and steps. For Open WebUI /
+    chat use, prefer start_image_generation + get_image_status instead.
 
     Args:
         prompt: Text description of the image to generate
@@ -302,126 +627,14 @@ async def generate_image(
         lora: LoRA filename to apply (optional, from models/loras/)
         lora_strength: LoRA strength 0.0-2.0 (default 1.0)
     """
-    if seed == -1:
-        seed = int(time.time() * 1000) % (2**32)
-
-    workflow = _get_workflow(model)
-    selected_model = model or IMAGE_BACKEND
-
-    if selected_model == "sdxl":
-        # SDXL: bundled checkpoint — CheckpointLoaderSimple provides model+clip+vae.
-        # Node map: 1=CheckpointLoaderSimple, 2=CLIPTextEncode+, 3=CLIPTextEncode-,
-        #           4=EmptyLatentImage, 5=KSampler, 6=VAEDecode, 7=SaveImage
-        workflow["2"]["inputs"]["text"] = prompt
-        workflow["3"]["inputs"]["text"] = negative_prompt
-        workflow["4"]["inputs"]["width"] = width
-        workflow["4"]["inputs"]["height"] = height
-        workflow["5"]["inputs"]["seed"] = seed
-        workflow["5"]["inputs"]["steps"] = min(max(steps, 1), 50)
-        workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
-    else:
-        # FLUX / flux-uncensored: split-loader node map (see FLUX_WORKFLOW definition):
-        #   1=CheckpointLoaderSimple(UNet), 2=DualCLIPLoader, 3=VAELoader,
-        #   4=CLIPTextEncode+, 5=CLIPTextEncode-, 6=EmptyLatentImage,
-        #   7=FluxGuidance, 8=KSampler, 9=VAEDecode, 10=SaveImage
-        workflow["4"]["inputs"]["text"] = prompt
-        workflow["5"]["inputs"]["text"] = negative_prompt or ""
-        workflow["6"]["inputs"]["width"] = width
-        workflow["6"]["inputs"]["height"] = height
-        workflow["8"]["inputs"]["seed"] = seed
-        workflow["8"]["inputs"]["steps"] = min(max(steps, 1), 50)
-        # FLUX: KSampler cfg must be 1.0 — guidance is controlled by FluxGuidance(7).
-        # Passing cfg > 1.0 into KSampler applies broken CFG extrapolation on top of
-        # flow-matching, producing noise. The `cfg` parameter routes to FluxGuidance.
-        workflow["8"]["inputs"]["cfg"] = 1.0
-        workflow["7"]["inputs"]["guidance"] = min(max(cfg, 0.0), 10.0)
-        # Checkpoint (UNet), CLIP, and VAE filenames from env vars with installed defaults
-        workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
-        workflow["2"]["inputs"]["clip_name1"] = os.getenv(
-            "FLUX_CLIP_L_FILE", "text_encoder/model.safetensors"
-        )
-        workflow["2"]["inputs"]["clip_name2"] = os.getenv(
-            "FLUX_CLIP_T5_FILE", "text_encoder_2/model-00001-of-00002.safetensors"
-        )
-        workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
-        if checkpoint:
-            workflow["1"]["inputs"]["ckpt_name"] = checkpoint
-
-    # Inject LoRA if requested — insert LoraLoaderModelOnly between checkpoint and KSampler
-    if lora:
-        import copy
-
-        wf = copy.deepcopy(workflow)
-        if selected_model == "sdxl":
-            # SDXL: LoraLoader sits between CheckpointLoader(1) and KSampler(5)
-            # KSampler(5) already references model from [1,0] — rewire through LoRA
-            wf["10"] = {
-                "inputs": {
-                    "model": ["1", 0],
-                    "clip": ["1", 1],
-                    "lora_name": lora,
-                    "strength_model": lora_strength,
-                    "strength_clip": lora_strength,
-                },
-                "class_type": "LoraLoader",
-            }
-            # Rewire KSampler to use LoRA output
-            wf["5"]["inputs"]["model"] = ["10", 0]
-            # Rewire CLIPTextEncode to use LoRA clip output
-            wf["2"]["inputs"]["clip"] = ["10", 1]
-            wf["3"]["inputs"]["clip"] = ["10", 1]
-        else:
-            # FLUX: LoraLoader applies both model AND CLIP/T5 weights.
-            # LoraLoaderModelOnly skips CLIP — most FLUX dev LoRAs include text encoder
-            # weights; skipping them misaligns conditioning and produces noise/static.
-            wf["11"] = {
-                "inputs": {
-                    "model": ["1", 0],
-                    "clip": ["2", 0],
-                    "lora_name": lora,
-                    "strength_model": lora_strength,
-                    "strength_clip": lora_strength,
-                },
-                "class_type": "LoraLoader",
-            }
-            # KSampler(8) model input → LoRA model output
-            wf["8"]["inputs"]["model"] = ["11", 0]
-            # CLIPTextEncode(4,5) clip inputs → LoRA clip output
-            wf["4"]["inputs"]["clip"] = ["11", 1]
-            wf["5"]["inputs"]["clip"] = ["11", 1]
-        workflow = wf
-
-    client_id = str(uuid.uuid4())
+    workflow, seed = _build_image_workflow(
+        prompt, width, height, steps, cfg, negative_prompt, seed, model, checkpoint, lora, lora_strength
+    )
+    prompt_id, err = await _submit_comfyui(workflow)
+    if err:
+        return err
 
     client = await _get_client()
-    # Queue the prompt
-    try:
-        resp = await client.post(
-            f"{COMFYUI_URL}/prompt",
-            json={"prompt": workflow, "client_id": client_id},
-        )
-        resp.raise_for_status()
-    except httpx.ConnectError as e:
-        return {
-            "success": False,
-            "error": (
-                f"ComfyUI not available at {COMFYUI_URL}: {e}. "
-                "Ensure ComfyUI is running and a model is installed."
-            ),
-        }
-    except httpx.HTTPStatusError as e:
-        # Return the actual ComfyUI error message for non-2xx responses
-        try:
-            error_detail = e.response.json().get("error", e.response.text[:200])
-        except Exception:
-            error_detail = e.response.text[:200] if e.response.text else str(e)
-        return {
-            "success": False,
-            "error": f"ComfyUI rejected workflow (HTTP {e.response.status_code}): {error_detail}",
-        }
-    prompt_id = resp.json()["prompt_id"]
-
-    # Poll for completion (SDXL at 25 steps can take 5+ min on MPS)
     poll_interval = 1
     max_polls = COMFYUI_TIMEOUT // poll_interval
     for _ in range(max_polls):
@@ -472,37 +685,8 @@ async def list_workflows() -> list[str]:
 
 @mcp.tool()
 async def get_generation_status(job_id: str) -> dict:
-    """Check the status of an image generation job by its prompt_id.
-
-    Args:
-        job_id: The prompt_id returned by generate_image
-    """
-    client = await _get_client()
-    try:
-        resp = await client.get(f"{COMFYUI_URL}/history/{job_id}")
-        if resp.status_code == 200:
-            history = resp.json()
-            if job_id in history:
-                outputs = history[job_id].get("outputs", {})
-                # Extract first image filename so the caller gets a usable link
-                image_url = None
-                for node_output in outputs.values():
-                    images = node_output.get("images", [])
-                    if images:
-                        filename = images[0]["filename"]
-                        image_url = f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output"
-                        break
-                result: dict = {"status": "complete", "job_id": job_id}
-                if image_url:
-                    result["url"] = image_url
-                    result["message"] = f"Image ready. [View image]({image_url})"
-                else:
-                    result["outputs"] = outputs
-                return result
-            return {"status": "pending", "job_id": job_id}
-        return {"status": "unknown", "job_id": job_id, "http": resp.status_code}
-    except Exception as e:
-        return {"error": str(e), "job_id": job_id}
+    """Check the status of an image generation job by its prompt_id (legacy alias for get_image_status)."""
+    return await get_image_status(job_id)
 
 
 if __name__ == "__main__":
