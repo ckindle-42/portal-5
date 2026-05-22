@@ -545,7 +545,10 @@ services:
       - HUNYUAN_LLAVA=${HUNYUAN_LLAVA:-llava_llama3_fp8_scaled.safetensors}
       - HUNYUAN_VAE=${HUNYUAN_VAE:-hunyuan_video_vae_bf16.safetensors}
       - HUNYUAN_NSFW_LORA=${HUNYUAN_NSFW_LORA:-nsfw-e7.safetensors}
-      - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-0.85}
+      - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-1.0}
+      - WAN21_NSFW_MODEL=${WAN21_NSFW_MODEL:-nsfw_wan_14b_e15.safetensors}
+      - WAN21_NSFW_CLIP=${WAN21_NSFW_CLIP:-nsfw_wan_umt5-xxl_bf16_fixed.safetensors}
+      - WAN21_NSFW_VAE=${WAN21_NSFW_VAE:-wan_2.1_vae.safetensors}
       - VIDEO_TIMEOUT=${VIDEO_TIMEOUT:-3600}
       - VIDEO_MAX_STEPS=${VIDEO_MAX_STEPS:-50}
       - VIDEO_MAX_FRAMES=${VIDEO_MAX_FRAMES:-41}

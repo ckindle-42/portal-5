@@ -149,7 +149,7 @@ COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 # Public URL used in links returned to the browser — differs from COMFYUI_URL when the
 # MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
 COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
-VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
+VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22", "wan21-nsfw", or "cogvideox"
 
 # Video model filename — single-file model in models/diffusion_models/.
 # Default: HunyuanVideo merged single-file (hunyuanvideo_comfyui.safetensors symlink →
@@ -163,16 +163,34 @@ VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22" or "cogvideox"
 #   models/vae/hunyuan_video_vae_bf16.safetensors             (~200MB VAE)
 #
 # Download missing models from:
-#   huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
+#   hf download Comfy-Org/HunyuanVideo_repackaged \
 #     --include "split_files/text_encoders/llava_llama3_fp8_scaled.safetensors" \
-#     --local-dir ~/ComfyUI/models
-#   huggingface-cli download Comfy-Org/HunyuanVideo_repackaged \
-#     --include "split_files/vae/hunyuan_video_vae_bf16.safetensors" \
 #     --local-dir ~/ComfyUI/models
 VIDEO_MODEL_FILE = os.getenv(
     "VIDEO_MODEL_FILE",
     "hunyuan_video_t2v_720p_bf16.safetensors",
 )
+
+# ── Wan2.1 NSFW backend (VIDEO_BACKEND=wan21-nsfw) ──────────────────────────
+# Fully fine-tuned NSFW video model — equivalent of Flux_v8-NSFW for video.
+# Architecture: Wan2.1-T2V-14B fine-tuned by NSFW-API (e15 = best quality).
+# No LoRA needed — the checkpoint itself generates NSFW content.
+#
+# Required ComfyUI model files (all BF16, MPS-compatible):
+#   models/diffusion_models/nsfw_wan_14b_e15.safetensors     (~28.6GB)
+#   models/text_encoders/nsfw_wan_umt5-xxl_bf16_fixed.safetensors  (~10GB)
+#   models/vae/wan_2.1_vae.safetensors                       (~242MB)
+#
+# Download:
+#   hf download NSFW-API/NSFW_Wan_14b nsfw_wan_14b_e15.safetensors \
+#       --local-dir ~/ComfyUI/models/diffusion_models/
+#   hf download zootkitty/nsfw_wan_umt5-xxl_bf16_fixed nsfw_wan_umt5-xxl_bf16_fixed.safetensors \
+#       --local-dir ~/ComfyUI/models/text_encoders/
+#   hf download ratoenien/wan_2.1_vae wan_2.1_vae.safetensors \
+#       --local-dir ~/ComfyUI/models/vae/
+WAN21_NSFW_MODEL = os.getenv("WAN21_NSFW_MODEL", "nsfw_wan_14b_e15.safetensors")
+WAN21_NSFW_CLIP = os.getenv("WAN21_NSFW_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.safetensors")
+WAN21_NSFW_VAE = os.getenv("WAN21_NSFW_VAE", "wan_2.1_vae.safetensors")
 
 # Hard caps to prevent LLM overrides from producing broken or multi-hour jobs.
 # HunyuanVideo 720p model is designed for ≤1280×720; 832×480 is the reference resolution.
@@ -357,24 +375,124 @@ _COGVIDEOX_WORKFLOW: dict = {
     },
 }
 
+# Wan2.1 NSFW T2V workflow — fully fine-tuned NSFW checkpoint, no LoRA required.
+# Architecture mirrors the HunyuanVideo workflow but uses:
+#   - CLIPLoader(type="wan") for umt5-xxl (single encoder, not dual)
+#   - BasicGuider directly (no FluxGuidance — Wan2.1 doesn't use that node)
+#   - ModelSamplingSD3 shift=8.0 (Wan2.1 default; HunyuanVideo uses 7.0)
+#   - wan_2.1_vae.safetensors instead of hunyuan VAE
+#
+# Node layout:
+#   1: UNETLoader → model[0]
+#   2: CLIPLoader(type="wan") → clip[0]
+#   3: VAELoader → vae[0]
+#   4: CLIPTextEncode(positive) → conditioning[0]
+#   5: EmptyHunyuanLatentVideo → latent[0]
+#   6: ModelSamplingSD3(shift=8) → model[0]
+#   7: KSamplerSelect(euler) → sampler[0]
+#   8: BasicScheduler(steps) → sigmas[0]
+#   9: RandomNoise(seed) → noise[0]
+#  10: BasicGuider(model, conditioning) → guider[0]
+#  11: SamplerCustomAdvanced → latent[0]
+#  12: VAEDecodeTiled → image[0]
+#  13: CreateVideo → video[0]
+#  14: SaveVideo
+_WAN21_NSFW_T2V_WORKFLOW: dict = {
+    "1": {
+        "inputs": {"unet_name": WAN21_NSFW_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "2": {
+        "inputs": {"clip_name": WAN21_NSFW_CLIP, "type": "wan"},
+        "class_type": "CLIPLoader",
+    },
+    "3": {
+        "inputs": {"vae_name": WAN21_NSFW_VAE},
+        "class_type": "VAELoader",
+    },
+    "4": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "5": {
+        "inputs": {"width": 832, "height": 480, "length": 41, "batch_size": 1},
+        "class_type": "EmptyHunyuanLatentVideo",
+    },
+    "6": {
+        "inputs": {"model": ["1", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "7": {
+        "inputs": {"sampler_name": "euler"},
+        "class_type": "KSamplerSelect",
+    },
+    "8": {
+        "inputs": {
+            "model": ["6", 0],
+            "scheduler": "simple",
+            "steps": 20,
+            "denoise": 1.0,
+        },
+        "class_type": "BasicScheduler",
+    },
+    "9": {
+        "inputs": {"noise_seed": 1},
+        "class_type": "RandomNoise",
+    },
+    "10": {
+        "inputs": {"model": ["6", 0], "conditioning": ["4", 0]},
+        "class_type": "BasicGuider",
+    },
+    "11": {
+        "inputs": {
+            "noise": ["9", 0],
+            "guider": ["10", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["8", 0],
+            "latent_image": ["5", 0],
+        },
+        "class_type": "SamplerCustomAdvanced",
+    },
+    "12": {
+        "inputs": {
+            "samples": ["11", 0],
+            "vae": ["3", 0],
+            "tile_size": 256,
+            "overlap": 64,
+            "temporal_size": 64,
+            "temporal_overlap": 8,
+        },
+        "class_type": "VAEDecodeTiled",
+    },
+    "13": {
+        "inputs": {"images": ["12", 0], "fps": 8.0},
+        "class_type": "CreateVideo",
+    },
+    "14": {
+        "inputs": {
+            "video": ["13", 0],
+            "filename_prefix": "portal_nsfw_",
+            "format": "auto",
+            "codec": "auto",
+        },
+        "class_type": "SaveVideo",
+    },
+}
+
 
 def _get_workflow() -> dict:
-    """Get a deep copy of the workflow based on VIDEO_BACKEND env var.
-
-    For HunyuanVideo: if HUNYUAN_NSFW_LORA is set, injects a LoraLoaderModelOnly
-    node (16) between UNETLoader (1) and ModelSamplingSD3 (6) to enable uncensored
-    content generation. Trigger word for default LoRA: 'nsfwsks'.
-    """
+    """Get a deep copy of the workflow based on VIDEO_BACKEND env var."""
     import copy
 
     if VIDEO_BACKEND == "cogvideox":
         return copy.deepcopy(_COGVIDEOX_WORKFLOW)
 
-    wf = copy.deepcopy(_WAN22_T2V_WORKFLOW)
+    if VIDEO_BACKEND == "wan21-nsfw":
+        return copy.deepcopy(_WAN21_NSFW_T2V_WORKFLOW)
 
-    # Inject NSFW LoRA if configured
+    # Default: HunyuanVideo ("wan22") with optional NSFW LoRA
+    wf = copy.deepcopy(_WAN22_T2V_WORKFLOW)
     if HUNYUAN_NSFW_LORA:
-        # Insert LoraLoaderModelOnly between UNETLoader(1) and ModelSamplingSD3(6)
         wf["16"] = {
             "inputs": {
                 "model": ["1", 0],
@@ -383,10 +501,7 @@ def _get_workflow() -> dict:
             },
             "class_type": "LoraLoaderModelOnly",
         }
-        # Rewire: ModelSamplingSD3(6) takes model from LoRA node(16) instead of UNETLoader(1)
         wf["6"]["inputs"]["model"] = ["16", 0]
-        # BasicGuider(11) already takes from ModelSamplingSD3(6) — no rewire needed
-
     return wf
 
 
@@ -599,7 +714,19 @@ def _build_video_workflow(
         workflow["4"]["inputs"]["steps"] = steps
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
+    elif VIDEO_BACKEND == "wan21-nsfw":
+        # Wan2.1 NSFW: CLIPLoader(2), no FluxGuidance, BasicGuider(10), CreateVideo(13)
+        if model and model.endswith(".safetensors"):
+            workflow["1"]["inputs"]["unet_name"] = model
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["5"]["inputs"]["width"] = width
+        workflow["5"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["length"] = frames
+        workflow["8"]["inputs"]["steps"] = steps
+        workflow["9"]["inputs"]["noise_seed"] = seed
+        workflow["13"]["inputs"]["fps"] = float(fps)
     else:
+        # HunyuanVideo ("wan22"): DualCLIPLoader(2), FluxGuidance(10), CreateVideo(14)
         if model and model.endswith(".safetensors"):
             workflow["1"]["inputs"]["unet_name"] = model
         workflow["4"]["inputs"]["text"] = prompt
