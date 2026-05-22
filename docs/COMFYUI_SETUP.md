@@ -32,6 +32,15 @@ IMAGE_MODEL=juggernaut-xl ./launch.sh download-comfyui-models
 #   wan2.2 (~18GB, default)          wan2.2-uncensored (~20GB)
 #   skyreels-v1 (~15GB)              mochi-1 (~15GB)
 #   stable-video-diffusion (~10GB)
+
+# NSFW video (wan21-nsfw backend) — download separately, not via launch.sh:
+hf download NSFW-API/NSFW_Wan_14b nsfw_wan_14b_e15.safetensors \
+    --local-dir ~/ComfyUI/models/diffusion_models/
+hf download zootkitty/nsfw_wan_umt5-xxl_bf16_fixed nsfw_wan_umt5-xxl_bf16_fixed.safetensors \
+    --local-dir ~/ComfyUI/models/text_encoders/
+hf download ratoenien/wan_2.1_vae wan_2.1_vae.safetensors \
+    --local-dir ~/ComfyUI/models/vae/
+# Then set VIDEO_BACKEND=wan21-nsfw in .env and restart: docker compose restart mcp-video
 ```
 
 ## Manual Start / Stop
