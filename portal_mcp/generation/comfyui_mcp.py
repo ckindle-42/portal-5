@@ -143,13 +143,9 @@ IMAGE_BACKEND = os.getenv("IMAGE_BACKEND", "flux")  # "flux", "flux-uncensored",
 #  10: SaveImage
 # All filenames are set dynamically at runtime from env vars (see generate_image).
 FLUX_WORKFLOW = {
-    # UNETLoader is the correct loader for FLUX's standalone diffusion model files.
-    # CheckpointLoaderSimple expects UNet+CLIP+VAE bundled (SD1.5/SDXL format) — FLUX
-    # dev/schnell ship as UNet-only, so CheckpointLoaderSimple misidentifies the weights
-    # and produces noise. CLIP and VAE are loaded separately by nodes 2 and 3.
     "1": {
-        "inputs": {"unet_name": "flux1-schnell.safetensors", "weight_dtype": "default"},
-        "class_type": "UNETLoader",
+        "inputs": {"ckpt_name": "flux1-schnell.safetensors"},
+        "class_type": "CheckpointLoaderSimple",
     },
     "2": {
         "inputs": {
@@ -325,7 +321,7 @@ async def generate_image(
         workflow["5"]["inputs"]["cfg"] = min(max(cfg, 1), 20)
     else:
         # FLUX / flux-uncensored: split-loader node map (see FLUX_WORKFLOW definition):
-        #   1=UNETLoader, 2=DualCLIPLoader, 3=VAELoader,
+        #   1=CheckpointLoaderSimple(UNet), 2=DualCLIPLoader, 3=VAELoader,
         #   4=CLIPTextEncode+, 5=CLIPTextEncode-, 6=EmptyLatentImage,
         #   7=FluxGuidance, 8=KSampler, 9=VAEDecode, 10=SaveImage
         workflow["4"]["inputs"]["text"] = prompt
@@ -339,8 +335,8 @@ async def generate_image(
         # flow-matching, producing noise. The `cfg` parameter routes to FluxGuidance.
         workflow["8"]["inputs"]["cfg"] = 1.0
         workflow["7"]["inputs"]["guidance"] = min(max(cfg, 0.0), 10.0)
-        # UNet, CLIP, and VAE filenames from env vars with installed defaults
-        workflow["1"]["inputs"]["unet_name"] = _get_checkpoint(model)
+        # Checkpoint (UNet), CLIP, and VAE filenames from env vars with installed defaults
+        workflow["1"]["inputs"]["ckpt_name"] = _get_checkpoint(model)
         workflow["2"]["inputs"]["clip_name1"] = os.getenv(
             "FLUX_CLIP_L_FILE", "text_encoder/model.safetensors"
         )
@@ -349,7 +345,7 @@ async def generate_image(
         )
         workflow["3"]["inputs"]["vae_name"] = os.getenv("FLUX_VAE_FILE", "ae.safetensors")
         if checkpoint:
-            workflow["1"]["inputs"]["unet_name"] = checkpoint
+            workflow["1"]["inputs"]["ckpt_name"] = checkpoint
 
     # Inject LoRA if requested — insert LoraLoaderModelOnly between checkpoint and KSampler
     if lora:
