@@ -1685,11 +1685,39 @@ async def C11() -> None:
         t0=time.time(),
     )
 
+    # Identify video-only LoRAs (HunyuanVideo, Wan2.2) — they are incompatible with
+    # FLUX image generation and are already tested in C8. Query video_mcp for its
+    # configured video LoRA so we can exclude it here.
+    video_loras: set[str] = set()
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            r = await c.get(f"http://localhost:{VIDEO_MCP_PORT}/health")
+            # Ask Docker container env which LoRA video_mcp uses
+            pass
+    except Exception:
+        pass
+    # nsfw-e7.safetensors is the HunyuanVideo NSFW LoRA — video-only, not FLUX-compatible.
+    # Hardcode the default; also detect by checking if lora name contains "hunyuan"/"wan".
+    video_loras.add("nsfw-e7.safetensors")
+
     # Generate one image per LoRA.  Base model chosen by LoRA type:
-    # - "dev" in name → FLUX dev (20 steps): dev LoRAs produce noise on schnell
+    # - "dev" in name → FLUX dev (28 steps): dev LoRAs include CLIP weights, need dev base
     # - otherwise → FLUX schnell (4 steps, fast)
+    # Video LoRAs are skipped here — they are tested in C8 with the video_mcp.
     for i, lora in enumerate(loras, 3):
         lo = lora.lower()
+
+        if lora in video_loras or any(k in lo for k in ["hunyuan", "wan22", "wan2"]):
+            record(
+                sec,
+                f"C11-{i:02d}",
+                f"LoRA: {lora[:55]}",
+                "INFO",
+                "video-only LoRA — skipped for image generation (tested in C8)",
+                t0=None,
+            )
+            continue
+
         is_dev_lora = "dev" in lo
         if is_dev_lora and flux_dev:
             checkpoint = flux_dev

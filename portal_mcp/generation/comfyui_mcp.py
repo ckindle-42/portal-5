@@ -367,17 +367,24 @@ async def generate_image(
             wf["2"]["inputs"]["clip"] = ["10", 1]
             wf["3"]["inputs"]["clip"] = ["10", 1]
         else:
-            # FLUX: LoraLoaderModelOnly between CheckpointLoader(1) and KSampler(8)
+            # FLUX: LoraLoader applies both model AND CLIP/T5 weights.
+            # LoraLoaderModelOnly skips CLIP — most FLUX dev LoRAs include text encoder
+            # weights; skipping them misaligns conditioning and produces noise/static.
             wf["11"] = {
                 "inputs": {
                     "model": ["1", 0],
+                    "clip": ["2", 0],
                     "lora_name": lora,
                     "strength_model": lora_strength,
+                    "strength_clip": lora_strength,
                 },
-                "class_type": "LoraLoaderModelOnly",
+                "class_type": "LoraLoader",
             }
-            # KSampler(8) model input → LoRA output
+            # KSampler(8) model input → LoRA model output
             wf["8"]["inputs"]["model"] = ["11", 0]
+            # CLIPTextEncode(4,5) clip inputs → LoRA clip output
+            wf["4"]["inputs"]["clip"] = ["11", 1]
+            wf["5"]["inputs"]["clip"] = ["11", 1]
         workflow = wf
 
     client_id = str(uuid.uuid4())
