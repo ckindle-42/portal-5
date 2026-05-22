@@ -1333,22 +1333,24 @@ async def C8() -> None:
         record(sec, "C8-03", "Video output accessible", "INFO", "skipped", t0=None)
         return
 
-    # Short clip: 16 frames, 832x480 (Wan2.2 native resolution)
+    # Full quality clip: 9 frames, 832x480, 50 steps.
+    # HunyuanVideo is NOT distilled — 50 steps produces best output.
+    # Expect ~30-40 min on Apple Silicon MPS. VIDEO_TIMEOUT default is 3600s.
     await _wait_for_comfyui_idle()
     await _mcp(
         VIDEO_MCP_PORT,
         "generate_video",
         {
-            "prompt": "ocean waves crashing on rocks at sunset, cinematic",
+            "prompt": "ocean waves crashing on rocks at sunset, cinematic, dramatic lighting",
             "width": 832,
             "height": 480,
-            "frames": 16,
-            "steps": 4,
+            "frames": 9,
+            "steps": 50,
             "seed": 42,
         },
         section=sec,
         tid="C8-02",
-        name="Wan2.2: generate_video (16 frames, 832x480, 4 steps)",
+        name="Wan2.2: generate_video (9 frames, 832x480, 50 steps)",
         ok_fn=lambda t: (
             "success" in t.lower()
             or "url" in t.lower()
@@ -1358,42 +1360,30 @@ async def C8() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-        timeout=1200,  # Video generation: match MCP bridge COMFYUI_TIMEOUT
+        timeout=4000,
     )
 
-    # Longer clip quality test (optional — skip if previous failed)
-    last = _log[-1] if _log else None
-    prev_passed = last and last.status == "PASS" and last.tid == "C8-02"
-    if prev_passed:
-        await _wait_for_comfyui_idle()
-        await _mcp(
-            VIDEO_MCP_PORT,
-            "generate_video",
-            {
-                "prompt": "time-lapse of clouds moving over mountains",
-                "width": 832,
-                "height": 480,
-                "frames": 32,
-                "steps": 8,
-                "seed": 100,
-            },
-            section=sec,
-            tid="C8-03",
-            name="Wan2.2: longer clip (32 frames, 8 steps)",
-            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
-            detail_fn=lambda t: t[:200],
-            warn_if=["error", "failed"],
-            timeout=1200,
-        )
-    else:
-        record(
-            sec,
-            "C8-03",
-            "Wan2.2: longer clip",
-            "INFO",
-            "skipped — previous video generation did not fully pass",
-            t0=None,
-        )
+    # Second full-quality clip — different subject
+    await _wait_for_comfyui_idle()
+    await _mcp(
+        VIDEO_MCP_PORT,
+        "generate_video",
+        {
+            "prompt": "time-lapse of clouds moving over mountains, golden hour, cinematic",
+            "width": 832,
+            "height": 480,
+            "frames": 9,
+            "steps": 50,
+            "seed": 100,
+        },
+        section=sec,
+        tid="C8-03",
+        name="Wan2.2: generate_video (9 frames, 50 steps, different subject)",
+        ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+        detail_fn=lambda t: t[:200],
+        warn_if=["error", "failed"],
+        timeout=4000,
+    )
 
     # NSFW video test — HunyuanVideo with nsfw-e7 LoRA (trigger: nsfwsks)
     await _wait_for_comfyui_idle()
@@ -1404,17 +1394,17 @@ async def C8() -> None:
             "prompt": "nsfwsks, a woman sunbathing on a beach, golden hour, cinematic",
             "width": 832,
             "height": 480,
-            "frames": 16,
-            "steps": 4,
+            "frames": 9,
+            "steps": 50,
             "seed": 42,
         },
         section=sec,
         tid="C8-04",
-        name="NSFW video: HunyuanVideo + nsfw-e7 LoRA (trigger: nsfwsks)",
+        name="NSFW video: HunyuanVideo + nsfw-e7 LoRA (50 steps)",
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-        timeout=1200,
+        timeout=4000,
     )
 
 
@@ -1616,13 +1606,18 @@ async def C10() -> None:
 # C11 — ALL-LORAS COVERAGE: every installed LoRA × FLUX schnell
 # ═══════════════════════════════════════════════════════════════════════════════
 async def C11() -> None:
-    """Test every installed LoRA against FLUX schnell.
+    """Test every installed LoRA with the appropriate FLUX base model.
 
     C5 tests only the first regular LoRA and first NSFW LoRA found.  This section
     exhaustively covers all installed LoRAs so that any newly added LoRA is
     automatically picked up and validated without test changes.
+
+    Base model selection:
+    - LoRAs with "dev" in their name → FLUX dev (20 steps): dev LoRAs produce noise on schnell
+    - All other LoRAs → FLUX schnell (4 steps): fast path for schnell-compatible LoRAs
+    FLUX dev is used as fallback if schnell is not installed.
     """
-    print("\n━━━ C11. ALL LORAS × FLUX SCHNELL ━━━")
+    print("\n━━━ C11. ALL LORAS × FLUX ━━━")
     sec = "C11"
 
     t0 = time.time()
@@ -1658,15 +1653,23 @@ async def C11() -> None:
     if not loras:
         return
 
-    # Require FLUX schnell as the base model (fast, 4 steps)
     flux_schnell = next((c for c in real_ckpts if "schnell" in c.lower()), None)
-    if not flux_schnell:
+    flux_dev = next(
+        (
+            c
+            for c in real_ckpts
+            if "dev" in c.lower() and "flux" in c.lower() and "nsfw" not in c.lower()
+        ),
+        None,
+    )
+
+    if not flux_schnell and not flux_dev:
         record(
             sec,
             "C11-02",
-            "LoRA base model",
+            "LoRA base models",
             "WARN",
-            "FLUX schnell not installed — cannot run LoRA suite",
+            "Neither FLUX schnell nor FLUX dev installed — cannot run LoRA suite",
             t0=None,
         )
         return
@@ -1674,15 +1677,27 @@ async def C11() -> None:
     record(
         sec,
         "C11-02",
-        "LoRA base model",
+        "LoRA base models",
         "INFO",
-        f"using {flux_schnell} for all LoRA tests",
+        f"schnell={flux_schnell or 'not found'}, dev={flux_dev or 'not found'}",
         t0=time.time(),
     )
 
-    # Generate one image per LoRA.  NSFW-keyword LoRAs get the nsfwsks trigger word.
+    # Generate one image per LoRA.  Base model chosen by LoRA type:
+    # - "dev" in name → FLUX dev (20 steps): dev LoRAs produce noise on schnell
+    # - otherwise → FLUX schnell (4 steps, fast)
     for i, lora in enumerate(loras, 3):
         lo = lora.lower()
+        is_dev_lora = "dev" in lo
+        if is_dev_lora and flux_dev:
+            checkpoint = flux_dev
+            steps = 20
+            timeout = 600
+        else:
+            checkpoint = flux_schnell or flux_dev
+            steps = 4
+            timeout = 300
+
         if any(k in lo for k in ["nsfw", "explicit", "adult", "hentai", "nude", "erotic"]):
             prompt = "nsfwsks, photorealistic portrait, dramatic studio lighting, 8k detail"
         elif any(k in lo for k in ["frost", "araminta", "portrait", "style"]):
@@ -1696,19 +1711,19 @@ async def C11() -> None:
             "generate_image",
             {
                 "prompt": prompt,
-                "steps": 4,
+                "steps": steps,
                 "seed": 42,
-                "checkpoint": flux_schnell,
+                "checkpoint": checkpoint,
                 "lora": lora,
                 "lora_strength": 0.8,
             },
             section=sec,
             tid=f"C11-{i:02d}",
-            name=f"LoRA: {lora[:55]}",
+            name=f"LoRA: {lora[:45]} ({steps}s, {checkpoint[:20] if checkpoint else '?'})",
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed"],
-            timeout=600,
+            timeout=timeout,
         )
 
 
