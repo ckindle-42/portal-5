@@ -462,7 +462,7 @@ async def _wait_for_comfyui_queue(prompt_id: str, timeout: int = 600) -> tuple[b
     return False, f"timed out after {timeout}s"
 
 
-async def _comfyui_watchdog(interval: int = 60, stall_limit: int = 600) -> None:
+async def _comfyui_watchdog(interval: int = 60, stall_limit: int = 2400) -> None:
     """Background task that prints periodic progress for long-running generations.
 
     Polls ComfyUI /queue every `interval` seconds and logs the running prompt.
