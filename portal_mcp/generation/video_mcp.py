@@ -425,7 +425,7 @@ async def generate_video(
         logger.error("ComfyUI /prompt error: %s", err)
         return err
 
-    # Poll for completion (video generation can take 5–20 minutes depending on hardware)
+    client = await _get_client()
     poll_interval = 2
     max_polls = VIDEO_TIMEOUT // poll_interval
     for _ in range(max_polls):
