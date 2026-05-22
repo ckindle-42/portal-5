@@ -548,7 +548,7 @@ services:
       - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-0.85}
       - VIDEO_TIMEOUT=${VIDEO_TIMEOUT:-3600}
       - VIDEO_MAX_STEPS=${VIDEO_MAX_STEPS:-50}
-      - VIDEO_MAX_FRAMES=${VIDEO_MAX_FRAMES:-9}
+      - VIDEO_MAX_FRAMES=${VIDEO_MAX_FRAMES:-41}
       - WORKSPACE_DIR=/workspace
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
