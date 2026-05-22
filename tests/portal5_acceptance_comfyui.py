@@ -31,12 +31,13 @@ Sections:
     C2  — MCP bridge health (comfyui_mcp, video_mcp containers)
     C3  — Model discovery via MCP (list_workflows, list_video_models)
     C4  — Image generation: FLUX schnell (fast, 4 steps)
-    C5  — Image generation: FLUX dev (high-quality, 20 steps) — optional
-    C6  — Image generation: SDXL — optional
+    C5  — Image generation: FLUX dev + LoRAs + NSFW checkpoint
+    C6  — Image generation: all SDXL/XL variants (loops every installed XL checkpoint)
     C7  — Image generation: parameter sweep (steps, cfg, sampler, seed)
-    C8  — Video generation: Wan2.2 T2V via MCP
+    C8  — Video generation: HunyuanVideo T2V (short/long clip, NSFW LoRA)
     C9  — Pipeline round-trips (auto-video workspace via portal-pipeline)
     C10 — Output validation (file size, MIME type, URL accessibility)
+    C11 — All LoRAs × FLUX schnell (exhaustive per-LoRA coverage)
 
 Status model:
     PASS    — verified working exactly as expected
@@ -74,17 +75,21 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).parent.resolve()
+# Repo root — one level up from tests/
+REPO_ROOT = ROOT.parent
 
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 def _load_env() -> None:
-    env_file = ROOT / ".env"
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+    # Try tests/.env first, fall back to repo-root .env (the canonical location)
+    for candidate in [ROOT / ".env", REPO_ROOT / ".env"]:
+        if candidate.exists():
+            for line in candidate.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    os.environ.setdefault(k.strip(), v.strip())
+            break
 
 
 _load_env()
@@ -110,6 +115,17 @@ VIDEO_MCP_PORT = int(os.environ.get("VIDEO_MCP_HOST_PORT", "8911"))
 DC = ["docker", "compose", "-f", "deploy/portal-5/docker-compose.yml"]
 
 _verbose = False
+
+
+# ── Checkpoint filter ─────────────────────────────────────────────────────────
+def _filter_checkpoints(ckpts: list[str]) -> list[str]:
+    """Remove files from the checkpoints folder that are clearly not checkpoints.
+
+    ComfyUI scans models/checkpoints/ for any .safetensors — LoRAs or other
+    model types accidentally placed there show up as phantom checkpoint options.
+    """
+    exclude = ["lora"]
+    return [c for c in ckpts if not any(e in c.lower() for e in exclude)]
 
 
 # ── Result model ──────────────────────────────────────────────────────────────
@@ -767,18 +783,16 @@ async def C3() -> None:
         timeout=15,
     )
 
-    # list_samplers (if supported) — useful for parameter sweep in C7
-    await _mcp(
-        COMFYUI_MCP_PORT,
-        "list_samplers",
-        {},
-        section=sec,
-        tid="C3-03",
-        name="list_samplers returns sampler list",
-        ok_fn=lambda t: len(t) > 2 or "not found" in t.lower() or "unknown" in t.lower(),
-        detail_fn=lambda t: t[:160],
-        warn_if=["not found", "unknown tool"],
-        timeout=10,
+    # list_samplers — not implemented in comfyui_mcp; record as INFO so it doesn't
+    # pollute pass/fail counts (it correctly returns "Unknown tool: list_samplers").
+    t0 = time.time()
+    record(
+        sec,
+        "C3-03",
+        "list_samplers MCP tool",
+        "INFO",
+        "Not implemented in comfyui_mcp — KSampler sampler list available via /object_info",
+        t0=t0,
     )
 
 
@@ -1061,76 +1075,115 @@ async def C5() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# C6 — IMAGE GENERATION: SDXL (optional)
+# C6 — IMAGE GENERATION: SDXL & XL VARIANTS (all installed)
 # ═══════════════════════════════════════════════════════════════════════════════
 async def C6() -> None:
-    print("\n━━━ C6. IMAGE GENERATION — SDXL (optional) ━━━")
+    """Test every installed SDXL / XL-family checkpoint.
+
+    Discovers all XL-family checkpoints dynamically (sd_xl_base, Juggernaut-XL,
+    RealVisXL, Animagine-XL, SDXL-Turbo, pony-diffusion, epicrealism, etc.) and
+    generates one image per checkpoint using the SDXL workflow.  NSFW-capable
+    checkpoints get prompts that exercise that capability.
+    """
+    print("\n━━━ C6. IMAGE GENERATION — SDXL & XL VARIANTS ━━━")
     sec = "C6"
 
     t0 = time.time()
     code, data = await _comfyui_get("/object_info", timeout=15)
-    sdxl_ckpt = ""
-    if code == 200 and isinstance(data, dict):
-        ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
-        sdxl_ckpts = [
-            c for c in ckpts if "xl" in c.lower() or "sdxl" in c.lower() and "flux" not in c.lower()
-        ]
-        sdxl_ckpt = sdxl_ckpts[0] if sdxl_ckpts else ""
+    if code != 200 or not isinstance(data, dict):
         record(
             sec,
-            "C6-01",
-            "SDXL checkpoint installed",
-            "PASS" if sdxl_ckpt else "INFO",
-            sdxl_ckpt
-            if sdxl_ckpt
-            else "not installed (optional) — download: huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0",
-            t0=t0,
-        )
-    else:
-        record(
-            sec,
-            "C6-01",
-            "SDXL checkpoint installed",
+            "C6-00",
+            "XL checkpoint discovery",
             "WARN",
             f"ComfyUI not reachable (HTTP {code})",
             t0=t0,
         )
         return
 
-    if not sdxl_ckpt:
+    raw_ckpts = (
+        data.get("CheckpointLoaderSimple", {})
+        .get("input", {})
+        .get("required", {})
+        .get("ckpt_name", [[]])[0]
+    )
+    all_ckpts = _filter_checkpoints(raw_ckpts)
+
+    # XL/SDXL family — any non-Flux checkpoint whose name contains XL-family keywords.
+    # Keeps sd_xl_base, juggernaut-xl, realvis, animagine, sdxl-turbo, pony, epicrealism, etc.
+    xl_patterns = ["xl", "sdxl", "juggernaut", "pony", "epic", "realistic", "animagine", "turbo"]
+    xl_ckpts = [
+        c for c in all_ckpts if any(p in c.lower() for p in xl_patterns) and "flux" not in c.lower()
+    ]
+
+    t0 = time.time()
+    if not xl_ckpts:
         record(
             sec,
-            "C6-02",
-            "SDXL generation via MCP",
+            "C6-00",
+            "XL/SDXL checkpoints installed",
             "INFO",
-            "skipped — checkpoint not installed",
-            t0=None,
+            "none found — download juggernaut-xl, realvis-xl, animagine-xl-3.1, or sdxl-turbo",
+            t0=t0,
         )
         return
 
-    await _wait_for_comfyui_idle()
-    await _mcp(
-        COMFYUI_MCP_PORT,
-        "generate_image",
-        {
-            "prompt": "futuristic city at night, neon lights, cyberpunk style",
-            "negative_prompt": "blurry, low quality, watermark",
-            "steps": 25,
-            "cfg": 7.0,
-            "seed": 42,
-            "width": 1024,
-            "height": 1024,
-            "checkpoint": sdxl_ckpt,
-        },
-        section=sec,
-        tid="C6-02",
-        name="SDXL: generate_image (25 steps, cfg=7, 1024x1024)",
-        ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
-        detail_fn=lambda t: t[:200],
-        warn_if=["error", "failed", "rejected"],
-        timeout=1200,
+    record(
+        sec,
+        "C6-00",
+        "XL/SDXL checkpoints discovered",
+        "INFO",
+        f"{len(xl_ckpts)} found: {', '.join(xl_ckpts)}",
+        t0=t0,
     )
+
+    # Per-checkpoint prompt selection — NSFW-capable models get prompts that exercise
+    # their uncensored range; style-specific models get matching prompts.
+    nsfw_prompts: dict[str, str] = {
+        "juggernaut": "RAW photo, nsfw, nude woman, dramatic studio lighting, photorealistic, 8k",
+        "realvis": "nsfw, nude, photorealistic woman, soft bedroom lighting, 8k detail",
+        "epic": "nsfw, nude, photorealistic, dramatic lighting, hyperdetailed",
+        "pony": "score_9, score_8_up, nsfw, explicit, anime girl, detailed",
+        "animagine": "1girl, masterpiece, best quality, anime style, detailed face and eyes",
+        "turbo": "futuristic city at night, neon lights, cyberpunk style, ultra-detailed",
+    }
+    negative = "blurry, low quality, watermark, deformed, bad anatomy, extra limbs"
+
+    for i, ckpt in enumerate(xl_ckpts, 1):
+        ck_lower = ckpt.lower()
+        prompt = next(
+            (v for k, v in nsfw_prompts.items() if k in ck_lower),
+            "futuristic cityscape at golden hour, dramatic lighting, ultra-detailed, photorealistic",
+        )
+        # SDXL-Turbo is a distilled model: cfg≈0, 1-4 steps, no negative prompt
+        is_turbo = "turbo" in ck_lower
+        steps = 4 if is_turbo else 20
+        cfg = 0.0 if is_turbo else 7.0
+        neg = "" if is_turbo else negative
+
+        await _wait_for_comfyui_idle()
+        await _mcp(
+            COMFYUI_MCP_PORT,
+            "generate_image",
+            {
+                "prompt": prompt,
+                "negative_prompt": neg,
+                "steps": steps,
+                "cfg": cfg,
+                "seed": 42,
+                "width": 1024,
+                "height": 1024,
+                "model": "sdxl",
+                "checkpoint": ckpt,
+            },
+            section=sec,
+            tid=f"C6-{i:02d}",
+            name=f"XL variant: {ckpt[:55]}",
+            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+            detail_fn=lambda t: t[:200],
+            warn_if=["error", "failed", "rejected"],
+            timeout=1200,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1151,8 +1204,9 @@ async def C7() -> None:
     test_ckpt = ""
     if code == 200 and isinstance(data, dict):
         ckpt_node = data.get("CheckpointLoaderSimple", {})
-        ckpts = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
-        # Prefer schnell (fastest) → sdxl → anything
+        raw = ckpt_node.get("input", {}).get("required", {}).get("ckpt_name", [[]])[0]
+        ckpts = _filter_checkpoints(raw)
+        # Prefer schnell (fastest) → sdxl → xl → anything
         for candidate_pattern in ["schnell", "sdxl", "xl", ""]:
             matches = (
                 [c for c in ckpts if candidate_pattern in c.lower()] if candidate_pattern else ckpts
@@ -1555,6 +1609,106 @@ async def C10() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# C11 — ALL-LORAS COVERAGE: every installed LoRA × FLUX schnell
+# ═══════════════════════════════════════════════════════════════════════════════
+async def C11() -> None:
+    """Test every installed LoRA against FLUX schnell.
+
+    C5 tests only the first regular LoRA and first NSFW LoRA found.  This section
+    exhaustively covers all installed LoRAs so that any newly added LoRA is
+    automatically picked up and validated without test changes.
+    """
+    print("\n━━━ C11. ALL LORAS × FLUX SCHNELL ━━━")
+    sec = "C11"
+
+    t0 = time.time()
+    code, data = await _comfyui_get("/object_info", timeout=15)
+    if code != 200 or not isinstance(data, dict):
+        record(
+            sec, "C11-01", "LoRA inventory", "WARN", f"ComfyUI not reachable (HTTP {code})", t0=t0
+        )
+        return
+
+    raw_ckpts = (
+        data.get("CheckpointLoaderSimple", {})
+        .get("input", {})
+        .get("required", {})
+        .get("ckpt_name", [[]])[0]
+    )
+    real_ckpts = _filter_checkpoints(raw_ckpts)
+    loras: list[str] = (
+        data.get("LoraLoader", {}).get("input", {}).get("required", {}).get("lora_name", [[]])[0]
+        or []
+    )
+
+    # Inventory
+    record(
+        sec,
+        "C11-01",
+        "LoRA inventory",
+        "PASS" if loras else "INFO",
+        f"{len(loras)} LoRA(s) installed: {', '.join(loras)}" if loras else "no LoRAs installed",
+        t0=t0,
+    )
+
+    if not loras:
+        return
+
+    # Require FLUX schnell as the base model (fast, 4 steps)
+    flux_schnell = next((c for c in real_ckpts if "schnell" in c.lower()), None)
+    if not flux_schnell:
+        record(
+            sec,
+            "C11-02",
+            "LoRA base model",
+            "WARN",
+            "FLUX schnell not installed — cannot run LoRA suite",
+            t0=None,
+        )
+        return
+
+    record(
+        sec,
+        "C11-02",
+        "LoRA base model",
+        "INFO",
+        f"using {flux_schnell} for all LoRA tests",
+        t0=time.time(),
+    )
+
+    # Generate one image per LoRA.  NSFW-keyword LoRAs get the nsfwsks trigger word.
+    for i, lora in enumerate(loras, 3):
+        lo = lora.lower()
+        if any(k in lo for k in ["nsfw", "explicit", "adult", "hentai", "nude", "erotic"]):
+            prompt = "nsfwsks, photorealistic portrait, dramatic studio lighting, 8k detail"
+        elif any(k in lo for k in ["frost", "araminta", "portrait", "style"]):
+            prompt = "portrait of a woman, detailed face, soft studio lighting, photorealistic"
+        else:
+            prompt = "a beautiful landscape, dramatic sky, professional photography, 8k"
+
+        await _wait_for_comfyui_idle()
+        await _mcp(
+            COMFYUI_MCP_PORT,
+            "generate_image",
+            {
+                "prompt": prompt,
+                "steps": 4,
+                "seed": 42,
+                "checkpoint": flux_schnell,
+                "lora": lora,
+                "lora_strength": 0.8,
+            },
+            section=sec,
+            tid=f"C11-{i:02d}",
+            name=f"LoRA: {lora[:55]}",
+            ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
+            detail_fn=lambda t: t[:200],
+            warn_if=["error", "failed"],
+            timeout=600,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SECTIONS + ORDER
 # ═══════════════════════════════════════════════════════════════════════════════
 SECTIONS: dict[str, object] = {
@@ -1569,9 +1723,10 @@ SECTIONS: dict[str, object] = {
     "C8": C8,
     "C9": C9,
     "C10": C10,
+    "C11": C11,
 }
 
-ALL_ORDER = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10"]
+ALL_ORDER = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "C11"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1636,7 +1791,7 @@ async def main() -> int:
         default="ALL",
         help=(
             "Section(s) to run. Examples: --section C4 | --section C4,C5,C8 | "
-            "--section C4-C8 | --section ALL (default)"
+            "--section C4-C8 | --section C4-C11 | --section ALL (default)"
         ),
     )
     parser.add_argument("--verbose", action="store_true", help="Print evidence lines")
@@ -1649,9 +1804,9 @@ async def main() -> int:
     def _parse_section_arg(arg: str) -> list[str]:
         if arg == "ALL":
             return list(ALL_ORDER)
-        # Range: C4-C8
+        # Range: C4-C8 or C4-C11 (handle two-digit section numbers)
         if re.match(r"^C\d+-C\d+$", arg):
-            start, end = arg.split("-")
+            start, end = arg.split("-", 1)
             try:
                 si = ALL_ORDER.index(start)
                 ei = ALL_ORDER.index(end)

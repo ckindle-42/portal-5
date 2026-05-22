@@ -19,13 +19,14 @@ and registers it as a launchd service that auto-starts on login.
 ./launch.sh download-comfyui-models
 
 # Choose a different image model:
-IMAGE_MODEL=flux-uncensored ./launch.sh download-comfyui-models
+IMAGE_MODEL=juggernaut-xl ./launch.sh download-comfyui-models
 
 # All image model options:
 #   flux-schnell (~12GB, default)    flux-dev (~24GB, needs HF_TOKEN)
 #   flux-uncensored (~24GB)          flux2-klein (~20GB)
-#   sdxl (~7GB)                      juggernaut-xl (~7GB)
-#   pony-diffusion (~12GB)           epicrealism-xl (~12GB)
+#   sdxl (~7GB)                      juggernaut-xl (~7GB, photoreal NSFW)
+#   realvis-xl (~7GB, photoreal)     animagine-xl (~7GB, anime)
+#   sdxl-turbo (~7GB, fast 1-4 step)
 
 # All video model options:
 #   wan2.2 (~18GB, default)          wan2.2-uncensored (~20GB)
