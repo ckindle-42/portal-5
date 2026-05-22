@@ -55,19 +55,24 @@ IMAGE_MODELS: dict = {
         "filename": "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
         "requires_token": False,
         "size_note": "~7GB — photoreal NSFW checkpoint, anatomy-accurate",
-        "fallback_note": "If not on HF, download safetensors from CivitAI manually to MODELS_DIR",
     },
-    "pony-diffusion": {
-        "repo_id": "Aidynbek/PonyDiffusion-V6",
-        "filename": None,
+    "realvis-xl": {
+        "repo_id": "SG161222/RealVisXL_V4.0",
+        "filename": "RealVisXL_V4.0.safetensors",
         "requires_token": False,
-        "size_note": "~12GB — anime/hentai uncensored style",
+        "size_note": "~7GB — hyperrealistic photographic style, NSFW capable",
     },
-    "epicrealism-xl": {
-        "repo_id": "mattthew/epiCRealism-XL",
-        "filename": None,
+    "animagine-xl": {
+        "repo_id": "cagliostrolab/animagine-xl-3.1",
+        "filename": "animagine-xl-3.1.safetensors",
         "requires_token": False,
-        "size_note": "~12GB — hyperdetailed realistic adult scenes",
+        "size_note": "~7GB — high-quality anime/illustration style",
+    },
+    "sdxl-turbo": {
+        "repo_id": "stabilityai/sdxl-turbo",
+        "filename": "sd_xl_turbo_1.0_fp16.safetensors",
+        "requires_token": False,
+        "size_note": "~7GB — fast 1-4 step SDXL, good for rapid iteration",
     },
 }
 
