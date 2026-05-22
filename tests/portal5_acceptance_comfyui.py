@@ -978,15 +978,15 @@ async def C5() -> None:
         COMFYUI_MCP_PORT,
         "generate_image",
         {
-            "prompt": "mountain landscape at sunrise, dramatic lighting, 8k detail",
-            "steps": 20,
+            "prompt": "mountain landscape at sunrise, dramatic golden hour lighting, 8k detail, photorealistic, professional photography",
+            "steps": 28,
             "cfg": 3.5,
             "seed": 42,
             "checkpoint": flux_dev_ckpt,
         },
         section=sec,
         tid="C5-02",
-        name="FLUX dev: generate_image (20 steps, cfg=3.5)",
+        name="FLUX dev: generate_image (28 steps, cfg=3.5)",
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
@@ -1010,16 +1010,17 @@ async def C5() -> None:
             COMFYUI_MCP_PORT,
             "generate_image",
             {
-                "prompt": "portrait of a woman, detailed face, studio lighting",
-                "steps": 4,
+                "prompt": "portrait of a woman, highly detailed face, soft studio lighting, photorealistic, 8k",
+                "steps": 28,
+                "cfg": 3.5,
                 "seed": 42,
-                "checkpoint": "flux1-schnell.safetensors",
+                "checkpoint": flux_dev_ckpt,
                 "lora": regular_loras[0],
                 "lora_strength": 0.8,
             },
             section=sec,
             tid="C5-03",
-            name=f"LoRA generation: {regular_loras[0]} (regular)",
+            name=f"LoRA generation: {regular_loras[0]} (FLUX dev, 28 steps)",
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
@@ -1050,14 +1051,15 @@ async def C5() -> None:
             COMFYUI_MCP_PORT,
             "generate_image",
             {
-                "prompt": "nsfwsks, artistic portrait, dramatic lighting",
-                "steps": 4,
+                "prompt": "nsfwsks, artistic nude portrait, dramatic studio lighting, highly detailed, photorealistic, 8k",
+                "steps": 28,
+                "cfg": 3.5,
                 "seed": 42,
                 "checkpoint": nsfw_image_ckpts[0],
             },
             section=sec,
             tid="C5-04",
-            name=f"NSFW checkpoint: {nsfw_image_ckpts[0]}",
+            name=f"NSFW checkpoint: {nsfw_image_ckpts[0]} (28 steps)",
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
@@ -1140,25 +1142,25 @@ async def C6() -> None:
     # Per-checkpoint prompt selection — NSFW-capable models get prompts that exercise
     # their uncensored range; style-specific models get matching prompts.
     nsfw_prompts: dict[str, str] = {
-        "juggernaut": "RAW photo, nsfw, nude woman, dramatic studio lighting, photorealistic, 8k",
-        "realvis": "nsfw, nude, photorealistic woman, soft bedroom lighting, 8k detail",
-        "epic": "nsfw, nude, photorealistic, dramatic lighting, hyperdetailed",
-        "pony": "score_9, score_8_up, nsfw, explicit, anime girl, detailed",
-        "animagine": "1girl, masterpiece, best quality, anime style, detailed face and eyes",
-        "turbo": "futuristic city at night, neon lights, cyberpunk style, ultra-detailed",
+        "juggernaut": "RAW photo, nsfw, nude woman, dramatic studio lighting, photorealistic, hyperdetailed skin, 8k UHD",
+        "realvis": "nsfw, nude, photorealistic woman, soft bedroom lighting, highly detailed, 8k UHD, sharp focus",
+        "epic": "nsfw, nude, photorealistic, dramatic rim lighting, hyperdetailed, cinematic",
+        "pony": "score_9, score_8_up, nsfw, explicit, anime girl, extremely detailed face, 8k",
+        "animagine": "1girl, masterpiece, best quality, anime style, extremely detailed face and eyes, soft lighting",
+        "turbo": "futuristic city at night, neon lights, cyberpunk style, ultra-detailed, cinematic",
     }
-    negative = "blurry, low quality, watermark, deformed, bad anatomy, extra limbs"
+    negative = "blurry, low quality, watermark, deformed, bad anatomy, extra limbs, mutated, ugly, poorly drawn"
 
     for i, ckpt in enumerate(xl_ckpts, 1):
         ck_lower = ckpt.lower()
         prompt = next(
             (v for k, v in nsfw_prompts.items() if k in ck_lower),
-            "futuristic cityscape at golden hour, dramatic lighting, ultra-detailed, photorealistic",
+            "futuristic cityscape at golden hour, dramatic lighting, ultra-detailed, photorealistic, 8k UHD",
         )
-        # SDXL-Turbo is a distilled model: cfg≈0, 1-4 steps, no negative prompt
+        # SDXL-Turbo is distilled: cfg≈0, 4 steps max. All others: 35 steps for quality.
         is_turbo = "turbo" in ck_lower
-        steps = 4 if is_turbo else 20
-        cfg = 0.0 if is_turbo else 7.0
+        steps = 4 if is_turbo else 35
+        cfg = 0.0 if is_turbo else 7.5
         neg = "" if is_turbo else negative
 
         await _wait_for_comfyui_idle()
@@ -1250,20 +1252,20 @@ async def C7() -> None:
         timeout=600,
     )
 
-    # Different step count — fast vs quality
+    # Different step count — fast vs quality comparison
     await _wait_for_comfyui_idle()
     await _mcp(
         COMFYUI_MCP_PORT,
         "generate_image",
         {
             "prompt": "a blue cube on white background",
-            "steps": 8,
+            "steps": 16,
             "seed": 1234,
             "checkpoint": test_ckpt,
         },
         section=sec,
         tid="C7-03",
-        name="Step variation: 8 steps (same seed)",
+        name="Step variation: 16 steps (same seed, quality comparison vs 4)",
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
@@ -1276,15 +1278,15 @@ async def C7() -> None:
         COMFYUI_MCP_PORT,
         "generate_image",
         {
-            "prompt": "portrait of a person, photorealistic",
-            "negative_prompt": "cartoon, anime, sketch, blurry",
-            "steps": 4,
+            "prompt": "portrait of a person, photorealistic, highly detailed",
+            "negative_prompt": "cartoon, anime, sketch, blurry, deformed, low quality",
+            "steps": 8,
             "seed": 99,
             "checkpoint": test_ckpt,
         },
         section=sec,
         tid="C7-04",
-        name="Negative prompt: portrait with exclusions",
+        name="Negative prompt: portrait with exclusions (8 steps)",
         ok_fn=lambda t: (
             "success" in t.lower()
             or "url" in t.lower()
@@ -1691,8 +1693,8 @@ async def C11() -> None:
         is_dev_lora = "dev" in lo
         if is_dev_lora and flux_dev:
             checkpoint = flux_dev
-            steps = 20
-            timeout = 600
+            steps = 28
+            timeout = 900
         else:
             checkpoint = flux_schnell or flux_dev
             steps = 4
