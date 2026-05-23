@@ -112,6 +112,16 @@ TOOLS_MANIFEST = [
                 "shift": {"type": "number", "default": 9.8},
                 "sampler": {"type": "string", "default": "uni_pc"},
                 "seed": {"type": "integer", "default": -1},
+                "image_url": {
+                    "type": "string",
+                    "description": "URL or local path to a start-frame image (required for wan22-ti2v-5b and wan22-s2v-14b)",
+                    "default": "",
+                },
+                "audio_url": {
+                    "type": "string",
+                    "description": "URL or local path to an audio file (required for wan22-s2v-14b)",
+                    "default": "",
+                },
             },
             "required": ["prompt"],
         },
@@ -211,6 +221,28 @@ WAN22_T2V_UNET = os.getenv(
 )
 WAN22_T2V_CLIP = os.getenv("WAN22_T2V_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.safetensors")
 WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
+
+# ── Wan 2.2 shared fp8 text encoder (TI2V-5B and S2V-14B) ────────────────────
+# From Comfy-Org/Wan_2.1_ComfyUI_repackaged (same encoder, different packaging).
+# Download: ./launch.sh pull-wan22
+WAN22_CLIP_FP8 = os.getenv("WAN22_CLIP_FP8", "umt5_xxl_fp8_e4m3fn_scaled.safetensors")
+
+# ── Wan 2.2 TI2V-5B env vars ─────────────────────────────────────────────────
+# Image-to-video: Wan22ImageToVideoLatent conditions on a start frame.
+# Single-file ComfyUI format from Comfy-Org/Wan_2.2_ComfyUI_Repackaged.
+# Download: ./launch.sh pull-wan22
+WAN22_TI2V_MODEL = os.getenv("WAN22_TI2V_MODEL", "wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "wan2.2_vae.safetensors")
+
+# ── Wan 2.2 S2V-14B env vars ─────────────────────────────────────────────────
+# Sound-to-video: WanSoundImageToVideo conditions on audio + reference image.
+# Requires audio_encoders/wav2vec2_large_english_fp16.safetensors.
+# Download: ./launch.sh pull-wan22
+WAN22_S2V_MODEL = os.getenv("WAN22_S2V_MODEL", "wan2.2_s2v_14B_fp8_scaled.safetensors")
+WAN22_S2V_VAE = os.getenv("WAN22_S2V_VAE", "wan_2.1_vae.safetensors")
+WAN22_S2V_AUDIO_ENCODER = os.getenv(
+    "WAN22_S2V_AUDIO_ENCODER", "wav2vec2_large_english_fp16.safetensors"
+)
 
 # Hard caps to prevent LLM overrides from producing broken or multi-hour jobs.
 # HunyuanVideo 720p model is designed for ≤1280×720; 832×480 is the reference resolution.
@@ -616,38 +648,176 @@ _WAN22_T2V_A14B_WORKFLOW: dict = {
     },
 }
 
+# Wan 2.2 TI2V-5B — image-to-video using Wan22ImageToVideoLatent.
+# Node layout matches video_wan2_2_5B_ti2v.json template (node IDs preserved).
+# image_url → /upload/image → LoadImage[56] → Wan22ImageToVideoLatent[55] → KSampler[3].
+# Default: 1280×704, 121 frames (≈5s at 24fps). Requires pull-wan22.
 _WAN22_TI2V_5B_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Wan 2.2 TI2V-5B (image-to-video) requires an image input via "
-        "Wan22ImageToVideoLatent, which is not yet wired into the MCP API. "
-        "Planned: add image_url parameter to start_video_generation and wire "
-        "via ComfyUI /upload/image → LoadImage → Wan22ImageToVideoLatent. "
-        "Required model: models/diffusion_models/Wan2.2-TI2V-5B/ (pull-wan22). "
-        "ComfyUI template: video_wan2_2_5B_ti2v.json (already installed in ComfyUI venv)."
-    ),
+    "37": {
+        "inputs": {"unet_name": WAN22_TI2V_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "38": {
+        "inputs": {"clip_name": WAN22_CLIP_FP8, "type": "wan"},
+        "class_type": "CLIPLoader",
+    },
+    "39": {
+        "inputs": {"vae_name": WAN22_TI2V_VAE},
+        "class_type": "VAELoader",
+    },
+    "48": {
+        "inputs": {"model": ["37", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "56": {
+        "inputs": {"image": "example.png", "upload": "image"},
+        "class_type": "LoadImage",
+    },
+    "55": {
+        "inputs": {
+            "vae": ["39", 0],
+            "start_image": ["56", 0],
+            "width": 1280,
+            "height": 704,
+            "length": 121,
+            "batch_size": 1,
+        },
+        "class_type": "Wan22ImageToVideoLatent",
+    },
+    "6": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "7": {"inputs": {"text": "", "clip": ["38", 0]}, "class_type": "CLIPTextEncode"},
+    "3": {
+        "inputs": {
+            "model": ["48", 0],
+            "positive": ["6", 0],
+            "negative": ["7", 0],
+            "latent_image": ["55", 0],
+            "seed": 1,
+            "control_after_generate": "randomize",
+            "steps": 20,
+            "cfg": 5.0,
+            "sampler_name": "uni_pc",
+            "scheduler": "simple",
+            "denoise": 1.0,
+        },
+        "class_type": "KSampler",
+    },
+    "8": {
+        "inputs": {"samples": ["3", 0], "vae": ["39", 0]},
+        "class_type": "VAEDecode",
+    },
+    "57": {
+        "inputs": {"images": ["8", 0], "fps": 24},
+        "class_type": "CreateVideo",
+    },
+    "58": {
+        "inputs": {
+            "video": ["57", 0],
+            "filename_prefix": "portal_ti2v_",
+            "format": "auto",
+            "codec": "auto",
+        },
+        "class_type": "SaveVideo",
+    },
 }
 
 _WAN22_ANIMATE_14B_WORKFLOW: dict = {
     "_stub": True,
     "_stub_message": (
-        "Wan 2.2 Animate-14B workflow stub — requires image + mask inputs via "
-        "ComfyUI Wan22ImageToVideoLatent + masking nodes. "
-        "ComfyUI template: video_wan2_2_14B_animate.json (already installed in ComfyUI venv). "
-        "Required model: models/diffusion_models/Wan2.2-Animate-14B/ (pull-wan22). "
-        "NEW CAPABILITY: character animation / replacement."
+        "Wan 2.2 Animate-14B requires SAM2 segmentation, DWPreprocessor, and CLIPVision "
+        "custom ComfyUI nodes plus a community KJ-format model "
+        "(Wan2_2-Animate-14B_fp8_e4m3fn_scaled_KJ.safetensors). "
+        "Too many non-standard dependencies to wire automatically. "
+        "Use the ComfyUI template: video_wan2_2_14B_animate.json (installed in ComfyUI venv)."
     ),
 }
 
+# Wan 2.2 S2V-14B — sound-to-video using WanSoundImageToVideo.
+# Requires: audio_url (reference audio) + image_url (reference frame).
+# WanSoundImageToVideo outputs (positive, negative, latent) — KSampler uses all 3.
+# Default: 640×640, 77 frames (≈4.8s at 16fps). Requires pull-wan22.
 _WAN22_S2V_14B_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Wan 2.2 S2V-14B workflow stub — requires audio input (LoadAudio node) "
-        "not yet supported in the video MCP API. "
-        "ComfyUI template: video_wan2_2_14B_s2v.json (already installed in ComfyUI venv). "
-        "Required model: models/diffusion_models/Wan2.2-S2V-14B/ (pull-wan22). "
-        "NEW CAPABILITY: speech-to-video (requires audio input)."
-    ),
+    "1": {
+        "inputs": {"unet_name": WAN22_S2V_MODEL, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "2": {
+        "inputs": {"clip_name": WAN22_CLIP_FP8, "type": "wan"},
+        "class_type": "CLIPLoader",
+    },
+    "3": {
+        "inputs": {"vae_name": WAN22_S2V_VAE},
+        "class_type": "VAELoader",
+    },
+    "4": {
+        "inputs": {"audio_encoder_name": WAN22_S2V_AUDIO_ENCODER},
+        "class_type": "AudioEncoderLoader",
+    },
+    "5": {
+        "inputs": {"audio": "", "start_time": None, "duration": None},
+        "class_type": "LoadAudio",
+    },
+    "6": {
+        "inputs": {"image": "", "upload": "image"},
+        "class_type": "LoadImage",
+    },
+    "7": {
+        "inputs": {"audio_encoder": ["4", 0], "audio": ["5", 0]},
+        "class_type": "AudioEncoderEncode",
+    },
+    "8": {"inputs": {"text": "", "clip": ["2", 0]}, "class_type": "CLIPTextEncode"},
+    "9": {"inputs": {"text": "", "clip": ["2", 0]}, "class_type": "CLIPTextEncode"},
+    "10": {
+        "inputs": {"model": ["1", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "11": {
+        "inputs": {
+            "positive": ["8", 0],
+            "negative": ["9", 0],
+            "vae": ["3", 0],
+            "audio_encoder_output": ["7", 0],
+            "ref_image": ["6", 0],
+            "width": 640,
+            "height": 640,
+            "length": 77,
+            "batch_size": 1,
+        },
+        "class_type": "WanSoundImageToVideo",
+    },
+    "12": {
+        "inputs": {
+            "model": ["10", 0],
+            "positive": ["11", 0],
+            "negative": ["11", 1],
+            "latent_image": ["11", 2],
+            "seed": 1,
+            "control_after_generate": "randomize",
+            "steps": 20,
+            "cfg": 6.0,
+            "sampler_name": "uni_pc",
+            "scheduler": "simple",
+            "denoise": 1.0,
+        },
+        "class_type": "KSampler",
+    },
+    "13": {
+        "inputs": {"samples": ["12", 0], "vae": ["3", 0]},
+        "class_type": "VAEDecode",
+    },
+    "14": {
+        "inputs": {"images": ["13", 0], "fps": 16},
+        "class_type": "CreateVideo",
+    },
+    "15": {
+        "inputs": {
+            "video": ["14", 0],
+            "filename_prefix": "portal_s2v_",
+            "format": "auto",
+            "codec": "auto",
+        },
+        "class_type": "SaveVideo",
+    },
 }
 
 # Public map — used for routing and verification
@@ -866,6 +1036,68 @@ async def _submit_comfyui(workflow: dict) -> tuple[str | None, dict | None]:
         }
 
 
+async def _upload_image_to_comfyui(image_url: str) -> str:
+    """Fetch image from URL or local path, upload to ComfyUI, return filename."""
+    import mimetypes
+
+    client = await _get_client()
+    if image_url.startswith(("http://", "https://")):
+        resp = await client.get(image_url)
+        resp.raise_for_status()
+        data = resp.content
+        fname = image_url.split("/")[-1].split("?")[0] or "upload.png"
+    else:
+        with open(image_url, "rb") as fh:
+            data = fh.read()
+        fname = os.path.basename(image_url)
+    content_type = mimetypes.guess_type(fname)[0] or "image/png"
+    upload_resp = await client.post(
+        f"{COMFYUI_URL}/upload/image",
+        files={"image": (fname, data, content_type)},
+        data={"type": "input", "overwrite": "true"},
+    )
+    upload_resp.raise_for_status()
+    return upload_resp.json()["name"]
+
+
+async def _upload_audio_to_comfyui(audio_url: str) -> str:
+    """Fetch audio from URL or local path, make available to ComfyUI, return filename."""
+    import mimetypes
+
+    client = await _get_client()
+    if audio_url.startswith(("http://", "https://")):
+        resp = await client.get(audio_url)
+        resp.raise_for_status()
+        data = resp.content
+        fname = audio_url.split("/")[-1].split("?")[0] or "upload.mp3"
+    else:
+        with open(audio_url, "rb") as fh:
+            data = fh.read()
+        fname = os.path.basename(audio_url)
+    content_type = mimetypes.guess_type(fname)[0] or "audio/mpeg"
+
+    # Try /upload/audio (ComfyUI 0.3.x+)
+    try:
+        upload_resp = await client.post(
+            f"{COMFYUI_URL}/upload/audio",
+            files={"audio": (fname, data, content_type)},
+            data={"type": "input", "overwrite": "true"},
+        )
+        upload_resp.raise_for_status()
+        return upload_resp.json()["name"]
+    except Exception:
+        pass
+
+    # Fallback: write directly to ComfyUI input directory
+    comfyui_input = os.path.expanduser(
+        os.getenv("COMFYUI_INPUT_DIR", "~/ComfyUI/input")
+    )
+    os.makedirs(comfyui_input, exist_ok=True)
+    with open(os.path.join(comfyui_input, fname), "wb") as fh:
+        fh.write(data)
+    return fname
+
+
 def _build_video_workflow(
     prompt: str,
     width: int,
@@ -879,21 +1111,25 @@ def _build_video_workflow(
     shift: float = 9.8,
     sampler: str = "uni_pc",
     negative_prompt: str = "",
+    image_filename: str = "",
+    audio_filename: str = "",
 ) -> tuple[dict, int]:
     """Build video workflow dict. Returns (workflow, resolved_seed)."""
     if seed == -1:
         seed = int(time.time() * 1000) % (2**32)
 
-    frames = min(frames, VIDEO_MAX_FRAMES)
+    # TI2V and S2V have larger native resolutions / frame counts — bypass standard caps.
+    if model not in ("wan22-ti2v-5b", "wan22-s2v-14b"):
+        frames = min(frames, VIDEO_MAX_FRAMES)
+        width = min(width, VIDEO_MAX_WIDTH)
+        height = min(height, VIDEO_MAX_HEIGHT)
     steps = min(steps, VIDEO_MAX_STEPS)
-    width = min(width, VIDEO_MAX_WIDTH)
-    height = min(height, VIDEO_MAX_HEIGHT)
     fps = min(fps, VIDEO_OUTPUT_FPS)
 
     workflow = _get_workflow(model)
 
     if model == "wan22-t2v-a14b":
-        # Wan 2.2 T2V-A14B: same node layout as wan21-nsfw (nodes 4/5/6/7/8/9/10/13/15)
+        # Same node layout as wan21-nsfw (nodes 4/5/6/7/8/9/10/13/15)
         workflow["4"]["inputs"]["text"] = prompt
         workflow["15"]["inputs"]["text"] = negative_prompt
         workflow["5"]["inputs"]["width"] = width
@@ -907,9 +1143,39 @@ def _build_video_workflow(
         workflow["13"]["inputs"]["fps"] = float(fps)
         return workflow, seed
 
-    if model in WAN22_WORKFLOWS:
-        # Other Wan 2.2 variants (TI2V/Animate/S2V) — stubs raise before here;
-        # real workflows added once image/audio input is wired
+    if model == "wan22-ti2v-5b":
+        if not image_filename:
+            raise ValueError("wan22-ti2v-5b requires image_url — provide a start-frame image")
+        workflow["56"]["inputs"]["image"] = image_filename
+        workflow["6"]["inputs"]["text"] = prompt
+        workflow["7"]["inputs"]["text"] = negative_prompt
+        workflow["55"]["inputs"]["width"] = width
+        workflow["55"]["inputs"]["height"] = height
+        workflow["55"]["inputs"]["length"] = frames
+        workflow["3"]["inputs"]["steps"] = steps
+        workflow["3"]["inputs"]["cfg"] = cfg
+        workflow["3"]["inputs"]["seed"] = seed
+        workflow["3"]["inputs"]["sampler_name"] = sampler
+        workflow["57"]["inputs"]["fps"] = float(fps)
+        return workflow, seed
+
+    if model == "wan22-s2v-14b":
+        if not audio_filename:
+            raise ValueError("wan22-s2v-14b requires audio_url — provide a reference audio file")
+        if not image_filename:
+            raise ValueError("wan22-s2v-14b requires image_url — provide a reference image frame")
+        workflow["5"]["inputs"]["audio"] = audio_filename
+        workflow["6"]["inputs"]["image"] = image_filename
+        workflow["8"]["inputs"]["text"] = prompt
+        workflow["9"]["inputs"]["text"] = negative_prompt
+        workflow["11"]["inputs"]["width"] = width
+        workflow["11"]["inputs"]["height"] = height
+        workflow["11"]["inputs"]["length"] = frames
+        workflow["12"]["inputs"]["steps"] = steps
+        workflow["12"]["inputs"]["cfg"] = cfg
+        workflow["12"]["inputs"]["seed"] = seed
+        workflow["12"]["inputs"]["sampler_name"] = sampler
+        workflow["14"]["inputs"]["fps"] = float(fps)
         return workflow, seed
 
     if VIDEO_BACKEND == "cogvideox":
@@ -967,6 +1233,8 @@ async def start_video_generation(
     seed: int = -1,
     shift: float = 9.8,
     sampler: str = "uni_pc",
+    image_url: str = "",
+    audio_url: str = "",
 ) -> dict:
     """
     Start video generation and return immediately with a job_id.
@@ -986,16 +1254,41 @@ async def start_video_generation(
         shift: ModelSamplingSD3 shift (default 9.8; range 8–11, higher = more motion)
         sampler: Sampler name (default unipc; dpm++_2m also works well)
         seed: -1 for random
+        image_url: URL or local path to a start-frame image (required for wan22-ti2v-5b and wan22-s2v-14b)
+        audio_url: URL or local path to an audio file (required for wan22-s2v-14b)
     """
     fps = VIDEO_OUTPUT_FPS
-    workflow, seed = _build_video_workflow(
-        prompt, width, height, frames, fps, steps, cfg, model, seed, shift, sampler, negative_prompt
-    )
+
+    # Upload media files before building workflow
+    image_filename = ""
+    audio_filename = ""
+    if image_url:
+        try:
+            image_filename = await _upload_image_to_comfyui(image_url)
+        except Exception as e:
+            return {"success": False, "error": f"Image upload failed: {e}"}
+    if audio_url:
+        try:
+            audio_filename = await _upload_audio_to_comfyui(audio_url)
+        except Exception as e:
+            return {"success": False, "error": f"Audio upload failed: {e}"}
+
+    try:
+        workflow, seed = _build_video_workflow(
+            prompt, width, height, frames, fps, steps, cfg, model, seed, shift, sampler,
+            negative_prompt, image_filename, audio_filename,
+        )
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
         return err
 
-    actual_frames = min(frames, VIDEO_MAX_FRAMES)
+    # TI2V/S2V bypass the standard frame cap — use their actual frame count for ETA
+    if model in ("wan22-ti2v-5b", "wan22-s2v-14b"):
+        actual_frames = frames
+    else:
+        actual_frames = min(frames, VIDEO_MAX_FRAMES)
     actual_steps = min(steps, VIDEO_MAX_STEPS)
     eta = _eta_video(actual_frames, actual_steps)
     eta_str = _eta_human(eta)

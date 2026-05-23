@@ -3985,23 +3985,76 @@ MEOF
   pull-wan22)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
-    echo "[portal-5] Pulling Wan 2.2 ComfyUI models (~80 GB total for all 4 variants)"
-    echo "  Models dir: ${COMFYUI_MODELS}/diffusion_models"
-    for variant in T2V-A14B TI2V-5B Animate-14B S2V-14B; do
-        local_dest="${COMFYUI_MODELS}/diffusion_models/Wan2.2-${variant}"
-        if [ -d "${local_dest}" ]; then
-            echo "  Already present: Wan2.2-${variant}"
-            continue
+    echo "[portal-5] Pulling Wan 2.2 ComfyUI single-file models"
+    echo "  Models dir: ${COMFYUI_MODELS}"
+    mkdir -p "${COMFYUI_MODELS}/diffusion_models" \
+             "${COMFYUI_MODELS}/text_encoders" \
+             "${COMFYUI_MODELS}/vae" \
+             "${COMFYUI_MODELS}/audio_encoders"
+
+    # Helper: download a single file from HuggingFace if not already present
+    _hf_file() {
+        local repo="$1" remote_path="$2" local_dir="$3"
+        local fname; fname="$(basename "${remote_path}")"
+        local dest="${local_dir}/${fname}"
+        if [ -f "${dest}" ]; then
+            echo "  Already present: ${fname}"
+            return 0
         fi
-        echo "  Pulling Wan-AI/Wan2.2-${variant}..."
+        echo "  Downloading ${fname} from ${repo}..."
+        python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import hf_hub_download
+hf_hub_download('${repo}', filename='${remote_path}', local_dir='${local_dir}')
+" && echo "  ✅ ${fname}" || echo "  ❌ ${fname} failed"
+    }
+
+    # ── T2V-A14B (diffusers format — UNETLoader reads subdir path) ────────────
+    local_dest="${COMFYUI_MODELS}/diffusion_models/Wan2.2-T2V-A14B"
+    if [ ! -d "${local_dest}" ]; then
+        echo "  Pulling Wan-AI/Wan2.2-T2V-A14B (diffusers format, ~24 GB)..."
         python3 -W ignore -c "
 import os, warnings; warnings.filterwarnings('ignore')
 if not os.environ.get('HF_HUB_CACHE'):
     os.environ.pop('HF_HUB_CACHE', None)
 from huggingface_hub import snapshot_download
-snapshot_download('Wan-AI/Wan2.2-${variant}', local_dir='${local_dest}')
-" && echo "  ✅ Wan2.2-${variant} done" || echo "  ❌ Wan2.2-${variant} failed"
-    done
+snapshot_download('Wan-AI/Wan2.2-T2V-A14B', local_dir='${local_dest}')
+" && echo "  ✅ Wan2.2-T2V-A14B done" || echo "  ❌ Wan2.2-T2V-A14B failed"
+    else
+        echo "  Already present: Wan2.2-T2V-A14B"
+    fi
+
+    # ── TI2V-5B (single-file, Comfy-Org repackaged) ───────────────────────────
+    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
+        "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" \
+        "${COMFYUI_MODELS}/diffusion_models"
+
+    # ── S2V-14B (single-file, Comfy-Org repackaged) ───────────────────────────
+    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
+        "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors" \
+        "${COMFYUI_MODELS}/diffusion_models"
+
+    # ── Shared VAEs ───────────────────────────────────────────────────────────
+    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
+        "split_files/vae/wan2.2_vae.safetensors" \
+        "${COMFYUI_MODELS}/vae"
+    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
+        "split_files/vae/wan_2.1_vae.safetensors" \
+        "${COMFYUI_MODELS}/vae"
+
+    # ── Shared text encoder (fp8, Wan 2.1 packaging) ─────────────────────────
+    _hf_file "Comfy-Org/Wan_2.1_ComfyUI_repackaged" \
+        "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+        "${COMFYUI_MODELS}/text_encoders"
+
+    # ── Audio encoder (S2V-14B) ───────────────────────────────────────────────
+    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
+        "split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors" \
+        "${COMFYUI_MODELS}/audio_encoders"
+
+    echo "[portal-5] pull-wan22 complete"
     ;;
 
   pull-qwen-image)
