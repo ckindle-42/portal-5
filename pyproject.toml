@@ -65,6 +65,11 @@ generation = [
     "transformers>=4.40.0",
     "scipy>=1.11.0",
 ]
+rag = [
+    # MLX-native embeddings + reranking (Qwen3-Embedding/Reranker family)
+    # Replaces sentence-transformers CPU path for Apple Silicon.
+    "mlx-embeddings>=0.0.3",
+]
 apple-silicon = [
     # MLX dual-server: mlx-lm for text-only models, mlx-vlm for VLM models.
     # mlx-lm>=0.31 required: qwen3_next moved to mlx_vlm in 0.31+; stay current for
