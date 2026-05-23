@@ -269,6 +269,12 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # Follow-up: add dedicated "doc_intel" prompt category in TASK_NEMOTRON_OMNI_PROMOTE_V1
     # for policy-passage extraction + citation quality measurement.
     "bench-nemotron-omni": "vision",
+    # V7 bench workspaces — OCR, MoE creative, security reasoning, tools
+    "bench-olmocr2": "vision",  # Allen AI olmOCR-2-7B — OCR/document understanding
+    "bench-nanonets-ocr2": "vision",  # Nanonets OCR2-3B — OCR specialist
+    "bench-lfm2-moe": "creative",  # LFM2-8B-A1B MoE — creative generation
+    "bench-foundation-sec": "reasoning",  # Foundation-Sec-8B-Reasoning — security CoT
+    "bench-toolace25": "coding",  # ToolACE-2.5 — tool-calling; "coding" is closest proxy
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
     "auto-daily": "general",  # gemma-4-26b daily driver, non-thinking fast lane
 }
@@ -541,7 +547,9 @@ def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
     """Check if system memory pressure is too high.
 
     Returns (safe, used_pct). If used_pct > threshold_pct, safe=False.
-    Checks MLX proxy's memory report if available, falls back to system vm_stat.
+    Primary: MLX proxy /health (accurate GPU/unified memory stats).
+    Fallback: vm_stat page counts — used when proxy is unreachable so we
+    don't silently treat "can't check" as "safe to load" (the crash vector).
     """
     try:
         r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
@@ -552,8 +560,30 @@ def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
                 return used_pct < threshold_pct, used_pct
     except Exception:
         pass
-    # Fallback: no data available, assume safe
-    return True, 0.0
+    # Fallback: parse vm_stat when proxy is unreachable (mirrors UAT _get_memory_pct).
+    # Never return (True, 0.0) — that silently treats a crashed proxy as "safe".
+    try:
+        out = subprocess.check_output(["vm_stat"], text=True, timeout=5)
+        free = active = inactive = speculative = wired = 0
+        for line in out.splitlines():
+            if "Pages free:" in line:
+                free = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages active:" in line:
+                active = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages inactive:" in line:
+                inactive = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages speculative:" in line:
+                speculative = int(line.split(":")[1].strip().rstrip("."))
+            elif "Pages wired down:" in line:
+                wired = int(line.split(":")[1].strip().rstrip("."))
+        total = free + active + inactive + speculative + wired
+        if total > 0:
+            used_pct = round((active + wired + speculative) / total * 100, 1)
+            return used_pct < threshold_pct, used_pct
+    except Exception:
+        pass
+    # No data at all — report unknown pressure rather than faking safe
+    return False, 99.0
 
 
 def _cleanup_all_backends(smallest_mlx: str | None = None) -> None:
@@ -582,8 +612,8 @@ def _cleanup_all_backends(smallest_mlx: str | None = None) -> None:
             pass
     # 2. Evict Ollama: force unload all running models
     _unload_all_running_ollama_models()
-    # 3. Wait for memory reclamation
-    time.sleep(10)
+    # 3. Wait for memory reclamation: event-driven (proxy health) + Ollama idle poll
+    _wait_mlx_memory_available(3.0, timeout_s=30.0)
     _wait_ollama_idle(timeout_s=30.0)
 
     # 4. Check final memory state
@@ -655,11 +685,15 @@ def _evict_mlx_current_model(smallest_mlx_model: str | None) -> None:
         pass
 
 
+_LOG_INTERVAL_S = 15.0  # how often to print progress during memory waits
+
+
 def _wait_mlx_memory_available(
     model_gb: float,
     headroom_gb: float = 10.0,
     timeout_s: float = 120.0,
     poll_interval: float = 5.0,
+    label: str = "",
 ) -> bool:
     """Wait until the MLX proxy reports enough memory for the next model.
 
@@ -667,15 +701,15 @@ def _wait_mlx_memory_available(
     metric the proxy's admission check uses internally. Polls until available
     memory exceeds model_gb + headroom_gb or the timeout expires.
 
-    After heavy model cycling, macOS accumulates inactive pages that are
-    reclaimable but not yet freed. Polling allows the kernel time to reclaim
-    them naturally before the next large model attempts to load.
+    Logs progress every _LOG_INTERVAL_S seconds so long waits are visible in
+    the bench log during unattended runs (mirrors UAT _wait_for_drain).
 
-    Returns True if memory became available within timeout_s, False otherwise
-    (caller should proceed anyway — proxy will reject with 503 if still short).
+    Returns True if memory became available within timeout_s, False otherwise.
     """
     needed_gb = model_gb + headroom_gb
     deadline = time.time() + timeout_s
+    last_log = time.time()
+    prefix = f"  [reclaim{' ' + label if label else ''}]"
     while time.time() < deadline:
         try:
             r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
@@ -688,6 +722,15 @@ def _wait_mlx_memory_available(
                 )
                 if available >= needed_gb:
                     return True
+                now = time.time()
+                if now - last_log >= _LOG_INTERVAL_S:
+                    remaining = int(deadline - now)
+                    print(
+                        f"\n{prefix} {available:.1f}GB available, need {needed_gb:.1f}GB"
+                        f" ({remaining}s left)",
+                        flush=True,
+                    )
+                    last_log = now
         except Exception:
             pass
         time.sleep(poll_interval)
@@ -826,17 +869,20 @@ def _restart_proxy_for_crash_reclaim(reason: str = "crash detected") -> bool:
     except Exception:
         pass
 
-    # 4. Poll /health/wired until proxy reports ready + adequate free memory
+    # 4. Poll /health/wired until proxy reports idle-ready with adequate free memory.
+    # Fresh proxy after restart starts in state="none" (load-on-demand), not "ready".
+    # Checking only "ready" would always time out after a clean restart.
     deadline = time.time() + 90.0
     while time.time() < deadline:
         try:
             r = httpx.get(f"{MLX_URL}/health/wired", timeout=3.0)
             if r.status_code == 200:
                 d = r.json()
-                if d.get("state") == "ready" and d.get("free_gb", 0) >= 4.0:
-                    free = d["free_gb"]
+                state = d.get("state", "")
+                free = d.get("free_gb", 0.0)
+                if state in ("none", "ready") and free >= 4.0:
                     inactive = d.get("inactive_gb", 0)
-                    print(f"ok (free={free:.1f}GB inactive={inactive:.1f}GB)")
+                    print(f"ok (state={state} free={free:.1f}GB inactive={inactive:.1f}GB)")
                     return True
         except Exception:
             pass
@@ -1782,7 +1828,9 @@ def bench_direct(
                 )
                 _unload_all_running_ollama_models()
                 _evict_mlx_current_model(smallest_mlx)
-                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=reclaim_timeout)
+                reclaimed = _wait_mlx_memory_available(
+                    next_size, timeout_s=reclaim_timeout, label=short
+                )
                 # After canary pushed out the big model, also evict the canary itself
                 # so the next large model has maximum free memory (not canary+headroom).
                 if smallest_mlx and size_gb >= 10:
@@ -1804,11 +1852,21 @@ def bench_direct(
                     # Extra settle time for Metal to reclaim pages from the canary
                     time.sleep(settle_sleep)
                     # Re-check memory after canary eviction
-                    reclaimed2 = _wait_mlx_memory_available(next_size, timeout_s=60.0)
+                    reclaimed2 = _wait_mlx_memory_available(
+                        next_size, timeout_s=60.0, label=f"{short}-canary"
+                    )
                     reclaimed = reclaimed or reclaimed2
                 else:
                     time.sleep(settle_sleep)
-                print("ok" if reclaimed else "ok (partial reclaim)")
+                # Escalate: if memory still hasn't cleared, restart proxy to force
+                # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
+                if not reclaimed:
+                    print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
+                          flush=True)
+                    _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
+                    reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
+                                                           label="post-restart")
+                print("ok" if reclaimed else "ok (partial reclaim — proceeding)")
 
         # ── MLX→Ollama transition ─────────────────────────────────────────
         # The post-test evict+reclaim cycle already ran after the last MLX model,
@@ -2253,7 +2311,9 @@ def bench_model_cascade(
             )
             _unload_all_running_ollama_models()
             _evict_mlx_current_model(smallest_mlx)
-            reclaimed = _wait_mlx_memory_available(next_size, timeout_s=reclaim_timeout)
+            reclaimed = _wait_mlx_memory_available(
+                next_size, timeout_s=reclaim_timeout, label=short
+            )
             if smallest_mlx and size_gb >= 10:
                 try:
                     with httpx.Client(timeout=30.0) as _c:
@@ -2269,11 +2329,21 @@ def bench_model_cascade(
                 except Exception:
                     pass
                 time.sleep(settle_sleep)
-                reclaimed2 = _wait_mlx_memory_available(next_size, timeout_s=60.0)
+                reclaimed2 = _wait_mlx_memory_available(
+                    next_size, timeout_s=60.0, label=f"{short}-canary"
+                )
                 reclaimed = reclaimed or reclaimed2
             else:
                 time.sleep(settle_sleep)
-            print("ok" if reclaimed else "ok (partial reclaim)")
+            # Escalate: if memory still hasn't cleared, restart proxy to force
+            # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
+            if not reclaimed:
+                print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
+                      flush=True)
+                _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
+                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
+                                                       label="post-restart")
+            print("ok" if reclaimed else "ok (partial reclaim — proceeding)")
 
     return results
 
