@@ -148,7 +148,7 @@ The benchmark script automatically creates `/tmp/mlx-watchdog-paused` at startup
 
 ## Execution
 
-Launch the full run (expect 4-8 hours wall time for --mode all with 37 MLX models):
+Launch the full run (expect 4-8 hours wall time for --mode all with 43 MLX models):
 
 ```bash
 python3 tests/benchmarks/bench_tps.py \
@@ -159,9 +159,9 @@ python3 tests/benchmarks/bench_tps.py \
     2>&1 | tee /tmp/bench_tps_run.log
 ```
 
-Track the output file being written (in another terminal):
+Track progress live in another terminal (log watcher — shows each model result as it completes):
 ```bash
-tail -f /tmp/bench_tps_run.log | grep -E "^\[|PASS|FAIL|avg_tps|Skipping|ERROR"
+tail -f /tmp/bench_tps_run.log | grep -E "^\s+\[|t/s|FAIL|SKIP|evict|reclaim|⚠|──"
 ```
 
 ### Memory management (automatic)
@@ -178,10 +178,16 @@ Do NOT kill `mlx_lm.server` or `mlx_vlm.server` processes during a run. Use the 
 
 ## Monitoring Progress
 
-### Live tail
+### Live tail (log watcher — follow new lines as they arrive)
 ```bash
-grep -E "^\s+\[|avg_tps|FAIL|ERROR|Skipping|─" /tmp/bench_tps_run.log | tail -30
+tail -f /tmp/bench_tps_run.log | grep -E "^\s+\[|t/s|FAIL|SKIP|evict|reclaim|⚠|──"
 ```
+
+Typical output lines to expect:
+- `    [7/43] Qwen3-Coder-30B (20GB) (warm-up) 42.1 t/s  (5/5 ok)` — model result
+- `    evict → reclaim (30s cooldown) ... ok` — eviction cycle
+- `    [8/43] Devstral-Small (16GB) SKIP (already done)` — resume skip
+- `  ⚠ HIGH JITTER: cv=0.18 ...` — unstable run warning
 
 ### Current output file size
 ```bash
@@ -196,11 +202,11 @@ import json
 from pathlib import Path
 data = json.loads(Path('$LATEST').read_text())
 results = data.get('results', [])
-direct = [r for r in results if r.get('mode') == 'direct' and r.get('avg_tps', 0) > 0]
+direct = [r for r in results if r.get('path') == 'direct' and r.get('avg_tps', 0) > 0]
 print(f'Direct done: {len(direct)}, avg TPS: {sum(r[\"avg_tps\"] for r in direct)/max(len(direct),1):.1f}')
-pipe = [r for r in results if r.get('mode') == 'pipeline' and r.get('avg_tps', 0) > 0]
+pipe = [r for r in results if r.get('path') == 'pipeline' and r.get('avg_tps', 0) > 0]
 print(f'Pipeline done: {len(pipe)}')
-persona = [r for r in results if r.get('mode') == 'persona' and r.get('avg_tps', 0) > 0]
+persona = [r for r in results if r.get('path') == 'persona' and r.get('avg_tps', 0) > 0]
 print(f'Personas done: {len(persona)}')
 "
 ```
@@ -263,15 +269,15 @@ import json
 from pathlib import Path
 data = json.loads(Path('$LATEST').read_text())
 results = data.get('results', [])
-by_mode = {}
+by_path = {}
 for r in results:
-    m = r.get('mode', 'unknown')
-    by_mode[m] = by_mode.get(m, 0) + 1
-print('Results by mode:', by_mode)
+    m = r.get('path', 'unknown')
+    by_path[m] = by_path.get(m, 0) + 1
+print('Results by path:', by_path)
 failed = [r for r in results if r.get('avg_tps', 0) == 0 and r.get('available', True)]
 print(f'Unexpected failures (available=True, TPS=0): {len(failed)}')
 for r in failed[:10]:
-    print(f'  {r.get(\"mode\", \"?\")} / {r.get(\"model\", r.get(\"workspace\", \"?\"))} / {r.get(\"runs\", [])}')
+    print(f'  {r.get(\"path\", \"?\")} / {r.get(\"model\", r.get(\"workspace\", \"?\"))} / {r.get(\"runs\", [])}')
 "
 ```
 
@@ -283,12 +289,12 @@ import json
 from pathlib import Path
 data = json.loads(Path('$LATEST').read_text())
 results = data.get('results', [])
-pipe = [r for r in results if r.get('mode') == 'pipeline']
+pipe = [r for r in results if r.get('path') == 'pipeline']
 mismatch = [r for r in pipe if r.get('expected_model_match') is False]
 if mismatch:
     print(f'WARNING: {len(mismatch)} workspaces routed to wrong model:')
     for r in mismatch:
-        print(f'  {r[\"workspace\"]}: expected={r.get(\"expected_model\")}, got={r.get(\"routed_model\")}')
+        print(f'  {r[\"workspace\"]}: expected={r.get(\"expected_model_detail\")}, got={r.get(\"routed_model\")}')
 else:
     print(f'Routing OK: all {len(pipe)} pipeline tests matched expected model')
 "
