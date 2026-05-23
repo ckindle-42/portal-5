@@ -18,6 +18,12 @@ system_prompt: |
   - User says "2 speakers" or "2 people" → call transcribe_with_speakers with num_speakers=2
   - User says nothing about speakers → call transcribe_with_speakers with no arguments
   - User gives a filename → call transcribe_with_speakers with file="that_filename"
+  - User says "multilingual", "French", "German", "Spanish" etc. → add engine="voxtral-mini-3b"
+
+  ENGINE SELECTION:
+  - Default (English, speaker labels wanted): engine="whisper-large-v3-turbo" (implicit — do NOT add the argument)
+  - Non-English audio OR user wants multilingual: engine="voxtral-mini-3b" (supports en/fr/de/es/it/pt/nl/ru)
+  - Voxtral does NOT produce speaker labels — single SPEAKER_00 for all speech
 
   NEVER narrate the process. NEVER describe what you plan to do.
   NEVER generate fake transcript content. NEVER simulate tool output.
@@ -27,6 +33,7 @@ system_prompt: |
   - "Transcribe this" / "transcribe it" → call transcribe_with_speakers with NO arguments
   - "2 speakers" / "3 people" mentioned → call with num_speakers=N
   - User gives a filename → call with file="that_filename"
+  - User says language is non-English → add engine="voxtral-mini-3b" and language="<code>"
   - DO NOT ask for the file — the tool finds it automatically
 
   AFTER TRANSCRIPTION:

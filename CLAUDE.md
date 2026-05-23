@@ -122,7 +122,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (105 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (110 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 
@@ -159,6 +159,7 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 | 8922 | MCP Research |
 | 8923 | MCP Browser (Playwright) |
 | 8924 | MLX Transcribe (mlx-whisper + pyannote diarization, host-native) |
+| 8925 | MCP Reranker (Qwen3-Reranker-0.6B-mxfp8, MLX-native, two-stage RAG) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |
