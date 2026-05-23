@@ -553,15 +553,17 @@ def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
     """
     try:
         r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
-        if r.status_code == 200:
+        if r.status_code in (200, 503):
+            # Both 200 (model loaded) and 503 (state=none, idle) include full memory
+            # stats in the response body — read them either way.
             mem = r.json().get("memory", {}).get("current", {})
             used_pct = mem.get("used_pct", 0.0)
             if used_pct > 0:
                 return used_pct < threshold_pct, used_pct
     except Exception:
         pass
-    # Fallback: parse vm_stat when proxy is unreachable (mirrors UAT _get_memory_pct).
-    # Never return (True, 0.0) — that silently treats a crashed proxy as "safe".
+    # Fallback: parse vm_stat only when the proxy is completely unreachable
+    # (connection refused, timeout, etc.) — not for normal 503 idle responses.
     try:
         out = subprocess.check_output(["vm_stat"], text=True, timeout=5)
         free = active = inactive = speculative = wired = 0
@@ -713,7 +715,9 @@ def _wait_mlx_memory_available(
     while time.time() < deadline:
         try:
             r = httpx.get(f"{MLX_URL}/health", timeout=3.0)
-            if r.status_code == 200:
+            if r.status_code in (200, 503):
+                # 200 = model loaded; 503 = idle (state=none). Both return
+                # memory stats in the body — read available memory either way.
                 mem = r.json().get("memory", {}).get("current", {})
                 available = (
                     mem.get("free_gb", 0.0)
