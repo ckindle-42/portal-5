@@ -183,7 +183,7 @@ VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22", "wan21-nsfw", "c
 #     --local-dir ~/ComfyUI/models
 VIDEO_MODEL_FILE = os.getenv(
     "VIDEO_MODEL_FILE",
-    "hunyuan_video_t2v_720p_bf16.safetensors",
+    "Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors",
 )
 
 # ── Wan2.1 NSFW backend (VIDEO_BACKEND=wan21-nsfw) ──────────────────────────
@@ -225,20 +225,20 @@ WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
 # ── Wan 2.2 shared fp8 text encoder (TI2V-5B and S2V-14B) ────────────────────
 # From Comfy-Org/Wan_2.1_ComfyUI_repackaged (same encoder, different packaging).
 # Download: ./launch.sh pull-wan22
-WAN22_CLIP_FP8 = os.getenv("WAN22_CLIP_FP8", "umt5_xxl_fp8_e4m3fn_scaled.safetensors")
+WAN22_CLIP_FP8 = os.getenv("WAN22_CLIP_FP8", "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors")
 
 # ── Wan 2.2 TI2V-5B env vars ─────────────────────────────────────────────────
 # Image-to-video: Wan22ImageToVideoLatent conditions on a start frame.
 # Single-file ComfyUI format from Comfy-Org/Wan_2.2_ComfyUI_Repackaged.
 # Download: ./launch.sh pull-wan22
-WAN22_TI2V_MODEL = os.getenv("WAN22_TI2V_MODEL", "wan2.2_ti2v_5B_fp16.safetensors")
-WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "wan2.2_vae.safetensors")
+WAN22_TI2V_MODEL = os.getenv("WAN22_TI2V_MODEL", "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "split_files/vae/wan2.2_vae.safetensors")
 
 # ── Wan 2.2 S2V-14B env vars ─────────────────────────────────────────────────
 # Sound-to-video: WanSoundImageToVideo conditions on audio + reference image.
 # Requires audio_encoders/wav2vec2_large_english_fp16.safetensors.
 # Download: ./launch.sh pull-wan22
-WAN22_S2V_MODEL = os.getenv("WAN22_S2V_MODEL", "wan2.2_s2v_14B_fp8_scaled.safetensors")
+WAN22_S2V_MODEL = os.getenv("WAN22_S2V_MODEL", "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors")
 WAN22_S2V_VAE = os.getenv("WAN22_S2V_VAE", "wan_2.1_vae.safetensors")
 WAN22_S2V_AUDIO_ENCODER = os.getenv(
     "WAN22_S2V_AUDIO_ENCODER", "wav2vec2_large_english_fp16.safetensors"

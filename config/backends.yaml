@@ -571,7 +571,7 @@ backends:
     notes: "Qwopus3.6-27B-v2 Q4_K_M (~16.8GB). MTP variant, 1.66x faster than base\
       \ Qwen3.6-27B (trace-inversion methodology). Bench target: MTP speedup on Ollama\
       \ RC23+. Not in workspace routing — pull, test, bench first."
-  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q6_K
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:q6_k
     supports_tools: false
     notes: "Qwopus3.6-27B-v2 Q6_K (~22.4GB). Quality tier bench — compare vs Q4_K_M\
       \ for quality/TPS tradeoff."
