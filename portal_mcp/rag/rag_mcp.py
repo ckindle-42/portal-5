@@ -31,8 +31,10 @@ mcp = FastMCP("rag", host="0.0.0.0")
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 RAG_DIR = os.path.join(LANCE_DIR, "rag")
 KB_SOURCES_DIR = os.environ.get("PORTAL5_KB_SOURCES_DIR", "/Volumes/data01/portal5_kb_sources")
-EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
-RERANK_URL = os.environ.get("MLX_RERANK_URL", "http://localhost:8081/v1/rerank")
+EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8917/v1/embeddings")
+# RERANKER_URL: dedicated Qwen3-Reranker-0.6B-mxfp8 MCP on :8925.
+# Falls back gracefully to dense-order if reranker is unavailable.
+RERANK_URL = os.environ.get("RERANKER_URL", "http://localhost:8925")
 EMBEDDING_DIM = 1024
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "150"))

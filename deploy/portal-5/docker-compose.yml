@@ -751,7 +751,9 @@ services:
       - PORTAL5_LANCE_DIR=/app/data/portal5_lance
       - PORTAL5_KB_SOURCES_DIR=/app/data/portal5_kb_sources
       - MLX_EMBEDDING_URL=http://host.docker.internal:8917/v1/embeddings
-      - MLX_RERANK_URL=http://host.docker.internal:8081/v1/rerank
+      - RERANKER_URL=http://host.docker.internal:8925
+      - RAG_RERANK_ENABLED=${RAG_RERANK_ENABLED:-true}
+      - RAG_CANDIDATE_POOL_SIZE=${RAG_CANDIDATE_POOL_SIZE:-20}
     command: ["python", "-m", "portal_mcp.rag.rag_mcp"]
     volumes:
       - portal5-lance:/app/data/portal5_lance
@@ -763,6 +765,30 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
+
+  mcp-reranker:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-reranker
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${RERANKER_MCP_HOST_PORT:-8925}:8925"
+    environment:
+      - RERANKER_MODEL=${RERANKER_MODEL:-mlx-community/Qwen3-Reranker-0.6B-mxfp8}
+      - RERANKER_MCP_PORT=8925
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
+    command: ["python", "-m", "portal_mcp.rag.reranker_mcp"]
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8925/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    networks:
+      - portal5
 
   # ── ComfyUI — Image and Video Generation Engine (opt-in, native is default) ──
   # Uses CPU by default (works everywhere). Enable GPU profile for CUDA.
