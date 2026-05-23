@@ -281,7 +281,6 @@ GROUP_PROMPT_MAP: dict[str, str] = {
     "reasoning": "reasoning",
     "vision": "vision",
     "creative": "creative",
-    "bench-qwopus36": "reasoning",  # isolated bench group — not in workspace_routing
 }
 
 # Map persona category (from YAML) → prompt category
@@ -331,7 +330,6 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
     "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
     "Qwopus3.5": "reasoning",  # Jackrong/MLX-Qwopus3.5-* (after specific Claude-distill ids)
-    "Qwopus3.6": "reasoning",  # Jackrong/Qwopus3.6-27B-v2-MTP-* (GGUF via Ollama; MLX if released)
     # ── Vision (Gemma 4 family is multimodal-by-design in this stack) ─────
     "Qwen3-VL": "vision",
     "Vision-Instruct": "vision",  # Llama-3.2-11B-Vision-Instruct
