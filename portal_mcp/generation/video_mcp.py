@@ -110,7 +110,7 @@ TOOLS_MANIFEST = [
                 "steps": {"type": "integer", "default": 30},
                 "cfg": {"type": "number", "default": 6.2},
                 "shift": {"type": "number", "default": 9.8},
-                "sampler": {"type": "string", "default": "unipc"},
+                "sampler": {"type": "string", "default": "uni_pc"},
                 "seed": {"type": "integer", "default": -1},
             },
             "required": ["prompt"],
@@ -430,7 +430,7 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
         "class_type": "ModelSamplingSD3",
     },
     "7": {
-        "inputs": {"sampler_name": "unipc"},
+        "inputs": {"sampler_name": "uni_pc"},
         "class_type": "KSamplerSelect",
     },
     "8": {
@@ -707,7 +707,7 @@ def _build_video_workflow(
     model: str,
     seed: int,
     shift: float = 9.8,
-    sampler: str = "unipc",
+    sampler: str = "uni_pc",
     negative_prompt: str = "",
 ) -> tuple[dict, int]:
     """Build video workflow dict. Returns (workflow, resolved_seed)."""
@@ -776,7 +776,7 @@ async def start_video_generation(
     model: str = "",
     seed: int = -1,
     shift: float = 9.8,
-    sampler: str = "unipc",
+    sampler: str = "uni_pc",
 ) -> dict:
     """
     Start video generation and return immediately with a job_id.
