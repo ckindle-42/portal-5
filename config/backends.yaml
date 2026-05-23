@@ -341,6 +341,73 @@ backends:
       (5-bit proxy; mxfp4 expected similar). License note: Open Model Agreement
       prohibits use to train competing foundation models — internal/enterprise use
       is unrestricted."
+  - id: mlx-community/olmOCR-2-7B-1025-5bit
+    memory_gb: 5
+    big_model: false
+    is_vlm: true
+    supports_tools: false
+    notes: "Allen AI olmOCR-2 7B 5-bit MLX (~5GB, Apache 2.0). V7 bench candidate —
+      RLVR-trained for document OCR with unit-test rewards. SOTA on OlmOCR-Bench
+      for math formulas, tables, multi-column layouts. Qwen2.5-VL-7B base
+      architecture (mlx_vlm path, known-good). supports_tools=false: OCR-specialized
+      VLM, no tool-calling training. Routes via bench-olmocr2 — not promoted to
+      ocrspecialist persona until V5-style bench_tps.py + OCR quality probe passes."
+  - id: mlx-community/Nanonets-OCR2-3B-4bit
+    memory_gb: 2
+    big_model: false
+    is_vlm: true
+    supports_tools: false
+    notes: "Nanonets OCR2 3B 4-bit MLX (~2GB, Qwen2.5-VL-3B base architecture).
+      License: 'Other' on upstream nanonets/Nanonets-OCR2-3B (HF discussion #7
+      unresolved at task creation); base Qwen2.5-VL is Apache 2.0. For
+      self-hosted use only. Specialization: pdf2markdown structure preservation,
+      LaTeX equation recognition, semantic image tagging (<img>), tables to
+      HTML/markdown, signature/watermark/checkbox recognition. Pairs with
+      bench-olmocr2 (Allen AI, 7B, RLVR-trained, math/multi-column strength) —
+      empirical comparison via bench_tps.py + OCR-quality probe decides
+      promotion."
+  - id: mlx-community/LFM2-8B-A1B-8bit
+    memory_gb: 8
+    big_model: false
+    is_vlm: false
+    supports_tools: true
+    notes: "Liquid AI LFM2-8B-A1B 8-bit MLX (~8GB). MoE 8.3B total / 1.5B
+      active. NON-TRANSFORMER hybrid Liquid architecture (multiplicative gates +
+      short convolutions) — the only non-Transformer in the fleet, value is
+      lineage/inductive-bias diversification. License: lfm1.0 (Liquid AI
+      custom) — informational, self-hosted use. CAPABILITY SCOPE (per Liquid
+      AI's own card): suitable for agentic tasks, data extraction, RAG,
+      creative writing, multi-turn conversations. NOT suitable for
+      knowledge-intensive or programming tasks. Bench-pin only — do NOT
+      promote to auto-coding / auto-reasoning / auto-knowledge lanes."
+  - id: foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx
+    memory_gb: 5
+    big_model: false
+    is_vlm: false
+    supports_tools: false
+    notes: "Cisco Foundation-Sec 8B Reasoning, locally converted to MLX 4-bit
+      via mlx_lm.convert (~4.5GB). Llama-3.1-8B backbone, continued-pretrained
+      on cybersecurity corpus + RLVR. License: 'other (NOTICE.md)' upstream —
+      informational, self-hosted use. Native <think> reasoning traces (parser:
+      minimax_m2). Specialization: CVE→CWE mapping, MITRE ATT&CK classification,
+      SOC triage, compliance evidence extraction. Routes to blue-team/defender
+      workflows ONLY — does NOT replace existing abliterated red-team models
+      (different lane). Out-of-scope per Cisco's policy: malware/exploit
+      generation. Convert via: ./launch.sh convert-foundation-sec"
+  - id: team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx
+    memory_gb: 5
+    big_model: false
+    is_vlm: false
+    supports_tools: true
+    notes: "Team-ACE ToolACE-2.5, locally converted to MLX 4-bit via mlx_lm.convert
+      (~4.5GB). LLaMA-3.1-8B-Instruct base + ToolACE synthetic-tool-calling
+      dataset (26,507 APIs, BFCL-topping). v2.5 adds self-refinement tuning +
+      task decomposition over v2.0. License: Apache 2.0 claimed (HF discussion
+      #8 flags Llama 3.1 upstream relationship — informational for self-hosted).
+      Expects ToolACE-style system prompt; use [func(arg=val)] tool-call format.
+      Pin: bench-toolace25 only — empirical comparison vs existing tool-calling
+      models via tests/portal5_persona_matrix.py --audit-tools before any
+      workspace promotion. Convert via: ./launch.sh convert-toolace25"
 - id: ollama-general
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -653,6 +720,26 @@ workspace_routing:
   bench-nemotron-omni:
   - mlx
   - vision
+  - general
+  bench-olmocr2:
+  - mlx
+  - vision
+  - general
+  bench-nanonets-ocr2:
+  - mlx
+  - vision
+  - general
+  bench-lfm2-moe:
+  - mlx
+  - creative
+  - general
+  bench-foundation-sec:
+  - mlx
+  - reasoning
+  - general
+  bench-toolace25:
+  - mlx
+  - tools
   - general
 defaults:
   fallback_group: general
