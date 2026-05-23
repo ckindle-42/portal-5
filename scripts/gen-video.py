@@ -8,6 +8,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 
 MCP_URL = "http://localhost:8911"
 
@@ -34,9 +35,6 @@ def _getenv(key: str, _cache: dict = {}) -> str:
     return os.environ.get(key) or _cache.get(key, "")
 
 
-import urllib.parse
-
-
 def _notify(title: str, message: str, comfyui_url: str = "") -> None:
     """Download finished video and send to Telegram; ping Pushover as text."""
     video_path = _download_video(comfyui_url) if comfyui_url else None
@@ -53,8 +51,7 @@ def _download_video(comfyui_url: str) -> str | None:
         req = urllib.request.Request(comfyui_url)
         with urllib.request.urlopen(req, timeout=60) as resp:
             import tempfile
-            suffix = ".mp4"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
                 f.write(resp.read())
                 return f.name
     except Exception as e:
@@ -82,7 +79,6 @@ def _telegram_send_video(path: str, caption: str = "") -> None:
     user_ids = _getenv("TELEGRAM_USER_IDS")
     if not token or not user_ids:
         return
-
     boundary = "boundary_portal_video"
     for chat_id in user_ids.split(","):
         chat_id = chat_id.strip()
@@ -92,10 +88,8 @@ def _telegram_send_video(path: str, caption: str = "") -> None:
             with open(path, "rb") as f:
                 video_data = f.read()
             filename = os.path.basename(path)
-
-            # Build multipart/form-data manually (stdlib only)
             parts = []
-            for name, value in [("chat_id", chat_id), ("caption", caption)]:
+            for name, value in [("chat_id", chat_id), ("caption", caption[:1024])]:
                 parts.append(
                     f"--{boundary}\r\n"
                     f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
@@ -107,7 +101,6 @@ def _telegram_send_video(path: str, caption: str = "") -> None:
                 f"Content-Type: video/mp4\r\n\r\n"
             )
             body = "".join(parts).encode() + video_data + f"\r\n--{boundary}--\r\n".encode()
-
             req = urllib.request.Request(
                 f"https://api.telegram.org/bot{token}/sendVideo",
                 data=body,
@@ -139,6 +132,7 @@ def _telegram_text(message: str) -> None:
         except Exception:
             pass
 
+
 DEFAULT_NEGATIVE = (
     "blurry, deformed, extra limbs, bad anatomy, low quality, censored, "
     "clothes appearing, static pose, boring, overexposed, underexposed, "
@@ -146,8 +140,16 @@ DEFAULT_NEGATIVE = (
     "poorly drawn hands, mutated, ugly"
 )
 
-# Fast-iteration defaults — optimised for quick turnaround while dialling in prompts.
-# Use --quality to switch to the quality preset (35 steps, 720p).
+PREVIEW = {
+    "steps": 10,
+    "cfg": 6.0,
+    "shift": 9.0,
+    "sampler": "uni_pc",
+    "width": 832,
+    "height": 480,
+    "frames": 9,
+}
+
 DEFAULTS = {
     "steps": 25,
     "cfg": 6.0,
@@ -180,9 +182,9 @@ def post(path: str, payload: dict) -> dict:
         return json.loads(resp.read())
 
 
-def submit(args: argparse.Namespace, base: dict) -> str:
+def build_payload(prompt: str, args: argparse.Namespace, base: dict) -> dict:
     payload: dict = {
-        "prompt": args.prompt,
+        "prompt": prompt,
         "negative_prompt": args.negative if args.negative is not None else DEFAULT_NEGATIVE,
         "steps": args.steps if args.steps is not None else base["steps"],
         "cfg": args.cfg if args.cfg is not None else base["cfg"],
@@ -194,7 +196,10 @@ def submit(args: argparse.Namespace, base: dict) -> str:
     }
     if args.seed is not None:
         payload["seed"] = args.seed
+    return payload
 
+
+def submit_payload(payload: dict) -> str:
     result = post("/tools/start_video_generation", payload)
     job_id = result.get("job_id") or result.get("id")
     if not job_id:
@@ -203,9 +208,9 @@ def submit(args: argparse.Namespace, base: dict) -> str:
     return job_id
 
 
-def poll(job_id: str, interval: int = 30) -> None:
+def poll(job_id: str, label: str = "", interval: int = 30) -> str | None:
+    """Poll until complete. Returns the ComfyUI video URL or None on error."""
     print(f"job_id: {job_id}", flush=True)
-    print(f"ComfyUI: http://localhost:8188", flush=True)
     spinner = ["|", "/", "-", "\\"]
     i = 0
     start = time.time()
@@ -223,55 +228,83 @@ def poll(job_id: str, interval: int = 30) -> None:
 
         if status == "complete":
             url = result.get("url", "")
-            print(f"\n\nDone in {mins}m{secs:02d}s")
+            suffix = f" [{label}]" if label else ""
+            print(f"\n\nDone in {mins}m{secs:02d}s{suffix}")
             print(f"URL: {url}")
-            _notify("Video ready", f"Done in {mins}m{secs:02d}s", url)
+            _notify(f"Video ready{suffix}", f"Done in {mins}m{secs:02d}s", url)
             try:
                 import subprocess
                 subprocess.run(["open", url], check=False)
             except Exception:
                 pass
-            return
+            return url
         elif status == "error":
             msg = result.get("message", str(result))
-            print(f"\nERROR: {msg}", file=sys.stderr)
-            _notify("Video failed", msg)
-            sys.exit(1)
+            suffix = f" [{label}]" if label else ""
+            print(f"\nERROR{suffix}: {msg}", file=sys.stderr)
+            _notify(f"Video failed{suffix}", msg)
+            return None
         else:
             spin = spinner[i % len(spinner)]
-            print(f"\r{spin} {status} — {mins}m{secs:02d}s elapsed", end="", flush=True)
+            lbl = f" {label}" if label else ""
+            print(f"\r{spin}{lbl} {status} — {mins}m{secs:02d}s elapsed", end="", flush=True)
             i += 1
             time.sleep(interval)
 
 
+def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
+    total = len(prompts)
+    eta_each = base["steps"] * 79 + (base["frames"] / 41) * 3060
+    eta_total = eta_each * total
+    print(f"Batch: {total} prompts  |  ~{int(eta_each/60)}min each  |  ~{int(eta_total/3600)}h{int((eta_total%3600)/60)}m total")
+    print(f"Preset: steps={base['steps']} frames={base['frames']} {base['width']}x{base['height']}")
+    print()
+
+    failed = []
+    for idx, prompt in enumerate(prompts, 1):
+        label = f"{idx}/{total}"
+        short = prompt[:60] + ("..." if len(prompt) > 60 else "")
+        print(f"\n[{label}] {short}")
+        payload = build_payload(prompt, args, base)
+        job_id = submit_payload(payload)
+        url = poll(job_id, label=label, interval=args.poll_interval)
+        if url is None:
+            failed.append((idx, prompt))
+
+    print(f"\n{'='*50}")
+    print(f"Batch complete: {total - len(failed)}/{total} succeeded")
+    if failed:
+        print("Failed:")
+        for idx, p in failed:
+            print(f"  [{idx}] {p[:80]}")
+    _telegram_text(f"Batch done: {total - len(failed)}/{total} videos generated.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Submit a video generation job to Portal and poll until done.",
+        description="Submit video generation jobs to Portal and poll until done.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Defaults (fast iteration — ~20 min):
-  steps={DEFAULTS['steps']}  cfg={DEFAULTS['cfg']}  shift={DEFAULTS['shift']}
-  resolution={DEFAULTS['width']}x{DEFAULTS['height']}  sampler={DEFAULTS['sampler']}
-  negative prompt: baked in (override with --negative "...")
+Presets:
+  (default)  25 steps, 480p, 41 frames (~85 min)
+  --preview  10 steps, 480p,  9 frames (~24 min) — batch testing
+  --quality  35 steps, 720p, 41 frames (~3 hr)
 
 Examples:
-  # Fast prompt iteration (default):
+  # Single prompt — fast defaults:
   python3 scripts/gen-video.py "your prompt"
 
-  # Quality run (720p, 35 steps):
+  # Batch from file — one prompt per line, ~24 min each:
+  python3 scripts/gen-video.py --batch prompts.txt --preview
+
+  # Quality single run:
   python3 scripts/gen-video.py "your prompt" --quality
 
   # Override specific params:
   python3 scripts/gen-video.py "your prompt" --steps 30 --cfg 6.2 --shift 9.8
 
-  # Maximum motion:
-  python3 scripts/gen-video.py "your prompt" --shift 10.5
-
   # Fixed seed for reproducible comparisons:
   python3 scripts/gen-video.py "your prompt" --seed 42
-
-  # Override negative prompt:
-  python3 scripts/gen-video.py "your prompt" --negative "blurry, watermark"
 
   # Submit and exit — poll manually later:
   python3 scripts/gen-video.py "your prompt" --no-wait
@@ -281,51 +314,67 @@ Examples:
 """,
     )
     parser.add_argument("prompt", nargs="?", help="Text prompt for video generation")
-    parser.add_argument("--quality", action="store_true", help="Use quality preset (35 steps, 720p) instead of fast defaults")
-    parser.add_argument("--steps", type=int, default=None, help=f"Inference steps (fast default: {DEFAULTS['steps']})")
-    parser.add_argument("--cfg", type=float, default=None, help=f"CFG scale (fast default: {DEFAULTS['cfg']}; range 5.5–7.0)")
-    parser.add_argument("--frames", type=int, default=None, help=f"Number of frames (default: {DEFAULTS['frames']} ≈ 5s at 8fps)")
-    parser.add_argument("--width", type=int, default=None, help=f"Width in pixels (fast default: {DEFAULTS['width']})")
-    parser.add_argument("--height", type=int, default=None, help=f"Height in pixels (fast default: {DEFAULTS['height']})")
-    parser.add_argument("--shift", type=float, default=None, help=f"Sample shift (fast default: {DEFAULTS['shift']}; range 8–11, higher = more motion)")
-    parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: uni_pc; dpmpp_2m also works)")
-    parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Override negative prompt (default: baked-in quality negative)")
+    parser.add_argument("--preview", action="store_true", help="Preview preset: 10 steps, 9 frames (~24 min) — ideal for batch testing")
+    parser.add_argument("--quality", action="store_true", help="Quality preset: 35 steps, 720p, 41 frames (~3 hr)")
+    parser.add_argument("--batch", metavar="FILE", help="Run all prompts from FILE (one per line) sequentially")
+    parser.add_argument("--steps", type=int, default=None, help="Inference steps")
+    parser.add_argument("--cfg", type=float, default=None, help="CFG scale (range 5.5–7.0)")
+    parser.add_argument("--frames", type=int, default=None, help="Number of frames")
+    parser.add_argument("--width", type=int, default=None, help="Width in pixels")
+    parser.add_argument("--height", type=int, default=None, help="Height in pixels")
+    parser.add_argument("--shift", type=float, default=None, help="Sample shift (range 8–11, higher = more motion)")
+    parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: uni_pc)")
+    parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Override negative prompt")
     parser.add_argument("--seed", type=int, default=None, help="Seed (-1 = random)")
     parser.add_argument("--poll-interval", type=int, default=30, help="Seconds between status polls (default: 30)")
-    parser.add_argument("--no-wait", action="store_true", help="Submit and print job_id, then exit immediately")
-    parser.add_argument("--status", metavar="JOB_ID", help="Poll an existing job by ID instead of submitting")
+    parser.add_argument("--no-wait", action="store_true", help="Submit and exit immediately, printing job_id")
+    parser.add_argument("--status", metavar="JOB_ID", help="Poll an existing job by ID")
 
     args = parser.parse_args()
 
     if args.status:
-        poll(args.status, args.poll_interval)
+        poll(args.status, interval=args.poll_interval)
+        return
+
+    if args.preview and args.quality:
+        parser.error("--preview and --quality are mutually exclusive")
+
+    base = PREVIEW if args.preview else (QUALITY if args.quality else DEFAULTS)
+    preset_label = "preview" if args.preview else ("quality" if args.quality else "fast")
+
+    if args.batch:
+        try:
+            with open(args.batch) as f:
+                prompts = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+        except OSError as e:
+            parser.error(f"Cannot read batch file: {e}")
+        if not prompts:
+            parser.error("Batch file is empty")
+        run_batch(prompts, args, base)
         return
 
     if not args.prompt:
-        parser.error("prompt is required when not using --status")
+        parser.error("prompt is required (or use --batch FILE or --status JOB_ID)")
 
-    base = QUALITY if args.quality else DEFAULTS
-    preset_label = "quality" if args.quality else "fast"
+    steps = args.steps or base["steps"]
+    cfg = args.cfg or base["cfg"]
+    shift = args.shift or base["shift"]
+    w = args.width or base["width"]
+    h = args.height or base["height"]
+    frames = args.frames or base["frames"]
 
     print(f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}")
-    parts = [
-        f"steps={args.steps or base['steps']}",
-        f"cfg={args.cfg or base['cfg']}",
-        f"shift={args.shift or base['shift']}",
-        f"{args.width or base['width']}x{args.height or base['height']}",
-    ]
-    if args.seed is not None:
-        parts.append(f"seed={args.seed}")
-    print("  " + "  ".join(parts))
+    print(f"  steps={steps}  cfg={cfg}  shift={shift}  {w}x{h}  frames={frames}")
 
-    job_id = submit(args, base)
+    payload = build_payload(args.prompt, args, base)
+    job_id = submit_payload(payload)
 
     if args.no_wait:
         print(f"job_id: {job_id}")
         print(f"Poll later: python3 scripts/gen-video.py --status {job_id}")
         return
 
-    poll(job_id, args.poll_interval)
+    poll(job_id, interval=args.poll_interval)
 
 
 if __name__ == "__main__":
