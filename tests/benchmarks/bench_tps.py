@@ -1203,12 +1203,17 @@ def _result_already_done(output_path: str, match_key: str, match_value: str) -> 
 # ── Core benchmark ───────────────────────────────────────────────────────────
 
 
-def _warmup_mlx_model(model: str) -> bool:
+def _warmup_mlx_model(model: str, model_gb: float = 0.0) -> bool:
     """Send a minimal warm-up request to force the MLX proxy to load the model.
 
     When switching between mlx_lm (text) and mlx_vlm (VLM) models, the proxy
     must stop one server and start the other. This warm-up triggers that
     transition before benchmark timing begins.
+
+    model_gb: expected Metal footprint. When non-zero and the proxy rejects with
+    "Insufficient memory", we wait for available >= model_gb before retrying
+    instead of a fixed 20GB (which is always satisfied and causes 3 useless retries
+    when the model is genuinely too large for current system state).
     """
     payload = {
         "model": model,
@@ -1216,6 +1221,7 @@ def _warmup_mlx_model(model: str) -> bool:
         "stream": False,
         "max_tokens": 1,
     }
+    wait_gb = model_gb if model_gb > 0 else 20.0
     for attempt in range(3):
         try:
             with httpx.Client(timeout=300.0) as client:
@@ -1229,8 +1235,10 @@ def _warmup_mlx_model(model: str) -> bool:
                     except Exception:
                         err = ""
                     if "Insufficient memory" in err:
-                        # Wait for memory to free up before retrying
-                        _wait_mlx_memory_available(20.0, timeout_s=120.0)
+                        # Wait for available >= model_gb (no extra headroom — the proxy
+                        # itself uses no headroom for big models). Uses model_gb not 20GB
+                        # so we don't immediately re-attempt a model that provably won't fit.
+                        _wait_mlx_memory_available(wait_gb, headroom_gb=0, timeout_s=120.0)
                     if attempt < 2:
                         time.sleep(15)
                     continue
@@ -1727,7 +1735,7 @@ def bench_direct(
                 continue
             # Warm-up: force MLX proxy to load model (switches mlx_lm ↔ mlx_vlm if needed)
             print("(warm-up) ", end="", flush=True)
-            warm_ok = _warmup_mlx_model(model)
+            warm_ok = _warmup_mlx_model(model, model_gb=size_gb)
             if not warm_ok:
                 # If proxy is unreachable, the mlx server crashed — restart to
                 # reclaim Metal inactive pages before trying the next model.
@@ -1756,18 +1764,17 @@ def bench_direct(
                 results.append(r)
                 if output_path:
                     _append_result(output_path, r)
-                # Still evict to free memory for next model
+                # Warmup failed — model never entered Metal, nothing to reclaim.
+                # Evict any resident canary and apply brief cooldown only.
                 has_next = i < len(mlx_models)
                 if has_next or ollama_available:
-                    next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
                     print(
-                        f"    evict → reclaim ({cooldown:.0f}s cooldown) ...",
+                        f"    evict → cooldown ({cooldown:.0f}s) ...",
                         end=" ",
                         flush=True,
                     )
                     _unload_all_running_ollama_models()
                     _evict_mlx_current_model(smallest_mlx)
-                    _wait_mlx_memory_available(next_size, timeout_s=max(cooldown * 12, 120.0))
                     time.sleep(cooldown)
                     print("ok")
                 continue
@@ -2151,7 +2158,7 @@ def bench_model_cascade(
                 print(f"SKIP (memory pressure {used:.0f}%) ", end="", flush=True)
                 continue
             print("(warm-up) ", end="", flush=True)
-            warm_ok = _warmup_mlx_model(model)
+            warm_ok = _warmup_mlx_model(model, model_gb=size_gb)
             if not warm_ok:
                 print("FAIL (load failed) ", end="", flush=True)
                 if not direct_done:
@@ -2306,48 +2313,63 @@ def bench_model_cascade(
         if has_next or ollama_available:
             next_size = _parse_model_size_gb(mlx_models[i], "mlx") if has_next else 3.0
             big_model = size_gb >= 20
-            reclaim_timeout = max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
-            settle_sleep = max(cooldown, 30.0) if big_model else cooldown
-            print(
-                f"    evict → reclaim ({settle_sleep:.0f}s cooldown) ...",
-                end=" ",
-                flush=True,
-            )
-            _unload_all_running_ollama_models()
-            _evict_mlx_current_model(smallest_mlx)
-            reclaimed = _wait_mlx_memory_available(
-                next_size, timeout_s=reclaim_timeout, label=short
-            )
-            if smallest_mlx and size_gb >= 10:
-                try:
-                    with httpx.Client(timeout=30.0) as _c:
-                        _c.post(
-                            f"{MLX_URL}/v1/chat/completions",
-                            json={
-                                "model": smallest_mlx,
-                                "messages": [{"role": "user", "content": ""}],
-                                "stream": False,
-                                "max_tokens": 1,
-                            },
-                        )
-                except Exception:
-                    pass
-                time.sleep(settle_sleep)
-                reclaimed2 = _wait_mlx_memory_available(
-                    next_size, timeout_s=60.0, label=f"{short}-canary"
+            if not warm_ok:
+                # Warmup failed — the model never entered Metal, so there are no
+                # inactive pages to reclaim. Evict any resident canary model and
+                # apply a brief cooldown; skip the reclaim poll and proxy restart
+                # (triggering those when nothing loaded would waste 3-5 minutes).
+                print(
+                    f"    evict → cooldown ({cooldown:.0f}s) ...",
+                    end=" ",
+                    flush=True,
                 )
-                reclaimed = reclaimed or reclaimed2
+                _unload_all_running_ollama_models()
+                _evict_mlx_current_model(smallest_mlx)
+                time.sleep(cooldown)
+                print("ok")
             else:
-                time.sleep(settle_sleep)
-            # Escalate: if memory still hasn't cleared, restart proxy to force
-            # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
-            if not reclaimed:
-                print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
-                      flush=True)
-                _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
-                reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
-                                                       label="post-restart")
-            print("ok" if reclaimed else "ok (partial reclaim — proceeding)")
+                reclaim_timeout = max(cooldown * 12, 180.0) if big_model else max(cooldown * 12, 120.0)
+                settle_sleep = max(cooldown, 30.0) if big_model else cooldown
+                print(
+                    f"    evict → reclaim ({settle_sleep:.0f}s cooldown) ...",
+                    end=" ",
+                    flush=True,
+                )
+                _unload_all_running_ollama_models()
+                _evict_mlx_current_model(smallest_mlx)
+                reclaimed = _wait_mlx_memory_available(
+                    next_size, timeout_s=reclaim_timeout, label=short
+                )
+                if smallest_mlx and size_gb >= 10:
+                    try:
+                        with httpx.Client(timeout=30.0) as _c:
+                            _c.post(
+                                f"{MLX_URL}/v1/chat/completions",
+                                json={
+                                    "model": smallest_mlx,
+                                    "messages": [{"role": "user", "content": ""}],
+                                    "stream": False,
+                                    "max_tokens": 1,
+                                },
+                            )
+                    except Exception:
+                        pass
+                    time.sleep(settle_sleep)
+                    reclaimed2 = _wait_mlx_memory_available(
+                        next_size, timeout_s=60.0, label=f"{short}-canary"
+                    )
+                    reclaimed = reclaimed or reclaimed2
+                else:
+                    time.sleep(settle_sleep)
+                # Escalate: if memory still hasn't cleared, restart proxy to force
+                # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
+                if not reclaimed:
+                    print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
+                          flush=True)
+                    _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
+                    reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
+                                                           label="post-restart")
+                print("ok" if reclaimed else "ok (partial reclaim — proceeding)")
 
     return results
 
