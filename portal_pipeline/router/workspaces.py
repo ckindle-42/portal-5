@@ -595,6 +595,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
+    "bench-nemotron-omni": {
+        "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA MoE)",
+        "description": (
+            "Benchmark: mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4 "
+            "(MLX, NVIDIA Apr 2026, 30B MoE / 3B active, ~15GB, is_vlm=True via mlx-vlm 0.4.5). "
+            "Omni-modal: text + image + video + audio. MMLongBench-Doc 57.5, OCRBenchV2 65.8, "
+            "VoiceBench 89.4. NVIDIA Open Model Agreement (commercial use permitted). "
+            "BENCH-ONLY — promotion gated on TASK_NEMOTRON_OMNI_PROMOTE_V1."
+        ),
+        "model_hint": "llama3.3:70b-q4_k_m",
+        "mlx_model_hint": "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

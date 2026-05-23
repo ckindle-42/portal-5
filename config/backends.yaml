@@ -321,7 +321,26 @@ backends:
       max_kv_size=4096: 32768 ctx OOMs on 64GB M4 Pro (57.8GB weights + KV cache exceeds Metal limit).
       config.json patched: attn_temperature_tuning int->bool (transformers 4.51->5.7 compat).
       BIG_MODEL=true, cold-load ~20s mlx_vlm. Do NOT co-load with other BIG_MODEL entries.
-      Lineage: Meta (first non-Qwen/Gemma/IBM frontier MoE in the bench fleet)."
+       Lineage: Meta (first non-Qwen/Gemma/IBM frontier MoE in the bench fleet)."
+  - id: mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4
+    memory_gb: 15
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    notes: >-
+      NVIDIA Nemotron 3 Nano Omni 30B-A3B mxfp4 VLM (~15GB, NVIDIA Open Model
+      Agreement — commercial use permitted, NOT Apache 2.0). Released 2026-04-28.
+      Omni-modal: text + image + video + audio in single unified context (Mamba-
+      Transformer MoE backbone + C-RADIOv4-H vision + Parakeet-TDT-0.6B-v2 audio).
+      Converted mlx-vlm 0.4.5. bench-nemotron-omni pin. BENCH-ONLY — no production
+      workspace until TASK_NEMOTRON_OMNI_PROMOTE_V1. mxfp8 fallback (~30GB) available
+      at mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp8 if mxfp4 quality
+      is insufficient. Lineage: NVIDIA (Mamba-Transformer hybrid — distinct from all
+      current Transformer-only fleet entries). MMLongBench-Doc 57.5, OCRBenchV2 65.8,
+      VoiceBench 89.4 (leads Qwen3-Omni on all three). Measured M4 Pro tg ~83 TPS
+      (5-bit proxy; mxfp4 expected similar). License note: Open Model Agreement
+      prohibits use to train competing foundation models — internal/enterprise use
+      is unrestricted."
 - id: ollama-general
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -628,6 +647,10 @@ workspace_routing:
   - reasoning
   - general
   bench-llama4-scout:
+  - mlx
+  - vision
+  - general
+  bench-nemotron-omni:
   - mlx
   - vision
   - general
