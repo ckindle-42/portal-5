@@ -6,9 +6,9 @@ import json
 import os
 import sys
 import time
-import urllib.request
 import urllib.error
 import urllib.parse
+import urllib.request
 
 MCP_URL = "http://localhost:8911"
 
@@ -29,10 +29,13 @@ def _load_env_file() -> dict:
     return env
 
 
-def _getenv(key: str, _cache: dict = {}) -> str:
-    if not _cache:
-        _cache.update(_load_env_file())
-    return os.environ.get(key) or _cache.get(key, "")
+_env_cache: dict[str, str] = {}
+
+
+def _getenv(key: str) -> str:
+    if not _env_cache:
+        _env_cache.update(_load_env_file())
+    return os.environ.get(key) or _env_cache.get(key, "")
 
 
 def _notify(title: str, message: str, comfyui_url: str = "") -> None:
@@ -141,7 +144,7 @@ DEFAULT_NEGATIVE = (
 )
 
 PREVIEW = {
-    "steps": 10,
+    "steps": 20,
     "cfg": 6.0,
     "shift": 9.0,
     "sampler": "uni_pc",
@@ -161,6 +164,18 @@ DEFAULTS = {
 }
 
 QUALITY = {
+    "steps": 35,
+    "cfg": 6.5,
+    "shift": 10.0,
+    "sampler": "uni_pc",
+    "width": 832,
+    "height": 480,
+    "frames": 41,
+}
+
+# 720p at 35 steps + 41 frames is ~15-17 hours on M-series (observed 2026-05-23).
+# Use --overnight only when you have a full day to spare.
+OVERNIGHT = {
     "steps": 35,
     "cfg": 6.5,
     "shift": 10.0,
@@ -306,15 +321,31 @@ def poll(job_id: str, label: str = "", interval: int = 30) -> str | None:
             time.sleep(interval)
 
 
+def _eta_seconds(steps: int, frames: int, width: int, height: int) -> int:
+    """Estimate generation time in seconds on Apple Silicon MPS (Wan 2.1/2.2 backends).
+
+    Calibrated from observed run 2026-05-23:
+      Wan 2.1 NSFW, 35 steps, 41 frames, 1280×720 → 1578s/step → 15.4h total
+    Back-solving: ref_step_s = 55320 / (35 × 10.52) ≈ 150s at 832×480 9-frame reference.
+    Scales linearly with (width×height) and (frames).
+    """
+    ref_step_s = 150.0         # seconds/step at reference config (832×480, 9 frames)
+    ref_pixels = 832 * 480
+    ref_frames = 9
+    res_scale = (width * height) / ref_pixels
+    frame_scale = frames / ref_frames
+    per_step = ref_step_s * res_scale * frame_scale
+    return int(steps * per_step) + 120
+
+
 def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
     total = len(prompts)
-    # Observed timings on M-series MPS: step time scales with frame count.
-    # 9 frames → ~8.5 min/video, 41 frames → ~85 min/video (VAE dominates at 41f).
-    secs_per_frame_step = 3.5
-    eta_each = int(base["steps"] * base["frames"] * secs_per_frame_step + 120)
+    w = base.get("width", 832)
+    h = base.get("height", 480)
+    eta_each = _eta_seconds(base["steps"], base["frames"], w, h)
     eta_total = eta_each * total
     print(f"Batch: {total} prompts  |  ~{int(eta_each/60)}min each  |  ~{int(eta_total/3600)}h{int((eta_total%3600)/60)}m total")
-    print(f"Preset: steps={base['steps']} frames={base['frames']} {base['width']}x{base['height']}")
+    print(f"Preset: steps={base['steps']} frames={base['frames']} {w}x{h}")
     print()
 
     failed = []
@@ -346,23 +377,30 @@ def main() -> None:
         description="Submit video generation jobs to Portal and poll until done.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Presets:
-  (default)  25 steps, 480p, 41 frames (~85 min)
-  --preview  10 steps, 480p,  9 frames (~8-9 min) — batch testing
-  --quality  35 steps, 720p, 41 frames (~3 hr)
+Presets (times are approximate on Apple Silicon, Wan 2.1 14B NSFW):
+  --preview   20 steps, 480p,  9 frames (~52 min) — prompt quality check
+  (default)   25 steps, 480p, 41 frames (~4.8 hr) — standard run
+  --quality   35 steps, 480p, 41 frames (~6.7 hr) — best quality at 480p
+  --overnight 35 steps, 720p, 41 frames (~15-17 hr) — leave running overnight
 
 Wan 2.2 presets (--preset NAME, requires pull-wan22 + ComfyUI template export):
 {wan22_preset_help}
 
 Examples:
-  # Single prompt — fast defaults:
+  # Single prompt — standard run:
   python3 scripts/gen-video.py "your prompt"
 
-  # Batch from file — one prompt per line, ~24 min each:
+  # Prompt quality check (fastest, ~52 min, confirms content/composition):
+  python3 scripts/gen-video.py "your prompt" --preview
+
+  # Batch from file — one prompt per line:
   python3 scripts/gen-video.py --batch prompts.txt --preview
 
-  # Quality single run:
+  # Quality single run at 480p:
   python3 scripts/gen-video.py "your prompt" --quality
+
+  # Full 720p — leave running overnight:
+  python3 scripts/gen-video.py "your prompt" --overnight
 
   # Wan 2.2 fast:
   python3 scripts/gen-video.py "your prompt" --preset wan22-fast
@@ -381,8 +419,9 @@ Examples:
 """,
     )
     parser.add_argument("prompt", nargs="?", help="Text prompt for video generation")
-    parser.add_argument("--preview", action="store_true", help="Preview preset: 10 steps, 9 frames (~24 min) — ideal for batch testing")
-    parser.add_argument("--quality", action="store_true", help="Quality preset: 35 steps, 720p, 41 frames (~3 hr)")
+    parser.add_argument("--preview", action="store_true", help="Preview preset: 20 steps, 480p, 9 frames (~52 min) — prompt quality check")
+    parser.add_argument("--quality", action="store_true", help="Quality preset: 35 steps, 480p, 41 frames (~6.7 hr) — best quality at 480p")
+    parser.add_argument("--overnight", action="store_true", help="Overnight preset: 35 steps, 720p, 41 frames (~15-17 hr) — leave running overnight")
     parser.add_argument("--preset", choices=wan22_preset_names, metavar="PRESET",
                         help=f"Wan 2.2 preset. Choices: {', '.join(wan22_preset_names)}")
     parser.add_argument("--model", type=str, default=None, metavar="MODEL_ID",
@@ -407,10 +446,11 @@ Examples:
         poll(args.status, interval=args.poll_interval)
         return
 
-    if args.preset and (args.preview or args.quality):
-        parser.error("--preset is mutually exclusive with --preview / --quality")
-    if args.preview and args.quality:
-        parser.error("--preview and --quality are mutually exclusive")
+    explicit_flags = [args.preview, args.quality, args.overnight]
+    if sum(bool(f) for f in explicit_flags) > 1:
+        parser.error("--preview, --quality, and --overnight are mutually exclusive")
+    if args.preset and any(explicit_flags):
+        parser.error("--preset is mutually exclusive with --preview / --quality / --overnight")
 
     if args.preset:
         wan22 = WAN22_PRESETS[args.preset]
@@ -418,14 +458,23 @@ Examples:
         if not args.model:
             args.model = wan22["model"]
         preset_label = args.preset
+    elif args.preview:
+        base = PREVIEW
+        preset_label = "preview"
+    elif args.quality:
+        base = QUALITY
+        preset_label = "quality"
+    elif args.overnight:
+        base = OVERNIGHT
+        preset_label = "overnight"
     else:
-        base = PREVIEW if args.preview else (QUALITY if args.quality else DEFAULTS)
-        preset_label = "preview" if args.preview else ("quality" if args.quality else "fast")
+        base = DEFAULTS
+        preset_label = "fast"
 
     if args.batch:
         try:
             with open(args.batch) as f:
-                prompts = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+                prompts = [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
         except OSError as e:
             parser.error(f"Cannot read batch file: {e}")
         if not prompts:

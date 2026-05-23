@@ -95,7 +95,7 @@ def rerank(query: str, documents: list[str], top_n: int | None = None) -> list[d
 
     results = [
         {"document": doc, "score": float(score), "original_index": i}
-        for i, (doc, score) in enumerate(zip(documents, scores))
+        for i, (doc, score) in enumerate(zip(documents, scores, strict=False))
     ]
     results.sort(key=lambda r: r["score"], reverse=True)
 

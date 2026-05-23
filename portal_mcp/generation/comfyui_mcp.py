@@ -447,11 +447,8 @@ def _build_image_workflow(
 def _eta_image(model: str, steps: int, width: int, height: int) -> int:
     """Estimate generation time in seconds for Apple Silicon MPS (no --force-fp16)."""
     scale = (width * height) / (1024 * 1024)
-    if model == "sdxl":
-        per_step = 10
-    else:
-        # FLUX (schnell and dev): ~26-28s/step at 1024x1024 on MPS without fp16
-        per_step = 28
+    # FLUX (schnell and dev): ~26-28s/step at 1024x1024 on MPS without fp16
+    per_step = 10 if model == "sdxl" else 28
     return int(steps * per_step * max(scale, 0.25)) + 60
 
 
