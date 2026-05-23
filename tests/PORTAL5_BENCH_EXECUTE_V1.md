@@ -77,12 +77,12 @@ Counts are derived at run time from `config/backends.yaml` and `config/personas/
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order largest \
+    --order size \
     --runs 5 \
     --cooldown 10
 ```
 
-- `--order largest` — largest models first; large models need clean memory before fragmentation from many small-model cycles accumulates
+- `--order size` — smallest models first; each load/evict cycle builds the inactive memory pool, so the largest models (46GB Qwen3-Coder-Next) have enough free+inactive+purgeable available when they run last
 - `--runs 5` — 5 inference runs per model/workspace for stable averages
 - `--cooldown 10` — 10s after memory reclaim for Metal buffers to settle
 
@@ -129,7 +129,7 @@ print(f'Workspace IDs consistent ({len(pipe_ids)} total)')
 
 ### 4. Dry-run plan
 ```bash
-python3 tests/benchmarks/bench_tps.py --mode all --order largest --dry-run 2>&1 | head -30
+python3 tests/benchmarks/bench_tps.py --mode all --order size --dry-run 2>&1 | head -30
 ```
 Expected output:
 ```
@@ -153,7 +153,7 @@ Launch the full run (expect 4-8 hours wall time for --mode all with 43 MLX model
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order largest \
+    --order size \
     --runs 5 \
     --cooldown 10 \
     2>&1 | tee /tmp/bench_tps_run.log
@@ -238,7 +238,7 @@ After a partial run, resume without re-running successful tests:
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order largest \
+    --order size \
     --runs 5 \
     --cooldown 10 \
     --retry-failed
@@ -353,7 +353,7 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 |---|---|---|
 | `--runs` | 5 | Lower to `--runs 1` for a fast smoke-test (~30-60min) |
 | `--cooldown` | 10 | Raise to `30` if seeing OOM on large-model transitions |
-| `--order` | largest | Use `size` (smallest first) only for initial smoke-tests; `largest` protects against memory fragmentation accumulating across small-model cycles |
+| `--order` | size | Default is `size` (smallest first) — builds inactive memory pool so large models load reliably when they run last. Use `largest` only if the machine has been freshly rebooted with >46GB available confirmed before starting. |
 | `--mode` | all | Use `direct` / `pipeline` / `personas` to run a single tier |
 | `--model` | (none) | Substring filter for direct-only retests |
 | `--workspace` | (none) | Exact workspace ID for pipeline retests |
