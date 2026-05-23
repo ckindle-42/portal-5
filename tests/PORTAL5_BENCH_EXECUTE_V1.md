@@ -14,15 +14,15 @@ You are the **benchmark execution agent**, not the implementation agent. You exe
 
 ## What Gets Benchmarked
 
-Counts are derived at run time from `config/backends.yaml` and `config/personas/`. The current catalog (HEAD, 2026-05-21) is:
+Counts are derived at run time from `config/backends.yaml` and `config/personas/`. The current catalog (HEAD, 2026-05-23) is:
 
 | Tier | Count |
 |---|---|
-| MLX models (T1) | 37 |
+| MLX models (T1) | 43 |
 | Ollama models (T2) | 27 |
-| Pipeline workspaces | 38 (18 auto-* + 1 auto + 19 bench-*) |
-| Personas | 104 |
-| **Total tests** | **~206** |
+| Pipeline workspaces | 44 (19 auto-* + 25 bench-*) |
+| Personas | 110 |
+| **Total tests** | **~224** |
 
 ### Three test modes (run together with `--mode all`):
 
@@ -61,6 +61,12 @@ Counts are derived at run time from `config/backends.yaml` and `config/personas/
 | bench-dolphin8b | creative | dolphin-llama3:8b Ollama |
 | bench-qwen35-abliterated | general | qwen3.5-abliterated:9b Ollama |
 | bench-llama4-scout | vision | Llama-4-Scout-17B MLX (mlx-vlm) |
+| bench-nemotron-omni | vision | Nemotron-3-Nano-Omni-30B-A3B MLX (mlx-vlm) |
+| bench-olmocr2 | vision | olmOCR-2-7B MLX |
+| bench-nanonets-ocr2 | vision | Nanonets-OCR2-3B MLX |
+| bench-lfm2-moe | creative | LFM2-8B-A1B MLX (MoE) |
+| bench-foundation-sec | reasoning | Foundation-Sec-8B-Reasoning MLX |
+| bench-toolace25 | tools | ToolACE-2.5-Llama-3.1-8B MLX |
 
 **3. Persona routing** — calls pipeline per persona, validates workspace routing, captures `routed_model` and `expected_model_match`.
 
@@ -71,12 +77,12 @@ Counts are derived at run time from `config/backends.yaml` and `config/personas/
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order size \
+    --order largest \
     --runs 5 \
     --cooldown 10
 ```
 
-- `--order size` — smallest models first; protects against large-model OOM killing the run early
+- `--order largest` — largest models first; large models need clean memory before fragmentation from many small-model cycles accumulates
 - `--runs 5` — 5 inference runs per model/workspace for stable averages
 - `--cooldown 10` — 10s after memory reclaim for Metal buffers to settle
 
@@ -123,15 +129,15 @@ print(f'Workspace IDs consistent ({len(pipe_ids)} total)')
 
 ### 4. Dry-run plan
 ```bash
-python3 tests/benchmarks/bench_tps.py --mode all --order size --dry-run 2>&1 | head -30
+python3 tests/benchmarks/bench_tps.py --mode all --order largest --dry-run 2>&1 | head -30
 ```
 Expected output:
 ```
-MLX models:    37
+MLX models:    43
 Ollama models: 27
-Workspaces:    38
-Personas:      104
-Total to test: ~206 (mode=all)
+Workspaces:    44
+Personas:      110
+Total to test: ~224 (mode=all)
 ```
 If counts differ significantly, investigate before proceeding (new models/personas added to config but not yet seeded, or WORKSPACE_PROMPT_MAP out of date).
 
@@ -147,7 +153,7 @@ Launch the full run (expect 4-8 hours wall time for --mode all with 37 MLX model
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order size \
+    --order largest \
     --runs 5 \
     --cooldown 10 \
     2>&1 | tee /tmp/bench_tps_run.log
@@ -226,7 +232,7 @@ After a partial run, resume without re-running successful tests:
 ```bash
 python3 tests/benchmarks/bench_tps.py \
     --mode all \
-    --order size \
+    --order largest \
     --runs 5 \
     --cooldown 10 \
     --retry-failed
@@ -341,7 +347,7 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 |---|---|---|
 | `--runs` | 5 | Lower to `--runs 1` for a fast smoke-test (~30-60min) |
 | `--cooldown` | 10 | Raise to `30` if seeing OOM on large-model transitions |
-| `--order` | size | Use `largest` to front-load 70B tests when memory is confirmed stable |
+| `--order` | largest | Use `size` (smallest first) only for initial smoke-tests; `largest` protects against memory fragmentation accumulating across small-model cycles |
 | `--mode` | all | Use `direct` / `pipeline` / `personas` to run a single tier |
 | `--model` | (none) | Substring filter for direct-only retests |
 | `--workspace` | (none) | Exact workspace ID for pipeline retests |
@@ -352,6 +358,8 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 - **Llama-4-Scout (bench-llama4-scout)**: 58GB model; needs 64GB machine with <6GB OS overhead. If memory reclaim stalls, reduce `--cooldown` to 30 and ensure no other large models are cached.
 - **Reasoning workspaces** (`bench-laguna`, `bench-phi4-reasoning`, `auto-reasoning`, `auto-security`, `auto-redteam`, `auto-mistral`): use 512-token budget and `enable_thinking=False` injection. Their TPS reflects output tokens, not think-block tokens — comparable to non-reasoning models.
 - **AEON/Qwen3.6 workspaces** (`auto-security`, `auto-redteam`, `bench-qwen36-27b`): emit `/nothink` prefix in the user message to suppress reasoning chain for apples-to-apples TPS.
+- **V7 vision models** (`bench-nemotron-omni`, `bench-olmocr2`, `bench-nanonets-ocr2`): run via mlx-vlm (same path as Llama-4-Scout). `bench-nemotron-omni` is 15GB MoE — needs ~25GB free. OCR models (`bench-olmocr2`, `bench-nanonets-ocr2`) are bench-only; not promoted to production routing.
+- **bench-toolace25**: uses ToolACE-style `[func(arg=val)]` tool-call format. Bench prompt is `tools` category — expects structured output.
 - **Stale images**: the script prints a freshness warning at startup if portal images predate recent commits. If you see this warning and `portal_pipeline/` or `config/` has changed, stop and run `./launch.sh rebuild` before benchmarking.
 - **MLX watchdog**: automatically paused via `/tmp/mlx-watchdog-paused` sentinel for the bench duration. Restored on exit (including Ctrl-C).
 - **Ollama cold-start in post-cascade phase**: workspace/persona tests dispatched during the model cascade evict Ollama models between MLX loads. The first Ollama-routed entry in the post-cascade `bench_pipeline` phase pays full model load cost. Compare TPS within a phase, not across phases, for warm-load-sensitive analysis.
@@ -362,7 +370,7 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 
 When done, confirm:
 
-1. `tests/benchmarks/results/bench_tps_<timestamp>Z.json` exists with ≥200 results
+1. `tests/benchmarks/results/bench_tps_<timestamp>Z.json` exists with ≥220 results
 2. `config/grafana/dashboards/portal5_benchmarks.json` updated (check `version` field incremented)
 3. Grafana dashboard reloaded at `http://localhost:3000/d/portal5-benchmarks`
 4. Any unexpected failures (available=True, TPS=0) documented with root cause
