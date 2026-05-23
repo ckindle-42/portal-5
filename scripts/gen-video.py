@@ -125,7 +125,7 @@ Examples:
     parser.add_argument("--width", type=int, default=None, help="Width in pixels (default: 1280)")
     parser.add_argument("--height", type=int, default=None, help="Height in pixels (default: 720)")
     parser.add_argument("--shift", type=float, default=None, help="Sample shift (default: 9.8; range 8–11, higher = more motion)")
-    parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: unipc; dpm++_2m also works)")
+    parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: uni_pc; dpmpp_2m also works)")
     parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Negative prompt")
     parser.add_argument("--seed", type=int, default=None, help="Seed (-1 = random)")
     parser.add_argument("--poll-interval", type=int, default=30, help="Seconds between status polls (default: 30)")
