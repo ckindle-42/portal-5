@@ -790,8 +790,6 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 3
-    networks:
-      - portal5
 
   # ── ComfyUI — Image and Video Generation Engine (opt-in, native is default) ──
   # Uses CPU by default (works everywhere). Enable GPU profile for CUDA.
