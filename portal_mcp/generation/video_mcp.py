@@ -197,6 +197,21 @@ WAN21_NSFW_MODEL = os.getenv("WAN21_NSFW_MODEL", "nsfw_wan_14b_e15.safetensors")
 WAN21_NSFW_CLIP = os.getenv("WAN21_NSFW_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.safetensors")
 WAN21_NSFW_VAE = os.getenv("WAN21_NSFW_VAE", "wan_2.1_vae.safetensors")
 
+# ── Wan 2.2 T2V-A14B model env vars ─────────────────────────────────────────
+# After ./launch.sh pull-wan22, the HuggingFace repo downloads to
+# ~/ComfyUI/models/diffusion_models/Wan2.2-T2V-A14B/ which includes
+# diffusion_pytorch_model_comfyui.safetensors (ComfyUI merged format, ~24GB).
+# UNETLoader resolves relative to models/diffusion_models/ — use the subdir path.
+# Text encoder falls back to the NSFW umt5 (same architecture, works for SFW too).
+# Override WAN22_T2V_CLIP to umt5_xxl_fp8_e4m3fn_scaled.safetensors for true
+# Wan 2.2 standard model (requires separate download — not yet in pull-wan22).
+WAN22_T2V_UNET = os.getenv(
+    "WAN22_T2V_UNET",
+    "Wan2.2-T2V-A14B/diffusion_pytorch_model_comfyui.safetensors",
+)
+WAN22_T2V_CLIP = os.getenv("WAN22_T2V_CLIP", "nsfw_wan_umt5-xxl_bf16_fixed.safetensors")
+WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
+
 # Hard caps to prevent LLM overrides from producing broken or multi-hour jobs.
 # HunyuanVideo 720p model is designed for ≤1280×720; 832×480 is the reference resolution.
 # Default VIDEO_MAX_STEPS=50 allows quality output; set to 2-4 in UAT environments
@@ -497,44 +512,128 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
 
 
 # ── Wan 2.2 family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ──────────────────────────
-# Stub dicts — populated by exporting from ComfyUI template browser.
-# Run: ComfyUI → Workflow → Browse Templates → Video → "Wan2.2 *"
-# Each stub raises RuntimeError until replaced with the real ComfyUI export.
-# T2V and TI2V are text/image-to-video; Animate and S2V are new capabilities.
+# T2V-A14B: real workflow, mirrors _WAN21_NSFW_T2V_WORKFLOW node layout so the
+# same patching logic in _build_video_workflow() applies (nodes 4/5/6/7/8/9/10/13/15).
+# Requires: ./launch.sh pull-wan22 (downloads Wan2.2-T2V-A14B/ to diffusion_models/).
+# ComfyUI template reference: comfyui_workflow_templates_media_video/video_wan2_2_14B_t2v.json
 #
-# ComfyUI Wan 2.2 model files (models/diffusion_models/):
-#   Wan2.2-T2V-A14B/   — MoE 27B total / 14B active per step
-#   Wan2.2-TI2V-5B/    — 5B unified text+image-to-video
-#   Wan2.2-Animate-14B/ — character animation / replacement
-#   Wan2.2-S2V-14B/    — speech-to-video (requires audio input)
-# Pull: ./launch.sh pull-wan22
+# TI2V-5B: stub — requires Wan22ImageToVideoLatent (image input) which needs an
+# image picker UI; planned once start_video_generation adds image_url parameter.
+#
+# Animate-14B / S2V-14B: stubs — new ComfyUI node types, require separate testing.
+# ComfyUI templates: video_wan2_2_14B_animate.json, video_wan2_2_14B_s2v.json
 
+# Wan 2.2 T2V-A14B — node layout mirrors NSFW T2V for re-use of patching logic.
+# shift=8.0 is the Wan 2.2 default (vs 9.8 for NSFW fine-tune); CFGGuider same.
 _WAN22_T2V_A14B_WORKFLOW: dict = {
-    "_stub": True,
-    "_stub_message": (
-        "Wan 2.2 T2V-A14B workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2 14B T2V', "
-        "load it, then export JSON and replace this dict. "
-        "Required model: models/diffusion_models/Wan2.2-T2V-A14B/ (pull-wan22)."
-    ),
+    "1": {
+        "inputs": {"unet_name": WAN22_T2V_UNET, "weight_dtype": "default"},
+        "class_type": "UNETLoader",
+    },
+    "2": {
+        "inputs": {"clip_name": WAN22_T2V_CLIP, "type": "wan"},
+        "class_type": "CLIPLoader",
+    },
+    "3": {
+        "inputs": {"vae_name": WAN22_T2V_VAE},
+        "class_type": "VAELoader",
+    },
+    "4": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
+    "5": {
+        "inputs": {"width": 1280, "height": 720, "length": 41, "batch_size": 1},
+        "class_type": "EmptyHunyuanLatentVideo",
+    },
+    "6": {
+        "inputs": {"model": ["1", 0], "shift": 8.0},
+        "class_type": "ModelSamplingSD3",
+    },
+    "7": {
+        "inputs": {"sampler_name": "uni_pc"},
+        "class_type": "KSamplerSelect",
+    },
+    "8": {
+        "inputs": {
+            "model": ["6", 0],
+            "scheduler": "simple",
+            "steps": 30,
+            "denoise": 1.0,
+        },
+        "class_type": "BasicScheduler",
+    },
+    "9": {
+        "inputs": {"noise_seed": 1},
+        "class_type": "RandomNoise",
+    },
+    "10": {
+        "inputs": {
+            "model": ["6", 0],
+            "positive": ["4", 0],
+            "negative": ["15", 0],
+            "cfg": 6.0,
+        },
+        "class_type": "CFGGuider",
+    },
+    "11": {
+        "inputs": {
+            "noise": ["9", 0],
+            "guider": ["10", 0],
+            "sampler": ["7", 0],
+            "sigmas": ["8", 0],
+            "latent_image": ["5", 0],
+        },
+        "class_type": "SamplerCustomAdvanced",
+    },
+    "12": {
+        "inputs": {
+            "samples": ["11", 0],
+            "vae": ["3", 0],
+            "tile_size": 256,
+            "overlap": 64,
+            "temporal_size": 64,
+            "temporal_overlap": 8,
+        },
+        "class_type": "VAEDecodeTiled",
+    },
+    "13": {
+        "inputs": {"images": ["12", 0], "fps": 8.0},
+        "class_type": "CreateVideo",
+    },
+    "14": {
+        "inputs": {
+            "video": ["13", 0],
+            "filename_prefix": "portal_wan22_t2v_",
+            "format": "auto",
+            "codec": "auto",
+        },
+        "class_type": "SaveVideo",
+    },
+    "15": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
+    },
 }
 
 _WAN22_TI2V_5B_WORKFLOW: dict = {
     "_stub": True,
     "_stub_message": (
-        "Wan 2.2 TI2V-5B workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2 5B TI2V', "
-        "load it, then export JSON and replace this dict. "
-        "Required model: models/diffusion_models/Wan2.2-TI2V-5B/ (pull-wan22)."
+        "Wan 2.2 TI2V-5B (image-to-video) requires an image input via "
+        "Wan22ImageToVideoLatent, which is not yet wired into the MCP API. "
+        "Planned: add image_url parameter to start_video_generation and wire "
+        "via ComfyUI /upload/image → LoadImage → Wan22ImageToVideoLatent. "
+        "Required model: models/diffusion_models/Wan2.2-TI2V-5B/ (pull-wan22). "
+        "ComfyUI template: video_wan2_2_5B_ti2v.json (already installed in ComfyUI venv)."
     ),
 }
 
 _WAN22_ANIMATE_14B_WORKFLOW: dict = {
     "_stub": True,
     "_stub_message": (
-        "Wan 2.2 Animate-14B workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2-Animate-14B', "
-        "load it, then export JSON and replace this dict. "
+        "Wan 2.2 Animate-14B workflow stub — requires image + mask inputs via "
+        "ComfyUI Wan22ImageToVideoLatent + masking nodes. "
+        "ComfyUI template: video_wan2_2_14B_animate.json (already installed in ComfyUI venv). "
         "Required model: models/diffusion_models/Wan2.2-Animate-14B/ (pull-wan22). "
         "NEW CAPABILITY: character animation / replacement."
     ),
@@ -543,9 +642,9 @@ _WAN22_ANIMATE_14B_WORKFLOW: dict = {
 _WAN22_S2V_14B_WORKFLOW: dict = {
     "_stub": True,
     "_stub_message": (
-        "Wan 2.2 S2V-14B workflow not yet exported from ComfyUI. "
-        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2-S2V-14B', "
-        "load it, then export JSON and replace this dict. "
+        "Wan 2.2 S2V-14B workflow stub — requires audio input (LoadAudio node) "
+        "not yet supported in the video MCP API. "
+        "ComfyUI template: video_wan2_2_14B_s2v.json (already installed in ComfyUI venv). "
         "Required model: models/diffusion_models/Wan2.2-S2V-14B/ (pull-wan22). "
         "NEW CAPABILITY: speech-to-video (requires audio input)."
     ),
@@ -793,9 +892,24 @@ def _build_video_workflow(
 
     workflow = _get_workflow(model)
 
+    if model == "wan22-t2v-a14b":
+        # Wan 2.2 T2V-A14B: same node layout as wan21-nsfw (nodes 4/5/6/7/8/9/10/13/15)
+        workflow["4"]["inputs"]["text"] = prompt
+        workflow["15"]["inputs"]["text"] = negative_prompt
+        workflow["5"]["inputs"]["width"] = width
+        workflow["5"]["inputs"]["height"] = height
+        workflow["5"]["inputs"]["length"] = frames
+        workflow["6"]["inputs"]["shift"] = shift
+        workflow["7"]["inputs"]["sampler_name"] = sampler
+        workflow["8"]["inputs"]["steps"] = steps
+        workflow["9"]["inputs"]["noise_seed"] = seed
+        workflow["10"]["inputs"]["cfg"] = cfg
+        workflow["13"]["inputs"]["fps"] = float(fps)
+        return workflow, seed
+
     if model in WAN22_WORKFLOWS:
-        # Wan 2.2 workflow — node layout varies by variant; operator populates after export
-        # At this point _get_workflow() already raised if stub, so workflow is real
+        # Other Wan 2.2 variants (TI2V/Animate/S2V) — stubs raise before here;
+        # real workflows added once image/audio input is wired
         return workflow, seed
 
     if VIDEO_BACKEND == "cogvideox":
