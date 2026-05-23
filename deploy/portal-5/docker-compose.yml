@@ -166,10 +166,8 @@ services:
       - OPENAI_API_BASE_URL=http://portal-pipeline:9099/v1
       - OPENAI_API_KEY=${PIPELINE_API_KEY}
 
-      # ── Image generation (ComfyUI) ───────────────────────────────────────────
-      - ENABLE_IMAGE_GENERATION=True
-      - IMAGE_GENERATION_ENGINE=comfyui
-      - COMFYUI_BASE_URL=${COMFYUI_URL:-http://host.docker.internal:8188}
+      # ── Image generation (ComfyUI) — disabled; re-enable with comfyui profile ──
+      - ENABLE_IMAGE_GENERATION=False
 
       # ── Web Search (SearXNG) ─────────────────────────────────────────────────
       - ENABLE_RAG_WEB_SEARCH=true
@@ -496,12 +494,16 @@ services:
       retries: 3
 
   # ── MCP: ComfyUI Bridge (image/video via ComfyUI) ────────────────────────────
+  # Disabled by default — ComfyUI proven too slow for interactive use on Apple Silicon.
+  # Re-enable: ./launch.sh up --profile comfyui
+  # Requires: ComfyUI running at COMFYUI_URL + models downloaded via launch.sh pull-wan22
   mcp-comfyui:
     build:
       context: ../..
       dockerfile: Dockerfile.mcp
     container_name: portal5-mcp-comfyui
     restart: unless-stopped
+    profiles: [comfyui]
     ports:
       - "127.0.0.1:${COMFYUI_MCP_HOST_PORT:-8910}:8910"
     environment:
@@ -525,12 +527,15 @@ services:
       retries: 3
 
   # ── MCP: Video Generation (via ComfyUI Wan2.2) ────────────────────────────
+  # Disabled by default — see mcp-comfyui comment above.
+  # Re-enable: ./launch.sh up --profile comfyui
   mcp-video:
     build:
       context: ../..
       dockerfile: Dockerfile.mcp
     container_name: portal5-mcp-video
     restart: unless-stopped
+    profiles: [comfyui]
     ports:
       - "127.0.0.1:${VIDEO_MCP_HOST_PORT:-8911}:8911"
     environment:
@@ -540,12 +545,10 @@ services:
       - COMFYUI_PUBLIC_URL=${COMFYUI_PUBLIC_URL:-http://localhost:8188}
       - OUTPUT_DIR=/app/data/generated
       - VIDEO_BACKEND=${VIDEO_BACKEND:-wan22}
-      - VIDEO_MODEL_FILE=${VIDEO_MODEL_FILE:-hunyuan_video_t2v_720p_bf16.safetensors}
-      - HUNYUAN_CLIP_L=${HUNYUAN_CLIP_L:-hunyuan-clip/model.safetensors}
-      - HUNYUAN_LLAVA=${HUNYUAN_LLAVA:-llava_llama3_fp8_scaled.safetensors}
-      - HUNYUAN_VAE=${HUNYUAN_VAE:-hunyuan_video_vae_bf16.safetensors}
-      - HUNYUAN_NSFW_LORA=${HUNYUAN_NSFW_LORA:-nsfw-e7.safetensors}
-      - HUNYUAN_NSFW_LORA_STRENGTH=${HUNYUAN_NSFW_LORA_STRENGTH:-1.0}
+      - WAN22_TI2V_MODEL=${WAN22_TI2V_MODEL:-split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors}
+      - WAN22_S2V_MODEL=${WAN22_S2V_MODEL:-split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors}
+      - WAN22_CLIP_FP8=${WAN22_CLIP_FP8:-split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors}
+      - WAN22_TI2V_VAE=${WAN22_TI2V_VAE:-split_files/vae/wan2.2_vae.safetensors}
       - WAN21_NSFW_MODEL=${WAN21_NSFW_MODEL:-nsfw_wan_14b_e15.safetensors}
       - WAN21_NSFW_CLIP=${WAN21_NSFW_CLIP:-nsfw_wan_umt5-xxl_bf16_fixed.safetensors}
       - WAN21_NSFW_VAE=${WAN21_NSFW_VAE:-wan_2.1_vae.safetensors}
