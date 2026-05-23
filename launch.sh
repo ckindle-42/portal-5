@@ -1414,7 +1414,8 @@ __MLX_FRESHNESS__
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
@@ -1428,7 +1429,8 @@ __MLX_FRESHNESS__
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Restarting MCP containers..."
@@ -1440,7 +1442,8 @@ __MLX_FRESHNESS__
     # Restart all MCP containers without rebuilding (e.g. after a config or env change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-comfyui mcp-video mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -1506,7 +1509,9 @@ __MLX_FRESHNESS__
     if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
         echo "[3/8] Rebuilding portal-pipeline + MCP servers..."
         cd "$COMPOSE_DIR"
-        docker compose build portal-pipeline mcp-documents mcp-comfyui mcp-video mcp-tts mcp-whisper mcp-sandbox 2>/dev/null || \
+        _COMFYUI_SVCS=""
+        [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && _COMFYUI_SVCS="mcp-comfyui mcp-video"
+        docker compose build portal-pipeline mcp-documents $_COMFYUI_SVCS mcp-tts mcp-whisper mcp-sandbox 2>/dev/null || \
             docker compose build portal-pipeline 2>/dev/null || true
         echo "  ✅ Images rebuilt"
         echo ""
