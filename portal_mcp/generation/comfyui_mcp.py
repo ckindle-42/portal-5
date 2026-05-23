@@ -264,12 +264,76 @@ _MODEL_CKPT_MAP = {
     "flux-uncensored": "Flux_v8-NSFW.safetensors",
 }
 
+# ── Qwen-Image-2512 family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ──────────────────
+# Stub dicts — populated by exporting from ComfyUI template browser.
+# ComfyUI → Workflow → Browse Templates → Image → "Qwen-Image-2512 T2I" etc.
+# Required model pulls: ./launch.sh pull-qwen-image (~30 GB total)
+#   models/diffusion_models/Qwen-Image-2512/       — 20B MMDiT BF16
+#   models/diffusion_models/Qwen-Image-Edit-2511/  — edit variant
+#   models/diffusion_models/Qwen-Image-2512-Lightning/ — 8-step distilled
+# Capabilities vs FLUX:
+#   - Qwen-Image-2512: top-of-leaderboard text rendering (typography, posters, slides)
+#   - Qwen-Image-Edit-2511: instruction-based image editing (no FLUX equivalent)
+#   - Lightning: ~30s at 8 steps, CFG-distilled
+#
+# VAE: Wan2.1-VAE (shared with Wan video pipeline)
+# Text encoder: Qwen2.5-VL
+
+_QWEN_IMAGE_2512_T2I_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Qwen-Image-2512 T2I workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-2512 T2I', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Qwen-Image-2512/ (pull-qwen-image). "
+        "Strengths: text rendering, typography, posters — better than FLUX for text-in-image."
+    ),
+}
+
+_QWEN_IMAGE_2512_LIGHTNING_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Qwen-Image-2512-Lightning workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-2512-Lightning', "
+        "load it (or duplicate T2I workflow with 8 steps + lightning weights), "
+        "then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Qwen-Image-2512-Lightning/ (pull-qwen-image). "
+        "~30s per image at 8 steps, CFG-distilled."
+    ),
+}
+
+_QWEN_IMAGE_EDIT_2511_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Qwen-Image-Edit-2511 workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Image → 'Qwen-Image-Edit-2511', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Qwen-Image-Edit-2511/ (pull-qwen-image). "
+        "NEW CAPABILITY: instruction-based image editing (no FLUX equivalent)."
+    ),
+}
+
+# Public map — used for routing and import verification
+QWEN_IMAGE_WORKFLOWS: dict[str, dict] = {
+    "qwen-image-2512": _QWEN_IMAGE_2512_T2I_WORKFLOW,
+    "qwen-image-2512-lightning": _QWEN_IMAGE_2512_LIGHTNING_WORKFLOW,
+    "qwen-image-edit-2511": _QWEN_IMAGE_EDIT_2511_WORKFLOW,
+}
+
 
 def _get_workflow(model: str | None = None) -> dict:
     """Get a deep copy of the workflow for the selected model."""
     import copy
 
     selected = model or IMAGE_BACKEND
+
+    # Qwen-Image-2512 family — explicit model selection required
+    if selected in QWEN_IMAGE_WORKFLOWS:
+        wf = QWEN_IMAGE_WORKFLOWS[selected]
+        if wf.get("_stub"):
+            raise RuntimeError(wf["_stub_message"])
+        return copy.deepcopy(wf)
+
     if selected == "sdxl":
         return copy.deepcopy(SDXL_WORKFLOW)
     return copy.deepcopy(FLUX_WORKFLOW)
@@ -304,6 +368,11 @@ def _build_image_workflow(
 
     workflow = _get_workflow(model)
     selected_model = model or IMAGE_BACKEND
+
+    # Qwen-Image-2512 family — workflow nodes populated after ComfyUI export
+    # _get_workflow() raises RuntimeError for stubs; reaching here means real workflow
+    if selected_model in QWEN_IMAGE_WORKFLOWS:
+        return workflow, seed
 
     if selected_model == "sdxl":
         workflow["2"]["inputs"]["text"] = prompt
