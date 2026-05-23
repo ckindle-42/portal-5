@@ -165,12 +165,16 @@ class TestBackendModelHintRouting:
             )
 
     def test_all_workspaces_have_model_hint(self):
-        """Every workspace must specify a model_hint for routing."""
+        """Every workspace must specify model_hint or (mlx_only=True + mlx_model_hint)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         for ws_id, cfg in WORKSPACES.items():
-            assert cfg.get("model_hint"), (
-                f"Workspace '{ws_id}' missing model_hint — routing will use backend.models[0]"
+            has_hint = cfg.get("model_hint") or (
+                cfg.get("mlx_only") and cfg.get("mlx_model_hint")
+            )
+            assert has_hint, (
+                f"Workspace '{ws_id}' missing model_hint (and not mlx_only with mlx_model_hint) "
+                "— routing will use backend.models[0]"
             )
 
     def test_security_workspaces_use_security_models(self):

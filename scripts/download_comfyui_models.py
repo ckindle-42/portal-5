@@ -74,6 +74,18 @@ IMAGE_MODELS: dict = {
         "requires_token": False,
         "size_note": "~7GB — fast 1-4 step SDXL, good for rapid iteration",
     },
+    "pony-diffusion": {
+        "repo_id": "AstraliteHeart/pony-diffusion-v6",
+        "filename": None,
+        "requires_token": False,
+        "size_note": "~7GB — pony-style illustration, strong stylization",
+    },
+    "epicrealism-xl": {
+        "repo_id": "emilianJR/epiCRealism",
+        "filename": None,
+        "requires_token": False,
+        "size_note": "~7GB — photorealistic XL checkpoint, NSFW capable",
+    },
 }
 
 # ── Video model specifications ────────────────────────────────────────────────

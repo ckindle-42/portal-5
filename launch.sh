@@ -3773,7 +3773,36 @@ PLIST
         "froggeric/Qwen3.6-27B-MLX-4bit"                       # ~16GB — Qwen3.6 27B + vision, template-fix variant (auto-coding probe)
         "mlx-community/Qwen3.6-35B-A3B-4bit"                   # ~20GB — Qwen3.6 35B-A3B MoE (auto-agentic probe)
         "Jackrong/Negentropy-claude-opus-4.7-9B-6bit"          # ~7GB — Trace-inversion reasoning 9B comparator
+        # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
+        # OCR bench pair
+        "mlx-community/olmOCR-2-7B-1025-5bit"                  # ~5GB — Allen AI olmOCR-2, RLVR doc OCR, Qwen2.5-VL-7B base
+        "mlx-community/Nanonets-OCR2-3B-4bit"                  # ~2GB — Nanonets OCR2, pdf2markdown, Qwen2.5-VL-3B base
+        # Non-Transformer lineage diversification
+        "mlx-community/LFM2-8B-A1B-8bit"                       # ~8GB — Liquid AI LFM2 MoE 8.3B/1.5B-active, hybrid arch
+        # RAG two-stage retrieval (embedding + reranker)
+        "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"          # ~0.3GB — Qwen3 embedding, Apache 2.0, MLX-native
+        "mlx-community/Qwen3-Reranker-0.6B-mxfp8"             # ~0.6GB — Qwen3 reranker, Apache 2.0, MLX-native
     )
+
+    # V7 opt-in large models (gated behind env vars — do not auto-pull)
+    # Voxtral multilingual STT (~18.7 GB)
+    if [ "${PULL_VOXTRAL:-0}" = "1" ]; then
+        echo "  Pulling Voxtral-Mini-3B-2507-bf16 (~18.7 GB)..."
+        if python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('mlx-community/Voxtral-Mini-3B-2507-bf16', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
+"; then
+            echo "  ✅ Voxtral done"
+        else
+            echo "  ❌ Voxtral failed — set PULL_VOXTRAL=0 to skip"
+        fi
+    else
+        echo "  Skipping Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — set PULL_VOXTRAL=1 to include"
+    fi
 
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
@@ -3947,8 +3976,119 @@ MEOF
     python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
     ;;
 
+  pull-voxtral)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Pulling Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — Mistral multilingual STT..."
+    PULL_VOXTRAL=1 "$0" pull-mlx-models
+    ;;
+
+  pull-wan22)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
+    echo "[portal-5] Pulling Wan 2.2 ComfyUI models (~80 GB total for all 4 variants)"
+    echo "  Models dir: ${COMFYUI_MODELS}/diffusion_models"
+    for variant in T2V-A14B TI2V-5B Animate-14B S2V-14B; do
+        local_dest="${COMFYUI_MODELS}/diffusion_models/Wan2.2-${variant}"
+        if [ -d "${local_dest}" ]; then
+            echo "  Already present: Wan2.2-${variant}"
+            continue
+        fi
+        echo "  Pulling Wan-AI/Wan2.2-${variant}..."
+        python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+snapshot_download('Wan-AI/Wan2.2-${variant}', local_dir='${local_dest}')
+" && echo "  ✅ Wan2.2-${variant} done" || echo "  ❌ Wan2.2-${variant} failed"
+    done
+    ;;
+
+  pull-qwen-image)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
+    echo "[portal-5] Pulling Qwen-Image-2512 family (~30 GB combined)"
+    echo "  Models dir: ${COMFYUI_MODELS}/diffusion_models"
+    for repo in "Qwen/Qwen-Image-2512" "Qwen/Qwen-Image-Edit-2511" "lightx2v/Qwen-Image-2512-Lightning"; do
+        short="$(basename "${repo}")"
+        local_dest="${COMFYUI_MODELS}/diffusion_models/${short}"
+        if [ -d "${local_dest}" ]; then
+            echo "  Already present: ${short}"
+            continue
+        fi
+        echo "  Pulling ${repo}..."
+        python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+snapshot_download('${repo}', local_dir='${local_dest}')
+" && echo "  ✅ ${short} done" || echo "  ❌ ${short} failed"
+    done
+    ;;
+
+  convert-foundation-sec)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Converting Foundation-Sec-8B-Reasoning to MLX 4-bit..."
+    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
+        exit 1
+    fi
+    _hf_cache="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
+    _hf_cache="${_hf_cache:-$HOME/.cache/huggingface/hub}"
+    _staging="/tmp/foundation-sec-bf16-$$"
+    _out_dir="${_hf_cache}/foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx"
+    echo "  Staging BF16 download to: ${_staging}"
+    echo "  MLX output dir: ${_out_dir}"
+    python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+snapshot_download('fdtn-ai/Foundation-Sec-8B-Reasoning', local_dir='${_staging}')
+" || { echo "  ❌ Download failed"; exit 1; }
+    python3 -m mlx_lm.convert \
+        --hf-path "${_staging}" \
+        -q --q-bits 4 --q-group-size 64 \
+        --mlx-path "${_out_dir}" \
+        || { echo "  ❌ Conversion failed"; rm -rf "${_staging}"; exit 1; }
+    rm -rf "${_staging}"
+    echo "  ✅ Foundation-Sec converted"
+    du -sh "${_out_dir}"
+    ;;
+
+  convert-toolace25)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Converting ToolACE-2.5-Llama-3.1-8B to MLX 4-bit..."
+    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
+        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
+        exit 1
+    fi
+    _hf_cache="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
+    _hf_cache="${_hf_cache:-$HOME/.cache/huggingface/hub}"
+    _staging="/tmp/toolace25-bf16-$$"
+    _out_dir="${_hf_cache}/team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx"
+    echo "  Staging BF16 download to: ${_staging}"
+    echo "  MLX output dir: ${_out_dir}"
+    python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
+" || { echo "  ❌ Download failed"; exit 1; }
+    python3 -m mlx_lm.convert \
+        --hf-path "${_staging}" \
+        -q --q-bits 4 --q-group-size 64 \
+        --mlx-path "${_out_dir}" \
+        || { echo "  ❌ Conversion failed"; rm -rf "${_staging}"; exit 1; }
+    rm -rf "${_staging}"
+    echo "  ✅ ToolACE-2.5 converted"
+    du -sh "${_out_dir}"
+    ;;
+
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3957,6 +4097,11 @@ MEOF
     echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm + mlx-audio) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
+  echo "  pull-voxtral          Pull Voxtral-Mini-3B-2507 for multilingual STT (~18.7 GB, opt-in)"
+  echo "  pull-wan22            Pull Wan 2.2 ComfyUI models (T2V-A14B/TI2V-5B/Animate-14B/S2V-14B, ~80 GB)"
+  echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB)"
+  echo "  convert-foundation-sec  Download + MLX 4-bit convert Foundation-Sec-8B-Reasoning (Cisco, ~4.5 GB)"
+  echo "  convert-toolace25       Download + MLX 4-bit convert ToolACE-2.5-Llama-3.1-8B (Team-ACE, ~4.5 GB)"
   echo "  patch-qwen-templates  Patch Qwen 3.5/3.6 chat templates per backends.yaml overrides (run after pull-mlx-models)"
     echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
     echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
