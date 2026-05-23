@@ -62,11 +62,51 @@ HOST = os.getenv("MLX_TRANSCRIBE_HOST", "0.0.0.0")
 WHISPER_MODEL = os.getenv("MLX_WHISPER_MODEL", "mlx-community/whisper-large-v3-turbo")
 DIARIZATION_MODEL = os.getenv("DIARIZATION_MODEL", "pyannote/speaker-diarization-3.1")
 HF_TOKEN = os.getenv("HF_TOKEN", "")
+VOXTRAL_MODEL = os.getenv("MLX_VOXTRAL", "mlx-community/Voxtral-Mini-3B-2507-bf16")
 
 # ── Model cache ────────────────────────────────────────────────────────────────
 
 _diarization_pipeline: Any = None
+_voxtral_model: Any = None
 _pipeline_lock = asyncio.Semaphore(1)  # GPU-heavy; serialize.
+
+
+def _get_voxtral_model() -> Any:
+    """Lazy-load and cache the Voxtral model via mlx_audio."""
+    global _voxtral_model
+    if _voxtral_model is None:
+        from mlx_audio.stt.utils import load
+        logger.info("Loading Voxtral model: %s", VOXTRAL_MODEL)
+        _voxtral_model = load(VOXTRAL_MODEL)
+        logger.info("Voxtral model ready")
+    return _voxtral_model
+
+
+def _voxtral_transcribe(audio_path: str, language: str | None) -> dict:
+    """Transcribe via Voxtral (multilingual, no diarization). Returns same shape as _transcribe()."""
+    from mlx_audio.stt.utils import transcribe as voxtral_transcribe_fn
+
+    model = _get_voxtral_model()
+    kwargs: dict[str, Any] = {}
+    if language:
+        kwargs["language"] = language
+    result = voxtral_transcribe_fn(model, audio_path, **kwargs)
+    # mlx_audio returns {"text": ..., "language": ..., "segments": [...]}
+    segments = [
+        {
+            "start": round(seg.get("start", 0.0), 2),
+            "end": round(seg.get("end", 0.0), 2),
+            "text": seg.get("text", "").strip(),
+        }
+        for seg in result.get("segments", [])
+    ]
+    duration = segments[-1]["end"] if segments else 0.0
+    return {
+        "text": result.get("text", "").strip(),
+        "language": result.get("language", language or "unknown"),
+        "duration": round(duration, 2),
+        "segments": segments,
+    }
 
 
 def _get_diarization_pipeline() -> Any:
@@ -275,6 +315,47 @@ def _run_pipeline(
     return result
 
 
+def _run_voxtral_pipeline(
+    audio_path: str,
+    language: str | None,
+    source_name: str = "audio",
+) -> dict:
+    """Voxtral-only pipeline (no diarization). Caller wraps in asyncio.to_thread."""
+    t0 = time.time()
+    transcript = _voxtral_transcribe(audio_path, language)
+    elapsed = round(time.time() - t0, 2)
+
+    segments = [{**s, "speaker": "SPEAKER_00"} for s in transcript["segments"]]
+
+    meta = {
+        "text": transcript["text"],
+        "language": transcript["language"],
+        "duration": transcript["duration"],
+        "speaker_count": 1,
+        "timing": {"transcribe_s": elapsed, "diarize_s": 0.0, "total_s": elapsed},
+    }
+
+    out_dir = get_generated_dir("transcripts")
+    uid = uuid.uuid4().hex[:12]
+    json_path = out_dir / f"transcript_{uid}.json"
+    md_path = out_dir / f"transcript_{uid}.md"
+
+    full_payload = {**meta, "segments": segments, "source": source_name}
+    json_path.write_text(json.dumps(full_payload, indent=2))
+    markdown = _format_markdown(segments, meta, source_name)
+    md_path.write_text(markdown)
+
+    return {
+        **meta,
+        "segments": segments,
+        "markdown": markdown,
+        "json_path": str(json_path),
+        "md_path": str(md_path),
+        "json_url": f"http://host.docker.internal:{PORT}/files/{json_path.name}",
+        "md_url": f"http://host.docker.internal:{PORT}/files/{md_path.name}",
+    }
+
+
 _AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
 _PLACEHOLDER_RE = re.compile(r"^[<\[{].*[>\]}]$")  # matches <file_id>, [filename], {arg}, etc.
 
@@ -355,8 +436,10 @@ async def health() -> JSONResponse:
             "status": "ok",
             "service": "mlx-transcribe",
             "whisper_model": WHISPER_MODEL,
+            "voxtral_model": VOXTRAL_MODEL,
             "diarization_model": DIARIZATION_MODEL,
             "diarization_loaded": _diarization_pipeline is not None,
+            "voxtral_loaded": _voxtral_model is not None,
         }
     )
 
@@ -374,14 +457,21 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
         file_arg = arguments.get("file", "")
         num_speakers = arguments.get("num_speakers")
         language = arguments.get("language")
+        engine = arguments.get("engine", "whisper-large-v3-turbo")
         path, source_name = _resolve_audio_input(file_arg)
         if path is None:
             return JSONResponse({"error": source_name})
         async with _pipeline_lock:
             try:
-                result = await asyncio.to_thread(
-                    _run_pipeline, str(path), language, num_speakers, source_name
-                )
+                if engine == "voxtral-mini-3b":
+                    result = await asyncio.to_thread(
+                        _run_voxtral_pipeline, str(path), language, source_name
+                    )
+                else:
+                    result = await asyncio.to_thread(
+                        _run_pipeline, str(path), language, num_speakers, source_name
+                    )
+                result["engine"] = engine
                 return JSONResponse(result)
             except Exception as e:
                 logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
@@ -397,9 +487,9 @@ async def list_tools() -> JSONResponse:
             {
                 "name": "transcribe_with_speakers",
                 "description": (
-                    "Transcribe an audio file with speaker diarization (Apple Silicon MLX path). "
-                    "Uses mlx-whisper (Metal-accelerated, large-v3-turbo) + pyannote on MPS. "
-                    "Returns speaker-labeled transcript with timestamps. "
+                    "Transcribe an audio file using MLX. Default engine: whisper-large-v3-turbo "
+                    "with pyannote speaker diarization. Use engine='voxtral-mini-3b' for "
+                    "multilingual transcription (en/fr/de/es/it/pt/nl/ru, no diarization). "
                     "Call with no arguments to auto-detect the most recently uploaded audio file."
                 ),
                 "parameters": {
@@ -411,11 +501,16 @@ async def list_tools() -> JSONResponse:
                         },
                         "num_speakers": {
                             "type": "integer",
-                            "description": "Expected speaker count. Auto-detected if omitted. Recommended for >15 min audio.",
+                            "description": "Expected speaker count (whisper engine only). Auto-detected if omitted. Recommended for >15 min audio.",
                         },
                         "language": {
                             "type": "string",
-                            "description": "ISO language code (e.g. 'en'). Auto-detected if omitted.",
+                            "description": "ISO language code (e.g. 'en', 'fr'). Auto-detected if omitted.",
+                        },
+                        "engine": {
+                            "type": "string",
+                            "enum": ["whisper-large-v3-turbo", "voxtral-mini-3b"],
+                            "description": "Transcription engine. 'whisper-large-v3-turbo' (default): speaker-diarized English-optimized. 'voxtral-mini-3b': Mistral multilingual (8 languages), no diarization.",
                         },
                     },
                     "required": [],
@@ -492,13 +587,14 @@ async def transcribe_with_speakers(
     file: str = "",
     num_speakers: int | None = None,
     language: str | None = None,
+    engine: str = "whisper-large-v3-turbo",
 ) -> dict:
     """
-    Transcribe an audio file with speaker diarization.
+    Transcribe an audio file with speaker diarization (whisper) or multilingual
+    recognition (voxtral).
 
-    Produces a transcript with [SPEAKER_00], [SPEAKER_01], ... labels and
-    saves both JSON and Markdown to the workspace generated/transcripts/
-    directory. The full markdown is included in the response.
+    Produces a transcript and saves both JSON and Markdown to the workspace
+    generated/transcripts/ directory. The full markdown is included in the response.
 
     Args:
         file: Audio file reference. Omit (or leave empty) to auto-detect the
@@ -506,10 +602,15 @@ async def transcribe_with_speakers(
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
               - Absolute path on the host (e.g., '/Users/me/audio.wav')
-        num_speakers: Hint for expected speaker count. Auto-detected if omitted.
-                      Recommended for files >15 min if count is known —
-                      pyannote occasionally splits one speaker across long gaps.
-        language: ISO language code (e.g., 'en', 'es'). Auto-detected if omitted.
+        num_speakers: Hint for expected speaker count (whisper engine only).
+                      Auto-detected if omitted. Recommended for files >15 min.
+        language: ISO language code (e.g., 'en', 'es', 'fr'). Auto-detected if
+                  omitted. Voxtral supports: en, fr, de, es, it, pt, nl, ru.
+        engine: Transcription engine to use.
+                - "whisper-large-v3-turbo" (default): mlx-whisper + pyannote
+                  diarization, English-optimized, speaker labels
+                - "voxtral-mini-3b": Mistral Voxtral, 8-language multilingual,
+                  no diarization, requires PULL_VOXTRAL=1 download first
 
     Returns:
         dict with:
@@ -520,20 +621,28 @@ async def transcribe_with_speakers(
           - json_path, md_path: workspace file paths
           - json_url, md_url: download URLs (port :8924)
           - timing: {transcribe_s, diarize_s, total_s}
+          - engine: which engine was used
 
         On error: {"error": "..."}
     """
-    logger.info("transcribe_with_speakers called: file=%r num_speakers=%r language=%r", file, num_speakers, language)
+    logger.info("transcribe_with_speakers called: file=%r num_speakers=%r language=%r engine=%r", file, num_speakers, language, engine)
     path, source_name = _resolve_audio_input(file)
     if path is None:
         logger.warning("file not resolved: %r — %s", file, source_name)
-        return {"error": source_name}  # source_name carries the error message
+        return {"error": source_name}
 
     async with _pipeline_lock:
         try:
-            return await asyncio.to_thread(
-                _run_pipeline, str(path), language, num_speakers, source_name
-            )
+            if engine == "voxtral-mini-3b":
+                result = await asyncio.to_thread(
+                    _run_voxtral_pipeline, str(path), language, source_name
+                )
+            else:
+                result = await asyncio.to_thread(
+                    _run_pipeline, str(path), language, num_speakers, source_name
+                )
+            result["engine"] = engine
+            return result
         except Exception as e:
             logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
             return {"error": str(e)}
@@ -553,6 +662,7 @@ app.mount("/mcp", _mcp_sub_app)
 if __name__ == "__main__":
     logger.info("Starting mlx-transcribe on %s:%d", HOST, PORT)
     logger.info("Whisper model: %s", WHISPER_MODEL)
+    logger.info("Voxtral model: %s (lazy-loaded on first voxtral-mini-3b request)", VOXTRAL_MODEL)
     logger.info("Diarization model: %s", DIARIZATION_MODEL)
     logger.info("Output dir: %s", get_generated_dir("transcripts"))
     if not HF_TOKEN:
