@@ -113,4 +113,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("RERANKER_MCP_PORT", "8925"))
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger.info(f"Starting reranker MCP on port {port}")
-    mcp.run(host="0.0.0.0", port=port, transport="sse")
+    mcp.settings.port = port
+    mcp.run(transport="streamable-http")

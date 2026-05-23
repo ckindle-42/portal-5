@@ -469,8 +469,11 @@ _check_ports() {
     _port_check "${TTS_HOST_PORT:-8916}"        "MCP TTS"
     _port_check "${WHISPER_HOST_PORT:-8915}"    "MCP Whisper"
     _port_check "${SANDBOX_HOST_PORT:-8914}"    "MCP Sandbox"
-    _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
-    _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
+    # ComfyUI / Video MCP only run when ComfyUI is installed — skip check otherwise
+    if [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ]; then
+        _port_check "${COMFYUI_MCP_HOST_PORT:-8910}" "MCP ComfyUI Bridge"
+        _port_check "${VIDEO_MCP_HOST_PORT:-8911}"  "MCP Video"
+    fi
     # On ARM64 the native embedding server is launchd-managed and intentionally
     # owns this port — skip the conflict check when it's our own service.
     if [ "$(uname -m)" = "arm64" ] && launchctl list com.portal5.embedding 2>/dev/null | grep -q '"PID"'; then
