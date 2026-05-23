@@ -3,12 +3,82 @@
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
 import urllib.error
 
 MCP_URL = "http://localhost:8911"
+
+
+def _load_env_file() -> dict:
+    """Load key=value pairs from .env in the repo root (best-effort)."""
+    env: dict = {}
+    env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+    try:
+        with open(os.path.abspath(env_path)) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    env[k.strip()] = v.strip()
+    except OSError:
+        pass
+    return env
+
+
+def _getenv(key: str, _cache: dict = {}) -> str:
+    if not _cache:
+        _cache.update(_load_env_file())
+    return os.environ.get(key) or _cache.get(key, "")
+
+
+def _notify(title: str, message: str, url: str = "") -> None:
+    """Fire-and-forget Pushover + Telegram notifications. Errors are ignored."""
+    _pushover(title, message, url)
+    _telegram(f"{title}\n{message}" + (f"\n{url}" if url else ""))
+
+
+def _pushover(title: str, message: str, url: str = "") -> None:
+    token = _getenv("PUSHOVER_API_TOKEN")
+    user = _getenv("PUSHOVER_USER_KEY")
+    if not token or not user:
+        return
+    payload: dict = {"token": token, "user": user, "title": title, "message": message}
+    if url:
+        payload["url"] = url
+        payload["url_title"] = "Open video"
+    try:
+        data = urllib.parse.urlencode(payload).encode()
+        req = urllib.request.Request("https://api.pushover.net/1/messages.json", data=data)
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+
+
+def _telegram(message: str) -> None:
+    token = _getenv("TELEGRAM_BOT_TOKEN")
+    user_ids = _getenv("TELEGRAM_USER_IDS")
+    if not token or not user_ids:
+        return
+    for chat_id in user_ids.split(","):
+        chat_id = chat_id.strip()
+        if not chat_id:
+            continue
+        try:
+            payload = json.dumps({"chat_id": chat_id, "text": message}).encode()
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            urllib.request.urlopen(req, timeout=10)
+        except Exception:
+            pass
+
+
+import urllib.parse
 
 DEFAULT_NEGATIVE = (
     "blurry, deformed, extra limbs, bad anatomy, low quality, censored, "
@@ -96,6 +166,7 @@ def poll(job_id: str, interval: int = 30) -> None:
             url = result.get("url", "")
             print(f"\n\nDone in {mins}m{secs:02d}s")
             print(f"URL: {url}")
+            _notify("Video ready", f"Done in {mins}m{secs:02d}s", url)
             try:
                 import subprocess
                 subprocess.run(["open", url], check=False)
@@ -103,7 +174,9 @@ def poll(job_id: str, interval: int = 30) -> None:
                 pass
             return
         elif status == "error":
-            print(f"\nERROR: {result.get('message', result)}", file=sys.stderr)
+            msg = result.get("message", str(result))
+            print(f"\nERROR: {msg}", file=sys.stderr)
+            _notify("Video failed", msg)
             sys.exit(1)
         else:
             spin = spinner[i % len(spinner)]
