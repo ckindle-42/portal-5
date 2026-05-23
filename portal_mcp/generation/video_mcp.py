@@ -96,16 +96,21 @@ TOOLS_MANIFEST = [
         "name": "start_video_generation",
         "description": (
             "Start video generation and return immediately with a job_id. "
-            "HunyuanVideo takes 30-60 min — use this instead of generate_video in OWUI. "
+            "Generation takes 30-90 min — use this instead of generate_video in OWUI. "
             "Follow up with get_video_status(job_id) to retrieve the result."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "prompt": {"type": "string"},
-                "frames": {"type": "integer", "default": 9},
-                "steps": {"type": "integer", "default": 50},
-                "cfg": {"type": "number", "default": 6.0},
+                "negative_prompt": {"type": "string", "default": ""},
+                "width": {"type": "integer", "default": 1280},
+                "height": {"type": "integer", "default": 720},
+                "frames": {"type": "integer", "default": 41},
+                "steps": {"type": "integer", "default": 30},
+                "cfg": {"type": "number", "default": 6.2},
+                "shift": {"type": "number", "default": 9.8},
+                "sampler": {"type": "string", "default": "unipc"},
                 "seed": {"type": "integer", "default": -1},
             },
             "required": ["prompt"],
@@ -378,8 +383,9 @@ _COGVIDEOX_WORKFLOW: dict = {
 # Wan2.1 NSFW T2V workflow — fully fine-tuned NSFW checkpoint, no LoRA required.
 # Architecture mirrors the HunyuanVideo workflow but uses:
 #   - CLIPLoader(type="wan") for umt5-xxl (single encoder, not dual)
-#   - BasicGuider directly (no FluxGuidance — Wan2.1 doesn't use that node)
-#   - ModelSamplingSD3 shift=8.0 (Wan2.1 default; HunyuanVideo uses 7.0)
+#   - CFGGuider (positive + negative conditioning, real CFG scale)
+#   - ModelSamplingSD3 shift=9.8 (recommended sweet spot for NSFW_Wan_14b)
+#   - unipc sampler (recommended over euler for this fine-tune)
 #   - wan_2.1_vae.safetensors instead of hunyuan VAE
 #
 # Node layout:
@@ -388,15 +394,16 @@ _COGVIDEOX_WORKFLOW: dict = {
 #   3: VAELoader → vae[0]
 #   4: CLIPTextEncode(positive) → conditioning[0]
 #   5: EmptyHunyuanLatentVideo → latent[0]
-#   6: ModelSamplingSD3(shift=8) → model[0]
-#   7: KSamplerSelect(euler) → sampler[0]
+#   6: ModelSamplingSD3(shift=9.8) → model[0]
+#   7: KSamplerSelect(unipc) → sampler[0]
 #   8: BasicScheduler(steps) → sigmas[0]
 #   9: RandomNoise(seed) → noise[0]
-#  10: BasicGuider(model, conditioning) → guider[0]
+#  10: CFGGuider(model, positive, negative, cfg) → guider[0]
 #  11: SamplerCustomAdvanced → latent[0]
 #  12: VAEDecodeTiled → image[0]
 #  13: CreateVideo → video[0]
 #  14: SaveVideo
+#  15: CLIPTextEncode(negative) → conditioning[0]
 _WAN21_NSFW_T2V_WORKFLOW: dict = {
     "1": {
         "inputs": {"unet_name": WAN21_NSFW_MODEL, "weight_dtype": "default"},
@@ -415,22 +422,22 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
         "class_type": "CLIPTextEncode",
     },
     "5": {
-        "inputs": {"width": 832, "height": 480, "length": 41, "batch_size": 1},
+        "inputs": {"width": 1280, "height": 720, "length": 41, "batch_size": 1},
         "class_type": "EmptyHunyuanLatentVideo",
     },
     "6": {
-        "inputs": {"model": ["1", 0], "shift": 8.0},
+        "inputs": {"model": ["1", 0], "shift": 9.8},
         "class_type": "ModelSamplingSD3",
     },
     "7": {
-        "inputs": {"sampler_name": "euler"},
+        "inputs": {"sampler_name": "unipc"},
         "class_type": "KSamplerSelect",
     },
     "8": {
         "inputs": {
             "model": ["6", 0],
             "scheduler": "simple",
-            "steps": 20,
+            "steps": 30,
             "denoise": 1.0,
         },
         "class_type": "BasicScheduler",
@@ -440,8 +447,13 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
         "class_type": "RandomNoise",
     },
     "10": {
-        "inputs": {"model": ["6", 0], "conditioning": ["4", 0]},
-        "class_type": "BasicGuider",
+        "inputs": {
+            "model": ["6", 0],
+            "positive": ["4", 0],
+            "negative": ["15", 0],
+            "cfg": 6.2,
+        },
+        "class_type": "CFGGuider",
     },
     "11": {
         "inputs": {
@@ -476,6 +488,10 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
             "codec": "auto",
         },
         "class_type": "SaveVideo",
+    },
+    "15": {
+        "inputs": {"text": "", "clip": ["2", 0]},
+        "class_type": "CLIPTextEncode",
     },
 }
 
@@ -534,7 +550,7 @@ async def generate_video(
         model: Override model name (optional, auto-detected from backend)
         seed: Random seed, -1 for random
     """
-    workflow, seed = _build_video_workflow(prompt, width, height, frames, fps, steps, cfg, model, seed)
+    workflow, seed = _build_video_workflow(prompt, width, height, frames, fps, steps, cfg, model, seed, negative_prompt=negative_prompt)
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
         logger.error("ComfyUI /prompt error: %s", err)
@@ -690,6 +706,9 @@ def _build_video_workflow(
     cfg: float,
     model: str,
     seed: int,
+    shift: float = 9.8,
+    sampler: str = "unipc",
+    negative_prompt: str = "",
 ) -> tuple[dict, int]:
     """Build video workflow dict. Returns (workflow, resolved_seed)."""
     if seed == -1:
@@ -715,15 +734,19 @@ def _build_video_workflow(
         workflow["4"]["inputs"]["cfg"] = cfg
         workflow["6"]["inputs"]["fps"] = fps
     elif VIDEO_BACKEND == "wan21-nsfw":
-        # Wan2.1 NSFW: CLIPLoader(2), no FluxGuidance, BasicGuider(10), CreateVideo(13)
+        # Wan2.1 NSFW: CLIPLoader(2), CFGGuider(10), negative(15), CreateVideo(13)
         if model and model.endswith(".safetensors"):
             workflow["1"]["inputs"]["unet_name"] = model
         workflow["4"]["inputs"]["text"] = prompt
+        workflow["15"]["inputs"]["text"] = negative_prompt
         workflow["5"]["inputs"]["width"] = width
         workflow["5"]["inputs"]["height"] = height
         workflow["5"]["inputs"]["length"] = frames
+        workflow["6"]["inputs"]["shift"] = shift
+        workflow["7"]["inputs"]["sampler_name"] = sampler
         workflow["8"]["inputs"]["steps"] = steps
         workflow["9"]["inputs"]["noise_seed"] = seed
+        workflow["10"]["inputs"]["cfg"] = cfg
         workflow["13"]["inputs"]["fps"] = float(fps)
     else:
         # HunyuanVideo ("wan22"): DualCLIPLoader(2), FluxGuidance(10), CreateVideo(14)
@@ -744,32 +767,39 @@ def _build_video_workflow(
 @mcp.tool()
 async def start_video_generation(
     prompt: str,
-    width: int = 832,
-    height: int = 480,
-    frames: int = 9,
-    steps: int = 50,
-    cfg: float = 6.0,
+    width: int = 1280,
+    height: int = 720,
+    frames: int = 41,
+    steps: int = 30,
+    cfg: float = 6.2,
     negative_prompt: str = "",
     model: str = "",
     seed: int = -1,
+    shift: float = 9.8,
+    sampler: str = "unipc",
 ) -> dict:
     """
     Start video generation and return immediately with a job_id.
 
-    Use this in Open WebUI / chat interfaces — HunyuanVideo takes 30-60 minutes.
+    Use this in Open WebUI / chat interfaces — generation takes 30-90 minutes.
     After calling this, tell the user the estimated wait time and use
     get_video_status(job_id) when they ask for the result.
 
     Args:
-        prompt: Text description of the video. Include 'nsfwsks' trigger for NSFW LoRA.
-        frames: Number of frames (default 9 ≈ 1.1s at 8fps)
-        steps: Diffusion steps (default 50 for quality; min 20 for faster preview)
-        cfg: Guidance scale (default 6.0)
+        prompt: Text description of the video.
+        width: Width in pixels (default 1280 for 720p)
+        height: Height in pixels (default 720 for 720p)
+        frames: Number of frames (default 41 ≈ 5s at 8fps)
+        steps: Diffusion steps (default 30; 25 for faster preview, 35 for quality)
+        cfg: Guidance scale (default 6.2; range 5.5–7.0)
+        negative_prompt: Things to avoid in the video
+        shift: ModelSamplingSD3 shift (default 9.8; range 8–11, higher = more motion)
+        sampler: Sampler name (default unipc; dpm++_2m also works well)
         seed: -1 for random
     """
     fps = VIDEO_OUTPUT_FPS
     workflow, seed = _build_video_workflow(
-        prompt, width, height, frames, fps, steps, cfg, model, seed
+        prompt, width, height, frames, fps, steps, cfg, model, seed, shift, sampler, negative_prompt
     )
     prompt_id, err = await _submit_comfyui(workflow)
     if err:

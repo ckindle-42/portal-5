@@ -32,6 +32,16 @@ def submit(args: argparse.Namespace) -> str:
         payload["cfg"] = args.cfg
     if args.seed is not None:
         payload["seed"] = args.seed
+    if args.shift is not None:
+        payload["shift"] = args.shift
+    if args.sampler is not None:
+        payload["sampler"] = args.sampler
+    if args.negative:
+        payload["negative_prompt"] = args.negative
+    if args.width is not None:
+        payload["width"] = args.width
+    if args.height is not None:
+        payload["height"] = args.height
 
     result = post("/tools/start_video_generation", payload)
     job_id = result.get("job_id") or result.get("id")
@@ -86,26 +96,37 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Quick 20-step test (fastest feedback):
-  python3 scripts/gen-video.py "your prompt here" --steps 20
+  # Balanced quality run (recommended starting point):
+  python3 scripts/gen-video.py "your prompt" --steps 30 --cfg 6.2 --shift 9.8
 
-  # Quality run:
-  python3 scripts/gen-video.py "your prompt here" --steps 50 --cfg 7.5
+  # Fast iteration at 480p (25 steps, ~20 min):
+  python3 scripts/gen-video.py "your prompt" --steps 25 --cfg 6.0 --shift 9.0 --width 832 --height 480
+
+  # Best quality (35 steps, 720p):
+  python3 scripts/gen-video.py "your prompt" --steps 35 --cfg 6.5 --shift 10.0
+
+  # Maximum motion (higher shift):
+  python3 scripts/gen-video.py "your prompt" --steps 32 --cfg 6.0 --shift 10.5
+
+  # With negative prompt:
+  python3 scripts/gen-video.py "your prompt" --negative "blurry, deformed, static pose, censored, watermark"
 
   # Fixed seed for reproducible comparisons:
-  python3 scripts/gen-video.py "your prompt here" --steps 30 --seed 42
-
-  # Longer clip (81 frames = ~10s at 8fps):
-  python3 scripts/gen-video.py "your prompt here" --steps 20 --frames 81
+  python3 scripts/gen-video.py "your prompt" --steps 30 --seed 42
 
   # Submit and exit — poll manually later:
-  python3 scripts/gen-video.py "your prompt here" --no-wait
+  python3 scripts/gen-video.py "your prompt" --no-wait
 """,
     )
     parser.add_argument("prompt", help="Text prompt for video generation")
-    parser.add_argument("--steps", type=int, default=None, help="Inference steps (default: MCP default, currently 50)")
-    parser.add_argument("--cfg", type=float, default=None, help="CFG scale (default: 6.0)")
-    parser.add_argument("--frames", type=int, default=None, help="Number of frames (default: MCP default, currently 41)")
+    parser.add_argument("--steps", type=int, default=None, help="Inference steps (default: 30)")
+    parser.add_argument("--cfg", type=float, default=None, help="CFG scale (default: 6.2; range 5.5–7.0)")
+    parser.add_argument("--frames", type=int, default=None, help="Number of frames (default: 41 ≈ 5s at 8fps)")
+    parser.add_argument("--width", type=int, default=None, help="Width in pixels (default: 1280)")
+    parser.add_argument("--height", type=int, default=None, help="Height in pixels (default: 720)")
+    parser.add_argument("--shift", type=float, default=None, help="Sample shift (default: 9.8; range 8–11, higher = more motion)")
+    parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: unipc; dpm++_2m also works)")
+    parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Negative prompt")
     parser.add_argument("--seed", type=int, default=None, help="Seed (-1 = random)")
     parser.add_argument("--poll-interval", type=int, default=30, help="Seconds between status polls (default: 30)")
     parser.add_argument("--no-wait", action="store_true", help="Submit and print job_id, then exit immediately")
@@ -118,15 +139,25 @@ Examples:
         return
 
     print(f"Submitting: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}")
-    if args.steps:
-        print(f"  steps={args.steps}", end="")
-    if args.cfg:
-        print(f"  cfg={args.cfg}", end="")
-    if args.frames:
-        print(f"  frames={args.frames}", end="")
-    if args.seed:
-        print(f"  seed={args.seed}", end="")
-    print()
+    parts = []
+    if args.steps is not None:
+        parts.append(f"steps={args.steps}")
+    if args.cfg is not None:
+        parts.append(f"cfg={args.cfg}")
+    if args.shift is not None:
+        parts.append(f"shift={args.shift}")
+    if args.sampler is not None:
+        parts.append(f"sampler={args.sampler}")
+    if args.frames is not None:
+        parts.append(f"frames={args.frames}")
+    if args.width is not None or args.height is not None:
+        w = args.width or 1280
+        h = args.height or 720
+        parts.append(f"{w}×{h}")
+    if args.seed is not None:
+        parts.append(f"seed={args.seed}")
+    if parts:
+        print("  " + "  ".join(parts))
 
     job_id = submit(args)
 

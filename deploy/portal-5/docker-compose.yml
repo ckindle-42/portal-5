@@ -552,6 +552,8 @@ services:
       - VIDEO_TIMEOUT=${VIDEO_TIMEOUT:-3600}
       - VIDEO_MAX_STEPS=${VIDEO_MAX_STEPS:-50}
       - VIDEO_MAX_FRAMES=${VIDEO_MAX_FRAMES:-41}
+      - VIDEO_MAX_WIDTH=${VIDEO_MAX_WIDTH:-1280}
+      - VIDEO_MAX_HEIGHT=${VIDEO_MAX_HEIGHT:-720}
       - WORKSPACE_DIR=/workspace
     command: ["python", "-m", "portal_mcp.generation.video_mcp"]
     depends_on: []
