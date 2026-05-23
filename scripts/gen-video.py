@@ -144,7 +144,7 @@ DEFAULT_NEGATIVE = (
 )
 
 PREVIEW = {
-    "steps": 20,
+    "steps": 30,
     "cfg": 6.0,
     "shift": 9.0,
     "sampler": "uni_pc",
@@ -318,11 +318,6 @@ def poll(job_id: str, label: str = "", interval: int = 30) -> str | None:
             print(f"\n\nDone in {mins}m{secs:02d}s{suffix}")
             print(f"URL: {url}")
             _notify(f"Video ready{suffix}", f"Done in {mins}m{secs:02d}s", url)
-            try:
-                import subprocess
-                subprocess.run(["open", url], check=False)
-            except Exception:
-                pass
             return url
         elif status == "error":
             msg = result.get("message", str(result))
