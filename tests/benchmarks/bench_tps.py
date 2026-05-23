@@ -87,7 +87,7 @@ PIPELINE_INACTIVITY_TIMEOUT = 270.0
 # warmup probes, Ollama direct). Not used in the main bench streaming path.
 REQUEST_TIMEOUT = 180.0
 # Legacy aliases — remove once all call sites are migrated.
-BIG_MODEL_TIMEOUT = INFERENCE_TIMEOUT     # model already loaded after warmup
+BIG_MODEL_TIMEOUT = INFERENCE_TIMEOUT  # model already loaded after warmup
 WORKSPACE_TIMEOUT = PIPELINE_INACTIVITY_TIMEOUT  # pipeline may buffer think
 
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
@@ -97,14 +97,16 @@ WORKSPACE_TIMEOUT = PIPELINE_INACTIVITY_TIMEOUT  # pipeline may buffer think
 #      TPS reflects inference speed on actual output, not reasoning overhead.
 #      This makes bench numbers comparable across reasoning and non-reasoning models.
 REASONING_MAX_TOKENS = 512
-REASONING_WORKSPACES: frozenset[str] = frozenset({
-    "bench-laguna",
-    "bench-phi4-reasoning",
-    "auto-mistral",
-    "auto-reasoning",
-    "auto-security",   # AEON Qwen3.6-27B is a thinking model
-    "auto-redteam",    # same — needs 512-token budget to avoid empty responses
-})
+REASONING_WORKSPACES: frozenset[str] = frozenset(
+    {
+        "bench-laguna",
+        "bench-phi4-reasoning",
+        "auto-mistral",
+        "auto-reasoning",
+        "auto-security",  # AEON Qwen3.6-27B is a thinking model
+        "auto-redteam",  # same — needs 512-token budget to avoid empty responses
+    }
+)
 # MLX model substrings that signal a reasoning model (for direct MLX runs)
 # Also applied case-insensitively to Ollama model IDs (e.g. "deepseek-r1:32b-q4_k_m")
 # so Ollama reasoning models get REASONING_MAX_TOKENS and don't exhaust their
@@ -115,7 +117,7 @@ _REASONING_MLX_PATTERNS = (
     "Magistral",
     "Qwopus",
     "DeepSeek-R1",
-    "deepseek-r1",     # Ollama IDs are lowercase; case-insensitive match below
+    "deepseek-r1",  # Ollama IDs are lowercase; case-insensitive match below
     "Qwen3.5-27B-Claude",
     "Qwen3.5-9B-Claude",
     "Qwen3.5-35B-A3B-Claude",
@@ -138,6 +140,8 @@ def _is_reasoning_model(model: str, workspace_id: str = "") -> bool:
         return True
     model_lower = model.lower()
     return any(p.lower() in model_lower for p in _REASONING_MLX_PATTERNS)
+
+
 RESULTS_DIR = Path(__file__).parent / "results"
 # Default output: timestamped UTC file under tests/benchmarks/results/
 # Override with --output. Operator commits selected baselines manually.
@@ -252,17 +256,21 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier
-    "bench-omnicoder2":     "coding",    # omnicoder2:9b-q4_k_m (Ollama) — Qwen3.5-9B SFT on agentic traces
-    "bench-negentropy":     "reasoning", # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
+    "bench-omnicoder2": "coding",  # omnicoder2:9b-q4_k_m (Ollama) — Qwen3.5-9B SFT on agentic traces
+    "bench-negentropy": "reasoning",  # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
     # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
-    "bench-qwen36-27b":     "coding",    # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
-    "bench-qwen36-35b-a3b": "coding",    # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
+    "bench-qwen36-27b": "coding",  # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
+    "bench-qwen36-35b-a3b": "coding",  # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
     # 32B standalone
-    "bench-olmo3-32b":      "reasoning", # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
+    "bench-olmo3-32b": "reasoning",  # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
     # Llama 4 Scout — Meta MoE 17B-16E, multimodal (vision + text), mlx-vlm
-    "bench-llama4-scout":   "vision",
+    "bench-llama4-scout": "vision",
+    # NVIDIA — omni-modal (text+image+video+audio). Uses vision prompt for CC-01 baseline.
+    # Follow-up: add dedicated "doc_intel" prompt category in TASK_NEMOTRON_OMNI_PROMOTE_V1
+    # for policy-passage extraction + citation quality measurement.
+    "bench-nemotron-omni": "vision",
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
-    "auto-daily":           "general",   # gemma-4-26b daily driver, non-thinking fast lane
+    "auto-daily": "general",  # gemma-4-26b daily driver, non-thinking fast lane
 }
 
 # Map Ollama backend group → prompt category
@@ -308,43 +316,38 @@ _MLX_MODEL_PROMPT_OVERRIDES: dict[str, str] = {
     "DeepSeek-Coder": "coding",
     "Llama-3.3-70B": "coding",  # bench-llama33-70b → coding
     "Huihui-GLM": "coding",
-    "GLM-4.7-Flash": "coding",   # mlx-community/GLM-4.7-Flash-4bit (no Huihui prefix)
-    "glm-4.7-flash": "coding",   # mlx-community/glm-4.7-flash-abliterated-8bit (lowercase variant)
-
+    "GLM-4.7-Flash": "coding",  # mlx-community/GLM-4.7-Flash-4bit (no Huihui prefix)
+    "glm-4.7-flash": "coding",  # mlx-community/glm-4.7-flash-abliterated-8bit (lowercase variant)
     # ── Reasoning ─────────────────────────────────────────────────────────
     # NOTE: longer Claude-distill patterns must come before "Qwopus3.5";
     # "Phi-4-reasoning" must come before any future shorter "Phi-4".
     "DeepSeek-R1-Distill": "reasoning",
     "Phi-4-reasoning": "reasoning",
-    "phi-4": "reasoning",          # bench-phi4 → reasoning (lowercase id)
+    "phi-4": "reasoning",  # bench-phi4 → reasoning (lowercase id)
     "Magistral": "reasoning",
-    "Laguna": "reasoning",         # bench-laguna → reasoning
+    "Laguna": "reasoning",  # bench-laguna → reasoning
     "Qwen2.5-Math": "reasoning",
     "Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
     "Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
     "Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled": "reasoning",
-    "Qwopus3.5": "reasoning",      # Jackrong/MLX-Qwopus3.5-* (after specific Claude-distill ids)
-    "Qwopus3.6": "reasoning",      # Jackrong/Qwopus3.6-27B-v2-MTP-* (GGUF via Ollama; MLX if released)
-
+    "Qwopus3.5": "reasoning",  # Jackrong/MLX-Qwopus3.5-* (after specific Claude-distill ids)
+    "Qwopus3.6": "reasoning",  # Jackrong/Qwopus3.6-27B-v2-MTP-* (GGUF via Ollama; MLX if released)
     # ── Vision (Gemma 4 family is multimodal-by-design in this stack) ─────
     "Qwen3-VL": "vision",
-    "Vision-Instruct": "vision",   # Llama-3.2-11B-Vision-Instruct
+    "Vision-Instruct": "vision",  # Llama-3.2-11B-Vision-Instruct
     "supergemma4": "vision",
     "gemma-4-31b-it": "vision",
     "gemma-4-e4b": "vision",
     "Gemma-4-31B-JANG": "vision",  # dealignai/Gemma-4-31B-JANG_4M-CRACK
-
     # ── Creative ──────────────────────────────────────────────────────────
     "Dolphin": "creative",
     "hermes3": "creative",
-
     # ── General ───────────────────────────────────────────────────────────
     "Llama-3.2-3B": "general",
     "Llama-3.2-1B": "general",
     "Qwen2.5-0.5B": "general",
     "Huihui-Qwen3.5-9B-abliterated": "general",  # AUTO MLX primary; see TASK_TOOL_SUPPORT_AUDIT_V1 §A19
 }
-
 
 
 def _get_prompt_for_model(model: str, group: str = "") -> str:
@@ -771,17 +774,20 @@ def _restart_proxy_for_crash_reclaim(reason: str = "crash detected") -> bool:
     try:
         result = subprocess.run(
             ["launchctl", "list", "com.portal5.mlx-proxy"],
-            capture_output=True, timeout=5,
+            capture_output=True,
+            timeout=5,
         )
         if result.returncode == 0:
             subprocess.run(
                 ["launchctl", "stop", "com.portal5.mlx-proxy"],
-                capture_output=True, timeout=10,
+                capture_output=True,
+                timeout=10,
             )
         else:
             subprocess.run(
                 ["pkill", "-TERM", "-f", "mlx-proxy.py"],
-                capture_output=True, timeout=5,
+                capture_output=True,
+                timeout=5,
             )
     except Exception:
         pass
@@ -790,8 +796,7 @@ def _restart_proxy_for_crash_reclaim(reason: str = "crash detected") -> bool:
     # 2. SIGTERM any residual mlx server processes (crash survivors)
     for pattern in ("mlx_lm.server", "mlx_vlm.server"):
         try:
-            subprocess.run(["pkill", "-TERM", "-f", pattern],
-                           capture_output=True, timeout=5)
+            subprocess.run(["pkill", "-TERM", "-f", pattern], capture_output=True, timeout=5)
         except Exception:
             pass
     time.sleep(5)
@@ -800,12 +805,14 @@ def _restart_proxy_for_crash_reclaim(reason: str = "crash detected") -> bool:
     try:
         result = subprocess.run(
             ["launchctl", "list", "com.portal5.mlx-proxy"],
-            capture_output=True, timeout=5,
+            capture_output=True,
+            timeout=5,
         )
         if result.returncode == 0:
             subprocess.run(
                 ["launchctl", "start", "com.portal5.mlx-proxy"],
-                capture_output=True, timeout=10,
+                capture_output=True,
+                timeout=10,
             )
         else:
             proxy_path = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
@@ -1329,7 +1336,10 @@ def bench_tps(
 
         try:
             with client.stream(
-                "POST", f"{base_url}/v1/chat/completions", json=payload, headers=headers,
+                "POST",
+                f"{base_url}/v1/chat/completions",
+                json=payload,
+                headers=headers,
                 timeout=request_timeout,
             ) as resp:
                 if resp.status_code != 200:
@@ -1436,11 +1446,7 @@ def bench_tps(
         # Coefficient of variation: stddev / mean. Dimensionless — comparable
         # across models with different absolute TPS. <0.05 tight, 0.05-0.15
         # normal, >0.15 unstable (warmup not done, memory pressure, etc.)
-        cv = (
-            round(stddev_tps / avg_tps, 3)
-            if (stddev_tps is not None and avg_tps > 0)
-            else None
-        )
+        cv = round(stddev_tps / avg_tps, 3) if (stddev_tps is not None and avg_tps > 0) else None
         avg_tokens = round(sum(r["completion_tokens"] for r in successful) / len(successful))
         avg_elapsed = round(sum(r["elapsed_s"] for r in successful) / len(successful), 2)
         ttft_vals = [
@@ -1484,11 +1490,13 @@ def bench_tps(
     try:
         import sys as _sys
         from pathlib import Path as _Path
+
         _sys.path.insert(0, str(_Path(__file__).parent.parent))
         from expected_models import (
             expected_model_keys,
             model_matches_expected,
         )
+
         if routed_model:
             if base_url == PIPELINE_URL:
                 keys, src = expected_model_keys(model)
@@ -1510,8 +1518,8 @@ def bench_tps(
         "avg_tps": avg_tps,
         "min_tps": min_tps,
         "max_tps": max_tps,
-        "stddev_tps": stddev_tps,        # None if <2 successful runs
-        "cv": cv,                        # coefficient of variation; None if avg_tps==0
+        "stddev_tps": stddev_tps,  # None if <2 successful runs
+        "cv": cv,  # coefficient of variation; None if avg_tps==0
         "avg_completion_tokens": avg_tokens,
         "avg_elapsed_s": avg_elapsed,
         "avg_ttft_s": avg_ttft,
@@ -1676,9 +1684,7 @@ def bench_direct(
                 # If proxy is unreachable, the mlx server crashed — restart to
                 # reclaim Metal inactive pages before trying the next model.
                 if not _mlx_proxy_alive():
-                    _restart_proxy_for_crash_reclaim(
-                        "proxy unreachable after warmup failure"
-                    )
+                    _restart_proxy_for_crash_reclaim("proxy unreachable after warmup failure")
                 print("FAIL (model load failed after retries)")
                 r = {
                     "model": model,
@@ -1746,13 +1752,17 @@ def bench_direct(
                 if _detect_mlx_crash_errors(errors):
                     _restart_proxy_for_crash_reclaim("mlx server crash detected mid-bench")
             if r.get("expected_model_match") is False:
-                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                      f"expected {r['expected_model_detail']}", flush=True)
+                print(
+                    f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
+                    flush=True,
+                )
             cv_val = r.get("cv")
             if cv_val is not None and cv_val > 0.15:
-                print(f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
-                      f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
-                      flush=True)
+                print(
+                    f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
+                    f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
+                    flush=True,
+                )
             # Post-test: evict → reclaim → cooldown (always, after every model).
             # Mirrors real user behavior: no one loads a new model immediately after the last.
             # Flush Ollama (pipeline routing model can be loaded in background), evict MLX by
@@ -1857,14 +1867,14 @@ def bench_direct(
                     "groups": [g for g, ms in ollama_groups.items() if model in ms],
                     "runs_total": runs,
                     "runs_success": 0,
-                     "avg_tps": 0,
-                     "min_tps": 0,
-                     "max_tps": 0,
-                     "stddev_tps": None,
-                     "cv": None,
-                     "avg_completion_tokens": 0,
-                     "avg_elapsed_s": 0,
-                     "runs": [],
+                    "avg_tps": 0,
+                    "min_tps": 0,
+                    "max_tps": 0,
+                    "stddev_tps": None,
+                    "cv": None,
+                    "avg_completion_tokens": 0,
+                    "avg_elapsed_s": 0,
+                    "runs": [],
                 }
                 results.append(r)
                 if output_path:
@@ -1908,13 +1918,17 @@ def bench_direct(
                 errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
                 print(f"FAIL ({', '.join(set(errors))})")
             if r.get("expected_model_match") is False:
-                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                      f"expected {r['expected_model_detail']}", flush=True)
+                print(
+                    f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
+                    flush=True,
+                )
             cv_val = r.get("cv")
             if cv_val is not None and cv_val > 0.15:
-                print(f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
-                      f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
-                      flush=True)
+                print(
+                    f"  ⚠ HIGH JITTER: cv={cv_val:.2f} "
+                    f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
+                    flush=True,
+                )
             # Force Ollama to release this model from unified memory before next test.
             # Uses keep_alive=0 then polls /api/ps until Ollama reports no running
             # models — prevents the next model from loading into an already-full
@@ -2133,8 +2147,10 @@ def bench_model_cascade(
             else:
                 print("FAIL ", end="", flush=True)
             if r.get("expected_model_match") is False:
-                print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                      f"expected {r['expected_model_detail']}", flush=True)
+                print(
+                    f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
+                    flush=True,
+                )
 
         # ── 3. Workspace tests (pipeline routes to loaded MLX model) ──
         if pipeline_available and pending_ws:
@@ -2163,9 +2179,9 @@ def bench_model_cascade(
                 r["workspace"] = ws
                 r["prompt_category"] = prompt_cat
                 r["cascade_iteration_model"] = model  # MLX model the cascade was on at dispatch
-                                                 # (pipeline may have switched to the
-                                                 # workspace's own mlx_model_hint and
-                                                 # evicted this one — see routed_model)
+                # (pipeline may have switched to the
+                # workspace's own mlx_model_hint and
+                # evicted this one — see routed_model)
                 results.append(r)
                 if output_path:
                     _append_result(output_path, r)
@@ -2173,8 +2189,11 @@ def bench_model_cascade(
                 tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
                 print(f" {ws}={tps_str}", end="", flush=True)
                 if r.get("expected_model_match") is False:
-                    print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                          f"expected {r['expected_model_detail']}", flush=True)
+                    print(
+                        f"  ⚠ ROUTING: got {r['routed_model']}, "
+                        f"expected {r['expected_model_detail']}",
+                        flush=True,
+                    )
             print(") ", end="", flush=True)
 
         # ── 4. Persona tests (pipeline routes to loaded MLX model) ──
@@ -2213,8 +2232,11 @@ def bench_model_cascade(
                 tps_str = f"{r['avg_tps']:.0f}" if r["avg_tps"] > 0 else "FAIL"
                 print(f" {slug}={tps_str}", end="", flush=True)
                 if r.get("expected_model_match") is False:
-                    print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                          f"expected {r['expected_model_detail']}", flush=True)
+                    print(
+                        f"  ⚠ ROUTING: got {r['routed_model']}, "
+                        f"expected {r['expected_model_detail']}",
+                        flush=True,
+                    )
             print(") ", end="", flush=True)
 
         print("ok")
@@ -2291,8 +2313,13 @@ def bench_pipeline(
         print("(warm-up) ", end="", flush=True)
         _warmup_pipeline_model(ws)
         r = bench_tps(
-            PIPELINE_URL, ws, prompt=prompt, runs=runs, label="pipeline",
-            prompt_category=prompt_cat, request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+            PIPELINE_URL,
+            ws,
+            prompt=prompt,
+            runs=runs,
+            label="pipeline",
+            prompt_category=prompt_cat,
+            request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
@@ -2307,8 +2334,10 @@ def bench_pipeline(
             errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
             print(f"FAIL ({', '.join(set(errors))})")
         if r.get("expected_model_match") is False:
-            print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                  f"expected {r['expected_model_detail']}", flush=True)
+            print(
+                f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
+                flush=True,
+            )
 
     return results
 
@@ -2356,8 +2385,13 @@ def bench_personas(
         prompt_cat = _prompt_category_for_persona(cat)
         _warmup_pipeline_model(wm)
         r = bench_tps(
-            PIPELINE_URL, wm, prompt=prompt, runs=runs, label="persona",
-            prompt_category=prompt_cat, request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+            PIPELINE_URL,
+            wm,
+            prompt=prompt,
+            runs=runs,
+            label="persona",
+            prompt_category=prompt_cat,
+            request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
         )
         r["backend"] = "pipeline"
         r["path"] = "persona"
@@ -2375,8 +2409,10 @@ def bench_personas(
             errors = [run.get("error", "?") for run in r["runs"] if "error" in run]
             print(f"FAIL ({', '.join(set(errors))})")
         if r.get("expected_model_match") is False:
-            print(f"  ⚠ ROUTING: got {r['routed_model']}, "
-                  f"expected {r['expected_model_detail']}", flush=True)
+            print(
+                f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
+                flush=True,
+            )
 
     return results
 
@@ -2591,15 +2627,17 @@ def main() -> None:
         "--kv-quant-tag",
         default="",
         help="Label appended to output JSON tagging the KV-quant configuration "
-             "active during the run (e.g. 'off', 'lm-kv4.5', 'vlm-kv4.5'). "
-             "Used for before/after comparison across TASK_KV_PROMOTE_V1 runs.",
+        "active during the run (e.g. 'off', 'lm-kv4.5', 'vlm-kv4.5'). "
+        "Used for before/after comparison across TASK_KV_PROMOTE_V1 runs.",
     )
     args = parser.parse_args()
 
     # --retry-failed: find the most recent results file and use it as --output so
     # successful entries are skipped and failures are re-run automatically.
     if args.retry_failed and args.output == RESULTS_FILE:
-        candidates = sorted(RESULTS_DIR.glob("bench_tps_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        candidates = sorted(
+            RESULTS_DIR.glob("bench_tps_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
         if candidates:
             args.output = str(candidates[0])
             print(f"--retry-failed: resuming from {candidates[0].name}")

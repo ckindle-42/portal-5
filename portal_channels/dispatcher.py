@@ -70,6 +70,7 @@ VALID_WORKSPACES = frozenset(
         "bench-olmo3-32b",
         # May 2026 additions (TASK_BENCH_COVERAGE_V1)
         "bench-llama4-scout",
+        "bench-nemotron-omni",
     }
 )
 
