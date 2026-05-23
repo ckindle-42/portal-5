@@ -556,8 +556,8 @@ echo "TOOL_SERVER_REQUEST_TIMEOUT=1800" >> .env  # 30 minutes
 **Verify:**
 ```bash
 curl http://localhost:8924/health
-# {"status":"ok","service":"mlx-transcribe","whisper_model":"...","diarization_loaded":false}
-# (diarization_loaded becomes true after first call)
+# {"status":"ok","service":"mlx-transcribe","whisper_model":"...","diarization_loaded":false,"voxtral_loaded":false}
+# (diarization_loaded / voxtral_loaded become true after first respective call)
 ```
 
 **Output files:**
@@ -565,6 +565,44 @@ curl http://localhost:8924/health
 - `~/AI_Output/generated/transcripts/transcript_<id>.md` — speaker-labeled markdown
 
 Both also downloadable via `http://localhost:8924/files/<filename>`.
+
+### Voxtral Multilingual Transcription
+
+**What:** Mistral Voxtral-Mini-3B adds 8-language recognition (en, fr, de, es, it, pt, nl, ru) to the transcription stack. No diarization (single SPEAKER_00), but auto-language detection across supported languages.
+
+**Pre-flight (one-time download, ~18.7 GB):**
+```bash
+./launch.sh pull-voxtral
+# Downloads mlx-community/Voxtral-Mini-3B-2507-bf16 to the MLX model directory
+# Only needed once; takes ~20 min on a 1 Gbps connection
+```
+
+**Use in chat:** Select the Transcript Analyst persona, then specify language:
+- `"transcribe this — it's in French"` → engine auto-switches to Voxtral with `language=fr`
+- `"multilingual meeting, no speaker labels needed"` → Voxtral, auto-detect language
+
+**Direct API (select engine explicitly):**
+```bash
+# Voxtral — multilingual, no speaker labels
+curl -X POST http://localhost:8924/v1/audio/transcribe-with-speakers \
+  -F "file=@meeting_fr.mp3" \
+  -F "language=fr" | jq -r '.text'
+```
+
+Or via MCP tool in a pipeline:
+```json
+{"engine": "voxtral-mini-3b", "language": "de"}
+```
+
+**Trade-offs:**
+
+| | whisper-large-v3-turbo (default) | voxtral-mini-3b |
+|---|---|---|
+| Languages | English-optimized | en/fr/de/es/it/pt/nl/ru |
+| Speaker labels | Yes (pyannote diarization) | No |
+| Model size | ~3 GB | ~18.7 GB |
+| Requires HF_TOKEN | Yes (pyannote) | No |
+| Use case | Multi-speaker English meetings | Multilingual single-speaker audio |
 
 ### Workflow A is finally working — what changed
 
