@@ -254,7 +254,10 @@ def poll(job_id: str, label: str = "", interval: int = 30) -> str | None:
 
 def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
     total = len(prompts)
-    eta_each = base["steps"] * 79 + (base["frames"] / 41) * 3060
+    # Observed timings on M-series MPS: step time scales with frame count.
+    # 9 frames → ~8.5 min/video, 41 frames → ~85 min/video (VAE dominates at 41f).
+    secs_per_frame_step = 3.5
+    eta_each = int(base["steps"] * base["frames"] * secs_per_frame_step + 120)
     eta_total = eta_each * total
     print(f"Batch: {total} prompts  |  ~{int(eta_each/60)}min each  |  ~{int(eta_total/3600)}h{int((eta_total%3600)/60)}m total")
     print(f"Preset: steps={base['steps']} frames={base['frames']} {base['width']}x{base['height']}")
@@ -287,7 +290,7 @@ def main() -> None:
         epilog=f"""
 Presets:
   (default)  25 steps, 480p, 41 frames (~85 min)
-  --preview  10 steps, 480p,  9 frames (~24 min) — batch testing
+  --preview  10 steps, 480p,  9 frames (~8-9 min) — batch testing
   --quality  35 steps, 720p, 41 frames (~3 hr)
 
 Examples:
