@@ -186,52 +186,66 @@ OVERNIGHT = {
 }
 
 # ── Wan 2.2 presets (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
-# Requires: ./launch.sh pull-wan22 (~80GB) + ComfyUI template export
+# Requires: ./launch.sh pull-wan22 + ComfyUI running
 # Use: python3 scripts/gen-video.py "prompt" --preset wan22-fast
 WAN22_PRESETS: dict[str, dict] = {
     "wan22-fast": {
-        "model": "wan22-ti2v-5b",
-        "steps": 30,
+        "model": "wan22-t2v-a14b",
+        "steps": 20,
         "cfg": 6.0,
-        "shift": 9.0,
+        "shift": 8.0,
         "sampler": "uni_pc",
-        "width": 1280,
-        "height": 720,
+        "width": 832,
+        "height": 480,
         "frames": 41,
-        "description": "Wan 2.2 5B TI2V — fastest, single-GPU friendly, ~9 min per 5s clip",
+        "description": "Wan 2.2 T2V-A14B fast — 20 steps, 480p, text-to-video",
     },
     "wan22-quality": {
         "model": "wan22-t2v-a14b",
-        "steps": 50,
+        "steps": 35,
         "cfg": 6.0,
-        "shift": 9.0,
+        "shift": 8.0,
         "sampler": "uni_pc",
         "width": 1280,
         "height": 720,
         "frames": 41,
-        "description": "Wan 2.2 14B T2V — MoE, cinematic quality, slower per generation",
+        "description": "Wan 2.2 T2V-A14B quality — 35 steps, 720p, text-to-video",
     },
-    "wan22-animate": {
-        "model": "wan22-animate-14b",
-        "steps": 50,
-        "cfg": 6.0,
-        "shift": 9.0,
+    "wan22-ti2v": {
+        "model": "wan22-ti2v-5b",
+        "steps": 20,
+        "cfg": 5.0,
+        "shift": 8.0,
         "sampler": "uni_pc",
         "width": 1280,
-        "height": 720,
-        "frames": 41,
-        "description": "Wan 2.2 Animate-14B — character animation/replacement (NEW capability)",
+        "height": 704,
+        "frames": 121,
+        "description": "Wan 2.2 TI2V-5B — image-to-video, ~5s clip (requires --image-url)",
+        "_requires_image": True,
     },
     "wan22-s2v": {
         "model": "wan22-s2v-14b",
-        "steps": 50,
+        "steps": 20,
         "cfg": 6.0,
-        "shift": 9.0,
+        "shift": 8.0,
+        "sampler": "uni_pc",
+        "width": 640,
+        "height": 640,
+        "frames": 77,
+        "description": "Wan 2.2 S2V-14B — speech-to-video (requires --image-url and --audio-url)",
+        "_requires_image": True,
+        "_requires_audio": True,
+    },
+    "wan22-animate": {
+        "model": "wan22-animate-14b",
+        "steps": 35,
+        "cfg": 6.0,
+        "shift": 8.0,
         "sampler": "uni_pc",
         "width": 1280,
         "height": 720,
         "frames": 41,
-        "description": "Wan 2.2 S2V-14B — speech-to-video (NEW capability, requires audio input)",
+        "description": "Wan 2.2 Animate-14B — character animation (stub, requires custom ComfyUI nodes)",
     },
 }
 
@@ -259,12 +273,15 @@ def build_payload(prompt: str, args: argparse.Namespace, base: dict) -> dict:
         "height": args.height if args.height is not None else base["height"],
         "frames": args.frames if args.frames is not None else base["frames"],
     }
-    # Pass model override if set (Wan 2.2 preset or explicit --model)
     model = getattr(args, "model", None) or base.get("model", "")
     if model:
         payload["model"] = model
     if args.seed is not None:
         payload["seed"] = args.seed
+    if getattr(args, "image_url", None):
+        payload["image_url"] = args.image_url
+    if getattr(args, "audio_url", None):
+        payload["audio_url"] = args.audio_url
     return payload
 
 
@@ -402,8 +419,14 @@ Examples:
   # Full 720p — leave running overnight:
   python3 scripts/gen-video.py "your prompt" --overnight
 
-  # Wan 2.2 fast:
+  # Wan 2.2 text-to-video (fast):
   python3 scripts/gen-video.py "your prompt" --preset wan22-fast
+
+  # Wan 2.2 image-to-video (start frame → animated clip):
+  python3 scripts/gen-video.py "your prompt" --preset wan22-ti2v --image-url /path/to/frame.png
+
+  # Wan 2.2 speech-to-video (audio drives motion):
+  python3 scripts/gen-video.py "your prompt" --preset wan22-s2v --image-url /path/to/frame.png --audio-url /path/to/audio.mp3
 
   # Override specific params:
   python3 scripts/gen-video.py "your prompt" --steps 30 --cfg 6.2 --shift 9.8
@@ -426,6 +449,10 @@ Examples:
                         help=f"Wan 2.2 preset. Choices: {', '.join(wan22_preset_names)}")
     parser.add_argument("--model", type=str, default=None, metavar="MODEL_ID",
                         help="Override model ID (e.g. wan22-t2v-a14b, wan22-ti2v-5b)")
+    parser.add_argument("--image-url", type=str, default=None, metavar="URL",
+                        help="Start-frame image URL or local path (required for wan22-ti2v and wan22-s2v)")
+    parser.add_argument("--audio-url", type=str, default=None, metavar="URL",
+                        help="Reference audio URL or local path (required for wan22-s2v)")
     parser.add_argument("--batch", metavar="FILE", help="Run all prompts from FILE (one per line) sequentially")
     parser.add_argument("--steps", type=int, default=None, help="Inference steps")
     parser.add_argument("--cfg", type=float, default=None, help="CFG scale (range 5.5–7.0)")
@@ -454,10 +481,14 @@ Examples:
 
     if args.preset:
         wan22 = WAN22_PRESETS[args.preset]
-        base = {k: v for k, v in wan22.items() if k not in ("model", "description")}
+        base = {k: v for k, v in wan22.items() if k not in ("model", "description", "_requires_image", "_requires_audio")}
         if not args.model:
             args.model = wan22["model"]
         preset_label = args.preset
+        if wan22.get("_requires_image") and not args.image_url:
+            parser.error(f"--preset {args.preset} requires --image-url")
+        if wan22.get("_requires_audio") and not args.audio_url:
+            parser.error(f"--preset {args.preset} requires --audio-url")
     elif args.preview:
         base = PREVIEW
         preset_label = "preview"
