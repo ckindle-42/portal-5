@@ -170,6 +170,56 @@ QUALITY = {
     "frames": 41,
 }
 
+# ── Wan 2.2 presets (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
+# Requires: ./launch.sh pull-wan22 (~80GB) + ComfyUI template export
+# Use: python3 scripts/gen-video.py "prompt" --preset wan22-fast
+WAN22_PRESETS: dict[str, dict] = {
+    "wan22-fast": {
+        "model": "wan22-ti2v-5b",
+        "steps": 30,
+        "cfg": 6.0,
+        "shift": 9.0,
+        "sampler": "uni_pc",
+        "width": 1280,
+        "height": 720,
+        "frames": 41,
+        "description": "Wan 2.2 5B TI2V — fastest, single-GPU friendly, ~9 min per 5s clip",
+    },
+    "wan22-quality": {
+        "model": "wan22-t2v-a14b",
+        "steps": 50,
+        "cfg": 6.0,
+        "shift": 9.0,
+        "sampler": "uni_pc",
+        "width": 1280,
+        "height": 720,
+        "frames": 41,
+        "description": "Wan 2.2 14B T2V — MoE, cinematic quality, slower per generation",
+    },
+    "wan22-animate": {
+        "model": "wan22-animate-14b",
+        "steps": 50,
+        "cfg": 6.0,
+        "shift": 9.0,
+        "sampler": "uni_pc",
+        "width": 1280,
+        "height": 720,
+        "frames": 41,
+        "description": "Wan 2.2 Animate-14B — character animation/replacement (NEW capability)",
+    },
+    "wan22-s2v": {
+        "model": "wan22-s2v-14b",
+        "steps": 50,
+        "cfg": 6.0,
+        "shift": 9.0,
+        "sampler": "uni_pc",
+        "width": 1280,
+        "height": 720,
+        "frames": 41,
+        "description": "Wan 2.2 S2V-14B — speech-to-video (NEW capability, requires audio input)",
+    },
+}
+
 
 def post(path: str, payload: dict) -> dict:
     data = json.dumps({"arguments": payload}).encode()
@@ -194,6 +244,10 @@ def build_payload(prompt: str, args: argparse.Namespace, base: dict) -> dict:
         "height": args.height if args.height is not None else base["height"],
         "frames": args.frames if args.frames is not None else base["frames"],
     }
+    # Pass model override if set (Wan 2.2 preset or explicit --model)
+    model = getattr(args, "model", None) or base.get("model", "")
+    if model:
+        payload["model"] = model
     if args.seed is not None:
         payload["seed"] = args.seed
     return payload
@@ -284,6 +338,10 @@ def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
 
 
 def main() -> None:
+    wan22_preset_names = sorted(WAN22_PRESETS.keys())
+    wan22_preset_help = "\n".join(
+        f"  {k:20s} {v['description']}" for k, v in WAN22_PRESETS.items()
+    )
     parser = argparse.ArgumentParser(
         description="Submit video generation jobs to Portal and poll until done.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -292,6 +350,9 @@ Presets:
   (default)  25 steps, 480p, 41 frames (~85 min)
   --preview  10 steps, 480p,  9 frames (~8-9 min) — batch testing
   --quality  35 steps, 720p, 41 frames (~3 hr)
+
+Wan 2.2 presets (--preset NAME, requires pull-wan22 + ComfyUI template export):
+{wan22_preset_help}
 
 Examples:
   # Single prompt — fast defaults:
@@ -302,6 +363,9 @@ Examples:
 
   # Quality single run:
   python3 scripts/gen-video.py "your prompt" --quality
+
+  # Wan 2.2 fast:
+  python3 scripts/gen-video.py "your prompt" --preset wan22-fast
 
   # Override specific params:
   python3 scripts/gen-video.py "your prompt" --steps 30 --cfg 6.2 --shift 9.8
@@ -319,6 +383,10 @@ Examples:
     parser.add_argument("prompt", nargs="?", help="Text prompt for video generation")
     parser.add_argument("--preview", action="store_true", help="Preview preset: 10 steps, 9 frames (~24 min) — ideal for batch testing")
     parser.add_argument("--quality", action="store_true", help="Quality preset: 35 steps, 720p, 41 frames (~3 hr)")
+    parser.add_argument("--preset", choices=wan22_preset_names, metavar="PRESET",
+                        help=f"Wan 2.2 preset. Choices: {', '.join(wan22_preset_names)}")
+    parser.add_argument("--model", type=str, default=None, metavar="MODEL_ID",
+                        help="Override model ID (e.g. wan22-t2v-a14b, wan22-ti2v-5b)")
     parser.add_argument("--batch", metavar="FILE", help="Run all prompts from FILE (one per line) sequentially")
     parser.add_argument("--steps", type=int, default=None, help="Inference steps")
     parser.add_argument("--cfg", type=float, default=None, help="CFG scale (range 5.5–7.0)")
@@ -339,11 +407,20 @@ Examples:
         poll(args.status, interval=args.poll_interval)
         return
 
+    if args.preset and (args.preview or args.quality):
+        parser.error("--preset is mutually exclusive with --preview / --quality")
     if args.preview and args.quality:
         parser.error("--preview and --quality are mutually exclusive")
 
-    base = PREVIEW if args.preview else (QUALITY if args.quality else DEFAULTS)
-    preset_label = "preview" if args.preview else ("quality" if args.quality else "fast")
+    if args.preset:
+        wan22 = WAN22_PRESETS[args.preset]
+        base = {k: v for k, v in wan22.items() if k not in ("model", "description")}
+        if not args.model:
+            args.model = wan22["model"]
+        preset_label = args.preset
+    else:
+        base = PREVIEW if args.preview else (QUALITY if args.quality else DEFAULTS)
+        preset_label = "preview" if args.preview else ("quality" if args.quality else "fast")
 
     if args.batch:
         try:
@@ -366,8 +443,9 @@ Examples:
     h = args.height or base["height"]
     frames = args.frames or base["frames"]
 
+    model_tag = f"  model={args.model}" if getattr(args, "model", None) else ""
     print(f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}")
-    print(f"  steps={steps}  cfg={cfg}  shift={shift}  {w}x{h}  frames={frames}")
+    print(f"  steps={steps}  cfg={cfg}  shift={shift}  {w}x{h}  frames={frames}{model_tag}")
 
     payload = build_payload(args.prompt, args, base)
     job_id = submit_payload(payload)

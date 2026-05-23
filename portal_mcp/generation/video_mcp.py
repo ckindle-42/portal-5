@@ -154,7 +154,7 @@ COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 # Public URL used in links returned to the browser — differs from COMFYUI_URL when the
 # MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
 COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
-VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22", "wan21-nsfw", or "cogvideox"
+VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22", "wan21-nsfw", "cogvideox", or "wan22-*"
 
 # Video model filename — single-file model in models/diffusion_models/.
 # Default: HunyuanVideo merged single-file (hunyuanvideo_comfyui.safetensors symlink →
@@ -496,9 +496,80 @@ _WAN21_NSFW_T2V_WORKFLOW: dict = {
 }
 
 
-def _get_workflow() -> dict:
-    """Get a deep copy of the workflow based on VIDEO_BACKEND env var."""
+# ── Wan 2.2 family (PHASE_PLAN_MODEL_REFRESH_V7_V2) ──────────────────────────
+# Stub dicts — populated by exporting from ComfyUI template browser.
+# Run: ComfyUI → Workflow → Browse Templates → Video → "Wan2.2 *"
+# Each stub raises RuntimeError until replaced with the real ComfyUI export.
+# T2V and TI2V are text/image-to-video; Animate and S2V are new capabilities.
+#
+# ComfyUI Wan 2.2 model files (models/diffusion_models/):
+#   Wan2.2-T2V-A14B/   — MoE 27B total / 14B active per step
+#   Wan2.2-TI2V-5B/    — 5B unified text+image-to-video
+#   Wan2.2-Animate-14B/ — character animation / replacement
+#   Wan2.2-S2V-14B/    — speech-to-video (requires audio input)
+# Pull: ./launch.sh pull-wan22
+
+_WAN22_T2V_A14B_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Wan 2.2 T2V-A14B workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2 14B T2V', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Wan2.2-T2V-A14B/ (pull-wan22)."
+    ),
+}
+
+_WAN22_TI2V_5B_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Wan 2.2 TI2V-5B workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2 5B TI2V', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Wan2.2-TI2V-5B/ (pull-wan22)."
+    ),
+}
+
+_WAN22_ANIMATE_14B_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Wan 2.2 Animate-14B workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2-Animate-14B', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Wan2.2-Animate-14B/ (pull-wan22). "
+        "NEW CAPABILITY: character animation / replacement."
+    ),
+}
+
+_WAN22_S2V_14B_WORKFLOW: dict = {
+    "_stub": True,
+    "_stub_message": (
+        "Wan 2.2 S2V-14B workflow not yet exported from ComfyUI. "
+        "In ComfyUI: Workflow → Browse Templates → Video → 'Wan2.2-S2V-14B', "
+        "load it, then export JSON and replace this dict. "
+        "Required model: models/diffusion_models/Wan2.2-S2V-14B/ (pull-wan22). "
+        "NEW CAPABILITY: speech-to-video (requires audio input)."
+    ),
+}
+
+# Public map — used for routing and verification
+WAN22_WORKFLOWS: dict[str, dict] = {
+    "wan22-t2v-a14b": _WAN22_T2V_A14B_WORKFLOW,
+    "wan22-ti2v-5b": _WAN22_TI2V_5B_WORKFLOW,
+    "wan22-animate-14b": _WAN22_ANIMATE_14B_WORKFLOW,
+    "wan22-s2v-14b": _WAN22_S2V_14B_WORKFLOW,
+}
+
+
+def _get_workflow(model: str = "") -> dict:
+    """Get a deep copy of the workflow based on model override or VIDEO_BACKEND env var."""
     import copy
+
+    # Explicit Wan 2.2 model selection overrides VIDEO_BACKEND
+    if model in WAN22_WORKFLOWS:
+        wf = WAN22_WORKFLOWS[model]
+        if wf.get("_stub"):
+            raise RuntimeError(wf["_stub_message"])
+        return copy.deepcopy(wf)
 
     if VIDEO_BACKEND == "cogvideox":
         return copy.deepcopy(_COGVIDEOX_WORKFLOW)
@@ -720,7 +791,12 @@ def _build_video_workflow(
     height = min(height, VIDEO_MAX_HEIGHT)
     fps = min(fps, VIDEO_OUTPUT_FPS)
 
-    workflow = _get_workflow()
+    workflow = _get_workflow(model)
+
+    if model in WAN22_WORKFLOWS:
+        # Wan 2.2 workflow — node layout varies by variant; operator populates after export
+        # At this point _get_workflow() already raised if stub, so workflow is real
+        return workflow, seed
 
     if VIDEO_BACKEND == "cogvideox":
         model_name = model if model else "cogvideox_5b.safetensors"
