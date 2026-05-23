@@ -475,6 +475,24 @@ backends:
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
     notes: No-restrictions creative. Unverified for tools.
+- id: ollama-bench-qwopus36
+  type: ollama
+  url: ${OLLAMA_URL:-http://host.docker.internal:11434}
+  group: bench-qwopus36
+  models:
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q4_K_M
+    supports_tools: false
+    notes: "Qwopus3.6-27B-v2 Q4_K_M (~16.8GB). MTP variant, 1.66x faster than base\
+      \ Qwen3.6-27B (trace-inversion methodology). Bench target: MTP speedup on Ollama\
+      \ RC23+. Not in workspace routing — pull, test, bench first."
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q6_K
+    supports_tools: false
+    notes: "Qwopus3.6-27B-v2 Q6_K (~22.4GB). Quality tier bench — compare vs Q4_K_M\
+      \ for quality/TPS tradeoff."
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Q8_0
+    supports_tools: false
+    notes: "Qwopus3.6-27B-v2 Q8_0 (~29GB). Quality ceiling bench — near-full precision\
+      \ for MTP effectiveness comparison."
 workspace_routing:
   auto:
   - mlx
