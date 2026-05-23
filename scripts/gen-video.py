@@ -34,22 +34,41 @@ def _getenv(key: str, _cache: dict = {}) -> str:
     return os.environ.get(key) or _cache.get(key, "")
 
 
-def _notify(title: str, message: str, url: str = "") -> None:
-    """Fire-and-forget Pushover + Telegram notifications. Errors are ignored."""
-    _pushover(title, message, url)
-    _telegram(f"{title}\n{message}" + (f"\n{url}" if url else ""))
+import urllib.parse
 
 
-def _pushover(title: str, message: str, url: str = "") -> None:
+def _notify(title: str, message: str, comfyui_url: str = "") -> None:
+    """Download finished video and send to Telegram; ping Pushover as text."""
+    video_path = _download_video(comfyui_url) if comfyui_url else None
+    _pushover(title, message)
+    if video_path:
+        _telegram_send_video(video_path, caption=f"{title} — {message}")
+    else:
+        _telegram_text(f"{title}\n{message}")
+
+
+def _download_video(comfyui_url: str) -> str | None:
+    """Download video from ComfyUI local endpoint. Returns local path or None."""
+    try:
+        req = urllib.request.Request(comfyui_url)
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            import tempfile
+            suffix = ".mp4"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+                f.write(resp.read())
+                return f.name
+    except Exception as e:
+        print(f"\n[notify] download failed: {e}", file=sys.stderr)
+        return None
+
+
+def _pushover(title: str, message: str) -> None:
     token = _getenv("PUSHOVER_API_TOKEN")
     user = _getenv("PUSHOVER_USER_KEY")
     if not token or not user:
         return
-    payload: dict = {"token": token, "user": user, "title": title, "message": message}
-    if url:
-        payload["url"] = url
-        payload["url_title"] = "Open video"
     try:
+        payload = {"token": token, "user": user, "title": title, "message": message}
         data = urllib.parse.urlencode(payload).encode()
         req = urllib.request.Request("https://api.pushover.net/1/messages.json", data=data)
         urllib.request.urlopen(req, timeout=10)
@@ -57,7 +76,50 @@ def _pushover(title: str, message: str, url: str = "") -> None:
         pass
 
 
-def _telegram(message: str) -> None:
+def _telegram_send_video(path: str, caption: str = "") -> None:
+    """Send a video file to all configured Telegram user IDs."""
+    token = _getenv("TELEGRAM_BOT_TOKEN")
+    user_ids = _getenv("TELEGRAM_USER_IDS")
+    if not token or not user_ids:
+        return
+
+    boundary = "boundary_portal_video"
+    for chat_id in user_ids.split(","):
+        chat_id = chat_id.strip()
+        if not chat_id:
+            continue
+        try:
+            with open(path, "rb") as f:
+                video_data = f.read()
+            filename = os.path.basename(path)
+
+            # Build multipart/form-data manually (stdlib only)
+            parts = []
+            for name, value in [("chat_id", chat_id), ("caption", caption)]:
+                parts.append(
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="{name}"\r\n\r\n'
+                    f"{value}\r\n"
+                )
+            parts.append(
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="video"; filename="{filename}"\r\n'
+                f"Content-Type: video/mp4\r\n\r\n"
+            )
+            body = "".join(parts).encode() + video_data + f"\r\n--{boundary}--\r\n".encode()
+
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendVideo",
+                data=body,
+                headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            )
+            urllib.request.urlopen(req, timeout=120)
+        except Exception as e:
+            print(f"\n[notify] Telegram sendVideo failed: {e}", file=sys.stderr)
+            _telegram_text(f"Video ready (upload failed): {caption}")
+
+
+def _telegram_text(message: str) -> None:
     token = _getenv("TELEGRAM_BOT_TOKEN")
     user_ids = _getenv("TELEGRAM_USER_IDS")
     if not token or not user_ids:
@@ -76,9 +138,6 @@ def _telegram(message: str) -> None:
             urllib.request.urlopen(req, timeout=10)
         except Exception:
             pass
-
-
-import urllib.parse
 
 DEFAULT_NEGATIVE = (
     "blurry, deformed, extra limbs, bad anatomy, low quality, censored, "
