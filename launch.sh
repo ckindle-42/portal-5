@@ -3774,11 +3774,13 @@ PLIST
         "mlx-community/Qwen3.6-35B-A3B-4bit"                   # ~20GB — Qwen3.6 35B-A3B MoE (auto-agentic probe)
         "Jackrong/Negentropy-claude-opus-4.7-9B-6bit"          # ~7GB — Trace-inversion reasoning 9B comparator
         # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
+        # bench-nemotron-omni: NVIDIA omni-modal MoE (text+image+video+audio)
+        "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4"  # ~15GB — NVIDIA Nemotron omni VLM, bench-nemotron-omni
+        # Non-Transformer lineage diversification
+        "mlx-community/LFM2-8B-A1B-8bit"                       # ~8GB — Liquid AI LFM2 MoE 8.3B/1.5B-active, hybrid arch
         # OCR bench pair
         "mlx-community/olmOCR-2-7B-1025-5bit"                  # ~5GB — Allen AI olmOCR-2, RLVR doc OCR, Qwen2.5-VL-7B base
         "mlx-community/Nanonets-OCR2-3B-4bit"                  # ~2GB — Nanonets OCR2, pdf2markdown, Qwen2.5-VL-3B base
-        # Non-Transformer lineage diversification
-        "mlx-community/LFM2-8B-A1B-8bit"                       # ~8GB — Liquid AI LFM2 MoE 8.3B/1.5B-active, hybrid arch
         # RAG two-stage retrieval (embedding + reranker)
         "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"          # ~0.3GB — Qwen3 embedding, Apache 2.0, MLX-native
         "mlx-community/Qwen3-Reranker-0.6B-mxfp8"             # ~0.6GB — Qwen3 reranker, Apache 2.0, MLX-native
