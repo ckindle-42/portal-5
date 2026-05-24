@@ -102,7 +102,6 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
         "bench-laguna",
         "bench-phi4-reasoning",
         "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — security CoT; 0 tokens without enable_thinking=False
-        "bench-llama4-scout",    # Llama-4 native thinking model (mlx_vlm); strips think→empty without disable
         "auto-mistral",
         "auto-reasoning",
         "auto-security",  # AEON Qwen3.6-27B is a thinking model
@@ -265,8 +264,6 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen36-35b-a3b": "coding",  # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
     # 32B standalone
     "bench-olmo3-32b": "reasoning",  # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
-    # Llama 4 Scout — Meta MoE 17B-16E, multimodal (vision + text), mlx-vlm
-    "bench-llama4-scout": "vision",
     # NVIDIA — omni-modal (text+image+video+audio). Uses vision prompt for CC-01 baseline.
     # Follow-up: add dedicated "doc_intel" prompt category in TASK_NEMOTRON_OMNI_PROMOTE_V1
     # for policy-passage extraction + citation quality measurement.
