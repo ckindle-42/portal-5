@@ -39,11 +39,21 @@ def test_workspace_with_mlx_down_returns_ollama_only():
     assert any("qwen3-coder" in k for k in keys)
 
 
-def test_ollama_only_workspace_unaffected_by_mlx_state():
-    # auto-blueteam has no mlx_model_hint, so MLX state should not change results
+def test_blueteam_mlx_hint_affects_model_list():
+    # auto-blueteam now has Foundation-Sec as MLX hint (May 2026).
+    # MLX ready: Foundation-Sec should appear in keys.
+    # MLX down: only lily-cybersecurity (Ollama fallback) should appear.
     keys_ready, _ = expected_model_keys("auto-blueteam", mlx_state="ready")
     keys_down, _ = expected_model_keys("auto-blueteam", mlx_state="down")
-    assert keys_ready == keys_down
+    assert any("foundation-sec" in k.lower() for k in keys_ready), (
+        f"Foundation-Sec expected when MLX ready, got {keys_ready}"
+    )
+    assert not any("foundation-sec" in k.lower() for k in keys_down), (
+        f"Foundation-Sec must be excluded when MLX down, got {keys_down}"
+    )
+    assert any("lily-cybersecurity" in k for k in keys_down), (
+        f"lily-cybersecurity (Ollama fallback) expected when MLX down, got {keys_down}"
+    )
 
 
 def test_unknown_workspace_returns_empty():

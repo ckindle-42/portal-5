@@ -709,21 +709,17 @@ class TestR23MLXSupport:
             )
 
     def test_security_workspaces_skip_mlx(self):
-        """auto-blueteam uses Ollama only (no MLX hint). auto-security/redteam now
-        route via mlx (F3 fix adds glm-4.7-flash-abliterated-8bit MLX hint)."""
+        """auto-blueteam, auto-security, auto-redteam all route via MLX (each has an MLX model hint).
+        auto-blueteam: Foundation-Sec-8B-Reasoning-4bit-mlx (May 2026).
+        auto-security/redteam: glm-4.7-flash-abliterated-8bit (F3 fix)."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         routing = cfg.get("workspace_routing", {})
-        # auto-blueteam: no MLX hint, no MLX route group
-        assert "mlx" not in routing.get("auto-blueteam", []), (
-            "auto-blueteam should not include mlx — no MLX model hint configured"
-        )
-        # auto-security/redteam: F3 adds MLX hint (glm-4.7-flash-abliterated-8bit),
-        # so they must include mlx in routes for the hint validator to pass
-        for ws in ["auto-security", "auto-redteam"]:
+        # All three security workspaces now have MLX model hints
+        for ws in ["auto-blueteam", "auto-security", "auto-redteam"]:
             assert "mlx" in routing.get(ws, []), (
-                f"{ws} must include mlx after F3 adds glm-4.7-flash-abliterated-8bit hint"
+                f"{ws} must include mlx — has an MLX model hint configured"
             )
 
     def test_minimax_not_in_mlx_group(self):

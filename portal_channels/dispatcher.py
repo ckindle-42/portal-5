@@ -69,7 +69,6 @@ VALID_WORKSPACES = frozenset(
         "bench-negentropy",
         "bench-olmo3-32b",
         # May 2026 additions (TASK_BENCH_COVERAGE_V1)
-        "bench-llama4-scout",
         "bench-nemotron-omni",
         # V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2)
         "bench-olmocr2",
@@ -77,6 +76,8 @@ VALID_WORKSPACES = frozenset(
         "bench-lfm2-moe",
         "bench-foundation-sec",
         "bench-toolace25",
+        # May 2026 specialist MLX production workspaces
+        "tools-specialist",
     }
 )
 
