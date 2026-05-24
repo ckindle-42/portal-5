@@ -22,20 +22,6 @@ backends:
     is_vlm: false
     supports_tools: true
     notes: "Heavy coding + reasoning (~40GB, 4bit only \u2014 too big for 8bit, BIG_MODEL)"
-  - id: mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit
-    memory_gb: 57
-    big_model: true
-    is_vlm: true
-    supports_tools: true
-    max_kv_size: 4096
-    bench_skip: true
-    notes: "Meta Llama 4 Scout 109B MoE / 17B active 4-bit MLX (~58GB on disk, ~57GB Metal resident,
-      Llama 4 Community License). Converted via mlx-vlm 0.1.21. bench-llama4-scout pin.
-      BENCH_SKIP: allocates 57812 MB Metal (weights + KV cache at max_kv_size=4096); exceeds
-      available ~37.5GB on 64GB M4 Pro and causes system-level Metal OOM + kernel crash.
-      config.json patched: attn_temperature_tuning int->bool (transformers 4.51->5.7 compat).
-      BIG_MODEL=true, cold-load ~20s mlx_vlm. Do NOT co-load with other BIG_MODEL entries.
-       Lineage: Meta (first non-Qwen/Gemma/IBM frontier MoE in the bench fleet)."
   - id: mlx-community/Qwen3-VL-32B-Instruct-8bit
     memory_gb: 36
     big_model: true
@@ -699,10 +685,6 @@ workspace_routing:
   bench-olmo3-32b:
   - mlx
   - reasoning
-  - general
-  bench-llama4-scout:
-  - mlx
-  - vision
   - general
   bench-nemotron-omni:
   - mlx
