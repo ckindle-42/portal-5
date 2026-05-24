@@ -36,7 +36,7 @@ You are the **UAT execution agent**. You do not build or modify the driver. You 
 
 ## What the UAT Driver Tests
 
-110 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
+150 tests that produce **real Open WebUI conversations visible in the browser** at `http://localhost:8080`. Each conversation is named, tagged, and reviewable. Artifacts (DOCX, XLSX, PPTX, WAV, MP4) appear as file attachments in the relevant chats.
 
 The driver is NOT the acceptance suite. It validates user-observable behavioral contracts that keyword matching cannot catch: does the persona ask before diagnosing? Does the Excel Sheet compute values, not show formula text? Does the Code Review Assistant scope its review to the diff only?
 
@@ -164,9 +164,9 @@ This file is the source of truth for "where am I in the run." Every phase append
 |---|---|---|---|
 | 1 | Smoke (auto) | Confirm driver, OWUI, browser, results file all wire up. 4 tests, fast feedback before committing real time. | 5–10 min |
 | 2 | mlx_large-heavy sections | Big models loaded while memory is freshest. Catches OOM early. | 75–110 min |
-| 3 | mlx_small-heavy coding/reasoning | Bulk of the suite. Models in the 8–18 GB range. | 90–120 min |
-| 4 | mlx_small-heavy daily/data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 40–55 min |
-| 5 | ollama + mlx_small sections | MLX evicted before this phase starts. | 15–25 min |
+| 3 | mlx_small-heavy coding/reasoning | Bulk of the suite. Models in the 8–18 GB range. | 100–140 min |
+| 4 | mlx_small-heavy daily/data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 50–70 min |
+| 5 | ollama + mlx_small sections | MLX evicted before this phase starts. | 20–35 min |
 | 6 | media_heavy (music/video) | Always last among inference. ComfyUI/Wan2.2 footprint. | 30–60 min |
 | 7 | benchmark | Long, model-capability-only, can run independently. | 60–90 min |
 | 8 | advanced + manual + verify | Manual reviews, OWUI conversation count, result tally. | 15–30 min |
@@ -241,7 +241,7 @@ The gate appends rows to `tests/UAT_RUN_LOG.md` automatically.
 ```bash
 bash tests/inter_phase_gate.sh 1 4    # after Phase 1 (4 tests)
 bash tests/inter_phase_gate.sh 2 35   # after Phase 2 (35 tests — verify count in driver output header)
-bash tests/inter_phase_gate.sh 3 26   # after Phase 3 (26 tests)
+bash tests/inter_phase_gate.sh 3 30   # after Phase 3 (30 tests)
 # ... and so on — see exact commands in each phase section below
 ```
 
@@ -309,20 +309,20 @@ PHASE3_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 3. auto-coding | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 26 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE3_EXIT |"
+  echo "| 3. auto-coding | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 30 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE3_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Run the **Inter-Phase Gate** before phase 4:
 ```bash
-bash tests/inter_phase_gate.sh 3 26
+bash tests/inter_phase_gate.sh 3 30
 ```
 
 ---
 
 ## Phase 4 — Remaining mlx_small/any sections (data, reasoning, creative, mistral, spl, math)
 
-**Why all six in one invocation:** these sections share the mlx_small tier and several share model_slugs. Batching them lets the cascade ordering consolidate by model — every test for a given persona runs back-to-back, then the driver loads the next persona's model exactly once. Running them as six separate invocations would reload some models multiple times.
+**Why all these sections in one invocation:** they share the mlx_small tier and several share model_slugs. Batching them lets the cascade ordering consolidate by model — every test for a given persona runs back-to-back, then the driver loads the next persona's model exactly once. Running them as separate invocations would reload some models multiple times.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
@@ -340,44 +340,48 @@ PHASE4_EXIT=$?
 # That's fine — auto is small and acts as a regression spot-check after phases 2-3.
 # auto-daily (WS-DD-01..08) uses gemma-4-26b MLX — same tier as auto-coding's mlx_small
 # tests; batching here lets cascade ordering group by model_slug across sections.
+# Section counts: auto-daily=8, auto-data=9, auto-reasoning=5, auto-creative=4,
+#   auto-mistral=2, auto-spl=3, auto-math=3, auto=4 → total=38
 
 {
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~33 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
+  echo "| 4. mlx_small bulk | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 38 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE4_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Inter-Phase Gate:
 ```bash
-bash tests/inter_phase_gate.sh 4 33
+bash tests/inter_phase_gate.sh 4 38
 ```
 
 ---
 
 ## Phase 5 — Ollama + mlx_small (blueteam, docs)
 
-`auto-security` and `auto-redteam` moved to Phase 2 (they are now pure `mlx_large`/AEON). This phase is the remaining non-mlx_large sections: `auto-blueteam` (pure ollama) and `auto-docs` (mlx_small + ollama, 6/7 tests mlx_small). No large model loads here — wired memory stays low throughout.
+`auto-security` and `auto-redteam` moved to Phase 2 (they are now pure `mlx_large`/AEON). This phase is the remaining non-mlx_large sections: `auto-blueteam` (pure ollama), `auto-docs` (mlx_small + ollama, 8/9 tests mlx_small), and `auto-documents` (1 test, mlx_small). No large model loads here — wired memory stays low throughout.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
   --section auto-blueteam \
   --section auto-docs \
+  --section auto-documents \
   2>&1 | tee /tmp/uat_phase5.log
 PHASE5_EXIT=$?
+# Section counts: auto-blueteam=2, auto-docs=9, auto-documents=1 → total=12
 
 {
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 5. ollama + mlx_small | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~9 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE5_EXIT |"
+  echo "| 5. ollama + mlx_small | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 12 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE5_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Inter-Phase Gate (5→6: keep ComfyUI for media_heavy):
 ```bash
-bash tests/inter_phase_gate.sh 5 9 --keep-comfyui
+bash tests/inter_phase_gate.sh 5 12 --keep-comfyui
 ```
 
 ---
@@ -423,13 +427,13 @@ PHASE7_EXIT=$?
   PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 13 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
+  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 18 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
 } >> tests/UAT_RUN_LOG.md
 ```
 
 Inter-Phase Gate:
 ```bash
-bash tests/inter_phase_gate.sh 7 13
+bash tests/inter_phase_gate.sh 7 18
 ```
 
 ---
@@ -459,7 +463,7 @@ fi
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
   TOTAL=$((PASS+WARN+FAIL))
-  echo "| 8. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | ~6 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE8_EXIT |"
+  echo "| 8. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 12 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE8_EXIT |"
   echo ""
   echo "## Run summary — $RUN_TS"
   echo ""
@@ -497,7 +501,7 @@ for t in uat: print(' ', t)
 " | head -20
 ```
 
-Expected after a complete run with `--skip-bots` (excluding `--skip-artifacts`): **~108–110 conversations** (all 110 tests create OWUI chats; A-08 creates 2; A-05/A-06 are skipped). If `--skip-artifacts` is also set, subtract 5 (auto-music + auto-video). Fewer means at least one phase recorded results without OWUI chats — investigate `/tmp/uat_phase*.log` for the affected phase.
+Expected after a complete run with `--skip-bots` (excluding `--skip-artifacts`): **~150 conversations** (all 150 tests create OWUI chats; A-08 creates 2; A-05/A-06 are skipped). If `--skip-artifacts` is also set, subtract 5 (auto-music + auto-video). Fewer means at least one phase recorded results without OWUI chats — investigate `/tmp/uat_phase*.log` for the affected phase.
 
 ---
 
@@ -984,27 +988,28 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 |---|---|---|---|---|
 | `auto` | 4 | mlx_small + any | 1 (smoke), 4 | 5–10 min |
 | `auto-daily` | 8 | mlx_small (gemma-4-26b) | 4 | 15–25 min |
-| `auto-coding` | 26 | mlx_large + mlx_small + any | 3 | 40–60 min |
-| `auto-spl` | 2 | mlx_small | 4 | 8–12 min |
+| `auto-coding` | 30 | mlx_large + mlx_small + any | 3 | 45–70 min |
+| `auto-spl` | 3 | mlx_small | 4 | 10–15 min |
 | `auto-mistral` | 2 | mlx_small | 4 | 8–12 min |
-| `auto-creative` | 3 | mlx_small | 4 | 8–12 min |
-| `auto-docs` | 7 | mlx_small + ollama | 5 | 15–25 min |
+| `auto-creative` | 4 | mlx_small | 4 | 10–15 min |
+| `auto-docs` | 9 | mlx_small + ollama | 5 | 20–30 min |
+| `auto-documents` | 1 | mlx_small | 5 | 5–8 min |
 | `auto-agentic` | 2 | mlx_large + mlx_small | 2 | 20–35 min |
 | `auto-security` | 5 | mlx_large | 2 | 10–15 min |
 | `auto-redteam` | 3 | mlx_large | 2 | 8–12 min |
 | `auto-blueteam` | 2 | ollama | 5 | 5–8 min |
 | `auto-reasoning` | 5 | mlx_large + mlx_small + ollama | 4 | 20–30 min |
-| `auto-data` | 7 | mlx_large + mlx_small + any | 4 | 15–20 min |
-| `auto-compliance` | 3 | mlx_large | 2 | 10–15 min |
-| `auto-research` | 5 | mlx_large + any | 2 | 10–15 min |
-| `auto-vision` | 6 | mlx_large + any | 2 | 10–15 min |
+| `auto-data` | 9 | mlx_large + mlx_small + any | 4 | 18–25 min |
+| `auto-compliance` | 8 | mlx_large | 2 | 20–30 min |
+| `auto-research` | 9 | mlx_large + any | 2 | 18–25 min |
+| `auto-vision` | 8 | mlx_large + any | 2 | 15–20 min |
 | `auto-music` | 3 | media_heavy | 6 | 10–15 min |
 | `auto-video` | 2 | media_heavy | 6 | 15–30 min |
-| `auto-math` | 2 | mlx_small | 4 | 5–10 min |
-| `advanced` | 8 | mixed (incl. mlx_small two-chat) | 8 | 18–25 min |
-| `benchmark` | 13 | mlx_large + mlx_small + ollama | 7 | 60–90 min |
+| `auto-math` | 3 | mlx_small | 4 | 8–12 min |
+| `advanced` | 12 | mixed (incl. mlx_small two-chat) | 8 | 25–35 min |
+| `benchmark` | 18 | mlx_large + mlx_small + ollama | 7 | 75–110 min |
 
-**Total run (phases 1–8, `--skip-bots`):** approximately 295–440 minutes.
+**Total run (phases 1–8, `--skip-bots`):** approximately 340–530 minutes.
 
 ---
 
@@ -1093,4 +1098,4 @@ List any items that need operator action after this run.
 
 ---
 
-*Last updated: 2026-05-15 (MLX readiness watcher, pipeline API key auto-load, pre-warm retry every 90s when state=none persists — Step 3h added; Quick Reference updated; driver _wait_for_mlx_ready() no longer silently waits 1200s after first pre-warm attempt fails due to hot metal buffers post-eviction)*
+*Last updated: 2026-05-24 (test count updated 110→150; section counts corrected throughout; auto-documents added to Phase 5; phase gate counts updated: Phase 3 26→30, Phase 4 33→38, Phase 5 9→12, Phase 7 13→18, Phase 8 ~6→12; Section Reference table corrected; total runtime estimate updated)*
