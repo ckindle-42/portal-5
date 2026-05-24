@@ -1518,10 +1518,21 @@ class Handler(BaseHTTPRequestHandler):
         clen = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(clen)
         try:
-            model = json.loads(body).get("model", "")
+            payload = json.loads(body)
+            model = payload.get("model", "")
         except Exception:
+            payload = None
             model = ""
         bp = ensure_server(model)
+        # If the model lives in the flat HF cache layout (locally converted,
+        # not on HuggingFace), rewrite the model field so mlx_lm.server sees
+        # the absolute path it was started with — otherwise it tries to fetch
+        # the model ID from HF and gets a 404.
+        if payload is not None and model:
+            resolved = _resolve_model_path(model)
+            if resolved != model:
+                payload["model"] = resolved
+                body = json.dumps(payload).encode()
         url = f"http://127.0.0.1:{bp}{self.path}"
         hdrs = {
             k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")
