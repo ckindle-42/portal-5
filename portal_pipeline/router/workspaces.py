@@ -218,6 +218,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # purpose-trained on cybersec corpus + RLVR, native <think> reasoning,
         # strong on CVE→CWE, MITRE ATT&CK, SOC triage, compliance evidence.
         # lily-cybersecurity remains the Ollama fallback when MLX is occupied.
+        # NOTE: <think> is multi-token text in Llama-3.1 vocab (not a single token),
+        # so mlx_lm.server's has_thinking=False — reasoning output goes into content,
+        # not reasoning_content. This is intentional: the reasoning chain IS the
+        # analytical value for defenders. No mlx_chat_template_kwargs suppress needed.
         "mlx_model_hint": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
         "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
@@ -229,7 +233,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
         "mlx_only": True,
         "max_concurrent": 1,
-        "tools": ["filesystem", "memory", "time", "execute_python"],
+        # Tool names must match registered MCP function names (not MCP server IDs).
+        # memory MCP exposes: remember, recall. execution MCP exposes: execute_python.
+        "tools": ["execute_python", "remember", "recall"],
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
