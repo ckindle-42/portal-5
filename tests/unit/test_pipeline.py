@@ -1,10 +1,18 @@
 """Portal 5.2.1 Pipeline unit tests — no live backends required."""
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from portal_pipeline.cluster_backends import BackendRegistry
 from portal_pipeline.router_pipe import WORKSPACES, app
+
+_COMFYUI_DOWNLOAD_SCRIPT = Path("scripts/download_comfyui_models.py")
+_comfyui_enabled = pytest.mark.skipif(
+    not _COMFYUI_DOWNLOAD_SCRIPT.exists(),
+    reason="scripts/download_comfyui_models.py not present — ComfyUI not enabled",
+)
 
 
 # Use TestClient with context manager to trigger lifespan
@@ -407,6 +415,7 @@ class TestR17bModelExpansion:
         hint = WORKSPACES["auto-documents"]["model_hint"]
         assert "qwen3.5" in hint.lower(), f"Expected auto-documents to use a qwen3.5 variant, got: {hint}"
 
+    @_comfyui_enabled
     def test_comfyui_download_script_has_all_image_models(self):
         """download_comfyui_models.py covers all recs.md image models."""
         src = open("scripts/download_comfyui_models.py").read()
@@ -414,6 +423,7 @@ class TestR17bModelExpansion:
         for key in required:
             assert f'"{key}"' in src, f"FAIL: image model key '{key}' not in download script"
 
+    @_comfyui_enabled
     def test_comfyui_download_script_has_all_video_models(self):
         """download_comfyui_models.py covers all recs.md video models."""
         src = open("scripts/download_comfyui_models.py").read()
@@ -483,6 +493,7 @@ class TestR18ModelCompleteness:
             "auto-reasoning should use deepseek-r1"
         )
 
+    @_comfyui_enabled
     def test_all_required_image_models_in_download_script(self):
         """All recs.md + models.md image models are in download_comfyui_models.py."""
         src = open("scripts/download_comfyui_models.py").read()
@@ -499,6 +510,7 @@ class TestR18ModelCompleteness:
         for key in required:
             assert f'"{key}"' in src, f"Image model key '{key}' missing from download script"
 
+    @_comfyui_enabled
     def test_all_required_video_models_in_download_script(self):
         """All recs.md + models.md video models are in download_comfyui_models.py."""
         src = open("scripts/download_comfyui_models.py").read()
@@ -512,6 +524,7 @@ class TestR18ModelCompleteness:
         for key in required:
             assert f'"{key}"' in src, f"Video model key '{key}' missing from download script"
 
+    @_comfyui_enabled
     def test_video_models_have_subdir(self):
         """All video models specify subdir='video' for correct ComfyUI placement."""
         exec(open("scripts/download_comfyui_models.py").read(), ns := {})
