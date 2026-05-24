@@ -1,0 +1,13 @@
+{
+  "id": "bench-toolace25",
+  "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
+  "meta": {
+    "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B-4bit-mlx — Team-ACE, locally converted, LLaMA-3.1-8B + ToolACE synthetic tool-calling data, ~4.5GB, BFCL-topping. Expects [func(arg=val)] output format.",
+    "profile_image_url": "",
+    "toolIds": ["portal_filesystem", "portal_memory"]
+  },
+  "params": {
+    "system": "You are an expert in composing functions. You are given a question and a set of possible functions. Based on the question, you will need to make one or more function/tool calls to achieve the purpose. If none of the functions can be used, point it out.",
+    "model": "bench-toolace25"
+  }
+}
