@@ -214,7 +214,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
         "model_hint": "lily-cybersecurity:7b-q4_k_m",
+        # Foundation-Sec-8B-Reasoning is the MLX primary for blue-team work:
+        # purpose-trained on cybersec corpus + RLVR, native <think> reasoning,
+        # strong on CVE→CWE, MITRE ATT&CK, SOC triage, compliance evidence.
+        # lily-cybersecurity remains the Ollama fallback when MLX is occupied.
+        "mlx_model_hint": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
+        "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
+    },
+    "tools-specialist": {
+        "name": "🔧 Portal Tool Composer",
+        "description": "Structured function/API calling via ToolACE-2.5 (purpose-trained, BFCL-topping). Use for tasks that require composing multiple tool calls in sequence.",
+        "model_hint": None,
+        "mlx_model_hint": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "tools": ["filesystem", "memory", "time", "execute_python"],
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
@@ -578,23 +593,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     # ── May 2026 additions (TASK_BENCH_COVERAGE_V1) ──────────────────────────
-    "bench-llama4-scout": {
-        "name": "🔬 Bench · Llama-4-Scout (Meta MoE)",
-        "description": (
-            "Benchmark: mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit (MLX, Meta Apr 2026, "
-            "109B MoE / 17B active, ~58GB Q4 — BIG_MODEL, cold-load ~90-120s). "
-            "Native multimodal via early fusion (text + image). Llama 4 Community License. "
-            "⚠ OOM PROBE REQUIRED on 64GB machine before use: "
-            "python3 tests/benchmarks/bench_tps.py "
-            "--model mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit --mode direct"
-        ),
-        "model_hint": "llama3.3:70b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Llama-4-Scout-17B-16E-Instruct-4bit",
-        "mlx_only": True,
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "tools": [],
-    },
     "bench-nemotron-omni": {
         "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA MoE)",
         "description": (

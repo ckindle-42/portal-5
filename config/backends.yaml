@@ -581,6 +581,7 @@ workspace_routing:
   - security
   - general
   auto-blueteam:
+  - mlx
   - security
   - general
   auto-creative:
@@ -706,6 +707,10 @@ workspace_routing:
   - reasoning
   - general
   bench-toolace25:
+  - mlx
+  - tools
+  - general
+  tools-specialist:
   - mlx
   - tools
   - general
