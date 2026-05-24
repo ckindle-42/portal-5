@@ -144,14 +144,39 @@ def _load_draft_model_map() -> dict[str, str]:
 
 def _model_exists_locally(model_id: str) -> bool:
     """Check if model directory exists in the Portal 5 models mount or HF cache."""
+    # Absolute path — locally-converted models stored outside the standard HF layout.
+    if Path(model_id).is_absolute():
+        return Path(model_id).is_dir()
     portal5_models = Path(os.environ.get("PORTAL5_MODELS_DIR", "/Volumes/data01/models"))
     p = portal5_models / model_id
     if p.is_dir():
         return True
     hf_home = os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
     cache_dir = Path(hf_home) / "hub"
+    # Standard HF hub layout: models--org--name/snapshots/<hash>/
     safe_name = model_id.replace("/", "--")
-    return any(cache_dir.glob(f"models--{safe_name}*"))
+    if any(cache_dir.glob(f"models--{safe_name}*")):
+        return True
+    # Flat layout written by launch.sh convert-* scripts: hub/<org>/<name>/
+    flat = cache_dir / model_id
+    return flat.is_dir()
+
+
+def _resolve_model_path(model_id: str) -> str:
+    """Return the path mlx_lm.server should receive for --model.
+
+    For models stored in the flat HF-cache layout created by launch.sh convert-*
+    (hub/<org>/<name>/), mlx_lm's Path(model_id).exists() check fails because it
+    evaluates the ID as a relative path from CWD. Return the absolute path so
+    mlx_lm loads directly from disk without hitting HuggingFace.
+    """
+    if Path(model_id).is_absolute():
+        return model_id
+    hf_home = os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
+    flat = Path(hf_home) / "hub" / model_id
+    if flat.is_dir():
+        return str(flat)
+    return model_id
 
 
 # Load model registry from backends.yaml (single source of truth — CLAUDE.md Rule 8)
@@ -1010,9 +1035,10 @@ def start_server(stype: str, model: str = "") -> int:
     See: mlx_lm/server.py ModelProvider.__init__ patch.
     """
     port = LM_PORT if stype == "lm" else VLM_PORT
+    resolved_model = _resolve_model_path(model) if model else model
     cmd = ["python3", "-m", f"mlx_{stype}.server", "--port", str(port), "--host", "127.0.0.1"]
     if model:
-        cmd.extend(["--model", model])
+        cmd.extend(["--model", resolved_model])
 
     # Raise the server-level max_tokens default from mlx_lm's hardcoded 512 to a
     # value that covers full code generation tasks (Asteroids ~6K tok, research
