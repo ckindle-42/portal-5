@@ -124,6 +124,7 @@ _REASONING_MLX_PATTERNS = (
     "Qwen3.5-35B-A3B-Claude",
     "Qwen3.6",
     "AEON",
+    "Foundation-Sec",  # always emits <think>; enable_thinking=False suppresses CoT overhead
 )
 
 # Models that use /nothink in the user message to suppress thinking chain.
