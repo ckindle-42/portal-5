@@ -99,6 +99,18 @@ def patch_all(cache_dir: str = HF_CACHE) -> tuple[list[str], list[str], list[str
                 cfg["chat_template"] = template
                 changed = True
 
+            # TokenizersBackend is not a standard HF tokenizer class and is
+            # not recognised by mlx_lm — models converted via mlx_lm.convert
+            # from a huggingface_hub tokenizers-backed checkpoint inherit this
+            # value and fail to load. PreTrainedTokenizerFast is the correct
+            # class for BPE-based fast tokenizers.
+            if cfg.get("tokenizer_class") == "TokenizersBackend":
+                cfg["tokenizer_class"] = "PreTrainedTokenizerFast"
+                cfg.pop("backend", None)
+                cfg.pop("is_local", None)
+                cfg.pop("local_files_only", None)
+                changed = True
+
             if _fix_parser_type(cfg, model_name):
                 changed = True
 
