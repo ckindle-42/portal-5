@@ -32,6 +32,7 @@ WORKSPACE_TOOLS = {
     "auto-spl": ["server:mcp:portal_code"],
     "auto-mistral": ["server:mcp:portal_research"],
     "auto-agentic": ["server:mcp:portal_code"],
+    "tools-specialist": ["portal_filesystem", "portal_memory"],
 }
 
 
