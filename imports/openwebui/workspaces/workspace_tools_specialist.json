@@ -5,8 +5,8 @@
     "description": "🔧 Portal Tool Composer — ToolACE-2.5 (Team-ACE), purpose-trained for structured function/API call composition, BFCL-topping 8B model. Use for multi-step tool chains, API integration, and complex function-call sequences.",
     "profile_image_url": "",
     "toolIds": [
-      "portal_filesystem",
-      "portal_memory"
+      "server:mcp:portal_code",
+      "server:mcp:portal_memory"
     ]
   },
   "params": {
