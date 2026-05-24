@@ -101,6 +101,8 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-laguna",
         "bench-phi4-reasoning",
+        "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — security CoT; 0 tokens without enable_thinking=False
+        "bench-llama4-scout",    # Llama-4 native thinking model (mlx_vlm); strips think→empty without disable
         "auto-mistral",
         "auto-reasoning",
         "auto-security",  # AEON Qwen3.6-27B is a thinking model
@@ -1003,7 +1005,7 @@ def _config_mlx_models() -> list[str]:
             # Preferred: mlx_models sub-key (objects with id, memory_gb, is_vlm, etc.)
             mlx_models = be.get("mlx_models", [])
             if mlx_models:
-                return [m["id"] for m in mlx_models if "id" in m]
+                return [m["id"] for m in mlx_models if "id" in m and not m.get("bench_skip")]
             # Fallback: flat models list (legacy format)
             return list(be.get("models", []))
     return []
@@ -1457,6 +1459,15 @@ def bench_tps(
         combined_text = response_text + (" " + reasoning_text if reasoning_text else "")
         if completion_tokens == 0 and combined_text.strip():
             completion_tokens = max(1, len(combined_text.split()))
+        # Empty response: server returned HTTP 200 and a valid stream, but zero
+        # content and zero reasoning tokens.  Treat as a failure so runs_success
+        # accurately reflects whether the model produced usable output.
+        if completion_tokens == 0:
+            return {
+                "run": run_num,
+                "error": "empty response (0 tokens)",
+                "elapsed_s": round(elapsed, 2),
+            }
         tps = completion_tokens / elapsed if elapsed > 0 else 0.0
         ttft = round(t_first_token - t0, 3) if t_first_token is not None else None
 
@@ -2231,7 +2242,11 @@ def bench_model_cascade(
                 # event). After this returns the model is loaded; timed runs measure
                 # inference only, not cold-load latency.
                 _warmup_pipeline_model(ws)
-                _inactivity = PIPELINE_INACTIVITY_TIMEOUT
+                _inactivity = (
+                    PIPELINE_INACTIVITY_TIMEOUT
+                    if _is_reasoning_model("", ws)
+                    else PIPELINE_INACTIVITY_TIMEOUT
+                )
                 r = bench_tps(
                     PIPELINE_URL,
                     ws,
@@ -2275,6 +2290,11 @@ def bench_model_cascade(
                 prompt = _get_prompt_for_persona_category(cat)
                 prompt_cat = _prompt_category_for_persona(cat)
                 _warmup_pipeline_model(wm)
+                _cp_timeout = (
+                    PIPELINE_INACTIVITY_TIMEOUT
+                    if _is_reasoning_model("", wm)
+                    else PIPELINE_INACTIVITY_TIMEOUT
+                )
                 r = bench_tps(
                     PIPELINE_URL,
                     wm,
@@ -2282,7 +2302,7 @@ def bench_model_cascade(
                     runs=runs,
                     label="persona",
                     prompt_category=prompt_cat,
-                    request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+                    request_timeout=_cp_timeout,
                 )
                 r["backend"] = "pipeline"
                 r["path"] = "persona"
@@ -2406,6 +2426,11 @@ def bench_pipeline(
         prompt_cat = WORKSPACE_PROMPT_MAP.get(ws, "general")
         print("(warm-up) ", end="", flush=True)
         _warmup_pipeline_model(ws)
+        _ws_timeout = (
+            PIPELINE_INACTIVITY_TIMEOUT
+            if _is_reasoning_model("", ws)
+            else PIPELINE_INACTIVITY_TIMEOUT
+        )
         r = bench_tps(
             PIPELINE_URL,
             ws,
@@ -2413,7 +2438,7 @@ def bench_pipeline(
             runs=runs,
             label="pipeline",
             prompt_category=prompt_cat,
-            request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+            request_timeout=_ws_timeout,
         )
         r["backend"] = "pipeline"
         r["path"] = "pipeline"
@@ -2478,6 +2503,11 @@ def bench_personas(
         prompt = _get_prompt_for_persona_category(cat)
         prompt_cat = _prompt_category_for_persona(cat)
         _warmup_pipeline_model(wm)
+        _p_timeout = (
+            PIPELINE_INACTIVITY_TIMEOUT
+            if _is_reasoning_model("", wm)
+            else PIPELINE_INACTIVITY_TIMEOUT
+        )
         r = bench_tps(
             PIPELINE_URL,
             wm,
@@ -2485,7 +2515,7 @@ def bench_personas(
             runs=runs,
             label="persona",
             prompt_category=prompt_cat,
-            request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+            request_timeout=_p_timeout,
         )
         r["backend"] = "pipeline"
         r["path"] = "persona"
@@ -2670,6 +2700,91 @@ def _print_persona_table(results: list[dict]) -> None:
                 f"{slug:<30} {cat:<12} {wm_short:<40} {'FAIL':<10} {'-':<9} {r['runs_success']}/{r['runs_total']}"
             )
     print("=" * 125)
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+
+def _load_dotenv_for_notifications() -> None:
+    """Pull notification env vars from .env without overwriting existing values."""
+    env_file = Path(__file__).parent.parent.parent / ".env"
+    if not env_file.exists():
+        return
+    needed = {
+        "PUSHOVER_API_TOKEN", "PUSHOVER_USER_KEY",
+        "TELEGRAM_ALERT_BOT_TOKEN", "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_ALERT_CHANNEL_ID", "TELEGRAM_USER_IDS",
+        "SLACK_ALERT_WEBHOOK_URL",
+    }
+    try:
+        for raw in env_file.read_text().splitlines():
+            line = raw.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            k = k.strip()
+            if k in needed and k not in os.environ:
+                os.environ[k] = v.strip().strip('"').strip("'")
+    except Exception:
+        pass
+
+
+def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:
+    """Fire-and-forget: send message to every configured notification channel."""
+    import urllib.parse
+    import urllib.request
+
+    _load_dotenv_for_notifications()
+
+    # Pushover
+    token = os.environ.get("PUSHOVER_API_TOKEN", "")
+    user = os.environ.get("PUSHOVER_USER_KEY", "")
+    if token and user:
+        try:
+            data = urllib.parse.urlencode({
+                "token": token, "user": user,
+                "title": title, "message": message[:512],
+            }).encode()
+            urllib.request.urlopen(
+                urllib.request.Request("https://api.pushover.net/1/messages.json", data=data),
+                timeout=8,
+            )
+        except Exception:
+            pass
+
+    # Telegram
+    bot_token = os.environ.get("TELEGRAM_ALERT_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    raw_ids = os.environ.get("TELEGRAM_ALERT_CHANNEL_ID") or os.environ.get("TELEGRAM_USER_IDS", "")
+    chat_id = raw_ids.split(",")[0].strip() if raw_ids else ""
+    if bot_token and chat_id:
+        try:
+            data = urllib.parse.urlencode({
+                "chat_id": chat_id,
+                "text": f"*{title}*\n{message}",
+                "parse_mode": "Markdown",
+            }).encode()
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage", data=data
+                ),
+                timeout=8,
+            )
+        except Exception:
+            pass
+
+    # Slack
+    slack_url = os.environ.get("SLACK_ALERT_WEBHOOK_URL", "")
+    if slack_url:
+        try:
+            data = json.dumps({"text": f"*{title}*\n{message}"}).encode()
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    slack_url, data=data, headers={"Content-Type": "application/json"}
+                ),
+                timeout=8,
+            )
+        except Exception:
+            pass
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -2879,6 +2994,15 @@ def _run_main(args) -> None:
     do_pipeline = args.mode in ("pipeline", "all")
     do_personas = args.mode in ("personas", "all")
 
+    _send_bench_notification(
+        f"Starting bench run — mode={args.mode} runs={args.runs} order={args.order}\n"
+        f"Hardware: {hw.get('chip', '?')} {hw.get('total_memory_gb', '?')}GB\n"
+        f"Backends: MLX={'yes' if mlx_available else 'no'} "
+        f"Ollama={'yes' if ollama_available else 'no'} "
+        f"Pipeline={'yes' if pipeline_available else 'no'}",
+        title="Portal 5 Bench — Started",
+    )
+
     t0 = time.time()
 
     # Initialize output file (or load existing for resume)
@@ -2988,8 +3112,16 @@ def _run_main(args) -> None:
 
     tested = sum(1 for r in output["results"] if r.get("runs_success", 0) > 0)
     available_ct = sum(1 for r in output["results"] if r.get("available", True))
+    failed_ct = available_ct - tested
+    hours = total_time / 3600
     print(
         f"\nTotal: {tested}/{available_ct} passed ({len(output['results'])} total) in {total_time:.0f}s"
+    )
+    _send_bench_notification(
+        f"Bench complete — {tested}/{available_ct} passed, {failed_ct} failed\n"
+        f"Wall time: {hours:.1f}h  |  mode={args.mode}\n"
+        f"Results: {Path(args.output).name}",
+        title="Portal 5 Bench — Done",
     )
     # Final cleanup: evict all models to prevent OOM after testing
     if not args.dry_run and (mlx_available or ollama_available):
