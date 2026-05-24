@@ -30,9 +30,10 @@ The v6 acceptance test framework validates **every documented feature** in Porta
 - Configuration consistency (backends.yaml ↔ router_pipe.py)
 
 ### Workspaces (Section S3)
-All 29 workspaces (17 auto-* + 12 bench-*, incl. bench-granite41-8b/30b) with content-aware routing validation:
-- Auto workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`, `auto-s50`, `auto-creative`, `auto-video`, `auto-music`
-- Bench workspaces: `bench-reasoning`, `bench-coding`, `bench-math`, `bench-vision`, `bench-agentic`, `bench-data`, `bench-research`, `bench-security`, `bench-creative`
+All 44 workspaces (18 auto-* + 24 bench-* + 2 other: `auto`, `tools-specialist`) with content-aware routing validation. S3a/S3b directly route-test 17 auto-* workspaces; `auto-daily` and `tools-specialist` are covered by S10/S11 personas and S24 respectively. S41-02 verifies `max_concurrent=1` for all bench-* workspaces (data-driven).
+
+- Auto workspaces: `auto-coding`, `auto-agentic`, `auto-spl`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-reasoning`, `auto-research`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-vision`, `auto-documents`, `auto-math`, `auto-daily`, `auto-creative`, `auto-video`, `auto-music`
+- Bench workspaces: `bench-devstral`, `bench-dolphin8b`, `bench-foundation-sec`, `bench-glm`, `bench-gptoss`, `bench-granite41-8b`, `bench-granite41-30b`, `bench-laguna`, `bench-lfm2-moe`, `bench-llama33-70b`, `bench-nanonets-ocr2`, `bench-negentropy`, `bench-nemotron-omni`, `bench-olmo3-32b`, `bench-olmocr2`, `bench-omnicoder2`, `bench-phi4`, `bench-phi4-reasoning`, `bench-qwen3-coder-30b`, `bench-qwen3-coder-next`, `bench-qwen35-abliterated`, `bench-qwen36-27b`, `bench-qwen36-35b-a3b`, `bench-toolace25`
 
 ### Document Generation (Section S4)
 - Word (.docx) generation via MCP
@@ -71,7 +72,7 @@ All 29 workspaces (17 auto-* + 12 bench-*, incl. bench-granite41-8b/30b) with co
 - Round-trip TTS→ASR validation
 
 ### Personas (Sections S10-S11)
-89 non-compliance personas (S10-S11) plus 7 compliance personas (S10c, via fixture). Tests are grouped by **model, not category**,
+103 non-compliance personas (S10-S11) plus 7 compliance personas (S10c, via fixture). Tests are grouped by **model, not category**,
 to prevent model swapping timeouts on 64GB unified memory.
 
 For the full persona list, see `config/personas/*.yaml`. The test dynamically loads
@@ -123,6 +124,9 @@ all persona YAML files at runtime, grouping them by their `workspace_model` fiel
 - ComfyUI connectivity
 - FLUX schnell generation
 - Output validation
+
+> **Note:** ComfyUI is disabled by default. S30 and S31 require the `comfyui` profile:
+> `./launch.sh up --profile comfyui` (or they will record INFO/BLOCKED, not FAIL).
 
 ### Video Generation (Section S31)
 - Wan2.2 model availability
@@ -532,12 +536,13 @@ Produce these files in the repo root:
 | S21 | LLM Intent Router (P5-FUT-006) | 7 |
 | S22 | MLX Admission Control (P5-FUT-009) | 4 |
 | S23 | Model Diversity | 6 |
-| S30 | Image generation | 2 |
-| S31 | Video generation | 1 |
+| S24 | Specialist MLX models (Foundation-Sec, ToolACE-2.5) | 6 |
+| S30 | Image generation (requires `--profile comfyui`) | 2 |
+| S31 | Video generation (requires `--profile comfyui`) | 1 |
 | S40 | Metrics/Monitoring | 3 |
 
-**Total expected:** ~150+ tests (47 persona tests + ~100 infrastructure/routing/MCP tests)
+**Total expected:** ~165+ tests (110 persona tests + ~55 infrastructure/routing/MCP tests)
 
 ---
 
-*Last updated: 2026-05-15 (MLX readiness watcher added to Step 2 pre-flight and Step 10 cleanup; NEVER RUN: SIGKILL on Metal processes and pkill mlx-readiness.py added; _remediate_mlx_crash converted from pkill -9 to SIGTERM to prevent Metal buffer leaks; _wait_for_mlx_ready default timeout increased 120s→600s for large model cold starts)*
+*Last updated: 2026-05-24 (workspace count updated 29→44; bench-* list replaced with current 24 IDs; auto-s50 corrected to auto-daily; persona count updated 89→103; S24 added to Quick Reference table; S30/S31 ComfyUI profile prerequisite noted — disabled by default as of 2026-05-23)*
