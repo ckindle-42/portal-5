@@ -2351,6 +2351,7 @@ async def chat_completions(
     _is_streaming = False
     workspace_id: str = "unknown"
     start_time = time.monotonic()
+    _ws_sem: asyncio.Semaphore | None = None
     try:
         if registry is None:
             raise HTTPException(status_code=503, detail="Backend registry not initialised")

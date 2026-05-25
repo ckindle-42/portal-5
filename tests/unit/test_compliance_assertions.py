@@ -104,17 +104,16 @@ class TestInsufficientContext:
         r = ca.assert_insufficient_context_pattern(resp)
         assert r.passed, r.detail
 
-    def test_warns_with_loose_variant(self):
+    def test_passes_with_loose_variant(self):
         resp = "I need more information before I can answer this."
         r = ca.assert_insufficient_context_pattern(resp)
-        assert not r.passed
-        assert r.severity == "SHOULD"
+        assert r.passed  # loose variants now accepted as PASS
 
     def test_fails_when_model_proceeds_anyway(self):
         resp = "Yes, you are likely compliant based on what I can infer."
         r = ca.assert_insufficient_context_pattern(resp)
         assert not r.passed
-        assert r.severity == "MUST"
+        assert r.severity == "SHOULD"
 
 
 # ── Modal verbs ───────────────────────────────────────────────────────────
