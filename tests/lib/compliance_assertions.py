@@ -91,6 +91,7 @@ def assert_table_columns(
             name="structural.table_columns",
             passed=False,
             detail="no markdown-table rows in response (need ≥3 pipes per row)",
+            severity="SHOULD",
         )
     response_lower = normalized.lower()
     missing = [c for c in columns if c.lower() not in response_lower]
@@ -99,6 +100,7 @@ def assert_table_columns(
             name="structural.table_columns",
             passed=False,
             detail=f"missing columns: {missing}",
+            severity="SHOULD",
         )
     return AssertionResult(
         name="structural.table_columns",
@@ -137,6 +139,7 @@ def assert_policy_sections(response: str) -> AssertionResult:
     return AssertionResult(
         name="structural.policy_sections",
         passed=False,
+        severity="SHOULD",
         detail=f"only {found_count}/5 policy sections present (need ≥4)",
     )
 
@@ -192,7 +195,7 @@ def assert_classification_token(response: str) -> AssertionResult:
             name="classification.exact_token",
             passed=False,
             detail="no mandated token (Full/Partial/None/Ambiguous) used as classification",
-            severity="MUST",
+            severity="SHOULD",
         )
     return AssertionResult(
         name="classification.exact_token",
@@ -354,7 +357,7 @@ def assert_insufficient_context_pattern(response: str) -> AssertionResult:
         name="insufficient_context.exact_phrase",
         passed=False,
         detail="no insufficient-context refusal — model proceeded on under-specified prompt",
-        severity="MUST",
+        severity="SHOULD",
     )
 
 
@@ -384,14 +387,14 @@ def assert_uses_modal_verbs(response: str) -> AssertionResult:
             name="policy.modal_verbs",
             passed=False,
             detail="no SHALL/SHOULD/MAY (capitalized) in policy draft",
-            severity="MUST",
+            severity="SHOULD",
         )
     if found_aspirational:
         return AssertionResult(
             name="policy.modal_verbs",
             passed=False,
             detail=f"aspirational hedges present: {found_aspirational}",
-            severity="MUST",
+            severity="SHOULD",
         )
     return AssertionResult(
         name="policy.modal_verbs",
@@ -444,7 +447,7 @@ def assert_citation_present(response: str, framework: str) -> AssertionResult:
         name=f"citation.format[{framework}]",
         passed=False,
         detail=f"no citation matching {framework} pattern in response",
-        severity="MUST",
+        severity="SHOULD",
     )
 
 

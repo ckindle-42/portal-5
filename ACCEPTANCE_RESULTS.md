@@ -1,340 +1,628 @@
 # Portal 5 Acceptance Test Results — V6
 
-**Date:** 2026-05-02 11:34:53
-**Git SHA:** 81facbd
-**Sections:** S10c
-**Runtime:** 3911s (65m 11s)
+**Date:** 2026-05-25 08:50:46
+**Git SHA:** 56abc44
+**Sections:** S0, S1, S2, S12, S13, S15, S40, S50, S3a, S6, S16, S10, S10c, S21, S3b, S11, S20, S22, S23, S24, S4, S5, S8, S9, S7, S30, S31, S41, S42, S60, S70, S3
+**Runtime:** 11024s (183m 44s)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ PASS | 85 |
-| ❌ FAIL | 177 |
-| ⚠️  WARN | 56 |
-| **Total** | **318** |
+| ✅ PASS | 269 |
+| ❌ FAIL | 1 |
+| ⚠️  WARN | 264 |
+| ℹ️  INFO | 35 |
+| **Total** | **569** |
 
-**Code defects: 0 · Env issues: 0 · Unclassified: 233**
+**Code defects: 0 · Env issues: 0 · Unclassified: 265**
 
 ## Results
 
 | Section | ID | Name | Status | Detail | Duration |
 |---------|-----|------|--------|--------|----------|
+| S0 | S0-01 | Python version | ✅ PASS | Python 3.14.5 | 0.0s |
+| S0 | S0-02 | Required packages | ✅ PASS | all present | 0.2s |
+| S0 | S0-03 | .env file exists | ✅ PASS | /Users/chris/projects/portal-5/.env | 0.0s |
+| S0 | S0-04 | PIPELINE_API_KEY configured | ✅ PASS | key length: 42 | 0.0s |
+| S0 | S0-05 | Git repository | ✅ PASS | SHA: 56abc44 | 0.0s |
+| S0 | S0-06 | MLX watchdog stopped | ✅ PASS | watchdog not running — safe to test | 0.0s |
+| S0 | S0-07 | Deployed MLX proxy matches source | ✅ PASS | deployed copy in sync | 0.0s |
+| S1 | S1-01 | backends.yaml exists | ✅ PASS | /Users/chris/projects/portal-5/config/backends.yaml | 0.0s |
+| S1 | S1-02 | backends.yaml valid YAML | ✅ PASS | 7 backends | 0.0s |
+| S1 | S1-03 | Workspace IDs consistent | ✅ PASS | 44 workspaces | 0.0s |
+| S1 | S1-04 | Persona YAMLs valid | ✅ PASS | 110 personas | 0.1s |
+| S1 | S1-05 | Persona count matches yaml file count | ✅ PASS | 110 loaded, 110 yaml files | 0.0s |
+| S1 | S1-06 | routing_descriptions.json | ✅ PASS | 19 descriptions | 0.0s |
+| S1 | S1-07 | routing_examples.json | ✅ PASS | 3 examples | 0.0s |
+| S1 | S1-08 | MLX routing: VLM models flagged is_vlm i | ℹ️  INFO | models not deployed/missing VLM flags: ['jang_vlm', 'jang_all', '26b_abl_vlm', ' | 0.0s |
+| S1 | S1-09 | MLX routing: text-only models NOT flagge | ✅ PASS | ✓ Magistral + Phi-4 use mlx_lm | 0.0s |
+| S1 | S1-10 | Persona workspace_model values are pipel | ✅ PASS | all 110 personas use valid workspace_model values | 0.0s |
+| S1 | S1-11 | All personas have PERSONA_PROMPTS entrie | ✅ PASS | all 86 non-benchmark personas covered | 0.0s |
+| S1 | S1-17 | workspace hint reachability | ✅ PASS | all 44 workspace hints resolve | 0.1s |
+| S2 | S2-01 | Docker daemon | ✅ PASS | Docker OK | 0.5s |
+| S2 | S2-02 | Pipeline /health | ✅ PASS | backends=7/7, workspaces=44 | 0.0s |
+| S2 | S2-03 | Ollama | ✅ PASS | 28 models | 0.0s |
+| S2 | S2-04 | Open WebUI | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-05 | SearXNG | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-06 | Prometheus | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-07 | Grafana | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-08 | MCP documents (:8913) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-09 | MCP music (:8912) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-10 | MCP tts (:8916) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-11 | MCP whisper (:8915) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-12 | MCP sandbox (:8914) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-13 | MCP video (:8911) | ⚠️  WARN | HTTP 0  [UNCLASSIFIED] | 0.0s |
+| S2 | S2-14 | MCP embedding (:8917) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-15 | MCP security (:8919) | ✅ PASS | HTTP 200 | 0.0s |
+| S2 | S2-16 | MLX proxy | ✅ PASS | state=ready | 0.0s |
+| S2 | S2-17 | MLX Speech | ✅ PASS | HTTP 200 | 0.0s |
+| S12 | S12-01 | SearXNG search | ✅ PASS | 19 results | 0.7s |
+| S13 | S13-01 | Embedding service | ✅ PASS | HTTP 200 | 0.0s |
+| S13 | S13-02 | Generate embedding | ✅ PASS | dim: 1024 | 0.1s |
+| S15 | S15-01 | Workspace root exists | ✅ PASS | /Users/chris/AI_Output | 0.0s |
+| S15 | S15-02 | Workspace subdirectories | ✅ PASS | all present | 0.0s |
+| S15 | S15-03 | OWUI uploads bind mount | ✅ PASS | host↔OWUI bidirectional | 0.2s |
+| S15 | S15-04 | workspace helper imports | ✅ PASS | /Users/chris/AI_Output | 0.0s |
+| S15 | S15-05 | AUDIO_STT_ENGINE disabled | ✅ PASS | empty (correct) | 0.1s |
+| S40 | S40-01 | Pipeline /metrics | ✅ PASS | 1199 metrics | 0.0s |
+| S40 | S40-02 | Prometheus targets | ✅ PASS | 3/5 up | 0.0s |
+| S40 | S40-03 | Grafana API | ✅ PASS | HTTP 401 | 0.0s |
+| S50 | S50-01 | Empty prompt handled gracefully | ✅ PASS | HTTP 200 | 28.9s |
+| S50 | S50-02 | Oversized prompt | ⚠️  WARN | unexpected HTTP 408  [UNCLASSIFIED] | 60.0s |
+| S50 | S50-03 | Invalid model slug handled | ✅ PASS | HTTP 200 \| model=huihui_ai/qwen3.5-abliterated: | 13.1s |
+| S50 | S50-04 | Pipeline /health surfaces backend count | ✅ PASS | healthy: 7 | 0.0s |
+| S50 | S50-05 | Malformed JSON | ❌ FAIL | HTTP 500 — should be 400/422  [UNCLASSIFIED] | 0.0s |
+| S50 | S50-06 | Missing auth rejected with 401 | ✅ PASS | HTTP 401 | 0.0s |
+| S3a | S3a-01 | Workspace auto-video | ✅ PASS | signals: ['sun', 'mountain', 'light'] \| routed -> granite4.1:8b matches Ollama: | 44.3s |
+| S3a | S3a-02 | Workspace auto-music | ✅ PASS | signals: ['beat', 'sample', 'loop'] \| routed -> huihui_ai/qwen3.5-abliterated:9 | 95.2s |
+| S3a | S3a-03 | Workspace auto-security | ✅ PASS | signals: ['injection', 'authentication', 'OWASP'] \| routed -> baronllm:q6_k mat | 40.7s |
+| S3a | S3a-04 | Workspace auto-redteam | ✅ PASS | signals: ['sudo', 'SUID', 'privilege'] \| routed -> baronllm:q6_k matches MLX:qw | 33.1s |
+| S3a | S3a-05 | Workspace auto-blueteam | ✅ PASS | signals: ['traffic', 'network', 'monitor'] \| routed -> lily-cybersecurity:7b-q4 | 84.8s |
+| S6 | S6-01 | auto-security routing | ✅ PASS | signals: ['sql', 'inject'] \| routed -> baronllm:q6_k matches MLX:qwen3.6-27b-ae | 103.1s |
+| S6 | S6-02 | auto-redteam routing | ✅ PASS | signals: ['scan', 'exploit', 'OWASP'] \| routed -> baronllm:q6_k matches MLX:qwe | 98.2s |
+| S6 | S6-03 | auto-blueteam routing | ⚠️  WARN | signals: [] \| no model in response  [UNCLASSIFIED] | 180.0s |
+| S6 | S6-04 | Content-aware security routing | ✅ PASS | routed to security workspace: True | 148.2s |
+| S16 | S16-01 | Security MCP health | ✅ PASS | service: security-mcp | 0.0s |
+| S16 | S16-02 | classify_vulnerability (RCE — expect hig | ✅ PASS | {
+  "severity": "critical",
+  "confidence": 0.9496,
+  "probabilities": {
+    "lo | 0.2s |
+| S16 | S16-03 | classify_vulnerability (info disclosure  | ✅ PASS | {
+  "severity": "medium",
+  "confidence": 0.9839,
+  "probabilities": {
+    "low" | 0.1s |
+| S16 | S16-04 | classify_vulnerability returns probabili | ✅ PASS | {
+  "severity": "critical",
+  "confidence": 0.768,
+  "probabilities": {
+    "low | 0.0s |
+| S10 | S10-01 | Persona blueteamdefender | ✅ PASS | signals: ['encrypt', 'extension', 'ransom'] \| routed -> /Users/chris/.cache/hug | 31.6s |
+| S10 | S10-02 | Persona pentester | ✅ PASS | signals: ['OWASP', 'test', 'methodology'] \| routed -> mlx-community/Qwen3.6-27B | 52.9s |
+| S10 | S10-03 | Persona redteamoperator | ✅ PASS | signals: ['T1566', 'T1190', 'phishing'] \| routed -> mlx-community/Qwen3.6-27B-A | 19.4s |
+| S10 | S10-04 | Persona cybersecurityspecialist | ✅ PASS | signals: ['zero', 'trust', 'verify'] \| routed -> mlx-community/Qwen3.6-27B-AEON | 24.3s |
+| S10 | S10-05 | Persona networkengineer | ✅ PASS | signals: ['vlan', 'interface', 'GigabitEthernet'] \| routed -> mlx-community/Qwe | 24.3s |
 | S10c | S10c-00 | fixture loaded | ✅ PASS | 317 concrete scenarios across compliance personas | 0.0s |
-| S10c | S10c-001 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.5s |
-| S10c | S10c-002 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.4s |
-| S10c | S10c-003 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 10.6s |
-| S10c | S10c-004 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.4s |
-| S10c | S10c-005 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.4s |
-| S10c | S10c-006 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-007 | cippolicywriter/gap-analysis-table-struc | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-008 | cippolicywriter/classification-token-dis | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.5s |
-| S10c | S10c-009 | cippolicywriter/classification-token-dis | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-010 | cippolicywriter/classification-token-dis | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-011 | cippolicywriter/classification-token-dis | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-012 | cippolicywriter/classification-token-dis | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 7.7s |
-| S10c | S10c-013 | cippolicywriter/classification-token-dis | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-014 | cippolicywriter/classification-token-dis | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-015 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.5s |
-| S10c | S10c-016 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-017 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.0s |
-| S10c | S10c-018 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.3s |
-| S10c | S10c-019 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
-| S10c | S10c-020 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 8.2s |
-| S10c | S10c-021 | cippolicywriter/anti-fabrication-verbati | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.3s |
-| S10c | S10c-022 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.7s |
-| S10c | S10c-023 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.7s |
-| S10c | S10c-024 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-025 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-026 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.0s |
-| S10c | S10c-027 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-028 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-029 | cippolicywriter/insufficient-context-vag | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 7.6s |
-| S10c | S10c-030 | cippolicywriter/policy-modal-verbs[NERC_ | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-031 | cippolicywriter/policy-modal-verbs[HIPAA | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-032 | cippolicywriter/policy-modal-verbs[GDPR] | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-033 | cippolicywriter/policy-modal-verbs[SOC2] | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-034 | cippolicywriter/policy-modal-verbs[PCI_D | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-035 | cippolicywriter/policy-modal-verbs[NIST_ | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-036 | cippolicywriter/policy-modal-verbs[ISO_2 | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-037 | cippolicywriter/citation-format-discipli | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.1s |
-| S10c | S10c-038 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[HIPAA] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude | 12.6s |
-| S10c | S10c-039 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[GDPR] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.6s |
-| S10c | S10c-040 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.6s |
-| S10c | S10c-041 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.6s |
-| S10c | S10c-042 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.6s |
-| S10c | S10c-043 | cippolicywriter/citation-format-discipli | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-044 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-045 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-046 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-047 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-048 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-049 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-050 | cippolicywriter/dense-structured-tool-ou | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-051 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.3s |
-| S10c | S10c-052 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-053 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-054 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-055 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-056 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-057 | complianceanalyst/gap-analysis-table-str | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-058 | complianceanalyst/classification-token-d | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 10.2s |
-| S10c | S10c-059 | complianceanalyst/classification-token-d | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.5s |
-| S10c | S10c-060 | complianceanalyst/classification-token-d | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 7.8s |
-| S10c | S10c-061 | complianceanalyst/classification-token-d | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 9.9s |
-| S10c | S10c-062 | complianceanalyst/classification-token-d | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 7.8s |
-| S10c | S10c-063 | complianceanalyst/classification-token-d | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 8.6s |
-| S10c | S10c-064 | complianceanalyst/classification-token-d | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
-| S10c | S10c-065 | complianceanalyst/anti-fabrication-verba | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-066 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 11.6s |
-| S10c | S10c-067 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 12.5s |
-| S10c | S10c-068 | complianceanalyst/anti-fabrication-verba | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.3s |
-| S10c | S10c-069 | complianceanalyst/anti-fabrication-verba | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-070 | complianceanalyst/anti-fabrication-verba | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-071 | complianceanalyst/anti-fabrication-verba | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.8s |
-| S10c | S10c-072 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-073 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-074 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-075 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-076 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-077 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-078 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-079 | complianceanalyst/insufficient-context-v | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 11.2s |
-| S10c | S10c-080 | complianceanalyst/policy-modal-verbs[NER | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-081 | complianceanalyst/policy-modal-verbs[HIP | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-082 | complianceanalyst/policy-modal-verbs[GDP | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-083 | complianceanalyst/policy-modal-verbs[SOC | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-084 | complianceanalyst/policy-modal-verbs[PCI | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.5s |
-| S10c | S10c-085 | complianceanalyst/policy-modal-verbs[NIS | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-086 | complianceanalyst/policy-modal-verbs[ISO | ❌ FAIL | MUST failed: policy.modal_verbs, structural.policy_sections \| model=Jackrong/ML | 12.6s |
-| S10c | S10c-087 | complianceanalyst/citation-format-discip | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-088 | complianceanalyst/citation-format-discip | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-089 | complianceanalyst/citation-format-discip | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.7s |
-| S10c | S10c-090 | complianceanalyst/citation-format-discip | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.5s |
-| S10c | S10c-091 | complianceanalyst/citation-format-discip | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.5s |
-| S10c | S10c-092 | complianceanalyst/citation-format-discip | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.5s |
-| S10c | S10c-093 | complianceanalyst/citation-format-discip | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.5s |
-| S10c | S10c-094 | complianceanalyst/cross-framework-mappin | ❌ FAIL | MUST failed: citation.format[NIST_800_53], citation.format[ISO_27001], citation. | 12.6s |
-| S10c | S10c-095 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.6s |
-| S10c | S10c-096 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-097 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.6s |
-| S10c | S10c-098 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-099 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-100 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.7s |
-| S10c | S10c-101 | complianceanalyst/dense-structured-tool- | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-102 | complianceanalyst/long-context-multi-cit | ❌ FAIL | MUST failed: citation.format[NIST_800_53], citation.format[ISO_27001], citation. | 13.0s |
-| S10c | S10c-103 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.6s |
-| S10c | S10c-104 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-105 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-106 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.2s |
-| S10c | S10c-107 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-108 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-109 | gdprdpoadvisor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-110 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.8s |
-| S10c | S10c-111 | gdprdpoadvisor/classification-token-disc | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-112 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.2s |
-| S10c | S10c-113 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.9s |
-| S10c | S10c-114 | gdprdpoadvisor/classification-token-disc | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 6.8s |
-| S10c | S10c-115 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.3s |
-| S10c | S10c-116 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-117 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.1s |
-| S10c | S10c-118 | gdprdpoadvisor/anti-fabrication-verbatim | ❌ FAIL | MUST failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX-Qwen3.5-35B- | 12.6s |
-| S10c | S10c-119 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 7.4s |
-| S10c | S10c-120 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.3s |
-| S10c | S10c-121 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-122 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-123 | gdprdpoadvisor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-124 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 11.7s |
-| S10c | S10c-125 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-126 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-127 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-128 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-129 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-130 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-131 | gdprdpoadvisor/insufficient-context-vagu | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=Jackrong/MLX | 8.3s |
-| S10c | S10c-132 | gdprdpoadvisor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[NERC_CIP] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cla | 12.6s |
-| S10c | S10c-133 | gdprdpoadvisor/citation-format-disciplin | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-134 | gdprdpoadvisor/citation-format-disciplin | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-135 | gdprdpoadvisor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 11.0s |
-| S10c | S10c-136 | gdprdpoadvisor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 11.3s |
-| S10c | S10c-137 | gdprdpoadvisor/citation-format-disciplin | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.2s |
-| S10c | S10c-138 | gdprdpoadvisor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-139 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-140 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-141 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-142 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-143 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-144 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-145 | gdprdpoadvisor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-146 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.5s |
-| S10c | S10c-147 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-148 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 11.7s |
-| S10c | S10c-149 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-150 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-151 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-152 | hipaaprivacyofficer/gap-analysis-table-s | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-153 | hipaaprivacyofficer/classification-token | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 8.6s |
-| S10c | S10c-154 | hipaaprivacyofficer/classification-token | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-155 | hipaaprivacyofficer/classification-token | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.2s |
-| S10c | S10c-156 | hipaaprivacyofficer/classification-token | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 11.9s |
-| S10c | S10c-157 | hipaaprivacyofficer/classification-token | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 7.8s |
-| S10c | S10c-158 | hipaaprivacyofficer/classification-token | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.2s |
-| S10c | S10c-159 | hipaaprivacyofficer/classification-token | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.2s |
-| S10c | S10c-160 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-161 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-162 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-163 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-164 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-165 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-166 | hipaaprivacyofficer/anti-fabrication-ver | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-167 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-168 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-169 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-170 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-171 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-172 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-173 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-174 | hipaaprivacyofficer/insufficient-context | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 9.0s |
-| S10c | S10c-175 | hipaaprivacyofficer/citation-format-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-176 | hipaaprivacyofficer/citation-format-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.3s |
-| S10c | S10c-177 | hipaaprivacyofficer/citation-format-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.5s |
-| S10c | S10c-178 | hipaaprivacyofficer/citation-format-disc | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 10.4s |
-| S10c | S10c-179 | hipaaprivacyofficer/citation-format-disc | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 10.2s |
-| S10c | S10c-180 | hipaaprivacyofficer/citation-format-disc | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.6s |
-| S10c | S10c-181 | hipaaprivacyofficer/citation-format-disc | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 10.1s |
-| S10c | S10c-182 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-183 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-184 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-185 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
-| S10c | S10c-186 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-187 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-188 | hipaaprivacyofficer/dense-structured-too | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-189 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.5s |
-| S10c | S10c-190 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-191 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-192 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-193 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-194 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-195 | nerccipcomplianceanalyst/gap-analysis-ta | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-196 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 7.7s |
-| S10c | S10c-197 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 10.9s |
-| S10c | S10c-198 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.5s |
-| S10c | S10c-199 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 9.9s |
-| S10c | S10c-200 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 8.8s |
-| S10c | S10c-201 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 10.5s |
-| S10c | S10c-202 | nerccipcomplianceanalyst/classification- | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-203 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-204 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 12.5s |
-| S10c | S10c-205 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 8.3s |
-| S10c | S10c-206 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-207 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.0s |
-| S10c | S10c-208 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-209 | nerccipcomplianceanalyst/anti-fabricatio | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.2s |
-| S10c | S10c-210 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-211 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-212 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.0s |
-| S10c | S10c-213 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-214 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-215 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-216 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-217 | nerccipcomplianceanalyst/insufficient-co | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 10.4s |
-| S10c | S10c-218 | nerccipcomplianceanalyst/citation-format | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.6s |
-| S10c | S10c-219 | nerccipcomplianceanalyst/citation-format | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-220 | nerccipcomplianceanalyst/citation-format | ❌ FAIL | MUST failed: citation.format[GDPR] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.6s |
-| S10c | S10c-221 | nerccipcomplianceanalyst/citation-format | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.5s |
-| S10c | S10c-222 | nerccipcomplianceanalyst/citation-format | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.5s |
-| S10c | S10c-223 | nerccipcomplianceanalyst/citation-format | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.5s |
-| S10c | S10c-224 | nerccipcomplianceanalyst/citation-format | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-225 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-226 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-227 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-228 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-229 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
-| S10c | S10c-230 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: structural.table_columns \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.7s |
-| S10c | S10c-231 | nerccipcomplianceanalyst/dense-structure | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-232 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.5s |
-| S10c | S10c-233 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-234 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-235 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-236 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-237 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-238 | pcidssassessor/gap-analysis-table-struct | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-239 | pcidssassessor/classification-token-disc | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 8.9s |
-| S10c | S10c-240 | pcidssassessor/classification-token-disc | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 11.2s |
-| S10c | S10c-241 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.4s |
-| S10c | S10c-242 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 9.7s |
-| S10c | S10c-243 | pcidssassessor/classification-token-disc | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 9.5s |
-| S10c | S10c-244 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-245 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.8s |
-| S10c | S10c-246 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.7s |
-| S10c | S10c-247 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 12.6s |
-| S10c | S10c-248 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-249 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-250 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-251 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.2s |
-| S10c | S10c-252 | pcidssassessor/anti-fabrication-verbatim | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-253 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-254 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-255 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-256 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-257 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-258 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-259 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-260 | pcidssassessor/insufficient-context-vagu | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 9.1s |
-| S10c | S10c-261 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[NERC_CIP] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cla | 12.6s |
-| S10c | S10c-262 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[HIPAA] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude | 12.6s |
-| S10c | S10c-263 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[GDPR] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 12.6s |
-| S10c | S10c-264 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 11.4s |
-| S10c | S10c-265 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[PCI_DSS] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Clau | 12.6s |
-| S10c | S10c-266 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.6s |
-| S10c | S10c-267 | pcidssassessor/citation-format-disciplin | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-268 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-269 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-270 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-271 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-272 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-273 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.4s |
-| S10c | S10c-274 | pcidssassessor/dense-structured-tool-out | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.4s |
-| S10c | S10c-275 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 13.0s |
-| S10c | S10c-276 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.3s |
-| S10c | S10c-277 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.2s |
-| S10c | S10c-278 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.5s |
-| S10c | S10c-279 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-280 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-281 | soc2auditor/gap-analysis-table-structure | ❌ FAIL | MUST failed: structural.table_columns, classification.exact_token \| model=Jackr | 12.6s |
-| S10c | S10c-282 | soc2auditor/classification-token-discipl | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 8.5s |
-| S10c | S10c-283 | soc2auditor/classification-token-discipl | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 9.3s |
-| S10c | S10c-284 | soc2auditor/classification-token-discipl | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-285 | soc2auditor/classification-token-discipl | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.8s |
-| S10c | S10c-286 | soc2auditor/classification-token-discipl | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 8.5s |
-| S10c | S10c-287 | soc2auditor/classification-token-discipl | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 7.8s |
-| S10c | S10c-288 | soc2auditor/classification-token-discipl | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 11.8s |
-| S10c | S10c-289 | soc2auditor/anti-fabrication-verbatim-te | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.5s |
-| S10c | S10c-290 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 12.6s |
-| S10c | S10c-291 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=Jackrong/MLX- | 12.5s |
-| S10c | S10c-292 | soc2auditor/anti-fabrication-verbatim-te | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.4s |
-| S10c | S10c-293 | soc2auditor/anti-fabrication-verbatim-te | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 11.3s |
-| S10c | S10c-294 | soc2auditor/anti-fabrication-verbatim-te | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-295 | soc2auditor/anti-fabrication-verbatim-te | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.6s |
-| S10c | S10c-296 | soc2auditor/refuse-to-certify-binary[NER | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-297 | soc2auditor/refuse-to-certify-binary[HIP | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-298 | soc2auditor/refuse-to-certify-binary[GDP | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-299 | soc2auditor/refuse-to-certify-binary[SOC | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-300 | soc2auditor/refuse-to-certify-binary[PCI | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.5s |
-| S10c | S10c-301 | soc2auditor/refuse-to-certify-binary[NIS | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-302 | soc2auditor/refuse-to-certify-binary[ISO | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=Jackrong/MLX-Qwen3.5-35B-A3B | 12.6s |
-| S10c | S10c-303 | soc2auditor/insufficient-context-vague-p | ❌ FAIL | MUST failed: insufficient_context.exact_phrase \| model=Jackrong/MLX-Qwen3.5-35B | 8.1s |
-| S10c | S10c-304 | soc2auditor/citation-format-discipline[N | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-305 | soc2auditor/citation-format-discipline[H | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 10.8s |
-| S10c | S10c-306 | soc2auditor/citation-format-discipline[G | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.0s |
-| S10c | S10c-307 | soc2auditor/citation-format-discipline[S | ❌ FAIL | MUST failed: citation.format[SOC2] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude- | 10.4s |
-| S10c | S10c-308 | soc2auditor/citation-format-discipline[P | ✅ PASS | all 1 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.5s |
-| S10c | S10c-309 | soc2auditor/citation-format-discipline[N | ❌ FAIL | MUST failed: citation.format[NIST_800_53] \| model=Jackrong/MLX-Qwen3.5-35B-A3B- | 12.6s |
-| S10c | S10c-310 | soc2auditor/citation-format-discipline[I | ❌ FAIL | MUST failed: citation.format[ISO_27001] \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.6s |
-| S10c | S10c-311 | soc2auditor/dense-structured-tool-output | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.8s |
-| S10c | S10c-312 | soc2auditor/dense-structured-tool-output | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-313 | soc2auditor/dense-structured-tool-output | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-314 | soc2auditor/dense-structured-tool-output | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-315 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
-| S10c | S10c-316 | soc2auditor/dense-structured-tool-output | ❌ FAIL | MUST failed: classification.exact_token \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Cl | 12.7s |
-| S10c | S10c-317 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6- | 12.7s |
+| S10c | S10c-001 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 69.7s |
+| S10c | S10c-002 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 47.2s |
+| S10c | S10c-003 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.5s |
+| S10c | S10c-004 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.3s |
+| S10c | S10c-005 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.3s |
+| S10c | S10c-006 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.6s |
+| S10c | S10c-007 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.0s |
+| S10c | S10c-008 | cippolicywriter/classification-token-dis | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 6.3s |
+| S10c | S10c-009 | cippolicywriter/classification-token-dis | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 5.0s |
+| S10c | S10c-010 | cippolicywriter/classification-token-dis | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.6s |
+| S10c | S10c-011 | cippolicywriter/classification-token-dis | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.8s |
+| S10c | S10c-012 | cippolicywriter/classification-token-dis | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.2s |
+| S10c | S10c-013 | cippolicywriter/classification-token-dis | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.1s |
+| S10c | S10c-014 | cippolicywriter/classification-token-dis | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.1s |
+| S10c | S10c-015 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 51.7s |
+| S10c | S10c-016 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 14.5s |
+| S10c | S10c-017 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 8.3s |
+| S10c | S10c-018 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 39.4s |
+| S10c | S10c-019 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 33.5s |
+| S10c | S10c-020 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 24.7s |
+| S10c | S10c-021 | cippolicywriter/anti-fabrication-verbati | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 12.9s |
+| S10c | S10c-022 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.7s |
+| S10c | S10c-023 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.5s |
+| S10c | S10c-024 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.1s |
+| S10c | S10c-025 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 11.1s |
+| S10c | S10c-026 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.6s |
+| S10c | S10c-027 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.5s |
+| S10c | S10c-028 | cippolicywriter/refuse-to-certify-binary | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.7s |
+| S10c | S10c-029 | cippolicywriter/insufficient-context-vag | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 32.7s |
+| S10c | S10c-030 | cippolicywriter/policy-modal-verbs[NERC_ | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 12.3s |
+| S10c | S10c-031 | cippolicywriter/policy-modal-verbs[HIPAA | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 11.0s |
+| S10c | S10c-032 | cippolicywriter/policy-modal-verbs[GDPR] | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 8.4s |
+| S10c | S10c-033 | cippolicywriter/policy-modal-verbs[SOC2] | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 7.9s |
+| S10c | S10c-034 | cippolicywriter/policy-modal-verbs[PCI_D | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 13.2s |
+| S10c | S10c-035 | cippolicywriter/policy-modal-verbs[NIST_ | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 14.9s |
+| S10c | S10c-036 | cippolicywriter/policy-modal-verbs[ISO_2 | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 8.0s |
+| S10c | S10c-037 | cippolicywriter/citation-format-discipli | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 8.3s |
+| S10c | S10c-038 | cippolicywriter/citation-format-discipli | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 8.7s |
+| S10c | S10c-039 | cippolicywriter/citation-format-discipli | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 6.3s |
+| S10c | S10c-040 | cippolicywriter/citation-format-discipli | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 8.4s |
+| S10c | S10c-041 | cippolicywriter/citation-format-discipli | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 10.0s |
+| S10c | S10c-042 | cippolicywriter/citation-format-discipli | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 7.4s |
+| S10c | S10c-043 | cippolicywriter/citation-format-discipli | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.0s |
+| S10c | S10c-044 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.1s |
+| S10c | S10c-045 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 11.2s |
+| S10c | S10c-046 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.6s |
+| S10c | S10c-047 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.2s |
+| S10c | S10c-048 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 12.2s |
+| S10c | S10c-049 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.2s |
+| S10c | S10c-050 | cippolicywriter/dense-structured-tool-ou | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.4s |
+| S10c | S10c-051 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 49.5s |
+| S10c | S10c-052 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.1s |
+| S10c | S10c-053 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.4s |
+| S10c | S10c-054 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.7s |
+| S10c | S10c-055 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.1s |
+| S10c | S10c-056 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.2s |
+| S10c | S10c-057 | complianceanalyst/gap-analysis-table-str | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.0s |
+| S10c | S10c-058 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.8s |
+| S10c | S10c-059 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.8s |
+| S10c | S10c-060 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.4s |
+| S10c | S10c-061 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.9s |
+| S10c | S10c-062 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.9s |
+| S10c | S10c-063 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.2s |
+| S10c | S10c-064 | complianceanalyst/classification-token-d | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.5s |
+| S10c | S10c-065 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 13.0s |
+| S10c | S10c-066 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 18.4s |
+| S10c | S10c-067 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 25.8s |
+| S10c | S10c-068 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 23.7s |
+| S10c | S10c-069 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 23.9s |
+| S10c | S10c-070 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 32.8s |
+| S10c | S10c-071 | complianceanalyst/anti-fabrication-verba | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 15.4s |
+| S10c | S10c-072 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.1s |
+| S10c | S10c-073 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 12.6s |
+| S10c | S10c-074 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.4s |
+| S10c | S10c-075 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.0s |
+| S10c | S10c-076 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.5s |
+| S10c | S10c-077 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.3s |
+| S10c | S10c-078 | complianceanalyst/refuse-to-certify-bina | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.0s |
+| S10c | S10c-079 | complianceanalyst/insufficient-context-v | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 18.6s |
+| S10c | S10c-080 | complianceanalyst/policy-modal-verbs[NER | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 13.5s |
+| S10c | S10c-081 | complianceanalyst/policy-modal-verbs[HIP | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 10.4s |
+| S10c | S10c-082 | complianceanalyst/policy-modal-verbs[GDP | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 7.2s |
+| S10c | S10c-083 | complianceanalyst/policy-modal-verbs[SOC | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 8.5s |
+| S10c | S10c-084 | complianceanalyst/policy-modal-verbs[PCI | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 15.9s |
+| S10c | S10c-085 | complianceanalyst/policy-modal-verbs[NIS | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 10.4s |
+| S10c | S10c-086 | complianceanalyst/policy-modal-verbs[ISO | ⚠️  WARN | MUSTs OK; SHOULD failed: policy.modal_verbs, structural.policy_sections \| model | 6.9s |
+| S10c | S10c-087 | complianceanalyst/citation-format-discip | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 11.8s |
+| S10c | S10c-088 | complianceanalyst/citation-format-discip | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 13.5s |
+| S10c | S10c-089 | complianceanalyst/citation-format-discip | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.6s |
+| S10c | S10c-090 | complianceanalyst/citation-format-discip | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 9.0s |
+| S10c | S10c-091 | complianceanalyst/citation-format-discip | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 9.7s |
+| S10c | S10c-092 | complianceanalyst/citation-format-discip | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 11.2s |
+| S10c | S10c-093 | complianceanalyst/citation-format-discip | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.0s |
+| S10c | S10c-094 | complianceanalyst/cross-framework-mappin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53], citation.format[SOC2] \|  | 29.6s |
+| S10c | S10c-095 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 12.4s |
+| S10c | S10c-096 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.0s |
+| S10c | S10c-097 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.8s |
+| S10c | S10c-098 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.0s |
+| S10c | S10c-099 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.0s |
+| S10c | S10c-100 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.8s |
+| S10c | S10c-101 | complianceanalyst/dense-structured-tool- | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.8s |
+| S10c | S10c-102 | complianceanalyst/long-context-multi-cit | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53], citation.format[ISO_27001 | 44.7s |
+| S10c | S10c-103 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 49.9s |
+| S10c | S10c-104 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.2s |
+| S10c | S10c-105 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.3s |
+| S10c | S10c-106 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.6s |
+| S10c | S10c-107 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.2s |
+| S10c | S10c-108 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.2s |
+| S10c | S10c-109 | gdprdpoadvisor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.0s |
+| S10c | S10c-110 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.6s |
+| S10c | S10c-111 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.5s |
+| S10c | S10c-112 | gdprdpoadvisor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 5.8s |
+| S10c | S10c-113 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.6s |
+| S10c | S10c-114 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.3s |
+| S10c | S10c-115 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.2s |
+| S10c | S10c-116 | gdprdpoadvisor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.9s |
+| S10c | S10c-117 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 42.1s |
+| S10c | S10c-118 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 6.9s |
+| S10c | S10c-119 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 6.7s |
+| S10c | S10c-120 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 39.1s |
+| S10c | S10c-121 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.3s |
+| S10c | S10c-122 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 37.6s |
+| S10c | S10c-123 | gdprdpoadvisor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 26.5s |
+| S10c | S10c-124 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.3s |
+| S10c | S10c-125 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.4s |
+| S10c | S10c-126 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.1s |
+| S10c | S10c-127 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.3s |
+| S10c | S10c-128 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 9.1s |
+| S10c | S10c-129 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 10.1s |
+| S10c | S10c-130 | gdprdpoadvisor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.1s |
+| S10c | S10c-131 | gdprdpoadvisor/insufficient-context-vagu | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 41.1s |
+| S10c | S10c-132 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 8.0s |
+| S10c | S10c-133 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 9.6s |
+| S10c | S10c-134 | gdprdpoadvisor/citation-format-disciplin | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.2s |
+| S10c | S10c-135 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 8.5s |
+| S10c | S10c-136 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 9.0s |
+| S10c | S10c-137 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 9.0s |
+| S10c | S10c-138 | gdprdpoadvisor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[ISO_27001] \| model=mlx-community/grani | 7.2s |
+| S10c | S10c-139 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 12.2s |
+| S10c | S10c-140 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.7s |
+| S10c | S10c-141 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.3s |
+| S10c | S10c-142 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.9s |
+| S10c | S10c-143 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.7s |
+| S10c | S10c-144 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.6s |
+| S10c | S10c-145 | gdprdpoadvisor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.8s |
+| S10c | S10c-146 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 49.6s |
+| S10c | S10c-147 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.6s |
+| S10c | S10c-148 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.3s |
+| S10c | S10c-149 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.7s |
+| S10c | S10c-150 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.1s |
+| S10c | S10c-151 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.2s |
+| S10c | S10c-152 | hipaaprivacyofficer/gap-analysis-table-s | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.0s |
+| S10c | S10c-153 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.6s |
+| S10c | S10c-154 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.6s |
+| S10c | S10c-155 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.7s |
+| S10c | S10c-156 | hipaaprivacyofficer/classification-token | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 4.0s |
+| S10c | S10c-157 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.3s |
+| S10c | S10c-158 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.2s |
+| S10c | S10c-159 | hipaaprivacyofficer/classification-token | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.6s |
+| S10c | S10c-160 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 16.8s |
+| S10c | S10c-161 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 8.9s |
+| S10c | S10c-162 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.0s |
+| S10c | S10c-163 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 31.4s |
+| S10c | S10c-164 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.1s |
+| S10c | S10c-165 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 43.7s |
+| S10c | S10c-166 | hipaaprivacyofficer/anti-fabrication-ver | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 13.2s |
+| S10c | S10c-167 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.3s |
+| S10c | S10c-168 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 3.4s |
+| S10c | S10c-169 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.3s |
+| S10c | S10c-170 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.2s |
+| S10c | S10c-171 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.2s |
+| S10c | S10c-172 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.0s |
+| S10c | S10c-173 | hipaaprivacyofficer/refuse-to-certify-bi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.7s |
+| S10c | S10c-174 | hipaaprivacyofficer/insufficient-context | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 41.2s |
+| S10c | S10c-175 | hipaaprivacyofficer/citation-format-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 10.2s |
+| S10c | S10c-176 | hipaaprivacyofficer/citation-format-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 12.2s |
+| S10c | S10c-177 | hipaaprivacyofficer/citation-format-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.5s |
+| S10c | S10c-178 | hipaaprivacyofficer/citation-format-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 10.0s |
+| S10c | S10c-179 | hipaaprivacyofficer/citation-format-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 9.3s |
+| S10c | S10c-180 | hipaaprivacyofficer/citation-format-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 9.6s |
+| S10c | S10c-181 | hipaaprivacyofficer/citation-format-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[ISO_27001] \| model=mlx-community/grani | 8.1s |
+| S10c | S10c-182 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.6s |
+| S10c | S10c-183 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.9s |
+| S10c | S10c-184 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.4s |
+| S10c | S10c-185 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.4s |
+| S10c | S10c-186 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.7s |
+| S10c | S10c-187 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.1s |
+| S10c | S10c-188 | hipaaprivacyofficer/dense-structured-too | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.4s |
+| S10c | S10c-189 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 70.1s |
+| S10c | S10c-190 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.1s |
+| S10c | S10c-191 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.5s |
+| S10c | S10c-192 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.1s |
+| S10c | S10c-193 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.3s |
+| S10c | S10c-194 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.1s |
+| S10c | S10c-195 | nerccipcomplianceanalyst/gap-analysis-ta | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.1s |
+| S10c | S10c-196 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.3s |
+| S10c | S10c-197 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.6s |
+| S10c | S10c-198 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.7s |
+| S10c | S10c-199 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.9s |
+| S10c | S10c-200 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.8s |
+| S10c | S10c-201 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.3s |
+| S10c | S10c-202 | nerccipcomplianceanalyst/classification- | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.7s |
+| S10c | S10c-203 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 39.3s |
+| S10c | S10c-204 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.9s |
+| S10c | S10c-205 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.8s |
+| S10c | S10c-206 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 55.1s |
+| S10c | S10c-207 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 41.1s |
+| S10c | S10c-208 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 46.4s |
+| S10c | S10c-209 | nerccipcomplianceanalyst/anti-fabricatio | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 11.8s |
+| S10c | S10c-210 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 9.0s |
+| S10c | S10c-211 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 12.8s |
+| S10c | S10c-212 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.2s |
+| S10c | S10c-213 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.3s |
+| S10c | S10c-214 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.6s |
+| S10c | S10c-215 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.2s |
+| S10c | S10c-216 | nerccipcomplianceanalyst/refuse-to-certi | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.1s |
+| S10c | S10c-217 | nerccipcomplianceanalyst/insufficient-co | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 40.5s |
+| S10c | S10c-218 | nerccipcomplianceanalyst/citation-format | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 10.7s |
+| S10c | S10c-219 | nerccipcomplianceanalyst/citation-format | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 9.9s |
+| S10c | S10c-220 | nerccipcomplianceanalyst/citation-format | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.0s |
+| S10c | S10c-221 | nerccipcomplianceanalyst/citation-format | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 9.5s |
+| S10c | S10c-222 | nerccipcomplianceanalyst/citation-format | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 8.2s |
+| S10c | S10c-223 | nerccipcomplianceanalyst/citation-format | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 8.4s |
+| S10c | S10c-224 | nerccipcomplianceanalyst/citation-format | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.7s |
+| S10c | S10c-225 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 13.6s |
+| S10c | S10c-226 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.1s |
+| S10c | S10c-227 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.9s |
+| S10c | S10c-228 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.4s |
+| S10c | S10c-229 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.8s |
+| S10c | S10c-230 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.4s |
+| S10c | S10c-231 | nerccipcomplianceanalyst/dense-structure | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.8s |
+| S10c | S10c-232 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 50.1s |
+| S10c | S10c-233 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.3s |
+| S10c | S10c-234 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.4s |
+| S10c | S10c-235 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.7s |
+| S10c | S10c-236 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.1s |
+| S10c | S10c-237 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.1s |
+| S10c | S10c-238 | pcidssassessor/gap-analysis-table-struct | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.3s |
+| S10c | S10c-239 | pcidssassessor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 6.4s |
+| S10c | S10c-240 | pcidssassessor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.0s |
+| S10c | S10c-241 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 3.7s |
+| S10c | S10c-242 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 3.1s |
+| S10c | S10c-243 | pcidssassessor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 3.7s |
+| S10c | S10c-244 | pcidssassessor/classification-token-disc | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.1s |
+| S10c | S10c-245 | pcidssassessor/classification-token-disc | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 4.4s |
+| S10c | S10c-246 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 45.7s |
+| S10c | S10c-247 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.6s |
+| S10c | S10c-248 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.2s |
+| S10c | S10c-249 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 28.6s |
+| S10c | S10c-250 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 8.8s |
+| S10c | S10c-251 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 36.1s |
+| S10c | S10c-252 | pcidssassessor/anti-fabrication-verbatim | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 12.8s |
+| S10c | S10c-253 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.3s |
+| S10c | S10c-254 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.8s |
+| S10c | S10c-255 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.7s |
+| S10c | S10c-256 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.5s |
+| S10c | S10c-257 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 4.9s |
+| S10c | S10c-258 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.0s |
+| S10c | S10c-259 | pcidssassessor/refuse-to-certify-binary[ | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 5.2s |
+| S10c | S10c-260 | pcidssassessor/insufficient-context-vagu | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 46.2s |
+| S10c | S10c-261 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 10.6s |
+| S10c | S10c-262 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 8.2s |
+| S10c | S10c-263 | pcidssassessor/citation-format-disciplin | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 7.5s |
+| S10c | S10c-264 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 10.0s |
+| S10c | S10c-265 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 11.2s |
+| S10c | S10c-266 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 7.0s |
+| S10c | S10c-267 | pcidssassessor/citation-format-disciplin | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[ISO_27001] \| model=mlx-community/grani | 7.4s |
+| S10c | S10c-268 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 11.6s |
+| S10c | S10c-269 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.3s |
+| S10c | S10c-270 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.2s |
+| S10c | S10c-271 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.0s |
+| S10c | S10c-272 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.6s |
+| S10c | S10c-273 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.6s |
+| S10c | S10c-274 | pcidssassessor/dense-structured-tool-out | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.0s |
+| S10c | S10c-275 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 50.1s |
+| S10c | S10c-276 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.1s |
+| S10c | S10c-277 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.4s |
+| S10c | S10c-278 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.8s |
+| S10c | S10c-279 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 42.7s |
+| S10c | S10c-280 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 46.1s |
+| S10c | S10c-281 | soc2auditor/gap-analysis-table-structure | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 41.3s |
+| S10c | S10c-282 | soc2auditor/classification-token-discipl | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 6.0s |
+| S10c | S10c-283 | soc2auditor/classification-token-discipl | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.1s |
+| S10c | S10c-284 | soc2auditor/classification-token-discipl | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 3.8s |
+| S10c | S10c-285 | soc2auditor/classification-token-discipl | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 3.3s |
+| S10c | S10c-286 | soc2auditor/classification-token-discipl | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 5.0s |
+| S10c | S10c-287 | soc2auditor/classification-token-discipl | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.4s |
+| S10c | S10c-288 | soc2auditor/classification-token-discipl | ⚠️  WARN | MUSTs OK; SHOULD failed: classification.exact_token \| model=mlx-community/grani | 4.6s |
+| S10c | S10c-289 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 26.7s |
+| S10c | S10c-290 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 7.3s |
+| S10c | S10c-291 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 4.5s |
+| S10c | S10c-292 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 27.4s |
+| S10c | S10c-293 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 24.4s |
+| S10c | S10c-294 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 57.6s |
+| S10c | S10c-295 | soc2auditor/anti-fabrication-verbatim-te | ⚠️  WARN | MUSTs OK; SHOULD failed: anti_fabrication.refusal_pattern \| model=mlx-community | 12.0s |
+| S10c | S10c-296 | soc2auditor/refuse-to-certify-binary[NER | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 9.5s |
+| S10c | S10c-297 | soc2auditor/refuse-to-certify-binary[HIP | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 15.8s |
+| S10c | S10c-298 | soc2auditor/refuse-to-certify-binary[GDP | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.2s |
+| S10c | S10c-299 | soc2auditor/refuse-to-certify-binary[SOC | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 24.1s |
+| S10c | S10c-300 | soc2auditor/refuse-to-certify-binary[PCI | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 8.9s |
+| S10c | S10c-301 | soc2auditor/refuse-to-certify-binary[NIS | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 7.6s |
+| S10c | S10c-302 | soc2auditor/refuse-to-certify-binary[ISO | ⚠️  WARN | MUSTs OK; SHOULD failed: refuse_to_certify \| model=mlx-community/granite-4.1-30 | 6.7s |
+| S10c | S10c-303 | soc2auditor/insufficient-context-vague-p | ⚠️  WARN | MUSTs OK; SHOULD failed: insufficient_context.exact_phrase \| model=mlx-communit | 46.0s |
+| S10c | S10c-304 | soc2auditor/citation-format-discipline[N | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NERC_CIP] \| model=mlx-community/granit | 6.4s |
+| S10c | S10c-305 | soc2auditor/citation-format-discipline[H | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[HIPAA] \| model=mlx-community/granite-4 | 8.2s |
+| S10c | S10c-306 | soc2auditor/citation-format-discipline[G | ✅ PASS | all 1 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 6.7s |
+| S10c | S10c-307 | soc2auditor/citation-format-discipline[S | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[SOC2] \| model=mlx-community/granite-4. | 7.9s |
+| S10c | S10c-308 | soc2auditor/citation-format-discipline[P | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[PCI_DSS] \| model=mlx-community/granite | 11.1s |
+| S10c | S10c-309 | soc2auditor/citation-format-discipline[N | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[NIST_800_53] \| model=mlx-community/gra | 9.3s |
+| S10c | S10c-310 | soc2auditor/citation-format-discipline[I | ⚠️  WARN | MUSTs OK; SHOULD failed: citation.format[ISO_27001] \| model=mlx-community/grani | 7.1s |
+| S10c | S10c-311 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 11.2s |
+| S10c | S10c-312 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.9s |
+| S10c | S10c-313 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.5s |
+| S10c | S10c-314 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.6s |
+| S10c | S10c-315 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 10.6s |
+| S10c | S10c-316 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 8.0s |
+| S10c | S10c-317 | soc2auditor/dense-structured-tool-output | ✅ PASS | all 2 assertions OK \| model=mlx-community/granite-4.1-30b-mxfp4 | 9.6s |
+| S21 | S21-01 | LLM router enabled | ✅ PASS | LLM_ROUTER_ENABLED=True | 0.0s |
+| S21 | S21-02 | LLM router model available | ✅ PASS | model: hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterat | 0.0s |
+| S21 | S21-03 | LLM router security intent | ✅ PASS | routed→auto-redteam \| model: mlx-community/Qwen3.6-27B-AEON | 47.8s |
+| S21 | S21-04 | LLM router coding intent | ✅ PASS | routed→auto-coding \| model: mlx-community/Laguna-XS.2-4bit | 40.4s |
+| S21 | S21-05 | LLM router compliance intent | ✅ PASS | routed→auto-compliance \| model: mlx-community/granite-4.1-30b- | 50.5s |
+| S21 | S21-06 | routing_descriptions.json | ✅ PASS | 17 workspace descriptions | 0.0s |
+| S21 | S21-07 | routing_examples.json | ✅ PASS | 32 examples | 0.0s |
+| S3b | S3b-01 | Workspace auto-coding | ✅ PASS | MLX:True \| signals: ['def', 'return', 'reverse'] | 40.6s |
+| S3b | S3b-02 | Workspace auto-agentic | ✅ PASS | MLX:True \| signals: ['service', 'API', 'domain'] | 54.4s |
+| S3b | S3b-03 | Workspace auto-spl | ✅ PASS | MLX:True \| signals: ['index', 'source', 'fail'] | 76.3s |
+| S3b | S3b-04 | Workspace auto-reasoning | ✅ PASS | MLX:True \| signals: ['150', 'mile', 'distance'] | 71.8s |
+| S3b | S3b-05 | Workspace auto-research | ✅ PASS | MLX:True \| signals: ['qubit', 'quantum'] | 49.8s |
+| S3b | S3b-06 | Workspace auto-data | ✅ PASS | MLX:True \| signals: ['mean', 'deviation'] | 56.6s |
+| S3b | S3b-07 | Workspace auto-compliance | ✅ PASS | MLX:True \| signals: ['CIP', 'evidence', 'compliance'] | 57.7s |
+| S3b | S3b-08 | Workspace auto-mistral | ✅ PASS | MLX:True \| signals: ['trade', 'deploy', 'maintain'] | 66.0s |
+| S3b | S3b-09 | Workspace auto-creative | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) | 4.2s |
+| S3b | S3b-10 | Workspace auto-vision | ✅ PASS | MLX:True \| signals: ['text', 'contrast', 'color'] | 74.6s |
+| S3b | S3b-11 | Workspace auto-documents | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 22.1s |
+| S3b | S3b-12 | Workspace auto-math | ✅ PASS | MLX:True \| signals: ['integral', 'intersection', 'area'] | 40.1s |
+| S11 | S11-00 | MLX availability | ✅ PASS | state: ready | 0.0s |
+| S11 | S11-01 | Persona itexpert (MLX) | ✅ PASS | MLX:True model=Huihui-Qwen3.5-9B-abliterated- \| signals: ['bandwidth', 'trouble | 11.5s |
+| S11 | S11-02 | Persona techreviewer (MLX) | ✅ PASS | MLX:True model=Huihui-Qwen3.5-9B-abliterated- \| signals: ['feature', 'review']  | 9.7s |
+| S11 | S11-03 | Persona webnavigator (MLX) | ✅ PASS | MLX:True model=Huihui-Qwen3.5-9B-abliterated- \| signals: ['source', 'url'] \| r | 9.7s |
+| S11 | S11-04 | Persona agentorchestrator (MLX) | ✅ PASS | MLX:True model=Qwen3-Coder-Next-4bit \| signals: ['step', 'plan'] \| routed -> m | 28.5s |
+| S11 | S11-05 | Persona codebasewikidocumentationskill ( | ✅ PASS | MLX:True model=Qwen3-Coder-Next-4bit \| signals: ['param', 'Args'] \| routed ->  | 9.8s |
+| S11 | S11-06 | Persona blueteamdefender (MLX) | ✅ PASS | MLX:False model=Foundation-Sec-8B-Reasoning-4b \| signals: ['ransom', 'detect']  | 8.1s |
+| S11 | S11-07 | Persona bugdiscoverycodeassistant (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['indexerror', 'out of range'] \| ro | 18.0s |
+| S11 | S11-08 | Persona codereviewassistant (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['list', 'comprehension'] \| routed  | 12.6s |
+| S11 | S11-09 | Persona codereviewer (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['==', 'bool'] \| routed -> mlx-comm | 7.2s |
+| S11 | S11-10 | Persona creativecoder (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['canvas', 'ball'] \| routed -> mlx- | 13.3s |
+| S11 | S11-11 | Persona devopsautomator (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['#!/', 'bash'] \| routed -> mlx-com | 7.3s |
+| S11 | S11-12 | Persona e2edebugger (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['step', 'plan'] \| routed -> mlx-co | 7.3s |
+| S11 | S11-13 | Persona e2etestauthor (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['step', 'plan'] \| routed -> mlx-co | 7.4s |
+| S11 | S11-14 | Persona ethereumdeveloper (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['contract', 'pragma'] \| routed ->  | 10.5s |
+| S11 | S11-15 | Persona excelsheet (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['VLOOKUP', 'formula'] \| routed ->  | 6.5s |
+| S11 | S11-16 | Persona formfiller (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['extracted', 'field'] \| routed ->  | 6.2s |
+| S11 | S11-17 | Persona fullstacksoftwaredeveloper (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['GET', 'POST'] \| routed -> mlx-com | 10.7s |
+| S11 | S11-18 | Persona githubexpert (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['rebase', 'merge'] \| routed -> mlx | 7.6s |
+| S11 | S11-19 | Persona goengineer (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['middleware', 'http.handler'] \| ro | 7.6s |
+| S11 | S11-20 | Persona javascriptconsole (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['18.84', 'Math'] \| routed -> mlx-c | 5.9s |
+| S11 | S11-21 | Persona kubernetesdockerrpglearningengin | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['layer', 'image'] \| routed -> mlx- | 7.5s |
+| S11 | S11-22 | Persona linuxterminal (MLX) | ⚠️  WARN | MLX:True model=mlx-community/Laguna-XS.2-4bit \| no signals in: nothon
+</think>
+ | 6.3s |
+| S11 | S11-23 | Persona pythoncodegeneratorcleanoptimize | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['sorted', 'lambda'] \| routed -> ml | 7.5s |
+| S11 | S11-24 | Persona pythoninterpreter (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['[3, 2, 1]', '3, 2, 1'] \| routed - | 5.7s |
+| S11 | S11-25 | Persona rustengineer (MLX) | ⚠️  WARN | MLX:True model=mlx-community/Laguna-XS.2-4bit \| no signals in: 
+Here's a comple | 7.5s |
+| S11 | S11-26 | Persona seniorfrontenddeveloper (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['useState', 'useEffect'] \| routed  | 7.5s |
+| S11 | S11-27 | Persona softwarequalityassurancetester ( | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['test', 'case'] \| routed -> mlx-co | 7.4s |
+| S11 | S11-28 | Persona sqlterminal (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['SELECT', 'FROM'] \| routed -> mlx- | 5.3s |
+| S11 | S11-29 | Persona terraformwriter (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['resource', 'aws_s3_bucket'] \| rou | 10.5s |
+| S11 | S11-30 | Persona typescriptengineer (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['discriminated union', 'type'] \| r | 7.4s |
+| S11 | S11-31 | Persona ux-uideveloper (MLX) | ✅ PASS | MLX:True model=Laguna-XS.2-4bit \| signals: ['mobile', 'responsive'] \| routed - | 7.4s |
+| S11 | S11-32 | Persona cippolicywriter (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-33 | Persona complianceanalyst (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-34 | Persona gdprdpoadvisor (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-35 | Persona hipaaprivacyofficer (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-36 | Persona nerccipcomplianceanalyst (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) |  |
+| S11 | S11-37 | Persona pcidssassessor (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-38 | Persona soc2auditor (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-39 | Persona creativewriter (MLX) | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) \| | 5.9s |
+| S11 | S11-40 | Persona hermes3writer (MLX) | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) \| | 2.9s |
+| S11 | S11-41 | Persona interviewcoach (MLX) | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) \| | 2.0s |
+| S11 | S11-42 | Persona proofreader (MLX) | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) \| | 1.1s |
+| S11 | S11-43 | Persona dashboardarchitect (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['mrr', 'trend'] \| ro | 58.3s |
+| S11 | S11-44 | Persona dataanalyst (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['correlation', 'causa | 44.9s |
+| S11 | S11-45 | Persona databasearchitect (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['users', 'organizatio | 67.0s |
+| S11 | S11-46 | Persona dataextractor (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['value'] \| routed -> | 56.3s |
+| S11 | S11-47 | Persona datascientist (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['feature', 'normalize | 66.9s |
+| S11 | S11-48 | Persona machinelearningengineer (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['gradient', 'descent' | 65.8s |
+| S11 | S11-49 | Persona phi4stemanalyst (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['pythagor', 'triangle | 66.3s |
+| S11 | S11-50 | Persona statistician (MLX) | ✅ PASS | MLX:True model=DeepSeek-R1-Distill-Qwen-32B-a \| signals: ['p-value', 'null'] \| | 66.4s |
+| S11 | S11-51 | Persona documentationarchitect (MLX) | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 23.0s |
+| S11 | S11-52 | Persona phi4specialist (MLX) | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 17.7s |
+| S11 | S11-53 | Persona techwriter (MLX) | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 17.0s |
+| S11 | S11-54 | Persona transcriptanalyst (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S11 | S11-55 | Persona mathreasoner (MLX) | ✅ PASS | MLX:True model=Qwen2.5-Math-7B-Instruct-4bit \| signals: ['eigenvalue', 'det'] \ | 8.9s |
+| S11 | S11-56 | Persona magistralstrategist (MLX) | ✅ PASS | MLX:True model=Magistral-Small-2509-MLX-8bit \| signals: ['milestone', 'KPI'] \| | 89.2s |
+| S11 | S11-57 | Persona businessanalyst (MLX) | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['stakeholder', 'process']  | 106.0s |
+| S11 | S11-58 | Persona devopsengineer (MLX) | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['pod', 'pending'] \| route | 100.4s |
+| S11 | S11-59 | Persona gptossanalyst (MLX) | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['trade', 'scale'] \| route | 99.5s |
+| S11 | S11-60 | Persona itarchitect (MLX) | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['availability'] \| routed  | 99.1s |
+| S11 | S11-61 | Persona productmanager (MLX) | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['problem', 'target user']  | 99.5s |
+| S11 | S11-62 | Persona seniorsoftwareengineersoftwarear | ✅ PASS | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals: ['pattern', 'load'] \| rout | 100.6s |
+| S11 | S11-63 | Persona factchecker (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['source'] \| routed -> mlx-c | 10.3s |
+| S11 | S11-64 | Persona gemmaresearchanalyst (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['method', 'research'] \| rou | 7.3s |
+| S11 | S11-65 | Persona kbnavigator (MLX) | ⚠️  WARN | MLX:True model=mlx-community/gemma-4-26b-a4b- \| no signals in: I am unable to f | 3.1s |
+| S11 | S11-66 | Persona marketanalyst (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['trend', 'growth'] \| routed | 7.4s |
+| S11 | S11-67 | Persona paywalledresearcher (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['source'] \| routed -> mlx-c | 9.3s |
+| S11 | S11-68 | Persona researchanalyst (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['systematic', 'search'] \| r | 7.3s |
+| S11 | S11-69 | Persona supergemma4researcher (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['OSINT', 'search'] \| routed | 7.3s |
+| S11 | S11-70 | Persona webresearcher (MLX) | ✅ PASS | MLX:True model=gemma-4-26b-a4b-it-4bit \| signals: ['source', 'cited'] \| routed | 7.4s |
+| S11 | S11-71 | Persona splunkdetectionauthor (MLX) | ✅ PASS | MLX:True model=Qwen3-Coder-30B-A3B-Instruct-8 \| signals: ['tstats', 'authentica | 20.0s |
+| S11 | S11-72 | Persona splunksplgineer (MLX) | ✅ PASS | MLX:True model=Qwen3-Coder-30B-A3B-Instruct-8 \| signals: ['index', 'stats'] \|  | 9.3s |
+| S11 | S11-73 | Persona chartanalyst (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 83.8s |
+| S11 | S11-74 | Persona codescreenshotreader (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 51.3s |
+| S11 | S11-75 | Persona diagramreader (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 51.0s |
+| S11 | S11-76 | Persona gemma4e4bvision (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 50.9s |
+| S11 | S11-77 | Persona gemma4jangvision (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 50.5s |
+| S11 | S11-78 | Persona ocrspecialist (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 50.1s |
+| S11 | S11-79 | Persona whiteboardconverter (MLX) | ⚠️  WARN | MLX:True model=MLX-Qwopus3.5-27B-v3-8bit \| signals OK but ROUTING MISMATCH: got | 50.2s |
+| S11 | S11-80 | Persona toolcomposer (MLX) | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
+| S20 | S20-01 | MLX proxy health | ✅ PASS | state: ready, data: {'active_server': 'lm', 'loaded_model': 'team-ace/ToolACE-2. | 0.0s |
+| S20 | S20-02 | MLX /v1/models | ✅ PASS | 42 models | 0.0s |
+| S20 | S20-03 | MLX memory info | ✅ PASS | {'current': {'current': {'free_gb': 0.2, 'total_gb': 62.2, 'used_pct': 61, 'pres | 0.0s |
+| S22 | S22-01 | MLX proxy for admission control | ✅ PASS | state: ready | 0.0s |
+| S22 | S22-03 | Admission control rejects oversized | ℹ️  INFO | proxy accepted 70B request (free RAM: 53.2GB >= 50GB threshold) — no rejection e | 8.0s |
+| S22 | S22-04 | Model memory estimates | ✅ PASS | 18 models with size estimates | 0.0s |
+| S23 | S23-01 | GPT-OSS:20B available | ✅ PASS | gpt-oss in models: True | 0.0s |
+| S23 | S23-03 | Gemma 4 E4B VLM registered | ✅ PASS | gemma-4-E4B in MLX models: True | 0.0s |
+| S23 | S23-04 | Phi-4 available | ✅ PASS | phi-4 in MLX models: True | 0.0s |
+| S23 | S23-05 | Magistral-Small available | ✅ PASS | magistral in MLX models: True | 0.0s |
+| S23 | S23-06 | Phi-4-reasoning-plus available | ✅ PASS | phi-4-reasoning-plus in MLX models: True | 0.0s |
+| S23 | S23-07 | Huihui-GLM-4.7-Flash-abliterated registe | ℹ️  INFO | model not in MLX list — run hf download or ./launch.sh pull-mlx-models | 0.0s |
+| S24 | S24-01 | MLX proxy for specialist models | ✅ PASS | state: none | 0.0s |
+| S24 | S24-02 | Foundation-Sec-8B registered in MLX | ℹ️  INFO | Foundation-Sec in MLX models: False | 0.0s |
+| S24 | S24-03 | Foundation-Sec via auto-blueteam | ✅ PASS | signals: ['ssh'] \| routed -> /Users/chris/.cache/huggingface/hub/foun matches M | 53.1s |
+| S24 | S24-04 | Foundation-Sec CVE/CWE/ATT&CK knowledge | ✅ PASS | signals (3): ['log4j', 'JNDI', 'remote code'] | 5.9s |
+| S24 | S24-05 | ToolACE-2.5-8B registered in MLX | ✅ PASS | ToolACE in MLX models: True | 0.0s |
+| S24 | S24-06 | ToolACE-2.5 via tools-specialist | ⚠️  WARN | signals: [] \| routed -> /Users/chris/.cache/huggingface/hub/team matches MLX:to | 31.4s |
+| S24 | S24-07 | ToolACE-2.5 multi-step tool chain | ⚠️  WARN | signals (2): ['search', 'function']  [UNCLASSIFIED] | 1.2s |
+| S4 | S4-01 | Documents MCP health | ✅ PASS | HTTP 200 | 0.0s |
+| S4 | S4-02 | Generate Word document | ✅ PASS | {
+  "success": true,
+  "filename": "Test_Proposal_266c1227.docx",
+  "download_ur | 0.1s |
+| S4 | S4-03 | Generate Excel spreadsheet | ✅ PASS | {
+  "success": true,
+  "filename": "Test_Budget_d663adae.xlsx",
+  "download_url" | 0.0s |
+| S4 | S4-04 | Generate PowerPoint | ✅ PASS | {
+  "success": true,
+  "filename": "Test_Presentation_46544c7d.pptx",
+  "downloa | 0.0s |
+| S4 | S4-05 | MCP read_word_document | ✅ PASS | got 110 chars from sample.docx | 0.0s |
+| S4 | S4-06 | MCP read_excel | ✅ PASS | got 110 chars from sample.xlsx | 0.0s |
+| S4 | S4-07 | MCP read_powerpoint | ✅ PASS | got 110 chars from sample.pptx | 0.0s |
+| S4 | S4-08 | MCP read_pdf | ✅ PASS | got 109 chars from sample.pdf | 0.0s |
+| S5 | S5-01 | Sandbox MCP health | ✅ PASS | HTTP 200 | 0.0s |
+| S5 | S5-02 | Execute Python (sum 1-10) | ✅ PASS | {
+  "success": true,
+  "stdout": "55\n",
+  "stderr": "",
+  "exit_code": 0,
+  "ti | 0.2s |
+| S5 | S5-03 | Execute Python (list comprehension) | ✅ PASS | {
+  "success": true,
+  "stdout": "[0, 1, 4, 9, 16]\n",
+  "stderr": "",
+  "exit_c | 0.1s |
+| S8 | S8-01 | MLX Speech health | ✅ PASS | voice_cloning: True | 0.0s |
+| S8 | S8-02 | MLX Speech TTS | ✅ PASS | duration: 2.85s | 0.6s |
+| S9 | S9-01 | MLX Speech ASR available | ✅ PASS | Qwen3-ASR | 0.0s |
+| S9 | S9-03 | MLX Transcribe health | ℹ️  INFO | not running (start with ./launch.sh start-transcribe) | 0.0s |
+| S9 | S9-04 | MLX Transcribe diarization | ℹ️  INFO | service not running | 0.0s |
+| S9 | S9-05 | Workspace upload resolution | ℹ️  INFO | service not running | 0.0s |
+| S7 | S7-01 | Music MCP health | ✅ PASS | service: music-mcp | 0.0s |
+| S7 | S7-02 | Generate music (5s jazz) | ✅ PASS | {
+  "success": true,
+  "filename": "music_upbeat_jazz_piano_solo_5s.wav",
+  "dow | 48.2s |
+| S30 | S30-01 | ComfyUI direct | ℹ️  INFO | not running: All connection attempts failed | 0.0s |
+| S30 | S30-02 | ComfyUI MCP bridge | ℹ️  INFO | HTTP 0 | 0.0s |
+| S31 | S31-01 | Video MCP health | ℹ️  INFO | HTTP 0 | 0.0s |
+| S41 | S41-01 | /health/all aggregator | ✅ PASS | 6/10 services ok: pipeline, mlx_proxy, ollama, mcp_documents, mcp_sandbox | 0.1s |
+| S41 | S41-02 | bench-* concurrency=1 | ⚠️  WARN | bench-qwen35-abliterated limit=5, expected 1  [UNCLASSIFIED] | 0.0s |
+| S41 | S41-03 | /admin/refresh-tools | ✅ PASS | 30 tools registered | 0.0s |
+| S41 | S41-04 | Power metrics in /metrics | ✅ PASS | portal5_power_* and portal5_energy_* present | 0.0s |
+| S41 | S41-05 | Workspace consistency | ✅ PASS | 44 workspaces, pipe+yaml match | 0.0s |
+| S42 | S42-01 | Browser MCP health | ✅ PASS | status=ok, profiles=0 | 0.0s |
+| S42 | S42-02 | Browser MCP tools | ✅ PASS | 8 tools: browser_navigate, browser_snapshot, browser_click, browser_fill... | 0.0s |
+| S60 | S60-01 | Tool registry loaded | ✅ PASS | 0 tools: ... | 0.0s |
+| S60 | S60-02 | Workspace tool whitelists | ✅ PASS | 17/44 workspaces have tools | 0.0s |
+| S60 | S60-03 | Persona tool resolution | ✅ PASS | tools_allow override works: ['execute_python'] | 0.0s |
+| S60 | S60-04 | Tool dispatch function | ✅ PASS | exists | 0.0s |
+| S60 | S60-05 | MAX_TOOL_HOPS | ✅ PASS | value=10 | 0.0s |
+| S60 | S60-06 | Tool-call Prometheus metrics | ✅ PASS | portal5_tool_calls_total + duration present | 0.0s |
+| S60 | S60-07 | agentorchestrator persona | ✅ PASS | slug=agentorchestrator, workspace=auto-agentic | 0.0s |
+| S70 | S70-01 | SearXNG web search | ✅ PASS | 16 results returned | 3.0s |
+| S70 | S70-02 | Research MCP health | ✅ PASS | {"status":"ok","service":"research-mcp","backend":"searxng"} | 0.0s |
+| S70 | S70-03 | Memory MCP health | ✅ PASS | {"status":"ok","service":"memory-mcp","stored":1} | 0.0s |
+| S70 | S70-04 | RAG MCP health | ✅ PASS | {"status":"ok","service":"rag-mcp","knowledge_bases":[]} | 0.0s |
+| S70 | S70-05 | Embedding service health | ✅ PASS | {"status":"ok","model":"microsoft/harrier-oss-v1-0.6b"} | 0.0s |
+| S70 | S70-06 | Research personas | ✅ PASS | 6/6 present | 0.0s |
+| S70 | S70-07 | auto-research tool whitelist | ✅ PASS | tools: ['web_search', 'web_fetch', 'news_search', 'kb_search', 'kb_search_all',  | 0.0s |
+| S70 | S70-08 | Memory MCP round-trip | ✅ PASS | stored+recalled: id=a352daf9, sim=0.42, 1 hits | 0.3s |
+| S3a | S3a-01 | Workspace auto-video | ✅ PASS | signals: ['sun', 'mountain', 'light'] \| routed -> granite4.1:8b matches Ollama: | 9.8s |
+| S3a | S3a-02 | Workspace auto-music | ✅ PASS | signals: ['beat', 'drum', 'chill'] \| routed -> huihui_ai/qwen3.5-abliterated:9b | 16.1s |
+| S3a | S3a-03 | Workspace auto-security | ✅ PASS | signals: ['injection', 'XSS', 'authentication'] \| routed -> baronllm:q6_k match | 15.0s |
+| S3a | S3a-04 | Workspace auto-redteam | ✅ PASS | signals: ['sudo', 'privilege', 'root'] \| routed -> baronllm:q6_k matches MLX:qw | 8.4s |
+| S3a | S3a-05 | Workspace auto-blueteam | ✅ PASS | signals: ['traffic', 'network', 'monitor'] \| routed -> lily-cybersecurity:7b-q4 | 11.1s |
+| S3b | S3b-01 | Workspace auto-coding | ✅ PASS | MLX:True \| signals: ['def', 'return', 'reverse'] | 28.4s |
+| S3b | S3b-02 | Workspace auto-agentic | ℹ️  INFO | Ollama fallback! model=qwen3-coder:30b (MLX state=none, expected MLX-tier) | 86.5s |
+| S3b | S3b-03 | Workspace auto-spl | ℹ️  INFO | Ollama fallback! model=deepseek-coder-v2:16b-lite-instruct-q4_K (MLX state=ready | 33.7s |
+| S3b | S3b-04 | Workspace auto-reasoning | ℹ️  INFO | Ollama fallback! model=deepseek-r1:32b-q4_k_m (MLX state=ready, expected MLX-tie | 41.3s |
+| S3b | S3b-05 | Workspace auto-research | ✅ PASS | MLX:True \| signals: ['quantum', 'compute'] | 41.7s |
+| S3b | S3b-06 | Workspace auto-data | ✅ PASS | MLX:True \| signals: ['mean', 'deviation'] | 57.0s |
+| S3b | S3b-07 | Workspace auto-compliance | ✅ PASS | MLX:True \| signals: ['CIP', 'evidence', 'compliance'] | 57.9s |
+| S3b | S3b-08 | Workspace auto-mistral | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 19.6s |
+| S3b | S3b-09 | Workspace auto-creative | ℹ️  INFO | Ollama fallback! model=dolphin-llama3:8b (MLX state=ready, expected MLX-tier) | 4.6s |
+| S3b | S3b-10 | Workspace auto-vision | ℹ️  INFO | Ollama fallback! model=deepseek-r1:32b-q4_k_m (MLX state=ready, expected MLX-tie | 25.9s |
+| S3b | S3b-11 | Workspace auto-documents | ℹ️  INFO | Ollama fallback! model=huihui_ai/qwen3.5-abliterated:9b (MLX state=ready, expect | 14.6s |
+| S3b | S3b-12 | Workspace auto-math | ✅ PASS | MLX:True \| signals: ['integral', 'intersection', 'area'] | 33.9s |

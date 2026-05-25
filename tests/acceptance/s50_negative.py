@@ -1,12 +1,13 @@
 """S50: Negative tests — pipeline graceful degradation under bad inputs."""
 
+import time
+
 from tests.acceptance._common import (
     AUTH,
     PIPELINE_URL,
     _chat_with_model,
     _get,
     record,
-    time,
 )
 
 
