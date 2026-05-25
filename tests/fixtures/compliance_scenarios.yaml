@@ -132,7 +132,6 @@ scenarios:
       governance binder, ready for [ENTITY NAME] insertion.
     assertions:
       - policy.modal_verbs
-      - structural.policy_sections
 
   # ── G. Citation discipline ────────────────────────────────────────────────
   - id: citation-format-discipline

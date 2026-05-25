@@ -123,6 +123,19 @@ def expected_model_keys(
     if not keys:
         return [], f"{workspace_id}: no hints in WORKSPACES"
 
+    # auto-vision text-only fallback: pipeline reroutes to auto-reasoning when no
+    # image_url is present. Include auto-reasoning model keys so text-only persona
+    # tests (chartanalyst, ocrspecialist, etc.) accept the fallback model.
+    if workspace_id == "auto-vision":
+        ar_cfg = WORKSPACES.get("auto-reasoning", {})
+        ar_mlx = (ar_cfg.get("mlx_model_hint") or "").strip()
+        ar_ollama = (ar_cfg.get("model_hint") or "").strip()
+        if ar_mlx:
+            keys.append(_mlx_basename(ar_mlx))
+        if ar_ollama:
+            keys.append(_ollama_family(ar_ollama))
+        parts.append("auto-reasoning fallback (text-only)")
+
     seen: set[str] = set()
     deduped = [k for k in keys if not (k in seen or seen.add(k))]
     return deduped, " | ".join(parts)

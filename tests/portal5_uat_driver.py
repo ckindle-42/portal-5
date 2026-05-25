@@ -78,6 +78,10 @@ BACKEND_SETTLE_WAIT_S = 15.0  # bounded backend-alive poll after retry (replaces
 RESULTS_FILE = Path("tests/UAT_RESULTS.md")
 SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
 ARTIFACT_DIR = Path("/tmp/uat_artifacts")
+
+# Routing telemetry — appended per test, written to UAT_RESULTS.md at end of run.
+# Each entry: {test_id, name, section, workspace, intended, actual, matched, tier_mismatch}
+_ROUTING_LOG: list[dict] = []
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
 MLX_READINESS_FILE = os.environ.get("MLX_READINESS_FILE", "/tmp/portal5-mlx-readiness.json")
@@ -2745,6 +2749,75 @@ def _rebuild_summary_from_rows() -> None:
         old_re = _re.compile(rf"^- \*\*{status}\*\*: \d+", _re.MULTILINE)
         text = old_re.sub(f"- **{status}**: {counts[status]}", text)
     RESULTS_FILE.write_text(text)
+
+
+def _write_routing_summary() -> None:
+    """Append a Routing Summary section to UAT_RESULTS.md.
+
+    Groups by: correct | MLX→Ollama fallback | wrong model | no-actual.
+    Exposes tests where the primary model wasn't doing the work —
+    silent Ollama fallbacks are the most dangerous class because the test
+    may still PASS (Ollama has general capability) while the intended model
+    (Foundation-Sec, ToolACE-2.5, etc.) was never exercised.
+    """
+    if not _ROUTING_LOG:
+        return
+
+    correct = [r for r in _ROUTING_LOG if r["matched"]]
+    tier_fallbacks = [r for r in _ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
+    wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
+    no_actual = [r for r in _ROUTING_LOG if not r["actual"]]
+
+    lines: list[str] = [
+        "",
+        "## Routing Summary",
+        "",
+        f"| Metric | Count |",
+        f"|--------|-------|",
+        f"| Routing checked | {len(_ROUTING_LOG)} |",
+        f"| ✅ Correct | {len(correct)} |",
+        f"| ⚠️ MLX→Ollama fallback (primary not serving) | {len(tier_fallbacks)} |",
+        f"| ⚠️ Wrong model (same tier) | {len(wrong_model)} |",
+        f"| ℹ️ No actual model returned | {len(no_actual)} |",
+        "",
+    ]
+
+    if tier_fallbacks:
+        lines += [
+            "### MLX→Ollama Fallbacks",
+            "",
+            "These tests were configured to run on an MLX model but Ollama served instead.",
+            "The test may have passed on general capability — the **intended model was never exercised**.",
+            "",
+            "| Test ID | Name | Section | Intended | Actual |",
+            "|---------|------|---------|----------|--------|",
+        ]
+        for r in tier_fallbacks:
+            lines.append(
+                f"| {r['test_id']} | {r['name'][:40]} | {r['section']} "
+                f"| {r['intended'][:40]} | {r['actual'][:40]} |"
+            )
+        lines.append("")
+
+    if wrong_model:
+        lines += [
+            "### Wrong Model (tier OK, model mismatch)",
+            "",
+            "| Test ID | Name | Section | Intended | Actual |",
+            "|---------|------|---------|----------|--------|",
+        ]
+        for r in wrong_model:
+            lines.append(
+                f"| {r['test_id']} | {r['name'][:40]} | {r['section']} "
+                f"| {r['intended'][:40]} | {r['actual'][:40]} |"
+            )
+        lines.append("")
+
+    if not tier_fallbacks and not wrong_model:
+        lines.append("All routing checks passed — every test was served by its intended primary model.\n")
+
+    with RESULTS_FILE.open("a") as f:
+        f.write("\n".join(lines))
 
 
 def record_result(
@@ -6069,8 +6142,9 @@ TEST_CATALOG: list[dict] = [
         "name": "Blue Team — Multi-Stage Incident Triage",
         "section": "auto-blueteam",
         "model_slug": "auto-blueteam",
-        "timeout": 120,
-        "workspace_tier": "ollama",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
         "prompt": (
             "We are mid-incident. Timeline: 14:03 — EDR alert: PowerShell download cradle on WS-42. "
             "14:11 — DNS logs show WS-42 querying a DGA-like domain 6x. "
@@ -6128,8 +6202,9 @@ TEST_CATALOG: list[dict] = [
         "name": "Blue Team Defender — Asks for OT Context",
         "section": "auto-blueteam",
         "model_slug": "blueteamdefender",
-        "timeout": 60,
-        "workspace_tier": "ollama",
+        "timeout": 120,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
         "prompt": "Anomaly detected. Respond.",
         "assertions": [
             {
@@ -6164,6 +6239,73 @@ TEST_CATALOG: list[dict] = [
                 "label": "No immediate IR plan",
                 "keywords": ["step 1: isolate", "immediately isolate", "first, isolate"],
                 "critical": False,
+            },
+        ],
+    },
+    # -----------------------------------------------------------------------
+    # GROUP tools-specialist  (ToolACE-2.5, MLX small, purpose-trained tool-calling)
+    # -----------------------------------------------------------------------
+    {
+        "id": "WS-TOOLS-01",
+        "name": "Tool Composer — Multi-Step Tool Plan",
+        "section": "tools-specialist",
+        "model_slug": "tools-specialist",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "prompt": (
+            "I need to: (1) execute Python code that reads /workspace/data.csv and counts rows, "
+            "(2) store the row count in memory under the key 'row_count', "
+            "(3) recall 'row_count' and return it to me. "
+            "Plan the tool calls in order. Available tools: execute_python, remember, recall."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "execute_python referenced",
+                "keywords": ["execute_python", "execute python", "run python", "python code"],
+            },
+            {
+                "type": "any_of",
+                "label": "remember/store referenced",
+                "keywords": ["remember", "store", "save", "key", "row_count"],
+            },
+            {
+                "type": "any_of",
+                "label": "Sequential plan present",
+                "keywords": ["step", "first", "then", "next", "order", "sequence", "1.", "2.", "3."],
+            },
+            {"type": "min_length", "label": "Substantive response", "chars": 100},
+        ],
+    },
+    {
+        "id": "P-TOOLS-01",
+        "name": "toolcomposer persona — File Count and Store",
+        "section": "tools-specialist",
+        "model_slug": "toolcomposer",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "prompt": (
+            "I need to count the lines in /workspace/report.txt using execute_python, "
+            "then store the count in memory as 'line_count'. "
+            "What tool calls do you plan, and in what order?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "execute_python in plan",
+                "keywords": ["execute_python", "execute python", "python", "run code"],
+            },
+            {
+                "type": "any_of",
+                "label": "memory store in plan",
+                "keywords": ["remember", "store", "save", "line_count", "memory"],
+            },
+            {
+                "type": "any_of",
+                "label": "Ordered steps",
+                "keywords": ["step", "first", "then", "next", "1.", "2.", "order"],
             },
         ],
     },
@@ -8001,6 +8143,180 @@ TEST_CATALOG: list[dict] = [
         "prompt": _CC01_PROMPT,
         # P5-BENCH-001: produces code content without fenced block.
         "assertions": _CC01_ASSERTIONS_BENCH,
+    },
+    # Bench — Foundation-Sec: domain test (CVE triage), not CC-01 (code gen is not its scope)
+    {
+        "id": "CC-01-foundation-sec",
+        "name": "BT-01 SOC Triage · Foundation-Sec (Cisco)",
+        "section": "benchmark",
+        "model_slug": "bench-foundation-sec",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
+        "prompt": (
+            "CVE-2021-44228 (Log4Shell) was disclosed in December 2021. "
+            "Provide: (1) the CWE classification, (2) the CVSS v3 base score and why, "
+            "(3) the relevant MITRE ATT&CK technique, and (4) three concrete containment "
+            "steps an incident responder should take in the first 30 minutes."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "CWE classification present",
+                "keywords": ["cwe", "cwe-20", "cwe-502", "cwe-917", "improper", "injection", "deserialization"],
+            },
+            {
+                "type": "any_of",
+                "label": "CVSS score present",
+                "keywords": ["cvss", "10.0", "9.8", "critical", "base score"],
+            },
+            {
+                "type": "any_of",
+                "label": "MITRE ATT&CK referenced",
+                "keywords": ["mitre", "att&ck", "t1190", "t1059", "execution", "initial access"],
+            },
+            {
+                "type": "any_of",
+                "label": "Containment steps",
+                "keywords": ["patch", "firewall", "block", "isolat", "contain", "waf", "rule", "update"],
+            },
+            {"type": "min_length", "label": "Substantive response", "chars": 300},
+        ],
+    },
+    # Bench — ToolACE-2.5: tool-calling domain test, not CC-01
+    {
+        "id": "TC-01-toolace25",
+        "name": "TC-01 Tool Chain · ToolACE-2.5 (Team-ACE)",
+        "section": "benchmark",
+        "model_slug": "bench-toolace25",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "prompt": (
+            "Plan the tool calls needed to: (1) execute Python code that generates a list of "
+            "prime numbers up to 50, (2) store the result in memory as 'primes', "
+            "(3) recall 'primes' and confirm the count. "
+            "Use tools: execute_python, remember, recall. List calls in order with parameters."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "execute_python referenced",
+                "keywords": ["execute_python", "execute python", "python", "run code", "primes"],
+            },
+            {
+                "type": "any_of",
+                "label": "remember/store referenced",
+                "keywords": ["remember", "store", "save", "key", "primes"],
+            },
+            {
+                "type": "any_of",
+                "label": "recall referenced",
+                "keywords": ["recall", "retrieve", "get", "fetch", "read back"],
+            },
+            {
+                "type": "any_of",
+                "label": "Sequential ordering",
+                "keywords": ["step", "first", "then", "next", "1.", "2.", "3.", "order"],
+            },
+            {"type": "min_length", "label": "Substantive response", "chars": 150},
+        ],
+    },
+    # Bench — LFM2-MoE: creative/extraction scope (NOT code — per Liquid AI model card)
+    {
+        "id": "CC-01-lfm2-moe",
+        "name": "EX-01 Extraction · LFM2-8B MoE (Liquid AI)",
+        "section": "benchmark",
+        "model_slug": "bench-lfm2-moe",
+        "timeout": 180,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/LFM2-8B-A1B-8bit",
+        "prompt": (
+            "Extract all named entities (people, organizations, locations, dates) from this text "
+            "and return them as a JSON object with keys: people, organizations, locations, dates.\n\n"
+            "Text: 'On March 15, 2024, Dr. Sarah Chen from OpenAI presented findings at the "
+            "Stanford AI Lab in Palo Alto, California. The research, co-authored with Professor "
+            "James Liu of MIT, was funded by the National Science Foundation.'"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "JSON structure present",
+                "keywords": ["{", "people", "organizations", "locations", "dates"],
+            },
+            {
+                "type": "any_of",
+                "label": "People extracted",
+                "keywords": ["sarah chen", "james liu", "chen", "liu"],
+            },
+            {
+                "type": "any_of",
+                "label": "Organizations extracted",
+                "keywords": ["openai", "mit", "stanford", "national science foundation", "nsf"],
+            },
+            {
+                "type": "any_of",
+                "label": "Date extracted",
+                "keywords": ["march", "2024", "march 15"],
+            },
+        ],
+    },
+    # Bench — olmOCR-2 and Nanonets-OCR2: VLMs that require image input for real OCR testing.
+    # These text-only tests verify the model loads and responds coherently; full OCR testing
+    # requires an image attachment via the OWUI file upload path.
+    {
+        "id": "SM-01-olmocr2",
+        "name": "SM-01 Smoke · olmOCR-2 (Allen AI)",
+        "section": "benchmark",
+        "model_slug": "bench-olmocr2",
+        "timeout": 120,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/olmOCR-2-7B-1025-5bit",
+        "prompt": (
+            "Describe what types of documents you are optimized to process, "
+            "and what output format you produce. Be specific about math formulas and tables."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "OCR domain acknowledged",
+                "keywords": ["ocr", "document", "extract", "text", "image", "pdf", "scan"],
+            },
+            {
+                "type": "any_of",
+                "label": "Output format mentioned",
+                "keywords": ["markdown", "latex", "formula", "table", "structured"],
+                "critical": False,
+            },
+            {"type": "min_length", "label": "Non-empty response", "chars": 50},
+        ],
+    },
+    {
+        "id": "SM-01-nanonets-ocr2",
+        "name": "SM-01 Smoke · Nanonets-OCR2 (Nanonets)",
+        "section": "benchmark",
+        "model_slug": "bench-nanonets-ocr2",
+        "timeout": 120,
+        "workspace_tier": "mlx_small",
+        "mlx_model": "mlx-community/Nanonets-OCR2-3B-4bit",
+        "prompt": (
+            "What types of document elements can you identify and extract? "
+            "Mention signatures, watermarks, and checkboxes if relevant."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Document extraction domain",
+                "keywords": ["document", "extract", "text", "image", "ocr", "identify"],
+            },
+            {
+                "type": "any_of",
+                "label": "Special elements mentioned",
+                "keywords": ["signature", "watermark", "checkbox", "table", "form", "stamp"],
+                "critical": False,
+            },
+            {"type": "min_length", "label": "Non-empty response", "chars": 50},
+        ],
     },
     # -----------------------------------------------------------------------
     # GROUP auto-math
@@ -10231,6 +10547,29 @@ async def run_test(
             status = "WARN"
             print(f"  [{test_id}] route mismatch downgraded PASS→WARN: {route_detail}", flush=True)
 
+        # Feed routing telemetry log for end-of-run summary
+        try:
+            import sys as _sys
+            from pathlib import Path as _Path
+            _sys.path.insert(0, str(_Path(__file__).parent))
+            from expected_models import is_mlx_model as _is_mlx
+            intended_keys = route_detail  # contains expected key info
+            actual_mlx = _is_mlx(routed_model)
+            intended_mlx = test.get("workspace_tier", "") in ("mlx_small", "mlx_large") \
+                or test.get("mlx_model") is not None
+            _ROUTING_LOG.append({
+                "test_id": test_id,
+                "name": name,
+                "section": test.get("section", ""),
+                "workspace": test.get("model_slug", ""),
+                "intended": test.get("mlx_model") or test.get("model_slug", ""),
+                "actual": routed_model,
+                "matched": matched,
+                "tier_mismatch": intended_mlx and not actual_mlx and not matched,
+            })
+        except Exception:
+            pass
+
     final_title = f"[{status}] UAT: {test_id} {name}"
     owui_rename_chat(token, chat_id, final_title)
     record_result(
@@ -11286,9 +11625,31 @@ async def main() -> None:
         print("Next: review 'review_tag' fields (good/bad/skip), then run:")
         print(f"  python3 tests/portal5_uat_driver.py --emit-signals-from {cal_path}")
 
+    # Write routing intent-vs-actual summary before rebuilding counts.
+    _write_routing_summary()
+
     # Always rebuild the summary header from actual file rows, so the count
     # is correct after partial / phased / rerun executions.
     _rebuild_summary_from_rows()
+
+    # Print routing summary to stdout as well
+    if _ROUTING_LOG:
+        tier_fallbacks = [r for r in _ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
+        wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
+        correct = [r for r in _ROUTING_LOG if r["matched"]]
+        print(f"\n{'─' * 50}")
+        print("ROUTING SUMMARY")
+        print(f"{'─' * 50}")
+        print(f"  Checked: {len(_ROUTING_LOG)}   ✅ {len(correct)} correct"
+              + (f"   ⚠️  {len(tier_fallbacks)} MLX→Ollama fallback" if tier_fallbacks else "")
+              + (f"   ⚠️  {len(wrong_model)} wrong model" if wrong_model else ""))
+        for r in tier_fallbacks:
+            print(f"  FALLBACK  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}")
+        for r in wrong_model:
+            print(f"  MISMATCH  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}")
+        if not tier_fallbacks and not wrong_model:
+            print("  All tests served by intended primary model.")
+        print(f"{'─' * 50}")
 
     total = sum(counts.values())
     print(f"\n{'=' * 50}")

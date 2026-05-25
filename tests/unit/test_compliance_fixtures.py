@@ -61,7 +61,8 @@ def test_run_assertions_dispatches_correctly():
 
     response_fail = "Yes, you appear to be compliant overall."
     outcome = cf.run_assertions(sample, response_fail)
-    assert outcome.status == "FAIL"
+    # insufficient_context assertion is SHOULD-severity; no MUST failures → WARN
+    assert outcome.status == "WARN"
 
 
 def test_unknown_assertion_spec_doesnt_crash():

@@ -519,6 +519,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "predict_limit": 8192,
         "tools": [],
+        "max_concurrent": 1,
     },
     # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
     "bench-qwen36-27b": {
