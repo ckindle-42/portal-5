@@ -1527,7 +1527,16 @@ def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
     predict_limit = ws_cfg_local.get("predict_limit") or _MLX_DEFAULT_MAX_TOKENS
-    body.setdefault("max_tokens", predict_limit)
+    # Enforce predict_limit as a ceiling, not just a default. OWUI sends its
+    # own max_tokens (e.g. from the model context window setting), which setdefault
+    # would leave unchanged even if it far exceeds the workspace cap. Use min()
+    # so a caller requesting fewer tokens is still respected, but the workspace
+    # limit is never exceeded.
+    caller_max = body.get("max_tokens")
+    if caller_max is not None:
+        body["max_tokens"] = min(int(caller_max), predict_limit)
+    else:
+        body["max_tokens"] = predict_limit
     mlx_ctk = ws_cfg_local.get("mlx_chat_template_kwargs")
     if mlx_ctk:
         body.setdefault("chat_template_kwargs", mlx_ctk)
