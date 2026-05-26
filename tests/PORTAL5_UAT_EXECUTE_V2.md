@@ -361,21 +361,32 @@ Inter-Phase Gate:
 bash tests/inter_phase_gate.sh 4 38
 ```
 
-**Phase 4→5 Ollama pre-warm (prevents empty-response cascades):**
+**Phase 4→5 pre-warm (MLX + Ollama):**
 ```bash
-# auto-blueteam uses Foundation-Sec (MLX), auto-docs/documents use qwen3.5-abliterated (Ollama).
-# Pull a warm response from dolphin-llama3 (used by auto-creative in Phase 4 tail) and
-# qwen3.5-abliterated before Phase 5 starts, so Ollama has models in memory.
+# auto-documents now routes MLX-primary (huihui-qwen3.5-9b MLX 4bit) with Ollama fallback.
+# auto-blueteam (Foundation-Sec) stays MLX. Warm both tiers before Phase 5.
+
+# MLX pre-warm: send a minimal request to the pipeline for auto-documents workspace.
+# MLX proxy starts cold (503/state:none) and loads the model on first request (~20-30s).
+curl -sf -X POST http://localhost:9099/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
+  -d '{"model":"auto-documents","messages":[{"role":"user","content":"ping"}],"stream":false,"max_tokens":5}' \
+  >/dev/null || true
+echo "MLX pre-warm sent (model load takes ~20-30s — Ollama pre-warm runs in parallel)"
+
+# Ollama pre-warm: dolphin-llama3 (auto-creative Phase 4 tail) + qwen3.5-abliterated (fallback path).
 curl -sf http://localhost:11434/api/generate -d '{"model":"dolphin-llama3:8b","prompt":"ping","stream":false}' >/dev/null || true
 curl -sf http://localhost:11434/api/generate -d '{"model":"huihui_ai/qwen3.5-abliterated:9b","prompt":"ping","stream":false}' >/dev/null || true
-echo "Ollama pre-warm done"
+echo "Ollama pre-warm done — wait 30s before starting Phase 5 if MLX was cold"
+sleep 30
 ```
 
 ---
 
 ## Phase 5 — Ollama + mlx_small (blueteam, docs)
 
-`auto-security` and `auto-redteam` moved to Phase 2 (they are now pure `mlx_large`/AEON). This phase is the remaining non-mlx_large sections: `auto-blueteam` (pure ollama), `auto-docs` (mlx_small + ollama, 8/9 tests mlx_small), and `auto-documents` (1 test, mlx_small). No large model loads here — wired memory stays low throughout.
+`auto-security` and `auto-redteam` moved to Phase 2 (they are now pure `mlx_large`/AEON). This phase is the remaining non-mlx_large sections: `auto-blueteam` (pure ollama), `auto-docs` (mlx_small + ollama, 8/9 tests mlx_small), and `auto-documents` (mlx_small primary, Ollama fallback). `auto-documents` now routes MLX-first (huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit) — the pre-warm above ensures MLX is loaded before the first test hits.
 
 ```bash
 python3 tests/portal5_uat_driver.py --append \
