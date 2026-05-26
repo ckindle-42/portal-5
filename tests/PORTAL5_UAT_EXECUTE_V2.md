@@ -265,6 +265,21 @@ bash tests/inter_phase_gate.sh 3 30   # after Phase 3 (30 tests)
 
 These sections contain all pure-`mlx_large` tier tests. Run them while memory is freshest. `auto-security` and `auto-redteam` are included here because they are now pure `mlx_large` (AEON 27B) — running them in Phase 5 would load a large model after the bulk of the suite has already stressed memory.
 
+**Phase 1→2 pre-warm (auto-agentic MLX):**
+
+`auto-agentic` routes to MLX-primary (`mlx-community/Qwen3-Coder-Next-4bit`, 80B MoE, ~45GB). Without a pre-warm, the first Phase 2 test hits a cold MLX proxy (state: none → 503) and silently falls to `ollama-coding|qwen3-coder:30b`. This was the root cause of WS-03 FAIL in the 2026-05-25 run.
+
+```bash
+# auto-agentic MLX pre-warm — Qwen3-Coder-Next-4bit takes 60-90s to load
+curl -sf -X POST http://localhost:9099/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
+  -d '{"model":"auto-agentic","messages":[{"role":"user","content":"ping"}],"stream":false,"max_tokens":5}' \
+  >/dev/null || true
+echo "auto-agentic MLX pre-warm sent — waiting 90s for Qwen3-Coder-Next-4bit (80B MoE) to load"
+sleep 90
+```
+
 ```bash
 python3 tests/portal5_uat_driver.py --append \
   --section auto-compliance \
