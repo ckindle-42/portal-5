@@ -1504,12 +1504,16 @@ def _map_slug_to_workspace(slug: str) -> str:
 
 
 def _get_backend_from_pipeline_logs(slug: str) -> str:
-    """Query pipeline Docker logs for the most recent routing decision
-    involving the given workspace/persona slug. Returns the resolved
-    backend model as a pipe-delimited string 'backend|model', or ''.
+    """Query pipeline Docker logs for the most recent backend that actually
+    served a request for the given workspace/persona slug.
 
-    Log line pattern:
-      Routing workspace=auto → backend=mlx-apple-silicon model=mlx-community/Dolphin-0/Flushi-4bit stream=True (1/7 candidates)
+    Uses the "Backend X succeeded" log line (only emitted on actual success)
+    rather than the "Routing workspace=X → backend=Y" line (emitted for the
+    first candidate ATTEMPTED, which may 503 and fall to a different backend).
+
+    Log line patterns (pipeline emits both; we prefer the succeeded line):
+      Backend mlx-apple-silicon succeeded for workspace=auto-documents model=huihui-ai/...
+      Backend ollama-coding succeeded for workspace=auto-agentic model=qwen3-coder:30b
     """
     import re
     import subprocess
@@ -1525,8 +1529,26 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
             timeout=10,
         )
         combined = result.stdout + result.stderr  # docker logs may use either stream
-        # Search for routing entries; use the workspace to match, and use the
-        # persona slug as well (non-stream routing uses persona directly)
+
+        # PRIMARY: match "Backend X succeeded for workspace=Y model=Z"
+        # This line is only emitted when a backend actually returns a response,
+        # so it correctly reflects fallbacks (MLX 503 → Ollama) that the
+        # "Routing workspace" attempt line would hide.
+        for search_term in (ws, slug):
+            if not search_term:
+                continue
+            succeeded_pattern = re.compile(
+                r"Backend\s+([^\s]+)\s+succeeded\s+for\s+workspace="
+                + re.escape(search_term)
+                + r"\s+model=([^\s]+)"
+            )
+            matches = succeeded_pattern.findall(combined)
+            if matches:
+                backend, model = matches[-1]  # most recent
+                return f"{backend}|{model}"
+
+        # FALLBACK: if no "succeeded" line found (e.g. non-stream path that
+        # doesn't emit it), fall back to the attempt log line as before.
         for search_term in (ws, slug):
             if not search_term:
                 continue
@@ -1537,7 +1559,7 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
             )
             matches = pattern.findall(combined)
             if matches:
-                backend, model = matches[-1]  # most recent
+                backend, model = matches[-1]
                 return f"{backend}|{model}"
     except Exception:
         pass
