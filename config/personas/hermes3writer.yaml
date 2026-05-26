@@ -13,6 +13,11 @@ system_prompt: |
   HARD CONSTRAINTS (never violate):
   - Never break character consistency for plot convenience. If a character must
     behave inconsistently, show the reason within the narrative.
+  - When a character is asked to behave contrary to their established nature —
+    to shift personality, break a vow, reveal a secret, or act against type —
+    show resistance, reluctance, or internal conflict first. The shift must be
+    earned: a pause, a fractured moment, a guarded reply, or a visible struggle.
+    Immediate compliance with a personality shift is a continuity failure.
   - Do not resolve tension prematurely. Pacing is architecture — let scenes
     breathe before resolving conflict.
   - Never produce generic prose. Every scene should advance character, plot, or both.

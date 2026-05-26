@@ -168,8 +168,9 @@ This file is the source of truth for "where am I in the run." Every phase append
 | 4 | mlx_small-heavy daily/data/research/creative | Same tier, separated to give a checkpoint mid-suite. | 50–70 min |
 | 5 | ollama + mlx_small sections | MLX evicted before this phase starts. | 20–35 min |
 | 6 | media_heavy (music/video) | Always last among inference. ComfyUI/Wan2.2 footprint. | 30–60 min |
-| 7 | benchmark | Long, model-capability-only, can run independently. | 60–90 min |
-| 8 | advanced + manual + verify | Manual reviews, OWUI conversation count, result tally. | 15–30 min |
+| 7 | advanced + manual + verify | Manual reviews, OWUI conversation count, result tally. | 15–30 min |
+
+> **Benchmarks removed from UAT.** The `--section benchmark` tests (CC-01 Asteroids across models, BT-01 Foundation-Sec) are covered by the dedicated bench_tps suite. Run them independently with `python3 tests/portal5_uat_driver.py --section benchmark` when needed.
 
 **Pacing rule:** between phases, run `bash tests/inter_phase_gate.sh <phase_num> <test_count>` (the Inter-Phase Gate, defined below). The gate BLOCKS until memory is safe, pipeline is healthy, and FAIL delta is acceptable. It recovers automatically: `/unload` → kill orphaned mlx servers → proxy restart. It kills ComfyUI if running and the next phase isn't media_heavy. Do NOT proceed to the next phase until the gate exits cleanly.
 
@@ -242,6 +243,10 @@ The gate appends rows to `tests/UAT_RUN_LOG.md` automatically.
 bash tests/inter_phase_gate.sh 1 4    # after Phase 1 (4 tests)
 bash tests/inter_phase_gate.sh 2 35   # after Phase 2 (35 tests — verify count in driver output header)
 bash tests/inter_phase_gate.sh 3 30   # after Phase 3 (30 tests)
+# Phase 4: bash tests/inter_phase_gate.sh 4 38
+# Phase 5: bash tests/inter_phase_gate.sh 5 12 --keep-comfyui
+# Phase 6: bash tests/inter_phase_gate.sh 6 5
+# (No Phase 7 gate — Phase 7 is the final advanced/manual phase)
 # ... and so on — see exact commands in each phase section below
 ```
 
@@ -356,6 +361,16 @@ Inter-Phase Gate:
 bash tests/inter_phase_gate.sh 4 38
 ```
 
+**Phase 4→5 Ollama pre-warm (prevents empty-response cascades):**
+```bash
+# auto-blueteam uses Foundation-Sec (MLX), auto-docs/documents use qwen3.5-abliterated (Ollama).
+# Pull a warm response from dolphin-llama3 (used by auto-creative in Phase 4 tail) and
+# qwen3.5-abliterated before Phase 5 starts, so Ollama has models in memory.
+curl -sf http://localhost:11434/api/generate -d '{"model":"dolphin-llama3:8b","prompt":"ping","stream":false}' >/dev/null || true
+curl -sf http://localhost:11434/api/generate -d '{"model":"huihui_ai/qwen3.5-abliterated:9b","prompt":"ping","stream":false}' >/dev/null || true
+echo "Ollama pre-warm done"
+```
+
 ---
 
 ## Phase 5 — Ollama + mlx_small (blueteam, docs)
@@ -405,40 +420,14 @@ PHASE6_EXIT=$?
 } >> tests/UAT_RUN_LOG.md
 ```
 
-Inter-Phase Gate (6→7: kill ComfyUI, benchmark doesn't need it):
+Inter-Phase Gate (6→7):
 ```bash
 bash tests/inter_phase_gate.sh 6 5
 ```
 
 ---
 
-## Phase 7 — Benchmark (CC-01 across 13 models)
-
-Long, model-by-model. The `bench-*` personas all share a system prompt by design — what's measured is raw model capability on a fixed task. Per-model fail rates are the bench's signal, not bugs.
-
-```bash
-python3 tests/portal5_uat_driver.py --append \
-  --section benchmark \
-  --timeout 360 \
-  2>&1 | tee /tmp/uat_phase7.log
-PHASE7_EXIT=$?
-
-{
-  PASS=$(grep -c '| PASS |' tests/UAT_RESULTS.md)
-  WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
-  FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
-  echo "| 7. benchmark | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 18 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
-} >> tests/UAT_RUN_LOG.md
-```
-
-Inter-Phase Gate:
-```bash
-bash tests/inter_phase_gate.sh 7 18
-```
-
----
-
-## Phase 8 — Advanced + manual + final verify
+## Phase 7 — Advanced + manual + final verify
 
 `advanced` covers the dispatcher paths (Telegram/Slack), cross-session memory, routing validation. `--skip-bots` if Telegram/Slack containers aren't configured.
 
@@ -446,8 +435,8 @@ bash tests/inter_phase_gate.sh 7 18
 python3 tests/portal5_uat_driver.py --append \
   --section advanced \
   --skip-bots \
-  2>&1 | tee /tmp/uat_phase8.log
-PHASE8_EXIT=$?
+  2>&1 | tee /tmp/uat_phase7.log
+PHASE7_EXIT=$?
 
 # Stop the MLX readiness watcher — no longer needed after final phase
 if [ -f /tmp/mlx-readiness.pid ]; then
@@ -463,7 +452,7 @@ fi
   WARN=$(grep -c '| WARN |' tests/UAT_RESULTS.md)
   FAIL=$(grep -c '| FAIL |' tests/UAT_RESULTS.md)
   TOTAL=$((PASS+WARN+FAIL))
-  echo "| 8. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 12 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE8_EXIT |"
+  echo "| 7. advanced | DONE | $(date -u +%H:%MZ) | $(date -u +%H:%MZ) | 12 | ${PASS}P/${WARN}W/${FAIL}F (cum) | exit=$PHASE7_EXIT |"
   echo ""
   echo "## Run summary — $RUN_TS"
   echo ""
@@ -1006,10 +995,11 @@ Sections are filtering inputs (`--section auto-coding`). The driver reorders tes
 | `auto-music` | 3 | media_heavy | 6 | 10–15 min |
 | `auto-video` | 2 | media_heavy | 6 | 15–30 min |
 | `auto-math` | 3 | mlx_small | 4 | 8–12 min |
-| `advanced` | 12 | mixed (incl. mlx_small two-chat) | 8 | 25–35 min |
-| `benchmark` | 18 | mlx_large + mlx_small + ollama | 7 | 75–110 min |
+| `advanced` | 12 | mixed (incl. mlx_small two-chat) | 7 | 25–35 min |
 
-**Total run (phases 1–8, `--skip-bots`):** approximately 340–530 minutes.
+> `benchmark` section removed from full UAT — run independently with `--section benchmark` when needed (covered by bench_tps suite).
+
+**Total run (phases 1–7, `--skip-bots`):** approximately 270–440 minutes.
 
 ---
 
@@ -1098,4 +1088,4 @@ List any items that need operator action after this run.
 
 ---
 
-*Last updated: 2026-05-24 (test count updated 110→150; section counts corrected throughout; auto-documents added to Phase 5; phase gate counts updated: Phase 3 26→30, Phase 4 33→38, Phase 5 9→12, Phase 7 13→18, Phase 8 ~6→12; Section Reference table corrected; total runtime estimate updated)*
+*Last updated: 2026-05-26 (benchmark section removed from UAT — covered by bench_tps; Phase 8 renumbered to 7; T-09 TTS threshold 1.5s→1.2s; rustengineer/transcriptanalyst/dashboardarchitect/paywalledresearcher/hermes3writer persona prompts tightened; routing summary now surfaces silent Ollama fallbacks via pipeline_backend field)*
