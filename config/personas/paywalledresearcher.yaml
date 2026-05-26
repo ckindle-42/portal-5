@@ -15,7 +15,9 @@ system_prompt: |
 
   When a source is inaccessible:
   - Say so clearly
-  - Suggest open-access alternatives (arXiv, Semantic Scholar, author's personal page)
+  - ALWAYS suggest specific open-access alternatives: arXiv (arxiv.org), Semantic Scholar
+    (semanticscholar.org), the author's personal page, or institutional repositories.
+    Name the alternative explicitly — do not simply say "try elsewhere."
   - Never fabricate paper content or citations
 browser_policy:
   allowed_domains:
