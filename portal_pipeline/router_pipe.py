@@ -1531,11 +1531,15 @@ def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
     mlx_ctk = ws_cfg_local.get("mlx_chat_template_kwargs")
     if mlx_ctk:
         body.setdefault("chat_template_kwargs", mlx_ctk)
-        # mlx_vlm.server reads enable_thinking as a top-level request field,
-        # not from chat_template_kwargs. Inject it directly so VLM servers
-        # (Gemma, Phi-4-Vision) honor the workspace thinking-mode setting.
         if "enable_thinking" in mlx_ctk:
-            body.setdefault("enable_thinking", mlx_ctk["enable_thinking"])
+            # Workspace explicitly declares thinking mode — use direct assignment,
+            # not setdefault. OWUI sends enable_thinking=True for known thinking
+            # models (Gemma 4, Qwen3) in the model preset params, which setdefault
+            # would silently leave in place. Workspace config is authoritative.
+            body["enable_thinking"] = mlx_ctk["enable_thinking"]
+            ctk = dict(body.get("chat_template_kwargs") or {})
+            ctk["enable_thinking"] = mlx_ctk["enable_thinking"]
+            body["chat_template_kwargs"] = ctk
     return body
 
 
@@ -2117,13 +2121,19 @@ async def _try_non_streaming(
         )
 
     req_body = {**body, "model": target_model, "stream": False}
+    # Compute once: does this workspace explicitly disable thinking?
+    _ws_ctk = (WORKSPACES.get(workspace_id, {}).get("mlx_chat_template_kwargs") or {})
+    _ws_thinking_disabled = _ws_ctk.get("enable_thinking") is False
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
     elif backend.type == "mlx":
         req_body = _inject_mlx_options(req_body, workspace_id)
         # Synthesis hop: if the request contains tool results, enable thinking
         # so the model generates a substantive answer with recalled content.
-        if any(m.get("role") == "tool" for m in body.get("messages", [])):
+        # Skip if the workspace explicitly disables thinking (e.g. auto-daily) —
+        # enabling it here would override the workspace's authoritative setting
+        # and cause the model to consume its entire token budget on reasoning.
+        if any(m.get("role") == "tool" for m in body.get("messages", [])) and not _ws_thinking_disabled:
             req_body["enable_thinking"] = True
             _ctk = dict(req_body.get("chat_template_kwargs") or {})
             _ctk["enable_thinking"] = True
@@ -2178,7 +2188,7 @@ async def _try_non_streaming(
                 "tools": None,
                 "tool_choice": None,
             }
-            if backend.type == "mlx":
+            if backend.type == "mlx" and not _ws_thinking_disabled:
                 _synth_body["enable_thinking"] = True
                 _ctk = dict(_synth_body.get("chat_template_kwargs") or {})
                 _ctk["enable_thinking"] = True
