@@ -592,6 +592,7 @@ workspace_routing:
   - reasoning
   - general
   auto-documents:
+  - mlx
   - general
   - coding
   auto-video:
