@@ -10270,6 +10270,16 @@ async def run_test(
                         await _wait_for_backend(tier, max_wait=90)
                 else:
                     await _wait_for_backend_alive(tier)
+                # Re-navigate to the chat URL before retrying. OWUI calls
+                # get_all_models() on page load — this clears any stale model
+                # availability cache from the tier-transition eviction period,
+                # and resets any stuck "generating" UI state.
+                if chat_url:
+                    print(
+                        f"  [{test_id}] re-navigating to refresh OWUI model cache before retry…",
+                        flush=True,
+                    )
+                    await _navigate_to_chat(page, chat_url)
 
         # Download artifact if expected
         art_ext = test.get("artifact_ext")
