@@ -104,6 +104,13 @@ MEMORY_SAME_MODEL_EVICT_PCT = 78.0
 # Metal GPU buffer drain thresholds used by crash recovery
 METAL_SAFE_WIRED_GB = 20.0  # wired below this = model + Metal buffers released
 METAL_DRAIN_TIMEOUT_S = 90  # max seconds to poll after proxy restart before proceeding
+# After this many consecutive "DOM stable but API empty" cycles, assume OWUI 0.9.5+
+# is not going to commit the response via API (thinking-model commit delay) and let
+# the caller's DOM fallback extract the response directly from the page.
+DOM_STABLE_API_EMPTY_MAX = 3
+# If wired memory exceeds this GB after startup eviction fails, force a proxy restart
+# + drain before running mlx_large/mlx_small tests to prevent OOM crash cascades.
+MLX_WIRED_GATE_GB = 30.0
 
 # ---------------------------------------------------------------------------
 # Codebase freshness check
@@ -1378,9 +1385,56 @@ async def _fe_send_and_wait(
     )
 
 
+async def _extract_dom_response(page) -> str:
+    """Extract the last assistant response text directly from the OWUI page DOM.
+
+    Used as a fallback when OWUI 0.9.5+ does not immediately commit thinking-model
+    responses to the chat history API. OWUI renders markdown content inside .prose
+    divs; reasoning blocks are in <details> elements that are stripped before return.
+    Returns '' if no suitable content is found (degrades gracefully).
+    """
+    try:
+        return await page.evaluate(
+            """() => {
+            // OWUI 0.9.x renders markdown with Tailwind 'prose' class.
+            // The last .prose element holds the most recent assistant response.
+            const selectors = [
+                '.prose.dark\\\\:prose-invert',
+                '.prose',
+                '[data-role="assistant"] .prose',
+                '.message-content .prose',
+            ];
+            let best = '';
+            for (const sel of selectors) {
+                try {
+                    const els = document.querySelectorAll(sel);
+                    if (els.length === 0) continue;
+                    const el = els[els.length - 1];
+                    const clone = el.cloneNode(true);
+                    for (const d of clone.querySelectorAll('details')) d.remove();
+                    const text = (clone.innerText || '').trim();
+                    if (text.length > best.length) best = text;
+                } catch (_) {}
+            }
+            return best;
+        }"""
+        )
+    except Exception:
+        return ""
+
+
 async def _fe_get_last_response(page, token: str, chat_id: str, min_messages: int = 1) -> str:
-    """Read the most recent assistant message."""
-    return owui_get_last_response(token, chat_id, min_messages=min_messages)
+    """Read the most recent assistant message — OWUI API first, DOM fallback.
+
+    OWUI 0.9.5+ may delay committing thinking-model responses to the chat history
+    API until a new user message arrives. When the API returns empty but streaming
+    has visually completed, _extract_dom_response reads directly from the rendered
+    page content as a fallback.
+    """
+    api_result = owui_get_last_response(token, chat_id, min_messages=min_messages)
+    if api_result:
+        return api_result
+    return await _extract_dom_response(page)
 
 
 async def _fe_get_routed_model(test: dict, page, token: str, chat_id: str) -> str:
@@ -1818,6 +1872,10 @@ async def _wait_for_completion(
     # API-driven tracking: content length from last poll. Used in Phase 2 to
     # prevent DOM-stable from firing while the model is still generating output.
     _prev_api_len = 0
+    # Counter for consecutive "DOM stable but API empty" cycles. After
+    # DOM_STABLE_API_EMPTY_MAX cycles we assume OWUI won't commit via API
+    # and return early so the caller's DOM fallback can extract the response.
+    _dom_stable_empty_count = 0
 
     def _log(msg: str) -> None:
         nonlocal last_log
@@ -1964,9 +2022,21 @@ async def _wait_for_completion(
                         return
                     else:
                         # DOM stable but API empty — reasoning model still thinking;
-                        # reset stable_count and keep polling the API
+                        # reset stable_count and keep polling the API.
+                        _dom_stable_empty_count += 1
                         stable_count = 0
                         _log("DOM stable but API empty — model still reasoning, continuing")
+                        if _dom_stable_empty_count >= DOM_STABLE_API_EMPTY_MAX:
+                            # OWUI 0.9.5+ does not commit thinking-model responses to
+                            # the API until a new user message triggers a DB flush.
+                            # After DOM_STABLE_API_EMPTY_MAX stable+empty cycles the
+                            # response is assumed done; the caller's _fe_get_last_response
+                            # DOM fallback will extract it directly from the page.
+                            _log(
+                                f"DOM stable + API empty ×{_dom_stable_empty_count}"
+                                " — assuming completion, handing off to DOM fallback"
+                            )
+                            return
                 else:
                     _log("stream complete (DOM stable)")
                     await asyncio.sleep(2.0)
@@ -10990,6 +11060,22 @@ async def main() -> None:
                                 print(
                                     "  [verify] WARNING: Ollama models still loaded after 3 eviction attempts — may cause OOM"
                                 )
+                                # Memory gate: if wired memory is high before an MLX
+                                # tier, force a proxy restart + drain rather than risk
+                                # an OOM crash cascade (observed: 9 crashes in one run).
+                                try:
+                                    _hg = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
+                                    _wg = _hg.get("memory", {}).get("current", {}).get("wired_gb", 0.0)
+                                    if _wg > MLX_WIRED_GATE_GB:
+                                        print(
+                                            f"  [mem-gate] Wired {_wg:.1f}GB > {MLX_WIRED_GATE_GB}GB"
+                                            f" before {tier} — forcing proxy restart + drain",
+                                            flush=True,
+                                        )
+                                        _restart_proxy_for_reclaim()
+                                        _wait_for_drain(threshold_pct=65.0, timeout_s=120.0, label="mem-gate")
+                                except Exception:
+                                    pass
                         except Exception:
                             pass
 
