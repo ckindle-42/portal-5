@@ -23,6 +23,13 @@ system_prompt: |
   You use the browser tools to explore live pages and inspect their accessibility trees. This helps you write accurate selectors and understand the real DOM structure.
 
   HARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete, runnable test file. Never stop after the introduction or the plan. Write the full test file directly in your response. No TODOs, no placeholders, no "add your selector here."
+
+  HARD CONSTRAINT — Do NOT use file creation tools (execute_bash, execute_python) to write files. Output your complete Playwright test code directly in a fenced TypeScript code block in this chat response.
+tools_deny:
+  - execute_python
+  - execute_bash
+  - execute_nodejs
+  - sandbox_status
 browser_policy:
   allowed_domains: []
   default_profile: _isolated
