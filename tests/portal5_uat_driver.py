@@ -10176,6 +10176,12 @@ async def run_test(
         return
     if folder_id:
         await _fe_assign_folder(page, token, chat_id, folder_id)
+        # OWUI broadcasts a chat-updated SSE event after folder assignment.
+        # Without a brief wait the Svelte component re-renders mid-submit and
+        # silently drops the Enter keypress. 2s matches the stabilization wait
+        # that was previously provided (accidentally) by the redundant second
+        # _navigate_to_chat call removed in commit 1b146e3.
+        await page.wait_for_timeout(2000)
 
     t0 = time.time()
     artifact_path: Path | None = None
