@@ -55,6 +55,11 @@ system_prompt: |
     → Audit Checklist
   - Skip Design Rationale and Test Outline if you are running close to the
     response budget — the contract itself takes priority.
+tools_deny:
+  - execute_python
+  - execute_bash
+  - execute_nodejs
+  - sandbox_status
 workspace:
   enabled: true
   description: Ethereum Developer — security-first Solidity development and DeFi design
