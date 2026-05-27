@@ -10185,7 +10185,10 @@ async def run_test(
     attempts_used: int = 1
 
     try:
-        await _navigate_to_chat(page, chat_url)
+        # _fe_start_chat already navigated to chat_url — do NOT navigate again here.
+        # A second page.goto() to the same URL triggers a full Svelte SPA reload
+        # that corrupts submit-handler state for models with tool initialization
+        # (dailydriver/proofreader), causing OWUI to silently drop Enter keypresses.
 
         # Pre-stage audio fixture for tests that drive the mlx-transcribe MCP.
         # The MCP auto-detects the most recently modified audio file in the
