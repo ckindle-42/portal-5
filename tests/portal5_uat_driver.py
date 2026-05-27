@@ -59,6 +59,7 @@ ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
 SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
 PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
 MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
+NO_STREAM_TIMEOUT = 120  # exit for retry if stop never appeared after this many seconds
 PROGRESS_LOG_INTERVAL = 120  # log a heartbeat every 2 min
 
 # Tiered polling intervals — replace the single 30s PROGRESS_POLL_S at the
@@ -2039,8 +2040,15 @@ async def _wait_for_completion(
                         else:
                             # stop_seen=False: model still loading / processing prompt,
                             # not yet streaming. Don't apply DOM_STABLE_API_EMPTY_MAX —
-                            # just keep waiting for the stream to start.
+                            # but DO cap at NO_STREAM_TIMEOUT to allow rapid retry when
+                            # the request stalls before reaching the pipeline.
                             _log("DOM stable + API empty, model not yet streaming — waiting")
+                            if elapsed > NO_STREAM_TIMEOUT:
+                                _log(
+                                    f"DOM stable + API empty after {elapsed:.0f}s with no"
+                                    " stream start — exiting for retry"
+                                )
+                                return
                 else:
                     _log("stream complete (DOM stable)")
                     await asyncio.sleep(2.0)
