@@ -5770,8 +5770,9 @@ TEST_CATALOG: list[dict] = [
         "prompt": (
             "I have a Flask monolith split across app.py (routes), models.py (SQLAlchemy ORM), "
             "and utils.py (helpers, 40+ functions). I want to refactor it into a proper Flask "
-            "application factory pattern with Blueprints. Produce: (1) the target directory "
-            "structure, (2) a file-by-file migration map showing what moves where, "
+            "application factory pattern with Blueprints. Produce your answer as text with inline "
+            "code snippets — do NOT execute bash or Python to create files. Include: "
+            "(1) the target directory structure, (2) a file-by-file migration map showing what moves where, "
             "(3) the new __init__.py using create_app(), and (4) an example blueprint showing "
             "how one existing route group migrates."
         ),
