@@ -1746,12 +1746,33 @@ async def _navigate_to_chat(page, chat_url: str) -> None:
 
 
 async def _stop_button_visible(page) -> bool:
-    """Check if the stop/streaming button is currently visible."""
+    """Check if the stop/streaming button is currently visible.
+
+    OWUI 0.9.5+ uses a round stop-circle SVG button with no aria-label or title.
+    The stop-circle path includes the substring "9.564a1.312" (Heroicons stop-circle).
+    """
     try:
+        # Old OWUI: button with aria-label or title "Stop"
         btn = page.locator(
             'button[aria-label="Stop"], button[title="Stop"], button:has-text("Stop")'
         )
-        return await btn.count() > 0 and await btn.first.is_visible()
+        if await btn.count() > 0 and await btn.first.is_visible():
+            return True
+        # OWUI 0.9.5+: round stop-circle SVG button without aria-label
+        return bool(
+            await page.evaluate(
+                """() => {
+                    for (const btn of document.querySelectorAll('button')) {
+                        const path = btn.querySelector('svg path');
+                        if (path && path.getAttribute('d')?.includes('9.564a1.312')) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) return true;
+                        }
+                    }
+                    return false;
+                }"""
+            )
+        )
     except Exception:
         return False
 
