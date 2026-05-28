@@ -1545,24 +1545,23 @@ class Handler(BaseHTTPRequestHandler):
         # arrives at the pipeline as soon as the first token is generated.
         with httpx.Client(
             timeout=httpx.Timeout(REQUEST_TIMEOUT, read=INFERENCE_TIMEOUT)
-        ) as c:
-            with c.stream("POST", url, content=body, headers=hdrs) as resp:
-                self.send_response(resp.status_code)
-                for k, v in resp.headers.items():
-                    if k.lower() not in ("transfer-encoding", "content-encoding", "content-length"):
-                        self.send_header(k, v)
-                self.send_header("Transfer-Encoding", "chunked")
-                self.end_headers()
-                for chunk in resp.iter_bytes(chunk_size=None):
-                    if chunk:
-                        # HTTP/1.1 chunked encoding: <hex-size>\r\n<data>\r\n
-                        self.wfile.write(f"{len(chunk):x}\r\n".encode())
-                        self.wfile.write(chunk)
-                        self.wfile.write(b"\r\n")
-                        self.wfile.flush()
-                # Chunked terminator
-                self.wfile.write(b"0\r\n\r\n")
-                self.wfile.flush()
+        ) as c, c.stream("POST", url, content=body, headers=hdrs) as resp:
+            self.send_response(resp.status_code)
+            for k, v in resp.headers.items():
+                if k.lower() not in ("transfer-encoding", "content-encoding", "content-length"):
+                    self.send_header(k, v)
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for chunk in resp.iter_bytes(chunk_size=None):
+                if chunk:
+                    # HTTP/1.1 chunked encoding: <hex-size>\r\n<data>\r\n
+                    self.wfile.write(f"{len(chunk):x}\r\n".encode())
+                    self.wfile.write(chunk)
+                    self.wfile.write(b"\r\n")
+                    self.wfile.flush()
+            # Chunked terminator
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
 
     def _handle_get_forward(self):
         active = detect_server()
