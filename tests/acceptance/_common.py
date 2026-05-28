@@ -170,8 +170,10 @@ async def _assert_routing(
     tid: str,
     workspace: str,
     model: str,
+    *,
+    persona_slug: str = "",
 ):
-    return await _monolith()._assert_routing(section, tid, workspace, model)
+    return await _monolith()._assert_routing(section, tid, workspace, model, persona_slug=persona_slug)
 
 
 async def _mcp_get(port: int, path: str, timeout: int = 10):
@@ -240,3 +242,25 @@ async def _mcp_raw(
         port, tool, args,
         section=section, tid=tid, name=name, timeout=timeout,
     )
+
+
+def _grep_logs(container: str, pattern: str, lines: int = 500) -> list:
+    return _monolith()._grep_logs(container, pattern, lines)
+
+
+async def _remediate_mlx_crash(reason: str = "crash") -> bool:
+    return await _monolith()._remediate_mlx_crash(reason)
+
+
+async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
+    return await _monolith()._ensure_free_ram_gb(needed_gb, phase)
+
+
+def _get_mlx_workspaces() -> set:
+    """Return MLX_WORKSPACES set from the monolith."""
+    return _monolith().MLX_WORKSPACES
+
+
+def _get_ollama_workspaces() -> set:
+    """Return OLLAMA_WORKSPACES set from the monolith."""
+    return _monolith().OLLAMA_WORKSPACES
