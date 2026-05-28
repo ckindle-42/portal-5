@@ -614,6 +614,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
+    "bench-qwen36-27b-mtp": {
+        "name": "🔬 Bench · Qwen3.6-27B MTP (Alibaba + MTPLX)",
+        "description": (
+            "Benchmark: Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed (MLX-native MTP "
+            "speculative decoding, ~18GB, ~2.24x vendor claim, lossless at temp 0). "
+            "BENCH-ONLY — MTP candidate for TASK_MODEL_REFRESH_V8 A/B. "
+            "No-MTP baseline: mlx-community/Qwen3.6-27B-4bit measured 12.4 TPS; "
+            "MTP target ~27-32 TPS. Requires MTPLX runtime."
+        ),
+        "model_hint": "qwen3-coder:30b",
+        "mlx_model_hint": "Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed",
+        "mlx_only": True,
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
     "bench-qwen36-35b-a3b": {
         "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
         "description": (

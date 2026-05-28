@@ -2,6 +2,45 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.1.0] — 2026-05-28
+
+### Added — MTP speculative-decoding bench track (TASK_MODEL_REFRESH_V8)
+- **bench-qwen36-27b-mtp**: bench workspace + persona for MTP A/B evaluation.
+  CC-01 system prompt preserved (invariant). Model:
+  `Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed` (MLX-native MTP, ~18GB).
+- **Catalog adds (bench-only)**:
+  - `Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed`: MLX-native MTP self-speculative
+    decoding (~18GB, ~2.24x vendor claim, lossless at temp 0). MLX-proxy tier.
+  - `froggeric/Qwen3.6-27B-MTP-GGUF`: llama.cpp b9180+ self-speculative (~2.3x).
+    Ollama-tier portability fallback.
+  - `huihui-ai/Huihui-Qwen3.6-27B-abliterated-MTP-GGUF`: uncensored + MTP for
+    the security/redteam lanes (trusted huihui source; AEON one-off replacement
+    candidate).
+- **bench_tps.py**: MTP bench mapped to coding category; documented
+  `--spec-decoding-tag mtp-on/off` A/B protocol (isolation-respecting).
+- **launch.sh**: `pull-mtp` opt-in subcommand (~18 GB, NOT in default pull set).
+
+### Added — Catalog hygiene
+- `speculative_decoding.draft_models` comment corrected: MTP is self-speculative
+  (model's own heads), not external-drafter. Map stays empty.
+- `embedding_candidates`: EmbeddingGemma premise corrected — best-in-class only
+  under 500M; incumbent Harrier competitive on larger MTEB v2 field.
+
+### Changed — Roadmap / docs
+- P5-FUT-SPEC: BLOCKED → PROBE (MTP path) — native Qwen3.6 MTP unblocks it.
+- P5-MTP-001: LOW → MEDIUM (BF16-slower premise superseded by INT4 sidecar;
+  dense-27B no-MTP baseline measured 12.4 TPS is the case MTP rescues).
+- KNOWN_LIMITATIONS: P5-MTP-PATH bench-only note + P5-MODEL-64GB exclusion
+  record (DeepSeek-V4-Flash/Pro, Kimi-K2.6, GLM-5.1-abliterated — total params
+  exceed 64 GB regardless of active count; revisit at Mac-Studio/cluster tier).
+- CLAUDE.md: Ollama 0.19+ MLX-engine framing fix (~85% of pure-MLX on 32 GB+
+  Macs — tier split is now about model-format breadth, not raw speed).
+
+### Invariants held
+- `draft_models` stays `{}` (MTP is self-speculative, not external-drafter).
+- No `auto-*` production primary changed. Default pull set unchanged.
+- Production behavior bit-identical to 7.0.0.
+
 ## [7.0.0] — 2026-05-27
 
 ### Changed

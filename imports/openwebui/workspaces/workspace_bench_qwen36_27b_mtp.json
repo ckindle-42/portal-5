@@ -1,0 +1,13 @@
+{
+  "id": "bench-qwen36-27b-mtp",
+  "name": "🔬 Bench · Qwen3.6-27B MTP (Alibaba + MTPLX)",
+  "meta": {
+    "description": "Benchmark: Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed — MLX-native MTP speculative decoding (~18GB, ~2.24x vendor claim). BENCH-ONLY.",
+    "profile_image_url": "",
+    "toolIds": ["portal_code"]
+  },
+  "params": {
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+    "model": "bench-qwen36-27b-mtp"
+  }
+}

@@ -3845,6 +3845,28 @@ snapshot_download('$ud_model', ignore_patterns=['*.md','*.txt'], cache_dir=cache
         echo "  Skipping Unsloth UD Qwen3.6 pair (~36 GB combined) — set PULL_UD_QWEN36=1 to include"
     fi
 
+    # V8 opt-in MTP candidate (~18 GB) — Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed
+    if [ "${PULL_MTP:-0}" = "1" ]; then
+        mtp_model="Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed"
+        echo "  Pulling $mtp_model..."
+        if python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$mtp_model', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
+"; then
+            echo "  ✅ $mtp_model done"
+            echo "  NOTE: MTP serving requires the MTPLX runtime (brew install youssofal/mtplx/mtplx)."
+            echo "  This is a bench-only candidate — see TASK_MODEL_REFRESH_V8.md."
+        else
+            echo "  ❌ $mtp_model failed"
+        fi
+    else
+        echo "  Skipping MTP candidate (~18 GB) — set PULL_MTP=1 to include"
+    fi
+
     # Heavy models — gated behind PULL_HEAVY=true
     HEAVY_MLX_MODELS=(
         "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first (BIG_MODEL)
@@ -4029,6 +4051,14 @@ MEOF
     PULL_UD_QWEN36=1 "$0" pull-mlx-models
     ;;
 
+  pull-mtp)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Pulling MTP candidate (~18 GB) — Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed..."
+    echo "  NOTE: MTP serving requires the MTPLX runtime (brew install youssofal/mtplx/mtplx)."
+    echo "  This is a bench-only candidate — see TASK_MODEL_REFRESH_V8.md."
+    PULL_MTP=1 "$0" pull-mlx-models
+    ;;
+
   pull-wan22)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
@@ -4188,7 +4218,7 @@ snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-ud-qwen36|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-ud-qwen36|pull-mtp|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4199,6 +4229,7 @@ snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
   echo "  pull-voxtral          Pull Voxtral-Mini-3B-2507 for multilingual STT (~18.7 GB, opt-in)"
   echo "  pull-ud-qwen36        Pull Unsloth Dynamic 2.0 Qwen3.6 pair (27B + 35B-A3B, ~36 GB, opt-in)"
+  echo "  pull-mtp              Pull MTP candidate (Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed, ~18 GB, opt-in)"
   echo "  pull-wan22            Pull Wan 2.2 ComfyUI models (T2V-A14B/TI2V-5B/Animate-14B/S2V-14B, ~80 GB)"
   echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB)"
   echo "  convert-foundation-sec  Download + MLX 4-bit convert Foundation-Sec-8B-Reasoning (Cisco, ~4.5 GB)"

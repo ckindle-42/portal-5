@@ -113,9 +113,14 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ### MTP Speculative Decoding Not Supported by MLX Proxy
 - **ID**: P5-MTP-001
-- **Severity**: LOW — enhancement opportunity
-- **Description**: Multi-Token Prediction (3.94× speedup verified for Gemma 4 26B-A4B BF16) requires `--draft-model` and `--draft-kind mtp` flags. The proxy does not pass these. Deprioritized because even with MTP, the BF16 path (~12 TPS) is slower than current 4-bit MoE alternatives (25–40 TPS).
+- **Severity**: MEDIUM — enhancement opportunity (promoted from LOW by TASK_MODEL_REFRESH_V8)
+- **Description**: Multi-Token Prediction (3.94× speedup verified for Gemma 4 26B-A4B BF16) requires `--draft-model` and `--draft-kind mtp` flags. The proxy does not pass these. V8 supersedes the BF16-slower premise: 4-bit-trunk + INT4-MTP-sidecar (MTPLX) removes the BF16 cost, and the dense-27B no-MTP baseline (12.4 TPS) is exactly the case MTP rescues.
 - **Resolution path**: TASK_MTP_PROXY_V1.md.
+
+### MTP Speculative Decoding Is Bench-Only (V8)
+- **ID**: P5-MTP-PATH
+- **Description**: MTP speculative decoding is bench-only pending the `--spec-decoding-tag` A/B and sustained-load probe. The production MLX-proxy serving path does not yet enable MTP, and MTP requires a separate runtime (MTPLX for MLX, llama.cpp b9180+ for GGUF) rather than the existing `--draft-model` external-drafter wiring.
+- **Operator action**: Re-run the A/B (`bench_tps.py --spec-decoding-tag mtp-on` vs `mtp-off` on `bench-qwen36-27b-mtp`) and TASK_OMLX_MTP_STABILITY_V1 before any production promotion.
 
 ### 70B Dense Models Unusable for Daily Routing on M4 Pro 64GB
 - **ID**: P5-SPEED-001
@@ -176,5 +181,8 @@ is the path for these models.
 | `mlx-community/Kimi-K2-Instruct-0905-mlx-4bit` (Instruct + Thinking) | ~578 GB | 1T total MoE, 32B active. |
 | `mlx-community/Kimi-K2-Instruct-0905-mlx-DQ3_K_M` | ~450 GB | Mixed 3-4 bit still over budget. |
 | GLM-5 (Z.AI flagship) | 192+ GB at 4-bit | 744B params; not yet in MLX. |
+| `huihui-ai/Huihui-GLM-5.1-abliterated` (754B) | 377+ GB at 4-bit | Same bucket as GLM-5 — abliterated variant, total params far exceed 64 GB. |
 
-*Last updated: 2026-05-27*
+**P5-MODEL-64GB principle**: MoE active-parameter count governs decode *speed*, but total parameters govern *whether it fits* — 64 GB gates on total, not active. The April-2026 headline releases (DeepSeek-V4-Flash 284B/13B active, Kimi-K2.6 1T/32B active) are verified real but excluded on this basis. They become relevant only at the cluster Stage-3 / Mac-Studio tier on the roadmap.
+
+*Last updated: 2026-05-28*
