@@ -244,6 +244,7 @@ class ToolRegistry:
             new_tools: dict[str, ToolDefinition] = {}
 
             async def _discover_one(server_id: str, base_url: str) -> None:
+                """Fetch and parse one MCP server's ``/tools`` endpoint."""
                 try:
                     r = await client.get(f"{base_url.rstrip('/')}/tools")
                     if r.status_code != 200:

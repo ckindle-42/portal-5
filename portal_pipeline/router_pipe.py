@@ -2480,6 +2480,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _init_notifications(registry)
 
     async def _on_health(r: BackendRegistry) -> None:
+        """Callback for the health-check loop: dispatch threshold alerts."""
         if _notification_dispatcher:
             await _notification_dispatcher.check_thresholds_and_alert(r)
 

@@ -69,6 +69,7 @@ def _expand_env(val: Any) -> Any:
     """
 
     def _replace(m: re.Match) -> str:
+        """Regex substitution callback: resolve ``${VAR}`` or ``${VAR:-default}``."""
         var, _, default = m.group(1).partition(":-")
         return os.environ.get(var, default)
 
