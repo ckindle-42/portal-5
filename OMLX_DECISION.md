@@ -86,3 +86,46 @@ provides independent TPS gains.
 2. Remove OMLX server from launch.sh if integrated
 3. Consider Docker Desktop restart if memory issues persist (56GB VM is abnormally high)
 4. Continue with mlx-proxy as production inference
+
+---
+
+## Re-evaluation 2026-05-28 (TASK_OMLX_REEVAL_V2)
+
+**Trigger:** oMLX v0.3.10 release notes claim fixes for three of the
+four findings that drove the 2026-04-25 RETIRE decision
+(RotatingKVCache attention dilution, OMLX_MAX_PROCESS_MEMORY enforcement,
+OOM under sustained load). Native MTP support shipped in v0.3.9 via
+ml-explore/mlx-lm PR #990 — the same unblock path P5_ROADMAP P5-FUT-SPEC
+was waiting on.
+
+**Scope:** Full four-dimensional re-evaluation (TPS, KV-cache TTFT,
+concurrent throughput, MTP speedup) using the existing bench_omlx.py
+scaffold from the 2026-04-25 run, extended with a new MTP probe mode.
+
+**Versions tested:**
+- oMLX: v0.3.12 (vs v0.3.8.dev2 in original run)
+- mlx-proxy: unchanged from original run
+- Portal 5: v7.0.x (vs v6.x at original run)
+
+**Results files:**
+- `tests/benchmarks/results/omlx_reeval_20260528T145902Z.json`
+- `tests/benchmarks/results/omlx_reeval_20260528T145902Z.md` (analysis)
+
+**Headline:** oMLX v0.3.12 MTP speedup PASSES the 1.5× gate on all three
+output sizes (1.55×-1.65×), but KV-cache warm TTFT is still WORSE than
+cold (same bug class as the 2026-04-25 finding), concurrent throughput
+did not improve, and the practical speedup over the production 4-bit
+baseline is marginal (0.95-1.14×).
+
+**Decision matrix cell:** PROBE_AGAIN_NARROWLY
+
+**Disposition of production inference:** UNCHANGED. mlx-proxy remains
+the primary inference server. oMLX left installed for follow-on MTP
+stability probe (TASK_OMLX_MTP_STABILITY_V1.md).
+
+**Open items moved or closed:**
+- P5-FUT-013: stays RETIRED; re-evaluation confirmed KV cache still broken
+- P5-FUT-SPEC: UNBLOCKED via Path C (oMLX MTP side-car) pending stability
+  probe; Path A (mlx-lm PR #990) still viable upstream alternative
+- P5-MTP-001: MEDIUM — MTP gate passes (1.55×-1.65×), integration design
+  pending stability probe results

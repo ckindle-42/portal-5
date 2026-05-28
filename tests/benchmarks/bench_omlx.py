@@ -131,10 +131,40 @@ KV_CONVERSATION = [
 
 MAX_TOKENS = 200
 WARMUP_TOKENS = 1
-REQUEST_TIMEOUT = 300.0
+REQUEST_TIMEOUT = 600.0  # extended for long MTP outputs
 KV_ROUNDS = 3  # cold + 2 warm rounds per model per endpoint
 TPS_RUNS = 3  # single-shot TPS runs per prompt per model per endpoint
 CONCURRENT_N = 4  # parallel workers for concurrency test
+
+# ── MTP Probe constants (added by TASK_OMLX_REEVAL_V2) ────────────────────────
+
+MTP_MODEL = "Qwen3.6-27B-oQ8-mtp"
+MTP_BASELINE_4BIT = "mlx-community/Qwen3.6-27B-4bit"
+
+# MTP probe output-size cells. MTP overhead is per-request fixed; benefit
+# grows with output length. Three sizes characterize the curve.
+MTP_SIZES = [
+    {"label": "short", "max_tokens": 128},
+    {"label": "medium", "max_tokens": 512},
+    {"label": "long", "max_tokens": 2048},
+]
+
+# Deterministic prompt that produces predictable output length and avoids
+# early-stop. Avoid creative prompts (variable length defeats fixed-budget
+# comparison).
+MTP_PROMPT = (
+    "Write a Python function that computes the Fibonacci sequence up to N=100 "
+    "using both recursion and memoization. Then explain each line of both "
+    "implementations in detail. Cover every variable, every operation, time "
+    "complexity, and space complexity. Do not abbreviate the explanation; "
+    "fill the response budget."
+)
+
+# Promotion gate (per P5_ROADMAP P5-FUT-SPEC)
+MTP_GATE_SPEEDUP = 1.5
+
+OMLX_MODEL_SETTINGS = Path.home() / ".omlx" / "model_settings.json"
+OMLX_RESTART_WAIT = 25  # seconds to wait after oMLX restart for model discovery
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -494,6 +524,191 @@ def run_endpoint(url: str, label: str, models: list[dict], args) -> list[dict]:
     return all_results
 
 
+# ── MTP probe helpers ─────────────────────────────────────────────────────────
+
+
+def _set_mtp_enabled(enabled: bool) -> None:
+    """Write model_settings.json to toggle MTP for the MTP model."""
+    settings = {"models": {MTP_MODEL: {"mtp_enabled": enabled}}}
+    OMLX_MODEL_SETTINGS.write_text(json.dumps(settings, indent=2))
+    state = "ON" if enabled else "OFF"
+    print(f"    MTP {state} written to {OMLX_MODEL_SETTINGS}")
+
+
+def _restart_omlx() -> bool:
+    """Kill and restart oMLX, wait for model discovery."""
+    import subprocess
+
+    # Kill existing oMLX
+    try:
+        subprocess.run(["pkill", "-f", "omlx serve"], capture_output=True)
+    except Exception:
+        pass
+    time.sleep(3)
+
+    # Start fresh
+    log_path = f"/tmp/omlx-reeval-restart-{int(time.time())}.log"
+    log_fh = open(log_path, "w")
+    subprocess.Popen(
+        ["omlx", "serve", "--model-dir", "/Volumes/data01/omlx-models",
+         "--port", "8085", "--log-level", "info"],
+        stdout=log_fh, stderr=log_fh,
+        start_new_session=True,
+    )
+
+    # Wait for server to be ready
+    print(f"    Waiting {OMLX_RESTART_WAIT}s for oMLX restart ...", end=" ", flush=True)
+    time.sleep(OMLX_RESTART_WAIT)
+
+    # Verify
+    try:
+        r = httpx.get(f"{OMLX_URL}/v1/models", timeout=5.0)
+        if r.status_code == 200:
+            n = len(r.json().get("data", []))
+            print(f"ok ({n} models)")
+            return True
+    except Exception:
+        pass
+    print("FAILED")
+    return False
+
+
+def _check_mtp_engaged() -> bool:
+    """Check recent oMLX logs for MTP path activation."""
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["grep", "-c", "MTP path activated", "/tmp/omlx-reeval-restart-*.log"],
+            capture_output=True, text=True,
+        )
+        return r.stdout.strip() not in ("", "0")
+    except Exception:
+        return False
+
+
+def _timed_mtp_call(url: str, model: str, max_tokens: int) -> dict:
+    """Single timed chat completion. Returns TPS, elapsed, output meta."""
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": MTP_PROMPT}],
+        "max_tokens": max_tokens,
+        "temperature": 0,
+        "stream": False,
+    }
+
+    t0 = time.time()
+    try:
+        with httpx.Client(timeout=REQUEST_TIMEOUT) as c:
+            resp = c.post(f"{url}/v1/chat/completions", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+        t1 = time.time()
+    except Exception as e:
+        print(f"FAIL: {e}")
+        return {"available": False, "error": str(e), "tps": 0.0,
+                "elapsed_s": round(time.time() - t0, 2)}
+
+    elapsed = t1 - t0
+    out_text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    usage = data.get("usage", {}) or {}
+    out_tokens = usage.get("completion_tokens") or max(1, len(out_text) // 4)
+    tps = out_tokens / elapsed if elapsed > 0 else 0.0
+    model_load = usage.get("model_load_duration", 0)
+    total_time = usage.get("total_time", elapsed)
+    print(f"{tps:.1f} t/s ({out_tokens} tok, {elapsed:.1f}s, load={model_load:.1f}s)")
+
+    return {
+        "available": True,
+        "tps": round(tps, 2),
+        "elapsed_s": round(elapsed, 2),
+        "output_tokens": out_tokens,
+        "output_chars": len(out_text),
+        "output_prefix": out_text[:200],
+        "model_load_duration_s": round(model_load, 2),
+        "total_time_s": round(total_time, 2),
+        "completion_tokens_reported": "completion_tokens" in usage,
+    }
+
+
+def bench_mtp(args) -> list[dict]:
+    """MTP speculative-decoding probe.
+
+    For each output size, runs three conditions:
+      - omlx_control:   oMLX, MTP-model, MTP disabled (restart required)
+      - omlx_mtp:       oMLX, MTP-model, MTP enabled (restart required)
+      - mlx_proxy_4bit: mlx-proxy, 4-bit base (production baseline)
+
+    MTP is a per-model setting in oMLX, toggled via model_settings.json +
+    oMLX restart. This is NOT a per-request parameter.
+
+    Returns one result dict per (size, condition) cell.
+    """
+    results: list[dict] = []
+    if args.dry_run:
+        print("\n  MTP probe plan:")
+        for size in MTP_SIZES:
+            print(f"    size={size['label']} max_tokens={size['max_tokens']}")
+            print(f"      - oMLX control (no MTP) on {MTP_MODEL}")
+            print(f"      - oMLX treatment (MTP on) on {MTP_MODEL}")
+            print(f"      - mlx-proxy baseline 4bit on {MTP_BASELINE_4BIT}")
+        return results
+
+    for size in MTP_SIZES:
+        print(f"\n  MTP cell — size={size['label']} max_tokens={size['max_tokens']}")
+
+        # Condition 1: oMLX, MTP DISABLED
+        print("    [1/3] oMLX control (MTP off) ...", end=" ", flush=True)
+        _set_mtp_enabled(False)
+        if not _restart_omlx():
+            r = {"available": False, "error": "oMLX restart failed (MTP off)",
+                 "tps": 0.0, "elapsed_s": 0}
+        else:
+            _warmup(OMLX_URL, MTP_MODEL)
+            r = _timed_mtp_call(OMLX_URL, MTP_MODEL, size["max_tokens"])
+        r.update({"size": size["label"], "condition": "omlx_control",
+                  "model": MTP_MODEL, "endpoint": "omlx"})
+        results.append(r)
+        _short_cooldown(10)
+
+        # Condition 2: oMLX, MTP ENABLED
+        print("    [2/3] oMLX treatment (MTP on)  ...", end=" ", flush=True)
+        _set_mtp_enabled(True)
+        if not _restart_omlx():
+            r = {"available": False, "error": "oMLX restart failed (MTP on)",
+                 "tps": 0.0, "elapsed_s": 0}
+        else:
+            _warmup(OMLX_URL, MTP_MODEL)
+            r = _timed_mtp_call(OMLX_URL, MTP_MODEL, size["max_tokens"])
+            r["mtp_engaged"] = _check_mtp_engaged()
+        r.update({"size": size["label"], "condition": "omlx_mtp",
+                  "model": MTP_MODEL, "endpoint": "omlx"})
+        results.append(r)
+        _short_cooldown(10)
+
+        # Condition 3: mlx-proxy, 4-bit baseline
+        # Kill oMLX first to free memory for mlx-proxy
+        print("    [3/3] mlx-proxy 4-bit baseline ...", end=" ", flush=True)
+        try:
+            import subprocess
+            subprocess.run(["pkill", "-f", "omlx serve"], capture_output=True)
+        except Exception:
+            pass
+        time.sleep(5)
+        _warmup(MLX_PROXY_URL, MTP_BASELINE_4BIT)
+        r = _timed_mtp_call(MLX_PROXY_URL, MTP_BASELINE_4BIT, size["max_tokens"])
+        r.update({"size": size["label"], "condition": "mlx_proxy_4bit",
+                  "model": MTP_BASELINE_4BIT, "endpoint": "mlx-proxy"})
+        results.append(r)
+        _short_cooldown(30)
+
+    return results
+
+
+def _short_cooldown(seconds: int) -> None:
+    print(f"    (cooldown {seconds}s)")
+    time.sleep(seconds)
+
+
 # ── Summary printer ───────────────────────────────────────────────────────────
 
 
@@ -502,10 +717,11 @@ def _print_summary(all_results: list[dict]) -> None:
     print("BAKE-OFF SUMMARY")
     print(f"{'=' * 70}")
 
-    # Group by test type
-    kv_results = [r for r in all_results if r["test"] == "kv_cache_ttft"]
-    tps_results = [r for r in all_results if r["test"] == "tps_large"]
-    conc_results = [r for r in all_results if r["test"] == "concurrent"]
+    # Group by test type — MTP results use "condition" instead of "test"
+    kv_results = [r for r in all_results if r.get("test") == "kv_cache_ttft"]
+    tps_results = [r for r in all_results if r.get("test") == "tps_large"]
+    conc_results = [r for r in all_results if r.get("test") == "concurrent"]
+    mtp_results = [r for r in all_results if "condition" in r]
 
     if kv_results:
         print("\n── KV Cache TTFT (cold vs warm) ──")
@@ -556,6 +772,32 @@ def _print_summary(all_results: list[dict]) -> None:
                     f"  {m.split('/')[-1]}: mlx={mx:.2f}s  omlx={ox:.2f}s  → {winner} {abs(delta):.1f}% faster"
                 )
 
+    # MTP summary
+    if mtp_results:
+        print("\n── MTP Probe (TASK_OMLX_REEVAL_V2) ──")
+        print(f"{'Size':<8} {'Condition':<18} {'TPS':>8} {'Elapsed':>8} {'Tokens':>7}")
+        print("-" * 55)
+        for r in mtp_results:
+            tps = f"{r['tps']:.1f}" if r.get("available") else "FAIL"
+            elapsed = f"{r['elapsed_s']:.1f}s" if r.get("available") else "N/A"
+            tokens = str(r.get("output_tokens", "N/A"))
+            print(f"{r['size']:<8} {r['condition']:<18} {tps:>8} {elapsed:>8} {tokens:>7}")
+
+        # Speedup ratios
+        print("\n── MTP Speedup Ratios ──")
+        for size_def in MTP_SIZES:
+            label = size_def["label"]
+            control = next((r for r in mtp_results if r["size"] == label and r["condition"] == "omlx_control"), None)
+            treatment = next((r for r in mtp_results if r["size"] == label and r["condition"] == "omlx_mtp"), None)
+            baseline = next((r for r in mtp_results if r["size"] == label and r["condition"] == "mlx_proxy_4bit"), None)
+            if control and treatment and control.get("available") and treatment.get("available"):
+                ratio = round(treatment["tps"] / control["tps"], 2) if control["tps"] > 0 else 0
+                gate = "PASS" if ratio >= MTP_GATE_SPEEDUP else "FAIL"
+                print(f"  {label}: MTP/control = {ratio}× (gate: {gate})")
+            if baseline and treatment and baseline.get("available") and treatment.get("available"):
+                practical = round(treatment["tps"] / baseline["tps"], 2) if baseline["tps"] > 0 else 0
+                print(f"  {label}: MTP/4bit-baseline = {practical}×")
+
     print(f"\n{'=' * 70}")
     print("Update OMLX_DECISION.md with these results, then close P5-FUT-013.")
     print(f"{'=' * 70}")
@@ -570,6 +812,14 @@ def main() -> None:
     parser.add_argument("--omlx-only", action="store_true", help="Test OMLX only")
     parser.add_argument("--skip-large", action="store_true", help="Skip Llama-3.3-70B")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without running")
+    parser.add_argument(
+        "--mode",
+        choices=["bakeoff", "mtp", "all"],
+        default="all",
+        help="bakeoff: original P5-FUT-013 dimensions (TPS+KV+concurrent). "
+             "mtp: new MTP speculative-decoding probe only. "
+             "all: bakeoff + mtp (default; recommended for full re-eval).",
+    )
     args = parser.parse_args()
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -579,10 +829,14 @@ def main() -> None:
 
     print("Portal 5 — OMLX Full Bake-off")
     print(f"Timestamp: {ts}")
+    print(f"Mode: {args.mode}")
     print(f"Models: {[m['short'] for m in models]}")
-    print(
-        f"Tests: KV cache TTFT ({KV_ROUNDS} rounds)  |  TPS ({TPS_RUNS} runs)  |  Concurrent ({CONCURRENT_N} workers)"
-    )
+    if args.mode in ("bakeoff", "all"):
+        print(
+            f"Tests: KV cache TTFT ({KV_ROUNDS} rounds)  |  TPS ({TPS_RUNS} runs)  |  Concurrent ({CONCURRENT_N} workers)"
+        )
+    if args.mode in ("mtp", "all"):
+        print(f"MTP probe: {len(MTP_SIZES)} sizes × 3 conditions (control/treatment/baseline)")
 
     mlx_up = _check_endpoint(MLX_PROXY_URL)
     omlx_up = _check_endpoint(OMLX_URL)
@@ -598,40 +852,58 @@ def main() -> None:
 
     all_results: list[dict] = []
 
-    # Always test mlx-proxy first (the established baseline)
-    if not args.omlx_only:
-        mlx_results = run_endpoint(MLX_PROXY_URL, "mlx-proxy", models, args)
-        all_results.extend(mlx_results)
+    # Existing flow (kv_cache + tps + concurrent) — gate behind mode
+    if args.mode in ("bakeoff", "all"):
+        # Always test mlx-proxy first (the established baseline)
+        if not args.omlx_only:
+            mlx_results = run_endpoint(MLX_PROXY_URL, "mlx-proxy", models, args)
+            all_results.extend(mlx_results)
 
-    # Wait for Metal to reclaim fully before switching endpoints
-    if not args.omlx_only and not args.mlx_only and not args.dry_run:
-        print(
-            f"\n  Switching endpoints — waiting {METAL_RECLAIM_WAIT}s for Metal reclaim ...",
-            end=" ",
-            flush=True,
-        )
-        _evict_mlx(SMALLEST_MLX)
-        _wait_mlx_memory(30.0, timeout_s=90.0)
-        time.sleep(METAL_RECLAIM_WAIT)
-        print("ok")
+        # Wait for Metal to reclaim fully before switching endpoints
+        if not args.omlx_only and not args.mlx_only and not args.dry_run:
+            print(
+                f"\n  Switching endpoints — waiting {METAL_RECLAIM_WAIT}s for Metal reclaim ...",
+                end=" ",
+                flush=True,
+            )
+            _evict_mlx(SMALLEST_MLX)
+            _wait_mlx_memory(30.0, timeout_s=90.0)
+            time.sleep(METAL_RECLAIM_WAIT)
+            print("ok")
 
-    if not args.mlx_only:
-        omlx_results = run_endpoint(OMLX_URL, "omlx", models, args)
-        all_results.extend(omlx_results)
+        if not args.mlx_only:
+            omlx_results = run_endpoint(OMLX_URL, "omlx", models, args)
+            all_results.extend(omlx_results)
+
+    # New flow (MTP probe) — gate behind mode
+    if args.mode in ("mtp", "all"):
+        print("\n" + "=" * 70)
+        print("MTP Probe (TASK_OMLX_REEVAL_V2)")
+        print("=" * 70)
+        mtp_results = bench_mtp(args)
+        all_results.extend(mtp_results)
 
     if not args.dry_run:
         _print_summary(all_results)
 
+    # Output file name reflects mode
+    suffix = {"bakeoff": "bakeoff", "mtp": "mtp", "all": "reeval"}[args.mode]
     out = {
         "timestamp": ts,
+        "mode": args.mode,
         "models_tested": [m["short"] for m in models],
         "skip_large": args.skip_large,
         "kv_rounds": KV_ROUNDS,
         "tps_runs": TPS_RUNS,
         "concurrent_workers": CONCURRENT_N,
+        "mtp_model": MTP_MODEL,
+        "mtp_baseline": MTP_BASELINE_4BIT,
+        "mtp_sizes": [s["label"] for s in MTP_SIZES],
+        "mtp_gate_speedup": MTP_GATE_SPEEDUP,
+        "omlx_version": "0.3.12",
         "results": all_results,
     }
-    out_path = RESULTS_DIR / f"omlx_bakeoff_{ts}.json"
+    out_path = RESULTS_DIR / f"omlx_{suffix}_{ts}.json"
     out_path.write_text(json.dumps(out, indent=2))
     print(f"\nResults saved: {out_path}")
 

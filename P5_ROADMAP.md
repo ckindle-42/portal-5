@@ -30,8 +30,8 @@ genuinely open future work. Completed items are kept for reference only.
 | P5-FUT-010 | P2 | Abliterated Qwen3.5 Ollama upgrade | DONE | `huihui_ai/qwen3.5-abliterated:9b` is line 1 of ollama-general (TASK_TOOL_SUPPORT_AUDIT_V1, commit de96984). `huihui_ai/Qwen3.6-abliterated:27b` added as V6 larger fallback. |
 | P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | CANCELED | `auto-compliance` primary is now `granite-4.1-30b-mxfp4` (IBM GRC-trained, Apache 2.0, BFCL V3 73.7, 7.8 t/s). Granite won the V5 ladder bench over all Qwen3.5 variants. Uncensored MLX conversion no longer needed for this slot. |
 | P5-FUT-012 | P3 | Speech pipeline upgrade (mlx-audio) | DONE | Host-native `scripts/mlx-speech.py` using mlx-audio. Qwen3-TTS (1.7B, 3 variants: CustomVoice, VoiceDesign, Base/Clone) + Qwen3-ASR (1.7B) + Kokoro (82M). Voice cloning from 3s audio, emotion control, voice design from text, 10 languages, streaming. Docker TTS/ASR kept as fallback. |
-| P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | CANCELED | Full bake-off completed 2026-04-25 (see OMLX_DECISION.md). Decision: RETIRE. KV cache not functional (warm TTFT 31% slower than cold). mlx-proxy wins on TPS and stability. |
-| P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | BLOCKED | Draft models cataloged and proxy logic built, but `speculative_decoding.draft_models: {}` in backends.yaml — disabled because mlx_lm 0.31.2 changed default cache to ArraysCache which is not trimmable. Re-enable when one of two upstream paths matures: (1) ml-explore/mlx-lm PR #990 (native MTP spec-dec, AirRunner, awaiting maintainer review as of late March 2026), or (2) bstnxbt/dflash-mlx (lossless block-diffusion spec-dec, Apache 2.0, stock MLX + targeted Metal kernels). See "Open Items" below for details. |
+| P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | CANCELED | Full bake-off completed 2026-04-25 (see OMLX_DECISION.md). Decision: RETIRE. KV cache not functional (warm TTFT 31% slower than cold). mlx-proxy wins on TPS and stability. **Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 full re-evaluation. KV cache STILL broken (warm 2× slower than cold). MTP passes 1.5× gate. Status: REMAINS RETIRED. See OMLX_DECISION.md "Re-evaluation 2026-05-28" section. |
+| P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | BLOCKED | Draft models cataloged and proxy logic built, but `speculative_decoding.draft_models: {}` in backends.yaml — disabled because mlx_lm 0.31.2 changed default cache to ArraysCache which is not trimmable. Re-enable when one of two upstream paths matures: (1) ml-explore/mlx-lm PR #990 (native MTP spec-dec, AirRunner, awaiting maintainer review as of late March 2026), or (2) bstnxbt/dflash-mlx (lossless block-diffusion spec-dec, Apache 2.0, stock MLX + targeted Metal kernels). See "Open Items" below for details. **Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** Path C unblocked — oMLX v0.3.12 MTP side-car shows 1.55×-1.65× speedup. Pending stability probe (TASK_OMLX_MTP_STABILITY_V1). |
 | P5-FUT-015 | P2 | Unified shared workspace | DONE | TASK-WORKSPACE-001. Single `${AI_OUTPUT_DIR}` root mounted into OWUI (uploads overlay) and all participating MCPs (`/workspace`). New `portal_mcp.core.workspace` helper module. AUDIO_STT_ENGINE disabled — voice-input loss documented. Foundation for TASK-TRANSCRIBE-001 and future file-handling MCPs. |
 | P5-FUT-014 | P3 | Diarized transcription (speaker-labeled) | DONE | TASK-TRANSCRIBE-001 (built on TASK-WORKSPACE-001 foundation). Host-native `scripts/mlx-transcribe.py` (mlx-whisper + pyannote.audio on MPS) primary on Apple Silicon, port 8924. Docker `whisper_mcp.py` extended with same `transcribe_with_speakers` tool for cross-platform fallback. New `transcriptanalyst` persona in `auto-documents` workspace handles full flow: detects audio attachments, calls tool, formats output, chains to `create_word_document` for docx. Uses `portal_mcp.core.workspace` helpers for file resolution. HF_TOKEN required (gated pyannote models). |
 
@@ -90,6 +90,13 @@ proxy work reduces to plumbing the flag through. Re-evaluate P5-MTP-001 priority
 when PR #990 status changes. Current draft model preferences (vocab parity with
 Qwen3 targets): `mlx-community/Qwen3-0.6B-4bit` or `mlx-community/Qwen3-1.7B-4bit`,
 already cataloged but inert until spec-dec re-enables.
+
+**Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 MTP probed via
+Path C (oMLX native MTP). Gate: 1.55×-1.65× PASS on M4 Pro 64 GB.
+Priority promoted from LOW to MEDIUM. Integration via oMLX side-car
+pending stability probe (TASK_OMLX_MTP_STABILITY_V1). If stable, oMLX
+serves as the MTP side-car on :8085 for long-output coding workspaces;
+mlx-proxy retains primary inference for all other workspaces.
 
 ### workspace-clean Utility (LOW priority)
 
@@ -154,6 +161,8 @@ MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 ### P5-FUT-013: OMLX Evaluation — CANCELED
 
 Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md` for full results. KV cache persistence not functional (warm TTFT 31% *slower* than cold). mlx-proxy retains the production inference role.
+
+**Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 full re-evaluation completed. KV cache STILL broken (warm 2× slower than cold on 3B and 30B). MTP speedup clears 1.5× gate (1.55×-1.65×). 30B model now loads (memory fix works). 70B borderline (HTTP 507 on cold load). Decision: PROBE_AGAIN_NARROWLY. Status: REMAINS RETIRED. See OMLX_DECISION.md "Re-evaluation 2026-05-28" section and `tests/benchmarks/results/omlx_reeval_20260528T145902Z.md` for detail. Next re-evaluation trigger: MTP stability probe (TASK_OMLX_MTP_STABILITY_V1).
 
 ---
 
