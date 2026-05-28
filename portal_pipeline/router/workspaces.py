@@ -186,9 +186,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "💻 Portal Code Expert",
         "description": "Code generation, debugging, architecture review",
         "model_hint": "qwen3-coder:30b",
-        # V5 bench: GLM-4.7-Flash-4bit FAIL (0 tokens, P5-MLX-006 chat template defect).
-        # Promoted to Laguna-XS.2-4bit (Poolside AI, 40.3 t/s, 19GB, smoke PASS).
-        "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
+        # V9: Promoted to Qwen3.6-27B-OptiQ-4bit (TASK_QUANT_TRUEUP_V1 Phase 9).
+        # OptiQ sensitivity-aware 4-bit beats plain 4-bit on TPS (14.4 vs 11.6)
+        # while preserving quality (Q=0.67, same as baseline).
+        # Replaces Laguna-XS.2-4bit which remains as bench-laguna pin.
+        "mlx_model_hint": "mlx-community/Qwen3.6-27B-OptiQ-4bit",
         # Output budget raised to 16384 — full-game HTML (Asteroids, particle
         # systems, etc.) sits at 6-10K tokens; the prior 8192 cap cut responses
         # while still in the analysis phase for complex deliverables.
