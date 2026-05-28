@@ -2096,7 +2096,11 @@ async def _send_and_wait(
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
     await ta.fill(prompt)
-    await ta.press("Enter")
+    send_btn = page.locator("#send-message-button")
+    if await send_btn.count() > 0:
+        await send_btn.click()
+    else:
+        await ta.press("Enter")
     await _wait_for_completion(
         page,
         test_id,
@@ -9726,19 +9730,16 @@ async def _run_two_chat_test(
 
     title1 = f"[...] UAT: {test_id} (1/2) {name}"
     title2 = f"[...] UAT: {test_id} (2/2) {name}"
+    # Create chats and assign folders via API BEFORE browser navigation (same reason
+    # as main test path — post-nav folder assignment triggers SSE that corrupts submit).
+    chat1_id, chat1_url = owui_create_chat(token, model, title1)
+    chat2_id, chat2_url = owui_create_chat(token, model, title2)
+    if folder_id:
+        owui_assign_chat_folder(token, chat1_id, folder_id)
+        owui_assign_chat_folder(token, chat2_id, folder_id)
     try:
-        chat1_id, chat1_url = await _fe_start_chat(
-            page,
-            token,
-            model,
-            title1,
-        )
-        chat2_id, chat2_url = await _fe_start_chat(
-            page,
-            token,
-            model,
-            title2,
-        )
+        await _navigate_to_chat(page, chat1_url)
+        await _navigate_to_chat(page, chat2_url)
     except _PresetUnreachableError as exc:
         record_result(
             n,
@@ -9752,9 +9753,6 @@ async def _run_two_chat_test(
         )
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
-    if folder_id:
-        await _fe_assign_folder(page, token, chat1_id, folder_id)
-        await _fe_assign_folder(page, token, chat2_id, folder_id)
 
     t0 = time.time()
     response1 = ""
@@ -10134,14 +10132,18 @@ async def run_test(
             counts["FAIL"] = counts.get("FAIL", 0) + 1
             return
 
-    # Create chat
+    # Create chat and assign folder via API BEFORE browser navigation.
+    # Assigning the folder after the browser has loaded an empty chat causes
+    # OWUI to broadcast a chat-updated SSE event. The Svelte component re-renders
+    # the "new chat" suggestions view in response, which corrupts the submit handler
+    # and silently drops Enter keypresses. Assigning the folder first means the
+    # browser opens the chat with the folder already set — no SSE event fires
+    # during the test session.
+    chat_id, chat_url = owui_create_chat(token, model, title_pending)
+    if folder_id:
+        owui_assign_chat_folder(token, chat_id, folder_id)
     try:
-        chat_id, chat_url = await _fe_start_chat(
-            page,
-            token,
-            model,
-            title_pending,
-        )
+        await _navigate_to_chat(page, chat_url)
     except _PresetUnreachableError as exc:
         record_result(
             n,
@@ -10151,7 +10153,7 @@ async def run_test(
             model,
             [("persona_preset_unreachable", False, str(exc)[:160])],
             0.0,
-            "",
+            chat_url,
         )
         counts["SKIP"] = counts.get("SKIP", 0) + 1
         return
@@ -10170,18 +10172,10 @@ async def run_test(
             model,
             [("chat_start_failed", False, f"{type(exc).__name__}: {str(exc)[:160]}")],
             0.0,
-            "",
+            chat_url,
         )
         counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
         return
-    if folder_id:
-        await _fe_assign_folder(page, token, chat_id, folder_id)
-        # OWUI broadcasts a chat-updated SSE event after folder assignment.
-        # Without a brief wait the Svelte component re-renders mid-submit and
-        # silently drops the Enter keypress. 2s matches the stabilization wait
-        # that was previously provided (accidentally) by the redundant second
-        # _navigate_to_chat call removed in commit 1b146e3.
-        await page.wait_for_timeout(2000)
 
     t0 = time.time()
     artifact_path: Path | None = None
@@ -10191,10 +10185,9 @@ async def run_test(
     attempts_used: int = 1
 
     try:
-        # _fe_start_chat already navigated to chat_url — do NOT navigate again here.
-        # A second page.goto() to the same URL triggers a full Svelte SPA reload
-        # that corrupts submit-handler state for models with tool initialization
-        # (dailydriver/proofreader), causing OWUI to silently drop Enter keypresses.
+        # _navigate_to_chat above is the only navigation — do NOT navigate again here.
+        # A second page.goto() corrupts Svelte submit-handler state for models
+        # with tool initialization (dailydriver/proofreader).
 
         # Pre-stage audio fixture for tests that drive the mlx-transcribe MCP.
         # The MCP auto-detects the most recently modified audio file in the
