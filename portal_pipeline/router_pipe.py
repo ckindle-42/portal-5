@@ -1,8 +1,59 @@
-"""Portal 6.0.4 — Intelligent Router Pipeline.
+"""Portal 5 Pipeline — OpenAI-compatible router connecting Open WebUI to local backends.
 
-Exposes OpenAI-compatible /v1/models and /v1/chat/completions.
-Open WebUI connects here as its sole model source.
-Routes by workspace to the appropriate backend + model.
+This is the single FastAPI app that serves ``/v1/models`` and
+``/v1/chat/completions`` for Open WebUI. Every Open WebUI request flows
+through this file before reaching an Ollama or MLX backend.
+
+The file is large (3,664 LOC) and organized in roughly six bands by line:
+
+* L1–L373:    Module-level state, Prometheus metric definitions, env config.
+* L375–L518:  Telemetry recorders (``_record_usage``, ``_record_persona``,
+              ``_record_error``, ``_record_response_time``,
+              ``_load_state``, ``_save_state``).
+* L533–L1554: Tool dispatch and workspace routing — see
+              ``portal_pipeline/router/workspaces.py`` for the policy
+              source. Includes LLM-based intent classifier
+              (``_route_with_llm``), keyword-fallback router
+              (``_detect_workspace``), semaphore management, and
+              backend-specific request body injection.
+* L1597–L1700: Startup warmups (auto-workspace inference model and the
+               LLM router model).
+* L1702–L1789: ``lifespan`` context manager and the ``app`` instance.
+* L1791–L3664: Route handlers (``/health``, ``/metrics``, ``/v1/models``,
+               ``/v1/chat/completions``, admin) and streaming machinery
+               including the multi-hop tool loop.
+
+Three things to know before editing:
+
+1. **State persistence has delta semantics**. ``_save_state`` reads the
+   file, adds the in-memory accumulators, writes atomically, then
+   **resets the in-memory accumulators to zero**. The reset is critical
+   — removing it inflates metrics by ``saves_per_day × workers`` on
+   every restart. See ``_save_state`` and ``_load_state``.
+2. **Module-level singletons are intentional**. ``registry``,
+   ``_http_client``, ``_request_semaphore``, ``_notification_dispatcher``,
+   and the Prometheus metric objects are all process-global. ``lifespan``
+   creates them on startup and cancels/closes them on shutdown. Tests
+   stub them via direct module attribute assignment.
+3. **Lazy imports protect the lean Dockerfile**. ``notifications`` is
+   imported under ``TYPE_CHECKING`` for type hints and lazily inside
+   ``_init_notifications`` for runtime use, so the channels package
+   (and its dependencies like ``aiosmtplib``, ``APScheduler``) only
+   loads when ``NOTIFICATIONS_ENABLED=true``. Same pattern for
+   ``portal_pipeline.tool_registry`` inside ``_try_non_streaming``.
+
+Knobs (env-overridable):
+
+* ``MAX_REQUEST_BYTES`` (4 MB default) — request body size cap.
+* ``METRICS_STATE_FILE`` (``/app/data/metrics_state.json``).
+* ``LOG_LEVEL`` (``INFO``).
+* ``ELECTRICITY_RATE_USD_PER_KWH`` (``0.15``) for cost-attribution metrics.
+* ``PROMETHEUS_MULTIPROC_DIR`` — must be set when ``PIPELINE_WORKERS > 1``;
+  ``__main__.py`` creates one if absent.
+* ``STRICT_HINT_VALIDATION`` — when ``true``, an unresolvable workspace
+  hint at startup raises rather than warns. See ``lifespan``.
+* ``NOTIFICATIONS_ENABLED`` — gates the lazy import + setup of the
+  notifications subsystem.
 """
 
 from __future__ import annotations
@@ -70,14 +121,42 @@ _state_save_task: asyncio.Task | None = None
 
 
 def _record_error(workspace: str, error_type: str) -> None:
-    """Record an error in both the Prometheus Counter and the plain dict for summaries."""
+    """Record an error to both the Prometheus counter and the daily-summary dict.
+
+    The pipeline keeps two parallel error counts: ``_errors_total`` (a
+    Prometheus ``Counter`` scraped by ``/metrics``) and
+    ``_req_count_by_error`` (a plain dict diffed by the notification
+    scheduler to build daily summaries). They must update together —
+    every error path goes through this helper rather than mutating
+    either directly.
+
+    Args:
+        workspace: Workspace id; unknown ids are accepted (the Prometheus
+            label space simply grows).
+        error_type: Short error category (e.g. ``"timeout"``,
+            ``"backend_down"``, ``"tool_error"``). Used as both a
+            Prometheus label and a dict key.
+    """
     _errors_total.labels(workspace=workspace, error_type=error_type).inc()
     global _req_count_by_error
     _req_count_by_error[error_type] = _req_count_by_error.get(error_type, 0) + 1
 
 
 def _record_persona(persona: str, model: str) -> None:
-    """Record persona usage in both the Prometheus Counter and the raw dict for persistence."""
+    """Record one persona × model usage to both the Prometheus counter and the summary dict.
+
+    Mirror of ``_record_error`` for persona telemetry. The nested-dict
+    shape ``_persona_usage_raw[persona][model] = count`` is what the
+    notification daily summary consumes; storing it pre-shaped saves
+    the scheduler from re-aggregating from a flat counter.
+
+    Args:
+        persona: Persona slug from the chat-completions request, or
+            ``"unknown"`` when no persona was selected.
+        model: Concrete model id the request was routed to (after
+            ``model_hint`` resolution). Distinct from the user-facing
+            workspace id.
+    """
     _persona_usage.labels(persona=persona, model=model).inc()
     global _persona_usage_raw
     if persona not in _persona_usage_raw:
@@ -96,6 +175,10 @@ def _load_state() -> None:
 
     Only peak_concurrent is restored because it uses max() rather than addition
     in the merge, so loading the historical peak is safe and desirable.
+
+    Called once from ``lifespan`` after ``BackendRegistry`` is up but
+    before the first health check completes. See ``_save_state`` for
+    the partner function that writes deltas back to disk.
     """
     global _peak_concurrent
 
@@ -116,16 +199,35 @@ def _load_state() -> None:
 
 
 def _save_state() -> None:
-    """Persist current metrics state to disk with delta semantics.
+    """Persist in-memory metric deltas to disk with delta semantics.
 
     Cross-worker correctness:
-      1. Acquire exclusive flock on a sidecar lockfile (serialises all workers).
-      2. Read the file, add this worker's in-memory delta, write atomically.
-      3. Reset in-memory accumulators to 0 — the delta has been persisted.
-    The reset is critical: without it, every subsequent save re-adds the same
-    cumulative totals on top of the file, inflating values by ~saves_per_day.
-    Only `peak_concurrent` uses max() rather than addition — it survives the
-    reset and accumulates correctly across saves.
+
+    1. Acquire exclusive ``fcntl.flock`` on a sidecar lockfile
+       (serialises all workers; a 4-worker pipeline pays ~10ms wait
+       on contention).
+    2. Read the file, add this worker's in-memory delta, write
+       atomically via temp file + rename so a kill mid-write can't
+       leave a partial file for the next ``_load_state``.
+    3. **Reset in-memory accumulators to 0** — the delta has been
+       persisted. Without this reset, every subsequent save re-adds
+       the same cumulative totals on top of the file, inflating
+       values by ``saves_per_day × workers``.
+
+    ``peak_concurrent`` is the only field exempt from the reset
+    because it merges via ``max()`` rather than addition and
+    represents an all-time peak.
+
+    Failure handling: all exceptions are swallowed to ``logger.debug``.
+    A metrics-state failure must not break a serving pipeline — if
+    the disk is full or the lockfile is unwritable, request handling
+    continues and only telemetry is lost. The opposite (crashing
+    because metrics couldn't save) is worse.
+
+    Called every 60s by ``_state_save_loop`` and once more from
+    ``lifespan`` shutdown. See ``_load_state`` for the partner that
+    reads — only ``peak_concurrent`` is read; accumulators are NOT
+    pre-loaded, by design.
     """
     global _total_response_time_ms, _total_tps, _request_tps_count
     global _total_input_tokens, _total_output_tokens
@@ -209,7 +311,24 @@ def _save_state() -> None:
 
 
 async def _state_save_loop(interval: int = 60) -> None:
-    """Background task: save state to disk every N seconds."""
+    """Background task: persist metrics state to disk every ``interval`` seconds.
+
+    No internal exception handler — ``_save_state`` already swallows
+    failures to ``logger.debug``, so the loop can never crash on a
+    metrics issue. Handles ``asyncio.CancelledError`` implicitly via
+    the missing handler: cancellation propagates and the task ends.
+
+    Shutdown sequence is ``lifespan`` cancelling this task and then
+    calling ``_save_state`` one final time. The pattern ensures
+    in-flight deltas at shutdown are persisted, not lost in the
+    cancelled iteration.
+
+    Args:
+        interval: Seconds between saves. The 60s default is a balance
+            between persistence freshness and disk write rate —
+            shortening it under 10s risks contention with the 30s
+            health-check cycle's logging cadence.
+    """
     while True:
         await asyncio.sleep(interval)
         _save_state()
@@ -373,12 +492,58 @@ ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KW
 
 
 def watts_seconds_to_cost_usd(ws: float) -> float:
+    """Convert watt-seconds to USD via ``ELECTRICITY_RATE_USD_PER_KWH``.
+
+    **Currently has no callers in the active codebase.** The
+    ``_energy_consumed_ws_total`` Prometheus counter is in
+    watt-seconds (the integral of ``current_w * elapsed``); this
+    helper is the canonical conversion to dollars, but no metric or
+    endpoint actually calls it. Likely scaffolded for a future cost
+    endpoint or Grafana-side query; tracked in
+    ``DOCSTRINGS_V1_NOTES.md``.
+
+    Args:
+        ws: Watt-seconds.
+
+    Returns:
+        Equivalent cost in USD at the configured kWh rate.
+    """
     kwh = ws / 3600 / 1000
     return kwh * ELECTRICITY_RATE_USD_PER_KWH
 
 
 async def _power_polling_loop():
-    """Read powermetrics socket every 10s; update gauges and accumulate energy."""
+    """Background task: poll the host powermetrics daemon every 10s; update gauges.
+
+    The pipeline does not shell out to ``powermetrics`` itself (no
+    root in the container; macOS-only tool). Instead a separate
+    launchd-managed daemon — ``scripts/portal5-powermetrics.py`` —
+    runs as root on the host, polls ``powermetrics``, and republishes
+    JSON-per-line on a Unix socket at
+    ``/tmp/portal5-powermetrics.sock``. This task connects, reads
+    one line, decodes, updates the ``_power_*_watts`` gauges and the
+    ``_energy_consumed_ws_total`` counter, then closes the connection.
+
+    Degrades silently when the daemon isn't running: ``FileNotFoundError``
+    on the socket connect is caught and the loop just retries every
+    10s. This is intentional — operators may not install the
+    powermetrics service, and the pipeline must still serve.
+
+    Elapsed time for the energy accumulator (``current_w * elapsed``)
+    is computed from the daemon's reported timestamp (``state["ts"]``),
+    not local ``time.time()``, so jitter in the daemon's cadence
+    doesn't bias energy attribution.
+
+    Started as a background task by ``lifespan`` and runs for the
+    lifetime of the process. Never cancelled explicitly — relies on
+    asyncio task cleanup at shutdown.
+
+    Failure swallowing: ``except Exception: pass`` at the end of the
+    try block catches everything silently. Acceptable for a
+    telemetry-only loop, but means malformed socket payloads are
+    invisible without ``logger.debug`` instrumentation. Tracked in
+    ``DOCSTRINGS_V1_NOTES.md``.
+    """
     last_poll = time.time()
     while True:
         try:
@@ -411,16 +576,49 @@ async def _power_polling_loop():
 def _record_usage(
     model: str, workspace: str, data: dict, elapsed_seconds: float | None = None
 ) -> None:
-    """Extract usage fields from an Ollama or OpenAI-format response dict and record metrics.
+    """Extract token counts and TPS from a backend response dict; record to metrics.
 
-    Safe to call with incomplete dicts — missing fields are skipped.
-    Supports both Ollama native format (eval_count, eval_duration, prompt_eval_count)
-    and OpenAI compatibility format (completion_tokens, prompt_tokens).
-    TPS computation (fastest available method):
-      1. eval_duration_ns  — Ollama native model compute time (preferred)
-      2. elapsed_seconds    — wall-clock time from stream start (streaming fallback)
-    Updates both Prometheus histograms/counters and module-level aggregates
-    used by the daily summary scheduler.
+    Shape-tolerant. Safe to call with incomplete dicts — missing
+    fields are skipped, never raised. Supports four observed
+    response shapes from the three backend types Portal 5 talks to:
+
+    * **Ollama native** (top-level): ``eval_count``,
+      ``prompt_eval_count``, ``eval_duration`` (nanoseconds).
+    * **Ollama nested**: same fields under ``usage:`` (rare fork
+      variant; included defensively).
+    * **OpenAI top-level**: ``completion_tokens``, ``prompt_tokens``.
+    * **OpenAI nested in ``usage``**: spec-compliant shape (vLLM,
+      MLX proxy when streaming).
+
+    TPS preference (most-accurate first):
+
+    1. ``eval_duration_ns`` — Ollama's reported model compute time.
+       No network jitter, no SSE chunking; the cleanest TPS we get.
+    2. ``elapsed_seconds`` — wall-clock from the streaming caller.
+       Used when the backend doesn't return ``eval_duration`` (MLX
+       proxy in OpenAI-streaming mode).
+    3. Skipped — when neither is available, token counts are still
+       recorded but no TPS observation is emitted.
+
+    Updates both the Prometheus histograms/counters (scraped by
+    ``/metrics``) and the module-level aggregates used by the daily
+    summary scheduler (``_total_tps``, ``_request_tps_count``,
+    ``_total_input_tokens``, ``_total_output_tokens``,
+    ``_req_count_by_model``).
+
+    Failure handling: bare ``except Exception`` swallows everything
+    to ``logger.debug``. A malformed backend payload should not crash
+    a successful request's metric path — worst case is a missing
+    data point in ``/metrics``.
+
+    Args:
+        model: Concrete model id (post-``model_hint`` resolution).
+        workspace: Workspace id from the request.
+        data: The backend's response dict, in any of the four
+            shapes above.
+        elapsed_seconds: Wall-clock elapsed time, supplied by the
+            streaming caller. ``None`` from non-streaming callers
+            (they rely on ``eval_duration`` instead).
     """
     try:
         global \
@@ -505,9 +703,22 @@ def _record_usage(
 
 
 def _record_response_time(model: str, workspace: str, duration_seconds: float) -> None:
-    """Record end-to-end response time for a request.
+    """Record end-to-end response time for one request.
 
-    Updates both Prometheus histogram and module-level aggregate for the daily summary.
+    Updates the Prometheus histogram ``_response_time_seconds``
+    (per-model/workspace buckets for Grafana) and the module-level
+    aggregate ``_total_response_time_ms``. The aggregate is divided
+    by the request count in the daily summary to produce average
+    response time.
+
+    Failure handling: bare except → ``logger.debug``. A metric
+    failure must not break the request path.
+
+    Args:
+        model: Concrete model id.
+        workspace: Workspace id from the request.
+        duration_seconds: End-to-end time from request received to
+            last byte sent.
     """
     try:
         _response_time_seconds.labels(model=model, workspace=workspace).observe(duration_seconds)
@@ -537,10 +748,56 @@ async def _dispatch_tool_call(
     persona: str,
     request_id: str,
 ) -> dict:
-    """Dispatch a single tool call. Returns the tool result message.
+    """Whitelist-check and dispatch one model-emitted tool call.
 
-    Returns a dict shaped like an OpenAI tool message:
-        {"role": "tool", "tool_call_id": "...", "name": "...", "content": "..."}
+    The single chokepoint between the model's ``tool_calls`` array and
+    the registry dispatcher. Every tool the model asks for comes
+    through here. **Never raises** — every failure path returns a
+    ``tool``-role message with an ``{"error": "..."}`` payload that
+    the caller appends to ``messages[]`` and the model interprets.
+    This is what lets the streaming tool loop in chunk 3 keep its
+    SSE stream alive across tool failures.
+
+    Three failure paths, all metric-tagged and returning an error
+    message:
+
+    1. **JSON parse fails** on ``tool_call.function.arguments`` →
+       error type ``tool_arg_parse``.
+    2. **Tool not whitelisted** for this workspace × persona →
+       error type ``tool_not_allowed``. This is the least-privilege
+       gate. ``effective_tools`` is resolved by
+       ``_resolve_persona_tools`` at the call site; a tool absent
+       from that set cannot be called even if the registry has it
+       healthy. The split between this whitelist and the registry's
+       circuit breaker is deliberate: this is "is this combination
+       authorized?", the registry is "is this tool reachable?".
+    3. **Registry dispatch returns ``{"error": ...}``** → emitted
+       as the tool's content; metrics tag ``tool_call_errors``.
+
+    Records three Prometheus metrics on every dispatch (success or
+    error): ``portal5_tool_calls_total``,
+    ``portal5_tool_call_duration_seconds``, and
+    ``portal5_tool_call_errors_total`` (on error only).
+
+    Lazy-imports the ``tool_registry`` singleton on first call to
+    keep test stubbing simple (patch the module attribute before
+    any request flows through here).
+
+    Args:
+        tool_call: One element of the model's ``tool_calls`` array,
+            shaped ``{"id": str, "function": {"name": str,
+            "arguments": str (JSON)}}``.
+        effective_tools: Authorized tool names for this workspace ×
+            persona combination. From ``_resolve_persona_tools``.
+        workspace_id: For metric labels and error logging.
+        persona: For error-message text and logging.
+        request_id: Forwarded to ``tool_registry.dispatch`` for
+            cross-log correlation between pipeline and MCP servers.
+
+    Returns:
+        A ``tool``-role message dict shaped
+        ``{"role": "tool", "tool_call_id": str, "name": str,
+        "content": str}`` where ``content`` is JSON-encoded.
     """
     from portal_pipeline.tool_registry import tool_registry
 
@@ -1066,10 +1323,33 @@ _routing_examples: list[dict] | None = None
 
 
 def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
-    """Load workspace descriptions and few-shot examples from config files.
+    """Load LLM-router descriptions and few-shot examples (cached after first call).
 
-    Returns cached copies after first load. Falls back to empty dicts/lists
-    if files are missing so the LLM router degrades gracefully.
+    Reads ``config/routing_descriptions.json`` and
+    ``config/routing_examples.json``. These files are operator-editable:
+    adding a new workspace means appending one description and a few
+    example messages, no code changes. The LLM router picks up
+    additions on the next pipeline restart — no hot reload.
+
+    Two graceful-fallback paths, both logged at warning level:
+
+    * Either file missing → returns empty dict / list. The LLM
+      router still functions but with no in-context guidance.
+    * JSON parse error → same as missing; the file is treated as
+      empty for this process lifetime.
+
+    Filters out keys whose names start with ``_`` in the descriptions
+    file. This is the convention for operator notes (e.g.
+    ``"_comment": "..."``) so they don't end up in the model's
+    classification prompt.
+
+    Returns:
+        ``(descriptions, examples)`` tuple. ``descriptions`` is a
+        workspace-id → text dict; ``examples`` is a list of
+        ``{message, workspace, confidence}`` dicts. Both are cached
+        as module-level globals after the first call — the cache is
+        per-process, so each uvicorn worker pays the file-read cost
+        once.
     """
     global _routing_descriptions, _routing_examples
     if _routing_descriptions is not None and _routing_examples is not None:
@@ -1096,10 +1376,34 @@ def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
 
 
 def _build_router_prompt(user_message: str) -> str:
-    """Build the classification prompt sent to the uncensored LLM router model.
+    """Build the classification prompt sent to the LLM router model.
 
-    Includes workspace descriptions and few-shot examples for in-context learning.
-    Fits within Llama-3.2-3B 4096-token context window (17 workspaces ≈ 1100 tokens).
+    Composes four sections: workspace descriptions, few-shot examples
+    (capped at 9), the user message, and a JSON-format instruction.
+    Reads descriptions and examples from ``_load_routing_config`` —
+    operator-editable config files, no code changes needed when a new
+    workspace is added.
+
+    Token budget: the router model runs with ``num_ctx: 2048``
+    (configured in ``_route_with_llm``). The 9-example cap plus 17
+    workspace descriptions plus instructions leave ~300 tokens of
+    headroom for the user message. Raising the example cap risks
+    silent prompt truncation.
+
+    The trailing "Respond ONLY with a JSON object..." instruction is
+    belt-and-suspenders. The actual JSON shape is enforced by Ollama
+    grammar decoding (``format: _ROUTER_JSON_SCHEMA`` in
+    ``_route_with_llm``). The instruction alone yields ~70%
+    parseable output; grammar enforcement raises that to ~100%. Both
+    are kept so the prompt remains readable in logs and degrades
+    sanely if grammar decoding is ever disabled.
+
+    Args:
+        user_message: The user's most recent message, pre-truncated
+            to 500 chars by the caller to avoid prompt bloat.
+
+    Returns:
+        Multi-line prompt string, ready to send to ``/api/generate``.
     """
     descriptions, examples = _load_routing_config()
 
@@ -1128,17 +1432,54 @@ The workspace must be one of the valid IDs listed above."""
 
 
 async def _route_with_llm(messages: list[dict]) -> str | None:
-    """Use the uncensored LLM router model to classify user intent into a workspace ID.
+    """Layer 1 of auto-routing — LLM intent classifier with grammar-enforced JSON.
 
-    Returns a workspace ID string if confidence >= threshold, else None
-    (caller falls back to keyword scoring).
+    Sends the user's last message to the router model via Ollama
+    ``/api/generate`` with ``format: _ROUTER_JSON_SCHEMA``, parses the
+    grammar-constrained JSON response, validates the workspace id
+    against ``_VALID_WORKSPACE_IDS``, returns the workspace if
+    confidence ≥ ``_LLM_ROUTER_CONFIDENCE_THRESHOLD``, otherwise
+    ``None``. The caller (``chat_completions``) then falls back to
+    ``_detect_workspace``'s keyword scoring on ``None``.
 
-    Safety properties:
-    - Hard timeout (LLM_ROUTER_TIMEOUT_MS, default 500ms)
-    - JSON schema constraint enforced via Ollama grammar (guaranteed parseable)
-    - Workspace ID validated against _VALID_WORKSPACE_IDS allowlist
-    - Never raises — all exceptions return None (graceful fallback)
-    - Returns None for 'auto' workspace (no-op, no point routing to default)
+    **Never raises.** Every error path returns ``None``:
+
+    * ``LLM_ROUTER_ENABLED=false`` — feature disabled outright.
+    * HTTP client not yet initialised (request arrived before
+      ``lifespan`` finished).
+    * Hard timeout (default 500ms, via ``LLM_ROUTER_TIMEOUT_MS``).
+    * HTTP failure, JSON parse failure, missing fields.
+    * Workspace returned is not in ``_VALID_WORKSPACE_IDS`` (logged
+      at WARNING — usually means a model hallucination or schema
+      drift).
+    * Workspace returned is ``"auto"`` (logged at DEBUG — the model
+      sometimes returns the default; treat as "no opinion").
+    * Confidence below threshold (logged at DEBUG — expected on
+      ambiguous queries).
+
+    Two non-obvious design choices:
+
+    1. **Hard timeout via ``asyncio.wait_for``, not the HTTP client**.
+       The shared ``_http_client`` has a 300s body timeout (cold-loading
+       big inference models). The router needs 500ms not 300s. Wrapping
+       in ``asyncio.wait_for`` enforces fast-fail without giving up
+       the shared connection pool.
+    2. **``bench-*`` workspaces are filtered out of ``_VALID_WORKSPACE_IDS``**.
+       The grammar decoder cannot emit them. User-selectable only — the
+       LLM router will never auto-route to a benchmark workspace.
+
+    Sends ``keep_alive: -1`` on every request to keep the router
+    model pinned in memory (paired with ``_warmup_llm_router`` at
+    startup, which pre-loads it).
+
+    Args:
+        messages: The full ``messages[]`` array from the incoming
+            chat-completion request. Only the last user message is
+            inspected; truncated to 500 chars to bound prompt size.
+
+    Returns:
+        Workspace id (e.g. ``"auto-coding"``) on confident
+        classification, ``None`` on any failure or low confidence.
     """
     if not _LLM_ROUTER_ENABLED:
         return None
@@ -1553,7 +1894,41 @@ def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
 
 
 def _init_notifications(registry: BackendRegistry) -> None:
-    """Initialize the notification dispatcher and scheduler."""
+    """Build and start the notification dispatcher + daily-summary scheduler.
+
+    Called from ``lifespan`` only when ``NOTIFICATIONS_ENABLED=true``,
+    so the notifications package never loads in environments that
+    don't need it (keeps ``Dockerfile.pipeline`` lean per CLAUDE.md
+    §9).
+
+    Sequencing details that matter:
+
+    1. **Late imports** of ``portal_pipeline.notifications`` happen
+       inside the function. The notifications package imports
+       ``cluster_backends``, which is already imported at module
+       top — a top-level import here would close the cycle. The
+       local import breaks it.
+    2. **Channels share ``_http_client``**. All five
+       (Slack/Telegram/Email/Pushover/Webhook) take the pipeline's
+       shared client. Giving each channel its own client would
+       silently triple the connection budget — avoid.
+    3. **Immediate threshold check** at line 1578 runs the
+       dispatcher's threshold logic synchronously so problems
+       present at startup alert immediately, not 30s later after
+       the first health cycle.
+    4. **Scheduler-attach-before-start**:
+       ``_attach_to_pipeline`` MUST run before
+       ``_notification_scheduler.start()`` because the scheduler's
+       baseline snapshot reads ``_request_count`` during ``start()``.
+
+    Mutates the module-level singletons
+    ``_notification_dispatcher`` and ``_notification_scheduler``.
+
+    Args:
+        registry: The pipeline's ``BackendRegistry`` instance; the
+            immediate threshold check inspects it for unhealthy
+            backends.
+    """
     global _notification_dispatcher, _notification_scheduler
     # Late import to avoid circular dependency — notifications imports cluster_backends
     from portal_pipeline.notifications import NotificationDispatcher, NotificationScheduler
@@ -1595,13 +1970,35 @@ def _init_notifications(registry: BackendRegistry) -> None:
 
 
 async def _warmup_auto_model(registry: BackendRegistry) -> None:
-    """Pre-load the auto workspace's default inference model on startup.
+    """Pre-load the ``auto`` workspace's default backend with a 1-token request.
 
-    Ollama lazily loads models on first request. A cold load of an 8B model
-    takes 10-30s on HDD, 1-5s on SSD/NFS. By making a minimal generation call
-    during startup, subsequent user requests skip this penalty entirely.
+    Ollama lazily loads models on first request. A cold load of an
+    8B model is 10–30s (HDD) or 1–5s (SSD/NFS). Without this warmup,
+    the first user request to the auto workspace eats that penalty;
+    after this warmup the model is resident and the first token
+    streams immediately.
 
-    Runs inside _run_startup_warmups — errors are logged but swallowed.
+    Two non-obvious choices:
+
+    1. **Uses ``backend.models[0]``, not the workspace
+       ``model_hint``.** The goal is "warm the backend's disk
+       cache", not "exercise the routing logic". Whichever model
+       Ollama pulls into the page cache first benefits subsequent
+       loads of any other model on the same backend.
+    2. **One token of output** (``num_predict: 1``). Just enough
+       to force model load + a forward pass; not enough to spend
+       meaningful compute.
+
+    Failure swallowing: a non-200 response is logged at debug and
+    treated as "model will load on first user request." HTTP errors
+    are similarly debug-logged. A failed warmup never crashes the
+    pipeline.
+
+    Runs from ``_run_startup_warmups`` as a background task,
+    parallel with ``_warmup_llm_router``.
+
+    Args:
+        registry: The pipeline's ``BackendRegistry`` instance.
     """
     if _http_client is None:
         logger.debug("Warmup skipped: HTTP client not ready")
@@ -1645,17 +2042,30 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
 
 
 async def _warmup_llm_router() -> None:
-    """Pre-load the LLM intent-router model on startup.
+    """Pre-load the LLM intent-router model with a pinned 1-token request.
 
-    Every request routed through the 'auto' workspace calls _route_with_llm(),
-    which sends a generation request to the router model before any inference
-    happens. On a cold Ollama instance this adds 30-60s of model-loading time
-    to the first auto request even when the inference model is already warm.
+    Every request routed through the ``auto`` workspace calls
+    ``_route_with_llm()``, which dispatches a generation request to
+    the LLM router model BEFORE any inference happens. On a cold
+    Ollama instance this adds 30–60s to the first auto request even
+    when the inference model is already warm.
 
-    This warmup fires a single minimal generate call at startup so the router
-    model is resident in memory when the first user request arrives.
+    This warmup fires a single minimal generate call at startup so
+    the router model is resident in memory when the first user
+    request arrives.
 
-    Skipped when LLM routing is disabled (LLM_ROUTER_ENABLED=false).
+    ``keep_alive: -1`` is the load-bearing option — it tells Ollama
+    to keep the router model pinned indefinitely rather than
+    evicting it under memory pressure from a bigger inference
+    model. Without the pin, the router would re-cold-load every
+    time a large inference model displaced it.
+
+    Skipped when ``LLM_ROUTER_ENABLED=false`` — the keyword-fallback
+    router (``_detect_workspace``) handles those deployments and
+    requires no warmup.
+
+    Runs from ``_run_startup_warmups`` as a background task,
+    parallel with ``_warmup_auto_model``.
     """
     if not _LLM_ROUTER_ENABLED:
         return
@@ -1684,13 +2094,22 @@ async def _warmup_llm_router() -> None:
 
 
 async def _run_startup_warmups(registry: BackendRegistry) -> None:
-    """Fire all startup warmups in parallel.
+    """Fire startup warmups in parallel; never raises.
 
-    Runs as a background task so pipeline startup is not blocked.
-    Both sub-tasks swallow exceptions — a failed warmup never crashes the pipeline.
+    Both ``_warmup_auto_model`` and ``_warmup_llm_router`` already
+    swallow their own exceptions internally. The
+    ``return_exceptions=True`` on ``asyncio.gather`` is
+    belt-and-suspenders — even if one of them somehow does raise
+    (a future refactor regression), the other still completes and
+    this function doesn't propagate.
 
-    Order matters: both fire simultaneously so neither has to wait for the other.
-    The LLM router warmup and the inference warmup are fully independent.
+    Launched as a background task from ``lifespan`` so pipeline
+    startup is not blocked. The first user request after startup
+    may arrive before warmups finish; that's fine — the warmups
+    only optimize, they don't gate.
+
+    Args:
+        registry: Forwarded to ``_warmup_auto_model``.
     """
     await asyncio.gather(
         _warmup_auto_model(registry),
@@ -1701,6 +2120,63 @@ async def _run_startup_warmups(registry: BackendRegistry) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """FastAPI lifecycle — create singletons on startup, tear down on shutdown.
+
+    This is the single point of process-lifecycle truth for the
+    pipeline. Every module-level singleton (``registry``,
+    ``_http_client``, ``_request_semaphore``,
+    ``_notification_dispatcher``, ``_notification_scheduler``, the
+    three background tasks ``_health_task``, ``_state_save_task``,
+    and the unnamed power-polling task) is created here, mutated
+    only by serving code, and torn down here.
+
+    **Startup sequence** (before ``yield``):
+
+    1. Create ``_request_semaphore`` bounded by ``_MAX_CONCURRENT``.
+    2. Pre-create the Prometheus multiproc dir (P5-FIX prevents
+       worker race when ``PIPELINE_WORKERS > 1``).
+    3. Create the shared ``_http_client`` with 300s body timeout
+       (cold-loading 32B models can take 2–4 min; 120s caused S3-18
+       streaming timeouts) and 5s connect timeout (local backends
+       should bind immediately).
+    4. Construct ``BackendRegistry`` (reads ``backends.yaml``).
+    5. Validate ``WORKSPACES`` hints against backend models. In
+       ``STRICT_HINT_VALIDATION=true`` mode, unresolvable hints
+       raise ``RuntimeError`` and the container fails to start. In
+       the default permissive mode, hints log warnings and the
+       pipeline serves anyway — hint failures surface as silent
+       fallbacks at request time.
+    6. Run one synchronous health check so the first request has
+       fresh health data.
+    7. Load persisted metrics state from ``_STATE_FILE`` (peak only).
+    8. Launch background warmup task (parallel auto-model + LLM
+       router).
+    9. Launch background power-polling task (graceful if daemon
+       absent).
+    10. If ``NOTIFICATIONS_ENABLED=true``, initialise the dispatcher
+        and scheduler.
+    11. Launch background health-check loop with the ``_on_health``
+        callback that fires threshold alerts.
+    12. Launch background state-save loop (60s interval).
+
+    **Shutdown sequence** (after ``yield``, in roughly LIFO order):
+
+    1. Final ``_save_state`` synchronously — must run before
+       cancelling the save-loop task; a cancelled task can't await.
+    2. Cancel ``_state_save_task`` and ``_health_task``.
+    3. Close ``_http_client`` — after tasks so an in-flight request
+       cancellation doesn't observe a closed pool.
+    4. Stop the notification scheduler (if running).
+    5. Close ``BackendRegistry``'s class-level health-check client.
+
+    Args:
+        app: The FastAPI app. Not used directly inside the function
+            — required by the asynccontextmanager interface.
+
+    Yields:
+        Nothing. The yield separates startup from shutdown; request
+        handling runs in the time the yield is suspended.
+    """
     global registry, _health_task, _request_semaphore, _http_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
     _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
