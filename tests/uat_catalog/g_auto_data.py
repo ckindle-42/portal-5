@@ -1,0 +1,430 @@
+"""UAT catalog group: auto-data (data workspace)."""
+from __future__ import annotations
+
+from tests.uat_catalog._shared import REFUSAL_PHRASES, _CC01_ASSERTIONS, _CC01_ASSERTIONS_BENCH  # noqa: F401
+
+TESTS: list[dict] = [    # -----------------------------------------------------------------------
+    {
+        "id": "WS-15",
+        "name": "Data Analyst — SIEM Dataset Cleaning",
+        "section": "auto-data",
+        "model_slug": "auto-data",
+        "timeout": 360,
+        "workspace_tier": "mlx_large",
+        "prompt": (
+            "I imported a CSV from our SIEM: 50,000 rows, columns: timestamp, src_ip, dst_ip, "
+            "bytes_out, duration_ms, protocol, action. Problems: timestamps have mixed formats "
+            "(ISO 8601 and epoch), ~3% of src_ip are empty, bytes_out has some -1 values. "
+            "Before running analysis, what data quality steps do I need to take, and in what order? "
+            "Give me the pandas code for each step."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Timestamp normalization",
+                "keywords": ["pd.to_datetime", "to_datetime", "timestamp"],
+            },
+            {
+                "type": "any_of",
+                "label": "Missing src_ip handling",
+                "keywords": [
+                    "fillna",
+                    "dropna",
+                    "isnull",
+                    "isna",
+                    "nan",
+                    "NaN",
+                    "null",
+                    "missing",
+                    "empty",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "bytes_out sentinel",
+                "keywords": [
+                    "bytes_out",
+                    "sentinel",
+                    "invalid",
+                    "fillna",
+                    "replace",
+                    "nan",
+                    "NaN",
+                    "-1",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Pandas code present or referenced",
+                "keywords": ["```python", "```", "pd.", "df.", "import pandas", "pandas"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "P-DA01",
+        "name": "Data Analyst — Correlation vs Causation",
+        "section": "auto-data",
+        "model_slug": "dataanalyst",
+        "timeout": 90,
+        "workspace_tier": "mlx_large",
+        "prompt": (
+            "Our data shows that users who enable dark mode have 23% higher retention rates. "
+            "Should we force all users onto dark mode to improve retention?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Correlation/causation distinguished",
+                "keywords": [
+                    "correlation",
+                    "causation",
+                    "correlation does not",
+                    "does not imply",
+                    "association",
+                    "doesn't mean",
+                    "doesn't necessarily",
+                    "causal relationship",
+                    "confounding",
+                    "selection bias",
+                    "self-selection",
+                    "selection effect",
+                    "reverse causation",
+                    # Synonyms models use in place of "correlation/causation"
+                    "causes",
+                    "causal",
+                    "causal link",
+                    "doesn't cause",
+                    "does not cause",
+                    "just because",
+                    "lurking",
+                    "confounder",
+                    "confounded",
+                    "third variable",
+                    "hidden variable",
+                    "third factor",
+                    "cannot conclude",
+                    "can't conclude",
+                    "observational",
+                    "not evidence",
+                    "does not prove",
+                    "doesn't prove",
+                    "relationship between",
+                    "implies causation",
+                ],
+                "critical": False,
+            },
+            {
+                "type": "any_of",
+                "label": "A/B test recommended",
+                "keywords": [
+                    "a/b test",
+                    "experiment",
+                    "randomized",
+                    "causal",
+                    "alternative approach",
+                    "instead",
+                    "other strategy",
+                    "alternative",
+                    "better to",
+                    "should test",
+                    "controlled",
+                    # Structured-output models express uncertainty rather than explicit test rec
+                    "validate",
+                    "medium confidence",
+                    "p-value",
+                    "statistical significance",
+                    "statistical",
+                    "confidence",
+                    "not conclusive",
+                    "further testing",
+                    "more data",
+                    "evaluate",
+                ],
+                "critical": False,
+            },
+            {
+                "type": "any_of",
+                "label": "Does not recommend forcing",
+                "keywords": [
+                    "should not force",
+                    "not recommend forcing",
+                    "backfire",
+                    "counterproductive",
+                    "would not",
+                    "better to offer",
+                    "let users choose",
+                    "choice",
+                    "not necessarily",
+                    "could backfire",
+                    "might backfire",
+                    "offering a choice",
+                    "not everyone",
+                    "not everyone prefers",
+                    "not advisable",
+                    "inadvisable",
+                    "rather than forc",
+                    "avoid forcing",
+                    "don't force",
+                    "do not force",
+                    "opt-in",
+                    "premature",
+                    "instead",
+                    "offer",
+                    "option",
+                    "test first",
+                    "evaluate first",
+                    # Structured-output phrasing for hedging on forced rollout
+                    "may not",
+                    "same results for all",
+                    "not all users",
+                    "limitation",
+                ],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "P-DA02",
+        "name": "Data Scientist — Imbalanced Class Problem",
+        "section": "auto-data",
+        "model_slug": "datascientist",
+        "timeout": 240,
+        "workspace_tier": "mlx_large",
+        "prompt": (
+            "I am building a fraud detection model. My dataset is 99.7% legitimate transactions "
+            "and 0.3% fraud. I trained a random forest and got 99.6% accuracy. "
+            "My manager is happy. Should they be?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Imbalanced class issue",
+                "keywords": [
+                    "imbalance",
+                    "imbalanced",
+                    "class imbalance",
+                    "skewed",
+                    "unbalanced",
+                    "minority class",
+                    "majority class",
+                    "class distribution",
+                    # Structured models describe the ratio rather than labelling it
+                    "0.3%",
+                    "99.7%",
+                    "heavily skewed",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Better metric suggested",
+                "keywords": ["precision", "recall", "auc", "f1", "roc"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Does not validate happiness",
+                "keywords": ["yes, the manager", "your manager is right", "99.6% is excellent"],
+                "critical": True,
+            },
+        ],
+    },
+    {
+        "id": "P-DA03",
+        "name": "ML Engineer — Benchmark vs Production",
+        "section": "auto-data",
+        "model_slug": "machinelearningengineer",
+        "timeout": 240,
+        "workspace_tier": "mlx_large",
+        "prompt": (
+            "I found a transformer model that gets 94% on the MMLU benchmark. "
+            "I want to deploy it for customer support ticket routing in production. "
+            "Should I just use it?"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Benchmark gap addressed",
+                "keywords": [
+                    "benchmark",
+                    "production gap",
+                    "domain shift",
+                    "different distribution",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Latency/throughput mentioned",
+                "keywords": [
+                    "latency",
+                    "throughput",
+                    "production",
+                    "scale",
+                    "evaluate",
+                    "benchmark",
+                    "domain",
+                    "ticket",
+                    "further",
+                    "not yet",
+                    "test",
+                    "measure",
+                    "assess",
+                    "pilot",
+                    "real-world",
+                    "deployment",
+                    "serving",
+                ],
+            },
+            {
+                "type": "not_contains",
+                "label": "Does not say 'just use it'",
+                "keywords": ["yes, just use", "94% sounds great", "you should use it"],
+                "critical": True,
+            },
+        ],
+    },
+    {
+        "id": "P-DA04",
+        "name": "Statistician — Check Assumptions Before t-test",
+        "section": "auto-data",
+        "model_slug": "statistician",
+        "timeout": 240,
+        "workspace_tier": "mlx_large",
+        "prompt": (
+            "I have two groups of 30 measurements each (response times in milliseconds). "
+            "I want to know if they are significantly different. Run a t-test."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Normality check mentioned",
+                "keywords": [
+                    "normality",
+                    "shapiro",
+                    "normal distribution",
+                    "assumption",
+                    "gaussian",
+                    "qq plot",
+                    "qqplot",
+                    "check assumption",
+                    "verify assumption",
+                    "first check",
+                    "before running",
+                    "normally distributed",
+                    "normal dist",
+                    "data distribution",
+                    "check the distribution",
+                    "parametric",
+                    "distribution check",
+                    "central limit",
+                    "skew",
+                    "kurtosis",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Variance check mentioned",
+                "keywords": [
+                    "variance",
+                    "levene",
+                    "equal variance",
+                    "welch",
+                    "homogeneity",
+                    "bartlett",
+                    "equal spread",
+                    "standard deviation",
+                    "similar variance",
+                    "spread is",
+                    "similar spread",
+                    "homoscedastic",
+                    "f-test",
+                    "f test",
+                    "variance check",
+                    "equal standard",
+                ],
+            },
+            {
+                "type": "not_contains",
+                "label": "Does not jump straight to t-test",
+                "keywords": ["the t-statistic is", "p-value =", "t(58) ="],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "P-DA05",
+        "name": "Phi-4 STEM Analyst — Binomial Derivation",
+        "section": "auto-data",
+        "model_slug": "phi4stemanalyst",
+        "timeout": 240,
+        # DeepSeek-R1-32B thinking model — needs ~5 min for reasoning chain
+        "workspace_tier": "mlx_large",
+        # DeepSeek-R1 puts all derivation steps in <think> block; include it so
+        # keyword assertions can find mathematical content like "binomial", "E[X]=5"
+        "include_thinking_in_assertions": True,
+        "prompt": (
+            "A network packet filter runs as an independent Bernoulli trial on each packet. "
+            "P(packet blocked) = 0.001. In a stream of 5,000 packets, what is the probability "
+            "that more than 10 packets are blocked? Show the full derivation. "
+            "Also flag if this problem has multiple valid interpretations."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Binomial stated",
+                "keywords": [
+                    "binomial", "bernoulli", "b(5000", "b(n",
+                    "5,000", "5000", "0.001",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Expected value = 5",
+                "keywords": [
+                    "e[x] = 5", "e(x) = 5", "e[x]=5", "e(x)=5",
+                    "expected value", "expected number", "expected count",
+                    "5 successes", "5 blocked", "5 packet",
+                    "mean = 5", "mean=5", "mean of 5",
+                    "average of 5", "average = 5",
+                    "μ = 5", "μ=5", "μ≈5",
+                    "λ = 5", "λ=5", "λ≈5",
+                    "lambda = 5", "lambda=5",
+                    "np = 5", "np=5", "np ≈ 5",
+                    "n*p = 5", "n*p=5",
+                    "n × p = 5", "n·p = 5",
+                    "= 5.0", "=5.0", "equals 5",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Approximation or exact method noted",
+                "keywords": [
+                    "poisson", "approximation", "lambda",
+                    "normal approximation", "gaussian", "central limit",
+                    "exact binomial", "complement", "cdf",
+                ],
+                "critical": False,
+            },
+            {
+                "type": "any_of",
+                "label": "Multiple interpretations",
+                "keywords": [
+                    "interpretation",
+                    "approach",
+                    "alternatively",
+                    "note that",
+                    "strictly",
+                    "strictly greater",
+                    "ambiguity",
+                    "or more",
+                    "at least",
+                    "clarif",
+                    "≥",
+                    ">10",
+                    "greater than 10",
+                    "more than 10",
+                    "unclear",
+                    "depend",
+                ],
+            },
+        ],
+    },]
