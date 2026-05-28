@@ -401,13 +401,13 @@ def _check_memory_before_test(test_name: str = "") -> bool:
             unload_all_models()
             if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=60.0, label=test_name):
                 print(
-                    f"  [MEMORY] Still low free memory after 60s drain — "
+                    "  [MEMORY] Still low free memory after 60s drain — "
                     "restarting proxy to reclaim inactive Metal pages",
                     flush=True,
                 )
                 _restart_proxy_for_reclaim()
                 if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=30.0, label="post-restart"):
-                    print(f"  [MEMORY] Still tight after proxy restart — skipping", flush=True)
+                    print("  [MEMORY] Still tight after proxy restart — skipping", flush=True)
                     return False
     except Exception:
         pass

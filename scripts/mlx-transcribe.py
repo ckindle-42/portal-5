@@ -45,7 +45,11 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from portal_mcp.core.workspace import get_generated_dir, get_uploads_dir, resolve_upload_path  # noqa: E402
+from portal_mcp.core.workspace import (  # noqa: E402
+    get_generated_dir,
+    get_uploads_dir,
+    resolve_upload_path,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -421,7 +425,7 @@ from contextlib import asynccontextmanager  # noqa: E402
 
 
 @asynccontextmanager
-async def _lifespan(app: "FastAPI"):
+async def _lifespan(app: FastAPI):
     async with _mcp_session_manager.run():
         yield
 
