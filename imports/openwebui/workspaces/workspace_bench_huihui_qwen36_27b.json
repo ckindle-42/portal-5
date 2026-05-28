@@ -2,7 +2,7 @@
   "id": "bench-huihui-qwen36-27b",
   "name": "🔬 Bench · Huihui-Qwen3.6-27B (Abliterated)",
   "meta": {
-    "description": "Benchmark: huihui-ai/Huihui-Qwen3.6-27B-abliterated — dense 27B abliterated, ~16GB",
+    "description": "Benchmark: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit — dense 27B abliterated, ~16GB",
     "profile_image_url": "",
     "toolIds": ["portal_code"]
   },

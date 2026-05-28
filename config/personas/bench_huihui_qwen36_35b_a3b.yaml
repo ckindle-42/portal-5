@@ -2,7 +2,7 @@ name: 🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)
 slug: bench-huihui-qwen36-35b-a3b
 category: benchmark
 workspace_model: bench-huihui-qwen36-35b-a3b
-# Routes to: huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated (MoE 3B active abliterated, ~20GB)
+# Routes to: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit (MoE 3B active abliterated, ~20GB)
 # Pairs against: auto (Huihui-Qwen3.5-9B-abliterated-mlx-4bit) — TASK_QUANT_TRUEUP_V1 Finding B
 # The SPEED play: 3B active MoE for fast decode. Plain 35B-A3B benched 53.7 TPS.
 # Same trusted huihui-ai abliteration source.
