@@ -407,6 +407,7 @@ backends:
     big_model: false
     is_vlm: false
     supports_tools: false
+    bench_skip: true
     notes: "IBM Granite Speech 4.1 2B native MLX (~4GB resident, Apache 2.0,
       Apr 2026). V7 bench candidate — #1 on OpenASR leaderboard as of Apr 2026
       (avg WER 5.52). Two-pass speech-language model: 16-conformer CTC encoder
@@ -424,6 +425,7 @@ backends:
     big_model: false
     is_vlm: false
     supports_tools: false
+    bench_skip: true
     notes: "Mistral Voxtral 4B TTS 2603 MLX 6-bit (~4GB, Apache 2.0, Mar 2026).
       V7 bench-only — companion to Voxtral Realtime ASR. 20 voice presets
       across 9 languages (EN/FR/ES/DE/IT/PT/NL + 2 more per mlx-audio README).
@@ -450,6 +452,7 @@ backends:
     big_model: false
     is_vlm: false
     supports_tools: false
+    bench_skip: true
     notes: "Mistral Voxtral Mini 4B Realtime 2602 MLX 4-bit (~3GB, Apache 2.0,
       Feb 2026). V7 bench-only — streaming-optimized ASR with causal encoder
       + GQA decoder. Community-reported time-to-first-token ~570ms for 127s
@@ -860,3 +863,26 @@ embedding_candidates:
     notes: "Qwen3-Embedding 8B (~8GB, Apache 2.0). MTEB multilingual #1
       overall (70.58). Memory cost significant if loaded alongside an
       auto-coding MoE — likely too large for production. Bench-eval only."
+
+# ── Pipeline-mode bench skip list ─────────────────────────────────────────
+# Workspaces that exist in workspace_routing for routing/dispatch reasons
+# but should NOT be exercised by bench_tps.py in pipeline mode. The
+# bench_tps.py text-prompt harness cannot meaningfully exercise streaming
+# ASR, TTS, or other audio-modality models — running them produces noise
+# that pollutes the Grafana benchmarks dashboard.
+#
+# Mirrors the existing bench_skip: true flag on mlx_models[] entries
+# (which excludes direct-mode benching). pipeline_bench_skip is the
+# workspace-level analog.
+#
+# An explicit --workspace <id> filter on bench_tps.py overrides this list
+# (operator wants to probe that specific workspace intentionally).
+#
+# Speech / audio-modality benches should be exercised by
+# TASK_SPEECH_SHOOTOUT_V1.md (deferred — see P5_ROADMAP.md
+# P5-FUT-SPEECH-002), which uses a dedicated audio-prompt driver, not
+# bench_tps.py.
+pipeline_bench_skip:
+- bench-voxtral-realtime    # Mistral streaming ASR — audio-modality probe required
+- bench-voxtral-tts         # Mistral TTS — audio-output probe required
+- bench-granite-speech      # IBM ASR with keyword biasing — audio-modality probe required

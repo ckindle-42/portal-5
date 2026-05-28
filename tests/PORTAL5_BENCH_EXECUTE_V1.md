@@ -14,15 +14,21 @@ You are the **benchmark execution agent**, not the implementation agent. You exe
 
 ## What Gets Benchmarked
 
-Counts are derived at run time from `config/backends.yaml` and `config/personas/`. The current catalog (HEAD, 2026-05-23) is:
+Counts are derived at run time from `config/backends.yaml` and
+`config/personas/`. The current catalog (HEAD, 56eefd0, 2026-05-27) is:
 
 | Tier | Count |
 |---|---|
-| MLX models (T1) | 43 |
+| MLX models (T1) | 49 (46 benched, 3 skipped via `bench_skip: true`) |
 | Ollama models (T2) | 27 |
-| Pipeline workspaces | 44 (19 auto-* + 25 bench-*) |
-| Personas | 110 |
-| **Total tests** | **~224** |
+| Pipeline workspaces | 50 (19 auto-* + 30 bench-* + 1 tools-specialist; 3 bench-* skipped via `pipeline_bench_skip`) |
+| Personas | 116 |
+| **Total tests** | **~236** |
+
+The skipped MLX entries and skipped workspaces are speech-modality models
+that cannot be meaningfully exercised by the text-prompt bench harness —
+see TASK_SPEECH_SHOOTOUT_V1 (deferred). The skip is config-driven; no
+operator flag needed.
 
 ### Three test modes (run together with `--mode all`):
 
@@ -39,6 +45,7 @@ Counts are derived at run time from `config/backends.yaml` and `config/personas/
 | auto-creative, auto-video, auto-music | creative |
 | auto-vision | vision |
 | auto-daily | general |
+| tools-specialist | coding | ToolACE-2.5-Llama-3.1-8B MLX (production tool-calling specialist) |
 
 | Bench workspaces | Category | Model |
 |---|---|---|
@@ -60,13 +67,22 @@ Counts are derived at run time from `config/backends.yaml` and `config/personas/
 | bench-olmo3-32b | reasoning | Olmo-3-1125-32B MLX |
 | bench-dolphin8b | creative | dolphin-llama3:8b Ollama |
 | bench-qwen35-abliterated | general | qwen3.5-abliterated:9b Ollama |
-| bench-llama4-scout | vision | Llama-4-Scout-17B MLX (mlx-vlm) |
 | bench-nemotron-omni | vision | Nemotron-3-Nano-Omni-30B-A3B MLX (mlx-vlm) |
 | bench-olmocr2 | vision | olmOCR-2-7B MLX |
 | bench-nanonets-ocr2 | vision | Nanonets-OCR2-3B MLX |
 | bench-lfm2-moe | creative | LFM2-8B-A1B MLX (MoE) |
 | bench-foundation-sec | reasoning | Foundation-Sec-8B-Reasoning MLX |
 | bench-toolace25 | tools | ToolACE-2.5-Llama-3.1-8B MLX |
+| bench-apriel-nemotron | reasoning | Apriel-Nemotron-15B-Thinker-8bit MLX (ServiceNow+NVIDIA) |
+| bench-qwen36-27b-ud | coding | unsloth/Qwen3.6-27B-UD-MLX-4bit (Unsloth Dynamic 2.0 probe) |
+| bench-qwen36-35b-a3b-ud | coding | unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit (Unsloth Dynamic 2.0 probe) |
+| bench-voxtral-realtime | (skipped — speech) | Voxtral-Mini-4B-Realtime-2602-4bit MLX |
+| bench-voxtral-tts | (skipped — speech) | Voxtral-4B-TTS-2603-mlx-6bit MLX |
+| bench-granite-speech | (skipped — speech) | granite-speech-4.1-2b MLX |
+
+> Historical note: `bench-llama4-scout` (Llama-4-Scout-17B MLX) was removed
+> at HEAD by commit `9c657b3` after 57 GB Metal OOM crashes on M4 Pro.
+> Do not re-add without a hardware-tier change.
 
 **3. Persona routing** — calls pipeline per persona, validates workspace routing, captures `routed_model` and `expected_model_match`.
 
@@ -131,24 +147,40 @@ print(f'Workspace IDs consistent ({len(pipe_ids)} total)')
 ```bash
 python3 tests/benchmarks/bench_tps.py --mode all --order size --dry-run 2>&1 | head -30
 ```
-Expected output:
+Expected output (V7 post-merge):
 ```
-MLX models:    43
+MLX models:    46 (3 skipped via bench_skip)
 Ollama models: 27
-Workspaces:    44
-Personas:      110
-Total to test: ~224 (mode=all)
+Workspaces:    47 (3 skipped via pipeline_bench_skip)
+Personas:      116
+Total to test: ~236 (mode=all)
 ```
 If counts differ significantly, investigate before proceeding (new models/personas added to config but not yet seeded, or WORKSPACE_PROMPT_MAP out of date).
 
-### 5. MLX watchdog
+### 5. Skip mechanism reference
+
+Two independent skip mechanisms prevent inappropriate models/workspaces from being benchmarked:
+
+**Model-level skip** (`bench_skip: true` in `config/backends.yaml` mlx_models entries)
+- Skips the model in **direct** mode (no raw TPS measurement for that model)
+- Used for models that require audio input and cannot be exercised with text prompts
+- Currently flagged: `granite-speech-4.1-2b`, `Voxtral-4B-TTS-2603-mlx-6bit`, `Voxtral-Mini-4B-Realtime-2602-4bit`
+
+**Workspace-level skip** (`pipeline_bench_skip:` list in `config/backends.yaml`)
+- Skips the workspace in **pipeline** mode (the workspace is excluded from `_config_workspaces()`)
+- An explicit `--workspace <name>` argument bypasses this skip for targeted manual probes
+- Currently listed: `bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech`
+
+To add a new workspace to the skip list, append its ID to `pipeline_bench_skip:` in `config/backends.yaml`. The corresponding unit test (`tests/unit/test_bench_skip.py::test_real_backends_yaml_has_consistent_skip_list`) will catch typos.
+
+### 6. MLX watchdog
 The benchmark script automatically creates `/tmp/mlx-watchdog-paused` at startup (puts watchdog in monitor-only mode) and removes it on exit. No manual action required.
 
 ---
 
 ## Execution
 
-Launch the full run (expect 4-8 hours wall time for --mode all with 43 MLX models):
+Launch the full run (expect 4-8 hours wall time for --mode all with 46 MLX models):
 
 ```bash
 python3 tests/benchmarks/bench_tps.py \
@@ -184,9 +216,9 @@ tail -f /tmp/bench_tps_run.log | grep -E "^\s+\[|t/s|FAIL|SKIP|evict|reclaim|⚠
 ```
 
 Typical output lines to expect:
-- `    [7/43] Qwen3-Coder-30B (20GB) (warm-up) 42.1 t/s  (5/5 ok)` — model result
+- `    [7/46] Qwen3-Coder-30B (20GB) (warm-up) 42.1 t/s  (5/5 ok)` — model result
 - `    evict → reclaim (30s cooldown) ... ok` — eviction cycle
-- `    [8/43] Devstral-Small (16GB) SKIP (already done)` — resume skip
+- `    [8/46] Devstral-Small (16GB) SKIP (already done)` — resume skip
 - `  ⚠ HIGH JITTER: cv=0.18 ...` — unstable run warning
 
 ### Current output file size
@@ -251,7 +283,10 @@ This automatically picks the most recent results file and skips entries with `ru
 python3 tests/benchmarks/bench_tps.py --mode direct --model Laguna-XS.2 --runs 3
 
 # Retest one workspace
-python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-llama4-scout --runs 3
+python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-qwen3-coder-next --runs 3
+
+# Force-probe a speech workspace (pipeline_bench_skip bypass — explicit --workspace overrides skip list)
+python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-voxtral-realtime --runs 1
 
 # Retest one persona
 python3 tests/benchmarks/bench_tps.py --mode personas --persona cybersecurity --runs 3
@@ -361,11 +396,13 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 
 ## Known Behavior Notes
 
-- **Llama-4-Scout (bench-llama4-scout)**: 58GB model; needs 64GB machine with <6GB OS overhead. If memory reclaim stalls, reduce `--cooldown` to 30 and ensure no other large models are cached.
 - **Reasoning workspaces** (`bench-laguna`, `bench-phi4-reasoning`, `auto-reasoning`, `auto-security`, `auto-redteam`, `auto-mistral`): use 512-token budget and `enable_thinking=False` injection. Their TPS reflects output tokens, not think-block tokens — comparable to non-reasoning models.
-- **AEON/Qwen3.6 workspaces** (`auto-security`, `auto-redteam`, `bench-qwen36-27b`): emit `/nothink` prefix in the user message to suppress reasoning chain for apples-to-apples TPS.
-- **V7 vision models** (`bench-nemotron-omni`, `bench-olmocr2`, `bench-nanonets-ocr2`): run via mlx-vlm (same path as Llama-4-Scout). `bench-nemotron-omni` is 15GB MoE — needs ~25GB free. OCR models (`bench-olmocr2`, `bench-nanonets-ocr2`) are bench-only; not promoted to production routing.
-- **bench-toolace25**: uses ToolACE-style `[func(arg=val)]` tool-call format. Bench prompt is `tools` category — expects structured output.
+- **AEON/Qwen3.6 workspaces** (`auto-security`, `auto-redteam`, `bench-qwen36-27b`, `bench-apriel-nemotron`): emit `/nothink` prefix in the user message to suppress reasoning chain for apples-to-apples TPS.
+- **V7 vision models** (`bench-nemotron-omni`, `bench-olmocr2`, `bench-nanonets-ocr2`): run via mlx-vlm path. `bench-nemotron-omni` is 15GB MoE — needs ~25GB free. OCR models (`bench-olmocr2`, `bench-nanonets-ocr2`) are bench-only; not promoted to production routing.
+- **bench-apriel-nemotron**: Apriel-Nemotron-15B-Instruct-3.0 — NVIDIA reasoning model, 15GB. Uses `reasoning` prompt category. Emits thinking blocks; `/nothink` suppresses them.
+- **UD quant probes** (`bench-qwen36-27b-ud`, `bench-qwen36-35b-a3b-ud`): Unsloth UD-IQ4_XS quantizations from `PULL_UD_QWEN36=true ./launch.sh pull-ud-qwen36`. These are experimental; TPS may vary from standard quants. Available only if the UD models have been pulled.
+- **Speech-modality workspaces** (`bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech`): excluded from all bench modes by `pipeline_bench_skip` in `config/backends.yaml`. Excluded because these workspaces require audio input and their `bench_skip: true` models are audio-generation-only — text-prompt benchmarking produces meaningless results. To force-probe, pass `--workspace bench-voxtral-realtime` explicitly (explicit `--workspace` overrides the skip list).
+- **bench-toolace25 / tools-specialist**: ToolACE-style `[func(arg=val)]` and tool-call format respectively. Both use `coding` prompt category — expects structured output.
 - **Stale images**: the script prints a freshness warning at startup if portal images predate recent commits. If you see this warning and `portal_pipeline/` or `config/` has changed, stop and run `./launch.sh rebuild` before benchmarking.
 - **MLX watchdog**: automatically paused via `/tmp/mlx-watchdog-paused` sentinel for the bench duration. Restored on exit (including Ctrl-C).
 - **Ollama cold-start in post-cascade phase**: workspace/persona tests dispatched during the model cascade evict Ollama models between MLX loads. The first Ollama-routed entry in the post-cascade `bench_pipeline` phase pays full model load cost. Compare TPS within a phase, not across phases, for warm-load-sensitive analysis.
@@ -376,7 +413,7 @@ git commit -m "chore(bench): update Grafana benchmarks dashboard from run $(date
 
 When done, confirm:
 
-1. `tests/benchmarks/results/bench_tps_<timestamp>Z.json` exists with ≥220 results
+1. `tests/benchmarks/results/bench_tps_<timestamp>Z.json` exists with ≥236 results
 2. `config/grafana/dashboards/portal5_benchmarks.json` updated (check `version` field incremented)
 3. Grafana dashboard reloaded at `http://localhost:3000/d/portal5-benchmarks`
 4. Any unexpected failures (available=True, TPS=0) documented with root cause
