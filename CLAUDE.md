@@ -2,7 +2,7 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 6.1.0
+**Version**: 7.0.0
 
 ---
 
@@ -122,7 +122,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (110 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (116 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 

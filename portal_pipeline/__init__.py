@@ -1,3 +1,3 @@
-"""Portal 6.0.2 Pipeline — Intelligent OpenAI-compatible router."""
+"""Portal 5 v7.0.0 Pipeline — Intelligent OpenAI-compatible router."""
 
-__version__ = "6.0.2"
+__version__ = "7.0.0"

@@ -91,6 +91,18 @@ backends:
       \ Coding Power, Now Open to All.' Vision encoder routes through mlx_vlm. Chat-template\
       \ override (TASK_QWEN_TEMPLATE_PROMOTE_V1 priority 3) \u2014 disk patch only;\
       \ mlx_vlm has no --chat-template flag."
+  - id: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit
+    memory_gb: 20
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "Qwen3.6 35B-A3B MoE Unsloth Dynamic 2.0 4-bit MLX (~20GB, Apache 2.0,
+      May 2026). UD redistributes precision vs uniform 4-bit at same footprint.
+      V7 bench candidate paired with mlx-community/Qwen3.6-35B-A3B-4bit (stock)
+      for head-to-head quality probe. Vision encoder routes through mlx_vlm.
+      chat_template_override matches AEON and stock 35B-A3B variants —
+      patch-qwen-templates.py auto-handles after pull."
   - id: mlx-community/Laguna-XS.2-4bit
     memory_gb: 19
     big_model: false
@@ -146,6 +158,18 @@ backends:
       Dense 27B + vision encoder. Replaces froggeric/Qwen3.6-27B-MLX-4bit as bench-qwen36-27b
       primary target (froggeric retained in catalog as fallback reference only).
       chat_template_override: qwen3.6 — same Jinja fix applied to AEON and 35B-A3B variants."
+  - id: unsloth/Qwen3.6-27B-UD-MLX-4bit
+    memory_gb: 16
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "Qwen3.6 27B dense Unsloth Dynamic 2.0 4-bit MLX (~16GB, Apache 2.0,
+      May 2026). UD vs stock 4-bit quant-method probe. V7 bench-only.
+      Pairs with mlx-community/Qwen3.6-27B-4bit (stock) which remains
+      bench-qwen36-27b primary. Vision encoder routes through mlx_vlm.
+      chat_template_override matches stock — patch-qwen-templates.py
+      auto-handles after pull."
   - id: lmstudio-community/Devstral-Small-2507-MLX-4bit
     memory_gb: 15
     big_model: false
@@ -205,6 +229,25 @@ backends:
       (5-bit proxy; mxfp4 expected similar). License note: Open Model Agreement
       prohibits use to train competing foundation models — internal/enterprise use
       is unrestricted."
+  - id: mlx-community/Apriel-Nemotron-15B-Thinker-8bit
+    memory_gb: 16
+    big_model: false
+    is_vlm: false
+    supports_tools: true
+    notes: "ServiceNow + NVIDIA Apriel-Nemotron-15B-Thinker 8-bit MLX (~16GB, MIT,
+      May 2025 base release; community MLX conversion). V7 bench candidate \u2014
+      NEW LINEAGE (ServiceNow+NVIDIA Apriel series, distinct from current
+      NVIDIA Nemotron-3 omni VLM). Dense 15B reasoning model. RL-trained on
+      Nemo + Nemotron post-training + ServiceNow enterprise data.
+      Native <think>...</think> reasoning traces. Slots between
+      Phi-4-reasoning-plus (8GB) and Magistral-Small (24GB) in reasoning
+      capacity ladder. supports_tools=true per card claim; if reasoning-budget
+      mixing with tool rendering shows in tests, retry with
+      enable_thinking=False at workspace param level.
+      MLX conversion availability: verify mlx-community/Apriel-Nemotron-15B-Thinker-8bit
+      exists at task execution time; if absent, fallback is local conversion
+      via 'mlx_lm.convert --hf-path ServiceNow-AI/Apriel-Nemotron-15B-Thinker
+      --mlx-path <local> -q --q-bits 8'."
   - id: mlx-community/phi-4-8bit
     memory_gb: 14
     big_model: false
@@ -359,6 +402,36 @@ backends:
       prompt; use [func(arg=val)] tool-call format (BFCL-evaluated, also produces
       OpenAI-compatible JSON tool calls). Promoted to tools-specialist workspace
       2026-05-24. bench-toolace25 retained for regression benchmarking."
+  - id: mlx-community/granite-speech-4.1-2b
+    memory_gb: 4
+    big_model: false
+    is_vlm: false
+    supports_tools: false
+    notes: "IBM Granite Speech 4.1 2B native MLX (~4GB resident, Apache 2.0,
+      Apr 2026). V7 bench candidate — #1 on OpenASR leaderboard as of Apr 2026
+      (avg WER 5.52). Two-pass speech-language model: 16-conformer CTC encoder
+      + 2-layer Q-Former projector. Multilingual ASR (EN/FR/DE/ES/PT/JA) +
+      bidirectional speech translation X<->EN. KEY DIFFERENTIATOR: native
+      keyword list biasing at inference time — first model in fleet with this
+      capability. Critical for domain-vocabulary transcription accuracy
+      (CVE IDs, MITRE technique IDs, regulator names, NERC CIP requirement
+      numbers, exhibit IDs). supports_tools=false (ASR/AST specialist, no LM
+      tool training). Routes through mlx-audio (NOT mlx_lm or mlx_vlm).
+      bench-granite-speech pin — does NOT displace production mlx-transcribe.py
+      pipeline until promotion gate met (custom keyword-F1 benchmark)."
+  - id: mlx-community/Voxtral-4B-TTS-2603-mlx-6bit
+    memory_gb: 4
+    big_model: false
+    is_vlm: false
+    supports_tools: false
+    notes: "Mistral Voxtral 4B TTS 2603 MLX 6-bit (~4GB, Apache 2.0, Mar 2026).
+      V7 bench-only — companion to Voxtral Realtime ASR. 20 voice presets
+      across 9 languages (EN/FR/ES/DE/IT/PT/NL + 2 more per mlx-audio README).
+      Pairs with Kokoro-82M (current TTS primary on :8918) and Qwen3-TTS
+      Custom/Design/Base variants for head-to-head quality probe. Routes
+      through mlx-audio. supports_tools=false (TTS specialist).
+      bench-voxtral-tts pin — does NOT displace production mlx-speech.py
+      pipeline until quality probe shows >=4-of-5 wins on multilingual phrases."
   - id: mlx-community/Llama-3.2-3B-Instruct-8bit
     memory_gb: 3
     big_model: false
@@ -372,6 +445,23 @@ backends:
     supports_tools: true
     notes: IBM Granite 4.1 3B 8-bit MX DENSE (~3GB, Apache 2.0, ~50-70 TPS theoretical).
       AUTO speed-class candidate.
+  - id: mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit
+    memory_gb: 3
+    big_model: false
+    is_vlm: false
+    supports_tools: false
+    notes: "Mistral Voxtral Mini 4B Realtime 2602 MLX 4-bit (~3GB, Apache 2.0,
+      Feb 2026). V7 bench-only — streaming-optimized ASR with causal encoder
+      + GQA decoder. Community-reported time-to-first-token ~570ms for 127s
+      audio (vs ~2700ms baseline; 4.7x). 13 languages. Routes through
+      mlx-audio. supports_tools=false (ASR specialist).
+      DISAMBIGUATION: This is the 2602 RT variant, distinct from
+      mlx-community/Voxtral-Mini-3B-2507-bf16 (the 2507 batched variant
+      already wired in mlx-transcribe.py for multilingual). Realtime adds
+      streaming capability; 2507 stays as the production batched path.
+      bench-voxtral-realtime pin — does NOT displace 2507 pipeline until
+      end-to-end <1s first-token verified AND WER within 10% of
+      whisper-large-v3-turbo."
   - id: mlx-community/Nanonets-OCR2-3B-4bit
     memory_gb: 2
     big_model: false
@@ -711,6 +801,27 @@ workspace_routing:
   - mlx
   - tools
   - general
+  bench-apriel-nemotron:
+  - mlx
+  - reasoning
+  - general
+  bench-voxtral-realtime:
+  - mlx
+  - general
+  bench-voxtral-tts:
+  - mlx
+  - general
+  bench-granite-speech:
+  - mlx
+  - general
+  bench-qwen36-27b-ud:
+  - mlx
+  - coding
+  - general
+  bench-qwen36-35b-a3b-ud:
+  - mlx
+  - coding
+  - general
   tools-specialist:
   - mlx
   - tools
@@ -722,3 +833,30 @@ defaults:
   health_check_interval: 15
 speculative_decoding:
   draft_models: {}
+
+# ── Embedding candidates (informational; not yet routed) ─────────────────
+# These models are recorded for the future P5-FUT-EMBED-001 migration task.
+# The current production embedding server (scripts/embedding-server.py on
+# port 8917) runs microsoft/harrier-oss-v1-0.6b and is bound to the LanceDB
+# index at /Volumes/data01/portal5_lance/. Swapping embeddings invalidates
+# that index — re-ingestion of every RAG source is required.
+#
+# Do NOT route these models through portal_pipeline. They are tracked here
+# so future Claude sessions do not propose them as if they were drop-ins.
+embedding_candidates:
+  - id: google/embeddinggemma-300M
+    notes: "Google EmbeddingGemma 300M (~0.3GB, Gemma3 lineage, Aug 2025+).
+      Outperforms Qwen3-Embedding-0.6B on pair classification, multilabel
+      classification, and reranking (MTEB English v2). Half the size of
+      current Harrier-0.6B. Migration requires LanceDB re-ingestion."
+  - id: Qwen/Qwen3-Embedding-0.6B
+    notes: "Qwen3-Embedding 0.6B (~0.6GB, Apache 2.0, Jun 2025). MTEB
+      multilingual leaderboard #1 in <1B class. Same lineage as production
+      Qwen3-Reranker-0.6B on :8925 — aligning embedding and reranker
+      lineage is desirable for cross-encoder calibration. Already in
+      MLX_MODELS pull list as mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ
+      (pre-positioned for future swap)."
+  - id: Qwen/Qwen3-Embedding-8B
+    notes: "Qwen3-Embedding 8B (~8GB, Apache 2.0). MTEB multilingual #1
+      overall (70.58). Memory cost significant if loaded alongside an
+      auto-coding MoE — likely too large for production. Bench-eval only."

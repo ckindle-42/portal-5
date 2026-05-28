@@ -1,0 +1,13 @@
+{
+  "id": "bench-granite-speech",
+  "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
+  "meta": {
+    "description": "Benchmark: granite-speech-4.1-2b — IBM, #1 OpenASR Apr 2026, native keyword biasing, EN/FR/DE/ES/PT/JA, Apache 2.0, ~4GB",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "system": "You are a speech-model probe with keyword biasing support. Text input does not exercise this ASR model — use the audio probe in tests/audio_probe.py.",
+    "model": "bench-granite-speech"
+  }
+}

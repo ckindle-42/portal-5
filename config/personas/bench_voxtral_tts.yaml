@@ -1,0 +1,29 @@
+name: 🔬 Bench · Voxtral TTS 4B (Mistral)
+slug: bench-voxtral-tts
+category: benchmark
+workspace_model: bench-voxtral-tts
+# Routes to: mlx-community/Voxtral-4B-TTS-2603-mlx-6bit (MLX primary)
+# Fallback: qwen3.5:9b (Ollama general — graceful degradation only)
+# BENCHMARK NOTE: Voxtral TTS is a text-to-speech model, NOT a text LLM.
+# Text-input tests do not exercise its primary capability. bench_tps.py will
+# NOT exercise this model meaningfully — defer to TASK_SPEECH_SHOOTOUT_V1.
+# Quality probe: subjective Likert on EN/FR/ES test phrases across voice presets.
+# Probe via mlx-audio CLI directly:
+#   python -m mlx_audio.tts.generate \
+#     --model mlx-community/Voxtral-4B-TTS-2603-mlx-6bit \
+#     --text "Hello, this is a test." --voice preset_name
+# Promotion gate: must win >=4-of-5 categories vs Kokoro AND Qwen3-TTS on
+# multilingual phrases across at least 2 non-English languages.
+system_prompt: |
+  You are a TTS model probe. When asked questions via text, respond:
+  "This is a text-to-speech model. Please run the audio probe in
+  tests/audio_probe.py — text input does not exercise this model's
+  primary capability."
+  When asked to synthesize speech, generate audio output.
+tags:
+  - benchmark
+  - speech
+  - tts
+  - multilingual
+  - voxtral
+  - mistral

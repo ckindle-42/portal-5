@@ -2,6 +2,63 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.0.0] — 2026-05-27
+
+### Changed
+- **Version unified across project**: pyproject.toml, portal_pipeline,
+  portal_mcp, portal_channels, tests, config/searxng all bumped from a
+  drifted mix of 5.2.1 / 6.0.2 / 6.0.7 / 6.1.0 to a single 7.0.0.
+  Historical CHANGELOG and ACCEPTANCE_RESULTS entries preserved.
+
+### Added — Bench fleet (TASK_MODEL_REFRESH_V7)
+- **bench-apriel-nemotron**: Apriel-Nemotron-15B-Thinker-8bit (MLX,
+  ServiceNow+NVIDIA, dense 15B reasoning, native <think>, MIT, ~16GB).
+  First ServiceNow+NVIDIA text-reasoning model in the fleet.
+- **bench-voxtral-realtime**: Voxtral-Mini-4B-Realtime-2602-4bit (MLX,
+  Mistral, streaming ASR ~570ms TTFT claim, 13 languages, ~3GB).
+- **bench-voxtral-tts**: Voxtral-4B-TTS-2603-mlx-6bit (MLX, Mistral,
+  20 voices × 9 languages, ~4GB).
+- **bench-granite-speech**: granite-speech-4.1-2b (MLX, IBM, #1 OpenASR
+  as of Apr 2026, native keyword biasing, EN/FR/DE/ES/PT/JA, ~4GB).
+  First model in fleet with native keyword biasing.
+- **bench-qwen36-27b-ud** and **bench-qwen36-35b-a3b-ud**: Unsloth
+  Dynamic 2.0 MLX 4-bit quant probes vs stock 4-bit at identical footprint.
+
+### Added — Capability catalog
+- `embedding_candidates:` informational block in config/backends.yaml
+  for future P5-FUT-EMBED-001 migration (EmbeddingGemma, Qwen3-Embedding).
+- KNOWN_LIMITATIONS.md "Models Out of M4 Pro 64 GB Budget" section
+  (MiniMax-M2, DeepSeek-V4, Kimi-K2-0905, GLM-5 explicitly refused).
+
+### Added — Launcher
+- `PULL_UD_QWEN36=1` env gate inside `./launch.sh pull-mlx-models` for
+  Unsloth UD Qwen3.6 pair (~36 GB combined; opt-in).
+- `./launch.sh pull-ud-qwen36` subcommand wrapper.
+- 4 small models (Apriel-Nemotron, Granite-Speech, Voxtral-Realtime,
+  Voxtral-TTS) added to default `MLX_MODELS` pull array (~27 GB delta).
+
+### Fixed — Pre-existing drift
+- `imports/openwebui/workspaces/workspaces_all.json` was missing 5 entries
+  (auto-agentic, bench-lfm2-moe, bench-nanonets-ocr2, bench-nemotron-omni,
+  bench-olmocr2). Backfilled. **auto-agentic missing was a real bug —
+  operators reseeding OWUI lost that workspace preset.**
+- `tests/benchmarks/bench_tps.py WORKSPACE_PROMPT_MAP` was missing the
+  production `tools-specialist` workspace, causing it to silently fall
+  through to "general" prompts. Added.
+
+### Roadmap
+- P5-FUT-014-V7 model refresh waterline with explicit promotion gates.
+- P5-FUT-EMBED-001 EmbeddingGemma migration seed (deferred — RAG
+  re-ingestion scope).
+- P5-FUT-SPEECH-002 speech-model shootout (deferred — bench_tps.py text
+  harness cannot exercise streaming ASR/TTS).
+
+### Production fleet impact
+None. All catalog adds are bench-only. No `auto-*` workspace, persona,
+backend group, or production routing path is modified. Version-unification
+edits are string-only (docstrings, version constants, doc files).
+v7.0.0 ships with bit-identical production behavior to the last v6.x HEAD.
+
 ## [6.1.0] — 2026-04-29
 
 ### Added

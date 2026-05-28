@@ -1,10 +1,10 @@
-# P5_ROADMAP.md — Portal 5 Future Enhancements
+# P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
 ```
-Portal 6.1.0 Roadmap
+Portal 7.0.0 Roadmap
 ==================
-Last updated: May 14, 2026
-Version: 6.1.0 (production-ready)
+Last updated: May 27, 2026
+Version: 7.0.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: DONE, BLOCKED, CANCELED
@@ -154,6 +154,77 @@ MLX_MEMORY_UNKNOWN_DEFAULT_GB=20
 ### P5-FUT-013: OMLX Evaluation — CANCELED
 
 Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md` for full results. KV cache persistence not functional (warm TTFT 31% *slower* than cold). mlx-proxy retains the production inference role.
+
+---
+
+### P5-FUT-014-V7: Model Refresh Waterline
+
+TASK_MODEL_REFRESH_V7 (2026-05-27) added 6 bench workspaces:
+bench-apriel-nemotron, bench-voxtral-realtime, bench-voxtral-tts,
+bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
+
+**Promotion gates** (each model is bench-only until):
+
+1. `bench-apriel-nemotron` → auto-reasoning candidate: must Pareto-dominate
+   Magistral-Small-2509 on bench_tps.py reasoning prompts.
+2. `bench-qwen36-{27b,35b-a3b}-ud` → replace stock 4-bit in respective
+   bench pins: must show ≥1-point improvement on Creative Coder CC-01
+   AND match-or-improve coding-shootout-v2.
+3. `bench-granite-speech` → new `auto-transcribe-domain` lane: must
+   outperform mlx-whisper-large-v3-turbo on a domain-vocab keyword-biased
+   benchmark.
+4. `bench-voxtral-realtime` / `bench-voxtral-tts` → defer to dedicated
+   P5-FUT-SPEECH-002 speech-shootout task.
+
+---
+
+### P5-FUT-EMBED-001: EmbeddingGemma Migration Seed
+
+Current production: scripts/embedding-server.py with
+microsoft/harrier-oss-v1-0.6b on :8917 (ARM64). Candidate:
+google/embeddinggemma-300M (outperforms Qwen3-Embedding-0.6B on multiple
+MTEB v2 categories at half the size).
+
+Migration blockers (out of scope for V7):
+
+1. LanceDB index at /Volumes/data01/portal5_lance/ is bound to current
+   embedding dimensionality. Switching requires full re-ingestion of
+   every RAG source under /Volumes/data01/portal5_kb_sources/.
+2. Need shadow-index A/B test to validate retrieval quality before flip.
+3. Need rollback procedure (keep Harrier index on disk 14 days post-cutover
+   with a feature flag in RAG MCP to flip back).
+
+Note: mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ is already in the
+default pull list (pre-positioned by an earlier task). Whether the
+migration target is EmbeddingGemma or Qwen3-Embedding is itself part of
+the P5-FUT-EMBED-001 scope.
+
+---
+
+### P5-FUT-SPEECH-002: Speech-Model Shootout
+
+Current production speech stack: mlx-transcribe.py (mlx-whisper-large-v3-turbo
++ Voxtral-Mini-3B-2507-bf16 lazy-loaded + pyannote 3.1 on MPS, :8924),
+mlx-speech.py (Kokoro 82M + Qwen3-TTS Custom/Design/Base on :8918).
+
+V7 added 3 bench-only candidates:
+
+- Voxtral-Mini-4B-Realtime-2602 (streaming ASR, ~570ms TTFT claim)
+- Voxtral-4B-TTS-2603 (20 voices × 9 languages)
+- Granite-Speech-4.1-2B (#1 OpenASR, keyword biasing)
+
+A dedicated speech-shootout task should:
+
+1. Build a probe driver exercising each model with the same audio corpus
+   (multilingual, domain-vocab, streaming-vs-batched).
+2. Score on WER, keyword F1, TTFT, and (for TTS) subjective Likert.
+3. Produce a Pareto frontier for the speech lane equivalent to bench_tps.py
+   for the text lane.
+4. Promote winners to production replacement candidates only after the
+   Pareto shows clear wins.
+
+bench_tps.py is the wrong tool for this — its text-prompt harness does
+not exercise streaming ASR or TTS rendering.
 
 ---
 

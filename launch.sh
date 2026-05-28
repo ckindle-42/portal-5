@@ -3792,6 +3792,14 @@ PLIST
         # RAG two-stage retrieval (embedding + reranker)
         "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"          # ~0.3GB — Qwen3 embedding, Apache 2.0, MLX-native
         "mlx-community/Qwen3-Reranker-0.6B-mxfp8"             # ~0.6GB — Qwen3 reranker, Apache 2.0, MLX-native
+        # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ───────────────────
+        # Reasoning — new lineage (ServiceNow+NVIDIA)
+        "mlx-community/Apriel-Nemotron-15B-Thinker-8bit"      # ~16GB
+        # Speech — IBM Granite Speech, native keyword biasing (#1 OpenASR Apr 2026)
+        "mlx-community/granite-speech-4.1-2b"                 # ~4GB
+        # Speech — Mistral Voxtral 2602 Realtime ASR (streaming) + 2603 TTS
+        "mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit"    # ~3GB
+        "mlx-community/Voxtral-4B-TTS-2603-mlx-6bit"          # ~4GB
     )
 
     # V7 opt-in large models (gated behind env vars — do not auto-pull)
@@ -3812,6 +3820,29 @@ snapshot_download('mlx-community/Voxtral-Mini-3B-2507-bf16', ignore_patterns=['*
         fi
     else
         echo "  Skipping Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — set PULL_VOXTRAL=1 to include"
+    fi
+
+    # V7 opt-in Unsloth Dynamic 2.0 Qwen3.6 pair (~36 GB combined)
+    if [ "${PULL_UD_QWEN36:-0}" = "1" ]; then
+        for ud_model in \
+            "unsloth/Qwen3.6-27B-UD-MLX-4bit" \
+            "unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"; do
+            echo "  Pulling $ud_model..."
+            if python3 -W ignore -c "
+import os, warnings; warnings.filterwarnings('ignore')
+if not os.environ.get('HF_HUB_CACHE'):
+    os.environ.pop('HF_HUB_CACHE', None)
+from huggingface_hub import snapshot_download
+cache_dir = os.environ.get('HF_HUB_CACHE') or None
+snapshot_download('$ud_model', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
+"; then
+                echo "  ✅ $ud_model done"
+            else
+                echo "  ❌ $ud_model failed"
+            fi
+        done
+    else
+        echo "  Skipping Unsloth UD Qwen3.6 pair (~36 GB combined) — set PULL_UD_QWEN36=1 to include"
     fi
 
     # Heavy models — gated behind PULL_HEAVY=true
@@ -3992,6 +4023,12 @@ MEOF
     PULL_VOXTRAL=1 "$0" pull-mlx-models
     ;;
 
+  pull-ud-qwen36)
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Pulling Unsloth UD Qwen3.6 pair (~36 GB) — Unsloth Dynamic 2.0 quant probes..."
+    PULL_UD_QWEN36=1 "$0" pull-mlx-models
+    ;;
+
   pull-wan22)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
@@ -4151,7 +4188,7 @@ snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-ud-qwen36|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -4161,6 +4198,7 @@ snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
     echo "  pull-mlx-models       Download MLX model weights to HF cache"
   echo "  pull-voxtral          Pull Voxtral-Mini-3B-2507 for multilingual STT (~18.7 GB, opt-in)"
+  echo "  pull-ud-qwen36        Pull Unsloth Dynamic 2.0 Qwen3.6 pair (27B + 35B-A3B, ~36 GB, opt-in)"
   echo "  pull-wan22            Pull Wan 2.2 ComfyUI models (T2V-A14B/TI2V-5B/Animate-14B/S2V-14B, ~80 GB)"
   echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB)"
   echo "  convert-foundation-sec  Download + MLX 4-bit convert Foundation-Sec-8B-Reasoning (Cisco, ~4.5 GB)"

@@ -1,4 +1,4 @@
-"""Portal 5.2.1 Pipeline unit tests — no live backends required."""
+"""Portal 5 v7.0.0 Pipeline unit tests — no live backends required."""
 
 from pathlib import Path
 
@@ -363,11 +363,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 44 (19 production + 25 bench-* workspaces after V7 adds)."""
+        """Total workspace count is 50 (19 production + 1 tools-specialist + 30 bench-* workspaces after V7 adds)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 44, (
-            f"Expected 44 workspaces (19 production + 25 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 50, (
+            f"Expected 50 workspaces (19 production + 1 tools-specialist + 30 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -906,11 +906,11 @@ class TestSPLWorkspace:
         assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 44 (19 production + 25 bench-* workspaces after V7 adds)."""
+        """Total workspace count must be 50 (19 production + 1 tools-specialist + 30 bench-* workspaces after V7 adds)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 44, (
-            f"Expected 44 workspaces (19 production + 25 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 50, (
+            f"Expected 50 workspaces (19 production + 1 tools-specialist + 30 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
