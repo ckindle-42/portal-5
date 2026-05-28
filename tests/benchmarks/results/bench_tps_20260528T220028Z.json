@@ -1,0 +1,185 @@
+{
+  "timestamp": "2026-05-28T22:01:34.775773+00:00",
+  "mode": "pipeline",
+  "order": "size",
+  "cooldown_s": 15.0,
+  "runs_per_model": 3,
+  "spec_decoding": "mtp-off",
+  "kv_quant_tag": "unspecified",
+  "total_wall_time_s": 64.7,
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "config_summary": {
+    "mlx_models_configured": 48,
+    "ollama_models_configured": 27,
+    "workspaces_configured": 48,
+    "personas_configured": 117
+  },
+  "backends": {
+    "mlx": {
+      "url": "http://localhost:8081",
+      "available": true
+    },
+    "ollama": {
+      "url": "http://localhost:11434",
+      "available": true
+    },
+    "pipeline": {
+      "url": "http://localhost:9099",
+      "available": true
+    }
+  },
+  "results": [
+    {
+      "model": "bench-qwen36-27b",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 12.0,
+      "min_tps": 11.7,
+      "max_tps": 12.4,
+      "stddev_tps": 0.36,
+      "cv": 0.03,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 21.33,
+      "avg_ttft_s": 1.784,
+      "routed_model": "bench-qwen36-27b",
+      "prompt_category": "coding",
+      "quality_score": 0.67,
+      "tps_quality": 8.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "MLX:qwen3.6-27b-4bit | Ollama:qwen3-coder",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 21.47,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 11.9,
+          "time_to_first_token_s": 1.718,
+          "response_model": "bench-qwen36-27b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    Algorithm:\n    1. If the input list is empty, return an empty list.\n    2. Sort the intervals by their start values.\n    3. Initialize a result list with the first interval.\n    4. Iterate through the remaining intervals:\n       - If the current interval overlaps with the last interval in the result list \n         (i.e., the current start is less than or equal to the last end), merge them \n         by updating the end of the last interval to the maximum of both ends.\n       - Otherwise, append the current interval to the result list.\n    5. Return the result list.\n    \n    Edge cases handled:\n    - Empty list: returns an empty list.\n    - Single interval: returns the list as-is.\n    - Fully overlapping intervals: merges them into a single interval.\n    \n    Args:\n        intervals: A list of tuples, where each tuple contains two integers representing \n                   the start and end of"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 21.84,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 11.7,
+          "time_to_first_token_s": 1.816,
+          "response_model": "bench-qwen36-27b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    Algorithm:\n    1. If the input list is empty, return an empty list.\n    2. Sort the intervals by their start values.\n    3. Initialize a result list with the first interval.\n    4. Iterate through the remaining intervals:\n       - If the current interval overlaps with the last interval in the result list \n         (i.e., the current start is less than or equal to the last end), merge them \n         by updating the end of the last interval to the maximum of both ends.\n       - Otherwise, append the current interval to the result list.\n    5. Return the result list.\n    \n    Edge cases handled:\n    - Empty list: returns an empty list.\n    - Single interval: returns the list as-is.\n    - Fully overlapping intervals: merges them into a single interval.\n    \n    Args:\n        intervals: A list of tuples, where each tuple contains two integers representing \n                   the start and end of"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 20.67,
+          "prompt_tokens": 143,
+          "completion_tokens": 256,
+          "tps": 12.4,
+          "time_to_first_token_s": 1.819,
+          "response_model": "bench-qwen36-27b",
+          "response_text": "```python\nfrom typing import List, Tuple\n\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping intervals in a list of intervals.\n    \n    Algorithm:\n    1. If the input list is empty, return an empty list.\n    2. Sort the intervals by their start values.\n    3. Initialize a result list with the first interval.\n    4. Iterate through the remaining intervals:\n       - If the current interval overlaps with the last interval in the result list \n         (i.e., the current start is less than or equal to the last end), merge them \n         by updating the end of the last interval to the maximum of both ends.\n       - Otherwise, append the current interval to the result list.\n    5. Return the result list.\n    \n    Edge cases handled:\n    - Empty list: returns an empty list.\n    - Single interval: returns the list as-is.\n    - Fully overlapping intervals: merges them into a single interval.\n    \n    Args:\n        intervals: A list of tuples, where each tuple contains two integers representing \n                   the start and end of"
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-qwen36-27b"
+    }
+  ],
+  "prompts": {
+    "override": null,
+    "library": {
+      "general": "You are a helpful assistant. Answer concisely.\n\nList the 7 OSI model layers from...",
+      "coding": "You are a code assistant. Write clean, production-quality code.\n\nWrite a Python ...",
+      "security": "You are a cybersecurity analyst. Be precise and cite frameworks.\n\nAnalyze the fo...",
+      "reasoning": "You are a structured reasoner. Think step-by-step before concluding.\n\nA hospital...",
+      "creative": "You are a creative writer with strong narrative voice.\n\nWrite the opening scene ...",
+      "vision": "You are a multimodal vision analyst. Describe what you see precisely.\n\nFor any i..."
+    },
+    "workspace_map": {
+      "auto": "general",
+      "auto-coding": "coding",
+      "auto-agentic": "coding",
+      "auto-spl": "coding",
+      "auto-security": "security",
+      "auto-redteam": "security",
+      "auto-blueteam": "security",
+      "auto-creative": "creative",
+      "auto-reasoning": "reasoning",
+      "auto-documents": "coding",
+      "auto-video": "creative",
+      "auto-music": "creative",
+      "auto-research": "reasoning",
+      "auto-vision": "vision",
+      "auto-data": "reasoning",
+      "auto-compliance": "reasoning",
+      "auto-mistral": "reasoning",
+      "auto-math": "reasoning",
+      "bench-devstral": "coding",
+      "bench-qwen3-coder-next": "coding",
+      "bench-qwen3-coder-30b": "coding",
+      "bench-llama33-70b": "coding",
+      "bench-phi4": "reasoning",
+      "bench-phi4-reasoning": "reasoning",
+      "bench-dolphin8b": "creative",
+      "bench-glm": "coding",
+      "bench-laguna": "reasoning",
+      "bench-gptoss": "reasoning",
+      "bench-granite41-8b": "coding",
+      "bench-granite41-30b": "coding",
+      "bench-qwen35-abliterated": "general",
+      "bench-omnicoder2": "coding",
+      "bench-negentropy": "reasoning",
+      "bench-qwen36-27b": "coding",
+      "bench-qwen36-27b-mtp": "coding",
+      "bench-qwen36-35b-a3b": "coding",
+      "bench-olmo3-32b": "reasoning",
+      "bench-nemotron-omni": "vision",
+      "bench-olmocr2": "vision",
+      "bench-nanonets-ocr2": "vision",
+      "bench-lfm2-moe": "creative",
+      "bench-foundation-sec": "reasoning",
+      "bench-toolace25": "coding",
+      "auto-daily": "general",
+      "bench-apriel-nemotron": "reasoning",
+      "bench-qwen36-27b-ud": "coding",
+      "bench-qwen36-35b-a3b-ud": "coding",
+      "tools-specialist": "coding"
+    },
+    "group_map": {
+      "general": "general",
+      "coding": "coding",
+      "security": "security",
+      "reasoning": "reasoning",
+      "vision": "vision",
+      "creative": "creative"
+    },
+    "persona_category_map": {
+      "security": "security",
+      "redteam": "security",
+      "blueteam": "security",
+      "pentesting": "security",
+      "coding": "coding",
+      "software": "coding",
+      "development": "coding",
+      "systems": "coding",
+      "architecture": "reasoning",
+      "reasoning": "reasoning",
+      "research": "reasoning",
+      "analysis": "reasoning",
+      "creative": "creative",
+      "writing": "creative",
+      "vision": "vision",
+      "multimodal": "vision",
+      "data": "reasoning",
+      "compliance": "reasoning",
+      "general": "general",
+      "benchmark": "coding"
+    }
+  }
+}
