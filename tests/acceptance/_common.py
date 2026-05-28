@@ -147,3 +147,96 @@ def _get_personas() -> list[dict]:
 def _get_ws_ids() -> list[str]:
     """Return WS_IDS list from the monolith."""
     return _monolith().WS_IDS
+
+
+# ── Additional constants ─────────────────────────────────────────────────────
+
+GRAFANA_PASS = os.environ.get("GRAFANA_PASSWORD", "admin")
+MLX_SPEECH_PORT = int(os.environ.get("MLX_SPEECH_PORT", "8918"))
+MLX_SPEECH_URL = f"http://localhost:{MLX_SPEECH_PORT}"
+AI_OUTPUT_DIR = Path(os.environ.get("AI_OUTPUT_DIR", str(Path.home() / "AI_Output")))
+
+
+# ── Additional delegation helpers ────────────────────────────────────────────
+
+
+def _get_acc_client():
+    """Return the shared httpx client from the monolith."""
+    return _monolith()._get_acc_client()
+
+
+async def _assert_routing(
+    section: str,
+    tid: str,
+    workspace: str,
+    model: str,
+):
+    return await _monolith()._assert_routing(section, tid, workspace, model)
+
+
+async def _mcp_get(port: int, path: str, timeout: int = 10):
+    return await _monolith()._mcp_get(port, path, timeout)
+
+
+async def _mcp_post(port: int, path: str, body: dict, timeout: int = 30):
+    return await _monolith()._mcp_post(port, path, body, timeout)
+
+
+async def _unload_ollama_models() -> None:
+    return await _monolith()._unload_ollama_models()
+
+
+def _get_workspace_prompts() -> dict:
+    """Return WORKSPACE_PROMPTS from the monolith."""
+    return _monolith().WORKSPACE_PROMPTS
+
+
+def _get_persona_prompts() -> dict:
+    """Return PERSONA_PROMPTS from the monolith."""
+    return _monolith().PERSONA_PROMPTS
+
+
+def _get_persona_prompts_excluded() -> set:
+    """Return PERSONA_PROMPTS_EXCLUDED from the monolith."""
+    return _monolith().PERSONA_PROMPTS_EXCLUDED
+
+
+def _get_mlx_orgs() -> list:
+    """Return _MLX_ORGS from the monolith."""
+    return _monolith()._MLX_ORGS
+
+
+async def _mcp(
+    port: int,
+    tool: str,
+    args: dict,
+    *,
+    section: str,
+    tid: str,
+    name: str,
+    ok_fn,
+    detail_fn=None,
+    warn_if=None,
+    timeout: int = 30,
+) -> None:
+    return await _monolith()._mcp(
+        port, tool, args,
+        section=section, tid=tid, name=name,
+        ok_fn=ok_fn, detail_fn=detail_fn, warn_if=warn_if, timeout=timeout,
+    )
+
+
+async def _mcp_raw(
+    port: int,
+    tool: str,
+    args: dict,
+    *,
+    section: str,
+    tid: str,
+    name: str,
+    timeout: int = 30,
+) -> None:
+    return await _monolith()._mcp_raw(
+        port, tool, args,
+        section=section, tid=tid, name=name, timeout=timeout,
+    )
