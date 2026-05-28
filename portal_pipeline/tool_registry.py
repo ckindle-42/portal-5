@@ -1,10 +1,35 @@
-"""Portal 5 — Tool registry for MCP server-backed tools.
+"""Tool registry — discovers model-facing tools from MCP servers and dispatches calls.
 
-Maps tool name -> MCP server URL + tool schema. Loaded at pipeline startup by
-discovering tools from each MCP server's /tools endpoint. Registry is the
-single source of truth — workspaces and personas reference tools by name.
+This module owns the mapping of ``tool_name → MCP server URL + JSON schema``
+for every tool that a model can call from a chat completion. Three concerns
+live here: discovery (poll each MCP's ``/tools`` endpoint), advertisement
+(serialize to OpenAI ``tools:`` array), and dispatch (POST a tool call to
+the right MCP and return its result).
 
-Refresh: every TOOL_REGISTRY_REFRESH_S seconds, or on POST /admin/refresh-tools.
+A module-level singleton ``tool_registry = ToolRegistry()`` is created at
+import time and is the single instance used by ``router_pipe.py``. Discovery
+runs lazily on the first ``refresh()`` (called during chat-completion
+handling) and on demand via ``POST /admin/refresh-tools``.
+
+``MCP_SERVERS`` is intentionally not the full MCP fleet. Only servers whose
+tools are meant to be model-callable are listed here. The reranker MCP
+(:8925) and the browser MCP (:8923) are absent because they are internal
+infrastructure — the reranker is invoked directly by the RAG MCP with
+graceful fallback, and browser actions are wrapped behind ``research``/web
+search tools rather than exposed as raw tools.
+
+Failure isolation is by design throughout: discovery failures for one MCP
+do not affect others, and ``dispatch`` returns error dicts rather than
+raising so a tool failure cannot break the SSE stream feeding the model.
+
+Knobs (all env-overridable):
+
+* ``TOOL_REGISTRY_REFRESH_S`` (default 3600s) — refresh interval.
+* ``TOOL_DISCOVERY_TIMEOUT_S`` (5s, not overridable) — per-server
+  ``/tools`` GET timeout.
+* ``TOOL_DISPATCH_TIMEOUT_S`` (default 60s) — per-call POST timeout,
+  overridable per-tool via ``ToolDefinition.custom_timeout_s``.
+* Per-server ``MCP_<NAME>_URL`` — override the default ``localhost:<port>``.
 """
 
 from __future__ import annotations
@@ -43,14 +68,59 @@ TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
 
 
 def _backoff_seconds(failures: int) -> float:
-    """Backoff schedule: 30s, 2m, 5m, 15m, 1h, capped."""
+    """Look up the backoff window for a tool with ``failures`` consecutive errors.
+
+    Hand-picked schedule (seconds): ``30, 120, 300, 900, 3600`` — capped at
+    1h. Failures beyond the fifth stay at 1h, matching the default registry
+    refresh cadence so a permanently-broken tool gets re-probed by discovery
+    on roughly the same beat as by post-backoff retry.
+
+    Args:
+        failures: Consecutive-failure count, 1-indexed. Values < 1 return
+            the first slot (30s); values beyond the schedule clamp to 1h.
+
+    Returns:
+        Backoff window in seconds.
+    """
     schedule = [30, 120, 300, 900, 3600]
     return float(schedule[min(failures - 1, len(schedule) - 1)])
 
 
 @dataclass
 class ToolDefinition:
-    """A single tool, resolvable to an MCP server."""
+    """One discovered tool, with attached circuit-breaker state.
+
+    Constructed exclusively by ``ToolRegistry.refresh`` from the
+    ``/tools`` response of an MCP server. The first five fields describe
+    the tool itself; the last four track its dispatch history so the
+    registry can apply backoff.
+
+    State fields live on this object (rather than a parallel map keyed
+    by tool name) so ``refresh`` can preserve circuit-breaker state with
+    a straight field copy when a tool re-appears in a later discovery
+    cycle. Without that preservation, a flapping MCP would escape its
+    penalty box every refresh.
+
+    Attributes:
+        name: Unique tool name; matches the key in ``ToolRegistry._tools``.
+        description: Human-readable description fed verbatim to models via
+            ``to_openai_tool``.
+        parameters: OpenAI/JSON-Schema-shaped parameters object.
+        server_id: Stable id of the source MCP (a key in ``MCP_SERVERS``).
+        server_url: Base URL the tool is dispatched against.
+        last_seen: Monotonic time of the last successful discovery.
+        healthy: ``False`` after any failed dispatch. Re-set to ``True``
+            on the next successful dispatch.
+        custom_timeout_s: Per-tool dispatch timeout override. Currently
+            unpopulated by any MCP's ``/tools`` response — reserved for
+            tools that need longer than ``TOOL_DISPATCH_TIMEOUT_S`` (60s
+            default; insufficient for video / music generation).
+        next_retry_at: Epoch seconds. While ``healthy`` is False and
+            ``time.time() < next_retry_at``, the tool is filtered out of
+            ``get_openai_tools`` and ``dispatch`` returns an error
+            without contacting the MCP.
+        consecutive_failures: Drives the ``_backoff_seconds`` lookup.
+    """
 
     name: str
     description: str
@@ -64,7 +134,14 @@ class ToolDefinition:
     consecutive_failures: int = 0  # for exponential backoff calc
 
     def to_openai_tool(self) -> dict[str, Any]:
-        """Serialize to OpenAI tools array format."""
+        """Render as one entry of an OpenAI-format ``tools`` array.
+
+        Returns the canonical ``{"type": "function", "function": {...}}`` shape
+        that is splatted into the outgoing chat-completions request body in
+        ``router_pipe.chat_completions``. Drops all circuit-breaker state —
+        only the model-facing fields (``name``, ``description``,
+        ``parameters``) are included.
+        """
         return {
             "type": "function",
             "function": {
@@ -76,24 +153,87 @@ class ToolDefinition:
 
 
 class ToolRegistry:
-    """Discovers and caches tools from MCP servers. Single source of truth."""
+    """Discovers tools from MCP servers and dispatches calls to them.
+
+    Singleton by convention — the module-level ``tool_registry`` instance
+    (line 229) is the only one imported by ``router_pipe.py``. Constructing
+    another instance is legal but pointless: it would have its own empty
+    ``_tools`` dict and HTTP client.
+
+    Concurrency:
+
+    * ``_refresh_lock`` serializes ``refresh()`` so a manual
+      ``POST /admin/refresh-tools`` racing a chat-completion's lazy refresh
+      can't lose circuit-breaker state via last-write-wins.
+    * One shared ``httpx.AsyncClient`` is used for both discovery (5s
+      timeout) and dispatch (60s+ via per-call override). It is created
+      lazily in ``_client`` and must be closed via ``close()`` on shutdown.
+
+    Failure isolation:
+
+    * Discovery failures for one MCP do not affect others
+      (``asyncio.gather(..., return_exceptions=True)``).
+    * Dispatch never raises — every failure path returns an error dict,
+      because the caller feeds the result back to the model as a ``tool``
+      role message and an uncaught exception would break the SSE stream.
+    """
 
     def __init__(self) -> None:
+        """Initialize an empty registry; no network calls.
+
+        Construction is side-effect-free — the first ``refresh()`` call is
+        what actually discovers tools. This is what makes the module-level
+        ``tool_registry = ToolRegistry()`` at import time safe in tests and
+        CI where MCP servers may not be reachable.
+        """
         self._tools: dict[str, ToolDefinition] = {}
         self._last_refresh: float = 0.0
         self._refresh_lock = asyncio.Lock()
         self._http: httpx.AsyncClient | None = None
 
     async def _client(self) -> httpx.AsyncClient:
+        """Return the shared HTTP client, creating it if missing or closed.
+
+        The ``is_closed`` check lets the registry recover transparently if
+        ``close()`` was called and then a discovery or dispatch happens again
+        — a sequence that occurs in test teardown / reuse but not in normal
+        production lifecycle. Client timeout defaults to
+        ``TOOL_DISCOVERY_TIMEOUT_S`` (5s); ``dispatch`` overrides per-call.
+        """
         if self._http is None or self._http.is_closed:
             self._http = httpx.AsyncClient(timeout=TOOL_DISCOVERY_TIMEOUT_S)
         return self._http
 
     async def refresh(self, force: bool = False) -> int:
-        """Refresh the registry by polling each MCP server's /tools endpoint.
+        """Rediscover tools from every MCP in ``MCP_SERVERS``.
 
-        Returns the number of tools currently registered.
-        Only refreshes if TOOL_REGISTRY_REFRESH_S has elapsed (unless force=True).
+        Behaviour beyond the bare description:
+
+        * **Rate-limited**: refreshes are no-ops if the last one was less than
+          ``TOOL_REGISTRY_REFRESH_S`` ago (default 1h). The lock-then-check
+          pattern means concurrent callers inside the TTL window all see the
+          bail-out and return the current count; only the first call does
+          work. ``force=True`` bypasses the TTL (used by
+          ``POST /admin/refresh-tools``).
+        * **Parallel discovery**: all MCPs are probed concurrently via
+          ``asyncio.gather(..., return_exceptions=True)``. One MCP being
+          down does not block discovery of others.
+        * **Circuit-breaker state is preserved across refreshes** for tools
+          that re-appear: ``healthy``, ``consecutive_failures``, and
+          ``next_retry_at`` are copied forward from the previous
+          ``ToolDefinition``. Without this, a tool would escape its backoff
+          window every refresh cycle.
+        * **New tools** (not present in the previous registry) start with
+          default state — healthy, zero failures, no pending retry.
+        * **Tools that disappear** from a server's ``/tools`` response are
+          silently dropped; the next dispatch attempt returns
+          ``"Tool '...' not in registry"``.
+
+        Args:
+            force: When ``True``, run discovery regardless of the TTL.
+
+        Returns:
+            Number of tools currently registered after the refresh.
         """
         async with self._refresh_lock:
             now = time.time()
@@ -149,15 +289,37 @@ class ToolRegistry:
             return len(self._tools)
 
     def get(self, name: str) -> ToolDefinition | None:
+        """Look up a tool by name; ``None`` if not in the registry."""
         return self._tools.get(name)
 
     def list_tool_names(self) -> list[str]:
-        return sorted(self._tools.keys())
+        """Return every registered tool name, sorted alphabetically.
+
+        Used by ``POST /admin/refresh-tools`` as part of its JSON response so
+        operators can verify which tools came through after a manual refresh.
+        """
 
     def get_openai_tools(self, names: list[str]) -> list[dict[str, Any]]:
-        """Get OpenAI-format tools array, filtered by name list.
+        """Build the OpenAI ``tools:[]`` array from ``names``, skipping cool-down tools.
 
-        A tool is included if healthy or if its backoff window has elapsed.
+        For each name in ``names`` (typically a persona's effective tool list,
+        resolved in ``portal_pipeline/router/workspaces.py``), include the
+        tool **only if** it's healthy OR its backoff window has elapsed.
+        Re-admission while still ``healthy == False`` is intentional: the
+        next ``dispatch`` is what flips the tool back to healthy on success.
+        Without this re-admission, a tool would only recover via the next
+        ``refresh`` (hourly by default).
+
+        Unknown names (not in the registry) are silently skipped — they're
+        typically persona configs referencing tools whose source MCP is
+        currently unreachable. The persona itself is still advertised to the
+        model, just without those tools.
+
+        Args:
+            names: Tool names to advertise. Order is preserved in the output.
+
+        Returns:
+            List of OpenAI-format tool dicts. May be shorter than ``names``.
         """
         now = time.time()
         result = []
@@ -172,7 +334,43 @@ class ToolRegistry:
     async def dispatch(
         self, tool_name: str, arguments: dict[str, Any], request_id: str = ""
     ) -> dict[str, Any]:
-        """Dispatch a tool call to its MCP server. Returns the tool result."""
+        """Dispatch a tool call to its source MCP; return the result or an error dict.
+
+        **Never raises.** Every failure path — unknown tool, in cool-down, HTTP
+        non-200, timeout, network error, JSON decode failure — returns an
+        ``{"error": "..."}`` dict. This contract is load-bearing: the caller
+        in ``router_pipe.py`` JSON-encodes the result directly into a ``tool``
+        role message that gets streamed back to the model mid-completion, and
+        a raised exception there would break the SSE stream.
+
+        Circuit-breaker behaviour:
+
+        * Tools in cool-down (``healthy=False`` AND ``time.time() <
+          next_retry_at``) **do not get a network call** — the error returns
+          immediately. This is what keeps a broken MCP from being hammered.
+        * A 200 response resets ``healthy=True``, ``consecutive_failures=0``,
+          ``next_retry_at=0`` regardless of prior state.
+        * Any non-success (HTTP non-200, timeout, exception) increments
+          ``consecutive_failures`` and recomputes ``next_retry_at`` via
+          ``_backoff_seconds``.
+
+        Timeout: ``tool.custom_timeout_s`` if set, else
+        ``TOOL_DISPATCH_TIMEOUT_S`` (60s default; env-overridable).
+
+        Args:
+            tool_name: Must match a key in ``self._tools``. Unknown names
+                return ``{"error": "Tool '...' not in registry ..."}``.
+            arguments: JSON-serialisable kwargs forwarded as the ``arguments``
+                field of the POST body. The MCP server is responsible for
+                schema validation.
+            request_id: Opaque request correlator forwarded as the
+                ``request_id`` field so MCP logs can be cross-referenced
+                with pipeline logs. May be empty.
+
+        Returns:
+            Either the MCP's parsed JSON response (success) or an
+            ``{"error": "...", "detail"?: "..."}`` dict (any failure mode).
+        """
         tool = self.get(tool_name)
         if tool is None:
             return {"error": f"Tool '{tool_name}' not in registry — call ignored"}
@@ -220,6 +418,13 @@ class ToolRegistry:
             return {"error": f"Tool '{tool_name}' dispatch failed: {e}"}
 
     async def close(self) -> None:
+        """Close the shared HTTP client; safe to call multiple times.
+
+        The ``is_closed`` guard makes this idempotent so multiple shutdown
+        hooks can call it. After close, ``_client`` will lazily create a
+        fresh client if the registry is reused (test pattern; in production
+        close happens at process exit).
+        """
         if self._http is not None and not self._http.is_closed:
             await self._http.aclose()
             self._http = None
