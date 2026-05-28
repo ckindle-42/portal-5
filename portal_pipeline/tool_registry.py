@@ -299,6 +299,7 @@ class ToolRegistry:
         Used by ``POST /admin/refresh-tools`` as part of its JSON response so
         operators can verify which tools came through after a manual refresh.
         """
+        return sorted(self._tools.keys())
 
     def get_openai_tools(self, names: list[str]) -> list[dict[str, Any]]:
         """Build the OpenAI ``tools:[]`` array from ``names``, skipping cool-down tools.
