@@ -22,7 +22,8 @@ Calibration mode (capture real responses for signal extraction):
     # See docs/UAT_CALIBRATION.md for the full workflow.
 
 Maintenance:
-    python3 tests/portal5_uat_driver.py --migrate    # move root chats into UAT folder
+    python3 tests/portal5_uat_driver.py --purge-uat        # delete all UAT chats + folder (post-review cleanup)
+    python3 tests/portal5_uat_driver.py --migrate          # move root chats into UAT folder
     python3 tests/portal5_uat_driver.py --skip-artifacts  # skip ComfyUI/Wan2.2 tests
     python3 tests/portal5_uat_driver.py --skip-bots       # skip Telegram/Slack tests
 """
@@ -10803,6 +10804,12 @@ async def main() -> None:
         help="Move existing root-level UAT chats into root UAT folder, then exit",
     )
     parser.add_argument(
+        "--purge-uat",
+        action="store_true",
+        help="Delete all chats in the UAT folder and the folder itself, then exit. "
+        "Run this after reviewing UAT_RESULTS.md to clean up OWUI.",
+    )
+    parser.add_argument(
         "--calibrate",
         action="store_true",
         help="Calibration mode: run all tests and capture full responses to JSON for review",
@@ -10850,6 +10857,71 @@ async def main() -> None:
         else:
             print("  ERROR: could not get/create UAT root folder.")
             sys.exit(1)
+        return
+
+    # --purge-uat mode: delete all chats in the UAT folder, then delete the folder
+    if args.purge_uat:
+        folders = _owui_list_folders(token)
+        uat_folder = next((f for f in folders if f.get("name") == "UAT" and not f.get("parent_id")), None)
+        if not uat_folder:
+            print("  No UAT folder found — nothing to purge.")
+            return
+        uat_root_id = uat_folder["id"]
+        # Collect all chats currently in the UAT folder
+        try:
+            r = httpx.get(
+                f"{OPENWEBUI_URL}/api/v1/chats/",
+                headers=owui_headers(token),
+                params={"limit": 9999},
+                timeout=30,
+            )
+            all_chats = r.json() if r.status_code == 200 else []
+        except Exception as e:
+            print(f"  ERROR fetching chats: {e}")
+            sys.exit(1)
+        # OWUI list endpoint may not include folder_id; fetch detail for each to filter
+        uat_chat_ids: list[str] = []
+        for chat in all_chats:
+            cid = chat.get("id", "")
+            try:
+                r2 = httpx.get(
+                    f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
+                    headers=owui_headers(token),
+                    timeout=10,
+                )
+                if r2.status_code == 200 and r2.json().get("folder_id") == uat_root_id:
+                    uat_chat_ids.append(cid)
+            except Exception:
+                pass
+        print(f"  UAT folder id={uat_root_id} — {len(uat_chat_ids)} chat(s) to delete")
+        deleted = 0
+        for cid in uat_chat_ids:
+            try:
+                r = httpx.delete(
+                    f"{OPENWEBUI_URL}/api/v1/chats/{cid}",
+                    headers=owui_headers(token),
+                    timeout=10,
+                )
+                if r.status_code == 200:
+                    deleted += 1
+                else:
+                    print(f"  WARNING: DELETE chat {cid} returned {r.status_code}")
+            except Exception as e:
+                print(f"  WARNING: DELETE chat {cid} error — {e}")
+        print(f"  Deleted {deleted}/{len(uat_chat_ids)} chat(s).")
+        # Now delete the UAT folder itself
+        try:
+            r = httpx.delete(
+                f"{OPENWEBUI_URL}/api/v1/folders/{uat_root_id}",
+                headers=owui_headers(token),
+                timeout=10,
+            )
+            if r.status_code == 200:
+                print("  UAT folder deleted.")
+            else:
+                print(f"  WARNING: DELETE folder returned {r.status_code} — {r.text[:120]}")
+        except Exception as e:
+            print(f"  WARNING: DELETE folder error — {e}")
         return
 
     # --rerun-failed: auto-select FAIL/BLOCKED tests from UAT_RESULTS.md,
@@ -10996,21 +11068,12 @@ async def main() -> None:
     # Only S23-style tests that deliberately crash backends need the watchdog
     # stopped; UAT doesn't do that.
 
-    # ---- Folder hierarchy: UAT/ (root) → YYYY-MM-DD/ (per-run subfolder) ----
-    folder_id: str | None = None
-    uat_root_id: str | None = owui_get_or_create_folder(token, "UAT")
-    run_date = time.strftime("%Y-%m-%d")
-    if uat_root_id:
-        folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
-        if folder_id:
-            print(f"  UAT folder: UAT/{run_date} (id={folder_id})")
-        else:
-            print(
-                f"  WARNING: could not create UAT/{run_date} subfolder — using root UAT folder"
-            )
-            folder_id = uat_root_id
+    # ---- Folder: UAT/ (flat — all test chats land here, no date subfolders) ----
+    folder_id: str | None = owui_get_or_create_folder(token, "UAT")
+    if folder_id:
+        print(f"  UAT folder: UAT (id={folder_id})")
     else:
-        print("  WARNING: could not get/create root UAT folder — chats will be in root")
+        print("  WARNING: could not get/create UAT folder — chats will be in root")
 
     # Init results file
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
