@@ -1,9 +1,9 @@
 [
   {
     "id": "auto",
-    "name": "\ud83e\udd16 Portal Auto Router",
+    "name": "🤖 Portal Auto Router",
     "meta": {
-      "description": "\ud83e\udd16 Portal Auto Router",
+      "description": "🤖 Portal Auto Router",
       "profile_image_url": ""
     },
     "params": {
@@ -13,9 +13,9 @@
   },
   {
     "id": "auto-daily",
-    "name": "\ud83e\udeb6 Portal Daily Driver",
+    "name": "🪶 Portal Daily Driver",
     "meta": {
-      "description": "\ud83e\udeb6 Portal Daily Driver \u2014 fast everyday assistant (gemma-4-26b-a4b, 57.8 TPS, MoE 4B active). Chat, writing, summarization, planning, light technical help. Redirects to specialist workspaces when out of lane.",
+      "description": "🪶 Portal Daily Driver — fast everyday assistant (gemma-4-26b-a4b, 57.8 TPS, MoE 4B active). Chat, writing, summarization, planning, light technical help. Redirects to specialist workspaces when out of lane.",
       "profile_image_url": "",
       "toolIds": [
         "server:mcp:portal_research",
@@ -23,16 +23,16 @@
       ]
     },
     "params": {
-      "system": "You are Portal's daily driver \u2014 fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
+      "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
       "model": "auto-daily",
       "enable_web_search": true
     }
   },
   {
     "id": "auto-coding",
-    "name": "\ud83d\udcbb Portal Code Expert",
+    "name": "💻 Portal Code Expert",
     "meta": {
-      "description": "\ud83d\udcbb Portal Code Expert",
+      "description": "💻 Portal Code Expert",
       "profile_image_url": ""
     },
     "params": {
@@ -42,9 +42,9 @@
   },
   {
     "id": "auto-security",
-    "name": "\ud83d\udd12 Portal Security Analyst",
+    "name": "🔒 Portal Security Analyst",
     "meta": {
-      "description": "\ud83d\udd12 Portal Security Analyst",
+      "description": "🔒 Portal Security Analyst",
       "profile_image_url": ""
     },
     "params": {
@@ -54,9 +54,9 @@
   },
   {
     "id": "auto-redteam",
-    "name": "\ud83d\udd34 Portal Red Team",
+    "name": "🔴 Portal Red Team",
     "meta": {
-      "description": "\ud83d\udd34 Portal Red Team",
+      "description": "🔴 Portal Red Team",
       "profile_image_url": ""
     },
     "params": {
@@ -66,9 +66,9 @@
   },
   {
     "id": "auto-blueteam",
-    "name": "\ud83d\udd35 Portal Blue Team",
+    "name": "🔵 Portal Blue Team",
     "meta": {
-      "description": "\ud83d\udd35 Portal Blue Team",
+      "description": "🔵 Portal Blue Team",
       "profile_image_url": ""
     },
     "params": {
@@ -78,9 +78,9 @@
   },
   {
     "id": "auto-creative",
-    "name": "\u270d\ufe0f  Portal Creative Writer",
+    "name": "✍️  Portal Creative Writer",
     "meta": {
-      "description": "\u270d\ufe0f  Portal Creative Writer",
+      "description": "✍️  Portal Creative Writer",
       "profile_image_url": ""
     },
     "params": {
@@ -90,9 +90,9 @@
   },
   {
     "id": "auto-reasoning",
-    "name": "\ud83e\udde0 Portal Deep Reasoner",
+    "name": "🧠 Portal Deep Reasoner",
     "meta": {
-      "description": "\ud83e\udde0 Portal Deep Reasoner",
+      "description": "🧠 Portal Deep Reasoner",
       "profile_image_url": ""
     },
     "params": {
@@ -102,9 +102,9 @@
   },
   {
     "id": "auto-documents",
-    "name": "\ud83d\udcc4 Portal Document Builder",
+    "name": "📄 Portal Document Builder",
     "meta": {
-      "description": "\ud83d\udcc4 Portal Document Builder",
+      "description": "📄 Portal Document Builder",
       "profile_image_url": ""
     },
     "params": {
@@ -114,9 +114,9 @@
   },
   {
     "id": "auto-video",
-    "name": "\ud83c\udfac Portal Video Creator",
+    "name": "🎬 Portal Video Creator",
     "meta": {
-      "description": "\ud83c\udfac Portal Video Creator",
+      "description": "🎬 Portal Video Creator",
       "profile_image_url": ""
     },
     "params": {
@@ -126,9 +126,9 @@
   },
   {
     "id": "auto-music",
-    "name": "\ud83c\udfb5 Portal Music Producer",
+    "name": "🎵 Portal Music Producer",
     "meta": {
-      "description": "\ud83c\udfb5 Portal Music Producer",
+      "description": "🎵 Portal Music Producer",
       "profile_image_url": ""
     },
     "params": {
@@ -138,9 +138,9 @@
   },
   {
     "id": "auto-research",
-    "name": "\ud83d\udd0d Portal Research Assistant",
+    "name": "🔍 Portal Research Assistant",
     "meta": {
-      "description": "\ud83d\udd0d Portal Research Assistant",
+      "description": "🔍 Portal Research Assistant",
       "profile_image_url": ""
     },
     "params": {
@@ -150,9 +150,9 @@
   },
   {
     "id": "auto-vision",
-    "name": "\ud83d\udc41\ufe0f  Portal Vision",
+    "name": "👁️  Portal Vision",
     "meta": {
-      "description": "\ud83d\udc41\ufe0f  Portal Vision",
+      "description": "👁️  Portal Vision",
       "profile_image_url": ""
     },
     "params": {
@@ -162,9 +162,9 @@
   },
   {
     "id": "auto-data",
-    "name": "\ud83d\udcca Portal Data Analyst",
+    "name": "📊 Portal Data Analyst",
     "meta": {
-      "description": "\ud83d\udcca Portal Data Analyst",
+      "description": "📊 Portal Data Analyst",
       "profile_image_url": ""
     },
     "params": {
@@ -174,22 +174,22 @@
   },
   {
     "id": "auto-compliance",
-    "name": "\u2696\ufe0f  Portal Compliance Analyst",
+    "name": "⚖️  Portal Compliance Analyst",
     "meta": {
       "description": "NERC CIP gap analysis and policy-to-standard mapping",
       "profile_image_url": "",
       "toolIds": []
     },
     "params": {
-      "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap \u2014 what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
+      "system": "You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.\n\nWhen analyzing documents:\n1. Always cite the exact CIP standard, version, requirement number, and part (e.g., CIP-007-6 R2 Part 2.1).\n2. Always cite the exact org policy section, document name, and page if available.\n3. Classify compliance status as one of: Full / Partial / None / Ambiguous.\n4. For Partial or None: quote the specific language gap — what the policy says vs. what the standard requires.\n5. For Ambiguous: flag the specific interpretive question and recommend SME review.\n6. Propose concrete remediation language for each gap.\n7. Output gap analyses as markdown tables with columns: [Req ID | Standard Version | Org Policy Section | Status | Gap Description | Recommended Remediation].\n\nDo not infer compliance from vague or aspirational policy language. If a policy says 'we strive to' or 'as appropriate', classify as Ambiguous, not Full.\n\nFor CIP-003-9: Note that the standard became enforceable April 1, 2026. Flag any R1 Part 1.2.6 gaps (vendor electronic remote access for Low Impact BES) as Priority-1.\n\nAlways end your analysis with a summary count: X requirements analyzed, Y Full, Z Partial, W None, V Ambiguous.",
       "model": "auto-compliance"
     }
   },
   {
     "id": "auto-spl",
-    "name": "\ud83d\udd0d Portal SPL Engineer",
+    "name": "🔍 Portal SPL Engineer",
     "meta": {
-      "description": "\ud83d\udd0d Portal SPL Engineer \u2014 Splunk query authoring, pipeline explanation, detection search",
+      "description": "🔍 Portal SPL Engineer — Splunk query authoring, pipeline explanation, detection search",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -200,9 +200,9 @@
   },
   {
     "id": "auto-mistral",
-    "name": "\ud83e\uddea Portal Mistral Reasoner",
+    "name": "🧪 Portal Mistral Reasoner",
     "meta": {
-      "description": "Structured reasoning via Magistral-Small-2509 \u2014 Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
+      "description": "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -213,9 +213,9 @@
   },
   {
     "id": "auto-math",
-    "name": "\ud83e\uddee Portal Math Reasoner",
+    "name": "🧮 Portal Math Reasoner",
     "meta": {
-      "description": "Mathematical problem solving, proofs, calculus, algebra, statistics \u2014 powered by Qwen2.5-Math-7B",
+      "description": "Mathematical problem solving, proofs, calculus, algebra, statistics — powered by Qwen2.5-Math-7B",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -226,9 +226,9 @@
   },
   {
     "id": "bench-devstral",
-    "name": "\ud83d\udd2c Bench \u00b7 Devstral-Small-2507",
+    "name": "🔬 Bench · Devstral-Small-2507",
     "meta": {
-      "description": "Benchmark: Devstral-Small-2507 \u2014 Mistral/Codestral lineage, ~15GB",
+      "description": "Benchmark: Devstral-Small-2507 — Mistral/Codestral lineage, ~15GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -241,9 +241,9 @@
   },
   {
     "id": "bench-qwen3-coder-next",
-    "name": "\ud83d\udd2c Bench \u00b7 Qwen3-Coder-Next (80B MoE)",
+    "name": "🔬 Bench · Qwen3-Coder-Next (80B MoE)",
     "meta": {
-      "description": "Benchmark: Qwen3-Coder-Next-4bit \u2014 Alibaba, 80B MoE, ~46GB, cold load ~60s",
+      "description": "Benchmark: Qwen3-Coder-Next-4bit — Alibaba, 80B MoE, ~46GB, cold load ~60s",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -256,9 +256,9 @@
   },
   {
     "id": "bench-qwen3-coder-30b",
-    "name": "\ud83d\udd2c Bench \u00b7 Qwen3-Coder-30B",
+    "name": "🔬 Bench · Qwen3-Coder-30B",
     "meta": {
-      "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit \u2014 Alibaba, 30B MoE, ~22GB",
+      "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit — Alibaba, 30B MoE, ~22GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -271,9 +271,9 @@
   },
   {
     "id": "bench-llama33-70b",
-    "name": "\ud83d\udd2c Bench \u00b7 Llama-3.3-70B",
+    "name": "🔬 Bench · Llama-3.3-70B",
     "meta": {
-      "description": "Benchmark: Llama-3.3-70B-Instruct-4bit \u2014 Meta, ~40GB, cold load ~60s",
+      "description": "Benchmark: Llama-3.3-70B-Instruct-4bit — Meta, ~40GB, cold load ~60s",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -286,9 +286,9 @@
   },
   {
     "id": "bench-phi4",
-    "name": "\ud83d\udd2c Bench \u00b7 Phi-4",
+    "name": "🔬 Bench · Phi-4",
     "meta": {
-      "description": "Benchmark: phi-4-8bit \u2014 Microsoft, 14B, synthetic training, ~14GB",
+      "description": "Benchmark: phi-4-8bit — Microsoft, 14B, synthetic training, ~14GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -301,9 +301,9 @@
   },
   {
     "id": "bench-phi4-reasoning",
-    "name": "\ud83d\udd2c Bench \u00b7 Phi-4-reasoning-plus",
+    "name": "🔬 Bench · Phi-4-reasoning-plus",
     "meta": {
-      "description": "Benchmark: Phi-4-reasoning-plus \u2014 Microsoft RL-trained, ~7GB",
+      "description": "Benchmark: Phi-4-reasoning-plus — Microsoft RL-trained, ~7GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -316,9 +316,9 @@
   },
   {
     "id": "bench-dolphin8b",
-    "name": "\ud83d\udd2c Bench \u00b7 Dolphin-Llama3-8B",
+    "name": "🔬 Bench · Dolphin-Llama3-8B",
     "meta": {
-      "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit \u2014 Cognitive Computations, ~9GB",
+      "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit — Cognitive Computations, ~9GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -331,9 +331,9 @@
   },
   {
     "id": "bench-glm",
-    "name": "\ud83d\udd2c Bench \u00b7 GLM-4.7-Flash",
+    "name": "🔬 Bench · GLM-4.7-Flash",
     "meta": {
-      "description": "Benchmark: glm-4.7-flash:q4_k_m \u2014 Zhipu AI, Ollama only, ~6GB",
+      "description": "Benchmark: glm-4.7-flash:q4_k_m — Zhipu AI, Ollama only, ~6GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -346,9 +346,9 @@
   },
   {
     "id": "bench-gptoss",
-    "name": "\ud83d\udd2c Bench \u00b7 GPT-OSS-20B",
+    "name": "🔬 Bench · GPT-OSS-20B",
     "meta": {
-      "description": "Benchmark: gpt-oss:20b \u2014 OpenAI open-weight MoE, Ollama only, ~12GB",
+      "description": "Benchmark: gpt-oss:20b — OpenAI open-weight MoE, Ollama only, ~12GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -361,9 +361,9 @@
   },
   {
     "id": "bench-granite41-8b",
-    "name": "\ud83d\udd2c Bench \u00b7 Granite-4.1 8B (IBM)",
+    "name": "🔬 Bench · Granite-4.1 8B (IBM)",
     "meta": {
-      "description": "Benchmark: granite4.1:8b \u2014 IBM Research, Ollama only, ~5.3GB Q4_K_M, BFCL V3 68.3, IFEval 87.1",
+      "description": "Benchmark: granite4.1:8b — IBM Research, Ollama only, ~5.3GB Q4_K_M, BFCL V3 68.3, IFEval 87.1",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -376,9 +376,9 @@
   },
   {
     "id": "bench-granite41-30b",
-    "name": "\ud83d\udd2c Bench \u00b7 Granite-4.1 30B (IBM)",
+    "name": "🔬 Bench · Granite-4.1 30B (IBM)",
     "meta": {
-      "description": "Benchmark: granite4.1:30b \u2014 IBM Research, Ollama only, ~17GB Q4_K_M, BFCL V3 73.7 (#1), IFEval 89.7",
+      "description": "Benchmark: granite4.1:30b — IBM Research, Ollama only, ~17GB Q4_K_M, BFCL V3 73.7 (#1), IFEval 89.7",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -391,9 +391,9 @@
   },
   {
     "id": "bench-laguna",
-    "name": "\ud83d\udd2c Bench \u00b7 Laguna-XS.2 (Poolside)",
+    "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
     "meta": {
-      "description": "Benchmark: Laguna-XS.2-4bit \u2014 Poolside AI MLX, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified",
+      "description": "Benchmark: Laguna-XS.2-4bit — Poolside AI MLX, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -406,9 +406,9 @@
   },
   {
     "id": "bench-negentropy",
-    "name": "\ud83d\udd2c Bench \u00b7 Negentropy-9B (Jackrong)",
+    "name": "🔬 Bench · Negentropy-9B (Jackrong)",
     "meta": {
-      "description": "Benchmark: Negentropy-claude-opus-4.7-9B-6bit \u2014 MLX, trace-inversion reasoning, ~7GB, emits reasoning blocks",
+      "description": "Benchmark: Negentropy-claude-opus-4.7-9B-6bit — MLX, trace-inversion reasoning, ~7GB, emits reasoning blocks",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -421,9 +421,9 @@
   },
   {
     "id": "bench-olmo3-32b",
-    "name": "\ud83d\udd2c Bench \u00b7 Olmo-3-32B (Allen AI)",
+    "name": "🔬 Bench · Olmo-3-32B (Allen AI)",
     "meta": {
-      "description": "Benchmark: Olmo-3-1125-32B-4bit \u2014 Allen AI MLX, dense 32B, ~17GB, Apache 2.0, non-Qwen lineage",
+      "description": "Benchmark: Olmo-3-1125-32B-4bit — Allen AI MLX, dense 32B, ~17GB, Apache 2.0, non-Qwen lineage",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -436,9 +436,9 @@
   },
   {
     "id": "bench-omnicoder2",
-    "name": "\ud83d\udd2c Bench \u00b7 OmniCoder-2-9B",
+    "name": "🔬 Bench · OmniCoder-2-9B",
     "meta": {
-      "description": "Benchmark: omnicoder2:9b-q4_k_m \u2014 Ollama only, Qwen3.5-9B SFT on 425K agentic trajectories, ~5.7GB",
+      "description": "Benchmark: omnicoder2:9b-q4_k_m — Ollama only, Qwen3.5-9B SFT on 425K agentic trajectories, ~5.7GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -451,9 +451,9 @@
   },
   {
     "id": "bench-qwen35-abliterated",
-    "name": "\ud83e\uddea Bench \u00b7 Qwen3.5-9B Abliterated (huihui-ai)",
+    "name": "🧪 Bench · Qwen3.5-9B Abliterated (huihui-ai)",
     "meta": {
-      "description": "Benchmark: Qwen3.5-9B abliterated \u2014 AUTO primary baseline, uncensored, tool-capable, MLX + Ollama",
+      "description": "Benchmark: Qwen3.5-9B abliterated — AUTO primary baseline, uncensored, tool-capable, MLX + Ollama",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -466,9 +466,9 @@
   },
   {
     "id": "bench-qwen36-27b",
-    "name": "\ud83d\udd2c Bench \u00b7 Qwen3.6-27B (Alibaba)",
+    "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
     "meta": {
-      "description": "Benchmark: mlx-community/Qwen3.6-27B-4bit \u2014 official convert, Alibaba Apr 2026, dense 27B + vision, ~16GB",
+      "description": "Benchmark: mlx-community/Qwen3.6-27B-4bit — official convert, Alibaba Apr 2026, dense 27B + vision, ~16GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -481,9 +481,9 @@
   },
   {
     "id": "bench-qwen36-35b-a3b",
-    "name": "\ud83d\udd2c Bench \u00b7 Qwen3.6-35B-A3B (Alibaba MoE)",
+    "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
     "meta": {
-      "description": "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit \u2014 Alibaba Apr 2026, 35B/3B active MoE, ~20GB",
+      "description": "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit — Alibaba Apr 2026, 35B/3B active MoE, ~20GB",
       "profile_image_url": "",
       "toolIds": [
         "portal_code"
@@ -496,9 +496,9 @@
   },
   {
     "id": "bench-foundation-sec",
-    "name": "\ud83d\udd2c Bench \u00b7 Foundation-Sec (Cisco)",
+    "name": "🔬 Bench · Foundation-Sec (Cisco)",
     "meta": {
-      "description": "Benchmark: Foundation-Sec-8B-Reasoning-4bit-mlx \u2014 Cisco Foundation AI, locally converted, Llama-3.1-8B + cybersec corpus + RLVR, ~4.5GB. Defender-side: CVE\u2192CWE, MITRE ATT&CK, SOC triage, compliance.",
+      "description": "Benchmark: Foundation-Sec-8B-Reasoning-4bit-mlx — Cisco Foundation AI, locally converted, Llama-3.1-8B + cybersec corpus + RLVR, ~4.5GB. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -509,9 +509,9 @@
   },
   {
     "id": "bench-toolace25",
-    "name": "\ud83d\udd2c Bench \u00b7 ToolACE-2.5 (Team-ACE)",
+    "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
     "meta": {
-      "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B-4bit-mlx \u2014 Team-ACE, locally converted, LLaMA-3.1-8B + ToolACE synthetic tool-calling data, ~4.5GB, BFCL-topping. Expects [func(arg=val)] output format.",
+      "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B-4bit-mlx — Team-ACE, locally converted, LLaMA-3.1-8B + ToolACE synthetic tool-calling data, ~4.5GB, BFCL-topping. Expects [func(arg=val)] output format.",
       "profile_image_url": "",
       "toolIds": []
     },
@@ -522,9 +522,9 @@
   },
   {
     "id": "tools-specialist",
-    "name": "\ud83d\udd27 Portal Tool Composer",
+    "name": "🔧 Portal Tool Composer",
     "meta": {
-      "description": "\ud83d\udd27 Portal Tool Composer \u2014 ToolACE-2.5 (Team-ACE), purpose-trained for structured function/API call composition, BFCL-topping 8B model. Use for multi-step tool chains, API integration, and complex function-call sequences.",
+      "description": "🔧 Portal Tool Composer — ToolACE-2.5 (Team-ACE), purpose-trained for structured function/API call composition, BFCL-topping 8B model. Use for multi-step tool chains, API integration, and complex function-call sequences.",
       "profile_image_url": "",
       "toolIds": [
         "server:mcp:portal_code",
@@ -534,6 +534,160 @@
     "params": {
       "system": "You are an expert in composing functions. You are given a question and a set of possible functions. Based on the question, you will need to make one or more function/tool calls to achieve the purpose. If none of the functions can be used, point it out.",
       "model": "tools-specialist"
+    }
+  },
+  {
+    "id": "bench-qwen36-27b-ud",
+    "name": "🔬 Bench · Qwen3.6-27B (Unsloth UD)",
+    "meta": {
+      "description": "Benchmark: unsloth/Qwen3.6-27B-UD-MLX-4bit — Alibaba+Unsloth Dynamic 2.0, dense 27B, ~16GB, quant-method probe vs stock 4-bit",
+      "profile_image_url": "",
+      "toolIds": [
+        "portal_code"
+      ]
+    },
+    "params": {
+      "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.",
+      "model": "bench-qwen36-27b-ud"
+    }
+  },
+  {
+    "id": "bench-apriel-nemotron",
+    "name": "🔬 Bench · Apriel-Nemotron-15B (ServiceNow+NVIDIA)",
+    "meta": {
+      "description": "Benchmark: mlx-community/Apriel-Nemotron-15B-Thinker-8bit — ServiceNow+NVIDIA dense 15B reasoning, native <think>, MIT, ~16GB",
+      "profile_image_url": "",
+      "toolIds": [
+        "portal_code"
+      ]
+    },
+    "params": {
+      "system": "You are a reasoning probe. Show your work step by step using <think>...</think> blocks. Be thorough.",
+      "model": "bench-apriel-nemotron"
+    }
+  },
+  {
+    "id": "auto-agentic",
+    "name": "⚡ Portal Agentic Coder (Heavy)",
+    "meta": {
+      "description": "⚡ Portal Agentic Coder (Heavy) — Qwen3-Coder-Next 80B MoE, big-model mode, 32K ctx",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code"
+      ]
+    },
+    "params": {
+      "system": "You are an elite agentic software engineer powered by Qwen3-Coder-Next, an 80B MoE model (3B active) purpose-built for long-horizon coding tasks. You excel at multi-file refactors, complex codebase navigation, tool-use chains, and recovery from execution failures. You operate at the highest quality ceiling available locally. Context is limited to 32K tokens in this configuration — be concise in your reasoning, prioritize code over prose.",
+      "model": "auto-agentic",
+      "num_ctx": 32768
+    }
+  },
+  {
+    "id": "bench-lfm2-moe",
+    "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
+    "meta": {
+      "description": "Benchmark: LFM2-8B-A1B-8bit — Liquid AI, 8.3B/1.5B-active MoE, hybrid non-transformer arch, ~8GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a creative assistant. Be expressive and thorough in your responses.",
+      "model": "bench-lfm2-moe"
+    }
+  },
+  {
+    "id": "bench-nemotron-omni",
+    "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA)",
+    "meta": {
+      "description": "Benchmark: Nemotron-3-Nano-Omni-30B-A3B mxfp4 — NVIDIA, 30B MoE/3B active, ~15GB, omni-modal (text+image+video+audio). BENCH-ONLY pending TASK_NEMOTRON_OMNI_PROMOTE_V1.",
+      "profile_image_url": "",
+      "toolIds": [
+        "portal_code"
+      ]
+    },
+    "params": {
+      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
+      "model": "bench-nemotron-omni"
+    }
+  },
+  {
+    "id": "bench-granite-speech",
+    "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
+    "meta": {
+      "description": "Benchmark: granite-speech-4.1-2b — IBM, #1 OpenASR Apr 2026, native keyword biasing, EN/FR/DE/ES/PT/JA, Apache 2.0, ~4GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a speech-model probe with keyword biasing support. Text input does not exercise this ASR model — use the audio probe in tests/audio_probe.py.",
+      "model": "bench-granite-speech"
+    }
+  },
+  {
+    "id": "bench-qwen36-35b-a3b-ud",
+    "name": "🔬 Bench · Qwen3.6-35B-A3B (Unsloth UD)",
+    "meta": {
+      "description": "Benchmark: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit — Alibaba+Unsloth Dynamic 2.0, MoE 3B active, ~20GB, quant-method probe vs stock 4-bit",
+      "profile_image_url": "",
+      "toolIds": [
+        "portal_code"
+      ]
+    },
+    "params": {
+      "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.",
+      "model": "bench-qwen36-35b-a3b-ud"
+    }
+  },
+  {
+    "id": "bench-olmocr2",
+    "name": "🔬 Bench · olmOCR-2 (Allen AI)",
+    "meta": {
+      "description": "Benchmark: olmOCR-2-7B-1025-5bit — Allen AI, Qwen2.5-VL-7B base, RLVR doc OCR, math/tables/multi-column, ~5GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a document intelligence specialist. Extract and structure content from documents with precision, preserving math formulas, tables, and multi-column layouts.",
+      "model": "bench-olmocr2"
+    }
+  },
+  {
+    "id": "bench-nanonets-ocr2",
+    "name": "🔬 Bench · Nanonets-OCR2 (Nanonets)",
+    "meta": {
+      "description": "Benchmark: Nanonets-OCR2-3B-4bit — Nanonets, Qwen2.5-VL-3B base, pdf2markdown, LaTeX, tables, ~2GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a document intelligence specialist. Extract and structure content from documents with precision.",
+      "model": "bench-nanonets-ocr2"
+    }
+  },
+  {
+    "id": "bench-voxtral-tts",
+    "name": "🔬 Bench · Voxtral TTS (4B, Mistral)",
+    "meta": {
+      "description": "Benchmark: Voxtral-4B-TTS-2603-mlx-6bit — Mistral TTS, 20 voices x 9 languages, Apache 2.0, ~4GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a TTS model probe. Text input does not exercise this TTS model — use the audio probe in tests/audio_probe.py.",
+      "model": "bench-voxtral-tts"
+    }
+  },
+  {
+    "id": "bench-voxtral-realtime",
+    "name": "🔬 Bench · Voxtral Realtime ASR (Mistral)",
+    "meta": {
+      "description": "Benchmark: Voxtral-Mini-4B-Realtime-2602-4bit — Mistral streaming ASR, ~570ms TTFT claim, 13 languages, Apache 2.0, ~3GB",
+      "profile_image_url": "",
+      "toolIds": []
+    },
+    "params": {
+      "system": "You are a speech-model probe. Text input does not exercise this streaming ASR model — use the audio probe in tests/audio_probe.py.",
+      "model": "bench-voxtral-realtime"
     }
   }
 ]

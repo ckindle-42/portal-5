@@ -277,6 +277,23 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-toolace25": "coding",  # ToolACE-2.5 — tool-calling; "coding" is closest proxy
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
     "auto-daily": "general",  # gemma-4-26b daily driver, non-thinking fast lane
+    # ── V7-final catalog refresh (TASK_MODEL_REFRESH_V7) ─────────────────
+    # Apriel-Nemotron — ServiceNow+NVIDIA dense 15B reasoning, new lineage
+    "bench-apriel-nemotron": "reasoning",
+    # Unsloth Dynamic 2.0 Qwen3.6 pair — quant-method probe vs stock 4-bit
+    "bench-qwen36-27b-ud": "coding",
+    "bench-qwen36-35b-a3b-ud": "coding",
+    # Speech models — NOT in WORKSPACE_PROMPT_MAP by design:
+    # - bench-voxtral-realtime (streaming ASR — text harness cannot exercise)
+    # - bench-voxtral-tts (TTS — text harness cannot exercise)
+    # - bench-granite-speech (ASR with keyword biasing — text harness cannot exercise)
+    # These get probed by TASK_SPEECH_SHOOTOUT_V1 (deferred).
+    # ── Drift backfill (pre-existing gap) ───────────────────────────────
+    # tools-specialist production workspace was silently falling through
+    # to "general" because it wasn't in this map. ToolACE-2.5 is a
+    # coding-adjacent tool-calling specialist; coding prompt is the
+    # closest match for CC-01 baseline comparison.
+    "tools-specialist": "coding",
 }
 
 # Map Ollama backend group → prompt category

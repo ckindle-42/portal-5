@@ -1,1 +1,1 @@
-"""Portal 5.2.1 tests."""
+"""Portal 5 v7.0.0 tests."""

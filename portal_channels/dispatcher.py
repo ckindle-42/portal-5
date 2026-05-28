@@ -76,6 +76,13 @@ VALID_WORKSPACES = frozenset(
         "bench-lfm2-moe",
         "bench-foundation-sec",
         "bench-toolace25",
+        # V7 catalog refresh (TASK_MODEL_REFRESH_V7)
+        "bench-apriel-nemotron",
+        "bench-voxtral-realtime",
+        "bench-voxtral-tts",
+        "bench-granite-speech",
+        "bench-qwen36-27b-ud",
+        "bench-qwen36-35b-a3b-ud",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

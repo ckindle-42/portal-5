@@ -1,0 +1,13 @@
+{
+  "id": "bench-olmocr2",
+  "name": "🔬 Bench · olmOCR-2 (Allen AI)",
+  "meta": {
+    "description": "Benchmark: olmOCR-2-7B-1025-5bit — Allen AI, Qwen2.5-VL-7B base, RLVR doc OCR, math/tables/multi-column, ~5GB",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "system": "You are a document intelligence specialist. Extract and structure content from documents with precision, preserving math formulas, tables, and multi-column layouts.",
+    "model": "bench-olmocr2"
+  }
+}

@@ -151,4 +151,30 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ---
 
-*Last updated: 2026-05-19*
+---
+
+## Models Out of M4 Pro 64 GB Budget
+
+The following models were evaluated and explicitly **refused** from the Portal 5
+catalog. They exceed the M4 Pro 64 GB unified memory ceiling at the lowest
+quality-preserving quantization. Do not re-propose without a cluster scaling
+plan (P5_ROADMAP Stage 3 vLLM node).
+
+**Guardrail for future Claude sessions**: before recommending any MoE model
+with total params > 100B on a 64 GB M4 Pro budget, compute the 4-bit weight
+footprint. If > 50 GB, refuse and reference this section. Mac Studio 128 GB+
+is the path for these models.
+
+| Model | 4-bit MLX resident | Why refused |
+|-------|--------------------|-------------|
+| `mlx-community/MiniMax-M2-4bit` | ~129 GB | 230B-A10B MoE. 4-bit weight footprint alone exceeds 64 GB before any KV cache. |
+| `mlx-community/MiniMax-M2.5-4bit` (and Uncensored variant) | ~129 GB | Same architecture as M2. |
+| `mlx-community/MiniMax-M2.7-4bit-mxfp4` | ~129 GB | mxfp4 does not reduce the dense-weight component substantially. |
+| `thetom-ai/MiniMax-M2.7-ConfigI-MLX` (mixed-precision) | ~87 GB | Aggressive Config-I 2-bit on expert MLPs, still over 64 GB. |
+| `mlx-community/DeepSeek-V4-Flash` (community 4-bit) | ~142 GB | 284B-A13B MoE FP4+FP8 base. |
+| `mlx-community/DeepSeek-V4-Pro` (community 4-bit) | ~800 GB | 1.6T total params. |
+| `mlx-community/Kimi-K2-Instruct-0905-mlx-4bit` (Instruct + Thinking) | ~578 GB | 1T total MoE, 32B active. |
+| `mlx-community/Kimi-K2-Instruct-0905-mlx-DQ3_K_M` | ~450 GB | Mixed 3-4 bit still over budget. |
+| GLM-5 (Z.AI flagship) | 192+ GB at 4-bit | 744B params; not yet in MLX. |
+
+*Last updated: 2026-05-27*
