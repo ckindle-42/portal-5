@@ -59,7 +59,6 @@ Knobs (env-overridable):
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import hmac
 import importlib.metadata
 import json
@@ -67,9 +66,8 @@ import logging
 import os
 import time
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
