@@ -1,4 +1,4 @@
-"""Portal 6.0.4 Pipeline entry point."""
+"""Portal 5 Pipeline entry point (uvicorn launcher for portal_pipeline.router_pipe:app)."""
 
 from __future__ import annotations
 
