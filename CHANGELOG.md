@@ -2,6 +2,30 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.2.0] — 2026-05-28
+
+### Added — Quant-optimization + uncensored refresh (TASK_QUANT_TRUEUP_V1, bench-only wiring)
+- **5 bench candidates**:
+  - `mlx-community/Qwen3.6-35B-A3B-4bit-DWQ`: distillation-aware 4-bit MoE (~20GB,
+    ~34% better KLD than plain 4-bit). Pairs against plain RTN 4-bit.
+  - `mlx-community/Qwen3.6-27B-OptiQ-4bit`: sensitivity-aware mixed 4-bit dense
+    (~16GB, sensitive layers 8-bit). Pairs against plain 4-bit.
+  - `mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit`: OptiQ mixed 4-bit MoE (~13GB,
+    fp16 KV only — Gemma-4 shared-KV blocks mixed-precision KV path).
+  - `huihui-ai/Huihui-Qwen3.6-27B-abliterated`: dense 27B abliterated (~16GB,
+    generational refresh vs Qwen3.5-9B incumbent).
+  - `huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated`: MoE 3B active abliterated
+    (~20GB, speed-play for uncensored AUTO slot).
+- **Ollama lane parity**: `ollama-general` reordered to lead with
+  Qwen3.6-abliterated:27b (B.2); `ollama-security` gains Qwen3.6 generalist (C),
+  specialists retained.
+- **UD-MLX quants deprecated** (A5): KLD study found ~8.6 bpw effective — worse
+  than 6-bit at more memory. Removed from default pull; kept as documented result.
+- **5 bench workspaces/personas wired** into bench_tps.py; personas 117→122,
+  workspaces 51→56. All bench-only wiring (Phases 1–5); the same agent run then
+  pulls, benches, and auto-promotes gate-passers (Phases 6–9) in a follow-on commit.
+- Source: MODEL_TRUEUP_REVIEW_20260528.md.
+
 ## [7.1.0] — 2026-05-28
 
 ### Added — MTP speculative-decoding bench track (TASK_MODEL_REFRESH_V8)

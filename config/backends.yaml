@@ -91,18 +91,35 @@ backends:
       \ Coding Power, Now Open to All.' Vision encoder routes through mlx_vlm. Chat-template\
       \ override (TASK_QWEN_TEMPLATE_PROMOTE_V1 priority 3) \u2014 disk patch only;\
       \ mlx_vlm has no --chat-template flag."
+  - id: mlx-community/Qwen3.6-35B-A3B-4bit-DWQ
+    memory_gb: 20
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "Qwen3.6 35B-A3B MoE, DWQ (distillation-aware) 4-bit MLX (~20GB,\
+      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). Pairs against\
+      \ mlx-community/Qwen3.6-35B-A3B-4bit (plain RTN). Independent KLD study:\
+      \ ~34% better mean KLD than plain 4-bit at same size/speed; plain RTN's KLD\
+      \ is ~3x worse and divergence surfaces in outputs. Promotion target for the\
+      \ auto-agentic MoE slot IF bench_tps.py confirms TPS parity + no CC-01\
+      \ regression. chat_template_override: qwen3.6 (same Jinja fix as plain)."
   - id: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit
     memory_gb: 20
     big_model: false
     is_vlm: true
     supports_tools: true
     chat_template_override: qwen3.6
-    notes: "Qwen3.6 35B-A3B MoE Unsloth Dynamic 2.0 4-bit MLX (~20GB, Apache 2.0,
-      May 2026). UD redistributes precision vs uniform 4-bit at same footprint.
-      V7 bench candidate paired with mlx-community/Qwen3.6-35B-A3B-4bit (stock)
-      for head-to-head quality probe. Vision encoder routes through mlx_vlm.
-      chat_template_override matches AEON and stock 35B-A3B variants —
-      patch-qwen-templates.py auto-handles after pull."
+    notes: "DEPRECATED QUANT (TASK_QUANT_TRUEUP_V1, A5): independent KLD study found UD-MLX\
+      \ ~8.6 bpw effective — more memory than 6-bit for worse-than-6-bit quality;\
+      \ Unsloth MLX quant 'still evolving'. Removed from default pull (launch.sh). Kept\
+      \ as documented negative result. Prefer DWQ/OptiQ (4-bit) or -6bit/-oQ6 (higher).\
+      \ Qwen3.6 35B-A3B MoE Unsloth Dynamic 2.0 4-bit MLX (~20GB, Apache 2.0,\
+      \ May 2026). UD redistributes precision vs uniform 4-bit at same footprint.\
+      \ V7 bench candidate paired with mlx-community/Qwen3.6-35B-A3B-4bit (stock)\
+      \ for head-to-head quality probe. Vision encoder routes through mlx_vlm.\
+      \ chat_template_override matches AEON and stock 35B-A3B variants \u2014\
+      \ patch-qwen-templates.py auto-handles after pull."
   - id: mlx-community/Laguna-XS.2-4bit
     memory_gb: 19
     big_model: false
@@ -182,18 +199,34 @@ backends:
       Dense 27B + vision encoder. Replaces froggeric/Qwen3.6-27B-MLX-4bit as bench-qwen36-27b
       primary target (froggeric retained in catalog as fallback reference only).
       chat_template_override: qwen3.6 — same Jinja fix applied to AEON and 35B-A3B variants."
+  - id: mlx-community/Qwen3.6-27B-OptiQ-4bit
+    memory_gb: 16
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "Qwen3.6-27B dense, OptiQ sensitivity-aware mixed 4-bit MLX (~16GB,\
+      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). mlx-optiq:\
+      \ per-layer KL sensitivity, sensitive layers 8-bit, robust 4-bit, within\
+      \ ~5% disk of uniform 4-bit. Vendor: beats stock uniform 4-bit on every\
+      \ capability metric. Pairs against mlx-community/Qwen3.6-27B-4bit (plain).\
+      \ Promotion target for bench-qwen36-27b IF bench confirms parity+quality."
   - id: unsloth/Qwen3.6-27B-UD-MLX-4bit
     memory_gb: 16
     big_model: false
     is_vlm: true
     supports_tools: true
     chat_template_override: qwen3.6
-    notes: "Qwen3.6 27B dense Unsloth Dynamic 2.0 4-bit MLX (~16GB, Apache 2.0,
-      May 2026). UD vs stock 4-bit quant-method probe. V7 bench-only.
-      Pairs with mlx-community/Qwen3.6-27B-4bit (stock) which remains
-      bench-qwen36-27b primary. Vision encoder routes through mlx_vlm.
-      chat_template_override matches stock — patch-qwen-templates.py
-      auto-handles after pull."
+    notes: "DEPRECATED QUANT (TASK_QUANT_TRUEUP_V1, A5): independent KLD study found UD-MLX\
+      \ ~8.6 bpw effective — more memory than 6-bit for worse-than-6-bit quality;\
+      \ Unsloth MLX quant 'still evolving'. Removed from default pull (launch.sh). Kept\
+      \ as documented negative result. Prefer DWQ/OptiQ (4-bit) or -6bit/-oQ6 (higher).\
+      \ Qwen3.6 27B dense Unsloth Dynamic 2.0 4-bit MLX (~16GB, Apache 2.0,\
+      \ May 2026). UD vs stock 4-bit quant-method probe. V7 bench-only.\
+      \ Pairs with mlx-community/Qwen3.6-27B-4bit (stock) which remains\
+      \ bench-qwen36-27b primary. Vision encoder routes through mlx_vlm.\
+      \ chat_template_override matches stock — patch-qwen-templates.py\
+      \ auto-handles after pull."
   - id: lmstudio-community/Devstral-Small-2507-MLX-4bit
     memory_gb: 15
     big_model: false
@@ -319,6 +352,19 @@ backends:
       \ baseline 131K=30TPS OK, 200K FAIL (502@300s). TurboQuant 4.5-bit tested and\
       \ REVERTED: KV dequant overhead on MoE causes 71% TPS loss at 32K and 91% at\
       \ 131K; 200K still fails. No KV quant for this model."
+  - id: mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit
+    memory_gb: 13
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    notes: "Gemma 4 26B-A4B MoE, OptiQ sensitivity-aware mixed 4-bit MLX (~13GB,\
+      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). Pairs against\
+      \ mlx-community/gemma-4-26b-a4b-it-4bit (plain) \u2014 the auto-daily/research/\
+      \ vision primary. Vendor: beats uniform 4-bit every metric, ~same disk.\
+      \ HARD CAVEAT (A4): OptiQ mixed-precision KV path FAILS on Gemma-4 shared-KV\
+      \ attention (upstream mlx-lm). Serve with stock fp16 KV ONLY \u2014 no --kv-config.\
+      \ If the lane requires quantized KV this candidate is a no-go; bench runs\
+      \ fp16 KV. Existing entry already documents no-KV-quant for gemma-4 MoE."
   - id: mlx-community/gemma-4-26B-A4B-it-heretic-4bit
     memory_gb: 13
     big_model: false
@@ -385,6 +431,29 @@ backends:
       \ path. Lineage parity with Ollama-side huihui_ai/qwen3.5-abliterated:9b. 256K\
       \ ctx, vision-capable. Chat-template override (TASK_QWEN_TEMPLATE_PROMOTE_V1\
       \ priority 1) \u2014 ships with |items crash; froggeric-fixed template applied."
+  - id: huihui-ai/Huihui-Qwen3.6-27B-abliterated
+    memory_gb: 16
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "huihui-ai abliterated Qwen3.6-27B dense, MLX 4-bit (~16GB). BENCH-ONLY\
+      \ (TASK_QUANT_TRUEUP_V1, Finding B). Generational refresh candidate for the\
+      \ AUTO/auto-documents uncensored slot, currently Huihui-Qwen3.5-9B (gen 3.5).\
+      \ Same trusted huihui-ai abliteration source. Dense 27B \u2014 higher capability\
+      \ than the 9B incumbent; bench confirms the TPS cost. 256K ctx, vision.\
+      \ chat_template_override: qwen3.6."
+  - id: huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated
+    memory_gb: 20
+    big_model: false
+    is_vlm: true
+    supports_tools: true
+    chat_template_override: qwen3.6
+    notes: "huihui-ai abliterated Qwen3.6 35B-A3B MoE, MLX 4-bit (~20GB). BENCH-ONLY\
+      \ (TASK_QUANT_TRUEUP_V1, Finding B). The SPEED play for the uncensored AUTO\
+      \ slot: 3B active -> fast decode (plain 35B-A3B benched 53.7 TPS), far above\
+      \ the 9B dense incumbent on capability at comparable speed. Pairs against\
+      \ Huihui-Qwen3.5-9B-abliterated-mlx-4bit. chat_template_override: qwen3.6."
   - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
     memory_gb: 5
     big_model: false
@@ -533,11 +602,19 @@ backends:
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
   group: general
   models:
+  - id: huihui_ai/Qwen3.6-abliterated:27b
+    supports_tools: true
+    notes: "PRIMARY general uncensored fallback (TASK_QUANT_TRUEUP_V1 B.2) \u2014 gen 3.6\
+      \ parity with the planned MLX-side refresh. Qwen3.6 35B-A3B MoE abliterated (~20GB\
+      \ Q4, Apache 2.0). Lineage successor to huihui_ai/qwen3.5-abliterated:9b. MoE 3B\
+      \ active \u2014 fast decode, larger uncensored fallback for AUTO. Same author lineage\
+      \ as baronllm-abliterated and tongyi-deepresearch-abliterated. supports_tools=true\
+      \ per Qwen3.6 family tool-tagging (verify with --audit-tools before workspace promotion)."
   - id: huihui_ai/qwen3.5-abliterated:9b
     supports_tools: true
     notes: "Qwen3.5 9B abliterated (~6.6GB Q4, 256K ctx, vision+tools+thinking tags).\
-      \ Active maintenance (huihui-ai). PRIMARY for general fallback path \u2014 replaces\
-      \ dolphin which lacks Ollama tools tag."
+      \ Demoted \u2014 superseded by Qwen3.6 line 1; retained as smaller/faster 9B option.\
+      \ Active maintenance (huihui-ai). Previously primary for general fallback path."
   - id: dolphin-llama3:8b
     supports_tools: false
     notes: "Dolphin 3.0 Llama 3.1 8B (~6GB Q4_K_M, 128K ctx). RETAINED for AUTO +\
@@ -553,14 +630,6 @@ backends:
     notes: "IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) \u2014 verified\
       \ tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as\
       \ auto-video primary (de96984)."
-  - id: huihui_ai/Qwen3.6-abliterated:27b
-    supports_tools: true
-    notes: "V6 add (TASK_MODEL_REFRESH_V6). Qwen3.6 35B-A3B MoE abliterated (~20GB\
-      \ Q4, Apache 2.0). Lineage successor to huihui_ai/qwen3.5-abliterated:9b (line\
-      \ 1). MoE 3B active \u2014 fast decode, larger uncensored fallback for AUTO.\
-      \ Same author lineage as baronllm-abliterated and tongyi-deepresearch-abliterated.\
-      \ supports_tools=true per Qwen3.6 family tool-tagging (verify with --audit-tools\
-      \ before workspace promotion)."
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -596,6 +665,12 @@ backends:
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
   group: security
   models:
+  - id: huihui_ai/Qwen3.6-abliterated:27b
+    supports_tools: true
+    notes: "Current-gen generalist add (TASK_QUANT_TRUEUP_V1 C). Specialists retained\
+      \ as domain experts. No purpose-built newer cyber model verified this cycle.\
+      \ Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Same huihui-ai source\
+      \ as baronllm-abliterated. supports_tools=true per Qwen3.6 family."
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
   - id: xploiter/the-xploiter
@@ -865,6 +940,24 @@ workspace_routing:
   bench-qwen36-35b-a3b-ud:
   - mlx
   - coding
+  - general
+  bench-qwen36-35b-a3b-dwq:
+  - mlx
+  - coding
+  - general
+  bench-qwen36-27b-optiq:
+  - mlx
+  - coding
+  - general
+  bench-gemma4-26b-optiq:
+  - mlx
+  - vision
+  - general
+  bench-huihui-qwen36-27b:
+  - mlx
+  - general
+  bench-huihui-qwen36-35b-a3b:
+  - mlx
   - general
   tools-specialist:
   - mlx

@@ -83,6 +83,13 @@ VALID_WORKSPACES = frozenset(
         "bench-granite-speech",
         "bench-qwen36-27b-ud",
         "bench-qwen36-35b-a3b-ud",
+        "bench-qwen36-27b-mtp",
+        # V8 quant-trueup (TASK_QUANT_TRUEUP_V1)
+        "bench-qwen36-35b-a3b-dwq",
+        "bench-qwen36-27b-optiq",
+        "bench-gemma4-26b-optiq",
+        "bench-huihui-qwen36-27b",
+        "bench-huihui-qwen36-35b-a3b",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

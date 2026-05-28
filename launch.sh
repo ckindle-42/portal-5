@@ -3781,6 +3781,12 @@ PLIST
         "froggeric/Qwen3.6-27B-MLX-4bit"                       # ~16GB — Qwen3.6 27B + vision, template-fix variant (auto-coding probe)
         "mlx-community/Qwen3.6-35B-A3B-4bit"                   # ~20GB — Qwen3.6 35B-A3B MoE (auto-agentic probe)
         "Jackrong/Negentropy-claude-opus-4.7-9B-6bit"          # ~7GB — Trace-inversion reasoning 9B comparator
+        # ── TASK_QUANT_TRUEUP_V1: optimized-quant + uncensored-refresh bench candidates ─
+        "mlx-community/Qwen3.6-35B-A3B-4bit-DWQ"              # ~20GB — DWQ 4-bit MoE, Finding A
+        "mlx-community/Qwen3.6-27B-OptiQ-4bit"                # ~16GB — OptiQ sensitivity-aware 4-bit, Finding A
+        "mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit"         # ~13GB — OptiQ mixed 4-bit MoE, Finding A
+        "huihui-ai/Huihui-Qwen3.6-27B-abliterated"            # ~16GB — Qwen3.6 abliterated dense, Finding B
+        "huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated"        # ~20GB — Qwen3.6 abliterated MoE, Finding B
         # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
         # bench-nemotron-omni: NVIDIA omni-modal MoE (text+image+video+audio)
         "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4"  # ~15GB — NVIDIA Nemotron omni VLM, bench-nemotron-omni
@@ -3822,27 +3828,11 @@ snapshot_download('mlx-community/Voxtral-Mini-3B-2507-bf16', ignore_patterns=['*
         echo "  Skipping Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — set PULL_VOXTRAL=1 to include"
     fi
 
-    # V7 opt-in Unsloth Dynamic 2.0 Qwen3.6 pair (~36 GB combined)
+    # V7 opt-in Unsloth Dynamic 2.0 Qwen3.6 pair — DEPRECATED (TASK_QUANT_TRUEUP_V1 A5)
+    # UD-MLX ~8.6 bpw effective — worse than 6-bit at more memory. Block retained
+    # as no-op stub for back-compat with existing scripts that set PULL_UD_QWEN36=1.
     if [ "${PULL_UD_QWEN36:-0}" = "1" ]; then
-        for ud_model in \
-            "unsloth/Qwen3.6-27B-UD-MLX-4bit" \
-            "unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"; do
-            echo "  Pulling $ud_model..."
-            if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$ud_model', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
-"; then
-                echo "  ✅ $ud_model done"
-            else
-                echo "  ❌ $ud_model failed"
-            fi
-        done
-    else
-        echo "  Skipping Unsloth UD Qwen3.6 pair (~36 GB combined) — set PULL_UD_QWEN36=1 to include"
+        echo "  ⚠ Unsloth UD Qwen3.6 pair DEPRECATED (TASK_QUANT_TRUEUP_V1 A5). Prefer DWQ/OptiQ instead."
     fi
 
     # V8 opt-in MTP candidate (~18 GB) — Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed
@@ -4046,9 +4036,7 @@ MEOF
     ;;
 
   pull-ud-qwen36)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Pulling Unsloth UD Qwen3.6 pair (~36 GB) — Unsloth Dynamic 2.0 quant probes..."
-    PULL_UD_QWEN36=1 "$0" pull-mlx-models
+    echo "[portal-5] ⚠ Unsloth UD Qwen3.6 pair DEPRECATED (TASK_QUANT_TRUEUP_V1 A5). Prefer DWQ/OptiQ instead. No-op stub."
     ;;
 
   pull-mtp)

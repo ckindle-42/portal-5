@@ -284,6 +284,12 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # Unsloth Dynamic 2.0 Qwen3.6 pair — quant-method probe vs stock 4-bit
     "bench-qwen36-27b-ud": "coding",
     "bench-qwen36-35b-a3b-ud": "coding",
+    # TASK_QUANT_TRUEUP_V1 — optimized-quant + uncensored-refresh A/B candidates
+    "bench-qwen36-35b-a3b-dwq": "coding",   # DWQ vs plain 4-bit MoE (Finding A)
+    "bench-qwen36-27b-optiq": "coding",     # OptiQ vs plain 4-bit dense (Finding A)
+    "bench-gemma4-26b-optiq": "general",    # OptiQ vs plain gemma-4 (Finding A; fp16 KV only)
+    "bench-huihui-qwen36-27b": "general",   # Qwen3.6 abliterated dense (Finding B)
+    "bench-huihui-qwen36-35b-a3b": "general", # Qwen3.6 abliterated MoE (Finding B, speed play)
     # Speech models — NOT in WORKSPACE_PROMPT_MAP by design:
     # - bench-voxtral-realtime (streaming ASR — text harness cannot exercise)
     # - bench-voxtral-tts (TTS — text harness cannot exercise)
