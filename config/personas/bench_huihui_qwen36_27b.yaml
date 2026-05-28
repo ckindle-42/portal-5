@@ -2,7 +2,7 @@ name: 🔬 Bench · Huihui-Qwen3.6-27B (Abliterated)
 slug: bench-huihui-qwen36-27b
 category: benchmark
 workspace_model: bench-huihui-qwen36-27b
-# Routes to: huihui-ai/Huihui-Qwen3.6-27B-abliterated (dense 27B abliterated, ~16GB)
+# Routes to: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit (dense 27B abliterated, ~16GB)
 # Pairs against: auto (Huihui-Qwen3.5-9B-abliterated-mlx-4bit) — TASK_QUANT_TRUEUP_V1 Finding B
 # Generational refresh candidate: Qwen3.6 abliterated vs Qwen3.5 incumbent.
 # Same trusted huihui-ai abliteration source. Dense 27B, 256K ctx, vision.

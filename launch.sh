@@ -3785,8 +3785,8 @@ PLIST
         "mlx-community/Qwen3.6-35B-A3B-4bit-DWQ"              # ~20GB — DWQ 4-bit MoE, Finding A
         "mlx-community/Qwen3.6-27B-OptiQ-4bit"                # ~16GB — OptiQ sensitivity-aware 4-bit, Finding A
         "mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit"         # ~13GB — OptiQ mixed 4-bit MoE, Finding A
-        "huihui-ai/Huihui-Qwen3.6-27B-abliterated"            # ~16GB — Qwen3.6 abliterated dense, Finding B
-        "huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated"        # ~20GB — Qwen3.6 abliterated MoE, Finding B
+        "nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit"   # ~16GB — Qwen3.6 abliterated dense, Finding B
+        "vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit" # ~20GB — Qwen3.6 abliterated MoE, Finding B
         # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
         # bench-nemotron-omni: NVIDIA omni-modal MoE (text+image+video+audio)
         "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4"  # ~15GB — NVIDIA Nemotron omni VLM, bench-nemotron-omni

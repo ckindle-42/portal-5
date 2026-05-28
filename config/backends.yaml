@@ -431,7 +431,7 @@ backends:
       \ path. Lineage parity with Ollama-side huihui_ai/qwen3.5-abliterated:9b. 256K\
       \ ctx, vision-capable. Chat-template override (TASK_QWEN_TEMPLATE_PROMOTE_V1\
       \ priority 1) \u2014 ships with |items crash; froggeric-fixed template applied."
-  - id: huihui-ai/Huihui-Qwen3.6-27B-abliterated
+  - id: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     memory_gb: 16
     big_model: false
     is_vlm: true
@@ -442,8 +442,8 @@ backends:
       \ AUTO/auto-documents uncensored slot, currently Huihui-Qwen3.5-9B (gen 3.5).\
       \ Same trusted huihui-ai abliteration source. Dense 27B \u2014 higher capability\
       \ than the 9B incumbent; bench confirms the TPS cost. 256K ctx, vision.\
-      \ chat_template_override: qwen3.6."
-  - id: huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated
+      \ Converted by nabi-chan. chat_template_override: qwen3.6."
+  - id: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit
     memory_gb: 20
     big_model: false
     is_vlm: true
@@ -453,7 +453,8 @@ backends:
       \ (TASK_QUANT_TRUEUP_V1, Finding B). The SPEED play for the uncensored AUTO\
       \ slot: 3B active -> fast decode (plain 35B-A3B benched 53.7 TPS), far above\
       \ the 9B dense incumbent on capability at comparable speed. Pairs against\
-      \ Huihui-Qwen3.5-9B-abliterated-mlx-4bit. chat_template_override: qwen3.6."
+      \ Huihui-Qwen3.5-9B-abliterated-mlx-4bit. Converted by vanch007.\
+      \ chat_template_override: qwen3.6."
   - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
     memory_gb: 5
     big_model: false
