@@ -262,6 +262,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-negentropy": "reasoning",  # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
     # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
     "bench-qwen36-27b": "coding",  # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
+    "bench-qwen36-27b-mtp": "coding",  # Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed — MTP speculative decoding bench
     "bench-qwen36-35b-a3b": "coding",  # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
     # 32B standalone
     "bench-olmo3-32b": "reasoning",  # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage

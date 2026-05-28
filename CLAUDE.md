@@ -2,7 +2,7 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 7.0.0
+**Version**: 7.1.0
 
 ---
 
@@ -12,7 +12,7 @@ Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack.
 
 **Architecture**: Open WebUI → Portal Pipeline (:9099) → [MLX proxy (:8081) + Ollama (:11434)] → local models. MCP servers (:8910–8923) provide tools (documents, code sandbox, TTS, research, memory, RAG, etc.).
 
-**Inference**: Two tiers on Apple Silicon — **Tier 1 MLX proxy** (safetensor models, faster ~20-30% for <14B) and **Tier 2 Ollama** (GGUF models, simpler management). Both host-native, not Docker.
+**Inference**: Two tiers on Apple Silicon — **Tier 1 MLX proxy** (safetensor models, faster ~20-30% for <14B) and **Tier 2 Ollama** (GGUF models, simpler management; since Ollama 0.19+ uses an MLX engine on Apple Silicon reaching ~85% of pure-MLX throughput on 32 GB+ Macs — the tier split is now about model-format breadth and multi-model cache ergonomics, not raw speed). Both host-native, not Docker.
 
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command.
 
@@ -54,7 +54,7 @@ portal-5/
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 102 persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 117 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
@@ -122,7 +122,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (116 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (117 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 
@@ -293,7 +293,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (105 personas) | `config/personas/*.yaml` |
+| Persona catalog (117 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
