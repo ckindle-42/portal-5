@@ -2511,6 +2511,23 @@ app = FastAPI(title="Portal Pipeline", version=_PKG_VERSION, lifespan=lifespan)
 
 
 def _verify_key(authorization: str | None) -> None:
+    """Validate the Authorization header against ``PIPELINE_API_KEY``.
+
+    Uses ``hmac.compare_digest`` for constant-time comparison —
+    naive ``==`` is vulnerable to timing attacks that can probe a
+    remote API key byte-by-byte by measuring response latency.
+
+    Accepts both ``"Bearer <key>"`` and bare ``"<key>"`` forms;
+    ``removeprefix`` is a no-op if the prefix isn't present.
+
+    Args:
+        authorization: Raw ``Authorization`` header value, or
+            ``None`` when the header is absent.
+
+    Raises:
+        HTTPException: 401 when the header is missing or the key
+            doesn't match.
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.removeprefix("Bearer ").strip()
@@ -2520,6 +2537,22 @@ def _verify_key(authorization: str | None) -> None:
 
 @app.get("/health")
 async def health() -> dict:
+    """GET /health — fast unauthenticated liveness probe.
+
+    Used by Open WebUI's "test connection" button, Docker healthchecks,
+    and Kubernetes readiness probes. Information disclosure is
+    minimal (counts and version).
+
+    ``status`` is ``"ok"`` if at least one backend is healthy, else
+    ``"degraded"``. Returning 503 when zero backends are healthy
+    would cause orchestrators to kill and restart the pipeline,
+    which doesn't help because the problem is upstream (Ollama
+    down, not pipeline broken).
+
+    Raises:
+        HTTPException: 503 only when the backend registry hasn't
+            been initialised yet (lifespan startup race).
+    """
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
     healthy = registry.list_healthy_backends()
@@ -2534,7 +2567,33 @@ async def health() -> dict:
 
 @app.get("/health/all")
 async def health_all():
-    """Aggregate health across pipeline + all MCPs + MLX proxy + Ollama."""
+    """GET /health/all — aggregate diagnostic check across the full stack.
+
+    Probes the pipeline itself, the MLX proxy, Ollama, and 7 MCP
+    servers in parallel with a per-probe 3s timeout. Returns a dict
+    keyed by component name; each value is the component's own
+    ``/health`` (or ``/api/tags`` for Ollama) JSON if 200, else a
+    status dict with ``"degraded"`` (HTTP error) or ``"down"``
+    (connection error).
+
+    Two non-obvious limitations tracked for follow-up in
+    ``DOCSTRINGS_V1_NOTES.md``:
+
+    * The MCP list is a static hard-coded catalogue of 7 of the 12
+      model-facing MCPs in ``tool_registry.MCP_SERVERS``. ``memory``,
+      ``rag``, ``research``, ``music``, ``code-sandbox`` (vs the
+      currently-listed legacy ``mcp_sandbox``) are missing.
+    * Each probe opens a fresh ``httpx.AsyncClient`` — new
+      connection pool and TLS handshake per call. The shared
+      ``_http_client`` has a 300s timeout (designed for inference
+      cold loads) which would let one down MCP hang this endpoint
+      for 5 minutes; the local short-timeout client is the right
+      idea, awkwardly implemented.
+
+    Returns:
+        Dict keyed by component name, values are component-specific
+        health JSON or status dicts.
+    """
     checks: dict[str, dict] = {}
     checks["pipeline"] = {"status": "ok"}
     for name, url, path in [
@@ -2576,6 +2635,25 @@ PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE
 
 
 def _verify_admin_key(authorization: str | None) -> None:
+    """Validate Authorization against ``PORTAL5_ADMIN_KEY``.
+
+    Same contract as ``_verify_key`` but checks the admin key for
+    write-side endpoints (currently ``/admin/refresh-tools``).
+
+    ``PORTAL5_ADMIN_KEY`` defaults to ``PIPELINE_API_KEY`` if unset
+    (line 1853), so single-user / single-key deployments don't have
+    to set two env vars. Production with separated concerns sets
+    them differently.
+
+    Constant-time comparison via ``hmac.compare_digest``.
+
+    Args:
+        authorization: Raw ``Authorization`` header value.
+
+    Raises:
+        HTTPException: 401 when the header is missing or the key
+            doesn't match.
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.removeprefix("Bearer ").strip()
@@ -2585,6 +2663,22 @@ def _verify_admin_key(authorization: str | None) -> None:
 
 @app.post("/admin/refresh-tools")
 async def admin_refresh_tools(authorization: str | None = Header(None)):
+    """POST /admin/refresh-tools — force a tool-registry refresh.
+
+    Operator escape hatch for "I just added or changed an MCP and
+    want the pipeline to pick it up without waiting for the next
+    scheduled refresh." Bypasses the 1h TTL via
+    ``tool_registry.refresh(force=True)``.
+
+    Requires the admin key (``PORTAL5_ADMIN_KEY``), not the regular
+    API key — state-mutating endpoint.
+
+    Returns:
+        ``{"refreshed": True, "tools_registered": int, "names":
+        [str, ...]}``. ``names`` is the sorted list of every tool
+        currently in the registry, useful for verifying which
+        servers' tools came through.
+    """
     _verify_admin_key(authorization)
     from portal_pipeline.tool_registry import tool_registry
 
@@ -2594,10 +2688,34 @@ async def admin_refresh_tools(authorization: str | None = Header(None)):
 
 @app.post("/notifications/test")
 async def test_notifications(authorization: str | None = Header(None)) -> dict:
-    """Fire a test alert and summary to verify notification channel configuration.
+    """POST /notifications/test — fire a test alert and summary; report status.
 
-    Returns the status of each configured channel (sent / skipped / error).
-    Requires NOTIFICATIONS_ENABLED=true and at least one channel configured.
+    Sanity-check for notification configuration. Dispatches one
+    ``AlertEvent`` (type BACKEND_DOWN, message labeled as test) and
+    one ``SummaryEvent`` with live data — real ``_request_count``
+    and backend counts, not zeros — so an operator can see what a
+    real daily summary would look like with current data.
+
+    Requires ``NOTIFICATIONS_ENABLED=true`` at process start (the
+    dispatcher is lazily initialised in ``_init_notifications``);
+    otherwise returns 503.
+
+    Reports per-channel configuration status by checking the
+    canonical env var for each (``SLACK_ALERT_WEBHOOK_URL``,
+    ``TELEGRAM_ALERT_BOT_TOKEN``, ``SMTP_HOST``,
+    ``PUSHOVER_API_TOKEN`` + ``PUSHOVER_USER_KEY``, ``WEBHOOK_URL``).
+    A channel that says ``"configured"`` here may still fail at
+    send time (bad token, network issue) — the ``results`` field
+    of the response is authoritative for actual deliverability.
+
+    Returns:
+        ``{"status": "ok", "results": {...}}`` where ``results``
+        contains ``alert``, ``summary``, ``channels``, and
+        ``scheduler`` keys.
+
+    Raises:
+        HTTPException: 401 on bad auth, 503 when notifications are
+            disabled.
     """
     _verify_key(authorization)
 
@@ -2669,9 +2787,42 @@ async def test_notifications(authorization: str | None = Header(None)) -> dict:
 
 @app.get("/metrics")
 async def metrics() -> PlainTextResponse:
-    """Prometheus-compatible metrics endpoint.
+    """GET /metrics — Prometheus-compatible exposition.
 
-    Intentionally unauthenticated — Prometheus scrapes without credentials.
+    **Intentionally unauthenticated.** Prometheus scrapes without
+    credentials; requiring auth would force Prometheus to be
+    configured with a bearer token (operational burden) for
+    minimal gain — the metrics expose request counts per workspace,
+    error categories, persona usage, but nothing approaching
+    credentials or message content.
+
+    Combines two metric sources:
+
+    1. Hand-rolled gauges (backends healthy/total, uptime,
+       workspaces) written as plain Prometheus text.
+    2. The full ``prometheus_client`` registry — either the
+       in-process ``_REGISTRY`` (single-worker) or the multiprocess
+       collector aggregating ``/tmp/<dir>/*.db`` files across all
+       uvicorn workers.
+
+    **Multi-worker caching**: when ``PROMETHEUS_MULTIPROC_DIR`` is
+    set, the ``MultiProcessCollector`` is cached in
+    ``_mp_registry_cache``. Construction scans the dir; caching
+    avoids that work on every scrape. The collector reads from
+    disk files on each call regardless, so caching the registry
+    object never serves stale data.
+
+    **P5-FIX defence-in-depth**: ``os.makedirs(mp_dir,
+    exist_ok=True)`` is called both here and in ``lifespan``.
+    ``prometheus_client`` writes per-pid files but doesn't create
+    the parent dir; first scrape after a worker fork without the
+    dir present would 500 (ACCEPTANCE_RESULTS S70-07, 2026-04-25).
+
+    Returns:
+        ``PlainTextResponse`` with Prometheus exposition format.
+
+    Raises:
+        HTTPException: 503 when the registry isn't yet initialised.
     """
     uptime = time.time() - _startup_time
     if registry is None:
@@ -2719,6 +2870,39 @@ async def metrics() -> PlainTextResponse:
 
 @app.get("/v1/models")
 async def list_models(authorization: str | None = Header(None)) -> dict:
+    """GET /v1/models — OpenAI-compatible model catalogue.
+
+    Returns one entry per ``WORKSPACES`` key. Per CLAUDE.md, Portal
+    5 is Open WebUI's sole model source — OWUI sees workspaces as
+    models, never the underlying Ollama / MLX models. The user
+    picks a workspace in the OWUI model picker; that selection
+    becomes the ``model`` field on the chat-completions request
+    and is what ``chat_completions`` routes on.
+
+    Per-entry fields:
+
+    * ``id`` — workspace key (e.g. ``"auto-coding"``).
+    * ``name`` — human display name from ``WORKSPACES``.
+    * ``category`` — OWUI grouping. Derived from the workspace id
+      (``bench-*`` → ``"benchmark"``; ``auto-X`` → ``"X"``; else
+      the id itself), or explicitly overridden by ``category:`` in
+      the workspace's ``WORKSPACES`` entry.
+    * ``tags`` — non-standard OWUI extension; defaults to
+      ``[category]`` if not set in ``WORKSPACES``.
+    * ``tools`` — the workspace's default tool whitelist (the
+      pipeline applies persona-level overrides at request time).
+    * ``is_benchmark`` — convenience flag for OWUI UI; ``True``
+      for ``bench-*`` workspaces.
+
+    Authenticated via ``_verify_key`` because the response leaks
+    the full workspace catalogue, which reveals operational config.
+
+    Returns:
+        ``{"object": "list", "data": [...]}`` — OpenAI-spec shape.
+
+    Raises:
+        HTTPException: 401 on bad auth.
+    """
     _verify_key(authorization)
     ts = int(time.time())
     models = []
@@ -2749,7 +2933,28 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
 
 @app.get("/v1/backends")
 async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict:
-    """Return the live BackendRegistry view. Diagnostic / tooling use only."""
+    """GET /v1/backends — diagnostic view of every registered backend.
+
+    Returns ``{id, type, group, url, models, healthy, last_check}``
+    per backend. Not part of the OpenAI API surface; used by
+    ``tests/portal5_uat_driver.py`` and operator tooling that
+    needs to know what's actually live (the registry is loaded
+    from ``backends.yaml`` at startup; this is its current state).
+
+    The ``_endpoint`` suffix on the function name is to avoid
+    colliding with a previously-named ``_list_backends`` symbol;
+    rename tracked in ``DOCSTRINGS_V1_NOTES.md`` as out-of-scope
+    cleanup.
+
+    Authenticated via ``_verify_key``.
+
+    Returns:
+        ``{"object": "list", "data": [...]}``.
+
+    Raises:
+        HTTPException: 401 on bad auth, 503 when the registry
+            isn't yet initialised.
+    """
     _verify_key(authorization)
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
@@ -2779,16 +2984,87 @@ async def _try_non_streaming(
     enforce_hint: bool = True,
     persona: str = "",
 ) -> JSONResponse | None:
-    """Try non-streaming completion from a single backend.
+    """Attempt one non-streaming completion against ``backend``; ``None`` on failure.
 
-    Returns JSONResponse on success, None on failure (caller tries next backend).
-    When enforce_hint=True and the workspace has a model_hint, backends that
-    don't carry the hinted model are skipped (returns None) so the loop tries
-    the next backend. Set enforce_hint=False on the last candidate to accept
-    any model as fallback.
+    This is the **fallback engine**. It runs in two distinct
+    callers:
 
-    persona: used for tool resolution (same logic as streaming path). When
-    empty, falls back to workspace-level tool list.
+    1. The non-streaming branch of ``chat_completions`` (line 2572)
+       — iterates candidates until one succeeds.
+    2. ``_stream_or_fallback`` (line 2834) — when a streaming
+       attempt yields an error chunk, the same backend is retried
+       non-streaming, then remaining candidates are tried.
+
+    **Never raises.** Every failure path returns ``None`` so the
+    caller's loop can try the next candidate. Raising would
+    short-circuit the fallback chain.
+
+    Major steps in order:
+
+    1. **Pick target model** from workspace hints
+       (``mlx_model_hint`` for MLX, ``model_hint`` for Ollama).
+       Return ``None`` if ``enforce_hint=True`` and the hint isn't
+       satisfied. **MLX backends are skipped entirely when no
+       ``mlx_model_hint`` is configured** — otherwise we'd pick an
+       arbitrary MLX model and silently mis-attribute results.
+    2. **Inject backend-specific options** via
+       ``_inject_ollama_options`` or ``_inject_mlx_options``.
+    3. **Tool-result synthesis hop**: if ``body.messages`` already
+       contains tool-role messages, force ``enable_thinking=True``
+       on MLX so the model produces a real answer rather than just
+       acknowledging the tool result. The workspace's
+       ``mlx_chat_template_kwargs.enable_thinking: False`` overrides
+       this — workspace authoritative pattern (chunk 2).
+    4. **Inject tool schemas** when the persona has effective tools
+       AND ``_model_supports_tools(target_model)``.
+    5. **POST**, parse JSON.
+    6. **Non-streaming tool loop** (single hop): if the model
+       returned ``tool_calls``, dispatch them via
+       ``_dispatch_tool_call``, append assistant turn + tool
+       results, call the model once more for synthesis with
+       ``tools: None``, ``tool_choice: None``, and (on MLX)
+       ``enable_thinking: True`` unless the workspace disabled it.
+       **Single hop, not unbounded** — see "asymmetry" below.
+    7. **Translate Ollama native** ``{"message": ...}`` to OpenAI
+       ``{"choices": [{"message": ...}]}`` when needed.
+    8. **Reasoning normalisation**: promote
+       ``message.reasoning`` → ``message.content`` when content is
+       empty (DeepSeek-R1 CoT exhaustion). Strip ``<think>``
+       wrapper when content is the wrapped form (Gemma 4 with
+       thinking disabled, model put answer inside tags anyway).
+    9. **Record metrics** + **emit ``x-portal-route`` header** so
+       callers and operators can see which workspace × backend ×
+       model served.
+
+    Asymmetry with the streaming tool loop: the streaming variant
+    in ``_stream_with_tool_loop_impl`` loops up to ``MAX_TOOL_HOPS``
+    times; this does exactly one synthesis turn. Reason: Open WebUI
+    sends **two** requests per user message when tools are enabled
+    — one streaming (for the user-visible response) and one
+    non-streaming (for its DB-of-record commit). The streaming
+    side handles multi-hop conversations; the non-streaming commit
+    just needs to capture the final answer.
+
+    Args:
+        backend: A ``Backend`` instance from the registry.
+        body: The user's full request body. Not mutated.
+        workspace_id: For metric labels and config lookup.
+        start_time: ``time.monotonic()`` of the original request;
+            used for elapsed-time metrics.
+        enforce_hint: When ``True``, return ``None`` if the
+            backend doesn't carry the hinted model. The caller
+            sets this to ``False`` on the last candidate so the
+            last shot accepts any model — unless the workspace is
+            ``mlx_only``, in which case the caller keeps ``True``
+            because benchmark integrity requires the named model.
+        persona: Persona slug; resolves to ``_PERSONA_MAP`` entry
+            for tool authorization. Empty string falls back to
+            the workspace-level tool list.
+
+    Returns:
+        ``JSONResponse`` on success (200 from the backend, well-formed
+        JSON, normalisations applied), ``None`` on any failure mode
+        the caller should treat as "try next candidate".
     """
     if _http_client is None:
         return None
@@ -3055,6 +3331,82 @@ async def chat_completions(
     request: Request,
     authorization: str | None = Header(None),
 ) -> Any:
+    """POST /v1/chat/completions — primary OpenAI-compatible chat endpoint.
+
+    This is the function. Open WebUI calls it on every user message;
+    it routes, applies policy, dispatches to a backend, and streams
+    (or returns) the response. ~650 lines split across the
+    following phases, in order:
+
+    1. **Auth + size limit + three-tier semaphore acquisition**:
+       global ``_request_semaphore``, per-API-key ``_api_sem``,
+       per-workspace ``_ws_sem``. Each acquisition is wrapped in
+       ``asyncio.wait_for`` with ``_SEMAPHORE_TIMEOUT`` (50ms
+       default); timeout → HTTP 429 with Retry-After.
+    2. **Persona-to-workspace resolution**: if the request's
+       ``model`` field is a persona slug rather than a workspace
+       id, look up ``_PERSONA_MAP[slug].workspace_model`` and use
+       that.
+    3. **Auto-routing** (only when ``workspace_id == "auto"``):
+       Layer 1 ``_route_with_llm`` → Layer 2 ``_detect_workspace``.
+       See chunk 2 for those functions.
+    4. **auto-vision text-only fallback**: a vision-language model
+       called without an image returns empty content. If the
+       request has no ``image_url`` parts, reroute to
+       ``auto-reasoning`` with a vision-themed system prompt so
+       responses use vision-domain vocabulary.
+    5. **``system_prompt_append``** from the workspace, appended to
+       an existing system message or injected as a new one.
+    6. **File attachment injection**: OWUI sends uploads in
+       ``body["files"]`` but doesn't put them in ``messages``.
+       Inject ``[Attached file — id, name, type]`` notes into the
+       last user message so the model can reference them in tool
+       calls.
+    7. **Candidate selection**: ``registry.get_backend_candidates``
+       filtered to MLX-only when the workspace is ``mlx_only``.
+    8. **Non-streaming branch**: iterate candidates,
+       ``_try_non_streaming`` each, return first success. All-fail
+       returns 502 (or 503 with a tailored message for
+       ``mlx_only``).
+    9. **Streaming branch**: pick first candidate, resolve target
+       model from hints, inject options, resolve effective tools,
+       decide ``_has_tools``.
+       - **Single candidate**: hand off directly to
+         ``_stream_with_tool_loop`` (if tools) or
+         ``_stream_with_preamble`` (no tools). The streaming
+         helper owns semaphore lifecycle from here.
+       - **Multiple candidates**: wrap in ``_stream_or_fallback``
+         nested closure that watches for error chunks and falls
+         back to non-streaming retry of the same backend, then
+         remaining backends as SSE-wrapped non-streaming
+         responses.
+
+    **Semaphore lifecycle is split across 5 release sites** —
+    treat this as the single most error-prone area in the file:
+
+    * ``chat_completions.finally:`` (this function, line 2974) —
+      releases for **non-streaming** responses only, gated by the
+      ``_is_streaming`` flag.
+    * ``_stream_with_tool_loop.finally:`` — streaming with tools.
+    * ``_stream_with_preamble.finally:`` — streaming without tools.
+    * ``_stream_from_backend_guarded.finally:`` — when called
+      directly with ``sem`` set (not the case from
+      ``_stream_with_preamble``, which passes ``sem=None``).
+    * Explicit releases in the 429 paths after a successful
+      acquisition (lines 2363, 2506–2508) — if a later semaphore
+      times out, earlier ones must be released before raising.
+
+    Do not change semaphore release locations during docstring
+    edits.
+
+    Raises:
+        HTTPException: 400 (invalid JSON body), 401 (bad auth),
+            413 (body too large), 429 (semaphore timeout — global,
+            per-key, or per-workspace), 502 (all backends failed
+            non-streaming), 503 (registry not initialised; no
+            healthy backends; mlx_only workspace with no MLX
+            backend).
+    """
     _verify_key(authorization)
 
     content_length = int(request.headers.get("content-length", 0))
@@ -3512,6 +3864,46 @@ async def chat_completions(
         remaining = candidates[1:]
 
         async def _stream_or_fallback() -> AsyncIterator[bytes]:
+            """Streaming wrapper for the multi-candidate path; falls back to non-streaming.
+
+            Nested closure inside ``chat_completions`` because it closes
+            over ~13 locals from the request handler (backend, body,
+            semaphores, target_model, etc.). Lifting it to module scope
+            would require parameter-passing every one of those — the
+            closure is the right abstraction here.
+
+            Behaviour:
+
+            1. Stream from ``backend`` (first candidate) via either
+               ``_stream_with_tool_loop`` or ``_stream_with_preamble``
+               depending on ``_has_tools``.
+            2. Detect failure by either:
+               - Substring check ``b'"error"' in chunk`` (the explicit
+                 error envelopes emitted by ``_stream_from_backend_guarded``).
+                 False-positive risk if a model's content happens to include
+                 ``"error"`` literally — accepted, because that chunk would
+                 also contain real content and the fallback then produces
+                 the same answer the streaming variant would have, just
+                 slower.
+               - Exception from the inner generator.
+            3. On failure, retry the **same backend** in non-streaming
+               via ``_try_non_streaming`` with ``enforce_hint=True``.
+            4. If that succeeds, wrap the JSON response as SSE (role chunk,
+               content chunk, per-tool-call chunks, done chunk, ``[DONE]``)
+               and yield. OWUI cannot tolerate a Content-Type switch
+               mid-stream — once we've started SSE we must keep emitting SSE.
+            5. If that also fails, try **remaining** candidates non-streaming.
+               **Known bug**: only the *last* element of ``remaining`` is
+               actually tried (indentation bug at lines 2898–2903 — the
+               ``_try_non_streaming`` call is outside the for-loop). Tracked
+               in ``DOCSTRINGS_V1_NOTES.md`` as a real bug to fix in a
+               follow-up; out of scope for ``TASK_DOCSTRINGS_V1``.
+
+            Semaphore release is delegated to the streaming function
+            (``_stream_with_tool_loop`` or ``_stream_with_preamble``) via
+            their own ``try/finally``. This closure does not own
+            semaphores.
+            """
             stream_failed = False
             try:
                 _inner_stream = (
@@ -3716,11 +4108,34 @@ async def _stream_with_tool_loop(
     ws_sem: asyncio.Semaphore | None = None,
     api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream from backend, dispatching tool calls and re-injecting results.
+    """Streaming wrapper with the multi-hop tool loop; releases three semaphores.
 
-    Yields the user-visible SSE stream. Tool-call chunks are passed through
-    (OWUI renders them); tool results are emitted as custom SSE events.
-    Loop continues until finish_reason=stop or MAX_TOOL_HOPS is reached.
+    The **semaphore-ownership boundary** for the tool-loop path.
+    Delegates the actual streaming work (and the loop) to
+    ``_stream_with_tool_loop_impl``, which doesn't know about
+    semaphores. This wrapper's only responsibility is the
+    ``try/finally`` that releases the three semaphores acquired in
+    ``chat_completions`` (global request semaphore, per-workspace,
+    per-API-key) once the entire stream — across all tool hops —
+    is done.
+
+    The release happens **after** the inner generator is exhausted,
+    not after the first hop. A multi-hop request holds all three
+    semaphores for the entire conversation, not just the first
+    backend POST. This is deliberate: the rate-limiting intent is
+    "one in-flight conversation per slot," not "one HTTP request
+    per slot."
+
+    Args mirror ``_stream_with_tool_loop_impl`` plus:
+        sem: Global ``_request_semaphore``. Released in
+            ``finally:``.
+        ws_sem: Per-workspace semaphore from
+            ``_acquire_workspace_sem``. Released if non-None.
+        api_sem: Per-API-key semaphore from
+            ``_acquire_api_key_sem``. Released if non-None.
+
+    Yields:
+        SSE bytes for OWUI consumption.
     """
     try:
         async for chunk in _stream_with_tool_loop_impl(
@@ -3746,7 +4161,86 @@ async def _stream_with_tool_loop_impl(
     effective_tools: set[str],
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
-    """Inner implementation for _stream_with_tool_loop (no semaphore ownership)."""
+    """Stream-and-tool-loop implementation (no semaphore ownership).
+
+    The most complex function in the file. Wrapped by
+    ``_stream_with_tool_loop`` which adds semaphore lifecycle.
+    Spans ~380 lines covering multi-hop tool dispatch, two SSE
+    dialects (Ollama native, OpenAI), several backend quirks, and
+    a per-chunk reasoning-content rewriter.
+
+    Per-hop algorithm:
+
+    1. **Emit preamble** on hop 1: OpenAI role chunk plus an
+       optional ``⚡ workspace → model`` status when
+       ``_SHOW_ROUTING_STATUS=true``.
+    2. **POST + stream** from ``backend_url`` with ``current_body``.
+    3. **Per-chunk processing** branches on detected backend
+       protocol — see "Three protocols, one stream" below.
+    4. **After stream completes**, if ``finish_reason ==
+       "tool_calls"``:
+       - Normalise tool_calls from either Ollama-native dict or
+         OpenAI-format buffer.
+       - Bail with "Tool-use limit reached" content if
+         ``hop >= MAX_TOOL_HOPS``.
+       - Dispatch all tool calls in parallel via
+         ``asyncio.gather(_dispatch_tool_call, ...)``.
+       - Append assistant turn + tool results to
+         ``current_body.messages`` and loop.
+    5. **Otherwise** (``"stop"`` or similar): record response time
+       and return.
+
+    **Three protocols, one stream:**
+
+    * **Ollama native** (URL contains ``/api/chat`` and not
+      ``/v1/``): bare NDJSON, no ``data:`` prefix, ``message:``
+      key carries content / reasoning / tool_calls. Translated to
+      OpenAI SSE on the way out so OWUI receives one format.
+    * **OpenAI SSE** (everything else — MLX, vLLM, Ollama ``/v1/``
+      compat): ``data: {...}`` lines, OpenAI-spec shape.
+    * **Ollama-native vs OpenAI** detection is by URL substring;
+      backend type is not passed through. This is the only place
+      in the streaming layer where backend type is inferred.
+
+    **Pipeline-owned tool dispatch — OWUI never sees ``tool_calls``
+    deltas.** Every ``delta.get("tool_calls")`` chunk from the
+    backend is *suppressed from the OWUI SSE stream*. If OWUI saw
+    a ``tool_calls`` event it would trigger its own dispatch loop,
+    creating duplicate turns with empty tool results that
+    overwrite the pipeline's real answer. Critical comment at
+    lines 3188–3193. The pipeline collects ``tool_calls`` into
+    ``tool_calls_buf`` (OpenAI) or captures
+    ``_ollama_tool_calls`` (Ollama), then dispatches them itself
+    after the stream completes.
+
+    **Reasoning-content rewriting** at lines 3255–3299: when
+    thinking is disabled but the model still emits content in
+    ``delta.reasoning_content`` (Gemma 4 quirk), OR when this is
+    hop 2+ (synthesis after a tool call, where recalled content
+    must be visible not buried in OWUI's ``<details type="reasoning">``
+    accordion), the delta is rewritten to surface
+    ``reasoning_content`` as ``content``. Also strips
+    ``<think>...</think>`` wrapper when content is the wrapped form.
+
+    Args:
+        backend_url: Full URL to POST to (chat_url on the
+            chosen backend).
+        body: Initial request body; copied via ``dict(body)``
+            and mutated in place across hops (this is OK
+            because the caller already gave us a copy).
+        workspace_id, model, persona: For logging, metrics,
+            and tool dispatch.
+        effective_tools: Tool whitelist from
+            ``_resolve_persona_tools``; passed to
+            ``_dispatch_tool_call`` for per-call authorization.
+        start_time: For elapsed-time metrics; ``None`` skips
+            response-time recording.
+
+    Yields:
+        SSE bytes for OWUI. Tool-call deltas are suppressed;
+        every other delta type is forwarded after applicable
+        rewriting.
+    """
     request_id = f"chatcmpl-p5-{int(time.time())}"
     hop = 0
     current_body = dict(body)
@@ -4124,21 +4618,46 @@ async def _stream_with_preamble(
     ws_sem: asyncio.Semaphore | None = None,
     api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
-    """Emit an immediate OpenAI role chunk before connecting to the backend.
+    """Streaming path without tools; emits preamble + owns semaphore lifecycle.
 
-    Problem: without this, Open WebUI shows nothing (frozen input, no typing
-    indicator) until Ollama returns its first token. That wait includes model
-    load time (10-30s cold start) plus prompt prefill — entirely silent from
-    the user's perspective.
+    **The preamble is a UX fix.** Without it, OWUI shows a frozen
+    input box for 10–30s while a cold model loads — entirely silent
+    from the user's perspective. The preamble is a zero-content
+    OpenAI role chunk that FastAPI flushes to the client before the
+    backend connection is even opened. OWUI sees "stream started,
+    role=assistant", shows the typing indicator, and the user knows
+    something is happening. Actual content streams in normally once
+    the model produces tokens.
 
-    Fix: yield a valid OpenAI streaming chunk immediately. FastAPI flushes this
-    to the client before the backend connection is even opened, causing Open WebUI
-    to show the typing indicator and mark the response as started. The actual
-    backend response follows as normal.
+    If ``_SHOW_ROUTING_STATUS=true`` (operator debug toggle), a
+    second chunk shows ``⚡ workspace → model`` at the top of the
+    response.
 
-    The preamble chunk carries an empty delta content — it adds no visible text to
-    the chat. If SHOW_ROUTING_STATUS=true, a second chunk annotates the response
-    with the selected workspace and model name.
+    **Semaphore ownership boundary.** This function owns release
+    via its own ``try/finally`` and passes ``sem=None`` to
+    ``_stream_from_backend_guarded``. The inner function's
+    ``finally`` block sees ``sem is None`` and skips its release —
+    avoiding double-release.
+
+    The wrapper-owned lifecycle is what closes a previously-leaking
+    case: a client disconnect after the preamble yield but before
+    the backend connection started would leave ``sem`` permanently
+    acquired. The ``try/finally`` here catches that.
+
+    Args:
+        url: Backend chat URL.
+        body: Already-injected request body (Ollama/MLX options
+            applied at the call site).
+        sem: Global ``_request_semaphore``. Released here.
+        workspace_id, model: For logging and the
+            ``x-portal-route`` header set by the caller.
+        start_time: For elapsed-time metrics.
+        ws_sem, api_sem: Per-workspace and per-API-key
+            semaphores. Released if non-None.
+
+    Yields:
+        SSE bytes — preamble role chunk, optional status chunk,
+        then whatever ``_stream_from_backend_guarded`` produces.
     """
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
@@ -4189,13 +4708,58 @@ async def _stream_from_backend_guarded(
     model: str = "unknown",
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream from backend and optionally release semaphore when stream is complete.
+    """Stream from backend; translate Ollama-native to OpenAI SSE; record metrics.
 
-    sem=None: caller (e.g. _stream_with_preamble) owns semaphore release.
-    sem=Semaphore: this function releases it in its finally block.
+    The lowest-level streaming function. Connects to ``url``,
+    streams the response, yields bytes for OWUI. Handles three
+    backend response shapes:
 
-    The sem=None path exists so _stream_with_preamble can own the full semaphore
-    lifecycle via its own try/finally, closing the early-disconnect leak window.
+    * **Ollama native** (URL contains ``/api/chat`` and not
+      ``/v1/``): bare NDJSON, no ``data:`` prefix. Translated to
+      OpenAI SSE on the way out so OWUI receives one format.
+    * **OpenAI SSE** (MLX, vLLM, Ollama ``/v1/`` compat):
+      ``data: {...}`` lines, mostly pass-through.
+    * **Failure** (connect error, HTTP non-200): emit explicit
+      ``data: {"error": "..."}\\n\\n`` envelope and return. This
+      is what ``_stream_or_fallback`` matches on with its
+      ``b'"error"' in chunk`` check.
+
+    **Two byte-level perf optimisations** keep the hot loop fast
+    enough for 100+ TPS streams:
+
+    1. ``b'"done"' in chunk`` — fast substring check before any
+       decode/parse. The usage-recording path only fires when the
+       chunk actually contains a ``done`` field.
+    2. ``b'"reasoning"' in chunk and b'"content"' not in chunk``
+       — fast filter for the ``mlx_lm 0.31.2+`` regression where
+       reasoning models emit content in ``delta.reasoning``
+       instead of ``delta.content``. Only the regression case
+       pays the decode-parse cost.
+
+    The full decode → JSON parse → re-encode path is only entered
+    when one of these byte checks matched. Steady-state cost per
+    chunk is a couple of substring checks.
+
+    **Semaphore ``sem`` is currently always ``None`` at HEAD.** The
+    only caller is ``_stream_with_preamble``, which owns its
+    semaphore lifecycle via its own ``try/finally`` and passes
+    ``sem=None`` here. The ``if sem is not None: sem.release()``
+    branch is effectively dead code. Documented in
+    ``DOCSTRINGS_V1_NOTES.md`` as a candidate for cleanup once a
+    different caller starts passing a real semaphore.
+
+    Args:
+        url: Backend chat URL.
+        body: Request body; pass-through to the backend.
+        sem: Semaphore to release in ``finally``. Pass ``None``
+            when the caller owns release (currently the only
+            mode in use).
+        workspace_id, model: For logging and metrics.
+        start_time: For elapsed-time metrics; ``None`` skips
+            response-time recording.
+
+    Yields:
+        SSE bytes for OWUI consumption.
     """
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
