@@ -1117,10 +1117,19 @@ def _config_workspaces() -> list[str]:
 
     Sorting by the first group in each workspace's routing list keeps the same
     backend active across consecutive tests, minimising model swaps.
+
+    Workspaces listed in the top-level ``pipeline_bench_skip:`` list are
+    excluded — see backends.yaml for rationale. The exclusion does NOT
+    apply when bench_pipeline() is called with an explicit workspace
+    filter (operator-driven probe overrides config-level skip).
     """
     cfg = _load_backends_config()
     routing: dict[str, list[str]] = cfg.get("workspace_routing", {})
-    return sorted(routing.keys(), key=lambda ws: (routing[ws][0] if routing[ws] else "", ws))
+    skip = set(cfg.get("pipeline_bench_skip", []))
+    return sorted(
+        (ws for ws in routing if ws not in skip),
+        key=lambda ws: (routing[ws][0] if routing[ws] else "", ws),
+    )
 
 
 def _discover_personas() -> list[dict]:
@@ -1898,7 +1907,7 @@ def bench_direct(
                 # Escalate: if memory still hasn't cleared, restart proxy to force
                 # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
                 if not reclaimed:
-                    print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
+                    print("\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
                           flush=True)
                     _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
                     reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
@@ -2399,7 +2408,7 @@ def bench_model_cascade(
                 # Escalate: if memory still hasn't cleared, restart proxy to force
                 # Metal inactive-page reclaim (mirrors UAT driver drain→restart path).
                 if not reclaimed:
-                    print(f"\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
+                    print("\n  ⚠ reclaim timeout — restarting proxy to reclaim Metal pages",
                           flush=True)
                     _restart_proxy_for_crash_reclaim("reclaim timeout after eviction")
                     reclaimed = _wait_mlx_memory_available(next_size, timeout_s=60.0,
@@ -2422,9 +2431,14 @@ def bench_pipeline(
     if not pipeline_available:
         return []
 
-    workspaces = _config_workspaces()
     if workspace_filter:
-        workspaces = [w for w in workspaces if w == workspace_filter]
+        # Explicit operator filter overrides pipeline_bench_skip — operator
+        # wants to probe this specific workspace intentionally.
+        cfg = _load_backends_config()
+        routing: dict[str, list[str]] = cfg.get("workspace_routing", {})
+        workspaces = [workspace_filter] if workspace_filter in routing else []
+    else:
+        workspaces = _config_workspaces()
 
     results = []
     print(f"\n  Pipeline workspaces to test: {len(workspaces)}")
