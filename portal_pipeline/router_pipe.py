@@ -1574,21 +1574,52 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
 
 
 def _detect_workspace(messages: list[dict]) -> str | None:
-    """Detect the most appropriate workspace from the last user message.
+    """Layer 2 of auto-routing — weighted keyword scoring fallback.
 
-    Uses weighted keyword scoring: each keyword has a weight (1-3) reflecting
-    signal strength. The workspace with the highest score above its threshold wins.
+    Used when the LLM router (``_route_with_llm``) returns ``None``
+    — either disabled, timed out, low confidence, or hallucinated an
+    invalid workspace.
 
-    Returns a workspace ID string, or None if no strong signal found
-    (caller should use the default 'auto' routing in that case).
+    Scoring: for each workspace in ``_WORKSPACE_ROUTING``, sum the
+    weights of matching keywords in the (lowercased, 2000-char-truncated)
+    last user message. A workspace qualifies if its score meets its
+    declared threshold; the highest-scoring qualifier wins.
 
-    Routing is determined by score, not arbitrary priority order:
-    - "write an exploit in Python" → security wins (exploit=3 + python=1=4 vs coding=3)
-    - "analyze this malware" → security wins (malware=2 + analyze=2=4 vs reasoning=2)
-    - "step by step comparison of frameworks" → reasoning wins (step by step=3 + compare=2=5)
+    Worked examples illustrating "score, not position":
 
-    P7-PERF: Uses pre-compiled _KEYWORD_CACHE with pre-lowercased keywords to avoid
-    repeated .lower() calls and dict iteration overhead.
+    * ``"write an exploit in Python"`` → security wins
+      (``exploit=3`` + ``python=1`` = 4) over coding (``code=3``).
+    * ``"analyze this malware"`` → security wins
+      (``malware=2`` + ``analyze=2`` = 4) over reasoning (``analyze=2``).
+    * ``"step by step comparison of frameworks"`` → reasoning wins
+      (``step by step=3`` + ``compare=2`` = 5).
+
+    Two tiebreaks:
+
+    1. **Redteam preempts security** when both qualify AND redteam's
+       score ≥ 5 (line 1275). Same model family, but redteam routes
+       to the more permissive abliterated variant; falling through
+       to security would silently degrade quality for users
+       explicitly asking for offensive work.
+    2. **Otherwise ties go to ``_WORKSPACE_ROUTING`` insertion
+       order** via Python dict semantics under ``max(..., key=...)``
+       — first-declared wins. Current declaration order is:
+       redteam, security, spl, coding, agentic, reasoning,
+       compliance, mistral.
+
+    Performance: keywords are pre-lowercased once at module load
+    into ``_KEYWORD_CACHE``, so each request pays one ``.lower()``
+    on the user message and ~120 string-in-string checks total.
+    O(n) over keyword count, no regex.
+
+    Args:
+        messages: Full ``messages[]`` array. Only the last user
+            message is scored.
+
+    Returns:
+        Workspace id of the highest-scoring qualifier, or ``None``
+        if no workspace clears its threshold. Caller falls back to
+        the default ``"auto"`` model on ``None``.
     """
     # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
     last_user_content = ""
@@ -1652,12 +1683,32 @@ _api_key_sem_lock = asyncio.Lock()
 
 
 def _get_workspace_concurrency_limit(workspace_id: str) -> int:
-    """Return the configured concurrency limit for a workspace.
+    """Resolve the per-workspace concurrent-request cap.
 
-    Order:
-        1. WORKSPACE_CONCURRENCY_<id> env (e.g., WORKSPACE_CONCURRENCY_AUTO_CODING=4)
-        2. workspace's `max_concurrent` field in WORKSPACES dict
-        3. PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY env (default: 5)
+    Three-layer override chain (highest priority first):
+
+    1. ``WORKSPACE_CONCURRENCY_<ID>`` environment variable
+       (e.g. ``WORKSPACE_CONCURRENCY_AUTO_CODING=4``). The
+       transformation maps kebab-case workspace ids to upper
+       snake-case for env-var convention.
+    2. ``max_concurrent`` field on the workspace's
+       ``WORKSPACES`` entry (developer-time default).
+    3. ``PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY`` environment
+       variable, or the hard-coded fallback ``5`` (a single
+       workspace can hold at most 25% of the default global
+       cap of 20).
+
+    The cap controls the per-workspace ``asyncio.Semaphore`` lazily
+    created in ``_acquire_workspace_sem``. Bursts beyond the cap
+    return HTTP 429 to the caller and increment
+    ``portal5_workspace_semaphore_busy_total``.
+
+    Args:
+        workspace_id: Workspace id from the request (kebab case;
+            transformed to ``UPPER_SNAKE`` for env-var lookup).
+
+    Returns:
+        Concurrent-request cap, ≥ 1.
     """
     env_key = f"WORKSPACE_CONCURRENCY_{workspace_id.upper().replace('-', '_')}"
     if env_key in os.environ:
@@ -1669,6 +1720,35 @@ def _get_workspace_concurrency_limit(workspace_id: str) -> int:
 
 
 async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
+    """Return the workspace's semaphore, creating it on first access.
+
+    Lazy creation: the first request for a given ``workspace_id``
+    builds an ``asyncio.Semaphore(limit)`` where ``limit`` comes from
+    ``_get_workspace_concurrency_limit``, caches it in the
+    module-level ``_workspace_semaphores`` dict, and returns it.
+    Every subsequent request for the same workspace returns the
+    cached semaphore.
+
+    Race-safe via ``_workspace_sem_lock``: two concurrent requests
+    for a newly-added workspace cannot both create competing
+    semaphores. Without the lock, the second creation would
+    overwrite the first and double the effective cap.
+
+    The semaphores live for the process lifetime — there is no
+    eviction path. Adding a new workspace via YAML + pipeline
+    restart adds one ``Semaphore`` object to the process; removing
+    a workspace leaves a stranded semaphore that is never used
+    again (negligible memory).
+
+    Args:
+        workspace_id: The workspace key. Unknown ids still get a
+            semaphore sized by the default cap.
+
+    Returns:
+        The workspace's ``asyncio.Semaphore``. Caller is expected
+        to ``acquire()`` it with ``asyncio.wait_for`` and handle
+        timeout as HTTP 429.
+    """
     async with _workspace_sem_lock:
         sem = _workspace_semaphores.get(workspace_id)
         if sem is None:
@@ -1680,6 +1760,35 @@ async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
 
 
 def _api_key_limit(key_hash: str) -> int:
+    """Resolve the per-API-key concurrent-request cap.
+
+    Two-layer override chain:
+
+    1. ``API_KEY_CONCURRENCY_<PREFIX>`` env var, where ``<PREFIX>``
+       is the first 8 hex chars of the key's SHA-256, uppercased
+       (e.g. ``API_KEY_CONCURRENCY_A3F2D1B0=20``). Hash prefix —
+       not raw key — so env vars are safe to grep and inspect;
+       env vars carrying raw secrets leak via ``ps``, ``/proc``,
+       and container inspection.
+    2. ``PORTAL5_DEFAULT_API_KEY_CONCURRENCY`` env var, or the
+       hard-coded fallback ``10`` — twice the default workspace
+       cap because an API key in production is typically a service
+       account running many parallel workspace queries; it should
+       be able to use multiple workspaces simultaneously without
+       hitting the per-key limit before the per-workspace limit
+       fires.
+
+    8-char hash prefixes provide ~32 bits of identifier space;
+    collisions are theoretically possible but the pipeline's API
+    key population is small in practice.
+
+    Args:
+        key_hash: Full SHA-256 hex digest of the API key. Only the
+            first 8 chars are used for the env-var key.
+
+    Returns:
+        Concurrent-request cap for this API key, ≥ 1.
+    """
     prefix = key_hash[:8]
     env_key = f"API_KEY_CONCURRENCY_{prefix.upper()}"
     if env_key in os.environ:
@@ -1688,6 +1797,35 @@ def _api_key_limit(key_hash: str) -> int:
 
 
 async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
+    """Return the per-API-key semaphore, creating it on first access.
+
+    Mirrors ``_acquire_workspace_sem`` but keyed by SHA-256 hash of
+    the API key. The hashing is deliberate: cached semaphores live
+    in ``_api_key_semaphores`` for the process lifetime, and storing
+    raw keys as dict keys would leave them in memory in readable
+    form. Hash digests are one-way — a memory dump or accidental
+    debug-print shows hex, not credentials.
+
+    ``hashlib`` is imported lazily inside the function so tests that
+    never present an API key don't pay the import cost.
+
+    Returns ``None`` when ``api_key`` is empty, which is the caller's
+    signal to skip per-key concurrency enforcement. This handles two
+    cases: single-user deployments with no API-key setup, and
+    malformed-auth-header edge cases that ``_verify_key`` accepted.
+
+    Race-safe via ``_api_key_sem_lock`` — same pattern as the
+    workspace semaphore.
+
+    Args:
+        api_key: Raw API key from the ``Authorization`` header
+            (Bearer token, prefix stripped). Empty string yields
+            ``None``.
+
+    Returns:
+        The per-key ``asyncio.Semaphore``, or ``None`` for empty
+        input.
+    """
     if not api_key:
         return None
     import hashlib
@@ -1740,12 +1878,42 @@ _http_client: httpx.AsyncClient | None = None
 
 
 def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
-    """Verify every WORKSPACES hint resolves to an actual backend model.
+    """Verify every ``WORKSPACES`` ``model_hint``/``mlx_model_hint`` resolves.
 
-    Returns a list of error strings. Empty list = all hints reachable.
+    Run once at startup from ``lifespan``. For each workspace:
 
-    Hints check against the union of `backend.models` for all backends
-    whose `group` appears in `workspace_routing[ws_id]`.
+    * ``model_hint`` (Ollama) must be in some backend's ``models``
+      list, AND that backend must be in one of the workspace's
+      routing groups per ``config/backends.yaml``. Skipped when the
+      workspace has ``mlx_only: True`` (no Ollama path exists, so
+      checking would always fail).
+    * ``mlx_model_hint`` must be in the ``mlx`` group (always
+      validated regardless of ``mlx_only``).
+
+    Returns the list of failures rather than raising. The caller
+    decides what to do: ``lifespan`` raises ``RuntimeError`` under
+    ``STRICT_HINT_VALIDATION=true``, or logs warnings and starts
+    anyway in permissive mode. Returning a list lets the operator
+    see every misconfigured workspace in one startup pass instead
+    of fail-on-first.
+
+    Without this check, a typo in ``WORKSPACES`` produces silent
+    fallback at request time — the workspace serves, but with a
+    different model than intended.
+
+    Layering note: this function reaches into
+    ``registry._workspace_routes`` (a private attribute of
+    ``BackendRegistry``). Strictly, the registry should expose a
+    method for this; it doesn't yet. Tracked in
+    ``DOCSTRINGS_V1_NOTES.md`` as a follow-up.
+
+    Args:
+        registry: The pipeline's ``BackendRegistry``, already
+            loaded from YAML.
+
+    Returns:
+        Human-readable error strings, one per failed hint. Empty
+        list means all hints resolve.
     """
     group_models: dict[str, set[str]] = {}
     for be in registry.list_backends():
@@ -1779,14 +1947,33 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 
 
 def _model_supports_tools(model_id: str) -> bool:
-    """Return True if a model supports OpenAI tools schema.
+    """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
 
-    Reads supports_tools metadata from both mlx_metadata and ollama_metadata.
-    Default for any model not present in either metadata list is False — see
-    TASK_TOOL_SUPPORT_AUDIT_V1 §A4 for the fail-safe policy. The router
-    previously trusted every Ollama model unconditionally (line 2420), which
-    caused the dolphin-llama3:8b tool-call defect to propagate to every
-    workspace falling through to ollama-general (commit de96984).
+    Reads from both ``Backend.mlx_metadata`` and
+    ``Backend.ollama_metadata``. **Default for any model not in
+    either list is ``False``** — the fail-safe direction. Without
+    this default, the router would (and historically did) trust
+    every Ollama model unconditionally, propagating the
+    ``dolphin-llama3:8b`` tool-call defect to every workspace
+    that fell through to ``ollama-general`` (commit ``de96984``,
+    tracked in ``TASK_TOOL_SUPPORT_AUDIT_V1 §A4``).
+
+    The fail-safe default means: a new model added to
+    ``backends.yaml`` without ``supports_tools: true`` will have
+    tools stripped from its requests. To enable tools for a model,
+    the operator must opt in explicitly in YAML. This is the
+    principle of least surprise — invisible defaults that *enable*
+    a feature have repeatedly bitten this codebase.
+
+    Args:
+        model_id: Concrete model id (e.g. ``"qwen3-coder:30b"``).
+            Unknown models return ``False``.
+
+    Returns:
+        ``True`` if the model's metadata explicitly declares
+        ``supports_tools: true``, ``False`` otherwise (including
+        unknown models, models without metadata entries, and any
+        case where ``registry`` is uninitialised).
     """
     if registry is None or not model_id:
         return False
@@ -1801,22 +1988,53 @@ def _model_supports_tools(model_id: str) -> bool:
 
 
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
-    """Inject Ollama-specific TTFT performance defaults not already in the request.
+    """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
-    Only called for backends with type='ollama'. Skipped for MLX and vLLM which
-    do not recognise these fields.
+    Only called for backends with ``type == "ollama"``. MLX and vLLM
+    do not recognise these fields and would either error or silently
+    ignore them.
 
-    - keep_alive: top-level Ollama field. Prevents model unloading between
-      requests, eliminating the 10-30s cold-start on the next request.
-    - num_batch: inside 'options'. Larger batch = faster prompt evaluation = lower
-      TTFT on multi-turn conversations with long histories.
-    - num_predict: output token cap for research/reasoning workspaces. Prevents
-      DeepSeek-R1 CoT exhaustion (where thinking chain consumes all tokens and
-      message.content is empty). 16384 tokens ≈ 50 pages — enough for any
-      research response but cuts off runaway thinking chains.
+    Body is copied at function entry — the original is never
+    mutated. This is what lets the streaming-with-fallback path
+    retry with a different injection without contaminating the
+    upstream payload.
 
-    Uses setdefault() throughout — never overrides an explicit value from the
-    caller (e.g. Open WebUI passing its own keep_alive).
+    Two categories of injection:
+
+    **Global tuning** (applies to every Ollama request):
+
+    * ``keep_alive`` (top-level): set to ``-1`` to prevent model
+      unloading between requests. Eliminates the 10–30s cold-load
+      cost on the next request to the same model. Native Ollama
+      default is ~5 min; ``OLLAMA_KEEP_ALIVE`` env (server-wide)
+      handles the Docker case but not native installs. Per-request
+      injection covers both reliably.
+    * ``num_batch`` (under ``options``): set to 2048 (Ollama
+      default is 512). Quadruples prompt-evaluation throughput,
+      cutting TTFT on long conversation histories. 2048 fits every
+      model in the catalog without exceeding attention windows.
+
+    **Workspace-driven** (only when workspace declares the field):
+
+    * ``num_ctx`` from ``context_limit`` — big-model agentic
+      workspaces need explicit context caps to bound memory use.
+    * ``num_predict`` from ``predict_limit`` — research/reasoning
+      workspaces cap output tokens to prevent DeepSeek-R1 CoT
+      exhaustion (where thinking chain consumes the entire
+      response budget and ``message.content`` arrives empty).
+
+    All injections use ``setdefault`` so caller-supplied values
+    (e.g. Open WebUI passing its own ``keep_alive``) win. The
+    pipeline never overrides what Open WebUI explicitly sets.
+
+    Args:
+        body: Outgoing request body. Not mutated.
+        workspace_id: Workspace key; ``context_limit`` and
+            ``predict_limit`` are looked up here. Empty string
+            skips workspace-driven injection.
+
+    Returns:
+        Shallow copy of ``body`` with injections applied.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
@@ -1848,22 +2066,50 @@ _MLX_DEFAULT_MAX_TOKENS: int = int(os.environ.get("MLX_DEFAULT_MAX_TOKENS", "819
 
 
 def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
-    """Inject MLX-specific defaults not already in the request.
+    """Add MLX-specific tuning to the outgoing request body. Returns a copy.
 
-    Only called for backends with type='mlx'. Translates the engine-agnostic
-    workspace-level ``predict_limit`` into the OpenAI-format ``max_tokens``
-    field that mlx_lm.server / mlx_vlm.server honor.
+    Only called for backends with ``type == "mlx"``.
 
-    Falls back to _MLX_DEFAULT_MAX_TOKENS (8192) when no workspace predict_limit
-    is configured — prevents mlx_lm.server's 512-token default from silently
-    truncating responses mid-generation.
+    Two non-obvious divergences from ``_inject_ollama_options``'s
+    "setdefault throughout" pattern. **These are intentional
+    overrides; the workspace is authoritative.**
 
-    Also injects ``chat_template_kwargs`` when the workspace defines
-    ``mlx_chat_template_kwargs`` — used to disable thinking mode on AEON/Qwen3
-    models in workspaces that don't want CoT reasoning traces in the output.
+    1. **``max_tokens`` is a ceiling, not just a default.** Open
+       WebUI sends its own ``max_tokens`` derived from the model's
+       context window, which is often far larger than the workspace
+       cap. ``min(caller_max, predict_limit)`` enforces the cap
+       while still respecting a caller that asks for *less*.
+       ``setdefault`` would silently let OWUI's larger value
+       through.
+    2. **``enable_thinking`` is also override-by-assignment** when
+       the workspace's ``mlx_chat_template_kwargs`` declares it.
+       OWUI's model presets send ``enable_thinking=True`` for all
+       known thinking models; a workspace that explicitly disables
+       thinking (e.g. ``auto-daily`` for snappier non-CoT replies)
+       must win over OWUI. The value is written to both
+       ``body["enable_thinking"]`` (top-level) and
+       ``body["chat_template_kwargs"]["enable_thinking"]`` because
+       the MLX server stack checks both locations.
 
-    Uses setdefault() — never overrides an explicit value from the caller
-    (e.g. Open WebUI passing its own max_tokens).
+    The 8192-token default floor (``_MLX_DEFAULT_MAX_TOKENS``)
+    fires only when the workspace has no ``predict_limit`` AND the
+    caller did not pass ``max_tokens``. Without it,
+    ``mlx_lm.server``'s 512-token CLI default would silently
+    truncate code generation (~6K tokens for typical full-game
+    HTML) and research responses (~8K tokens) mid-output.
+
+    Body is copied at function entry; the original is never
+    mutated.
+
+    Args:
+        body: Outgoing request body. Not mutated.
+        workspace_id: Workspace key. ``predict_limit`` and
+            ``mlx_chat_template_kwargs`` are looked up here.
+            Empty string falls through to the 8192-token default
+            with no chat-template kwargs.
+
+    Returns:
+        Shallow copy of ``body`` with injections applied.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
