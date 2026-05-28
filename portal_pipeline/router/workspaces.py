@@ -1,7 +1,44 @@
-"""Workspace configuration — WORKSPACES dict, persona map, tool resolution helpers.
+"""Routing policy — workspace catalog, persona map, and tool whitelist resolution.
 
-Extracted from router_pipe.py. Import via:
-    from portal_pipeline.router.workspaces import WORKSPACES, _PERSONA_MAP, ...
+The pipeline's "what should I do?" decisions live here:
+
+* ``WORKSPACES`` — the canonical workspace catalog. One entry per
+  user-selectable workspace; each entry pins a preferred Ollama model
+  (``model_hint``), an MLX model (``mlx_model_hint``), per-workspace
+  tuning knobs (``predict_limit``, ``context_limit``, ``max_concurrent``,
+  ``mlx_only``, ``mlx_chat_template_kwargs``, ``emits_reasoning``,
+  ``system_prompt_append``), and the default tool whitelist
+  (``tools``). The keys here are the contract — they must match
+  ``workspace_routing`` in ``config/backends.yaml`` exactly (the
+  consistency check in CLAUDE.md §6 enforces this). Workspaces
+  prefixed ``bench-`` are user-pickable but excluded from auto-routing.
+
+* ``_PERSONA_MAP`` — slug → persona YAML dict for every file under
+  ``config/personas/``. Populated **at import time** by
+  ``_load_persona_map()``. The pipeline indexes this by the persona
+  slug taken from the chat-completion request.
+
+* ``_resolve_persona_tools`` — combines a persona's optional
+  ``tools_allow``/``tools_deny`` with the workspace default to produce
+  the effective tool list for one request. This is the policy gate
+  before ``tool_registry.get_openai_tools`` is asked to advertise
+  anything to the model.
+
+* ``_resolve_persona_browser_policy`` — defined but **currently has no
+  callers in the active codebase**. Documented here for completeness;
+  see its own docstring for the intended consumer.
+
+Import-time side effect: ``_load_persona_map()`` runs at module load
+and reads every ``*.yaml`` under ``<repo>/config/personas/``. This is
+fine in production (one-time cost) but tests that mock the filesystem
+must do so before importing this module.
+
+History note: this file is the first extracted sub-module of the
+``router_pipe.py`` decomposition (CLAUDE.md alludes to "additional
+sub-modules"). The public surface — ``WORKSPACES``, ``_PERSONA_MAP``,
+``MAX_TOOL_HOPS``, ``_resolve_persona_tools``, ``_workspace_tools`` —
+is re-exported from ``router_pipe.py`` so external callers and tests
+see no API change.
 """
 
 from __future__ import annotations
@@ -18,7 +55,30 @@ _PERSONA_MAP: dict[str, dict[str, Any]] = {}
 
 
 def _load_persona_map() -> None:
-    """Load persona YAML files into a slug -> data dict for tool resolution."""
+    """Populate ``_PERSONA_MAP`` from every ``*.yaml`` under ``config/personas/``.
+
+    Called exactly once, at module import time (line 40). The pipeline
+    has no hot-reload path for personas — operator workflow is to edit
+    YAML and restart the pipeline container.
+
+    Each file is keyed in ``_PERSONA_MAP`` by its ``slug:`` field if
+    present, otherwise by the filename stem. The fallback exists so a
+    persona YAML missing a ``slug:`` line still loads instead of
+    failing silently.
+
+    Failure modes — all logged, never raised:
+
+    * ``config/personas/`` directory missing → silent return; the
+      registry stays empty.
+    * Top-level YAML error → logged warning; no personas load.
+    * One file invalid → debug log for that file; surrounding files
+      still load.
+
+    The pipeline must reach a serving state even with a broken
+    persona catalog so operators can fix YAML without a manual
+    process bounce. Same "graceful empty" pattern as
+    ``cluster_backends._load_config``.
+    """
     global _PERSONA_MAP
     personas_dir = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
     if not personas_dir.is_dir():
@@ -39,9 +99,32 @@ def _load_persona_map() -> None:
 
 _load_persona_map()
 
-# Canonical workspace definitions — must match backends.yaml workspace_routing keys
-# model_hint: preferred Ollama model tag within the routed backend group
-# mlx_model_hint: preferred MLX model tag (HF path) for workspaces that route through MLX
+# ─── Canonical workspace catalog ─────────────────────────────────────────────
+# Keys here MUST match `workspace_routing` in config/backends.yaml exactly.
+# (Consistency check in CLAUDE.md §6 enforces this on startup.)
+#
+# Per-entry fields (all optional except `name` and `description`):
+#   name                       Display name shown in Open WebUI.
+#   description                Open WebUI tooltip / model description.
+#   model_hint                 Preferred Ollama tag in the routed backend group.
+#   mlx_model_hint             Preferred MLX model (HuggingFace path).
+#   mlx_only                   True → never fall through to Ollama, even on MLX failure.
+#   tools                      Default tool-name whitelist (overridable per-persona).
+#   predict_limit              Max output tokens (Ollama: num_predict; MLX: max_tokens).
+#   context_limit              Max context window for this workspace.
+#   max_concurrent             Per-workspace concurrency cap (router_pipe semaphore).
+#   system_prompt_append       String appended after the persona system prompt.
+#   mlx_chat_template_kwargs   Kwargs forwarded to the MLX chat template
+#                              (e.g. enable_thinking=False to suppress <think>).
+#   emits_reasoning            True → model emits reasoning chains (DeepSeek-R1 family);
+#                              affects how the streaming layer parses delta fields.
+#
+# Workspace ID prefixes:
+#   auto       — auto-routable (the LLM intent classifier may route here).
+#   auto-*     — user-selectable AND auto-route targets.
+#   bench-*    — user-selectable only; excluded from auto-routing (see
+#                router_pipe.py:1046).
+# ─────────────────────────────────────────────────────────────────────────────
 WORKSPACES: dict[str, dict[str, Any]] = {
     "auto": {
         "name": "🤖 Portal Auto Router",
@@ -665,21 +748,66 @@ WORKSPACES: dict[str, dict[str, Any]] = {
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
 
+# Max iterations of the streaming tool-call loop before the pipeline gives up
+# and returns whatever the model has so far. Env-overridable. Consumed in
+# router_pipe._stream_with_tool_loop_impl.
 MAX_TOOL_HOPS = int(os.environ.get("MAX_TOOL_HOPS", "10"))
 
 
 def _workspace_tools(workspace_id: str) -> list[str]:
-    """Get the tool whitelist for a workspace."""
+    """Return the default tool whitelist for ``workspace_id``.
+
+    The unknown-workspace path returns ``[]`` rather than raising, so a
+    request referencing a since-removed workspace still serves — just
+    without any tools advertised to the model.
+
+    Used directly by ``router_pipe.py`` (re-exported there for tests
+    and external callers; see the ``noqa: F401`` at line 529) and
+    indirectly via ``_resolve_persona_tools``.
+
+    Args:
+        workspace_id: A ``WORKSPACES`` key. Unknown ids return ``[]``.
+
+    Returns:
+        Tool names from the workspace's ``tools`` field, or ``[]``.
+    """
     return WORKSPACES.get(workspace_id, {}).get("tools", [])
 
 
 def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
-    """Resolve the effective tool list for a persona within a workspace.
+    """Resolve the effective tool list for one persona × workspace pair.
 
-    Order of precedence:
-        1. persona.tools_deny — always strips these tools
-        2. persona.tools_allow — if present, uses this list (then applies deny)
-        3. workspace.tools — default fallback
+    This is the **least-privilege policy gate** for tool calling. The
+    workspace declares a default "what tools are reasonable here"; the
+    persona refines it per the YAML's ``tools_allow``/``tools_deny``
+    fields. Resolution rules:
+
+    1. If ``persona.tools_allow`` is **non-empty**, it **replaces** the
+       workspace default entirely (not "adds to"). This is intentional:
+       a persona can declare a strict subset of the workspace's tools.
+    2. ``persona.tools_deny`` then strips anything from the result.
+    3. If both are absent or empty, the workspace's ``tools`` field is
+       used unchanged.
+
+    Edge case worth knowing: ``tools_allow: []`` in YAML evaluates to
+    an empty set, which is falsy, so ``persona_allow or workspace_tools``
+    falls through to the workspace default. A persona that wants
+    **no tools at all** cannot express it via empty ``tools_allow:`` —
+    it must list every workspace-default tool in ``tools_deny:``.
+    (This is a known footgun; not addressed in this PR.)
+
+    Args:
+        persona: The persona YAML dict from ``_PERSONA_MAP``. An empty
+            dict (the standard fallback for unknown personas) yields
+            the workspace default unchanged.
+        workspace_id: Workspace key for the default fallback; unknown
+            ids contribute ``[]`` as the base.
+
+    Returns:
+        Sorted, deduplicated tool names. Sorted alphabetically for
+        determinism in caching, tests, and logs; downstream
+        ``tool_registry.get_openai_tools`` preserves whatever order it
+        receives.
     """
     workspace_tools = set(_workspace_tools(workspace_id))
     persona_allow = set(persona.get("tools_allow", []) or [])
@@ -691,7 +819,40 @@ def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
 
 
 def _resolve_persona_browser_policy(persona: dict) -> dict:
-    """Return the persona's browser policy. Defaults applied for missing fields."""
+    """Return the persona's browser policy dict with defaults applied.
+
+    **Currently has no callers in the active codebase.** The intended
+    consumer is the Playwright-backed browser MCP at port 8923, which
+    expects allowlist / blocklist / profile / credential-fill policy
+    on a per-persona basis (see ``portal_mcp/browser/browser_mcp.py``
+    for the corresponding enforcement side). The wiring that would
+    pass this through the pipeline to that MCP is not present at
+    HEAD. Persona YAMLs do declare ``browser_policy:`` blocks, so the
+    persona-side data shape is in place; only the request-time
+    plumbing is missing.
+
+    Treat as documentation of the intended shape until the wiring
+    lands. Do not delete: removing it would also remove the canonical
+    record of what fields a persona's ``browser_policy`` may declare.
+
+    Field defaults applied for missing keys:
+
+    * ``allowed_domains``                — ``[]`` (open by default;
+      browser MCP's own ``PLAYWRIGHT_MCP_BLOCKED_ORIGINS`` env still
+      applies).
+    * ``blocked_domains``                — ``[]``.
+    * ``default_profile``                — ``"_isolated"``
+      (ephemeral, cookies discarded).
+    * ``force_credential_fill``          — ``False``.
+    * ``max_navigations_per_session``    — ``50``.
+
+    Args:
+        persona: Persona YAML dict; ``persona.browser_policy`` (if
+            present) is consulted, otherwise defaults are returned.
+
+    Returns:
+        A fully-populated policy dict with the five fields above.
+    """
     bp = persona.get("browser_policy", {}) or {}
     return {
         "allowed_domains": bp.get("allowed_domains") or [],
