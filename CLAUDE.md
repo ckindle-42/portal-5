@@ -2,7 +2,7 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 7.1.0
+**Version**: 7.2.0
 
 ---
 
@@ -54,7 +54,7 @@ portal-5/
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 117 persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 122 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
@@ -122,7 +122,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (117 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (122 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 

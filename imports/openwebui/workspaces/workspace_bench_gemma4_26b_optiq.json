@@ -1,0 +1,13 @@
+{
+  "id": "bench-gemma4-26b-optiq",
+  "name": "🔬 Bench · Gemma-4-26B-A4B (OptiQ)",
+  "meta": {
+    "description": "Benchmark: mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit — OptiQ mixed 4-bit MoE, ~13GB, fp16 KV only",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "system": "You are a fast, capable everyday assistant. Be helpful, concise, and accurate.",
+    "model": "bench-gemma4-26b-optiq"
+  }
+}

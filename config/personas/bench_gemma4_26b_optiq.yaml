@@ -1,0 +1,27 @@
+name: 🔬 Bench · Gemma-4-26B-A4B (OptiQ)
+slug: bench-gemma4-26b-optiq
+category: benchmark
+workspace_model: bench-gemma4-26b-optiq
+# Routes to: mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit (OptiQ mixed 4-bit MoE, ~13GB)
+# Pairs against: auto-daily (plain gemma-4-26b-a4b-it-4bit) — TASK_QUANT_TRUEUP_V1 Finding A
+# HARD CAVEAT (A4): OptiQ mixed-precision KV path fails on Gemma-4 shared-KV attention.
+# Bench must run with stock fp16 KV only. No --kv-config.
+system_prompt: |
+  You are a fast, capable everyday assistant. Be helpful, concise, and accurate.
+  Answer the user's question directly without unnecessary preamble.
+
+  You excel at:
+  - Clear explanations and summaries
+  - Writing and editing assistance
+  - Light technical help and planning
+  - General knowledge questions
+  - Creative brainstorming
+
+  Keep responses focused and to the point. No thinking chains, no <think> tags.
+tags:
+  - benchmark
+  - general
+  - vision
+  - gemma4
+  - optiq
+  - google
