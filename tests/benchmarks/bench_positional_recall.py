@@ -35,7 +35,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from recall_extract import (  # noqa: E402
     assemble_corpus,
     bucket,
-    extract_functions,
     sample,
 )
 
@@ -67,9 +66,67 @@ def _load_longctx_models() -> list[dict[str, Any]]:
                         "model": m["id"],
                         "max_kv_size": m["max_kv_size"],
                         "big_model": m.get("big_model", False),
+                        "memory_gb": m.get("memory_gb", 0),
                     }
                 )
     return models
+
+
+# ---------------------------------------------------------------------------
+# Memory guards
+# ---------------------------------------------------------------------------
+
+# GB to keep clear beyond model weights (OS kernel + Docker VM floor + headroom)
+SYSTEM_RESERVE_GB = 10.0
+# Phrases that indicate the proxy refused to load due to memory, not a transient error
+_OOM_PHRASES = ("insufficient memory", "post-eviction memory", "out of memory", "oom")
+
+
+def _proxy_memory() -> dict[str, Any]:
+    """Return the current memory snapshot from MLX proxy /health."""
+    try:
+        r = httpx.get(f"{MLX_URL}/health", timeout=5.0)
+        if r.status_code == 200:
+            return r.json().get("memory", {}).get("current", {})
+    except Exception:
+        pass
+    return {}
+
+
+def _available_gb(mem: dict[str, Any]) -> float:
+    """Estimate GB reclaimable for a new model load (free + inactive + purgeable)."""
+    return (
+        mem.get("free_gb", 0.0)
+        + mem.get("inactive_gb", 0.0)
+        + mem.get("purgeable_gb", 0.0)
+    )
+
+
+def _is_oom_error(msg: str) -> bool:
+    return any(p in msg.lower() for p in _OOM_PHRASES)
+
+
+def _wait_for_drain(timeout_s: int = 90) -> float:
+    """Wait for post-eviction Metal drain to stabilise. Returns final available GB.
+
+    Polls until available GB stops increasing (delta < 0.5 GB for 3 polls) or
+    timeout. The caller decides whether the stabilised value is sufficient.
+    """
+    deadline = time.time() + timeout_s
+    prev_avail = -1.0
+    stable_count = 0
+    while time.time() < deadline:
+        mem = _proxy_memory()
+        avail = _available_gb(mem)
+        if abs(avail - prev_avail) < 0.5:
+            stable_count += 1
+            if stable_count >= 3:
+                return avail
+        else:
+            stable_count = 0
+        prev_avail = avail
+        time.sleep(8)
+    return _available_gb(_proxy_memory())
 
 
 def _token_est(text: str) -> int:
@@ -107,39 +164,38 @@ def _query_model(
     response_text = ""
 
     try:
-        with httpx.Client(timeout=timeout) as client:
-            with client.stream(
-                "POST",
-                f"{MLX_URL}/v1/chat/completions",
-                json=payload,
-            ) as resp:
-                if resp.status_code != 200:
-                    body = resp.read()[:200].decode(errors="replace")
-                    return {
-                        "error": f"HTTP {resp.status_code}: {body[:80]}",
-                        "elapsed_s": round(time.perf_counter() - t0, 2),
-                    }
-                for raw_line in resp.iter_lines():
-                    line = (
-                        raw_line.strip()
-                        if isinstance(raw_line, str)
-                        else raw_line.decode(errors="replace").strip()
-                    )
-                    if not line.startswith("data: "):
-                        continue
-                    data_str = line[6:]
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        obj = json.loads(data_str)
-                    except Exception:
-                        continue
-                    delta = obj.get("choices", [{}])[0].get("delta", {})
-                    chunk = delta.get("content") or ""
-                    if chunk and t_first_token is None:
-                        t_first_token = time.perf_counter()
-                    response_text += chunk
-                    completion_tokens += len(chunk.split())
+        with httpx.Client(timeout=timeout) as client, client.stream(
+            "POST",
+            f"{MLX_URL}/v1/chat/completions",
+            json=payload,
+        ) as resp:
+            if resp.status_code != 200:
+                body = resp.read()[:200].decode(errors="replace")
+                return {
+                    "error": f"HTTP {resp.status_code}: {body[:80]}",
+                    "elapsed_s": round(time.perf_counter() - t0, 2),
+                }
+            for raw_line in resp.iter_lines():
+                line = (
+                    raw_line.strip()
+                    if isinstance(raw_line, str)
+                    else raw_line.decode(errors="replace").strip()
+                )
+                if not line.startswith("data: "):
+                    continue
+                data_str = line[6:]
+                if data_str == "[DONE]":
+                    break
+                try:
+                    obj = json.loads(data_str)
+                except Exception:
+                    continue
+                delta = obj.get("choices", [{}])[0].get("delta", {})
+                chunk = delta.get("content") or ""
+                if chunk and t_first_token is None:
+                    t_first_token = time.perf_counter()
+                response_text += chunk
+                completion_tokens += len(chunk.split())
     except Exception as exc:
         return {
             "error": str(exc)[:200],
@@ -174,10 +230,9 @@ def _ensure_health(timeout_s: int = 120) -> bool:
 
 def _evict_models() -> None:
     """Ask MLX proxy to evict all loaded models."""
-    try:
+    import contextlib
+    with contextlib.suppress(Exception):
         httpx.post(f"{MLX_URL}/evict", timeout=10.0)
-    except Exception:
-        pass
 
 
 def run_bench(
@@ -230,12 +285,29 @@ def run_bench(
         print(f"    [{i+1}/{len(sampled)}] {name} ({fn_bucket})...", end=" ", flush=True)
         resp = _query_model(model, prompt, max_tokens=n_lines * 40 + 2000)
         if "error" in resp:
-            print(f"ERROR: {resp['error'][:60]}")
+            err = resp["error"]
+            if _is_oom_error(err):
+                print(f"OOM — aborting remaining {len(sampled) - i - 1} probes")
+                results.append({
+                    "name": name, "bucket": fn_bucket, "error": err,
+                    "recall": 0.0, "passed": False, "matched": 0,
+                    "missing": n_lines, "hallucinated": 0, "bonus": 0, "tps": 0,
+                })
+                for remaining in sampled[i + 1:]:
+                    results.append({
+                        "name": remaining["name"],
+                        "bucket": remaining.get("bucket", "front"),
+                        "error": "aborted (OOM on prior query)",
+                        "recall": 0.0, "passed": False, "matched": 0,
+                        "missing": n_lines, "hallucinated": 0, "bonus": 0, "tps": 0,
+                    })
+                break
+            print(f"ERROR: {err[:60]}")
             results.append(
                 {
                     "name": name,
                     "bucket": fn_bucket,
-                    "error": resp["error"],
+                    "error": err,
                     "recall": 0.0,
                     "passed": False,
                     "matched": 0,
@@ -382,8 +454,23 @@ def main() -> None:
         sys.exit(1)
 
     if args.dry_run:
-        print("\n--dry-run: assembling corpus for first model only")
+        mem = _proxy_memory()
+        total_gb = mem.get("total_gb", 64.0)
+        avail_now = _available_gb(mem)
+        print(f"\nMachine: {total_gb:.0f} GB total  |  now: {avail_now:.1f} GB reclaimable  "
+              f"(free={mem.get('free_gb',0):.1f} inactive={mem.get('inactive_gb',0):.1f} "
+              f"purgeable={mem.get('purgeable_gb',0):.1f})")
+        print(f"Absolute cap: skip if model > {total_gb:.0f} - {SYSTEM_RESERVE_GB:.0f} = "
+              f"{total_gb - SYSTEM_RESERVE_GB:.0f} GB\n")
+        print("--dry-run: memory feasibility + corpus plan")
         src_paths = args.sources or DEFAULT_SOURCES
+        for m in models_to_bench:
+            mem_gb = m.get("memory_gb", 0)
+            impossible = mem_gb > 0 and mem_gb > total_gb - SYSTEM_RESERVE_GB
+            tag = f"SKIP — exceeds machine cap ({mem_gb:.0f} > {total_gb - SYSTEM_RESERVE_GB:.0f} GB)" if impossible else "will attempt (proxy decides borderline cases)"
+            print(f"  {'✗' if impossible else '✓'} {m['model'].split('/')[-1][:50]}  "
+                  f"mem={mem_gb:.0f} GB  [{tag}]")
+        print()
         model = models_to_bench[0]
         corpus, functions = assemble_corpus(
             [str(REPO_ROOT / s) for s in src_paths],
@@ -395,17 +482,41 @@ def main() -> None:
         by_b = {"front": 0, "middle": 0, "tail": 0}
         for f in sampled:
             by_b[f["bucket"]] += 1
-        print(f"  Corpus: {_token_est(corpus):,} tok est, {len(functions)} functions")
+        print(f"  Corpus (first model): {_token_est(corpus):,} tok est, {len(functions)} functions")
         print(f"  Sampled: {len(sampled)} functions")
         print(f"  By bucket: front={by_b['front']} middle={by_b['middle']} tail={by_b['tail']}")
         return
 
+    # Fetch total_gb once for the absolute impossibility check
+    _total_gb = _proxy_memory().get("total_gb", 64.0)
+
     all_results: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
     for i, m in enumerate(models_to_bench):
         model_id = m["model"]
+        model_mem_gb = m.get("memory_gb", 0)
+
         print(f"\n{'─' * 70}")
-        print(f"[{i+1}/{len(models_to_bench)}] {model_id}  max_kv={m['max_kv_size']:,}")
+        print(f"[{i+1}/{len(models_to_bench)}] {model_id}  max_kv={m['max_kv_size']:,}  "
+              f"model_mem={model_mem_gb:.0f} GB")
         print(f"{'─' * 70}")
+
+        # Absolute impossibility only — model alone can never fit on this machine.
+        # Borderline cases: evict, drain, let the proxy decide.
+        if model_mem_gb > 0 and model_mem_gb > _total_gb - SYSTEM_RESERVE_GB:
+            reason = (
+                f"model ({model_mem_gb:.0f} GB) exceeds machine capacity "
+                f"({_total_gb:.0f} GB − {SYSTEM_RESERVE_GB:.0f} GB reserve)"
+            )
+            print(f"  SKIP — {reason}")
+            skipped.append({"model": model_id, "reason": reason})
+            continue
+
+        # Evict whatever is loaded, then wait for Metal buffers to drain before loading next.
+        print("  Evicting current model and waiting for Metal drain...", flush=True)
+        _evict_models()
+        avail = _wait_for_drain(timeout_s=90)
+        print(f"  Post-drain: {avail:.1f} GB reclaimable — attempting load")
 
         result = run_bench(
             model=model_id,
@@ -418,21 +529,30 @@ def main() -> None:
             sources=args.sources,
         )
 
-        all_results.append(result)
-        print(f"  Complete — overall pass_rate={result['overall']['pass_rate']:.2f}, "
-              f"LIM-delta={result['lost_in_middle_delta']:.2f}")
-
-        _evict_models()
-        time.sleep(args.cooldown)
+        # If all results were OOM aborts, record as skipped rather than junk data
+        oom_aborted = all(_is_oom_error(r.get("error", "")) or r.get("error") == "aborted (OOM on prior query)" for r in result["results"])
+        if oom_aborted:
+            reason = f"OOM during bench — {avail:.1f} GB post-drain was insufficient"
+            print(f"  SKIP (post-bench) — {reason}")
+            skipped.append({"model": model_id, "reason": reason})
+        else:
+            all_results.append(result)
+            print(f"  Complete — overall pass_rate={result['overall']['pass_rate']:.2f}, "
+                  f"LIM-delta={result['lost_in_middle_delta']:.2f}")
 
     output_path = args.output
     if not output_path and models_to_bench:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         output_path = str(RESULTS_DIR / f"recall_all_{ts}.json")
 
+    if skipped:
+        print(f"\nSkipped {len(skipped)} model(s) (insufficient memory):")
+        for s in skipped:
+            print(f"  {s['model'].split('/')[-1]}: {s['reason']}")
+
     if output_path:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-        if len(all_results) == 1:
+        if len(all_results) == 1 and not skipped:
             with open(output_path, "w") as f:
                 json.dump(all_results[0], f, indent=2)
         else:
@@ -444,6 +564,7 @@ def main() -> None:
                     "n_lines": args.n_lines, "pass_threshold": args.pass_threshold,
                 },
                 "models": all_results,
+                "skipped": skipped,
             }
             with open(output_path, "w") as f:
                 json.dump(combined, f, indent=2)
