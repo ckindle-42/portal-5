@@ -12,10 +12,14 @@ backends:
     kv_bits: '4'
     kv_quant_scheme: turboquant
     max_kv_size: 65536
+    skip_recall_bench: true
     notes: 'Primary coder: 80B MoE 4bit, 3B active (~46GB, 256k ctx, BIG_MODEL). KV-quant
       promoted by TASK_KV_PROMOTE_V1; max_kv_size overrides BIG_MODEL_CTX env default
       for this entry (bench-conservative on 64GB, update from bench_kv_long_context.py
-      when mlx_lm gains --kv-bits).'
+      when mlx_lm gains --kv-bits). skip_recall_bench: loading this model on a 63GB
+      machine during rapid load/unload cycles triggers a Metal GPU kernel panic
+      (IOGPUMemory completeMemory underflow, IOGPUFamily). Candidate for replacement
+      with a smaller long-context coder.'
   - id: mlx-community/Llama-3.3-70B-Instruct-4bit
     memory_gb: 40
     big_model: true
