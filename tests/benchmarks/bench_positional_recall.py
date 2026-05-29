@@ -215,13 +215,16 @@ def _query_model(
 
 
 def _ensure_health(timeout_s: int = 120) -> bool:
-    """Wait for MLX proxy to be healthy."""
+    """Wait for MLX proxy to be reachable (200 ready or 503 idle are both fine)."""
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         try:
             r = httpx.get(f"{MLX_URL}/health", timeout=5.0)
-            if r.status_code == 200:
-                return True
+            if r.status_code in (200, 503):
+                # 503 with state=none means idle (no model loaded) — proxy is up
+                data = r.json()
+                if data.get("state") in ("ready", "none", "loading"):
+                    return True
         except Exception:
             pass
         time.sleep(3)
