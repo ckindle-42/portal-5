@@ -1,0 +1,605 @@
+{
+  "timestamp": "2026-05-29T17:54:13.274031+00:00",
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "cpu": "arm"
+  },
+  "config": {
+    "k": 12,
+    "seed": 42,
+    "n_lines": 20,
+    "pass_threshold": 8
+  },
+  "models": [
+    {
+      "timestamp": "2026-05-29T16:47:24.079918+00:00",
+      "model": "mlx-community/gemma-4-31b-it-4bit",
+      "max_kv_size": 32768,
+      "target_ctx": 32768,
+      "corpus_tokens_est": 32768,
+      "k": 12,
+      "seed": 42,
+      "n_lines": 20,
+      "pass_threshold": 8,
+      "hardware": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "cpu": "arm"
+      },
+      "by_bucket": {
+        "front": {
+          "pass_rate": 0.5,
+          "mean_recall": 1.0,
+          "n": 4
+        },
+        "middle": {
+          "pass_rate": 0.25,
+          "mean_recall": 1.0,
+          "n": 4
+        },
+        "tail": {
+          "pass_rate": 0.5,
+          "mean_recall": 1.0,
+          "n": 4
+        }
+      },
+      "overall": {
+        "pass_rate": 0.42,
+        "mean_recall": 1.0
+      },
+      "lost_in_middle_delta": 0.25,
+      "results": [
+        {
+          "name": "request_timeout",
+          "bucket": "front",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 3,
+          "missing": 0,
+          "hallucinated": 3,
+          "bonus": 0,
+          "tps": 0.9,
+          "ttft_s": 455.709,
+          "elapsed_s": 475.14
+        },
+        {
+          "name": "__post_init__",
+          "bucket": "front",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 5,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 0.8,
+          "ttft_s": 433.436,
+          "elapsed_s": 457.46
+        },
+        {
+          "name": "_expand_env",
+          "bucket": "front",
+          "recall": 1.0,
+          "passed": true,
+          "matched": 20,
+          "missing": 0,
+          "hallucinated": 0,
+          "bonus": 6,
+          "tps": 1.2,
+          "ttft_s": 433.575,
+          "elapsed_s": 529.92
+        },
+        {
+          "name": "_load_draft_model_map",
+          "bucket": "front",
+          "recall": 1.0,
+          "passed": true,
+          "matched": 8,
+          "missing": 0,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0.6,
+          "ttft_s": 443.134,
+          "elapsed_s": 485.62
+        },
+        {
+          "name": "detect_server",
+          "bucket": "middle",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 7,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 1.1,
+          "ttft_s": 438.463,
+          "elapsed_s": 469.4
+        },
+        {
+          "name": "needs_vlm",
+          "bucket": "middle",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 3,
+          "missing": 0,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0.9,
+          "ttft_s": 435.22,
+          "elapsed_s": 456.66
+        },
+        {
+          "name": "_get_memory_stats",
+          "bucket": "middle",
+          "recall": 1.0,
+          "passed": true,
+          "matched": 20,
+          "missing": 0,
+          "hallucinated": 0,
+          "bonus": 6,
+          "tps": 0.8,
+          "ttft_s": 435.606,
+          "elapsed_s": 530.72
+        },
+        {
+          "name": "set_degraded",
+          "bucket": "middle",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 6,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 0.7,
+          "ttft_s": 444.604,
+          "elapsed_s": 472.08
+        },
+        {
+          "name": "_handle_get_forward",
+          "bucket": "tail",
+          "recall": 1.0,
+          "passed": true,
+          "matched": 14,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 0.6,
+          "ttft_s": 435.87,
+          "elapsed_s": 508.94
+        },
+        {
+          "name": "_is_reasoning_model",
+          "bucket": "tail",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 6,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 0.9,
+          "ttft_s": 443.956,
+          "elapsed_s": 485.59
+        },
+        {
+          "name": "_get_prompt_for_model",
+          "bucket": "tail",
+          "recall": 1.0,
+          "passed": true,
+          "matched": 10,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 1.0,
+          "ttft_s": 439.344,
+          "elapsed_s": 498.59
+        },
+        {
+          "name": "shutdown",
+          "bucket": "tail",
+          "recall": 1.0,
+          "passed": false,
+          "matched": 3,
+          "missing": 0,
+          "hallucinated": 2,
+          "bonus": 0,
+          "tps": 0.5,
+          "ttft_s": 442.375,
+          "elapsed_s": 453.54
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-05-29T17:18:52.945620+00:00",
+      "model": "mlx-community/GLM-4.7-Flash-4bit",
+      "max_kv_size": 32768,
+      "target_ctx": 32768,
+      "corpus_tokens_est": 32768,
+      "k": 12,
+      "seed": 42,
+      "n_lines": 20,
+      "pass_threshold": 8,
+      "hardware": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "cpu": "arm"
+      },
+      "by_bucket": {
+        "front": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "middle": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.08,
+          "n": 4
+        },
+        "tail": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.12,
+          "n": 4
+        }
+      },
+      "overall": {
+        "pass_rate": 0.0,
+        "mean_recall": 0.07
+      },
+      "lost_in_middle_delta": 0.0,
+      "results": [
+        {
+          "name": "request_timeout",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 309.17
+        },
+        {
+          "name": "__post_init__",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 5,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 148.25
+        },
+        {
+          "name": "_expand_env",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 147.46
+        },
+        {
+          "name": "_load_draft_model_map",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 8,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 147.48
+        },
+        {
+          "name": "detect_server",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 7,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 149.57
+        },
+        {
+          "name": "needs_vlm",
+          "bucket": "middle",
+          "recall": 0.3333,
+          "passed": false,
+          "matched": 1,
+          "missing": 2,
+          "hallucinated": 4,
+          "bonus": 0,
+          "tps": 19.6,
+          "ttft_s": 42.856,
+          "elapsed_s": 45.1
+        },
+        {
+          "name": "_get_memory_stats",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 150.54
+        },
+        {
+          "name": "set_degraded",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 6,
+          "hallucinated": 8,
+          "bonus": 0,
+          "tps": 17.0,
+          "ttft_s": 19.632,
+          "elapsed_s": 22.46
+        },
+        {
+          "name": "_handle_get_forward",
+          "bucket": "tail",
+          "recall": 0.5,
+          "passed": false,
+          "matched": 7,
+          "missing": 7,
+          "hallucinated": 7,
+          "bonus": 0,
+          "tps": 16.0,
+          "ttft_s": 96.209,
+          "elapsed_s": 103.03
+        },
+        {
+          "name": "_is_reasoning_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 6,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 150.7
+        },
+        {
+          "name": "_get_prompt_for_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 10,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 150.59
+        },
+        {
+          "name": "shutdown",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 150.53
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-05-29T17:54:13.273893+00:00",
+      "model": "mlx-community/granite-4.1-30b-mxfp4",
+      "max_kv_size": 32768,
+      "target_ctx": 32768,
+      "corpus_tokens_est": 32768,
+      "k": 12,
+      "seed": 42,
+      "n_lines": 20,
+      "pass_threshold": 8,
+      "hardware": {
+        "platform": "Darwin",
+        "machine": "arm64",
+        "cpu": "arm"
+      },
+      "by_bucket": {
+        "front": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "middle": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        },
+        "tail": {
+          "pass_rate": 0.0,
+          "mean_recall": 0.0,
+          "n": 4
+        }
+      },
+      "overall": {
+        "pass_rate": 0.0,
+        "mean_recall": 0.0
+      },
+      "lost_in_middle_delta": 0.0,
+      "results": [
+        {
+          "name": "request_timeout",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 461.0
+        },
+        {
+          "name": "__post_init__",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 5,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 7.95
+        },
+        {
+          "name": "_expand_env",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 1.36
+        },
+        {
+          "name": "_load_draft_model_map",
+          "bucket": "front",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 8,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 472.27
+        },
+        {
+          "name": "detect_server",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 7,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 5.79
+        },
+        {
+          "name": "needs_vlm",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 1.59
+        },
+        {
+          "name": "_get_memory_stats",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 20,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 466.41
+        },
+        {
+          "name": "set_degraded",
+          "bucket": "middle",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 6,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 3.35
+        },
+        {
+          "name": "_handle_get_forward",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 14,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 1.43
+        },
+        {
+          "name": "_is_reasoning_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 6,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 462.84
+        },
+        {
+          "name": "_get_prompt_for_model",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 10,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 17.99
+        },
+        {
+          "name": "shutdown",
+          "bucket": "tail",
+          "recall": 0.0,
+          "passed": false,
+          "matched": 0,
+          "missing": 3,
+          "hallucinated": 0,
+          "bonus": 0,
+          "tps": 0,
+          "ttft_s": null,
+          "elapsed_s": 1.4
+        }
+      ]
+    }
+  ],
+  "skipped": []
+}
