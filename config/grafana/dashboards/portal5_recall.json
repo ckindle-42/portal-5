@@ -1,0 +1,68 @@
+{
+  "id": null,
+  "uid": "portal5-recall",
+  "title": "Portal 5 — Positional Recall",
+  "tags": [
+    "portal5",
+    "recall",
+    "long-context"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Recall Summary",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style='text-align:center;color:#888;padding:20px'>No recall results yet. Run bench_positional_recall.py --all-longctx.</div>"
+      },
+      "description": ""
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "Methodology",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style='text-align:center;color:#888;padding:10px'>Methodology details will appear after running the bench.</div>"
+      },
+      "description": ""
+    },
+    {
+      "id": 10,
+      "type": "text",
+      "title": "Recall by Position Bucket",
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style='text-align:center;color:#888;padding:20px'>No recall results yet. Run bench_positional_recall.py --all-longctx.</div>"
+      },
+      "description": ""
+    }
+  ]
+}

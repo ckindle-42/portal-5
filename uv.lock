@@ -2914,6 +2914,22 @@ wheels = [
 ]
 
 [[package]]
+name = "mlx-embeddings"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "huggingface-hub" },
+    { name = "mlx", version = "0.31.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and sys_platform == 'emscripten') or (python_full_version >= '3.11' and sys_platform == 'win32')" },
+    { name = "mlx", version = "0.31.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and sys_platform == 'emscripten') or (python_full_version < '3.11' and sys_platform == 'win32') or (sys_platform != 'emscripten' and sys_platform != 'win32')" },
+    { name = "mlx-vlm" },
+    { name = "transformers", extra = ["sentencepiece"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ef/b8/2f6f9e48386c1ab6fc0431d683296c45eb4bbcc5d3b4b2bf9594746d1efe/mlx_embeddings-0.0.5.tar.gz", hash = "sha256:0bcced68df6fb51ab98cd8ce5ae7a32db3853bca20e8c1c45e86452ed1d9d605", size = 475449, upload-time = "2025-10-29T22:38:28.853Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/66/524db48e1e90ae071589ebcd29cd8e03daa4f69ac63718f0977dac922f0f/mlx_embeddings-0.0.5-py2.py3-none-any.whl", hash = "sha256:3c13eba4c10d26362e6d92f5faffd58d1d9ab28d56f1ee210ea7766c7980c24a", size = 51547, upload-time = "2025-10-29T22:38:27.463Z" },
+]
+
+[[package]]
 name = "mlx-lm"
 version = "0.31.3"
 source = { registry = "https://pypi.org/simple" }
@@ -4288,7 +4304,7 @@ wheels = [
 
 [[package]]
 name = "portal-5"
-version = "6.0.7"
+version = "7.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -4352,6 +4368,9 @@ notifications = [
     { name = "aiosmtplib" },
     { name = "apscheduler" },
 ]
+rag = [
+    { name = "mlx-embeddings" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4369,6 +4388,7 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "misaki", marker = "extra == 'apple-silicon'", specifier = ">=0.1.0" },
     { name = "mlx-audio", marker = "extra == 'apple-silicon'", specifier = ">=0.3.0" },
+    { name = "mlx-embeddings", marker = "extra == 'rag'", specifier = ">=0.0.3" },
     { name = "mlx-lm", marker = "extra == 'apple-silicon'", specifier = ">=0.31" },
     { name = "mlx-vlm", marker = "extra == 'apple-silicon'", specifier = ">=0.1.0" },
     { name = "mlx-whisper", marker = "extra == 'apple-silicon'", specifier = ">=0.4.0" },
@@ -4401,7 +4421,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'generation'", specifier = ">=4.40.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0" },
 ]
-provides-extras = ["channels", "notifications", "mcp", "generation", "apple-silicon", "dev"]
+provides-extras = ["channels", "notifications", "mcp", "generation", "rag", "apple-silicon", "dev"]
 
 [[package]]
 name = "preshed"
@@ -6761,6 +6781,12 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ff/9d/fb46e729b461985f41a5740167688b924a4019141e5c164bea77548d3d9e/transformers-5.5.0.tar.gz", hash = "sha256:c8db656cf51c600cd8c75f06b20ef85c72e8b8ff9abc880c5d3e8bc70e0ddcbd", size = 8237745, upload-time = "2026-04-02T16:13:08.113Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/28/35f7411ff80a3640c1f4fc907dcbb6a65061ebb82f66950e38bfc9f7f740/transformers-5.5.0-py3-none-any.whl", hash = "sha256:821a9ff0961abbb29eb1eb686d78df1c85929fdf213a3fe49dc6bd94f9efa944", size = 10245591, upload-time = "2026-04-02T16:13:03.462Z" },
+]
+
+[package.optional-dependencies]
+sentencepiece = [
+    { name = "protobuf" },
+    { name = "sentencepiece" },
 ]
 
 [[package]]
