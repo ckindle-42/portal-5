@@ -111,6 +111,13 @@ def assemble_corpus(
                             "source_file": f"copy{copy_idx}/{f['source_file']}",
                         }
                     )
+        # Hard-truncate to target — padding can overshoot, and char-count != byte-count
+        # for UTF-8 source files with unicode chars (docstrings, comments).
+        # Truncate on bytes then re-decode so token estimate stays within target_ctx.
+        if len(corpus.encode()) // 4 > target_ctx:
+            encoded = corpus.encode()[:target_bytes]
+            corpus = encoded.decode("utf-8", errors="ignore")
+            all_funcs = [f for f in all_funcs if f["char_offset"] < len(corpus)]
 
     return corpus, all_funcs
 

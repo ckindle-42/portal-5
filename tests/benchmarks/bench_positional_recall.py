@@ -146,7 +146,7 @@ def _query_model(
     model: str,
     prompt: str,
     max_tokens: int = 4000,
-    timeout: float = 300.0,
+    timeout: float = 600.0,
 ) -> dict[str, Any]:
     """Send a chat completion to MLX-proxy, capturing response and timing.
 
@@ -427,6 +427,11 @@ def main() -> None:
         help="Bench all long-context lanes (those with max_kv_size set)",
     )
     parser.add_argument("--source", action="append", dest="sources", help="Source file(s) for corpus")
+    parser.add_argument(
+        "--cap-ctx", type=int, default=32768,
+        help="Cap each model's bench context to this many tokens regardless of max_kv_size "
+             "(default 32768 — derived from ~100 tok/s prefill within 600s timeout)",
+    )
     parser.add_argument("--k", type=int, default=12, help="Number of functions to sample")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
     parser.add_argument("--n-lines", type=int, default=20, help="Lines to compare from each function")
@@ -498,9 +503,11 @@ def main() -> None:
                   f"mem={mem_gb:.0f} GB  [{tag}]")
         print()
         model = models_to_bench[0]
+        bench_ctx_preview = min(model["max_kv_size"], args.cap_ctx)
+        print(f"  Context cap: {args.cap_ctx:,} tok  (model max_kv={model['max_kv_size']:,} → bench uses {bench_ctx_preview:,})\n")
         corpus, functions = assemble_corpus(
             [str(REPO_ROOT / s) for s in src_paths],
-            target_ctx=model["max_kv_size"],
+            target_ctx=bench_ctx_preview,
         )
         for f in functions:
             f["bucket"] = bucket(f["char_offset"], len(corpus))
@@ -544,9 +551,10 @@ def main() -> None:
         avail = _wait_for_drain(timeout_s=180)
         print(f"  Post-drain: {avail:.1f} GB reclaimable — attempting load")
 
+        bench_ctx = min(m["max_kv_size"], args.cap_ctx)
         result = run_bench(
             model=model_id,
-            max_kv_size=m["max_kv_size"],
+            max_kv_size=bench_ctx,
             k=args.k,
             seed=args.seed,
             n_lines=args.n_lines,
