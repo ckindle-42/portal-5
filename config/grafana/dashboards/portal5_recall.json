@@ -28,7 +28,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style='text-align:center;color:#888;padding:20px'>No recall results yet. Run bench_positional_recall.py --all-longctx.</div>"
+        "content": "<div style='display:flex;justify-content:space-around;align-items:center;height:100%;text-align:center;font-size:14px'><div><div style='font-size:28px;font-weight:bold;color:#73BF69'>3</div><div style='color:#aaa'>Models Tested</div></div><div><div style='font-size:28px;font-weight:bold;color:#FFD700'>0.14</div><div style='color:#aaa'>Mean Pass-Rate</div></div><div><div style='font-size:28px;font-weight:bold;color:#F2495C'>0.25</div><div style='color:#aaa'>Max LIM-delta</div></div><div><div style='font-size:28px;font-weight:bold;color:#73BF69'>gemma-4-31b-it-4bit</div><div style='color:#aaa'>Best (0.42)</div></div><div><div style='font-size:28px;font-weight:bold;color:#F2CC0C'>gemma-4-31b-it-4bit</div><div style='color:#aaa'>Worst LIM (0.25)</div></div><div><div style='font-size:11px;color:#888'>k=12</div><div style='font-size:11px;color:#888'>seed=42</div></div></div>"
       },
       "description": ""
     },
@@ -44,7 +44,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style='text-align:center;color:#888;padding:10px'>Methodology details will appear after running the bench.</div>"
+        "content": "<div style='font-size:11px;color:#888;padding:4px 8px;line-height:1.5'><b>Method:</b> LCS line-alignment verbatim recall under long context, adapted from github.com/alexziskind1/codeneedle (Alex Ziskind). Each model is tested at its configured max_kv_size. Functions are sampled from real Portal 5 source files, stratified by position bucket.&nbsp; &nbsp; <b>k=12</b> &nbsp; <b>n_lines=20</b> &nbsp; <b>pass_threshold=8</b><br><b>Complements</b> bench_kv_long_context.py (physical survival) by measuring <i>usefulness</i> at the ceiling. Evidence for future max_kv_size decisions — no ceilings changed by this bench.</div>"
       },
       "description": ""
     },
@@ -60,7 +60,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style='text-align:center;color:#888;padding:20px'>No recall results yet. Run bench_positional_recall.py --all-longctx.</div>"
+        "content": "<div style='overflow:auto;max-height:500px'><table style='width:100%;border-collapse:collapse;font-size:11px'><tr style='background:#1f1f1f;position:sticky;top:0'><th style='text-align:left'>Model</th><th style='text-align:left'>max KV</th><th style='text-align:left'>Front PR</th><th style='text-align:left'>Mid PR</th><th style='text-align:left'>Tail PR</th><th style='text-align:left'>Overall</th><th style='text-align:left'>LIM-delta</th></tr><tr><td style='font-family:monospace;font-weight:bold'>gemma-4-31b-it-4bit</td><td style='color:#888'>32,768</td><td><span style='color:#FFD700;font-weight:bold'>0.50</span> (1.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.25</span> (1.00)</td><td><span style='color:#FFD700;font-weight:bold'>0.50</span> (1.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.42</span></td><td><span style='color:#FFD700;font-weight:bold'>+0.25</span></td></tr><tr style='background:#1a1a2e'><td style='font-family:monospace;font-weight:bold'>GLM-4.7-Flash-4bit</td><td style='color:#888'>32,768</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.08)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.12)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span></td><td><span style='color:#73BF69;font-weight:bold'>+0.00</span></td></tr><tr><td style='font-family:monospace;font-weight:bold'>granite-4.1-30b-mxfp4</td><td style='color:#888'>32,768</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span> (0.00)</td><td><span style='color:#F2495C;font-weight:bold'>0.00</span></td><td><span style='color:#73BF69;font-weight:bold'>+0.00</span></td></tr></table></div>"
       },
       "description": ""
     }
