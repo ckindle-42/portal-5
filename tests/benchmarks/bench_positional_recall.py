@@ -60,7 +60,7 @@ def _load_longctx_models() -> list[dict[str, Any]]:
         if be.get("type") != "mlx":
             continue
         for m in be.get("mlx_models", []):
-            if m.get("max_kv_size"):
+            if m.get("max_kv_size") and not m.get("skip_recall_bench", False):
                 models.append(
                     {
                         "model": m["id"],
