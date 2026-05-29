@@ -148,11 +148,17 @@ def _query_model(
     max_tokens: int = 4000,
     timeout: float = 300.0,
 ) -> dict[str, Any]:
-    """Send a chat completion to MLX-proxy, capturing response and timing."""
+    """Send a chat completion to MLX-proxy, capturing response and timing.
+
+    Captures both delta.content (standard) and delta.reasoning_content (thinking
+    models: Qwen3, GLM-4.7, R1-Distill, etc.). If content is empty but reasoning
+    is not, the reasoning text is used for scoring — the model answered inside its
+    thinking block rather than the response block.
+    """
     payload = {
         "model": model,
         "messages": [
-            {"role": "user", "content": "/nothink\n" + prompt},
+            {"role": "user", "content": "/no_think\n" + prompt},
         ],
         "stream": True,
         "max_tokens": max_tokens,
@@ -162,6 +168,7 @@ def _query_model(
     t_first_token: float | None = None
     completion_tokens = 0
     response_text = ""
+    reasoning_text = ""
 
     try:
         with httpx.Client(timeout=timeout) as client, client.stream(
@@ -192,9 +199,11 @@ def _query_model(
                     continue
                 delta = obj.get("choices", [{}])[0].get("delta", {})
                 chunk = delta.get("content") or ""
-                if chunk and t_first_token is None:
+                chunk_r = delta.get("reasoning_content") or ""
+                if (chunk or chunk_r) and t_first_token is None:
                     t_first_token = time.perf_counter()
                 response_text += chunk
+                reasoning_text += chunk_r
                 completion_tokens += len(chunk.split())
     except Exception as exc:
         return {
@@ -202,8 +211,21 @@ def _query_model(
             "elapsed_s": round(time.perf_counter() - t0, 2),
         }
 
+    # Thinking models may put the answer in reasoning_content with empty content.
+    # Fall back to reasoning text so the scorer has something to work with.
+    if not response_text.strip() and reasoning_text.strip():
+        import re
+        # Strip <think>...</think> wrapper if present; keep body
+        stripped = re.sub(r"</?think>", "", reasoning_text).strip()
+        response_text = stripped
+        completion_tokens = len(response_text.split())
+
     elapsed = time.perf_counter() - t0
-    tps = completion_tokens / (elapsed - (t_first_token - t0 if t_first_token else 0)) if elapsed > 0 and t_first_token and completion_tokens > 0 else 0
+    tps = (
+        completion_tokens / (elapsed - (t_first_token - t0 if t_first_token else 0))
+        if elapsed > 0 and t_first_token and completion_tokens > 0
+        else 0
+    )
 
     return {
         "response_text": response_text,
@@ -232,10 +254,11 @@ def _ensure_health(timeout_s: int = 120) -> bool:
 
 
 def _evict_models() -> None:
-    """Ask MLX proxy to evict all loaded models."""
+    """Unload all MLX models via the proxy /unload endpoint."""
     import contextlib
     with contextlib.suppress(Exception):
-        httpx.post(f"{MLX_URL}/evict", timeout=10.0)
+        # /evict does not exist — /unload is the correct endpoint (perform_unload)
+        httpx.post(f"{MLX_URL}/unload", timeout=60.0)
 
 
 def run_bench(
@@ -518,7 +541,7 @@ def main() -> None:
         # Evict whatever is loaded, then wait for Metal buffers to drain before loading next.
         print("  Evicting current model and waiting for Metal drain...", flush=True)
         _evict_models()
-        avail = _wait_for_drain(timeout_s=90)
+        avail = _wait_for_drain(timeout_s=180)
         print(f"  Post-drain: {avail:.1f} GB reclaimable — attempting load")
 
         result = run_bench(
