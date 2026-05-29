@@ -40,9 +40,12 @@ backends:
     kv_bits: '4'
     kv_quant_scheme: turboquant
     max_kv_size: 32768
+    skip_recall_bench: true
     notes: "Data analysis: R1 Distill Qwen 32B 8bit (~34GB). KV-quant promoted by\
       \ TASK_KV_PROMOTE_V1 \u2014 R1 thinking-chain growth is the worst KV-pressure\
-      \ class at 8-bit weights; max_kv_size conservative given 34GB model footprint."
+      \ class at 8-bit weights; max_kv_size conservative given 34GB model footprint.\
+      \ skip_recall_bench: 34GB consistently OOMs on 63GB machine under full portal\
+      \ stack during bench load/unload cycles."
   - id: mlx-community/granite-4.1-30b-mxfp8
     memory_gb: 30
     big_model: false
@@ -72,9 +75,12 @@ backends:
     kv_bits: '4'
     kv_quant_scheme: turboquant
     max_kv_size: 65536
+    skip_recall_bench: true
     notes: "Reasoning primary: 27B v3 8bit (~22GB, v3 structural alignment). KV-quant\
       \ promoted by TASK_KV_PROMOTE_V1 \u2014 thinking chains amplify KV pressure;\
-      \ 4-bit KV recovers headroom for predict_limit=32768 workloads."
+      \ 4-bit KV recovers headroom for predict_limit=32768 workloads.\
+      \ skip_recall_bench: QwQ-style thinking model \u2014 outputs via reasoning_content\
+      \ only, scoring returns 0.00 for all probes regardless of actual quality."
   - id: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
     memory_gb: 20
     big_model: false
