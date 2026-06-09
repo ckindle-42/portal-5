@@ -520,11 +520,12 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
     * ``num_ctx`` from ``context_limit`` — big-model agentic
       workspaces need explicit context caps to bound memory use.
-    * ``max_tokens`` from ``predict_limit`` — research/reasoning
-      workspaces cap output tokens to prevent DeepSeek-R1 CoT
-      exhaustion. Mapped to top-level ``max_tokens`` (OpenAI
-      standard) because ``options.num_predict`` is ignored by
-      Ollama ``/v1/chat/completions``.
+     * ``max_tokens`` from ``predict_limit`` — research/reasoning
+       workspaces cap output tokens to prevent DeepSeek-R1 CoT
+       exhaustion. Mapped to top-level ``max_tokens`` (OpenAI
+       standard); verified against Ollama 0.30.7 where
+       ``options.num_predict`` is ignored by
+       ``/v1/chat/completions``.
 
     All injections use ``setdefault`` so caller-supplied values
     (e.g. Open WebUI passing its own ``keep_alive``) win. The
@@ -548,8 +549,8 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     if ctx_limit:
         body["options"].setdefault("num_ctx", ctx_limit)
     # Research/reasoning workspaces: cap output tokens to prevent CoT exhaustion.
-    # Branch I: map predict_limit to top-level max_tokens because
-    # options.num_predict is ignored by Ollama /v1/chat/completions.
+    # Map predict_limit to top-level max_tokens; verified against Ollama
+    # 0.30.7 where options.num_predict is ignored by /v1/chat/completions.
     predict_limit = ws_cfg_local.get("predict_limit")
     if predict_limit:
         body.setdefault("max_tokens", predict_limit)
@@ -864,6 +865,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     # Propagate shared client to the routing module (needed by _route_with_llm)
     import portal_pipeline.router.routing as _routing_mod
+
     _routing_mod._http_client = _http_client
     registry = BackendRegistry()
     hint_errors = _validate_workspace_hints(registry)
@@ -1015,9 +1017,7 @@ async def health_all():
         try:
             r = await _health_client.get(f"{url}{path}")
             return (
-                r.json()
-                if r.status_code == 200
-                else {"status": "degraded", "code": r.status_code}
+                r.json() if r.status_code == 200 else {"status": "degraded", "code": r.status_code}
             )
         except Exception as e:
             return {"status": "down", "error": str(e)[:100]}
@@ -1029,8 +1029,7 @@ async def health_all():
             "/api/tags",
         )
         mcp_probes = {
-            f"mcp_{server_id}": _probe(url, "/health")
-            for server_id, url in MCP_SERVERS.items()
+            f"mcp_{server_id}": _probe(url, "/health") for server_id, url in MCP_SERVERS.items()
         }
         mcp_results_list = await asyncio.gather(*mcp_probes.values(), return_exceptions=True)
         mcp_results = dict(zip(mcp_probes.keys(), mcp_results_list, strict=True))
@@ -1281,7 +1280,7 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
 
     Returns one entry per ``WORKSPACES`` key. Per CLAUDE.md, Portal
     5 is Open WebUI's sole model source — OWUI sees workspaces as
-    models, never the underlying Ollama / MLX models. The user
+    models, never the underlying Ollama models. The user
     picks a workspace in the OWUI model picker; that selection
     becomes the ``model`` field on the chat-completions request
     and is what ``chat_completions`` routes on.
@@ -1323,18 +1322,20 @@ async def list_models(authorization: str | None = Header(None)) -> dict:
         else:
             category = ws_id
         category = ws_cfg.get("category", category)
-        models.append({
-            "id": ws_id,
-            "object": "model",
-            "created": ts,
-            "owned_by": "portal-5",
-            "name": ws_cfg["name"],
-            "description": ws_cfg.get("description", ""),
-            "category": category,
-            "tags": ws_cfg.get("tags", [category]),
-            "tools": ws_cfg.get("tools", []),
-            "is_benchmark": is_benchmark,
-        })
+        models.append(
+            {
+                "id": ws_id,
+                "object": "model",
+                "created": ts,
+                "owned_by": "portal-5",
+                "name": ws_cfg["name"],
+                "description": ws_cfg.get("description", ""),
+                "category": category,
+                "tags": ws_cfg.get("tags", [category]),
+                "tools": ws_cfg.get("tools", []),
+                "is_benchmark": is_benchmark,
+            }
+        )
     return {"object": "list", "data": models}
 
 
@@ -1495,8 +1496,8 @@ async def _try_non_streaming(
 
     # Inject tool schemas — same logic as the streaming path. Required when
     # _try_non_streaming is used as a fallback after a streaming attempt fails
-    # (e.g. MLX streaming emits empty chunks for tool_calls), so the tool schemas
-    # aren't silently dropped in the fallback.
+    # (empty streaming chunks indicate a streaming/non-streaming shape
+    # mismatch), so the tool schemas aren't silently dropped in the fallback.
     _persona_data = _PERSONA_MAP.get(persona, {}) if persona else {}
     _ns_tools = _resolve_persona_tools(_persona_data, workspace_id)
     if _ns_tools and _model_supports_tools(target_model):
@@ -1529,13 +1530,19 @@ async def _try_non_streaming(
             _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
 
         if _ns_tool_calls and _ns_tools:
-            _ns_dispatch = await asyncio.gather(*[
-                _dispatch_tool_call(tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}")
-                for tc in _ns_tool_calls
-            ])
-            _synth_messages = (req_body.get("messages") or []) + [
-                {"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}
-            ] + list(_ns_dispatch)
+            _ns_dispatch = await asyncio.gather(
+                *[
+                    _dispatch_tool_call(
+                        tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
+                    )
+                    for tc in _ns_tool_calls
+                ]
+            )
+            _synth_messages = (
+                (req_body.get("messages") or [])
+                + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
+                + list(_ns_dispatch)
+            )
             _synth_body = {
                 **req_body,
                 "messages": _synth_messages,
@@ -1574,9 +1581,9 @@ async def _try_non_streaming(
                     msg["content"] = reasoning
 
                 elif not content and reasoning_content:
-                    # mlx_vlm with enable_thinking=True returns reasoning_content
-                    # separately. When content is empty, surface the reasoning as
-                    # content so OWUI commits the answer instead of an empty message.
+                    # Ollama thinking models emit reasoning_content separately.
+                    # When content is empty, surface the reasoning as content so
+                    # OWUI commits the answer instead of an empty message.
                     msg["content"] = reasoning_content
 
                 elif content and "<think>" in content:
@@ -1584,7 +1591,10 @@ async def _try_non_streaming(
                     # content (Gemma 4 with enable_thinking=False). Strip wrapper
                     # and surface the inner text as regular content.
                     stripped = _re_think.sub(
-                        r"<think>.*?</think>", "", content, flags=_re_think.DOTALL | _re_think.IGNORECASE
+                        r"<think>.*?</think>",
+                        "",
+                        content,
+                        flags=_re_think.DOTALL | _re_think.IGNORECASE,
                     ).strip()
                     if not stripped:
                         inner = _re_think.sub(
@@ -1606,7 +1616,7 @@ async def _try_non_streaming(
             elapsed_seconds=time.monotonic() - start_time,
         )
         # Inject model field — ensures callers can always identify which backend
-        # served the request (Ollama includes it, MLX may not).
+        # served the request. Defensive default (backend may omit this field).
         if "model" not in data or not data["model"]:
             data["model"] = target_model
         logger.info(
@@ -1860,7 +1870,10 @@ async def chat_completions(
                 messages[sys_idx] = updated
                 body = {**body, "messages": messages}
             else:
-                body = {**body, "messages": [{"role": "system", "content": _prompt_append}] + messages}
+                body = {
+                    **body,
+                    "messages": [{"role": "system", "content": _prompt_append}] + messages,
+                }
 
         # File attachment injection — OWUI sends uploaded files in body["files"] but
         # does not include them in the messages array. Inject a note into the last
@@ -1915,6 +1928,7 @@ async def chat_completions(
         _concurrent_requests.inc()
         _gauge_held = True
         import portal_pipeline.router.state as _state_mod_cc
+
         _state_mod_cc._peak_concurrent = max(
             _state_mod_cc._peak_concurrent, int(_concurrent_requests._value.get())
         )
@@ -1961,7 +1975,11 @@ async def chat_completions(
                 )
                 if result is not None:
                     route_header = result.headers.get("x-portal-route", ";;")
-                    resolved_model = route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
+                    resolved_model = (
+                        route_header.split(";")[2]
+                        if len(route_header.split(";")) > 2
+                        else "unknown"
+                    )
                     _record_response_time(
                         resolved_model,
                         workspace_id,
@@ -1992,7 +2010,10 @@ async def chat_completions(
                         "Backend %s has empty models list — cannot fall back. Skipping.",
                         backend.id,
                     )
-                    raise HTTPException(502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml")
+                    raise HTTPException(
+                        502,
+                        f"Backend {backend.id} has an empty models list — fix config/backends.yaml",
+                    )
                 target_model = backend.models[0]
                 logger.warning(
                     "model_hint %r not in backend %s models — falling back to %r. "
@@ -2007,7 +2028,9 @@ async def chat_completions(
                     "Backend %s has empty models list — cannot resolve. Skipping.",
                     backend.id,
                 )
-                raise HTTPException(502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml")
+                raise HTTPException(
+                    502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml"
+                )
             target_model = backend.models[0]
 
         logger.info(
@@ -2147,11 +2170,9 @@ async def chat_completions(
                and yield. OWUI cannot tolerate a Content-Type switch
                mid-stream — once we've started SSE we must keep emitting SSE.
             5. If that also fails, try **remaining** candidates non-streaming.
-               **Known bug**: only the *last* element of ``remaining`` is
-               actually tried (indentation bug at lines 2898–2903 — the
-               ``_try_non_streaming`` call is outside the for-loop). Tracked
-               in ``DOCSTRINGS_V1_NOTES.md`` as a real bug to fix in a
-               follow-up; out of scope for ``TASK_DOCSTRINGS_V1``.
+               The ``_try_non_streaming`` call iterates all remaining
+               candidates in order; fixed in
+               ``TASK_ROUTER_BACKEND_REVIEW_AND_IMPROVEMENTS``.
 
             Semaphore release is delegated to the streaming function
             (``_stream_with_tool_loop`` or ``_stream_with_preamble``) via
@@ -2203,8 +2224,12 @@ async def chat_completions(
                 )
                 fallback_body = {**body, "stream": False}
                 result = await _try_non_streaming(
-                    backend, fallback_body, workspace_id, start_time,
-                    enforce_hint=True, persona=persona,
+                    backend,
+                    fallback_body,
+                    workspace_id,
+                    start_time,
+                    enforce_hint=True,
+                    persona=persona,
                 )
                 if result is not None:
                     data = json.loads(result.body)
@@ -2221,8 +2246,12 @@ async def chat_completions(
                     for j, fb in enumerate(remaining):
                         fb_last = j == len(remaining) - 1
                         result = await _try_non_streaming(
-                            fb, fallback_body, workspace_id, start_time,
-                            enforce_hint=not fb_last, persona=persona,
+                            fb,
+                            fallback_body,
+                            workspace_id,
+                            start_time,
+                            enforce_hint=not fb_last,
+                            persona=persona,
                         )
                         if result is not None:
                             data = json.loads(result.body)
@@ -2503,9 +2532,9 @@ async def _stream_with_tool_loop_impl(
                                     buf["function"]["name"] += fn["name"]
                                 if "arguments" in fn:
                                     buf["function"]["arguments"] += fn["arguments"]
-                        # mlx_vlm sends tool_calls + finish_reason in the
-                        # same final chunk — capture finish_reason here so
-                        # the dispatch gate fires after the stream ends.
+                        # Some backends send tool_calls + finish_reason in
+                        # the same final chunk — capture finish_reason here
+                        # so the dispatch gate fires after the stream ends.
                         if choice.get("finish_reason"):
                             finish_reason = choice["finish_reason"]
                         # Suppress tool_call delta — pipeline owns dispatch
@@ -2530,16 +2559,10 @@ async def _stream_with_tool_loop_impl(
                         # reasoning_content with no content — surface as content.
                         # hop > 1: synthesis hops always surface reasoning as content
                         # so recalled keywords are visible, not buried in <details>.
-                        _new_delta = {
-                            k: v
-                            for k, v in delta.items()
-                            if k != "reasoning_content"
-                        }
+                        _new_delta = {k: v for k, v in delta.items() if k != "reasoning_content"}
                         _new_delta["content"] = _rc
                         _new_obj = dict(obj)
-                        _new_obj["choices"] = [
-                            dict(choice, delta=_new_delta)
-                        ]
+                        _new_obj["choices"] = [dict(choice, delta=_new_delta)]
                         yield f"data: {json.dumps(_new_obj)}\n\n".encode()
                         continue
 
@@ -2562,9 +2585,7 @@ async def _stream_with_tool_loop_impl(
                                 _new_delta = dict(delta)
                                 _new_delta["content"] = _inner
                                 _new_obj = dict(obj)
-                                _new_obj["choices"] = [
-                                    dict(choice, delta=_new_delta)
-                                ]
+                                _new_obj["choices"] = [dict(choice, delta=_new_delta)]
                                 yield f"data: {json.dumps(_new_obj)}\n\n".encode()
                                 continue
 
@@ -2584,7 +2605,9 @@ async def _stream_with_tool_loop_impl(
                     "Tool loop hop %d: finish_reason=tool_calls but no tool_calls "
                     "extracted (backend=%s workspace=%s). "
                     "Check backend tool parser compatibility.",
-                    hop, backend_url, workspace_id,
+                    hop,
+                    backend_url,
+                    workspace_id,
                 )
                 return
 
@@ -2813,14 +2836,10 @@ async def _stream_from_backend_guarded(
                                     elapsed_seconds=elapsed,
                                 )
                             except Exception:
-                                logger.debug(
-                                    "Could not parse usage payload from stream"
-                                )
+                                logger.debug("Could not parse usage payload from stream")
                 # OpenAI SSE: "data: [DONE]" terminator
                 if line.startswith(b"data: [DONE]"):
-                    elapsed = (
-                        (time.monotonic() - start_time) if start_time is not None else None
-                    )
+                    elapsed = (time.monotonic() - start_time) if start_time is not None else None
                     _record_usage(
                         model=model,
                         workspace=workspace_id,
@@ -2828,7 +2847,8 @@ async def _stream_from_backend_guarded(
                         elapsed_seconds=elapsed,
                     )
 
-                # mlx_lm 0.31.2+ regression: promote reasoning → content
+                # Reasoning-model deltas under Ollama /v1: keep the behaviour,
+                # fix the attribution — promote reasoning → content
                 if b'"reasoning"' in line and b'"content"' not in line:
                     try:
                         if not line.startswith(b"data:") or line == b"data: [DONE]":

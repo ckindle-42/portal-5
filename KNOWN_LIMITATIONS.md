@@ -90,10 +90,16 @@ not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositio
 
 ## Inference Performance
 
+### Request-Size Cap Relies on Content-Length Only
+- **ID**: P5-REQ-SIZE-001
+- **Description**: The pipeline caps requests at 4 MB via `Content-Length` header check. Chunked transfer-encoded requests bypass this cap entirely — Starlette middleware is the proper fix.
+- **Mitigation**: Until Starlette body-size middleware is added, operators should configure upstream proxies (nginx, OWUI) to enforce request-size limits.
+
 ### Speculative Decoding / MTP — RETIRED with the MLX proxy (commit 3a0c58e)
 - **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
 - **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired; chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists.
 - **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. The bench-only MTP GGUF candidates remain in the catalog as bench entries; there is no production MLX serving path to enable.
+- **P5-FUT**: evaluate `/api/chat` as `chat_url` — `/api/chat` would allow full `options` passthrough but requires changing payload/response shapes.
 
 ### 70B Dense Models Unusable for Daily Routing on M4 Pro 64GB
 - **ID**: P5-SPEED-001
