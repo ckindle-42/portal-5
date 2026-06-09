@@ -71,7 +71,7 @@ workspaces to general-purpose GGUF substitutes:
 | Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
 |---|---|---|---|
 | `auto-blueteam`, `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Foundation-Sec-8B-Reasoning Q8_0 GGUF (Cisco fdtn-ai, first-party, ~8.5GB) | RESTORED (P5-FUT-PARITY-001) |
-| `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged) | loss of purpose-trained tool-call accuracy |
+| `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged, BFCL V3 68.27, first-party IBM) | ACCEPTED — granite4.1:8b adopted; ToolACE-2.5 dropped (P5-FUT-PARITY-001 closed) |
 
 **Status — Foundation-Sec:** RESTORED to the auto-blueteam production primary
 via the first-party Cisco GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
@@ -80,29 +80,20 @@ the original MLX→Ollama migration set models by assumption; this restores the
 pre-migration primary). Apriel-Nemotron-15B retained as reasoning fallback +
 bench-apriel-nemotron.
 
-**Status — ToolACE:** remains UNRESOLVED. granite4.1:8b retained by operator
-decision (no verified ToolACE-2.5 GGUF confirmed; self-quant + Ollama tool-template
-risk not justified). P5-FUT-PARITY-001 stays open for the ToolACE half only.
+**Status — ToolACE:** RESOLVED (accepted). granite4.1:8b adopted as the
+tools-specialist model by operator decision; ToolACE-2.5 evaluated and dropped
+(no verified ToolACE-2.5 GGUF confirmed; self-quant + Ollama tool-template risk
+not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositioned
+(Foundation-Sec restored, ToolACE substitute accepted).
 
 ---
 
 ## Inference Performance
 
-### Speculative Decoding Adds Memory Cost
-- **ID**: P5-SPEC-001
-- **Description**: Models with a draft assigned in `speculative_decoding.draft_models` load both target and draft simultaneously. Admission control accounts for this, but models with drafts require ~0.5–1GB more headroom.
-- **Mitigation**: Remove the draft entry from `backends.yaml` and restart the proxy to disable spec decoding for a specific model.
-
-### MTP Speculative Decoding Not Supported by MLX Proxy
-- **ID**: P5-MTP-001
-- **Severity**: MEDIUM — enhancement opportunity (promoted from LOW by TASK_MODEL_REFRESH_V8)
-- **Description**: Multi-Token Prediction (3.94× speedup verified for Gemma 4 26B-A4B BF16) requires `--draft-model` and `--draft-kind mtp` flags. The proxy does not pass these. V8 supersedes the BF16-slower premise: 4-bit-trunk + INT4-MTP-sidecar (MTPLX) removes the BF16 cost, and the dense-27B no-MTP baseline (12.4 TPS) is exactly the case MTP rescues.
-- **Resolution path**: TASK_MTP_PROXY_V1.md.
-
-### MTP Speculative Decoding Is Bench-Only (V8)
-- **ID**: P5-MTP-PATH
-- **Description**: MTP speculative decoding is bench-only pending the `--spec-decoding-tag` A/B and sustained-load probe. The production MLX-proxy serving path does not yet enable MTP, and MTP requires a separate runtime (MTPLX for MLX, llama.cpp b9180+ for GGUF) rather than the existing `--draft-model` external-drafter wiring.
-- **Operator action**: Re-run the A/B (`bench_tps.py --spec-decoding-tag mtp-on` vs `mtp-off` on `bench-qwen36-27b-mtp`) and TASK_OMLX_MTP_STABILITY_V1 before any production promotion.
+### Speculative Decoding / MTP — RETIRED with the MLX proxy (commit 3a0c58e)
+- **IDs**: P5-SPEC-001, P5-MTP-001, P5-MTP-PATH (all moot)
+- **Status**: The MLX inference proxy that hosted `--draft-model` speculative decoding and the `speculative_decoding.draft_models` map was retired; chat inference is Ollama-only. These limitations no longer apply because the infrastructure they described no longer exists.
+- **If revisited**: any future speculative-decoding / MTP work targets Ollama's native path (llama.cpp b9180+), not MLX. The bench-only MTP GGUF candidates remain in the catalog as bench entries; there is no production MLX serving path to enable.
 
 ### 70B Dense Models Unusable for Daily Routing on M4 Pro 64GB
 - **ID**: P5-SPEED-001
