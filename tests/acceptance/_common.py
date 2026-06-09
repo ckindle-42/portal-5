@@ -30,10 +30,6 @@ OPENWEBUI_URL = "http://localhost:8080"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
     "host.docker.internal", "localhost"
 )
-# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor; speech helpers below still live.
-MLX_URL = os.environ.get("MLX_LM_URL", "http://localhost:8081").replace(
-    "host.docker.internal", "localhost"
-)
 API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 AUTH = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
 MCP = {
@@ -107,11 +103,6 @@ async def _chat_with_model(
     return await _monolith()._chat_with_model(
         workspace, prompt, system, max_tokens, timeout, stream
     )
-
-
-# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor.
-async def _mlx_health() -> tuple[str, dict]:
-    return await _monolith()._mlx_health()
 
 
 # ── Additional delegation helpers ────────────────────────────────────────────
@@ -205,11 +196,6 @@ def _get_persona_prompts_excluded() -> set:
     return _monolith().PERSONA_PROMPTS_EXCLUDED
 
 
-def _get_mlx_orgs() -> list:
-    """Return _MLX_ORGS from the monolith."""
-    return _monolith()._MLX_ORGS
-
-
 async def _mcp(
     port: int,
     tool: str,
@@ -250,18 +236,8 @@ def _grep_logs(container: str, pattern: str, lines: int = 500) -> list:
     return _monolith()._grep_logs(container, pattern, lines)
 
 
-# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor.
-async def _remediate_mlx_crash(reason: str = "crash") -> bool:
-    return await _monolith()._remediate_mlx_crash(reason)
-
-
 async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
     return await _monolith()._ensure_free_ram_gb(needed_gb, phase)
-
-
-def _get_mlx_workspaces() -> set:
-    """Return MLX_WORKSPACES set from the monolith."""
-    return _monolith().MLX_WORKSPACES
 
 
 def _get_ollama_workspaces() -> set:
