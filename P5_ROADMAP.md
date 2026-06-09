@@ -34,76 +34,16 @@ genuinely open future work. Completed items are kept for reference only.
 | P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | MOOT | **Update 2026-06-09 (TASK_MLX_RETIRE_TRUEUP_V1):** MLX proxy retired. MTP speculative decoding now targets Ollama's native MTP path (llama.cpp b9180+). |
 | P5-FUT-015 | P2 | Unified shared workspace | DONE | TASK-WORKSPACE-001. Single `${AI_OUTPUT_DIR}` root mounted into OWUI (uploads overlay) and all participating MCPs (`/workspace`). New `portal_mcp.core.workspace` helper module. AUDIO_STT_ENGINE disabled — voice-input loss documented. Foundation for TASK-TRANSCRIBE-001 and future file-handling MCPs. |
 | P5-FUT-014 | P3 | Diarized transcription (speaker-labeled) | DONE | TASK-TRANSCRIBE-001 (built on TASK-WORKSPACE-001 foundation). Host-native `scripts/mlx-transcribe.py` (mlx-whisper + pyannote.audio on MPS) primary on Apple Silicon, port 8924. Docker `whisper_mcp.py` extended with same `transcribe_with_speakers` tool for cross-platform fallback. New `transcriptanalyst` persona in `auto-documents` workspace handles full flow: detects audio attachments, calls tool, formats output, chains to `create_word_document` for docx. Uses `portal_mcp.core.workspace` helpers for file resolution. HF_TOKEN required (gated pyannote models). |
-| P5-FUT-PARITY-001 | P2 | Source/verify GGUF for Foundation-Sec-8B + ToolACE-2.5, or formally accept substitutes | OPEN | MLX-only specialists lost in 3a0c58e. Foundation-Sec RESTORED to auto-blueteam production (TASK_PARITY_FOUNDATION_SEC_V1, first-party fdtn-ai Q8_0 GGUF, direct swap). ToolACE half remains open: granite4.1:8b retained by operator decision. See KNOWN_LIMITATIONS § Model Parity. |
-| P5-FUT-PARITY-002 | P3 | Scrub residual MLX-inference references in ~38 persona YAML bodies + bench docs | OPEN | Non-critical historical/suggested-model MLX mentions in config/personas/*.yaml and tests/*.md. Cosmetic; batch when next touching personas. |
+| P5-FUT-PARITY-001 | P2 | Source/verify GGUF for Foundation-Sec-8B + ToolACE-2.5, or formally accept substitutes | DONE | MLX-only specialists lost in 3a0c58e, both now dispositioned. Foundation-Sec RESTORED to auto-blueteam production (TASK_PARITY_FOUNDATION_SEC_V1, first-party fdtn-ai Q8_0 GGUF). ToolACE-2.5 EVALUATED AND DROPPED — granite4.1:8b accepted as the tools-specialist model (no verified ToolACE-2.5 GGUF; self-quant + Ollama tool-template risk not justified). Acceptance of the substitute was an allowed resolution per this item's title. See KNOWN_LIMITATIONS § Model Parity. |
+| P5-FUT-PARITY-002 | P3 | Scrub residual MLX-inference references in persona YAML comments | DONE | Done in TASK_PARITY_FOUNDATION_SEC_V1. Dead-proxy comment clauses (mlx_only, mlx_model_hint) removed/replaced with retirement notes across persona YAMLs; verified zero `mlx_only`/`mlx_model_hint` remain. Retained-audio/vision MLX comments (mlx_vlm/mlx_audio/voxtral/granite-speech/nemotron-omni/gemma vision) intentionally preserved — those runtimes are live (:8917/:8918/:8924/:8925). |
 
 ---
 
 ## Open Items
 
-### P5-FUT-SPEC: Speculative Decoding — Two Parallel Unblock Paths
+### Speculative Decoding / MTP — RETIRED (commit 3a0c58e)
 
-Infrastructure is built (draft models in `backends.yaml`, proxy logic in `mlx-proxy.py`) but disabled. `mlx_lm 0.31.2` changed the default cache to `ArraysCache` which is not trimmable — speculative decoding requires a trimmable cache to function.
-
-Two upstream paths are now visible to unblock; either is sufficient.
-
-**Path A — ml-explore/mlx-lm PR #990 (native MTP speculative decoding)**
-
-PR by AirRunner adds native Multi-Token Prediction speculative decoding using
-the built-in MTP heads in Qwen3.5 / Qwen3.6 checkpoints (`mtp_num_hidden_layers:
-1` in their config). The PR has been open since March 2026, has 8 unit tests
-passing, and the author reports production use on M2 Ultra 128GB with
-Qwen3.5-122B-A10B-VLM-MTP-5bit.
-
-When merged, this directly unlocks the bench-fleet MTP variants Portal 5 already
-catalogs (`hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF` at Q4_K_M / Q6_K / Q8_0).
-
-URL: https://github.com/ml-explore/mlx-lm/pull/990
-
-**Path B — bstnxbt/dflash-mlx (third-party block-diffusion spec-dec)**
-
-Lossless block-diffusion speculative decoding for MLX, Apache 2.0. Block
-diffusion draft generates 16 tokens in one pass; target verifies in one pass
-via greedy acceptance. Built on stock MLX with a small number of targeted
-Metal kernels for rollback and long-context verify. Author claims output
-lossless (every emitted token is the target model's greedy argmax at verify
-time).
-
-If PR #990 stalls, dflash-mlx is a viable independent path. Would be a Portal 5
-vendored dependency rather than an mlx-lm upstream feature.
-
-URL: https://github.com/bstnxbt/dflash-mlx
-
-**Re-enable steps (when either path matures)**
-
-1. Upgrade mlx-lm (Path A) or vendor dflash-mlx (Path B)
-2. Set `draft_models` map in `config/backends.yaml` under `speculative_decoding`
-3. Run `tests/bench_tps.py --workspace <target> --direct-mode` before and after to
-   measure speedup; promotion threshold ≥ 1.5×
-4. Update `KNOWN_LIMITATIONS.md` to remove the spec-dec ArraysCache note
-
-### P5-MTP-001: Multi-Token Prediction Proxy Support (MEDIUM priority)
-
-MTP speculative decoding (3.94× speedup verified at temp=0) requires passing `--draft-model` and `--draft-kind mtp` to `mlx_lm.server`. The proxy does not currently support this. Deprioritized because even with MTP, BF16 path (~12 TPS) is slower than 4-bit MoE alternatives (25–40 TPS). Create TASK_MTP_PROXY_V1.md to implement if this changes.
-
-**Update 2026-05-22:** PR #990 (native MTP in mlx-lm upstream) is the cleanest
-path forward — if merged, mlx-lm gains `--draft-kind mtp` natively, and the
-proxy work reduces to plumbing the flag through. Re-evaluate P5-MTP-001 priority
-when PR #990 status changes. Current draft model preferences (vocab parity with
-Qwen3 targets): `mlx-community/Qwen3-0.6B-4bit` or `mlx-community/Qwen3-1.7B-4bit`,
-already cataloged but inert until spec-dec re-enables.
-
-**Update 2026-05-28 (TASK_OMLX_REEVAL_V2):** oMLX v0.3.12 MTP probed via
-Path C (oMLX native MTP). Gate: 1.55×-1.65× PASS on M4 Pro 64 GB.
-Priority promoted from LOW to MEDIUM. Integration via oMLX side-car
-pending stability probe (TASK_OMLX_MTP_STABILITY_V1). If stable, oMLX
-serves as the MTP side-car on :8085 for long-output coding workspaces;
-mlx-proxy retains primary inference for all other workspaces.
-
-**Update 2026-05-28 (TASK_MODEL_REFRESH_V8):** BF16-slower premise superseded:
-4-bit-trunk + INT4-MTP-sidecar packaging (MTPLX) removes the BF16 cost, and
-the dense-27B no-MTP baseline (12.4 TPS measured) is exactly the case MTP
-rescues. V8 cataloged bench-only MTP candidates; promotion gated on A/B.
+The MLX-proxy speculative-decoding and MTP unblock paths described here were removed with the proxy. See the MOOT rows in the table above. Any future work targets Ollama's native path, not MLX.
 
 ### workspace-clean Utility (LOW priority)
 
