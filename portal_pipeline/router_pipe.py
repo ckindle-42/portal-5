@@ -2490,12 +2490,11 @@ async def _stream_with_tool_loop_impl(
 
                 async for line in resp.aiter_lines():
                     if not line:
-                        yield b"\n\n"
                         continue
-                    if not line.startswith(b"data: "):
-                        yield line + b"\n\n" if line else b"\n\n"
+                    if not line.startswith("data: "):
+                        yield (line + "\n\n").encode()
                         continue
-                    data_str = line[6:].strip().decode("utf-8", errors="replace")
+                    data_str = line[6:].strip()
                     if data_str == "[DONE]":
                         # Suppress hop-N [DONE] when more hops follow.
                         # Hop 2+ will emit their own [DONE] after the
@@ -2506,7 +2505,7 @@ async def _stream_with_tool_loop_impl(
                     try:
                         obj = json.loads(data_str)
                     except Exception:
-                        yield line + b"\n\n"
+                        yield (line + "\n\n").encode()
                         continue
 
                     choice = (obj.get("choices") or [{}])[0]
@@ -2589,7 +2588,7 @@ async def _stream_with_tool_loop_impl(
                                 yield f"data: {json.dumps(_new_obj)}\n\n".encode()
                                 continue
 
-                    yield line + b"\n\n"
+                    yield (line + "\n\n").encode()
         except Exception as e:
             logger.error("Tool-loop stream error from %s: %s", backend_url, e)
             _record_error(workspace_id, "stream_error")
@@ -2774,10 +2773,11 @@ async def _stream_from_backend_guarded(
       ``b'"error"' in chunk`` check.
 
     **Line-based fast-path checks** replace the old byte-chunk
-    scanning. Each line from ``aiter_lines()`` is checked with
-    fast substring ops (``b'"done"'``, ``b'"reasoning"'``).
-    Only successful matches pay the decode-parse cost. Steady-state
-    cost per line is a couple of substring checks.
+    scanning. Each line from ``aiter_lines()`` (which yields ``str``
+    per the httpx contract) is checked with fast substring ops
+    (``'"done"'``, ``'"reasoning"'``). Only successful matches pay
+    the decode-parse cost. Steady-state cost per line is a couple
+    of substring checks.
 
     Args:
         url: Backend chat URL.
@@ -2815,11 +2815,10 @@ async def _stream_from_backend_guarded(
                 return
             async for line in resp.aiter_lines():
                 if not line:
-                    yield b"\n\n"
                     continue
                 # Fast-path: detect "done" (usage payload or [DONE] marker)
-                if b'"done"' in line:
-                    if line.startswith(b"data:") and line != b"data: [DONE]":
+                if '"done"' in line:
+                    if line.startswith("data:") and line != "data: [DONE]":
                         payload = line[5:].strip()
                         if payload:
                             try:
@@ -2838,7 +2837,7 @@ async def _stream_from_backend_guarded(
                             except Exception:
                                 logger.debug("Could not parse usage payload from stream")
                 # OpenAI SSE: "data: [DONE]" terminator
-                if line.startswith(b"data: [DONE]"):
+                if line.startswith("data: [DONE]"):
                     elapsed = (time.monotonic() - start_time) if start_time is not None else None
                     _record_usage(
                         model=model,
@@ -2849,14 +2848,14 @@ async def _stream_from_backend_guarded(
 
                 # Reasoning-model deltas under Ollama /v1: keep the behaviour,
                 # fix the attribution — promote reasoning → content
-                if b'"reasoning"' in line and b'"content"' not in line:
+                if '"reasoning"' in line and '"content"' not in line:
                     try:
-                        if not line.startswith(b"data:") or line == b"data: [DONE]":
-                            yield line + b"\n\n"
+                        if not line.startswith("data:") or line == "data: [DONE]":
+                            yield (line + "\n\n").encode()
                             continue
                         payload = line[5:].strip()
                         if not payload:
-                            yield line + b"\n\n"
+                            yield (line + "\n\n").encode()
                             continue
                         obj = json.loads(payload)
                         for choice in obj.get("choices", []):
@@ -2871,11 +2870,11 @@ async def _stream_from_backend_guarded(
                                 delta.pop("reasoning", None)
                                 delta.pop("reasoning_content", None)
                                 delta.pop("thinking", None)
-                        line = f"data: {json.dumps(obj)}".encode()
+                        line = f"data: {json.dumps(obj)}"
                     except Exception:
                         pass  # Fall through to raw yield on parse failure
 
-                yield line + b"\n\n"
+                yield (line + "\n\n").encode()
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")
