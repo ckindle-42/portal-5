@@ -518,9 +518,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Benchmark: omnicoder2:9b-q4_k_m (Ollama, Qwen3.5-9B "
             "base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / "
             "Codex / Gemini 3.1 Pro). Apache 2.0, ~5.7GB. v2 fixes v1's repetition "
-            "loops + bloated thinking + agentic-loop instability. Ollama only — MLX "
-            "path deferred until mlx-community/OmniCoder-2-9B-* is published or "
-            "self-converted from safetensors."
+            "loops + bloated thinking + agentic-loop instability. Ollama-only "
+            "stack (MLX inference tier retired 3a0c58e); served as "
+            "omnicoder2:9b-q4_k_m."
         ),
         "model_hint": "omnicoder2:9b-q4_k_m",
         "max_concurrent": 1,

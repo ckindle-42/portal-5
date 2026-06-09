@@ -280,9 +280,6 @@ class BackendRegistry:
         * Dicts with ``id`` plus optional ``supports_tools`` etc. (new) —
           populate both ``Backend.models`` and ``Backend.ollama_metadata``.
 
-        MLX backends use the separate ``mlx_models:`` key, which is always the
-        dict-with-metadata format.
-
         Also builds ``_ws_group_cache`` (one dict-copy per workspace) so
         ``get_backend_candidates`` doesn't pay the lookup cost per request.
         """
@@ -580,15 +577,6 @@ class BackendRegistry:
         """Probe one backend; update ``backend.healthy`` and ``backend.last_check``.
 
         Standard path: HTTP 200 → healthy, anything else → unhealthy.
-
-        **MLX exception**: for ``backend.type == "mlx"``, the bar for "healthy"
-        is much lower — any non-network-error response counts, and even
-        network exceptions count. The MLX proxy on :8081 loads models on
-        demand and returns 503 with ``state: "none"`` when idle; it can also
-        stall during a 30-90s load of a 32B model. Treating those as
-        unhealthy would route every request elsewhere precisely when MLX is
-        in normal use. **Do not "tighten" this without changing the proxy's
-        idle-state response semantics.**
 
         Exceptions from the HTTP client are caught; this method never raises.
         The semaphore is held only for the duration of the network call.

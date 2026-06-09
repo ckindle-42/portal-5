@@ -2,7 +2,7 @@
 
 This is the single FastAPI app that serves ``/v1/models`` and
 ``/v1/chat/completions`` for Open WebUI. Every Open WebUI request flows
-through this file before reaching an Ollama or MLX backend.
+through this file before reaching an Ollama backend.
 
 The file is large (3,664 LOC) and organized in roughly six bands by line:
 
@@ -485,9 +485,10 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 def _model_supports_tools(model_id: str) -> bool:
     """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
 
-    Reads from both ``Backend.mlx_metadata`` and
-    ``Backend.ollama_metadata``. **Default for any model not in
-    either list is ``False``** — the fail-safe direction. Without
+    Reads from ``Backend.ollama_metadata`` (the MLX proxy tier and its
+    ``mlx_metadata`` field were retired in commit ``3a0c58e``).
+    **Default for any model not in the list is ``False``** — the
+    fail-safe direction. Without
     this default, the router would (and historically did) trust
     every Ollama model unconditionally, propagating the
     ``dolphin-llama3:8b`` tool-call defect to every workspace
@@ -514,9 +515,6 @@ def _model_supports_tools(model_id: str) -> bool:
     if registry is None or not model_id:
         return False
     for be in registry.list_backends():
-        for meta in be.mlx_metadata:
-            if meta.get("id") == model_id:
-                return bool(meta.get("supports_tools", False))
         for meta in be.ollama_metadata:
             if meta.get("id") == model_id:
                 return bool(meta.get("supports_tools", False))
@@ -526,8 +524,8 @@ def _model_supports_tools(model_id: str) -> bool:
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     """Add Ollama-specific tuning to the outgoing request body. Returns a copy.
 
-    Only called for backends with ``type == "ollama"``. MLX and vLLM
-    do not recognise these fields and would either error or silently
+    Only called for backends with ``type == "ollama"``. vLLM
+    does not recognise these fields and would either error or silently
     ignore them.
 
     Body is copied at function entry — the original is never
@@ -1027,7 +1025,7 @@ async def health() -> dict:
 async def health_all():
     """GET /health/all — aggregate diagnostic check across the full stack.
 
-    Probes the pipeline itself, the MLX proxy, Ollama, and 7 MCP
+    Probes the pipeline itself, Ollama, and 7 MCP
     servers in parallel with a per-probe 3s timeout. Returns a dict
     keyed by component name; each value is the component's own
     ``/health`` (or ``/api/tags`` for Ollama) JSON if 200, else a
@@ -1055,11 +1053,6 @@ async def health_all():
     checks: dict[str, dict] = {}
     checks["pipeline"] = {"status": "ok"}
     for name, url, path in [
-        (
-            "mlx_proxy",
-            os.environ.get("MLX_PROXY_URL", "http://host.docker.internal:8081"),
-            "/health",
-        ),
         (
             "ollama",
             os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
@@ -2969,7 +2962,7 @@ async def _stream_with_preamble(
 
     Args:
         url: Backend chat URL.
-        body: Already-injected request body (Ollama/MLX options
+        body: Already-injected request body (Ollama options
             applied at the call site).
         sem: Global ``_request_semaphore``. Released here.
         workspace_id, model: For logging and the
