@@ -86,8 +86,6 @@ ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 # Each entry: {test_id, name, section, workspace, intended, actual, matched, tier_mismatch}
 _ROUTING_LOG: list[dict] = []
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-MLX_PROXY_URL = os.environ.get("MLX_PROXY_URL", "http://localhost:8081")
-MLX_READINESS_FILE = os.environ.get("MLX_READINESS_FILE", "/tmp/portal5-mlx-readiness.json")
 
 # Sections that require all models unloaded before running for max memory headroom.
 SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
@@ -95,25 +93,19 @@ SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
 # Memory pressure thresholds
 MEMORY_WARN_PCT = 80.0  # Log warning
 MEMORY_CRITICAL_PCT = (
-    90.0  # Force eviction before next test (MLX admission control handles below this)
+    90.0  # Force eviction before next test
 )
 MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
 # Same-model eviction: even when the next test uses the same model, evict if
 # memory exceeds this after the previous test. KV cache from long inference
-# compounds into the next test's KV cache allocation and can cause mlx_vlm
-# SIGABRT at >90%. (Observed: gemma-4-26b at 82% post-P-V02 crashed at 92%
+# compounds into the next test's KV cache allocation.
+# (Observed: gemma-4-26b at 82% post-P-V02 crashed at 92%
 # during P-R06. Same model, no eviction, compounding KV cache = crash.)
 MEMORY_SAME_MODEL_EVICT_PCT = 78.0
-# Metal GPU buffer drain thresholds used by crash recovery
-METAL_SAFE_WIRED_GB = 20.0  # wired below this = model + Metal buffers released
-METAL_DRAIN_TIMEOUT_S = 90  # max seconds to poll after proxy restart before proceeding
 # After this many consecutive "DOM stable but API empty" cycles, assume OWUI 0.9.5+
 # is not going to commit the response via API (thinking-model commit delay) and let
 # the caller's DOM fallback extract the response directly from the page.
 DOM_STABLE_API_EMPTY_MAX = 3
-# If wired memory exceeds this GB after startup eviction fails, force a proxy restart
-# + drain before running mlx_large/mlx_small tests to prevent OOM crash cascades.
-MLX_WIRED_GATE_GB = 30.0
 
 # ---------------------------------------------------------------------------
 # Codebase freshness check
@@ -218,38 +210,6 @@ def _check_image_freshness() -> list[str]:
     if all_fresh:
         print("  [freshness] All images are current.", flush=True)
 
-    # ── MLX runtime version check ───────────────────────────────────────
-    proxy_deployed = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
-    proxy_repo = _REPO_ROOT / "scripts" / "mlx-proxy.py"
-    if proxy_deployed.exists() and proxy_repo.exists():
-        deployed_hash = proxy_deployed.stat().st_size
-        repo_hash = proxy_repo.stat().st_size
-        if deployed_hash != repo_hash:
-            print(
-                f"  [freshness] WARNING: mlx-proxy deployed ({deployed_hash}B) "
-                f"!= repo ({repo_hash}B) — run './launch.sh install-mlx'",
-                flush=True,
-            )
-            warnings.append("mlx-proxy")
-        else:
-            print("  [freshness]   mlx-proxy: deployed matches repo", flush=True)
-
-    try:
-        import mlx_lm
-
-        v = getattr(mlx_lm, "__version__", "?")
-        print(f"  [freshness]   mlx-lm {v}", flush=True)
-    except Exception:
-        pass
-
-    try:
-        import mlx_vlm
-
-        v = getattr(mlx_vlm, "__version__", "?")
-        print(f"  [freshness]   mlx-vlm {v}", flush=True)
-    except Exception:
-        pass
-
     return warnings
 
 
@@ -258,27 +218,8 @@ def _check_image_freshness() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _mlx_health() -> dict:
-    """Query MLX proxy /health. Returns {} if unreachable."""
-    try:
-        r = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-        return r.json()
-    except Exception:
-        return {}
-
-
 def _get_memory_pct() -> float:
-    """Get current memory used % from MLX proxy or system vm_stat."""
-    # Try MLX proxy first (has accurate GPU/unified memory stats)
-    try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-        mem = h.get("memory", {}).get("current", {})
-        used = mem.get("used_pct", 0.0)
-        if used > 0:
-            return used
-    except Exception:
-        pass
-    # Fallback: system vm_stat (page-level)
+    """Get current memory used % from system vm_stat."""
     try:
         import subprocess
 
@@ -314,8 +255,8 @@ def _wait_for_drain(
 ) -> bool:
     """Wait for memory to drop below threshold_pct after model eviction.
 
-    Polls proxy /health every poll_s seconds and breaks as soon as
-    memory.current.used_pct < threshold_pct. Does not use blind fixed sleeps —
+    Polls vm_stat every poll_s seconds and breaks as soon as
+    memory < threshold_pct. Does not use blind fixed sleeps —
     exits immediately when the condition is met. Hard timeout is the only timer.
 
     Returns True if memory cleared within timeout_s, False on timeout.
@@ -323,18 +264,12 @@ def _wait_for_drain(
     deadline = time.time() + timeout_s
     prefix = f"  [drain{' ' + label if label else ''}]"
     while time.time() < deadline:
-        try:
-            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-            mem = h.get("memory", {}).get("current", {})
-            used_pct = float(mem.get("used_pct", 100))
-            state = h.get("state", "unknown")
-            if used_pct < threshold_pct:
-                print(f"{prefix} Clear at {used_pct:.0f}% (state={state}) — safe to proceed", flush=True)
-                return True
-            remaining = int(deadline - time.time())
-            print(f"{prefix} {used_pct:.0f}% (state={state}, {remaining}s left)", flush=True)
-        except Exception:
-            pass
+        used_pct = _get_memory_pct()
+        if used_pct < threshold_pct:
+            print(f"{prefix} Clear at {used_pct:.0f}% — safe to proceed", flush=True)
+            return True
+        remaining = int(deadline - time.time())
+        print(f"{prefix} {used_pct:.0f}% ({remaining}s left)", flush=True)
         time.sleep(poll_s)
     return False
 
@@ -377,41 +312,6 @@ def _check_memory_before_test(test_name: str = "") -> bool:
     if used >= MEMORY_WARN_PCT:
         print(f"  [MEMORY] Warning: {used:.0f}% used", flush=True)
 
-    # Free memory guard — only enforce when overall memory pressure is high.
-    # The proxy keeps a warm model loaded (~3GB) so free_gb is typically
-    # low even under normal conditions. When used_pct is moderate (< CRITICAL),
-    # the warm model + inactive pages are recyclable on demand by the kernel.
-    # Only enforce the free-gb threshold when the system is genuinely tight.
-    # Guard: if proxy MemoryMonitor hasn't completed its first sample yet,
-    # both free_gb and inactive_gb will be 0.0 (not "truly zero" — just
-    # "no data"). Treat that as "unknown, proceed" to avoid false skips
-    # immediately after a proxy restart.
-    try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-        mem = h.get("memory", {}).get("current", {})
-        free_gb = float(mem.get("free_gb", 99))
-        inactive_gb = float(mem.get("inactive_gb", 0))
-        if free_gb == 0.0 and inactive_gb == 0.0:
-            free_gb = 99.0  # No monitor data yet — don't penalise
-        if free_gb < 4 and used >= MEMORY_CRITICAL_PCT:
-            print(
-                f"  [MEMORY] Low free memory: {free_gb:.1f}GB — evicting before {test_name}",
-                flush=True,
-            )
-            unload_all_models()
-            if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=60.0, label=test_name):
-                print(
-                    "  [MEMORY] Still low free memory after 60s drain — "
-                    "restarting proxy to reclaim inactive Metal pages",
-                    flush=True,
-                )
-                _restart_proxy_for_reclaim()
-                if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=30.0, label="post-restart"):
-                    print("  [MEMORY] Still tight after proxy restart — skipping", flush=True)
-                    return False
-    except Exception:
-        pass
-
     return True
 
 
@@ -419,36 +319,11 @@ def _check_for_oom_crash() -> str | None:
     """Check if any backend crashed due to OOM since last check.
 
     Detects:
-    1. MLX proxy unreachable (process died)
-    2. MLX server zombie (process stuck, /health dead)
-    3. Ollama unreachable
-    4. System memory above abort threshold
+    1. Ollama unreachable
+    2. System memory above abort threshold
 
     Returns crash description or None if healthy.
     """
-    # MLX proxy dead?
-    try:
-        h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-        if h.status_code == 503:
-            # MLX loads on demand — 503 means idle/loading, not crashed.
-            # Check if the proxy is actually responding with state info.
-            try:
-                state = h.json().get("state", "unknown")
-            except Exception:
-                state = "unknown"
-            if state == "unknown" and not h.text:
-                return "MLX proxy returned empty 503 (may be stuck)"
-            # Proxy is responding — it's alive, just idle or loading
-        elif h.status_code != 200:
-            return f"MLX proxy returned {h.status_code}"
-    except Exception:
-        return "MLX proxy unreachable (process may have crashed)"
-
-    # MLX zombie? (process exists but /health dead)
-    zombie = _kill_zombie_mlx()
-    if zombie:
-        return "MLX server zombie detected and killed"
-
     # Ollama dead?
     try:
         r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
@@ -467,99 +342,40 @@ def _check_for_oom_crash() -> str | None:
 
 def _backend_alive(tier: str) -> tuple[bool, str]:
     """Return (alive, detail) for the given workspace tier."""
-    if tier in ("mlx_large", "mlx_small"):
-        h = _mlx_health()
-        state = h.get("state", "unknown")
-        # "none" = proxy is up, no model loaded (on-demand loading is normal)
-        # "loading" = model switch in progress (30-90s for large models); treat
-        # as alive so wait_for_completion doesn't bail out mid-tool-loop.
-        # max_wait_no_progress caps the total wait if loading never completes.
-        return state in ("ready", "switching", "none", "loading"), f"mlx={state}"
-    if tier == "ollama":
+    if tier in ("ollama",):
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
             return r.status_code == 200, f"ollama={r.status_code}"
         except Exception:
             return False, "ollama_unreachable"
     if tier == "media_heavy":
-        # Both backends should be idle — media tools need clean GPU memory
-        h = _mlx_health()
-        mlx_state = h.get("state", "unknown")
-        mlx_ok = mlx_state in ("ready", "switching", "none")
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
             ollama_ok = r.status_code == 200
         except Exception:
             ollama_ok = False
-        return (mlx_ok and ollama_ok), f"mlx={mlx_state},ollama={'ok' if ollama_ok else 'down'}"
+        return ollama_ok, f"ollama={'ok' if ollama_ok else 'down'}"
     return True, "tier=any"
 
 
-def _kill_zombie_mlx() -> bool:
-    """Kill MLX server processes that are genuinely stuck — not ones still loading.
-
-    A real zombie: process running >ZOMBIE_MIN_AGE_SEC with /health still dead.
-    A process that just started and is loading a large model is NOT a zombie.
-    MLX on-demand loading means mlx_lm.server starts on request and takes
-    30-120s to load depending on model size. Killing during load is destructive.
-
-    Returns True if a zombie was found and SIGTERMed.
-    """
-    import os as _os
-    import subprocess
-
-    ZOMBIE_MIN_AGE_SEC = 300  # 5 minutes — loading a 70B model can take 2+ min
-
-    killed = False
-    for proc_name, port in [("mlx_lm.server", 18081), ("mlx_vlm.server", 18082)]:
-        try:
-            res = subprocess.run(["pgrep", "-f", proc_name], capture_output=True, text=True)
-            pids = [int(p) for p in res.stdout.strip().split() if p.isdigit()]
-            if not pids:
-                continue
-            for pid in pids:
-                # Check process age — don't kill anything younger than ZOMBIE_MIN_AGE_SEC
-                try:
-                    etimes = subprocess.run(
-                        ["ps", "-o", "etimes=", "-p", str(pid)],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    age_sec = int(etimes.stdout.strip()) if etimes.stdout.strip() else 0
-                except Exception:
-                    age_sec = 0
-
-                if age_sec < ZOMBIE_MIN_AGE_SEC:
-                    # Process is young — likely still loading, not a zombie
-                    continue
-
-                # Process is old AND /health is dead → genuine zombie
-                healthy = False
-                try:
-                    r = httpx.get(f"http://localhost:{port}/health", timeout=3)
-                    healthy = r.status_code == 200
-                except Exception:
-                    pass
-                if healthy:
-                    continue
-
-                # Confirmed zombie: old process, no health response
-                try:
-                    _os.kill(pid, 15)  # SIGTERM — lets Metal release GPU memory
-                    print(
-                        f"  [zombie] killed {proc_name} PID {pid} (age={age_sec}s, /health dead)",
-                        flush=True,
-                    )
-                    killed = True
-                except Exception:
-                    pass
-        except Exception:
-            continue
-
-    if killed:
-        time.sleep(8)  # Metal GPU memory reclaim needs a few seconds
-    return killed
+def _unload_running_ollama_models() -> None:
+    """Unload all running Ollama models via the Ollama API."""
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
+        if r.status_code != 200:
+            return
+        models = r.json().get("models", [])
+        for m in models:
+            name = m.get("name") or m.get("model", "")
+            if name:
+                print(f"  Unloading Ollama model: {name}", flush=True)
+                httpx.post(
+                    f"{OLLAMA_URL}/api/generate",
+                    json={"model": name, "keep_alive": 0},
+                    timeout=10,
+                )
+    except Exception as e:
+        print(f"  WARNING: Ollama unload failed: {e}", flush=True)
 
 
 async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
@@ -568,7 +384,7 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
     Returns True if the backend became ready, False if it stayed down.
     Emits progress lines every 20s so the operator can see what's happening.
     """
-    if tier not in ("mlx_large", "mlx_small", "ollama", "media_heavy"):
+    if tier not in ("ollama", "media_heavy"):
         return True
     t0 = time.time()
     last_log = 0.0
@@ -596,323 +412,10 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _read_mlx_readiness() -> dict | None:
-    """Read the shared MLX readiness state file written by mlx-readiness.py watcher.
-
-    Returns None if file is absent, unreadable, or older than 60 seconds (stale).
-    """
-    try:
-        import json as _json
-
-        with open(MLX_READINESS_FILE) as fh:
-            payload = _json.load(fh)
-        age = time.time() - payload.get("timestamp", 0)
-        if age > 60.0:
-            return None
-        return payload
-    except Exception:
-        return None
-
-
-def _wait_for_mlx_ready(
-    test_name: str = "",
-    expected_model: str | None = None,
-    workspace_id: str = "auto",
-    max_wait: int = 1200,
-) -> bool:
-    """Block until MLX proxy is stable-ready, optionally for a specific model.
-
-    Returns True when the proxy is stable-ready (and model matches if expected_model
-    is given). Returns False if max_wait is exceeded without the right model loaded —
-    callers can treat this as BLOCKED rather than silently proceeding with fallback.
-
-    Fast path: reads the state file written by mlx-readiness.py (background watcher).
-    Slow path: polls the proxy directly when no fresh state file is available.
-
-    Cold-loading a 26B MoE model takes 1-3 min; 70B can take 5+ min. The 1200s
-    (20 min) ceiling gives generous room without blocking indefinitely.
-    """
-    label = f"[{test_name}]" if test_name else ""
-    t0 = time.time()
-    pre_warmed = False
-    last_prewarm_t = 0.0
-    PRE_WARM_RETRY_S = 240  # retry pre-warm if state=none persists this long
-    # 240s gives mlx_large models (30-70B) enough cold-load time before we
-    # retry and potentially interrupt an in-progress load cycle.
-    fatal_count = 0
-    consecutive_ready = 0
-    STABLE_POLLS = 2  # consecutive ready observations before we trust it
-
-    def _elapsed() -> float:
-        return time.time() - t0
-
-    while _elapsed() < max_wait:
-        # --- fast path: read the shared readiness file ---
-        rdata = _read_mlx_readiness()
-        if rdata is not None:
-            state = rdata.get("state", "unknown")
-            model = rdata.get("loaded_model")
-            stable = rdata.get("stable", False)
-
-            if state == "ready" and stable:
-                model_ok = expected_model is None or (model and expected_model in model)
-                if model_ok:
-                    if _elapsed() > 1.0:
-                        print(
-                            f"  {label} MLX ready ({model}, {_elapsed():.0f}s, via readiness file)"
-                        )
-                    return True
-                # Ready but wrong model — kick proxy directly with the specific model
-                # to force a switch. Pipeline pre-warm won't help because the pipeline
-                # routes to whatever is already loaded (the wrong model).
-                if expected_model and (
-                    not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S
-                ):
-                    if pre_warmed:
-                        print(
-                            f"  {label} MLX still not switched after "
-                            f"{int(time.time() - last_prewarm_t)}s "
-                            f"(model={model}, expected={expected_model}) — retrying...",
-                            flush=True,
-                        )
-                    else:
-                        print(
-                            f"  {label} MLX loaded={model}, expected={expected_model} "
-                            f"— kicking proxy directly to load correct model...",
-                            flush=True,
-                        )
-                    pre_warmed = True
-                    last_prewarm_t = time.time()
-                    try:
-                        httpx.post(
-                            f"{MLX_PROXY_URL}/v1/chat/completions",
-                            json={
-                                "model": expected_model,
-                                "messages": [{"role": "user", "content": "hi"}],
-                                "max_tokens": 1,
-                                "stream": False,
-                            },
-                            timeout=360,
-                        )
-                    except Exception as e:
-                        print(f"  {label} direct model kick failed: {e}", flush=True)
-            elif state == "none":
-                # Retry pre-warm if: never sent, or sent >PRE_WARM_RETRY_S ago with no change.
-                # PRE_WARM_RETRY_S=240s gives 27-70B models time to cold-load without
-                # us interrupting the in-progress load cycle with a second request.
-                if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
-                    if pre_warmed:
-                        print(
-                            f"  {label} MLX still idle after {int(time.time() - last_prewarm_t)}s"
-                            " — retrying pre-warm...",
-                            flush=True,
-                        )
-                    else:
-                        print(
-                            f"  {label} MLX idle — sending pre-warm request to trigger cold-load...",
-                            flush=True,
-                        )
-                    pre_warmed = True
-                    last_prewarm_t = time.time()
-                    try:
-                        _pipeline_pre_warm(workspace_id)
-                    except Exception as e:
-                        print(f"  {label} pre-warm failed: {e}", flush=True)
-                    # Post-pre-warm check: if proxy still none 15s after pre-warm returned,
-                    # the pipeline likely fell back to Ollama. Kick the proxy directly
-                    # to guarantee MLX loads regardless of pipeline routing decisions.
-                    time.sleep(15)
-                    try:
-                        _check = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-                        _st = _check.get("state", "?")
-                        if _st == "none":
-                            print(
-                                f"  {label} [warn] Proxy still state=none 15s after pre-warm "
-                                "— pipeline routed to Ollama. Kicking proxy directly...",
-                                flush=True,
-                            )
-                            try:
-                                httpx.post(
-                                    f"{MLX_PROXY_URL}/v1/chat/completions",
-                                    json={
-                                        "model": expected_model or "auto",
-                                        "messages": [{"role": "user", "content": "hi"}],
-                                        "max_tokens": 1,
-                                        "stream": False,
-                                    },
-                                    timeout=360,
-                                )
-                            except Exception as _ke:
-                                print(
-                                    f"  {label} [warn] Direct proxy kick failed: {_ke}", flush=True
-                                )
-                        elif _st == "switching":
-                            print(
-                                f"  {label} Proxy entered switching state — model loading",
-                                flush=True,
-                            )
-                    except Exception:
-                        pass
-                    continue  # skip the sleep(10) below; just checked the state
-            elif state == "switching":
-                switch_elapsed = rdata.get("switch_elapsed") or 0
-                if int(switch_elapsed) % 30 < STABLE_POLLS:
-                    print(f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed")
-            elif state == "down":
-                fatal_count += 1
-                if fatal_count >= 3:
-                    print(f"  {label} MLX state=down after {fatal_count} checks — restarting proxy")
-                    _restart_proxy_for_reclaim()
-                    pre_warmed = False
-                    fatal_count = 0
-            time.sleep(10)
-            continue
-
-        # --- slow path: no watcher running, poll proxy directly ---
-        try:
-            resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-            if resp.status_code in (200, 503):
-                pdata = resp.json()
-                state = pdata.get("state", "?")
-                model = pdata.get("loaded_model")
-
-                if state == "ready" and model:
-                    model_ok = expected_model is None or expected_model in model
-                    if model_ok:
-                        consecutive_ready += 1
-                        if consecutive_ready >= STABLE_POLLS:
-                            if _elapsed() > 1.0:
-                                print(f"  {label} MLX ready ({model}, {_elapsed():.0f}s cold-load)")
-                            return True
-                    else:
-                        consecutive_ready = 0
-                        if expected_model and (
-                            not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S
-                        ):
-                            if pre_warmed:
-                                print(
-                                    f"  {label} MLX still not switched after "
-                                    f"{int(time.time() - last_prewarm_t)}s "
-                                    f"(model={model}, expected={expected_model}) — retrying...",
-                                    flush=True,
-                                )
-                            else:
-                                print(
-                                    f"  {label} MLX loaded={model}, expected={expected_model} "
-                                    f"— kicking proxy directly to load correct model...",
-                                    flush=True,
-                                )
-                            pre_warmed = True
-                            last_prewarm_t = time.time()
-                            try:
-                                httpx.post(
-                                    f"{MLX_PROXY_URL}/v1/chat/completions",
-                                    json={
-                                        "model": expected_model,
-                                        "messages": [{"role": "user", "content": "hi"}],
-                                        "max_tokens": 1,
-                                        "stream": False,
-                                    },
-                                    timeout=360,
-                                )
-                            except Exception as e:
-                                print(f"  {label} direct model kick failed: {e}", flush=True)
-                else:
-                    consecutive_ready = 0
-
-                if state == "none":
-                    if not pre_warmed or (time.time() - last_prewarm_t) > PRE_WARM_RETRY_S:
-                        if pre_warmed:
-                            print(
-                                f"  {label} MLX still idle after {int(time.time() - last_prewarm_t)}s"
-                                " — retrying pre-warm...",
-                                flush=True,
-                            )
-                        else:
-                            print(
-                                f"  {label} MLX idle — sending pre-warm request to trigger cold-load...",
-                                flush=True,
-                            )
-                        pre_warmed = True
-                        last_prewarm_t = time.time()
-                        try:
-                            _pipeline_pre_warm(workspace_id)
-                        except Exception as e:
-                            print(f"  {label} pre-warm failed: {e}", flush=True)
-                        # If pipeline fell back to Ollama, kick proxy directly
-                        time.sleep(10)
-                        try:
-                            _chk = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-                            if _chk.get("state") == "none":
-                                print(
-                                    f"  {label} [warn] Proxy still none after pipeline prewarm — kicking directly",
-                                    flush=True,
-                                )
-                                httpx.post(
-                                    f"{MLX_PROXY_URL}/v1/chat/completions",
-                                    json={
-                                        "model": expected_model or "auto",
-                                        "messages": [{"role": "user", "content": "hi"}],
-                                        "max_tokens": 1,
-                                        "stream": False,
-                                    },
-                                    timeout=360,
-                                )
-                        except Exception:
-                            pass
-                elif state == "switching":
-                    if int(_elapsed()) % 30 < 3:
-                        print(
-                            f"  {label} MLX switching (loading model) — {int(_elapsed())}s elapsed"
-                        )
-                elif state == "down":
-                    fatal_count += 1
-                    if fatal_count >= 3:
-                        print(
-                            f"  {label} MLX state=down after {fatal_count} checks — restarting proxy"
-                        )
-                        _restart_proxy_for_reclaim()
-                        pre_warmed = False
-                        fatal_count = 0
-
-        except Exception:
-            fatal_count += 1
-            if fatal_count >= 3:
-                print(f"  {label} MLX proxy unreachable ({fatal_count}x) — checking process...")
-                import subprocess
-
-                procs = subprocess.run(
-                    ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
-                )
-                if not procs.stdout.strip():
-                    print(f"  {label} MLX proxy process NOT running — attempting restart...")
-                    subprocess.run(
-                        ["nohup", "python3", os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    time.sleep(30)
-                fatal_count = 0
-
-        time.sleep(3)
-
-    # max_wait exceeded
-    try:
-        resp = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5)
-        pdata = resp.json() if resp.status_code in (200, 503) else {}
-        state = pdata.get("state", "unreachable")
-        model = pdata.get("loaded_model", "-")
-        print(f"  {label} MLX still not ready after {max_wait}s (state={state}, model={model})")
-    except Exception:
-        print(f"  {label} MLX proxy unreachable after {max_wait}s")
-    return False
-
-
 def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
-    """Send a minimal request through the pipeline to trigger MLX model cold-load.
+    """Send a minimal request through the pipeline to trigger model cold-load.
 
-    Uses the actual workspace_id for this test so the right model is pre-loaded,
-    not whatever model 'auto' would pick (which may differ and cause a second switch).
+    Uses the actual workspace_id for this test so the right model is pre-loaded.
     """
     pipeline_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
     pipeline_key = os.environ.get("PIPELINE_API_KEY", "")
@@ -929,23 +432,15 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
         pipeline_key = "portal-pipeline"
     import threading as _threading
 
-    # Print progress every 30s so the driver never looks frozen during cold-load.
-    # A 27B model takes 60-120s; 70B can take 3-5 min. Without this the log goes
-    # silent for minutes and looks like a hang.
     _prewarm_done = _threading.Event()
 
     def _prewarm_ticker() -> None:
         tick = 0
         while not _prewarm_done.wait(timeout=30):
             tick += 30
-            try:
-                h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=2).json()
-                state = h.get("state", "?")
-                model = h.get("loaded_model") or "none"
-            except Exception:
-                state, model = "?", "?"
+            mem = _get_memory_pct()
             print(
-                f"  [pre-warm] {tick}s elapsed — proxy state={state} model={model}",
+                f"  [pre-warm] {tick}s elapsed — mem={mem:.0f}%",
                 flush=True,
             )
 
@@ -953,10 +448,6 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
     ticker.start()
 
     try:
-        # Timeout must exceed cold-load + first-token time for the largest model.
-        # AEON 27B: 60-120s load + ~30s inference = ~150s worst case.
-        # Qwen3-32B: 90-150s load + ~40s = ~190s.
-        # 360s gives 2× headroom and prevents Ollama fallback mid-load.
         httpx.post(
             f"{pipeline_url}/v1/chat/completions",
             headers={
@@ -978,146 +469,15 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
 
 
 def unload_all_models() -> None:
-    """Unload all running models via the proxy's /unload endpoint.
+    """Unload all running Ollama models and release GPU memory.
 
-    The proxy owns Metal GPU memory management. We POST /unload?ollama=true
-    and trust it to handle: graceful SIGTERM of mlx_lm/mlx_vlm, wait for
-    Metal buffer release, evict Ollama models. The proxy returns measurements
-    we can verify before the next test runs.
-
-    Failures here mean the proxy itself is broken — the watchdog will
-    independently detect this (state=none + wired_gb high) and recover via
-    launchctl. We do NOT pkill the proxy from the driver — that races with
-    the watchdog's own recovery.
+    Evicts Ollama models via the Ollama API. macOS Metal wired pages are
+    released by the kernel once the process holding the MTLDevice exits.
+    We unload + sleep to allow the kernel to reclaim.
     """
-    print("  Requesting /unload from proxy ...", flush=True)
-    try:
-        resp = httpx.post(f"{MLX_PROXY_URL}/unload?ollama=true", timeout=120)
-        if resp.status_code == 200:
-            body = resp.json()
-            print(
-                f"  Unload OK: wired {body.get('wired_before_gb')}GB → "
-                f"{body.get('wired_after_gb')}GB "
-                f"(freed {body.get('wired_freed_gb')}GB), "
-                f"loaded_before={body.get('loaded_model_before')}, "
-                f"elapsed={body.get('elapsed_s')}s",
-                flush=True,
-            )
-        else:
-            print(
-                f"  WARNING: /unload returned {resp.status_code}: {resp.text[:200]}",
-                flush=True,
-            )
-    except httpx.RequestError as e:
-        # Proxy is unreachable — the watchdog will recover it independently.
-        # We log and proceed; the next test's backend health gate will catch
-        # the situation if recovery is still in progress.
-        print(
-            f"  WARNING: /unload request failed: {e}. "
-            "Watchdog will recover the proxy if it's down. Proceeding.",
-            flush=True,
-        )
-
-
-def _restart_proxy_for_reclaim() -> bool:
-    """Restart the MLX proxy to reclaim kernel-level inactive Metal pages.
-
-    /unload frees the loaded model but cannot touch inactive Metal buffers
-    left by prior server kills. Only a fresh proxy process forces the VM
-    pager to release stale Metal allocations. Uses SIGTERM (never SIGKILL)
-    and waits for the new proxy to become ready.
-
-    Sequence:
-      1. SIGTERM proxy via launchctl (if managed) or kill -TERM (fallback)
-      2. SIGTERM mlx_lm.server and mlx_vlm.server (separate calls — pkill -f
-         does not support | alternation on macOS without -E)
-      3. Start fresh proxy via launchctl start (if managed) or Popen (fallback)
-      4. Poll /health/wired until state=ready and free_gb > 0
-
-    Returns True if restart was successful and proxy is ready.
-    """
-    import subprocess
-    import sys
-
-    print("  [reclaim] Restarting proxy to reclaim inactive Metal pages ...", flush=True)
-
-    # 1. SIGTERM the proxy — try launchctl first, fall back to kill -TERM
-    launchd_managed = False
-    try:
-        result = subprocess.run(
-            ["launchctl", "list", "com.portal5.mlx-proxy"],
-            capture_output=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            launchd_managed = True
-            subprocess.run(
-                ["launchctl", "stop", "com.portal5.mlx-proxy"],
-                capture_output=True,
-                timeout=10,
-            )
-    except Exception:
-        pass
-
-    if not launchd_managed:
-        try:
-            result = subprocess.run(
-                ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True, timeout=5
-            )
-            proxy_pid = int(result.stdout.strip().split("\n")[0])
-            subprocess.run(["kill", "-TERM", str(proxy_pid)], timeout=10)
-        except Exception:
-            pass
+    print("  Unloading all Ollama models ...", flush=True)
+    _unload_running_ollama_models()
     time.sleep(5)
-
-    # 2. SIGTERM mlx servers (two separate calls — macOS pkill -f treats | literally)
-    for pattern in ("mlx_lm.server", "mlx_vlm.server"):
-        try:
-            subprocess.run(["pkill", "-TERM", "-f", pattern], capture_output=True, timeout=5)
-        except Exception:
-            pass
-    time.sleep(5)
-
-    # 3. Start fresh proxy (new process → VM pager releases inactive Metal pages)
-    try:
-        if launchd_managed:
-            subprocess.run(
-                ["launchctl", "start", "com.portal5.mlx-proxy"],
-                capture_output=True,
-                timeout=10,
-            )
-        else:
-            proxy_path = os.path.expanduser("~/.portal5/mlx/mlx-proxy.py")
-            log_path = os.path.expanduser("~/.portal5/logs/mlx-proxy.log")
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, "a") as _lf:
-                subprocess.Popen(
-                    [sys.executable, proxy_path],
-                    stdout=_lf,
-                    stderr=subprocess.STDOUT,
-                )
-    except Exception as e:
-        print(f"  [reclaim] Failed to start proxy: {e}", flush=True)
-        return False
-
-    # 4. Poll /health/wired until proxy reports ready with real memory data
-    for _ in range(18):  # 90s max (18 × 5s)
-        time.sleep(5)
-        try:
-            w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-            free = w.get("free_gb", 0)
-            inactive = w.get("inactive_gb", 0)
-            state = w.get("state", "")
-            if state in ("none", "ready") and free > 0:
-                print(
-                    f"  [reclaim] proxy up (state={state}) free={free:.1f}GB inactive={inactive:.1f}GB",
-                    flush=True,
-                )
-                return True
-        except Exception:
-            pass
-    print("  [reclaim] Proxy restart timed out", flush=True)
-    return False
 
 
 def _comfyui_running() -> bool:
@@ -1174,25 +534,11 @@ def _stop_comfyui() -> None:
 
 
 def cleanup_after_uat() -> None:
-    """Full cleanup after all UAT tests complete — prevents OOM post-run.
-
-    After /unload, restarts the proxy to reclaim kernel-level inactive Metal
-    pages that accumulate from model switch SIGTERMs during the run.
-    """
+    """Full cleanup after all UAT tests complete — prevents OOM post-run."""
     print("\n  Post-UAT cleanup: evicting all models ...", end=" ", flush=True)
     unload_all_models()
-    # Check memory state and reclaim inactive if needed
-    try:
-        w = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-        free = w.get("free_gb", 0)
-        inactive = w.get("inactive_gb", 0)
-        if free < 8 and inactive > 10:
-            print(f"({free:.0f}GB free, {inactive:.0f}GB inactive — reclaiming)", flush=True)
-            _restart_proxy_for_reclaim()
-        else:
-            print(f"ok (free={free:.0f}GB, inactive={inactive:.0f}GB)", flush=True)
-    except Exception:
-        print("ok (proxy unreachable)")
+    used = _get_memory_pct()
+    print(f"ok (mem={used:.0f}%)", flush=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1657,17 +1003,9 @@ def _check_routed_model(test: dict, routed_model: str) -> tuple[bool, str] | Non
     explicit = test.get("assert_routed_via")
     slug = test.get("model_slug", "")
 
-    mlx_state = "ready"
-    try:
-        r = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-        mlx_state = r.json().get("state", "ready") if r.status_code in (200, 503) else "ready"
-    except Exception:
-        pass
-
     keys, src = resolve_expected(
         workspace_id=slug,
         persona_slug=slug,
-        mlx_state=mlx_state,
     )
     if not keys:
         return None
@@ -1762,7 +1100,7 @@ async def _wait_for_backend_alive(tier: str, max_wait: float = BACKEND_SETTLE_WA
     (zombie cleanup, manual settle). Returns True if backend recovered,
     False on timeout. Polls at 0.5s for the first 5s, then 1s.
     """
-    if tier not in ("mlx_large", "mlx_small", "ollama"):
+    if tier not in ("ollama",):
         await asyncio.sleep(min(2.0, max_wait))
         return True
     deadline = time.monotonic() + max_wait
@@ -1905,7 +1243,7 @@ async def _wait_for_completion(
         if now - last_backend_check < 5.0:
             return False
         last_backend_check = now
-        if tier not in ("mlx_large", "mlx_small", "ollama"):
+        if tier not in ("ollama",):
             return False
         alive, detail = _backend_alive(tier)
         if not alive:
@@ -1947,8 +1285,8 @@ async def _wait_for_completion(
             break
         # Backend crash check — don't burn 900s on a dead model
         if _check_backend_crash():
-            # Restart proxy to reclaim Metal inactive pages before the next test
-            _restart_proxy_for_reclaim()
+            _unload_running_ollama_models()
+            time.sleep(5)
             return
         # Hard safety cap
         if elapsed > max_wait_no_progress:
@@ -2061,8 +1399,8 @@ async def _wait_for_completion(
 
         # Backend crash check — rate-limited inside _check_backend_crash
         if _check_backend_crash():
-            # Restart proxy to reclaim Metal inactive pages before the next test
-            _restart_proxy_for_reclaim()
+            _unload_running_ollama_models()
+            time.sleep(5)
             return
 
         # Safety cap
@@ -2899,11 +2237,10 @@ def _write_routing_summary() -> None:
     wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r.get("tier_mismatch") and r["actual"]]
     no_actual = [r for r in _ROUTING_LOG if not r["actual"]]
 
-    # Pipeline backend breakdown: among correctly-matched tests that had an MLX-intended
-    # workspace, how many actually ran on MLX vs fell through to Ollama?
-    mlx_intended_correct = [r for r in correct if r.get("intended_mlx") and r.get("pipeline_backend")]
-    confirmed_mlx = [r for r in mlx_intended_correct if r.get("pipeline_is_mlx") is True]
-    silent_ollama = [r for r in mlx_intended_correct if r.get("pipeline_is_mlx") is False]
+    # Pipeline backend breakdown: among correctly-matched tests that had an ollama-intended
+    # workspace, how many confirmed correct routing.
+    ollama_intended_correct = [r for r in correct if r.get("intended_ollama") and r.get("pipeline_backend")]
+    confirmed_ollama = [r for r in ollama_intended_correct if r.get("pipeline_backend")]
 
     lines: list[str] = [
         "",
@@ -2912,34 +2249,33 @@ def _write_routing_summary() -> None:
         "| Metric | Count |",
         "|--------|-------|",
         f"| Routing checked | {len(_ROUTING_LOG)} |",
-        f"| ✅ Correct | {len(correct)} |",
-        f"| ⚠️ MLX→Ollama fallback (routing mismatch) | {len(tier_fallbacks)} |",
-        f"| ⚠️ Wrong model (same tier) | {len(wrong_model)} |",
-        f"| ℹ️ No actual model returned | {len(no_actual)} |",
+        f"| Correct | {len(correct)} |",
+        f"| Routing mismatch (wrong model) | {len(tier_fallbacks)} |",
+        f"| Wrong model (same tier) | {len(wrong_model)} |",
+        f"| No actual model returned | {len(no_actual)} |",
         "",
     ]
 
-    if mlx_intended_correct:
+    if ollama_intended_correct:
         lines += [
-            "### Pipeline Backend (MLX primary vs Ollama, pipeline-confirmed)",
+            "### Pipeline Backend (Ollama primary, pipeline-confirmed)",
             "",
             "Tests that matched expected routing — breakdown of which backend *actually* served:",
             "",
             "| Metric | Count |",
             "|--------|-------|",
-            f"| 🔵 MLX primary confirmed | {len(confirmed_mlx)} |",
-            f"| 🟡 Fell to Ollama (test PASS, MLX not serving) | {len(silent_ollama)} |",
-            f"| ℹ️ Backend unconfirmed (log gap) | {len(mlx_intended_correct) - len(confirmed_mlx) - len(silent_ollama)} |",
+            f"| Ollama primary confirmed | {len(confirmed_ollama)} |",
+            f"| Backend unconfirmed (log gap) | {len(ollama_intended_correct) - len(confirmed_ollama)} |",
             "",
         ]
-        if silent_ollama:
+        if confirmed_ollama:
             lines += [
-                "**Silent Ollama fallbacks** — these tests passed but the intended MLX model was not loaded:",
+                "**Ollama-served** — these tests passed with backend confirmed:",
                 "",
                 "| Test ID | Name | Section | Pipeline Backend |",
                 "|---------|------|---------|-----------------|",
             ]
-            for r in silent_ollama:
+            for r in confirmed_ollama:
                 backend = r.get("pipeline_backend", "?")
                 lines.append(
                     f"| {r['test_id']} | {r['name'][:40]} | {r['section']} | `{backend}` |"
@@ -3134,30 +2470,14 @@ async def _run_via_dispatcher(workspace: str, prompt: str, timeout: int) -> str:
 # ---------------------------------------------------------------------------
 
 SETTLING: dict[tuple, int] = {
-    ("mlx_large", "mlx_large"): 10,
-    ("mlx_large", "mlx_small"): 30,
-    ("mlx_large", "ollama"): 60,  # guide requires hard 60s wait after 80B MoE
-    ("mlx_large", "any"): 15,
-    ("mlx_small", "mlx_large"): 30,
-    ("mlx_small", "mlx_small"): 10,
-    ("mlx_small", "ollama"): 20,
-    ("mlx_small", "any"): 10,
-    ("ollama", "mlx_large"): 30,
-    ("ollama", "mlx_small"): 20,
     ("ollama", "ollama"): 10,
     ("ollama", "any"): 10,
-    ("any", "mlx_large"): 15,
-    ("any", "mlx_small"): 10,
+    ("ollama", "media_heavy"): 30,
     ("any", "ollama"): 10,
     ("any", "any"): 5,
     ("any", "media_heavy"): 30,
     ("media_heavy", "media_heavy"): 30,
     ("media_heavy", "any"): 15,
-    ("mlx_large", "media_heavy"): 30,
-    ("mlx_small", "media_heavy"): 30,
-    ("ollama", "media_heavy"): 30,
-    ("media_heavy", "mlx_large"): 30,
-    ("media_heavy", "mlx_small"): 30,
     ("media_heavy", "ollama"): 30,
 }
 
@@ -3194,8 +2514,6 @@ class MemoryMonitor:
             "checks": 0,
             "warnings": 0,
             "force_evictions": 0,
-            "zombie_kills": 0,
-            "mlx_crashes": 0,
             "ollama_crashes": 0,
             "recovery_attempts": 0,
             "recovery_failures": 0,
@@ -3223,8 +2541,6 @@ class MemoryMonitor:
         print(
             f"  [monitor] Stopped — {self.stats['checks']} checks, "
             f"{self.stats['force_evictions']} evictions, "
-            f"{self.stats['zombie_kills']} zombies killed, "
-            f"{self.stats['mlx_crashes']} MLX crashes, "
             f"{self.stats['ollama_crashes']} Ollama crashes"
         )
 
@@ -3274,47 +2590,7 @@ class MemoryMonitor:
             self.stats["warnings"] += 1
             self._log(f"Memory warning: {used:.0f}%")
 
-        # ── 2. MLX proxy health ──
-        try:
-            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3)
-            if h.status_code == 200:
-                health = h.json()
-                state = health.get("state", "")
-                # Check for zombie: state stuck in switching for > 5 min
-                duration = health.get("state_duration_sec", 0)
-                if state == "switching" and duration > 300:
-                    self._log(f"MLX stuck in 'switching' for {duration:.0f}s — killing zombies")
-                    self.stats["zombie_kills"] += 1
-                    _kill_zombie_mlx()
-            elif h.status_code == 503:
-                # MLX loads on demand — 503 means idle/loading, not crashed
-                health = h.json()
-                state = health.get("state", "unknown")
-                if state == "switching":
-                    duration = health.get("state_duration_sec", 0)
-                    if duration > 300:
-                        self._log(f"MLX stuck loading for {duration:.0f}s — may need intervention")
-                        self.stats["mlx_crashes"] += 1
-                    # else: normal model loading, not a crash
-                # state "none" = idle, perfectly healthy for on-demand loading
-            else:
-                self.stats["mlx_crashes"] += 1
-                self._log(f"MLX proxy unhealthy: HTTP {h.status_code}")
-        except Exception:
-            # Connection failure — check if it's a timeout (proxy busy loading) vs truly dead
-            try:
-                h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=10)
-                state = (
-                    h2.json().get("state", "unknown")
-                    if h2.status_code in (200, 503)
-                    else f"http_{h2.status_code}"
-                )
-                self._log(f"MLX slow response (state={state}) — proxy alive, likely loading")
-            except Exception:
-                self.stats["mlx_crashes"] += 1
-                self._log("MLX proxy unreachable — no response after 13s total")
-
-        # ── 3. Ollama health ──
+        # ── 2. Ollama health ──
         try:
             r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
             if r.status_code != 200:
@@ -3324,53 +2600,28 @@ class MemoryMonitor:
             self.stats["ollama_crashes"] += 1
             self._log("Ollama unreachable — may have crashed")
 
-        # ── 4. Check for MLX server zombies ──
-        if _kill_zombie_mlx():
-            self.stats["zombie_kills"] += 1
-            self._log("Killed MLX server zombie")
-            await asyncio.sleep(8)  # Metal memory reclaim
-
     async def _emergency_evict(self) -> None:
         """Aggressive eviction when memory is critically high."""
         self.stats["recovery_attempts"] += 1
-        # Kill zombies first (they hold GPU memory even when stuck)
-        if _kill_zombie_mlx():
-            self.stats["zombie_kills"] += 1
-            await asyncio.sleep(8)
-        # Evict everything
-        # unload_all_models() already POSTs /unload?ollama=true which triggers
-        # the proxy's stop_all + _wait_for_gpu_memory_reclaim cycle. No need
-        # for sudo purge — proper graceful eviction releases Metal buffers
-        # without OS-level intervention. If wired memory remains high, the
-        # watchdog's wired-leak detector will escalate to launchctl kickstart.
         unload_all_models()
-        await asyncio.sleep(15)  # let watchdog observe state and act if needed
+        await asyncio.sleep(15)
 
 
 # ---------------------------------------------------------------------------
-# Crash watcher — detects mlx_lm/mlx_vlm crashes via macOS DiagnosticReports
+# Crash watcher — detects Ollama crashes via macOS DiagnosticReports
 # ---------------------------------------------------------------------------
 
 _DIAG_DIR = Path.home() / "Library/Logs/DiagnosticReports"
 
 
 class CrashWatcher:
-    """Background thread that watches DiagnosticReports for mlx-proxy coalition crashes.
+    """Background thread that watches DiagnosticReports for Ollama-related crashes.
 
-    When a new .ips or .crash file appears whose content references the
-    com.portal5.mlx-proxy coalition (i.e. mlx_lm.server or mlx_vlm.server
-    died), the watcher sets crash_pending=True and logs a [CRASH DETECTED]
-    line immediately — before the next test starts.
+    When a new .ips or .crash file appears whose content references Ollama,
+    the watcher logs a [CRASH DETECTED] line immediately.
 
-    The main test loop calls wait_for_recovery() when crash_pending is True.
-    That function:
-      1. POSTs /unload to evict whatever is still allocated
-      2. Polls wired memory every 10 s until wired < METAL_SAFE_WIRED_GB
-      3. After 120 s with no drain, restarts the proxy to force Metal reclaim
-      4. Clears crash_pending when the system is safe again
-
-    This ensures testing never attempts a model load into a Metal-starved
-    system, which would crash again immediately and make things worse.
+    The main test loop calls wait_for_recovery() when crash_pending is True,
+    which unloads all models and waits for memory to drain.
     """
 
     POLL_INTERVAL_S = 15
@@ -3388,7 +2639,7 @@ class CrashWatcher:
         self._thread = threading.Thread(target=self._loop, daemon=True, name="crash-watcher")
         self._thread.start()
         print(
-            "  [crash-watcher] Started — watching DiagnosticReports for mlx-proxy crashes",
+            "  [crash-watcher] Started — watching DiagnosticReports for crashes",
             flush=True,
         )
 
@@ -3416,130 +2667,35 @@ class CrashWatcher:
             content = f.read_text(errors="replace")
         except Exception:
             return
-        # Header is the first line — a small JSON object
         proc = f.name
         try:
             header = _json.loads(content.split("\n", 1)[0])
             proc = header.get("app_name", proc)
         except Exception:
             pass
-        # Coalition name lives in the body (first 3 KB is always enough)
-        is_mlx = any(
-            tok in content[:3000]
-            for tok in ("com.portal5.mlx-proxy", "mlx_lm.server", "mlx_vlm.server", "mlx-proxy.py")
-        )
-        try:
-            mem_pct = _get_memory_pct()
-            hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=2).json()
-            wired = hw.get("wired_gb", "?")
-            free = hw.get("free_gb", "?")
-        except Exception:
-            mem_pct, wired, free = 0.0, "?", "?"
+        mem_pct = _get_memory_pct()
 
-        tag = " [MLX INFERENCE CRASH]" if is_mlx else ""
         msg = (
-            f"  [CRASH DETECTED]{tag} proc={proc} file={f.name} "
-            f"mem={mem_pct:.0f}% wired={wired}GB free={free}GB"
+            f"  [CRASH DETECTED] proc={proc} file={f.name} "
+            f"mem={mem_pct:.0f}%"
         )
         print(msg, flush=True)
         self.crash_log.append(msg)
-        if is_mlx:
-            self.crash_pending = True
+        self.crash_pending = True
 
     def wait_for_recovery(self, label: str = "") -> None:
-        """Block until Metal buffers have drained and the proxy is idle-ready.
+        """Block until memory has drained after a crash.
 
-        Called by the test loop when crash_pending is True.  Does not return
+        Called by the test loop when crash_pending is True. Does not return
         until it is safe to load the next model.
-
-        Recovery strategy — DO NOT restart the proxy immediately:
-          Restarting the proxy can trigger auto-load of the previous model
-          into a Metal-starved heap, causing an immediate re-crash that makes
-          things worse.  Instead:
-
-          1. POST /unload — tells the proxy to stop managing mlx servers and
-             set state=none.  Proxy auto-restart of crashed children stops.
-          2. pkill -9 any lingering mlx_lm/mlx_vlm processes — ensures the
-             crashed process's Metal device handle is fully released.
-          3. Poll wired memory every 10s until wired < METAL_SAFE_WIRED_GB.
-             Metal pages are released by macOS once the process holding the
-             MTLDevice is fully gone (~30-60s after kill).
-          4. Only if wired hasn't drained after 60s, fall back to a full
-             proxy restart — accepted risk at that point since passive drain
-             has already failed.
-
-        sudo purge does NOT help — Metal GPU allocations are not file-backed
-        VM pages and are not reclaimed by the purge mechanism.
         """
-        import subprocess
-
         tag = f"[{label}] " if label else ""
         print(
-            f"  {tag}[recovery] MLX crash — stopping mlx servers, waiting for Metal to drain...",
+            f"  {tag}[recovery] Ollama crash — unloading models, waiting for memory to drain...",
             flush=True,
         )
-
-        # 1. /unload tells proxy to stop auto-restarting crashed mlx servers
-        try:
-            httpx.post(f"{MLX_PROXY_URL}/unload?ollama=false", timeout=30)
-        except Exception:
-            pass
-
-        # 2. Hard-kill any lingering mlx server processes (SIGTERM may not
-        #    have worked if the process is stuck in a kernel Metal call)
-        for pattern in ("mlx_lm.server", "mlx_vlm.server"):
-            try:
-                result = subprocess.run(
-                    ["pkill", "-9", "-f", pattern], capture_output=True, timeout=5
-                )
-                if result.returncode == 0:
-                    print(f"  {tag}[recovery] killed lingering {pattern}", flush=True)
-            except Exception:
-                pass
-
-        # 3. Poll until Metal drains — no proxy restart yet
-        t0 = time.time()
-        restart_attempted = False
-        while True:
-            elapsed = time.time() - t0
-            try:
-                hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-                wired_gb = float(hw.get("wired_gb", 99))
-                free_gb = float(hw.get("free_gb", 0))
-                mem_pct = _get_memory_pct()
-                print(
-                    f"  {tag}[recovery] wired={wired_gb:.1f}GB free={free_gb:.1f}GB "
-                    f"mem={mem_pct:.0f}% ({elapsed:.0f}s)",
-                    flush=True,
-                )
-                if wired_gb < METAL_SAFE_WIRED_GB or mem_pct < 55:
-                    print(f"  {tag}[recovery] Metal drained — system clear", flush=True)
-                    break
-            except Exception:
-                pass
-
-            # 4. Fallback: if Metal still hasn't drained after 60s, restart
-            #    the proxy as a last resort (accepts auto-load risk at this point
-            #    since passive drain clearly isn't working)
-            if not restart_attempted and elapsed >= 60:
-                print(
-                    f"  {tag}[recovery] Metal not draining after 60s — restarting proxy as last resort",
-                    flush=True,
-                )
-                _restart_proxy_for_reclaim()
-                restart_attempted = True
-
-            if elapsed >= METAL_DRAIN_TIMEOUT_S:
-                mem_pct = _get_memory_pct()
-                print(
-                    f"  {tag}[recovery] timeout ({METAL_DRAIN_TIMEOUT_S}s) — "
-                    f"proceeding at mem={mem_pct:.0f}%",
-                    flush=True,
-                )
-                break
-
-            time.sleep(10)
-
+        unload_all_models()
+        _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label="crash-recovery")
         self.crash_pending = False
         print(f"  {tag}[recovery] Complete — resuming testing", flush=True)
 
@@ -3552,16 +2708,16 @@ _crash_watcher = CrashWatcher()
 # Model cascade ordering
 # ---------------------------------------------------------------------------
 
-# Tier execution order: biggest first, then smaller, then non-MLX
-_TIER_ORDER = ["mlx_large", "mlx_small", "ollama", "any", "media_heavy"]
+# Tier execution order: ollama first, then any, then media_heavy
+_TIER_ORDER = ["ollama", "any", "media_heavy"]
 
 
 def sort_tests_cascade(tests: list[dict]) -> list[dict]:
     """Reorder tests for model-cascade execution.
 
     Order:
-    1. By workspace_tier: mlx_large → mlx_small → ollama → any
-       (biggest models first, so the hardest loads are done early and memory
+    1. By workspace_tier: ollama → any
+       (ollama tests first, so the hardest loads are done early and memory
        is cleanest at the start)
     2. Within each tier, by model_slug: groups tests using the same persona
        together, minimizing model switches within the pipeline
@@ -3570,7 +2726,7 @@ def sort_tests_cascade(tests: list[dict]) -> list[dict]:
     This replaces section-based ordering. Instead of:
       all auto-coding tests → all auto-spl tests → ...
     We do:
-      all mlx_large tests (grouped by model) → all mlx_small tests → ...
+      all ollama tests (grouped by model) → all any tests → ...
 
     Benefits:
     - Models loaded once per tier transition, not per section
@@ -3617,7 +2773,7 @@ async def _run_two_chat_test(
     tier = test.get("workspace_tier", "any")
 
     # Backend health
-    if tier in ("mlx_large", "mlx_small", "ollama"):
+    if tier in ("ollama",):
         backend_ready = await _wait_for_backend(tier, max_wait=120)
         if not backend_ready:
             chat_id, chat_url = owui_create_chat(token, model, f"[FAIL] UAT: {test_id} {name}")
@@ -3673,14 +2829,9 @@ async def _run_two_chat_test(
     try:
         max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
 
-        # Ensure MLX model is loaded before sending — two-chat flow skips
-        # the main runner's per-test _wait_for_mlx_ready call.
-        if tier in ("mlx_large", "mlx_small"):
-            _wait_for_mlx_ready(test_id)
-        elif tier == "ollama":
-            # Evict any loaded MLX model so the pipeline falls through to Ollama.
-            # Without this, auto-daily routes to Gemma via MLX even for ollama-tier
-            # two-chat tests, and Gemma doesn't emit proper tool_calls JSON.
+        # Ensure Ollama model is loaded before sending — two-chat flow skips
+        # the main runner's pre-flight check.
+        if tier in ("ollama",):
             unload_all_models()
 
         # Pre-seed memory via direct MCP API. Decouples test reliability from
@@ -4015,12 +3166,10 @@ async def run_test(
 
     tier = test.get("workspace_tier", "any")
 
-    # Pre-test backend health gate — wait up to 120s for MLX/Ollama to be ready.
-    # If still down, attempt zombie cleanup before giving up.
-    if tier in ("mlx_large", "mlx_small", "ollama"):
+    # Pre-test backend health gate — wait up to 120s for Ollama to be ready.
+    if tier in ("ollama",):
         backend_ready = await _wait_for_backend(tier, max_wait=120)
         if not backend_ready:
-            _kill_zombie_mlx()
             backend_ready = await _wait_for_backend(tier, max_wait=60)
         if not backend_ready:
             _, detail = _backend_alive(tier)
@@ -4144,12 +3293,10 @@ async def run_test(
                 break
             # Long-tail wait: DOM stable may have fired while reasoning model was
             # still generating (collapsed <details> block makes innerText appear
-            # stable). Continue polling the API — mlx_large reasoning models can
-            # take 5-7 minutes (AEON at 7.9 t/s needs ~380s for 3000 thinking tokens
-            # + content); media_heavy (video/image gen) needs 240s for cold
-            # HunyuanVideo runs (9f×2steps takes 200s cold-start + 20s overhead +
-            # 5s model response + 5s OWUI persist = ~230s); others bounded to ~90s.
-            _poll_cap_s = 450 if tier == "mlx_large" else (240 if tier == "media_heavy" else 90)
+            # stable). Continue polling the API — large GGUF models (30-70B) can
+            # take 5-7 minutes for reasoning; media_heavy (video/image gen) needs 240s for cold
+            # HunyuanVideo runs; others bounded to ~90s.
+            _poll_cap_s = 450 if tier == "ollama" else (240 if tier == "media_heavy" else 90)
             _poll_deadline = time.monotonic() + _poll_cap_s
             while time.monotonic() < _poll_deadline:
                 await asyncio.sleep(5)
@@ -4169,17 +3316,8 @@ async def run_test(
                 flush=True,
             )
             if attempt < 2:
-                # Check for zombie before retrying — a crashed MLX leaves no response
-                if tier in ("mlx_large", "mlx_small"):
-                    zombie_killed = _kill_zombie_mlx()
-                    if zombie_killed:
-                        print(
-                            f"  [{test_id}] zombie cleared, waiting for backend recovery…",
-                            flush=True,
-                        )
-                        await _wait_for_backend(tier, max_wait=90)
-                else:
-                    await _wait_for_backend_alive(tier)
+                # Check backend health before retrying
+                await _wait_for_backend_alive(tier)
                 # Re-navigate to the chat URL before retrying. OWUI calls
                 # get_all_models() on page load — this clears any stale model
                 # availability cache from the tier-transition eviction period,
@@ -4290,10 +3428,9 @@ async def run_test(
             import sys as _sys
             from pathlib import Path as _Path
             _sys.path.insert(0, str(_Path(__file__).parent))
-            from expected_models import is_mlx_model as _is_mlx
+            from expected_models import model_matches_expected
             intended_keys = route_detail  # contains expected key info
-            actual_mlx = _is_mlx(routed_model)
-            intended_mlx = test.get("workspace_tier", "") in ("mlx_small", "mlx_large") \
+            intended_ollama = test.get("workspace_tier", "") == "ollama" \
                 or test.get("mlx_model") is not None
             _ROUTING_LOG.append({
                 "test_id": test_id,
@@ -4303,10 +3440,9 @@ async def run_test(
                 "intended": test.get("mlx_model") or test.get("model_slug", ""),
                 "actual": routed_model,
                 "matched": matched,
-                "tier_mismatch": intended_mlx and not actual_mlx and not matched,
+                "tier_mismatch": intended_ollama and not matched,
                 "pipeline_backend": pipeline_backend,
-                "pipeline_is_mlx": pipeline_is_mlx,
-                "intended_mlx": intended_mlx,
+                "intended_ollama": intended_ollama,
             })
         except Exception:
             pass
@@ -4833,7 +3969,7 @@ async def main() -> None:
 
     # --rerun-failed: auto-select FAIL/BLOCKED tests from UAT_RESULTS.md,
     # then run them through the same cascade logic as a normal run.
-    # Tests are sorted by tier (mlx_large → mlx_small → ollama → any) so
+    # Tests are sorted by tier (ollama → any) so
     # model loads are grouped and tier-transition eviction guards fire correctly.
     _RERUN_FAILED_STATE = Path("/tmp/portal5-rerun-failed-state.json")
 
@@ -5040,10 +4176,10 @@ async def main() -> None:
                 # When --no-unload, skip all eviction — model was pre-warmed externally.
                 if args.no_unload:
                     print(
-                        "  [verify] Skipping Ollama/MLX eviction checks (--no-unload, model pre-warmed)"
+                        "  [verify] Skipping Ollama eviction checks (--no-unload, model pre-warmed)"
                     )
-                elif tier in ("mlx_large", "mlx_small"):
-                    # MLX tier: verify Ollama is completely unloaded
+                elif tier == "ollama":
+                    # Ollama tier: verify models are unloaded before starting
                     for retry in range(3):
                         try:
                             ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
@@ -5064,56 +4200,14 @@ async def main() -> None:
                                 print(
                                     "  [verify] WARNING: Ollama models still loaded after 3 eviction attempts — may cause OOM"
                                 )
-                                # Memory gate: if wired memory is high before an MLX
-                                # tier, force a proxy restart + drain rather than risk
-                                # an OOM crash cascade (observed: 9 crashes in one run).
-                                try:
-                                    _hg = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                                    _wg = _hg.get("memory", {}).get("current", {}).get("wired_gb", 0.0)
-                                    if _wg > MLX_WIRED_GATE_GB:
-                                        print(
-                                            f"  [mem-gate] Wired {_wg:.1f}GB > {MLX_WIRED_GATE_GB}GB"
-                                            f" before {tier} — forcing proxy restart + drain",
-                                            flush=True,
-                                        )
-                                        _restart_proxy_for_reclaim()
-                                        _wait_for_drain(threshold_pct=65.0, timeout_s=120.0, label="mem-gate")
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
-
-                elif tier == "ollama":
-                    # Ollama tier: verify MLX is idle
-                    for retry in range(3):
-                        try:
-                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            state = h.get("state", "")
-                            loaded = h.get("loaded_model")
-                            if state == "none" or not loaded:
-                                break
-                            print(
-                                f"  [verify] MLX still has model loaded (state={state}) — retrying eviction ({retry + 1}/3)"
-                            )
-                            unload_all_models()
-                            time.sleep(5)
-                        except Exception:
-                            break
-                    if retry == 2:
-                        try:
-                            h2 = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            if h2.get("loaded_model") and h2.get("state") != "none":
-                                print(
-                                    "  [verify] WARNING: MLX model still loaded after 3 eviction attempts — may cause OOM"
-                                )
                         except Exception:
                             pass
 
                 elif tier == "media_heavy":
-                    # Media-heavy tier (TTS, music, video, image): verify BOTH
-                    # backends are clear AND memory is actually freed before
-                    # proceeding — media tools spawn additional processes that
-                    # compete for GPU memory and can crash the system.
+                    # Media-heavy tier (TTS, music, video, image): verify Ollama
+                    # is clear AND memory is actually freed before proceeding —
+                    # media tools spawn additional processes that compete for
+                    # GPU memory and can crash the system.
                     for retry in range(3):
                         try:
                             ps = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5).json()
@@ -5127,20 +4221,6 @@ async def main() -> None:
                             time.sleep(5)
                         except Exception:
                             break
-                    for retry in range(3):
-                        try:
-                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            state = h.get("state", "")
-                            loaded = h.get("loaded_model")
-                            if state == "none" or not loaded:
-                                break
-                            print(
-                                f"  [verify] MLX still loaded (state={state}) — retrying eviction ({retry + 1}/3)"
-                            )
-                            unload_all_models()
-                            time.sleep(5)
-                        except Exception:
-                            break
                     # Post-eviction memory verification — wait until memory is
                     # actually freed before running memory-intensive media tests
                     if not _wait_for_drain(threshold_pct=75.0, timeout_s=90.0, label="tier-transition"):
@@ -5148,93 +4228,12 @@ async def main() -> None:
 
                 _last_tier = tier
 
-            # Pre-test eviction guard for mlx_large: force-evict any loaded model
-            # BEFORE the pre-warm triggers a new load. Without this, the proxy tries
-            # to switch models internally while the previous model's Metal GPU buffers
-            # are still wired (~30-60s to release), causing OOM on 27-32B model switches.
-            if tier == "mlx_large":
-                try:
-                    _h_pre = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                    _prev_model = _h_pre.get("loaded_model")
-                    if _prev_model:
-                        print(
-                            f"  [pre-test] Evicting {_prev_model.split('/')[-1]} before mlx_large test "
-                            "— prevent switch OOM",
-                            flush=True,
-                        )
-                        unload_all_models()
-                        # Wait for Metal GPU buffers to release (wired < 6GB or 120s)
-                        for _drain_i in range(24):
-                            _h_drain = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            _wired = (
-                                _h_drain.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
-                            )
-                            if _wired < 6.0:
-                                print(
-                                    f"  [pre-test] Metal drained (wired={_wired:.1f}GB after {_drain_i * 5}s)",
-                                    flush=True,
-                                )
-                                break
-                            if _drain_i % 4 == 0:
-                                print(
-                                    f"  [pre-test] Draining Metal: wired={_wired:.1f}GB ({_drain_i * 5}s)...",
-                                    flush=True,
-                                )
-                            time.sleep(5)
-                        else:
-                            _h_final = httpx.get(f"{MLX_PROXY_URL}/health", timeout=5).json()
-                            _wf = (
-                                _h_final.get("memory", {}).get("current", {}).get("wired_gb", 99.0)
-                            )
-                            print(
-                                f"  [pre-test] WARNING: Metal still wired={_wf:.1f}GB after 120s — proceeding",
-                                flush=True,
-                            )
-                except Exception:
-                    pass
-
-            # Pre-flight: wait for model to be ready before firing the test.
-            # Without this, tests fire during cold-load (30-90s for large models),
-            # producing empty responses that cascade into retries and false FAILs.
-            # The proxy reports state=ready + loaded_model when the model is serving.
-            # Called for ALL tiers: any-tier tests also route through MLX when
-            # the pipeline falls through, and a mid-switch proxy returns 503.
-            #
-            # When a test declares mlx_model, we wait for that specific model.
-            # If it doesn't load within max_wait, we BLOCK the test rather than
-            # letting Ollama fallback silently answer — which would give false
-            # confidence and mask regressions in the MLX model path.
-            if test.get("workspace_tier") in ("mlx_large", "mlx_small", "any"):
-                expected_mlx = test.get("mlx_model")
+            # Pre-flight: wait for Ollama to be ready before firing the test.
+            # Called for ALL tiers: any-tier tests also route through Ollama.
+            if test.get("workspace_tier") in ("ollama", "any"):
                 ws_id = test.get("model_slug", "auto")
-                mlx_ready = _wait_for_mlx_ready(
-                    test_name=f"{test['id']} {test['name']}",
-                    expected_model=expected_mlx,
-                    workspace_id=ws_id,
-                )
-                if not mlx_ready and expected_mlx:
-                    print(
-                        f"  [{i:02d}/{len(tests):02d}] {test['id']} BLOCKED "
-                        f"(MLX model {expected_mlx} not ready after {1200}s)"
-                    )
-                    record_result(
-                        n=i,
-                        status="BLOCKED",
-                        test_id=test["id"],
-                        name=test["name"],
-                        model=test["model_slug"],
-                        assertions=[
-                            (
-                                "mlx_model_ready",
-                                False,
-                                f"expected={expected_mlx}, not loaded within 1200s",
-                            )
-                        ],
-                        elapsed=0.0,
-                        chat_url="blocked://mlx-not-ready",
-                    )
-                    counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
-                    continue
+                if tier == "ollama":
+                    _pipeline_pre_warm(ws_id)
 
             # Force-unload before heavy media tests (TTS, music, video, image)
             # that load large frameworks and risk OOM when run consecutively
@@ -5255,8 +4254,9 @@ async def main() -> None:
             elif not needs_comfyui and _comfyui_running():
                 _stop_comfyui()
 
-            # If the crash watcher saw an mlx_lm/mlx_vlm crash since the last
-            # test, block here until Metal has fully drained before loading
+            # If the crash watcher saw a crash since the last
+            # test, block here until memory has fully drained before loading
+            # another model.
             # another model — attempting a load into a crash-starved Metal
             # heap crashes again immediately and makes memory worse.
             if _crash_watcher.crash_pending:
@@ -5317,31 +4317,7 @@ async def main() -> None:
                 if not same_model and mem_pct >= MEMORY_WARN_PCT:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
-                    # Wait for proxy to reach state=none AND for wired memory to
-                    # actually drop. /unload fires SIGTERM immediately and returns,
-                    # but Metal buffers can take 30-60s to release after the server
-                    # process exits. "Unload OK" just means the proxy accepted the
-                    # request — not that GPU memory is free. If we start the next
-                    # model load before Metal releases, the new load competes for
-                    # the same physical pages and can OOM.
-                    _evict_t0 = time.time()
-                    for _ in range(24):  # up to 120s
-                        time.sleep(5)
-                        try:
-                            hw = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-                            st = hw.get("state", "")
-                            wired = float(hw.get("wired_gb", 99))
-                            if st in ("none", "ready") and wired < 12.0:
-                                break
-                        except Exception:
-                            pass
-                    _evict_elapsed = int(time.time() - _evict_t0)
-                    try:
-                        _hw2 = httpx.get(f"{MLX_PROXY_URL}/health/wired", timeout=3).json()
-                        _w2 = float(_hw2.get("wired_gb", 0))
-                        print(f"  [mem] Post-eviction: wired={_w2:.1f}GB ({_evict_elapsed}s)")
-                    except Exception:
-                        pass
+                    _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=60.0, label="post-evict")
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
                         print(
@@ -5351,25 +4327,17 @@ async def main() -> None:
                 elif same_model and mem_pct >= MEMORY_SAME_MODEL_EVICT_PCT:
                     # KV cache from this test's inference will compound with the next
                     # test's allocation even when the same model stays loaded.
-                    # Evict to reset Metal allocations before the next inference run.
                     print(
                         f"  [mem] Post-test memory at {mem_pct:.0f}% (same model) "
                         "— evicting to clear KV cache residuals"
                     )
                     unload_all_models()
-                    for _ in range(18):  # up to 90 s
-                        time.sleep(5)
-                        try:
-                            h = httpx.get(f"{MLX_PROXY_URL}/health", timeout=3).json()
-                            if h.get("state", "") in ("none", "ready"):
-                                break
-                        except Exception:
-                            pass
+                    time.sleep(5)
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_SAME_MODEL_EVICT_PCT:
                         print(
                             f"  [mem] Memory still {mem_after:.0f}% after same-model eviction "
-                            "— Metal may not have drained yet"
+                            "— memory may not have drained yet"
                         )
                 elif mem_pct >= MEMORY_CRITICAL_PCT:
                     # Always evict if critical, even on same model
@@ -5387,14 +4355,12 @@ async def main() -> None:
                 if delay > 0:
                     await asyncio.sleep(delay)
                 next_tier = tests[i].get("workspace_tier", "any")
-                if next_tier in ("mlx_large", "mlx_small", "ollama"):
+                if next_tier in ("ollama",):
                     alive, detail = _backend_alive(next_tier)
                     if not alive:
                         print(
-                            f"  [health] post-settling backend check: {detail} — clearing zombies",
-                            flush=True,
+                            f"  [health] post-settling backend check: {detail}", flush=True
                         )
-                        _kill_zombie_mlx()
                         await _wait_for_backend(next_tier, max_wait=60)
 
         # Navigate away from the last chat before closing so OWUI can commit its
