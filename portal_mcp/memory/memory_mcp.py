@@ -25,7 +25,7 @@ mcp = FastMCP("memory", host="0.0.0.0")
 
 LANCE_DIR = os.environ.get("PORTAL5_LANCE_DIR", "/Volumes/data01/portal5_lance")
 MEMORY_TABLE = "memory"
-EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8081/v1/embeddings")
+EMBEDDING_URL = os.environ.get("MLX_EMBEDDING_URL", "http://localhost:8917/v1/embeddings")
 EMBEDDING_DIM = 1024
 DEFAULT_USER = "default"
 

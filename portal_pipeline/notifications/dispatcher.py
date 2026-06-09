@@ -15,13 +15,8 @@ if TYPE_CHECKING:
 else:
     from portal_pipeline.notifications.events import AlertEvent, EventType
 
-import httpx
 
 logger = logging.getLogger(__name__)
-
-_MLX_PROXY_HEALTH_URL = os.environ.get(
-    "MLX_PROXY_HEALTH_URL", "http://host.docker.internal:8081/health"
-)
 
 
 class NotificationDispatcher:
@@ -111,9 +106,6 @@ class NotificationDispatcher:
                 self._failure_counts[backend_id] += 1
                 count = self._failure_counts[backend_id]
                 if count == down_threshold:
-                    metadata: dict = {}
-                    if backend.type == "mlx":
-                        metadata = await self._fetch_mlx_context()
                     event = AlertEvent(
                         type=EventType.BACKEND_DOWN,
                         message=(
@@ -121,7 +113,6 @@ class NotificationDispatcher:
                             f"{down_threshold} consecutive checks."
                         ),
                         backend_id=backend_id,
-                        metadata=metadata,
                     )
                     self._schedule(self.dispatch(event))
                     logger.warning("Backend down threshold reached: %s", backend_id)
@@ -133,44 +124,15 @@ class NotificationDispatcher:
             and not self._alerted_all_down
         ):
             self._alerted_all_down = True
-            metadata: dict = {}
-            mlx_backend = registry._backends.get("mlx-apple-silicon")
-            if mlx_backend and not mlx_backend.healthy:
-                metadata = await self._fetch_mlx_context()
             event = AlertEvent(
                 type=EventType.ALL_BACKENDS_DOWN,
                 message="All backends are unhealthy. Portal 5 cannot serve requests.",
-                metadata=metadata,
             )
             self._schedule(self.dispatch(event))
             logger.error("ALL BACKENDS DOWN — alert fired")
 
         if currently_healthy and self._alerted_all_down:
             self._alerted_all_down = False
-
-    async def _fetch_mlx_context(self) -> dict:
-        """Fetch detailed MLX proxy state for alert enrichment.
-
-        Async — does not block the asyncio event loop. Caller must await.
-        Returns context dict or empty dict on failure.
-        """
-        try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(_MLX_PROXY_HEALTH_URL)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    return {
-                        "mlx_server": data.get("active_server", "unknown"),
-                        "mlx_model": data.get("loaded_model", "none"),
-                        "mlx_state": data.get("state", "unknown"),
-                        "mlx_error": data.get("last_error") or "none",
-                        "mlx_consecutive_failures": data.get("consecutive_failures", 0),
-                        "mlx_switch_count": data.get("switch_count", 0),
-                        "mlx_state_duration": f"{data.get('state_duration_sec', 0)}s",
-                    }
-        except Exception as e:
-            logger.debug("Failed to fetch MLX context for alert: %s", e)
-        return {}
 
     def check_config_error(self, error_message: str) -> None:
         """Fire a CONFIG_ERROR alert."""
