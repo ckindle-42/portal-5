@@ -29,8 +29,8 @@ Status model:
 
 Test Coverage (~27 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
-    S3a/S3b: 18 auto-* workspaces tested directly (S3a Ollama-only,
-              S3b MLX-first); S41-02 verifies max_concurrent=1 for all
+    S3a:     18 auto-* workspaces tested directly (all Ollama);
+              S41-02 verifies max_concurrent=1 for all
               13 bench-* workspaces (data-driven from WORKSPACES dict)
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
@@ -39,11 +39,8 @@ Test Coverage (~27 sections, ~300 tests):
     S10-S11: 84 non-compliance personas grouped by workspace; S10c drives
               the 7 compliance personas via tests/fixtures/compliance_scenarios.yaml
     S12-S13: Web search (SearXNG), RAG/embedding pipeline
-    S20:     MLX acceleration (proxy health, /v1/models, memory)
     S21:     LLM Intent Router — semantic routing via Llama-3.2-3B
-    S22:     MLX Admission Control — memory-aware 503 rejection
     S23:     Model diversity availability checks
-    S24:     Specialist MLX models — Foundation-Sec (auto-blueteam) + ToolACE-2.5 (tools-specialist, structured tools payload)
     S30-S31: Image generation (ComfyUI/FLUX), video generation (Wan2.2)
     S40:     Metrics/monitoring (Prometheus, Grafana)
     S41:     M6 production hardening (/health/all, rate limits, admin endpoints, power metrics)
@@ -55,11 +52,10 @@ Test Coverage (~27 sections, ~300 tests):
 Changes from v5:
     - Added S16 (Security MCP tool tests — classify_vulnerability)
     - Persona count is now dynamic (derived from config/personas/*.yaml at runtime)
-    - Added S21 (LLM Intent Router), S22 (Admission Control), S23 (Model Diversity)
+    - Added S21 (LLM Intent Router), S23 (Model Diversity)
     - Fixed persona slugs to match actual YAML filenames
     - Tests for new models: GPT-OSS:20B, Gemma 4 E4B, Phi-4-reasoning-plus
     - Consolidated test framework with unified helper functions
-    - Improved MLX state detection and recovery
     - Enhanced document content validation
     - Structured blocked items register
     - Live progress logging
@@ -124,9 +120,6 @@ if _pmd:
 PIPELINE_URL = "http://localhost:9099"
 OPENWEBUI_URL = "http://localhost:8080"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
-    "host.docker.internal", "localhost"
-)
-MLX_URL = os.environ.get("MLX_LM_URL", "http://localhost:8081").replace(
     "host.docker.internal", "localhost"
 )
 SEARXNG_URL = "http://localhost:8088"
@@ -207,7 +200,7 @@ _blocked: list[R] = []
 _ICON = {"PASS": "✅", "FAIL": "❌", "BLOCKED": "🚫", "WARN": "⚠️ ", "INFO": "ℹ️ "}
 
 # Routing telemetry — populated by _assert_routing(), printed at end of run.
-# Each entry: {tid, workspace, intended, actual, matched, tier_mismatch}
+# Each entry: {tid, workspace, intended, actual, matched}
 _ROUTING_LOG: list[dict] = []
 
 
@@ -628,8 +621,7 @@ async def _chat_with_model(
     Returns (status_code, response_text, model_used, route_descriptor).
     route_descriptor is the x-portal-route header value: "{workspace};{backend_id};{model}".
     Uses shared client with 3-attempt backoff [0, 5, 15]s.
-    On 502/503 probes MLX health state before retrying so we wait for
-    cold-load (switching) rather than treating it as a hard failure.
+    On 502/503 continues to the next retry (backoff already handles the wait).
 
     When `tools` is provided the OpenAI tools array is forwarded to the backend.
     If the model responds with tool_calls (not content), those are serialized to
@@ -658,10 +650,6 @@ async def _chat_with_model(
             route_hdr = r.headers.get("x-portal-route", "")
             if r.status_code not in (200,):
                 if r.status_code in (502, 503) and attempt < len(backoff) - 1:
-                    # Probe MLX — if switching/starting, wait longer before retry
-                    mlx_state, _ = await _mlx_health()
-                    if mlx_state in ("switching", "none"):
-                        await asyncio.sleep(15)
                     continue
                 return r.status_code, r.text[:200], "", ""
 
@@ -693,7 +681,7 @@ async def _chat_with_model(
             ):
                 continue
             return 0, str(e)[:100], "", ""
-    return 503, "MLX proxy unreachable after retries", "", ""
+    return 503, "pipeline unreachable after retries", "", ""
 
 
 async def _assert_routing(
@@ -705,16 +693,13 @@ async def _assert_routing(
     persona_slug: str = "",
 ) -> tuple[str, str]:
     from expected_models import (
-        is_mlx_model,
         model_matches_expected,
         resolve_expected,
     )
 
-    mlx_state, _ = await _mlx_health()
     keys, src = resolve_expected(
         workspace_id=workspace,
         persona_slug=persona_slug,
-        mlx_state=mlx_state,
     )
     if not keys:
         return "no_expectation", f"no routing expectation: {src}"
@@ -722,10 +707,6 @@ async def _assert_routing(
         return "no_actual", "no model in response"
 
     matched = model_matches_expected(actual_model, keys)
-    # Detect tier mismatch: intended MLX (any key contains '/'), got Ollama (no '/')
-    intended_mlx = any("/" in k for k in keys)
-    actual_mlx = is_mlx_model(actual_model)
-    tier_mismatch = intended_mlx and not actual_mlx and not matched
 
     _ROUTING_LOG.append({
         "tid": f"{sec}/{tid}",
@@ -733,7 +714,6 @@ async def _assert_routing(
         "intended": src,
         "actual": actual_model,
         "matched": matched,
-        "tier_mismatch": tier_mismatch,
     })
 
     if matched:
@@ -854,126 +834,12 @@ async def _wait_for_docker_recovery(timeout: int = 600) -> tuple[bool, int]:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# MLX Helpers
+# Memory Helpers
 # ══════════════════════════════════════════════════════════════════════════════
-
-# MLX model full paths (HuggingFace org/name format)
-_MLX_MODEL_FULL_PATHS = {
-    "Qwen3-Coder-Next-4bit": "mlx-community/Qwen3-Coder-Next-4bit",
-    "Qwen3-Coder-30B-A3B-Instruct-8bit": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-    "DeepSeek-Coder-V2-Lite-Instruct-8bit": "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit",
-    "Devstral-Small-2507-MLX-4bit": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
-    "Dolphin3.0-Llama3.1-8B-8bit": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
-    "Huihui-Qwen3.5-9B-abliterated-mlx-4bit": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
-    "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
-    "phi-4-8bit": "mlx-community/phi-4-8bit",
-    "Magistral-Small-2509-MLX-8bit": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
-    "Llama-3.3-70B-Instruct-4bit": "mlx-community/Llama-3.3-70B-Instruct-4bit",
-    "MLX-Qwopus3.5-27B-v3-8bit": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-    "MLX-Qwopus3.5-9B-v3-8bit": "Jackrong/MLX-Qwopus3.5-9B-v3-8bit",
-    "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit",
-    "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit",
-    "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-    "gemma-4-31b-it-4bit": "mlx-community/gemma-4-31b-it-4bit",
-    "supergemma4-26b-abliterated-multimodal-mlx-4bit": "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit",
-    "Qwen3-VL-32B-Instruct-8bit": "mlx-community/Qwen3-VL-32B-Instruct-8bit",
-}
-
-# MLX model sizes (approximate GB)
-_MLX_MODEL_SIZES_GB = {
-    "Qwen3-Coder-Next-4bit": 46,
-    "Qwen3-Coder-30B-A3B-Instruct-8bit": 22,
-    "DeepSeek-Coder-V2-Lite-Instruct-8bit": 12,
-    "Devstral-Small-2507-MLX-4bit": 15,
-    "Dolphin3.0-Llama3.1-8B-8bit": 9,
-    "Huihui-Qwen3.5-9B-abliterated-mlx-4bit": 6,
-    "Llama-3.2-3B-Instruct-8bit": 3,
-    "phi-4-8bit": 14,
-    "Magistral-Small-2509-MLX-8bit": 24,
-    "Llama-3.3-70B-Instruct-4bit": 40,
-    "MLX-Qwopus3.5-27B-v3-8bit": 22,
-    "MLX-Qwopus3.5-9B-v3-8bit": 10,
-    "MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit": 28,
-    "DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit": 34,
-    "DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit": 18,
-    "gemma-4-31b-it-4bit": 18,
-    "supergemma4-26b-abliterated-multimodal-mlx-4bit": 15,
-    "Qwen3-VL-32B-Instruct-8bit": 36,
-}
-
-# MLX org prefixes — workspace_model values starting with these are raw HF paths
-# that Open WebUI can never resolve (pipeline only exposes workspace IDs).
-# Single source of truth: tests/expected_models.py _MLX_ORG_PREFIXES.
-from expected_models import _MLX_ORG_PREFIXES as _MLX_ORGS  # noqa: E402
-
-
-async def _mlx_health() -> tuple[str, dict]:
-    """Get MLX proxy health state.
-
-    The proxy returns HTTP 503 when no model is loaded (state='none') or when
-    the active server has crashed (state='down').  Always parse the JSON body
-    to get the actual state rather than inferring from the HTTP status code.
-    """
-    try:
-        c = _get_acc_client()
-        r = await c.get(f"{MLX_URL}/health", timeout=10)
-        if r.status_code in (200, 503):
-            try:
-                data = r.json()
-                return data.get("state", "unknown"), data
-            except Exception:
-                pass
-        if r.status_code == 503:
-            return "down", {"status_code": 503}
-        return "error", {"status_code": r.status_code}
-    except Exception as e:
-        return "unreachable", {"error": str(e)}
-
-
-async def _wait_for_mlx_ready(timeout: int = 600) -> bool:
-    """Wait for MLX proxy to be ready (any model).
-
-    Default 600s: large models (26B MoE, 32B) take 1-3 min to load; 70B takes 3-5 min.
-    120s was too tight for cold starts on large models.
-    """
-    start = time.time()
-    while time.time() - start < timeout:
-        state, _ = await _mlx_health()
-        if state == "ready":
-            return True
-        if state in ("none", "switching"):
-            await asyncio.sleep(5)
-            continue
-        await asyncio.sleep(3)
-    return False
-
-
-async def _wait_for_mlx_model(model_hint: str, timeout: int = 300) -> bool:
-    """Wait for MLX proxy to load a specific model (by basename or full path).
-
-    The proxy switches on first inference request.  We poll until loaded_model
-    contains the model's basename (last path segment) OR the full hint.
-    Returns True when the right model is loaded and ready.
-    """
-    basename = model_hint.split("/")[-1]
-    start = time.time()
-    while time.time() - start < timeout:
-        state, data = await _mlx_health()
-        loaded = data.get("loaded_model") or ""  # null → ""
-        if state == "ready" and (basename in loaded or model_hint in loaded):
-            return True
-        if state in ("none", "switching", "ready"):
-            await asyncio.sleep(8)
-            continue
-        if state in ("unreachable", "down"):
-            await asyncio.sleep(5)
-            continue
-        await asyncio.sleep(5)
-    return False
 
 
 async def _unload_ollama_models() -> None:
-    """Evict all Ollama models from memory to free unified memory for MLX/ComfyUI."""
+    """Evict all Ollama models from memory."""
     try:
         c = _get_acc_client()
         r = await c.get(f"{OLLAMA_URL}/api/ps", timeout=10)
@@ -999,26 +865,6 @@ async def _unload_ollama_models() -> None:
         print(f"  ⚠️  Ollama eviction failed: {e}")
 
 
-async def _unload_mlx_model() -> None:
-    """Unload current MLX model to free unified memory."""
-    try:
-        state, data = await _mlx_health()
-        if state == "none":
-            print("  ── No MLX model loaded ──")
-            return
-        loaded = data.get("loaded_model") or "unknown"
-        print(f"  ── Unloading MLX model: {loaded} ──")
-        c = _get_acc_client()
-        try:
-            await c.post(f"{MLX_URL}/unload", timeout=10)
-        except Exception:
-            pass
-        # Wait for memory to be released
-        await asyncio.sleep(10)
-    except Exception as e:
-        print(f"  ⚠️  MLX unload failed: {e}")
-
-
 def _free_ram_gb() -> float:
     """Return approximate free unified memory in GB via vm_stat."""
     try:
@@ -1039,7 +885,7 @@ def _free_ram_gb() -> float:
 
 
 def _stop_comfyui() -> None:
-    """Kill ComfyUI process to reclaim GPU/RAM before heavy MLX loads."""
+    """Kill ComfyUI process to reclaim GPU/RAM."""
     result = subprocess.run(["pkill", "-f", "comfyui"], capture_output=True)
     if result.returncode == 0:
         print("  ── ComfyUI stopped to free memory ──")
@@ -1055,7 +901,6 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
         return free
     print("  ── Insufficient RAM — running eviction ──")
     await _unload_ollama_models()
-    await _unload_mlx_model()
     # Apple Silicon unified memory takes time to reclaim pages — wait 20s
     await asyncio.sleep(20)
     free = _free_ram_gb()
@@ -1069,95 +914,10 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
     return free
 
 
-async def _remediate_mlx_crash(reason: str = "crash") -> bool:
-    """Recover from MLX proxy 'down' state: gracefully stop MLX procs and restart proxy.
-
-    Uses SIGTERM (never SIGKILL) for mlx_lm.server and mlx_vlm.server — SIGKILL on a
-    Metal process leaves GPU buffers unreclaimable and can require a reboot to clear.
-    The proxy itself gets SIGTERM first; only falls back to port-based cleanup if the
-    process doesn't exit within 10s. The watchdog is stopped before test runs begin
-    (Step 2 pre-flight) so there is nothing to preserve or restart here.
-    """
-    print(f"  🔧 MLX remediation: {reason}")
-
-    # Step 1: SIGTERM mlx servers (NEVER SIGKILL — Metal GPU buffers must release cleanly)
-    for pattern in ["mlx_lm.server", "mlx_vlm.server"]:
-        subprocess.run(["pkill", "-TERM", "-f", pattern], capture_output=True)
-
-    # Step 2: SIGTERM the proxy (graceful shutdown)
-    proxy_pids = subprocess.run(
-        ["pgrep", "-f", "mlx-proxy.py"], capture_output=True, text=True
-    ).stdout.strip().split()
-    for pid in proxy_pids:
-        if pid.strip():
-            try:
-                os.kill(int(pid.strip()), 15)  # SIGTERM
-            except (ProcessLookupError, ValueError):
-                pass
-
-    # Wait up to 10s for graceful exit before port-based cleanup
-    for _ in range(10):
-        await asyncio.sleep(1)
-        r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
-        if not r.stdout.strip():
-            break
-
-    # If proxy is still holding port 8081 after graceful wait, use SIGTERM on the port owner
-    # (still not SIGKILL — we accept a longer wait over a Metal buffer leak)
-    r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
-    for pid in r.stdout.strip().split("\n"):
-        if pid.strip():
-            try:
-                os.kill(int(pid.strip()), 15)  # SIGTERM
-            except (ProcessLookupError, ValueError):
-                pass
-
-    # Wait for ports to clear (up to 20s)
-    for _ in range(20):
-        r = subprocess.run(["lsof", "-ti", ":8081"], capture_output=True, text=True, timeout=3)
-        if not r.stdout.strip():
-            break
-        await asyncio.sleep(1)
-
-    # Allow Metal GPU buffers time to release after SIGTERM
-    await asyncio.sleep(10)
-    free = _free_ram_gb()
-    print(f"  ── RAM after graceful stop: {free:.1f} GB free ──")
-
-    # Step 3: Restart proxy from deployed script
-    proxy_script = Path.home() / ".portal5" / "mlx" / "mlx-proxy.py"
-    if not proxy_script.exists():
-        proxy_script = ROOT / "scripts" / "mlx-proxy.py"
-    subprocess.Popen(
-        ["python3", str(proxy_script)],
-        stdout=open("/tmp/mlx-proxy.log", "a"),
-        stderr=subprocess.STDOUT,
-    )
-
-    # Step 4: Wait for proxy to respond (state=none is healthy for on-demand proxy)
-    for _ in range(30):
-        await asyncio.sleep(2)
-        try:
-            c = _get_acc_client()
-            r = await c.get(f"{MLX_URL}/health", timeout=5)
-            if r.status_code in (200, 503):
-                data = r.json()
-                state = data.get("state", "unknown")
-                if state in ("none", "ready"):
-                    print(f"  ✅ MLX proxy recovered (state={state})")
-                    return True
-        except Exception:
-            pass
-
-    print("  ❌ MLX proxy failed to recover")
-    return False
-
-
 async def _memory_cleanup(phase: str) -> None:
     """Perform memory cleanup between test phases with active RAM verification."""
     print(f"\n  ══ MEMORY CLEANUP: {phase} ══")
     await _unload_ollama_models()
-    await _unload_mlx_model()
     import gc
 
     gc.collect()
@@ -1789,82 +1549,6 @@ async def S10c() -> None:
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s10c_compliance_personas as _s
     await _s.run()
-async def _mlx_chat_direct(
-    model: str, prompt: str, system: str = "", max_tokens: int = 300, timeout: int = 300
-) -> tuple[int, str, str]:
-    """Send chat directly to MLX proxy (port 8081) — for models with no pipeline workspace.
-
-    For thinking models (Phi-4-reasoning, Magistral, etc.) the content field may contain
-    <think>...</think> blocks.  We concatenate content + reasoning for signal matching.
-    """
-    msgs: list[dict] = []
-    if system:
-        msgs.append({"role": "system", "content": system[:800]})
-    msgs.append({"role": "user", "content": prompt})
-    try:
-        c = _get_acc_client()
-        r = await c.post(
-            f"{MLX_URL}/v1/chat/completions",
-            json={"model": model, "messages": msgs, "max_tokens": max_tokens},
-            timeout=timeout,
-        )
-        if r.status_code != 200:
-            return r.status_code, r.text[:300], ""
-        data = r.json()
-        msg = data.get("choices", [{}])[0].get("message", {})
-        content = msg.get("content", "")
-        reasoning = msg.get("reasoning", "")
-        # Combine all text for signal search
-        text = (content + " " + reasoning).strip() if (content or reasoning) else ""
-        return 200, text, data.get("model", model)
-    except httpx.ReadTimeout:
-        return 408, "timeout", ""
-    except Exception as e:
-        return 0, str(e)[:100], ""
-
-
-MLX_WORKSPACES = {
-    "auto",
-    "auto-coding",
-    "auto-agentic",
-    "auto-spl",
-    "auto-creative",
-    "auto-reasoning",
-    "auto-research",
-    "auto-data",
-    "auto-compliance",
-    "auto-mistral",
-    "auto-vision",
-    "auto-documents",
-    "auto-math",
-    "auto-blueteam",
-    "tools-specialist",
-}
-
-def _load_mlx_model_gb() -> dict[str, int]:
-    """Build {hf_id → memory_gb} from config/backends.yaml mlx_models list.
-
-    Single source of truth: ``config/backends.yaml`` is also what
-    ``scripts/mlx-proxy.py:_load_mlx_metadata()`` reads. This eliminates
-    drift between the test fixture and the proxy.
-    """
-    cfg = _load_backends_yaml()
-    out: dict[str, int] = {}
-    for backend in cfg.get("backends", []):
-        for m in backend.get("mlx_models", []) or []:
-            mid = m.get("id")
-            mem = m.get("memory_gb")
-            if mid and mem is not None:
-                # round up to int — _ensure_free_ram_gb takes ints
-                out[mid] = int(round(float(mem)))
-    return out
-
-
-# Loaded once at module init; ``_MLX_MODEL_GB.get(hint, 10)`` keeps the
-# same default fallback for unknown models.
-_MLX_MODEL_GB: dict[str, int] = _load_mlx_model_gb()
-
-
 # retired — MLX proxy deleted in 3a0c58e
 # async def S11() -> None:
 #     """S11: Persona tests (MLX) — delegates to tests/acceptance/_archive/s11_personas_mlx.py."""
@@ -2106,16 +1790,14 @@ async def _send_notification(event_type: str, message: str, metadata: dict | Non
 def _print_routing_summary() -> None:
     """Print a routing intent-vs-actual summary after all sections complete.
 
-    Groups results into: correct, tier-mismatch (MLX→Ollama fallback),
-    wrong-model (same tier, different model), and unknown (no actual model).
+    Groups results into: correct, unmatched (wrong model), and unknown (no actual model).
     Helps identify when a primary model isn't doing the work it should.
     """
     if not _ROUTING_LOG:
         return
 
     correct = [r for r in _ROUTING_LOG if r["matched"]]
-    tier_mismatches = [r for r in _ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
-    wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
+    unmatched = [r for r in _ROUTING_LOG if not r["matched"] and r["actual"]]
     no_actual = [r for r in _ROUTING_LOG if not r["actual"]]
 
     print("\n" + "=" * 70)
@@ -2124,22 +1806,14 @@ def _print_routing_summary() -> None:
     total_checked = len(_ROUTING_LOG)
     print(f"  Checked : {total_checked}")
     print(f"  ✅ Correct   : {len(correct)}")
-    if tier_mismatches:
-        print(f"  ⚠️  MLX→Ollama fallback : {len(tier_mismatches)}  ← primary model not serving")
-    if wrong_model:
-        print(f"  ⚠️  Wrong model (same tier): {len(wrong_model)}")
+    if unmatched:
+        print(f"  ⚠️  Unmatched model : {len(unmatched)}")
     if no_actual:
         print(f"  ℹ️  No model in response : {len(no_actual)}")
 
-    if tier_mismatches:
-        print("\n  ── MLX→Ollama Fallbacks (intended MLX, got Ollama) ──")
-        for r in tier_mismatches:
-            print(f"    {r['tid']:20s}  ws={r['workspace']:22s}  actual={r['actual'][:45]}")
-            print(f"    {'':20s}  expected: {r['intended']}")
-
-    if wrong_model:
-        print("\n  ── Wrong Model (tier OK, model mismatch) ──")
-        for r in wrong_model:
+    if unmatched:
+        print("\n  ── Unmatched Routing ──")
+        for r in unmatched:
             print(f"    {r['tid']:20s}  ws={r['workspace']:22s}  actual={r['actual'][:45]}")
             print(f"    {'':20s}  expected: {r['intended']}")
 
@@ -2337,8 +2011,7 @@ async def main() -> int:
     # Define memory cleanup points between phases
     # Only apply when running ALL sections (full suite)
     PHASE_TRANSITIONS = {
-        "S10": "Ollama → MLX",  # After Ollama personas, before MLX
-        "S23": "MLX → MCP",  # After MLX tests, before MCP
+        "S10": "Personas → Audio/MCP",  # After personas, before audio/MCP
         "S7": "Audio → ComfyUI",  # After audio tests, before ComfyUI
     }
 
