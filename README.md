@@ -110,24 +110,24 @@ These pin a specific model for direct performance comparison. Not intended for d
 
 | Workspace | Pinned model |
 |---|---|
-| `bench-devstral` | Devstral-Small-2507 (MLX 4-bit) |
-| `bench-dolphin8b` | Dolphin 3.0 Llama 3.1 8B (MLX 8-bit) |
-| `bench-glm` | GLM-4.7-Flash (MLX 4-bit) |
+| `bench-devstral` | Devstral-Small-2507 (GGUF) |
+| `bench-dolphin8b` | Dolphin 3.0 Llama 3.1 8B (GGUF) |
+| `bench-glm` | GLM-4.7-Flash (Q4 GGUF) |
 | `bench-gptoss` | GPT-OSS 20B (Ollama) |
 | `bench-granite41-8b` | Granite 4.1 8B (Ollama) |
 | `bench-granite41-30b` | Granite 4.1 30B (Ollama) |
-| `bench-laguna` | Laguna-XS.2 33B-A3B (MLX 4-bit) |
-| `bench-llama33-70b` | Llama 3.3 70B (MLX 4-bit) |
-| `bench-negentropy` | Negentropy 9B (Jackrong MLX 6-bit) |
-| `bench-olmo3-32b` | Olmo-3 32B (Allen AI MLX 4-bit) |
+| `bench-laguna` | Laguna-XS.2 33B-A3B (Q4 GGUF) |
+| `bench-llama33-70b` | Llama 3.3 70B (Q4 GGUF) |
+| `bench-negentropy` | Negentropy 9B (GGUF, Ollama) |
+| `bench-olmo3-32b` | Olmo-3 32B (GGUF, Ollama) |
 | `bench-omnicoder2` | OmniCoder-2 9B (Ollama) |
-| `bench-phi4` | Phi-4 (MLX 8-bit) |
-| `bench-phi4-reasoning` | Phi-4 reasoning plus (MLX 4-bit) |
-| `bench-qwen35-abliterated` | Qwen3.5-9B abliterated (MLX 4-bit + Ollama) |
-| `bench-qwen36-27b` | Qwen3.6-27B (MLX 4-bit) |
-| `bench-qwen36-35b-a3b` | Qwen3.6-35B-A3B MoE (MLX 4-bit) |
-| `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B (MLX 8-bit) |
-| `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE (MLX 4-bit) |
+| `bench-phi4` | Phi-4 (Q8 GGUF) |
+| `bench-phi4-reasoning` | Phi-4 reasoning plus (GGUF) |
+| `bench-qwen35-abliterated` | Qwen3.5-9B abliterated (Ollama) |
+| `bench-qwen36-27b` | Qwen3.6-27B (GGUF) |
+| `bench-qwen36-35b-a3b` | Qwen3.6-35B-A3B MoE (GGUF) |
+| `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B (Q4 GGUF) |
+| `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE (Q4 GGUF) |
 
 ---
 
@@ -146,12 +146,9 @@ These pin a specific model for direct performance comparison. Not intended for d
 ./launch.sh pull-models
 
 # MLX (Apple Silicon)
-./launch.sh install-mlx               # Install MLX dual-server proxy
-./launch.sh pull-mlx-models           # Download MLX model weights
-./launch.sh switch-mlx-model <tag>    # Pre-warm a specific MLX model
-./launch.sh mlx-status                # Show MLX component status
-./launch.sh start-mlx-watchdog        # Start MLX health watchdog
-./launch.sh stop-mlx-watchdog         # Stop MLX watchdog
+./launch.sh start-speech    # Start MLX speech server (Apple Silicon)
+./launch.sh stop-speech     # Stop MLX speech server
+./launch.sh mlx-status      # Check MLX component status (includes speech)
 
 # User management
 ./launch.sh add-user alice@example.com "Alice Smith"
@@ -228,10 +225,14 @@ These pin a specific model for direct performance comparison. Not intended for d
 - **Reasoning:** DeepSeek-R1-32B, Tongyi-DeepResearch-30B
 - **Vision:** Qwen3-VL 32B, LLaVA-7B
 
-### MLX models (Apple Silicon, pulled with `./launch.sh pull-mlx-models`)
-- **Text-only (mlx_lm):** Qwen3-Coder-Next (80B MoE), Qwen3-Coder-30B, GLM-4.7-Flash, Laguna-XS.2, Devstral-Small-2507, Qwopus3.5-27B, AEON Qwen3.6-27B, DeepSeek-R1-32B, Granite-4.1-30B, Qwen2.5-Math-7B, Dolphin3-Llama3.1-8B, Phi-4, Magistral-Small, Llama 3.2/3.3
-- **VLM (mlx_vlm):** Gemma-4-31B (primary), Gemma-4-26B-A4B, Qwen3-VL-32B, Llama-3.2-11B-Vision
-- The MLX proxy auto-switches between these servers — only one runs at a time
+### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
+- **Speech:** MLX speech server (:8918) — Kokoro + Qwen3-TTS/ASR, host-native
+- **Transcription:** MLX Transcribe (:8924) — mlx-whisper + pyannote diarization, host-native
+- **Embedding:** Harrier-0.6B TEI (:8917)
+- **Reranker:** Qwen3-Reranker-0.6B-mxfp8 (:8925)
+- Chat model inference runs exclusively through Ollama (:11434) — GGUF format, pulled via `ollama pull`
+
+The MLX inference proxy (:8081/:18081/:18082) was retired in commit 3a0c58e.
 
 ### Image generation (downloaded automatically on first run, ~12 GB)
 - FLUX.1-schnell — fast, high-quality image generation
@@ -360,16 +361,16 @@ Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
            ┌────────────┘   │   │   └─────────────┐
            │                │   │                 │
     ┌──────▼──────┐  ┌──────▼──┐  ┌──────────────────▼──┐
-    │  MLX Proxy   │  │ Ollama  │  │  MCP Servers          │
-    │  :8081       │  │ :11434  │  │  :8910–8916 (tools)   │
-    │  (auto-swap) │  │ (LLMs)  │  │  :8917 (embedding)    │
-    └──┬───────┬──┘  └─────────┘  └─────────────────────┘
-       │       │
-┌──────▼──┐ ┌──▼──────┐  MLX Speech :8918
-│ mlx_lm  │ │ mlx_vlm │  (Kokoro + Qwen3-TTS/ASR,
-│ :18081  │ │ :18082  │   Apple Silicon, optional)
-│(text)   │ │ (VLM)   │
-└─────────┘ └─────────┘
+    │  Ollama      │  │ Ollama  │  │  MCP Servers          │
+    │  :11434      │  │ :11434  │  │  :8910–8916 (tools)   │
+    │  (LLMs)      │  │ (LLMs)  │  │  :8917 (embedding)    │
+    └─────────────┘  └─────────┘  │  :8918 (speech)       │
+                                  │  :8924 (transcribe)   │
+    Ollama is the single          │  :8925 (reranker)     │
+    inference tier (:11434).      └─────────────────────┘
+    MLX speech/transcription/
+    embedding/reranker are
+    retained for non-chat use.
 
     Telegram Bot ──► Portal Pipeline    Slack Bot ──► Portal Pipeline
     (profile: telegram)                 (profile: slack)

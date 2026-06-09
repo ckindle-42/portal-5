@@ -1196,97 +1196,12 @@ curl -s http://localhost:9099/v1/chat/completions \
 
 ---
 
-## 22. MLX Acceleration (Apple Silicon)
+## 22. MLX Acceleration (Apple Silicon) — RETIRED
 
-**What:** 20-40% faster inference than Ollama GGUF on M-series Macs. The MLX proxy
-(`scripts/mlx-proxy.py`) auto-switches between two servers based on the requested model:
-- **`mlx_lm`** (port 18081) — text-only models (Qwen3-Coder-Next, DeepSeek-R1, Devstral, Llama)
-- **`mlx_vlm`** (port 18082) — VLM models (Qwen3.5 family with vision tower)
-
-Only one server runs at a time due to unified memory constraints. Switching takes ~30s.
-
-### Install
-
-```bash
-./launch.sh install-mlx
-```
-
-This installs `mlx-vlm`, `mlx-lm`, and `mlx-audio`, deploys the proxy to
-`~/.portal5/mlx/mlx-proxy.py`, and registers a launchd service (`com.portal5.mlx-proxy`).
-
-### How it works
-
-The proxy listens on port 8081. When a request arrives:
-1. It extracts the model name from the request body
-2. Determines if the model needs `mlx_vlm` (Qwen3.5 family) or `mlx_lm` (everything else)
-3. Starts the correct server if not already running (kills the other one first)
-4. Forwards the request to the running server
-
-The pipeline routes requests to `MLX_LM_URL=http://host.docker.internal:8081` — the proxy
-handles all model selection automatically. No manual switching needed.
-
-### Pre-warm a model
-
-```bash
-# Force the proxy to start a specific server (useful before a long session)
-./launch.sh switch-mlx-model Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit
-```
-
-### Available MLX models
-
-| Model | RAM | Server | Best for |
-|-------|-----|--------|----------|
-| `mlx-community/Qwen3-Coder-Next-4bit` | ~46GB | mlx_lm | Primary coder (80B MoE, BIG_MODEL — 64GB system) |
-| `mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit` | ~22GB | mlx_lm | Fast agentic coder (30B MoE) |
-| `mlx-community/GLM-4.7-Flash-4bit` | ~15GB | mlx_lm | auto-coding primary (30B-A3B MoE, 59.2% SWE-bench, Z.AI) |
-| `mlx-community/Laguna-XS.2-4bit` | ~19GB | mlx_lm | High SWE-bench coder (33B-A3B MoE, 68.2%, Poolside AI) |
-| `lmstudio-community/Devstral-Small-2507-MLX-4bit` | ~15GB | mlx_lm | Devstral v1.1 (53.6% SWE-bench, Mistral) |
-| `mlx-community/Dolphin3.0-Llama3.1-8B-8bit` | ~9GB | mlx_lm | Creative / general (uncensored) |
-| `huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit` | ~6GB | mlx_lm | auto MLX path primary (uncensored, 256K ctx) |
-| `mlx-community/Llama-3.2-3B-Instruct-8bit` | ~3GB | mlx_lm | Fast baseline / LLM router |
-| `mlx-community/phi-4-8bit` | ~14GB | mlx_lm | Phi-4 14B STEM reasoning (Microsoft, synthetic data) |
-| `mlx-community/granite-4.1-30b-mxfp4` | ~15GB | mlx_lm | auto-compliance primary (IBM Granite 4.1 30B, Apache 2.0) |
-| `mlx-community/granite-4.1-3b-mxfp8` | ~3GB | mlx_lm | Ultra-fast compliance (IBM Granite 4.1 3B) |
-| `mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit` | ~14GB | mlx_lm | Security/redteam (AEON uncensored 27B) |
-| `lmstudio-community/Magistral-Small-2509-MLX-8bit` | ~24GB | mlx_lm | auto-mistral workspace, Mistral reasoning, [THINK] mode |
-| `mlx-community/Llama-3.3-70B-Instruct-4bit` | ~40GB | mlx_lm | Maximum quality (PULL_HEAVY only, BIG_MODEL) |
-| `Jackrong/MLX-Qwopus3.5-27B-v3-8bit` | ~22GB | mlx_lm | auto-reasoning primary (Qwopus 27B v3) |
-| `Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit` | ~14GB | mlx_lm | Reasoning alt (Claude-4.6-Opus distill, 4-bit) |
-| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit` | ~34GB | mlx_lm | Data analysis (R1 Distill Qwen 32B 8-bit) |
-| `mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit` | ~18GB | mlx_lm | Uncensored reasoning (R1 Distill 4-bit) |
-| `mlx-community/Qwen2.5-Math-7B-Instruct-4bit` | ~5GB | mlx_lm | auto-math primary (Qwen Math specialist) |
-| `lmstudio-community/Phi-4-reasoning-plus-MLX-4bit` | ~8GB | mlx_lm | STEM/math reasoning (Microsoft RL-trained) |
-| `Jackrong/Negentropy-claude-opus-4.7-9B-6bit` | ~7GB | mlx_lm | Bench-only — trace-inversion reasoning 9B |
-| `mlx-community/Olmo-3-1125-32B-4bit` | ~17GB | mlx_lm | Bench-only — Allen AI dense 32B (non-Qwen lineage) |
-| `mlx-community/gemma-4-31b-it-4bit` | ~18GB | mlx_vlm | Primary VLM (Gemma 4 dense 31B, thinking+vision, 256K ctx) |
-| `mlx-community/gemma-4-26B-A4B-it-heretic-4bit` | ~13GB | mlx_vlm | auto-creative primary (Gemma 4 26B HERETIC abliterated) |
-| `mlx-community/gemma-4-26b-a4b-it-4bit` | ~13GB | mlx_vlm | auto-daily primary + auto-vision/auto-research primary (Gemma 4 26B-A4B MoE, 57.8 TPS, Apache 2.0) |
-| `mlx-community/gemma-4-e4b-it-4bit` | ~5GB | mlx_vlm | Gemma 4 E4B — text+vision+audio (ASR), 128K ctx |
-| `mlx-community/Qwen3-VL-32B-Instruct-8bit` | ~36GB | mlx_vlm | Heavy VLM (Qwen3-VL 32B, BIG_MODEL) |
-| `mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit` | ~7GB | mlx_vlm | Uncensored VLM (11B, research) |
-
-### Memory coexistence (64GB system)
-
-```
-Qwen3-Coder-Next-4bit (~46GB) + Ollama general (~5GB) + OS (~8GB) = 59GB — run without ComfyUI/Wan2.2 ✓
-Qwen3.5-35B (~20GB) + Wan2.2 video (~18GB) + Ollama general (~5GB) = 43GB ✓
-Gemma-4-26B-A4B (~14GB) + ComfyUI Wan2.2 (~18GB) + Ollama general (~5GB) = 37GB ✓
-Magistral-Small-8bit (~24GB) + ComfyUI flux-schnell (~8GB) + Ollama general (~5GB) = 37GB ✓
-```
-
-### Verify
-
-```bash
-# Check proxy health and active server
-curl -s http://localhost:8081/health
-# {"status":"ok","active_server":"lm"}  or  {"status":"ok","active_server":"vlm"}
-
-# List all available MLX models
-curl -s http://localhost:8081/v1/models
-
-# Check pipeline logs for MLX routing
-./launch.sh logs | grep "mlx"
-```
+> **Retired (commit 3a0c58e).** The MLX inference proxy was removed; all chat
+> inference now runs through Ollama (:11434) with its native MLX Metal backend.
+> The MLX *speech* (:8918) and *transcription* (:8924) servers documented
+> elsewhere in this guide are unaffected and remain in use.
 
 ---
 
@@ -1340,7 +1255,7 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh logs [service]  # View logs
 ./launch.sh update          # Full update: git pull, Docker images, rebuilds, model refresh, re-seed
 ./launch.sh update --skip-models  # Update without model refresh (faster)
-./launch.sh update --models-only  # Only refresh models (Ollama + MLX)
+./launch.sh update --models-only  # Only refresh Ollama models
 ./launch.sh rebuild         # Rebuild portal-pipeline Docker image after git pull
 ./launch.sh prune           # Prune Docker resources
 
@@ -1348,12 +1263,6 @@ curl -s http://localhost:9099/metrics | head -20
 ./launch.sh pull-models     # Pull all Ollama models (30-90 min)
 ./launch.sh refresh-models  # Re-pull models (update existing)
 ./launch.sh import-gguf <path> [name]  # Import a local .gguf file into Ollama
-./launch.sh install-mlx     # Install MLX for Apple Silicon
-./launch.sh pull-mlx-models # Download MLX model weights
-./launch.sh switch-mlx-model <tag>  # Switch active MLX model
-./launch.sh start-mlx-watchdog  # Start MLX health watchdog daemon
-./launch.sh stop-mlx-watchdog   # Stop MLX watchdog daemon
-./launch.sh mlx-status      # Show MLX component status
 ./launch.sh start-speech    # Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)
 ./launch.sh stop-speech     # Stop MLX Speech server
 

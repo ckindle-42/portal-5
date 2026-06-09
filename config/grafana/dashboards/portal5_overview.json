@@ -311,8 +311,8 @@
     {
       "id": 30,
       "type": "stat",
-      "title": "MLX Free Memory",
-      "description": "Current free memory reported by MLX proxy.",
+      "title": "[RETIRED] MLX Free Memory",
+      "description": "Current free memory reported by MLX proxy (retired 3a0c58e).",
       "gridPos": { "h": 4, "w": 4, "x": 0, "y": 57 },
       "targets": [{ "expr": "mlx_memory_free_gb", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "decgbytes", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 25 }] } } },
@@ -321,8 +321,8 @@
     {
       "id": 31,
       "type": "stat",
-      "title": "MLX Memory Used %",
-      "description": "System memory usage percentage from MLX proxy.",
+      "title": "[RETIRED] MLX Memory Used %",
+      "description": "System memory usage percentage from MLX proxy (retired 3a0c58e).",
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 57 },
       "targets": [{ "expr": "mlx_memory_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
@@ -331,8 +331,8 @@
     {
       "id": 32,
       "type": "stat",
-      "title": "MLX Peak Memory",
-      "description": "Peak memory usage since proxy started.",
+      "title": "[RETIRED] MLX Peak Memory",
+      "description": "Peak memory usage since proxy started (retired 3a0c58e).",
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 57 },
       "targets": [{ "expr": "mlx_memory_peak_used_pct", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "unit": "percent", "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 }] } } },
@@ -341,8 +341,8 @@
     {
       "id": 33,
       "type": "stat",
-      "title": "MLX Model Switches",
-      "description": "Total model switch count since proxy started.",
+      "title": "[RETIRED] MLX Model Switches",
+      "description": "Total model switch count since proxy started (retired 3a0c58e).",
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 57 },
       "targets": [{ "expr": "mlx_proxy_switch_count", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" } } },
@@ -351,8 +351,8 @@
     {
       "id": 34,
       "type": "stat",
-      "title": "MLX Proxy State",
-      "description": "Current MLX proxy state.",
+      "title": "[RETIRED] MLX Proxy State",
+      "description": "Current MLX proxy state (retired 3a0c58e).",
       "gridPos": { "h": 4, "w": 4, "x": 16, "y": 57 },
       "targets": [{ "expr": "mlx_proxy_state", "datasource": { "type": "prometheus", "uid": "prometheus" } }],
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] } } },
@@ -361,8 +361,8 @@
     {
       "id": 35,
       "type": "timeseries",
-      "title": "System Memory Over Time",
-      "description": "Memory usage tracked by MLX proxy watchdog. Shows pressure during model switches.",
+      "title": "[RETIRED] System Memory Over Time",
+      "description": "Memory usage tracked by MLX proxy watchdog (retired 3a0c58e).",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 61 },
       "targets": [
         { "expr": "mlx_memory_free_gb", "legendFormat": "Free (GB)", "datasource": { "type": "prometheus", "uid": "prometheus" } },
