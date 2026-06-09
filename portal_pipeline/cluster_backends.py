@@ -31,7 +31,7 @@ import random
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -153,15 +153,12 @@ class Backend:
     models: list[str]
     healthy: bool = True
     last_check: float = 0.0
+    consecutive_failures: int = field(default=0)
     # Rich per-model metadata for Ollama backends. Populated from dict-form entries
     # in `models:` (e.g. `{id: foo, supports_tools: true}`). Empty list when entries
     # are bare strings (legacy format) — those models default to supports_tools=False
-    # via _model_supports_tools(). See TASK_TOOL_SUPPORT_AUDIT_V1 §A2-A4.
-    ollama_metadata: list[dict] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.ollama_metadata is None:
-            self.ollama_metadata = []
+    # via model_supports_tools(). See TASK_TOOL_SUPPORT_AUDIT_V1 §A2-A4.
+    ollama_metadata: list[dict] = field(default_factory=list)
 
     @property
     def chat_url(self) -> str:
@@ -243,7 +240,7 @@ class BackendRegistry:
         self._health_check_interval = 30.0
         self._request_timeout = 120.0  # Match config/backends.yaml defaults.request_timeout
         self._health_timeout = 10.0  # Defensive default before _load_config() runs
-        self._max_concurrent_health_checks = 2  # P3: prevent health-check storm
+        self._health_failure_threshold = 2
         # P8: cached healthy-backend list — rebuilt only after each health check
         # cycle, not on every inference request. None = uninitialized (pre-first-cycle).
         self._cached_healthy: list[Backend] | None = None
@@ -254,6 +251,8 @@ class BackendRegistry:
         # or when TTL expires. Avoids list comprehension + shuffle on every request.
         self._candidate_cache: dict[str, tuple[list[Backend], float]] = {}
         self._candidate_cache_ttl: float = 5.0  # 5s TTL — short enough to react to failures
+        self._tool_support: dict[str, bool] = {}
+        self._last_healthy_count: int = -1
 
         self._load_config()
 
@@ -298,15 +297,6 @@ class BackendRegistry:
                 exc,
             )
             return
-
-        # Verify env interpolation
-        sample_url = (cfg.get("backends") or [{}])[0].get("url", "")
-        if "${" in sample_url:
-            logger.warning(
-                "backends.yaml URLs contain unexpanded env vars (e.g. %s). "
-                "Adding os.path.expandvars() expansion.",
-                sample_url[:60],
-            )
 
         # Expand environment variables
         cfg = _expand_env(cfg)
@@ -361,6 +351,18 @@ class BackendRegistry:
         self._request_timeout = float(defaults.get("request_timeout", 120.0))
         self._health_check_interval = float(defaults.get("health_check_interval", 30.0))
         self._health_timeout = float(defaults.get("health_timeout", 10.0))
+        self._health_failure_threshold = int(
+            os.environ.get("HEALTH_FAILURE_THRESHOLD",
+                          str(defaults.get("health_failure_threshold", 2)))
+        )
+
+        # Build tool support map from backend metadata
+        self._tool_support: dict[str, bool] = {}
+        for be in self._backends.values():
+            for meta in be.ollama_metadata:
+                mid = meta.get("id")
+                if mid:
+                    self._tool_support[mid] = bool(meta.get("supports_tools", False))
 
         logger.info(
             "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs",
@@ -423,6 +425,9 @@ class BackendRegistry:
         immediately after every health-check cycle, so a backend going down
         flips out of routing within one cycle (30s default), not 5s + 30s.
 
+        Unknown workspace ids are clamped to ``"_unknown"`` for cache-key
+        purposes so the cache dict doesn't grow unbounded with garbage ids.
+
         Args:
             workspace_id: A workspace id from ``WORKSPACES`` /
                 ``workspace_routing``. Unknown ids route via the fallback
@@ -431,14 +436,16 @@ class BackendRegistry:
         Returns:
             Fresh list copy; safe to mutate. Empty when no backends are healthy.
         """
-        # P7-PERF: Check cache first
+        # P7-PERF: Check cache first (clamp unknown workspace ids to _unknown)
+        # Lazy import to avoid circular dependency
+        from portal_pipeline.router.workspaces import WORKSPACES as _WS
+
+        cache_key = workspace_id if workspace_id in _WS else "_unknown"
         now = time.time()
-        cached = self._candidate_cache.get(workspace_id)
+        cached = self._candidate_cache.get(cache_key)
         if cached is not None:
             candidates, cache_time = cached
             if now - cache_time < self._candidate_cache_ttl:
-                # Return a copy to prevent mutation — shallow copy is fine since
-                # Backend objects are not mutated during request handling.
                 return list(candidates)
 
         groups = self._ws_group_cache.get(workspace_id, [self._fallback_group])
@@ -471,7 +478,7 @@ class BackendRegistry:
             result.extend(remaining)
 
         # P7-PERF: Cache the result
-        self._candidate_cache[workspace_id] = (result, now)
+        self._candidate_cache[cache_key] = (result, now)
         return list(result)
 
     def _invalidate_candidate_cache(self) -> None:
@@ -566,7 +573,11 @@ class BackendRegistry:
         )
         self._refresh_healthy_cache()  # P8: update cache after all checks complete
         healthy_count = len(self._cached_healthy)
-        logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
+        if healthy_count != self._last_healthy_count:
+            self._last_healthy_count = healthy_count
+            logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
+        else:
+            logger.debug("Health check complete: %d/%d healthy (no change)", healthy_count, len(self._backends))
 
     async def _check_one(
         self,
@@ -581,6 +592,11 @@ class BackendRegistry:
         Exceptions from the HTTP client are caught; this method never raises.
         The semaphore is held only for the duration of the network call.
 
+        Health hysteresis: ``healthy`` flips to ``False`` only after
+        ``_health_failure_threshold`` consecutive failures. A single
+        success resets the counter and restores ``healthy=True``
+        immediately.
+
         Args:
             backend: Backend to probe; mutated in place.
             sem: Concurrency-limiting semaphore from ``_get_health_semaphore``.
@@ -589,12 +605,35 @@ class BackendRegistry:
         async with sem:
             try:
                 resp = await client.get(backend.health_url)
-                backend.healthy = resp.status_code == 200
-            except Exception as e:
-                logger.debug("Health check failed for %s: %s", backend.id, e)
-                backend.healthy = False
+                ok = resp.status_code == 200
+            except Exception:
+                ok = False
             finally:
                 backend.last_check = time.time()
+
+            if ok:
+                backend.consecutive_failures = 0
+                if not backend.healthy:
+                    backend.healthy = True
+                    logger.info("Health check recovered: %s", backend.id)
+            else:
+                backend.consecutive_failures += 1
+                if backend.consecutive_failures >= self._health_failure_threshold:
+                    if backend.healthy:
+                        logger.warning(
+                            "Health check failed for %s: %d consecutive failures — marking unhealthy",
+                            backend.id,
+                            backend.consecutive_failures,
+                        )
+                        backend.healthy = False
+                else:
+                    logger.debug(
+                        "Health check failed for %s: %d/%d consecutive failures (threshold %d)",
+                        backend.id,
+                        backend.consecutive_failures,
+                        self._health_failure_threshold,
+                        self._health_failure_threshold,
+                    )
 
     async def start_health_loop(
         self,
@@ -644,3 +683,16 @@ class BackendRegistry:
     def request_timeout(self) -> float:
         """Request timeout in seconds, loaded from ``defaults.request_timeout`` in YAML."""
         return self._request_timeout
+
+    @property
+    def workspace_routes(self) -> dict:
+        """Workspace-to-group routing map from ``config/backends.yaml``."""
+        return self._workspace_routes
+
+    def model_supports_tools(self, model_id: str) -> bool:
+        """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
+
+        Lookup is O(1) against the pre-built ``_tool_support`` map.
+        Returns ``False`` for unknown models.
+        """
+        return self._tool_support.get(model_id, False)

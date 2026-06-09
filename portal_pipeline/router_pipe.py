@@ -298,12 +298,13 @@ async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
         timeout as HTTP 429.
     """
     async with _workspace_sem_lock:
-        sem = _workspace_semaphores.get(workspace_id)
+        sem_key = workspace_id if workspace_id in WORKSPACES else "_unknown"
+        sem = _workspace_semaphores.get(sem_key)
         if sem is None:
             limit = _get_workspace_concurrency_limit(workspace_id)
             sem = asyncio.Semaphore(limit)
-            _workspace_semaphores[workspace_id] = sem
-            logger.info("Workspace semaphore created: %s limit=%d", workspace_id, limit)
+            _workspace_semaphores[sem_key] = sem
+            logger.info("Workspace semaphore created: %s limit=%d", sem_key, limit)
         return sem
 
 
@@ -444,12 +445,6 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     fallback at request time — the workspace serves, but with a
     different model than intended.
 
-    Layering note: this function reaches into
-    ``registry._workspace_routes`` (a private attribute of
-    ``BackendRegistry``). Strictly, the registry should expose a
-    method for this; it doesn't yet. Tracked in
-    ``DOCSTRINGS_V1_NOTES.md`` as a follow-up.
-
     Args:
         registry: The pipeline's ``BackendRegistry``, already
             loaded from YAML.
@@ -464,7 +459,7 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 
     errors: list[str] = []
     for ws_id, ws_cfg in WORKSPACES.items():
-        groups = registry._workspace_routes.get(ws_id, [])
+        groups = registry.workspace_routes.get(ws_id, [])
         ollama_available: set[str] = set()
         for g in groups:
             ollama_available |= group_models.get(g, set())
@@ -485,22 +480,8 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
 def _model_supports_tools(model_id: str) -> bool:
     """Return whether ``model_id`` declares ``supports_tools: true`` in its metadata.
 
-    Reads from ``Backend.ollama_metadata`` (the MLX proxy tier and its
-    ``mlx_metadata`` field were retired in commit ``3a0c58e``).
-    **Default for any model not in the list is ``False``** — the
-    fail-safe direction. Without
-    this default, the router would (and historically did) trust
-    every Ollama model unconditionally, propagating the
-    ``dolphin-llama3:8b`` tool-call defect to every workspace
-    that fell through to ``ollama-general`` (commit ``de96984``,
-    tracked in ``TASK_TOOL_SUPPORT_AUDIT_V1 §A4``).
-
-    The fail-safe default means: a new model added to
-    ``backends.yaml`` without ``supports_tools: true`` will have
-    tools stripped from its requests. To enable tools for a model,
-    the operator must opt in explicitly in YAML. This is the
-    principle of least surprise — invisible defaults that *enable*
-    a feature have repeatedly bitten this codebase.
+    Delegates to ``BackendRegistry.model_supports_tools`` for O(1) lookup
+    against the pre-built tool-support map built during ``_load_config``.
 
     Args:
         model_id: Concrete model id (e.g. ``"qwen3-coder:30b"``).
@@ -508,17 +489,11 @@ def _model_supports_tools(model_id: str) -> bool:
 
     Returns:
         ``True`` if the model's metadata explicitly declares
-        ``supports_tools: true``, ``False`` otherwise (including
-        unknown models, models without metadata entries, and any
-        case where ``registry`` is uninitialised).
+        ``supports_tools: true``, ``False`` otherwise.
     """
     if registry is None or not model_id:
         return False
-    for be in registry.list_backends():
-        for meta in be.ollama_metadata:
-            if meta.get("id") == model_id:
-                return bool(meta.get("supports_tools", False))
-    return False
+    return registry.model_supports_tools(model_id)
 
 
 def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:

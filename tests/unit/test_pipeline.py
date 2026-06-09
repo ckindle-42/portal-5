@@ -1270,20 +1270,10 @@ class TestModelSupportsToolsRealBackend:
 
     def test_real_backend_tool_lookup_does_not_raise(self, monkeypatch):
         import portal_pipeline.router_pipe as rp
-        import portal_pipeline.cluster_backends as cb
-
-        be = cb.Backend(
-            id="b", type="ollama", url="http://x", group="general",
-            models=["tool-model", "plain-model"],
-            ollama_metadata=[
-                {"id": "tool-model", "supports_tools": True},
-                {"id": "plain-model", "supports_tools": False},
-            ],
-        )
 
         class _Reg:
-            def list_backends(self):
-                return [be]
+            def model_supports_tools(self, model_id):
+                return model_id == "tool-model"
 
         monkeypatch.setattr(rp, "registry", _Reg())
         assert rp._model_supports_tools("tool-model") is True
