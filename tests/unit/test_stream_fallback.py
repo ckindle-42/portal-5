@@ -371,6 +371,7 @@ class TestStreamFallbackErrorHandling:
     @pytest.mark.anyio
     async def test_non_200_yields_error_chunk(self, mock_client, monkeypatch):
         """HTTP != 200 yields a ``data: {"error": ...}`` chunk."""
+
         def fake_stream(method, url, **kwargs):
             return _MockStreamContext(500, [])
 
