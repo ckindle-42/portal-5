@@ -886,7 +886,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     for ws_id, ws_cfg in WORKSPACES.items():
         ctx_limit = ws_cfg.get("context_limit")
         if ctx_limit:
-            logger.warning("workspace=%s declares context_limit=%d but Ollama /v1 ignores options.num_ctx — set PARAMETER num_ctx in the model's Modelfile (or OLLAMA_CONTEXT_LENGTH) to enforce", ws_id, ctx_limit)
+            logger.warning(
+                "workspace=%s declares context_limit=%d but Ollama /v1 ignores options.num_ctx — set PARAMETER num_ctx in the model's Modelfile (or OLLAMA_CONTEXT_LENGTH) to enforce",
+                ws_id,
+                ctx_limit,
+            )
 
     await registry.health_check_all()
     # Load persisted metrics state from disk (survives restarts)
@@ -2490,10 +2494,6 @@ async def _stream_with_tool_loop_impl(
                     ).encode()
                     return
 
-
-
-                ts = int(time.time())
-
                 async for line in resp.aiter_lines():
                     if not line:
                         continue
@@ -2824,23 +2824,21 @@ async def _stream_from_backend_guarded(
                     continue
                 # Fast-path: detect "done" (usage payload or [DONE] marker)
                 if '"done"' in line and line.startswith("data:") and line != "data: [DONE]":
-                        payload = line[5:].strip()
-                        if payload:
-                            try:
-                                usage_data = json.loads(payload)
-                                elapsed = (
-                                    (time.monotonic() - start_time)
-                                    if start_time is not None
-                                    else None
-                                )
-                                _record_usage(
-                                    model=usage_data.get("model", model),
-                                    workspace=workspace_id,
-                                    data=usage_data,
-                                    elapsed_seconds=elapsed,
-                                )
-                            except Exception:
-                                logger.debug("Could not parse usage payload from stream")
+                    payload = line[5:].strip()
+                    if payload:
+                        try:
+                            usage_data = json.loads(payload)
+                            elapsed = (
+                                (time.monotonic() - start_time) if start_time is not None else None
+                            )
+                            _record_usage(
+                                model=usage_data.get("model", model),
+                                workspace=workspace_id,
+                                data=usage_data,
+                                elapsed_seconds=elapsed,
+                            )
+                        except Exception:
+                            logger.debug("Could not parse usage payload from stream")
                 # OpenAI SSE: "data: [DONE]" terminator
                 if line.startswith("data: [DONE]"):
                     elapsed = (time.monotonic() - start_time) if start_time is not None else None
