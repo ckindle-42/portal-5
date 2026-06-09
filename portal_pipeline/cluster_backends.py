@@ -357,7 +357,7 @@ class BackendRegistry:
         )
 
         # Build tool support map from backend metadata
-        self._tool_support: dict[str, bool] = {}
+        self._tool_support = {}
         for be in self._backends.values():
             for meta in be.ollama_metadata:
                 mid = meta.get("id")
@@ -437,10 +437,7 @@ class BackendRegistry:
             Fresh list copy; safe to mutate. Empty when no backends are healthy.
         """
         # P7-PERF: Check cache first (clamp unknown workspace ids to _unknown)
-        # Lazy import to avoid circular dependency
-        from portal_pipeline.router.workspaces import WORKSPACES as _WS
-
-        cache_key = workspace_id if workspace_id in _WS else "_unknown"
+        cache_key = workspace_id if workspace_id in self._ws_group_cache else "_unknown"
         now = time.time()
         cached = self._candidate_cache.get(cache_key)
         if cached is not None:
@@ -628,7 +625,7 @@ class BackendRegistry:
                         backend.healthy = False
                 else:
                     logger.debug(
-                        "Health check failed for %s: %d/%d consecutive failures (threshold %d)",
+                        "Health check failed for %s: %d/%d consecutive failures",
                         backend.id,
                         backend.consecutive_failures,
                         self._health_failure_threshold,

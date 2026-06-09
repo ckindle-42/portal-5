@@ -16,7 +16,7 @@ def _mock_registry(backends: list[tuple[str, str, list[str]]], routes: dict[str,
         b.models = models
         be_objs.append(b)
     reg.list_backends.return_value = be_objs
-    reg._workspace_routes = routes
+    reg.workspace_routes = routes
     return reg
 
 

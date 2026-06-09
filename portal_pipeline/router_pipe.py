@@ -65,7 +65,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -544,7 +544,7 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     # Deep-copy options to prevent mutating caller's dict
     body["options"] = dict(body.get("options") or {})
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
-    # Big-model context cap (P5-BIG-001): if workspace defines context_limit, enforce it.
+    # Big-model context cap (P5-BIG-001): workspace context_limit tracked here as self-healing; Ollama /v1 ignores options.num_ctx (VERIFY-1, 2026-06). Set 'PARAMETER num_ctx N' in the model's Modelfile or OLLAMA_CONTEXT_LENGTH env to enforce.
     ctx_limit = ws_cfg_local.get("context_limit")
     if ctx_limit:
         body["options"].setdefault("num_ctx", ctx_limit)
@@ -883,6 +883,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "Hints will silently fall back at request time. Fix backends.yaml or WORKSPACES.",
                 len(hint_errors),
             )
+    for ws_id, ws_cfg in WORKSPACES.items():
+        ctx_limit = ws_cfg.get("context_limit")
+        if ctx_limit:
+            logger.warning("workspace=%s declares context_limit=%d but Ollama /v1 ignores options.num_ctx — set PARAMETER num_ctx in the model's Modelfile (or OLLAMA_CONTEXT_LENGTH) to enforce", ws_id, ctx_limit)
+
     await registry.health_check_all()
     # Load persisted metrics state from disk (survives restarts)
     _load_state()
