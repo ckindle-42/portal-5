@@ -629,7 +629,6 @@ class BackendRegistry:
                         backend.id,
                         backend.consecutive_failures,
                         self._health_failure_threshold,
-                        self._health_failure_threshold,
                     )
 
     async def start_health_loop(
@@ -682,7 +681,7 @@ class BackendRegistry:
         return self._request_timeout
 
     @property
-    def workspace_routes(self) -> dict:
+    def workspace_routes(self) -> dict[str, list[str]]:
         """Workspace-to-group routing map from ``config/backends.yaml``."""
         return self._workspace_routes
 
