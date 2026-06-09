@@ -2,7 +2,7 @@
 
 **Project**: Portal 5 — Open WebUI Intelligence Layer  
 **Repository**: https://github.com/ckindle-42/portal-5  
-**Version**: 7.2.0
+**Version**: 7.2.1
 
 ---
 
@@ -10,9 +10,9 @@
 
 Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
 
-**Architecture**: Open WebUI → Portal Pipeline (:9099) → [MLX proxy (:8081) + Ollama (:11434)] → local models. MCP servers (:8910–8923) provide tools (documents, code sandbox, TTS, research, memory, RAG, etc.).
+**Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8923) provide tools (documents, code sandbox, TTS, research, memory, RAG, etc.).
 
-**Inference**: Two tiers on Apple Silicon — **Tier 1 MLX proxy** (safetensor models, faster ~20-30% for <14B) and **Tier 2 Ollama** (GGUF models, simpler management; since Ollama 0.19+ uses an MLX engine on Apple Silicon reaching ~85% of pure-MLX throughput on 32 GB+ Macs — the tier split is now about model-format breadth and multi-model cache ergonomics, not raw speed). Both host-native, not Docker.
+**Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
 
 **Core values**: Privacy-first, fully local, zero cloud dependencies, launch in one command.
 
@@ -37,7 +37,7 @@ Do not add these — they are explicitly out of scope:
 ```
 portal-5/
 ├── portal_pipeline/              # FastAPI Pipeline server (:9099)
-│   ├── cluster_backends.py       # BackendRegistry — Ollama + vLLM + MLX, health-aware
+│   ├── cluster_backends.py       # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
 │   ├── router_pipe.py            # /v1/models + /v1/chat/completions routing
 │   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
 │   └── notifications/            # Operational alerts + daily summaries
@@ -61,16 +61,13 @@ portal-5/
 │   └── docker-compose.yml        # THE launch definition — all services
 ├── scripts/
 │   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
-│   ├── mlx-proxy.py              # MLX dual-server proxy (auto-switches mlx_lm ↔ mlx_vlm, admission control)
 │   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
-│   ├── mlx-watchdog.py           # MLX component health monitor with auto-recovery
-│   ├── mlx-switch-benchmark.py   # MLX model switch timing benchmark
 │   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
 │   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
 │   └── ...                       # See scripts/ for full list
 ├── tests/
 │   ├── unit/                     # pytest unit tests — no Docker required
-│   └── benchmarks/               # Inference tier benchmarks (mlx_lm/mlx_vlm vs Ollama MLX)
+│   └── benchmarks/               # Inference benchmarks (Ollama TPS, positional recall, coding shootout)
 ├── Dockerfile.pipeline           # Lean image for portal-pipeline service
 ├── Dockerfile.mcp                # Image for all portal_mcp services
 ├── launch.sh                     # Single entry point (30+ commands)
@@ -147,9 +144,6 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 |---|---|
 | 8080 | Open WebUI |
 | 9099 | Portal Pipeline |
-| 8081 | MLX proxy (auto-switches mlx_lm ↔ mlx_vlm) |
-| 18081 | mlx_lm server (text-only, managed by proxy) |
-| 18082 | mlx_vlm server (VLM, managed by proxy) |
 | 8910-8916 | MCP: ComfyUI, Video, Music, Documents, Sandbox, Whisper, TTS |
 | 8917 | Embedding (Harrier-0.6B TEI) |
 | 8918 | MLX speech (Kokoro + Qwen3-TTS/ASR) |
@@ -168,23 +162,15 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 
 Port assignments are enforced in `.env.example`. Do not reassign without updating both.
 
-### 8 — Two Inference Tiers: MLX Proxy and Ollama
+### 8 — Single Inference Tier: Ollama
 
-Portal 5 runs two inference backends concurrently on the host. Each model belongs to exactly one tier.
+Portal 5 runs one inference backend: **Ollama** (port 11434, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). GGUF models, pulled via `ollama pull` or `hf.co/`, registered in `config/backends.yaml` under backend groups (general / coding / security / reasoning / vision / creative).
 
-**Tier 1 — MLX proxy** (`scripts/mlx-proxy.py`, ports 8081 / 18081 / 18082)
-- Safetensor/MLX format models, downloaded via `huggingface-cli download`
-- Served by `mlx_lm.server` (text) or `mlx_vlm.server` (vision + audio)
-- Use when: no GGUF available, needs mlx_vlm audio, or model >20GB (admission control)
-- **On-demand loading**: the proxy starts with no model loaded. `/health` returns 503 with `state: "none"` when idle — this is normal, not a crash. Models load on first request; 32B loads in 30-90s, 70-80B in 1-3 min. Do NOT kill mlx_lm.server processes during loading.
+The MLX inference proxy (formerly :8081/:18081/:18082) was retired in commit `3a0c58e` — Ollama's MLX Metal backend reaches parity on this hardware without the thread-patch maintenance, admission-control complexity, and dual-stack overhead.
 
-**Tier 2 — Ollama** (port 11434, Ollama 0.20.5+ MLX backend)
-- GGUF format models, pulled via `ollama pull` or `hf.co/`
-- Registered in `config/backends.yaml` under ollama backend groups
-- Use when: stable GGUF exists, no audio input needed, simpler management preferred
+**MLX is NOT gone from the project — only from chat inference.** It still serves: speech/TTS+ASR (`scripts/mlx-speech.py`, :8918), diarized transcription (`scripts/mlx-transcribe.py`, :8924), embeddings (:8917), and the RAG reranker (:8925, `mlx-community/Qwen3-Reranker-0.6B-mxfp8`). Do not remove those when "cleaning up MLX."
 
-Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean.
-Full model catalog with memory budgets is in `config/backends.yaml`.
+Never add `transformers` or `torch` to `portal_pipeline/` — it runs lean. Full model catalog with memory budgets is in `config/backends.yaml`.
 
 ### 9 — The Dockerfile Split Is Intentional
 
@@ -293,7 +279,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (117 personas) | `config/personas/*.yaml` |
+| Persona catalog (122 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |

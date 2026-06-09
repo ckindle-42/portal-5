@@ -1260,3 +1260,40 @@ class TestPersonasHaveToolFields:
         assert "kb_search_all" in p["tools_allow"]
 
 
+class TestModelSupportsToolsRealBackend:
+    """Regression for the 3a0c58e mlx_metadata removal.
+
+    _model_supports_tools previously iterated Backend.mlx_metadata,
+    a field deleted with the MLX proxy tier. Mocked tests missed it
+    because they never built a real Backend through this function.
+    """
+
+    def test_real_backend_tool_lookup_does_not_raise(self, monkeypatch):
+        import portal_pipeline.router_pipe as rp
+        import portal_pipeline.cluster_backends as cb
+
+        be = cb.Backend(
+            id="b", type="ollama", url="http://x", group="general",
+            models=["tool-model", "plain-model"],
+            ollama_metadata=[
+                {"id": "tool-model", "supports_tools": True},
+                {"id": "plain-model", "supports_tools": False},
+            ],
+        )
+
+        class _Reg:
+            def list_backends(self):
+                return [be]
+
+        monkeypatch.setattr(rp, "registry", _Reg())
+        assert rp._model_supports_tools("tool-model") is True
+        assert rp._model_supports_tools("plain-model") is False
+        assert rp._model_supports_tools("unknown") is False
+        assert rp._model_supports_tools("") is False
+
+    def test_backend_has_no_mlx_metadata_field(self):
+        import portal_pipeline.cluster_backends as cb
+        be = cb.Backend(id="b", type="ollama", url="http://x",
+                        group="general", models=["m"])
+        assert not hasattr(be, "mlx_metadata")
+        assert be.ollama_metadata == []
