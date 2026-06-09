@@ -529,9 +529,8 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     ignore them.
 
     Body is copied at function entry — the original is never
-    mutated. This is what lets the streaming-with-fallback path
-    retry with a different injection without contaminating the
-    upstream payload.
+    mutated. The ``options`` sub-dict is deep-copied so workspace
+    injections never pollute the caller's original options dict.
 
     Two categories of injection:
 
@@ -552,10 +551,11 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
 
     * ``num_ctx`` from ``context_limit`` — big-model agentic
       workspaces need explicit context caps to bound memory use.
-    * ``num_predict`` from ``predict_limit`` — research/reasoning
+    * ``max_tokens`` from ``predict_limit`` — research/reasoning
       workspaces cap output tokens to prevent DeepSeek-R1 CoT
-      exhaustion (where thinking chain consumes the entire
-      response budget and ``message.content`` arrives empty).
+      exhaustion. Mapped to top-level ``max_tokens`` (OpenAI
+      standard) because ``options.num_predict`` is ignored by
+      Ollama ``/v1/chat/completions``.
 
     All injections use ``setdefault`` so caller-supplied values
     (e.g. Open WebUI passing its own ``keep_alive``) win. The
@@ -571,23 +571,21 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         Shallow copy of ``body`` with injections applied.
     """
     body = dict(body)
+    # Deep-copy options to prevent mutating caller's dict
+    body["options"] = dict(body.get("options") or {})
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
     # Big-model context cap (P5-BIG-001): if workspace defines context_limit, enforce it.
     ctx_limit = ws_cfg_local.get("context_limit")
     if ctx_limit:
-        body.setdefault("options", {})
         body["options"].setdefault("num_ctx", ctx_limit)
     # Research/reasoning workspaces: cap output tokens to prevent CoT exhaustion.
-    # DeepSeek-R1 (Ollama fallback) can exhaust all tokens in its thinking block,
-    # leaving message.content empty. predict_limit is set per-workspace in WORKSPACES.
+    # Branch I: map predict_limit to top-level max_tokens because
+    # options.num_predict is ignored by Ollama /v1/chat/completions.
     predict_limit = ws_cfg_local.get("predict_limit")
     if predict_limit:
-        body.setdefault("options", {})
-        body["options"].setdefault("num_predict", predict_limit)
+        body.setdefault("max_tokens", predict_limit)
     body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
-    opts: dict = dict(body.get("options") or {})
-    opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
-    body["options"] = opts
+    body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
     return body
 
 
@@ -1467,10 +1465,8 @@ async def _try_non_streaming(
        ``_dispatch_tool_call``, append assistant turn + tool
        results, call the model once more for synthesis with
        ``tools: None``, ``tool_choice: None``.
-       **Single hop, not unbounded** — see "asymmetry" below.
-    6. **Translate Ollama native** ``{"message": ...}`` to OpenAI
-       ``{"choices": [{"message": ...}]}`` when needed.
-    7. **Reasoning normalisation**: promote
+        **Single hop, not unbounded** — see "asymmetry" below.
+     6. **Reasoning normalisation**: promote
        ``message.reasoning`` → ``message.content`` when content is
        empty (DeepSeek-R1 CoT exhaustion).
     8. **Record metrics** + **emit ``x-portal-route`` header** so
@@ -1599,45 +1595,6 @@ async def _try_non_streaming(
                 workspace_id,
                 len(_ns_tool_calls),
             )
-
-        # Translate Ollama's native non-streaming format to OpenAI format
-        # Ollama returns: {"message": {"role": "assistant", "content": "..."}, "eval_count": N, ...}
-        # Pipeline expects: {"choices": [{"message": {"content": "..."}, ...}], ...}
-        if "message" in data and "choices" not in data:
-            _msg = data.get("message", {})
-            _content = _msg.get("content", "")
-            _reasoning = (
-                _msg.get("reasoning_content", "")
-                or _msg.get("reasoning", "")
-                or _msg.get("thinking", "")
-            )
-            if not _content and _reasoning:
-                _content = _reasoning
-                _reasoning = ""
-            response_msg: dict = {
-                "role": _msg.get("role", "assistant"),
-                "content": _content,
-            }
-            if _reasoning:
-                response_msg["reasoning_content"] = _reasoning
-            data = {
-                "id": f"chatcmpl-p5-{int(time.time())}",
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": target_model,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": response_msg,
-                        "finish_reason": "stop",
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": data.get("prompt_eval_count", 0),
-                    "completion_tokens": data.get("eval_count", 0),
-                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
-                },
-            }
 
         # Reasoning model normalisation: DeepSeek-R1, Qwen3 thinking mode, and Magistral
         # populate message.reasoning instead of message.content when the thinking chain
@@ -2421,9 +2378,8 @@ async def _stream_with_tool_loop_impl(
 
     The most complex function in the file. Wrapped by
     ``_stream_with_tool_loop`` which adds semaphore lifecycle.
-    Spans ~380 lines covering multi-hop tool dispatch, two SSE
-    dialects (Ollama native, OpenAI), several backend quirks, and
-    a per-chunk reasoning-content rewriter.
+    Spans ~380 lines covering multi-hop tool dispatch, OpenAI SSE,
+    several backend quirks, and a per-chunk reasoning-content rewriter.
 
     Per-hop algorithm:
 
@@ -2431,12 +2387,11 @@ async def _stream_with_tool_loop_impl(
        optional ``⚡ workspace → model`` status when
        ``_SHOW_ROUTING_STATUS=true``.
     2. **POST + stream** from ``backend_url`` with ``current_body``.
-    3. **Per-chunk processing** branches on detected backend
-       protocol — see "Three protocols, one stream" below.
+    3. **Per-chunk processing** of OpenAI SSE — see "One protocol"
+       below.
     4. **After stream completes**, if ``finish_reason ==
        "tool_calls"``:
-       - Normalise tool_calls from either Ollama-native dict or
-         OpenAI-format buffer.
+       - Collect tool_calls from the OpenAI-format buffer.
        - Bail with "Tool-use limit reached" content if
          ``hop >= MAX_TOOL_HOPS``.
        - Dispatch all tool calls in parallel via
@@ -2446,28 +2401,19 @@ async def _stream_with_tool_loop_impl(
     5. **Otherwise** (``"stop"`` or similar): record response time
        and return.
 
-    **Three protocols, one stream:**
+    **One protocol (OpenAI SSE):**
 
-    * **Ollama native** (URL contains ``/api/chat`` and not
-      ``/v1/``): bare NDJSON, no ``data:`` prefix, ``message:``
-      key carries content / reasoning / tool_calls. Translated to
-      OpenAI SSE on the way out so OWUI receives one format.
-    * **OpenAI SSE** (everything else — MLX, vLLM, Ollama ``/v1/``
-      compat): ``data: {...}`` lines, OpenAI-spec shape.
-    * **Ollama-native vs OpenAI** detection is by URL substring;
-      backend type is not passed through. This is the only place
-      in the streaming layer where backend type is inferred.
+    All backends (Ollama ``/v1/``, vLLM, etc.) speak OpenAI-compatible
+    SSE. ``data: {...}`` lines, OpenAI-spec shape.
 
     **Pipeline-owned tool dispatch — OWUI never sees ``tool_calls``
     deltas.** Every ``delta.get("tool_calls")`` chunk from the
     backend is *suppressed from the OWUI SSE stream*. If OWUI saw
     a ``tool_calls`` event it would trigger its own dispatch loop,
     creating duplicate turns with empty tool results that
-    overwrite the pipeline's real answer. Critical comment at
-    lines 3188–3193. The pipeline collects ``tool_calls`` into
-    ``tool_calls_buf`` (OpenAI) or captures
-    ``_ollama_tool_calls`` (Ollama), then dispatches them itself
-    after the stream completes.
+    overwrite the pipeline's real answer. The pipeline collects
+    ``tool_calls`` into ``tool_calls_buf``, then dispatches them
+    itself after the stream completes.
 
     **Reasoning-content rewriting** at lines 3255–3299: when
     thinking is disabled but the model still emits content in
@@ -2507,7 +2453,6 @@ async def _stream_with_tool_loop_impl(
         # Accumulators for this iteration
         tool_calls_buf: list[dict] = []
         finish_reason: str | None = None
-        _ollama_tool_calls: list[dict] | None = None
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -2556,188 +2501,111 @@ async def _stream_with_tool_loop_impl(
                     ).encode()
                     return
 
-                _is_ollama_native = "/api/chat" in backend_url and "/v1/" not in backend_url
                 rid = f"chatcmpl-p5-{int(time.time())}"
                 ts = int(time.time())
 
-                async for chunk in resp.aiter_bytes():
-                    if not chunk:
+                async for line in resp.aiter_lines():
+                    if not line:
+                        yield b"\n\n"
                         continue
-                    if _is_ollama_native:
-                        chunk_text = chunk.decode("utf-8", errors="replace")
-                        for line in chunk_text.splitlines():
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                obj = json.loads(line)
-                            except Exception:
-                                continue
-                            msg = obj.get("message") or {}
+                    if not line.startswith(b"data: "):
+                        yield line + b"\n\n" if line else b"\n\n"
+                        continue
+                    data_str = line[6:].strip().decode("utf-8", errors="replace")
+                    if data_str == "[DONE]":
+                        # Suppress hop-N [DONE] when more hops follow.
+                        # Hop 2+ will emit their own [DONE] after the
+                        # final answer is streamed.
+                        if finish_reason != "tool_calls" or not tool_calls_buf:
+                            yield b"data: [DONE]\n\n"
+                        continue
+                    try:
+                        obj = json.loads(data_str)
+                    except Exception:
+                        yield line + b"\n\n"
+                        continue
 
-                            # Capture tool calls from Ollama native format
-                            if "tool_calls" in msg and msg["tool_calls"]:
-                                _ollama_tool_calls = msg["tool_calls"]
-                                # Forward tool_calls as SSE so OWUI can render
-                                for tc in msg["tool_calls"]:
-                                    tc_sse = {
-                                        "id": rid,
-                                        "object": "chat.completion.chunk",
-                                        "created": ts,
-                                        "model": workspace_id,
-                                        "choices": [
-                                            {
-                                                "index": 0,
-                                                "delta": {
-                                                    "tool_calls": [
-                                                        {
-                                                            "index": 0,
-                                                            "id": tc.get("id", f"call_{rid}"),
-                                                            "type": "function",
-                                                            "function": {
-                                                                "name": tc.get("function", {}).get(
-                                                                    "name", ""
-                                                                ),
-                                                                "arguments": json.dumps(
-                                                                    tc.get("function", {}).get(
-                                                                        "arguments", {}
-                                                                    )
-                                                                ),
-                                                            },
-                                                        }
-                                                    ],
-                                                },
-                                                "finish_reason": None,
-                                            }
-                                        ],
+                    choice = (obj.get("choices") or [{}])[0]
+                    delta = choice.get("delta", {})
+
+                    if delta.get("tool_calls"):
+                        for tc_delta in delta["tool_calls"]:
+                            idx = tc_delta.get("index", 0)
+                            while len(tool_calls_buf) <= idx:
+                                tool_calls_buf.append(
+                                    {
+                                        "id": "",
+                                        "type": "function",
+                                        "function": {"name": "", "arguments": ""},
                                     }
-                                    yield f"data: {json.dumps(tc_sse)}\n\n".encode()
-
-                            content_delta = (
-                                msg.get("content", "")
-                                if isinstance(msg.get("content"), str)
-                                else ""
-                            )
-                            reasoning_delta = (
-                                msg.get("reasoning_content", "")
-                                or msg.get("reasoning", "")
-                                or msg.get("thinking", "")
-                            )
-                            if isinstance(reasoning_delta, dict):
-                                reasoning_delta = reasoning_delta.get("text", "") or ""
-                            done = obj.get("done", False)
-                            if content_delta or reasoning_delta or done:
-                                delta_payload: dict = {}
-                                if content_delta:
-                                    delta_payload["content"] = content_delta
-                                if reasoning_delta:
-                                    delta_payload["reasoning_content"] = reasoning_delta
-                                sse_chunk = {
-                                    "id": rid,
-                                    "object": "chat.completion.chunk",
-                                    "created": ts,
-                                    "model": workspace_id,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": delta_payload,
-                                            "finish_reason": "stop" if done else None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(sse_chunk)}\n\n".encode()
-
-                            if done:
-                                finish_reason = "tool_calls" if _ollama_tool_calls else "stop"
-                                elapsed = (time.monotonic() - start_time) if start_time else None
-                                _record_usage(
-                                    model=obj.get("model", model),
-                                    workspace=workspace_id,
-                                    data=obj,
-                                    elapsed_seconds=elapsed,
                                 )
-                    else:
-                        # OpenAI SSE path — detect tool_calls in delta.
-                        # Tool-call chunks are handled internally; suppress
-                        # them from the OWUI SSE stream so OWUI never sees
-                        # tool_calls and cannot trigger its own dispatch
-                        # loop (which would create extra turns with empty
-                        # tool results, overwriting the pipeline's answer).
-                        chunk_text = chunk.decode("utf-8", errors="replace")
-                        for line in chunk_text.splitlines():
-                            if not line.startswith("data: "):
-                                yield (line + "\n\n").encode() if line else b""
-                                continue
-                            data_str = line[6:].strip()
-                            if data_str == "[DONE]":
-                                # Suppress hop-N [DONE] when more hops follow.
-                                # Hop 2+ will emit their own [DONE] after the
-                                # final answer is streamed.
-                                if finish_reason != "tool_calls" or not tool_calls_buf:
-                                    yield b"data: [DONE]\n\n"
-                                continue
-                            try:
-                                obj = json.loads(data_str)
-                            except Exception:
-                                yield (line + "\n\n").encode()
-                                continue
+                            buf = tool_calls_buf[idx]
+                            if "id" in tc_delta:
+                                buf["id"] = tc_delta["id"]
+                            if "function" in tc_delta:
+                                fn = tc_delta["function"]
+                                if "name" in fn:
+                                    buf["function"]["name"] += fn["name"]
+                                if "arguments" in fn:
+                                    buf["function"]["arguments"] += fn["arguments"]
+                        # mlx_vlm sends tool_calls + finish_reason in the
+                        # same final chunk — capture finish_reason here so
+                        # the dispatch gate fires after the stream ends.
+                        if choice.get("finish_reason"):
+                            finish_reason = choice["finish_reason"]
+                        # Suppress tool_call delta — pipeline owns dispatch
+                        continue
 
-                            choice = (obj.get("choices") or [{}])[0]
-                            delta = choice.get("delta", {})
+                    if choice.get("finish_reason"):
+                        finish_reason = choice["finish_reason"]
+                        if finish_reason == "tool_calls":
+                            # Suppress finish_reason=tool_calls chunk too
+                            continue
 
-                            if delta.get("tool_calls"):
-                                for tc_delta in delta["tool_calls"]:
-                                    idx = tc_delta.get("index", 0)
-                                    while len(tool_calls_buf) <= idx:
-                                        tool_calls_buf.append(
-                                            {
-                                                "id": "",
-                                                "type": "function",
-                                                "function": {"name": "", "arguments": ""},
-                                            }
-                                        )
-                                    buf = tool_calls_buf[idx]
-                                    if "id" in tc_delta:
-                                        buf["id"] = tc_delta["id"]
-                                    if "function" in tc_delta:
-                                        fn = tc_delta["function"]
-                                        if "name" in fn:
-                                            buf["function"]["name"] += fn["name"]
-                                        if "arguments" in fn:
-                                            buf["function"]["arguments"] += fn["arguments"]
-                                # mlx_vlm sends tool_calls + finish_reason in the
-                                # same final chunk — capture finish_reason here so
-                                # the dispatch gate fires after the stream ends.
-                                if choice.get("finish_reason"):
-                                    finish_reason = choice["finish_reason"]
-                                # Suppress tool_call delta — pipeline owns dispatch
-                                continue
+                    # When thinking is disabled, Gemma 4 puts its answer in
+                    # reasoning_content with empty content, or inside <think>
+                    # tags in content. Both render as <details type="reasoning">
+                    # in OWUI and get stripped by the test driver. Convert to
+                    # regular content so the answer is visible.
+                    _thinking_off = not current_body.get("enable_thinking", True)
+                    _rc = delta.get("reasoning_content")
+                    _ct = delta.get("content") or ""
 
-                            if choice.get("finish_reason"):
-                                finish_reason = choice["finish_reason"]
-                                if finish_reason == "tool_calls":
-                                    # Suppress finish_reason=tool_calls chunk too
-                                    continue
+                    if _rc and not _ct and (_thinking_off or hop > 1):
+                        # reasoning_content with no content — surface as content.
+                        # hop > 1: synthesis hops always surface reasoning as content
+                        # so recalled keywords are visible, not buried in <details>.
+                        _new_delta = {
+                            k: v
+                            for k, v in delta.items()
+                            if k != "reasoning_content"
+                        }
+                        _new_delta["content"] = _rc
+                        _new_obj = dict(obj)
+                        _new_obj["choices"] = [
+                            dict(choice, delta=_new_delta)
+                        ]
+                        yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                        continue
 
-                            # When thinking is disabled, Gemma 4 puts its answer in
-                            # reasoning_content with empty content, or inside <think>
-                            # tags in content. Both render as <details type="reasoning">
-                            # in OWUI and get stripped by the test driver. Convert to
-                            # regular content so the answer is visible.
-                            _thinking_off = not current_body.get("enable_thinking", True)
-                            _rc = delta.get("reasoning_content")
-                            _ct = delta.get("content") or ""
+                    if _ct and "<think>" in _ct and _thinking_off:
+                        # <think>answer</think> in content with empty actual
+                        # response — strip wrapper and surface inner text.
+                        import re as _re_s
 
-                            if _rc and not _ct and (_thinking_off or hop > 1):
-                                # reasoning_content with no content — surface as content.
-                                # hop > 1: synthesis hops always surface reasoning as content
-                                # so recalled keywords are visible, not buried in <details>.
-                                _new_delta = {
-                                    k: v
-                                    for k, v in delta.items()
-                                    if k != "reasoning_content"
-                                }
-                                _new_delta["content"] = _rc
+                        _stripped = _re_s.sub(
+                            r"<think>.*?</think>", "", _ct, flags=_re_s.DOTALL | _re_s.IGNORECASE
+                        ).strip()
+                        if not _stripped:
+                            _inner = _re_s.sub(
+                                r"<think>(.*?)</think>",
+                                r"\1",
+                                _ct,
+                                flags=_re_s.DOTALL | _re_s.IGNORECASE,
+                            ).strip()
+                            if _inner:
+                                _new_delta = dict(delta)
+                                _new_delta["content"] = _inner
                                 _new_obj = dict(obj)
                                 _new_obj["choices"] = [
                                     dict(choice, delta=_new_delta)
@@ -2745,32 +2613,7 @@ async def _stream_with_tool_loop_impl(
                                 yield f"data: {json.dumps(_new_obj)}\n\n".encode()
                                 continue
 
-                            if _ct and "<think>" in _ct and _thinking_off:
-                                # <think>answer</think> in content with empty actual
-                                # response — strip wrapper and surface inner text.
-                                import re as _re_s
-
-                                _stripped = _re_s.sub(
-                                    r"<think>.*?</think>", "", _ct, flags=_re_s.DOTALL | _re_s.IGNORECASE
-                                ).strip()
-                                if not _stripped:
-                                    _inner = _re_s.sub(
-                                        r"<think>(.*?)</think>",
-                                        r"\1",
-                                        _ct,
-                                        flags=_re_s.DOTALL | _re_s.IGNORECASE,
-                                    ).strip()
-                                    if _inner:
-                                        _new_delta = dict(delta)
-                                        _new_delta["content"] = _inner
-                                        _new_obj = dict(obj)
-                                        _new_obj["choices"] = [
-                                            dict(choice, delta=_new_delta)
-                                        ]
-                                        yield f"data: {json.dumps(_new_obj)}\n\n".encode()
-                                        continue
-
-                            yield (line + "\n\n").encode()
+                    yield line + b"\n\n"
         except Exception as e:
             logger.error("Tool-loop stream error from %s: %s", backend_url, e)
             _record_error(workspace_id, "stream_error")
@@ -2779,25 +2622,7 @@ async def _stream_with_tool_loop_impl(
 
         # After stream completes, check if tool calls were emitted
         if finish_reason == "tool_calls":
-            # Collect tool calls (Ollama native vs OpenAI format)
-            all_tool_calls = []
-            if _ollama_tool_calls:
-                for tc in _ollama_tool_calls:
-                    fn = tc.get("function", {})
-                    all_tool_calls.append(
-                        {
-                            "id": tc.get("id", f"call_{request_id}"),
-                            "type": "function",
-                            "function": {
-                                "name": fn.get("name", ""),
-                                "arguments": json.dumps(fn.get("arguments", {}))
-                                if isinstance(fn.get("arguments"), dict)
-                                else str(fn.get("arguments", "{}")),
-                            },
-                        }
-                    )
-            elif tool_calls_buf:
-                all_tool_calls = tool_calls_buf
+            all_tool_calls = tool_calls_buf
 
             if not all_tool_calls:
                 logger.warning(
@@ -2890,10 +2715,8 @@ async def _stream_with_preamble(
     response.
 
     **Semaphore ownership boundary.** This function owns release
-    via its own ``try/finally`` and passes ``sem=None`` to
-    ``_stream_from_backend_guarded``. The inner function's
-    ``finally`` block sees ``sem is None`` and skips its release —
-    avoiding double-release.
+    via its own ``try/finally``. The inner ``_stream_from_backend_guarded``
+    no longer carries a semaphore parameter — avoiding double-release.
 
     The wrapper-owned lifecycle is what closes a previously-leaking
     case: a client disconnect after the preamble yield but before
@@ -2938,14 +2761,9 @@ async def _stream_with_preamble(
         yield _make_chunk({"content": f"`⚡ {ws_name} → {model}`\n\n"})
 
     # Stream from backend.
-    # Semaphore ownership: _stream_with_preamble owns sem and releases it in its
-    # own finally block (below). _stream_from_backend_guarded is called with
-    # sem=None so its finally does NOT also release — preventing double-release.
-    # This closes the window where a client disconnect after the preamble yield but
-    # before the backend stream starts would leave sem permanently acquired.
     try:
         async for chunk in _stream_from_backend_guarded(
-            url, body, sem=None, workspace_id=workspace_id, model=model, start_time=start_time
+            url, body, workspace_id=workspace_id, model=model, start_time=start_time
         ):
             yield chunk
     finally:
@@ -2960,57 +2778,32 @@ async def _stream_with_preamble(
 async def _stream_from_backend_guarded(
     url: str,
     body: dict,
-    sem: asyncio.Semaphore | None,
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream from backend; translate Ollama-native to OpenAI SSE; record metrics.
+    """Stream from backend; pass-through OpenAI SSE; record metrics.
 
     The lowest-level streaming function. Connects to ``url``,
-    streams the response, yields bytes for OWUI. Handles three
-    backend response shapes:
+    streams the response, yields bytes for OWUI. Handles two
+    cases:
 
-    * **Ollama native** (URL contains ``/api/chat`` and not
-      ``/v1/``): bare NDJSON, no ``data:`` prefix. Translated to
-      OpenAI SSE on the way out so OWUI receives one format.
-    * **OpenAI SSE** (MLX, vLLM, Ollama ``/v1/`` compat):
+    * **OpenAI SSE** (Ollama ``/v1/``, vLLM, etc.):
       ``data: {...}`` lines, mostly pass-through.
     * **Failure** (connect error, HTTP non-200): emit explicit
       ``data: {"error": "..."}\\n\\n`` envelope and return. This
       is what ``_stream_or_fallback`` matches on with its
       ``b'"error"' in chunk`` check.
 
-    **Two byte-level perf optimisations** keep the hot loop fast
-    enough for 100+ TPS streams:
-
-    1. ``b'"done"' in chunk`` — fast substring check before any
-       decode/parse. The usage-recording path only fires when the
-       chunk actually contains a ``done`` field.
-    2. ``b'"reasoning"' in chunk and b'"content"' not in chunk``
-       — fast filter for the ``mlx_lm 0.31.2+`` regression where
-       reasoning models emit content in ``delta.reasoning``
-       instead of ``delta.content``. Only the regression case
-       pays the decode-parse cost.
-
-    The full decode → JSON parse → re-encode path is only entered
-    when one of these byte checks matched. Steady-state cost per
-    chunk is a couple of substring checks.
-
-    **Semaphore ``sem`` is currently always ``None`` at HEAD.** The
-    only caller is ``_stream_with_preamble``, which owns its
-    semaphore lifecycle via its own ``try/finally`` and passes
-    ``sem=None`` here. The ``if sem is not None: sem.release()``
-    branch is effectively dead code. Documented in
-    ``DOCSTRINGS_V1_NOTES.md`` as a candidate for cleanup once a
-    different caller starts passing a real semaphore.
+    **Line-based fast-path checks** replace the old byte-chunk
+    scanning. Each line from ``aiter_lines()`` is checked with
+    fast substring ops (``b'"done"'``, ``b'"reasoning"'``).
+    Only successful matches pay the decode-parse cost. Steady-state
+    cost per line is a couple of substring checks.
 
     Args:
         url: Backend chat URL.
         body: Request body; pass-through to the backend.
-        sem: Semaphore to release in ``finally``. Pass ``None``
-            when the caller owns release (currently the only
-            mode in use).
         workspace_id, model: For logging and metrics.
         start_time: For elapsed-time metrics; ``None`` skips
             response-time recording.
@@ -3021,8 +2814,6 @@ async def _stream_from_backend_guarded(
     if _http_client is None:
         logger.error("HTTP client not initialised — yielding error chunk")
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
-        if sem is not None:
-            sem.release()
         return
     try:
         async with _http_client.stream("POST", url, json=body) as resp:
@@ -3044,154 +2835,72 @@ async def _stream_from_backend_guarded(
                     + "\n\n"
                 ).encode()
                 return
-            # Detect Ollama native NDJSON format (bare JSON lines, no "data:" prefix)
-            _is_ollama_native = "/api/chat" in url and "/v1/" not in url
-            rid = f"chatcmpl-p5-{int(time.time())}"
-            ts = int(time.time())
-            async for chunk in resp.aiter_bytes():
-                if chunk:
-                    if _is_ollama_native:
-                        # Ollama native NDJSON: translate to SSE for Open WebUI
-                        chunk_text = chunk.decode("utf-8", errors="replace")
-                        for line in chunk_text.splitlines():
-                            line = line.strip()
-                            if not line:
-                                continue
+            async for line in resp.aiter_lines():
+                if not line:
+                    yield b"\n\n"
+                    continue
+                # Fast-path: detect "done" (usage payload or [DONE] marker)
+                if b'"done"' in line:
+                    if line.startswith(b"data:") and line != b"data: [DONE]":
+                        payload = line[5:].strip()
+                        if payload:
                             try:
-                                obj = json.loads(line)
-                            except Exception:
-                                continue
-                            msg = obj.get("message") or {}
-                            content_delta = (
-                                msg.get("content", "")
-                                if isinstance(msg.get("content"), str)
-                                else ""
-                            )
-                            reasoning_delta = (
-                                msg.get("reasoning_content", "")
-                                or msg.get("reasoning", "")
-                                or msg.get("thinking", "")
-                            )
-                            if isinstance(reasoning_delta, dict):
-                                reasoning_delta = reasoning_delta.get("text", "") or ""
-                            done = obj.get("done", False)
-                            if content_delta or reasoning_delta or done:
-                                delta_payload: dict = {}
-                                if content_delta:
-                                    delta_payload["content"] = content_delta
-                                if reasoning_delta:
-                                    delta_payload["reasoning_content"] = reasoning_delta
-                                sse_chunk = {
-                                    "id": rid,
-                                    "object": "chat.completion.chunk",
-                                    "created": ts,
-                                    "model": workspace_id,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": delta_payload,
-                                            "finish_reason": "stop" if done else None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(sse_chunk)}\n\n".encode()
-                            if obj.get("done") is True:
+                                usage_data = json.loads(payload)
                                 elapsed = (
                                     (time.monotonic() - start_time)
                                     if start_time is not None
                                     else None
                                 )
                                 _record_usage(
-                                    model=obj.get("model", model),
+                                    model=usage_data.get("model", model),
                                     workspace=workspace_id,
-                                    data=obj,
+                                    data=usage_data,
                                     elapsed_seconds=elapsed,
                                 )
-                                done_chunk = {
-                                    "id": rid,
-                                    "object": "chat.completion.chunk",
-                                    "created": ts,
-                                    "model": workspace_id,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {},
-                                            "finish_reason": "stop",
-                                        }
-                                    ],
-                                }
-                                yield f"data: {json.dumps(done_chunk)}\n\n".encode()
-                                yield b"data: [DONE]\n\n"
-                    else:
-                        # Non-native path (MLX, vLLM, /v1/ Ollama compat):
-                        # P6: Check raw bytes for '"done"' before decode — skip 99% of chunks.
-                        if b'"done"' in chunk:
-                            chunk_text = chunk.decode("utf-8", errors="replace")
-                            for line in chunk_text.splitlines():
-                                line = line.strip()
-                                if line.startswith("data:") and "done" in line:
-                                    payload = line[5:].strip()
-                                    if payload and payload != "[DONE]":
-                                        try:
-                                            usage_data = json.loads(payload)
-                                            elapsed = (
-                                                (time.monotonic() - start_time)
-                                                if start_time is not None
-                                                else None
-                                            )
-                                            _record_usage(
-                                                model=usage_data.get("model", model),
-                                                workspace=workspace_id,
-                                                data=usage_data,
-                                                elapsed_seconds=elapsed,
-                                            )
-                                        except Exception:
-                                            logger.debug(
-                                                "Could not parse usage payload from stream"
-                                            )
-                                        break
-                        # OpenAI SSE: "data: [DONE]" terminator — no usage data, but record with elapsed time.
-                        if b"data: [DONE]" in chunk:
-                            elapsed = (
-                                (time.monotonic() - start_time) if start_time is not None else None
-                            )
-                            _record_usage(
-                                model=model,
-                                workspace=workspace_id,
-                                data={},
-                                elapsed_seconds=elapsed,
-                            )
-
-                        # mlx_lm 0.31.2+ server regression: reasoning models emit content in
-                        # delta.reasoning instead of delta.content. Promote so Open WebUI renders it.
-                        if b'"reasoning"' in chunk and b'"content"' not in chunk:
-                            try:
-                                chunk_text = chunk.decode("utf-8", errors="replace")
-                                for line in chunk_text.splitlines():
-                                    line = line.strip()
-                                    if not line.startswith("data:") or line == "data: [DONE]":
-                                        continue
-                                    payload = line[5:].strip()
-                                    if not payload:
-                                        continue
-                                    obj = json.loads(payload)
-                                    for choice in obj.get("choices", []):
-                                        delta = choice.get("delta", {})
-                                        reasoning_val = (
-                                            delta.get("reasoning")
-                                            or delta.get("reasoning_content")
-                                            or delta.get("thinking")
-                                        )
-                                        if reasoning_val and not delta.get("content"):
-                                            delta["content"] = reasoning_val
-                                            delta.pop("reasoning", None)
-                                            delta.pop("reasoning_content", None)
-                                            delta.pop("thinking", None)
-                                    chunk = f"data: {json.dumps(obj)}\n\n".encode()
                             except Exception:
-                                pass  # Fall through to raw yield on parse failure
+                                logger.debug(
+                                    "Could not parse usage payload from stream"
+                                )
+                # OpenAI SSE: "data: [DONE]" terminator
+                if line.startswith(b"data: [DONE]"):
+                    elapsed = (
+                        (time.monotonic() - start_time) if start_time is not None else None
+                    )
+                    _record_usage(
+                        model=model,
+                        workspace=workspace_id,
+                        data={},
+                        elapsed_seconds=elapsed,
+                    )
 
-                        yield chunk
+                # mlx_lm 0.31.2+ regression: promote reasoning → content
+                if b'"reasoning"' in line and b'"content"' not in line:
+                    try:
+                        if not line.startswith(b"data:") or line == b"data: [DONE]":
+                            yield line + b"\n\n"
+                            continue
+                        payload = line[5:].strip()
+                        if not payload:
+                            yield line + b"\n\n"
+                            continue
+                        obj = json.loads(payload)
+                        for choice in obj.get("choices", []):
+                            delta = choice.get("delta", {})
+                            reasoning_val = (
+                                delta.get("reasoning")
+                                or delta.get("reasoning_content")
+                                or delta.get("thinking")
+                            )
+                            if reasoning_val and not delta.get("content"):
+                                delta["content"] = reasoning_val
+                                delta.pop("reasoning", None)
+                                delta.pop("reasoning_content", None)
+                                delta.pop("thinking", None)
+                        line = f"data: {json.dumps(obj)}".encode()
+                    except Exception:
+                        pass  # Fall through to raw yield on parse failure
+
+                yield line + b"\n\n"
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")
@@ -3203,5 +2912,3 @@ async def _stream_from_backend_guarded(
     finally:
         if start_time is not None:
             _record_response_time(model, workspace_id, time.monotonic() - start_time)
-        if sem is not None:
-            sem.release()  # Release AFTER generator is fully exhausted
