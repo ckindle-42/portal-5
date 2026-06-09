@@ -3,7 +3,7 @@
 Single source of truth: portal_pipeline.router.workspaces.WORKSPACES and
 the per-persona YAML files. This module never modifies them; it only reads
 the canonical config and returns "what model should have served this
-request" given a workspace ID, a persona slug, and the current MLX state.
+request" given a workspace ID or a persona slug.
 
 Used by:
   - tests/portal5_acceptance_v6.py (S3a, S6, S10, S21 routing checks)
@@ -11,10 +11,8 @@ Used by:
   - tests/benchmarks/bench_tps.py (expected_model_match flag in JSON output)
 
 All checks are case-insensitive substring matches against the actual model
-name returned by the backend. The matchers are intentionally loose (basename
-of HF path, family prefix of Ollama tag) because Ollama may return abbreviated
-names and MLX may return either the full HF path or just the basename
-depending on proxy version.
+name returned by the backend. The matchers are intentionally loose (family
+prefix of Ollama tag) because Ollama may return abbreviated names.
 """
 
 from __future__ import annotations
@@ -40,25 +38,6 @@ else:
     _IMPORT_ERROR = ""
 
 
-_MLX_ORG_PREFIXES = (
-    "mlx-community/",
-    "lmstudio-community/",
-    "Jackrong/",
-    "Jiunsong/",
-    "unsloth/",
-    "dealignai/",
-    "huihui-ai/",
-    "divinetribe/",
-)
-
-
-def is_mlx_model(actual_model: str) -> bool:
-    """True if the model string looks like an MLX-served model (HF path)."""
-    if not actual_model:
-        return False
-    return any(actual_model.startswith(p) for p in _MLX_ORG_PREFIXES)
-
-
 def _ollama_family(tag: str) -> str:
     """Get the family/basename of an Ollama tag for fuzzy matching.
 
@@ -74,48 +53,26 @@ def _ollama_family(tag: str) -> str:
     return s.lower().replace("-gguf", "")
 
 
-def _mlx_basename(hf_path: str) -> str:
-    """Last path component of an MLX HF path, lowercased.
-
-    'mlx-community/Qwen3-Coder-Next-4bit' -> 'qwen3-coder-next-4bit'
-    """
-    if not hf_path:
-        return ""
-    return hf_path.split("/")[-1].lower()
-
-
 def expected_model_keys(
     workspace_id: str,
-    *,
-    mlx_state: str = "ready",
 ) -> tuple[list[str], str]:
-    """Return (keys, source_label) for what model should serve this workspace.
+    """Return (keys, source_label) for what Ollama model should serve this workspace.
 
     `keys` is a list of lowercase substrings; if any appears in the actual
-    model name (case-insensitive), the routing is considered correct. The
-    list is ordered: most-preferred (MLX hint) first, then fallback (Ollama
-    hint). The caller is responsible for case-insensitive comparison.
+    model name (case-insensitive), the routing is considered correct.
 
-    `source_label` is a short human-readable description ("MLX preferred",
-    "Ollama only", etc.) for inclusion in test output.
-
-    `mlx_state` should be one of "ready", "switching", "none", "down".
-    When MLX is "down" or "unreachable", only the Ollama hint is returned.
+    `source_label` is a short human-readable description for inclusion in
+    test output.
     """
     cfg = WORKSPACES.get(workspace_id, {})
     if not cfg:
         return [], "unknown workspace"
 
-    mlx_hint = (cfg.get("mlx_model_hint") or "").strip()
     ollama_hint = (cfg.get("model_hint") or "").strip()
 
     keys: list[str] = []
     parts: list[str] = []
 
-    mlx_available = mlx_state in ("ready", "switching", "none")
-    if mlx_hint and mlx_available:
-        keys.append(_mlx_basename(mlx_hint))
-        parts.append(f"MLX:{_mlx_basename(mlx_hint)}")
     if ollama_hint:
         keys.append(_ollama_family(ollama_hint))
         parts.append(f"Ollama:{_ollama_family(ollama_hint)}")
@@ -128,10 +85,7 @@ def expected_model_keys(
     # tests (chartanalyst, ocrspecialist, etc.) accept the fallback model.
     if workspace_id == "auto-vision":
         ar_cfg = WORKSPACES.get("auto-reasoning", {})
-        ar_mlx = (ar_cfg.get("mlx_model_hint") or "").strip()
         ar_ollama = (ar_cfg.get("model_hint") or "").strip()
-        if ar_mlx:
-            keys.append(_mlx_basename(ar_mlx))
         if ar_ollama:
             keys.append(_ollama_family(ar_ollama))
         parts.append("auto-reasoning fallback (text-only)")
@@ -143,8 +97,6 @@ def expected_model_keys(
 
 def expected_model_keys_for_persona(
     persona_slug: str,
-    *,
-    mlx_state: str = "ready",
 ) -> tuple[list[str], str]:
     """Resolve a persona slug to its workspace, then return that workspace's
     expected models. Personas inherit their workspace's routing.
@@ -157,7 +109,7 @@ def expected_model_keys_for_persona(
     ws = p.get("workspace_model") or p.get("workspace")
     if not ws:
         return [], f"persona '{persona_slug}' has no workspace_model"
-    keys, src = expected_model_keys(ws, mlx_state=mlx_state)
+    keys, src = expected_model_keys(ws)
     return keys, f"via workspace '{ws}': {src}"
 
 
@@ -224,7 +176,6 @@ def resolve_expected(
     *,
     workspace_id: str = "",
     persona_slug: str = "",
-    mlx_state: str = "ready",
 ) -> tuple[list[str], str]:
     """Convenience wrapper. Use persona_slug if provided, else workspace_id.
 
@@ -235,11 +186,10 @@ def resolve_expected(
         keys, src = resolve_expected(
             workspace_id=test['model_slug'],
             persona_slug=test['model_slug'],
-            mlx_state=current_mlx_state,
         )
     """
     if persona_slug and persona_slug in _PERSONA_MAP:
-        return expected_model_keys_for_persona(persona_slug, mlx_state=mlx_state)
+        return expected_model_keys_for_persona(persona_slug)
     if workspace_id and workspace_id in WORKSPACES:
-        return expected_model_keys(workspace_id, mlx_state=mlx_state)
+        return expected_model_keys(workspace_id)
     return [], f"unresolvable: workspace='{workspace_id}', persona='{persona_slug}'"
