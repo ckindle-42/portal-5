@@ -684,11 +684,11 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             "model": _LLM_ROUTER_MODEL,
             "prompt": prompt,
             "stream": False,
+            "keep_alive": "-1",  # Keep model warm — no cold-start penalty
             "options": {
                 "temperature": 0,
                 "num_predict": 40,
                 "num_ctx": 2048,
-                "keep_alive": "-1",  # Keep model warm — no cold-start penalty
             },
             "format": _ROUTER_JSON_SCHEMA,  # Ollama grammar-enforced JSON
         }
