@@ -89,11 +89,6 @@ class _MockStreamResponse:
         for line in self._lines:
             yield line
 
-    async def aiter_bytes(self):
-        """Raw byte-chunk iteration (each chunk = one line + separator)."""
-        for line in self._lines:
-            yield line.encode() + b"\n"
-
     async def aread(self):
         return b"mock error body"
 

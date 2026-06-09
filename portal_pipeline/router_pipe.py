@@ -2490,7 +2490,8 @@ async def _stream_with_tool_loop_impl(
                     ).encode()
                     return
 
-                rid = f"chatcmpl-p5-{int(time.time())}"
+
+
                 ts = int(time.time())
 
                 async for line in resp.aiter_lines():
@@ -2822,8 +2823,7 @@ async def _stream_from_backend_guarded(
                 if not line:
                     continue
                 # Fast-path: detect "done" (usage payload or [DONE] marker)
-                if '"done"' in line:
-                    if line.startswith("data:") and line != "data: [DONE]":
+                if '"done"' in line and line.startswith("data:") and line != "data: [DONE]":
                         payload = line[5:].strip()
                         if payload:
                             try:

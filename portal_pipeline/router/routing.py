@@ -448,7 +448,7 @@ for _ws_id, _ws_cfg in _WORKSPACE_ROUTING.items():
     _KEYWORD_CACHE[_ws_id] = {kw.lower(): weight for kw, weight in _ws_cfg["keywords"].items()}
 
 
-def _last_user_text(messages: list[dict], limit: int) -> str:
+def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
     """Extract the text content of the last user message, truncated to ``limit`` chars.
 
     Handles both string-content messages (the common case) and

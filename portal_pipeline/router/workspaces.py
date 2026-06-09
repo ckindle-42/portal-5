@@ -748,10 +748,7 @@ def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
     """
     raw_allow = persona.get("tools_allow")
     persona_deny = set(persona.get("tools_deny", []) or [])
-    if raw_allow is None:
-        effective = set(_workspace_tools(workspace_id))
-    else:
-        effective = set(raw_allow)  # noqa: SIM108
+    effective = set(_workspace_tools(workspace_id)) if raw_allow is None else set(raw_allow)
     return sorted(effective - persona_deny)
 
 
