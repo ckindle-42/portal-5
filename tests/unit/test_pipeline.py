@@ -997,7 +997,7 @@ class TestCodeHygiene:
         assert not hasattr(router_pipe, "_complete_from_backend")
 
     def test_no_duplicate_mlx_proxy_url(self):
-        """Verify duplicate assignment was removed (P5-MAINT-002)."""
+        """Verify _MLX_PROXY_HEALTH_URL was fully removed (MLX proxy retired 3a0c58e)."""
         from pathlib import Path
 
         dispatcher_path = Path("portal_pipeline/notifications/dispatcher.py")
@@ -1007,7 +1007,7 @@ class TestCodeHygiene:
             )
         content = dispatcher_path.read_text()
         count = content.count("_MLX_PROXY_HEALTH_URL =")
-        assert count == 1, f"Expected 1 assignment, found {count}"
+        assert count == 0, f"Expected 0 assignments (removed in MLX retirement), found {count}"
 
     def test_mcp_server_no_warning_suppression(self):
         """Verify global warning suppression was removed (P5-OBS-001)."""
