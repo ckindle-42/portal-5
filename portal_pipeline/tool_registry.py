@@ -242,6 +242,7 @@ class ToolRegistry:
 
             client = await self._client()
             new_tools: dict[str, ToolDefinition] = {}
+            succeeded_servers: set[str] = set()
 
             async def _discover_one(server_id: str, base_url: str) -> None:
                 """Fetch and parse one MCP server's ``/tools`` endpoint."""
@@ -250,6 +251,7 @@ class ToolRegistry:
                     if r.status_code != 200:
                         logger.warning("Tool discovery: %s returned %d", server_id, r.status_code)
                         return
+                    succeeded_servers.add(server_id)
                     payload = r.json()
                     tools = payload if isinstance(payload, list) else payload.get("tools", [])
                     for tdef in tools:
@@ -263,6 +265,7 @@ class ToolRegistry:
                             server_id=server_id,
                             server_url=base_url,
                             last_seen=now,
+                            custom_timeout_s=float(tdef["timeout_s"]) if tdef.get("timeout_s") else None,
                         )
                 except Exception as e:
                     logger.warning("Tool discovery for %s failed: %s", server_id, e)
@@ -271,6 +274,32 @@ class ToolRegistry:
                 *[_discover_one(sid, url) for sid, url in MCP_SERVERS.items()],
                 return_exceptions=True,
             )
+
+            # Preserve tools from servers that failed discovery
+            for sid in MCP_SERVERS:
+                if sid not in succeeded_servers:
+                    carried = 0
+                    for name, tool in self._tools.items():
+                        if tool.server_id == sid:
+                            new_tools[name] = ToolDefinition(
+                                name=tool.name,
+                                description=tool.description,
+                                parameters=tool.parameters,
+                                server_id=tool.server_id,
+                                server_url=tool.server_url,
+                                last_seen=tool.last_seen,
+                                healthy=tool.healthy,
+                                custom_timeout_s=tool.custom_timeout_s,
+                                next_retry_at=tool.next_retry_at,
+                                consecutive_failures=tool.consecutive_failures,
+                            )
+                            carried += 1
+                    if carried:
+                        logger.warning(
+                            "discovery failed for %s — retaining %d previously-known tools",
+                            sid,
+                            carried,
+                        )
 
             # Preserve backoff state from previous tools that re-appeared
             for name, tool in new_tools.items():
@@ -408,7 +437,7 @@ class ToolRegistry:
                     "error": f"Tool '{tool_name}' returned HTTP {r.status_code}",
                     "detail": r.text[:200],
                 }
-        except asyncio.TimeoutError:
+        except (httpx.TimeoutException, asyncio.TimeoutError):
             tool.consecutive_failures += 1
             tool.healthy = False
             tool.next_retry_at = now + _backoff_seconds(tool.consecutive_failures)
