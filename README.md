@@ -378,10 +378,10 @@ Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
     Grafana :3000 ◄── Prometheus :9090 ◄── /metrics
 ```
 
-The MLX proxy (`scripts/mlx-proxy.py`) runs natively on Apple Silicon and
-automatically switches between `mlx_lm` (text-only models like Qwen3-Coder-Next)
-and `mlx_vlm` (VLM models like Qwen3.5 with vision support) based on the
-requested model. Only one server runs at a time due to unified memory constraints.
+All chat inference runs through Ollama (:11434) with its native MLX Metal backend on
+Apple Silicon. The MLX inference proxy (:8081/:18081/:18082) was retired in commit 3a0c58e.
+MLX is retained for speech (:8918), transcription (:8924), embeddings (:8917),
+and reranking (:8925) — non-chat-inference runtimes only.
 
 ---
 
