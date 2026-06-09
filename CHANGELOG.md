@@ -2,6 +2,23 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.2.1] — 2026-06-09
+
+### Fixed — MLX inference-proxy retirement true-up (TASK_MLX_RETIRE_TRUEUP_V1/V2)
+- **P0:** `_model_supports_tools` no longer reads the removed `Backend.mlx_metadata`
+  field — was raising `AttributeError` on every tool-bearing request after commit 3a0c58e.
+- Removed dead `mlx_proxy` probe + `MLX_PROXY_URL` from `/health/all`; scrubbed
+  MLX-inference references from pipeline docstrings/comments.
+- Trued up CLAUDE.md (Rule 8 → single Ollama tier), README, HOWTO, ADMIN_GUIDE,
+  prometheus scrape config, and Grafana dashboards to Ollama-only inference.
+  MLX speech (:8918) / transcribe (:8924) / embedding (:8917) / reranker (:8925)
+  explicitly retained.
+- Retired MLX-proxy acceptance scenarios (S20/S22/S3b/S11/S24 archived); rewired
+  S23 model-diversity and removed S2-16 proxy probe to query Ollama.
+- Documented specialist model parity loss (Foundation-Sec-8B → Apriel-Nemotron-15B;
+  ToolACE-2.5 → granite4.1:8b) in KNOWN_LIMITATIONS; corrected drifted persona
+  descriptions; added P5-FUT-PARITY-001/002.
+
 ## [7.2.0] — 2026-05-28
 
 ### Added — Quant-optimization + uncensored refresh (TASK_QUANT_TRUEUP_V1, bench-only wiring)

@@ -11,7 +11,6 @@ from tests.acceptance._common import (
     GRAFANA_URL,
     record,
     _get,
-    _mlx_health,
     _ollama_models,
     _docker_alive,
 )
@@ -102,18 +101,6 @@ async def run() -> None:
             f"HTTP {code}",
             t0=t0,
         )
-
-    # S2-16: MLX proxy health
-    t0 = time.time()
-    state, data = await _mlx_health()
-    record(
-        sec,
-        "S2-16",
-        "MLX proxy",
-        "PASS" if state in ("ready", "none", "switching") else "INFO",
-        f"state={state}",
-        t0=t0,
-    )
 
     # S2-17: MLX Speech health
     t0 = time.time()

@@ -1,6 +1,6 @@
 """Portal 5 v7.2.0 MCP Tool Servers."""
 
-__version__ = "7.2.0"
+__version__ = "7.2.1"
 
 # MCP services package - local portal MCP services
 # This also re-exports the MCP SDK to avoid namespace conflicts
