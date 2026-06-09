@@ -715,14 +715,16 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 backend.id,
             )
             return
+        warmup_url = f"{backend.url.rstrip('/')}/api/generate"
         warmup_payload = {
             "model": backend.models[0],
             "prompt": "ok",
             "stream": False,
+            "keep_alive": "-1",
             "options": {"num_predict": 1},
         }
 
-        resp = await _http_client.post(backend.chat_url, json=warmup_payload)
+        resp = await _http_client.post(warmup_url, json=warmup_payload)
         if resp.status_code == 200:
             logger.info(
                 "Warmup complete: %s model '%s' pre-loaded",
@@ -730,7 +732,7 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
                 warmup_payload["model"],
             )
         else:
-            logger.debug(
+            logger.warning(
                 "Warmup backend %s returned HTTP %d — will load on first use",
                 backend.id,
                 resp.status_code,
@@ -777,7 +779,8 @@ async def _warmup_llm_router() -> None:
                 "model": _LLM_ROUTER_MODEL,
                 "prompt": "ok",
                 "stream": False,
-                "options": {"num_predict": 1, "keep_alive": "-1"},
+                "keep_alive": "-1",
+                "options": {"num_predict": 1},
             },
         )
         if resp.status_code == 200:
@@ -2054,7 +2057,7 @@ async def chat_completions(
                         "Backend %s has empty models list — cannot fall back. Skipping.",
                         backend.id,
                     )
-                    return None
+                    raise HTTPException(502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml")
                 target_model = backend.models[0]
                 logger.warning(
                     "model_hint %r not in backend %s models — falling back to %r. "
@@ -2069,7 +2072,7 @@ async def chat_completions(
                     "Backend %s has empty models list — cannot resolve. Skipping.",
                     backend.id,
                 )
-                return None
+                raise HTTPException(502, f"Backend {backend.id} has an empty models list — fix config/backends.yaml")
             target_model = backend.models[0]
 
         logger.info(
@@ -2327,40 +2330,19 @@ async def chat_completions(
                     )
                     for j, fb in enumerate(remaining):
                         fb_last = j == len(remaining) - 1
-                    result = await _try_non_streaming(
-                        fb, fallback_body, workspace_id, start_time,
-                        enforce_hint=not fb_last, persona=persona,
-                    )
-                    if result is not None:
-                        # Wrap non-streaming response as SSE for Open WebUI
-                        import json as _json
+                        result = await _try_non_streaming(
+                            fb, fallback_body, workspace_id, start_time,
+                            enforce_hint=not fb_last, persona=persona,
+                        )
+                        if result is not None:
+                            # Wrap non-streaming response as SSE for Open WebUI
+                            import json as _json
 
-                        data = _json.loads(result.body)
-                        ts = int(time.time())
-                        rid = f"chatcmpl-p5-{ts}"
-                        # Emit role chunk
-                        role_payload = {
-                            "id": rid,
-                            "object": "chat.completion.chunk",
-                            "created": ts,
-                            "model": workspace_id,
-                            "choices": [
-                                {
-                                    "index": 0,
-                                    "delta": {"role": "assistant", "content": ""},
-                                    "finish_reason": None,
-                                }
-                            ],
-                        }
-                        yield f"data: {_json.dumps(role_payload)}\n\n".encode()
-                        # Emit content chunk
-                        content = ""
-                        if "choices" in data and data["choices"]:
-                            msg = data["choices"][0].get("message", {})
-                            # Reasoning model fallback: promote reasoning→content
-                            content = msg.get("content", "") or msg.get("reasoning", "")
-                        if content:
-                            content_payload = {
+                            data = _json.loads(result.body)
+                            ts = int(time.time())
+                            rid = f"chatcmpl-p5-{ts}"
+                            # Emit role chunk
+                            role_payload = {
                                 "id": rid,
                                 "object": "chat.completion.chunk",
                                 "created": ts,
@@ -2368,23 +2350,44 @@ async def chat_completions(
                                 "choices": [
                                     {
                                         "index": 0,
-                                        "delta": {"content": content},
+                                        "delta": {"role": "assistant", "content": ""},
                                         "finish_reason": None,
                                     }
                                 ],
                             }
-                            yield f"data: {_json.dumps(content_payload)}\n\n".encode()
-                        # Emit done
-                        done_payload = {
-                            "id": rid,
-                            "object": "chat.completion.chunk",
-                            "created": ts,
-                            "model": workspace_id,
-                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                        }
-                        yield f"data: {_json.dumps(done_payload)}\n\n".encode()
-                        yield b"data: [DONE]\n\n"
-                        return
+                            yield f"data: {_json.dumps(role_payload)}\n\n".encode()
+                            # Emit content chunk
+                            content = ""
+                            if "choices" in data and data["choices"]:
+                                msg = data["choices"][0].get("message", {})
+                                # Reasoning model fallback: promote reasoning→content
+                                content = msg.get("content", "") or msg.get("reasoning", "")
+                            if content:
+                                content_payload = {
+                                    "id": rid,
+                                    "object": "chat.completion.chunk",
+                                    "created": ts,
+                                    "model": workspace_id,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": content},
+                                            "finish_reason": None,
+                                        }
+                                    ],
+                                }
+                                yield f"data: {_json.dumps(content_payload)}\n\n".encode()
+                            # Emit done
+                            done_payload = {
+                                "id": rid,
+                                "object": "chat.completion.chunk",
+                                "created": ts,
+                                "model": workspace_id,
+                                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                            }
+                            yield f"data: {_json.dumps(done_payload)}\n\n".encode()
+                            yield b"data: [DONE]\n\n"
+                            return
 
         _streaming_response = StreamingResponse(
             _stream_or_fallback(),
