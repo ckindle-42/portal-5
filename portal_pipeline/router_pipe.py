@@ -1717,6 +1717,30 @@ async def _try_non_streaming(
         return None
 
 
+def _json_completion_to_sse(data: dict, workspace_id: str) -> Iterator[bytes]:
+    """Yield OpenAI completion JSON as SSE frames: role, content (with
+    reasoning->content promotion when content empty), tool_calls, done,
+    and [DONE] marker.
+    """
+    choice = data.get("choices", [{}])[0]
+    message = choice.get("message", {})
+    role = message.get("role", "assistant")
+    if role:
+        yield f"data: {json.dumps({'choices': [{'delta': {'role': role}}]})}\n\n".encode()
+    content = message.get("content")
+    if not content:
+        reasoning = message.get("reasoning_content")
+        if reasoning:
+            content = reasoning
+    if content:
+        yield f"data: {json.dumps({'choices': [{'delta': {'content': content}}]})}\n\n".encode()
+    tool_calls = message.get("tool_calls")
+    if tool_calls:
+        yield f"data: {json.dumps({'choices': [{'delta': {'tool_calls': tool_calls}}]})}\n\n".encode()
+    yield f"data: {json.dumps({'choices': [{'finish_reason': choice.get('finish_reason', 'stop')}]})}\n\n".encode()
+    yield b"data: [DONE]\n\n"
+
+
 @app.post("/v1/chat/completions")
 async def chat_completions(
     request: Request,
@@ -2024,7 +2048,8 @@ async def chat_completions(
                     persona=persona,
                 )
                 if result is not None:
-                    resolved_model = backend.models[0] if backend.models else "unknown"
+                    route_header = result.headers.get("x-portal-route", ";;")
+                    resolved_model = route_header.split(";")[2] if len(route_header.split(";")) > 2 else "unknown"
                     _record_response_time(
                         resolved_model,
                         workspace_id,
@@ -2222,6 +2247,7 @@ async def chat_completions(
             semaphores.
             """
             stream_failed = False
+            _error_buffer = None
             try:
                 _inner_stream = (
                     _stream_with_tool_loop(
@@ -2251,6 +2277,8 @@ async def chat_completions(
                 async for chunk in _inner_stream:
                     if b'"error"' in chunk:
                         stream_failed = True
+                        _error_buffer = chunk
+                        continue
                     yield chunk
             except Exception:
                 stream_failed = True
@@ -2267,57 +2295,9 @@ async def chat_completions(
                     enforce_hint=True, persona=persona,
                 )
                 if result is not None:
-                    import json as _json
-                    data = _json.loads(result.body)
-                    ts = int(time.time())
-                    rid = f"chatcmpl-p5-{ts}"
-                    msg = data.get("choices", [{}])[0].get("message", {})
-                    role_payload = {
-                        "id": rid,
-                        "object": "chat.completion.chunk",
-                        "created": ts,
-                        "model": workspace_id,
-                        "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
-                    }
-                    yield f"data: {_json.dumps(role_payload)}\n\n".encode()
-                    content = msg.get("content", "")
-                    if content:
-                        content_payload = {
-                            "id": rid,
-                            "object": "chat.completion.chunk",
-                            "created": ts,
-                            "model": workspace_id,
-                            "choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}],
-                        }
-                        yield f"data: {_json.dumps(content_payload)}\n\n".encode()
-                    tool_calls = msg.get("tool_calls") or []
-                    for i, tc in enumerate(tool_calls):
-                        tc_payload = {
-                            "id": rid,
-                            "object": "chat.completion.chunk",
-                            "created": ts,
-                            "model": workspace_id,
-                            "choices": [{"index": 0, "delta": {"tool_calls": [{
-                                "index": i,
-                                "id": tc.get("id", f"call_{i}"),
-                                "type": "function",
-                                "function": {
-                                    "name": tc.get("function", {}).get("name", ""),
-                                    "arguments": tc.get("function", {}).get("arguments", ""),
-                                },
-                            }]}, "finish_reason": None}],
-                        }
-                        yield f"data: {_json.dumps(tc_payload)}\n\n".encode()
-                    finish_reason = "tool_calls" if tool_calls else "stop"
-                    done_payload = {
-                        "id": rid,
-                        "object": "chat.completion.chunk",
-                        "created": ts,
-                        "model": workspace_id,
-                        "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
-                    }
-                    yield f"data: {_json.dumps(done_payload)}\n\n".encode()
-                    yield b"data: [DONE]\n\n"
+                    data = json.loads(result.body)
+                    for frame in _json_completion_to_sse(data, workspace_id):
+                        yield frame
                     return
 
                 if remaining:
@@ -2333,59 +2313,17 @@ async def chat_completions(
                             enforce_hint=not fb_last, persona=persona,
                         )
                         if result is not None:
-                            # Wrap non-streaming response as SSE for Open WebUI
-                            import json as _json
-
-                            data = _json.loads(result.body)
-                            ts = int(time.time())
-                            rid = f"chatcmpl-p5-{ts}"
-                            # Emit role chunk
-                            role_payload = {
-                                "id": rid,
-                                "object": "chat.completion.chunk",
-                                "created": ts,
-                                "model": workspace_id,
-                                "choices": [
-                                    {
-                                        "index": 0,
-                                        "delta": {"role": "assistant", "content": ""},
-                                        "finish_reason": None,
-                                    }
-                                ],
-                            }
-                            yield f"data: {_json.dumps(role_payload)}\n\n".encode()
-                            # Emit content chunk
-                            content = ""
-                            if "choices" in data and data["choices"]:
-                                msg = data["choices"][0].get("message", {})
-                                # Reasoning model fallback: promote reasoning→content
-                                content = msg.get("content", "") or msg.get("reasoning", "")
-                            if content:
-                                content_payload = {
-                                    "id": rid,
-                                    "object": "chat.completion.chunk",
-                                    "created": ts,
-                                    "model": workspace_id,
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "delta": {"content": content},
-                                            "finish_reason": None,
-                                        }
-                                    ],
-                                }
-                                yield f"data: {_json.dumps(content_payload)}\n\n".encode()
-                            # Emit done
-                            done_payload = {
-                                "id": rid,
-                                "object": "chat.completion.chunk",
-                                "created": ts,
-                                "model": workspace_id,
-                                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                            }
-                            yield f"data: {_json.dumps(done_payload)}\n\n".encode()
-                            yield b"data: [DONE]\n\n"
+                            data = json.loads(result.body)
+                            for frame in _json_completion_to_sse(data, workspace_id):
+                                yield frame
                             return
+
+                if _error_buffer:
+                    yield _error_buffer
+                else:
+                    yield f'data: {{"error": "All backends failed"}}\n\n'.encode()
+                yield b"data: [DONE]\n\n"
+                _record_error(workspace_id, "all_backends_failed")
 
         _streaming_response = StreamingResponse(
             _stream_or_fallback(),
