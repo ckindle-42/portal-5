@@ -30,6 +30,7 @@ OPENWEBUI_URL = "http://localhost:8080"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
     "host.docker.internal", "localhost"
 )
+# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor; speech helpers below still live.
 MLX_URL = os.environ.get("MLX_LM_URL", "http://localhost:8081").replace(
     "host.docker.internal", "localhost"
 )
@@ -108,6 +109,7 @@ async def _chat_with_model(
     )
 
 
+# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor.
 async def _mlx_health() -> tuple[str, dict]:
     return await _monolith()._mlx_health()
 
@@ -248,6 +250,7 @@ def _grep_logs(container: str, pattern: str, lines: int = 500) -> list:
     return _monolith()._grep_logs(container, pattern, lines)
 
 
+# RETIRED proxy helpers (3a0c58e) — kept until acceptance _common refactor.
 async def _remediate_mlx_crash(reason: str = "crash") -> bool:
     return await _monolith()._remediate_mlx_crash(reason)
 

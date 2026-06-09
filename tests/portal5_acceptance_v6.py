@@ -1718,16 +1718,15 @@ async def S3a() -> None:
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s03_routing as _s
     await _s.run()
-async def S3b() -> None:
-    """S3b: Workspace routing (MLX) — delegates to tests/acceptance/s03b_routing_mlx.py."""
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / "tests"))
-    from acceptance import s03b_routing_mlx as _s
-    await _s.run()
+# retired async def S3b() -> None:
+# retired     """S3b: Workspace routing (MLX) — delegates to tests/acceptance/_archive/s03b_routing_mlx.py."""
+# retired     import sys as _sys
+# retired     _sys.path.insert(0, str(ROOT / "tests"))
+# retired     from acceptance._archive import s03b_routing_mlx as _s
+# retired     await _s.run()
 async def S3() -> None:
-    """S3: Workspace routing tests (runs S3a then S3b)."""
+    """S3: Workspace routing tests (runs S3a). S3b (MLX) retired in 3a0c58e."""
     await S3a()
-    await S3b()
 
 
 async def S4() -> None:
@@ -1866,12 +1865,13 @@ def _load_mlx_model_gb() -> dict[str, int]:
 _MLX_MODEL_GB: dict[str, int] = _load_mlx_model_gb()
 
 
-async def S11() -> None:
-    """S11: Persona tests (MLX) — delegates to tests/acceptance/s11_personas_mlx.py."""
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / "tests"))
-    from acceptance import s11_personas_mlx as _s
-    await _s.run()
+# retired — MLX proxy deleted in 3a0c58e
+# async def S11() -> None:
+#     """S11: Persona tests (MLX) — delegates to tests/acceptance/_archive/s11_personas_mlx.py."""
+#     import sys as _sys
+#     _sys.path.insert(0, str(ROOT / "tests"))
+#     from acceptance._archive import s11_personas_mlx as _s
+#     await _s.run()
 async def S12() -> None:
     """S12: Web search tests — delegates to tests/acceptance/s12_web_search.py."""
     import sys as _sys
@@ -1884,36 +1884,39 @@ async def S13() -> None:
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s13_rag_embedding as _s
     await _s.run()
-async def S20() -> None:
-    """S20: MLX acceleration tests — delegates to tests/acceptance/s20_mlx.py."""
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / "tests"))
-    from acceptance import s20_mlx as _s
-    await _s.run()
+# retired — MLX proxy deleted in 3a0c58e
+# async def S20() -> None:
+#     """S20: MLX acceleration tests — delegates to tests/acceptance/_archive/s20_mlx.py."""
+#     import sys as _sys
+#     _sys.path.insert(0, str(ROOT / "tests"))
+#     from acceptance._archive import s20_mlx as _s
+#     await _s.run()
 async def S21() -> None:
     """S21: LLM Intent Router — delegates to tests/acceptance/s21_llm_router.py."""
     import sys as _sys
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s21_llm_router as _s
     await _s.run()
-async def S22() -> None:
-    """S22: MLX Admission Control — delegates to tests/acceptance/s22_admission_control.py."""
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / "tests"))
-    from acceptance import s22_admission_control as _s
-    await _s.run()
+# retired — MLX proxy deleted in 3a0c58e
+# async def S22() -> None:
+#     """S22: MLX Admission Control — delegates to tests/acceptance/_archive/s22_admission_control.py."""
+#     import sys as _sys
+#     _sys.path.insert(0, str(ROOT / "tests"))
+#     from acceptance._archive import s22_admission_control as _s
+#     await _s.run()
 async def S23() -> None:
     """S23: Model diversity — delegates to tests/acceptance/s23_model_diversity.py."""
     import sys as _sys
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s23_model_diversity as _s
     await _s.run()
-async def S24() -> None:
-    """S24: Specialist MLX models — delegates to tests/acceptance/s24_specialist_mlx.py."""
-    import sys as _sys
-    _sys.path.insert(0, str(ROOT / "tests"))
-    from acceptance import s24_specialist_mlx as _s
-    await _s.run()
+# retired — MLX proxy deleted in 3a0c58e; specialists lost (see KNOWN_LIMITATIONS)
+# async def S24() -> None:
+#     """S24: Specialist MLX models — delegates to tests/acceptance/_archive/s24_specialist_mlx.py."""
+#     import sys as _sys
+#     _sys.path.insert(0, str(ROOT / "tests"))
+#     from acceptance._archive import s24_specialist_mlx as _s
+#     await _s.run()
 async def S30() -> None:
     """S30: Image generation — delegates to tests/acceptance/s30_image_video.py."""
     import sys as _sys
@@ -2246,14 +2249,9 @@ ALL_SECTIONS = {
     "S16": S16,
     "S10": S10,
     "S10c": S10c,  # Compliance personas via fixture (TASK_COMPLIANCE_ACCEPT_003)
-    # Phase 3: MLX tests
+    # Phase 3: MLX tests (most retired in 3a0c58e; S21 LLM router + S23 model diversity retained)
     "S21": S21,
-    "S3b": S3b,
-    "S11": S11,
-    "S20": S20,
-    "S22": S22,
     "S23": S23,
-    "S24": S24,  # Foundation-Sec (auto-blueteam) + ToolACE-2.5 (tools-specialist)
     # Phase 4: MCP tests
     "S4": S4,
     "S5": S5,
