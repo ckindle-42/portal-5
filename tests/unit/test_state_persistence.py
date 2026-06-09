@@ -8,7 +8,8 @@ import json
 
 import pytest
 
-import portal_pipeline.router_pipe as rp
+import portal_pipeline.router.state as rp
+import portal_pipeline.router.metrics as rm
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +18,7 @@ def _reset_accumulators():
     saved_file = rp._STATE_FILE
     saved_tps = rp._total_tps
     saved_tps_count = rp._request_tps_count
-    saved_rt = rp._total_response_time_ms
+    saved_rt = rm._total_response_time_ms
     saved_in = rp._total_input_tokens
     saved_out = rp._total_output_tokens
     saved_peak = rp._peak_concurrent
@@ -29,7 +30,7 @@ def _reset_accumulators():
     rp._STATE_FILE = saved_file
     rp._total_tps = saved_tps
     rp._request_tps_count = saved_tps_count
-    rp._total_response_time_ms = saved_rt
+    rm._total_response_time_ms = saved_rt
     rp._total_input_tokens = saved_in
     rp._total_output_tokens = saved_out
     rp._peak_concurrent = saved_peak

@@ -106,6 +106,14 @@ not justified). P5-FUT-PARITY-001 is CLOSED/DONE — both specialists dispositio
 - **Description**: Llama-3.3-70B-Instruct-4bit and DeepSeek-R1-Distill-Llama-70B-4bit measure ~3.5 TPS warm — too slow for interactive use. 3-bit quantization (~28GB) is theoretically viable at ~9.7 TPS but not yet bench-validated.
 - **Mitigation**: All daily-routed workspaces use ≤33B models. 70B variants are bench-tier only.
 
+### Ollama /v1 ignores options.num_ctx and options.num_batch
+- **ID**: P5-OLLAMA-OPTIONS-001
+- **Description**: Ollama's OpenAI-compatible `/v1/chat/completions` endpoint ignores the `options` sub-object entirely (VERIFY-1 probes, 2026-06). The pipeline still injects `options.num_ctx`, `options.num_batch`, and `options.num_predict` (the latter mapped to `max_tokens` at top level per Branch I) because a future Ollama version may honor them. Currently:
+  - `context_limit` per workspace (e.g. `auto-agentic: 32768`) is **not enforced** — set PARAMETER num_ctx in the model's Modelfile or OLLAMA_CONTEXT_LENGTH
+  - `num_batch` injection is inert — set PARAMETER num_batch in Modelfiles for prefill tuning
+  - `predict_limit` is mapped to OpenAI `max_tokens` (top-level, honored) as a workaround
+- **Roadmap note:** P5-FUT: evaluate `/api/chat` as `chat_url` — it honors the Ollama-native parameter set but requires changing all payload/response shapes.
+
 ---
 
 ## Shared Workspace + Auto-STT Disabled (TASK-WORKSPACE-001)
