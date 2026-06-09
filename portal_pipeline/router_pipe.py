@@ -1841,7 +1841,6 @@ async def chat_completions(
         try:
             body = await request.json()
         except Exception:
-            _concurrent_requests.dec()
             raise HTTPException(status_code=400, detail="Invalid JSON body") from None
         workspace_id = body.get("model") or "auto"
         # Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
@@ -1978,6 +1977,7 @@ async def chat_completions(
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
         _requests_total.labels(workspace=workspace_id).inc()
         _concurrent_requests.inc()
+        _gauge_held = True
         import portal_pipeline.router.state as _state_mod_cc
         _state_mod_cc._peak_concurrent = max(
             _state_mod_cc._peak_concurrent, int(_concurrent_requests._value.get())
@@ -2031,11 +2031,9 @@ async def chat_completions(
                         time.monotonic() - start_time,
                     )
                     _record_persona(persona, resolved_model)
-                    _concurrent_requests.dec()
                     return result
             # All backends failed
             _record_error(workspace_id, "all_backends_failed")
-            _concurrent_requests.dec()
             raise HTTPException(
                 status_code=502,
                 detail="All backends failed — check server logs",
@@ -2398,11 +2396,9 @@ async def chat_completions(
         _is_streaming = True
         return _streaming_response
     except HTTPException:
-        _concurrent_requests.dec()
         raise
     except Exception:
         _record_error(workspace_id, "unexpected_error")
-        _concurrent_requests.dec()
         raise
     finally:
         if not _is_streaming:
@@ -2413,6 +2409,8 @@ async def chat_completions(
                 _ws_sem.release()
             if _api_sem is not None:
                 _api_sem.release()
+        if _gauge_held and not _is_streaming:
+            _concurrent_requests.dec()
 
 
 async def _stream_with_tool_loop(
@@ -2464,6 +2462,7 @@ async def _stream_with_tool_loop(
     finally:
         # Release all semaphores acquired by chat_completions on the streaming path.
         # Mirror _stream_with_preamble's pattern (single-sem release in its own finally).
+        _concurrent_requests.dec()
         sem.release()
         if ws_sem is not None:
             ws_sem.release()
@@ -3012,6 +3011,7 @@ async def _stream_with_preamble(
         ):
             yield chunk
     finally:
+        _concurrent_requests.dec()
         sem.release()
         if ws_sem is not None:
             ws_sem.release()
