@@ -54,53 +54,33 @@ Architectural and design constraints that are currently unresolved. Resolved ite
 
 ---
 
-## MLX Proxy
+## MLX Inference Proxy — RETIRED (commit 3a0c58e)
 
-### Single-Model Constraint: Concurrent Sessions Using Different MLX Models Cause Eviction Cycles
-- **ID**: P5-MLX-010
-- **Affects**: Open WebUI — any concurrent usage
-- **Description**: The MLX proxy holds exactly one model in GPU memory at a time. When two browser tabs (or two conversations in the same frontend) target different MLX-backed models simultaneously, every request switch evicts the current model and loads the requested one. Each eviction+reload takes **30–90s for ≤26B models, 90–180s for 32–70B models**.
-- **Trigger patterns**:
-  - OWUI: switching between two open tabs that use different workspaces (e.g., `auto-daily` → `auto-reasoning`) while both are generating
-  - Any API client making concurrent requests to two different MLX workspaces
-- **Impact**: The in-flight request on the first model is left waiting (or times out) while the proxy loads the second model. The first model reloads when that tab becomes active again. On a busy system this creates a thrashing loop where neither conversation makes progress.
-- **This is a GPU memory constraint, not a software defect.** Apple Silicon M-series chips have a single unified memory pool; MLX loads the full model into it. There is no way to partially share GPU memory across two large models simultaneously.
-- **Mitigation**:
-  1. **Use the same workspace across open tabs.** Sessions sharing one MLX model (e.g., all tabs on `auto-daily`) never trigger eviction — the model stays loaded.
-  2. **Prefer Ollama-backed workspaces for short, parallel tasks.** Ollama (GGUF models on port 11434) can hold multiple models in its cache and round-robins requests without full eviction. Good for `auto-coding`, `auto-security`, and other workspaces where conversational depth is short.
-  3. **Single-user, sequential workflow.** The system is designed for one active MLX conversation at a time. Finishing one conversation before starting another in a different workspace avoids all eviction overhead.
+The MLX inference proxy and all its limitations (single-model eviction,
+cold-boot 503 windows, admission control, deploy staleness) no longer
+apply. All chat inference runs through Ollama (:11434). MLX is retained
+only for speech (:8918), transcription (:8924), embeddings (:8917), and
+reranking (:8925) — those have their own sections.
 
-### MLX Proxy Has Slow Startup (Cold Boot)
-- **ID**: P5-ROAD-MLX-001
-- **Description**: On cold boot or restart, the MLX proxy takes 60–300+ seconds to become ready while `mlx_lm.server` or `mlx_vlm.server` loads the model. The proxy returns HTTP 503 during this window — this is normal, not a crash.
-- **Detection signals** (in order of reliability):
-  1. `/health` returns `state: "ready"` with `loaded_model` set
-  2. Server log `/tmp/mlx-proxy-logs/mlx_lm.log` contains "Starting httpd"
-  3. `pgrep -f mlx_lm.server` or `mlx_vlm.server` returns a PID
-- **Mitigation**: Test suite waits up to 300s. Only classify as crashed if no processes exist and no server logs are present.
+## Model Parity — Specialist models lost in the MLX→Ollama migration
 
-### Laguna-XS.2 Requires Manual mlx_lm Plugin Files
-- **ID**: P5-MLX-009
-- **Description**: `mlx_lm` does not ship a Laguna architecture. Two plugin files are manually installed: `models/laguna.py` and `tool_parsers/laguna.py`. These are overwritten by any `mlx_lm` upgrade.
-- **Mitigation**: After any `mlx_lm` upgrade, run `scripts/patch-mlx-threads.py` — it reinstalls the Laguna plugin files alongside the thread-local stream fix. Do not upgrade `mlx_lm` without re-running the patch.
+Two production specialist models were MLX-only safetensor builds with no
+verified GGUF equivalent. The migration (3a0c58e) remapped their
+workspaces to general-purpose GGUF substitutes:
 
-### Qwen 3.5 / 3.6 Chat-Template Patch Is Lost on Re-Download
-- **ID**: P5-QWEN-TPL-001
-- **Description**: Qwen 3.5 and 3.6 official chat templates use Python-only Jinja filters (`|items`, `|safe`) that crash on `mlx_lm.server` / `mlx_vlm.server` when tool calls are emitted. Portal 5 vendors fixed templates from `huggingface.co/froggeric/Qwen-Fixed-Chat-Templates` at `config/chat_templates/`. Models opt in via `chat_template_override:` in `config/backends.yaml`, and the patch is applied to each model directory by `scripts/patch-qwen-templates.py`. The proxy also injects `--chat-template` at server start for mlx_lm models as belt-and-suspenders.
-- **Impact**: Running `huggingface-cli download` against a patched model overwrites `chat_template.jinja` with the broken upstream version. The `.portal5-backup` sidecar stays in place, but the patch must be re-applied. `pull-mlx-models` runs the patcher automatically after download; standalone `huggingface-cli` calls do not.
-- **Mitigation**: After any `huggingface-cli download` or `./launch.sh pull-mlx-models` run, `./launch.sh patch-qwen-templates` can be run explicitly. The patcher is idempotent — re-running is safe when nothing has drifted. To revert one model: `./scripts/patch-qwen-templates.py --rollback <model_id>`.
+| Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
+|---|---|---|---|
+| `auto-blueteam`, `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Apriel-Nemotron-15B-Thinker (general reasoner) | loss of domain-specialized defender behavior |
+| `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged) | loss of purpose-trained tool-call accuracy |
 
-### Deployed MLX Proxy Can Become Stale
-- **ID**: P5-ROAD-MLX-002
-- **Description**: `./launch.sh up` starts the MLX proxy from `~/.portal5/mlx/mlx-proxy.py`, a copy deployed by `./launch.sh install-mlx`. If `scripts/mlx-proxy.py` is updated but `install-mlx` is not re-run, the deployed copy is stale.
-- **Impact**: Stale proxy may start but fail to serve requests (wrong model names, missing concurrency protection).
-- **Mitigation**: Run `./launch.sh install-mlx` after any change to `scripts/mlx-proxy.py`.
-
-### MLX Proxy Kill/Restart Causes Memory Churn
-- **ID**: P5-ROAD-MLX-003
-- **Description**: `stop_all()` uses `kill -9`, which does not allow graceful GPU memory release. Metal may take 15–30s to fully reclaim memory after a kill.
-- **Impact**: Killing and restarting too quickly can cause the new server to fail GPU memory allocation.
-- **Mitigation**: Wait 15s after killing MLX processes before restarting. The test suite enforces this wait automatically.
+**Status:** descriptions corrected for truth-in-labeling (P5-FUT-PARITY-001
+in P5_ROADMAP.md). Whether to source/verify GGUF rebuilds of these exact
+models, accept the substitutes permanently, or retire the specialist
+workspaces is an OPERATOR DECISION — see roadmap item. No GGUF card for
+Foundation-Sec-8B-Reasoning or ToolACE-2.5 was confirmable at audit; do
+not add either to backends.yaml without verifying weight availability
+from a primary HF source first (project rule: unconfirmable card = do not
+recommend).
 
 ---
 

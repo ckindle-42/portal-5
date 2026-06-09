@@ -241,14 +241,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
-        "description": "Defensive security, incident response, threat hunting",
+        "description": "Defensive security, incident response, threat hunting. Currently served by Apriel-Nemotron-15B-Thinker (general reasoner) — the purpose-trained Foundation-Sec-8B had no GGUF equivalent after the MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001.",
         "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
     },
     "tools-specialist": {
         "name": "🔧 Portal Tool Composer",
-        "description": "Structured function/API calling via Granite-4.1 30B (purpose-trained, BFCL-topping). Use for tasks that require composing multiple tool calls in sequence.",
+        "description": "Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.",
         "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         # Tool names must match registered MCP function names (not MCP server IDs).
@@ -590,7 +590,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-foundation-sec": {
         "name": "🔬 Bench · Foundation-Sec (Cisco)",
-        "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco, Llama-3.1-8B base + cybersec corpus + RLVR). Native <think> reasoning. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
+        "description": "[SUBSTITUTED — served model is Apriel-Nemotron-15B, not Foundation-Sec; P5-FUT-PARITY-001] Benchmark: Foundation-Sec-8B-Reasoning (Cisco, Llama-3.1-8B base + cybersec corpus + RLVR). Native <think> reasoning. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
         "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "max_concurrent": 1,
         "tools": [],
@@ -598,7 +598,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-toolace25": {
         "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
-        "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B (Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, BFCL-topping). Purpose-trained for tool-calling accuracy.",
+        "description": "[SUBSTITUTED — served model is granite4.1:8b, not ToolACE-2.5; P5-FUT-PARITY-001] Benchmark: ToolACE-2.5-Llama-3.1-8B (Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, BFCL-topping). Purpose-trained for tool-calling accuracy.",
         "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         "tools": ["filesystem", "memory", "time"],
