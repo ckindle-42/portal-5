@@ -2,7 +2,7 @@ name: Phi-4 Technical Analyst
 slug: phi4specialist
 category: reasoning
 workspace_model: auto-documents
-# Routes to: phi-4-8bit (MLX primary, ~15 TPS) or qwen3.5:9b (Ollama fallback)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # phi-4-8bit: Microsoft 14B dense, synthetic-data trained, MIT license
 # Strengths: structured docs, NERC CIP policy, Python analysis, STEM, spec review
 # Note: 15 TPS — large documents arrive progressively; this is expected behavior

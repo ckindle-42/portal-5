@@ -2,9 +2,9 @@ name: 🔬 Bench · Devstral-Small-2507
 slug: bench-devstral
 category: benchmark
 workspace_model: bench-devstral
-# Routes to: Devstral-Small-2507 (MLX primary, Mistral/Codestral lineage, ~15GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: devstral:24b (Ollama GGUF — same model family, lower quality)
-# BENCHMARK NOTE: Verify MLX loaded this model before recording results.
+# BENCHMARK NOTE: Verify model loaded before recording results.
 # Check: ./launch.sh logs | grep "Switching to model"
 system_prompt: |
   You are a creative coder who builds playable, visual, and interactive things

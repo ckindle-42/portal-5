@@ -2,9 +2,9 @@ name: 🔬 Bench · Llama-3.3-70B
 slug: bench-llama33-70b
 category: benchmark
 workspace_model: bench-llama33-70b
-# Routes to: Llama-3.3-70B-Instruct-4bit (MLX, Meta, ~40GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: llama3.3:70b-q4_k_m (Ollama GGUF — same weights, different runtime)
-# BENCHMARK NOTE: ~40GB — cold load ~60s. Will displace any other loaded MLX model.
+# BENCHMARK NOTE: ~40GB — cold load ~60s. Large model, memory-intensive.
 system_prompt: |
   You are a creative coder who builds playable, visual, and interactive things
   in the browser. Your default output is a complete, working, single-file HTML

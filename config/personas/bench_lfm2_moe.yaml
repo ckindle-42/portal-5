@@ -2,7 +2,7 @@ name: 🔬 Bench · LFM2-8B-A1B (Liquid AI)
 slug: bench-lfm2-moe
 category: benchmark
 workspace_model: bench-lfm2-moe
-# Routes to: mlx-community/LFM2-8B-A1B-8bit (MLX primary, Liquid AI lineage, ~8GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Non-Transformer hybrid arch — lineage diversification value.
 # Capability scope per Liquid AI: NOT for code, NOT for knowledge.
 # Suitable for: agentic tasks, data extraction, RAG, creative writing,

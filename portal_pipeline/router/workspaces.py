@@ -241,8 +241,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
-        "description": "Defensive security, incident response, threat hunting. Currently served by Apriel-Nemotron-15B-Thinker (general reasoner) — the purpose-trained Foundation-Sec-8B had no GGUF equivalent after the MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001.",
-        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
+        "description": "Defensive security, incident response, threat hunting. Served by Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, Llama-3.1-8B + cybersec corpus, native <think>). Purpose-trained defender model restored after the MLX retirement (P5-FUT-PARITY-001).",
+        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
     },
@@ -590,8 +590,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-foundation-sec": {
         "name": "🔬 Bench · Foundation-Sec (Cisco)",
-        "description": "[SUBSTITUTED — served model is Apriel-Nemotron-15B, not Foundation-Sec; P5-FUT-PARITY-001] Benchmark: Foundation-Sec-8B-Reasoning (Cisco, Llama-3.1-8B base + cybersec corpus + RLVR). Native <think> reasoning. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
-        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
+        "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, first-party Q8_0 GGUF ~8.5GB, 128K ctx). Native <think>. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance. Now the auto-blueteam primary (P5-FUT-PARITY-001).",
+        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "max_concurrent": 1,
         "tools": [],
         "emits_reasoning": True,

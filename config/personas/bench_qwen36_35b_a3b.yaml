@@ -2,7 +2,7 @@ name: 🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)
 slug: bench-qwen36-35b-a3b
 category: benchmark
 workspace_model: bench-qwen36-35b-a3b
-# Routes to: mlx-community/Qwen3.6-35B-A3B-4bit (MLX primary, Alibaba MoE 3B active, ~20GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: huihui_ai/Qwen3.6-abliterated (Ollama — same Qwen3.6-35B-A3B base, abliterated variant)
 # BENCHMARK NOTE: MoE — only 3B active per token, decode speed should outpace dense 27B sibling.
 # Vision encoder present (is_vlm: true). Alibaba positioning: 'Agentic Coding Power, Now Open to All.'

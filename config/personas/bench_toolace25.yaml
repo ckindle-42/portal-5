@@ -3,13 +3,12 @@ slug: bench-toolace25
 category: benchmark
 workspace_model: bench-toolace25
 # SUBSTITUTED (3a0c58e) — served model is granite4.1:8b, not ToolACE-2.5.
-# Original: team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx (locally converted, ~4.5GB)
+# Original model retired with MLX chat tier (3a0c58e); see KNOWN_LIMITATIONS § Model Parity.
 # Re-sourcing tracked in P5-FUT-PARITY-001; see KNOWN_LIMITATIONS § Model Parity.
 # Purpose-trained for tool-calling. Expects ToolACE-style system prompt and
 # [func_name(arg=value)] output format.
 # Use for empirical comparison vs existing tool-capable models on
 # tests/portal5_persona_matrix.py --audit-tools.
-# Model was converted: ./launch.sh convert-toolace25
 system_prompt: |
   You are an expert in composing functions. You are given a question and a
   set of possible functions. Based on the question, you will need to make

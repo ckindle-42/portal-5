@@ -3,8 +3,7 @@ slug: bench-omnicoder2
 category: benchmark
 workspace_model: bench-omnicoder2
 # Routes to: hf.co/Tesslate/OmniCoder-2-9B-GGUF:Q4_K_M (Ollama, Qwen3.5-9B base, ~5.7GB)
-# Ollama only — MLX path deferred until mlx-community/OmniCoder-2-9B-* published
-# or self-converted from Tesslate/OmniCoder-2-9B safetensors via mlx_lm.convert.
+# Ollama only — MLX chat tier retired 3a0c58e.
 # BENCHMARK NOTE: v2 of OmniCoder. Author documents v1 as broken (cosine LR died
 # at step 60, repetition loops, bloated thinking). Tool format flexible — not
 # OpenAI-schema confirmed; supports_tools=false until --audit-tools PASS.

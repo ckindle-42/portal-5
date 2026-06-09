@@ -2,7 +2,7 @@ name: 🔬 Bench · Dolphin-Llama3-8B
 slug: bench-dolphin8b
 category: benchmark
 workspace_model: bench-dolphin8b
-# Routes to: Dolphin3.0-Llama3.1-8B-8bit (MLX, Cognitive Computations, ~9GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: dolphin-llama3:8b (Ollama GGUF — same model family)
 # BENCHMARK NOTE: Fast model (~30+ TPS). Useful as speed/quality baseline.
 system_prompt: |

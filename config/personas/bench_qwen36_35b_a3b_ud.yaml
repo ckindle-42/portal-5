@@ -2,10 +2,10 @@ name: 🔬 Bench · Qwen3.6-35B-A3B Unsloth UD (Alibaba MoE)
 slug: bench-qwen36-35b-a3b-ud
 category: benchmark
 workspace_model: bench-qwen36-35b-a3b-ud
-# Routes to: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit (MLX primary, Unsloth Dynamic 2.0 quant probe)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: huihui_ai/Qwen3.6-abliterated (Ollama — same Qwen3.6-35B-A3B base, abliterated variant)
 # BENCHMARK NOTE: MoE — only 3B active per token, decode speed should outpace dense 27B sibling.
-# Head-to-head probe vs mlx-community/Qwen3.6-35B-A3B-4bit (stock 4-bit, bench-qwen36-35b-a3b).
+# Head-to-head probe vs stock 4-bit (bench-qwen36-35b-a3b).
 # Vision encoder present (is_vlm: true). MoE quantization is more brittle than dense —
 # Unsloth's UD claim is especially interesting here (expert MLPs vary in compressibility).
 system_prompt: |

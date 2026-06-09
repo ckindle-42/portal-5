@@ -2,12 +2,12 @@ name: 🔬 Bench · Apriel-Nemotron-15B (ServiceNow+NVIDIA)
 slug: bench-apriel-nemotron
 category: benchmark
 workspace_model: bench-apriel-nemotron
-# Routes to: mlx-community/Apriel-Nemotron-15B-Thinker-8bit (MLX primary)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: qwen3.5:9b (Ollama general — graceful degradation only)
-# BENCHMARK NOTE: Verify MLX loaded Apriel-Nemotron before recording results.
+# BENCHMARK NOTE: Verify model loaded before recording results.
 # Check: ./launch.sh logs | grep "Switching to model"
 # Apriel-Nemotron emits native <think>...</think> reasoning blocks.
-# Routes through mlx_lm.server (is_vlm: false). Reasoning-budget exhaustion
+# Reasoning-budget exhaustion
 # can mix with tool-call rendering; if tool tests fail, retry with
 # enable_thinking=False set in OWUI workspace params.
 system_prompt: |

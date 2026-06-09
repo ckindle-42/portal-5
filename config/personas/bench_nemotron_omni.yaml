@@ -12,8 +12,8 @@ workspace_model: bench-nemotron-omni
 # Primary promotion target: auto-omni (multimodal doc-intel RAG + policy Q&A).
 # Promotion gated on: TASK_NEMOTRON_OMNI_PROMOTE_V1.
 # Cold-load: ~30-60s (mlx_vlm.server startup). bench_tps.py WARMUP_TIMEOUT=300s covers this.
-# Note: mlx_only=True. No Ollama fallback — multimodal GGUF requires separate mmproj
-#   which Ollama cannot load (upstream limitation, May 2026).
+# Note: mlx_vlm required for multimodal (retained vision runtime, :18082). Ollama GGUF multimodal requires
+#   separate mmproj which Ollama cannot load (upstream limitation, May 2026).
 system_prompt: |
   You are a creative coder who builds playable, visual, and interactive things
   in the browser. Your default output is a complete, working, single-file HTML

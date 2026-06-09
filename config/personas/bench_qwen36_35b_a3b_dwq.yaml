@@ -2,7 +2,7 @@ name: 🔬 Bench · Qwen3.6-35B-A3B (DWQ)
 slug: bench-qwen36-35b-a3b-dwq
 category: benchmark
 workspace_model: bench-qwen36-35b-a3b-dwq
-# Routes to: mlx-community/Qwen3.6-35B-A3B-4bit-DWQ (distillation-aware 4-bit, ~20GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Pairs against: bench-qwen36-35b-a3b (plain RTN 4-bit) — TASK_QUANT_TRUEUP_V1 Finding A
 # DWQ (distillation-aware weight quantization): KLD study shows ~34% better than plain RTN
 # at same size/speed. Chat-template override: qwen3.6 (same Jinja fix as plain).

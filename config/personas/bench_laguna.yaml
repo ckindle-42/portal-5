@@ -2,9 +2,9 @@ name: 🔬 Bench · Laguna-XS.2 (Poolside)
 slug: bench-laguna
 category: benchmark
 workspace_model: bench-laguna
-# Routes to: mlx-community/Laguna-XS.2-4bit (MLX primary, Poolside AI lineage, ~18.8GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: glm-4.7-flash:q4_k_m (Ollama GGUF — different model family, for graceful degradation only)
-# BENCHMARK NOTE: Verify MLX loaded Laguna-XS.2-4bit before recording results.
+# BENCHMARK NOTE: Verify model loaded before recording results.
 # Check: ./launch.sh logs | grep "Switching to model"
 # Laguna has native interleaved reasoning — <think> blocks appear between tool calls.
 # enable_thinking is on by default; set enable_thinking: false in request to suppress.
