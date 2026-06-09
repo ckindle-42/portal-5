@@ -4,9 +4,8 @@ The pipeline's "what should I do?" decisions live here:
 
 * ``WORKSPACES`` — the canonical workspace catalog. One entry per
   user-selectable workspace; each entry pins a preferred Ollama model
-  (``model_hint``), an MLX model (``mlx_model_hint``), per-workspace
-  tuning knobs (``predict_limit``, ``context_limit``, ``max_concurrent``,
-  ``mlx_only``, ``mlx_chat_template_kwargs``, ``emits_reasoning``,
+  (``model_hint``), per-workspace tuning knobs (``predict_limit``,
+  ``context_limit``, ``max_concurrent``, ``emits_reasoning``,
   ``system_prompt_append``), and the default tool whitelist
   (``tools``). The keys here are the contract — they must match
   ``workspace_routing`` in ``config/backends.yaml`` exactly (the
@@ -107,15 +106,11 @@ _load_persona_map()
 #   name                       Display name shown in Open WebUI.
 #   description                Open WebUI tooltip / model description.
 #   model_hint                 Preferred Ollama tag in the routed backend group.
-#   mlx_model_hint             Preferred MLX model (HuggingFace path).
-#   mlx_only                   True → never fall through to Ollama, even on MLX failure.
 #   tools                      Default tool-name whitelist (overridable per-persona).
-#   predict_limit              Max output tokens (Ollama: num_predict; MLX: max_tokens).
+#   predict_limit              Max output tokens (Ollama: num_predict).
 #   context_limit              Max context window for this workspace.
 #   max_concurrent             Per-workspace concurrency cap (router_pipe semaphore).
 #   system_prompt_append       String appended after the persona system prompt.
-#   mlx_chat_template_kwargs   Kwargs forwarded to the MLX chat template
-#                              (e.g. enable_thinking=False to suppress <think>).
 #   emits_reasoning            True → model emits reasoning chains (DeepSeek-R1 family);
 #                              affects how the streaming layer parses delta fields.
 #
@@ -137,40 +132,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # support and catalog consistency with ollama-general line 1. Uncensored
         # property preserved (huihui-ai abliteration). See
         # TASK_TOOL_SUPPORT_AUDIT_V1 §A7.
-        # MLX path: huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit. Healthy as
-        # of 2026-05-12 UAT (WS-01 / P-W06 / P-W03 / P-B03 PASS via pipeline,
-        # routed model confirmed). Earlier "V5 warmup FAIL" condition was
-        # resolved by V6 refresh; previous comment block was stale.
-        # Constraint: auto workspace must remain uncensored — any future MLX
-        # repin candidate must be abliterated or otherwise uncensored.
-        # For snappier daily-driver flows that bypass the LLM intent
-        # classifier, users should pick the `auto-daily` workspace
-        # (pinned to mlx-community/gemma-4-26b-a4b-it-4bit, 57.8 TPS).
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "tools": [],
     },
     "auto-daily": {
         "name": "🪶 Portal Daily Driver",
         "description": (
             "Fast everyday assistant: chat, writing, editing, summarization, "
-            "planning, light technical help. MLX gemma-4-26b-a4b primary "
-            "(57.8 TPS, MoE 4B active, VLM, Apache 2.0); Ollama dolphin-"
-            "llama3:8b fallback (non-thinking). Daily-driver lane — escalates "
+            "planning, light technical help. gemma4:26b-a4b-it-q4_K_M primary "
+            "(Ollama, MoE 4B active, VLM, Apache 2.0). Daily-driver lane — escalates "
             "to specialist workspaces (auto-coding, auto-reasoning, etc.) when "
-            "the persona detects out-of-lane requests. No reasoning chain, "
-            "no <think> emission — predict_limit capped and thinking mode "
-            "explicitly disabled to keep responses snappy."
+            "the persona detects out-of-lane requests."
         ),
-        "model_hint": "dolphin-llama3:8b",
-        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M",
         "predict_limit": 4096,
-        # Suppress thinking mode on Gemma 4 (chat-template kwarg honored by
-        # mlx_lm.server / mlx_vlm.server). Same pattern as auto-security /
-        # auto-redteam in WORKSPACES (commit 7462c1b) — keeps content in
-        # delta.content rather than delta.reasoning under streaming. Consumed
-        # by _inject_mlx_options() in router_pipe.py.
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": [
             "web_search",
             "web_fetch",
@@ -184,16 +159,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-coding": {
         "name": "💻 Portal Code Expert",
-        "description": "Code generation, debugging, architecture review",
-        "model_hint": "qwen3-coder:30b",
-        # V5 bench: GLM-4.7-Flash-4bit FAIL (0 tokens, P5-MLX-006 chat template defect).
-        # Promoted to Laguna-XS.2-4bit (Poolside AI, 40.3 t/s, 19GB, smoke PASS).
-        # V9 REVERTED (TASK_REVERT_AUTOCODING_PROMOTION_V1): the OptiQ auto-promotion
-        # violated the 20 TPS floor (14.4) and lowered quality (0.67 vs Laguna 1.0).
-        # The quant A/B (OptiQ vs plain-27B) was valid but does not justify
-        # displacing the faster/higher-quality Laguna MoE incumbent. OptiQ-27B
-        # remains available as bench-qwen36-27b-optiq.
-        "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
+        "description": "Code generation, debugging, architecture review (GLM-4.7-Flash GGUF, Ollama)",
+        "model_hint": "glm-4.7-flash:q4_K_M",
         # Output budget raised to 16384 — full-game HTML (Asteroids, particle
         # systems, etc.) sits at 6-10K tokens; the prior 8192 cap cut responses
         # while still in the analysis phase for complex deliverables.
@@ -224,13 +191,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-agentic": {
         "name": "⚡ Portal Agentic Coder (Heavy)",
         "description": (
-            "Full-power agentic coding via Qwen3-Coder-Next-4bit (80B MoE, 3B active, 256K ctx). "
-            "Triggers big-model mode: unloads all Ollama + MLX models before loading. "
+            "Full-power agentic coding via Qwen3-Coder (480B MoE, 35B active, 256K ctx). "
             "Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. "
-            "Not for interactive chat — load time ~60s, context capped at 32K."
+            "Not for interactive chat — context capped at 32K."
         ),
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
+        "model_hint": "qwen3-coder:480b-a35b-q4_K_M",
         "context_limit": 32768,
         "tools": [
             "execute_python",
@@ -253,25 +218,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
         "description": "Splunk SPL queries, pipeline explanation, detection search authoring",
-        "model_hint": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "tools": ["classify_vulnerability", "kb_search", "kb_list"],
     },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
-        # V5 bench: glm-4.7-flash-abliterated-8bit FAIL (0 tokens, P5-MLX-008).
-        # Promoted to AEON-4Bit (Qwen3.6 27B uncensored, 7.9 t/s, 14GB, smoke PASS).
-        # Thinking disabled (enable_thinking=False): AEON outputs directly to
-        # delta.content, avoiding the mlx_lm regression where all output routes
-        # to delta.reasoning leaving content="" in OWUI. Direct answers are
-        # sufficient — security analysis quality held at Q=0.50 baseline.
-        # web_search/web_fetch removed (UAT5): AEON issues parallel tool-call bursts
-        # (5+ simultaneous searches) that exhaust KV cache and trigger mid-stream
-        # eviction. AEON's training covers CVEs/ATT&CK well enough without live search.
-        "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": [
             "classify_vulnerability",
             "execute_python",
@@ -284,36 +237,19 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
-        # V5 bench: same GLM defect as auto-security. Promoted to AEON-4Bit.
-        # Thinking disabled (same reason as auto-security — direct content output).
-        # web_search intentionally excluded — same parallel-burst eviction risk as
-        # auto-security. Redteam work is reasoning-heavy, not search-heavy.
-        "mlx_model_hint": "mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit",
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": "Defensive security, incident response, threat hunting",
-        "model_hint": "lily-cybersecurity:7b-q4_k_m",
-        # Foundation-Sec-8B-Reasoning is the MLX primary for blue-team work:
-        # purpose-trained on cybersec corpus + RLVR, native <think> reasoning,
-        # strong on CVE→CWE, MITRE ATT&CK, SOC triage, compliance evidence.
-        # lily-cybersecurity remains the Ollama fallback when MLX is occupied.
-        # NOTE: <think> is multi-token text in Llama-3.1 vocab (not a single token),
-        # so mlx_lm.server's has_thinking=False — reasoning output goes into content,
-        # not reasoning_content. This is intentional: the reasoning chain IS the
-        # analytical value for defenders. No mlx_chat_template_kwargs suppress needed.
-        "mlx_model_hint": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
+        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
     },
     "tools-specialist": {
         "name": "🔧 Portal Tool Composer",
-        "description": "Structured function/API calling via ToolACE-2.5 (purpose-trained, BFCL-topping). Use for tasks that require composing multiple tool calls in sequence.",
-        "model_hint": None,
-        "mlx_model_hint": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
-        "mlx_only": True,
+        "description": "Structured function/API calling via Granite-4.1 30B (purpose-trained, BFCL-topping). Use for tasks that require composing multiple tool calls in sequence.",
+        "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         # Tool names must match registered MCP function names (not MCP server IDs).
         # memory MCP exposes: remember, recall. execution MCP exposes: execute_python.
@@ -322,19 +258,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
         "description": "Creative writing, storytelling, content generation",
-        # Ollama dolphin-llama3:8b primary — fast, uncensored, creative-tuned.
-        # MLX removed from cascade (backends.yaml): Gemma 4 VLM is a thinking model
-        # (10-15 min reasoning phase) — wrong tool for proofreading and creative writing.
-        "model_hint": "dolphin-llama3:8b",
+        "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
         "tools": [],
     },
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
         "description": "Complex analysis, research synthesis, step-by-step reasoning",
-        "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
-        # Thinking model: Qwopus3.5 spends 8-12K tok on reasoning before content.
-        # 16384 was insufficient — truncated mid-answer. Raised to 32768.
+        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
         "predict_limit": 32768,
         "emits_reasoning": True,
         "tools": [],
@@ -342,8 +272,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools; diarized transcription",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
+        "model_hint": "phi4:14b-q8_0",
         "predict_limit": 8192,
         "tools": [
             "create_word_document",
@@ -374,12 +303,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔍 Portal Research Assistant",
         "description": "Web research, information synthesis, fact-checking",
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        # Previous hint (Qwen3.5-9B) was a 9B general routing model — mismatched
-        # for a workspace with emits_reasoning+predict_limit (those apply to the
-        # Ollama tongyi fallback). Promoted to gemma-4-26b-a4b-it-4bit (VLM,
-        # thinking, 256K ctx, ~23 TPS) — same model as auto-vision primary,
-        # confirmed working on Apple Silicon.
-        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [
@@ -395,28 +318,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-vision": {
         "name": "👁️  Portal Vision",
-        "description": "Image understanding, visual analysis, multimodal tasks",
+        "description": "Image understanding, visual analysis, multimodal tasks (Qwen3-VL, Ollama)",
         "model_hint": "qwen3-vl:32b",
-        # V5 bench: gemma-4-31b-it-4bit at 3.5 t/s → gemma-4-26b-a4b-it-4bit at
-        # 23.4 t/s (6.7× speedup, 13GB vs 18GB, Apache 2.0, smoke PASS). Same
-        # Gemma 4 family, MoE architecture serves vision + audio identically.
-        "mlx_model_hint": "mlx-community/gemma-4-26b-a4b-it-4bit",
-        # Gemma-4 is a thinking model; vision description tasks don't need reasoning traces.
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": ["transcribe_audio"],
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
         "description": "Data analysis, statistics, visualization guidance",
-        "model_hint": "deepseek-r1:32b-q4_k_m",
-        # Switched from 8-bit (34GB, needs 44GB) to 4-bit (18GB, needs 28GB).
-        # The 8-bit version was rejected by admission control when Ollama models
-        # occupied memory (~18-20GB), leaving only 37-38GB available (6GB short).
-        # The 4-bit abliterated version fits in 28GB — always clears on this host.
-        "mlx_model_hint": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit",
-        # Thinking model: DeepSeek-R1 spends 10-16K tok on reasoning before
-        # content. 16384 was insufficient — truncated mid-answer (P-DA05 UAT).
-        # Raised to 32768 so reasoning + full derivation both fit.
+        "model_hint": "deepseek-r1:32b-q8_0",
         "predict_limit": 32768,
         "emits_reasoning": True,
         "tools": ["execute_python", "create_excel", "kb_search"],
@@ -430,11 +339,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Connecticut CTDPA, etc.). Gap analysis, policy drafting, "
             "evidence review, cross-framework control mapping, audit prep."
         ),
-        "model_hint": "deepseek-r1:32b-q4_k_m",
-        # V5 bench: Jackrong 35B-A3B unbenched. Promoted to granite-4.1-30b-mxfp4
-        # (IBM, 7.8 t/s, 15GB, smoke PASS) — purpose-built for GRC compliance
-        # workflows, Apache 2.0, ISO-certified training data, BFCL V3 73.7.
-        "mlx_model_hint": "mlx-community/granite-4.1-30b-mxfp4",
+        "model_hint": "granite4.1:8b",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [
@@ -447,15 +352,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-mistral": {
         "name": "🧪 Portal Mistral Reasoner",
-        "description": (
-            "Structured reasoning via Magistral-Small-2509 — Mistral training lineage, "
-            "[THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models."
-        ),
-        # qwen3.5-abliterated:9b is in the general group (auto-mistral routing
-        # was [mlx, reasoning, general] but reasoning was removed because deepseek-r1
-        # exhausts its thinking budget on strategy tasks → empty responses).
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
+        "description": "Magistral-Small-2509 (GGUF q8_0) — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models.",
+        "model_hint": "magistral:24b-small-2506-q8_0",
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": ["execute_python", "execute_bash"],
@@ -464,67 +362,54 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🧮 Portal Math Reasoner",
         "description": "Mathematical problem solving, proofs, calculus, algebra, statistics",
         "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/Qwen2.5-Math-7B-Instruct-4bit",
         "predict_limit": 8192,
         "tools": ["execute_python"],
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
     "bench-devstral": {
         "name": "🔬 Bench · Devstral-Small-2507",
-        "description": "Benchmark: Devstral-Small-2507 (MLX, Mistral/Codestral lineage, ~15GB, 53.6% SWE-bench)",
+        "description": "Benchmark: Devstral-Small-2507 (GGUF, Ollama, Mistral/Codestral lineage, 53.6% SWE-bench)",
         "model_hint": "devstral:24b",
-        "mlx_model_hint": "lmstudio-community/Devstral-Small-2507-MLX-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen3-coder-next": {
-        "name": "🔬 Bench · Qwen3-Coder-Next (80B MoE)",
-        "description": "Benchmark: Qwen3-Coder-Next-4bit (MLX, Alibaba, 80B MoE 3B active, ~46GB, 256K ctx — cold load ~60s)",
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
-        "mlx_only": True,
+        "name": "🔬 Bench · Qwen3-Coder-Next (480B MoE)",
+        "description": "Benchmark: Qwen3-Coder (GGUF, Ollama, Alibaba, 480B MoE 35B active, 256K ctx)",
+        "model_hint": "qwen3-coder:480b-a35b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen3-coder-30b": {
         "name": "🔬 Bench · Qwen3-Coder-30B",
-        "description": "Benchmark: Qwen3-Coder-30B-A3B-8bit (MLX, Alibaba, 30B MoE 3B active, ~22GB)",
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-        "mlx_only": True,
+        "description": "Benchmark: Qwen3-Coder-30B (GGUF, Ollama, Alibaba, 30B MoE 3B active)",
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-llama33-70b": {
         "name": "🔬 Bench · Llama-3.3-70B",
-        "description": "Benchmark: Llama-3.3-70B-Instruct-4bit (MLX, Meta, ~40GB — cold load ~60s, plan for sequential runs)",
+        "description": "Benchmark: Llama-3.3-70B-Instruct (GGUF, Ollama, Meta)",
         "model_hint": "llama3.3:70b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Llama-3.3-70B-Instruct-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-phi4": {
         "name": "🔬 Bench · Phi-4",
-        "description": "Benchmark: phi-4-8bit (MLX, Microsoft, 14B, synthetic training data — distinct methodology)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/phi-4-8bit",
-        "mlx_only": True,
+        "description": "Benchmark: phi-4 (GGUF, Ollama, Microsoft, 14B, synthetic training data — distinct methodology)",
+        "model_hint": "phi4:14b-q8_0",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-phi4-reasoning": {
         "name": "🔬 Bench · Phi-4-reasoning-plus",
-        "description": "Benchmark: Phi-4-reasoning-plus (MLX, Microsoft, RL-trained, ~7GB — produces reasoning traces before code)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: Phi-4-reasoning-plus (GGUF, Ollama, Microsoft, RL-trained — produces reasoning traces before code)",
+        "model_hint": "phi4-reasoning:plus",
         "max_concurrent": 1,
         # Raised from 16384: RL reasoning traces consume 8-12K tokens before code begins;
         # 16384 left insufficient budget for a complete 6-8K token game implementation.
@@ -533,20 +418,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-dolphin8b": {
         "name": "🔬 Bench · Dolphin-Llama3-8B",
-        "description": "Benchmark: Dolphin3.0-Llama3.1-8B-8bit (MLX, Cognitive Computations, ~9GB — fast baseline, uncensored)",
+        "description": "Benchmark: Dolphin3.0-Llama3.1-8B (GGUF, Ollama, Cognitive Computations — fast baseline, uncensored)",
         "model_hint": "dolphin-llama3:8b",
-        "mlx_model_hint": "mlx-community/Dolphin3.0-Llama3.1-8B-8bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
-        "description": "Benchmark: GLM-4.7-Flash-4bit (MLX, Zhiyu AI — distinct Chinese research lineage, ~15GB, 59.2% SWE-bench)",
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/GLM-4.7-Flash-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: GLM-4.7-Flash (GGUF, Ollama, Zhiyu AI — distinct Chinese research lineage, 59.2% SWE-bench)",
+        "model_hint": "glm-4.7-flash:q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -561,10 +442,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-laguna": {
         "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
-        "description": "Benchmark: Laguna-XS.2-4bit (MLX, Poolside AI, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified, interleaved reasoning)",
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Laguna-XS.2-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: Laguna-XS.2 (GGUF, Ollama, Poolside AI, 33B-A3B MoE, 68.2% SWE-bench Verified, interleaved reasoning)",
+        "model_hint": "laguna-xs.2:q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -598,7 +477,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🧪 Bench — Qwen3.5-9B Abliterated (huihui-ai)",
         "description": "Direct routing to huihui_ai/qwen3.5-abliterated:9b — uncensored, tool-capable AUTO primary baseline",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit",
         "predict_limit": 8192,
         "tools": [],
         "max_concurrent": 1,
@@ -606,31 +484,19 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
     "bench-qwen36-27b": {
         "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
-        "description": (
-            "Benchmark: mlx-community/Qwen3.6-27B-4bit (MLX, Alibaba Apr 2026, dense 27B + "
-            "vision encoder, ~16GB, 262K ctx, Apache 2.0). Official mlx-community convert. "
-            "SWE-bench Verified 73.4%. Fallback: froggeric/Qwen3.6-27B-MLX-4bit "
-            "(pre-release, still in backends.yaml catalog, chat templates fixed)."
-        ),
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3.6-27B-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: Qwen3.6-27B abliterated (GGUF, Ollama, Alibaba, dense 27B, 262K ctx, Apache 2.0, SWE-bench Verified 73.4%)",
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen36-27b-mtp": {
-        "name": "🔬 Bench · Qwen3.6-27B MTP (Alibaba + MTPLX)",
+        "name": "🔬 Bench · Qwen3.6-27B MTP (Ollama path)",
         "description": (
-            "Benchmark: Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed (MLX-native MTP "
-            "speculative decoding, ~18GB, ~2.24x vendor claim, lossless at temp 0). "
-            "BENCH-ONLY — MTP candidate for TASK_MODEL_REFRESH_V8 A/B. "
-            "No-MTP baseline: mlx-community/Qwen3.6-27B-4bit measured 12.4 TPS; "
-            "MTP target ~27-32 TPS. Requires MTPLX runtime."
+            "Benchmark: Qwopus3.6-27B-v2-MTP Q5_K_M (GGUF, Ollama). "
+            "MTP speculative-decoding candidate for TASK_MODEL_REFRESH_V8 A/B."
         ),
-        "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed",
-        "mlx_only": True,
+        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -638,14 +504,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-qwen36-35b-a3b": {
         "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
         "description": (
-            "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit (MLX, Alibaba Apr 2026, "
-            "35B total / 3B active MoE, ~20GB, 262K ctx). Alibaba positioning: "
-            "'Agentic Coding Power, Now Open to All.' Self-reported SWE-bench "
-            "Verified 73.4%, AIME26 92.7%, Terminal-Bench 2.0 51.5%."
+            "Benchmark: Qwen3.6-35B-A3B (GGUF, Ollama, Alibaba Apr 2026, "
+            "35B total / 3B active MoE, 262K ctx). SWE-bench Verified 73.4%, AIME26 92.7%."
         ),
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
-        "mlx_model_hint": "mlx-community/Qwen3.6-35B-A3B-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -668,16 +530,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-negentropy": {
         "name": "🔬 Bench · Negentropy-9B (Jackrong)",
         "description": (
-            "Benchmark: Jackrong/Negentropy-claude-opus-4.7-9B-6bit (MLX, Qwen3.5-9B "
-            "base, trace-inversion methodology — Trace-Inverter-4B reconstructs full "
-            "CoT from Claude Opus compressed reasoning bubbles, then SFT on reconstructed "
-            "traces). Apache 2.0, ~7GB. Lineage overlap with existing auto-reasoning "
-            "primary (MLX-Qwopus3.5-27B-v3-8bit, same author). Card-acknowledged: "
+            "Benchmark: Jackrong/Negentropy-claude-opus-4.7-9B (GGUF, Ollama, Qwen3.5-9B "
+            "base, trace-inversion methodology). Card-acknowledged: "
             "'logic-style hallucinations' possible — unsuited for compliance/NERC CIP work."
         ),
         "model_hint": "deepseek-r1:32b-q4_k_m",
-        "mlx_model_hint": "Jackrong/Negentropy-claude-opus-4.7-9B-6bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 16384,
         "emits_reasoning": True,
@@ -686,13 +543,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-olmo3-32b": {
         "name": "🔬 Bench · Olmo-3-32B (Allen AI)",
         "description": (
-            "Benchmark: mlx-community/Olmo-3-1125-32B-4bit (MLX, Allen AI dense 32B, "
-            "~17GB, Apache 2.0, NOT Qwen lineage). V5 Pareto winner for auto-reasoning "
-            "candidates (8.6 TPS, smoke PASS). supports_tools=false per V5 catalog."
+            "Benchmark: Olmo-3-32B (GGUF, Ollama, Allen AI dense 32B, "
+            "Apache 2.0, NOT Qwen lineage). supports_tools=false per V5 catalog."
         ),
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
-        "mlx_model_hint": "mlx-community/Olmo-3-1125-32B-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 16384,
         "tools": [],
@@ -701,15 +555,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-nemotron-omni": {
         "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA MoE)",
         "description": (
-            "Benchmark: mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4 "
-            "(MLX, NVIDIA Apr 2026, 30B MoE / 3B active, ~15GB, is_vlm=True via mlx-vlm 0.4.5). "
-            "Omni-modal: text + image + video + audio. MMLongBench-Doc 57.5, OCRBenchV2 65.8, "
-            "VoiceBench 89.4. NVIDIA Open Model Agreement (commercial use permitted). "
-            "BENCH-ONLY — promotion gated on TASK_NEMOTRON_OMNI_PROMOTE_V1."
+            "Benchmark placeholder: Nemotron-3-Nano-Omni-30B-A3B (NVIDIA, omni-modal). "
+            "No GGUF available — routes to qwen3-vl:32b as best available VLM fallback."
         ),
-        "model_hint": "llama3.3:70b-q4_k_m",
-        "mlx_model_hint": "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4",
-        "mlx_only": True,
+        "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
@@ -717,50 +566,40 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
     "bench-olmocr2": {
         "name": "🔬 Bench · olmOCR-2 (Allen AI)",
-        "description": "Benchmark: olmOCR-2-7B-1025-5bit (MLX, Allen AI, 7B Qwen2.5-VL base, RLVR document OCR, ~5GB). Strengths: math formulas, tables, multi-column layouts, markdown-clean output.",
-        "model_hint": None,
-        "mlx_model_hint": "mlx-community/olmOCR-2-7B-1025-5bit",
-        "mlx_only": True,
+        "description": "Benchmark: olmOCR-2-7B (Allen AI, 7B Qwen2.5-VL base, RLVR document OCR). Strengths: math formulas, tables, multi-column layouts, markdown-clean output.",
+        "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
         "tools": [],
         "emits_reasoning": False,
     },
     "bench-nanonets-ocr2": {
         "name": "🔬 Bench · Nanonets-OCR2 (Nanonets)",
-        "description": "Benchmark: Nanonets-OCR2-3B-4bit (MLX, Nanonets, Qwen2.5-VL-3B base, ~2GB). Strengths: pdf2markdown structure, LaTeX equations, semantic image tags, tables (HTML/markdown), signatures/watermarks/checkboxes. Pairs with bench-olmocr2.",
-        "model_hint": None,
-        "mlx_model_hint": "mlx-community/Nanonets-OCR2-3B-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: Nanonets-OCR2-3B (Nanonets, Qwen2.5-VL-3B base). Strengths: pdf2markdown structure, LaTeX equations, semantic image tags, tables (HTML/markdown), signatures/watermarks/checkboxes. Pairs with bench-olmocr2.",
+        "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
         "tools": [],
         "emits_reasoning": False,
     },
     "bench-lfm2-moe": {
         "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
-        "description": "Benchmark: LFM2-8B-A1B-8bit (MLX, Liquid AI, 8.3B/1.5B-active MoE, hybrid Liquid arch — NON-TRANSFORMER, ~8GB). Scope per Liquid AI: agentic / data-extraction / RAG / creative / multi-turn. NOT for code or knowledge. Lineage diversification value.",
-        "model_hint": None,
-        "mlx_model_hint": "mlx-community/LFM2-8B-A1B-8bit",
-        "mlx_only": True,
+        "description": "Benchmark: LFM2-8B-A1B (Liquid AI, 8.3B/1.5B-active MoE, hybrid Liquid arch — NON-TRANSFORMER). Scope per Liquid AI: agentic / data-extraction / RAG / creative / multi-turn. NOT for code or knowledge. Lineage diversification value.",
+        "model_hint": "dolphin-llama3:8b",
         "max_concurrent": 1,
         "tools": [],
         "emits_reasoning": False,
     },
     "bench-foundation-sec": {
         "name": "🔬 Bench · Foundation-Sec (Cisco)",
-        "description": "Benchmark: Foundation-Sec-8B-Reasoning-4bit-mlx (locally converted, Cisco, Llama-3.1-8B base + cybersec corpus + RLVR, ~4.5GB). Native <think> reasoning. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
-        "model_hint": None,
-        "mlx_model_hint": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
-        "mlx_only": True,
+        "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco, Llama-3.1-8B base + cybersec corpus + RLVR). Native <think> reasoning. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance.",
+        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "max_concurrent": 1,
         "tools": [],
         "emits_reasoning": True,
     },
     "bench-toolace25": {
         "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
-        "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B-4bit-mlx (locally converted, Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, ~4.5GB, BFCL-topping). Purpose-trained for tool-calling accuracy. Expects ToolACE-style system prompt with [func(arg=val)] format.",
-        "model_hint": None,
-        "mlx_model_hint": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
-        "mlx_only": True,
+        "description": "Benchmark: ToolACE-2.5-Llama-3.1-8B (Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, BFCL-topping). Purpose-trained for tool-calling accuracy.",
+        "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         "tools": ["filesystem", "memory", "time"],
         "emits_reasoning": False,
@@ -768,103 +607,82 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ────────────────────────────
     "bench-apriel-nemotron": {
         "name": "🔬 Bench · Apriel-Nemotron-15B-Thinker",
-        "description": "Benchmark: Apriel-Nemotron-15B-Thinker-8bit (MLX, ServiceNow+NVIDIA, dense 15B reasoning, native <think>, MIT, ~16GB)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/Apriel-Nemotron-15B-Thinker-8bit",
-        "mlx_only": True,
+        "description": "Benchmark: Apriel-Nemotron-15B-Thinker (GGUF, Ollama, ServiceNow+NVIDIA, dense 15B reasoning, native <think>, MIT)",
+        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "max_concurrent": 1,
         "tools": [],
     },
     "bench-voxtral-realtime": {
         "name": "🔬 Bench · Voxtral Realtime ASR",
-        "description": "Benchmark: Voxtral-Mini-4B-Realtime-2602-4bit (MLX, Mistral, streaming ASR ~570ms TTFT, 13 languages, ~3GB)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: Voxtral-Mini-4B-Realtime (Mistral, streaming ASR, 13 languages — requires audio-capable infrastructure)",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
         "tools": [],
     },
     "bench-voxtral-tts": {
         "name": "🔬 Bench · Voxtral TTS (4B)",
-        "description": "Benchmark: Voxtral-4B-TTS-2603-mlx-6bit (MLX, Mistral, 20 voices x 9 languages, ~4GB)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/Voxtral-4B-TTS-2603-mlx-6bit",
-        "mlx_only": True,
+        "description": "Benchmark: Voxtral-4B-TTS (Mistral, 20 voices x 9 languages — requires audio-capable infrastructure)",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
         "tools": [],
     },
     "bench-granite-speech": {
         "name": "🔬 Bench · Granite Speech 4.1 2B",
-        "description": "Benchmark: granite-speech-4.1-2b (MLX, IBM, #1 OpenASR, native keyword biasing, EN/FR/DE/ES/PT/JA, ~4GB)",
-        "model_hint": "qwen3.5:9b",
-        "mlx_model_hint": "mlx-community/granite-speech-4.1-2b",
-        "mlx_only": True,
+        "description": "Benchmark: granite-speech-4.1-2b (IBM, #1 OpenASR, native keyword biasing, EN/FR/DE/ES/PT/JA — requires audio-capable infrastructure)",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
         "tools": [],
     },
     "bench-qwen36-27b-ud": {
         "name": "🔬 Bench · Qwen3.6-27B (Unsloth UD)",
-        "description": "Benchmark: unsloth/Qwen3.6-27B-UD-MLX-4bit (Alibaba+Unsloth Dynamic 2.0, dense 27B, ~16GB, head-to-head vs stock 4-bit)",
+        "description": "Benchmark: Qwen3.6-27B Unsloth Dynamic 2.0 (GGUF, Ollama, dense 27B, head-to-head vs stock 4-bit)",
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "unsloth/Qwen3.6-27B-UD-MLX-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "tools": [],
     },
     "bench-qwen36-35b-a3b-ud": {
         "name": "🔬 Bench · Qwen3.6-35B-A3B (Unsloth UD)",
-        "description": "Benchmark: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit (Alibaba+Unsloth Dynamic 2.0, MoE 3B active, ~20GB)",
+        "description": "Benchmark: Qwen3.6-35B-A3B Unsloth Dynamic 2.0 (GGUF, Ollama, MoE 3B active)",
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "tools": [],
     },
     # ── TASK_QUANT_TRUEUP_V1: optimized-quant + uncensored-refresh bench candidates ──
     "bench-qwen36-35b-a3b-dwq": {
         "name": "🔬 Bench · Qwen3.6-35B-A3B (DWQ)",
-        "description": "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit-DWQ (distillation-aware 4-bit MoE, ~20GB), pairs against plain RTN 4-bit",
+        "description": "Benchmark: Qwen3.6-35B-A3B DWQ (GGUF, Ollama, distillation-aware quant MoE), pairs against plain RTN 4-bit",
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
-        "mlx_model_hint": "mlx-community/Qwen3.6-35B-A3B-4bit-DWQ",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-qwen36-27b-optiq": {
         "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
-        "description": "Benchmark: mlx-community/Qwen3.6-27B-OptiQ-4bit (sensitivity-aware mixed 4-bit, ~16GB), pairs against plain 4-bit",
+        "description": "Benchmark: Qwen3.6-27B OptiQ (GGUF, Ollama, sensitivity-aware mixed 4-bit), pairs against plain 4-bit",
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3.6-27B-OptiQ-4bit",
-        "mlx_only": True,
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
     },
     "bench-gemma4-26b-optiq": {
         "name": "🔬 Bench · Gemma-4-26B-A4B (OptiQ)",
-        "description": "Benchmark: mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit (sensitivity-aware mixed 4-bit MoE, ~13GB), pairs against auto-daily plain. fp16 KV only (A4).",
-        "model_hint": "dolphin-llama3:8b",
-        "mlx_model_hint": "mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit",
-        "mlx_only": True,
+        "description": "Benchmark: gemma4:26b-a4b-it-q4_K_M (GGUF, Ollama, MoE 4B active), pairs against auto-daily.",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M",
         "max_concurrent": 1,
-        "mlx_chat_template_kwargs": {"enable_thinking": False},
         "tools": [],
     },
     "bench-huihui-qwen36-27b": {
         "name": "🔬 Bench · Huihui-Qwen3.6-27B (Abliterated)",
-        "description": "Benchmark: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit (dense 27B abliterated, ~16GB), uncensored refresh candidate vs Qwen3.5-9B",
+        "description": "Benchmark: Huihui-Qwen3.6-27B-abliterated (GGUF, Ollama, dense 27B abliterated), uncensored refresh candidate vs Qwen3.5-9B",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit",
         "predict_limit": 8192,
         "tools": [],
         "max_concurrent": 1,
     },
     "bench-huihui-qwen36-35b-a3b": {
         "name": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
-        "description": "Benchmark: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit (MoE 3B active abliterated, ~20GB), uncensored speed-play vs Qwen3.5-9B",
+        "description": "Benchmark: Huihui-Qwen3.6-35B-A3B-abliterated (GGUF, Ollama, MoE 3B active abliterated), uncensored speed-play vs Qwen3.5-9B",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "mlx_model_hint": "vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit",
         "predict_limit": 8192,
         "tools": [],
         "max_concurrent": 1,

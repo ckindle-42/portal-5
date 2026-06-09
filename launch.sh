@@ -142,20 +142,6 @@ _check_hardware() {
             echo "     Install: ./launch.sh install-comfyui"
             echo "     Start:   ~/ComfyUI/start.sh"
         fi
-        # Check MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on 8081)
-        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-            MLX_ACTIVE=$(_json_get "$(curl -s "http://localhost:8081/health" 2>/dev/null)" \
-                '.active_server // "?"' "d.get('active_server','?')" "?")
-            echo "  ✅ MLX proxy: active (server=$MLX_ACTIVE) — dual-server Apple Silicon inference"
-        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
-            echo "  ⏳ MLX: starting in background (Ollama used until ready)"
-        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
-            echo "  ℹ️  MLX proxy: installed, not running (Ollama will be used)"
-            echo "     Start: ~/.portal5/mlx/mlx-proxy.py"
-        else
-            echo "  ℹ️  MLX: not installed (optional, 20-40% faster than Ollama on M4)"
-            echo "     Install: ./launch.sh install-mlx"
-        fi
     elif [ "$ARCH" = "x86_64" ]; then
         # Check for NVIDIA GPU
         if command -v nvidia-smi &>/dev/null && nvidia-smi -L &>/dev/null 2>&1; then
@@ -231,27 +217,6 @@ _ensure_native_services() {
         fi
     fi
 
-    # ── MLX proxy (Apple Silicon native only) ────────────────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        local MLX_PROXY_SCRIPT="$HOME/.portal5/mlx/mlx-proxy.py"
-        if [ -f "$MLX_PROXY_SCRIPT" ]; then
-            if ! curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-                echo "[portal-5]   MLX proxy installed but not running — starting..."
-                mkdir -p "$HOME/.portal5/logs"
-                if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
-                    launchctl start com.portal5.mlx-proxy 2>>"$HOME/.portal5/logs/mlx-proxy-launchctl.log" || true
-                else
-                    nohup python3 "$MLX_PROXY_SCRIPT" \
-                        > "$HOME/.portal5/logs/mlx-proxy.log" 2>&1 &
-                fi
-                echo "[portal-5]   ⏳ MLX proxy starting on :8081 (auto-switches mlx_lm ↔ mlx_vlm)"
-                echo "[portal-5]      Logs: $HOME/.portal5/logs/mlx-proxy.log"
-            else
-                echo "[portal-5]   ✅ MLX proxy: running"
-            fi
-        fi
-    fi
-
     # ── Music MCP (native on macOS for MPS; skip on non-arm64) ──────────────
     if [ "$ARCH" = "arm64" ]; then
         local MUSIC_VENV="$HOME/.portal5/music/.venv"
@@ -275,30 +240,6 @@ _ensure_native_services() {
                 echo "[portal-5]      Logs: $HOME/.portal5/logs/music-mcp.log"
             else
                 echo "[portal-5]   ✅ Music MCP: running"
-            fi
-        fi
-    fi
-
-    # ── MLX Watchdog (Apple Silicon native only) ─────────────────────────────
-    if [ "$ARCH" = "arm64" ]; then
-        if [ "${MLX_WATCHDOG_ENABLED:-true}" != "false" ]; then
-            local WATCHDOG_SCRIPT="$PORTAL_ROOT/scripts/mlx-watchdog.py"
-            if [ -f "$WATCHDOG_SCRIPT" ]; then
-                if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-                    echo "[portal-5]   ✅ MLX watchdog: running (PID $(cat /tmp/mlx-watchdog.pid))"
-                else
-                    echo "[portal-5]   MLX watchdog not running — starting..."
-                    mkdir -p "$HOME/.portal5/logs"
-                    nohup python3 "$WATCHDOG_SCRIPT" \
-                        > "$HOME/.portal5/logs/mlx-watchdog.log" 2>&1 &
-                    echo $! > /tmp/mlx-watchdog.pid
-                    sleep 2
-                    if kill -0 "$!" 2>/dev/null; then
-                        echo "[portal-5]   ✅ MLX watchdog started (PID $!)"
-                    else
-                        echo "[portal-5]   ⚠️  MLX watchdog failed to start — check: $HOME/.portal5/logs/mlx-watchdog.log"
-                    fi
-                fi
             fi
         fi
     fi
@@ -329,30 +270,10 @@ _do_down() {
     docker compose down
     echo "[portal-5] Docker stack stopped."
 
-    # ── Stop native macOS services (MLX, ComfyUI) ─────────────────────────
+    # ── Stop native macOS services (ComfyUI, Music MCP, Speech) ──────────────
     # These run outside Docker and must be stopped explicitly.
     # Uses launchctl if the service is registered, falls back to pkill.
     if [ "$(uname -s)" = "Darwin" ]; then
-        # MLX proxy (:8081) + underlying servers (:18081, :18082)
-        if launchctl list com.portal5.mlx-proxy &>/dev/null 2>&1; then
-            launchctl stop com.portal5.mlx-proxy 2>/dev/null || true
-            echo "[portal-5] MLX proxy service stopped (launchd)."
-        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
-            pkill -f "mlx-proxy" 2>/dev/null || true
-            pkill -f "mlx_lm.server" 2>/dev/null || true
-            pkill -f "mlx_vlm.server" 2>/dev/null || true
-            echo "[portal-5] MLX processes stopped (pkill)."
-        else
-            echo "[portal-5] MLX proxy: not running (nothing to stop)."
-        fi
-
-        # Remove stale single-server plist if present
-        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
-            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
-            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-            echo "[portal-5] Removed stale com.portal5.mlx plist."
-        fi
-
         # ComfyUI (:8188)
         if launchctl list com.portal5.comfyui &>/dev/null 2>&1; then
             launchctl stop com.portal5.comfyui 2>/dev/null || true
@@ -377,15 +298,6 @@ _do_down() {
             echo "[portal-5] Music MCP process stopped (pkill)."
         else
             echo "[portal-5] Music MCP: not running (nothing to stop)."
-        fi
-
-        # MLX Watchdog
-        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-            kill "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null || true
-            rm -f /tmp/mlx-watchdog.pid
-            echo "[portal-5] MLX watchdog stopped."
-        else
-            echo "[portal-5] MLX watchdog: not running (nothing to stop)."
         fi
 
         # MLX Speech (:8918)
@@ -483,16 +395,6 @@ _check_ports() {
     fi
     _port_check "${SECURITY_HOST_PORT:-8919}"   "MCP Security"
 
-    # MLX proxy (port 8081) — only check if installed
-    # Skip the check if proxy is already responding (started by _ensure_native_services)
-    if [ -f "$HOME/.portal5/mlx/mlx-proxy.py" ] || python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
-        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-            echo "  ✅ Port 8081 (MLX proxy) — already responding"
-        else
-            _port_check 8081   "MLX proxy (mlx_lm/vlm auto-switch)"
-        fi
-    fi
-
     # MLX Speech (port 8918) — only check if installed
     if python3 -c "import mlx_audio" &>/dev/null 2>&1; then
         if curl -s "http://localhost:8918/health" &>/dev/null 2>&1; then
@@ -515,10 +417,9 @@ _check_ports() {
         echo "  Options:"
         echo "  1. Stop the conflicting process (see 'kill <PID>' above)"
         echo "  2. If it's a previous Portal 5 stack:  ./launch.sh down"
-        echo "     Note: 'down' also stops native MLX (:8081), Speech (:8918) and ComfyUI (:8188)"
+        echo "     Note: 'down' also stops native Speech (:8918) and ComfyUI (:8188)"
         echo "  3. If it's a different service, override the port in .env:"
         echo "     e.g.:  DOCUMENTS_HOST_PORT=9013  (for MCP Documents)"
-        echo "            MLX_PORT=8082             (for MLX inference server)"
         echo "     All overrideable ports are documented in .env.example"
         echo ""
         exit 1
@@ -686,19 +587,6 @@ for key, label, url in rows:
             printf "    ❌  %-28s %s\n" "Ollama" "not running — brew services start ollama"
         fi
 
-        if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8081/health', timeout=2)" &>/dev/null 2>&1; then
-            _MX=$(python3 -c "
-import urllib.request, json
-d = json.loads(urllib.request.urlopen('http://localhost:8081/health', timeout=3).read())
-print(d.get('active_server','?'))
-" 2>/dev/null || echo "?")
-            printf "    ✅  %-28s %s  (%s server)\n" "MLX proxy" ":8081" "${_MX:-?}"
-        elif pgrep -f "mlx-proxy|mlx_lm.server|mlx_vlm.server" &>/dev/null 2>&1; then
-            printf "    ⏳  %-28s %s\n" "MLX" "starting"
-        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
-            printf "    ❌  %-28s %s\n" "MLX" "installed but not running — ./launch.sh up"
-        fi
-
         if python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8188/system_stats', timeout=2)" &>/dev/null 2>&1; then
             _CV=$(python3 -c "
 import urllib.request, json
@@ -718,13 +606,6 @@ print(d.get('system',{}).get('comfyui_version','?'))
             printf "    ❌  %-28s %s\n" "Music MCP" "installed but not running — ./launch.sh up"
         else
             printf "    ℹ️   %-28s %s\n" "Music MCP" "not installed — ./launch.sh install-music"
-        fi
-
-        # Watchdog
-        if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-            printf "    ✅  %-28s %s\n" "MLX Watchdog" "running (PID $(cat /tmp/mlx-watchdog.pid))"
-        elif python3 -c "import mlx_vlm" &>/dev/null 2>&1; then
-            printf "    ❌  %-28s %s\n" "MLX Watchdog" "not running — ./launch.sh start-mlx-watchdog"
         fi
 
         # MLX Speech
@@ -817,7 +698,7 @@ except Exception as e:
     if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || [ -n "${SLACK_BOT_TOKEN:-}" ]; then
         echo "  CHANNELS"
         if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-            _TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" 2>/dev/null || echo "0")
+            _TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram")
             if [ "$_TG" -ge 1 ]; then
                 printf "    ✅  %-28s %s\n" "Telegram Bot" "running"
             else
@@ -825,7 +706,7 @@ except Exception as e:
             fi
         fi
         if [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -n "${SLACK_APP_TOKEN:-}" ]; then
-            _SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" 2>/dev/null || echo "0")
+            _SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack")
             if [ "$_SL" -ge 1 ]; then
                 printf "    ✅  %-28s %s\n" "Slack Bot" "running"
             else
@@ -1021,93 +902,6 @@ case "${1:-up}" in
         echo "[portal-5] 🧹 $_PRUNED"
     fi
 
-    # Background MLX model freshness check — non-blocking, offline-tolerant.
-    # Compares local HF cache refs/main SHAs against HF API latest commit SHA.
-    # Prints stale/missing models a few seconds after the stack is started.
-    (
-        sleep 3
-        python3 -W ignore - 2>/dev/null <<'__MLX_FRESHNESS__'
-import os, sys, json
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-try:
-    import yaml
-except ImportError:
-    sys.exit(0)
-import urllib.request
-
-root = os.environ.get('PORTAL_ROOT', '.')
-cfg_path = os.path.join(root, 'config', 'backends.yaml')
-if not os.path.exists(cfg_path):
-    sys.exit(0)
-
-with open(cfg_path) as f:
-    cfg = yaml.safe_load(f)
-
-mlx_ids = []
-for b in cfg.get('backends', []):
-    if b.get('type') == 'mlx':
-        for m in b.get('mlx_models', []):
-            mlx_ids.append(m['id'] if isinstance(m, dict) else m)
-
-if not mlx_ids:
-    sys.exit(0)
-
-hf_cache = Path(os.environ.get('HF_HUB_CACHE',
-    os.environ.get('HUGGINGFACE_HUB_CACHE',
-        str(Path.home() / '.cache' / 'huggingface' / 'hub'))))
-
-
-def _check(model_id):
-    parts = model_id.split('/')
-    if len(parts) != 2:
-        return model_id, 'skip'
-    org, name = parts
-    cache_dir = hf_cache / f'models--{org}--{name}'
-    if not cache_dir.exists():
-        return model_id, 'missing'
-    refs_main = cache_dir / 'refs' / 'main'
-    local_sha = refs_main.read_text().strip() if refs_main.exists() else ''
-    try:
-        token = os.environ.get('HF_TOKEN') or ''
-        hdrs = {'User-Agent': 'portal-5/freshness'}
-        if token:
-            hdrs['Authorization'] = f'Bearer {token}'
-        req = urllib.request.Request(
-            f'https://huggingface.co/api/models/{model_id}?fields=sha',
-            headers=hdrs)
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            remote_sha = json.loads(resp.read()).get('sha', '')
-        if local_sha and remote_sha and local_sha[:12] != remote_sha[:12]:
-            return model_id, f'stale:{local_sha[:8]}->{remote_sha[:8]}'
-        return model_id, 'ok'
-    except Exception:
-        return model_id, 'offline'
-
-
-stale, missing = [], []
-with ThreadPoolExecutor(max_workers=10) as ex:
-    futures = {ex.submit(_check, m): m for m in mlx_ids}
-    for fut in as_completed(futures):
-        try:
-            model_id, status = fut.result()
-        except Exception:
-            continue
-        if status.startswith('stale:'):
-            stale.append(f'{model_id} ({status[6:]})')
-        elif status == 'missing':
-            missing.append(model_id)
-
-if stale or missing:
-    print('[portal-5] MLX model freshness:')
-    for s in sorted(stale):
-        print(f'  ⚠  stale:   {s}')
-    for m in sorted(missing):
-        print(f'  ✗  missing: {m}')
-    print('  Run: ./launch.sh pull-mlx-models')
-__MLX_FRESHNESS__
-    ) &
-
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
         echo "  Open WebUI:  http://$(hostname -f 2>/dev/null || hostname):8080  (remote access enabled)"
@@ -1123,7 +917,6 @@ __MLX_FRESHNESS__
     # Run end-to-end smoke tests against the live stack
     # Usage: ./launch.sh up && sleep 30 && ./launch.sh test
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    export MLX_WATCHDOG_ENABLED=false
     OWUI="${OPENWEBUI_URL:-http://localhost:8080}"
     PIPE="http://localhost:9099"
     PASS=0; FAIL=0
@@ -1581,70 +1374,9 @@ __MLX_FRESHNESS__
         echo ""
     fi
 
-    # ── Step 5: Pull MLX models (Apple Silicon only) ──────────────────────
-    if [ "$_UPDATE_SKIP_MODELS" = "false" ] && [ "$ARCH" = "arm64" ]; then
-        echo "[5/8] Refreshing MLX models (Apple Silicon)..."
-        if python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-            _MLX_MODELS=(
-                "mlx-community/Qwen3-Coder-Next-4bit"
-                "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"
-                "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"
-                "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
-                "lmstudio-community/Devstral-Small-2507-MLX-4bit"
-                "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"
-                "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit"
-                "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit"
-                "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"
-                "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"
-                "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"
-                "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit"  # NEW: AUTO MLX primary (uncensored, tool-capable)
-                "mlx-community/Llama-3.2-3B-Instruct-8bit"
-                "mlx-community/gemma-4-31b-it-4bit"
-                "lmstudio-community/Magistral-Small-2509-MLX-8bit"
-                "mlx-community/Qwen3-VL-32B-Instruct-8bit"
-                "mlx-community/gemma-4-e4b-it-4bit"            # ~5GB — Gemma 4 E4B vision+audio (replaces LLaVA)
-                "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit"  # ~15GB — Gemma 4 26B A4B MoE abliterated VLM, uncensored
-                "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus STEM/math
-                # OCR (document ingestion)
-                "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
-            )
-            if [ "${PULL_HEAVY:-false}" = "true" ]; then
-                _MLX_MODELS+=("mlx-community/Llama-3.3-70B-Instruct-4bit")
-            fi
-            _MTOTAL=${#_MLX_MODELS[@]}
-            _MCOUNT=0
-            _MFAILED=0
-            for _model in "${_MLX_MODELS[@]}"; do
-                _MCOUNT=$((_MCOUNT + 1))
-                echo "  [$_MCOUNT/$_MTOTAL] $_model"
-                if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
-" 2>/dev/null; then
-                    echo "  ✅ Done"
-                else
-                    echo "  ⚠️  Failed (may not have new version)"
-                    _MFAILED=$((_MFAILED + 1))
-                fi
-            done
-            echo "  MLX: $((_MTOTAL - _MFAILED))/$_MTOTAL succeeded"
-        else
-            echo "  ⚠️  mlx-lm not installed — skipping MLX models"
-            echo "     Install with: ./launch.sh install-mlx"
-        fi
-        echo ""
-    elif [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
-        echo "[5/8] Skipping MLX models (not Apple Silicon)"
-        echo ""
-    fi
-
-    # ── Step 6: Update ComfyUI (if installed) ────────────────────────────
+    # ── Step 5: Update ComfyUI (if installed) ────────────────────────────
     if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[6/8] Checking ComfyUI..."
+        echo "[5/7] Checking ComfyUI..."
         _COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
         if [ -d "$_COMFYUI_DIR/.git" ]; then
             echo "  Updating ComfyUI..."
@@ -1669,7 +1401,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
 
     # ── Step 7: Update Music MCP (if installed) ───────────────────────────
     if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[7/8] Checking Music MCP..."
+        echo "[6/7] Checking Music MCP..."
         _MUSIC_VENV="$HOME/.portal5/music/.venv"
         if [ -d "$_MUSIC_VENV" ]; then
             echo "  Upgrading Music MCP dependencies..."
@@ -1699,7 +1431,7 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
 
     # ── Step 8: Re-seed Open WebUI + restart stack ────────────────────────
     if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[8/8] Re-seeding Open WebUI + restarting stack..."
+        echo "[7/7] Re-seeding Open WebUI + restarting stack..."
         cd "$COMPOSE_DIR"
         # Rebuild and restart all services with updated images
         docker compose up -d 2>/dev/null
@@ -1721,9 +1453,6 @@ snapshot_download('$_model', ignore_patterns=['*.md','*.txt','*.safetensors.inde
     fi
     if [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
         echo "    ✅ Ollama models (checked for updates)"
-        if [ "$ARCH" = "arm64" ]; then
-            echo "    ✅ MLX models (HuggingFace cache refreshed)"
-        fi
     fi
     if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
         echo "    ✅ ComfyUI (if installed)"
@@ -2275,8 +2004,6 @@ except Exception as e:
         "huihui_ai/baronllm-abliterated"
         "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
         # ── Coding ───────────────────────────────────────────────────────
-        # NOTE: Qwen3-Coder-Next GGUF removed — sharded GGUF incompatible with Ollama
-        # Use MLX backend instead: ./launch.sh install-mlx && ./launch.sh pull-mlx-models
         "qwen3.5:9b"                   # Fast dense: 8-12GB, ~30-50 t/s on M4
         "qwen3-coder:30b"              # 30B-A3B MoE (3B active), 19GB
         "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
@@ -2933,425 +2660,6 @@ PLIST
     echo "  ./launch.sh up   — start Portal 5 (Music MCP starts automatically)"
     ;;
 
-  install-mlx)
-    # Source .env so HF_HUB_CACHE/HF_HOME/HF_TOKEN propagate into the
-    # generated com.portal5.mlx-proxy.plist EnvironmentVariables block.
-    # Without this, a fresh shell running `./launch.sh install-mlx` produces
-    # a plist that omits HF env vars, and the launchd-managed proxy looks
-    # for models in ~/.cache/huggingface instead of the configured cache.
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-
-    echo "=== Installing MLX dual-server (Apple Silicon native inference) ==="
-    ARCH=$(uname -m)
-
-    if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  MLX is Apple Silicon only. On Linux, Ollama GGUF handles inference."
-        exit 0
-    fi
-
-    if ! command -v python3 &>/dev/null; then
-        echo "  ❌ python3 required. Install: brew install python"
-        exit 1
-    fi
-
-    echo "  Installing mlx-vlm (supports Qwen3.5 VLM + vision models)..."
-    pip3 install "mlx-vlm" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-vlm" --upgrade --quiet --break-system-packages
-    # mlx-lm: upgrade explicitly after mlx-vlm to unpin any mlx-audio mlx-lm==x.y.z constraint.
-    # mlx-lm is actively developed — new model architectures (Laguna SWA, Mamba2, etc.) require
-    # staying current. mlx-audio and mlx-vlm are forward-compatible with newer mlx-lm versions.
-    echo "  Upgrading mlx-lm to latest (unpins mlx-audio dependency lock)..."
-    pip3 install "mlx-lm" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-lm" --upgrade --quiet --break-system-packages
-    python3 -c "import mlx_lm; print(f'  ✅ mlx-lm {mlx_lm.__version__}')" 2>/dev/null || \
-        echo "  ❌ mlx-lm not installed (should be pulled by mlx-vlm)"
-    python3 -c "import mlx_vlm; print(f'  ✅ mlx-vlm {mlx_vlm.__version__}')" 2>/dev/null || \
-        echo "  ✅ mlx-vlm installed"
-
-    echo "  Installing mlx-audio (unified TTS + ASR via mlx-audio)..."
-    pip3 install "mlx-audio>=0.3.0" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-audio>=0.3.0" --upgrade --quiet --break-system-packages
-    python3 -c "import mlx_audio; print(f'  ✅ mlx-audio {mlx_audio.__version__}')" 2>/dev/null || \
-        echo "  ✅ mlx-audio installed"
-
-    # ── MLX Transcribe dependencies (mlx-whisper + pyannote diarization) ────
-    echo "  Installing mlx-whisper (Metal-accelerated Whisper transcription)..."
-    pip3 install "mlx-whisper>=0.4.0" --upgrade --quiet 2>/dev/null || \
-        pip3 install "mlx-whisper>=0.4.0" --upgrade --quiet --break-system-packages
-    python3 -c "import mlx_whisper; print(f'  ✅ mlx-whisper installed')" 2>/dev/null || \
-        echo "  ✅ mlx-whisper installed"
-    echo "  Installing pyannote.audio (speaker diarization on MPS)..."
-    echo "  ⚠️  pyannote models are gated — accept licenses at huggingface.co/pyannote"
-    echo "     and set HF_TOKEN in .env before running start-transcribe"
-    pip3 install "pyannote.audio>=3.1.0" --upgrade --quiet 2>/dev/null || \
-        pip3 install "pyannote.audio>=3.1.0" --upgrade --quiet --break-system-packages
-    python3 -c "import pyannote.audio; print(f'  ✅ pyannote.audio installed')" 2>/dev/null || \
-        echo "  ✅ pyannote.audio installed"
-
-    # ── Kokoro TTS dependencies (required by mlx-audio Kokoro backend) ──────
-    echo "  Installing Kokoro TTS dependencies (misaki, num2words, spacy, phonemizer)..."
-    pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet 2>/dev/null || \
-        pip3 install "misaki" "num2words" "spacy" "phonemizer" --upgrade --quiet --break-system-packages
-    echo "  Downloading en_core_web_sm (spaCy English model)..."
-    python3 -m spacy download en_core_web_sm --quiet 2>/dev/null || \
-        python3 -m spacy download en_core_web_sm --quiet --break-system-packages 2>/dev/null || \
-        echo "  ⚠️  en_core_web_sm download failed — Kokoro TTS may not work"
-    echo "  ✅ Kokoro TTS dependencies installed"
-
-    # Deploy MLX proxy (auto-switches mlx_lm ↔ mlx_vlm on port 8081)
-    MLX_DIR="$HOME/.portal5/mlx"
-    mkdir -p "$MLX_DIR" "$HOME/.portal5/logs"
-
-    # Copy proxy from repo to local runtime directory
-    if [ -f "$PORTAL_ROOT/scripts/mlx-proxy.py" ]; then
-        cp "$PORTAL_ROOT/scripts/mlx-proxy.py" "$MLX_DIR/mlx-proxy.py"
-        chmod +x "$MLX_DIR/mlx-proxy.py"
-        echo "  ✅ Proxy deployed: $MLX_DIR/mlx-proxy.py"
-    else
-        echo "  ⚠️  scripts/mlx-proxy.py not found — proxy not deployed"
-        echo "     Run from the portal-5 repo directory, or copy manually."
-    fi
-
-    # Remove stale single-server scripts
-    [ -f "$MLX_DIR/start.sh" ] && rm -f "$MLX_DIR/start.sh" && echo "  🧹 Removed stale start.sh"
-    [ -f "$MLX_DIR/start-lm.sh" ] && rm -f "$MLX_DIR/start-lm.sh" && echo "  🧹 Removed stale start-lm.sh"
-    [ -f "$MLX_DIR/start-vlm.sh" ] && rm -f "$MLX_DIR/start-vlm.sh" && echo "  🧹 Removed stale start-vlm.sh"
-
-    # ── Register mlx-proxy as a launchd service (auto-start on login) ────────
-    if [ "$(uname -s)" = "Darwin" ]; then
-        # Remove stale single-server plist
-        if [ -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" ]; then
-            launchctl unload "$HOME/Library/LaunchAgents/com.portal5.mlx.plist" 2>/dev/null || true
-            rm -f "$HOME/Library/LaunchAgents/com.portal5.mlx.plist"
-            echo "  🧹 Removed stale com.portal5.mlx plist"
-        fi
-
-        PLIST_PATH="$HOME/Library/LaunchAgents/com.portal5.mlx-proxy.plist"
-        PYTHON_PATH=$(python3 -c "import sys; print(sys.executable)" 2>/dev/null || which python3)
-        MLX_LOG_DIR="$HOME/.portal5/logs"
-        mkdir -p "$MLX_LOG_DIR"
-
-        cat > "$PLIST_PATH" << MLXPLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.portal5.mlx-proxy</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${PYTHON_PATH}</string>
-        <string>${MLX_DIR}/mlx-proxy.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>${MLX_LOG_DIR}/mlx-proxy.log</string>
-    <key>StandardErrorPath</key>
-    <string>${MLX_LOG_DIR}/mlx-proxy-error.log</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>HOME</key>
-        <string>${HOME}</string>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>$(
-    if [ -n "${HF_HUB_CACHE:-}" ]; then
-        printf '\n        <key>HF_HUB_CACHE</key>\n        <string>%s</string>' "${HF_HUB_CACHE}"
-    fi
-    if [ -n "${HF_HOME:-}" ]; then
-        printf '\n        <key>HF_HOME</key>\n        <string>%s</string>' "${HF_HOME}"
-    fi
-    if [ -n "${HF_TOKEN:-}" ]; then
-        printf '\n        <key>HF_TOKEN</key>\n        <string>%s</string>' "${HF_TOKEN}"
-    fi
-    printf '\n        <key>MLX_WARM_MODEL</key>\n        <string>%s</string>' "${MLX_WARM_MODEL:-mlx-community/Llama-3.2-3B-Instruct-8bit}"
-    printf '\n        <key>MLX_STARTUP_SENTINEL</key>\n        <string>%s</string>' "${MLX_STARTUP_SENTINEL:-1}")
-    </dict>
-</dict>
-</plist>
-MLXPLIST
-
-        launchctl load "$PLIST_PATH" 2>/dev/null || true
-        launchctl start com.portal5.mlx-proxy 2>/dev/null || true
-        sleep 3
-        if curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-            echo "  ✅ launchd service registered: com.portal5.mlx-proxy"
-            echo "  ✅ MLX proxy running on :8081 (auto-switches mlx_lm :18081 ↔ mlx_vlm :18082)"
-        else
-            echo "  ✅ launchd service registered: com.portal5.mlx-proxy"
-            echo "  ⚠️  Proxy not yet responding — logs: $MLX_LOG_DIR/mlx-proxy.log"
-        fi
-    fi
-
-    echo ""
-    echo "Next steps:"
-    echo "  1. Pull MLX models:  ./launch.sh pull-mlx-models"
-    echo "  2. Start Portal:     ./launch.sh up"
-    echo ""
-    echo "The proxy auto-switches between mlx_lm (text-only, port 18081) and mlx_vlm"
-    echo "(VLM models including Qwen3.5, port 18082) based on the requested model."
-    echo "Only one server runs at a time — switching takes ~30s on first request."
-    echo "Portal automatically falls back to Ollama during MLX model switches."
-    ;;
-
-  switch-mlx-model)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    MODEL="${2:-}"
-    if [ -z "$MODEL" ]; then
-        echo "Usage: ./launch.sh switch-mlx-model <mlx-community/model-tag>"
-        echo ""
-        echo "The MLX proxy auto-switches between mlx_lm (text-only) and mlx_vlm (VLM)"
-        echo "based on the model in each request. This command forces a pre-warm switch."
-        echo ""
-        echo "Available MLX models (pull first with ./launch.sh pull-mlx-models):"
-        echo "  Text-only (mlx_lm, port 18081):"
-        echo "    mlx-community/Qwen3-Coder-Next-4bit              (~46GB — primary coder, 80B MoE)"
-        echo "    mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit  (~22GB)"
-        echo "    mlx-community/DeepSeek-Coder-V2-Lite-Instruct-8bit  (~12GB)"
-        echo "    lmstudio-community/Devstral-Small-2507-MLX-4bit      (~15GB — Devstral v1.1, 53.6% SWE-bench, Mistral lineage)"
-        echo "    mlx-community/Dolphin3.0-Llama3.1-8B-8bit        (~9GB — creative)"
-        echo "    mlx-community/Llama-3.2-3B-Instruct-8bit         (~3GB — fast routing)"
-        echo "  Model Diversity (Microsoft / Google / Mistral):"
-        echo "    mlx-community/phi-4-8bit                           (~14GB — Microsoft Phi-4 14B, synthetic data, MIT)"
-        echo "    mlx-community/gemma-4-31b-it-4bit                  (~18GB — Google Gemma 4 dense 31B, thinking+vision, VLM)"
-        echo "    lmstudio-community/Magistral-Small-2509-MLX-8bit  (~24GB — Mistral reasoning, [THINK] mode)"
-        echo "    mlx-community/Llama-3.3-70B-Instruct-4bit        (~40GB — heavy, 4bit only)"
-        echo "  Jackrong Reasoning Distills:"
-        echo "    Jackrong/MLX-Qwopus3.5-27B-v3-8bit                                    (~22GB, primary auto-reasoning)"
-        echo "    Jackrong/MLX-Qwopus3.5-9B-v3-8bit                                     (~9GB)"
-        echo "    Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit  (~14GB, Claude-4.6-Opus v2)"
-        echo "    Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit      (~9GB, Claude-4.6-Opus)"
-        echo "    Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit (~28GB)"
-        echo "    mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit           (~18GB — uncensored)"
-        echo "  Microsoft:"
-        echo "    mlx-community/phi-4-8bit                                              (~14GB)"
-        echo "  VLM models (mlx_vlm, port 18082):"
-        echo "    mlx-community/gemma-4-31b-it-4bit                 (~18GB — Google Gemma 4 dense 31B, thinking+vision)"
-        echo "    mlx-community/Qwen3-VL-32B-Instruct-8bit         (~36GB — vision)"
-        echo "    mlx-community/gemma-4-e4b-it-4bit                 (~5GB — Gemma 4 E4B vision+audio fallback)"
-        echo "    Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit  (~15GB — Gemma 4 26B A4B MoE abliterated, uncensored)"
-        echo "    mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit  (~7GB — uncensored VLM)"
-        echo "    dealignai/Gemma-4-31B-JANG_4M-CRACK              (~23GB — abliterated Gemma 4 31B, uncensored VLM)"
-        echo ""
-        echo "Current status:"
-        curl -s "http://localhost:8081/health" 2>/dev/null | python3 -m json.tool 2>/dev/null || \
-            echo "  MLX proxy not running"
-        exit 0
-    fi
-
-    echo "Pre-warming MLX server for: $MODEL"
-
-    # Send a dummy request to the proxy — it will switch servers if needed
-    MLX_PROXY="$HOME/.portal5/mlx/mlx-proxy.py"
-    if [ ! -f "$MLX_PROXY" ]; then
-        echo "  ❌ MLX proxy not found at $MLX_PROXY"
-        echo "     Run: ./launch.sh install-mlx"
-        exit 1
-    fi
-
-    # Start proxy if not running
-    if ! curl -s "http://localhost:8081/health" &>/dev/null 2>&1; then
-        echo "  Starting MLX proxy..."
-        mkdir -p "$HOME/.portal5/logs"
-        nohup python3 "$MLX_PROXY" > "$HOME/.portal5/logs/mlx-proxy.log" 2>&1 &
-        sleep 3
-    fi
-
-    # Send a minimal request to trigger server switch
-    echo "  Triggering server switch (this may take ~30s)..."
-    RESP=$(curl -s -X POST "http://localhost:8081/v1/chat/completions" \
-        -H "Content-Type: application/json" \
-        -d "{\"model\":\"${MODEL}\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"stream\":false}" \
-        --max-time 120 2>/dev/null)
-
-    if [ "$(_json_get "$RESP" 'if .choices then "yes" else "no" end' "d=json.load(sys.stdin); print('yes' if 'choices' in d else 'no')" "no")" = "yes" ]; then
-        echo "  ✅ Server switched and responding for $MODEL"
-    else
-        echo "  ⚠️  Request completed (may have fallen back to Ollama)"
-        echo "     Response: $(echo "$RESP" | head -c 200)"
-    fi
-    ;;
-
-  start-mlx-watchdog)
-    ARCH=$(uname -m)
-    if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  MLX watchdog is Apple Silicon only."
-        exit 0
-    fi
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-
-    WATCHDOG_SCRIPT="$PORTAL_ROOT/scripts/mlx-watchdog.py"
-    if [ ! -f "$WATCHDOG_SCRIPT" ]; then
-        echo "  ❌ mlx-watchdog.py not found at $WATCHDOG_SCRIPT"
-        exit 1
-    fi
-
-    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-        echo "  ℹ️  MLX watchdog already running (PID $(cat /tmp/mlx-watchdog.pid))"
-        exit 0
-    fi
-
-    mkdir -p "$HOME/.portal5/logs"
-    echo "  Starting MLX watchdog..."
-    nohup python3 "$WATCHDOG_SCRIPT" > "$HOME/.portal5/logs/mlx-watchdog.log" 2>&1 &
-    echo $! > /tmp/mlx-watchdog.pid
-    sleep 2
-    if kill -0 "$!" 2>/dev/null; then
-        echo "  ✅ MLX watchdog started (PID $!)"
-        echo "     Logs: $HOME/.portal5/logs/mlx-watchdog.log"
-    else
-        echo "  ❌ MLX watchdog failed to start"
-        exit 1
-    fi
-    ;;
-
-  stop-mlx-watchdog)
-    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-        kill "$(cat /tmp/mlx-watchdog.pid)"
-        rm -f /tmp/mlx-watchdog.pid
-        echo "  ✅ MLX watchdog stopped"
-    else
-        echo "  ℹ️  MLX watchdog not running"
-    fi
-    ;;
-
-  mlx-status)
-    ARCH=$(uname -m)
-    echo "=== MLX Component Status ==="
-    echo ""
-
-    # Helper: check if a process is running but its /health is unresponsive (zombie)
-    _mlx_zombie_check() {
-        local pattern="$1" port="$2"
-        local pids
-        pids=$(pgrep -f "$pattern" 2>/dev/null)
-        if [ -n "$pids" ]; then
-            if ! curl -s --connect-timeout 3 "http://localhost:${port}/health" &>/dev/null; then
-                echo "⚠️  ZOMBIE (PID $pids — process alive, /health dead — run: ./launch.sh mlx-clean)"
-                return 0
-            fi
-        fi
-        return 1
-    }
-
-    # Proxy
-    echo -n "  MLX Proxy (:8081):      "
-    if curl -s --connect-timeout 3 http://localhost:8081/health &>/dev/null; then
-        PROXY_STATE=$(curl -s http://localhost:8081/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('state','?'))" 2>/dev/null)
-        FREE_GB=$(curl -s http://localhost:8081/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=d.get('memory',{}).get('current',{}); print(f\"{m.get('free_gb','?')}GB free\")" 2>/dev/null)
-        echo "✅ healthy (state=${PROXY_STATE}, ${FREE_GB})"
-    elif ! _mlx_zombie_check "mlx-proxy.py" 8081; then
-        echo "❌ down"
-    fi
-
-    # mlx_lm
-    echo -n "  mlx_lm server (:18081): "
-    if curl -s --connect-timeout 3 http://localhost:18081/health &>/dev/null; then
-        echo "✅ healthy"
-    elif ! _mlx_zombie_check "mlx_lm.server" 18081; then
-        echo "❌ not running"
-    fi
-
-    # mlx_vlm
-    echo -n "  mlx_vlm server (:18082): "
-    if curl -s --connect-timeout 3 http://localhost:18082/health &>/dev/null; then
-        echo "✅ healthy"
-    elif ! _mlx_zombie_check "mlx_vlm.server" 18082; then
-        echo "❌ not running"
-    fi
-
-    # Watchdog
-    echo -n "  MLX Watchdog:           "
-    if [ -f /tmp/mlx-watchdog.pid ] && kill -0 "$(cat /tmp/mlx-watchdog.pid)" 2>/dev/null; then
-        echo "✅ running (PID $(cat /tmp/mlx-watchdog.pid))"
-    else
-        echo "❌ not running (start with: ./launch.sh start-mlx-watchdog)"
-    fi
-
-    # MLX Speech
-    echo -n "  MLX Speech (:8918):     "
-    if curl -s --connect-timeout 3 http://localhost:8918/health &>/dev/null; then
-        echo "✅ healthy"
-    elif [ -f /tmp/portal-mlx-speech.pid ] && kill -0 "$(cat /tmp/portal-mlx-speech.pid)" 2>/dev/null; then
-        echo "⏳ starting (PID $(cat /tmp/portal-mlx-speech.pid))"
-    else
-        echo "❌ not running (start with: ./launch.sh start-speech)"
-    fi
-
-    echo ""
-    echo "=== Pipeline Backend Health ==="
-    curl -s http://localhost:9099/health 2>/dev/null | python3 -m json.tool 2>/dev/null | sed 's/^/  /' || echo "  Pipeline not responding"
-    ;;
-
-  mlx-clean)
-    # Kill any zombie MLX server processes (alive in OS but dead to /health),
-    # wait for Metal GPU memory reclamation, then optionally restart the proxy.
-    echo "=== MLX Zombie Cleanup ==="
-    ANY_KILLED=0
-
-    for SPEC in "mlx_lm.server:18081" "mlx_vlm.server:18082"; do
-        PATTERN="${SPEC%%:*}"
-        PORT="${SPEC##*:}"
-        PIDS=$(pgrep -f "$PATTERN" 2>/dev/null)
-        if [ -z "$PIDS" ]; then
-            echo "  ${PATTERN}: not running — skip"
-            continue
-        fi
-        if curl -s --connect-timeout 3 "http://localhost:${PORT}/health" &>/dev/null; then
-            echo "  ${PATTERN} (:${PORT}): healthy — skip"
-            continue
-        fi
-        echo "  ⚠️  ${PATTERN} (:${PORT}): ZOMBIE detected (PID $PIDS) — killing…"
-        echo "$PIDS" | xargs -I{} kill -15 {} 2>/dev/null
-        sleep 3
-        # Force-kill if still alive
-        REMAINING=$(pgrep -f "$PATTERN" 2>/dev/null)
-        if [ -n "$REMAINING" ]; then
-            echo "    Still alive after SIGTERM — sending SIGKILL…"
-            echo "$REMAINING" | xargs -I{} kill -9 {} 2>/dev/null
-        fi
-        echo "  ✅ ${PATTERN} zombie cleared"
-        ANY_KILLED=1
-    done
-
-    # Also check if proxy is a zombie (process up, HTTP dead)
-    PROXY_PIDS=$(pgrep -f "mlx-proxy.py" 2>/dev/null)
-    if [ -n "$PROXY_PIDS" ]; then
-        if ! curl -s --connect-timeout 3 http://localhost:8081/health &>/dev/null; then
-            echo "  ⚠️  mlx-proxy.py: ZOMBIE detected (PID $PROXY_PIDS) — killing…"
-            echo "$PROXY_PIDS" | xargs -I{} kill -15 {} 2>/dev/null
-            sleep 3
-            REMAINING=$(pgrep -f "mlx-proxy.py" 2>/dev/null)
-            [ -n "$REMAINING" ] && echo "$REMAINING" | xargs -I{} kill -9 {} 2>/dev/null
-            echo "  ✅ mlx-proxy.py zombie cleared"
-            ANY_KILLED=1
-        fi
-    fi
-
-    if [ "$ANY_KILLED" -eq 1 ]; then
-        echo ""
-        echo "  Waiting 10s for Metal GPU memory reclamation…"
-        sleep 10
-        echo ""
-        FREE_GB=$(python3 -c "
-import subprocess, re
-r = subprocess.run(['vm_stat'], capture_output=True, text=True)
-pages = {m.group(1): int(m.group(2)) for m in re.finditer(r'Pages (\w[\w ]+):\s+(\d+)', r.stdout)}
-free = (pages.get('free', 0) + pages.get('inactive', 0)) * 4096 / 1024**3
-print(f'{free:.1f}')
-" 2>/dev/null || echo "?")
-        echo "  Estimated free memory after reclaim: ~${FREE_GB}GB"
-        echo ""
-        echo "  Restart the MLX proxy? (./launch.sh start-mlx-proxy)"
-        echo "  Or run './launch.sh up' to restart all services."
-    else
-        echo ""
-        echo "  No zombies found."
-    fi
-    ;;
-
   start-speech)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 
@@ -3361,7 +2669,7 @@ print(f'{free:.1f}')
     fi
 
     if ! python3 -c "import mlx_audio" &>/dev/null 2>&1; then
-        echo "  ❌ mlx-audio not installed. Run: ./launch.sh install-mlx"
+        echo "  ❌ mlx-audio not installed. Run: pip3 install mlx-audio"
         exit 1
     fi
 
@@ -3710,242 +3018,6 @@ PLIST
     fi
     ;;
 
-  pull-mlx-models)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    ARCH=$(uname -m)
-
-    if [ "$ARCH" != "arm64" ]; then
-        echo "  ℹ️  MLX models are Apple Silicon only. Use: ./launch.sh pull-models for Ollama."
-        exit 0
-    fi
-
-    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
-        exit 1
-    fi
-
-    echo "=== Downloading MLX models to HuggingFace cache ==="
-    # Resolve actual HF cache dir: HF_HUB_CACHE > HF_HOME/hub > default
-    _hf_cache_dir="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
-    _hf_cache_dir="${_hf_cache_dir:-$HOME/.cache/huggingface/hub}"
-    echo "Models download to: ${_hf_cache_dir}"
-    if [ -L "$HOME/.cache/huggingface/hub" ]; then
-        echo "  (symlinked → $(readlink "$HOME/.cache/huggingface/hub"))"
-    fi
-    echo ""
-
-    # Standard MLX models (8bit quants for 64GB M4 Mac — one at a time)
-    MLX_MODELS=(
-        # Coding — primary workspace models
-        "mlx-community/Qwen3-Coder-Next-4bit"              # ~46GB — 80B MoE, 4bit required (8bit ~85GB exceeds 64GB)
-        "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit"  # ~22GB
-        "lmstudio-community/Devstral-Small-2507-MLX-4bit"        # ~15GB — Devstral v1.1, 53.6% SWE-bench
-        "mlx-community/Laguna-XS.2-4bit"                          # ~19GB — Poolside AI MoE 33B-A3B, 68.2% SWE-bench, new lineage
-        "huihui-ai/Huihui-GLM-4.7-Flash-abliterated-mlx-4bit"    # ~18GB — GLM 30B-A3B MoE, 59.2% SWE-bench, abliterated
-        # Jackrong Reasoning (Qwopus3.5-v3 primary + Claude-4.6-Opus variants)
-        "Jackrong/MLX-Qwopus3.5-27B-v3-8bit"                                    # ~22GB — primary auto-reasoning
-        "Jackrong/MLX-Qwopus3.5-9B-v3-8bit"                                     # ~9GB
-        "Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit"  # ~14GB — v2: efficient CoT
-        "Jackrong/MLX-Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-8bit"      # ~9GB — Claude-4.6-Opus 9B distill
-        "Jackrong/MLX-Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-8bit" # ~28GB
-        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit"                   # ~34GB
-        "mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit"           # ~18GB (uncensored)
-        # Math specialist
-        "mlx-community/Qwen2.5-Math-7B-Instruct-4bit"                           # ~5GB — Qwen2.5-Math 7B, math/STEM specialist
-        # Creative / general (uncensored)
-        "mlx-community/Dolphin3.0-Llama3.1-8B-8bit"        # ~9GB
-        "huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit" # ~6GB — NEW: AUTO MLX primary, uncensored + tool-capable
-        # General / fast routing
-        "mlx-community/Llama-3.2-3B-Instruct-8bit"         # ~3GB — ultra-fast
-        # Model diversity (non-Qwen/non-DeepSeek families)
-        "mlx-community/phi-4-8bit"                          # ~14GB — Microsoft Phi-4 14B, synthetic data training, MIT
-        "mlx-community/gemma-4-31b-it-4bit"                  # ~18GB — Google Gemma 4 dense 31B, thinking+vision
-        "lmstudio-community/Magistral-Small-2509-MLX-8bit"  # ~24GB — Mistral reasoning, [THINK] mode
-        # Vision
-        "mlx-community/Qwen3-VL-32B-Instruct-8bit"         # ~36GB
-        "mlx-community/gemma-4-e4b-it-4bit"                # ~5GB — Gemma 4 E4B vision+audio VLM (replaces LLaVA 1.5-7B)
-        "Jiunsong/supergemma4-26b-abliterated-multimodal-mlx-4bit"  # ~15GB — Gemma 4 26B A4B MoE abliterated VLM, 256K ctx, uncensored
-        "lmstudio-community/Phi-4-reasoning-plus-MLX-4bit" # ~7GB — Phi-4-reasoning-plus, STEM/math RL-trained
-        "dealignai/Gemma-4-31B-JANG_4M-CRACK"              # ~23GB — Abliterated Gemma 4 31B JANG v2 5.1-bit, uncensored VLM
-        # OCR (document ingestion)
-        "mlx-community/GLM-OCR-bf16"                        # ~2GB — Zhipu GLM-OCR for scanned document ingestion
-        # Speech (mlx-audio — TTS + ASR, host-native)
-        "mlx-community/Kokoro-82M-bf16"                        # ~0.2GB — Kokoro TTS via mlx-audio
-        "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit"  # ~0.8GB — voice cloning + style control
-        "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit"  # ~0.8GB — create voices from descriptions
-        "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"         # ~0.8GB — voice cloning from reference audio
-        "mlx-community/Qwen3-ASR-1.7B-8bit"                    # ~0.8GB — speech recognition (replaces faster-whisper)
-        "mlx-community/whisper-large-v3-turbo"                 # ~1.5GB — Whisper transcription with timestamps (TASK-TRANSCRIBE-001)
-        # ── V6 adds (TASK_MODEL_REFRESH_V6) ─────────────────────────────────
-        "mlx-community/Olmo-3-1125-32B-4bit"                   # ~17GB — Allen AI dense 32B reasoning candidate (V5 ladder backfill — was in backends.yaml but absent from this pull array)
-        "froggeric/Qwen3.6-27B-MLX-4bit"                       # ~16GB — Qwen3.6 27B + vision, template-fix variant (auto-coding probe)
-        "mlx-community/Qwen3.6-35B-A3B-4bit"                   # ~20GB — Qwen3.6 35B-A3B MoE (auto-agentic probe)
-        "Jackrong/Negentropy-claude-opus-4.7-9B-6bit"          # ~7GB — Trace-inversion reasoning 9B comparator
-        # ── TASK_QUANT_TRUEUP_V1: optimized-quant + uncensored-refresh bench candidates ─
-        "mlx-community/Qwen3.6-35B-A3B-4bit-DWQ"              # ~20GB — DWQ 4-bit MoE, Finding A
-        "mlx-community/Qwen3.6-27B-OptiQ-4bit"                # ~16GB — OptiQ sensitivity-aware 4-bit, Finding A
-        "mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit"         # ~13GB — OptiQ mixed 4-bit MoE, Finding A
-        "nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit"   # ~16GB — Qwen3.6 abliterated dense, Finding B
-        "vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit" # ~20GB — Qwen3.6 abliterated MoE, Finding B
-        # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────
-        # bench-nemotron-omni: NVIDIA omni-modal MoE (text+image+video+audio)
-        "mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4"  # ~15GB — NVIDIA Nemotron omni VLM, bench-nemotron-omni
-        # Non-Transformer lineage diversification
-        "mlx-community/LFM2-8B-A1B-8bit"                       # ~8GB — Liquid AI LFM2 MoE 8.3B/1.5B-active, hybrid arch
-        # OCR bench pair
-        "mlx-community/olmOCR-2-7B-1025-5bit"                  # ~5GB — Allen AI olmOCR-2, RLVR doc OCR, Qwen2.5-VL-7B base
-        "mlx-community/Nanonets-OCR2-3B-4bit"                  # ~2GB — Nanonets OCR2, pdf2markdown, Qwen2.5-VL-3B base
-        # RAG two-stage retrieval (embedding + reranker)
-        "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"          # ~0.3GB — Qwen3 embedding, Apache 2.0, MLX-native
-        "mlx-community/Qwen3-Reranker-0.6B-mxfp8"             # ~0.6GB — Qwen3 reranker, Apache 2.0, MLX-native
-        # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ───────────────────
-        # Reasoning — new lineage (ServiceNow+NVIDIA)
-        "mlx-community/Apriel-Nemotron-15B-Thinker-8bit"      # ~16GB
-        # Speech — IBM Granite Speech, native keyword biasing (#1 OpenASR Apr 2026)
-        "mlx-community/granite-speech-4.1-2b"                 # ~4GB
-        # Speech — Mistral Voxtral 2602 Realtime ASR (streaming) + 2603 TTS
-        "mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit"    # ~3GB
-        "mlx-community/Voxtral-4B-TTS-2603-mlx-6bit"          # ~4GB
-    )
-
-    # V7 opt-in large models (gated behind env vars — do not auto-pull)
-    # Voxtral multilingual STT (~18.7 GB)
-    if [ "${PULL_VOXTRAL:-0}" = "1" ]; then
-        echo "  Pulling Voxtral-Mini-3B-2507-bf16 (~18.7 GB)..."
-        if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('mlx-community/Voxtral-Mini-3B-2507-bf16', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
-"; then
-            echo "  ✅ Voxtral done"
-        else
-            echo "  ❌ Voxtral failed — set PULL_VOXTRAL=0 to skip"
-        fi
-    else
-        echo "  Skipping Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — set PULL_VOXTRAL=1 to include"
-    fi
-
-    # V7 opt-in Unsloth Dynamic 2.0 Qwen3.6 pair — DEPRECATED (TASK_QUANT_TRUEUP_V1 A5)
-    # UD-MLX ~8.6 bpw effective — worse than 6-bit at more memory. Block retained
-    # as no-op stub for back-compat with existing scripts that set PULL_UD_QWEN36=1.
-    if [ "${PULL_UD_QWEN36:-0}" = "1" ]; then
-        echo "  ⚠ Unsloth UD Qwen3.6 pair DEPRECATED (TASK_QUANT_TRUEUP_V1 A5). Prefer DWQ/OptiQ instead."
-    fi
-
-    # V8 opt-in MTP candidate (~18 GB) — Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed
-    if [ "${PULL_MTP:-0}" = "1" ]; then
-        mtp_model="Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed"
-        echo "  Pulling $mtp_model..."
-        if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$mtp_model', ignore_patterns=['*.md','*.txt'], cache_dir=cache_dir)
-"; then
-            echo "  ✅ $mtp_model done"
-            echo "  NOTE: MTP serving requires the MTPLX runtime (brew install youssofal/mtplx/mtplx)."
-            echo "  This is a bench-only candidate — see TASK_MODEL_REFRESH_V8.md."
-        else
-            echo "  ❌ $mtp_model failed"
-        fi
-    else
-        echo "  Skipping MTP candidate (~18 GB) — set PULL_MTP=1 to include"
-    fi
-
-    # Heavy models — gated behind PULL_HEAVY=true
-    HEAVY_MLX_MODELS=(
-        "mlx-community/Llama-3.3-70B-Instruct-4bit"        # ~40GB — unload others first (BIG_MODEL)
-        # GLM-5.1 removed: tested on 64GB M4 Mac — both MXFP4-Q8 (49GB) and DQ4plus variants exceed safe headroom
-    )
-
-    total=${#MLX_MODELS[@]}
-    count=0
-    failed=0
-
-    for model in "${MLX_MODELS[@]}"; do
-        count=$((count + 1))
-        echo "[$count/$total] $model"
-        if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-# Remove HF_HUB_CACHE from env if empty so the library uses its default path
-# (~/.cache/huggingface/hub). Setting HF_HUB_CACHE='' causes the library to
-# interpret '' as the current working directory and download models there.
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
-"; then
-            echo "  ✅ Done"
-        else
-            echo "  ❌ Failed"
-            echo "  Retry: hf hub download $model"
-            failed=$((failed + 1))
-        fi
-        echo ""
-    done
-
-    if [ "${PULL_HEAVY:-false}" = "true" ]; then
-        echo "Pulling heavy MLX models (PULL_HEAVY=true) — ensure <24GB RAM is free..."
-        for model in "${HEAVY_MLX_MODELS[@]}"; do
-            echo "  Downloading: $model (~40GB)"
-            if python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-# Remove HF_HUB_CACHE from env if empty so the library uses its default path
-# (~/.cache/huggingface/hub). Setting HF_HUB_CACHE='' causes the library to
-# interpret '' as the current working directory and download models there.
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-cache_dir = os.environ.get('HF_HUB_CACHE') or None
-snapshot_download('$model', ignore_patterns=['*.md','*.txt','*.safetensors.index.json'], cache_dir=cache_dir)
-"; then
-                echo "  ✅ Done"
-            else
-                echo "  ❌ Failed"
-                failed=$((failed + 1))
-            fi
-            rm -f "$_mlx_err"
-        done
-    else
-        echo "Skipping Llama-3.3-70B MLX (~40GB) — set PULL_HEAVY=true to include"
-    fi
-
-    echo ""
-    echo "=== MLX download complete: $((total - failed))/$total succeeded ==="
-    echo ""
-    echo "Start inference with:"
-    echo "  MLX_MODEL=mlx-community/Qwen3-Coder-Next-4bit ~/.portal5/mlx/start.sh"
-
-    # ASK-04: Check availability of other Qwen3.5 MLX models that may publish later
-    # Claude-distilled models are now in backends.yaml — this block watches for future publishes.
-    echo ""
-    echo "=== Checking Qwen3.5 MLX watch (future publishes) ==="
-    echo "  ℹ️  Claude-distilled models: enabled (see backends.yaml)"
-    echo ""
-
-    echo "=== Patching MLX model chat templates ==="
-    echo "  Embedding chat_template.jinja into tokenizer_config.json for tool-calling support..."
-    python3 "$(dirname "$0")/scripts/patch-mlx-templates.py"
-    echo ""
-
-    echo "=== Patching Qwen 3.5/3.6 chat templates ==="
-    echo "  Replacing broken |items/|safe templates with froggeric-fixed versions..."
-    python3 "$(dirname "$0")/scripts/patch-qwen-templates.py"
-    echo ""
-    ;;
-
-  patch-qwen-templates)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Patching Qwen chat templates in MLX model dirs..."
-    python3 "$(dirname "$0")/scripts/patch-qwen-templates.py" "${@:2}"
-    ;;
-
   import-gguf)
     # Import a locally downloaded GGUF file into Ollama
     # Usage: ./launch.sh import-gguf /path/to-model.gguf [ollama-name]
@@ -4029,205 +3101,16 @@ MEOF
     python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
     ;;
 
-  pull-voxtral)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Pulling Voxtral-Mini-3B-2507-bf16 (~18.7 GB) — Mistral multilingual STT..."
-    PULL_VOXTRAL=1 "$0" pull-mlx-models
-    ;;
-
-  pull-ud-qwen36)
-    echo "[portal-5] ⚠ Unsloth UD Qwen3.6 pair DEPRECATED (TASK_QUANT_TRUEUP_V1 A5). Prefer DWQ/OptiQ instead. No-op stub."
-    ;;
-
-  pull-mtp)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Pulling MTP candidate (~18 GB) — Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed..."
-    echo "  NOTE: MTP serving requires the MTPLX runtime (brew install youssofal/mtplx/mtplx)."
-    echo "  This is a bench-only candidate — see TASK_MODEL_REFRESH_V8.md."
-    PULL_MTP=1 "$0" pull-mlx-models
-    ;;
-
-  pull-wan22)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
-    echo "[portal-5] Pulling Wan 2.2 ComfyUI single-file models"
-    echo "  Models dir: ${COMFYUI_MODELS}"
-    mkdir -p "${COMFYUI_MODELS}/diffusion_models" \
-             "${COMFYUI_MODELS}/text_encoders" \
-             "${COMFYUI_MODELS}/vae" \
-             "${COMFYUI_MODELS}/audio_encoders"
-
-    # Helper: download a single file from HuggingFace if not already present
-    _hf_file() {
-        local repo="$1" remote_path="$2" local_dir="$3"
-        local fname; fname="$(basename "${remote_path}")"
-        local dest="${local_dir}/${fname}"
-        if [ -f "${dest}" ]; then
-            echo "  Already present: ${fname}"
-            return 0
-        fi
-        echo "  Downloading ${fname} from ${repo}..."
-        python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import hf_hub_download
-hf_hub_download('${repo}', filename='${remote_path}', local_dir='${local_dir}')
-" && echo "  ✅ ${fname}" || echo "  ❌ ${fname} failed"
-    }
-
-    # ── T2V-A14B (diffusers format — UNETLoader reads subdir path) ────────────
-    local_dest="${COMFYUI_MODELS}/diffusion_models/Wan2.2-T2V-A14B"
-    if [ ! -d "${local_dest}" ]; then
-        echo "  Pulling Wan-AI/Wan2.2-T2V-A14B (diffusers format, ~24 GB)..."
-        python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-snapshot_download('Wan-AI/Wan2.2-T2V-A14B', local_dir='${local_dest}')
-" && echo "  ✅ Wan2.2-T2V-A14B done" || echo "  ❌ Wan2.2-T2V-A14B failed"
-    else
-        echo "  Already present: Wan2.2-T2V-A14B"
-    fi
-
-    # ── TI2V-5B (single-file, Comfy-Org repackaged) ───────────────────────────
-    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
-        "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" \
-        "${COMFYUI_MODELS}/diffusion_models"
-
-    # ── S2V-14B (single-file, Comfy-Org repackaged) ───────────────────────────
-    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
-        "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors" \
-        "${COMFYUI_MODELS}/diffusion_models"
-
-    # ── Shared VAEs ───────────────────────────────────────────────────────────
-    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
-        "split_files/vae/wan2.2_vae.safetensors" \
-        "${COMFYUI_MODELS}/vae"
-    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
-        "split_files/vae/wan_2.1_vae.safetensors" \
-        "${COMFYUI_MODELS}/vae"
-
-    # ── Shared text encoder (fp8, Wan 2.1 packaging) ─────────────────────────
-    _hf_file "Comfy-Org/Wan_2.1_ComfyUI_repackaged" \
-        "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
-        "${COMFYUI_MODELS}/text_encoders"
-
-    # ── Audio encoder (S2V-14B) ───────────────────────────────────────────────
-    _hf_file "Comfy-Org/Wan_2.2_ComfyUI_Repackaged" \
-        "split_files/audio_encoders/wav2vec2_large_english_fp16.safetensors" \
-        "${COMFYUI_MODELS}/audio_encoders"
-
-    echo "[portal-5] pull-wan22 complete"
-    ;;
-
-  pull-qwen-image)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    COMFYUI_MODELS="${COMFYUI_MODELS:-$HOME/ComfyUI/models}"
-    echo "[portal-5] Pulling Qwen-Image-2512 family (~30 GB combined)"
-    echo "  Models dir: ${COMFYUI_MODELS}/diffusion_models"
-    for repo in "Qwen/Qwen-Image-2512" "Qwen/Qwen-Image-Edit-2511" "lightx2v/Qwen-Image-2512-Lightning"; do
-        short="$(basename "${repo}")"
-        local_dest="${COMFYUI_MODELS}/diffusion_models/${short}"
-        if [ -d "${local_dest}" ]; then
-            echo "  Already present: ${short}"
-            continue
-        fi
-        echo "  Pulling ${repo}..."
-        python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-snapshot_download('${repo}', local_dir='${local_dest}')
-" && echo "  ✅ ${short} done" || echo "  ❌ ${short} failed"
-    done
-    ;;
-
-  convert-foundation-sec)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Converting Foundation-Sec-8B-Reasoning to MLX 4-bit..."
-    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
-        exit 1
-    fi
-    _hf_cache="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
-    _hf_cache="${_hf_cache:-$HOME/.cache/huggingface/hub}"
-    _staging="/tmp/foundation-sec-bf16-$$"
-    _out_dir="${_hf_cache}/foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx"
-    echo "  Staging BF16 download to: ${_staging}"
-    echo "  MLX output dir: ${_out_dir}"
-    python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-snapshot_download('fdtn-ai/Foundation-Sec-8B-Reasoning', local_dir='${_staging}')
-" || { echo "  ❌ Download failed"; exit 1; }
-    python3 -m mlx_lm.convert \
-        --hf-path "${_staging}" \
-        -q --q-bits 4 --q-group-size 64 \
-        --mlx-path "${_out_dir}" \
-        || { echo "  ❌ Conversion failed"; rm -rf "${_staging}"; exit 1; }
-    rm -rf "${_staging}"
-    echo "  ✅ Foundation-Sec converted"
-    du -sh "${_out_dir}"
-    ;;
-
-  convert-toolace25)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    echo "[portal-5] Converting ToolACE-2.5-Llama-3.1-8B to MLX 4-bit..."
-    if ! python3 -c "import mlx_lm" &>/dev/null 2>&1; then
-        echo "  ❌ mlx-lm not installed. Run: ./launch.sh install-mlx"
-        exit 1
-    fi
-    _hf_cache="${HF_HUB_CACHE:-${HF_HOME:+${HF_HOME}/hub}}"
-    _hf_cache="${_hf_cache:-$HOME/.cache/huggingface/hub}"
-    _staging="/tmp/toolace25-bf16-$$"
-    _out_dir="${_hf_cache}/team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx"
-    echo "  Staging BF16 download to: ${_staging}"
-    echo "  MLX output dir: ${_out_dir}"
-    python3 -W ignore -c "
-import os, warnings; warnings.filterwarnings('ignore')
-if not os.environ.get('HF_HUB_CACHE'):
-    os.environ.pop('HF_HUB_CACHE', None)
-from huggingface_hub import snapshot_download
-snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
-" || { echo "  ❌ Download failed"; exit 1; }
-    python3 -m mlx_lm.convert \
-        --hf-path "${_staging}" \
-        -q --q-bits 4 --q-group-size 64 \
-        --mlx-path "${_out_dir}" \
-        || { echo "  ❌ Conversion failed"; rm -rf "${_staging}"; exit 1; }
-    rm -rf "${_staging}"
-    echo "  ✅ ToolACE-2.5 converted"
-    du -sh "${_out_dir}"
-    ;;
-
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|install-mlx|download-comfyui-models|pull-mlx-models|switch-mlx-model|start-mlx-watchdog|stop-mlx-watchdog|mlx-status|mlx-clean|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-voxtral|pull-ud-qwen36|pull-mtp|pull-wan22|pull-qwen-image|convert-foundation-sec|convert-toolace25]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-comfyui       Install ComfyUI natively via git+pip (Apple Silicon)"
     echo "  install-music         Install Music MCP natively via venv (Apple Silicon / MPS)"
-    echo "  install-mlx           Install MLX dual-server proxy (mlx_lm + mlx_vlm + mlx-audio) for Apple Silicon"
     echo "  download-comfyui-models  Download image/video models to ~/ComfyUI/models/"
-    echo "  pull-mlx-models       Download MLX model weights to HF cache"
-  echo "  pull-voxtral          Pull Voxtral-Mini-3B-2507 for multilingual STT (~18.7 GB, opt-in)"
-  echo "  pull-ud-qwen36        Pull Unsloth Dynamic 2.0 Qwen3.6 pair (27B + 35B-A3B, ~36 GB, opt-in)"
-  echo "  pull-mtp              Pull MTP candidate (Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed, ~18 GB, opt-in)"
   echo "  pull-wan22            Pull Wan 2.2 ComfyUI models (T2V-A14B/TI2V-5B/Animate-14B/S2V-14B, ~80 GB)"
   echo "  pull-qwen-image       Pull Qwen-Image-2512 family (2512/Edit-2511/Lightning, ~30 GB)"
-  echo "  convert-foundation-sec  Download + MLX 4-bit convert Foundation-Sec-8B-Reasoning (Cisco, ~4.5 GB)"
-  echo "  convert-toolace25       Download + MLX 4-bit convert ToolACE-2.5-Llama-3.1-8B (Team-ACE, ~4.5 GB)"
-  echo "  patch-qwen-templates  Patch Qwen 3.5/3.6 chat templates per backends.yaml overrides (run after pull-mlx-models)"
-    echo "  switch-mlx-model <tag>  Pre-warm MLX server for a specific model (triggers auto-switch)"
-    echo "  start-mlx-watchdog      Start MLX health watchdog daemon (auto-recover + notifications)"
-    echo "  stop-mlx-watchdog       Stop MLX watchdog daemon"
-    echo "  mlx-status              Show status of all MLX components + zombie detection"
-    echo "  mlx-clean               Kill any zombie MLX server processes + reclaim GPU memory"
     echo "  start-speech          Start MLX Speech server (Qwen3-TTS + Qwen3-ASR)"
     echo "  stop-speech           Stop MLX Speech server"
     echo "  start-transcribe      Start MLX Transcribe server (mlx-whisper + pyannote diarization, :8924)"
@@ -4244,8 +3127,8 @@ snapshot_download('Team-ACE/ToolACE-2.5-Llama-3.1-8B', local_dir='${_staging}')
     echo "  uninstall-powermetrics      Remove powermetrics daemon (sudo)"
     echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
-    echo "                          --skip-models   Skip Ollama + MLX model refresh"
-    echo "                          --models-only   Only refresh models (Ollama + MLX)"
+    echo "                          --skip-models   Skip Ollama model refresh"
+    echo "                          --models-only   Only refresh models (Ollama)"
     echo "                          --yes / -y      Skip confirmation prompts"
       echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"

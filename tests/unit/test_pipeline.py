@@ -264,39 +264,26 @@ class TestWorkspaceModelHintUpdated:
     def test_coding_uses_qwen_or_glm(self):
         ws = WORKSPACES.get("auto-coding", {})
         hint = ws.get("model_hint", "").lower()
-        assert "qwen" in hint or "glm" in hint or "deepseek" in hint, (
-            "Coding workspace should use a specialized coding model"
+        assert "glm-4.7-flash" in hint or "qwen" in hint or "deepseek" in hint, (
+            "Coding workspace should use glm-4.7-flash:q4_K_M or another specialized coding model"
         )
 
     def test_reasoning_uses_deepseek_or_tongyi(self):
         ws = WORKSPACES.get("auto-reasoning", {})
         hint = ws.get("model_hint", "").lower()
-        assert "deepseek" in hint or "tongyi" in hint or "r1" in hint, (
-            "Reasoning workspace should use a deep reasoning model"
+        assert "deepseek" in hint or "tongyi" in hint or "r1" in hint or "qwopus" in hint, (
+            "Reasoning workspace should use a deep reasoning model (DeepSeek-R1, Tongyi, or Qwopus MTP)"
         )
 
 
 class TestComplianceWorkspace:
-    """Verify auto-compliance workspace is correctly wired — MLX-first."""
+    """Verify auto-compliance workspace is correctly wired."""
 
     def test_compliance_workspace_exists_in_router(self):
         from portal_pipeline.router_pipe import WORKSPACES
 
         assert "auto-compliance" in WORKSPACES, (
             "auto-compliance workspace missing from WORKSPACES dict in router_pipe.py"
-        )
-
-    def test_compliance_workspace_uses_mlx_model_hint(self):
-        """auto-compliance must use an MLX primary — not an Ollama GGUF tag.
-        V5 promotion: granite-4.1-30b-mxfp4 (IBM GRC-trained, 7.8 t/s, 15GB).
-        """
-        from portal_pipeline.router_pipe import WORKSPACES
-
-        hint = WORKSPACES["auto-compliance"].get("mlx_model_hint", "")
-        assert hint, "auto-compliance workspace missing mlx_model_hint"
-        assert "granite-4.1-30b" in hint, (
-            f"auto-compliance should use granite-4.1-30b-mxfp4 (V5 bench winner, IBM GRC), "
-            f"got: {hint}"
         )
 
     def test_compliance_workspace_in_backends_yaml(self):
@@ -306,13 +293,6 @@ class TestComplianceWorkspace:
         routing = cfg.get("workspace_routing", {})
         assert "auto-compliance" in routing, (
             "auto-compliance missing from workspace_routing in backends.yaml"
-        )
-        groups = routing["auto-compliance"]
-        assert groups[0] == "mlx", (
-            f"auto-compliance first routing group must be 'mlx' (Apple Silicon primary), got: {groups}"
-        )
-        assert "reasoning" in groups, (
-            f"auto-compliance must include reasoning group for Ollama fallback, got: {groups}"
         )
 
     def test_compliance_workspace_json_exists_and_valid(self):
@@ -327,26 +307,7 @@ class TestComplianceWorkspace:
         assert len(ws["params"].get("system", "")) > 100, "System prompt suspiciously short"
         assert "CIP" in ws["params"]["system"], "System prompt must reference CIP standards"
 
-    def test_compliance_mlx_model_in_mlx_backend(self):
-        """granite-4.1-30b-mxfp4 must be in an MLX backend — it's the primary routing target (V5 bench winner)."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
-        assert mlx_backends, "No MLX backend in backends.yaml"
-        all_models = []
-        for b in mlx_backends:
-            # Handle both mlx_models: [dict] (new) and models: [str] (old)
-            if "mlx_models" in b:
-                all_models.extend(m["id"] for m in b["mlx_models"])
-            else:
-                all_models.extend(b.get("models", []))
-        assert any("granite-4.1-30b" in m for m in all_models), (
-            f"granite-4.1-30b-mxfp4 not in any MLX backend models: {all_models}\n"
-            "This is the primary model for auto-compliance (V5 bench winner, IBM GRC) — must be present."
-        )
-
-    def test_compliance_personas_exist_with_mlx_model(self):
+    def test_compliance_personas_exist_with_workspace_model(self):
         from pathlib import Path
 
         import yaml
@@ -370,19 +331,6 @@ class TestComplianceWorkspace:
             f"Expected 56 workspaces (19 production + 1 tools-specialist + 36 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
-
-    def test_compliance_routing_matches_reasoning_pattern(self):
-        """auto-compliance routing must follow the same pattern as other reasoning workspaces."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        routing = cfg["workspace_routing"]
-        # All reasoning-class workspaces start with mlx
-        for ws in ["auto-reasoning", "auto-research", "auto-data", "auto-compliance"]:
-            groups = routing.get(ws, [])
-            assert groups and groups[0] == "mlx", (
-                f"{ws} must prefer mlx group first (Apple Silicon primary), got: {groups}"
-            )
 
 
 class TestR17bModelExpansion:
@@ -411,9 +359,9 @@ class TestR17bModelExpansion:
             )
 
     def test_documents_workspace_uses_fast_coding_model(self):
-        """auto-documents workspace model_hint uses qwen3.5-abliterated:9b (uncensored, tool-capable)."""
+        """auto-documents workspace model_hint uses phi4:14b-q8_0 (high-precision document model)."""
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "qwen3.5" in hint.lower(), f"Expected auto-documents to use a qwen3.5 variant, got: {hint}"
+        assert "phi4" in hint.lower(), f"Expected auto-documents to use phi4 variant, got: {hint}"
 
     @_comfyui_enabled
     def test_comfyui_download_script_has_all_image_models(self):
@@ -442,11 +390,8 @@ class TestR18ModelCompleteness:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         all_models = []
         for b in cfg["backends"]:
-            if "mlx_models" in b:
-                all_models.extend(m["id"] for m in b["mlx_models"])
-            else:
-                for m in b.get("models", []):
-                    all_models.append(m["id"] if isinstance(m, dict) else m)
+            for m in b.get("models", []):
+                all_models.append(m["id"] if isinstance(m, dict) else m)
 
         required = [
             # Security
@@ -455,12 +400,8 @@ class TestR18ModelCompleteness:
             "dolphin3-r1-mistral:24b-q4_k_m",  # R23: updated to bartowski rehost
             "whiterabbitneo:33b-v1.5",  # R23: updated from 33b to 33b-v1.5
             "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b
-            # Coding
-            # R20: Qwen3-Coder-Next-GGUF replaced with MLX (sharded GGUF incompatible with Ollama)
-            "Qwen3-Coder-Next-4bit",
-            "GLM-4.7-Flash",
-            # deepseek-coder-v2-lite removed (P5-MLX-005) — gibberish output on Apple Silicon
-            # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
+            # Coding (Ollama GGUF only — MLX retired)
+            "glm-4.7-flash",  # GLM-4.7-Flash GGUF (coding primary)
             "llama3.3:70b-q4_k_m",  # R23: updated to bartowski rehost
             # Reasoning
             "deepseek-r1:32b-q4_k_m",  # R23: DeepSeek-R1-Distill-Qwen-32B
@@ -474,23 +415,21 @@ class TestR18ModelCompleteness:
 
     def test_router_hints_use_best_models(self):
         """Key workspaces use the recommended primary model hints."""
-        # REL-03 fix: qwen3-coder-next:30b-q5 did not exist in Ollama; corrected to qwen3-coder:30b
-        assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
-            "auto-coding should use qwen3-coder:30b (Ollama tag that exists in backends.yaml)"
+        assert "glm-4.7-flash" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
+            "auto-coding should use glm-4.7-flash:q4_K_M (GLM-4.7-Flash GGUF, primary coder)"
         )
-        # R23: MiniMax-M2.1 removed (138 GB); now uses qwen3.5-abliterated:9b (uncensored, tool-capable)
-        assert "qwen3.5" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
-            "auto-documents should use a qwen3.5 variant"
+        assert "phi4" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
+            "auto-documents should use phi4 (high-precision document model)"
         )
         # R23: baronllm:q6_k is the imported GGUF model
         assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
             "auto-security should use baronllm as primary"
         )
-        assert "lily" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
-            "auto-blueteam should use lily-cybersecurity"
+        assert "apriel" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
+            "auto-blueteam should use Apriel-Nemotron (cybersec reasoning, GGUF)"
         )
-        assert "deepseek-r1" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
-            "auto-reasoning should use deepseek-r1"
+        assert "qwopus" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
+            "auto-reasoning should use Qwopus3.6-27B-v2 MTP GGUF (self-speculative reasoning primary)"
         )
 
     @_comfyui_enabled
@@ -674,102 +613,6 @@ class TestR22CodingModelUpdates:
         )
 
 
-class TestR23MLXSupport:
-    """Verify R23: MLX-first inference for Apple Silicon."""
-
-    def test_mlx_backend_type_health_url(self):
-        """MLX backend uses /v1/models health endpoint."""
-        from portal_pipeline.cluster_backends import Backend
-
-        b = Backend(
-            id="test-mlx",
-            type="mlx",
-            url="http://localhost:8080",
-            group="mlx",
-            models=["mlx-community/Qwen3-Coder-Next-4bit"],
-        )
-        assert "/v1/models" in b.health_url, (
-            "MLX backend health_url must use /v1/models (OpenAI-compatible)"
-        )
-
-    def test_backends_yaml_has_mlx_group(self):
-        """backends.yaml contains an MLX backend group."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
-        assert len(mlx_backends) >= 1, "No MLX backend in backends.yaml"
-        be = mlx_backends[0]
-        # Accept both mlx_models: [dict] (new) and models: [str] (old)
-        if "mlx_models" in be:
-            models = [m["id"] for m in be["mlx_models"]]
-        else:
-            models = be.get("models", [])
-        assert any("Qwen3-Coder-Next" in m for m in models), (
-            "MLX primary model (Qwen3-Coder-Next-4bit) not in mlx backend"
-        )
-
-    def test_mlx_workspace_routing_priority(self):
-        """Key workspaces prefer MLX group first."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        routing = cfg.get("workspace_routing", {})
-        for ws in ["auto-coding", "auto-reasoning", "auto-research"]:
-            groups = routing.get(ws, [])
-            assert groups and groups[0] == "mlx", (
-                f"{ws} must prefer 'mlx' group first, got: {groups}"
-            )
-
-    def test_security_workspaces_skip_mlx(self):
-        """auto-blueteam, auto-security, auto-redteam all route via MLX (each has an MLX model hint).
-        auto-blueteam: Foundation-Sec-8B-Reasoning-4bit-mlx (May 2026).
-        auto-security/redteam: glm-4.7-flash-abliterated-8bit (F3 fix)."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        routing = cfg.get("workspace_routing", {})
-        # All three security workspaces now have MLX model hints
-        for ws in ["auto-blueteam", "auto-security", "auto-redteam"]:
-            assert "mlx" in routing.get(ws, []), (
-                f"{ws} must include mlx — has an MLX model hint configured"
-            )
-
-    def test_minimax_not_in_mlx_group(self):
-        """MiniMax-M2 MLX is 129GB — must not be in mlx backend (too large for 64GB)."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        mlx_backends = [b for b in cfg["backends"] if b.get("type") == "mlx"]
-        if mlx_backends:
-            models = mlx_backends[0].get("models", [])
-            assert not any("MiniMax-M2-4bit" in m for m in models), (
-                "MiniMax-M2-4bit is 129GB and must not be in the MLX backend for 64GB systems"
-            )
-
-    def test_launch_sh_has_mlx_commands(self):
-        """launch.sh has install-mlx, pull-mlx-models, and proxy references."""
-        content = open("launch.sh").read()
-        assert "install-mlx" in content
-        assert "pull-mlx-models" in content
-        assert "mlx_lm" in content  # text-only server (port 18081)
-        assert "mlx_vlm" in content  # VLM server (port 18082)
-        assert "mlx-proxy" in content  # auto-switching proxy
-        assert "MLX_MODELS=" in content  # MLX model array present; don't pin a specific model
-
-    def test_mlx_proxy_script_exists(self):
-        """scripts/mlx-proxy.py exists and has the expected structure."""
-        content = open("scripts/mlx-proxy.py").read()
-        assert "LM_PORT" in content
-        assert "VLM_PORT" in content
-        assert "PROXY_PORT" in content
-        assert "detect_server" in content
-        assert "ensure_server" in content
-        # Model catalog now lives in backends.yaml (CLAUDE.md Rule 8).
-        # Verify mlx-proxy.py loads from yaml rather than checking for hardcoded model names.
-        assert "_load_mlx_metadata" in content, (
-            "mlx-proxy.py must load MODEL_MEMORY/VLM_MODELS from backends.yaml via _load_mlx_metadata()"
-        )
 
 
 class TestRecordUsageMetrics:
@@ -868,25 +711,16 @@ class TestSPLWorkspace:
 
         assert "auto-spl" in WORKSPACES, (
             "auto-spl missing from WORKSPACES in router_pipe.py — "
-            "add it with model_hint and mlx_model_hint"
+            "add it with model_hint"
         )
 
-    def test_auto_spl_uses_deepseek_coder_model_hint(self):
-        """auto-spl model_hint must be deepseek-coder-v2 (Ollama fallback)."""
+    def test_auto_spl_uses_qwen3_coder_model_hint(self):
+        """auto-spl model_hint must be qwen3-coder (Ollama GGUF)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-spl"]["model_hint"]
-        assert "deepseek-coder-v2" in hint.lower(), (
-            f"auto-spl model_hint should be deepseek-coder-v2 variant, got: {hint}"
-        )
-
-    def test_auto_spl_uses_qwen3_coder_mlx_hint(self):
-        """auto-spl mlx_model_hint must point to Qwen3-Coder-30B MLX."""
-        from portal_pipeline.router_pipe import WORKSPACES
-
-        hint = WORKSPACES["auto-spl"].get("mlx_model_hint", "")
-        assert "Qwen3-Coder-30B" in hint, (
-            f"auto-spl mlx_model_hint should be Qwen3-Coder-30B-A3B-Instruct-8bit, got: {hint}"
+        assert "qwen3-coder" in hint.lower(), (
+            f"auto-spl model_hint should be qwen3-coder variant, got: {hint}"
         )
 
     def test_auto_spl_in_backends_yaml(self):
@@ -896,14 +730,6 @@ class TestSPLWorkspace:
         cfg = yaml.safe_load(open("config/backends.yaml"))
         routing = cfg.get("workspace_routing", {})
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
-
-    def test_auto_spl_routing_starts_with_mlx(self):
-        """auto-spl routing must prefer mlx group first (Apple Silicon primary)."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        groups = cfg["workspace_routing"].get("auto-spl", [])
-        assert groups and groups[0] == "mlx", f"auto-spl must prefer mlx group first, got: {groups}"
 
     def test_workspace_count_is_16(self):
         """Total workspace count must be 56 (19 production + 1 tools-specialist + 36 bench-* workspaces after V8 adds + quant true-up)."""
@@ -1062,15 +888,6 @@ class TestAgenticWorkspace:
             "auto-agentic workspace missing from WORKSPACES in router_pipe.py"
         )
 
-    def test_agentic_workspace_mlx_model_hint_is_qwen3_coder_next(self):
-        """auto-agentic mlx_model_hint must point to Qwen3-Coder-Next-4bit (big model)."""
-        from portal_pipeline.router_pipe import WORKSPACES
-
-        hint = WORKSPACES["auto-agentic"].get("mlx_model_hint", "")
-        assert "Qwen3-Coder-Next-4bit" in hint, (
-            f"auto-agentic mlx_model_hint should be Qwen3-Coder-Next-4bit, got: {hint}"
-        )
-
     def test_agentic_workspace_has_context_limit(self):
         """auto-agentic must have context_limit=32768 for KV cache suppression (P5-BIG-001)."""
         from portal_pipeline.router_pipe import WORKSPACES
@@ -1084,16 +901,6 @@ class TestAgenticWorkspace:
 
         hint = WORKSPACES["auto-agentic"].get("model_hint", "")
         assert hint, "auto-agentic workspace missing model_hint — routing will fail on Ollama path"
-
-    def test_agentic_backends_yaml_routing_prefers_mlx(self):
-        """backends.yaml auto-agentic routing must prefer mlx group first."""
-        import yaml
-
-        cfg = yaml.safe_load(open("config/backends.yaml"))
-        groups = cfg["workspace_routing"].get("auto-agentic", [])
-        assert groups and groups[0] == "mlx", (
-            f"auto-agentic must prefer mlx group first, got: {groups}"
-        )
 
     def test_agentic_workspace_json_exists(self):
         """Workspace JSON for GUI import must exist."""
@@ -1168,41 +975,6 @@ class TestAgenticWorkspace:
         )
 
 
-class TestAutoCodingWorkspace:
-    """Verify auto-coding workspace mlx_model_hint is a valid catalog entry."""
-
-    def test_auto_coding_mlx_hint_in_catalog(self):
-        """auto-coding mlx_model_hint must be a known non-VLM MLX model in backends.yaml."""
-        from pathlib import Path
-
-        import yaml
-
-        from portal_pipeline.router_pipe import WORKSPACES
-
-        hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
-        assert hint, "auto-coding workspace must have an mlx_model_hint"
-        cfg = yaml.safe_load(
-            (Path(__file__).parent.parent.parent / "config" / "backends.yaml").read_text()
-        )
-        catalog_ids = {
-            m["id"]
-            for b in cfg.get("backends", [])
-            for m in (b.get("mlx_models") or [])
-            if m.get("id") and not m.get("is_vlm")
-        }
-        assert hint in catalog_ids, (
-            f"auto-coding mlx_model_hint {hint!r} not found in backends.yaml non-VLM catalog. "
-            f"Update WORKSPACES['auto-coding']['mlx_model_hint'] to a current catalog entry."
-        )
-
-    def test_auto_coding_mlx_hint_is_4bit(self):
-        """auto-coding must use a 4bit model variant for memory headroom on 64GB systems."""
-        from portal_pipeline.router_pipe import WORKSPACES
-
-        hint = WORKSPACES["auto-coding"].get("mlx_model_hint", "")
-        assert "4bit" in hint, (
-            f"auto-coding mlx_model_hint should be a 4bit variant for memory savings, got: {hint!r}"
-        )
 
 
 class TestCodeHygiene:
@@ -1488,37 +1260,3 @@ class TestPersonasHaveToolFields:
         assert "kb_search_all" in p["tools_allow"]
 
 
-class TestInjectMLXOptions:
-    """Unit tests for _inject_mlx_options (Phase 3 Section A)."""
-
-    def test_maps_predict_limit_to_max_tokens(self, monkeypatch):
-        import portal_pipeline.router_pipe as rp
-        from portal_pipeline.router_pipe import _inject_mlx_options
-
-        monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
-
-        body = {"messages": [{"role": "user", "content": "hi"}]}
-        out = _inject_mlx_options(body, "auto-coding")
-        assert out["max_tokens"] == 8192
-        assert "max_tokens" not in body  # original must not be mutated
-
-    def test_respects_explicit_max_tokens(self, monkeypatch):
-        import portal_pipeline.router_pipe as rp
-        from portal_pipeline.router_pipe import _inject_mlx_options
-
-        monkeypatch.setattr(rp, "WORKSPACES", {"auto-coding": {"predict_limit": 8192}})
-
-        body = {"messages": [], "max_tokens": 1024}
-        out = _inject_mlx_options(body, "auto-coding")
-        assert out["max_tokens"] == 1024  # caller's explicit value wins (setdefault)
-
-    def test_no_predict_limit_uses_global_default(self, monkeypatch):
-        """Workspace with no predict_limit gets the global default injected,
-        preventing mlx_lm.server's hardcoded 512-token fallback from firing."""
-        import portal_pipeline.router_pipe as rp
-        from portal_pipeline.router_pipe import _MLX_DEFAULT_MAX_TOKENS, _inject_mlx_options
-
-        monkeypatch.setattr(rp, "WORKSPACES", {"x": {}})
-        body = {"messages": []}
-        out = _inject_mlx_options(body, "x")
-        assert out["max_tokens"] == _MLX_DEFAULT_MAX_TOKENS

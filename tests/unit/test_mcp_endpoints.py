@@ -165,16 +165,13 @@ class TestBackendModelHintRouting:
             )
 
     def test_all_workspaces_have_model_hint(self):
-        """Every workspace must specify model_hint or (mlx_only=True + mlx_model_hint)."""
+        """Every workspace must specify model_hint."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         for ws_id, cfg in WORKSPACES.items():
-            has_hint = cfg.get("model_hint") or (
-                cfg.get("mlx_only") and cfg.get("mlx_model_hint")
-            )
+            has_hint = bool(cfg.get("model_hint"))
             assert has_hint, (
-                f"Workspace '{ws_id}' missing model_hint (and not mlx_only with mlx_model_hint) "
-                "— routing will use backend.models[0]"
+                f"Workspace '{ws_id}' missing model_hint — routing will use backend.models[0]"
             )
 
     def test_security_workspaces_use_security_models(self):
@@ -193,10 +190,13 @@ class TestBackendModelHintRouting:
             )
 
     def test_backend_registry_loads_all_groups(self):
-        """All 6 backend groups (general, coding, security, etc.) must load."""
+        """All core backend groups (general, coding, security, etc.) must load."""
         from portal_pipeline.cluster_backends import BackendRegistry
 
         reg = BackendRegistry(config_path="config/backends.yaml")
         groups = {b.group for b in reg.list_backends()}
         expected = {"general", "coding", "security", "reasoning", "vision", "creative"}
         assert groups >= expected, f"Missing backend groups: {expected - groups}"
+        assert "mlx" not in groups, (
+            "MLX backend group must not be present — MLX inference has been retired"
+        )
