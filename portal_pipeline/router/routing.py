@@ -442,14 +442,34 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
     },
 }
 
-# P7-PERF: Pre-compute keyword data structures for O(1) lookup in _detect_workspace().
-# Instead of iterating all keywords per request, we:
-# 1. Pre-lowercase all keywords (avoid .lower() per request)
-# 2. Group by length for efficient substring matching
-# 3. Cache the workspace→keywords mapping
+# Pre-lowered keyword cache for O(len(keywords)) scoring in _detect_workspace().
 _KEYWORD_CACHE: dict[str, dict[str, int]] = {}
 for _ws_id, _ws_cfg in _WORKSPACE_ROUTING.items():
     _KEYWORD_CACHE[_ws_id] = {kw.lower(): weight for kw, weight in _ws_cfg["keywords"].items()}
+
+
+def _last_user_text(messages: list[dict], limit: int) -> str:
+    """Extract the text content of the last user message, truncated to ``limit`` chars.
+
+    Handles both string-content messages (the common case) and
+    list-content messages (OpenAI-style content arrays with text parts).
+    Non-string, non-list content is coerced via ``str()``.
+    """
+    for msg in reversed(messages):
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            return content[:limit]
+        if isinstance(content, list):
+            parts = [
+                p.get("text", "")
+                for p in content
+                if isinstance(p, dict) and p.get("type") == "text"
+            ]
+            return " ".join(parts)[:limit]
+        return str(content)[:limit]
+    return ""
 
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
@@ -496,19 +516,52 @@ _routing_descriptions: dict[str, str] | None = None
 _routing_examples: list[dict] | None = None
 
 
+def _resolve_routing_config_dir() -> Path:
+    """Resolve the routing-config directory across container, local-dev, and CI.
+
+    Priority order:
+
+    1. ``ROUTING_CONFIG_DIR`` environment variable (explicit override).
+    2. ``/app/config/`` — the Docker container mount.
+    3. Walk up from this file to find ``config/`` in the repo root.
+    4. Fall back to ``/app/config/`` so downstream logs point at the
+       path operators expect.
+
+    Returns:
+        A ``Path`` to the directory containing ``routing_descriptions.json``
+        and ``routing_examples.json``.
+    """
+    if env_dir := os.environ.get("ROUTING_CONFIG_DIR"):
+        return Path(env_dir)
+
+    docker_dir = Path("/app/config")
+    if docker_dir.is_dir():
+        return docker_dir
+
+    this_file = Path(__file__).resolve()
+    for parent in [this_file.parent, this_file.parent.parent, this_file.parent.parent.parent]:
+        candidate = parent / "config"
+        if candidate.is_dir():
+            return candidate
+
+    return docker_dir
+
+
 def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
     """Load LLM-router descriptions and few-shot examples (cached after first call).
 
-    Reads ``config/routing_descriptions.json`` and
-    ``config/routing_examples.json``. These files are operator-editable:
-    adding a new workspace means appending one description and a few
-    example messages, no code changes. The LLM router picks up
-    additions on the next pipeline restart — no hot reload.
+    Resolves ``config/routing_descriptions.json`` and
+    ``config/routing_examples.json`` via ``_resolve_routing_config_dir``
+    (env-var → Docker → walk-up-from-``__file__``). These files are
+    operator-editable: adding a new workspace means appending one
+    description and a few example messages, no code changes. The LLM
+    router picks up additions on the next pipeline restart — no hot
+    reload.
 
     Two graceful-fallback paths, both logged at warning level:
 
-    * Either file missing → returns empty dict / list. The LLM
-      router still functions but with no in-context guidance.
+    * Either file missing → WARNING log, returns empty dict / list.
+      The LLM router still functions but with no in-context guidance.
     * JSON parse error → same as missing; the file is treated as
       empty for this process lifetime.
 
@@ -529,19 +582,34 @@ def _load_routing_config() -> tuple[dict[str, str], list[dict]]:
     if _routing_descriptions is not None and _routing_examples is not None:
         return _routing_descriptions, _routing_examples
 
-    desc_path = Path("config/routing_descriptions.json")
-    ex_path = Path("config/routing_examples.json")
+    config_dir = _resolve_routing_config_dir()
+    desc_path = config_dir / "routing_descriptions.json"
+    ex_path = config_dir / "routing_examples.json"
 
     try:
-        raw = json.loads(desc_path.read_text()) if desc_path.exists() else {}
-        _routing_descriptions = {k: v for k, v in raw.items() if not k.startswith("_")}
+        if desc_path.exists():
+            raw = json.loads(desc_path.read_text())
+            _routing_descriptions = {k: v for k, v in raw.items() if not k.startswith("_")}
+        else:
+            logger.warning(
+                "LLM router: routing_descriptions.json not found at %s — router will use empty descriptions",
+                desc_path,
+            )
+            _routing_descriptions = {}
     except Exception as e:
         logger.warning("LLM router: failed to load routing_descriptions.json: %s", e)
         _routing_descriptions = {}
 
     try:
-        raw = json.loads(ex_path.read_text()) if ex_path.exists() else {}
-        _routing_examples = raw.get("examples", [])
+        if ex_path.exists():
+            raw = json.loads(ex_path.read_text())
+            _routing_examples = raw.get("examples", [])
+        else:
+            logger.warning(
+                "LLM router: routing_examples.json not found at %s — router will use empty examples",
+                ex_path,
+            )
+            _routing_examples = []
     except Exception as e:
         logger.warning("LLM router: failed to load routing_examples.json: %s", e)
         _routing_examples = []
@@ -658,14 +726,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
     if not _LLM_ROUTER_ENABLED:
         return None
 
-    # Extract last user message
-    last_user_content = ""
-    for msg in reversed(messages):
-        if msg.get("role") == "user":
-            content = msg.get("content", "")
-            last_user_content = (str(content) if isinstance(content, str) else str(content))[:500]
-            break
-
+    last_user_content = _last_user_text(messages, 500)
     if not last_user_content:
         return None
 
@@ -736,7 +797,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
         )
         return workspace
 
-    except httpx.TimeoutException:
+    except (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException):
         logger.debug(
             "LLM router timed out after %dms — falling back to keywords",
             _LLM_ROUTER_TIMEOUT_MS,
@@ -795,13 +856,7 @@ def _detect_workspace(messages: list[dict]) -> str | None:
         if no workspace clears its threshold. Caller falls back to
         the default ``"auto"`` model on ``None``.
     """
-    # Find the last user message — reversed() stops at first hit (O(1) for recent msgs)
-    last_user_content = ""
-    for msg in reversed(messages):
-        if msg.get("role") == "user":
-            last_user_content = str(msg.get("content", ""))[:2000].lower()
-            break
-
+    last_user_content = _last_user_text(messages, 2000).lower()
     if not last_user_content:
         return None
 
