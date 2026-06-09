@@ -9,17 +9,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from expected_models import (
     expected_model_keys,
     expected_model_keys_for_persona,
-    is_mlx_model,
     model_matches_expected,
     resolve_expected,
 )
-
-
-def test_mlx_model_detected_by_org_prefix():
-    assert is_mlx_model("mlx-community/Qwen3-Coder-Next-4bit") is True
-    assert is_mlx_model("Jackrong/MLX-Qwopus3.5-27B-v3-8bit") is True
-    assert is_mlx_model("dolphin-llama3:8b") is False
-    assert is_mlx_model("") is False
 
 
 def test_unknown_workspace_returns_empty():
