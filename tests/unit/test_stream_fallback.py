@@ -32,16 +32,16 @@ def _sse_line(payload: dict | str) -> bytes:
     return f"data: {payload}".encode()
 
 
-def _stream_lines(*raw_events: bytes) -> list[bytes]:
+def _stream_lines(*raw_events: bytes) -> list[str]:
     """Turn concatenated raw SSE bytes into the list that ``aiter_lines()``
     would yield.  Each line is stripped of its trailing newline(s), empty
-    lines (separators between SSE events) are preserved as ``b""``.
+    lines (separators between SSE events) are preserved as ``""``.
     """
-    lines: list[bytes] = []
+    lines: list[str] = []
     for raw in raw_events:
         text = raw.decode("utf-8", errors="replace")
         for line_text in text.splitlines():
-            lines.append(line_text.encode())
+            lines.append(line_text)
     return lines
 
 
@@ -77,24 +77,22 @@ def _json_from_sse(chunks: list[bytes]) -> list[dict]:
 class _MockStreamResponse:
     """Fake httpx response — returned from the async context manager.
 
-    Supports both ``aiter_bytes()`` (pre-Phase-4) and ``aiter_lines()``
-    (post-Phase-4) so golden tests pass before and after edits.
+    ``aiter_lines()`` yields ``str`` (the real httpx contract) —
+    no trailing newline, already decoded.
     """
 
-    def __init__(self, status_code: int, lines: list[bytes]):
+    def __init__(self, status_code: int, lines: list[str]):
         self.status_code = status_code
         self._lines = lines
 
     async def aiter_lines(self):
-        """Post-Phase-4: line-by-line iteration."""
         for line in self._lines:
             yield line
 
     async def aiter_bytes(self):
-        """Pre-Phase-4: raw byte-chunk iteration (each chunk = one line + separator)."""
+        """Raw byte-chunk iteration (each chunk = one line + separator)."""
         for line in self._lines:
-            # Reconstruct the raw TCP-buffer style: line + newline separator
-            yield line + b"\n"
+            yield line.encode() + b"\n"
 
     async def aread(self):
         return b"mock error body"
@@ -103,7 +101,7 @@ class _MockStreamResponse:
 class _MockStreamContext:
     """Async context manager returned by ``_http_client.stream(...)``."""
 
-    def __init__(self, status_code: int, lines: list[bytes]):
+    def __init__(self, status_code: int, lines: list[str]):
         self._status_code = status_code
         self._lines = lines
 
@@ -426,3 +424,116 @@ class TestStreamFallbackDoneTermination:
 
         assert "[DONE]" in text
         assert "Answer" in text
+
+
+class TestStreamContractRegression:
+    """Contract-regression: both streaming paths survive real httpx aiter_lines() str contract."""
+
+    @pytest.mark.anyio
+    async def test_stream_survives_real_aiter_lines_str_contract(self, mock_client, monkeypatch):
+        """Drive both _stream_from_backend_guarded and _stream_with_tool_loop_impl
+        with a corrected str-yielding aiter_lines() fake and assert output is correct
+        and does NOT contain any error marker."""
+        # ── Path 1: _stream_from_backend_guarded with plain content ──
+        events_1 = (
+            _sse_line({"choices": [{"index": 0, "delta": {"content": "Hello"}}]})
+            + b"\n\n"
+            + _sse_line({"choices": [{"index": 0, "delta": {"content": " world"}}]})
+            + b"\n\n"
+            + b"data: [DONE]\n\n"
+        )
+        lines_1 = _stream_lines(events_1)
+        ctx_1 = _MockStreamContext(200, lines_1)
+
+        def fake_stream_1(method, url, **kwargs):
+            return ctx_1
+
+        monkeypatch.setattr(mock_client, "stream", fake_stream_1)
+
+        gen = router_pipe._stream_from_backend_guarded(
+            url="http://localhost:11434/v1/chat/completions",
+            body={},
+            workspace_id="auto",
+            model="test-model",
+        )
+        chunks = await _drain(gen)
+        text = _decode_chunks(chunks)
+
+        assert "Hello" in text
+        assert "world" in text
+        assert "[DONE]" in text
+        assert "Backend connection error" not in text
+
+        # ── Path 2: _stream_with_tool_loop_impl (no-tool path, same input) ──
+        events_2 = (
+            _sse_line({"choices": [{"index": 0, "delta": {"content": "Hello"}}]})
+            + b"\n\n"
+            + _sse_line({"choices": [{"index": 0, "delta": {"content": " world"}}]})
+            + b"\n\n"
+            + b"data: [DONE]\n\n"
+        )
+        lines_2 = _stream_lines(events_2)
+        ctx_2 = _MockStreamContext(200, lines_2)
+
+        fake_stream_calls = []
+
+        def fake_stream_2(method, url, **kwargs):
+            fake_stream_calls.append((method, url))
+            return ctx_2
+
+        monkeypatch.setattr(mock_client, "stream", fake_stream_2)
+
+        gen2 = router_pipe._stream_with_tool_loop_impl(
+            backend_url="http://localhost:11434/v1/chat/completions",
+            body={},
+            workspace_id="auto",
+            model="test-model",
+            persona="default",
+            effective_tools=set(),
+        )
+        chunks2 = await _drain(gen2)
+        text2 = _decode_chunks(chunks2)
+
+        assert "Hello" in text2
+        assert "world" in text2
+        assert "[DONE]" in text2
+        assert "Backend connection error" not in text2
+
+    @pytest.mark.anyio
+    async def test_reasoning_promotion_with_str_contract(self, mock_client, monkeypatch):
+        """Reasoning promotion path works with str-yielding aiter_lines()."""
+        events = (
+            _sse_line(
+                {
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {
+                                "reasoning_content": "Let me think...",
+                            },
+                        }
+                    ]
+                }
+            )
+            + b"\n\n"
+            + b"data: [DONE]\n\n"
+        )
+        lines = _stream_lines(events)
+        ctx = _MockStreamContext(200, lines)
+
+        def fake_stream(method, url, **kwargs):
+            return ctx
+
+        monkeypatch.setattr(mock_client, "stream", fake_stream)
+
+        gen = router_pipe._stream_from_backend_guarded(
+            url="http://localhost:11434/v1/chat/completions",
+            body={},
+            workspace_id="auto",
+            model="test-model",
+        )
+        chunks = await _drain(gen)
+        text = _decode_chunks(chunks)
+
+        assert "Let me think" in text
+        assert "Backend connection error" not in text
