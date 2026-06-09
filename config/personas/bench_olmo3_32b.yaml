@@ -2,9 +2,9 @@ name: 🔬 Bench · Olmo-3-32B (Allen AI)
 slug: bench-olmo3-32b
 category: benchmark
 workspace_model: bench-olmo3-32b
-# Routes to: mlx-community/Olmo-3-1125-32B-4bit (MLX primary, Allen AI dense 32B, ~17GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: huihui_ai/tongyi-deepresearch-abliterated (Ollama general — different family)
-# BENCHMARK NOTE: Verify MLX loaded mlx-community/Olmo-3-1125-32B-4bit before recording results.
+# BENCHMARK NOTE: Verify model loaded before recording results.
 # Check: ./launch.sh logs | grep "Switching to model"
 # Olmo-3 is the only major non-Qwen 32B-class reasoning candidate in the catalog.
 # V5 Pareto winner for auto-reasoning candidates (8.6 TPS, smoke PASS).

@@ -2,11 +2,11 @@ name: 🔬 Bench · Qwen3.6-27B Unsloth UD (Alibaba)
 slug: bench-qwen36-27b-ud
 category: benchmark
 workspace_model: bench-qwen36-27b-ud
-# Routes to: unsloth/Qwen3.6-27B-UD-MLX-4bit (MLX primary, Unsloth Dynamic 2.0 quant probe)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: qwen3-coder:30b (Ollama coding — different model family, graceful degradation only)
-# BENCHMARK NOTE: Verify MLX loaded unsloth/Qwen3.6-27B-UD-MLX-4bit before recording results.
+# BENCHMARK NOTE: Verify model loaded before recording results.
 # Check: ./launch.sh logs | grep "Switching to model"
-# Head-to-head probe vs mlx-community/Qwen3.6-27B-4bit (stock 4-bit, bench-qwen36-27b).
+# Head-to-head probe vs stock 4-bit (bench-qwen36-27b).
 # Use identical prompts across both benches for valid comparison.
 # Qwen3.6-27B-UD has native thinking mode (default on) and vision encoder.
 # Routes through mlx_vlm.server (is_vlm: true). Text-only benchmarks need no image input.

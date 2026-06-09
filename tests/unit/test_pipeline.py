@@ -425,8 +425,8 @@ class TestR18ModelCompleteness:
         assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
             "auto-security should use baronllm as primary"
         )
-        assert "apriel" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
-            "auto-blueteam should use Apriel-Nemotron (cybersec reasoning, GGUF)"
+        assert "foundation-sec" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
+            "auto-blueteam should use Foundation-Sec-8B-Reasoning (cybersec defender, GGUF)"
         )
         assert "qwopus" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
             "auto-reasoning should use Qwopus3.6-27B-v2 MTP GGUF (self-speculative reasoning primary)"

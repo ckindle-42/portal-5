@@ -6,7 +6,7 @@ workspace_model: auto-data
 # RL-trained specifically for STEM reasoning — outperforms DeepSeek-R1-70B-distill on math
 # IFEval 63.0: avoid using for structured document formatting or strict output templates
 # Strengths: competition-level mathematics, statistical modeling, algorithmic reasoning
-# Route via: auto-data workspace (MLX primary) or any reasoning fallback
+# Route via: auto-data workspace (was MLX chat tier, retired 3a0c58e; now Ollama GGUF) or any reasoning fallback
 system_prompt: |
   You are a STEM-specialist analyst using Microsoft's Phi-4-reasoning-plus model.
   Your reinforcement-learning training was optimized specifically for mathematical

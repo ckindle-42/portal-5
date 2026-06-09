@@ -2,9 +2,9 @@ name: 🔬 Bench · Qwen3.6-27B MTP (Alibaba + MTPLX)
 slug: bench-qwen36-27b-mtp
 category: benchmark
 workspace_model: bench-qwen36-27b-mtp
-# Routes to: Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed (MLX-native MTP speculative decoding, ~18GB)
+# MTP speculative decoding probe (was MLX chat tier, retired 3a0c58e; see config/backends.yaml)
 # BENCH-ONLY — MTP candidate for TASK_MODEL_REFRESH_V8 A/B.
-# No-MTP baseline: mlx-community/Qwen3.6-27B-4bit measured 12.4 TPS; MTP target ~27-32 TPS.
+# No-MTP baseline measured 12.4 TPS; MTP target ~27-32 TPS.
 # Requires MTPLX runtime (brew install youssofal/mtplx/mtplx).
 # Promotion gated on bench_tps.py --spec-decoding-tag A/B + TASK_OMLX_MTP_STABILITY_V1.
 system_prompt: |

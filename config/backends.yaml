@@ -103,6 +103,13 @@ backends:
       \ as domain experts. No purpose-built newer cyber model verified this cycle.\
       \ Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Same huihui-ai source\
       \ as baronllm-abliterated. supports_tools=true per Qwen3.6 family."
+  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    supports_tools: false
+    notes: "Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai FIRST-PARTY\
+      \ GGUF, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0 per body\
+      \ — card header tags 'other'). Native <think>. auto-blueteam PRIMARY — restores\
+      \ the pre-migration production model lost in 3a0c58e (P5-FUT-PARITY-001).\
+      \ supports_tools=false (reasoning model, not tool-trained)."
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
   - id: xploiter/the-xploiter
@@ -169,7 +176,7 @@ backends:
     notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary)."
   - id: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf
     supports_tools: true
-    notes: "Apriel-Nemotron-15B Q5 (~11GB, ServiceNow+NVIDIA, dense reasoning, MIT, auto-blueteam primary)."
+    notes: "Apriel-Nemotron-15B Q5 (~11GB, ServiceNow+NVIDIA, dense reasoning, MIT). Was auto-blueteam stopgap after 3a0c58e; replaced by Foundation-Sec-8B-Reasoning (P5-FUT-PARITY-001). Retained as reasoning fallback + bench-apriel-nemotron model."
 - id: ollama-vision
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -327,6 +334,7 @@ workspace_routing:
   - creative
   - general
   bench-foundation-sec:
+  - security
   - reasoning
   - general
   bench-toolace25:

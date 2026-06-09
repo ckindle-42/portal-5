@@ -2,9 +2,9 @@ name: 🔬 Bench · Negentropy-9B (Jackrong)
 slug: bench-negentropy
 category: benchmark
 workspace_model: bench-negentropy
-# Routes to: Jackrong/Negentropy-claude-opus-4.7-9B-6bit (MLX primary, ~7GB)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: deepseek-r1:32b-q4_k_m (Ollama reasoning fallback)
-# BENCHMARK NOTE: 9B comparator to existing auto-reasoning primary (MLX-Qwopus3.5-27B-v3-8bit,
+# BENCHMARK NOTE: 9B comparator to existing auto-reasoning primary (Qwopus3.5-27B-v3-8bit,
 # same Jackrong author lineage). Trace-inversion methodology: Trace-Inverter-4B
 # reconstructs CoT from Claude Opus compressed reasoning bubbles. Card-acknowledged
 # 'logic-style hallucinations' (facts wrong even with perfect reasoning format) —

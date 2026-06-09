@@ -2,7 +2,7 @@ name: 🔬 Bench · Phi-4
 slug: bench-phi4
 category: benchmark
 workspace_model: bench-phi4
-# Routes to: phi-4-8bit (MLX, Microsoft, 14B, ~14GB, synthetic training data methodology)
+# (was MLX chat tier, retired 3a0c58e; now Ollama GGUF — see config/backends.yaml)
 # Fallback: qwen3.5:9b (Ollama — different model, closest available size)
 system_prompt: |
   You are a creative coder who builds playable, visual, and interactive things

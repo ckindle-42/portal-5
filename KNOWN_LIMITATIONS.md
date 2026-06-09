@@ -70,17 +70,19 @@ workspaces to general-purpose GGUF substitutes:
 
 | Workspace(s) | Original (MLX) | Now served (Ollama GGUF) | Gap |
 |---|---|---|---|
-| `auto-blueteam`, `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Apriel-Nemotron-15B-Thinker (general reasoner) | loss of domain-specialized defender behavior |
+| `auto-blueteam`, `bench-foundation-sec` | Foundation-Sec-8B-Reasoning (Cisco, purpose-trained defender cybersec: CVE→CWE, MITRE ATT&CK, SOC triage) | Foundation-Sec-8B-Reasoning Q8_0 GGUF (Cisco fdtn-ai, first-party, ~8.5GB) | RESTORED (P5-FUT-PARITY-001) |
 | `tools-specialist`, `bench-toolace25` | ToolACE-2.5-Llama-3.1-8B (Team-ACE, BFCL-topping tool-caller) | granite4.1:8b (general tool-tagged) | loss of purpose-trained tool-call accuracy |
 
-**Status:** descriptions corrected for truth-in-labeling (P5-FUT-PARITY-001
-in P5_ROADMAP.md). Whether to source/verify GGUF rebuilds of these exact
-models, accept the substitutes permanently, or retire the specialist
-workspaces is an OPERATOR DECISION — see roadmap item. No GGUF card for
-Foundation-Sec-8B-Reasoning or ToolACE-2.5 was confirmable at audit; do
-not add either to backends.yaml without verifying weight availability
-from a primary HF source first (project rule: unconfirmable card = do not
-recommend).
+**Status — Foundation-Sec:** RESTORED to the auto-blueteam production primary
+via the first-party Cisco GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
+(TASK_PARITY_FOUNDATION_SEC_V1, direct swap, no bench gate — consistent with how
+the original MLX→Ollama migration set models by assumption; this restores the
+pre-migration primary). Apriel-Nemotron-15B retained as reasoning fallback +
+bench-apriel-nemotron.
+
+**Status — ToolACE:** remains UNRESOLVED. granite4.1:8b retained by operator
+decision (no verified ToolACE-2.5 GGUF confirmed; self-quant + Ollama tool-template
+risk not justified). P5-FUT-PARITY-001 stays open for the ToolACE half only.
 
 ---
 

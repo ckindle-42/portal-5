@@ -2,7 +2,7 @@ name: Hermes Narrative Writer
 slug: hermes3writer
 category: writing
 workspace_model: auto-creative
-# Routes to: Dolphin3.0-Llama3.1-8B-8bit (MLX) or dolphin-llama3:8b / hermes3:8b (Ollama creative pool)
+# Routes to: Dolphin3.0-Llama3.1-8B-8bit (was MLX, retired 3a0c58e) or dolphin-llama3:8b / hermes3:8b (Ollama creative pool)
 # hermes3:8b: NousResearch, trained for long-form narrative coherence and character consistency
 system_prompt: |
   You are a narrative fiction specialist with deep expertise in long-form storytelling,
