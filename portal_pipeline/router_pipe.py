@@ -93,20 +93,20 @@ logger.setLevel(getattr(logging, _log_level, logging.INFO))
 
 from portal_pipeline.router.state import (  # noqa: F401  (facade re-export)
     _STATE_FILE,
-    _request_count,
-    _total_tps,
-    _request_tps_count,
-    _total_input_tokens,
-    _total_output_tokens,
-    _req_count_by_model,
-    _req_count_by_error,
+    _load_state,
     _peak_concurrent,
     _persona_usage_raw,
     _record_error,
     _record_persona,
-    _load_state,
+    _req_count_by_error,
+    _req_count_by_model,
+    _request_count,
+    _request_tps_count,
     _save_state,
     _state_save_loop,
+    _total_input_tokens,
+    _total_output_tokens,
+    _total_tps,
 )
 
 _startup_time = time.time()
@@ -129,41 +129,55 @@ _mp_registry_dir_cache: str | None = None
 
 from portal_pipeline.router.metrics import (  # noqa: F401  (facade re-export)
     _REGISTRY,
-    _tokens_per_second,
-    _output_tokens,
-    _input_tokens,
-    _requests_by_model,
-    _response_time_seconds,
-    _requests_total,
-    _errors_total,
     _concurrent_requests,
+    _energy_by_workspace_ws,
+    _energy_consumed_ws_total,
+    _errors_total,
+    _input_tokens,
+    _output_tokens,
     _persona_usage,
-    _tool_calls_total,
+    _power_ane_watts,
+    _power_avg_1min_watts,
+    _power_cpu_watts,
+    _power_current_watts,
+    _power_dram_watts,
+    _power_gpu_watts,
+    _record_response_time,
+    _request_energy_ws,
+    _requests_by_model,
+    _requests_total,
+    _response_time_seconds,
+    _tokens_per_second,
     _tool_call_duration,
     _tool_call_errors,
-    _tool_workspace_strip,
+    _tool_calls_total,
     _tool_loop_hops,
-    _power_current_watts,
-    _power_cpu_watts,
-    _power_gpu_watts,
-    _power_ane_watts,
-    _power_dram_watts,
-    _power_avg_1min_watts,
-    _energy_consumed_ws_total,
-    _energy_by_workspace_ws,
-    _request_energy_ws,
-    _workspace_semaphore_busy_total_metric,
+    _tool_workspace_strip,
+    _total_response_time_ms,  # noqa: F401
     _workspace_semaphore_busy_total,
-    _record_response_time,
+    _workspace_semaphore_busy_total_metric,
 )
-from portal_pipeline.router.metrics import _total_response_time_ms  # noqa: F401
-
 from portal_pipeline.router.power import (  # noqa: F401  (facade re-export)
     _POWERMETRICS_SOCKET,
     ELECTRICITY_RATE_USD_PER_KWH,
-    watts_seconds_to_cost_usd,
     _power_polling_loop,
     _record_usage,
+    watts_seconds_to_cost_usd,
+)
+from portal_pipeline.router.routing import (  # noqa: F401  (facade re-export)
+    _CODING_KEYWORDS,
+    _LLM_ROUTER_ENABLED,
+    _LLM_ROUTER_MODEL,
+    _LLM_ROUTER_OLLAMA_URL,
+    _SPL_KEYWORDS,
+    _VALID_WORKSPACE_IDS,
+    _build_router_prompt,
+    _detect_workspace,
+    _load_routing_config,
+    _route_with_llm,
+)
+from portal_pipeline.router.tools import (  # noqa: F401  (facade re-export)
+    _dispatch_tool_call,
 )
 
 # ── Workspace configuration (extracted to portal_pipeline.router.workspaces) ─
@@ -177,26 +191,6 @@ from portal_pipeline.router.workspaces import (  # noqa: E402
     _resolve_persona_tools,
     _workspace_tools,  # noqa: F401 — re-exported for tests and external callers
 )
-
-
-from portal_pipeline.router.tools import (  # noqa: F401  (facade re-export)
-    _dispatch_tool_call,
-)
-
-from portal_pipeline.router.routing import (  # noqa: F401  (facade re-export)
-    _CODING_KEYWORDS,
-    _SPL_KEYWORDS,
-    _VALID_WORKSPACE_IDS,
-    _load_routing_config,
-    _build_router_prompt,
-    _route_with_llm,
-    _detect_workspace,
-    _LLM_ROUTER_ENABLED,
-    _LLM_ROUTER_MODEL,
-    _LLM_ROUTER_OLLAMA_URL,
-)
-
-
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
 if not _raw_api_key:
@@ -1001,61 +995,47 @@ async def health() -> dict:
 async def health_all():
     """GET /health/all — aggregate diagnostic check across the full stack.
 
-    Probes the pipeline itself, Ollama, and 7 MCP
-    servers in parallel with a per-probe 3s timeout. Returns a dict
-    keyed by component name; each value is the component's own
-    ``/health`` (or ``/api/tags`` for Ollama) JSON if 200, else a
-    status dict with ``"degraded"`` (HTTP error) or ``"down"``
-    (connection error).
+    Probes the pipeline itself, Ollama, and every MCP server in
+    ``tool_registry.MCP_SERVERS`` in parallel with a per-probe 3s
+    timeout. Returns a dict keyed by component name; each value is
+    the component's own ``/health`` (or ``/api/tags`` for Ollama)
+    JSON if 200, else a status dict with ``"degraded"`` (HTTP error)
+    or ``"down"`` (connection error).
 
-    Two non-obvious limitations tracked for follow-up in
-    ``DOCSTRINGS_V1_NOTES.md``:
-
-    * The MCP list is a static hard-coded catalogue of 7 of the 12
-      model-facing MCPs in ``tool_registry.MCP_SERVERS``. ``memory``,
-      ``rag``, ``research``, ``music``, ``code-sandbox`` (vs the
-      currently-listed legacy ``mcp_sandbox``) are missing.
-    * Each probe opens a fresh ``httpx.AsyncClient`` — new
-      connection pool and TLS handshake per call. The shared
-      ``_http_client`` has a 300s timeout (designed for inference
-      cold loads) which would let one down MCP hang this endpoint
-      for 5 minutes; the local short-timeout client is the right
-      idea, awkwardly implemented.
+    One shared ``httpx.AsyncClient(timeout=3)`` handles all probes
+    via ``asyncio.gather`` — no fresh client per probe.
 
     Returns:
         Dict keyed by component name, values are component-specific
         health JSON or status dicts.
     """
-    checks: dict[str, dict] = {}
-    checks["pipeline"] = {"status": "ok"}
-    for name, url, path in [
-        (
-            "ollama",
+    from portal_pipeline.tool_registry import MCP_SERVERS
+
+    async def _probe(url: str, path: str) -> dict:
+        try:
+            r = await _health_client.get(f"{url}{path}")
+            return (
+                r.json()
+                if r.status_code == 200
+                else {"status": "degraded", "code": r.status_code}
+            )
+        except Exception as e:
+            return {"status": "down", "error": str(e)[:100]}
+
+    async with httpx.AsyncClient(timeout=3) as _health_client:
+        pipeline_result = {"pipeline": {"status": "ok"}}
+        ollama_result = await _probe(
             os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
             "/api/tags",
-        ),
-        ("mcp_documents", "http://mcp-documents:8913", "/health"),
-        ("mcp_sandbox", "http://mcp-sandbox:8914", "/health"),
-        ("mcp_comfyui", "http://mcp-comfyui:8910", "/health"),
-        ("mcp_video", "http://mcp-video:8911", "/health"),
-        ("mcp_whisper", "http://mcp-whisper:8915", "/health"),
-        ("mcp_tts", "http://mcp-tts:8916", "/health"),
-        ("mcp_security", "http://mcp-security:8919", "/health"),
-    ]:
-        try:
-            async with httpx.AsyncClient(timeout=3) as c:
-                r = await c.get(f"{url}{path}")
-                checks[name] = (
-                    r.json()
-                    if r.status_code == 200
-                    else {
-                        "status": "degraded",
-                        "code": r.status_code,
-                    }
-                )
-        except Exception as e:
-            checks[name] = {"status": "down", "error": str(e)[:100]}
-    return checks
+        )
+        mcp_probes = {
+            f"mcp_{server_id}": _probe(url, "/health")
+            for server_id, url in MCP_SERVERS.items()
+        }
+        mcp_results_list = await asyncio.gather(*mcp_probes.values(), return_exceptions=True)
+        mcp_results = dict(zip(mcp_probes.keys(), mcp_results_list, strict=True))
+
+    return {**pipeline_result, "ollama": ollama_result, **mcp_results}
 
 
 PORTAL5_ADMIN_KEY = os.environ.get("PORTAL5_ADMIN_KEY", os.environ.get("PIPELINE_API_KEY", ""))
@@ -2253,7 +2233,7 @@ async def chat_completions(
                 if _error_buffer:
                     yield _error_buffer
                 else:
-                    yield f'data: {{"error": "All backends failed"}}\n\n'.encode()
+                    yield b'data: {"error": "All backends failed"}\n\n'
                 yield b"data: [DONE]\n\n"
                 _record_error(workspace_id, "all_backends_failed")
 

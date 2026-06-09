@@ -216,3 +216,146 @@ class TestRouteWithLLM:
         assert not leaked_bench, (
             f"Bench workspaces must not appear in _VALID_WORKSPACE_IDS: {leaked_bench}"
         )
+
+    @pytest.mark.asyncio
+    async def test_llm_router_payload_includes_keep_alive(self):
+        """_route_with_llm payload must include top-level keep_alive: "-1"."""
+        mock_resp = _mock_llm_response("auto-coding", 0.95)
+        with patch(
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
+        ) as mock_client:
+            mock_client.post = AsyncMock(return_value=mock_resp)
+            await _route_with_llm(_user_messages("write a Python function"))
+            call_args = mock_client.post.call_args
+            payload = call_args[1]["json"]
+            assert payload.get("keep_alive") == "-1", (
+                f"Expected keep_alive='-1' in LLM router payload, got {payload.get('keep_alive')!r}"
+            )
+            assert "keep_alive" in payload
+
+
+class TestLastUserText:
+    """_last_user_text() extracts and truncates the last user message."""
+
+    def test_string_content_truncation(self):
+        from portal_pipeline.router.routing import _last_user_text
+
+        result = _last_user_text([{"role": "user", "content": "hello world"}], 5)
+        assert result == "hello"
+
+    def test_list_content_extraction(self):
+        from portal_pipeline.router.routing import _last_user_text
+
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "first part"},
+                {"type": "image_url", "image_url": {"url": "http://img"}},
+                {"type": "text", "text": "second part"},
+            ],
+        }]
+        result = _last_user_text(messages, 100)
+        assert result == "first part second part"
+
+    def test_list_content_truncation(self):
+        from portal_pipeline.router.routing import _last_user_text
+
+        messages = [{"role": "user", "content": [{"type": "text", "text": "abcdefghij"}]}]
+        result = _last_user_text(messages, 5)
+        assert result == "abcde"
+
+    def test_finds_last_user_message(self):
+        from portal_pipeline.router.routing import _last_user_text
+
+        messages = [
+            {"role": "user", "content": "first question"},
+            {"role": "assistant", "content": "answer"},
+            {"role": "user", "content": "second question"},
+        ]
+        result = _last_user_text(messages, 100)
+        assert result == "second question"
+
+    def test_returns_empty_for_no_user(self):
+        from portal_pipeline.router.routing import _last_user_text
+
+        result = _last_user_text([{"role": "assistant", "content": "hello"}], 100)
+        assert result == ""
+
+
+class TestResolvePersonaTools:
+    """_resolve_persona_tools semantics: absent, null, explicit list, empty list, deny."""
+
+    def test_absent_tools_allow_uses_workspace_default(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools({}, "auto-coding")
+        assert "execute_python" in result
+        assert len(result) > 0
+
+    def test_null_tools_allow_uses_workspace_default(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools({"tools_allow": None}, "auto-coding")
+        assert "execute_python" in result
+        assert len(result) > 0
+
+    def test_empty_tools_allow_means_no_tools(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools({"tools_allow": []}, "auto-coding")
+        assert result == []
+
+    def test_nonempty_tools_allow_replaces_workspace_default(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools(
+            {"tools_allow": ["execute_bash", "remember"]}, "auto-coding"
+        )
+        assert set(result) == {"execute_bash", "remember"}
+
+    def test_deny_still_subtracts(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools(
+            {"tools_allow": ["execute_python", "execute_bash", "remember"], "tools_deny": ["execute_bash"]},
+            "auto-coding",
+        )
+        assert set(result) == {"execute_python", "remember"}
+
+    def test_deny_works_on_workspace_default(self):
+        from portal_pipeline.router.workspaces import _resolve_persona_tools
+
+        result = _resolve_persona_tools({"tools_deny": ["execute_python"]}, "auto-coding")
+        assert "execute_python" not in result
+        assert len(result) > 0
+
+
+class TestPersonaCatalogAudit:
+    """Audit persona YAMLs: ensure no silent semantics traps."""
+
+    def test_no_stale_empty_tools_allow_without_comment(self):
+        """Every persona with tools_allow: [] should document the no-tools intent."""
+        from pathlib import Path
+
+        import yaml
+
+        personas_dir = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
+        if not personas_dir.is_dir():
+            pytest.skip("config/personas/ not found")
+        issues = []
+        for yf in sorted(personas_dir.glob("*.yaml")):
+            raw = yf.read_text()
+            data = yaml.safe_load(raw) or {}
+            # tools_allow explicitly present as empty list (not just missing/null)
+            if (
+                "tools_allow" in data
+                and data["tools_allow"] == []
+                and "no tools" not in raw.lower()
+                and "no-tools" not in raw.lower()
+            ):
+                issues.append(
+                    f"{yf.name}: tools_allow: [] without 'no tools' comment"
+                )
+        assert not issues, (
+            f"Personas with tools_allow: [] missing intent comment: {issues}"
+        )

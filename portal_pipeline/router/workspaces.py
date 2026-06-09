@@ -725,24 +725,18 @@ def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
     persona refines it per the YAML's ``tools_allow``/``tools_deny``
     fields. Resolution rules:
 
-    1. If ``persona.tools_allow`` is **non-empty**, it **replaces** the
-       workspace default entirely (not "adds to"). This is intentional:
-       a persona can declare a strict subset of the workspace's tools.
-    2. ``persona.tools_deny`` then strips anything from the result.
-    3. If both are absent or empty, the workspace's ``tools`` field is
-       used unchanged.
-
-    Edge case worth knowing: ``tools_allow: []`` in YAML evaluates to
-    an empty set, which is falsy, so ``persona_allow or workspace_tools``
-    falls through to the workspace default. A persona that wants
-    **no tools at all** cannot express it via empty ``tools_allow:`` —
-    it must list every workspace-default tool in ``tools_deny:``.
-    (This is a known footgun; not addressed in this PR.)
+    1. ``tools_allow`` **absent** from the persona dict (or ``None``)
+       → use the workspace default tools unchanged.
+    2. ``tools_allow`` **present with an explicit list** (even ``[]``)
+       → that exact set **replaces** the workspace default.
+       ``tools_allow: []`` means *no tools at all*.
+    3. ``tools_deny`` then strips anything from the result.
 
     Args:
         persona: The persona YAML dict from ``_PERSONA_MAP``. An empty
             dict (the standard fallback for unknown personas) yields
-            the workspace default unchanged.
+            the workspace default unchanged because ``get("tools_allow", None)``
+            returns ``None``.
         workspace_id: Workspace key for the default fallback; unknown
             ids contribute ``[]`` as the base.
 
@@ -752,13 +746,13 @@ def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
         ``tool_registry.get_openai_tools`` preserves whatever order it
         receives.
     """
-    workspace_tools = set(_workspace_tools(workspace_id))
-    persona_allow = set(persona.get("tools_allow", []) or [])
+    raw_allow = persona.get("tools_allow")
     persona_deny = set(persona.get("tools_deny", []) or [])
-
-    effective = persona_allow or workspace_tools
-    effective = effective - persona_deny
-    return sorted(effective)
+    if raw_allow is None:
+        effective = set(_workspace_tools(workspace_id))
+    else:
+        effective = set(raw_allow)  # noqa: SIM108
+    return sorted(effective - persona_deny)
 
 
 def _resolve_persona_browser_policy(persona: dict) -> dict:
