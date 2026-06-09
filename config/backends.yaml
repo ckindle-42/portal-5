@@ -1,613 +1,4 @@
 backends:
-- id: mlx-apple-silicon
-  type: mlx
-  url: ${MLX_LM_URL:-http://host.docker.internal:8081}
-  group: mlx
-  mlx_models:
-  - id: mlx-community/Qwen3-Coder-Next-4bit
-    memory_gb: 46
-    big_model: true
-    is_vlm: false
-    supports_tools: true
-    kv_bits: '4'
-    kv_quant_scheme: turboquant
-    max_kv_size: 65536
-    skip_recall_bench: true
-    notes: 'Primary coder: 80B MoE 4bit, 3B active (~46GB, 256k ctx, BIG_MODEL). KV-quant
-      promoted by TASK_KV_PROMOTE_V1; max_kv_size overrides BIG_MODEL_CTX env default
-      for this entry (bench-conservative on 64GB, update from bench_kv_long_context.py
-      when mlx_lm gains --kv-bits). skip_recall_bench: loading this model on a 63GB
-      machine during rapid load/unload cycles triggers a Metal GPU kernel panic
-      (IOGPUMemory completeMemory underflow, IOGPUFamily). Candidate for replacement
-      with a smaller long-context coder.'
-  - id: mlx-community/Llama-3.3-70B-Instruct-4bit
-    memory_gb: 40
-    big_model: true
-    is_vlm: false
-    supports_tools: true
-    notes: "Heavy coding + reasoning (~40GB, 4bit only \u2014 too big for 8bit, BIG_MODEL)"
-  - id: mlx-community/Qwen3-VL-32B-Instruct-8bit
-    memory_gb: 36
-    big_model: true
-    is_vlm: true
-    supports_tools: false
-    notes: 'Heavy VLM: Qwen3-VL 32B 8bit (~36GB, BIG_MODEL)'
-  - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-MLX-8Bit
-    memory_gb: 34
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    kv_bits: '4'
-    kv_quant_scheme: turboquant
-    max_kv_size: 32768
-    skip_recall_bench: true
-    notes: "Data analysis: R1 Distill Qwen 32B 8bit (~34GB). KV-quant promoted by\
-      \ TASK_KV_PROMOTE_V1 \u2014 R1 thinking-chain growth is the worst KV-pressure\
-      \ class at 8-bit weights; max_kv_size conservative given 34GB model footprint.\
-      \ skip_recall_bench: 34GB consistently OOMs on 63GB machine under full portal\
-      \ stack during bench load/unload cycles."
-  - id: mlx-community/granite-4.1-30b-mxfp8
-    memory_gb: 30
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "IBM Granite 4.1 30B mxfp8 DENSE (~30GB, Apache 2.0). FALLBACK auto-compliance\
-      \ candidate \u2014 only if mxfp4 quality on S10c is insufficient. mxfp4 is V4/V5\
-      \ default."
-  - id: lmstudio-community/Magistral-Small-2509-MLX-8bit
-    memory_gb: 24
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: "Mistral reasoning 24B (~24GB, [THINK] mode \u2014 tool format differs\
-      \ from Qwen/Llama)"
-  - id: mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit
-    memory_gb: 22
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: 'Fast agentic coder: 30B MoE 8bit (~22GB)'
-  - id: Jackrong/MLX-Qwopus3.5-27B-v3-8bit
-    memory_gb: 22
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    kv_bits: '4'
-    kv_quant_scheme: turboquant
-    max_kv_size: 65536
-    skip_recall_bench: true
-    notes: "Reasoning primary: 27B v3 8bit (~22GB, v3 structural alignment). KV-quant\
-      \ promoted by TASK_KV_PROMOTE_V1 \u2014 thinking chains amplify KV pressure;\
-      \ 4-bit KV recovers headroom for predict_limit=32768 workloads.\
-      \ skip_recall_bench: QwQ-style thinking model \u2014 outputs via reasoning_content\
-      \ only, scoring returns 0.00 for all probes regardless of actual quality."
-  - id: divinetribe/gemma-4-31b-it-abliterated-4bit-mlx
-    memory_gb: 20
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: "Gemma 4 31B abliterated 4bit (~17GB) \u2014 text-only quant, gemma4 arch\
-      \ requires mlx-lm >= 0.31.2 (deferred \u2014 0.31.2 server has reasoning-content\
-      \ regression). Abliteration via Arditi et al. (2024). No degeneration issues\
-      \ (vs dboris variant). Catalog-only until mlx-lm server fix."
-  - id: mlx-community/Qwen3.6-35B-A3B-4bit
-    memory_gb: 20
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "Qwen3.6 35B-A3B MoE 4-bit MLX (~20GB, Apache 2.0). V6 bench candidate\
-      \ \u2014 3B-active MoE for fast agentic coding. Alibaba positioning: 'Agentic\
-      \ Coding Power, Now Open to All.' Vision encoder routes through mlx_vlm. Chat-template\
-      \ override (TASK_QWEN_TEMPLATE_PROMOTE_V1 priority 3) \u2014 disk patch only;\
-      \ mlx_vlm has no --chat-template flag."
-  - id: mlx-community/Qwen3.6-35B-A3B-4bit-DWQ
-    memory_gb: 20
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "Qwen3.6 35B-A3B MoE, DWQ (distillation-aware) 4-bit MLX (~20GB,\
-      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). Pairs against\
-      \ mlx-community/Qwen3.6-35B-A3B-4bit (plain RTN). Independent KLD study:\
-      \ ~34% better mean KLD than plain 4-bit at same size/speed; plain RTN's KLD\
-      \ is ~3x worse and divergence surfaces in outputs. Promotion target for the\
-      \ auto-agentic MoE slot IF bench_tps.py confirms TPS parity + no CC-01\
-      \ regression. chat_template_override: qwen3.6 (same Jinja fix as plain)."
-  - id: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit
-    memory_gb: 20
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "DEPRECATED QUANT (TASK_QUANT_TRUEUP_V1, A5): independent KLD study found UD-MLX\
-      \ ~8.6 bpw effective — more memory than 6-bit for worse-than-6-bit quality;\
-      \ Unsloth MLX quant 'still evolving'. Removed from default pull (launch.sh). Kept\
-      \ as documented negative result. Prefer DWQ/OptiQ (4-bit) or -6bit/-oQ6 (higher).\
-      \ Qwen3.6 35B-A3B MoE Unsloth Dynamic 2.0 4-bit MLX (~20GB, Apache 2.0,\
-      \ May 2026). UD redistributes precision vs uniform 4-bit at same footprint.\
-      \ V7 bench candidate paired with mlx-community/Qwen3.6-35B-A3B-4bit (stock)\
-      \ for head-to-head quality probe. Vision encoder routes through mlx_vlm.\
-      \ chat_template_override matches AEON and stock 35B-A3B variants \u2014\
-      \ patch-qwen-templates.py auto-handles after pull."
-  - id: mlx-community/Laguna-XS.2-4bit
-    memory_gb: 19
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Laguna XS.2 33B-A3B MoE 4bit (~18.8GB) \u2014 Poolside AI lineage (first\
-      \ non-Alibaba/Meta/Google/NVIDIA/Mistral coder in stack). 68.2% SWE-bench Verified.\
-      \ Native interleaved reasoning + tool calling. SWA+FP8 KV cache. Apache 2.0.\
-      \ Converted mlx-lm 0.31.3."
-  - id: mlx-community/DeepSeek-R1-Distill-Qwen-32B-abliterated-4bit
-    memory_gb: 18
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: 'Uncensored reasoning: R1 Distill Qwen 32B 4bit (~18GB)'
-  - id: mlx-community/gemma-4-31b-it-4bit
-    memory_gb: 18
-    big_model: false
-    is_vlm: true
-    supports_tools: false
-    kv_bits: '4.5'
-    kv_quant_scheme: turboquant
-    max_kv_size: 131072
-    notes: "Primary VLM: Gemma 4 dense 31B 4bit (~18GB, thinking+vision, 256K ctx).\
-      \ TurboQuant (4.5-bit KV) promoted by TASK_KV_PROMOTE_V1 \u2014 this is the\
-      \ original target of the MLX_VLM_KV_BITS plumbing; per-model YAML overrides\
-      \ the env var. max_kv_size conservative; update from bench_kv_long_context.py."
-  - id: mlx-community/Olmo-3-1125-32B-4bit
-    memory_gb: 17
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: "Allen AI Olmo-3 dense 32B 4-bit MLX (~17GB, Apache 2.0). V6 catalog add\
-      \ (workspace pin present since V5, model entry added V6). Non-Qwen lineage \u2014\
-      \ diversifies reasoning candidates. supports_tools=false: Olmo-3 does not follow\
-      \ OpenAI tools schema."
-  - id: froggeric/Qwen3.6-27B-MLX-4bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "Qwen3.6 27B base 4-bit MLX (~16GB, Apache 2.0). V6 bench candidate —
-      non-AEON Qwen3.6 sibling for auto-coding probe. froggeric template-fix variant
-      resolves |items/|safe Jinja crashes on MLX/LM Studio. Vision encoder routes
-      through mlx_vlm."
-  - id: Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed
-    memory_gb: 18
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Qwen3.6-27B dense + native MTP heads, MTPLX MLX-native speculative\
-      \ decoding (~18GB: 4-bit trunk + INT4 MTP sidecar, Apache 2.0). BENCH-ONLY.\
-      \ V8 MTP candidate (TASK_MODEL_REFRESH_V8). Self-speculative — lossless at\
-      \ temp 0, vendor claim up to 2.24x decode. Served by MTPLX runtime, NOT\
-      \ mlx-proxy --draft-model (that path is for external drafters; MTP uses the\
-      \ model's own heads). Promotion gated on bench_tps.py --spec-decoding-tag\
-      \ A/B + TASK_OMLX_MTP_STABILITY_V1 sustained-load probe. No-MTP baseline:\
-      \ Qwen3.6-27B-MLX-4bit measured 12.4 TPS; MTP target ~27-32 TPS."
-  - id: froggeric/Qwen3.6-27B-MTP-GGUF
-    memory_gb: 18
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "Qwen3.6-27B dense MTP-GGUF, llama.cpp self-speculative (draft-mtp).\
-      \ BENCH-ONLY Ollama-tier MTP candidate (TASK_MODEL_REFRESH_V8). Requires\
-      \ llama.cpp b9180+ (2026-05-16). Same froggeric org as the cataloged\
-      \ template-fix MLX variant. Portability fallback to MTPLX if the MLX-native\
-      \ path proves unstable under sustained load. ~2.3x vendor claim. Promotion\
-      \ gated identically to the MTPLX entry."
-  - id: mlx-community/Qwen3.6-27B-4bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "Qwen3.6-27B official mlx-community 4-bit convert (~16GB, Apache 2.0, Apr 2026).
-      Dense 27B + vision encoder. Replaces froggeric/Qwen3.6-27B-MLX-4bit as bench-qwen36-27b
-      primary target (froggeric retained in catalog as fallback reference only).
-      chat_template_override: qwen3.6 — same Jinja fix applied to AEON and 35B-A3B variants."
-  - id: mlx-community/Qwen3.6-27B-OptiQ-4bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "Qwen3.6-27B dense, OptiQ sensitivity-aware mixed 4-bit MLX (~16GB,\
-      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). mlx-optiq:\
-      \ per-layer KL sensitivity, sensitive layers 8-bit, robust 4-bit, within\
-      \ ~5% disk of uniform 4-bit. Vendor: beats stock uniform 4-bit on every\
-      \ capability metric. Pairs against mlx-community/Qwen3.6-27B-4bit (plain).\
-      \ Promotion target for bench-qwen36-27b IF bench confirms parity+quality."
-  - id: unsloth/Qwen3.6-27B-UD-MLX-4bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "DEPRECATED QUANT (TASK_QUANT_TRUEUP_V1, A5): independent KLD study found UD-MLX\
-      \ ~8.6 bpw effective — more memory than 6-bit for worse-than-6-bit quality;\
-      \ Unsloth MLX quant 'still evolving'. Removed from default pull (launch.sh). Kept\
-      \ as documented negative result. Prefer DWQ/OptiQ (4-bit) or -6bit/-oQ6 (higher).\
-      \ Qwen3.6 27B dense Unsloth Dynamic 2.0 4-bit MLX (~16GB, Apache 2.0,\
-      \ May 2026). UD vs stock 4-bit quant-method probe. V7 bench-only.\
-      \ Pairs with mlx-community/Qwen3.6-27B-4bit (stock) which remains\
-      \ bench-qwen36-27b primary. Vision encoder routes through mlx_vlm.\
-      \ chat_template_override matches stock — patch-qwen-templates.py\
-      \ auto-handles after pull."
-  - id: lmstudio-community/Devstral-Small-2507-MLX-4bit
-    memory_gb: 15
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Devstral v1.1 4bit (~15GB, 53.6% SWE-bench) \u2014 bench-devstral pin,\
-      \ displaced by GLM-4.7-Flash for auto-coding"
-  - id: mlx-community/GLM-4.7-Flash-4bit
-    memory_gb: 15
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    kv_bits: '4'
-    kv_quant_scheme: turboquant
-    max_kv_size: 131072
-    notes: "GLM-4.7-Flash 30B-A3B MoE 4bit (~15GB) \u2014 mlx-community Apple-Silicon\
-      \ conversion of zai-org/GLM-4.7-Flash. Z.AI lineage (escapes Qwen+Gemma duopoly).\
-      \ 59.2% SWE-bench, 79.5% \u03C4\xB2-Bench tool use, 200K ctx. PRIMARY for auto-coding.\
-      \ KV-quant promoted by TASK_KV_PROMOTE_V1 (max_kv_size conservative; update\
-      \ from bench_kv_long_context.py when mlx_lm gains --kv-bits)."
-  - id: mlx-community/granite-4.1-30b-mxfp4
-    memory_gb: 15
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    kv_bits: '4'
-    kv_quant_scheme: turboquant
-    max_kv_size: 131072
-    notes: "IBM Granite 4.1 30B mxfp4 DENSE (~15GB, Apache 2.0). PRIMARY auto-compliance\
-      \ candidate per V4 D6 \u2014 drops precision (4-bit) for ~14-16 TPS while preserving\
-      \ 30B dense architecture for S10c structural form. PROMOTION GATED on smoke\
-      \ PASS + S10c >= 70% PASS. KV-quant promoted by TASK_KV_PROMOTE_V1 \u2014 compliance\
-      \ prompts carry long policy text + citations."
-  - id: mlx-community/granite-4.1-30b-nvfp4
-    memory_gb: 15
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: IBM Granite 4.1 30B nvfp4 DENSE (~15GB, Apache 2.0). Alternative 4-bit
-      format (NVFP4 vs MXFP4). V5 ladder for empirical comparison vs mxfp4.
-  - id: mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4
-    memory_gb: 15
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: >-
-      NVIDIA Nemotron 3 Nano Omni 30B-A3B mxfp4 VLM (~15GB, NVIDIA Open Model
-      Agreement — commercial use permitted, NOT Apache 2.0). Released 2026-04-28.
-      Omni-modal: text + image + video + audio in single unified context (Mamba-
-      Transformer MoE backbone + C-RADIOv4-H vision + Parakeet-TDT-0.6B-v2 audio).
-      Converted mlx-vlm 0.4.5. bench-nemotron-omni pin. BENCH-ONLY — no production
-      workspace until TASK_NEMOTRON_OMNI_PROMOTE_V1. mxfp8 fallback (~30GB) available
-      at mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp8 if mxfp4 quality
-      is insufficient. Lineage: NVIDIA (Mamba-Transformer hybrid — distinct from all
-      current Transformer-only fleet entries). MMLongBench-Doc 57.5, OCRBenchV2 65.8,
-      VoiceBench 89.4 (leads Qwen3-Omni on all three). Measured M4 Pro tg ~83 TPS
-      (5-bit proxy; mxfp4 expected similar). License note: Open Model Agreement
-      prohibits use to train competing foundation models — internal/enterprise use
-      is unrestricted."
-  - id: mlx-community/Apriel-Nemotron-15B-Thinker-8bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "ServiceNow + NVIDIA Apriel-Nemotron-15B-Thinker 8-bit MLX (~16GB, MIT,
-      May 2025 base release; community MLX conversion). V7 bench candidate \u2014
-      NEW LINEAGE (ServiceNow+NVIDIA Apriel series, distinct from current
-      NVIDIA Nemotron-3 omni VLM). Dense 15B reasoning model. RL-trained on
-      Nemo + Nemotron post-training + ServiceNow enterprise data.
-      Native <think>...</think> reasoning traces. Slots between
-      Phi-4-reasoning-plus (8GB) and Magistral-Small (24GB) in reasoning
-      capacity ladder. supports_tools=true per card claim; if reasoning-budget
-      mixing with tool rendering shows in tests, retry with
-      enable_thinking=False at workspace param level.
-      MLX conversion availability: verify mlx-community/Apriel-Nemotron-15B-Thinker-8bit
-      exists at task execution time; if absent, fallback is local conversion
-      via 'mlx_lm.convert --hf-path ServiceNow-AI/Apriel-Nemotron-15B-Thinker
-      --mlx-path <local> -q --q-bits 8'."
-  - id: mlx-community/phi-4-8bit
-    memory_gb: 14
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Microsoft Phi-4 14B (~14GB, MIT, synthetic data \u2014 distinct methodology)"
-  - id: mlx-community/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-mlx-4Bit
-    memory_gb: 14
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "Qwen3.6 27B AEON-Ultimate-Uncensored 4-bit DENSE (~14GB, Apache 2.0).\
-      \ V5 security/redteam ladder. AEON-7 abliteration + fernflower-ssm-repair Apple\
-      \ Metal patch. Chat-template override (TASK_QWEN_TEMPLATE_PROMOTE_V1 priority\
-      \ 2) \u2014 ships with |items crash; qwen3.6 template also patches </thinking>\
-      \ hallucination recovery. mlx_chat_template_kwargs(enable_thinking=False) for\
-      \ auto-security continues to be honored."
-  - id: huihui-ai/Huihui-Qwen3.6-27B-abliterated-MTP-GGUF
-    memory_gb: 18
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "huihui-ai abliterated Qwen3.6-27B dense + MTP heads, llama.cpp\
-      \ self-speculative (draft-mtp). BENCH-ONLY auto-security/redteam MTP\
-      \ candidate (TASK_MODEL_REFRESH_V8, Finding 5). Same trusted abliteration\
-      \ source as Huihui-Qwen3.5-9B-abliterated (in catalog). Uncensored is a\
-      \ HARD constraint for these lanes; this replaces the single-author AEON\
-      \ one-off as the promotion target if the MTP A/B + stability probe pass.\
-      \ Requires llama.cpp b9180+. ~2.3x decode lever, same as the non-abliterated\
-      \ froggeric MTP-GGUF."
-  - id: Jackrong/MLX-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled-v2-4bit
-    memory_gb: 14
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: 'Reasoning alt: 27B v2 4bit (~14GB, tighter CoT, Claude-4.6-Opus)'
-  - id: mlx-community/gemma-4-26b-a4b-it-4bit
-    memory_gb: 13
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "Gemma 4 26B-A4B 4-bit MoE (~13GB, Apache 2.0, multimodal). V5 vision ladder\
-      \ \u2014 fastest variant, decode bound on 4B active. bench_kv_longctx 2026-05-19:\
-      \ baseline 131K=30TPS OK, 200K FAIL (502@300s). TurboQuant 4.5-bit tested and\
-      \ REVERTED: KV dequant overhead on MoE causes 71% TPS loss at 32K and 91% at\
-      \ 131K; 200K still fails. No KV quant for this model."
-  - id: mlx-community/gemma-4-26B-A4B-it-OptiQ-4bit
-    memory_gb: 13
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "Gemma 4 26B-A4B MoE, OptiQ sensitivity-aware mixed 4-bit MLX (~13GB,\
-      \ Apache 2.0). BENCH-ONLY (TASK_QUANT_TRUEUP_V1, Finding A). Pairs against\
-      \ mlx-community/gemma-4-26b-a4b-it-4bit (plain) \u2014 the auto-daily/research/\
-      \ vision primary. Vendor: beats uniform 4-bit every metric, ~same disk.\
-      \ HARD CAVEAT (A4): OptiQ mixed-precision KV path FAILS on Gemma-4 shared-KV\
-      \ attention (upstream mlx-lm). Serve with stock fp16 KV ONLY \u2014 no --kv-config.\
-      \ If the lane requires quantized KV this candidate is a no-go; bench runs\
-      \ fp16 KV. Existing entry already documents no-KV-quant for gemma-4 MoE."
-  - id: mlx-community/gemma-4-26B-A4B-it-heretic-4bit
-    memory_gb: 13
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    notes: "Gemma 4 26B-A4B HERETIC-abliterated 4-bit MoE (~13GB, Gemma ToU). V5 creative\
-      \ candidate. DavidAU HERETIC method on Gemma 4 base. PROMOTED to auto-creative\
-      \ primary in V6 (TASK_MODEL_REFRESH_V6) \u2014 replaces divinetribe/gemma-4-31b-it-abliterated-4bit-mlx\
-      \ which was catalog-only pending mlx-lm 0.31.2 server fix."
-  - id: mlx-community/Dolphin3.0-Llama3.1-8B-8bit
-    memory_gb: 9
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: "Dolphin 8B uncensored (~9GB). supports_tools flipped to false \u2014 Ollama-side\
-      \ dolphin demonstrably lacks tools (commit de96984), MLX dolphin shares the\
-      \ same chat template family and is unverified. Re-flag to true only after empirical\
-      \ verification via tests/portal5_persona_matrix.py --audit-tools."
-  - id: lmstudio-community/Phi-4-reasoning-plus-MLX-4bit
-    memory_gb: 8
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: Phi-4-reasoning-plus STEM/math (~8GB, RL-trained, mlx_lm not mlx_vlm)
-  - id: mlx-community/LFM2-8B-A1B-8bit
-    memory_gb: 8
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Liquid AI LFM2-8B-A1B 8-bit MLX (~8GB). MoE 8.3B total / 1.5B
-      active. NON-TRANSFORMER hybrid Liquid architecture (multiplicative gates +
-      short convolutions) — the only non-Transformer in the fleet, value is
-      lineage/inductive-bias diversification. License: lfm1.0 (Liquid AI
-      custom) — informational, self-hosted use. CAPABILITY SCOPE (per Liquid
-      AI's own card): suitable for agentic tasks, data extraction, RAG,
-      creative writing, multi-turn conversations. NOT suitable for
-      knowledge-intensive or programming tasks. Bench-pin only — do NOT
-      promote to auto-coding / auto-reasoning / auto-knowledge lanes."
-  - id: mlx-community/Llama-3.2-11B-Vision-Instruct-abliterated-4-bit
-    memory_gb: 7
-    big_model: false
-    is_vlm: true
-    supports_tools: false
-    notes: Uncensored VLM 11B 4bit (~7GB, Karakeep vision)
-  - id: Jackrong/Negentropy-claude-opus-4.7-9B-6bit
-    memory_gb: 7
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    chat_template_override: qwen3.5
-    notes: "Jackrong Negentropy 9B 6-bit MLX (~7GB, Apache 2.0). V6 bench candidate\
-      \ \u2014 trace-inversion reasoning methodology, 9B comparator to existing Qwopus27B\
-      \ reasoning primary. supports_tools=false: card does not benchmark tool use;\
-      \ reasoning models historically have supports_tools=false to prevent thinking-budget\
-      \ mixing with tool rendering. Chat-template override (TASK_QWEN_TEMPLATE_PROMOTE_V1\
-      \ priority 4) \u2014 Negentropy uses Qwen3.5 template lineage."
-  - id: huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit
-    memory_gb: 6
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    chat_template_override: qwen3.5
-    notes: "Qwen3.5 9B abliterated, MLX 4-bit (~6GB resident). PRIMARY for AUTO MLX\
-      \ path. Lineage parity with Ollama-side huihui_ai/qwen3.5-abliterated:9b. 256K\
-      \ ctx, vision-capable. Chat-template override (TASK_QWEN_TEMPLATE_PROMOTE_V1\
-      \ priority 1) \u2014 ships with |items crash; froggeric-fixed template applied."
-  - id: nabi-chan/Huihui-Qwen3.6-27B-abliterated-MLX-4bit
-    memory_gb: 16
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "huihui-ai abliterated Qwen3.6-27B dense, MLX 4-bit (~16GB). BENCH-ONLY\
-      \ (TASK_QUANT_TRUEUP_V1, Finding B). Generational refresh candidate for the\
-      \ AUTO/auto-documents uncensored slot, currently Huihui-Qwen3.5-9B (gen 3.5).\
-      \ Same trusted huihui-ai abliteration source. Dense 27B \u2014 higher capability\
-      \ than the 9B incumbent; bench confirms the TPS cost. 256K ctx, vision.\
-      \ Converted by nabi-chan. chat_template_override: qwen3.6."
-  - id: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit
-    memory_gb: 20
-    big_model: false
-    is_vlm: true
-    supports_tools: true
-    chat_template_override: qwen3.6
-    notes: "huihui-ai abliterated Qwen3.6 35B-A3B MoE, MLX 4-bit (~20GB). BENCH-ONLY\
-      \ (TASK_QUANT_TRUEUP_V1, Finding B). The SPEED play for the uncensored AUTO\
-      \ slot: 3B active -> fast decode (plain 35B-A3B benched 53.7 TPS), far above\
-      \ the 9B dense incumbent on capability at comparable speed. Pairs against\
-      \ Huihui-Qwen3.5-9B-abliterated-mlx-4bit. Converted by vanch007.\
-      \ chat_template_override: qwen3.6."
-  - id: mlx-community/Qwen2.5-Math-7B-Instruct-4bit
-    memory_gb: 5
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: 'Math specialist: Qwen2.5-Math 7B 4bit (~5GB)'
-  - id: mlx-community/gemma-4-e4b-it-4bit
-    memory_gb: 5
-    big_model: false
-    is_vlm: true
-    supports_tools: false
-    notes: Gemma 4 E4B VLM fallback (~5GB, vision+audio, 128K ctx)
-  - id: mlx-community/olmOCR-2-7B-1025-5bit
-    memory_gb: 5
-    big_model: false
-    is_vlm: true
-    supports_tools: false
-    notes: "Allen AI olmOCR-2 7B 5-bit MLX (~5GB, Apache 2.0). V7 bench candidate —
-      RLVR-trained for document OCR with unit-test rewards. SOTA on OlmOCR-Bench
-      for math formulas, tables, multi-column layouts. Qwen2.5-VL-7B base
-      architecture (mlx_vlm path, known-good). supports_tools=false: OCR-specialized
-      VLM, no tool-calling training. Routes via bench-olmocr2 — not promoted to
-      ocrspecialist persona until V5-style bench_tps.py + OCR quality probe passes."
-  - id: foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx
-    memory_gb: 5
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: "Cisco Foundation-Sec 8B Reasoning, locally converted to MLX 4-bit
-      via mlx_lm.convert (~4.5GB). Stored at ~/.cache/huggingface/hub/foundation-ai/
-      Foundation-Sec-8B-Reasoning-4bit-mlx (flat layout, not standard HF hub format —
-      the proxy resolves to the absolute path automatically via _resolve_model_path).
-      Llama-3.1-8B backbone, continued-pretrained on cybersecurity corpus + RLVR.
-      License: 'other (NOTICE.md)' upstream — informational, self-hosted use.
-      Native <think> reasoning traces (parser: minimax_m2). Specialization: CVE→CWE
-      mapping, MITRE ATT&CK classification, SOC triage, compliance evidence extraction.
-      Routes to blue-team/defender workflows ONLY — does NOT replace existing
-      abliterated red-team models (different lane). Out-of-scope per Cisco's policy:
-      malware/exploit generation."
-  - id: team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx
-    memory_gb: 5
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: "Team-ACE ToolACE-2.5, locally converted to MLX 4-bit via mlx_lm.convert
-      (~4.5GB). Stored at ~/.cache/huggingface/hub/team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx
-      (flat layout — proxy resolves to absolute path via _resolve_model_path).
-      LLaMA-3.1-8B-Instruct base + ToolACE synthetic-tool-calling dataset (26,507 APIs,
-      BFCL-topping). v2.5 adds self-refinement tuning + task decomposition over v2.0.
-      License: Apache 2.0 claimed (HF discussion #8 flags Llama 3.1 upstream
-      relationship — informational for self-hosted). Expects ToolACE-style system
-      prompt; use [func(arg=val)] tool-call format (BFCL-evaluated, also produces
-      OpenAI-compatible JSON tool calls). Promoted to tools-specialist workspace
-      2026-05-24. bench-toolace25 retained for regression benchmarking."
-  - id: mlx-community/granite-speech-4.1-2b
-    memory_gb: 4
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    bench_skip: true
-    notes: "IBM Granite Speech 4.1 2B native MLX (~4GB resident, Apache 2.0,
-      Apr 2026). V7 bench candidate — #1 on OpenASR leaderboard as of Apr 2026
-      (avg WER 5.52). Two-pass speech-language model: 16-conformer CTC encoder
-      + 2-layer Q-Former projector. Multilingual ASR (EN/FR/DE/ES/PT/JA) +
-      bidirectional speech translation X<->EN. KEY DIFFERENTIATOR: native
-      keyword list biasing at inference time — first model in fleet with this
-      capability. Critical for domain-vocabulary transcription accuracy
-      (CVE IDs, MITRE technique IDs, regulator names, NERC CIP requirement
-      numbers, exhibit IDs). supports_tools=false (ASR/AST specialist, no LM
-      tool training). Routes through mlx-audio (NOT mlx_lm or mlx_vlm).
-      bench-granite-speech pin — does NOT displace production mlx-transcribe.py
-      pipeline until promotion gate met (custom keyword-F1 benchmark)."
-  - id: mlx-community/Voxtral-4B-TTS-2603-mlx-6bit
-    memory_gb: 4
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    bench_skip: true
-    notes: "Mistral Voxtral 4B TTS 2603 MLX 6-bit (~4GB, Apache 2.0, Mar 2026).
-      V7 bench-only — companion to Voxtral Realtime ASR. 20 voice presets
-      across 9 languages (EN/FR/ES/DE/IT/PT/NL + 2 more per mlx-audio README).
-      Pairs with Kokoro-82M (current TTS primary on :8918) and Qwen3-TTS
-      Custom/Design/Base variants for head-to-head quality probe. Routes
-      through mlx-audio. supports_tools=false (TTS specialist).
-      bench-voxtral-tts pin — does NOT displace production mlx-speech.py
-      pipeline until quality probe shows >=4-of-5 wins on multilingual phrases."
-  - id: mlx-community/Llama-3.2-3B-Instruct-8bit
-    memory_gb: 3
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: Ultra-fast routing model (~3GB)
-  - id: mlx-community/granite-4.1-3b-mxfp8
-    memory_gb: 3
-    big_model: false
-    is_vlm: false
-    supports_tools: true
-    notes: IBM Granite 4.1 3B 8-bit MX DENSE (~3GB, Apache 2.0, ~50-70 TPS theoretical).
-      AUTO speed-class candidate.
-  - id: mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit
-    memory_gb: 3
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    bench_skip: true
-    notes: "Mistral Voxtral Mini 4B Realtime 2602 MLX 4-bit (~3GB, Apache 2.0,
-      Feb 2026). V7 bench-only — streaming-optimized ASR with causal encoder
-      + GQA decoder. Community-reported time-to-first-token ~570ms for 127s
-      audio (vs ~2700ms baseline; 4.7x). 13 languages. Routes through
-      mlx-audio. supports_tools=false (ASR specialist).
-      DISAMBIGUATION: This is the 2602 RT variant, distinct from
-      mlx-community/Voxtral-Mini-3B-2507-bf16 (the 2507 batched variant
-      already wired in mlx-transcribe.py for multilingual). Realtime adds
-      streaming capability; 2507 stays as the production batched path.
-      bench-voxtral-realtime pin — does NOT displace 2507 pipeline until
-      end-to-end <1s first-token verified AND WER within 10% of
-      whisper-large-v3-turbo."
-  - id: mlx-community/Nanonets-OCR2-3B-4bit
-    memory_gb: 2
-    big_model: false
-    is_vlm: true
-    supports_tools: false
-    notes: "Nanonets OCR2 3B 4-bit MLX (~2GB, Qwen2.5-VL-3B base architecture).
-      License: 'Other' on upstream nanonets/Nanonets-OCR2-3B (HF discussion #7
-      unresolved at task creation); base Qwen2.5-VL is Apache 2.0. For
-      self-hosted use only. Specialization: pdf2markdown structure preservation,
-      LaTeX equation recognition, semantic image tagging (<img>), tables to
-      HTML/markdown, signature/watermark/checkbox recognition. Pairs with
-      bench-olmocr2 (Allen AI, 7B, RLVR-trained, math/multi-column strength) —
-      empirical comparison via bench_tps.py + OCR-quality probe decides
-      promotion."
-  - id: mlx-community/Llama-3.2-1B-Instruct-4bit
-    memory_gb: 1.0
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: 'Draft model: Llama-3 tokenizer (~1GB, additive with target)'
-  - id: mlx-community/Qwen2.5-0.5B-Instruct-4bit
-    memory_gb: 0.5
-    big_model: false
-    is_vlm: false
-    supports_tools: false
-    notes: 'Draft model: Qwen tokenizer (~0.5GB, additive with target)'
 - id: ollama-general
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -641,6 +32,21 @@ backends:
     notes: "IBM Granite 4.1 8B Q4_K_M (~5.3GB, 128K ctx, dense, no-think) \u2014 verified\
       \ tools tag, BFCL V3 68.27, IFEval 87.1. Apache 2.0, ISO-certified. Used as\
       \ auto-video primary (de96984)."
+  - id: gemma4:26b-a4b-it-q4_K_M
+    supports_tools: true
+    notes: "Gemma 4 26B A4B MoE VLM Q4 (~17GB, Apache 2.0, thinking+vision). Daily driver primary."
+  - id: phi4:14b-q8_0
+    supports_tools: true
+    notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
+  - id: magistral:24b-small-2506-q8_0
+    supports_tools: false
+    notes: "Mistral Magistral-Small 24B Q8 (~24GB, [THINK] reasoning mode, Mistral lineage)."
+  - id: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
+    supports_tools: false
+    notes: "Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary)."
+  - id: gemma4:31b-it-q4_K_M
+    supports_tools: false
+    notes: "Gemma 4 31B dense VLM Q4 (~20GB, Apache 2.0, research primary)."
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -671,6 +77,21 @@ backends:
       \ NO Ollama tools tag on this GGUF (audit 2026-05-04: api_error). Llama 3.3\
       \ architecture supports tools natively, but this specific Ollama registry GGUF\
       \ lacks the template declaration."
+  - id: glm-4.7-flash:q4_K_M
+    supports_tools: true
+    notes: "GLM-4.7-Flash 30B-A3B MoE Q4 (~15GB, Z.AI, 59.2% SWE-bench, 200K ctx). auto-coding primary."
+  - id: laguna-xs.2:q4_K_M
+    supports_tools: true
+    notes: "Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified)."
+  - id: phi4-reasoning:plus
+    supports_tools: true
+    notes: "Phi-4-reasoning-plus Q4 (~8GB, Microsoft RL-trained, strong STEM/math)."
+  - id: qwen3-coder:30b-a3b-q4_K_M
+    supports_tools: true
+    notes: "Qwen3-Coder 30B-A3B MoE Q4 (~19GB, Alibaba, auto-spl primary)."
+  - id: qwen3-coder:480b-a35b-q4_K_M
+    supports_tools: true
+    notes: "Qwen3-Coder 480B-A35B MoE Q4 (~46GB, Alibaba, auto-agentic heavy coder)."
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -740,6 +161,15 @@ backends:
     notes: "IBM Granite 4.1 30B Q4_K_M (~17GB, 128K ctx, dense, no-think) \u2014 leaderboard\
       \ #1 BFCL V3 (73.7) + IFEval 89.7. Apache 2.0, ISO-certified, cryptographic\
       \ signatures. IBM Research lineage."
+  - id: deepseek-r1:32b-q8_0
+    supports_tools: false
+    notes: "DeepSeek-R1 Distill Qwen 32B Q8 (~32GB, high-precision reasoning, auto-data primary)."
+  - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
+    supports_tools: true
+    notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary)."
+  - id: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf
+    supports_tools: true
+    notes: "Apriel-Nemotron-15B Q5 (~11GB, ServiceNow+NVIDIA, dense reasoning, MIT, auto-blueteam primary)."
 - id: ollama-vision
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -751,6 +181,12 @@ backends:
   - id: llava:7b
     supports_tools: false
     notes: Older vision model, no tools tag.
+  - id: gemma4:26b-a4b-it-q4_K_M
+    supports_tools: true
+    notes: "Gemma 4 26B VLM Q4 — vision primary, same model as ollama-general entry."
+  - id: gemma4:e4b-it-q4_K_M
+    supports_tools: false
+    notes: "Gemma 4 E4B VLM Q4 (~5GB, small/fast vision fallback)."
 - id: ollama-creative
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -769,46 +205,37 @@ backends:
     notes: No-restrictions creative. Unverified for tools.
 workspace_routing:
   auto:
-  - mlx
   - security
   - coding
   - general
   auto-daily:
-  - mlx
   - general
   auto-coding:
-  - mlx
   - coding
   - general
   auto-agentic:
-  - mlx
   - coding
   - general
   auto-spl:
-  - mlx
   - coding
   - general
   auto-security:
-  - mlx
   - security
   - general
   auto-redteam:
-  - mlx
   - security
   - general
   auto-blueteam:
-  - mlx
+  - reasoning
   - security
   - general
   auto-creative:
   - creative
   - general
   auto-reasoning:
-  - mlx
   - reasoning
   - general
   auto-documents:
-  - mlx
   - general
   - coding
   auto-video:
@@ -816,64 +243,49 @@ workspace_routing:
   auto-music:
   - general
   auto-research:
-  - mlx
   - reasoning
   - general
   auto-vision:
-  - mlx
   - vision
   - general
   auto-data:
-  - mlx
   - reasoning
   - general
   auto-compliance:
-  - mlx
   - reasoning
   - general
   auto-mistral:
-  - mlx
   - general
   auto-math:
-  - mlx
   - coding
   - general
   bench-devstral:
-  - mlx
   - coding
   - general
   bench-qwen3-coder-next:
-  - mlx
   - coding
   - general
   bench-qwen3-coder-30b:
-  - mlx
   - coding
   - general
   bench-llama33-70b:
-  - mlx
   - coding
   - general
   bench-phi4:
-  - mlx
   - coding
   - general
   bench-phi4-reasoning:
-  - mlx
   - coding
   - general
   bench-dolphin8b:
-  - mlx
   - general
   bench-glm:
-  - mlx
   - coding
   - general
   bench-gptoss:
   - reasoning
   - general
   bench-laguna:
-  - mlx
   - coding
   - general
   bench-granite41-8b:
@@ -882,111 +294,81 @@ workspace_routing:
   - reasoning
   - general
   bench-qwen35-abliterated:
-  - mlx
   - general
   bench-qwen36-27b:
-  - mlx
   - coding
   - general
   bench-qwen36-27b-mtp:
-  - mlx
+  - reasoning
   - coding
   - general
   bench-qwen36-35b-a3b:
-  - mlx
   - coding
   - general
   bench-omnicoder2:
   - coding
   - general
   bench-negentropy:
-  - mlx
   - reasoning
   - general
   bench-olmo3-32b:
-  - mlx
   - reasoning
   - general
   bench-nemotron-omni:
-  - mlx
   - vision
   - general
   bench-olmocr2:
-  - mlx
   - vision
   - general
   bench-nanonets-ocr2:
-  - mlx
   - vision
   - general
   bench-lfm2-moe:
-  - mlx
   - creative
   - general
   bench-foundation-sec:
-  - mlx
   - reasoning
   - general
   bench-toolace25:
-  - mlx
-  - tools
   - general
   bench-apriel-nemotron:
-  - mlx
   - reasoning
   - general
   bench-voxtral-realtime:
-  - mlx
   - general
   bench-voxtral-tts:
-  - mlx
   - general
   bench-granite-speech:
-  - mlx
   - general
   bench-qwen36-27b-ud:
-  - mlx
   - coding
   - general
   bench-qwen36-35b-a3b-ud:
-  - mlx
   - coding
   - general
   bench-qwen36-35b-a3b-dwq:
-  - mlx
   - coding
   - general
   bench-qwen36-27b-optiq:
-  - mlx
   - coding
   - general
   bench-gemma4-26b-optiq:
-  - mlx
   - vision
   - general
   bench-huihui-qwen36-27b:
-  - mlx
   - general
   bench-huihui-qwen36-35b-a3b:
-  - mlx
   - general
   tools-specialist:
-  - mlx
-  - tools
   - general
 defaults:
   fallback_group: general
   request_timeout: 120
   health_timeout: 3
   health_check_interval: 15
-speculative_decoding:
-  # External-drafter speculative decoding via mlx-proxy --draft-model.
-  # Stays EMPTY: blocked on mlx_lm ArraysCache trimmability (P5-FUT-SPEC).
-  # NOTE (V8): Qwen3.6 MTP is *self*-speculative — it uses the model's own
-  # MTP heads, NOT an external draft model, so MTP candidates do NOT belong
-  # in this map. MTP is enabled via the serving runtime (MTPLX / llama.cpp
-  # draft-mtp), evaluated bench-only first. See TASK_MODEL_REFRESH_V8.md.
-  draft_models: {}
+# MTP speculative decoding is supported natively by models with embedded MTP heads
+# (e.g. Qwopus3.6-27B-v2-MTP-GGUF, Jackrong). Enable per-request via
+# draft_num_predict parameter in the Ollama Modelfile or API options.
 
 # ── Embedding candidates (informational; not yet routed) ─────────────────
 # These models are recorded for the future P5-FUT-EMBED-001 migration task.

@@ -186,6 +186,7 @@ from portal_pipeline.router.tools import (  # noqa: F401  (facade re-export)
 from portal_pipeline.router.routing import (  # noqa: F401  (facade re-export)
     _CODING_KEYWORDS,
     _SPL_KEYWORDS,
+    _VALID_WORKSPACE_IDS,
     _load_routing_config,
     _build_router_prompt,
     _route_with_llm,
@@ -425,17 +426,12 @@ _http_client: httpx.AsyncClient | None = None
 
 
 def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
-    """Verify every ``WORKSPACES`` ``model_hint``/``mlx_model_hint`` resolves.
+    """Verify every ``WORKSPACES`` ``model_hint`` resolves.
 
-    Run once at startup from ``lifespan``. For each workspace:
-
-    * ``model_hint`` (Ollama) must be in some backend's ``models``
-      list, AND that backend must be in one of the workspace's
-      routing groups per ``config/backends.yaml``. Skipped when the
-      workspace has ``mlx_only: True`` (no Ollama path exists, so
-      checking would always fail).
-    * ``mlx_model_hint`` must be in the ``mlx`` group (always
-      validated regardless of ``mlx_only``).
+    Run once at startup from ``lifespan``. For each workspace,
+    ``model_hint`` (Ollama) must be in some backend's ``models``
+    list, AND that backend must be in one of the workspace's
+    routing groups per ``config/backends.yaml``.
 
     Returns the list of failures rather than raising. The caller
     decides what to do: ``lifespan`` raises ``RuntimeError`` under
@@ -466,10 +462,6 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     for be in registry.list_backends():
         group_models.setdefault(be.group, set()).update(be.models)
 
-    # MLX models live in group='mlx'; mlx_model_hint is always validated against
-    # that group, not against the workspace's Ollama routing groups.
-    mlx_models: set[str] = group_models.get("mlx", set())
-
     errors: list[str] = []
     for ws_id, ws_cfg in WORKSPACES.items():
         groups = registry._workspace_routes.get(ws_id, [])
@@ -477,19 +469,16 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
         for g in groups:
             ollama_available |= group_models.get(g, set())
 
-        for hint_key in ("model_hint", "mlx_model_hint"):
-            if ws_cfg.get("mlx_only") and hint_key == "model_hint":
-                continue
-            hint = ws_cfg.get(hint_key)
-            if not hint:
-                continue
-            available = mlx_models if hint_key == "mlx_model_hint" else ollama_available
-            if hint not in available:
-                errors.append(
-                    f"workspace={ws_id!r} {hint_key}={hint!r} "
-                    f"not in any backend's models for groups={groups}. "
-                    f"Add it to config/backends.yaml or correct the WORKSPACES hint."
-                )
+        hint = ws_cfg.get("model_hint")
+        if not hint:
+            continue
+        available = ollama_available
+        if hint not in available:
+            errors.append(
+                f"workspace={ws_id!r} model_hint={hint!r} "
+                f"not in any backend's models for groups={groups}. "
+                f"Add it to config/backends.yaml or correct the WORKSPACES hint."
+            )
     return errors
 
 
@@ -601,88 +590,6 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     opts: dict = dict(body.get("options") or {})
     opts.setdefault("num_batch", _OLLAMA_NUM_BATCH)
     body["options"] = opts
-    return body
-
-
-# Pipeline-level fallback for mlx_lm.server requests that have no max_tokens.
-# mlx_lm.server's CLI default is 512 tokens — enough for a short paragraph, not
-# for code generation (Asteroids HTML ~6K tok) or research responses (~8K tok).
-# This floor fires only when the workspace has no predict_limit AND the caller
-# (Open WebUI) did not pass max_tokens. Overrideable via env var.
-_MLX_DEFAULT_MAX_TOKENS: int = int(os.environ.get("MLX_DEFAULT_MAX_TOKENS", "8192"))
-
-
-def _inject_mlx_options(body: dict, workspace_id: str = "") -> dict:
-    """Add MLX-specific tuning to the outgoing request body. Returns a copy.
-
-    Only called for backends with ``type == "mlx"``.
-
-    Two non-obvious divergences from ``_inject_ollama_options``'s
-    "setdefault throughout" pattern. **These are intentional
-    overrides; the workspace is authoritative.**
-
-    1. **``max_tokens`` is a ceiling, not just a default.** Open
-       WebUI sends its own ``max_tokens`` derived from the model's
-       context window, which is often far larger than the workspace
-       cap. ``min(caller_max, predict_limit)`` enforces the cap
-       while still respecting a caller that asks for *less*.
-       ``setdefault`` would silently let OWUI's larger value
-       through.
-    2. **``enable_thinking`` is also override-by-assignment** when
-       the workspace's ``mlx_chat_template_kwargs`` declares it.
-       OWUI's model presets send ``enable_thinking=True`` for all
-       known thinking models; a workspace that explicitly disables
-       thinking (e.g. ``auto-daily`` for snappier non-CoT replies)
-       must win over OWUI. The value is written to both
-       ``body["enable_thinking"]`` (top-level) and
-       ``body["chat_template_kwargs"]["enable_thinking"]`` because
-       the MLX server stack checks both locations.
-
-    The 8192-token default floor (``_MLX_DEFAULT_MAX_TOKENS``)
-    fires only when the workspace has no ``predict_limit`` AND the
-    caller did not pass ``max_tokens``. Without it,
-    ``mlx_lm.server``'s 512-token CLI default would silently
-    truncate code generation (~6K tokens for typical full-game
-    HTML) and research responses (~8K tokens) mid-output.
-
-    Body is copied at function entry; the original is never
-    mutated.
-
-    Args:
-        body: Outgoing request body. Not mutated.
-        workspace_id: Workspace key. ``predict_limit`` and
-            ``mlx_chat_template_kwargs`` are looked up here.
-            Empty string falls through to the 8192-token default
-            with no chat-template kwargs.
-
-    Returns:
-        Shallow copy of ``body`` with injections applied.
-    """
-    body = dict(body)
-    ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
-    predict_limit = ws_cfg_local.get("predict_limit") or _MLX_DEFAULT_MAX_TOKENS
-    # Enforce predict_limit as a ceiling, not just a default. OWUI sends its
-    # own max_tokens (e.g. from the model context window setting), which setdefault
-    # would leave unchanged even if it far exceeds the workspace cap. Use min()
-    # so a caller requesting fewer tokens is still respected, but the workspace
-    # limit is never exceeded.
-    caller_max = body.get("max_tokens")
-    if caller_max is not None:
-        body["max_tokens"] = min(int(caller_max), predict_limit)
-    else:
-        body["max_tokens"] = predict_limit
-    mlx_ctk = ws_cfg_local.get("mlx_chat_template_kwargs")
-    if mlx_ctk:
-        body.setdefault("chat_template_kwargs", mlx_ctk)
-        if "enable_thinking" in mlx_ctk:
-            # Workspace explicitly declares thinking mode — use direct assignment,
-            # not setdefault. OWUI sends enable_thinking=True for known thinking
-            # models (Gemma 4, Qwen3) in the model preset params, which setdefault
-            # would silently leave in place. Workspace config is authoritative.
-            body["enable_thinking"] = mlx_ctk["enable_thinking"]
-            ctk = dict(body.get("chat_template_kwargs") or {})
-            ctk["enable_thinking"] = mlx_ctk["enable_thinking"]
-            body["chat_template_kwargs"] = ctk
     return body
 
 
@@ -1552,38 +1459,25 @@ async def _try_non_streaming(
 
     Major steps in order:
 
-    1. **Pick target model** from workspace hints
-       (``mlx_model_hint`` for MLX, ``model_hint`` for Ollama).
+    1. **Pick target model** from ``model_hint``.
        Return ``None`` if ``enforce_hint=True`` and the hint isn't
-       satisfied. **MLX backends are skipped entirely when no
-       ``mlx_model_hint`` is configured** — otherwise we'd pick an
-       arbitrary MLX model and silently mis-attribute results.
-    2. **Inject backend-specific options** via
-       ``_inject_ollama_options`` or ``_inject_mlx_options``.
-    3. **Tool-result synthesis hop**: if ``body.messages`` already
-       contains tool-role messages, force ``enable_thinking=True``
-       on MLX so the model produces a real answer rather than just
-       acknowledging the tool result. The workspace's
-       ``mlx_chat_template_kwargs.enable_thinking: False`` overrides
-       this — workspace authoritative pattern (chunk 2).
-    4. **Inject tool schemas** when the persona has effective tools
+       satisfied.
+    2. **Inject Ollama options** via ``_inject_ollama_options``.
+    3. **Inject tool schemas** when the persona has effective tools
        AND ``_model_supports_tools(target_model)``.
-    5. **POST**, parse JSON.
-    6. **Non-streaming tool loop** (single hop): if the model
+    4. **POST**, parse JSON.
+    5. **Non-streaming tool loop** (single hop): if the model
        returned ``tool_calls``, dispatch them via
        ``_dispatch_tool_call``, append assistant turn + tool
        results, call the model once more for synthesis with
-       ``tools: None``, ``tool_choice: None``, and (on MLX)
-       ``enable_thinking: True`` unless the workspace disabled it.
+       ``tools: None``, ``tool_choice: None``.
        **Single hop, not unbounded** — see "asymmetry" below.
-    7. **Translate Ollama native** ``{"message": ...}`` to OpenAI
+    6. **Translate Ollama native** ``{"message": ...}`` to OpenAI
        ``{"choices": [{"message": ...}]}`` when needed.
-    8. **Reasoning normalisation**: promote
+    7. **Reasoning normalisation**: promote
        ``message.reasoning`` → ``message.content`` when content is
-       empty (DeepSeek-R1 CoT exhaustion). Strip ``<think>``
-       wrapper when content is the wrapped form (Gemma 4 with
-       thinking disabled, model put answer inside tags anyway).
-    9. **Record metrics** + **emit ``x-portal-route`` header** so
+       empty (DeepSeek-R1 CoT exhaustion).
+    8. **Record metrics** + **emit ``x-portal-route`` header** so
        callers and operators can see which workspace × backend ×
        model served.
 
@@ -1605,9 +1499,7 @@ async def _try_non_streaming(
         enforce_hint: When ``True``, return ``None`` if the
             backend doesn't carry the hinted model. The caller
             sets this to ``False`` on the last candidate so the
-            last shot accepts any model — unless the workspace is
-            ``mlx_only``, in which case the caller keeps ``True``
-            because benchmark integrity requires the named model.
+            last shot accepts any model as fallback.
         persona: Persona slug; resolves to ``_PERSONA_MAP`` entry
             for tool authorization. Empty string falls back to
             the workspace-level tool list.
@@ -1621,39 +1513,11 @@ async def _try_non_streaming(
         return None
     ws_cfg = WORKSPACES.get(workspace_id, {})
     model_hint = ws_cfg.get("model_hint", "")
-    mlx_hint = ws_cfg.get("mlx_model_hint", "")
 
-    # Pick the right hint for the backend type
-    if backend.type == "mlx" and mlx_hint:
-        target_model = mlx_hint if mlx_hint in backend.models else ""
-        if not target_model and enforce_hint:
-            logger.debug(
-                "MLX backend %s lacks hinted model %s for workspace=%s — skipping",
-                backend.id,
-                mlx_hint,
-                workspace_id,
-            )
-            return None
-        if not target_model:
-            if not backend.models:
-                logger.warning(
-                    "Backend %s has empty models — cannot resolve target_model. Skipping.",
-                    backend.id,
-                )
-                return None
-            target_model = backend.models[0]
-    elif backend.type == "mlx" and not mlx_hint:
-        # No mlx_model_hint for this workspace — skip MLX entirely so the routing
-        # loop tries the next (Ollama) candidate instead of picking a random MLX model.
-        logger.info(
-            "Skipping MLX backend %s for workspace %s (no mlx_model_hint set).",
-            backend.id,
-            workspace_id,
-        )
-        return None
-    elif model_hint and model_hint in backend.models:
+    # Pick target model from Ollama hint
+    if model_hint and model_hint in backend.models:
         target_model = model_hint
-    elif model_hint and enforce_hint and backend.type != "mlx":
+    elif model_hint and enforce_hint:
         logger.debug(
             "Backend %s lacks hinted model %s for workspace=%s — skipping",
             backend.id,
@@ -1679,23 +1543,8 @@ async def _try_non_streaming(
         )
 
     req_body = {**body, "model": target_model, "stream": False}
-    # Compute once: does this workspace explicitly disable thinking?
-    _ws_ctk = (WORKSPACES.get(workspace_id, {}).get("mlx_chat_template_kwargs") or {})
-    _ws_thinking_disabled = _ws_ctk.get("enable_thinking") is False
     if backend.type == "ollama":
         req_body = _inject_ollama_options(req_body, workspace_id)
-    elif backend.type == "mlx":
-        req_body = _inject_mlx_options(req_body, workspace_id)
-        # Synthesis hop: if the request contains tool results, enable thinking
-        # so the model generates a substantive answer with recalled content.
-        # Skip if the workspace explicitly disables thinking (e.g. auto-daily) —
-        # enabling it here would override the workspace's authoritative setting
-        # and cause the model to consume its entire token budget on reasoning.
-        if any(m.get("role") == "tool" for m in body.get("messages", [])) and not _ws_thinking_disabled:
-            req_body["enable_thinking"] = True
-            _ctk = dict(req_body.get("chat_template_kwargs") or {})
-            _ctk["enable_thinking"] = True
-            req_body["chat_template_kwargs"] = _ctk
 
     # Inject tool schemas — same logic as the streaming path. Required when
     # _try_non_streaming is used as a fallback after a streaming attempt fails
@@ -1746,11 +1595,6 @@ async def _try_non_streaming(
                 "tools": None,
                 "tool_choice": None,
             }
-            if backend.type == "mlx" and not _ws_thinking_disabled:
-                _synth_body["enable_thinking"] = True
-                _ctk = dict(_synth_body.get("chat_template_kwargs") or {})
-                _ctk["enable_thinking"] = True
-                _synth_body["chat_template_kwargs"] = _ctk
             _synth_resp = await _http_client.post(backend.chat_url, json=_synth_body)
             _synth_resp.raise_for_status()
             data = _synth_resp.json()
@@ -1914,11 +1758,10 @@ async def chat_completions(
        last user message so the model can reference them in tool
        calls.
     7. **Candidate selection**: ``registry.get_backend_candidates``
-       filtered to MLX-only when the workspace is ``mlx_only``.
+       returns healthy backends for the workspace.
     8. **Non-streaming branch**: iterate candidates,
        ``_try_non_streaming`` each, return first success. All-fail
-       returns 502 (or 503 with a tailored message for
-       ``mlx_only``).
+       returns 502.
     9. **Streaming branch**: pick first candidate, resolve target
        model from hints, inject options, resolve effective tools,
        decide ``_has_tools``.
@@ -1955,8 +1798,7 @@ async def chat_completions(
             413 (body too large), 429 (semaphore timeout — global,
             per-key, or per-workspace), 502 (all backends failed
             non-streaming), 503 (registry not initialised; no
-            healthy backends; mlx_only workspace with no MLX
-            backend).
+            healthy backends).
     """
     _verify_key(authorization)
 
@@ -2162,27 +2004,6 @@ async def chat_completions(
                 ),
             )
 
-        # mlx_only workspaces (bench-*): restrict candidates to MLX backends only.
-        # A benchmark with a silent Ollama fallback is worse than a hard failure —
-        # the result would be attributed to the wrong model entirely.
-        # The existing 300s _http_client timeout already covers cold model loads
-        # (~60s for 40GB models), so no additional polling or retry logic is needed.
-        # Streaming path: after filtering to one MLX backend, len(candidates)==1 takes
-        # the single-candidate direct-stream path — _stream_or_fallback never runs.
-        _ws_cfg_local = WORKSPACES.get(workspace_id, {})
-        _mlx_only = _ws_cfg_local.get("mlx_only", False)
-        if _mlx_only:
-            candidates = [b for b in candidates if b.type == "mlx"]
-            if not candidates:
-                raise HTTPException(
-                    status_code=503,
-                    detail=(
-                        f"Workspace '{workspace_id}' requires an MLX backend — "
-                        "none are currently healthy. "
-                        "Ensure mlx-proxy is running: ./launch.sh status"
-                    ),
-                )
-
         if not stream:
             # Non-streaming: try each backend in priority order until one succeeds.
             # Model hint is enforced (skip backends without the hinted model) for
@@ -2198,15 +2019,12 @@ async def chat_completions(
             )
             for i, backend in enumerate(candidates):
                 is_last = i == len(candidates) - 1
-                # mlx_only: always enforce model hint — never substitute a different
-                # model on the same backend. The benchmark result must be attributable
-                # to exactly the model named in the workspace's mlx_model_hint.
                 result = await _try_non_streaming(
                     backend,
                     body,
                     workspace_id,
                     start_time,
-                    enforce_hint=True if _mlx_only else (not is_last),
+                    enforce_hint=(not is_last),
                     persona=persona,
                 )
                 if result is not None:
@@ -2222,16 +2040,6 @@ async def chat_completions(
             # All backends failed
             _record_error(workspace_id, "all_backends_failed")
             _concurrent_requests.dec()
-            if _mlx_only:
-                raise HTTPException(
-                    status_code=503,
-                    detail=(
-                        f"Benchmark workspace '{workspace_id}': target MLX model did not respond. "
-                        "Large models (>30GB) require up to 60s to load on first use. "
-                        "If you just switched models, wait for the load to complete and retry. "
-                        "To verify: ./launch.sh logs | grep 'Switching to model'"
-                    ),
-                )
             raise HTTPException(
                 status_code=502,
                 detail="All backends failed — check server logs",
@@ -2242,44 +2050,9 @@ async def chat_completions(
         backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
-        mlx_hint = ws_cfg.get("mlx_model_hint", "")
 
-        # Skip MLX backends when workspace has no mlx_model_hint. Without a hint, the
-        # routing code would silently pick an arbitrary MLX model (backends[0]) instead
-        # of the intended Ollama model — producing wrong-model inference with no error.
-        if backend.type == "mlx" and not mlx_hint:
-            non_mlx = [c for c in candidates if c.type != "mlx"]
-            if non_mlx:
-                logger.info(
-                    "Workspace %s has no mlx_model_hint — skipping MLX backend %s, routing to %s",
-                    workspace_id,
-                    backend.id,
-                    non_mlx[0].id,
-                )
-                backend = non_mlx[0]
-                candidates = non_mlx
-            # else: only MLX available — fall through, use it as last resort
-
-        # Pick the right hint for the backend type
-        if backend.type == "mlx" and mlx_hint:
-            if mlx_hint in backend.models:
-                target_model = mlx_hint
-            else:
-                if not backend.models:
-                    logger.warning(
-                        "Backend %s has empty MLX models list — cannot fall back. Skipping.",
-                        backend.id,
-                    )
-                    return None
-                target_model = backend.models[0]
-                logger.warning(
-                    "mlx_model_hint %r not in backend %s models — falling back to %r. "
-                    "Add it to config/backends.yaml MLX list or correct the hint in WORKSPACES.",
-                    mlx_hint,
-                    backend.id,
-                    target_model,
-                )
-        elif model_hint:
+        # Pick target model from Ollama hint
+        if model_hint:
             if model_hint in backend.models:
                 target_model = model_hint
             else:
@@ -2316,12 +2089,9 @@ async def chat_completions(
 
         backend_body = {**body, "model": target_model}
 
-        # Inject keep_alive + num_batch for Ollama; predict_limit -> max_tokens for MLX.
-        # vLLM uses its own config and is not handled here.
+        # Inject keep_alive + num_batch for Ollama.
         if backend.type == "ollama":
             backend_body = _inject_ollama_options(backend_body, workspace_id)
-        elif backend.type == "mlx":
-            backend_body = _inject_mlx_options(backend_body, workspace_id)
 
         # Resolve effective tool list for this request (M2)
         persona_data = _PERSONA_MAP.get(persona, {})

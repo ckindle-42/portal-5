@@ -63,7 +63,7 @@ class TestRouteWithLLM:
     async def test_returns_workspace_on_high_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.95)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -74,7 +74,7 @@ class TestRouteWithLLM:
     async def test_returns_none_on_low_confidence(self):
         mock_resp = _mock_llm_response("auto-coding", 0.3)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -85,7 +85,7 @@ class TestRouteWithLLM:
     async def test_returns_none_on_unknown_workspace(self):
         mock_resp = _mock_llm_response("auto-notaworkspace", 0.95)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -97,7 +97,7 @@ class TestRouteWithLLM:
         import httpx
 
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
 
@@ -109,7 +109,7 @@ class TestRouteWithLLM:
         import httpx
 
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
 
@@ -121,7 +121,7 @@ class TestRouteWithLLM:
         """'auto' is the default — returning it provides no routing value."""
         mock_resp = _mock_llm_response("auto", 0.99)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -141,7 +141,7 @@ class TestRouteWithLLM:
         mock_resp.json.return_value = {"response": "not json {{{"}
         mock_resp.raise_for_status = MagicMock()
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -158,7 +158,7 @@ class TestRouteWithLLM:
         """Verify SPL workspace is returned and is a valid workspace ID."""
         mock_resp = _mock_llm_response("auto-spl", 0.98)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 
@@ -172,7 +172,7 @@ class TestRouteWithLLM:
     async def test_security_routing_via_llm(self):
         mock_resp = _mock_llm_response("auto-security", 0.93)
         with patch(
-            "portal_pipeline.router_pipe._http_client", new_callable=AsyncMock
+            "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
         ) as mock_client:
             mock_client.post = AsyncMock(return_value=mock_resp)
 

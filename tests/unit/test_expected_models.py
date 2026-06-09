@@ -22,40 +22,6 @@ def test_mlx_model_detected_by_org_prefix():
     assert is_mlx_model("") is False
 
 
-def test_workspace_with_both_hints_returns_mlx_first_when_ready():
-    # V5 promotion: auto-coding MLX primary is now Laguna-XS.2-4bit (GLM-4.7-Flash
-    # had P5-MLX-006 chat-template defect producing 0 tokens).
-    keys, src = expected_model_keys("auto-coding", mlx_state="ready")
-    assert keys, f"expected at least one key, got {keys} ({src})"
-    assert keys[0].startswith("laguna"), f"MLX preferred when ready, got {keys}"
-    assert any("qwen3-coder" in k for k in keys)
-
-
-def test_workspace_with_mlx_down_returns_ollama_only():
-    keys, src = expected_model_keys("auto-coding", mlx_state="down")
-    assert keys, f"expected Ollama hint, got {keys} ({src})"
-    assert not any("laguna" in k for k in keys), \
-        f"MLX hint must be excluded when down, got {keys}"
-    assert any("qwen3-coder" in k for k in keys)
-
-
-def test_blueteam_mlx_hint_affects_model_list():
-    # auto-blueteam now has Foundation-Sec as MLX hint (May 2026).
-    # MLX ready: Foundation-Sec should appear in keys.
-    # MLX down: only lily-cybersecurity (Ollama fallback) should appear.
-    keys_ready, _ = expected_model_keys("auto-blueteam", mlx_state="ready")
-    keys_down, _ = expected_model_keys("auto-blueteam", mlx_state="down")
-    assert any("foundation-sec" in k.lower() for k in keys_ready), (
-        f"Foundation-Sec expected when MLX ready, got {keys_ready}"
-    )
-    assert not any("foundation-sec" in k.lower() for k in keys_down), (
-        f"Foundation-Sec must be excluded when MLX down, got {keys_down}"
-    )
-    assert any("lily-cybersecurity" in k for k in keys_down), (
-        f"lily-cybersecurity (Ollama fallback) expected when MLX down, got {keys_down}"
-    )
-
-
 def test_unknown_workspace_returns_empty():
     keys, src = expected_model_keys("auto-nonexistent")
     assert keys == []

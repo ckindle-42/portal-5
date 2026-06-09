@@ -5,13 +5,9 @@ are reachable right now." It is loaded once per pipeline process from
 ``config/backends.yaml`` and instantiated as a singleton in
 ``router_pipe.lifespan``; no other code constructs a ``BackendRegistry``.
 
-Three backend types are supported:
+Two backend types are supported:
 
 * ``ollama``           — health probed via ``/api/tags``.
-* ``mlx``              — local MLX proxy on :8081; health is permissive
-                         because the proxy loads models on demand and
-                         legitimately returns 503 while idle (see
-                         ``_check_one``).
 * ``openai_compatible``— vLLM and similar; health probed via ``/health``.
 
 Operator workflow: adding a cluster node is a YAML edit and a pipeline restart
@@ -123,7 +119,7 @@ DEFAULT_CONFIG_PATH = _default_config_path()
 
 @dataclass
 class Backend:
-    """A single inference backend — Ollama, MLX proxy, or OpenAI-compatible (vLLM).
+    """A single inference backend — Ollama or OpenAI-compatible (vLLM).
 
     Instances are constructed exclusively by ``BackendRegistry._load_config``
     from entries in ``config/backends.yaml`` and are mutated in-place only by
@@ -132,21 +128,17 @@ class Backend:
 
     Attributes:
         id: Stable identifier from YAML; used as the registry dict key.
-        type: One of ``"ollama"``, ``"mlx"``, ``"openai_compatible"``.
+        type: One of ``"ollama"``, ``"openai_compatible"``.
             Drives which URL ``health_url`` produces.
         url: Base URL (no trailing slash required); ``chat_url`` and
             ``health_url`` append the appropriate path.
         group: Routing group (e.g. ``"general"``, ``"coding"``). Workspaces
             map to one or more group names in ``workspace_routing``.
-        models: Flat list of model ids served by this backend. Derived from
-            either ``mlx_models:`` (new MLX format) or ``models:`` in YAML.
+        models: Flat list of model ids served by this backend.
         healthy: Liveness flag. **Defaults to True** so requests immediately
             after startup don't 503 while the first health-check cycle is
             still running; ``_check_one`` flips it as needed.
         last_check: Monotonic wall-clock timestamp of the last health probe.
-        mlx_metadata: Per-model dicts for MLX backends only — keys include
-            ``id``, ``memory_gb``, ``big_model``, ``is_vlm``,
-            ``supports_tools``, ``notes``. Empty list for non-MLX backends.
         ollama_metadata: Per-model dicts for Ollama backends when entries
             in ``models:`` are dicts (new format with explicit
             ``supports_tools``). Empty list when entries are bare strings
@@ -155,16 +147,12 @@ class Backend:
     """
 
     id: str
-    type: str  # "ollama" | "openai_compatible" | "mlx"
+    type: str  # "ollama" | "openai_compatible"
     url: str
     group: str  # e.g., "general", "coding", "creative"
     models: list[str]
     healthy: bool = True
     last_check: float = 0.0
-    # Rich per-model metadata for MLX backends (from mlx_models: in backends.yaml).
-    # Each entry: {id, memory_gb, big_model, is_vlm, supports_tools, notes}.
-    # Empty list for non-MLX backends or when mlx_models key is absent (old format).
-    mlx_metadata: list[dict] = None  # type: ignore[assignment]
     # Rich per-model metadata for Ollama backends. Populated from dict-form entries
     # in `models:` (e.g. `{id: foo, supports_tools: true}`). Empty list when entries
     # are bare strings (legacy format) — those models default to supports_tools=False
@@ -172,8 +160,6 @@ class Backend:
     ollama_metadata: list[dict] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
-        if self.mlx_metadata is None:
-            self.mlx_metadata = []
         if self.ollama_metadata is None:
             self.ollama_metadata = []
 
@@ -191,20 +177,13 @@ class Backend:
     def health_url(self) -> str:
         """Return the URL to probe for liveness, dispatched by backend ``type``.
 
-        The endpoints are chosen for both correctness and cheapness:
-
-        * ``ollama`` → ``/api/tags`` — proves the daemon is up *and* the model
-          registry is responsive in one round-trip. Cheaper than ``/api/show``.
-        * ``mlx`` → ``/v1/models`` — OpenAI-compatible; returns 200 with an
-          empty list when the proxy is idle (no model loaded). See
-          ``_check_one`` for why even 503/timeout here counts as healthy.
+        * ``ollama`` → ``/api/tags`` — proves the daemon is up and the model
+          registry is responsive in one round-trip.
         * any other → ``/health`` — vLLM's canonical liveness path.
         """
         if self.type == "ollama":
-            return f"{self.url.rstrip('/')}/api/tags"  # Ollama: list models
-        if self.type == "mlx":
-            return f"{self.url.rstrip('/')}/v1/models"  # mlx_vlm: OpenAI-compatible
-        return f"{self.url.rstrip('/')}/health"  # vLLM: /health
+            return f"{self.url.rstrip('/')}/api/tags"
+        return f"{self.url.rstrip('/')}/health"
 
 
 class BackendRegistry:
@@ -337,37 +316,29 @@ class BackendRegistry:
 
         # Load backends
         for be in cfg.get("backends", []):
-            # Accept `mlx_models: [dict]` (new) and `models: [str]` OR `models: [dict]`
-            # (both accepted). When models entries are dicts, populate ollama_metadata;
-            # when strings, leave ollama_metadata empty (treated as unflagged →
-            # supports_tools=False per fail-safe default).
-            # See TASK_TOOL_SUPPORT_AUDIT_V1 §A1-A4.
-            mlx_meta: list[dict] = be.get("mlx_models", [])
+            # Accept `models: [str]` OR `models: [dict]`. When entries are dicts,
+            # populate ollama_metadata; when strings, leave it empty.
             ollama_meta: list[dict] = []
-            if mlx_meta:
-                flat_models = [m["id"] for m in mlx_meta]
-            else:
-                raw_models = be.get("models", [])
-                flat_models = []
-                for m in raw_models:
-                    if isinstance(m, dict):
-                        flat_models.append(m["id"])
-                        ollama_meta.append(m)
-                    elif isinstance(m, str):
-                        flat_models.append(m)
-                    else:
-                        logger.warning(
-                            "Backend %s: unexpected model entry type %s, skipping",
-                            be.get("id"),
-                            type(m).__name__,
-                        )
+            raw_models = be.get("models", [])
+            flat_models = []
+            for m in raw_models:
+                if isinstance(m, dict):
+                    flat_models.append(m["id"])
+                    ollama_meta.append(m)
+                elif isinstance(m, str):
+                    flat_models.append(m)
+                else:
+                    logger.warning(
+                        "Backend %s: unexpected model entry type %s, skipping",
+                        be.get("id"),
+                        type(m).__name__,
+                    )
             backend = Backend(
                 id=be["id"],
                 type=be.get("type", "ollama"),
                 url=be["url"],
                 group=be.get("group", "general"),
                 models=flat_models,
-                mlx_metadata=mlx_meta,
                 ollama_metadata=ollama_meta,
             )
             self._backends[backend.id] = backend
@@ -377,7 +348,7 @@ class BackendRegistry:
                 backend.type,
                 backend.group,
                 len(flat_models),
-                len(ollama_meta) + len(mlx_meta),
+                len(ollama_meta),
             )
 
         # Load workspace routing
@@ -630,22 +601,10 @@ class BackendRegistry:
         async with sem:
             try:
                 resp = await client.get(backend.health_url)
-                if resp.status_code == 200:
-                    backend.healthy = True
-                elif backend.type == "mlx":
-                    # MLX proxy loads models on demand — 503 means idle/loading,
-                    # proxy is still healthy and will load on request.
-                    backend.healthy = True
-                else:
-                    backend.healthy = False
+                backend.healthy = resp.status_code == 200
             except Exception as e:
-                if backend.type == "mlx":
-                    # MLX proxy may timeout while loading a model — still healthy.
-                    logger.debug("MLX health check exception (treating as healthy): %s", e)
-                    backend.healthy = True
-                else:
-                    logger.debug("Health check failed for %s: %s", backend.id, e)
-                    backend.healthy = False
+                logger.debug("Health check failed for %s: %s", backend.id, e)
+                backend.healthy = False
             finally:
                 backend.last_check = time.time()
 

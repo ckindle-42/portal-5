@@ -24,9 +24,8 @@ def test_validator_passes_when_hints_resolve():
     reg = _mock_registry(
         backends=[
             ("ollama-coding", "coding", ["qwen3-coder:30b"]),
-            ("mlx-apple-silicon", "mlx", ["mlx-community/Qwen3-Coder-Next-4bit"]),
         ],
-        routes={"auto-coding": ["mlx", "coding", "general"]},
+        routes={"auto-coding": ["coding", "general"]},
     )
     saved = dict(WORKSPACES)
     WORKSPACES.clear()
@@ -34,7 +33,6 @@ def test_validator_passes_when_hints_resolve():
         "name": "test",
         "description": "test",
         "model_hint": "qwen3-coder:30b",
-        "mlx_model_hint": "mlx-community/Qwen3-Coder-Next-4bit",
         "tools": [],
     }
     try:
