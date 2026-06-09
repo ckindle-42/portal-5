@@ -154,14 +154,13 @@ ui:
   # URL formatting: pretty, full or host
   url_formatting: pretty
 
-# Lock arbitrary settings on the preferences page.
-#
-# preferences:
-#   lock:
+preferences:
+  # Lock arbitrary settings on the preferences page.
+  lock: []
 #     - categories
 #     - language
 #     - autocomplete
-#     - favicon
+#     - favicon_resolver
 #     - safesearch
 #     - method
 #     - doi_resolver
@@ -531,18 +530,22 @@ engines:
     engine: bing
     shortcut: bi
     disabled: true
+    # base_url: https://cn.bing.com  # for instances hosted in China
 
   - name: bing images
     engine: bing_images
     shortcut: bii
+    # base_url: https://cn.bing.com  # for instances hosted in China
 
   - name: bing news
     engine: bing_news
     shortcut: bin
+    # base_url: https://cn.bing.com  # for instances hosted in China
 
   - name: bing videos
     engine: bing_videos
     shortcut: biv
+    # base_url: https://cn.bing.com  # for instances hosted in China
 
   - name: bitchute
     engine: bitchute
@@ -886,6 +889,11 @@ engines:
     shortcut: ftm
     disabled: true
 
+  - name: flaticon
+    engine: flaticon
+    shortcut: fli
+    disabled: true
+
   - name: flickr
     categories: images
     shortcut: fl
@@ -955,6 +963,22 @@ engines:
     shortcut: fy
     timeout: 8.0
     disabled: true
+
+  - name: gabanza
+    engine: xpath
+    search_url: https://www.gabanza.com/search?query={query}
+    shortcut: gab
+    timeout: 4
+    disabled: true
+    results_xpath: //div[contains(@class, "border-t")]/div/div
+    url_xpath: (.//a/@href)[1]
+    title_xpath: ./a
+    content_xpath: .//p
+    about:
+      website: https://www.gabanza.com
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name: geizhals
     engine: geizhals
@@ -1107,6 +1131,22 @@ engines:
     shortcut: hn
     disabled: true
 
+  - name: heexy
+    engine: heexy
+    categories: general
+    heexy_categ: web
+    shortcut: he
+    disabled: true
+    inactive: true
+
+  - name: heexy images
+    engine: heexy
+    categories: images
+    heexy_categ: image
+    shortcut: hei
+    disabled: true
+    inactive: true
+
   - name: hex
     engine: hex
     shortcut: hex
@@ -1203,35 +1243,6 @@ engines:
     shortcut: js
     timeout: 3.0
     disabled: true
-
-  - name: karmasearch
-    engine: karmasearch
-    categories: [general, web]
-    search_type: web
-    shortcut: ka
-    inactive: true
-
-  - name: karmasearch images
-    engine: karmasearch
-    categories: [images, web]
-    search_type: images
-    shortcut: kai
-    paging: false
-    inactive: true
-
-  - name: karmasearch videos
-    engine: karmasearch
-    categories: [videos, web]
-    search_type: videos
-    shortcut: kav
-    inactive: true
-
-  - name: karmasearch news
-    engine: karmasearch
-    categories: [news, web]
-    search_type: news
-    shortcut: kan
-    inactive: true
 
   - name: kickass
     engine: kickass
@@ -1391,7 +1402,6 @@ engines:
     engine: metacpan
     shortcut: cpan
     disabled: true
-    number_of_results: 20
 
   # https://docs.searxng.org/dev/engines/offline/search-indexer-engines.html#module-searx.engines.meilisearch
   # - name: meilisearch
@@ -1689,10 +1699,6 @@ engines:
       # image proxy of https://pixiv.perennialte.ch
       # - https://pximg.perennialte.ch
 
-  - name: podcastindex
-    engine: podcastindex
-    shortcut: podcast
-
   # Required dependency: psychopg2
   #  - name: postgresql
   #    engine: postgresql
@@ -1798,6 +1804,7 @@ engines:
     shortcut: qwn
     categories: news
     network: qwant
+    disabled: true
 
   - name: qwant images
     qwant_categ: images
@@ -1805,6 +1812,7 @@ engines:
     shortcut: qwi
     categories: [images, web]
     network: qwant
+    disabled: true
 
   - name: qwant videos
     qwant_categ: videos
@@ -1812,6 +1820,7 @@ engines:
     shortcut: qwv
     categories: [videos, web]
     network: qwant
+    disabled: true
 
   # - name: library
   #   engine: recoll
@@ -1967,6 +1976,14 @@ engines:
   #       - ...
   #   disabled: true
 
+  - name: seekninja
+    engine: seekninja
+    shortcut: sen
+    # very slow due to its server-side events architecture
+    timeout: 10
+    disabled: true
+    inactive: true
+
   - name: semantic scholar
     engine: semantic_scholar
     shortcut: se
@@ -2060,6 +2077,22 @@ engines:
     use_source_url: true
     shortcut: ts
     disabled: true
+
+  - name: tiger
+    engine: tiger
+    categories: general
+    tiger_category: Websuche
+    shortcut: tig
+    disabled: true
+    inactive: true
+
+  - name: tiger news
+    engine: tiger
+    categories: news
+    tiger_category: News
+    shortcut: tign
+    disabled: true
+    inactive: true
 
   - name: tmdb
     engine: xpath
@@ -2518,6 +2551,38 @@ engines:
     disabled: true
     inactive: true
 
+  - name: swisscows
+    engine: swisscows
+    categories: general
+    swisscows_category: web
+    results_per_page: 20
+    shortcut: sw
+    disabled: true
+    inactive: true
+
+  - name: swisscows images
+    engine: swisscows
+    categories: images
+    swisscows_category: images
+    shortcut: swi
+    disabled: true
+    inactive: true
+
+  - name: swisscows videos
+    engine: swisscows
+    categories: videos
+    swisscows_category: videos
+    results_per_page: 10
+    shortcut: swv
+    disabled: true
+    inactive: true
+
+  - name: swisscows news
+    engine: swisscows_news
+    shortcut: swn
+    disabled: true
+    inactive: true
+
   - name: wordnik
     engine: wordnik
     shortcut: wnik
@@ -2541,12 +2606,6 @@ engines:
       require_api_key: false
       results: HTML
       language: de
-
-  - name: svgrepo
-    engine: svgrepo
-    shortcut: svg
-    timeout: 10.0
-    disabled: true
 
   - name: tootfinder
     engine: tootfinder
@@ -2592,6 +2651,23 @@ engines:
     engine: wttr
     shortcut: wttr
     timeout: 9.0
+
+  - name: zapmeta
+    engine: xpath
+    shortcut: zpm
+    search_url: https://www.zapmeta.com/search?q={query}&pg={pageno}
+    results_xpath: //article[contains(@class, "organic-results-item")]
+    url_xpath: ./h2/a/@href
+    title_xpath: ./h2
+    content_xpath: ./p
+    paging: true
+    send_page_num_on_first_page: false  # otherwise blocks requests
+    disabled: true
+    about:
+      website: https://www.zapmeta.com/
+      use_official_api: false
+      require_api_key: false
+      results: HTML
 
   - name: braveapi
     engine: braveapi
