@@ -3159,8 +3159,103 @@ MEOF
     python3 "$PORTAL_ROOT/scripts/download_comfyui_models.py"
     ;;
 
+  apply-mtp-drafts)
+    # Wire Qwen3.6-27B MTP speculative-decoding A/B pairing.
+    #
+    # Creates: portal5/qwen3.6-27b-mtp:q8_0-drafted
+    #   Base:  qwen3.6:27b-q8_0       (high-precision quality model)
+    #   Draft: qwen3.6:27b-mtp-q4_K_M (MTP-capable fast draft model)
+    #
+    # The resulting model runs at q8_0 quality with draft-accelerated token
+    # generation. bench-qwen36-27b-mtp is wired to this tag for the Phase-6
+    # TPS A/B vs bench-qwen36-27b (plain q8_0).
+    #
+    # Idempotent: re-running recreates the model (safe after any base update).
+    # Graceful-skip: if either base or draft is absent, prints SKIP and exits 0.
+    # DRAFT rejection: if Ollama rejects MTP for this architecture, the error
+    # is logged verbatim and the command exits 1 so the operator can see it.
+    # Retry condition: after Ollama adds broader MTP arch support (tracked in
+    # TASK_MODEL_FLEET_REFRESH_V2 Phase 5 notes).
+
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    _mtp_ollama() {
+        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            ollama "$@"
+        elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+            docker exec portal5-ollama ollama "$@"
+        else
+            echo "ERROR: Ollama not reachable (not running locally or in Docker)" >&2
+            return 1
+        fi
+    }
+
+    MTP_BASE_TAG="qwen3.6:27b-q8_0"
+    MTP_DRAFT_TAG="qwen3.6:27b-mtp-q4_K_M"
+    MTP_CREATED_TAG="portal5/qwen3.6-27b-mtp:q8_0-drafted"
+
+    echo "apply-mtp-drafts: wiring Qwen3.6-27B MTP A/B pair ..."
+
+    # Check base model
+    if ! _mtp_ollama show "$MTP_BASE_TAG" &>/dev/null 2>&1; then
+        echo "  SKIP — base model $MTP_BASE_TAG not pulled."
+        echo "  Run: ollama pull $MTP_BASE_TAG  (or ./launch.sh pull-models)"
+        exit 0
+    fi
+
+    # Pull draft model if needed
+    if ! _mtp_ollama show "$MTP_DRAFT_TAG" &>/dev/null 2>&1; then
+        echo "  Pulling draft model $MTP_DRAFT_TAG ..."
+        if ! _mtp_ollama pull "$MTP_DRAFT_TAG"; then
+            echo "  FAIL — could not pull $MTP_DRAFT_TAG"
+            exit 1
+        fi
+    fi
+
+    # Get the GGUF blob path for the draft model
+    MTP_DRAFT_PATH=$(_mtp_ollama show "$MTP_DRAFT_TAG" --modelfile 2>/dev/null | grep '^FROM ' | head -1 | awk '{print $2}')
+    if [ -z "$MTP_DRAFT_PATH" ] || [ ! -f "$MTP_DRAFT_PATH" ]; then
+        echo "  FAIL — could not resolve blob path for $MTP_DRAFT_TAG (got: '$MTP_DRAFT_PATH')"
+        echo "  This may indicate the model is not locally cached. Re-pull and retry."
+        exit 1
+    fi
+    echo "  Draft blob: $MTP_DRAFT_PATH"
+
+    # Create the MTP-drafted model
+    MTP_MODELFILE=$(mktemp)
+    printf 'FROM %s\nDRAFT %s\n' "$MTP_BASE_TAG" "$MTP_DRAFT_PATH" > "$MTP_MODELFILE"
+    echo "  Modelfile:"
+    cat "$MTP_MODELFILE"
+    echo "  Creating $MTP_CREATED_TAG ..."
+
+    MTP_CREATE_OUTPUT=$(ollama create "$MTP_CREATED_TAG" -f "$MTP_MODELFILE" 2>&1)
+    MTP_CREATE_EXIT=$?
+    rm -f "$MTP_MODELFILE"
+
+    echo "$MTP_CREATE_OUTPUT"
+
+    if [ $MTP_CREATE_EXIT -ne 0 ]; then
+        echo ""
+        echo "  DRAFT REJECTION (Ollama create failed, exit $MTP_CREATE_EXIT)."
+        echo "  Verbatim error above. Architecture MTP support may not be available in"
+        echo "  Ollama ${_OLLAMA_VER:-$(ollama --version 2>/dev/null | awk '{print $NF}')} for Qwen3.6."
+        echo "  Retry condition: after Ollama adds Qwen3.6 MTP arch support."
+        echo "  Wiring: bench-qwen36-27b-mtp hint is kept for the retry."
+        exit 1
+    fi
+
+    # Verify
+    echo ""
+    echo "  Verifying $MTP_CREATED_TAG ..."
+    _mtp_ollama show "$MTP_CREATED_TAG" 2>&1 | head -10
+    echo ""
+    echo "  OK — $MTP_CREATED_TAG created."
+    echo "  Re-hint bench-qwen36-27b-mtp in workspaces.py if the workspace's hint"
+    echo "  still points to the Qwopus artifact (TASK_MODEL_FLEET_REFRESH_V2 Phase 5)."
+    ;;
+
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3201,6 +3296,7 @@ MEOF
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  refresh-models        Check all models for updates (skips unchanged models)"
     echo "  apply-model-params        Create Ollama ctx-tagged variants (e.g. qwen3-coder:480b-...-ctx32k)"
+    echo "  apply-mtp-drafts          Wire Qwen3.6-27B MTP A/B pair (q8_0 base + mtp-q4 draft → portal5/... tag)"
     echo "  import-gguf <path> [name]  Import a locally downloaded GGUF file into Ollama"
     echo "  add-user <email> [name] [role]  Create a user account"
     echo "  list-users            List all registered users"
