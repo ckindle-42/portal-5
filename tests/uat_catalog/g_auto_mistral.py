@@ -13,9 +13,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "name": "Mistral Reasoner — Multi-Stakeholder OT Problem",
         "section": "auto-mistral",
         "model_slug": "auto-mistral",
-        "mlx_model": "lmstudio-community/Magistral-Small-2509-MLX-8bit",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "A utility CISO wants full EDR on all OT workstations for security visibility. "
             "The OT engineering manager says any agent on OT hosts risks process instability "
@@ -98,7 +97,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-mistral",
         "model_slug": "magistralstrategist",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "A growing SaaS company (150 employees, $8M ARR) must decide between: "
             "(A) Building and managing their own data center for cost savings at scale, "

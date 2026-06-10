@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "auto-daily",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": "What's a quick lunch I can make in 10 minutes if I have eggs, bread, and a tomato?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 200},
@@ -33,8 +32,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": "Hi! What can you help me with today?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 200},
@@ -60,8 +58,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Rewrite this for clarity, keep my voice: 'so basically what we found "
             "is that the thing we thought was broken wasn't actually broken it was "
@@ -83,8 +80,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Summarize this passage in 4 sentences:\n\n"
             "It is a truth universally acknowledged, that a single man in possession "
@@ -123,8 +119,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Help me plan a focused 90-minute work block for tomorrow: I need to "
             "reply to 4 emails, draft a one-page memo, and review a colleague's PR."
@@ -162,8 +157,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": "What does this git command do, and is it safe? git reset --hard origin/main",
         "assertions": [
             {"type": "min_length", "label": "Substantive answer", "chars": 200},
@@ -193,8 +187,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "dailydriver",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a complete production-grade Python web server with JWT auth, "
             "rate limiting, OpenAPI docs, and pytest tests for every route."
@@ -233,8 +226,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-daily",
         "model_slug": "personalassistant",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "prompt": "Hello, what's your role here?",
         "assertions": [
             {"type": "min_length", "label": "Substantive response", "chars": 150},

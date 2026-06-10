@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-blueteam",
         "model_slug": "auto-blueteam",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
+        "workspace_tier": "ollama",
         "prompt": (
             "We are mid-incident. Timeline: 14:03 — EDR alert: PowerShell download cradle on WS-42. "
             "14:11 — DNS logs show WS-42 querying a DGA-like domain 6x. "
@@ -74,8 +73,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-blueteam",
         "model_slug": "blueteamdefender",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "foundation-ai/Foundation-Sec-8B-Reasoning-4bit-mlx",
+        "workspace_tier": "ollama",
         "prompt": "Anomaly detected. Respond.",
         "assertions": [
             {

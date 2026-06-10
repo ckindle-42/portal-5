@@ -2,7 +2,7 @@
   "id": "auto-music",
   "name": "🎵 Portal Music Producer",
   "meta": {
-    "description": "🎵 Portal Music Producer",
+    "description": "🎵 Portal Music Producer — LFM2.5-8B-A1B (V8: 89 t/s, hybrid conv+attention architecture, fastest structured-output model in fleet). Generates music via AudioCraft/MusicGen MCP.",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_music",

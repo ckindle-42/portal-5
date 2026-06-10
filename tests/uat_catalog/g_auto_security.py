@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
             "Our utility has a Historian server that sits at the boundary between the OT network "
@@ -74,7 +74,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-security",
         "model_slug": "cybersecurityspecialist",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
             "Our SOC is seeing a 400% increase in alerts but the team size is flat. "
@@ -138,7 +138,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-security",
         "model_slug": "networkengineer",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
             "Design network segmentation for a substation automation system. Components: "
@@ -211,7 +211,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 180,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
             "Classify this vulnerability by severity (CVSS score and rating) and explain your rationale: "
@@ -283,7 +283,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-security",
         "model_slug": "auto-security",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
             "Search for and summarize the three most significant CVEs disclosed in the past "

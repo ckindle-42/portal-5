@@ -2,7 +2,7 @@
   "id": "auto-reasoning",
   "name": "🧠 Portal Deep Reasoner",
   "meta": {
-    "description": "🧠 Portal Deep Reasoner",
+    "description": "🧠 Portal Deep Reasoner — DeepSeek-R1-0528-Qwen3-8B (V8: 31 t/s, AIME 2024 matches Qwen3-235B at 8B, ~5GB). Chain-of-thought reasoning, step-by-step analysis, complex multi-part problems.",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_research"

@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "auto-coding",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/Laguna-XS.2-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Python async HTTP retry wrapper using httpx.AsyncClient. "
             "Requirements: exponential backoff with jitter, max 3 retries, retry only on "
@@ -68,7 +67,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "pythoncodegeneratorcleanoptimizedproduction-ready",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a function to parse YAML configuration files with schema validation. "
             "The function should: accept a file path and a pydantic model class, return a "
@@ -97,7 +96,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "bugdiscoverycodeassistant",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Find all issues in this function and classify each by type "
             "(Logic Error, Runtime Error, Security Vulnerability, or Performance Issue):\n\n"
@@ -186,7 +185,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "codereviewassistant",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "PR Diff (review only the changed lines marked with +):\n\n"
             "def authenticate(username, password):\n"
@@ -244,7 +243,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "codereviewer",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Audit this Python function completely. Assign confidence level "
             "(High/Medium/Low) to each finding:\n\n"
@@ -281,7 +280,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "fullstacksoftwaredeveloper",
         "timeout": 150,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Implement a FastAPI JWT authentication flow: POST /auth/login returns access + "
             "refresh tokens, GET /protected requires valid access token, POST /auth/refresh "
@@ -312,7 +311,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "seniorfrontenddeveloper",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Build me a reusable data table component with sorting, pagination "
             "(25 rows per page), and a search filter. Column definitions should be passed as props."
@@ -357,7 +356,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "devopsautomator",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Generate a Kubernetes Deployment manifest for a Python FastAPI app. "
             "Image: ghcr.io/myorg/api:v1.2.3, port 8000, 2 replicas, readiness probe on /health, "
@@ -399,7 +398,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "githubexpert",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to undo the last 3 commits on main branch and remove them completely "
             "from git history so nobody can ever see them. What is the git command?"
@@ -445,7 +444,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "ethereumdeveloper",
         "timeout": 420,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Solidity staking contract where users can deposit ETH, earn yield based on "
             "time staked, and withdraw with accumulated rewards. This will go live on mainnet "
@@ -501,7 +500,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "javascriptconsole",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "> typeof null\n"
             "> [].foo.bar\n"
@@ -541,7 +540,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "linuxterminal",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "$ mkdir -p /tmp/portal_test && cd /tmp/portal_test\n"
             '$ echo "hello portal" > greet.txt\n'
@@ -569,7 +568,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "pythoninterpreter",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             'data = {"name": "Portal", "version": 6}\n'
             "items = list(data.items())\n"
@@ -594,7 +593,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "sqlterminal",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "SELECT TOP 3 Username, Role FROM Users ORDER BY CreatedAt DESC;\n"
             "INSERT INTO Users (Username, Email, Role) VALUES ('newuser', 'new@lab.local', 'analyst');\n"
@@ -637,7 +636,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "excelsheet",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Set up this spreadsheet:\n"
             "A1=Month, B1=Revenue, C1=Expenses, D1=Net\n"
@@ -662,7 +661,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "kubernetesdockerrpglearningengine",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": "START NEW GAME. Character: DevOps Apprentice. Difficulty: Normal. I want to learn how to deploy my first containerized app to Kubernetes. Begin Mission 1.",
         "assertions": [
             {
@@ -684,7 +683,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "softwarequalityassurancetester",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a test strategy for a file upload API endpoint: POST /api/v1/files — "
             "accepts multipart/form-data, max 10MB, allowed types: PDF/PNG/DOCX. "
@@ -744,7 +743,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "ux-uideveloper",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Design a dashboard for a field technician who needs to view and update work orders, "
             "check equipment status, and log time against jobs."
@@ -807,7 +806,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "creativecoder",
         "timeout": 240,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Make me a particle system visualizer. Particles should emit from wherever I click, "
             "fan outward with randomized velocity and color, fade out over their lifetime, and "
@@ -855,7 +854,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "excelsheet",
         "timeout": 90,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         # Laguna-XS.2-4bit computes correctly in thinking but corrupts some 6-digit
         # numbers in output (e.g. 865000 → "8650nothman"). Thinking block has correct
         # answer so include it in assertions.
@@ -908,7 +907,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "auto-coding",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Run this code and show me the exact output:\n\n"
             "from collections import Counter\n"
@@ -937,7 +936,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "auto-coding",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Run this bash command and show exact output:\n\n"
             'printf "%s\\n" apple banana cherry apple banana apple | sort | uniq -c | sort -rn'
@@ -954,7 +953,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "auto-coding",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             'Run this code:\n\nimport urllib.request\nurllib.request.urlopen("http://example.com")'
         ),

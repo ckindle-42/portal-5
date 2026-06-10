@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "auto-research",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Post-quantum cryptography deployment status. Structure your response in exactly "
             "these four sections, no preamble:\n"
@@ -86,7 +86,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "researchanalyst",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Analyze this claim: 'Passwordless authentication is more secure than passwords + MFA "
             "for enterprise environments.'\n\n"
@@ -166,7 +166,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "gemmaresearchanalyst",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Analyze AI regulation globally. Structure your response as follows:\n"
             "- For EACH claim, prefix it with one of: [Established Fact], [Strong Evidence], "
@@ -220,7 +220,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "supergemma4researcher",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Technical briefing on adversarial ML attacks against production LLMs. "
             "Use this exact structure — one paragraph each:\n"

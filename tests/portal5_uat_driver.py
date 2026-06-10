@@ -85,6 +85,10 @@ ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 # Routing telemetry — appended per test, written to UAT_RESULTS.md at end of run.
 # Each entry: {test_id, name, section, workspace, intended, actual, matched, tier_mismatch}
 _ROUTING_LOG: list[dict] = []
+
+# Chat IDs created in the current run. Populated by owui_create_chat() so that
+# the post-run archival step can move all chats to a dated UAT subfolder.
+_run_chat_ids: list[str] = []
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Sections that require all models unloaded before running for max memory headroom.
@@ -580,6 +584,7 @@ def owui_create_chat(token: str, model_slug: str, title: str) -> tuple[str, str]
         timeout=10,
     )
     returned_id = r.json().get("id", chat_id)
+    _run_chat_ids.append(returned_id)
     return returned_id, f"{OPENWEBUI_URL}/c/{returned_id}"
 
 
@@ -4110,12 +4115,12 @@ async def main() -> None:
     # Only S23-style tests that deliberately crash backends need the watchdog
     # stopped; UAT doesn't do that.
 
-    # ---- Folder: UAT/ (flat — all test chats land here, no date subfolders) ----
-    folder_id: str | None = owui_get_or_create_folder(token, "UAT")
-    if folder_id:
-        print(f"  UAT folder: UAT (id={folder_id})")
-    else:
-        print("  WARNING: could not get/create UAT folder — chats will be in root")
+    # ---- Chat archival strategy ----
+    # Tests run in the main (root) chat history so conversations are immediately
+    # visible during the run. After completion, all chats from this run are moved
+    # to UAT/{YYYY-MM-DD} so the root stays clean and runs are date-stamped.
+    folder_id: str | None = None  # No pre-assignment — root during run
+    print("  Chat archival: conversations run in root, moved to UAT/{date} on completion")
 
     # Init results file
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -4415,6 +4420,29 @@ async def main() -> None:
     # Always rebuild the summary header from actual file rows, so the count
     # is correct after partial / phased / rerun executions.
     _rebuild_summary_from_rows()
+
+    # ---- Post-run archival: move all chats from this run to UAT/{run_date} ----
+    run_date = run_ts[:10]  # YYYY-MM-DD from run_ts set at start of run
+    if _run_chat_ids:
+        try:
+            uat_root_id = owui_get_or_create_folder(token, "UAT")
+            if uat_root_id:
+                dated_folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+                if dated_folder_id:
+                    moved = 0
+                    for cid in _run_chat_ids:
+                        try:
+                            owui_assign_chat_folder(token, cid, dated_folder_id)
+                            moved += 1
+                        except Exception:
+                            pass
+                    print(f"\n  Archived {moved}/{len(_run_chat_ids)} chats → UAT/{run_date}")
+                else:
+                    print(f"\n  WARNING: could not create UAT/{run_date} subfolder — chats remain in root")
+            else:
+                print("\n  WARNING: could not create UAT folder — chats remain in root")
+        except Exception as e:
+            print(f"\n  WARNING: post-run archival failed: {e} — chats remain in root")
 
     # Print routing summary to stdout as well
     if _ROUTING_LOG:

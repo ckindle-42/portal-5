@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-agentic",
         "model_slug": "auto-agentic",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "I have a Flask monolith split across app.py (routes), models.py (SQLAlchemy ORM), "
             "and utils.py (helpers, 40+ functions). I want to refactor it into a proper Flask "
@@ -52,7 +52,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-agentic",
         "model_slug": "codebasewikidocumentationskill",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Generate WIKI documentation for this incomplete class signature. "
             "I have not provided the method bodies — apply your HARD CONSTRAINT: "

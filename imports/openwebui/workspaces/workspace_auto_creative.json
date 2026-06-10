@@ -2,7 +2,7 @@
   "id": "auto-creative",
   "name": "✍️  Portal Creative Writer",
   "meta": {
-    "description": "✍️  Portal Creative Writer",
+    "description": "✍️  Portal Creative Writer — Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB). Fiction, roleplay, unconstrained creative content.",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_tts"

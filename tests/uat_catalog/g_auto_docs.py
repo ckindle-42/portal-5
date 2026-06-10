@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "auto-documents",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "artifact_ext": "docx",
         "prompt": (
             'Create a Word document: "Change Management Procedure for OT Environments". '
@@ -92,7 +92,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "phi4specialist",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": "Analyze this system: A FastAPI app uses a synchronous SQLAlchemy session inside async route handlers. Is this a problem? Should it be fixed?",
         "assertions": [
             {
@@ -118,7 +118,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "auto-documents",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "artifact_ext": "docx",
         "prompt": (
             'Create a Word document: "Vendor Security Assessment Checklist". '
@@ -142,7 +142,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "auto-documents",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "artifact_ext": "xlsx",
         "prompt": (
             'Create an Excel workbook: "Security Incident Tracker". '
@@ -165,7 +165,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "auto-documents",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "artifact_ext": "pptx",
         "prompt": (
             'Create a 5-slide PowerPoint: "Introduction to Zero Trust Networking". '
@@ -194,7 +194,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "auto-documents",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "skip_if": "no_docx_fixture",
         "prompt": (
             "Read this document. Tell me: how many sections or headings it has, "

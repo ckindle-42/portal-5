@@ -81,60 +81,11 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S0-06: MLX watchdog must be STOPPED during testing.
-    # The watchdog triggers its own evictions and proxy restarts while the runner
-    # is waiting for a model to load, causing interference and false empty responses.
-    # Step 2 pre-flight stops it; this check enforces that it stayed stopped.
+    # S0-06: MLX watchdog retired — inference proxy removed in commit 3a0c58e.
+    # Ollama 0.30.7+ with native MLX Metal backend replaces standalone mlx_lm.
     t0 = time.time()
-    try:
-        r = subprocess.run(
-            ["pgrep", "-f", "mlx-watchdog"], capture_output=True, text=True, timeout=5
-        )
-        running = r.returncode == 0 and bool(r.stdout.strip())
-        if running:
-            record(
-                sec,
-                "S0-06",
-                "MLX watchdog stopped",
-                "WARN",
-                f"watchdog still running (PID {r.stdout.strip()}) — stop it: ./launch.sh stop-mlx-watchdog",
-                t0=t0,
-            )
-        else:
-            record(sec, "S0-06", "MLX watchdog stopped", "PASS", "watchdog not running — safe to test", t0=t0)
-    except Exception as e:
-        record(sec, "S0-06", "MLX watchdog stopped", "WARN", str(e)[:80], t0=t0)
+    record(sec, "S0-06", "MLX watchdog (retired)", "INFO", "MLX inference proxy retired in 3a0c58e — Ollama handles inference", t0=t0)
 
-    # S0-07: Deployed MLX proxy matches source (catches P5-ROAD-MLX-002 staleness)
+    # S0-07: MLX proxy deployment check retired — proxy removed in commit 3a0c58e.
     t0 = time.time()
-    import filecmp  # noqa: PLC0415
-
-    src = ROOT / "scripts/mlx-proxy.py"
-    deployed = Path.home() / ".portal5/mlx/mlx-proxy.py"
-    if not deployed.exists():
-        record(
-            sec,
-            "S0-07",
-            "Deployed MLX proxy",
-            "INFO",
-            "not yet deployed (run ./launch.sh install-mlx)",
-            t0=t0,
-        )
-    elif filecmp.cmp(src, deployed, shallow=False):
-        record(
-            sec,
-            "S0-07",
-            "Deployed MLX proxy matches source",
-            "PASS",
-            "deployed copy in sync",
-            t0=t0,
-        )
-    else:
-        record(
-            sec,
-            "S0-07",
-            "Deployed MLX proxy matches source",
-            "WARN",
-            "deployed != source — run ./launch.sh install-mlx",
-            t0=t0,
-        )
+    record(sec, "S0-07", "MLX proxy deployment (retired)", "INFO", "MLX inference proxy retired in 3a0c58e — Ollama handles inference", t0=t0)

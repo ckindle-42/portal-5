@@ -2,7 +2,7 @@
   "id": "auto-math",
   "name": "🧮 Portal Math Reasoner",
   "meta": {
-    "description": "Mathematical problem solving, proofs, calculus, algebra, statistics — powered by Qwen2.5-Math-7B",
+    "description": "🧮 Portal Math Reasoner — Phi-4-Mini-Reasoning (V8: RL-trained math specialist, beats 7B models on AIME/MATH-500 at 3.8B, ~2.5GB, MIT). Proofs, calculus, algebra, statistics.",
     "profile_image_url": "",
     "toolIds": []
   },

@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto",
         "model_slug": "auto",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to deploy a containerized Python app to a Kubernetes cluster. "
             "Can you write the Deployment and Service manifests, and also tell me what "

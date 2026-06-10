@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "auto-compliance",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "We are a medium-sized Transmission Owner. We have never classified any assets under "
             "CIP-003 because we believed our distributed control systems were Low impact only. "
@@ -90,7 +90,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "nerccipcomplianceanalyst",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "We are a Distribution Provider with some assets that have routable external "
             "connectivity to a vendor cloud portal for remote monitoring. A colleague says "
@@ -158,7 +158,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "cippolicywriter",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Review and fix this draft policy statement:\n\n"
             '"[ENTITY NAME] will strive to ensure that, as appropriate and where feasible, '

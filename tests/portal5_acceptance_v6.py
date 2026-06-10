@@ -18,7 +18,7 @@ Dependencies (auto-installed on first run):
 
 PROTECTED — never modify these files:
     portal_pipeline/**  portal_mcp/**  config/  deploy/  Dockerfile.*
-    scripts/openwebui_init.py  scripts/mlx-proxy.py  docs/HOWTO.md  imports/
+    scripts/openwebui_init.py  docs/HOWTO.md  imports/
 
 Status model:
     PASS    — verified working exactly as documented
