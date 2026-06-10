@@ -5,9 +5,11 @@ token/energy usage into the metrics collectors. Depends on
 ``portal_pipeline.router.metrics`` and ``portal_pipeline.router.state``;
 never imports router_pipe.
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -93,10 +95,8 @@ async def _power_polling_loop():
             reader, writer = await asyncio.open_unix_connection(_POWERMETRICS_SOCKET)
             data = await reader.readline()
             writer.close()
-            try:
+            with contextlib.suppress(Exception):
                 await writer.wait_closed()
-            except Exception:
-                pass
             state = json.loads(data.decode())
             now = state.get("ts", time.time())
             elapsed = now - last_poll
