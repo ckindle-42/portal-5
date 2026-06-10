@@ -1562,23 +1562,16 @@ async def chat_completions(
          remaining backends as SSE-wrapped non-streaming
          responses.
 
-    **Semaphore lifecycle is split across 5 release sites** —
-    treat this as the single most error-prone area in the file:
+    **Semaphore lifecycle** — two release sites (down from five):
 
-    * ``chat_completions.finally:`` (this function, line 2974) —
-      releases for **non-streaming** responses only, gated by the
-      ``_is_streaming`` flag.
-    * ``_stream_with_tool_loop.finally:`` — streaming with tools.
-    * ``_stream_with_preamble.finally:`` — streaming without tools.
-    * ``_stream_from_backend_guarded.finally:`` — when called
-      directly with ``sem`` set (not the case from
-      ``_stream_with_preamble``, which passes ``sem=None``).
-    * Explicit releases in the 429 paths after a successful
-      acquisition (lines 2363, 2506–2508) — if a later semaphore
-      times out, earlier ones must be released before raising.
+    * ``chat_completions.finally:`` → ``slot.release_if_attached()`` — no-op
+      for streaming paths (slot was detached); releases for non-streaming.
+    * ``_stream_with_tool_loop.finally:`` / ``_stream_with_preamble.finally:``
+      → ``slot.release()`` — releases after the stream is fully consumed or
+      the client disconnects.
 
-    Do not change semaphore release locations during docstring
-    edits.
+    :class:`~portal_pipeline.router.concurrency.RequestSlot` owns the three
+    semaphores and the concurrent-requests gauge for the request's lifetime.
 
     Raises:
         HTTPException: 400 (invalid JSON body), 401 (bad auth),
@@ -1596,37 +1589,15 @@ async def chat_completions(
             detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
         )
 
-    if _concurrency_mod._request_semaphore is None:
-        raise HTTPException(status_code=503, detail="Request semaphore not initialised")
-    try:
-        await asyncio.wait_for(
-            _concurrency_mod._request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(
-            status_code=503,
-            detail="Server busy — too many concurrent requests. Please retry.",
-            headers={"Retry-After": "5"},
-        ) from None
+    slot = RequestSlot()
+    await slot.acquire_global()
 
     # Per-API-key semaphore (M6-T06)
     _api_key_raw = authorization.removeprefix("Bearer ").strip() if authorization else ""
-    _api_sem = await _acquire_api_key_sem(_api_key_raw)
-    if _api_sem is not None:
-        try:
-            await asyncio.wait_for(_api_sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
-        except asyncio.TimeoutError:
-            _concurrency_mod._request_semaphore.release()
-            raise HTTPException(
-                status_code=429,
-                detail="API key at concurrency limit. Please retry.",
-                headers={"Retry-After": "5"},
-            ) from None
+    await slot.acquire_api_key(_api_key_raw)
 
-    _is_streaming = False
     workspace_id: str = "unknown"
     start_time = time.monotonic()
-    _ws_sem: asyncio.Semaphore | None = None
     try:
         if registry is None:
             raise HTTPException(status_code=503, detail="Backend registry not initialised")
@@ -1754,31 +1725,12 @@ async def chat_completions(
                 body = {**body, "messages": _msgs}
                 logger.debug("Injected %d file reference(s) into messages", len(_file_notes))
 
-        # Per-workspace semaphore (M6-T05)
-        _ws_sem = await _acquire_workspace_sem(workspace_id)
-        try:
-            await asyncio.wait_for(_ws_sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
-        except asyncio.TimeoutError:
-            if _workspace_semaphore_busy_total is not None:
-                _workspace_semaphore_busy_total.labels(workspace=workspace_id).inc()
-            _concurrency_mod._request_semaphore.release()  # type: ignore[union-attr]
-            if _api_sem is not None:
-                _api_sem.release()
-            raise HTTPException(
-                status_code=429,
-                detail=f"Workspace '{workspace_id}' at concurrency limit. Try again shortly.",
-                headers={"Retry-After": "5"},
-            ) from None
+        # Per-workspace semaphore + gauge (M6-T05)
+        await slot.acquire_workspace(workspace_id)
 
         _request_count[workspace_id] = _request_count.get(workspace_id, 0) + 1
         _requests_total.labels(workspace=workspace_id).inc()
-        _concurrent_requests.inc()
-        _gauge_held = True
-        import portal_pipeline.router.state as _state_mod_cc
-
-        _state_mod_cc._peak_concurrent = max(
-            _state_mod_cc._peak_concurrent, int(_concurrent_requests._value.get())
-        )
+        slot.mark_active()
 
         # Track persona usage — the "model" field in the request is the persona
         # (workspace ID) the user selected in Open WebUI.
@@ -1953,25 +1905,21 @@ async def chat_completions(
                 _stream_with_tool_loop(
                     backend.chat_url,
                     backend_body,
-                    _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
+                    slot.detach(),
                     workspace_id,
                     target_model,
                     persona,
                     set(effective_tools),
                     start_time,
-                    ws_sem=_ws_sem,
-                    api_sem=_api_sem,
                 )
                 if _has_tools
                 else _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
-                    _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
+                    slot.detach(),
                     workspace_id=workspace_id,
                     model=target_model,
                     start_time=start_time,
-                    ws_sem=_ws_sem,
-                    api_sem=_api_sem,
                 )
             )
             _streaming_response = StreamingResponse(
@@ -1979,7 +1927,6 @@ async def chat_completions(
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
             )
-            _is_streaming = True
             return _streaming_response
 
         # Multiple candidates — streaming with non-streaming fallback.
@@ -2033,25 +1980,21 @@ async def chat_completions(
                     _stream_with_tool_loop(
                         backend.chat_url,
                         backend_body,
-                        _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
+                        slot.detach(),
                         workspace_id,
                         target_model,
                         persona,
                         set(effective_tools),
                         start_time,
-                        ws_sem=_ws_sem,
-                        api_sem=_api_sem,
                     )
                     if _has_tools
                     else _stream_with_preamble(
                         backend.chat_url,
                         backend_body,
-                        _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
+                        slot.detach(),
                         workspace_id=workspace_id,
                         model=target_model,
                         start_time=start_time,
-                        ws_sem=_ws_sem,
-                        api_sem=_api_sem,
                     )
                 )
                 async for chunk in _inner_stream:
@@ -2113,13 +2056,13 @@ async def chat_completions(
                 yield b"data: [DONE]\n\n"
                 _record_error(workspace_id, "all_backends_failed")
 
+        slot.detach()
         _streaming_response = StreamingResponse(
             _stream_or_fallback(),
             media_type="text/event-stream",
             headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
         )
         _record_persona(persona, target_model)
-        _is_streaming = True
         return _streaming_response
     except HTTPException:
         raise
@@ -2127,40 +2070,27 @@ async def chat_completions(
         _record_error(workspace_id, "unexpected_error")
         raise
     finally:
-        if not _is_streaming:
-            # Non-streaming: response fully awaited above, safe to release here
-            # Streaming: generator releases after stream completes
-            _concurrency_mod._request_semaphore.release()  # type: ignore[union-attr]
-            if _ws_sem is not None:
-                _ws_sem.release()
-            if _api_sem is not None:
-                _api_sem.release()
-        if _gauge_held and not _is_streaming:
-            _concurrent_requests.dec()
+        slot.release_if_attached()
 
 
 async def _stream_with_tool_loop(
     backend_url: str,
     body: dict,
-    sem: asyncio.Semaphore,
+    slot: RequestSlot,
     workspace_id: str,
     model: str,
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
-    ws_sem: asyncio.Semaphore | None = None,
-    api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
-    """Streaming wrapper with the multi-hop tool loop; releases three semaphores.
+    """Streaming wrapper with the multi-hop tool loop; owns the RequestSlot lifecycle.
 
     The **semaphore-ownership boundary** for the tool-loop path.
     Delegates the actual streaming work (and the loop) to
     ``_stream_with_tool_loop_impl``, which doesn't know about
     semaphores. This wrapper's only responsibility is the
-    ``try/finally`` that releases the three semaphores acquired in
-    ``chat_completions`` (global request semaphore, per-workspace,
-    per-API-key) once the entire stream — across all tool hops —
-    is done.
+    ``try/finally`` that calls ``slot.release()`` once the entire
+    stream — across all tool hops — is done.
 
     The release happens **after** the inner generator is exhausted,
     not after the first hop. A multi-hop request holds all three
@@ -2170,12 +2100,9 @@ async def _stream_with_tool_loop(
     per slot."
 
     Args mirror ``_stream_with_tool_loop_impl`` plus:
-        sem: Global ``_request_semaphore``. Released in
-            ``finally:``.
-        ws_sem: Per-workspace semaphore from
-            ``_acquire_workspace_sem``. Released if non-None.
-        api_sem: Per-API-key semaphore from
-            ``_acquire_api_key_sem``. Released if non-None.
+        slot: :class:`~portal_pipeline.router.concurrency.RequestSlot`
+            (detached from the handler). ``slot.release()`` is called
+            in ``finally:`` after the stream completes.
 
     Yields:
         SSE bytes for OWUI consumption.
@@ -2186,14 +2113,7 @@ async def _stream_with_tool_loop(
         ):
             yield chunk
     finally:
-        # Release all semaphores acquired by chat_completions on the streaming path.
-        # Mirror _stream_with_preamble's pattern (single-sem release in its own finally).
-        _concurrent_requests.dec()
-        sem.release()
-        if ws_sem is not None:
-            ws_sem.release()
-        if api_sem is not None:
-            api_sem.release()
+        slot.release()
 
 
 async def _stream_with_tool_loop_impl(
@@ -2513,14 +2433,12 @@ async def _stream_with_tool_loop_impl(
 async def _stream_with_preamble(
     url: str,
     body: dict,
-    sem: asyncio.Semaphore,
+    slot: RequestSlot,
     workspace_id: str = "unknown",
     model: str = "unknown",
     start_time: float | None = None,
-    ws_sem: asyncio.Semaphore | None = None,
-    api_sem: asyncio.Semaphore | None = None,
 ) -> AsyncIterator[bytes]:
-    """Streaming path without tools; emits preamble + owns semaphore lifecycle.
+    """Streaming path without tools; emits preamble + owns the RequestSlot lifecycle.
 
     **The preamble is a UX fix.** Without it, OWUI shows a frozen
     input box for 10–30s while a cold model loads — entirely silent
@@ -2535,25 +2453,19 @@ async def _stream_with_preamble(
     second chunk shows ``⚡ workspace → model`` at the top of the
     response.
 
-    **Semaphore ownership boundary.** This function owns release
-    via its own ``try/finally``. The inner ``_stream_from_backend_guarded``
-    no longer carries a semaphore parameter — avoiding double-release.
-
-    The wrapper-owned lifecycle is what closes a previously-leaking
-    case: a client disconnect after the preamble yield but before
-    the backend connection started would leave ``sem`` permanently
-    acquired. The ``try/finally`` here catches that.
+    **Slot ownership boundary.** ``slot.release()`` is called in
+    ``finally:``, which catches client disconnects after the preamble
+    yield but before the backend connection starts.
 
     Args:
         url: Backend chat URL.
         body: Already-injected request body (Ollama options
             applied at the call site).
-        sem: Global ``_request_semaphore``. Released here.
+        slot: :class:`~portal_pipeline.router.concurrency.RequestSlot`
+            (detached from the handler). ``slot.release()`` called here.
         workspace_id, model: For logging and the
             ``x-portal-route`` header set by the caller.
         start_time: For elapsed-time metrics.
-        ws_sem, api_sem: Per-workspace and per-API-key
-            semaphores. Released if non-None.
 
     Yields:
         SSE bytes — preamble role chunk, optional status chunk,
@@ -2588,12 +2500,7 @@ async def _stream_with_preamble(
         ):
             yield chunk
     finally:
-        _concurrent_requests.dec()
-        sem.release()
-        if ws_sem is not None:
-            ws_sem.release()
-        if api_sem is not None:
-            api_sem.release()
+        slot.release()
 
 
 async def _stream_from_backend_guarded(
