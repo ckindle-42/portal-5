@@ -216,8 +216,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
-        "description": "Splunk SPL queries, pipeline explanation, detection search authoring",
-        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "description": "Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).",
+        "model_hint": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
+        "keep_alive": "10m",
         "tools": ["classify_vulnerability", "kb_search", "kb_list"],
     },
     "auto-security": {
