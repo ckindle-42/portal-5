@@ -4,6 +4,7 @@ Loads/saves the JSON metrics snapshot (``_STATE_FILE``), runs the periodic
 save loop, and records error/persona counters. Depends only on
 ``portal_pipeline.router.metrics``; never imports router_pipe.
 """
+
 from __future__ import annotations
 
 import asyncio

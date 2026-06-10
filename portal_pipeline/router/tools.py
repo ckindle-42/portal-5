@@ -4,6 +4,7 @@ Houses ``_dispatch_tool_call`` and its private helpers. Calls the shared
 ``tool_registry`` singleton and workspace tool helpers. Depends on
 metrics, state, and tool_registry; never imports router_pipe.
 """
+
 from __future__ import annotations
 
 import json

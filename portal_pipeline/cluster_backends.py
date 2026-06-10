@@ -352,8 +352,9 @@ class BackendRegistry:
         self._health_check_interval = float(defaults.get("health_check_interval", 30.0))
         self._health_timeout = float(defaults.get("health_timeout", 10.0))
         self._health_failure_threshold = int(
-            os.environ.get("HEALTH_FAILURE_THRESHOLD",
-                          str(defaults.get("health_failure_threshold", 2)))
+            os.environ.get(
+                "HEALTH_FAILURE_THRESHOLD", str(defaults.get("health_failure_threshold", 2))
+            )
         )
 
         # Build tool support map from backend metadata
@@ -574,7 +575,11 @@ class BackendRegistry:
             self._last_healthy_count = healthy_count
             logger.info("Health check complete: %d/%d healthy", healthy_count, len(self._backends))
         else:
-            logger.debug("Health check complete: %d/%d healthy (no change)", healthy_count, len(self._backends))
+            logger.debug(
+                "Health check complete: %d/%d healthy (no change)",
+                healthy_count,
+                len(self._backends),
+            )
 
     async def _check_one(
         self,

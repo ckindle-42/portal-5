@@ -8,6 +8,7 @@ metrics and router.workspaces; never imports router_pipe.
 ``httpx.AsyncClient`` is created. It is ``None`` until then; ``_route_with_llm``
 degrades gracefully when it is not yet initialised.
 """
+
 from __future__ import annotations
 
 import asyncio
