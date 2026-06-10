@@ -29,9 +29,10 @@ Status model:
 
 Test Coverage (~27 sections, ~300 tests):
     S0-S2:   Prerequisites, config consistency, service health
-    S3a:     18 auto-* workspaces tested directly (all Ollama);
-              S41-02 verifies max_concurrent=1 for all
-              13 bench-* workspaces (data-driven from WORKSPACES dict)
+    S3a:     all production workspaces (auto-* + tools-specialist) tested
+              directly (all Ollama). bench-* workspaces are out of acceptance
+              scope — bench_tps.py --mode pipeline covers the full catalog.
+              S41-02 verifies max_concurrent=1 (data-driven from WORKSPACES)
     S4-S5:   Document generation (Word/Excel/PowerPoint), code sandbox
     S6:      Security workspaces (auto-security, auto-redteam, auto-blueteam)
     S16:     Security MCP tools (classify_vulnerability via CIRCL VLAI)
@@ -1006,6 +1007,20 @@ WORKSPACE_PROMPTS = {
         "Find the area enclosed by the curves y = x^2 and y = 2x. "
         "Show your work step by step.",
         ["integral", "intersection", "area", "4/3", "x^2", "2x"],
+    ),
+    "auto-audio": (
+        "What audio formats can you analyze, and what information can you "
+        "extract from a recording? Answer in two sentences.",
+        ["audio", "transcri", "speech", "format", "recording"],
+    ),
+    "auto-daily": (
+        "Draft a three-item plan for organizing a small team offsite.",
+        ["offsite", "venue", "agenda", "plan", "schedule", "1"],
+    ),
+    "tools-specialist": (
+        "In two sentences: what is JSON function calling, and when should an "
+        "assistant invoke a tool instead of answering directly?",
+        ["tool", "function", "JSON", "call", "schema", "structured"],
     ),
 }
 
