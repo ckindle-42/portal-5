@@ -195,7 +195,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. "
             "Not for interactive chat — context capped at 32K."
         ),
-        "model_hint": "qwen3-coder:480b-a35b-q4_K_M",
+        "model_hint": "qwen3-coder:480b-a35b-q4_K_M-ctx32k",
         "context_limit": 32768,
         "tools": [
             "execute_python",

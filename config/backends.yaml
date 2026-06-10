@@ -92,6 +92,9 @@ backends:
   - id: qwen3-coder:480b-a35b-q4_K_M
     supports_tools: true
     notes: "Qwen3-Coder 480B-A35B MoE Q4 (~46GB, Alibaba, auto-agentic heavy coder)."
+  - id: qwen3-coder:480b-a35b-q4_K_M-ctx32k
+    supports_tools: true
+    notes: "qwen3-coder:480b-a35b-q4_K_M with PARAMETER num_ctx 32768 baked in via Modelfile. Created by ./launch.sh apply-model-params."
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}

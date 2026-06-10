@@ -719,10 +719,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
     for ws_id, ws_cfg in WORKSPACES.items():
         ctx_limit = ws_cfg.get("context_limit")
-        if ctx_limit:
+        hint = ws_cfg.get("model_hint", "")
+        if ctx_limit and not any(hint.endswith(s) for s in ("-ctx32k", "-ctx16k", "-ctx8k", "-ctx")):
             logger.warning(
-                "workspace=%s declares context_limit=%d but Ollama /v1 ignores options.num_ctx — set PARAMETER num_ctx in the model's Modelfile (or OLLAMA_CONTEXT_LENGTH) to enforce",
+                "workspace=%s declares context_limit=%d but Ollama /v1 ignores options.num_ctx — "
+                "use './launch.sh apply-model-params' to bake num_ctx=%d into the model tag, "
+                "or set PARAMETER num_ctx in a Modelfile manually",
                 ws_id,
+                ctx_limit,
                 ctx_limit,
             )
 
