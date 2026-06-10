@@ -210,7 +210,7 @@ def test_wait_for_backend_alive_returns_true_on_recovery(monkeypatch):
     monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
 
     result = asyncio.run(
-        drv._wait_for_backend_alive("mlx_small", max_wait=10.0)
+        drv._wait_for_backend_alive("ollama", max_wait=10.0)
     )
     assert result is True
 

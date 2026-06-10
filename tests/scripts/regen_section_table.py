@@ -3,11 +3,9 @@
 
 Reads:
   - tests/portal5_acceptance_v6.py (introspect section funcs, count record() calls)
-  - config/backends.yaml (workspace count)
-  - config/personas/*.yaml (persona count)
 
 Writes:
-  - tests/PORTAL5_PROMPT_V6.md (replaces the marked block; rest of file untouched)
+  - tests/PORTAL5_ACCEPTANCE_EXECUTE_V8.md (replaces the marked block; rest of file untouched)
 
 Markers in the prompt file (must be present, on their own lines):
     <!-- SECTION_TABLE_BEGIN -->
@@ -30,7 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 ACCEPTANCE_FILE = ROOT / "tests" / "portal5_acceptance_v6.py"
-PROMPT_FILE = ROOT / "tests" / "PORTAL5_PROMPT_V6.md"
+PROMPT_FILE = ROOT / "tests" / "PORTAL5_ACCEPTANCE_EXECUTE_V8.md"
 BACKENDS_YAML = ROOT / "config" / "backends.yaml"
 PERSONAS_DIR = ROOT / "config" / "personas"
 
@@ -38,15 +36,15 @@ BEGIN_MARKER = "<!-- SECTION_TABLE_BEGIN -->"
 END_MARKER = "<!-- SECTION_TABLE_END -->"
 
 # Static phase grouping — sections in each phase. Update here if phase plan
-# changes; verified against PORTAL5_PROMPT_V6.md phase commands.
+# changes; verified against PORTAL5_ACCEPTANCE_EXECUTE_V8.md phase commands.
 PHASE_FOR_SECTION: dict[str, int] = {
     # Phase 1: no-model
     "S0": 1, "S1": 1, "S2": 1, "S12": 1, "S13": 1,
     "S15": 1, "S16": 1, "S40": 1, "S41": 1, "S42": 1,
     # Phase 2: Ollama
     "S3a": 2, "S6": 2, "S10": 2,
-    # Phase 3: MLX
-    "S21": 3, "S3b": 3, "S11": 3, "S20": 3, "S22": 3, "S23": 3,
+    # Phase 3: router + diversity (Ollama)
+    "S21": 3, "S23": 3,
     # Phase 4: MCPs
     "S4": 4, "S5": 4, "S50": 4, "S60": 4, "S70": 4,
     # Phase 5: audio
@@ -64,9 +62,8 @@ SECTION_LABELS: dict[str, str] = {
     "S0":  "Prerequisites",
     "S1":  "Config consistency",
     "S2":  "Service health",
-    "S3":  "Workspace routing (wrapper for S3a+S3b)",
+    "S3":  "Workspace routing (wrapper for S3a)",
     "S3a": "Workspaces (Ollama)",
-    "S3b": "Workspaces (MLX)",
     "S4":  "Document generation",
     "S5":  "Code sandbox",
     "S6":  "Security workspaces",
@@ -74,14 +71,11 @@ SECTION_LABELS: dict[str, str] = {
     "S8":  "Text-to-Speech",
     "S9":  "Speech-to-Text",
     "S10": "Personas (Ollama)",
-    "S11": "Personas (MLX)",
     "S12": "Web search",
     "S13": "RAG/Embedding",
     "S15": "Shared workspace verification",
     "S16": "Security MCP tools (CIRCL VLAI)",
-    "S20": "MLX acceleration",
     "S21": "LLM Intent Router",
-    "S22": "MLX Admission Control",
     "S23": "Model diversity",
     "S30": "Image generation (ComfyUI/FLUX)",
     "S31": "Video generation (Wan2.2)",
@@ -169,8 +163,8 @@ def _generate_block() -> str:
         f"\n"
         f"{table}\n"
         f"\n"
-        f"**Memory cleanup points:** After Phase 2 (Ollama→MLX), after Phase 3 "
-        f"(MLX→MCP), after Phase 5 (Audio→ComfyUI)\n"
+        f"**Memory cleanup points:** After S10 (Personas→Audio/MCP), "
+        f"after S7 (Audio→ComfyUI)\n"
         f"\n"
         f"{END_MARKER}"
     )

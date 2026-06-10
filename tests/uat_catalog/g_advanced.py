@@ -268,7 +268,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "id": "A-08",
         "name": "Cross-Session Memory — Two-Chat Persistence",
         "section": "advanced",
-        "model_slug": "auto-daily",  # Gemma-4-26b-a4b via MLX — primary for auto-daily
+        "model_slug": "auto-daily",  # gemma4:26b-a4b-it-qat — primary for auto-daily
         "timeout": 240,
         "workspace_tier": "ollama",
         "is_two_chat": True,

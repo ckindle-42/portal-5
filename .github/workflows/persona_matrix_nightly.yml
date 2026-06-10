@@ -2,7 +2,7 @@
 #
 # Runs on a schedule and on PRs that touch persona/fixture/assertion code.
 # Must run on a self-hosted runner with access to the Portal 5 stack
-# (MLX proxy + Ollama on host networking). Public GitHub-hosted runners
+# (Ollama on host networking). Public GitHub-hosted runners
 # cannot host Portal 5's local backends.
 
 name: persona-matrix-nightly
@@ -21,14 +21,12 @@ on:
           - auto-compliance
           - auto-coding
       backend:
-        description: "Backend filter (ollama|mlx|both)"
+        description: "Backend filter (ollama is the sole chat backend)"
         default: "ollama"
         required: true
         type: choice
         options:
           - ollama
-          - mlx
-          - both
   pull_request:
     paths:
       - "config/personas/**"
@@ -51,10 +49,6 @@ jobs:
             { echo "::error::pipeline not reachable"; exit 1; }
           curl -sf http://localhost:11434/api/version || \
             { echo "::error::ollama not reachable"; exit 1; }
-          if [ "${{ inputs.backend || 'ollama' }}" != "ollama" ]; then
-            curl -sf http://localhost:8081/health || \
-              { echo "::warning::mlx down — sweep will skip MLX models"; }
-          fi
 
       - name: Determine sweep parameters
         id: params
@@ -65,16 +59,11 @@ jobs:
           if [ "$BACKEND" != "both" ]; then
             BACKEND_FLAG="--backend $BACKEND"
           fi
-          MLX_WARMUP=""
-          if [ "$BACKEND" != "ollama" ]; then
-            MLX_WARMUP="--mlx-warmup"
-          fi
           BASELINE="tests/benchmarks/results/persona_matrix_baseline_${WORKSPACE}.json"
           TS=$(date -u +%Y%m%dT%H%M%SZ)
           OUT="tests/benchmarks/results/persona_matrix_${WORKSPACE}_ci_${TS}.json"
           echo "workspace=$WORKSPACE"        >> $GITHUB_OUTPUT
           echo "backend_flag=$BACKEND_FLAG"  >> $GITHUB_OUTPUT
-          echo "mlx_warmup=$MLX_WARMUP"      >> $GITHUB_OUTPUT
           echo "baseline=$BASELINE"          >> $GITHUB_OUTPUT
           echo "out=$OUT"                    >> $GITHUB_OUTPUT
 
@@ -85,7 +74,6 @@ jobs:
           python3 tests/portal5_persona_matrix.py \
             --workspace "${{ steps.params.outputs.workspace }}" \
             ${{ steps.params.outputs.backend_flag }} \
-            ${{ steps.params.outputs.mlx_warmup }} \
             --output "${{ steps.params.outputs.out }}" \
             --baseline-compare "${{ steps.params.outputs.baseline }}" \
             --regression-threshold 10
