@@ -8,6 +8,7 @@ collectors are declared exactly once here and nowhere else.
 ``PROMETHEUS_MULTIPROC_DIR`` is set in ``portal_pipeline.__main__`` before this
 module is first imported — do not set it here.
 """
+
 from __future__ import annotations
 
 import logging

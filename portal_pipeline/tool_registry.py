@@ -265,7 +265,9 @@ class ToolRegistry:
                             server_id=server_id,
                             server_url=base_url,
                             last_seen=now,
-                            custom_timeout_s=float(tdef["timeout_s"]) if tdef.get("timeout_s") else None,
+                            custom_timeout_s=float(tdef["timeout_s"])
+                            if tdef.get("timeout_s")
+                            else None,
                         )
                 except Exception as e:
                     logger.warning("Tool discovery for %s failed: %s", server_id, e)
