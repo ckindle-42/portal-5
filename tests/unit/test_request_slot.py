@@ -158,3 +158,30 @@ async def test_reverse_order_release():
     assert sem_a._value == 1
     assert sem_b._value == 1
     assert slot._held == []
+
+
+@pytest.mark.anyio
+async def test_disconnect_mid_stream_nets_gauge_to_zero():
+    """Client disconnect mid-stream (generator abandoned) nets gauge 0 and semaphore restored.
+
+    Simulates the detach+streaming path: slot is detached (transferred to a
+    generator), then the generator is abandoned before exhaustion (client
+    disconnect). The slot's release() must still be called — either by the
+    generator's finally or by GC. Here we call release() directly to model
+    the generator's finally block and assert invariants hold.
+    """
+    import portal_pipeline.router.metrics as _metrics
+
+    gauge_before = int(_metrics._concurrent_requests._value.get())
+    sem_before = _concurrency._request_semaphore._value  # type: ignore[union-attr]
+
+    slot = RequestSlot()
+    await slot.acquire_global()
+    slot.mark_active()
+    slot.detach()
+
+    # Simulate generator abandoned mid-stream — finally block calls release()
+    slot.release()
+
+    assert int(_metrics._concurrent_requests._value.get()) == gauge_before
+    assert _concurrency._request_semaphore._value == sem_before  # type: ignore[union-attr]
