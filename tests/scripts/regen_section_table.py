@@ -91,7 +91,7 @@ SECTION_LABELS: dict[str, str] = {
 def _discover_sections(source: str) -> list[tuple[str, int]]:
     """Return [(section_name, approx_test_count), ...] sorted by phase then name.
 
-    Section name = function name (S0, S1, S3a, S3b, ...).
+    Section name = function name (S0, S1, S3a, ...).
     Test count = number of record() invocations inside that function body.
     """
     # Match: async def S<digits><optional letter>(  ... up to next async def or EOF
