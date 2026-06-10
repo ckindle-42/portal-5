@@ -1,12 +1,13 @@
 """S40: Metrics and monitoring tests."""
 import time
+
 from tests.acceptance._common import (
+    GRAFANA_PASS,
+    GRAFANA_URL,
     PIPELINE_URL,
     PROMETHEUS_URL,
-    GRAFANA_URL,
-    GRAFANA_PASS,
-    record,
     _get_acc_client,
+    record,
 )
 
 

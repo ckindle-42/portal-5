@@ -1,12 +1,14 @@
 """S22: MLX Admission Control tests."""
 import asyncio
 import time
+
 from tests.acceptance._common import (
     MLX_URL,
-    record,
     _get_acc_client,
     _mlx_health,
+    record,
 )
+
 
 async def run() -> None:
     """S22: MLX Admission Control tests (P5-FUT-009)."""

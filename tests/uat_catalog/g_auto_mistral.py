@@ -1,7 +1,11 @@
 """UAT catalog group: auto-mistral (Mistral workspace)."""
 from __future__ import annotations
 
-from tests.uat_catalog._shared import REFUSAL_PHRASES, _CC01_ASSERTIONS, _CC01_ASSERTIONS_BENCH  # noqa: F401
+from tests.uat_catalog._shared import (  # noqa: F401
+    _CC01_ASSERTIONS,
+    _CC01_ASSERTIONS_BENCH,
+    REFUSAL_PHRASES,
+)
 
 TESTS: list[dict] = [    # -----------------------------------------------------------------------
     {

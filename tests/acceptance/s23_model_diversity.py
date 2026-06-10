@@ -5,9 +5,10 @@ All target models now live in the Ollama catalog; these checks verify
 registration via the Ollama /api/tags listing only (lightweight).
 """
 import time
+
 from tests.acceptance._common import (
-    record,
     _ollama_models,
+    record,
 )
 
 

@@ -1,18 +1,19 @@
 """S2: Service health checks."""
 import time
+
 from tests.acceptance._common import (
-    PIPELINE_URL,
-    OPENWEBUI_URL,
-    OLLAMA_URL,
+    GRAFANA_URL,
     MCP,
     MLX_SPEECH_URL,
-    SEARXNG_URL,
+    OLLAMA_URL,
+    OPENWEBUI_URL,
+    PIPELINE_URL,
     PROMETHEUS_URL,
-    GRAFANA_URL,
-    record,
+    SEARXNG_URL,
+    _docker_alive,
     _get,
     _ollama_models,
-    _docker_alive,
+    record,
 )
 
 

@@ -1,15 +1,15 @@
 """S24: Specialist MLX models (Foundation-Sec + ToolACE-2.5)."""
-import asyncio
 import time
+
 from tests.acceptance._common import (
-    MCP,
     MLX_URL,
-    record,
     _assert_routing,
     _chat_with_model,
     _get,
     _mlx_health,
+    record,
 )
+
 
 async def run() -> None:
     """S24: Specialist MLX models — Foundation-Sec (auto-blueteam) and ToolACE-2.5 (tools-specialist).

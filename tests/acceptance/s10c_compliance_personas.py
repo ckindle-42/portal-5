@@ -1,11 +1,13 @@
 """S10c: Compliance persona tests — fixture-driven via auto-compliance."""
 import asyncio
 import time
+
 from tests.acceptance._common import (
-    record,
     _chat_with_model,
     _get_personas,
+    record,
 )
+
 
 async def run() -> None:
     PERSONAS = _get_personas()

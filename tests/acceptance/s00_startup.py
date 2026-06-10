@@ -1,12 +1,12 @@
 """S0: Prerequisites and environment check."""
-import sys
 import subprocess
+import sys
+
 from tests.acceptance._common import (
-    AUTH,
-    ROOT,
     API_KEY,
-    record,
+    ROOT,
     _git_sha,
+    record,
 )
 
 

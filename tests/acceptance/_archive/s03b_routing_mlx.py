@@ -1,12 +1,13 @@
 """S3b: Workspace routing tests (MLX backends)."""
 import asyncio
+
 from tests.acceptance._common import (
-    record,
     _chat_with_model,
+    _get_mlx_orgs,
+    _get_workspace_prompts,
     _mlx_health,
     _unload_ollama_models,
-    _get_workspace_prompts,
-    _get_mlx_orgs,
+    record,
 )
 
 

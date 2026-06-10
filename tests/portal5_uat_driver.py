@@ -47,7 +47,7 @@ from playwright.async_api import async_playwright
 load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).parent))
-from common import REFUSAL_PHRASES  # noqa: E402
+
 from tests.uat_catalog import TEST_CATALOG  # assembled from tests/uat_catalog/g_*.py
 
 # ---------------------------------------------------------------------------
@@ -3428,7 +3428,6 @@ async def run_test(
             import sys as _sys
             from pathlib import Path as _Path
             _sys.path.insert(0, str(_Path(__file__).parent))
-            from expected_models import model_matches_expected
             intended_keys = route_detail  # contains expected key info
             intended_ollama = test.get("workspace_tier", "") == "ollama" \
                 or test.get("mlx_model") is not None

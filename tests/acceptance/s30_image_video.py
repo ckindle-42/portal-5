@@ -1,12 +1,14 @@
 """S30: Image generation tests (ComfyUI/FLUX)."""
 import time
+
 from tests.acceptance._common import (
     COMFYUI_URL,
     MCP,
-    record,
     _get,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S30: Image generation tests (ComfyUI)."""

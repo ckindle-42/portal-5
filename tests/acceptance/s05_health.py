@@ -1,10 +1,11 @@
 """S5: Code sandbox tests."""
 import time
+
 from tests.acceptance._common import (
     MCP,
-    record,
     _get,
     _mcp,
+    record,
 )
 
 

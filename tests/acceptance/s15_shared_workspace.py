@@ -4,9 +4,11 @@ import contextlib
 import os
 import time
 from pathlib import Path
+
 from tests.acceptance._common import (
     record,
 )
+
 
 async def run() -> None:
     """S15: Shared workspace verification (TASK-WORKSPACE-001)."""

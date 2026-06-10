@@ -1,21 +1,23 @@
 """S11: Persona tests (MLX-routed) — driven by PERSONAS, grouped by workspace."""
 import asyncio
 import time
+
 from tests.acceptance._common import (
     MLX_URL,
-    record,
     _assert_routing,
     _chat_with_model,
-    _mlx_health,
-    _get_acc_client,
-    _remediate_mlx_crash,
     _ensure_free_ram_gb,
-    _get_personas,
+    _get_acc_client,
+    _get_mlx_orgs,
+    _get_mlx_workspaces,
     _get_persona_prompts,
     _get_persona_prompts_excluded,
-    _get_mlx_workspaces,
-    _get_mlx_orgs,
+    _get_personas,
+    _mlx_health,
+    _remediate_mlx_crash,
+    record,
 )
+
 
 async def run() -> None:
     PERSONAS = _get_personas()

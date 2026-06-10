@@ -1,11 +1,12 @@
 """S4: Document generation tests."""
 import asyncio
+
 from tests.acceptance._common import (
     MCP,
     ROOT,
-    record,
     _get,
     _mcp,
+    record,
 )
 
 

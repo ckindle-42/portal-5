@@ -1,10 +1,12 @@
 """S12: Web search tests."""
 import time
+
 from tests.acceptance._common import (
     SEARXNG_URL,
-    record,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S12: Web search tests."""

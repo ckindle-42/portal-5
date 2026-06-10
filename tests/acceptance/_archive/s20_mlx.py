@@ -1,11 +1,13 @@
 """S20: MLX acceleration tests."""
 import time
+
 from tests.acceptance._common import (
     MLX_URL,
-    record,
     _get,
     _mlx_health,
+    record,
 )
+
 
 async def run() -> None:
     """S20: MLX acceleration tests."""

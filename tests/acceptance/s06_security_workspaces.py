@@ -1,11 +1,13 @@
 """S6: Security workspace tests."""
 import time
+
 from tests.acceptance._common import (
-    record,
     _assert_routing,
     _chat_with_model,
     _grep_logs,
+    record,
 )
+
 
 async def run() -> None:
     """S6: Security workspace tests."""

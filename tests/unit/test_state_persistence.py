@@ -8,8 +8,8 @@ import json
 
 import pytest
 
-import portal_pipeline.router.state as rp
 import portal_pipeline.router.metrics as rm
+import portal_pipeline.router.state as rp
 
 
 @pytest.fixture(autouse=True)
