@@ -256,8 +256,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
-        "description": "Creative writing, storytelling, content generation (HauhauCS Qwen3.6-35B-A3B MoE, uncensored, 26.6 TPS)",
-        "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
+        "description": "Creative writing, storytelling, content generation",
+        "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
         "tools": [],
     },
     "auto-reasoning": {
