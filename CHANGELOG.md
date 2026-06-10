@@ -2,6 +2,25 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.3.2] — 2026-06-10
+
+### Removed — MLX-inference dead code swept from the test layer (TASK_MLX_TEST_SWEEP_V1)
+- Deleted dead harnesses targeting the retired :8081 proxy: bench_mlx_vs_ollama,
+  bench_omlx, bench_kv_long_context, bench_positional_recall (+ recall_extract,
+  corpora/, update_grafana_recall, portal5_recall dashboard), the qwen-template
+  patcher pair, convert_jang_keys, the five archived MLX acceptance scenarios,
+  and the completed TASK_BENCH_MLX_ONLY / TASK_OMLX_* docs (OMLX_DECISION.md
+  retained as the decision record). Recoverable at 476de27.
+- persona matrix driver is Ollama-only: MLX backend mode, --mlx-warmup, and
+  :8081 plumbing removed; nightly CI workflow MLX branch removed.
+- ComfyUI acceptance memory-freeing is Ollama-eviction-only; UAT driver dead
+  mlx_model branches and MLX fallback labels removed; regen_section_table
+  retired-section rows dropped; S0-06/S0-07 retired INFO stubs removed.
+- Superseded MLX-era docs archived: ACCEPTANCE_TEST_GUIDE, PORTAL5_PROMPT_V6,
+  ROUTING_FALLBACK_ANALYSIS, TASK_BENCH_EXECUTE_V7_UPDATE.
+- Retained MLX audio/transcribe/embedding/rerank (:8918/:8924/:8917/:8925)
+  untouched — live production services, not dead code.
+
 ## [7.3.1] — 2026-06-10
 
 ### Fixed — acceptance section-file runtime defects
