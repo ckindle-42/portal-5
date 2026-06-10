@@ -112,12 +112,14 @@ class _MockStreamContext:
 
 @pytest.fixture
 def mock_client():
-    """Provide a MagicMock as router_pipe._http_client so the stream method
+    """Provide a MagicMock as streaming._http_client so the stream method
     can be monkeypatched on top of it.  Restored after each test."""
-    orig = router_pipe._http_client
-    router_pipe._http_client = MagicMock()
-    yield router_pipe._http_client
-    router_pipe._http_client = orig
+    import portal_pipeline.router.streaming as _streaming
+
+    orig = _streaming._http_client
+    _streaming._http_client = MagicMock()
+    yield _streaming._http_client
+    _streaming._http_client = orig
 
 
 # ── tests ────────────────────────────────────────────────────────────
