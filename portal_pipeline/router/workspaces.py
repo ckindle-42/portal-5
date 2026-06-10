@@ -191,12 +191,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-agentic": {
         "name": "⚡ Portal Agentic Coder (Heavy)",
         "description": (
-            "Full-power agentic coding via Qwen3-Coder (480B MoE, 35B active, 256K ctx). "
-            "Use for long-horizon multi-file tasks, SWE-agent-style workflows, and complex refactors. "
-            "Not for interactive chat — context capped at 32K."
+            "Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style "
+            "workflows, and complex refactors. Served by Qwen3-Coder-30B-A3B-Q4 (interim) "
+            "until the full 480B candidate completes Phase 4 bench evaluation."
         ),
-        "model_hint": "qwen3-coder:480b-a35b-q4_K_M-ctx32k",
-        "context_limit": 32768,
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "tools": [
             "execute_python",
             "execute_bash",
@@ -355,7 +354,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-mistral": {
         "name": "🧪 Portal Mistral Reasoner",
         "description": "Magistral-Small-2509 (GGUF q8_0) — Mistral training lineage, [THINK] mode, distinct failure profile from Qwen/DeepSeek reasoning models.",
-        "model_hint": "magistral:24b-small-2506-q8_0",
+        "model_hint": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0",
         "predict_limit": 16384,
         "emits_reasoning": True,
         # 25 GB q8 — keep warm for back-to-back queries but don't pin forever

@@ -38,9 +38,9 @@ backends:
   - id: phi4:14b-q8_0
     supports_tools: true
     notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
-  - id: magistral:24b-small-2506-q8_0
+  - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
     supports_tools: false
-    notes: "Mistral Magistral-Small 24B Q8 (~24GB, [THINK] reasoning mode, Mistral lineage)."
+    notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2)."
   - id: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
     supports_tools: false
     notes: "Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary)."
@@ -173,7 +173,7 @@ backends:
       \ signatures. IBM Research lineage."
   - id: deepseek-r1:32b-q8_0
     supports_tools: false
-    notes: "DeepSeek-R1 Distill Qwen 32B Q8 (~32GB, high-precision reasoning, auto-data primary)."
+    notes: "DeepSeek-R1 Distill Qwen 32B Q8_0 (~34GB, high-precision reasoning, auto-data primary). Not in Ollama registry — pulled via hf.co/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF:DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf then aliased: ollama cp hf.co/bartowski/...Q8_0.gguf deepseek-r1:32b-q8_0 (TASK_MODEL_FLEET_REFRESH_V2 Phase 2)."
   - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
     supports_tools: true
     notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary)."
