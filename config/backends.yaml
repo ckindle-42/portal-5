@@ -49,7 +49,13 @@ backends:
     notes: "Gemma 4 31B dense VLM Q4 (~20GB, Apache 2.0, research primary)."
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: true
-    notes: "Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). Promoted to auto-daily primary (TASK_MODEL_FLEET_REFRESH_V2 Phase 6). Also in ollama-coding."
+    notes: "Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). Also in ollama-coding."
+  - id: gemma4:12b-it-q4_K_M
+    supports_tools: true
+    notes: "Gemma 4 12B Q4_K_M (~7.6GB, Google). Daily-driver bench candidate."
+  - id: phi4-mini:latest
+    supports_tools: true
+    notes: "Phi-4-mini (~2.5GB, Microsoft, 3.8B). Fast-lane / router-adjacent bench candidate."
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -377,6 +383,11 @@ workspace_routing:
   - general
   bench-qwen36-hauhaucs:
   - creative
+  - general
+  # Daily-driver candidate bench
+  bench-gemma4-12b:
+  - general
+  bench-phi4-mini:
   - general
   tools-specialist:
   - general
