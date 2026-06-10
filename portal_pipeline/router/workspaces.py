@@ -490,9 +490,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
     "bench-qwen36-27b": {
-        "name": "🔬 Bench · Qwen3.6-27B (Alibaba)",
-        "description": "Benchmark: Qwen3.6-27B abliterated (GGUF, Ollama, Alibaba, dense 27B, 262K ctx, Apache 2.0, SWE-bench Verified 73.4%)",
-        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
+        "name": "🔬 Bench · Qwen3.6-27B Q8 (Alibaba)",
+        "description": (
+            "Benchmark: qwen3.6:27b-q8_0 (Ollama, Alibaba, dense 27B, 262K ctx, Apache 2.0, "
+            "SWE-bench Verified 73.4%). High-precision quality-lane candidate + Phase-5 MTP A/B base."
+        ),
+        "model_hint": "qwen3.6:27b-q8_0",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
@@ -686,6 +689,46 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
         "max_concurrent": 1,
+    },
+    # ── TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds ─────────────────────────────
+    "bench-qwen36-35b-a3b-ud": {
+        "name": "🔬 Bench · Qwen3.6-35B-A3B UD (Unsloth)",
+        "description": (
+            "Benchmark: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL (Alibaba MoE, "
+            "35B total / 3B active, ~22GB). Unsloth Dynamic 2.0 sensitivity-aware quant "
+            "vs stock Q4_K_M — agentic lane candidate C1, TASK_MODEL_FLEET_REFRESH_V2."
+        ),
+        "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-qwen36-abl-27b": {
+        "name": "🔬 Bench · Qwen3.6-27B Abliterated (huihui-ai)",
+        "description": (
+            "Benchmark: huihui_ai/Qwen3.6-abliterated:27b (GGUF, Ollama, dense 27B, "
+            "~17GB Q4). Current-gen uncensored dense 27B — creative/music lane candidate, "
+            "auto-creative and auto-music refresh target."
+        ),
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-qwen36-hauhaucs": {
+        "name": "🔬 Bench · Qwen3.6-35B-A3B HauhauCS (uncensored)",
+        "description": (
+            "Benchmark: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4 "
+            "(Ollama, MoE 3B active, ~22GB, 0/465 refusals). HauhauCS abliteration method — "
+            "lowest KL-divergence vs base; vision patched; robust tool-calling at low quant."
+        ),
+        "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
     },
 }
 
