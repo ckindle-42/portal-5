@@ -1,5 +1,6 @@
 """S70: M3 information access MCPs — research, memory, RAG, SearXNG."""
 import time
+import uuid
 
 from tests.acceptance._common import (
     EMBEDDING_URL,

@@ -1,5 +1,6 @@
 """S4: Document generation tests."""
 import asyncio
+import time
 
 from tests.acceptance._common import (
     MCP,

@@ -1,4 +1,5 @@
 """S42: M5 browser automation — MCP service health and tool count."""
+import os
 import time
 
 from tests.acceptance._common import (

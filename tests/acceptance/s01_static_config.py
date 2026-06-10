@@ -1,5 +1,6 @@
 """S1: Configuration consistency."""
 import json
+import time
 
 import yaml
 
