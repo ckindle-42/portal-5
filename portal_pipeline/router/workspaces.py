@@ -950,6 +950,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": [],
     },
+    "bench-qwen3-coder-next-abliterated": {
+        "name": "🔬 Bench · Qwen3-Coder-Next Abliterated (huihui-ai/bartowski)",
+        "description": (
+            "Benchmark: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M "
+            "(bartowski, 74k downloads, huihui-ai abliteration of Qwen/Qwen3-Coder-Next, ~46GB Q4_K_M). "
+            "Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. "
+            "Candidate for auto-agentic / auto-redteam coding lane. "
+            "Head-to-head vs non-abliterated bench-qwen3-coder-next. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
