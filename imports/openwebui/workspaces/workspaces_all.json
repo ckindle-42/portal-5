@@ -240,21 +240,6 @@
     }
   },
   {
-    "id": "bench-qwen3-coder-next",
-    "name": "🔬 Bench · Qwen3-Coder-Next (80B MoE)",
-    "meta": {
-      "description": "Benchmark: Qwen3-Coder-Next-4bit — Alibaba, 80B MoE, ~46GB, cold load ~60s",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-qwen3-coder-next"
-    }
-  },
-  {
     "id": "bench-qwen3-coder-30b",
     "name": "🔬 Bench · Qwen3-Coder-30B",
     "meta": {
@@ -596,21 +581,6 @@
     }
   },
   {
-    "id": "bench-nemotron-omni",
-    "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA)",
-    "meta": {
-      "description": "Benchmark: Nemotron-3-Nano-Omni-30B-A3B mxfp4 — NVIDIA, 30B MoE/3B active, ~15GB, omni-modal (text+image+video+audio). BENCH-ONLY pending TASK_NEMOTRON_OMNI_PROMOTE_V1.",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-      "model": "bench-nemotron-omni"
-    }
-  },
-  {
     "id": "bench-granite-speech",
     "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
     "meta": {
@@ -621,21 +591,6 @@
     "params": {
       "system": "You are a speech-model probe with keyword biasing support. Text input does not exercise this ASR model — use the audio probe in tests/audio_probe.py.",
       "model": "bench-granite-speech"
-    }
-  },
-  {
-    "id": "bench-qwen36-35b-a3b-ud",
-    "name": "🔬 Bench · Qwen3.6-35B-A3B (Unsloth UD)",
-    "meta": {
-      "description": "Benchmark: unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit — Alibaba+Unsloth Dynamic 2.0, MoE 3B active, ~20GB, quant-method probe vs stock 4-bit",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.",
-      "model": "bench-qwen36-35b-a3b-ud"
     }
   },
   {

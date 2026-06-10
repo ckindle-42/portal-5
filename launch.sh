@@ -3072,7 +3072,7 @@ PLIST
     }
 
     echo "Applying model params (ctx tags) ..."
-    _apm_create_ctx_tag "qwen3-coder:480b-a35b-q4_K_M" "ctx32k" "32768"
+    echo "No active ctx tags in this fleet version (480B removed TASK_MODEL_FLEET_REFRESH_V2 Phase 3)."
     echo "Done."
     ;;
 
