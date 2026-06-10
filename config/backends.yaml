@@ -201,6 +201,9 @@ backends:
   - id: lily-cybersecurity:7b-q4_k_m
     supports_tools: false
     notes: imported by pull-models from segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
+  - id: "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Josiefied R1-0528-Qwen3-8B abliterated (~5GB). Abliterated reasoning for redteam/security use. Also in ollama-reasoning."
   - id: dolphin3-r1-mistral:24b-q4_k_m
     supports_tools: false
     notes: Dolphin lineage, no Ollama tools tag
@@ -279,9 +282,12 @@ backends:
     notes: "DeepSeek-R1-0528-Qwen3-8B Q4_K_XL (~5GB, MIT, Qwen3-8B base, May 2026).\
       \ Chain-of-thought distill of DeepSeek R1-0528 into Qwen3 8B. Matches Qwen3-235B\
       \ performance on AIME 2024 despite 8B parameters. Complements existing\
-      \ deepseek-r1:32b — smaller/faster reasoning tier at same TPS floor.\ 
+      \ deepseek-r1:32b — smaller/faster reasoning tier at same TPS floor.\
       \ bench-r1-0528-qwen3-8b target (TASK_MODEL_REFRESH_V8 A-r1-8b).\
       \ supports_tools=false (reasoning model, chain-of-thought format)."
+  - id: "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "R1-0528-Qwen3-8B abliterated Q4_K_M (~5GB, mradermacher GGUF of Goekdeniz-Guelmez Josiefied abliteration). Abliterated chain-of-thought — reasoning without refusals. Candidate for auto-redteam / security reasoning lane. bench-r1-0528-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=false (reasoning model, not tool-trained)."
   - id: "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Harness-1 Q4_K_M (~12GB, gpt-oss-20B fine-tuned search agent, Apache 2.0,\
@@ -369,6 +375,9 @@ backends:
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
     notes: "Qwen3.6-27B abliterated dense Q4 (~17GB, huihui-ai, Apache 2.0). bench-qwen36-abl-27b creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). Already in ollama-general for AUTO routing; entry here is for creative group routing of bench-qwen36-abl-27b."
+  - id: "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M"
+    supports_tools: true
+    notes: "LFM2.5-8B-A1B Uncensored (gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated base: LiquidAI/LFM2.5-8B-A1B). Head-to-head vs production lfm2.5:8b for creative/music/agentic lanes. bench-lfm25-8b-uncensored target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true assumed (inherits LFM2.5 tool format; verify with --audit-tools)."
 workspace_routing:
   auto:
   - security
@@ -563,6 +572,14 @@ workspace_routing:
   - general
   bench-nex-n2-mini:
   - coding
+  - general
+  # ── V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED) ─────────────
+  bench-lfm25-8b-uncensored:
+  - creative
+  - general
+  bench-r1-0528-abliterated:
+  - reasoning
+  - security
   - general
   tools-specialist:
   - general

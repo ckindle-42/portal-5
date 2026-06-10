@@ -921,6 +921,35 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 16384,
         "tools": [],
     },
+    # ── V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED) ───────────
+    "bench-lfm25-8b-uncensored": {
+        "name": "🔬 Bench · LFM2.5-8B Uncensored (Gaston)",
+        "description": (
+            "Benchmark: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M "
+            "(gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated LiquidAI/LFM2.5-8B-A1B base). "
+            "Head-to-head vs production lfm2.5:8b — quality delta for creative/music/agentic lanes. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-r1-0528-abliterated": {
+        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated (Josiefied)",
+        "description": (
+            "Benchmark: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M "
+            "(mradermacher packaging of Goekdeniz-Guelmez Josiefied abliteration, ~5GB Q4_K_M). "
+            "Abliterated R1-0528-Qwen3-8B — chain-of-thought reasoning without refusals. "
+            "Candidate for auto-redteam / security reasoning lane. "
+            "Head-to-head vs non-abliterated bench-r1-0528-qwen3-8b. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

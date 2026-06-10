@@ -107,6 +107,9 @@ VALID_WORKSPACES = frozenset(
         "bench-r1-0528-qwen3-8b",
         "bench-harness1",
         "bench-nex-n2-mini",
+        # V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED)
+        "bench-lfm25-8b-uncensored",
+        "bench-r1-0528-abliterated",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }
