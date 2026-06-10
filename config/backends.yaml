@@ -47,6 +47,9 @@ backends:
   - id: gemma4:31b-it-q4_K_M
     supports_tools: false
     notes: "Gemma 4 31B dense VLM Q4 (~20GB, Apache 2.0, research primary)."
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: true
+    notes: "Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). Promoted to auto-daily primary (TASK_MODEL_FLEET_REFRESH_V2 Phase 6). Also in ollama-coding."
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -281,9 +284,6 @@ workspace_routing:
   auto-math:
   - coding
   - general
-  bench-devstral:
-  - coding
-  - general
   bench-qwen3-coder-30b:
   - coding
   - general
@@ -374,9 +374,6 @@ workspace_routing:
   # ── TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds ─────────────────────────────
   bench-qwen36-35b-a3b-ud:
   - coding
-  - general
-  bench-qwen36-abl-27b:
-  - creative
   - general
   bench-qwen36-hauhaucs:
   - creative

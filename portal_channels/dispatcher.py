@@ -49,7 +49,6 @@ VALID_WORKSPACES = frozenset(
         "auto-mistral",
         "auto-math",
         # Coding capability benchmark workspaces (user-selected only)
-        "bench-devstral",
         "bench-qwen3-coder-next",
         "bench-qwen3-coder-30b",
         "bench-llama33-70b",
@@ -91,7 +90,6 @@ VALID_WORKSPACES = frozenset(
         "bench-huihui-qwen36-27b",
         "bench-huihui-qwen36-35b-a3b",
         # TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds
-        "bench-qwen36-abl-27b",
         "bench-qwen36-hauhaucs",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",

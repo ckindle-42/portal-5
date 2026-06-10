@@ -324,11 +324,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 55 (19 production + 1 tools-specialist + 35 bench-* after V2 Phase 4 adds)."""
+        """Total workspace count is 53 (19 production + 1 tools-specialist + 33 bench-* after V2 Phase 6 prunes)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 55, (
-            f"Expected 55 workspaces (19 production + 1 tools-specialist + 35 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 53, (
+            f"Expected 53 workspaces (19 production + 1 tools-specialist + 33 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -415,8 +415,8 @@ class TestR18ModelCompleteness:
 
     def test_router_hints_use_best_models(self):
         """Key workspaces use the recommended primary model hints."""
-        assert "glm-4.7-flash" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
-            "auto-coding should use glm-4.7-flash:q4_K_M (GLM-4.7-Flash GGUF, primary coder)"
+        assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
+            "auto-coding should use qwen3-coder:30b-a3b-q4_K_M (Qwen3-Coder-30B MoE, primary coder, promoted V2 Phase 6)"
         )
         assert "phi4" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
             "auto-documents should use phi4 (high-precision document model)"
@@ -729,11 +729,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 55 (19 production + 1 tools-specialist + 35 bench-* after V2 Phase 4 adds)."""
+        """Total workspace count must be 53 (19 production + 1 tools-specialist + 33 bench-* after V2 Phase 6 prunes)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 55, (
-            f"Expected 55 workspaces (19 production + 1 tools-specialist + 35 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 53, (
+            f"Expected 53 workspaces (19 production + 1 tools-specialist + 33 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

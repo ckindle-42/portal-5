@@ -139,12 +139,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🪶 Portal Daily Driver",
         "description": (
             "Fast everyday assistant: chat, writing, editing, summarization, "
-            "planning, light technical help. gemma4:26b-a4b-it-q4_K_M primary "
-            "(Ollama, MoE 4B active, VLM, Apache 2.0). Daily-driver lane — escalates "
+            "planning, light technical help. Qwen3.6-35B-A3B UD-Q4_K_XL primary "
+            "(Ollama, MoE 3B active, ~22GB, Unsloth Dynamic 2.0, 23 TPS). Daily-driver lane — escalates "
             "to specialist workspaces (auto-coding, auto-reasoning, etc.) when "
             "the persona detects out-of-lane requests."
         ),
-        "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+        "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
         "predict_limit": 4096,
         "tools": [
             "web_search",
@@ -159,8 +159,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-coding": {
         "name": "💻 Portal Code Expert",
-        "description": "Code generation, debugging, architecture review (GLM-4.7-Flash GGUF, Ollama)",
-        "model_hint": "glm-4.7-flash:q4_K_M",
+        "description": "Code generation, debugging, architecture review (Qwen3-Coder-30B MoE, Ollama, 0.22s TTFT)",
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         # Output budget raised to 16384 — full-game HTML (Asteroids, particle
         # systems, etc.) sits at 6-10K tokens; the prior 8192 cap cut responses
         # while still in the analysis phase for complex deliverables.
@@ -256,8 +256,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
-        "description": "Creative writing, storytelling, content generation",
-        "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
+        "description": "Creative writing, storytelling, content generation (HauhauCS Qwen3.6-35B-A3B MoE, uncensored, 26.6 TPS)",
+        "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
         "tools": [],
     },
     "auto-reasoning": {
@@ -369,15 +369,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": ["execute_python"],
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
-    "bench-devstral": {
-        "name": "🔬 Bench · Devstral-Small-2507",
-        "description": "Benchmark: Devstral-Small-2507 (GGUF, Ollama, Mistral/Codestral lineage, 53.6% SWE-bench)",
-        "model_hint": "devstral:24b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-qwen3-coder-30b": {
         "name": "🔬 Bench · Qwen3-Coder-30B",
         "description": "Benchmark: Qwen3-Coder-30B (GGUF, Ollama, Alibaba, 30B MoE 3B active)",
@@ -701,19 +692,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "vs stock Q4_K_M — agentic lane candidate C1, TASK_MODEL_FLEET_REFRESH_V2."
         ),
         "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-qwen36-abl-27b": {
-        "name": "🔬 Bench · Qwen3.6-27B Abliterated (huihui-ai)",
-        "description": (
-            "Benchmark: huihui_ai/Qwen3.6-abliterated:27b (GGUF, Ollama, dense 27B, "
-            "~17GB Q4). Current-gen uncensored dense 27B — creative/music lane candidate, "
-            "auto-creative and auto-music refresh target."
-        ),
-        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
