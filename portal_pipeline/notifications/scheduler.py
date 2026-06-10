@@ -292,6 +292,8 @@ class NotificationScheduler:
 
         daily_requests = _delta_dict(current_snapshot["request_count"], prev_request_count)
         daily_total = sum(daily_requests.values())
+        # Exclude bench-* workspaces from averages (cold model loads inflate response time/TPS)
+        daily_real_total = sum(v for k, v in daily_requests.items() if not k.startswith("bench-"))
         daily_rt_ms = _delta(current_snapshot["total_response_time_ms"], prev_rt_ms)
         daily_tps_sum = _delta(current_snapshot["total_tps"], prev_tps_sum)
         daily_tps_count = _delta(current_snapshot["request_tps_count"], prev_tps_count)
@@ -340,7 +342,7 @@ class NotificationScheduler:
 
         # Compute derived metrics from daily deltas
         avg_tps = daily_tps_sum / daily_tps_count if daily_tps_count > 0 else 0.0
-        avg_response_ms = daily_rt_ms / daily_total if daily_total > 0 else 0.0
+        avg_response_ms = daily_rt_ms / daily_real_total if daily_real_total > 0 else 0.0
 
         # Import SummaryEvent here to avoid circular import
         from portal_pipeline.notifications.events import SummaryEvent

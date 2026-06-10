@@ -198,9 +198,10 @@ def _record_usage(
         if completion_tokens > 0 and eval_duration_ns > 0:
             tps = completion_tokens / (eval_duration_ns / 1_000_000_000)
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
-            # Update running totals for daily summary
-            _state_mod._total_tps += tps
-            _state_mod._request_tps_count += 1
+            # Exclude bench-* traffic from daily summary (cold model loads inflate wall-clock TPS)
+            if not workspace.startswith("bench-"):
+                _state_mod._total_tps += tps
+                _state_mod._request_tps_count += 1
             logger.debug(
                 "Usage: workspace=%s model=%s tokens=%d tps=%.1f (model time)",
                 workspace,
@@ -211,9 +212,10 @@ def _record_usage(
         elif completion_tokens > 0 and elapsed_seconds and elapsed_seconds > 0:
             tps = completion_tokens / elapsed_seconds
             _tokens_per_second.labels(model=model, workspace=workspace).observe(tps)
-            # Update running totals for daily summary
-            _state_mod._total_tps += tps
-            _state_mod._request_tps_count += 1
+            # Exclude bench-* traffic from daily summary (cold model loads inflate wall-clock TPS)
+            if not workspace.startswith("bench-"):
+                _state_mod._total_tps += tps
+                _state_mod._request_tps_count += 1
             logger.debug(
                 "Usage: workspace=%s model=%s tokens=%d tps=%.1f (wall clock)",
                 workspace,

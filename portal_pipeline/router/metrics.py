@@ -185,7 +185,9 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
     """
     try:
         _response_time_seconds.labels(model=model, workspace=workspace).observe(duration_seconds)
-        global _total_response_time_ms
-        _total_response_time_ms += duration_seconds * 1000
+        # Exclude bench-* traffic from daily summary (cold model loads inflate response times)
+        if not workspace.startswith("bench-"):
+            global _total_response_time_ms
+            _total_response_time_ms += duration_seconds * 1000
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)

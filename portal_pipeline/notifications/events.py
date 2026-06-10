@@ -99,11 +99,6 @@ class AlertEvent:
             lines.append(f"{sep}Backend ID: {_html.escape(self.backend_id)}")
         if self.workspace:
             lines.append(f"{sep}Workspace: {_html.escape(self.workspace)}")
-        if self.metadata:
-            lines.append(f"{sep}<b>MLX Context:</b>")
-            for k, v in self.metadata.items():
-                key = k.replace("mlx_", "").replace("_", " ").title()
-                lines.append(f"  {key}: {_html.escape(str(v))}")
         lines.extend(["", f"Sent at {self.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}"])
         return "\n".join(lines)
 
@@ -121,11 +116,6 @@ class AlertEvent:
         msg = f"{prefix} {self.message}"
         if self.backend_id:
             msg += f" | backend={self.backend_id}"
-        if self.metadata:
-            server = self.metadata.get("mlx_server", "?")
-            model = self.metadata.get("mlx_model", "?")
-            error = self.metadata.get("mlx_error", "none")
-            msg += f" | mlx={server} model={model} err={error}"
         return msg[:512]
 
 
