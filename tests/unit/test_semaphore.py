@@ -29,8 +29,14 @@ class TestSemaphoreExhaustion:
 
     def test_semaphore_initialized(self, client):
         """Semaphore is initialized during app lifespan."""
+        import sys
+
         import portal_pipeline.router.concurrency as _concurrency
 
+        # A4 recurrence guard: the concurrency module must be the canonical
+        # sys.modules entry. If a facade re-export shadowed it, writes to
+        # _concurrency._request_semaphore would not reach RequestSlot.
+        assert sys.modules["portal_pipeline.router.concurrency"] is _concurrency
         assert _concurrency._request_semaphore is not None
 
     def test_semaphore_limit_in_env(self, client):

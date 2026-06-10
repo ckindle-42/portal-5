@@ -113,7 +113,12 @@ class _MockStreamContext:
 @pytest.fixture
 def mock_client():
     """Provide a MagicMock as streaming._http_client so the stream method
-    can be monkeypatched on top of it.  Restored after each test."""
+    can be monkeypatched on top of it.  Restored after each test.
+
+    A4 note: the canonical home for _http_client is portal_pipeline.router.streaming.
+    This fixture patches that module directly. Do NOT patch router_pipe._http_client —
+    streaming functions read from their own module's singleton, not the facade.
+    """
     import portal_pipeline.router.streaming as _streaming
 
     orig = _streaming._http_client
