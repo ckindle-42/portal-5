@@ -4,7 +4,7 @@
 For each workspace-registered persona × each model in the persona's routing
 chain, this driver:
 
-  1. Hits the backend DIRECTLY (Ollama :11434 or MLX :8081), pinning the
+  1. Hits Ollama (:11434) DIRECTLY, pinning the
      model in the request body. The pipeline at :9099 is bypassed entirely.
   2. Runs every applicable scenario from the workspace's fixture against
      that (persona, model) pair, with the persona's system prompt loaded.
@@ -17,8 +17,7 @@ Usage:
     python3 tests/portal5_persona_matrix.py --workspace auto-coding
     python3 tests/portal5_persona_matrix.py --persona complianceanalyst
     python3 tests/portal5_persona_matrix.py --model granite4.1
-    python3 tests/portal5_persona_matrix.py --backend ollama  # ollama only
-    python3 tests/portal5_persona_matrix.py --backend mlx     # mlx only
+    python3 tests/portal5_persona_matrix.py --backend ollama  # explicit (sole backend)
     python3 tests/portal5_persona_matrix.py --skip-big-models # default skips big_model: true
     python3 tests/portal5_persona_matrix.py --dry-run         # plan only
     python3 tests/portal5_persona_matrix.py --output FILE.json
@@ -26,9 +25,8 @@ Usage:
 
 Memory discipline:
     Models are loaded one at a time. After all scenarios for a model finish,
-    the model is evicted (Ollama: keep_alive=0; MLX: rely on the proxy's
-    next-model-load behavior). A 5-second cooldown between models lets Metal
-    settle. Mirrors bench_tps.py's pattern.
+    the model is evicted (keep_alive=0). A 5-second cooldown between models
+    lets Metal settle. Mirrors bench_tps.py's pattern.
 
     Models with big_model: true in backends.yaml are skipped by default.
     Pass --include-big-models to test them; expect ≥3 minutes per model
@@ -177,7 +175,6 @@ def _load_workspace_modules(workspace_id: str):
 
 
 OLLAMA_URL = "http://localhost:11434"
-MLX_URL = "http://localhost:8081"
 RESULTS_DIR = _REPO / "tests" / "benchmarks" / "results"
 
 # System prompt cap for matrix driver direct calls. Sized so the largest
@@ -231,17 +228,7 @@ def models_in_group(cfg: dict[str, Any], group: str) -> list[dict[str, Any]]:
     for be in cfg.get("backends", []):
         if be.get("group") != group:
             continue
-        be_type = be.get("type", "ollama")
-        if be_type == "mlx":
-            for m in be.get("mlx_models", []):
-                out.append({
-                    "id": m["id"],
-                    "backend_type": "mlx",
-                    "big_model": bool(m.get("big_model", False)),
-                    "is_vlm": bool(m.get("is_vlm", False)),
-                    "memory_gb": float(m.get("memory_gb", 20.0)),
-                })
-        else:
+        if True:
             for mid in be.get("models", []):
                 # Accept dict-form Ollama entries (new) and bare strings (legacy).
                 # Dict entries carry per-model metadata; strings imply defaults.
@@ -384,7 +371,7 @@ async def _chat_direct(
             f"shorten the persona before re-running."
         )
 
-    base_url = MLX_URL if backend_type == "mlx" else OLLAMA_URL
+    base_url = OLLAMA_URL
     msgs = []
     if system:
         msgs.append({"role": "system", "content": system})
@@ -423,7 +410,7 @@ async def _audit_tool_support(
     Returns: {outcome, http_status, detail, elapsed_s}
     outcome ∈ {"tool_call", "text_only", "api_error", "exception"}
     """
-    base_url = MLX_URL if backend_type == "mlx" else OLLAMA_URL
+    base_url = OLLAMA_URL
     payload = {
         "model": model_id,
         "messages": [{"role": "user", "content": AUDIT_PROMPT}],
@@ -468,8 +455,6 @@ async def run_audit_tools(args) -> dict:
 
     if args.backend == "ollama":
         chain_models = [m for m in chain_models if m["backend_type"] == "ollama"]
-    elif args.backend == "mlx":
-        chain_models = [m for m in chain_models if m["backend_type"] == "mlx"]
 
     if args.model:
         chain_models = [m for m in chain_models if args.model in m["id"]]
@@ -553,47 +538,6 @@ async def _ollama_unload(client: httpx.AsyncClient, model_id: str) -> None:
                 pass
     except Exception:
         pass
-
-
-async def _mlx_health(client: httpx.AsyncClient) -> tuple[str, str]:
-    try:
-        r = await client.get(f"{MLX_URL}/health", timeout=5.0)
-        if r.status_code == 200:
-            d = r.json()
-            return d.get("state", "unknown"), d.get("model", "")
-        return "unknown", ""
-    except Exception:
-        return "unknown", ""
-
-
-async def _mlx_warmup(
-    client: httpx.AsyncClient, model_id: str, timeout_s: float = 240.0
-) -> tuple[bool, float]:
-    """Pre-load an MLX model. Sends a single trivial chat request and polls
-    /health until state=ready (or timeout). Returns (success, elapsed_s).
-    """
-    t0 = time.time()
-    try:
-        await client.post(
-            f"{MLX_URL}/v1/chat/completions",
-            json={
-                "model": model_id,
-                "messages": [{"role": "user", "content": "ok"}],
-                "max_tokens": 4,
-                "stream": False,
-            },
-            timeout=timeout_s,
-        )
-    except Exception:
-        pass
-
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        state, current = await _mlx_health(client)
-        if state == "ready" and model_id in (current or ""):
-            return True, time.time() - t0
-        await asyncio.sleep(2.0)
-    return False, time.time() - t0
 
 
 # ── Per-cell runner ───────────────────────────────────────────────────────
@@ -711,18 +655,7 @@ async def run_sweep(args) -> dict[str, Any]:
         # fast rather than silently producing partial results.
         all_models: dict[str, dict[str, Any]] = {}
         for be in cfg.get("backends", []):
-            be_type = be.get("type", "ollama")
-            if be_type == "mlx":
-                for m in be.get("mlx_models", []):
-                    all_models[m["id"]] = {
-                        "id": m["id"],
-                        "backend_type": "mlx",
-                        "big_model": bool(m.get("big_model", False)),
-                        "is_vlm": bool(m.get("is_vlm", False)),
-                        "memory_gb": float(m.get("memory_gb", 20.0)),
-                        "group": be.get("group", "mlx"),
-                    }
-            else:
+            if True:
                 for mid in be.get("models", []):
                     model_id = mid["id"] if isinstance(mid, dict) else mid
                     all_models[model_id] = {
@@ -831,26 +764,6 @@ async def run_sweep(args) -> dict[str, Any]:
                         await _ollama_unload(client, m["name"])
                 except Exception:
                     pass
-            if args.mlx_warmup and model["backend_type"] == "mlx":
-                ok, warmup_s = await _mlx_warmup(client, model["id"])
-                print(
-                    f"      MLX warmup: {'ready' if ok else 'TIMED OUT'} ({warmup_s:.1f}s)"
-                )
-                if not ok:
-                    for persona in personas:
-                        results.append({
-                            "persona": persona["slug"],
-                            "model": model["id"],
-                            "backend": model["backend_type"],
-                            "group": model["group"],
-                            "scenarios": [],
-                            "summary": {
-                                "PASS": 0, "WARN": 0,
-                                "FAIL": 0, "ERROR": 1,
-                            },
-                            "skipped": "mlx_warmup_timeout",
-                        })
-                    continue
             for pi, persona in enumerate(personas, start=1):
                 pre = time.time()
                 cell = await run_cell(client, persona, model, scenarios)
@@ -937,12 +850,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--persona", help="filter persona slugs by substring")
     p.add_argument("--model", help="filter model ids by substring")
     p.add_argument(
-        "--backend", choices=("ollama", "mlx"),
+        "--backend", choices=("ollama",),
         help="restrict to one backend type",
     )
     p.add_argument(
         "--include-big-models", action="store_true",
-        help="include MLX models flagged big_model: true (default: skip)",
+        help="include models flagged big_model: true (default: skip)",
     )
     p.add_argument(
         "--require", default="",
@@ -958,16 +871,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="cap scenarios per persona (0 = no cap, default)",
     )
     p.add_argument("--dry-run", action="store_true", help="print plan and exit")
-    p.add_argument(
-        "--mlx-warmup", action="store_true",
-        help=(
-            "Before running scenarios on each MLX model, send a small "
-            "warmup request and wait for /health state=ready. Excludes "
-            "cold-load time from per-cell elapsed measurements. Adds "
-            "30-180s per MLX model on first hit. Default: off (cold-load "
-            "time is rolled into the first scenario's elapsed_s)."
-        ),
-    )
     p.add_argument(
         "--audit-tools",
         action="store_true",
