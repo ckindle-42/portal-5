@@ -23,7 +23,7 @@ def test_unknown_workspace_returns_empty():
 def test_match_substring_case_insensitive():
     keys = ["qwen3-coder-next-4bit", "qwen3-coder"]
     assert model_matches_expected(
-        "mlx-community/Qwen3-Coder-Next-4bit", keys
+        "hf.co/bartowski/Qwen3-Coder-Next-GGUF:Q4_K_M", keys
     ) is True
     assert model_matches_expected("qwen3-coder:30b", keys) is True
     assert model_matches_expected("dolphin-llama3:8b", keys) is False

@@ -89,9 +89,8 @@ WORKSPACE_TIMEOUT = PIPELINE_INACTIVITY_TIMEOUT  # pipeline may buffer think
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
 # emit <think> blocks that consume tokens before generating output. Two adjustments:
 #   1. REASONING_MAX_TOKENS: larger budget so output isn't truncated mid-response.
-#   2. enable_thinking=False injected via chat_template_kwargs (mlx-lm only) so
-#      TPS reflects inference speed on actual output, not reasoning overhead.
-#      This makes bench numbers comparable across reasoning and non-reasoning models.
+#   2. Reasoning output is included in the token count; the larger budget keeps
+#      TPS comparable across reasoning and non-reasoning models.
 REASONING_MAX_TOKENS = 512
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
@@ -788,7 +787,7 @@ def _discover_personas() -> list[dict]:
 
 
 def _init_output(
-    output_path: str, args, hw: dict, _mlx_cfg, ollama_cfg, workspaces_cfg, personas_cfg
+    output_path: str, args, hw: dict, ollama_cfg, workspaces_cfg, personas_cfg
 ) -> dict:
     """Initialize or load the output file. Returns the output dict."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1954,7 +1953,7 @@ def _run_main(args) -> None:
     t0 = time.time()
 
     # Initialize output file (or load existing for resume)
-    output = _init_output(args.output, args, hw, None, ollama_cfg, workspaces_cfg, personas_cfg)
+    output = _init_output(args.output, args, hw, ollama_cfg, workspaces_cfg, personas_cfg)
     all_results = list(output.get("results", []))
     if all_results:
         print(f"\n  Resuming: {len(all_results)} results already saved")

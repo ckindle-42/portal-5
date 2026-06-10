@@ -1751,10 +1751,8 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
 #   S3a (Ollama workspaces), S6 (security), S10 (all 34 Ollama personas)
 #   [EVICT OLLAMA]
 #
-# PHASE 3: MLX tests (need unified memory free)
-#   S21 (LLM router - small 3B model), S3b (MLX workspaces), S11 (MLX personas)
-#   S20, S22, S23 (MLX acceleration tests)
-#   [EVICT MLX]
+# PHASE 3: router + diversity (Ollama)
+#   S21 (LLM intent router), S23 (model diversity)
 #
 # PHASE 4: MCP/Docker tests (minimal memory)
 #   S4 (documents), S5 (sandbox)
@@ -1935,7 +1933,7 @@ ALL_SECTIONS = {
     "S16": S16,
     "S10": S10,
     "S10c": S10c,  # Compliance personas via fixture (TASK_COMPLIANCE_ACCEPT_003)
-    # Phase 3: MLX tests (most retired in 3a0c58e; S21 LLM router + S23 model diversity retained)
+    # Phase 3: router + diversity (Ollama)
     "S21": S21,
     "S23": S23,
     # Phase 4: MCP tests

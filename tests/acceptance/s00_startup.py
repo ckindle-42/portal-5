@@ -81,12 +81,3 @@ async def run() -> None:
         f"SHA: {sha}",
         t0=t0,
     )
-
-    # S0-06: MLX watchdog retired — inference proxy removed in commit 3a0c58e.
-    # Ollama 0.30.7+ with native MLX Metal backend replaces standalone mlx_lm.
-    t0 = time.time()
-    record(sec, "S0-06", "MLX watchdog (retired)", "INFO", "MLX inference proxy retired in 3a0c58e — Ollama handles inference", t0=t0)
-
-    # S0-07: MLX proxy deployment check retired — proxy removed in commit 3a0c58e.
-    t0 = time.time()
-    record(sec, "S0-07", "MLX proxy deployment (retired)", "INFO", "MLX inference proxy retired in 3a0c58e — Ollama handles inference", t0=t0)

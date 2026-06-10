@@ -920,7 +920,7 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
     first candidate ATTEMPTED, which may 503 and fall to a different backend).
 
     Log line patterns (pipeline emits both; we prefer the succeeded line):
-      Backend mlx-apple-silicon succeeded for workspace=auto-documents model=huihui-ai/...
+      Backend ollama-general succeeded for workspace=auto-documents model=phi4:14b-q8_0
       Backend ollama-coding succeeded for workspace=auto-agentic model=qwen3-coder:30b
     """
     import re
@@ -940,7 +940,7 @@ def _get_backend_from_pipeline_logs(slug: str) -> str:
 
         # PRIMARY: match "Backend X succeeded for workspace=Y model=Z"
         # This line is only emitted when a backend actually returns a response,
-        # so it correctly reflects fallbacks (MLX 503 → Ollama) that the
+        # so it correctly reflects backend-group fallbacks that the
         # "Routing workspace" attempt line would hide.
         for search_term in (ws, slug):
             if not search_term:
@@ -2228,11 +2228,10 @@ def _rebuild_summary_from_rows() -> None:
 def _write_routing_summary() -> None:
     """Append a Routing Summary section to UAT_RESULTS.md.
 
-    Groups by: correct | MLX→Ollama fallback | wrong model | no-actual.
-    Also breaks down pipeline-confirmed backend (MLX primary vs Ollama fallback)
-    for correctly-matched tests — surfaces silent Ollama fallbacks where the test
-    passes on general capability but the intended model (Foundation-Sec, ToolACE-2.5,
-    etc.) was never exercised.
+    Groups by: correct | routing mismatch | wrong model | no-actual.
+    Also breaks down the pipeline-confirmed backend for correctly-matched
+    tests — surfaces silent fallbacks where the test passes on general
+    capability but the intended model was never exercised.
     """
     if not _ROUTING_LOG:
         return
@@ -2289,9 +2288,9 @@ def _write_routing_summary() -> None:
 
     if tier_fallbacks:
         lines += [
-            "### MLX→Ollama Routing Mismatches",
+            "### Routing Mismatches (intended model not served)",
             "",
-            "These tests were configured to run on an MLX model but Ollama served instead.",
+            "A different model served these tests than the workspace intended.",
             "The test may have passed on general capability — the **intended model was never exercised**.",
             "",
             "| Test ID | Name | Section | Intended | Actual |",
@@ -2501,11 +2500,9 @@ class MemoryMonitor:
 
     Self-healing actions:
     - Memory > 75%: log warning
-    - Memory > 85%: force-evict all models (both MLX + Ollama)
+    - Memory > 85%: force-evict all Ollama models
     - Memory > 92% after eviction: kill zombie processes, retry eviction
-    - MLX proxy unreachable: wait and check, log crash
     - Ollama unreachable: log crash (restart handled by launchd/docker)
-    - MLX server zombie: SIGTERM the stuck process
 
     Runs as an asyncio task alongside the test loop. Call start() before tests,
     stop() after. Stats are available via .stats dict.
@@ -3275,7 +3272,7 @@ async def run_test(
         # Tools are pre-enabled via workspace toolIds seeding — do not toggle them here.
         # Calling _enable_tool would turn them OFF (they default to ON in seeded workspaces).
 
-        # Send first turn — retry up to 2 times on empty response (MLX cold load).
+        # Send first turn — retry up to 2 times on empty response (Ollama cold load).
         # This is RECOVERY logic (handle empty/crashed backend), not a
         # validation strategy — same prompt is re-sent each time.
         max_wait = test.get("max_wait_no_progress", MAX_WAIT_NO_PROGRESS)
@@ -3434,14 +3431,13 @@ async def run_test(
             from pathlib import Path as _Path
             _sys.path.insert(0, str(_Path(__file__).parent))
             intended_keys = route_detail  # contains expected key info
-            intended_ollama = test.get("workspace_tier", "") == "ollama" \
-                or test.get("mlx_model") is not None
+            intended_ollama = test.get("workspace_tier", "") == "ollama"
             _ROUTING_LOG.append({
                 "test_id": test_id,
                 "name": name,
                 "section": test.get("section", ""),
                 "workspace": test.get("model_slug", ""),
-                "intended": test.get("mlx_model") or test.get("model_slug", ""),
+                "intended": test.get("model_slug", ""),
                 "actual": routed_model,
                 "matched": matched,
                 "tier_mismatch": intended_ollama and not matched,
@@ -4164,9 +4160,7 @@ async def main() -> None:
             tier = test.get("workspace_tier", "any")
 
             # Tier transition: evict previous backend + verify memory is clean
-            # Critical: MLX + Ollama must never be loaded simultaneously (OOM risk).
-            # Before MLX tiers, confirm no Ollama models are loaded.
-            # Before Ollama tiers, confirm MLX proxy is idle.
+            # Critical: two models must never be resident simultaneously (OOM risk).
             if tier != _last_tier:
                 if _last_tier:
                     print(f"  Tier transition: {_last_tier} → {tier} — evicting models")
@@ -4453,7 +4447,7 @@ async def main() -> None:
         print("ROUTING SUMMARY")
         print(f"{'─' * 50}")
         print(f"  Checked: {len(_ROUTING_LOG)}   ✅ {len(correct)} correct"
-              + (f"   ⚠️  {len(tier_fallbacks)} MLX→Ollama fallback" if tier_fallbacks else "")
+              + (f"   ⚠️  {len(tier_fallbacks)} routing mismatch" if tier_fallbacks else "")
               + (f"   ⚠️  {len(wrong_model)} wrong model" if wrong_model else ""))
         for r in tier_fallbacks:
             print(f"  FALLBACK  {r['test_id']:12s} {r['section']:18s} intended={r['intended'][:35]}  got={r['actual'][:35]}")

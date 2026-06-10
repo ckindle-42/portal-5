@@ -19,7 +19,7 @@ Prerequisites:
     Portal 5 stack running:
         ./launch.sh status   # verify all services up
 
-    MLX + Ollama unloaded (script does this automatically before generation):
+    Ollama models unloaded (script does this automatically before generation):
         Only needed if you have large models loaded — frees unified memory.
 
     Python deps (install once):
@@ -97,9 +97,6 @@ _load_env()
 
 PIPELINE_URL = "http://localhost:9099"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434").replace(
-    "host.docker.internal", "localhost"
-)
-MLX_URL = os.environ.get("MLX_LM_URL", "http://localhost:8081").replace(
     "host.docker.internal", "localhost"
 )
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://localhost:8188").replace(
@@ -203,23 +200,9 @@ async def _unload_ollama_models() -> None:
         print(f"  ⚠️  Ollama eviction failed: {e}")
 
 
-async def _unload_mlx_models() -> None:
-    """Signal MLX proxy to unload current model — frees 18-46GB unified memory."""
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.post(f"{MLX_URL}/unload")
-            if r.status_code == 200:
-                print("  ✅ MLX models unloaded")
-            else:
-                print(f"  ⚠️  MLX unload returned HTTP {r.status_code} (may already be unloaded)")
-    except Exception:
-        print("  ⚠️  MLX proxy not reachable — skipping unload")
-
-
 async def _free_memory_for_comfyui() -> None:
-    """Unload MLX and Ollama models before ComfyUI tests."""
+    """Unload Ollama models before ComfyUI tests."""
     print("  ── Freeing unified memory for ComfyUI ──")
-    await _unload_mlx_models()
     await _unload_ollama_models()
 
 

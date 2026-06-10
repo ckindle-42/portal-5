@@ -22,11 +22,11 @@ def _make_cfg(skip_list: list[str] | None = None) -> dict:
     cfg = {
         "backends": [],
         "workspace_routing": {
-            "auto": ["mlx", "general"],
-            "auto-coding": ["mlx", "coding"],
-            "bench-something": ["mlx", "coding"],
-            "bench-voxtral-realtime": ["mlx", "general"],
-            "bench-granite-speech": ["mlx", "general"],
+            "auto": ["security", "general"],
+            "auto-coding": ["coding", "general"],
+            "bench-something": ["coding", "general"],
+            "bench-voxtral-realtime": ["general"],
+            "bench-granite-speech": ["general"],
         },
         "defaults": {"fallback_group": "general"},
     }

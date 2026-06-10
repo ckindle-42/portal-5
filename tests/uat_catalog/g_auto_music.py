@@ -44,7 +44,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": (
             "Read the following text aloud using a British male voice (bm_george): "
             '"Portal 5 operates entirely on local hardware. Your data never leaves your machine. '
-            'All models run on Apple Silicon using the MLX framework."'
+            'All inference runs locally through Ollama on Apple Silicon."'
         ),
         "assertions": [
             {
