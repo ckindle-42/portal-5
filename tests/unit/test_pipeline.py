@@ -885,12 +885,22 @@ class TestAgenticWorkspace:
             "auto-agentic workspace missing from WORKSPACES in router_pipe.py"
         )
 
-    def test_agentic_workspace_has_context_limit(self):
-        """auto-agentic must have context_limit=32768 for KV cache suppression (P5-BIG-001)."""
+    def test_agentic_workspace_interim_hint(self):
+        """auto-agentic should use the 30B interim hint while 480B is dead-by-decision.
+
+        The 480B workspace (bench-qwen3-coder-next) was removed in TASK_MODEL_FLEET_REFRESH_V2
+        Phase 3. The context_limit was dropped with it — it was 480B-specific KV suppression.
+        """
         from portal_pipeline.router_pipe import WORKSPACES
 
+        hint = WORKSPACES["auto-agentic"].get("model_hint")
+        assert hint == "qwen3-coder:30b-a3b-q4_K_M", (
+            f"auto-agentic interim hint should be qwen3-coder:30b-a3b-q4_K_M, got: {hint}"
+        )
         ctx = WORKSPACES["auto-agentic"].get("context_limit")
-        assert ctx == 32768, f"auto-agentic context_limit should be 32768, got: {ctx}"
+        assert ctx is None, (
+            f"auto-agentic context_limit should be None (30B interim, not 480B), got: {ctx}"
+        )
 
     def test_agentic_workspace_has_model_hint(self):
         """auto-agentic must have an Ollama model_hint as fallback."""
