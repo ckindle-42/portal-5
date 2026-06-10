@@ -3047,9 +3047,13 @@ PLIST
         fi
     }
 
+    # _apm_create_ctx_tag <base_tag> <tag_suffix> <num_ctx_value>
+    # e.g. _apm_create_ctx_tag "model:tag" "ctx32k" "32768"
+    # The tag suffix and numeric value are separate so the tag name stays
+    # human-readable (ctx32k) while the Modelfile gets the exact integer.
     _apm_create_ctx_tag() {
-        local base_tag="$1" ctx="$2"
-        local new_tag="${base_tag}-ctx${ctx}"
+        local base_tag="$1" tag_suffix="$2" ctx="$3"
+        local new_tag="${base_tag}-${tag_suffix}"
         # Check if source model exists
         if ! _apm_ollama show "$base_tag" &>/dev/null 2>&1; then
             echo "  SKIP $new_tag — base model $base_tag not pulled (run ./launch.sh pull-models first)"
@@ -3068,7 +3072,7 @@ PLIST
     }
 
     echo "Applying model params (ctx tags) ..."
-    _apm_create_ctx_tag "qwen3-coder:480b-a35b-q4_K_M" "32768"
+    _apm_create_ctx_tag "qwen3-coder:480b-a35b-q4_K_M" "ctx32k" "32768"
     echo "Done."
     ;;
 
