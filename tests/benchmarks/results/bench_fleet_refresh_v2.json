@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-10T03:49:41.083031+00:00",
+  "timestamp": "2026-06-10T04:06:09.160338+00:00",
   "mode": "pipeline",
   "order": "size",
   "cooldown_s": 5.0,
   "runs_per_model": 3,
   "spec_decoding": "unspecified",
   "kv_quant_tag": "unspecified",
-  "total_wall_time_s": 28.6,
+  "total_wall_time_s": 6.2,
   "hardware": {
     "platform": "Darwin",
     "machine": "arm64",
@@ -727,6 +727,121 @@
       "backend": "pipeline",
       "path": "pipeline",
       "workspace": "bench-qwen3-coder-30b"
+    },
+    {
+      "model": "bench-gemma4-12b",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 12.4,
+      "min_tps": 12.0,
+      "max_tps": 13.3,
+      "stddev_tps": 0.75,
+      "cv": 0.06,
+      "avg_completion_tokens": 133,
+      "avg_elapsed_s": 10.67,
+      "avg_ttft_s": 0.731,
+      "routed_model": "bench-gemma4-12b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 12.4,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "Ollama:gemma4",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 10.66,
+          "prompt_tokens": 0,
+          "completion_tokens": 128,
+          "tps": 12.0,
+          "time_to_first_token_s": 0.732,
+          "response_model": "bench-gemma4-12b",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Requirements for each layer: Layer number, standard name, and one example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n\n    1.  Physical (Layer 1) - Ethernet/DSL/Fiber\n    2.  Data Link (Layer 2) - Ethernet/Switching / MAC addresses\n    3.  Network (Layer 3) - IP (IPv4/IPv6) / ICMP\n    4.  Transport (Layer 4) - TCP/UDP\n    5.  Session (Layer 5) - NetBIOS/RPC\n    6.  Presentation (Layer 6) - SSL/TLS/JPEG\n    7.  Application (Layer 7) - HTTP/FTP/SMTP\n\n    *   1: Physical - Ethernet\n    *   2: Data Link - Ethernet (Wait, used Ethernet already). Let's swap to Frame Relay or Switch protocols? Better to keep it simple. Standard example for Layer 1 is usually \"DSL\", \"Fiber\""
+        },
+        {
+          "run": 2,
+          "elapsed_s": 10.66,
+          "prompt_tokens": 0,
+          "completion_tokens": 128,
+          "tps": 12.0,
+          "time_to_first_token_s": 0.736,
+          "response_model": "bench-gemma4-12b",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom (1) to top (7).\n    *   Requirements for each layer: Number, Standard Name, one example protocol/technology.\n    *   Format: Numbered list, one line per layer.\n\n    *   Layer 1: Physical - Ethernet (physical), Bluetooth, Wi-Fi (PHY layer).\n    *   Layer 2: Data Link - Ethernet, PPP, Switch.\n    *   Layer 3: Network - IP, ICMP, IGMP.\n    *   Layer 4: Transport - TCP, UDP.\n    *   Layer 5: Session - NetBIOS, RPC (Less common in modern tech but part of model).\n    *   Layer 6: Presentation - SSL/TLS, ASCII, JPEG.\n    *   Layer 7: Application - HTTP, FTP, SMTP, DNS.\n\n    1. Layer 1: Physical (Ethernet)\n    2. Layer 2: Data Link (Ethernet)\n    3. Layer 3: Network (IP)\n    4. Layer 4"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 10.69,
+          "prompt_tokens": 0,
+          "completion_tokens": 142,
+          "tps": 13.3,
+          "time_to_first_token_s": 0.726,
+          "response_model": "bench-gemma4-12b",
+          "response_text": "",
+          "reasoning_text": "*   Role: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom to top.\n    *   Requirements for each entry: Layer number, standard name, and one example protocol/technology.\n    *   Format: Numbered list with one line per layer.\n\n    1. Physical\n    2. Data Link\n    3. Network\n    4. Transport\n    5. Session\n    6. Presentation\n    7. Application\n\n    1. 1, Physical, Ethernet (or USB/Fiber) -> \"1. Physical - Ethernet\"\n    2. 2, Data Link, Ethernet (MAC) or Switch (Wait, Ethernet is technically Physical and Data Link depending on context, but usually Physical for Layer 1 examples in many texts; however, MAC is Data Link). Let's use: 1. Physical - Ethernet/Fiber, 2. Data Link - Ethernet, 3. Network - IP, 4. Transport - TCP, 5. Session - NetBIOS (or similar), 6. Presentation - TLS/SSL (usually Layer 6, though often lumped with layer 7), 7. Application"
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-gemma4-12b"
+    },
+    {
+      "model": "bench-phi4-mini",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 36.5,
+      "min_tps": 32.9,
+      "max_tps": 41.2,
+      "stddev_tps": 4.25,
+      "cv": 0.116,
+      "avg_completion_tokens": 55,
+      "avg_elapsed_s": 1.49,
+      "avg_ttft_s": 0.176,
+      "routed_model": "bench-phi4-mini",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 36.5,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "Ollama:phi4-mini",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 1.18,
+          "prompt_tokens": 0,
+          "completion_tokens": 42,
+          "tps": 35.5,
+          "time_to_first_token_s": 0.266,
+          "response_model": "bench-phi4-mini",
+          "response_text": "```\n\n1\n\nLayer Number: 7\nStandard Name: Application Layer\nExample Protocol/Technology: Hypertext Transfer Protocol (HTTP)\n\n...\n\n6\n\n```\n\n\n(Note to User: I have skipped lines 2-5 for brevity in your provided format request; you can add the details following my example above.)"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 1.52,
+          "prompt_tokens": 0,
+          "completion_tokens": 50,
+          "tps": 32.9,
+          "time_to_first_token_s": 0.132,
+          "response_model": "bench-phi4-mini",
+          "response_text": "1. Layer 4 - Transport | TCP/UDP\n2. Layer 3 - Network| Internet (Internet Protocol)\n3. Layer 2 - Data Link \u2192 Ethernet/Wi-Fi/etc.\n4. Layer 1 - Physical \u2192 UART, USB, Fiber Optic etc.\n5. Application \u2194 Presentation \u2014 HTTP, DNS, FTP/SFTP...\n6. Session \u2212 SOCKS/FTP\n7. Entity Management: NetBIOS/LDA/COP/BNC..."
+        },
+        {
+          "run": 3,
+          "elapsed_s": 1.77,
+          "prompt_tokens": 0,
+          "completion_tokens": 73,
+          "tps": 41.2,
+          "time_to_first_token_s": 0.131,
+          "response_model": "bench-phi4-mini",
+          "response_text": "- Layer 7 - Application; HTTP (Hypertext Transfer Protocol)\n- Layer 6 - Presentation; SSL/TLS\n- Layer 5 - Session; NetBIOS Frames\n- Layer 4 - Transport; TCP/IP / UDP\n- Layer 3 - Network Interface; ARP, IP\n- Layer 2 - Data Link Control; Ethernet LLC (Fibre Channel/FCoA)\n- Layer 1 - Physical Medium; Twisted-Pair Cable\n- Layer 0 - No layer count as it's not part of the original OSI model."
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-phi4-mini"
     }
   ],
   "prompts": {

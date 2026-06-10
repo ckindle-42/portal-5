@@ -91,6 +91,8 @@ VALID_WORKSPACES = frozenset(
         "bench-huihui-qwen36-35b-a3b",
         # TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds
         "bench-qwen36-hauhaucs",
+        "bench-gemma4-12b",
+        "bench-phi4-mini",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

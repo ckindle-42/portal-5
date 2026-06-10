@@ -139,12 +139,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🪶 Portal Daily Driver",
         "description": (
             "Fast everyday assistant: chat, writing, editing, summarization, "
-            "planning, light technical help. Qwen3.6-35B-A3B UD-Q4_K_XL primary "
-            "(Ollama, MoE 3B active, ~22GB, Unsloth Dynamic 2.0, 23 TPS). Daily-driver lane — escalates "
+            "planning, light technical help. gemma4:26b-a4b-it-q4_K_M primary "
+            "(Ollama, MoE 4B active, VLM, Apache 2.0). Daily-driver lane — escalates "
             "to specialist workspaces (auto-coding, auto-reasoning, etc.) when "
             "the persona detects out-of-lane requests."
         ),
-        "model_hint": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL",
+        "model_hint": "gemma4:26b-a4b-it-q4_K_M",
         "predict_limit": 4096,
         "tools": [
             "web_search",
@@ -705,6 +705,25 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "lowest KL-divergence vs base; vision patched; robust tool-calling at low quant."
         ),
         "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    # ── Daily-driver candidate bench (gemma4:12b + phi4-mini) ──────────────
+    "bench-gemma4-12b": {
+        "name": "🔬 Bench · Gemma 4 12B",
+        "description": "Benchmark: gemma4:12b-it-q4_K_M (~7.6GB, Google, Q4_K_M). Daily-driver candidate comparison.",
+        "model_hint": "gemma4:12b-it-q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-phi4-mini": {
+        "name": "🔬 Bench · Phi-4-mini",
+        "description": "Benchmark: phi4-mini:latest (~2.5GB, Microsoft, 3.8B). Fast-lane / router-adjacent candidate.",
+        "model_hint": "phi4-mini:latest",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
