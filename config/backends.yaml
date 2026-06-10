@@ -89,6 +89,9 @@ backends:
   - id: qwen3-coder:30b-a3b-q4_K_M
     supports_tools: true
     notes: "Qwen3-Coder 30B-A3B MoE Q4 (~19GB, Alibaba, auto-spl primary)."
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: true
+    notes: "Qwen3.6-35B-A3B Unsloth Dynamic 2.0 UD-Q4_K_XL (~22GB, hf.co, MoE 3B active). Sensitivity-aware quant — bench-qwen36-35b-a3b-ud agentic lane C1 candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4)."
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -168,6 +171,9 @@ backends:
   - id: deepseek-r1:32b-q8_0
     supports_tools: false
     notes: "DeepSeek-R1 Distill Qwen 32B Q8_0 (~34GB, high-precision reasoning, auto-data primary). Not in Ollama registry — pulled via hf.co/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF:DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf then aliased: ollama cp hf.co/bartowski/...Q8_0.gguf deepseek-r1:32b-q8_0 (TASK_MODEL_FLEET_REFRESH_V2 Phase 2)."
+  - id: qwen3.6:27b-q8_0
+    supports_tools: true
+    notes: "Qwen3.6-27B Q8_0 (~29GB, Alibaba, dense 27B, Apache 2.0). High-precision quality candidate for bench-qwen36-27b. Phase-5 MTP A/B base (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). bench-qwen36-27b re-pointed from abliterated variant to stock q8."
   - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
     supports_tools: true
     notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary)."
@@ -207,6 +213,12 @@ backends:
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
     notes: No-restrictions creative. Unverified for tools.
+  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+    supports_tools: true
+    notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). supports_tools=true per Qwen3.6 family (verify with --audit-tools before promotion)."
+  - id: huihui_ai/Qwen3.6-abliterated:27b
+    supports_tools: true
+    notes: "Qwen3.6-27B abliterated dense Q4 (~17GB, huihui-ai, Apache 2.0). bench-qwen36-abl-27b creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). Already in ollama-general for AUTO routing; entry here is for creative group routing of bench-qwen36-abl-27b."
 workspace_routing:
   auto:
   - security
@@ -297,6 +309,7 @@ workspace_routing:
   bench-qwen35-abliterated:
   - general
   bench-qwen36-27b:
+  - reasoning
   - coding
   - general
   bench-qwen36-27b-mtp:
@@ -351,6 +364,16 @@ workspace_routing:
   bench-huihui-qwen36-27b:
   - general
   bench-huihui-qwen36-35b-a3b:
+  - general
+  # ── TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds ─────────────────────────────
+  bench-qwen36-35b-a3b-ud:
+  - coding
+  - general
+  bench-qwen36-abl-27b:
+  - creative
+  - general
+  bench-qwen36-hauhaucs:
+  - creative
   - general
   tools-specialist:
   - general
