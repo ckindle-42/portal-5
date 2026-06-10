@@ -1821,11 +1821,12 @@ def _run_main(args) -> None:
     do_pipeline = args.mode in ("pipeline", "all")
     do_personas = args.mode in ("personas", "all")
 
+    _ws_filter = f" ws={args.workspace}" if getattr(args, "workspace", None) else ""
+    _model_filter = f" model={args.model}" if getattr(args, "model", None) else ""
     _send_bench_notification(
-        f"Starting bench run — mode={args.mode} runs={args.runs} order={args.order}\n"
-        f"Hardware: {hw.get('chip', '?')} {hw.get('total_memory_gb', '?')}GB\n"
-        f"Backends: Ollama={'yes' if ollama_available else 'no'} "
-        f"Pipeline={'yes' if pipeline_available else 'no'}",
+        f"mode={args.mode}{_ws_filter}{_model_filter}  runs={args.runs}\n"
+        f"HW: {hw.get('cpu', '?')}  {hw.get('unified_memory_gb', '?')}GB\n"
+        f"Ollama={'✓' if ollama_available else '✗'}  Pipeline={'✓' if pipeline_available else '✗'}",
         title="Portal 5 Bench — Started",
     )
 
@@ -1907,10 +1908,19 @@ def _run_main(args) -> None:
     print(
         f"\nTotal: {tested}/{available_ct} passed ({len(output['results'])} total) in {total_time:.0f}s"
     )
+    _top = sorted(
+        [r for r in output["results"] if r.get("avg_tps", 0) > 0],
+        key=lambda r: r.get("avg_tps", 0),
+        reverse=True,
+    )[:5]
+    _top_lines = "\n".join(
+        f"  {r.get('model', r.get('workspace', '?'))[:30]:30s} {r['avg_tps']:.1f} t/s"
+        for r in _top
+    )
     _send_bench_notification(
-        f"Bench complete — {tested}/{available_ct} passed, {failed_ct} failed\n"
-        f"Wall time: {hours:.1f}h  |  mode={args.mode}\n"
-        f"Results: {Path(args.output).name}",
+        f"{tested}/{available_ct} passed  {failed_ct} failed  {total_time:.0f}s\n"
+        + (_top_lines + "\n" if _top_lines else "")
+        + f"→ {Path(args.output).name}",
         title="Portal 5 Bench — Done",
     )
     # Final cleanup: unload all Ollama models to prevent OOM after testing
