@@ -3,7 +3,7 @@
 
 Sends every test in TEST_CATALOG through the real Open WebUI browser
 interface, creating permanent reviewable conversations in OWUI history.
-The catalog currently spans ~110 tests across 20 sections including
+The catalog currently spans ~136 tests across 23 sections including
 auto-* workspaces, benchmark workspaces, and an `advanced` section
 covering multi-turn / advanced flows.
 

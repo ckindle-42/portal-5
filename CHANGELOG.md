@@ -2,6 +2,30 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.3.1] — 2026-06-10
+
+### Fixed — acceptance section-file runtime defects
+- Missing imports in decomposed acceptance section files crashed sections at
+  the first test: s00/s01/s03/s04 (`time`), s42 (`os`), s70 (`uuid`), s08
+  (`_wav_info`, now a `_common.py` passthrough). ruff F821 clean on live files.
+
+### Changed — S3a production-workspace scope
+- S3a covers all 21 production workspaces (20 auto-* + tools-specialist);
+  bench-* explicitly out of acceptance scope — bench_tps.py is the sole TPS
+  instrument. WORKSPACE_PROMPTS gained auto-audio, auto-daily,
+  tools-specialist entries (18 → 21).
+
+### Changed — exec docs refreshed to HEAD (V8/V4/V3)
+- PORTAL5_ACCEPTANCE_EXECUTE_V8 / PORTAL5_UAT_EXECUTE_V4 /
+  PORTAL5_BENCH_EXECUTE_V3 replace V7/V3/V2 (archived to
+  tests/_archive_execdocs/). UAT smoke phase = `--section auto` (no smoke
+  section exists); phase plan covers all 23 sections (~136 tests) incl.
+  auto-audio/auto-docs/tools-specialist; bench doc trued to 68 models / 68
+  benchable workspaces / 140 personas / ~276 tests. OCR benches
+  (bench-nanonets-ocr2, bench-olmocr2) added to pipeline_bench_skip — a
+  text-prompt harness cannot exercise OCR vision specialists (5-entry skip
+  list: 3 audio + 2 OCR); stale mlx_models comment in backends.yaml fixed.
+
 ## [7.3.0] — 2026-06-10
 
 ### Added — V8 model refresh catalog (TASK_MODEL_REFRESH_V8_CATALOG)
