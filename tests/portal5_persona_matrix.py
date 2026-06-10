@@ -133,20 +133,23 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
             "githubexpert": "Ship-It",
         },
         "models_explicit": (
-            "mlx-community/Laguna-XS.2-4bit",
-            "mlx-community/GLM-4.7-Flash-4bit",
-            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit",
-            "lmstudio-community/Devstral-Small-2507-MLX-4bit",
-            # Reference column only — auto-agentic's production pin. NOT an
-            # auto-coding repin candidate. See A5 / A8.
-            "mlx-community/Qwen3-Coder-Next-4bit",
+            # Candidates (~15-25 GB, comparable weight class)
+            "laguna-xs.2:q4_K_M",
+            "glm-4.7-flash:q4_K_M",
+            "qwen3-coder:30b-a3b-q4_K_M",
+            "devstral-small-2",
+            # Reference columns — 80B/3B MoE (~46 GB), different weight class.
+            # NOT auto-coding repin candidates. Comparison points for the upper tier.
+            "qwen3-coder-next",           # auto-agentic production pin
+            "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",  # auto-spl production pin (V8)
         ),
         # Models that should be flagged in the matrix as "reference" rather than
         # "candidate" — the analyzer excludes these from the overall-column
         # ranking so a reference column dominating doesn't get misread as a
         # repin signal. See A5.
         "models_reference_only": (
-            "mlx-community/Qwen3-Coder-Next-4bit",
+            "qwen3-coder-next",
+            "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
         ),
     },
 }

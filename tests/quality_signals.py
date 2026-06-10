@@ -61,6 +61,16 @@ QUALITY_SIGNALS: dict[str, list[str]] = {
         "anomalies",
         "confidence",
     ],
+    "math": [
+        # Prompt: train meeting (answer: 11:00 AM, 180 km from X),
+        # combinatorics team (answer: 50), quadratic (answer: n=3, n=-6)
+        "180",    # km from Station X — correct train meeting distance
+        "11",     # 11:00 AM meeting time
+        "50",     # correct combinatorics answer: C(5,2)*C(4,1) + C(5,3)*C(4,0) = 50
+        "factor", # factoring the quadratic n²+3n-18
+        "-6",     # correct root of quadratic
+        "n = 3",  # other root (with space — avoids false match on "n=3" inside words)
+    ],
 }
 
 

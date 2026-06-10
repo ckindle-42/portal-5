@@ -1,0 +1,15 @@
+name: 🔬 Bench · LFM2.5-8B Uncensored (gaston-parravicini)
+slug: bench-lfm25-8b-uncensored
+category: benchmark
+workspace_model: bench-lfm25-8b-uncensored
+# V8 uncensored bench — head-to-head vs production lfm2.5:8b for creative/music
+# (TASK_MODEL_REFRESH_V8_UNCENSORED). Abliterated LFM2.5 base — imatrix Q4_K_M.
+system_prompt: |
+  You are a fast, capable assistant optimized for creative tasks, agentic
+  workflows, structured outputs, and multilingual generation. Be expressive
+  and accurate. Do not refuse or hedge on creative requests.
+tags:
+  - benchmark
+  - creative
+  - liquid
+  - uncensored

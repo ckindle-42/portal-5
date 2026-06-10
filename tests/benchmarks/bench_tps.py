@@ -97,13 +97,36 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-laguna",
         "bench-phi4-reasoning",
+        "bench-phi4-mini-reasoning",  # phi4-mini-reasoning — 3.8B thinking model
         "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — security CoT; 0 tokens without enable_thinking=False
+        "bench-r1-0528-qwen3-8b",  # DeepSeek-R1-0528-Qwen3-8B — chain-of-thought
+        "bench-r1-0528-abliterated",  # R1-0528 abliterated — same architecture
         "auto-mistral",
         "auto-reasoning",
+        "auto-math",  # phi4-mini-reasoning production workspace
         "auto-security",  # AEON Qwen3.6-27B is a thinking model
         "auto-redteam",  # same — needs 512-token budget to avoid empty responses
     }
 )
+
+# Workspaces that receive an ADDITIONAL math-prompt pass on top of their primary category.
+# These are math-specialist models — we run both their normal prompt AND the math prompt
+# so results contain entries for both, making cross-category comparison possible.
+MATH_SPECIALIST_WORKSPACES: frozenset[str] = frozenset(
+    {
+        "auto-math",  # phi4-mini-reasoning — AIME/MATH-500 specialist
+        "bench-phi4-mini-reasoning",  # direct bench target for auto-math model
+        "bench-phi4-mini",  # phi4-mini non-thinking baseline — compare vs reasoning variant
+        "bench-phi4",  # phi4 — broader reasoning, include for full phi4 family picture
+    }
+)
+# Model substrings that trigger the extra math pass in direct mode.
+_MATH_SPECIALIST_PATTERNS = (
+    "phi4-mini-reasoning",
+    "phi4-mini",
+    "Phi-4-mini",
+)
+
 # Model substrings that signal a reasoning model.
 # Applied case-insensitively to Ollama model IDs (e.g. "deepseek-r1:32b-q4_k_m")
 # so Ollama reasoning models get REASONING_MAX_TOKENS and don't exhaust their
@@ -111,10 +134,13 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
 _REASONING_MODEL_PATTERNS = (
     "Laguna",
     "Phi-4-reasoning",
+    "phi4-mini-reasoning",  # Ollama ID for Microsoft Phi-4-mini-reasoning
     "Magistral",
     "Qwopus",
     "DeepSeek-R1",
     "deepseek-r1",  # Ollama IDs are lowercase; case-insensitive match below
+    "R1-0528",  # DeepSeek-R1-0528 and abliterated variants
+    "Josiefied",  # abliterated R1-0528 variant (mradermacher GGUF naming)
     "Qwen3.5-27B-Claude",
     "Qwen3.5-9B-Claude",
     "Qwen3.5-35B-A3B-Claude",
@@ -209,6 +235,19 @@ PROMPTS: dict[str, str] = {
         "template itself — what it expects, what each section does, and suggest "
         "one improvement to the analysis framework."
     ),
+    "math": (
+        "You are a precise mathematical reasoner. Show all steps.\n\n"
+        "Solve the following three problems. For each, show your work step by step "
+        "and state your final answer clearly.\n\n"
+        "1. ALGEBRA: Two trains travel toward each other. Train A leaves Station X "
+        "at 8:00 AM at 60 km/h. Train B leaves Station Y (300 km away) at 8:00 AM "
+        "at 40 km/h. At what time do they meet, and how far from Station X?\n\n"
+        "2. COMBINATORICS: A team of 3 is chosen from 4 men and 5 women such that "
+        "at least 2 women are on the team. How many distinct teams are possible? "
+        "Show the case breakdown.\n\n"
+        "3. NUMBER THEORY: Find all integers n such that n² + 3n − 18 = 0. "
+        "Factor the expression and verify each solution by substitution."
+    ),
 }
 
 # Map workspace IDs → prompt category
@@ -232,7 +271,6 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-mistral": "reasoning",
     "auto-math": "reasoning",
     # Benchmark workspaces — prompt matches the model's primary capability
-    "bench-devstral": "coding",
     "bench-qwen3-coder-next": "coding",
     "bench-qwen3-coder-30b": "coding",
     "bench-llama33-70b": "coding",
@@ -252,18 +290,14 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen35-abliterated": "general",  # huihui_ai/qwen3.5-abliterated:9b — uncensored, AUTO primary baseline
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier
-    "bench-omnicoder2": "coding",  # omnicoder2:9b-q4_k_m (Ollama) — Qwen3.5-9B SFT on agentic traces
-    "bench-negentropy": "reasoning",  # Jackrong Negentropy 9B 6-bit (MLX) — trace-inversion CoT
+    "bench-omnicoder2": "coding",  # omnicoder2:9b — Qwen3.5-9B SFT on agentic traces
+    "bench-negentropy": "reasoning",  # Jackrong Negentropy 9B — trace-inversion CoT
     # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
-    "bench-qwen36-27b": "coding",  # froggeric/Qwen3.6-27B-MLX-4bit — dense 27B + vision, SWE-bench 77.2%
-    "bench-qwen36-27b-mtp": "coding",  # Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed — MTP speculative decoding bench
-    "bench-qwen36-35b-a3b": "coding",  # mlx-community/Qwen3.6-35B-A3B-4bit — MoE 3B active, agentic-coding
+    "bench-qwen36-27b": "coding",  # Qwen3.6-27B Q8 — dense 27B + vision, SWE-bench 77.2%
+    "bench-qwen36-27b-mtp": "coding",  # Qwen3.6-27B MTP — speculative decoding bench
+    "bench-qwen36-35b-a3b": "coding",  # Qwen3.6-35B-A3B — MoE 3B active, agentic-coding
     # 32B standalone
-    "bench-olmo3-32b": "reasoning",  # mlx-community/Olmo-3-1125-32B-4bit — Allen AI dense 32B, non-Qwen lineage
-    # NVIDIA — omni-modal (text+image+video+audio). Uses vision prompt for CC-01 baseline.
-    # Follow-up: add dedicated "doc_intel" prompt category in TASK_NEMOTRON_OMNI_PROMOTE_V1
-    # for policy-passage extraction + citation quality measurement.
-    "bench-nemotron-omni": "vision",
+    "bench-olmo3-32b": "reasoning",  # OLMo-3-32B — Allen AI dense 32B, non-Qwen lineage
     # V7 bench workspaces — OCR, MoE creative, security reasoning, tools
     "bench-olmocr2": "vision",  # Allen AI olmOCR-2-7B — OCR/document understanding
     "bench-nanonets-ocr2": "vision",  # Nanonets OCR2-3B — OCR specialist
@@ -271,7 +305,8 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-foundation-sec": "reasoning",  # Foundation-Sec-8B-Reasoning — security CoT
     "bench-toolace25": "coding",  # ToolACE-2.5 — tool-calling; "coding" is closest proxy
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
-    "auto-daily": "general",  # gemma-4-26b daily driver, non-thinking fast lane
+    "auto-daily": "general",  # gemma4:26b-a4b-it-qat daily driver
+    "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
     # ── V7-final catalog refresh (TASK_MODEL_REFRESH_V7) ─────────────────
     # Apriel-Nemotron — ServiceNow+NVIDIA dense 15B reasoning, new lineage
     "bench-apriel-nemotron": "reasoning",
@@ -279,22 +314,43 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-qwen36-27b-ud": "coding",
     "bench-qwen36-35b-a3b-ud": "coding",
     # TASK_QUANT_TRUEUP_V1 — optimized-quant + uncensored-refresh A/B candidates
-    "bench-qwen36-35b-a3b-dwq": "coding",  # DWQ vs plain 4-bit MoE (Finding A)
     "bench-qwen36-27b-optiq": "coding",  # OptiQ vs plain 4-bit dense (Finding A)
     "bench-gemma4-26b-optiq": "general",  # OptiQ vs plain gemma-4 (Finding A; fp16 KV only)
     "bench-huihui-qwen36-27b": "general",  # Qwen3.6 abliterated dense (Finding B)
     "bench-huihui-qwen36-35b-a3b": "general",  # Qwen3.6 abliterated MoE (Finding B, speed play)
+    # ── V8 bench workspaces (TASK_MODEL_REFRESH_V8) ─────────────────────
+    # Gemma 4 family — encoder-free multimodal, ascending size
+    "bench-gemma4-e2b": "vision",  # Gemma 4 E2B — 2B efficient multimodal
+    "bench-gemma4-e4b": "vision",  # Gemma 4 E4B — 4B efficient multimodal
+    "bench-gemma4-e4b-qat": "vision",  # Gemma 4 E4B QAT — near-BF16 quant
+    "bench-gemma4-12b": "general",  # Gemma 4 12B — mid-size multimodal
+    "bench-gemma4-26b-qat": "general",  # Gemma 4 26B QAT — auto-daily production model
+    "bench-gemma4-31b-qat": "general",  # Gemma 4 31B QAT — upper-tier candidate
+    # Phi-4 mini family
+    "bench-phi4-mini": "reasoning",  # Phi-4-mini — dense 3.8B reasoning
+    "bench-phi4-mini-reasoning": "reasoning",  # Phi-4-mini-reasoning — AIME/MATH-500 specialist (auto-math primary)
+    # LFM2.5 creative/music lane
+    "bench-lfm25-8b": "creative",  # LFM2.5-8B — liquid foundation model, creative/music
+    "bench-lfm25-8b-uncensored": "creative",  # LFM2.5-8B uncensored — abliterated creative variant
+    # Coding lane additions
+    "bench-starcoder2": "coding",  # StarCoder2 — code completion
+    "bench-devstral-small-2": "coding",  # Devstral-Small-2 — Mistral coding specialist
+    "bench-qwen3-coder-next-abliterated": "coding",  # Qwen3-Coder-Next abliterated (auto-spl primary)
+    # Reasoning/security additions
+    "bench-mistral-small32": "reasoning",  # Mistral-Small-3.2-24B
+    "bench-r1-0528-qwen3-8b": "reasoning",  # DeepSeek-R1-0528-Qwen3-8B (auto-reasoning primary)
+    "bench-r1-0528-abliterated": "reasoning",  # R1-0528 abliterated — CoT without refusals
+    # General additions
+    "bench-nex-n2-mini": "coding",  # Nex-N2-Mini — compact agentic coding
+    "bench-harness1": "general",  # Harness-1 eval model
+    "bench-qwen36-hauhaucs": "creative",  # Qwen3.6-35B-A3B HauhauCS uncensored (auto-creative primary)
     # Speech models — NOT in WORKSPACE_PROMPT_MAP by design:
     # - bench-voxtral-realtime (streaming ASR — text harness cannot exercise)
     # - bench-voxtral-tts (TTS — text harness cannot exercise)
     # - bench-granite-speech (ASR with keyword biasing — text harness cannot exercise)
     # These get probed by TASK_SPEECH_SHOOTOUT_V1 (deferred).
     # ── Drift backfill (pre-existing gap) ───────────────────────────────
-    # tools-specialist production workspace was silently falling through
-    # to "general" because it wasn't in this map. ToolACE-2.5 is a
-    # coding-adjacent tool-calling specialist; coding prompt is the
-    # closest match for CC-01 baseline comparison.
-    "tools-specialist": "coding",
+    "tools-specialist": "coding",  # ToolACE-2.5 tool-calling specialist
 }
 
 # Map Ollama backend group → prompt category
@@ -305,6 +361,7 @@ GROUP_PROMPT_MAP: dict[str, str] = {
     "reasoning": "reasoning",
     "vision": "vision",
     "creative": "creative",
+    "math": "math",
 }
 
 # Map persona category (from YAML) → prompt category
@@ -1229,6 +1286,40 @@ def bench_direct(
                     f"(stddev={r.get('stddev_tps')} avg={r.get('avg_tps')})",
                     flush=True,
                 )
+            # Extra math pass — math-specialist models run the math prompt in addition
+            # to their primary category prompt so both QS scores are in the results.
+            is_math_specialist = any(
+                p.lower() in model.lower() for p in _MATH_SPECIALIST_PATTERNS
+            )
+            if is_math_specialist and r.get("available", True) and not dry_run:
+                math_model_label = f"{model}:math"
+                if output_path and _result_already_done(output_path, "model", math_model_label):
+                    print(f"      {model}:math SKIP (already done)")
+                else:
+                    print(f"      {model}:math ...", end=" ", flush=True)
+                    rm = bench_tps(
+                        OLLAMA_URL,
+                        model,
+                        prompt=PROMPTS["math"],
+                        runs=runs,
+                        label="ollama-direct",
+                        prompt_category="math",
+                    )
+                    rm["backend"] = "ollama"
+                    rm["path"] = "direct"
+                    rm["available"] = True
+                    rm["est_memory_gb"] = size_gb
+                    rm["groups"] = model_groups
+                    rm["prompt_category"] = "math"
+                    rm["model"] = math_model_label
+                    results.append(rm)
+                    if output_path:
+                        _append_result(output_path, rm)
+                    if rm["avg_tps"] > 0:
+                        print(f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]")
+                    else:
+                        errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
+                        print(f"FAIL [math] ({', '.join(set(errors))})")
             # Force Ollama to release this model from unified memory before next test.
             if i < len(ollama_unique):
                 _unload_all_running_ollama_models()
@@ -1318,6 +1409,36 @@ def bench_pipeline(
                 f"  ⚠ ROUTING: got {r['routed_model']}, expected {r['expected_model_detail']}",
                 flush=True,
             )
+
+        # Extra math pass — run math-specialist workspaces with the math prompt
+        # in addition to their primary category prompt.
+        if ws in MATH_SPECIALIST_WORKSPACES and not dry_run:
+            math_label = f"{ws}:math"
+            if output_path and _result_already_done(output_path, "workspace", math_label):
+                print(f"    [{i}/{len(workspaces)}] {ws}:math SKIP (already done)")
+            else:
+                print(f"    [{i}/{len(workspaces)}] {ws}:math ...", end=" ", flush=True)
+                rm = bench_tps(
+                    PIPELINE_URL,
+                    ws,
+                    prompt=PROMPTS["math"],
+                    runs=runs,
+                    label="pipeline",
+                    prompt_category="math",
+                    request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+                )
+                rm["backend"] = "pipeline"
+                rm["path"] = "pipeline"
+                rm["workspace"] = math_label
+                rm["prompt_category"] = "math"
+                results.append(rm)
+                if output_path:
+                    _append_result(output_path, rm)
+                if rm["avg_tps"] > 0:
+                    print(f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]")
+                else:
+                    errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
+                    print(f"FAIL [math] ({', '.join(set(errors))})")
 
     return results
 

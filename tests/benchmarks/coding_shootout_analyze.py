@@ -30,15 +30,16 @@ import statistics
 import sys
 from pathlib import Path
 
-INCUMBENT_MODEL_ID = "mlx-community/Laguna-XS.2-4bit"
+INCUMBENT_MODEL_ID = "laguna-xs.2:q4_K_M"
 
 # Memory hardcoded — same rationale as V1 analyzer.
 MODEL_MEMORY_GB = {
-    "mlx-community/Laguna-XS.2-4bit": 19,
-    "mlx-community/GLM-4.7-Flash-4bit": 15,
-    "mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit": 22,
-    "lmstudio-community/Devstral-Small-2507-MLX-4bit": 15,
-    "mlx-community/Qwen3-Coder-Next-4bit": 46,
+    "laguna-xs.2:q4_K_M": 19,
+    "glm-4.7-flash:q4_K_M": 15,
+    "qwen3-coder:30b-a3b-q4_K_M": 19,
+    "devstral-small-2": 15,
+    "qwen3-coder-next": 46,
+    "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M": 46,
 }
 
 # V1's verdict reconciliation — Laguna's pass-rate under bench-laguna's

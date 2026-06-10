@@ -508,7 +508,7 @@ def main() -> None:
         elif pid == 2:
             panel["options"]["content"] = metadata_html
         elif pid == 10:
-            panel["title"] = f"Model TPS — MLX ({mlx_count}) + Ollama ({ollama_count})"
+            panel["title"] = f"Model TPS — Ollama ({ollama_count})"
             panel["options"]["content"] = model_html
         elif pid == 20:
             panel["title"] = f"Pipeline Workspace TPS ({ws_count})"
