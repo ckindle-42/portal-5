@@ -640,9 +640,9 @@ embedding_candidates:
 # ASR, TTS, or other audio-modality models — running them produces noise
 # that pollutes the Grafana benchmarks dashboard.
 #
-# Mirrors the existing bench_skip: true flag on mlx_models[] entries
-# (which excludes direct-mode benching). pipeline_bench_skip is the
-# workspace-level analog.
+# Workspace-level analog of the historical per-model bench_skip flag
+# (the mlx_models[] section it mirrored was removed with the MLX
+# inference-proxy retirement, 3a0c58e).
 #
 # An explicit --workspace <id> filter on bench_tps.py overrides this list
 # (operator wants to probe that specific workspace intentionally).
@@ -655,3 +655,5 @@ pipeline_bench_skip:
 - bench-voxtral-realtime    # Mistral streaming ASR — audio-modality probe required
 - bench-voxtral-tts         # Mistral TTS — audio-output probe required
 - bench-granite-speech      # IBM ASR with keyword biasing — audio-modality probe required
+- bench-nanonets-ocr2       # OCR vision specialist — image-input probe required
+- bench-olmocr2             # OCR vision specialist — image-input probe required
