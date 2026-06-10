@@ -1,12 +1,11 @@
 # Archived acceptance scenarios
 
-These scenarios tested the MLX inference proxy (:8081/:18081/:18082)
-retired in commit 3a0c58e. They are kept for recoverability, not run.
+The MLX-proxy scenarios that previously lived here (s20_mlx, s22_admission_control,
+s03b_routing_mlx, s11_personas_mlx, s24_specialist_mlx) tested the MLX inference
+proxy (:8081/:18081/:18082) retired in commit 3a0c58e. The archived copies were
+deleted in the MLX test-layer sweep (TASK_MLX_TEST_SWEEP_V1) — they carried
+unresolved imports and the proxy they tested no longer exists.
 
-| Scenario | Tested | Why archived |
-|---|---|---|
-| s20_mlx | MLX proxy /health + /v1/models | proxy deleted |
-| s22_admission_control | MLX admission control 503 | proxy deleted |
-| s03b_routing_mlx | mlx_only workspace routing | mlx_only flag removed |
-| s11_personas_mlx | MLX-backed persona smoke | personas now Ollama-backed |
-| s24_specialist_mlx | Foundation-Sec / ToolACE in MLX | see KNOWN_LIMITATIONS § Model Parity |
+Recover any of them from git history at `476de27` or earlier:
+
+    git show 476de27:tests/acceptance/_archive/s20_mlx.py

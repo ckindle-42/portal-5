@@ -171,4 +171,3 @@ via Prometheus scrape.
 |---|---|---|---|
 | Portal 5 Overview | `config/grafana/dashboards/portal5_overview.json` | Prometheus (live) | Always current |
 | Benchmarks | `config/grafana/dashboards/portal5_benchmarks.json` | Static HTML | Regenerate after each bench run |
-| Recall | `config/grafana/dashboards/portal5_recall.json` | Static HTML | Regenerate after recall tests |
