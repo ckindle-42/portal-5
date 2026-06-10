@@ -1040,6 +1040,19 @@ case "${1:-up}" in
     SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" || echo 0)
     [ "$SL" -ge 1 ] && echo "  ✅ Slack container running" && PASS=$((PASS+1)) || echo "  ℹ️  Slack not running (./launch.sh up-slack to start)"
 
+    # ── Streaming gate ────────────────────────────────────────────────────────
+    echo ""
+    echo "Streaming:"
+    SMOKE_RESULT=$(PIPE="$PIPE" PIPELINE_API_KEY="${PIPELINE_API_KEY}" \
+        bash "$(dirname "$0")/scripts/smoke_stream.sh" 2>&1 | tail -1)
+    if echo "$SMOKE_RESULT" | grep -q "^PASS"; then
+        echo "  ✅ Streaming gate: $SMOKE_RESULT"
+        PASS=$((PASS+1))
+    else
+        echo "  ❌ Streaming gate: $SMOKE_RESULT"
+        FAIL=$((FAIL+1))
+    fi
+
     # ── Summary ───────────────────────────────────────────────────────────────
     echo ""
     echo "=================================================="
