@@ -486,7 +486,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Benchmark: qwen3.6:27b-q8_0 (Ollama, Alibaba, dense 27B, 262K ctx, Apache 2.0, "
             "SWE-bench Verified 73.4%). High-precision quality-lane candidate + Phase-5 MTP A/B base."
         ),
-        "model_hint": "qwen3.6:27b-q8_0",
+        "model_hint": "qwen3.6:27b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
@@ -512,7 +512,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Benchmark: Qwen3.6-35B-A3B (GGUF, Ollama, Alibaba Apr 2026, "
             "35B total / 3B active MoE, 262K ctx). SWE-bench Verified 73.4%, AIME26 92.7%."
         ),
-        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
+        "model_hint": "qwen3.6:35b-a3b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
@@ -554,10 +554,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Benchmark: Olmo-3-32B (GGUF, Ollama, Allen AI dense 32B, "
             "Apache 2.0, NOT Qwen lineage). supports_tools=false per V5 catalog."
         ),
-        "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
+        "model_hint": "olmo-3.1:32b-think",
         "max_concurrent": 1,
         "predict_limit": 16384,
         "keep_alive": "5m",
+        "emits_reasoning": True,
         "tools": [],
     },
     # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
@@ -712,21 +713,28 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     # ── Daily-driver candidate bench (gemma4:12b + phi4-mini) ──────────────
     "bench-gemma4-12b": {
-        "name": "🔬 Bench · Gemma 4 12B",
-        "description": "Benchmark: portal5/gemma4-12b:q4_K_M-ctx8k (~7.6GB, Google, Q4_K_M, num_ctx 8192). Daily-driver candidate comparison.",
-        "model_hint": "portal5/gemma4-12b:q4_K_M-ctx8k",
+        "name": "🔬 Bench · Gemma 4 12B QAT (Google)",
+        "description": (
+            "Benchmark: gemma4:12b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). "
+            "12B Unified QAT — ~7GB, encoder-free audio+image+text, 256K ctx, native "
+            "function calling. QAT: near-BF16 at 4-bit. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "gemma4:12b-it-qat",
         "max_concurrent": 1,
         "predict_limit": 8192,
-        "keep_alive": "5m",
         "tools": [],
     },
     "bench-phi4-mini": {
-        "name": "🔬 Bench · Phi-4-mini",
-        "description": "Benchmark: phi4-mini:latest (~2.5GB, Microsoft, 3.8B). Fast-lane / router-adjacent candidate.",
-        "model_hint": "phi4-mini:latest",
+        "name": "🔬 Bench · Phi-4-Mini (Microsoft)",
+        "description": (
+            "Benchmark: phi4-mini (Ollama, Microsoft, Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). "
+            "Synthetic-data reasoning: function calling, multilingual, math. "
+            "Outperforms Llama 3.2 3B and Qwen 2.5 3B on reasoning at 3.8B. "
+            "Ultra-fast daily tier candidate. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "phi4-mini",
         "max_concurrent": 1,
         "predict_limit": 8192,
-        "keep_alive": "5m",
         "tools": [],
     },
     "bench-gemma4-e4b": {
@@ -736,6 +744,181 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
+        "tools": [],
+    },
+    # ── June 2026 additions (TASK_MODEL_REFRESH_V8) ──────────────────────────
+    "bench-gemma4-e2b": {
+        "name": "🔬 Bench · Gemma 4 E2B QAT (Google)",
+        "description": (
+            "Benchmark: gemma4:e2b-it-qat (Ollama, Google DeepMind, Apache 2.0). "
+            "Effective 2B QAT — ~3GB, audio+image+video+text, thinking, 128K ctx. "
+            "Fastest TPS candidate in fleet. QAT: near-BF16 at 4-bit. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "gemma4:e2b-it-qat",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-gemma4-e4b-qat": {
+        "name": "🔬 Bench · Gemma 4 E4B QAT (Google)",
+        "description": (
+            "Benchmark: gemma4:e4b-it-qat (Ollama, Google DeepMind, Apache 2.0). "
+            "Effective 4B QAT — ~5GB, audio+image+video+text, thinking, 128K ctx. "
+            "QAT quality upgrade vs production gemma4:e4b-it-q4_K_M. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "gemma4:e4b-it-qat",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-gemma4-26b-qat": {
+        "name": "🔬 Bench · Gemma 4 26B-A4B QAT (Google)",
+        "description": (
+            "Benchmark: gemma4:26b-a4b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). "
+            "26B-A4B MoE QAT — ~15GB, vision+text, 256K ctx. "
+            "QAT quality comparison vs production gemma4:26b-a4b-it-q4_K_M at same memory. "
+            "If bench shows quality gain at ≥20 TPS, promotion task can swap the primary. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "gemma4:26b-a4b-it-qat",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-gemma4-31b-qat": {
+        "name": "🔬 Bench · Gemma 4 31B Dense QAT (Google)",
+        "description": (
+            "Benchmark: gemma4:31b-it-qat (Ollama, Google DeepMind, June 2026, Apache 2.0). "
+            "31B Dense QAT — ~18GB, vision+text, 256K ctx. "
+            "QAT quality comparison vs production gemma4:31b-it-q4_K_M. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "gemma4:31b-it-qat",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-phi4-mini-reasoning": {
+        "name": "🔬 Bench · Phi-4-Mini-Reasoning (Microsoft)",
+        "description": (
+            "Benchmark: phi4-mini-reasoning (Ollama, Microsoft, MIT, 3.8B, ~2.5GB Q4, 128K ctx). "
+            "RL-trained math/logic specialist. Beats 7B models on AIME/MATH-500/GPQA. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "phi4-mini-reasoning",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-lfm25-8b": {
+        "name": "🔬 Bench · LFM2.5-8B-A1B (Liquid AI)",
+        "description": (
+            "Benchmark: lfm2.5:8b (Ollama, Liquid AI, June 2026, Apache 2.0, ~5GB Q4, 128K ctx). "
+            "Hybrid gated-convolution + attention MoE — ONLY non-transformer model in fleet. "
+            "8.3B total / 1.5B active. Fastest in class on CPU. "
+            "Strengths: agentic workflows, tool use, structured outputs, multilingual. "
+            "Weaknesses: heavy code generation, knowledge-only tasks. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "lfm2.5:8b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-starcoder2": {
+        "name": "🔬 Bench · StarCoder2-15B (BigCode)",
+        "description": (
+            "Benchmark: starcoder2:15b (Ollama, BigCode + Hugging Face, ~9GB Q4, 16K ctx). "
+            "600+ programming languages. FIM fill-in-the-middle — unique editor-style code "
+            "insertion capability not in fleet. BigCode OpenRAIL-M license: commercial OK "
+            "with responsible-AI clauses — review before external exposure. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "starcoder2:15b",
+        "max_concurrent": 1,
+        "predict_limit": 4096,
+        "tools": [],
+    },
+    "bench-devstral-small-2": {
+        "name": "🔬 Bench · Devstral Small 2 (Mistral)",
+        "description": (
+            "Benchmark: devstral-small-2 (Ollama, Mistral AI + All Hands AI, Dec 2025, "
+            "Apache 2.0, 24B, ~14GB Q4). Devstral V2: 256K ctx, vision added, improved "
+            "SWE-bench vs devstral:24b (V1). PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "devstral-small-2",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "tools": [],
+    },
+    "bench-mistral-small32": {
+        "name": "🔬 Bench · Mistral Small 3.2 (Mistral)",
+        "description": (
+            "Benchmark: mistral-small3.2:24b (Ollama, Mistral AI, June 2025, Apache 2.0, "
+            "24B, ~14GB Q4). Improved function calling and instruction following over Small 3.1. "
+            "auto-mistral lane candidate. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "mistral-small3.2:24b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-r1-0528-qwen3-8b": {
+        "name": "🔬 Bench · DeepSeek R1-0528-Qwen3-8B (DeepSeek)",
+        "description": (
+            "Benchmark: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL "
+            "(Unsloth/DeepSeek, MIT, 8B Qwen3 base, ~5GB Q4_K_XL, May 2026). "
+            "R1-0528 chain-of-thought distilled into Qwen3-8B. "
+            "Matches Qwen3-235B on AIME 2024 at 8B parameters. "
+            "Complements existing deepseek-r1:32b — smaller/faster reasoning tier. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-harness1": {
+        "name": "🔬 Bench · Harness-1 (search agent, gpt-oss-20B base)",
+        "description": (
+            "Benchmark: hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M "
+            "(June 2026, Apache 2.0, 20B gpt-oss fine-tune, ~12GB Q4_K_M). "
+            "RL-trained search agent with state-externalizing harness methodology. "
+            "NOTE: Full harness capability (Chroma vector DB + external state) not available "
+            "in Portal 5 pipeline. Standalone bench measures search-tuned gpt-oss-20B quality. "
+            "auto-research lane candidate. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-nex-n2-mini": {
+        "name": "🔬 Bench · Nex-N2-mini (Nex AGI)",
+        "description": (
+            "Benchmark: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M "
+            "(June 2026, Apache 2.0, 35B total / 3B active MoE, ~22GB UD-Q4_K_M). "
+            "Post-trained on Qwen3.5-35B-A3B-Base for agentic coding, tool use, reasoning. "
+            "Multimodal (image+text). imatrix community GGUF by sjakek. "
+            "Terminal-Bench 2.1 score: 60.7. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-qwen3-coder-next": {
+        "name": "🔬 Bench · Qwen3-Coder-Next 80B (Alibaba)",
+        "description": (
+            "Benchmark: qwen3-coder-next (Ollama, Alibaba Feb 2026, Apache 2.0). "
+            "80B total / 3B active MoE. Hybrid architecture (Gated DeltaNet + MoE). "
+            "Non-reasoning for fast code responses. 256K ctx. ~46GB Q4, fits 64GB. "
+            "Agentic training: 800K executable tasks + RL. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "qwen3-coder-next",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
         "tools": [],
     },
 }

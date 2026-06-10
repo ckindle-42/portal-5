@@ -1,0 +1,12 @@
+name: 🔬 Bench · Mistral Small 3.2 (Mistral)
+slug: bench-mistral-small32
+category: benchmark
+workspace_model: bench-mistral-small32
+# V8 model refresh — bench-mistral-small32 target (TASK_MODEL_REFRESH_V8 A14)
+system_prompt: |
+  You are a capable general assistant. Be helpful, concise, and accurate.
+  Answer the user's question directly without unnecessary preamble.
+tags:
+  - benchmark
+  - general
+  - mistral

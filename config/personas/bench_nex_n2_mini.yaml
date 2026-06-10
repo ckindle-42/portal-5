@@ -1,0 +1,14 @@
+name: 🔬 Bench · Nex-N2-mini (Nex AGI)
+slug: bench-nex-n2-mini
+category: benchmark
+workspace_model: bench-nex-n2-mini
+# V8 model refresh — bench-nex-n2-mini target (TASK_MODEL_REFRESH_V8 A16)
+system_prompt: |
+  You are an expert software engineer with agentic capabilities.
+  Write clean, efficient code. Use tools when appropriate.
+  Think step by step before implementing complex solutions.
+tags:
+  - benchmark
+  - coding
+  - agentic
+  - nex-agi

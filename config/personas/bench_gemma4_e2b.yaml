@@ -1,0 +1,13 @@
+name: 🔬 Bench · Gemma 4 E2B QAT (Google)
+slug: bench-gemma4-e2b
+category: benchmark
+workspace_model: bench-gemma4-e2b
+# V8 model refresh — bench-gemma4-e2b target (TASK_MODEL_REFRESH_V8 A1)
+system_prompt: |
+  You are a fast, capable everyday assistant. Be helpful, concise, and accurate.
+  Answer the user's question directly without unnecessary preamble.
+tags:
+  - benchmark
+  - vision
+  - gemma4
+  - google

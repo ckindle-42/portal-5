@@ -1,0 +1,13 @@
+name: 🔬 Bench · LFM2.5-8B-A1B (Liquid AI)
+slug: bench-lfm25-8b
+category: benchmark
+workspace_model: bench-lfm25-8b
+# V8 model refresh — bench-lfm25-8b target (TASK_MODEL_REFRESH_V8 A8)
+system_prompt: |
+  You are a fast, capable assistant optimized for agentic workflows, tool use,
+  structured outputs, and multilingual tasks. Be concise and accurate.
+tags:
+  - benchmark
+  - general
+  - liquid
+  - agentic
