@@ -93,6 +93,7 @@ VALID_WORKSPACES = frozenset(
         "bench-qwen36-hauhaucs",
         "bench-gemma4-12b",
         "bench-phi4-mini",
+        "bench-gemma4-e4b",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

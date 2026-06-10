@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-10T04:06:09.160338+00:00",
+  "timestamp": "2026-06-10T04:18:20.111620+00:00",
   "mode": "pipeline",
   "order": "size",
   "cooldown_s": 5.0,
   "runs_per_model": 3,
   "spec_decoding": "unspecified",
   "kv_quant_tag": "unspecified",
-  "total_wall_time_s": 6.2,
+  "total_wall_time_s": 18.4,
   "hardware": {
     "platform": "Darwin",
     "machine": "arm64",
@@ -842,6 +842,65 @@
       "backend": "pipeline",
       "path": "pipeline",
       "workspace": "bench-phi4-mini"
+    },
+    {
+      "model": "bench-gemma4-e4b",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 23.0,
+      "min_tps": 21.8,
+      "max_tps": 24.2,
+      "stddev_tps": 1.2,
+      "cv": 0.052,
+      "avg_completion_tokens": 123,
+      "avg_elapsed_s": 5.33,
+      "avg_ttft_s": 0.44,
+      "routed_model": "bench-gemma4-e4b",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 23.0,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "Ollama:gemma4",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 5.32,
+          "prompt_tokens": 0,
+          "completion_tokens": 116,
+          "tps": 21.8,
+          "time_to_first_token_s": 0.435,
+          "response_model": "bench-gemma4-e4b",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process to ensure the response meets all criteria:\n\n1.  **Goal:** List the 7 OSI model layers from bottom to top.\n2.  **Format:** Numbered list, one line per layer.\n3.  **Content Requirements (for each layer):**\n    *   Layer number.\n    *   Standard name.\n    *   One example protocol or technology.\n4.  **Constraint:** Be concise and helpful.\n\n*Self-Correction/Verification of Layers (Bottom to Top):*\n1. Physical (L1)\n2. Data Link (L2)\n3. Network (L3)\n4. Transport (L4)\n5. Session (L5)\n6. Presentation (L6)\n7. Application (L7)\n\n*Gathering Details:*\n*   L1: 1, Physical, e.g., Copper Cables/Fiber Optics\n*   L2: 2, Data Link, e.g., Ethernet (or MAC addresses)\n*   L3: 3, Network, e.g., IP (Internet Protocol)\n*   L4: 4, Transport, e.g.,"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 5.34,
+          "prompt_tokens": 0,
+          "completion_tokens": 123,
+          "tps": 23.0,
+          "time_to_first_token_s": 0.448,
+          "response_model": "bench-gemma4-e4b",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process to ensure accuracy and conciseness:\n\n1.  **Identify the Goal:** List the 7 OSI layers from bottom (Layer 1) to top (Layer 7). For each, provide: Layer Number, Standard Name, Example Protocol/Technology.\n2.  **Constraint Checklist:** Conciseness required. Format must be a numbered list with one line per layer.\n\n3.  **Determine the Layers (Bottom to Top):**\n    *   L1: Physical\n    *   L2: Data Link\n    *   L3: Network\n    *   L4: Transport\n    *   L5: Session\n    *   L6: Presentation\n    *   L7: Application\n\n4.  **Determine Details for Each Layer:**\n\n    *   **Layer 1 (Physical):** Name: Physical. Example: Ethernet cable/Fiber Optic.\n    *   **Layer 2 (Data Link):** Name: Data Link. Example: Ethernet, MAC Addresses.\n    *   **Layer 3 (Network):** Name: Network. Example: IP (Internet Protocol).\n    *   **Layer 4 (Transport):** Name:"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 5.32,
+          "prompt_tokens": 0,
+          "completion_tokens": 129,
+          "tps": 24.2,
+          "time_to_first_token_s": 0.438,
+          "response_model": "bench-gemma4-e4b",
+          "response_text": "",
+          "reasoning_text": "Here's a thinking process to generate the desired response:\n\n1.  **Analyze the Request:**\n    *   Role: Helpful assistant.\n    *   Style: Concise.\n    *   Content: List the 7 OSI model layers from bottom (Layer 1) to top (Layer 7).\n    *   Required Info per layer:\n        1. Layer number.\n        2. Standard name.\n        3. One example protocol/technology.\n    *   Format: Numbered list, one line per layer.\n\n2.  **Identify the OSI Layers (Bottom to Top):**\n    *   Layer 1: Physical\n    *   Layer 2: Data Link\n    *   Layer 3: Network\n    *   Layer 4: Transport\n    *   Layer 5: Session\n    *   Layer 6: Presentation\n    *   Layer 7: Application\n\n3.  **Determine Examples/Protocols for Each Layer (Focusing on the most standard example):**\n    *   L1 (Physical): Copper cable, Fiber optic, Ethernet cable (Ethernet is a technology that utilizes these). *Example: Twisted Pair Copper.*\n    *   "
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-gemma4-e4b"
     }
   ],
   "prompts": {

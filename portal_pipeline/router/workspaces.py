@@ -713,8 +713,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # ── Daily-driver candidate bench (gemma4:12b + phi4-mini) ──────────────
     "bench-gemma4-12b": {
         "name": "🔬 Bench · Gemma 4 12B",
-        "description": "Benchmark: gemma4:12b-it-q4_K_M (~7.6GB, Google, Q4_K_M). Daily-driver candidate comparison.",
-        "model_hint": "gemma4:12b-it-q4_K_M",
+        "description": "Benchmark: portal5/gemma4-12b:q4_K_M-ctx8k (~7.6GB, Google, Q4_K_M, num_ctx 8192). Daily-driver candidate comparison.",
+        "model_hint": "portal5/gemma4-12b:q4_K_M-ctx8k",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
@@ -724,6 +724,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔬 Bench · Phi-4-mini",
         "description": "Benchmark: phi4-mini:latest (~2.5GB, Microsoft, 3.8B). Fast-lane / router-adjacent candidate.",
         "model_hint": "phi4-mini:latest",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-gemma4-e4b": {
+        "name": "🔬 Bench · Gemma 4 E4B (MoE 4B active)",
+        "description": "Benchmark: gemma4:e4b-it-q4_K_M (~9.6GB, Google MoE, 4B active, 128K ctx, vision+thinking+tools). Daily-driver candidate.",
+        "model_hint": "gemma4:e4b-it-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
