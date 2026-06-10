@@ -4,26 +4,51 @@ This is the single FastAPI app that serves ``/v1/models`` and
 ``/v1/chat/completions`` for Open WebUI. Every Open WebUI request flows
 through this file before reaching an Ollama backend.
 
-The file is large (3,664 LOC) and organized in roughly six bands by line:
+**Module homes (after TASK_ROUTER_DECOMP_REQUESTSLOT_V1):**
 
-* L1–L373:    Module-level state, Prometheus metric definitions, env config.
-* L375–L518:  Telemetry recorders (``_record_usage``, ``_record_persona``,
-              ``_record_error``, ``_record_response_time``,
-              ``_load_state``, ``_save_state``).
-* L533–L1554: Tool dispatch and workspace routing — see
-              ``portal_pipeline/router/workspaces.py`` for the policy
-              source. Includes LLM-based intent classifier
-              (``_route_with_llm``), keyword-fallback router
-              (``_detect_workspace``), semaphore management, and
-              backend-specific request body injection.
-* L1597–L1700: Startup warmups (auto-workspace inference model and the
-               LLM router model).
-* L1702–L1789: ``lifespan`` context manager and the ``app`` instance.
-* L1791–L3664: Route handlers (``/health``, ``/metrics``, ``/v1/models``,
-               ``/v1/chat/completions``, admin) and streaming machinery
-               including the multi-hop tool loop.
+The pipeline code is split across these modules. This file is the facade that
+re-exports their public symbols so external import paths are unchanged.
 
-Three things to know before editing:
++---------------------------+---------------------------------------------+
+| Module                    | Owns                                        |
++===========================+=============================================+
+| router/concurrency.py     | Three semaphores + ``RequestSlot``          |
++---------------------------+---------------------------------------------+
+| router/metrics.py         | ``CollectorRegistry`` + all collectors      |
++---------------------------+---------------------------------------------+
+| router/state.py           | State persistence + per-event recorders     |
++---------------------------+---------------------------------------------+
+| router/power.py           | powermetrics polling, energy/cost           |
++---------------------------+---------------------------------------------+
+| router/routing.py         | LLM router + keyword workspace detection    |
++---------------------------+---------------------------------------------+
+| router/streaming.py       | SSE streaming: ``_stream_from_backend_*``,  |
+|                           | ``_stream_with_preamble``,                  |
+|                           | ``_stream_with_tool_loop`` (+impl),         |
+|                           | ``_json_completion_to_sse``,                |
+|                           | ``_http_client``, ``_SHOW_ROUTING_STATUS``  |
++---------------------------+---------------------------------------------+
+| router/tools.py           | MCP tool dispatch (``_dispatch_tool_call``) |
++---------------------------+---------------------------------------------+
+| router/workspaces.py      | ``WORKSPACES``, persona map, tool helpers   |
++---------------------------+---------------------------------------------+
+| router_pipe.py (this file)| FastAPI ``app``, all ``@app`` routes,       |
+|                           | option injection, warmups, lifespan, auth   |
++---------------------------+---------------------------------------------+
+
+**File organisation (~2050 LOC):**
+
+* L1–L260:    Module-level state (``registry``, ``_http_client``), env config.
+* L261–L630:  Startup helpers (``_validate_workspace_hints``,
+              ``_init_notifications``, warmups).
+* L631–L790:  ``lifespan`` context manager and ``app`` instance.
+* L791–L1490: Route handlers (``/health``, ``/metrics``, ``/v1/models``,
+              ``/v1/chat/completions``, admin).
+* L1490+:     ``_try_non_streaming`` + ``chat_completions`` handler
+              (routing, semaphore acquisition via ``RequestSlot``, streaming
+              dispatch delegated to ``router/streaming.py``).
+
+**Three things to know before editing:**
 
 1. **State persistence has delta semantics**. ``_save_state`` reads the
    file, adds the in-memory accumulators, writes atomically, then
@@ -31,8 +56,10 @@ Three things to know before editing:
    — removing it inflates metrics by ``saves_per_day × workers`` on
    every restart. See ``_save_state`` and ``_load_state``.
 2. **Module-level singletons are intentional**. ``registry``,
-   ``_http_client``, ``_request_semaphore``, ``_notification_dispatcher``,
-   and the Prometheus metric objects are all process-global. ``lifespan``
+   ``_http_client`` (this file — used by warmups and ``_try_non_streaming``),
+   ``router.streaming._http_client`` (injected from this file's lifespan —
+   used by all streaming generators), ``_notification_dispatcher``, and
+   the Prometheus metric objects are all process-global. ``lifespan``
    creates them on startup and cancels/closes them on shutdown. Tests
    stub them via direct module attribute assignment.
 3. **Lazy imports protect the lean Dockerfile**. ``notifications`` is
@@ -42,7 +69,7 @@ Three things to know before editing:
    loads when ``NOTIFICATIONS_ENABLED=true``. Same pattern for
    ``portal_pipeline.tool_registry`` inside ``_try_non_streaming``.
 
-Knobs (env-overridable):
+**Knobs (env-overridable):**
 
 * ``MAX_REQUEST_BYTES`` (4 MB default) — request body size cap.
 * ``METRICS_STATE_FILE`` (``/app/data/metrics_state.json``).
@@ -54,6 +81,8 @@ Knobs (env-overridable):
   hint at startup raises rather than warns. See ``lifespan``.
 * ``NOTIFICATIONS_ENABLED`` — gates the lazy import + setup of the
   notifications subsystem.
+* ``SHOW_ROUTING_STATUS`` — when ``true``, every streaming response
+  prepends ``⚡ workspace → model``. Defined in ``router/streaming.py``.
 """
 
 from __future__ import annotations

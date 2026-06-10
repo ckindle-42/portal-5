@@ -38,8 +38,17 @@ Do not add these — they are explicitly out of scope:
 portal-5/
 ├── portal_pipeline/              # FastAPI Pipeline server (:9099)
 │   ├── cluster_backends.py       # BackendRegistry — Ollama (+ vLLM-compatible), health-aware
-│   ├── router_pipe.py            # /v1/models + /v1/chat/completions routing
+│   ├── router_pipe.py            # FastAPI app, @app routes, lifespan, auth, option injection
 │   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
+│   ├── router/                   # Decomposed pipeline modules (facade-exported by router_pipe.py)
+│   │   ├── concurrency.py        # 3 semaphores + RequestSlot (single-owner lifecycle)
+│   │   ├── metrics.py            # CollectorRegistry + all Prometheus collectors
+│   │   ├── state.py              # State persistence + per-event recorders
+│   │   ├── power.py              # powermetrics polling, energy/cost, usage recording
+│   │   ├── routing.py            # LLM router + keyword workspace detection
+│   │   ├── streaming.py          # SSE streaming: _stream_from_backend_guarded, tool loop, preamble
+│   │   ├── tools.py              # MCP tool dispatch (_dispatch_tool_call)
+│   │   └── workspaces.py         # WORKSPACES dict, persona map, workspace tool helpers
 │   └── notifications/            # Operational alerts + daily summaries
 │       ├── dispatcher.py         # Event bus: fans out to all configured channels
 │       ├── events.py             # AlertEvent / SummaryEvent / EventType
@@ -64,6 +73,7 @@ portal-5/
 │   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
 │   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
 │   ├── pipeline-entrypoint.sh    # Docker entrypoint for portal-pipeline
+│   ├── smoke_stream.sh           # Live streaming gate (also run by ./launch.sh test)
 │   └── ...                       # See scripts/ for full list
 ├── tests/
 │   ├── unit/                     # pytest unit tests — no Docker required
