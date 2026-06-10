@@ -613,8 +613,6 @@ class TestR22CodingModelUpdates:
         )
 
 
-
-
 class TestRecordUsageMetrics:
     """Verify _record_usage correctly parses Ollama response fields."""
 
@@ -710,8 +708,7 @@ class TestSPLWorkspace:
         from portal_pipeline.router_pipe import WORKSPACES
 
         assert "auto-spl" in WORKSPACES, (
-            "auto-spl missing from WORKSPACES in router_pipe.py — "
-            "add it with model_hint"
+            "auto-spl missing from WORKSPACES in router_pipe.py — add it with model_hint"
         )
 
     def test_auto_spl_uses_qwen3_coder_model_hint(self):
@@ -973,8 +970,6 @@ class TestAgenticWorkspace:
             f"In pipe but not yaml: {pipe_ids - yaml_ids}. "
             f"In yaml but not pipe: {yaml_ids - pipe_ids}."
         )
-
-
 
 
 class TestCodeHygiene:
@@ -1283,7 +1278,43 @@ class TestModelSupportsToolsRealBackend:
 
     def test_backend_has_no_mlx_metadata_field(self):
         import portal_pipeline.cluster_backends as cb
-        be = cb.Backend(id="b", type="ollama", url="http://x",
-                        group="general", models=["m"])
+
+        be = cb.Backend(id="b", type="ollama", url="http://x", group="general", models=["m"])
         assert not hasattr(be, "mlx_metadata")
         assert be.ollama_metadata == []
+
+
+class TestInjectOllamaOptions:
+    """Tests for per-workspace keep_alive override in _inject_ollama_options."""
+
+    def test_bench_workspace_uses_5m_keep_alive(self):
+        """Bench workspaces should emit keep_alive=5m, not the global -1."""
+        from portal_pipeline.router_pipe import _inject_ollama_options
+        from portal_pipeline.router.workspaces import WORKSPACES
+
+        bench_ws = next(k for k in WORKSPACES if k.startswith("bench-"))
+        body = _inject_ollama_options({}, bench_ws)
+        assert body["keep_alive"] == "5m", (
+            f"bench workspace {bench_ws!r} should have keep_alive=5m to avoid "
+            "pinning the bench model in memory between unrelated requests"
+        )
+
+    def test_quality_lane_uses_10m_keep_alive(self):
+        """auto-data and auto-mistral (big q8 lanes) should use keep_alive=10m."""
+        from portal_pipeline.router_pipe import _inject_ollama_options
+
+        for ws_id in ("auto-data", "auto-mistral"):
+            body = _inject_ollama_options({}, ws_id)
+            assert body["keep_alive"] == "10m", (
+                f"quality lane {ws_id!r} should have keep_alive=10m — "
+                "long enough for back-to-back queries, short enough not to evict fleet"
+            )
+
+    def test_caller_supplied_keep_alive_wins(self):
+        """A caller-supplied keep_alive in the request body must not be overridden."""
+        from portal_pipeline.router_pipe import _inject_ollama_options
+
+        body = _inject_ollama_options({"keep_alive": "30m"}, "bench-devstral")
+        assert body["keep_alive"] == "30m", (
+            "setdefault must not override a caller-supplied keep_alive value"
+        )
