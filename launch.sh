@@ -3018,6 +3018,47 @@ PLIST
     fi
     ;;
 
+  apply-model-params)
+    # Idempotent: create Ollama tags with baked-in PARAMETER num_ctx values.
+    # Run once after pulling the base models; safe to re-run (ollama create is idempotent).
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+
+    _apm_ollama() {
+        if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
+            ollama "$@"
+        elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
+            docker exec portal5-ollama ollama "$@"
+        else
+            echo "ERROR: Ollama not reachable (not running locally or in Docker)" >&2
+            return 1
+        fi
+    }
+
+    _apm_create_ctx_tag() {
+        local base_tag="$1" ctx="$2"
+        local new_tag="${base_tag}-ctx${ctx}"
+        # Check if source model exists
+        if ! _apm_ollama show "$base_tag" &>/dev/null 2>&1; then
+            echo "  SKIP $new_tag — base model $base_tag not pulled (run ./launch.sh pull-models first)"
+            return 0
+        fi
+        local modelfile
+        modelfile=$(mktemp)
+        printf 'FROM %s\nPARAMETER num_ctx %d\n' "$base_tag" "$ctx" > "$modelfile"
+        echo "  Creating $new_tag (num_ctx=$ctx) ..."
+        if _apm_ollama create "$new_tag" -f "$modelfile"; then
+            echo "  OK $new_tag"
+        else
+            echo "  FAIL $new_tag — see above"
+        fi
+        rm -f "$modelfile"
+    }
+
+    echo "Applying model params (ctx tags) ..."
+    _apm_create_ctx_tag "qwen3-coder:480b-a35b-q4_K_M" "32768"
+    echo "Done."
+    ;;
+
   import-gguf)
     # Import a locally downloaded GGUF file into Ollama
     # Usage: ./launch.sh import-gguf /path/to-model.gguf [ollama-name]
@@ -3142,6 +3183,7 @@ MEOF
     echo "  status                Show service status and health"
     echo "  pull-models           Pull all Portal 5 Ollama models (30-90 min)"
     echo "  refresh-models        Check all models for updates (skips unchanged models)"
+    echo "  apply-model-params        Create Ollama ctx-tagged variants (e.g. qwen3-coder:480b-...-ctx32k)"
     echo "  import-gguf <path> [name]  Import a locally downloaded GGUF file into Ollama"
     echo "  add-user <email> [name] [role]  Create a user account"
     echo "  list-users            List all registered users"
