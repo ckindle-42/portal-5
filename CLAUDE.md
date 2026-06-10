@@ -202,6 +202,7 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 - Use `tmp_path` fixtures for file I/O
 - Mock `httpx.AsyncClient` for all HTTP calls
 - Run before every commit: `pytest tests/ -v --tb=short && ruff check . && ruff format --check .`
+- Live stack streaming verification: `./scripts/smoke_stream.sh` (also runs as part of `./launch.sh test`). Requires the pipeline to be up and at least one Ollama model pulled.
 
 ### Pre-Testing: Always Verify Code Freshness
 

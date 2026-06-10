@@ -41,6 +41,9 @@ ls tests/acceptance/*.py | grep -v _common | grep -v __init   # live scenarios
 
 ## Step 2 — Verify Stack State
 ```bash
+# Streaming gate (quick pass/fail before full suite)
+./scripts/smoke_stream.sh
+
 # Ollama + pipeline + OWUI
 curl -sf http://localhost:11434/api/tags >/dev/null && echo "ollama OK"
 curl -sf http://localhost:9099/health    >/dev/null && echo "pipeline OK"
