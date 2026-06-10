@@ -1757,7 +1757,7 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
 # PHASE 4: MCP/Docker tests (minimal memory)
 #   S4 (documents), S5 (sandbox)
 #
-# PHASE 5: Audio tests (MLX Speech server - separate from main MLX)
+# PHASE 5: Audio tests (retained MLX Speech server :8918)
 #   S8 (TTS), S9 (STT), S7 (MusicGen)
 #   [EVICT ALL]
 #

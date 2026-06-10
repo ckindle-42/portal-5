@@ -2,6 +2,22 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.3.3] — 2026-06-10
+
+### Fixed
+- persona matrix: `expand_scenarios(categories=...)` TypeError on workspaces
+  whose fixtures module doesn't accept the kwarg (auto-compliance — the
+  CI-default sweep was broken at HEAD). Signature-guarded; pre-existing bug.
+- CLAUDE.md persona count 137 → 140 (V8 catalog +16 YAMLs) — un-fails
+  `test_claude_md_persona_count_accurate`.
+
+### Changed
+- Grafana benchmarks dashboard generator is Ollama-only: MLX badge/cells/
+  footer/framing removed; size-comparison panel repurposed as an Ollama
+  size-bucket breakdown (panel layout unchanged).
+- Stale comment true-ups: acceptance Phase-5 audio note, regen_section_table
+  docstring example.
+
 ## [7.3.2] — 2026-06-10
 
 ### Removed — MLX-inference dead code swept from the test layer (TASK_MLX_TEST_SWEEP_V1)
