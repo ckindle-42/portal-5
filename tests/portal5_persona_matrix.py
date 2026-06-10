@@ -713,7 +713,13 @@ async def run_sweep(args) -> dict[str, Any]:
     # TASK_CODING_SHOOTOUT_V1.md §T1.5 for rationale.
     _ws_cfg = WORKSPACE_REGISTRY.get(args.workspace, {})
     _persona_categories = tuple(_ws_cfg.get("persona_categories", ()))
-    if _persona_categories:
+    # Only the coding fixtures module accepts a categories kwarg; the
+    # compliance fixtures select personas from the fixture YAML itself.
+    # Guard on the signature so workspaces with persona_categories but a
+    # non-parameterised fixtures module (auto-compliance) don't TypeError.
+    import inspect as _inspect
+    _accepts_categories = "categories" in _inspect.signature(cf.expand_scenarios).parameters
+    if _persona_categories and _accepts_categories:
         scenarios = list(cf.expand_scenarios(categories=_persona_categories))
     else:
         scenarios = list(cf.expand_scenarios())
