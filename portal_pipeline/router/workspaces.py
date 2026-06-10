@@ -139,12 +139,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🪶 Portal Daily Driver",
         "description": (
             "Fast everyday assistant: chat, writing, editing, summarization, "
-            "planning, light technical help. gemma4:26b-a4b-it-q4_K_M primary "
-            "(Ollama, MoE 4B active, VLM, Apache 2.0). Daily-driver lane — escalates "
-            "to specialist workspaces (auto-coding, auto-reasoning, etc.) when "
-            "the persona detects out-of-lane requests."
+            "planning, light technical help. gemma4:26b-a4b-it-qat primary "
+            "(Ollama, MoE 4B active, VLM, Apache 2.0, QAT near-BF16). "
+            "Upgraded from q4_K_M → QAT (V8: +23% TPS, same ~15GB footprint). "
+            "Daily-driver lane — escalates to specialist workspaces when needed."
         ),
-        "model_hint": "gemma4:26b-a4b-it-q4_K_M",
+        "model_hint": "gemma4:26b-a4b-it-qat",
         "predict_limit": 4096,
         "tools": [
             "web_search",
@@ -192,10 +192,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "⚡ Portal Agentic Coder (Heavy)",
         "description": (
             "Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style "
-            "workflows, and complex refactors. Served by Qwen3-Coder-30B-A3B-Q4 (interim) "
-            "until the full 480B candidate completes Phase 4 bench evaluation."
+            "workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL "
+            "training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline)."
         ),
-        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "model_hint": "qwen3-coder-next",
         "tools": [
             "execute_python",
             "execute_bash",
@@ -256,15 +256,24 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-creative": {
         "name": "✍️  Portal Creative Writer",
-        "description": "Creative writing, storytelling, content generation",
-        "model_hint": "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf",
+        "description": (
+            "Creative writing, storytelling, content generation. "
+            "Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, "
+            "tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4)."
+        ),
+        "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
         "tools": [],
     },
     "auto-reasoning": {
         "name": "🧠 Portal Deep Reasoner",
-        "description": "Complex analysis, research synthesis, step-by-step reasoning",
-        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
-        "predict_limit": 32768,
+        "description": (
+            "Complex analysis, research synthesis, step-by-step reasoning. "
+            "DeepSeek R1-0528-Qwen3-8B (V8: 31 t/s pipeline, AIME 2024 = Qwen3-235B at 8B, "
+            "~5GB. Replaces Qwopus primary which had pull failures). "
+            "deepseek-r1:32b remains reasoning group fallback for heavy tasks."
+        ),
+        "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+        "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [],
     },
@@ -292,10 +301,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-music": {
         "name": "🎵 Portal Music Producer",
-        "description": "Generate music and audio via AudioCraft/MusicGen",
+        "description": "Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).",
         # auto-music dispatches via OWUI Path 2 (server:mcp:portal_music + portal_tts).
-        # Hint swapped to qwen3.5-abliterated for catalog consistency with AUTO.
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "model_hint": "lfm2.5:8b",
         "tools": [],
     },
     "auto-research": {
@@ -363,10 +371,17 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-math": {
         "name": "🧮 Portal Math Reasoner",
-        "description": "Mathematical problem solving, proofs, calculus, algebra, statistics",
-        "model_hint": "qwen3.5:9b",
+        "description": "Mathematical problem solving, proofs, calculus, algebra, statistics. Phi-4-Mini-Reasoning (V8: RL-trained math specialist, beats 7B models on AIME/MATH-500 at 3.8B, ~2.5GB, MIT).",
+        "model_hint": "phi4-mini-reasoning",
         "predict_limit": 8192,
+        "emits_reasoning": True,
         "tools": ["execute_python"],
+    },
+    "auto-audio": {
+        "name": "🎙️  Portal Audio Analyst",
+        "description": "Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).",
+        "model_hint": "gemma4:12b-it-qat",
+        "tools": ["transcribe_audio"],
     },
     # ── Coding Capability Benchmark Workspaces ───────────────────────────────
     "bench-qwen3-coder-30b": {

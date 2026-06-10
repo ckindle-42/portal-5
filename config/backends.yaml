@@ -34,7 +34,10 @@ backends:
       \ auto-video primary (de96984)."
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
-    notes: "Gemma 4 26B A4B MoE VLM Q4 (~17GB, Apache 2.0, thinking+vision). Daily driver primary."
+    notes: "Gemma 4 26B A4B MoE VLM Q4 (~17GB, Apache 2.0, thinking+vision). Retained as fallback; QAT variant promoted to auto-daily primary."
+  - id: gemma4:26b-a4b-it-qat
+    supports_tools: true
+    notes: "Gemma 4 26B A4B QAT (~15GB, Apache 2.0, 256K ctx, vision+text, QAT near-BF16 quality at same ~15GB footprint). Promoted to auto-daily primary (V8: +23% TPS vs q4_K_M, same memory, near-BF16 quality). Also in ollama-vision for bench-gemma4-26b-qat."
   - id: phi4:14b-q8_0
     supports_tools: true
     notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
@@ -435,7 +438,10 @@ workspace_routing:
   auto-mistral:
   - general
   auto-math:
-  - coding
+  - reasoning
+  - general
+  auto-audio:
+  - vision
   - general
   bench-qwen3-coder-30b:
   - coding

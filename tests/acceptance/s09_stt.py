@@ -3,13 +3,16 @@ import contextlib
 import time
 import uuid
 from pathlib import Path
+
 import httpx
+
 from tests.acceptance._common import (
     MCP,
     MLX_SPEECH_URL,
-    record,
     _get,
+    record,
 )
+
 
 async def run() -> None:
     """S9: Speech-to-Text tests."""

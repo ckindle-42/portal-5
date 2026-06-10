@@ -1,10 +1,11 @@
 """S3a: Workspace routing tests (Ollama backends only)."""
 import asyncio
+
 from tests.acceptance._common import (
-    record,
     _assert_routing,
     _chat_with_model,
     _get_workspace_prompts,
+    record,
 )
 
 

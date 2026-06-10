@@ -1,10 +1,12 @@
 """S31: Video generation tests (Wan2.2)."""
 import time
+
 from tests.acceptance._common import (
     MCP,
-    record,
     _get,
+    record,
 )
+
 
 async def run() -> None:
     """S31: Video generation tests."""

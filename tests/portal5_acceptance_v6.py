@@ -65,16 +65,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import io
-import itertools
 import json
 import os
 import re
 import subprocess
 import sys
 import time
-import uuid
 import wave
 from collections.abc import Callable
 from dataclasses import dataclass, field

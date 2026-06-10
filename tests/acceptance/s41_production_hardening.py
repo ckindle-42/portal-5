@@ -1,12 +1,12 @@
 """S41: M6 production hardening tests."""
 import os
 import time
-import yaml
+
 from tests.acceptance._common import (
     PIPELINE_URL,
     ROOT,
-    record,
     _get_acc_client,
+    record,
 )
 
 

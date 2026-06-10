@@ -1,11 +1,13 @@
 """S13: RAG/Embedding tests."""
 import time
+
 from tests.acceptance._common import (
     MCP,
-    record,
     _get,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S13: RAG/Embedding tests."""

@@ -1,14 +1,16 @@
 """S1: Configuration consistency."""
 import json
+
 import yaml
+
 from tests.acceptance._common import (
     ROOT,
-    record,
-    _load_backends_yaml,
-    _get_personas,
-    _get_ws_ids,
     _get_persona_prompts,
     _get_persona_prompts_excluded,
+    _get_personas,
+    _get_ws_ids,
+    _load_backends_yaml,
+    record,
 )
 
 

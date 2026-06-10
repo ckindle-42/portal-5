@@ -2,15 +2,17 @@
 import asyncio
 import itertools
 import time
+
 from tests.acceptance._common import (
-    record,
     _assert_routing,
     _chat_with_model,
-    _get_personas,
+    _get_ollama_workspaces,
     _get_persona_prompts,
     _get_persona_prompts_excluded,
-    _get_ollama_workspaces,
+    _get_personas,
+    record,
 )
+
 
 async def run() -> None:
     PERSONAS = _get_personas()

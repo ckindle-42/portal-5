@@ -324,11 +324,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 71 (19 production + 1 tools-specialist + 52 bench-* after V8 uncensored adds)."""
+        """Total workspace count is 73 (20 production + 1 tools-specialist + 52 bench-* after V8 auto-audio add)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 72, (
-            f"Expected 72 workspaces (19 production + 1 tools-specialist + 52 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 73, (
+            f"Expected 73 workspaces (20 production + 1 tools-specialist + 52 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -428,8 +428,8 @@ class TestR18ModelCompleteness:
         assert "foundation-sec" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
             "auto-blueteam should use Foundation-Sec-8B-Reasoning (cybersec defender, GGUF)"
         )
-        assert "qwopus" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
-            "auto-reasoning should use Qwopus3.6-27B-v2 MTP GGUF (self-speculative reasoning primary)"
+        assert "deepseek-r1-0528" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
+            "auto-reasoning should use DeepSeek-R1-0528-Qwen3-8B (V8 primary; Qwopus pull fails as of 2026-06-09)"
         )
 
     @_comfyui_enabled
@@ -729,11 +729,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 71 (19 production + 1 tools-specialist + 52 bench-* after V8 uncensored adds)."""
+        """Total workspace count must be 73 (20 production + 1 tools-specialist + 52 bench-* after V8 auto-audio add)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 72, (
-            f"Expected 72 workspaces (19 production + 1 tools-specialist + 52 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 73, (
+            f"Expected 73 workspaces (20 production + 1 tools-specialist + 52 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -894,8 +894,8 @@ class TestAgenticWorkspace:
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-agentic"].get("model_hint")
-        assert hint == "qwen3-coder:30b-a3b-q4_K_M", (
-            f"auto-agentic interim hint should be qwen3-coder:30b-a3b-q4_K_M, got: {hint}"
+        assert hint == "qwen3-coder-next", (
+            f"auto-agentic hint should be qwen3-coder-next (V8 promotion), got: {hint}"
         )
         ctx = WORKSPACES["auto-agentic"].get("context_limit")
         assert ctx is None, (
@@ -1299,8 +1299,8 @@ class TestInjectOllamaOptions:
 
     def test_bench_workspace_uses_5m_keep_alive(self):
         """Bench workspaces should emit keep_alive=5m, not the global -1."""
-        from portal_pipeline.router_pipe import _inject_ollama_options
         from portal_pipeline.router.workspaces import WORKSPACES
+        from portal_pipeline.router_pipe import _inject_ollama_options
 
         bench_ws = next(k for k in WORKSPACES if k.startswith("bench-"))
         body = _inject_ollama_options({}, bench_ws)

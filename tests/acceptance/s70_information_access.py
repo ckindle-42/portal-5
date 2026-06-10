@@ -1,13 +1,14 @@
 """S70: M3 information access MCPs — research, memory, RAG, SearXNG."""
 import time
+
 from tests.acceptance._common import (
     EMBEDDING_URL,
-    MCP,
     ROOT,
     SEARXNG_URL,
-    record,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S70: M3 information access MCPs — research, memory, RAG, SearXNG."""

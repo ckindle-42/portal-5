@@ -1,12 +1,14 @@
 """S8: Text-to-Speech tests."""
 import time
+
 from tests.acceptance._common import (
     MCP,
     MLX_SPEECH_URL,
-    record,
     _get,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S8: Text-to-Speech tests."""

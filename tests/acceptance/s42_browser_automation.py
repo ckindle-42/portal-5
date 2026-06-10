@@ -1,11 +1,11 @@
 """S42: M5 browser automation — MCP service health and tool count."""
-import asyncio
 import time
+
 from tests.acceptance._common import (
-    MCP,
-    record,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S42: M5 browser automation — MCP service health and tool count."""

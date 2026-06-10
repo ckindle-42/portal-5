@@ -2,13 +2,15 @@
 import json
 import os
 import time
+
 from tests.acceptance._common import (
     ROOT,
-    record,
     _assert_routing,
     _chat_with_model,
     _ollama_models,
+    record,
 )
+
 
 async def run() -> None:
     """S21: LLM Intent Router tests (P5-FUT-006)."""

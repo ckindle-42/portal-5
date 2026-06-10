@@ -1,11 +1,13 @@
 """S7: Music generation tests."""
 import time
+
 from tests.acceptance._common import (
     MCP,
-    record,
     _get,
     _mcp,
+    record,
 )
+
 
 async def run() -> None:
     """S7: Music generation tests."""

@@ -21,7 +21,6 @@ import pytest
 
 from portal_pipeline import router_pipe
 
-
 # ── helpers ──────────────────────────────────────────────────────────
 
 

@@ -1,12 +1,13 @@
 """S60: M2 tool-calling orchestration."""
 import time
-import yaml
+
 from tests.acceptance._common import (
     PIPELINE_URL,
     ROOT,
-    record,
     _get_acc_client,
+    record,
 )
+
 
 async def run() -> None:
     """S60: M2 tool-calling orchestration — registry, dispatch, multi-turn loop."""
