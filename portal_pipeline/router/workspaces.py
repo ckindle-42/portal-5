@@ -502,12 +502,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-qwen36-27b-mtp": {
-        "name": "🔬 Bench · Qwen3.6-27B MTP (Ollama path)",
+        "name": "🔬 Bench · Qwen3.6-27B MTP (Ollama speculative)",
         "description": (
-            "Benchmark: Qwopus3.6-27B-v2-MTP Q5_K_M (GGUF, Ollama). "
-            "MTP speculative-decoding candidate for TASK_MODEL_REFRESH_V8 A/B."
+            "Benchmark: portal5/qwen3.6-27b-mtp:q8_0-drafted — Qwen3.6-27B q8_0 base with "
+            "mtp-q4_K_M draft (speculative decoding via DRAFT directive). "
+            "Phase-5 MTP A/B vs bench-qwen36-27b (plain q8_0). "
+            "Run: ./launch.sh apply-mtp-drafts to create the tag before use."
         ),
-        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
+        "model_hint": "portal5/qwen3.6-27b-mtp:q8_0-drafted",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",

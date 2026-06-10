@@ -176,7 +176,13 @@ backends:
     notes: "Qwen3.6-27B Q8_0 (~29GB, Alibaba, dense 27B, Apache 2.0). High-precision quality candidate for bench-qwen36-27b. Phase-5 MTP A/B base (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). bench-qwen36-27b re-pointed from abliterated variant to stock q8."
   - id: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf
     supports_tools: true
-    notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary)."
+    notes: "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary). Pull failed (hf.co repo not llama.cpp-compatible as of 2026-06-09) — auto-reasoning falls back to reasoning group models."
+  - id: qwen3.6:27b-mtp-q4_K_M
+    supports_tools: true
+    notes: "Qwen3.6-27B MTP Q4_K_M (~19GB, Alibaba, embedded MTP draft heads). Draft model for portal5/qwen3.6-27b-mtp:q8_0-drafted (TASK_MODEL_FLEET_REFRESH_V2 Phase 5). Pull: ollama pull qwen3.6:27b-mtp-q4_K_M before running ./launch.sh apply-mtp-drafts."
+  - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
+    supports_tools: true
+    notes: "Created by ./launch.sh apply-mtp-drafts (TASK_MODEL_FLEET_REFRESH_V2 Phase 5). q8_0 base + mtp-q4_K_M draft via DRAFT directive. bench-qwen36-27b-mtp Phase-6 A/B target. NOT pre-pulled — run apply-mtp-drafts to create."
   - id: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf
     supports_tools: true
     notes: "Apriel-Nemotron-15B Q5 (~11GB, ServiceNow+NVIDIA, dense reasoning, MIT). Was auto-blueteam stopgap after 3a0c58e; replaced by Foundation-Sec-8B-Reasoning (P5-FUT-PARITY-001). Retained as reasoning fallback + bench-apriel-nemotron model."
