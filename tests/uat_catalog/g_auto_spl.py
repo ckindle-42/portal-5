@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-spl",
         "model_slug": "auto-spl",
         "timeout": 160,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Refactor this slow SPL search to use tstats for performance:\n"
             "index=windows EventCode=4624 LogonType=3 | stats count by src_ip, dest_host, user, _time | where count > 10\n"
@@ -51,7 +51,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-spl",
         "model_slug": "splunksplgineer",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "We just had a security incident. What frameworks should we use for our incident "
             "response and what tools do you recommend for threat hunting?"

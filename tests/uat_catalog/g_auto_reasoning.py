@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-reasoning",
         "model_slug": "auto-reasoning",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
-        "mlx_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "A platform team must choose a secrets management approach for 40 microservices. "
             "Options: (A) HashiCorp Vault self-hosted, (B) AWS Secrets Manager, "
@@ -49,7 +48,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-reasoning",
         "model_slug": "devopsengineer",
         "timeout": 60,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": "We need a CI/CD pipeline. Can you set one up for us?",
         "assertions": [
             {
@@ -79,8 +78,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-reasoning",
         "model_slug": "itarchitect",
         "timeout": 60,
-        "workspace_tier": "mlx_large",
-        "mlx_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+        "workspace_tier": "ollama",
         "prompt": "Design an integration architecture for our systems.",
         "assertions": [
             {
@@ -120,8 +118,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-reasoning",
         "model_slug": "seniorsoftwareengineersoftwarearchitectrules",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
-        "mlx_model": "Jackrong/MLX-Qwopus3.5-27B-v3-8bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "We need to implement distributed rate limiting for our API gateway. "
             "Expected load: 50,000 req/s across 8 nodes. Requirement: sub-5ms overhead. "

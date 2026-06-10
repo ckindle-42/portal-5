@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-creative",
         "model_slug": "auto-creative",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a 250-word flash fiction piece in second-person present tense. "
             "Genre: psychological thriller. The protagonist discovers that their most vivid "
@@ -83,7 +83,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-creative",
         "model_slug": "creativewriter",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write something about grief. "
             "After the piece, add a brief note (1–3 sentences) explaining the specific "
@@ -126,7 +126,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-creative",
         "model_slug": "hermes3writer",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "is_multi_turn": True,
         "prompt": (
             "Begin a story. Character: Maren, a 45-year-old bridge inspector who speaks in "

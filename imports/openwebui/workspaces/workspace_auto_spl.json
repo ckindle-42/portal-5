@@ -2,7 +2,7 @@
   "id": "auto-spl",
   "name": "🔍 Portal SPL Engineer",
   "meta": {
-    "description": "🔍 Portal SPL Engineer — Splunk query authoring, pipeline explanation, detection search",
+    "description": "🔍 Portal SPL Engineer — Qwen3-Coder-Next abliterated 80B/3B MoE (V8: 19 t/s, no refusals on security code, ~46GB). Splunk SPL, YARA rules, detection engineering, offensive security scripting.",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_code"

@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "e2etestauthor",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/Laguna-XS.2-4bit",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Playwright test for a login page: POST /login accepts email+password, "
             "redirects to /dashboard on success, shows error toast on failure. "
@@ -138,7 +137,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "e2edebugger",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "My Playwright test `test_login_redirect` fails intermittently. "
             "The error is: 'TimeoutError: locator.click: Timeout 30000ms exceeded.' "
@@ -243,7 +242,6 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "whiteboardconverter",
         "timeout": 60,
         "workspace_tier": "any",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",  # auto-vision VLM pre-warm
         "prompt": (
             "If I send you a whiteboard photo of a system architecture sketch "
             "with boxes labeled 'API Gateway', 'Auth Service', 'User DB', and "
@@ -318,7 +316,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto-daily",  # gemma-4-26b — fast, non-thinking; agentic execution test is A-09
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "max_wait_no_progress": 600,
         "prompt": (
             "I want to research the 5 most recent CVEs affecting Apache HTTP Server "
@@ -655,7 +653,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "goengineer",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Go function that reads a JSON config file, "
             "unmarshals it into a Config struct, and returns it with proper error handling. "
@@ -824,7 +822,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-math",
         "model_slug": "mathreasoner",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Prove that the derivative of sin(x) is cos(x) from first principles "
             "(limit definition of the derivative). Show every step."
@@ -1020,7 +1018,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "rustengineer",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Rust function that reads a file path from args, "
             "reads the file contents, and returns a word count. "
@@ -1092,7 +1090,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-spl",
         "model_slug": "splunkdetectionauthor",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Splunk detection for T1078 (Valid Accounts) — specifically, "
             "a user account authenticating from two geographically distant IPs "
@@ -1128,7 +1126,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "terraformwriter",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a Terraform module for an AWS S3 bucket with versioning, "
             "server-side encryption, and public access blocked. "
@@ -1193,7 +1191,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "typescriptengineer",
         "timeout": 90,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Write a TypeScript generic function "
             "`pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K>` "

@@ -14,8 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "tools-specialist",
         "model_slug": "tools-specialist",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to: (1) execute Python code that reads /workspace/data.csv and counts rows, "
             "(2) store the row count in memory under the key 'row_count', "
@@ -47,8 +46,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "tools-specialist",
         "model_slug": "toolcomposer",
         "timeout": 180,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "team-ace/ToolACE-2.5-Llama-3.1-8B-4bit-mlx",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to count the lines in /workspace/report.txt using execute_python, "
             "then store the count in memory as 'line_count'. "

@@ -270,8 +270,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto-daily",  # Gemma-4-26b-a4b via MLX — primary for auto-daily
         "timeout": 240,
-        "workspace_tier": "mlx_small",
-        "mlx_model": "mlx-community/gemma-4-26b-a4b-it-4bit",
+        "workspace_tier": "ollama",
         "is_two_chat": True,
         # Pre-seed data injected by _run_two_chat_test before any chat opens.
         "memory_preseed": {

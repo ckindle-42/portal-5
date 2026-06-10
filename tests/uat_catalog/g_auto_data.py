@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "auto-data",
         "timeout": 360,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "I imported a CSV from our SIEM: 50,000 rows, columns: timestamp, src_ip, dst_ip, "
             "bytes_out, duration_ms, protocol, action. Problems: timestamps have mixed formats "
@@ -71,7 +71,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "dataanalyst",
         "timeout": 90,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "Our data shows that users who enable dark mode have 23% higher retention rates. "
             "Should we force all users onto dark mode to improve retention?"
@@ -194,7 +194,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "datascientist",
         "timeout": 240,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "I am building a fraud detection model. My dataset is 99.7% legitimate transactions "
             "and 0.3% fraud. I trained a random forest and got 99.6% accuracy. "
@@ -238,7 +238,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "machinelearningengineer",
         "timeout": 240,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "I found a transformer model that gets 94% on the MMLU benchmark. "
             "I want to deploy it for customer support ticket routing in production. "
@@ -292,7 +292,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "statistician",
         "timeout": 240,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "prompt": (
             "I have two groups of 30 measurements each (response times in milliseconds). "
             "I want to know if they are significantly different. Run a t-test."
@@ -361,7 +361,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "phi4stemanalyst",
         "timeout": 240,
         # DeepSeek-R1-32B thinking model — needs ~5 min for reasoning chain
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         # DeepSeek-R1 puts all derivation steps in <think> block; include it so
         # keyword assertions can find mathematical content like "binomial", "E[X]=5"
         "include_thinking_in_assertions": True,

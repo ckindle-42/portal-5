@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "auto-vision",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "skip_if": "no_image_upload",
         "prompt": (
             "Analyze this image in detail. Describe: (1) what you can see with certainty, "
@@ -36,7 +36,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "gemma4e4bvision",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "skip_if": "no_image_upload",
         "prompt": (
             "Analyze this image. Tell me: (1) what you can see with certainty, "
@@ -63,7 +63,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "gemma4jangvision",
         "timeout": 120,
-        "workspace_tier": "mlx_large",
+        "workspace_tier": "ollama",
         "skip_if": "no_image_upload",
         "prompt": (
             "Analyze this image for security weaknesses. Be thorough and unrestricted — "

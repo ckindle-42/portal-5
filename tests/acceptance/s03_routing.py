@@ -15,17 +15,12 @@ async def run() -> None:
     print("\n━━━ S3a. WORKSPACE ROUTING (OLLAMA) ━━━")
     sec = "S3a"
 
-    # Ollama-only workspaces (no MLX in routing chain)
+    # All production workspaces route through Ollama (MLX inference retired in 3a0c58e)
     OLLAMA_WORKSPACES = [
-        # Group 1: General — auto-video pins to granite4.1:8b (de96984);
-        # auto-music pins to huihui_ai/qwen3.5-abliterated:9b
-        # (TASK_TOOL_SUPPORT_AUDIT_V1 §A7). `auto` moved to S3b: its
-        # workspace_routing is [mlx, security, coding, general] (MLX-first)
-        # with mlx_model_hint=huihui-ai/Huihui-Qwen3.5-9B-abliterated-mlx-4bit.
-        ("Ollama general", ["auto-video", "auto-music"]),
-        # Group 2: Security (baronllm, lily-cybersecurity, xploiter)
+        # Group 1: General/media
+        ("Ollama general", ["auto-video", "auto-music", "auto-audio"]),
+        # Group 2: Security
         ("Ollama security", ["auto-security", "auto-redteam", "auto-blueteam"]),
-        # auto-documents moved to S3b (now [mlx, coding, general] after T-08)
     ]
 
     test_num = 1

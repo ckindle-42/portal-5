@@ -2,7 +2,7 @@
   "id": "auto-agentic",
   "name": "⚡ Portal Agentic Coder (Heavy)",
   "meta": {
-    "description": "⚡ Portal Agentic Coder (Heavy) — Qwen3-Coder-Next 80B MoE, big-model mode, 32K ctx",
+    "description": "⚡ Portal Agentic Coder (Heavy) — Qwen3-Coder-Next 80B/3B MoE (V8: RL-trained on 800K executable tasks, 256K ctx, ~46GB, 20 t/s). Long-horizon coding, multi-file refactors, agentic tool chains.",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_code"

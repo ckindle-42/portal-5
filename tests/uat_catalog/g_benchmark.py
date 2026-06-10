@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-math",
         "model_slug": "auto-math",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Find the area enclosed by the curves y = x^2 and y = 2x. "
             "Show your work step by step: find intersection points, set up the integral, "
@@ -70,7 +70,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-math",
         "model_slug": "auto-math",
         "timeout": 120,
-        "workspace_tier": "mlx_small",
+        "workspace_tier": "ollama",
         "prompt": (
             "Prove that for any dataset, the sample variance s^2 = (1/(n-1)) * sum((xi - xbar)^2) "
             "is an unbiased estimator of the population variance sigma^2. Show each step."
