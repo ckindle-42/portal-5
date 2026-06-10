@@ -50,12 +50,15 @@ backends:
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: true
     notes: "Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). Also in ollama-coding."
-  - id: gemma4:12b-it-q4_K_M
+  - id: portal5/gemma4-12b:q4_K_M-ctx8k
     supports_tools: true
-    notes: "Gemma 4 12B Q4_K_M (~7.6GB, Google). Daily-driver bench candidate."
+    notes: "Gemma 4 12B Q4_K_M ctx8k (~7.6GB, Google). gemma4:12b-it-q4_K_M + num_ctx 8192 modelfile cap — base model has 262K ctx which inflates KV cache and kills TPS."
   - id: phi4-mini:latest
     supports_tools: true
     notes: "Phi-4-mini (~2.5GB, Microsoft, 3.8B). Fast-lane / router-adjacent bench candidate."
+  - id: gemma4:e4b-it-q4_K_M
+    supports_tools: true
+    notes: "Gemma 4 E4B MoE (~9.6GB, Google, 4B active, 128K ctx, VLM+thinking+audio). Daily-driver candidate bench."
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -388,6 +391,8 @@ workspace_routing:
   bench-gemma4-12b:
   - general
   bench-phi4-mini:
+  - general
+  bench-gemma4-e4b:
   - general
   tools-specialist:
   - general
