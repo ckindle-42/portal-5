@@ -378,15 +378,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    "bench-qwen3-coder-next": {
-        "name": "🔬 Bench · Qwen3-Coder-Next (480B MoE)",
-        "description": "Benchmark: Qwen3-Coder (GGUF, Ollama, Alibaba, 480B MoE 35B active, 256K ctx)",
-        "model_hint": "qwen3-coder:480b-a35b-q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-qwen3-coder-30b": {
         "name": "🔬 Bench · Qwen3-Coder-30B",
         "description": "Benchmark: Qwen3-Coder-30B (GGUF, Ollama, Alibaba, 30B MoE 3B active)",
@@ -573,19 +564,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    # ── May 2026 additions (TASK_BENCH_COVERAGE_V1) ──────────────────────────
-    "bench-nemotron-omni": {
-        "name": "🔬 Bench · Nemotron-3-Nano-Omni (NVIDIA MoE)",
-        "description": (
-            "Benchmark placeholder: Nemotron-3-Nano-Omni-30B-A3B (NVIDIA, omni-modal). "
-            "No GGUF available — routes to qwen3-vl:32b as best available VLM fallback."
-        ),
-        "model_hint": "qwen3-vl:32b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
     "bench-olmocr2": {
         "name": "🔬 Bench · olmOCR-2 (Allen AI)",
@@ -673,24 +651,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    "bench-qwen36-35b-a3b-ud": {
-        "name": "🔬 Bench · Qwen3.6-35B-A3B (Unsloth UD)",
-        "description": "Benchmark: Qwen3.6-35B-A3B Unsloth Dynamic 2.0 (GGUF, Ollama, MoE 3B active)",
-        "model_hint": "qwen3-coder:30b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    # ── TASK_QUANT_TRUEUP_V1: optimized-quant + uncensored-refresh bench candidates ──
-    "bench-qwen36-35b-a3b-dwq": {
-        "name": "🔬 Bench · Qwen3.6-35B-A3B (DWQ)",
-        "description": "Benchmark: Qwen3.6-35B-A3B DWQ (GGUF, Ollama, distillation-aware quant MoE), pairs against plain RTN 4-bit",
-        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
+    # ── TASK_QUANT_TRUEUP_V1: optimized-quant bench candidates ──────────────
     "bench-qwen36-27b-optiq": {
         "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
         "description": "Benchmark: Qwen3.6-27B OptiQ (GGUF, Ollama, sensitivity-aware mixed 4-bit), pairs against plain 4-bit",
