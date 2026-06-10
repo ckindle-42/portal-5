@@ -167,6 +167,9 @@ backends:
       \ tasks with RL. Fits 64GB unified memory (~18GB headroom). Fast TPS due to 3B active.\
       \ Wires pre-existing bench-qwen3-coder-next workspace (TASK_MODEL_REFRESH_V8 A17).\
       \ supports_tools=true per Qwen coding family; verify via --audit-tools."
+  - id: "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M"
+    supports_tools: true
+    notes: "Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. bench-qwen3-coder-next-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true per Qwen coding family (same architecture as production qwen3-coder-next)."
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -580,6 +583,9 @@ workspace_routing:
   bench-r1-0528-abliterated:
   - reasoning
   - security
+  - general
+  bench-qwen3-coder-next-abliterated:
+  - coding
   - general
   tools-specialist:
   - general
