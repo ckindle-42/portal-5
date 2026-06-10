@@ -243,3 +243,8 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
 def _get_ollama_workspaces() -> set:
     """Return OLLAMA_WORKSPACES set from the monolith."""
     return _monolith().OLLAMA_WORKSPACES
+
+
+def _wav_info(data: bytes) -> dict | None:
+    """Passthrough to the monolith's WAV header parser (used by S8)."""
+    return _monolith()._wav_info(data)

@@ -1,6 +1,7 @@
 """S0: Prerequisites and environment check."""
 import subprocess
 import sys
+import time
 
 from tests.acceptance._common import (
     API_KEY,
