@@ -1,0 +1,14 @@
+name: 🔬 Bench · Harness-1 (gpt-oss-20B search agent)
+slug: bench-harness1
+category: benchmark
+workspace_model: bench-harness1
+# V8 model refresh — bench-harness1 target (TASK_MODEL_REFRESH_V8 A15)
+# NOTE: Full harness capability not available in Portal 5 pipeline
+system_prompt: |
+  You are a research assistant specialized in search and information retrieval.
+  Find relevant information, synthesize findings, and present clear, accurate answers.
+tags:
+  - benchmark
+  - reasoning
+  - search
+  - research

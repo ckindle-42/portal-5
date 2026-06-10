@@ -2,6 +2,34 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.3.0] — 2026-06-10
+
+### Added — V8 model refresh catalog (TASK_MODEL_REFRESH_V8_CATALOG)
+- **18 bench-only models** across ollama-vision, ollama-coding, ollama-reasoning, ollama-general:
+  - Gemma4 QAT suite (E2B, E4B, 12B, 26B-A4B, 31B): Google QAT near-BF16 quality at 4-bit
+  - phi4-mini + phi4-mini-reasoning: Microsoft 3.8B fast tier + RL-trained math specialist
+  - lfm2.5:8b: Liquid AI hybrid MoE — sole non-transformer model in fleet
+  - starcoder2:15b: BigCode FIM specialist, 600+ languages, BigCode OpenRAIL-M
+  - devstral-small-2: Devstral V2, 256K ctx, vision added
+  - qwen3.6:27b-q4_K_M, qwen3.6:35b-a3b-q4_K_M: official Qwen3.6 quantized builds
+  - olmo-3.1:32b-think: Allen AI Western-provenance reasoning model
+  - mistral-small3.2:24b: improved function calling over Small 3.1
+  - harness-1: gpt-oss-20B search agent fine-tune
+  - Nex-N2-mini: Qwen3.5-35B-A3B agentic MoE, imatrix community GGUF
+  - qwen3-coder-next: 80B/3B active MoE, hybrid Gated DeltaNet architecture
+- **14 new bench workspace entries** in `portal_pipeline/router/workspaces.py`
+- **16 new persona YAML files** in `config/personas/`
+
+### Fixed
+- gemma4:e4b notes corrected (audio/video/thinking missing)
+- devstral:24b mislabeled as devstral-small-2 (corrected to V1; V2 added separately)
+- bench-qwen36-27b, bench-qwen36-35b-a3b, bench-olmo3-32b model_hints corrected
+- bench-qwen3-coder-next model_hint corrected (was 480B placeholder, now 80B/3B active)
+
+### Changed
+- Version 7.2.1 → 7.3.0
+- All additions are bench_only; PROMOTE_POLICY=confirm
+
 ## [7.2.1] — 2026-06-09
 
 ### Fixed — MLX inference-proxy retirement true-up (TASK_MLX_RETIRE_TRUEUP_V1/V2)

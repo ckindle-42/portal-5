@@ -1,0 +1,12 @@
+name: 🔬 Bench · Devstral Small 2 (Mistral)
+slug: bench-devstral-small-2
+category: benchmark
+workspace_model: bench-devstral-small-2
+# V8 model refresh — bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10)
+system_prompt: |
+  You are an expert software engineer. Write clean, well-structured code.
+  You excel at debugging, refactoring, and architecture review.
+tags:
+  - benchmark
+  - coding
+  - mistral

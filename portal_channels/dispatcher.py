@@ -94,6 +94,19 @@ VALID_WORKSPACES = frozenset(
         "bench-gemma4-12b",
         "bench-phi4-mini",
         "bench-gemma4-e4b",
+        # V8 model refresh (TASK_MODEL_REFRESH_V8)
+        "bench-gemma4-e2b",
+        "bench-gemma4-e4b-qat",
+        "bench-gemma4-26b-qat",
+        "bench-gemma4-31b-qat",
+        "bench-phi4-mini-reasoning",
+        "bench-lfm25-8b",
+        "bench-starcoder2",
+        "bench-devstral-small-2",
+        "bench-mistral-small32",
+        "bench-r1-0528-qwen3-8b",
+        "bench-harness1",
+        "bench-nex-n2-mini",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }
