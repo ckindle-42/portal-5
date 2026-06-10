@@ -1,0 +1,173 @@
+# PORTAL5_ACCEPTANCE_EXECUTE_V8 — Claude Code Prompt
+
+**V8 changes from V7 (HEAD 7.3.1):** V8 fleet promotions landed
+(auto-daily/agentic/creative/reasoning/music/math/spl) plus the new
+`auto-audio` workspace. S3a now covers **all 21 production workspaces**
+(20 auto-* + `tools-specialist`); **bench-* workspaces are out of acceptance
+scope by design** — full-catalog routing + TPS is `bench_tps.py`'s job. The
+acceptance suite is not a benchmark and asserts no TPS/perf numbers anywhere.
+Missing-import runtime defects in the decomposed section files were fixed
+(s00/s01/s03/s04/s08/s42/s70) — if you hit a `{sec}-ERR` NameError row you
+are on a stale checkout.
+
+---
+
+## Your Role
+
+You are the **acceptance execution agent**. You run the section suite against
+a live stack, diagnose failures, retry intelligently, and produce a final
+pass/fail report with evidence. You do NOT modify product code
+(`portal_pipeline/**`, `portal_mcp/**` are protected).
+
+---
+
+## What V8 Tests
+
+Counts derive at run time from `config/backends.yaml` and `config/personas/`.
+As of 7.3.1: **73 workspaces** (20 auto-* + 52 bench-* + `tools-specialist`),
+**140 personas**, **68 unique Ollama catalog models**. Verify live with:
+
+```bash
+python3 - <<'PY'
+import sys, yaml; sys.path.insert(0, ".")
+from portal_pipeline.router.workspaces import WORKSPACES
+cfg = yaml.safe_load(open("config/backends.yaml"))
+assert set(WORKSPACES) == set(cfg["workspace_routing"])
+auto = [k for k in WORKSPACES if k.startswith("auto")]
+bench = [k for k in WORKSPACES if k.startswith("bench")]
+print(f"workspaces {len(WORKSPACES)} = {len(auto)} auto + {len(bench)} bench + other")
+PY
+```
+
+### Core Infrastructure (S0–S2)
+S00 startup, S01 static config, S02 services (includes retained MLX **audio**
+health: speech :8918, transcribe :8924, embedding :8917, reranker :8925 —
+these are live).
+
+### Workspaces (S3 / S3a)
+**Production workspaces only**: all 20 auto-* + `tools-specialist`, with
+content-signal + routing validation. The served model must match the
+workspace `model_hint` (an Ollama GGUF id) via
+`expected_models.model_matches_expected`. bench-* workspaces are NOT
+exercised here. Current production assignments worth knowing on sight:
+
+| Workspace | Primary (model_hint) |
+|---|---|
+| auto-blueteam | `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0` |
+| auto-compliance | `granite4.1:8b` |
+| tools-specialist | `granite4.1:8b` |
+| auto-agentic | `qwen3-coder-next` (80B/3B-active MoE) |
+| auto-spl | `hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M` |
+| auto-creative | Qwen3.6-35B-A3B HauhauCS uncensored |
+| auto-reasoning | `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL` |
+| auto-daily | `gemma4:26b-a4b-it-qat` |
+| auto-audio | `gemma4:12b-it-qat` |
+| auto-math | `phi4-mini-reasoning` |
+| auto-music | `lfm2.5:8b` |
+
+(Authoritative source is always `portal_pipeline/router/workspaces.py` at HEAD.)
+
+### S4 documents · S5 code-exec · S6 security workspaces · S16 security MCP · S7 music · S8 TTS · S9 STT
+S8/S9 exercise the **retained MLX audio** stack (mlx-speech :8918,
+mlx-transcribe :8924) — correct and live.
+
+### Personas (S10, S10c)
+140 personas: S10 (`s10_personas_ollama`) covers the Ollama-routed personas
+grouped by **model, not category**; S10c covers the 7 compliance personas via
+`tests/fixtures/compliance_scenarios.yaml`. (No S11 — archived.)
+
+### S12 web search · S13 RAG/embedding (retained MLX embedding :8917 + reranker :8925) · S15 shared workspace
+### S21 LLM Intent Router · S23 Model Diversity (Ollama catalog) · S30 image · S31 video · S40 metrics · S41 production hardening · S42 browser automation · S50 negative · S60 tool calling · S70 information access
+
+> Archived (do not expect in the registry): S20, S22, S03b, S11, S24
+> (MLX-proxy scenarios, under `tests/acceptance/_archive/`). `S3` is a legacy
+> wrapper that runs S3a only.
+
+---
+
+## Step 1 — Clone and Orient
+```bash
+sed -n '1,60p' CLAUDE.md            # rule hierarchy
+ls tests/acceptance/*.py | grep -v _common | grep -v __init   # live scenarios
+```
+
+## Step 2 — Verify Stack State
+```bash
+# Streaming gate (quick pass/fail before full suite)
+./scripts/smoke_stream.sh
+
+# Ollama + pipeline + OWUI
+curl -sf http://localhost:11434/api/tags >/dev/null && echo "ollama OK"
+curl -sf http://localhost:9099/health    >/dev/null && echo "pipeline OK"
+curl -sf http://localhost:8080           >/dev/null && echo "owui OK"
+# Retained MLX audio/embedding/rerank (used by S08/S09/S13)
+for p in 8917 8918 8924 8925; do curl -sf http://localhost:$p/health >/dev/null && echo "MLX-audio/embed $p OK" || echo "$p DOWN"; done
+# MCP services (S04/S12/S13/S16/S42/S60/S70)
+for p in 8910 8916 8920 8921 8922 8923; do curl -sf http://localhost:$p/health >/dev/null && echo "MCP $p OK" || echo "MCP $p DOWN"; done
+```
+
+> No MLX watchdog, no readiness watcher, no `:8081` probe. Ollama loads
+> models on first request; the acceptance `_request` helper retries 502/503
+> with backoff.
+
+## Step 3 — Run
+
+```bash
+# Full suite
+python3 tests/portal5_acceptance_v6.py --section ALL
+
+# Subset / range
+python3 tests/portal5_acceptance_v6.py --section S3,S10,S60     # routing + personas + tools
+python3 tests/portal5_acceptance_v6.py --section S0-S5          # range (inclusive)
+
+# Single section
+python3 tests/portal5_acceptance_v6.py --section S23            # model diversity (Ollama catalog)
+```
+
+CLI flags: `--section/-s`, `--rebuild`, `--verbose/-v`, `--skip-passing`.
+There is no `--list` flag; the registry is `ALL_SECTIONS` in
+`tests/portal5_acceptance_v6.py` and the section files on disk.
+
+---
+
+## Routing Validation Notes
+- The suite asserts the **served model matches the workspace's expected
+  Ollama id(s)** via `expected_models.model_matches_expected`. No tier concept.
+- **GGUF ids contain `/` and `:`**
+  (`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`). Normal. A
+  routing FAIL means the served model is not among the expected ids.
+- A 502/503 on first request usually means a cold Ollama load; the harness
+  backs off and retries. Persistent 503 after retries = pipeline/Ollama
+  issue, not a model identity issue.
+- `auto-agentic`/`auto-spl` use a very large MoE GGUF — first cold load can
+  exceed a minute; that is a slow PASS, not a failure.
+
+---
+
+## Handling Failures
+- **Routing FAIL:** check the pipeline routing log and the `model` field in
+  the response; confirm the workspace `model_hint` in
+  `portal_pipeline/router/workspaces.py` and that the GGUF is pulled
+  (`ollama pull <id>`). Flag config/routing issues; do not edit product code.
+- **S3a "no WORKSPACE_PROMPTS entry" FAIL:** a production workspace was added
+  without a prompt entry — flag it; the fix is one entry in
+  `WORKSPACE_PROMPTS` in `tests/portal5_acceptance_v6.py`.
+- **Persona behavioral FAIL:** confirm the persona is seeded in OWUI with the
+  correct system prompt; reproduce via a direct pipeline curl; try 2 more
+  phrasings before BLOCKED.
+- **S08/S09/S13 audio/embedding FAIL:** retained MLX — check
+  `:8917/:8918/:8924/:8925` health; unrelated to the chat tier.
+- **Tool/MCP FAIL (S16/S60/S70):** check the MCP `/health` and container logs.
+
+---
+
+## Final Report
+- **Overall:** PASS / PARTIAL / FAIL
+- Per-section P/W/F, total sections run
+- Routing mismatches (served-vs-expected model ids)
+- Retained-MLX (audio/embed/rerank) status
+- BLOCKED items, skipped with justification
+- Evidence references + recommended follow-up
+
+No TPS or performance numbers in this report — perf belongs to
+`PORTAL5_BENCH_EXECUTE_V3.md`.
