@@ -91,7 +91,7 @@ if not logger.handlers:
 _log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logger.setLevel(getattr(logging, _log_level, logging.INFO))
 
-from portal_pipeline.router.state import (  # noqa: F401  (facade re-export)
+from portal_pipeline.router.state import (  # noqa: E402, F401  (facade re-export)
     _STATE_FILE,
     _load_state,
     _peak_concurrent,
@@ -127,7 +127,21 @@ _notification_scheduler: NotificationScheduler | None = None
 _mp_registry_cache: CollectorRegistry | None = None
 _mp_registry_dir_cache: str | None = None
 
-from portal_pipeline.router.metrics import (  # noqa: F401  (facade re-export)
+# ── Concurrency machinery (extracted to portal_pipeline.router.concurrency) ──
+# Mutable singletons (_request_semaphore, _workspace_semaphores, etc.) live
+# there and are NOT re-exported here (A4). Functions and limits are re-exported
+# so existing callers compile unchanged.
+import portal_pipeline.router.concurrency as _concurrency_mod  # noqa: E402
+from portal_pipeline.router.concurrency import (  # noqa: E402, F401  (facade re-export)
+    _MAX_CONCURRENT,
+    _SEMAPHORE_TIMEOUT,
+    RequestSlot,
+    _acquire_api_key_sem,
+    _acquire_workspace_sem,
+    _api_key_limit,
+    _get_workspace_concurrency_limit,
+)
+from portal_pipeline.router.metrics import (  # noqa: E402, F401  (facade re-export)
     _REGISTRY,
     _concurrent_requests,
     _energy_by_workspace_ws,
@@ -157,14 +171,14 @@ from portal_pipeline.router.metrics import (  # noqa: F401  (facade re-export)
     _workspace_semaphore_busy_total,
     _workspace_semaphore_busy_total_metric,
 )
-from portal_pipeline.router.power import (  # noqa: F401  (facade re-export)
+from portal_pipeline.router.power import (  # noqa: E402, F401  (facade re-export)
     _POWERMETRICS_SOCKET,
     ELECTRICITY_RATE_USD_PER_KWH,
     _power_polling_loop,
     _record_usage,
     watts_seconds_to_cost_usd,
 )
-from portal_pipeline.router.routing import (  # noqa: F401  (facade re-export)
+from portal_pipeline.router.routing import (  # noqa: E402, F401  (facade re-export)
     _CODING_KEYWORDS,
     _LLM_ROUTER_ENABLED,
     _LLM_ROUTER_MODEL,
@@ -176,7 +190,7 @@ from portal_pipeline.router.routing import (  # noqa: F401  (facade re-export)
     _load_routing_config,
     _route_with_llm,
 )
-from portal_pipeline.router.tools import (  # noqa: F401  (facade re-export)
+from portal_pipeline.router.tools import (  # noqa: E402, F401  (facade re-export)
     _dispatch_tool_call,
 )
 
@@ -204,184 +218,6 @@ if not _raw_api_key:
     )
     sys.exit(1)
 PIPELINE_API_KEY: str = _raw_api_key
-
-# Concurrency limiter — prevents Ollama overload when all workers are busy
-_MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
-
-# Semaphore acquisition timeout in milliseconds. Default 50ms survives normal
-# scheduling jitter. Set to 0 to restore original 1ms non-blocking behavior.
-try:
-    _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
-except ValueError:
-    _SEMAPHORE_TIMEOUT = 0.050
-    logger.warning("Invalid SEMAPHORE_TIMEOUT_MS value — must be a number. Using default: 50ms")
-_request_semaphore: asyncio.Semaphore | None = None
-
-# ── Per-workspace + per-API-key semaphores (M6-T05/T06) ───────────────────────
-_workspace_semaphores: dict[str, asyncio.Semaphore] = {}
-_workspace_sem_lock = asyncio.Lock()
-_api_key_semaphores: dict[str, asyncio.Semaphore] = {}
-_api_key_sem_lock = asyncio.Lock()
-
-
-def _get_workspace_concurrency_limit(workspace_id: str) -> int:
-    """Resolve the per-workspace concurrent-request cap.
-
-    Three-layer override chain (highest priority first):
-
-    1. ``WORKSPACE_CONCURRENCY_<ID>`` environment variable
-       (e.g. ``WORKSPACE_CONCURRENCY_AUTO_CODING=4``). The
-       transformation maps kebab-case workspace ids to upper
-       snake-case for env-var convention.
-    2. ``max_concurrent`` field on the workspace's
-       ``WORKSPACES`` entry (developer-time default).
-    3. ``PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY`` environment
-       variable, or the hard-coded fallback ``5`` (a single
-       workspace can hold at most 25% of the default global
-       cap of 20).
-
-    The cap controls the per-workspace ``asyncio.Semaphore`` lazily
-    created in ``_acquire_workspace_sem``. Bursts beyond the cap
-    return HTTP 429 to the caller and increment
-    ``portal5_workspace_semaphore_busy_total``.
-
-    Args:
-        workspace_id: Workspace id from the request (kebab case;
-            transformed to ``UPPER_SNAKE`` for env-var lookup).
-
-    Returns:
-        Concurrent-request cap, ≥ 1.
-    """
-    env_key = f"WORKSPACE_CONCURRENCY_{workspace_id.upper().replace('-', '_')}"
-    if env_key in os.environ:
-        return int(os.environ[env_key])
-    ws = WORKSPACES.get(workspace_id, {})
-    if "max_concurrent" in ws:
-        return ws["max_concurrent"]
-    return int(os.environ.get("PORTAL5_DEFAULT_WORKSPACE_CONCURRENCY", "5"))
-
-
-async def _acquire_workspace_sem(workspace_id: str) -> asyncio.Semaphore:
-    """Return the workspace's semaphore, creating it on first access.
-
-    Lazy creation: the first request for a given ``workspace_id``
-    builds an ``asyncio.Semaphore(limit)`` where ``limit`` comes from
-    ``_get_workspace_concurrency_limit``, caches it in the
-    module-level ``_workspace_semaphores`` dict, and returns it.
-    Every subsequent request for the same workspace returns the
-    cached semaphore.
-
-    Race-safe via ``_workspace_sem_lock``: two concurrent requests
-    for a newly-added workspace cannot both create competing
-    semaphores. Without the lock, the second creation would
-    overwrite the first and double the effective cap.
-
-    The semaphores live for the process lifetime — there is no
-    eviction path. Adding a new workspace via YAML + pipeline
-    restart adds one ``Semaphore`` object to the process; removing
-    a workspace leaves a stranded semaphore that is never used
-    again (negligible memory).
-
-    Args:
-        workspace_id: The workspace key. Unknown ids still get a
-            semaphore sized by the default cap.
-
-    Returns:
-        The workspace's ``asyncio.Semaphore``. Caller is expected
-        to ``acquire()`` it with ``asyncio.wait_for`` and handle
-        timeout as HTTP 429.
-    """
-    async with _workspace_sem_lock:
-        sem_key = workspace_id if workspace_id in WORKSPACES else "_unknown"
-        sem = _workspace_semaphores.get(sem_key)
-        if sem is None:
-            limit = _get_workspace_concurrency_limit(workspace_id)
-            sem = asyncio.Semaphore(limit)
-            _workspace_semaphores[sem_key] = sem
-            logger.info("Workspace semaphore created: %s limit=%d", sem_key, limit)
-        return sem
-
-
-def _api_key_limit(key_hash: str) -> int:
-    """Resolve the per-API-key concurrent-request cap.
-
-    Two-layer override chain:
-
-    1. ``API_KEY_CONCURRENCY_<PREFIX>`` env var, where ``<PREFIX>``
-       is the first 8 hex chars of the key's SHA-256, uppercased
-       (e.g. ``API_KEY_CONCURRENCY_A3F2D1B0=20``). Hash prefix —
-       not raw key — so env vars are safe to grep and inspect;
-       env vars carrying raw secrets leak via ``ps``, ``/proc``,
-       and container inspection.
-    2. ``PORTAL5_DEFAULT_API_KEY_CONCURRENCY`` env var, or the
-       hard-coded fallback ``10`` — twice the default workspace
-       cap because an API key in production is typically a service
-       account running many parallel workspace queries; it should
-       be able to use multiple workspaces simultaneously without
-       hitting the per-key limit before the per-workspace limit
-       fires.
-
-    8-char hash prefixes provide ~32 bits of identifier space;
-    collisions are theoretically possible but the pipeline's API
-    key population is small in practice.
-
-    Args:
-        key_hash: Full SHA-256 hex digest of the API key. Only the
-            first 8 chars are used for the env-var key.
-
-    Returns:
-        Concurrent-request cap for this API key, ≥ 1.
-    """
-    prefix = key_hash[:8]
-    env_key = f"API_KEY_CONCURRENCY_{prefix.upper()}"
-    if env_key in os.environ:
-        return int(os.environ[env_key])
-    return int(os.environ.get("PORTAL5_DEFAULT_API_KEY_CONCURRENCY", "10"))
-
-
-async def _acquire_api_key_sem(api_key: str) -> asyncio.Semaphore | None:
-    """Return the per-API-key semaphore, creating it on first access.
-
-    Mirrors ``_acquire_workspace_sem`` but keyed by SHA-256 hash of
-    the API key. The hashing is deliberate: cached semaphores live
-    in ``_api_key_semaphores`` for the process lifetime, and storing
-    raw keys as dict keys would leave them in memory in readable
-    form. Hash digests are one-way — a memory dump or accidental
-    debug-print shows hex, not credentials.
-
-    ``hashlib`` is imported lazily inside the function so tests that
-    never present an API key don't pay the import cost.
-
-    Returns ``None`` when ``api_key`` is empty, which is the caller's
-    signal to skip per-key concurrency enforcement. This handles two
-    cases: single-user deployments with no API-key setup, and
-    malformed-auth-header edge cases that ``_verify_key`` accepted.
-
-    Race-safe via ``_api_key_sem_lock`` — same pattern as the
-    workspace semaphore.
-
-    Args:
-        api_key: Raw API key from the ``Authorization`` header
-            (Bearer token, prefix stripped). Empty string yields
-            ``None``.
-
-    Returns:
-        The per-key ``asyncio.Semaphore``, or ``None`` for empty
-        input.
-    """
-    if not api_key:
-        return None
-    import hashlib
-
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    async with _api_key_sem_lock:
-        sem = _api_key_semaphores.get(key_hash)
-        if sem is None:
-            limit = _api_key_limit(key_hash)
-            sem = asyncio.Semaphore(limit)
-            _api_key_semaphores[key_hash] = sem
-        return sem
-
 
 # ── Ollama per-request TTFT tuning ────────────────────────────────────────────
 # keep_alive: how long Ollama keeps the model loaded after a request completes.
@@ -846,9 +682,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         Nothing. The yield separates startup from shutdown; request
         handling runs in the time the yield is suspended.
     """
-    global registry, _health_task, _request_semaphore, _http_client
+    global registry, _health_task, _http_client
     global _notification_dispatcher, _notification_scheduler, _state_save_task
-    _request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
+    _concurrency_mod._request_semaphore = asyncio.Semaphore(_concurrency_mod._MAX_CONCURRENT)
     # P5-FIX: pre-create Prometheus multiproc dir at startup so workers don't race.
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         os.makedirs(mp_dir, exist_ok=True)
@@ -1760,10 +1596,12 @@ async def chat_completions(
             detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
         )
 
-    if _request_semaphore is None:
+    if _concurrency_mod._request_semaphore is None:
         raise HTTPException(status_code=503, detail="Request semaphore not initialised")
     try:
-        await asyncio.wait_for(_request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT)
+        await asyncio.wait_for(
+            _concurrency_mod._request_semaphore.acquire(), timeout=_SEMAPHORE_TIMEOUT
+        )
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=503,
@@ -1778,7 +1616,7 @@ async def chat_completions(
         try:
             await asyncio.wait_for(_api_sem.acquire(), timeout=_SEMAPHORE_TIMEOUT)
         except asyncio.TimeoutError:
-            _request_semaphore.release()
+            _concurrency_mod._request_semaphore.release()
             raise HTTPException(
                 status_code=429,
                 detail="API key at concurrency limit. Please retry.",
@@ -1923,7 +1761,7 @@ async def chat_completions(
         except asyncio.TimeoutError:
             if _workspace_semaphore_busy_total is not None:
                 _workspace_semaphore_busy_total.labels(workspace=workspace_id).inc()
-            _request_semaphore.release()
+            _concurrency_mod._request_semaphore.release()  # type: ignore[union-attr]
             if _api_sem is not None:
                 _api_sem.release()
             raise HTTPException(
@@ -2115,7 +1953,7 @@ async def chat_completions(
                 _stream_with_tool_loop(
                     backend.chat_url,
                     backend_body,
-                    _request_semaphore,
+                    _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
                     workspace_id,
                     target_model,
                     persona,
@@ -2128,7 +1966,7 @@ async def chat_completions(
                 else _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
-                    _request_semaphore,
+                    _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
                     workspace_id=workspace_id,
                     model=target_model,
                     start_time=start_time,
@@ -2195,7 +2033,7 @@ async def chat_completions(
                     _stream_with_tool_loop(
                         backend.chat_url,
                         backend_body,
-                        _request_semaphore,
+                        _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
                         workspace_id,
                         target_model,
                         persona,
@@ -2208,7 +2046,7 @@ async def chat_completions(
                     else _stream_with_preamble(
                         backend.chat_url,
                         backend_body,
-                        _request_semaphore,
+                        _concurrency_mod._request_semaphore,  # type: ignore[arg-type]
                         workspace_id=workspace_id,
                         model=target_model,
                         start_time=start_time,
@@ -2292,7 +2130,7 @@ async def chat_completions(
         if not _is_streaming:
             # Non-streaming: response fully awaited above, safe to release here
             # Streaming: generator releases after stream completes
-            _request_semaphore.release()
+            _concurrency_mod._request_semaphore.release()  # type: ignore[union-attr]
             if _ws_sem is not None:
                 _ws_sem.release()
             if _api_sem is not None:

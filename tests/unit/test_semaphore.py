@@ -29,9 +29,9 @@ class TestSemaphoreExhaustion:
 
     def test_semaphore_initialized(self, client):
         """Semaphore is initialized during app lifespan."""
-        from portal_pipeline import router_pipe
+        import portal_pipeline.router.concurrency as _concurrency
 
-        assert router_pipe._request_semaphore is not None
+        assert _concurrency._request_semaphore is not None
 
     def test_semaphore_limit_in_env(self, client):
         """MAX_CONCURRENT_REQUESTS env var is read."""
