@@ -328,6 +328,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "deepseek-r1:32b-q8_0",
         "predict_limit": 32768,
         "emits_reasoning": True,
+        # 35 GB q8 — keep warm for back-to-back queries but don't pin forever
+        "keep_alive": "10m",
         "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {
@@ -356,6 +358,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "magistral:24b-small-2506-q8_0",
         "predict_limit": 16384,
         "emits_reasoning": True,
+        # 25 GB q8 — keep warm for back-to-back queries but don't pin forever
+        "keep_alive": "10m",
         "tools": ["execute_python", "execute_bash"],
     },
     "auto-math": {
@@ -372,6 +376,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "devstral:24b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen3-coder-next": {
@@ -380,6 +385,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-coder:480b-a35b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen3-coder-30b": {
@@ -388,6 +394,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-llama33-70b": {
@@ -396,6 +403,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "llama3.3:70b-q4_k_m",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-phi4": {
@@ -404,6 +412,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "phi4:14b-q8_0",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-phi4-reasoning": {
@@ -414,6 +423,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # Raised from 16384: RL reasoning traces consume 8-12K tokens before code begins;
         # 16384 left insufficient budget for a complete 6-8K token game implementation.
         "predict_limit": 32768,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-dolphin8b": {
@@ -422,6 +432,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "dolphin-llama3:8b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-glm": {
@@ -430,6 +441,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "glm-4.7-flash:q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-gptoss": {
@@ -438,6 +450,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "gpt-oss:20b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-laguna": {
@@ -446,6 +459,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "laguna-xs.2:q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-granite41-8b": {
@@ -458,6 +472,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-granite41-30b": {
@@ -471,6 +486,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "granite4.1:30b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen35-abliterated": {
@@ -478,6 +494,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Direct routing to huihui_ai/qwen3.5-abliterated:9b — uncensored, tool-capable AUTO primary baseline",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
         "max_concurrent": 1,
     },
@@ -488,6 +505,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen36-27b-mtp": {
@@ -499,6 +517,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen36-35b-a3b": {
@@ -510,6 +529,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-omnicoder2": {
@@ -525,6 +545,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "omnicoder2:9b-q4_k_m",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-negentropy": {
@@ -538,6 +559,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 16384,
         "emits_reasoning": True,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-olmo3-32b": {
@@ -549,6 +571,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
         "max_concurrent": 1,
         "predict_limit": 16384,
+        "keep_alive": "5m",
         "tools": [],
     },
     # ── May 2026 additions (TASK_BENCH_COVERAGE_V1) ──────────────────────────
@@ -561,6 +584,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
@@ -569,6 +593,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: olmOCR-2-7B (Allen AI, 7B Qwen2.5-VL base, RLVR document OCR). Strengths: math formulas, tables, multi-column layouts, markdown-clean output.",
         "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
         "emits_reasoning": False,
     },
@@ -577,6 +602,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Nanonets-OCR2-3B (Nanonets, Qwen2.5-VL-3B base). Strengths: pdf2markdown structure, LaTeX equations, semantic image tags, tables (HTML/markdown), signatures/watermarks/checkboxes. Pairs with bench-olmocr2.",
         "model_hint": "qwen3-vl:32b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
         "emits_reasoning": False,
     },
@@ -585,6 +611,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: LFM2-8B-A1B (Liquid AI, 8.3B/1.5B-active MoE, hybrid Liquid arch — NON-TRANSFORMER). Scope per Liquid AI: agentic / data-extraction / RAG / creative / multi-turn. NOT for code or knowledge. Lineage diversification value.",
         "model_hint": "dolphin-llama3:8b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
         "emits_reasoning": False,
     },
@@ -593,6 +620,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, first-party Q8_0 GGUF ~8.5GB, 128K ctx). Native <think>. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance. Now the auto-blueteam primary (P5-FUT-PARITY-001).",
         "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
         "emits_reasoning": True,
     },
@@ -601,6 +629,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "[SUBSTITUTED — served model is granite4.1:8b, not ToolACE-2.5; P5-FUT-PARITY-001] Benchmark: ToolACE-2.5-Llama-3.1-8B (Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, BFCL-topping). Purpose-trained for tool-calling accuracy.",
         "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": ["filesystem", "memory", "time"],
         "emits_reasoning": False,
     },
@@ -610,6 +639,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Apriel-Nemotron-15B-Thinker (GGUF, Ollama, ServiceNow+NVIDIA, dense 15B reasoning, native <think>, MIT)",
         "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-voxtral-realtime": {
@@ -617,6 +647,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Voxtral-Mini-4B-Realtime (Mistral, streaming ASR, 13 languages — requires audio-capable infrastructure)",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-voxtral-tts": {
@@ -624,6 +655,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Voxtral-4B-TTS (Mistral, 20 voices x 9 languages — requires audio-capable infrastructure)",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-granite-speech": {
@@ -631,6 +663,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: granite-speech-4.1-2b (IBM, #1 OpenASR, native keyword biasing, EN/FR/DE/ES/PT/JA — requires audio-capable infrastructure)",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen36-27b-ud": {
@@ -638,6 +671,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Qwen3.6-27B Unsloth Dynamic 2.0 (GGUF, Ollama, dense 27B, head-to-head vs stock 4-bit)",
         "model_hint": "qwen3-coder:30b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen36-35b-a3b-ud": {
@@ -645,6 +679,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Qwen3.6-35B-A3B Unsloth Dynamic 2.0 (GGUF, Ollama, MoE 3B active)",
         "model_hint": "qwen3-coder:30b",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     # ── TASK_QUANT_TRUEUP_V1: optimized-quant + uncensored-refresh bench candidates ──
@@ -654,6 +689,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-qwen36-27b-optiq": {
@@ -662,6 +698,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "qwen3-coder:30b",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-gemma4-26b-optiq": {
@@ -669,6 +706,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: gemma4:26b-a4b-it-q4_K_M (GGUF, Ollama, MoE 4B active), pairs against auto-daily.",
         "model_hint": "gemma4:26b-a4b-it-q4_K_M",
         "max_concurrent": 1,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-huihui-qwen36-27b": {
@@ -676,6 +714,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Huihui-Qwen3.6-27B-abliterated (GGUF, Ollama, dense 27B abliterated), uncensored refresh candidate vs Qwen3.5-9B",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
         "max_concurrent": 1,
     },
@@ -684,6 +723,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Benchmark: Huihui-Qwen3.6-35B-A3B-abliterated (GGUF, Ollama, MoE 3B active abliterated), uncensored speed-play vs Qwen3.5-9B",
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "predict_limit": 8192,
+        "keep_alive": "5m",
         "tools": [],
         "max_concurrent": 1,
     },

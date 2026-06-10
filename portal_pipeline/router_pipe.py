@@ -416,7 +416,15 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     predict_limit = ws_cfg_local.get("predict_limit")
     if predict_limit:
         body.setdefault("max_tokens", predict_limit)
-    body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
+    # Per-workspace keep_alive override: bench workspaces use "5m" (short-lived
+    # bench models shouldn't pin memory between runs); big-q8 quality lanes use
+    # "10m" (long enough to absorb back-to-back queries without reload cost, but
+    # not forever — a 35 GB q8 pinned by "-1" evicts the rest of the fleet).
+    # Falls back to the global _OLLAMA_KEEP_ALIVE ("-1") for all other workspaces.
+    ws_keep_alive = ws_cfg_local.get("keep_alive")
+    body.setdefault(
+        "keep_alive", ws_keep_alive if ws_keep_alive is not None else _OLLAMA_KEEP_ALIVE
+    )
     body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
     return body
 
