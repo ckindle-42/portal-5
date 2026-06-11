@@ -365,7 +365,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "granite4.1:8b",
         "predict_limit": 16384,
-        "emits_reasoning": True,
+        "emits_reasoning": False,
         "tools": [
             "create_word_document",
             "read_pdf",
