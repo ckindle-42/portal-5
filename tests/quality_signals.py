@@ -6,9 +6,12 @@ beyond raw TPS or keyword presence. A response gets quality_score in
 
 Signals are tuned to the prompt library in tests/benchmarks/bench_tps.py
 PROMPTS dict. If you change a category's prompt, update its signals here.
+
+A signal may be a string (exact substring match) or a tuple of strings
+(OR group: any one match counts as one signal hit).
 """
 
-QUALITY_SIGNALS: dict[str, list[str]] = {
+QUALITY_SIGNALS: dict[str, list] = {
     "general": [
         # Prompt asks for OSI 7 layers with protocol examples
         "physical",
@@ -38,13 +41,16 @@ QUALITY_SIGNALS: dict[str, list[str]] = {
         "block",
     ],
     "reasoning": [
-        # Prompt asks for ER bottleneck analysis
-        "bottleneck",
+        # Prompt asks for ER bottleneck analysis.
+        # Tuple = OR group: any one term counts as one hit.
+        # auto-compliance uses formal math notation ("capacity" instead of
+        # "bottleneck", fractional hours instead of "minute").
+        ("bottleneck", "capacity"),
         "doctor",
         "nurse",
         "bed",
-        "wait",
-        "minute",
+        ("wait", "arrival"),
+        ("minute", "hour"),
     ],
     "creative": [
         # Prompt asks for noir detective opening, memory-as-currency
@@ -78,11 +84,17 @@ def quality_score(category: str, response_text: str) -> float:
     """Return a quality score in [0.0, 1.0] for the given category and response.
 
     Signals match case-insensitively. Score is signals-found / signals-expected.
+    A signal may be a string (single keyword) or a tuple (OR group: any one hit counts).
     Categories without defined signals return 1.0 (don't penalize).
     """
     signals = QUALITY_SIGNALS.get(category, [])
     if not signals:
         return 1.0
     response_lower = response_text.lower()
-    found = sum(1 for s in signals if s.lower() in response_lower)
+    found = 0
+    for sig in signals:
+        if isinstance(sig, tuple):
+            found += any(s.lower() in response_lower for s in sig)
+        else:
+            found += sig.lower() in response_lower
     return found / len(signals)
