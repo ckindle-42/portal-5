@@ -1336,6 +1336,17 @@ def bench_direct(
                         print(f" + {cooldown:.0f}s cooldown ...", end=" ", flush=True)
                         time.sleep(cooldown)
                     print("ok")
+                # Ollama becoming idle doesn't mean Metal GPU buffers are reclaimed —
+                # macOS holds them for 30-60s after eviction. Poll vm_stat until
+                # memory drops below 80% before loading the next model.
+                safe, used_pct = _check_memory_pressure(threshold_pct=80.0)
+                if not safe:
+                    deadline = time.time() + 90.0
+                    while not safe and time.time() < deadline:
+                        time.sleep(5.0)
+                        safe, used_pct = _check_memory_pressure(threshold_pct=80.0)
+                    status = "clear" if safe else "TIMEOUT — proceeding anyway"
+                    print(f"    [metal drain] {used_pct:.0f}% wired — {status}", flush=True)
 
     return results
 
