@@ -3,14 +3,14 @@
 
 Sends every test in TEST_CATALOG through the real Open WebUI browser
 interface, creating permanent reviewable conversations in OWUI history.
-The catalog currently spans ~136 tests across 23 sections including
-auto-* workspaces, benchmark workspaces, and an `advanced` section
+The catalog currently spans ~175 tests across 24 sections including
+auto-* workspaces, the `challenge` shootout (bench-* workspaces), and an `advanced` section
 covering multi-turn / advanced flows.
 
 Run modes:
     python3 tests/portal5_uat_driver.py --all
     python3 tests/portal5_uat_driver.py --section auto-coding
-    python3 tests/portal5_uat_driver.py --section auto-coding --section benchmark
+    python3 tests/portal5_uat_driver.py --section auto-coding --section challenge
     python3 tests/portal5_uat_driver.py --test WS-01 --test P-W06
     python3 tests/portal5_uat_driver.py --all --headed --append
 
@@ -308,8 +308,8 @@ def _check_memory_before_test(test_name: str = "") -> bool:
             flush=True,
         )
         unload_all_models()
-        if not _wait_for_drain(threshold_pct=MEMORY_CRITICAL_PCT, timeout_s=90.0, label=test_name):
-            print(f"  [MEMORY] Still above {MEMORY_CRITICAL_PCT:.0f}% after 90s drain — skipping {test_name}", flush=True)
+        if not _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label=test_name):
+            print(f"  [MEMORY] Still above {MEMORY_WARN_PCT:.0f}% after 90s drain — skipping {test_name}", flush=True)
             return False
         return True
 
@@ -4315,13 +4315,14 @@ async def main() -> None:
                 if not same_model and mem_pct >= MEMORY_WARN_PCT:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
-                    _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=60.0, label="post-evict")
+                    _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label="post-evict")
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_CRITICAL_PCT:
                         print(
-                            f"  [mem] Memory still {mem_after:.0f}% after eviction — extending settling delay"
+                            f"  [mem] Memory still {mem_after:.0f}% after eviction — second eviction pass"
                         )
-                        time.sleep(15)
+                        unload_all_models()
+                        _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=120.0, label="post-evict-2")
                 elif same_model and mem_pct >= MEMORY_SAME_MODEL_EVICT_PCT:
                     # KV cache from this test's inference will compound with the next
                     # test's allocation even when the same model stays loaded.

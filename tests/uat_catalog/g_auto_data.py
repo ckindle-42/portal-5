@@ -356,13 +356,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
     },
     {
         "id": "P-DA05",
-        "name": "Phi-4 STEM Analyst — Binomial Derivation",
+        "name": "STEM Analyst — Binomial Derivation",
         "section": "auto-data",
         "model_slug": "phi4stemanalyst",
-        "timeout": 240,
-        # DeepSeek-R1-32B thinking model — needs ~5 min for reasoning chain
+        "timeout": 180,
+        # Phi-4-reasoning-plus (14B RL-trained, ~11GB) — routed via auto-phi4 workspace
         "workspace_tier": "ollama",
-        # DeepSeek-R1 puts all derivation steps in <think> block; include it so
+        # phi4-reasoning:plus emits chain-of-thought in <think> block; include it so
         # keyword assertions can find mathematical content like "binomial", "E[X]=5"
         "include_thinking_in_assertions": True,
         "prompt": (
