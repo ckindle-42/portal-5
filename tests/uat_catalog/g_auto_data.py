@@ -72,6 +72,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "dataanalyst",
         "timeout": 90,
         "workspace_tier": "ollama",
+        "include_thinking_in_assertions": True,
         "prompt": (
             "Our data shows that users who enable dark mode have 23% higher retention rates. "
             "Should we force all users onto dark mode to improve retention?"

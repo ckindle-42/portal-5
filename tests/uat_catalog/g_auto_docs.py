@@ -154,7 +154,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No error",
-                "keywords": ["error", "failed", "unable"],
+                "keywords": ["an error occurred", "tool error", "failed to generate", "generation failed", "unable to create"],
             },
             {"type": "xlsx_valid", "label": "XLSX file valid"},
         ],

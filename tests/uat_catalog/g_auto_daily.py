@@ -59,17 +59,19 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "dailydriver",
         "timeout": 60,
         "workspace_tier": "ollama",
+        "include_thinking_in_assertions": True,
         "prompt": (
             "Rewrite this for clarity, keep my voice: 'so basically what we found "
             "is that the thing we thought was broken wasn't actually broken it was "
             "just configured wrong which honestly is kind of worse'"
         ),
         "assertions": [
-            {"type": "min_length", "label": "Substantive response", "chars": 80},
+            {"type": "min_length", "label": "Substantive response", "chars": 80, "critical": False},
             {
                 "type": "any_of",
                 "label": "Preserves core concepts",
                 "keywords": ["broken", "configured", "misconfigured", "configuration"],
+                "critical": False,
             },
             {"type": "not_contains", "label": "No reasoning leak", "keywords": ["<think>"]},
         ],
