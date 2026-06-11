@@ -842,7 +842,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             },
             {
                 "type": "any_of",
-                "label": "Sine addition formula used",
+                "label": "Key intermediate step used",
                 "keywords": [
                     "sin(x+h)",
                     "sin(a+b)",
@@ -850,6 +850,16 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "sum formula",
                     "trig identity",
                     "sin x cos h",
+                    "sin(h)/h",
+                    "sinh/h",
+                    "sin h / h",
+                    "(1 - cos h)",
+                    "cos h - 1",
+                    "taylor",
+                    "series expansion",
+                    "euler",
+                    "squeeze",
+                    "sandwich theorem",
                 ],
             },
             {
@@ -1137,7 +1147,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "S3 bucket resource",
-                "keywords": ["aws_s3_bucket", "resource", "bucket"],
+                "keywords": [
+                    "aws_s3_bucket",
+                    "aws_s3",
+                    "resource",
+                    "bucket",
+                    "s3",
+                ],
             },
             {
                 "type": "any_of",
@@ -1148,6 +1164,10 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "server_side_encryption",
                     "block_public",
                     "public_access",
+                    "sse",
+                    "kms",
+                    "acl",
+                    "prevent_destroy",
                 ],
             },
         ],
