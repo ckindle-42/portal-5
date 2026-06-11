@@ -2,6 +2,34 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.4.0] — 2026-06-10
+
+### Added
+- UAT `challenge` section: the CC-01 coding challenge shootout restored
+  (lost in the 00ad696 → uat_catalog split) — 39 entries: one identical
+  CC-01 Asteroids task per distinct installed bench model, plus BT-01
+  SOC-triage (Foundation-Sec Q8 GGUF) and EX-01 extraction (LFM2.5).
+  Not a benchmark: bench_tps owns throughput; the comparative matrix is
+  the deliverable, no verdict, promotions operator-only.
+- `tests/scripts/cc_challenge_matrix.py` — shootout matrix from UAT
+  challenge rows.
+- `PORTAL5_UAT_EXECUTE_V5.md` with optional Phase 8 (Challenge shootout);
+  V4 archived.
+- `auto-phi4` production workspace (Phi-4-reasoning-plus, 14B RL-trained,
+  ~11GB) — restores original phi4stemanalyst routing intent; phi4stemanalyst
+  persona now routes to auto-phi4 instead of auto-data (deepseek-r1:32b-q8_0).
+
+### Changed
+- Challenge timeouts derived from V8 direct-bench TPS (Ollama realities)
+  replacing MLX-era 300s defaults; tiers ollama-only; dead `mlx_model`
+  keys dropped. glm/laguna not restored (not installed); ToolACE/OCR/
+  audio/duplicate-hint stand-ins excluded by decision.
+- UAT catalog `workspace_tier: "any"` → `"ollama"` across 5 catalog files
+  (34 entries); "any" was a pre-Ollama-only tier label, now a no-op.
+- `/nothink` added to proofreader and daily driver persona system prompts
+  (prevents Qwen3 thinking chain explosion on simple tasks); OWUI presets
+  reseeded via API.
+
 ## [7.3.3] — 2026-06-10
 
 ### Fixed
