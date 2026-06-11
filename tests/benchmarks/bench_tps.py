@@ -92,10 +92,15 @@ WORKSPACE_TIMEOUT = PIPELINE_INACTIVITY_TIMEOUT  # pipeline may buffer think
 #   2. Reasoning output is included in the token count; the larger budget keeps
 #      TPS comparable across reasoning and non-reasoning models.
 REASONING_MAX_TOKENS = 512
+# Math prompts require a larger budget: reasoning models consume many tokens for
+# step-by-step work across 3 problems, and even non-reasoning models need ~600+
+# tokens to complete the full problem set.
+MATH_MAX_TOKENS = 1024
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-laguna",
         "bench-phi4-reasoning",
+        "bench-phi4",  # phi4 (non-reasoning variant) emits only reasoning_text via pipeline
         "bench-phi4-mini-reasoning",  # phi4-mini-reasoning — 3.8B thinking model
         "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — native <think> (Llama-3.1 base)
         "bench-r1-0528-qwen3-8b",  # DeepSeek-R1-0528-Qwen3-8B — chain-of-thought
@@ -112,6 +117,7 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
         "auto-math",  # phi4-mini-reasoning production workspace
         "auto-security",  # AEON Qwen3.6-27B is a thinking model
         "auto-redteam",  # same — needs 512-token budget to avoid empty responses
+        "auto-vision",  # routes to auto-reasoning for text-only; deepseek-r1 emits reasoning_text
     }
 )
 
@@ -948,11 +954,17 @@ def bench_tps(
     _reasoning = _is_reasoning_model(model, label)
     _nothink = any(p in model for p in _NOTHINK_PATTERNS)
     content = "/nothink\n" + prompt if _nothink else prompt
+    # Math prompts (3 problems) require more tokens than the standard reasoning budget.
+    _max_tokens = (
+        MATH_MAX_TOKENS
+        if prompt_category == "math"
+        else (REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS)
+    )
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": content}],
         "stream": True,
-        "max_tokens": REASONING_MAX_TOKENS if _reasoning else MAX_TOKENS,
+        "max_tokens": _max_tokens,
     }
 
     headers: dict[str, str] = {}
@@ -1005,6 +1017,14 @@ def bench_tps(
                     delta = obj.get("choices", [{}])[0].get("delta", {})
                     chunk_text = delta.get("content") or ""
                     reasoning_chunk = delta.get("reasoning") or ""
+                    # Capture tool_calls delta: workspaces with tools (auto-agentic,
+                    # tools-specialist) may respond with function invocations instead of
+                    # text content.  Accumulate function name + argument fragments into
+                    # response_text so quality scoring sees the code and runs_success
+                    # isn't falsely zeroed by an "empty response (0 tokens)" error.
+                    for tc in delta.get("tool_calls") or []:
+                        fn = tc.get("function", {}) if isinstance(tc, dict) else {}
+                        chunk_text += (fn.get("name") or "") + (fn.get("arguments") or "")
                     if (chunk_text or reasoning_chunk) and t_first_token is None:
                         t_first_token = time.perf_counter()
                     response_text += chunk_text
