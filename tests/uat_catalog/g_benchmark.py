@@ -121,40 +121,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
     # One entry per DISTINCT installed model_hint; stand-in/duplicate-hint
     # workspaces are excluded (see TASK_UAT_CHALLENGE_RESTORE_V2 A-decisions).
     # -----------------------------------------------------------------------
-    {
-        "id": "CC-01-phi4",
-        "name": "CC-01 Asteroids · phi4 (Q8_0)",
-        "section": "challenge",
-        "model_slug": "bench-phi4",
-        "timeout": 900,
-        "workspace_tier": "ollama",
-        "max_wait_no_progress": 1800,
-        "prompt": _CC01_PROMPT,
-        "assertions": _CC01_ASSERTIONS,
-    },
-    {
-        "id": "CC-01-phi4-reasoning",
-        "name": "CC-01 Asteroids · phi4-reasoning-plus",
-        "section": "challenge",
-        "model_slug": "bench-phi4-reasoning",
-        "timeout": 1500,
-        "workspace_tier": "ollama",
-        "max_wait_no_progress": 1800,
-        "prompt": _CC01_PROMPT,
-        # P5-BENCH-001: reasoning/RL/base-style model — fenced HTML block not
-        # guaranteed; has_code demoted via the _BENCH assertion variant.
-        "assertions": _CC01_ASSERTIONS_BENCH,
-    },
-    {
-        "id": "CC-01-dolphin8b",
-        "name": "CC-01 Asteroids · Dolphin-8B",
-        "section": "challenge",
-        "model_slug": "bench-dolphin8b",
-        "timeout": 360,
-        "workspace_tier": "ollama",
-        "prompt": _CC01_PROMPT,
-        "assertions": _CC01_ASSERTIONS,
-    },
+    # CC-01-phi4, CC-01-phi4-reasoning, CC-01-dolphin8b removed 2026-06-11:
+    # consistently WARN (≤5/10) — incapable of generating a complete Asteroids game.
+    # phi4 (14B) and Dolphin-8B lack the output length / coherence for this task.
     {
         "id": "CC-01-qwen3-coder-30b",
         "name": "CC-01 Asteroids · Qwen3-Coder-30B",
@@ -265,17 +234,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         # guaranteed; has_code demoted via the _BENCH assertion variant.
         "assertions": _CC01_ASSERTIONS_BENCH,
     },
-    {
-        "id": "CC-01-olmo3-32b",
-        "name": "CC-01 Asteroids · OLMo-3.1-32B-Think (Allen AI)",
-        "section": "challenge",
-        "model_slug": "bench-olmo3-32b",
-        "timeout": 900,
-        "workspace_tier": "ollama",
-        "max_wait_no_progress": 1800,
-        "prompt": _CC01_PROMPT,
-        "assertions": _CC01_ASSERTIONS,
-    },
+    # CC-01-olmo3-32b removed 2026-06-11: consistently WARN — cannot produce complete game.
     {
         "id": "CC-01-qwen3-coder-next",
         "name": "CC-01 Asteroids · Qwen3-Coder-Next (80B/3B MoE)",
@@ -370,22 +329,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
-    # phi4-mini and phi4-mini-reasoning removed 2026-06-11: both produce <300 chars
-    # (truncated) — incapable of generating a full Asteroids game; graded the
-    # parameter count, not the capability. Removed per operator decision post-bench.
-    {
-        "id": "CC-01-starcoder2",
-        "name": "CC-01 Asteroids · StarCoder2-15B",
-        "section": "challenge",
-        "model_slug": "bench-starcoder2",
-        "timeout": 900,
-        "workspace_tier": "ollama",
-        "max_wait_no_progress": 1800,
-        "prompt": _CC01_PROMPT,
-        # P5-BENCH-001: reasoning/RL/base-style model — fenced HTML block not
-        # guaranteed; has_code demoted via the _BENCH assertion variant.
-        "assertions": _CC01_ASSERTIONS_BENCH,
-    },
+    # phi4-mini, phi4-mini-reasoning removed 2026-06-11: <300 chars output, incapable.
+    # CC-01-starcoder2 removed 2026-06-11: consistently WARN — code-completion base model
+    # lacks chat/instruction following needed for full game generation.
     {
         "id": "CC-01-devstral-small-2",
         "name": "CC-01 Asteroids · Devstral-Small-2",
@@ -440,28 +386,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         # guaranteed; has_code demoted via the _BENCH assertion variant.
         "assertions": _CC01_ASSERTIONS_BENCH,
     },
-    {
-        "id": "CC-01-harness1",
-        "name": "CC-01 Asteroids · Harness-1 (ijohn07)",
-        "section": "challenge",
-        "model_slug": "bench-harness1",
-        "timeout": 360,
-        "workspace_tier": "ollama",
-        "prompt": _CC01_PROMPT,
-        # P5-BENCH-001: reasoning/RL/base-style model — fenced HTML block not
-        # guaranteed; has_code demoted via the _BENCH assertion variant.
-        "assertions": _CC01_ASSERTIONS_BENCH,
-    },
-    {
-        "id": "CC-01-nex-n2-mini",
-        "name": "CC-01 Asteroids · Nex-N2-mini (sjakek)",
-        "section": "challenge",
-        "model_slug": "bench-nex-n2-mini",
-        "timeout": 360,
-        "workspace_tier": "ollama",
-        "prompt": _CC01_PROMPT,
-        "assertions": _CC01_ASSERTIONS,
-    },
+    # CC-01-harness1, CC-01-nex-n2-mini removed 2026-06-11: consistently WARN (5/10) —
+    # both fail to deliver a fenced HTML block; incapable of full game generation.
     # CC-01-apriel-nemotron removed 2026-06-11: HTTP 500 OOM crash on every bench run;
     # not viable on 64GB M4 Pro. Entire bench-apriel-nemotron workspace also removed.
     # ── V8 uncensored candidates (conditional — Phase 0 prunes if not pulled) ──
