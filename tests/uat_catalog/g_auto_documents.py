@@ -15,7 +15,7 @@ TESTS: list[dict] = [    # (transcribe_with_speakers → create_word_document)
         "section": "auto-documents",
         "model_slug": "transcriptanalyst",  # seeded persona preset
         "timeout": 240,  # transcribe 60-130s + docx + gen
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "media_kind": "voice",
         "skip_if": ["no_two_speaker_audio_fixture", "no_transcribe_server"],
         "force_unload_before": True,

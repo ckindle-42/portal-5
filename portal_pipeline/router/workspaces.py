@@ -378,6 +378,19 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": ["execute_python"],
     },
+    "auto-phi4": {
+        "name": "🧮 Portal STEM Analyst",
+        "description": (
+            "STEM analysis, scientific reasoning, mathematical derivations, structured "
+            "problem-solving. Phi-4-reasoning-plus (V8: RL-trained 14B, ~11GB, MIT — "
+            "produces chain-of-thought traces before answers; ideal for stepwise STEM work)."
+        ),
+        "model_hint": "phi4-reasoning:plus",
+        "predict_limit": 32768,
+        "emits_reasoning": True,
+        "keep_alive": "10m",
+        "tools": ["execute_python", "create_excel", "kb_search"],
+    },
     "auto-audio": {
         "name": "🎙️  Portal Audio Analyst",
         "description": "Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).",
