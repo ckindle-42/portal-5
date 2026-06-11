@@ -147,14 +147,26 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "gemma4:26b-a4b-it-qat",
         "predict_limit": 4096,
         "tools": [
+            # Search + retrieval
             "web_search",
             "web_fetch",
             "kb_search",
             "kb_list",
+            # Document read/write
             "read_pdf",
             "read_word_document",
+            "read_excel",
+            "create_word_document",
+            "create_excel",
+            "create_powerpoint",
+            # Code execution
+            "execute_python",
+            # Memory
             "remember",
             "recall",
+            # Media generation (conversational context may naturally request these)
+            "generate_music",
+            "transcribe_audio",
         ],
     },
     "auto-coding": {

@@ -4159,7 +4159,13 @@ async def main() -> None:
     print("  Chat archival: conversations run in root, moved to UAT/{date} on completion")
 
     # Init results file
+    # Targeted runs (--test / --section without --rerun) auto-append so they don't
+    # wipe the full run report.  Full runs (no filter, or explicit --rerun) reset it.
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    _targeted = bool((args.test or args.section) and not args.rerun and not args.append)
+    if _targeted:
+        args.append = True
+        print(f"  [targeted run] --append implied — UAT_RESULTS.md preserved (use --rerun to replace rows)")
     if not args.append:
         init_results(run_ts)
     counts: dict[str, int] = {}
