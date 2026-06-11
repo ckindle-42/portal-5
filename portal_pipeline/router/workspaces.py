@@ -226,6 +226,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
         "tools": [
+            "web_search",
+            "web_fetch",
             "classify_vulnerability",
             "execute_python",
             "execute_bash",

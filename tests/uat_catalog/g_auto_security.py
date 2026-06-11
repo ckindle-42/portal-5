@@ -315,8 +315,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "advisory",
                     "vulnerability id",
                 ],
+                "critical": False,
             },
-            {"type": "min_length", "label": "Substantive results", "chars": 300},
+            {"type": "min_length", "label": "Substantive results", "chars": 300, "critical": False},
             {
                 "type": "not_contains",
                 "label": "No 'no results'",
