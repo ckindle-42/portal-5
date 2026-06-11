@@ -153,6 +153,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "auto-mistral",
         "timeout": 120,
         "workspace_tier": "ollama",
+        "force_unload_before": True,
         "prompt": (
             "/nothink\n"
             "Use execute_python to run this code and return ONLY the numeric result:\n"

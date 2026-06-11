@@ -335,6 +335,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "auto-security",
         "timeout": 120,
         "workspace_tier": "ollama",
+        "force_unload_before": True,
         "prompt": (
             "/nothink\n"
             "Use execute_python to run this code and return ONLY the numeric result:\n"
@@ -363,6 +364,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "auto-security",
         "timeout": 120,
         "workspace_tier": "ollama",
+        "force_unload_before": True,
         "prompt": (
             "/nothink\n"
             "Use classify_vulnerability to classify this description and return the full tool result:\n"

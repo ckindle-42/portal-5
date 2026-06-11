@@ -42,8 +42,8 @@ backends:
     supports_tools: true
     notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
-    supports_tools: true
-    notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2). Tool template verified in Ollama ([AVAILABLE_TOOLS] format). supports_tools corrected from false (TASK_TOOL_AUDIT_V2)."
+    supports_tools: false
+    notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2). Template has [AVAILABLE_TOOLS] format but Ollama tool dispatch does not fire — model reasons about tools in prose instead of generating tool_calls (verified TV-04 + direct API test, TASK_TOOL_AUDIT_V2). Kept false."
   - id: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
     supports_tools: false
     notes: "Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary)."

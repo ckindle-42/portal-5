@@ -78,6 +78,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "model_slug": "auto-coding",
         "timeout": 90,
         "workspace_tier": "ollama",
+        "force_unload_before": True,
         "prompt": (
             "Use execute_python to run this code and return ONLY the numeric result:\n"
             "```python\n"

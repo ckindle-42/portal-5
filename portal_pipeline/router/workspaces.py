@@ -370,7 +370,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         # 25 GB q8 — keep warm for back-to-back queries but don't pin forever
         "keep_alive": "10m",
-        "tools": ["execute_python", "execute_bash"],
+        # Magistral's [AVAILABLE_TOOLS] template does not trigger Ollama tool dispatch
+        # (verified TV-04 + direct API test). No tools exposed — model can't call them.
+        "tools": [],
     },
     "auto-math": {
         "name": "🧮 Portal Math Reasoner",
