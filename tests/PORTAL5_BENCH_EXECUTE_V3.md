@@ -6,8 +6,8 @@ Grafana benchmarks dashboard with the results and reload it.
 
 **V3 changes from V2 (HEAD 7.3.1):** the V8 catalog refresh + promotions
 landed. Current scale (verify with the dry-run plan — counts are
-config-driven and drift): **68 unique Ollama catalog models, 68 benchable
-workspaces (73 total − 5 pipeline_bench_skip), 140 personas, ~276 total tests
+config-driven and drift): **68 unique Ollama catalog models, 69 benchable
+workspaces (74 total − 5 pipeline_bench_skip), 140 personas, ~277 total tests
 at `--mode all`**. The skip list is exactly five non-text-modality workspaces:
 `bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech` (audio)
 plus `bench-nanonets-ocr2`, `bench-olmocr2` (OCR vision — image-input probe
@@ -41,9 +41,9 @@ Confirm with the dry-run before committing to a long run:
 | Dimension | Count (7.3.1) |
 |---|---|
 | Unique Ollama catalog models | 68 |
-| Benchable pipeline workspaces | 68 (73 total − 5 skip) |
+| Benchable pipeline workspaces | 69 (74 total − 5 skip) |
 | Personas | 140 |
-| **Total tests (mode=all)** | **~276** |
+| **Total tests (mode=all)** | **~277** |
 
 ### Three test modes (run together with `--mode all`):
 
