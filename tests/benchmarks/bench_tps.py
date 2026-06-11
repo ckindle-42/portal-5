@@ -97,10 +97,16 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
         "bench-laguna",
         "bench-phi4-reasoning",
         "bench-phi4-mini-reasoning",  # phi4-mini-reasoning — 3.8B thinking model
-        "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — security CoT; 0 tokens without enable_thinking=False
+        "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — native <think> (Llama-3.1 base)
         "bench-r1-0528-qwen3-8b",  # DeepSeek-R1-0528-Qwen3-8B — chain-of-thought
         "bench-r1-0528-abliterated",  # R1-0528 abliterated — same architecture
         "bench-olmo3-32b",  # OLMo-3.1-32B-Think — emits <think> blocks
+        "bench-negentropy",  # deepseek-r1:32b-q4_k_m — CoT reasoning
+        "bench-nex-n2-mini",  # Nex-N2-mini (Qwen3.5-35B-A3B MoE) — emits_reasoning
+        "auto-blueteam",  # Foundation-Sec-8B-Reasoning — same model as bench-foundation-sec
+        "auto-data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
+        "auto-phi4",  # phi4-reasoning:plus — RL-trained 14B STEM reasoner
+        "auto-research",  # tongyi-deepresearch-abliterated — deep research CoT
         "auto-mistral",
         "auto-reasoning",
         "auto-math",  # phi4-mini-reasoning production workspace
@@ -308,6 +314,7 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
     "auto-daily": "general",  # gemma4:26b-a4b-it-qat daily driver
     "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
+    "auto-phi4": "reasoning",  # phi4-reasoning:plus — STEM/chain-of-thought specialist
     # ── V7-final catalog refresh (TASK_MODEL_REFRESH_V7) ─────────────────
     # Apriel-Nemotron — ServiceNow+NVIDIA dense 15B reasoning, new lineage
     "bench-apriel-nemotron": "reasoning",
