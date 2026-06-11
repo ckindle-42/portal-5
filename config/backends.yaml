@@ -270,9 +270,8 @@ backends:
   - id: portal5/qwen3.6-27b-mtp:q8_0-drafted
     supports_tools: true
     notes: "Created by ./launch.sh apply-mtp-drafts (TASK_MODEL_FLEET_REFRESH_V2 Phase 5). q8_0 base + mtp-q4_K_M draft via DRAFT directive. bench-qwen36-27b-mtp Phase-6 A/B target. NOT pre-pulled — run apply-mtp-drafts to create."
-  - id: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf
-    supports_tools: true
-    notes: "Apriel-Nemotron-15B Q5 (~11GB, ServiceNow+NVIDIA, dense reasoning, MIT). Was auto-blueteam stopgap after 3a0c58e; replaced by Foundation-Sec-8B-Reasoning (P5-FUT-PARITY-001). Retained as reasoning fallback + bench-apriel-nemotron model."
+  # Apriel-Nemotron-15B removed 2026-06-11: bench showed HTTP 500 OOM crash on every run;
+  # not viable on 64GB M4 Pro. Foundation-Sec-8B-Reasoning covers the security reasoning role.
   - id: olmo-3.1:32b-think
     supports_tools: false
     notes: "OLMo 3.1 32B Think (Allen AI, Dec 2025, Apache 2.0, ~19GB Q4). Fully\
@@ -516,9 +515,6 @@ workspace_routing:
   - reasoning
   - general
   bench-toolace25:
-  - general
-  bench-apriel-nemotron:
-  - reasoning
   - general
   bench-voxtral-realtime:
   - general

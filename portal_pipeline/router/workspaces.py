@@ -319,7 +319,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).",
         # auto-music dispatches via OWUI Path 2 (server:mcp:portal_music + portal_tts).
         "model_hint": "lfm2.5:8b",
-        "tools": [],
+        "tools": ["transcribe_audio"],
     },
     "auto-research": {
         "name": "🔍 Portal Research Assistant",
