@@ -370,28 +370,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
-    {
-        "id": "CC-01-phi4-mini",
-        "name": "CC-01 Asteroids · phi4-mini",
-        "section": "challenge",
-        "model_slug": "bench-phi4-mini",
-        "timeout": 360,
-        "workspace_tier": "ollama",
-        "prompt": _CC01_PROMPT,
-        "assertions": _CC01_ASSERTIONS,
-    },
-    {
-        "id": "CC-01-phi4-mini-reasoning",
-        "name": "CC-01 Asteroids · phi4-mini-reasoning",
-        "section": "challenge",
-        "model_slug": "bench-phi4-mini-reasoning",
-        "timeout": 360,
-        "workspace_tier": "ollama",
-        "prompt": _CC01_PROMPT,
-        # P5-BENCH-001: reasoning/RL/base-style model — fenced HTML block not
-        # guaranteed; has_code demoted via the _BENCH assertion variant.
-        "assertions": _CC01_ASSERTIONS_BENCH,
-    },
+    # phi4-mini and phi4-mini-reasoning removed 2026-06-11: both produce <300 chars
+    # (truncated) — incapable of generating a full Asteroids game; graded the
+    # parameter count, not the capability. Removed per operator decision post-bench.
     {
         "id": "CC-01-starcoder2",
         "name": "CC-01 Asteroids · StarCoder2-15B",
@@ -481,19 +462,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
-    {
-        "id": "CC-01-apriel-nemotron",
-        "name": "CC-01 Asteroids · Apriel-Nemotron-15B (ServiceNow)",
-        "section": "challenge",
-        "model_slug": "bench-apriel-nemotron",
-        "timeout": 900,
-        "workspace_tier": "ollama",
-        "max_wait_no_progress": 1800,
-        "prompt": _CC01_PROMPT,
-        # P5-BENCH-001: reasoning/RL/base-style model — fenced HTML block not
-        # guaranteed; has_code demoted via the _BENCH assertion variant.
-        "assertions": _CC01_ASSERTIONS_BENCH,
-    },
+    # CC-01-apriel-nemotron removed 2026-06-11: HTTP 500 OOM crash on every bench run;
+    # not viable on 64GB M4 Pro. Entire bench-apriel-nemotron workspace also removed.
     # ── V8 uncensored candidates (conditional — Phase 0 prunes if not pulled) ──
     {
         "id": "CC-01-r1-0528-abliterated",

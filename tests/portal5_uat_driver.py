@@ -3093,9 +3093,11 @@ async def run_test(
         if required_container:
             ok, detail = _bot_container_running(required_container)
             if not ok:
+                # Bot integrations are optional — container not running = SKIP,
+                # not a core product defect.
                 record_result(
                     n,
-                    "BLOCKED",
+                    "SKIP",
                     test_id,
                     name,
                     model,
@@ -3103,7 +3105,7 @@ async def run_test(
                     0.0,
                     "",
                 )
-                counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
+                counts["SKIP"] = counts.get("SKIP", 0) + 1
                 return
 
         t0_disp = time.time()
@@ -3115,11 +3117,11 @@ async def run_test(
             )
         except Exception as exc:
             elapsed = time.time() - t0_disp
-            # Transport/auth errors = infrastructure not wired up → BLOCKED,
-            # not a product defect. Content failures (wrong response) → FAIL.
+            # Transport/auth errors = optional integration not wired up → SKIP.
+            # Content failures (wrong response) → FAIL.
             record_result(
                 n,
-                "BLOCKED",
+                "SKIP",
                 test_id,
                 name,
                 model,
@@ -3127,7 +3129,7 @@ async def run_test(
                 elapsed,
                 "",
             )
-            counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
+            counts["SKIP"] = counts.get("SKIP", 0) + 1
             return
 
         elapsed = time.time() - t0_disp
