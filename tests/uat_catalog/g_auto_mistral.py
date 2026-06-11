@@ -145,4 +145,32 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 ],
             },
         ],
+    },
+    {
+        "id": "TV-04",
+        "name": "Tool Validation — execute_python proof (auto-mistral/Magistral)",
+        "section": "auto-mistral",
+        "model_slug": "auto-mistral",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "/nothink\n"
+            "Use execute_python to run this code and return ONLY the numeric result:\n"
+            "```python\n"
+            "print(42 * 1337)\n"
+            "```"
+        ),
+        "assertions": [
+            {
+                "type": "contains",
+                "label": "Correct computed output (56154) — proves tool ran",
+                "keywords": ["56154"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Did not refuse tool use",
+                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "critical": False,
+            },
+        ],
     },]

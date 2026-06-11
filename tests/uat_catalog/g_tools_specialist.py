@@ -66,6 +66,38 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {"type": "min_length", "label": "Substantive response", "chars": 100},
         ],
     },
+    # ── Tool-invocation validation (TV series) ───────────────────────────────
+    # Proof-of-execution tests: the correct answer requires actually running code.
+    # A model generating from training knowledge cannot produce 56154 without calling
+    # execute_python — it would have to multiply 42 × 1337 in weights, which is not
+    # reliably stored. The assertion is the computed output, not keyword presence.
+    {
+        "id": "TV-01",
+        "name": "Tool Validation — execute_python proof (auto-coding/qwen3-coder baseline)",
+        "section": "tools-specialist",
+        "model_slug": "auto-coding",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Use execute_python to run this code and return ONLY the numeric result:\n"
+            "```python\n"
+            "print(42 * 1337)\n"
+            "```"
+        ),
+        "assertions": [
+            {
+                "type": "contains",
+                "label": "Correct computed output (56154) — proves tool ran",
+                "keywords": ["56154"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Did not refuse tool use",
+                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "critical": False,
+            },
+        ],
+    },
     {
         "id": "P-TOOLS-01",
         "name": "toolcomposer persona — File Count and Store",
