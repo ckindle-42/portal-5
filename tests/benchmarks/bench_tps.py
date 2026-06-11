@@ -267,7 +267,11 @@ PROMPTS: dict[str, str] = {
 WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto": "general",
     "auto-coding": "coding",
-    "auto-agentic": "coding",
+    # auto-agentic has tools enabled (execute_python etc.) — the coding prompt's
+    # "Return only the function" instruction causes empty synthesis after tool execution
+    # (model considers task done via tool, outputs nothing in hop-2).  Use reasoning
+    # prompt instead: ER bottleneck analysis is qualitative and doesn't trigger tool calls.
+    "auto-agentic": "reasoning",
     "auto-spl": "coding",
     "auto-security": "security",
     "auto-redteam": "security",
@@ -364,7 +368,9 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # - bench-granite-speech (ASR with keyword biasing — text harness cannot exercise)
     # These get probed by TASK_SPEECH_SHOOTOUT_V1 (deferred).
     # ── Drift backfill (pre-existing gap) ───────────────────────────────
-    "tools-specialist": "coding",  # ToolACE-2.5 tool-calling specialist
+    # tools-specialist (granite4.1:8b) — same tool-call issue as auto-agentic with
+    # coding prompt; use general (OSI layers) which is pure knowledge recall, safe.
+    "tools-specialist": "general",  # granite4.1:8b tool-calling specialist
 }
 
 # Map Ollama backend group → prompt category
