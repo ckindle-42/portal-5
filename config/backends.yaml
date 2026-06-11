@@ -121,10 +121,10 @@ backends:
       \ NO Ollama tools tag on this GGUF (audit 2026-05-04: api_error). Llama 3.3\
       \ architecture supports tools natively, but this specific Ollama registry GGUF\
       \ lacks the template declaration."
-  - id: glm-4.7-flash:q4_K_M
+  - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
     notes: "GLM-4.7-Flash 30B-A3B MoE Q4 (~15GB, Z.AI, 59.2% SWE-bench, 200K ctx). auto-coding primary."
-  - id: laguna-xs.2:q4_K_M
+  - id: laguna-xs.2:Q4_K_M
     supports_tools: true
     notes: "Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified)."
   - id: phi4-reasoning:plus
