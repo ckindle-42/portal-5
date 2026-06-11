@@ -42,8 +42,8 @@ backends:
     supports_tools: true
     notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
-    supports_tools: false
-    notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2)."
+    supports_tools: true
+    notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2). Tool template verified in Ollama ([AVAILABLE_TOOLS] format). supports_tools corrected from false (TASK_TOOL_AUDIT_V2)."
   - id: hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
     supports_tools: false
     notes: "Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary)."
@@ -192,7 +192,8 @@ backends:
       \ the pre-migration production model lost in 3a0c58e (P5-FUT-PARITY-001).\
       \ supports_tools=false (reasoning model, not tool-trained)."
   - id: huihui_ai/baronllm-abliterated
-    supports_tools: false
+    supports_tools: true
+    notes: "Tool template verified in Ollama (Llama-3 header format with .Tools support). supports_tools corrected from false (TASK_TOOL_AUDIT_V2)."
   - id: xploiter/the-xploiter
     supports_tools: false
   - id: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
@@ -202,8 +203,10 @@ backends:
     notes: Threat modeling + defensive analysis (shared with reasoning). R1 is reasoning-trained,
       not tool-trained.
   - id: baronllm:q6_k
-    supports_tools: false
-    notes: 'was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_...'
+    supports_tools: true
+    notes: 'was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_... Tool template verified
+      in Ollama (JSON function call format with custom_tools/tools_in_user_message).
+      supports_tools corrected from false (TASK_TOOL_AUDIT_V2).'
   - id: lily-cybersecurity:7b-q4_k_m
     supports_tools: false
     notes: imported by pull-models from segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
