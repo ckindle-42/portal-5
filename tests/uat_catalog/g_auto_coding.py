@@ -508,7 +508,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             '> new Map([["a",1],["b",2]]).get("c")'
         ),
         "assertions": [
-            {"type": "any_of", "label": "typeof null = object", "keywords": ["object", "'object'", '"object"', "typeof null"], "critical": False},
+            {
+                "type": "any_of",
+                "label": "typeof null = object",
+                "keywords": ["object", "'object'", '"object"', "typeof null", "null is object", "null"],
+                "critical": False,
+            },
             {
                 "type": "any_of",
                 "label": "TypeError for [].foo.bar",

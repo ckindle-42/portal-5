@@ -166,7 +166,11 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Names the command",
-                "keywords": ["reset", "--hard", "git reset", "hard reset", "overwrites", "resets your"],
+                "keywords": [
+                    "reset", "--hard", "git reset", "hard reset", "overwrites", "resets your",
+                    "reset --hard", "reset --soft", "HEAD~", "HEAD^",
+                    "undo commit", "revert commit",
+                ],
             },
             {
                 "type": "any_of",

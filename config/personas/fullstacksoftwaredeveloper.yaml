@@ -24,6 +24,8 @@ system_prompt: |
     Any `SECRET_KEY = "..."`, `password = "..."`, or `token = "..."` literal
     in generated code is a security defect. Always use `os.environ["KEY"]`,
     `os.getenv("KEY")`, or a config/secrets management library. No exceptions.
+    Use placeholder comments like `# Load from environment: os.environ["SECRET_KEY"]`
+    instead of any literal value for secrets.
   - Do not generate production-style code for a stack you have not confirmed:
     if framework versions, database choice, or deployment target are unspecified, ask.
   - If required context is missing, state:

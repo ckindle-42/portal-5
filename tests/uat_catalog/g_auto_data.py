@@ -406,6 +406,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     # Phrased without "expected value" label but still states the result
                     " = 5 ", " = 5,", " = 5.", "is 5,", "is 5.", "is 5\n",
                     "equals 5.", "the mean is 5", "mean is 5",
+                    "5000 × 0.001", "5000*0.001", "5,000 × 0.001", "n * p = 5",
                 ],
             },
             {
