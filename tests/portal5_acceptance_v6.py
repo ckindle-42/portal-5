@@ -836,28 +836,79 @@ async def _wait_for_docker_recovery(timeout: int = 600) -> tuple[bool, int]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-async def _wait_metal_drain_async(timeout_s: float = 90.0, poll_s: float = 3.0) -> float:
+def _purge_memory_sync() -> None:
+    """Run macOS `purge` to force inactive-page compaction and unblock Metal buffers."""
+    try:
+        subprocess.run(["purge"], timeout=15, check=False, capture_output=True)
+        print("  [metal] purge completed", flush=True)
+    except Exception as e:
+        print(f"  [metal] purge failed (non-fatal): {e}", flush=True)
+
+
+async def _restart_ollama_async() -> bool:
+    """Restart Ollama to clear stuck Metal GPU contexts. Returns True if healthy after restart."""
+    print("  [metal] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
+    try:
+        subprocess.run(["brew", "services", "restart", "ollama"],
+                       timeout=30, check=False, capture_output=True)
+    except Exception:
+        try:
+            subprocess.run(["pkill", "-f", "ollama serve"],
+                           timeout=5, check=False, capture_output=True)
+            await asyncio.sleep(3)
+        except Exception as e:
+            print(f"  [metal] Ollama restart failed: {e}", flush=True)
+            return False
+    deadline = time.time() + 30.0
+    async with httpx.AsyncClient(timeout=5) as c:
+        while time.time() < deadline:
+            try:
+                r = await c.get(f"{OLLAMA_URL}/api/tags")
+                if r.status_code == 200:
+                    print("  [metal] Ollama back healthy after restart", flush=True)
+                    return True
+            except Exception:
+                pass
+            await asyncio.sleep(2.0)
+    return False
+
+
+async def _wait_metal_drain_async(timeout_s: float = 30.0, poll_s: float = 3.0,
+                                  retries: int = 2) -> float:
     """Poll vm_stat until free RAM stabilises after Ollama eviction.
 
-    macOS Metal GPU buffers are released asynchronously after Ollama reports
-    a model as evicted — blind sleeps race this release window. This function
-    polls until free_gb stops increasing for two consecutive checks or the
-    timeout fires, then returns the final free_gb reading.
+    Escalating recovery on timeout (matching UAT driver and bench_tps pattern):
+      Round 1 timeout → run purge (memory compaction, no process kills)
+      Round 2 timeout → restart Ollama (clears all Metal contexts)
+      Round 3+ timeout → return current free_gb (caller logs warning)
+
+    Returns final free_gb reading.
     """
-    deadline = time.time() + timeout_s
-    prev = _free_ram_gb()
-    stable_count = 0
-    while time.time() < deadline:
-        await asyncio.sleep(poll_s)
-        cur = _free_ram_gb()
-        if cur > prev + 0.5:
-            stable_count = 0  # still rising — Metal still draining
-        else:
-            stable_count += 1
-            if stable_count >= 2:
-                return cur  # stable for two polls — drain complete
-        prev = cur
-    return _free_ram_gb()
+    for attempt in range(retries + 1):
+        deadline = time.time() + timeout_s
+        prev = _free_ram_gb()
+        stable_count = 0
+        while time.time() < deadline:
+            await asyncio.sleep(poll_s)
+            cur = _free_ram_gb()
+            if cur > prev + 0.5:
+                stable_count = 0  # still rising — Metal still draining
+            else:
+                stable_count += 1
+                if stable_count >= 2:
+                    print(f"  [metal] Stable at {cur:.1f} GB free — drain complete", flush=True)
+                    return cur
+            prev = cur
+        # Timeout — take active recovery before next attempt
+        if attempt == 0:
+            print(f"  [metal] Timeout at attempt 1 — running purge to unblock Metal", flush=True)
+            _purge_memory_sync()
+        elif attempt == 1:
+            print(f"  [metal] Timeout at attempt 2 — restarting Ollama", flush=True)
+            await _restart_ollama_async()
+    free = _free_ram_gb()
+    print(f"  [metal] DRAIN WARNING — {free:.1f} GB free after all retries", flush=True)
+    return free
 
 
 async def _unload_ollama_models() -> None:
