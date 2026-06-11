@@ -860,6 +860,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "euler",
                     "squeeze",
                     "sandwich theorem",
+                    "cos x sin h",
+                    "sin(x)cos",
+                    "cos(x)sin",
+                    "product",
+                    "trig",
+                    "identity",
+                    "derivative of sin",
                 ],
             },
             {
