@@ -324,4 +324,74 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": ["no results found", "could not find any"],
             },
         ],
+    },
+    # ── Tool-invocation validation tests ─────────────────────────────────────
+    # These tests require the model to actually call MCP tools to answer correctly.
+    # The expected values cannot be produced from training knowledge alone.
+    {
+        "id": "TV-02",
+        "name": "Tool Validation — execute_python proof (auto-security/baronllm)",
+        "section": "auto-security",
+        "model_slug": "auto-security",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "/nothink\n"
+            "Use execute_python to run this code and return ONLY the numeric result:\n"
+            "```python\n"
+            "print(42 * 1337)\n"
+            "```"
+        ),
+        "assertions": [
+            {
+                "type": "contains",
+                "label": "Correct computed output (56154) — proves tool ran",
+                "keywords": ["56154"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Did not refuse tool use",
+                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "TV-03",
+        "name": "Tool Validation — classify_vulnerability MCP signature (auto-security/baronllm)",
+        "section": "auto-security",
+        "model_slug": "auto-security",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "/nothink\n"
+            "Use classify_vulnerability to classify this description and return the full tool result:\n"
+            "'An unauthenticated remote attacker can send a crafted packet to the management "
+            "interface and execute arbitrary code with root privileges.'"
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "MCP tool signature in response — proves classify_vulnerability ran",
+                # These fields only appear in the structured JSON returned by the VLAI MCP tool.
+                # A text-only response from training knowledge will not contain them.
+                "keywords": [
+                    "confidence",
+                    "probabilities",
+                    "circl",
+                    "CIRCL",
+                    "vulnerability-severity-classification",
+                    "\"low\"",
+                    "\"medium\"",
+                    "\"high\"",
+                    "\"critical\"",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Severity label returned",
+                "keywords": ["critical", "high", "medium", "low"],
+                "critical": False,
+            },
+        ],
     },]
