@@ -292,7 +292,8 @@ def _check_memory_before_test(test_name: str = "") -> bool:
             flush=True,
         )
         unload_all_models()
-        time.sleep(10)
+        # Wait for actual Metal reclaim — event-driven, not a blind sleep.
+        _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=30.0, label="oom-risk")
         used_after = _get_memory_pct()
         print(f"  [OOM RISK] After eviction: {used_after:.0f}%", flush=True)
         if used_after >= MEMORY_ABORT_PCT:
@@ -360,6 +361,32 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
             ollama_ok = False
         return ollama_ok, f"ollama={'ok' if ollama_ok else 'down'}"
     return True, "tier=any"
+
+
+def _wait_for_ollama_ps_empty(timeout_s: float = 30.0, poll_s: float = 1.0) -> bool:
+    """Poll /api/ps until all models are unloaded or timeout_s elapses.
+
+    Event-driven: exits as soon as Ollama reports no loaded models.
+    Safety net: hard timeout for cases where Ollama hangs on release.
+    Returns True when model list is empty, False on timeout.
+
+    This is step 1 of the two-step drain:
+      1. /api/ps empty → Ollama confirmed release (this function)
+      2. vm_stat below threshold → Metal buffers reclaimed (_wait_for_drain)
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3)
+            if r.status_code == 200 and not r.json().get("models"):
+                return True
+        except Exception:
+            pass
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            break
+        time.sleep(min(poll_s, remaining))
+    return False
 
 
 def _unload_running_ollama_models() -> None:
@@ -475,13 +502,16 @@ def _pipeline_pre_warm(workspace_id: str = "auto") -> None:
 def unload_all_models() -> None:
     """Unload all running Ollama models and release GPU memory.
 
-    Evicts Ollama models via the Ollama API. macOS Metal wired pages are
-    released by the kernel once the process holding the MTLDevice exits.
-    We unload + sleep to allow the kernel to reclaim.
+    Two-step drain:
+      1. Send keep_alive=0 to all loaded models, then poll /api/ps until
+         the list is empty (event-driven — exits as soon as Ollama confirms
+         release, not after a fixed sleep).
+      2. Caller follows with _wait_for_drain() to wait for macOS Metal to
+         reclaim wired pages (vm_stat-driven, same event pattern).
     """
     print("  Unloading all Ollama models ...", flush=True)
     _unload_running_ollama_models()
-    time.sleep(5)
+    _wait_for_ollama_ps_empty(timeout_s=30.0)
 
 
 def _comfyui_running() -> bool:
@@ -1291,7 +1321,7 @@ async def _wait_for_completion(
         # Backend crash check — don't burn 900s on a dead model
         if _check_backend_crash():
             _unload_running_ollama_models()
-            time.sleep(5)
+            _wait_for_ollama_ps_empty(timeout_s=15.0)
             return
         # Hard safety cap
         if elapsed > max_wait_no_progress:
@@ -1405,7 +1435,7 @@ async def _wait_for_completion(
         # Backend crash check — rate-limited inside _check_backend_crash
         if _check_backend_crash():
             _unload_running_ollama_models()
-            time.sleep(5)
+            _wait_for_ollama_ps_empty(timeout_s=15.0)
             return
 
         # Safety cap
@@ -4188,7 +4218,7 @@ async def main() -> None:
                                 f"  [verify] Ollama still has {len(loaded)} model(s) loaded — retrying eviction ({retry + 1}/3)"
                             )
                             unload_all_models()
-                            time.sleep(5)
+                            _wait_for_ollama_ps_empty(timeout_s=15.0)
                         except Exception:
                             break
                     if retry == 2:
@@ -4216,7 +4246,7 @@ async def main() -> None:
                                 f"  [verify] Ollama still has {len(loaded)} model(s) — retrying eviction ({retry + 1}/3)"
                             )
                             unload_all_models()
-                            time.sleep(5)
+                            _wait_for_ollama_ps_empty(timeout_s=15.0)
                         except Exception:
                             break
                     # Post-eviction memory verification — wait until memory is
@@ -4238,7 +4268,7 @@ async def main() -> None:
             if test.get("force_unload_before"):
                 print(f"  [mem] Force-unloading before {test['id']} (heavy media test)")
                 unload_all_models()
-                time.sleep(5)
+                _wait_for_ollama_ps_empty(timeout_s=15.0)
 
             # ComfyUI lifecycle: only keep ComfyUI running during tests that
             # actually need it. Stop it before non-ComfyUI tests to reclaim GPU
@@ -4331,7 +4361,7 @@ async def main() -> None:
                         "— evicting to clear KV cache residuals"
                     )
                     unload_all_models()
-                    time.sleep(5)
+                    _wait_for_ollama_ps_empty(timeout_s=15.0)
                     mem_after = _get_memory_pct()
                     if mem_after >= MEMORY_SAME_MODEL_EVICT_PCT:
                         print(
@@ -4342,7 +4372,7 @@ async def main() -> None:
                     # Always evict if critical, even on same model
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — critical eviction")
                     unload_all_models()
-                    time.sleep(5)
+                    _wait_for_ollama_ps_empty(timeout_s=15.0)
 
             # Inter-test settling: sleep the prescribed delay, then ensure the
             # backend for the next test is actually alive before proceeding.
