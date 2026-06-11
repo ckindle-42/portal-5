@@ -45,7 +45,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-coding",
         "model_slug": "formfiller",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need you to fill out a job application form at careers.example.com. "
             "It has: name, email, resume upload, cover letter textarea, and salary expectations. "
@@ -95,7 +95,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto",
         "model_slug": "webnavigator",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Go to the AWS console and check my current monthly bill. "
             "How would you approach this task?"
@@ -179,7 +179,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "dataextractor",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to extract all product names and prices from a paginated "
             "e-commerce category page (20 products per page, ~50 pages). "
@@ -204,7 +204,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "paywalledresearcher",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I need to find recent papers on 'local LLM inference optimization' "
             "from ACM Digital Library and IEEE Xplore. I have institutional access "
@@ -241,7 +241,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "whiteboardconverter",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "If I send you a whiteboard photo of a system architecture sketch "
             "with boxes labeled 'API Gateway', 'Auth Service', 'User DB', and "
@@ -348,7 +348,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "businessanalyst",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "The VP of Sales wants 'a better CRM.' "
             "Help me translate this into structured business requirements."
@@ -381,7 +381,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "complianceanalyst",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "We're a SaaS company storing health data for US clients and EU clients. "
             "Which compliance frameworks apply and where do we have potential gaps?"
@@ -410,7 +410,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "dashboardarchitect",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Design an executive dashboard for a B2B SaaS company. "
             "The CEO cares most about MRR growth and churn. What should be above the fold?"
@@ -444,7 +444,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-data",
         "model_slug": "databasearchitect",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Design a database schema for a multi-tenant SaaS application "
             "with organizations, users, projects, and audit logs. "
@@ -489,7 +489,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "diagramreader",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I'm about to send you a C4 container diagram of a microservices system. "
             "What information will you extract and how will you represent it in text?"
@@ -522,7 +522,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "documentationarchitect",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "We have a REST API and want to document it properly. "
             "We currently only have an OpenAPI spec. "
@@ -564,7 +564,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "factchecker",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Claim: 'Python is the most popular programming language in the world.' "
             "Walk me through how you'd fact-check this."
@@ -607,7 +607,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "gdprdpoadvisor",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Our app sends marketing emails to EU users. "
             "We currently rely on 'legitimate interests' as the lawful basis. "
@@ -679,7 +679,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "hipaaprivacyofficer",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "A laptop containing unencrypted PHI for 450 patients was stolen. "
             "Walk me through HIPAA breach notification requirements and deadlines."
@@ -716,7 +716,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "interviewcoach",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I'm preparing for a senior software engineer interview at a FAANG company. "
             "Give me 3 realistic system design questions I should practice, "
@@ -750,7 +750,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "kbnavigator",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "What knowledge bases do you have access to, "
             "and how would you find information about our product's API rate limits?"
@@ -792,7 +792,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "marketanalyst",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Give me a competitive analysis of the top 3 players in the local LLM inference market. "
             "What's driving adoption?"
@@ -865,7 +865,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "ocrspecialist",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I have a scanned two-column academic paper with a table in the results section. "
             "How would you extract the table data accurately?"
@@ -906,7 +906,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "pcidssassessor",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "We use Stripe Elements for payment collection. "
             "Does this reduce our PCI-DSS scope, and if so, to which SAQ?"
@@ -930,7 +930,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "productmanager",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "We want to add AI-powered search to our B2B SaaS platform. "
             "Outline the key sections of a PRD for this feature."
@@ -1049,7 +1049,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-compliance",
         "model_slug": "soc2auditor",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Our SaaS company is preparing for a SOC 2 Type II audit. "
             "We have no formal access review process and no MFA enforcement. "
@@ -1158,7 +1158,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-docs",
         "model_slug": "transcriptanalyst",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Before I upload my audio, can you describe what output you produce "
             "and in what format for a 45-minute engineering all-hands meeting recording?"
@@ -1218,7 +1218,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-research",
         "model_slug": "webresearcher",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "Research the current state of Mixture-of-Experts (MoE) models for local inference. "
             "Describe your research protocol: what sources will you consult and how will you "

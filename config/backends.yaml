@@ -440,6 +440,9 @@ workspace_routing:
   auto-math:
   - reasoning
   - general
+  auto-phi4:
+  - coding
+  - general
   auto-audio:
   - vision
   - general

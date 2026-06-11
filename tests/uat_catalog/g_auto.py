@@ -63,7 +63,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto",
         "model_slug": "itexpert",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": "My computer is slow. Fix it.",
         "assertions": [
             {
@@ -132,7 +132,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto",
         "model_slug": "techreviewer",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": "Compare the M4 Pro and M4 Max chips for local LLM inference. Give me specific benchmark numbers and tell me which to buy.",
         "assertions": [
             # Persona HARD CONSTRAINTS mandate this caveat. Broadened keyword set

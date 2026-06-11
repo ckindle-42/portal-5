@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "codescreenshotreader",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "How would you transcribe a code screenshot from a VS Code dark theme? "
             "What steps do you take to ensure accuracy?"
@@ -85,7 +85,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "auto-vision",
         "model_slug": "chartanalyst",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": (
             "I'm about to send you a bar chart comparing quarterly revenue across regions. "
             "What information will you extract from it?"

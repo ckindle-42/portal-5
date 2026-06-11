@@ -14,7 +14,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto",
         "timeout": 120,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "is_multi_turn": True,
         "skip_if": "no_docx_fixture",
         "prompt": "Summarize the key points of this document in 5 bullet points.",
@@ -56,7 +56,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto",
         "timeout": 120,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "skip_if": "no_knowledge_base",
         "prompt": "#Test Collection What topics are covered across the documents in this collection?",
         "assertions": [
@@ -74,7 +74,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto",
         "timeout": 120,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "is_multi_turn": True,
         "prompt": (
             "For context: I am a network security engineer at a power utility. "
@@ -151,7 +151,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "assert_routed_via": [
             "baronllm",
             "lily",
@@ -182,7 +182,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto-coding",
         "timeout": 90,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "skip_if": "no_bot_telegram",
         "via_dispatcher": True,
         "requires_container": "portal5-telegram",
@@ -252,7 +252,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "section": "advanced",
         "model_slug": "auto",
         "timeout": 60,
-        "workspace_tier": "any",
+        "workspace_tier": "ollama",
         "prompt": "[MANUAL] After running 5+ tests, open http://localhost:3000. Verify portal_tokens_per_second shows recent data with workspace labels. Mark PASS/SKIP/FAIL manually.",
         "assertions": [],
         "is_manual": True,
