@@ -251,30 +251,111 @@ def _get_memory_pct() -> float:
     return 0.0
 
 
+def _purge_memory() -> None:
+    """Run macOS `purge` to force inactive-page compaction and unblock Metal buffers.
+
+    `purge` is a built-in macOS tool that pressures the VM subsystem into
+    reclaiming inactive pages. This often unblocks Metal GPU buffers that have
+    stopped draining on their own — analogous to the trigger actions needed when
+    MLX servers got stuck holding Metal contexts after a crash.
+
+    Does NOT kill any process. Safe to call between Ollama model loads.
+    """
+    import subprocess
+
+    try:
+        subprocess.run(["purge"], timeout=15, check=False, capture_output=True)
+        print("  [drain] purge completed", flush=True)
+    except Exception as e:
+        print(f"  [drain] purge failed (non-fatal): {e}", flush=True)
+
+
+def _restart_ollama() -> bool:
+    """Restart the Ollama server to fully release stuck Metal GPU contexts.
+
+    Nuclear recovery action: kills and restarts Ollama. Used only when
+    `purge` fails to unblock Metal buffers. Waits up to 30s for Ollama
+    to return healthy before returning.
+
+    Returns True if Ollama is healthy after restart, False on timeout.
+    """
+    import subprocess
+
+    print("  [drain] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
+    try:
+        subprocess.run(["brew", "services", "restart", "ollama"],
+                       timeout=30, check=False, capture_output=True)
+    except Exception:
+        try:
+            subprocess.run(["pkill", "-f", "ollama serve"],
+                           timeout=5, check=False, capture_output=True)
+            time.sleep(3)
+            subprocess.Popen(["ollama", "serve"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            print(f"  [drain] Ollama restart failed: {e}", flush=True)
+            return False
+    # Wait for Ollama to come back healthy
+    deadline = time.time() + 30.0
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=3)
+            if r.status_code == 200:
+                print("  [drain] Ollama back healthy after restart", flush=True)
+                return True
+        except Exception:
+            pass
+        time.sleep(2.0)
+    print("  [drain] Ollama did not recover within 30s", flush=True)
+    return False
+
+
 def _wait_for_drain(
     threshold_pct: float = MEMORY_CRITICAL_PCT,
-    timeout_s: float = 90.0,
+    timeout_s: float = 30.0,
     poll_s: float = 2.0,
     label: str = "",
+    retries: int = 2,
 ) -> bool:
-    """Wait for memory to drop below threshold_pct after model eviction.
+    """Wait for Metal GPU buffers to drain below threshold_pct after model eviction.
 
-    Polls vm_stat every poll_s seconds and breaks as soon as
-    memory < threshold_pct. Does not use blind fixed sleeps —
-    exits immediately when the condition is met. Hard timeout is the only timer.
+    Polling exits immediately when the condition is met (event-driven in spirit;
+    macOS does not expose Metal drain as a subscribable callback from Python).
 
-    Returns True if memory cleared within timeout_s, False on timeout.
+    Recovery strategy on timeout (escalating, up to `retries` rounds):
+      Round 1 timeout → run `purge` (macOS memory compaction, no process kills)
+      Round 2 timeout → restart Ollama (clears all Metal contexts; nuclear)
+      Round 3+ timeout → give up, return False
+
+    Callers that receive False should BLOCK the test rather than proceeding
+    into a known-bad memory state — proceeding causes routing fallback and
+    confusing assertion failures that mask the real cause.
+
+    Returns True if memory cleared, False if all retries exhausted.
     """
-    deadline = time.time() + timeout_s
     prefix = f"  [drain{' ' + label if label else ''}]"
-    while time.time() < deadline:
-        used_pct = _get_memory_pct()
-        if used_pct < threshold_pct:
-            print(f"{prefix} Clear at {used_pct:.0f}% — safe to proceed", flush=True)
-            return True
-        remaining = int(deadline - time.time())
-        print(f"{prefix} {used_pct:.0f}% ({remaining}s left)", flush=True)
-        time.sleep(poll_s)
+    for attempt in range(retries + 1):
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            used_pct = _get_memory_pct()
+            if used_pct < threshold_pct:
+                print(f"{prefix} Clear at {used_pct:.0f}% — safe to proceed", flush=True)
+                return True
+            remaining = int(deadline - time.time())
+            print(f"{prefix} {used_pct:.0f}% (attempt {attempt + 1}/{retries + 1}, {remaining}s left)",
+                  flush=True)
+            time.sleep(poll_s)
+        # Timeout — take active recovery action before next attempt
+        if attempt == 0:
+            print(f"{prefix} Timeout at attempt 1 — running purge to unblock Metal", flush=True)
+            _purge_memory()
+        elif attempt == 1:
+            print(f"{prefix} Timeout at attempt 2 — restarting Ollama to clear Metal contexts",
+                  flush=True)
+            _restart_ollama()
+        # else: all retries exhausted, fall through to return False
+    used_pct = _get_memory_pct()
+    print(f"{prefix} DRAIN FAILED — {used_pct:.0f}% after all retries", flush=True)
     return False
 
 
@@ -4265,10 +4346,15 @@ async def main() -> None:
                             _wait_for_ollama_ps_empty(timeout_s=15.0)
                         except Exception:
                             break
-                    # Post-eviction memory verification — wait until memory is
-                    # actually freed before running memory-intensive media tests
-                    if not _wait_for_drain(threshold_pct=75.0, timeout_s=90.0, label="tier-transition"):
-                        print("  [mem] WARNING: Memory still high after 90s drain — may risk OOM", flush=True)
+                    # Post-eviction: wait for Metal drain with retry+recovery before
+                    # moving to next tier. Warn but don't block — tier transitions
+                    # are between sections, not individual tests; a single BLOCKED
+                    # row per test is already the guard if drain fails there.
+                    if not _wait_for_drain(threshold_pct=75.0, label="tier-transition",
+                                           timeout_s=30.0, retries=2):
+                        used_pct = _get_memory_pct()
+                        print(f"  [mem] WARNING: Metal still at {used_pct:.0f}% after all recovery — "
+                              "individual force_unload_before gates will catch affected tests", flush=True)
 
                 _last_tier = tier
 
@@ -4279,17 +4365,34 @@ async def main() -> None:
                 if tier == "ollama":
                     _pipeline_pre_warm(ws_id)
 
-            # Force-unload before heavy media tests (TTS, music, video, image)
-            # that load large frameworks and risk OOM when run consecutively
+            # Force-unload before heavy tests that need clean Metal state.
+            # Drain must succeed before the test fires — if all recovery actions
+            # (purge → Ollama restart) are exhausted, block the test as MEM rather
+            # than proceeding into a known-bad memory state that produces confusing
+            # routing-fallback failures.
             if test.get("force_unload_before"):
-                print(f"  [mem] Force-unloading before {test['id']} (heavy media test)")
+                print(f"  [mem] Force-unloading before {test['id']}")
                 unload_all_models()
                 _wait_for_ollama_ps_empty(timeout_s=15.0)
-                # Wait for macOS Metal buffers to drain after Ollama eviction.
-                # Ollama /api/ps becoming empty doesn't mean GPU memory is reclaimed —
-                # Metal holds buffers for 30-60s. Without this wait, the next model
-                # load hits memory pressure and the pipeline routes to a fallback.
-                _wait_for_drain(threshold_pct=75.0, timeout_s=90.0, label="force-unload")
+                drain_ok = _wait_for_drain(threshold_pct=75.0, label="force-unload",
+                                           timeout_s=30.0, retries=2)
+                if not drain_ok:
+                    used_pct = _get_memory_pct()
+                    drain_msg = f"Metal drain failed ({used_pct:.0f}% wired after purge+restart)"
+                    print(f"  [mem] BLOCKED: {test['id']} — {drain_msg}", flush=True)
+                    counts["BLOCKED"] = counts.get("BLOCKED", 0) + 1
+                    record_result(
+                        i,
+                        "BLOCKED",
+                        test["id"],
+                        test["name"],
+                        test.get("model_slug", "auto"),
+                        [("metal_drain", False, drain_msg)],
+                        0.0,
+                        "",
+                    )
+                    update_summary(counts)
+                    continue
 
             # ComfyUI lifecycle: only keep ComfyUI running during tests that
             # actually need it. Stop it before non-ComfyUI tests to reclaim GPU
