@@ -59,9 +59,57 @@ except Exception as e:
     logger.warning("VLAI model pre-warm failed (will retry on first call): %s", e)
 
 
+TOOLS_MANIFEST = [
+    {
+        "name": "classify_vulnerability",
+        "description": (
+            "Classify a vulnerability description into severity level "
+            "(low/medium/high/critical) using CIRCL's VLAI RoBERTa model. "
+            "Returns severity label, confidence score, and all class probabilities."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "CVE or vulnerability description text (1-3 sentences).",
+                }
+            },
+            "required": ["description"],
+        },
+    }
+]
+
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     return JSONResponse({"status": "ok", "service": "security-mcp", "port": _port})
+
+
+@mcp.custom_route("/tools", methods=["GET"])
+async def list_tools(request):
+    return JSONResponse({"tools": TOOLS_MANIFEST})
+
+
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request):
+    """REST dispatch endpoint used by portal-pipeline tool_registry."""
+    tool_name = request.path_params.get("tool_name", "")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    arguments = body.get("arguments", body)
+    if tool_name == "classify_vulnerability":
+        try:
+            result = classify_vulnerability(**arguments)
+            return JSONResponse(result)
+        except TypeError as e:
+            return JSONResponse({"error": f"Invalid arguments: {e}"}, status_code=400)
+        except Exception as e:
+            logger.error("classify_vulnerability failed: %s", e, exc_info=True)
+            return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
 
 @mcp.tool()
