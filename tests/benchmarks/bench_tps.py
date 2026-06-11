@@ -100,6 +100,7 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
         "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — security CoT; 0 tokens without enable_thinking=False
         "bench-r1-0528-qwen3-8b",  # DeepSeek-R1-0528-Qwen3-8B — chain-of-thought
         "bench-r1-0528-abliterated",  # R1-0528 abliterated — same architecture
+        "bench-olmo3-32b",  # OLMo-3.1-32B-Think — emits <think> blocks
         "auto-mistral",
         "auto-reasoning",
         "auto-math",  # phi4-mini-reasoning production workspace
@@ -146,6 +147,7 @@ _REASONING_MODEL_PATTERNS = (
     "Qwen3.6",
     "AEON",
     "Foundation-Sec",  # always emits <think>; enable_thinking=False suppresses CoT overhead
+    "olmo-3.1",  # OLMo-3.1-32B-Think — Allen AI thinking model
 )
 
 # Models that use /nothink in the user message to suppress thinking chain.
