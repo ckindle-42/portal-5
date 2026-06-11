@@ -4285,6 +4285,11 @@ async def main() -> None:
                 print(f"  [mem] Force-unloading before {test['id']} (heavy media test)")
                 unload_all_models()
                 _wait_for_ollama_ps_empty(timeout_s=15.0)
+                # Wait for macOS Metal buffers to drain after Ollama eviction.
+                # Ollama /api/ps becoming empty doesn't mean GPU memory is reclaimed —
+                # Metal holds buffers for 30-60s. Without this wait, the next model
+                # load hits memory pressure and the pipeline routes to a fallback.
+                _wait_for_drain(threshold_pct=75.0, timeout_s=90.0, label="force-unload")
 
             # ComfyUI lifecycle: only keep ComfyUI running during tests that
             # actually need it. Stop it before non-ComfyUI tests to reclaim GPU

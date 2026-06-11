@@ -836,6 +836,30 @@ async def _wait_for_docker_recovery(timeout: int = 600) -> tuple[bool, int]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+async def _wait_metal_drain_async(timeout_s: float = 90.0, poll_s: float = 3.0) -> float:
+    """Poll vm_stat until free RAM stabilises after Ollama eviction.
+
+    macOS Metal GPU buffers are released asynchronously after Ollama reports
+    a model as evicted — blind sleeps race this release window. This function
+    polls until free_gb stops increasing for two consecutive checks or the
+    timeout fires, then returns the final free_gb reading.
+    """
+    deadline = time.time() + timeout_s
+    prev = _free_ram_gb()
+    stable_count = 0
+    while time.time() < deadline:
+        await asyncio.sleep(poll_s)
+        cur = _free_ram_gb()
+        if cur > prev + 0.5:
+            stable_count = 0  # still rising — Metal still draining
+        else:
+            stable_count += 1
+            if stable_count >= 2:
+                return cur  # stable for two polls — drain complete
+        prev = cur
+    return _free_ram_gb()
+
+
 async def _unload_ollama_models() -> None:
     """Evict all Ollama models from memory."""
     try:
@@ -899,9 +923,8 @@ async def _ensure_free_ram_gb(needed_gb: float, phase: str) -> float:
         return free
     print("  ── Insufficient RAM — running eviction ──")
     await _unload_ollama_models()
-    # Apple Silicon unified memory takes time to reclaim pages — wait 20s
-    await asyncio.sleep(20)
-    free = _free_ram_gb()
+    # Poll until Metal GPU buffers drain rather than using a blind fixed sleep.
+    free = await _wait_metal_drain_async(timeout_s=90.0)
     print(f"  ── RAM after eviction: {free:.1f} GB free ──")
     if free < needed_gb:
         print(f"  ⚠️  Still low on RAM ({free:.1f}GB < {needed_gb}GB needed) — stopping ComfyUI")
@@ -919,9 +942,8 @@ async def _memory_cleanup(phase: str) -> None:
     import gc
 
     gc.collect()
-    # Apple Silicon: 20s for unified memory pages to be reclaimed
-    await asyncio.sleep(20)
-    free = _free_ram_gb()
+    # Poll until Metal GPU buffers drain rather than using a blind fixed sleep.
+    free = await _wait_metal_drain_async(timeout_s=90.0)
     print(f"  ══ CLEANUP COMPLETE — {free:.1f} GB free ══\n")
 
 
