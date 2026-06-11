@@ -222,92 +222,10 @@ def _check_image_freshness() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _get_memory_pct() -> float:
-    """Get current memory used % from system vm_stat."""
-    try:
-        import subprocess
-
-        result = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5)
-        lines = result.stdout.strip().split("\n")
-        page_size = 16384  # Apple Silicon
-        free = active = inactive = speculative = wired = 0
-        for line in lines:
-            if "Pages free:" in line:
-                free = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages active:" in line:
-                active = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages inactive:" in line:
-                inactive = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages speculative:" in line:
-                speculative = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages wired down:" in line:
-                wired = int(line.split(":")[1].strip().rstrip("."))
-        total = free + active + inactive + speculative + wired
-        if total > 0:
-            used = active + wired
-            return round(used / total * 100, 1)
-    except Exception:
-        pass
-    return 0.0
-
-
-def _purge_memory() -> None:
-    """Run macOS `purge` to force inactive-page compaction and unblock Metal buffers.
-
-    `purge` is a built-in macOS tool that pressures the VM subsystem into
-    reclaiming inactive pages. This often unblocks Metal GPU buffers that have
-    stopped draining on their own — analogous to the trigger actions needed when
-    MLX servers got stuck holding Metal contexts after a crash.
-
-    Does NOT kill any process. Safe to call between Ollama model loads.
-    """
-    import subprocess
-
-    try:
-        subprocess.run(["purge"], timeout=15, check=False, capture_output=True)
-        print("  [drain] purge completed", flush=True)
-    except Exception as e:
-        print(f"  [drain] purge failed (non-fatal): {e}", flush=True)
-
-
-def _restart_ollama() -> bool:
-    """Restart the Ollama server to fully release stuck Metal GPU contexts.
-
-    Nuclear recovery action: kills and restarts Ollama. Used only when
-    `purge` fails to unblock Metal buffers. Waits up to 30s for Ollama
-    to return healthy before returning.
-
-    Returns True if Ollama is healthy after restart, False on timeout.
-    """
-    import subprocess
-
-    print("  [drain] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
-    try:
-        subprocess.run(["brew", "services", "restart", "ollama"],
-                       timeout=30, check=False, capture_output=True)
-    except Exception:
-        try:
-            subprocess.run(["pkill", "-f", "ollama serve"],
-                           timeout=5, check=False, capture_output=True)
-            time.sleep(3)
-            subprocess.Popen(["ollama", "serve"],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
-            print(f"  [drain] Ollama restart failed: {e}", flush=True)
-            return False
-    # Wait for Ollama to come back healthy
-    deadline = time.time() + 30.0
-    while time.time() < deadline:
-        try:
-            r = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=3)
-            if r.status_code == 200:
-                print("  [drain] Ollama back healthy after restart", flush=True)
-                return True
-        except Exception:
-            pass
-        time.sleep(2.0)
-    print("  [drain] Ollama did not recover within 30s", flush=True)
-    return False
+from tests.memory_guard import (
+    memory_pct as _get_memory_pct,
+    wait_for_drain as _wait_for_drain_impl,
+)
 
 
 def _wait_for_drain(
@@ -317,46 +235,15 @@ def _wait_for_drain(
     label: str = "",
     retries: int = 2,
 ) -> bool:
-    """Wait for Metal GPU buffers to drain below threshold_pct after model eviction.
-
-    Polling exits immediately when the condition is met (event-driven in spirit;
-    macOS does not expose Metal drain as a subscribable callback from Python).
-
-    Recovery strategy on timeout (escalating, up to `retries` rounds):
-      Round 1 timeout → run `purge` (macOS memory compaction, no process kills)
-      Round 2 timeout → restart Ollama (clears all Metal contexts; nuclear)
-      Round 3+ timeout → give up, return False
-
-    Callers that receive False should BLOCK the test rather than proceeding
-    into a known-bad memory state — proceeding causes routing fallback and
-    confusing assertion failures that mask the real cause.
-
-    Returns True if memory cleared, False if all retries exhausted.
-    """
-    prefix = f"  [drain{' ' + label if label else ''}]"
-    for attempt in range(retries + 1):
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
-            used_pct = _get_memory_pct()
-            if used_pct < threshold_pct:
-                print(f"{prefix} Clear at {used_pct:.0f}% — safe to proceed", flush=True)
-                return True
-            remaining = int(deadline - time.time())
-            print(f"{prefix} {used_pct:.0f}% (attempt {attempt + 1}/{retries + 1}, {remaining}s left)",
-                  flush=True)
-            time.sleep(poll_s)
-        # Timeout — take active recovery action before next attempt
-        if attempt == 0:
-            print(f"{prefix} Timeout at attempt 1 — running purge to unblock Metal", flush=True)
-            _purge_memory()
-        elif attempt == 1:
-            print(f"{prefix} Timeout at attempt 2 — restarting Ollama to clear Metal contexts",
-                  flush=True)
-            _restart_ollama()
-        # else: all retries exhausted, fall through to return False
-    used_pct = _get_memory_pct()
-    print(f"{prefix} DRAIN FAILED — {used_pct:.0f}% after all retries", flush=True)
-    return False
+    """Wait for Metal GPU buffers to drain. See tests/memory_guard.py for full docs."""
+    return _wait_for_drain_impl(
+        threshold_pct=threshold_pct,
+        timeout_s=timeout_s,
+        poll_s=poll_s,
+        retries=retries,
+        label=label,
+        ollama_url=OLLAMA_URL,
+    )
 
 
 def _check_memory_before_test(test_name: str = "") -> bool:

@@ -559,104 +559,27 @@ def _wait_ollama_idle(timeout_s: float = 60.0) -> bool:
     return False
 
 
+from tests.memory_guard import memory_pct as _memory_pct_mg
+from tests.memory_guard import wait_for_drain as _wait_for_drain_mg
+
+
 def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
-    """Check if system memory pressure is too high via vm_stat.
-
-    Returns (safe, used_pct). If used_pct > threshold_pct, safe=False.
-    """
-    try:
-        out = subprocess.check_output(["vm_stat"], text=True, timeout=5)
-        free = active = inactive = speculative = wired = 0
-        for line in out.splitlines():
-            if "Pages free:" in line:
-                free = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages active:" in line:
-                active = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages inactive:" in line:
-                inactive = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages speculative:" in line:
-                speculative = int(line.split(":")[1].strip().rstrip("."))
-            elif "Pages wired down:" in line:
-                wired = int(line.split(":")[1].strip().rstrip("."))
-        total = free + active + inactive + speculative + wired
-        if total > 0:
-            used_pct = round((active + wired + speculative) / total * 100, 1)
-            return used_pct < threshold_pct, used_pct
-    except Exception:
-        pass
-    return False, 99.0
-
-
-def _purge_memory() -> None:
-    """Run macOS `purge` to force inactive-page compaction and unblock Metal buffers."""
-    try:
-        subprocess.run(["purge"], timeout=15, check=False, capture_output=True)
-        print("  [metal] purge completed", flush=True)
-    except Exception as e:
-        print(f"  [metal] purge failed (non-fatal): {e}", flush=True)
-
-
-def _restart_ollama_server() -> bool:
-    """Restart Ollama to clear stuck Metal GPU contexts. Returns True if healthy after restart."""
-    print("  [metal] Restarting Ollama to clear stuck Metal contexts ...", flush=True)
-    try:
-        subprocess.run(["brew", "services", "restart", "ollama"],
-                       timeout=30, check=False, capture_output=True)
-    except Exception:
-        try:
-            subprocess.run(["pkill", "-f", "ollama serve"],
-                           timeout=5, check=False, capture_output=True)
-            time.sleep(3)
-            subprocess.Popen(["ollama", "serve"],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
-            print(f"  [metal] Ollama restart failed: {e}", flush=True)
-            return False
-    deadline = time.time() + 30.0
-    while time.time() < deadline:
-        try:
-            r = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=3)
-            if r.status_code == 200:
-                print("  [metal] Ollama back healthy after restart", flush=True)
-                return True
-        except Exception:
-            pass
-        time.sleep(2.0)
-    return False
+    """Check current memory pressure. Returns (safe, used_pct)."""
+    used = _memory_pct_mg()
+    return used < threshold_pct, used
 
 
 def _wait_metal_drain(threshold_pct: float = 80.0, timeout_s: float = 30.0,
                       retries: int = 2) -> bool:
-    """Poll vm_stat until wired memory drops below threshold_pct.
-
-    Escalating recovery on timeout:
-      Round 1 timeout → run purge (memory compaction, no process kills)
-      Round 2 timeout → restart Ollama (clears all Metal contexts)
-      Round 3+ timeout → return False (caller should skip next model)
-
-    Returns True if drain succeeded, False if all retries exhausted.
-    """
-    for attempt in range(retries + 1):
-        deadline = time.time() + timeout_s
-        while time.time() < deadline:
-            safe, used_pct = _check_memory_pressure(threshold_pct)
-            if safe:
-                print(f"  [metal] Clear at {used_pct:.0f}% — safe to load next model", flush=True)
-                return True
-            remaining = int(deadline - time.time())
-            print(f"  [metal] {used_pct:.0f}% (attempt {attempt + 1}/{retries + 1}, {remaining}s left)",
-                  flush=True)
-            time.sleep(5.0)
-        if attempt == 0:
-            print(f"  [metal] Timeout — running purge to unblock Metal", flush=True)
-            _purge_memory()
-        elif attempt == 1:
-            print(f"  [metal] Timeout — restarting Ollama to clear Metal contexts", flush=True)
-            _restart_ollama_server()
-    _, used_pct = _check_memory_pressure(threshold_pct)
-    print(f"  [metal] DRAIN FAILED — {used_pct:.0f}% after all retries — skipping next model",
-          flush=True)
-    return False
+    """Wait for Metal drain with retry+recovery. See tests/memory_guard.py."""
+    return _wait_for_drain_mg(
+        threshold_pct=threshold_pct,
+        timeout_s=timeout_s,
+        poll_s=5.0,
+        retries=retries,
+        label="bench",
+        ollama_url=OLLAMA_URL,
+    )
 
 
 def _cleanup_all_backends() -> None:
