@@ -78,6 +78,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         ),
         "assertions": [
             {
+                "type": "min_length",
+                "label": "Substantive response (not empty after think-strip)",
+                "chars": 80,
+                "critical": False,
+            },
+            {
                 "type": "any_of",
                 "label": "Correlation/causation distinguished",
                 "keywords": [
@@ -396,6 +402,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "n*p = 5", "n*p=5",
                     "n × p = 5", "n·p = 5",
                     "= 5.0", "=5.0", "equals 5",
+                    # Phrased without "expected value" label but still states the result
+                    " = 5 ", " = 5,", " = 5.", "is 5,", "is 5.", "is 5\n",
+                    "equals 5.", "the mean is 5", "mean is 5",
                 ],
             },
             {

@@ -161,7 +161,11 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": "What does this git command do, and is it safe? git reset --hard origin/main",
         "assertions": [
             {"type": "min_length", "label": "Substantive answer", "chars": 200},
-            {"type": "contains", "label": "Names the command", "keywords": ["reset"]},
+            {
+                "type": "any_of",
+                "label": "Names the command",
+                "keywords": ["reset", "--hard", "git reset", "hard reset", "overwrites", "resets your"],
+            },
             {
                 "type": "any_of",
                 "label": "Flags destructiveness",

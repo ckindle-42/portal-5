@@ -19,6 +19,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "skip_if": "no_audio_fixture",
         "force_unload_before": True,
         "fixture": "sample.wav",
+        "pre_stage_audio": True,
         "prompt": (
             "I'm uploading an audio file. Please transcribe it using the "
             "Whisper tool and return the text exactly as spoken."
@@ -38,7 +39,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Transcript matches fixture content",
-                "keywords": ["portal", "five", "acceptance", "quick", "brown", "fox"],
+                # Audio: "The quick brown fox jumps over the lazy dog at the portal acceptance test."
+                "keywords": ["portal", "acceptance", "quick", "brown", "fox", "lazy dog"],
             },
         ],
     },]

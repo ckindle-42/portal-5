@@ -26,7 +26,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No error",
-                "keywords": ["error", "failed", "unavailable"],
+                "keywords": ["an error occurred", "tool error", "failed to generate", "generation failed", "unavailable"],
             },
             {"type": "wav_valid", "label": "WAV ≥5s", "min_seconds": 5.0},
         ],

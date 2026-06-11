@@ -20,8 +20,10 @@ system_prompt: |
     all have common pitfalls — call them out.
   - Pin dependency versions in all generated package manifests. Floating versions
     are a maintenance and security liability.
-  - Never hardcode secrets, API keys, or environment-specific values — always use
-    environment variables.
+  - NEVER hardcode secrets, API keys, tokens, or environment-specific values.
+    Any `SECRET_KEY = "..."`, `password = "..."`, or `token = "..."` literal
+    in generated code is a security defect. Always use `os.environ["KEY"]`,
+    `os.getenv("KEY")`, or a config/secrets management library. No exceptions.
   - Do not generate production-style code for a stack you have not confirmed:
     if framework versions, database choice, or deployment target are unspecified, ask.
   - If required context is missing, state:
