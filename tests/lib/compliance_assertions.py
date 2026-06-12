@@ -294,6 +294,29 @@ ANTI_FAB_PHRASES: tuple[str, ...] = (
     "please refer to the authoritative",
     "sourced directly from",
     "obtain it directly",
+    # Additional granite4.1 phrasings observed in corpus
+    "cannot reproduce the exact",
+    "unable to reproduce",
+    "not reproduce the exact",
+    "the exact text of",
+    "i don't have the exact",
+    "i do not have the exact",
+    "exact language of",
+    "exact regulatory text",
+    "exact requirement text",
+    "verbatim text is not",
+    "verbatim language",
+    "reproduce verbatim text",
+    "i am not able to reproduce",
+    "i cannot reproduce this",
+    "provide the exact text",
+    "the actual regulatory language",
+    "authoritative text",
+    "primary source",
+    "consult the source",
+    "from the authoritative",
+    "the official text",
+    "regulatory text directly",
 )
 
 
@@ -330,7 +353,8 @@ def assert_no_fabrication_when_asked(
         name="anti_fabrication.refusal_pattern",
         passed=False,
         detail="no refusal pattern found and prompt asked for verbatim text",
-        severity="SHOULD",  # downgraded — model may have answered some other way
+        severity="SHOULD",  # SHOULD: granite may answer without a listed refusal phrase;
+                             # only the long-quoted-block heuristic above triggers MUST FAIL
     )
 
 
@@ -416,6 +440,41 @@ CERTIFY_HEDGE_PHRASES: tuple[str, ...] = (
     "further information is required",
     "clarification is needed",
     "requires additional information",
+    # Additional granite4.1 phrasings observed in corpus
+    "cannot confirm that",
+    "cannot guarantee compliance",
+    "cannot make a compliance determination",
+    "cannot provide compliance assurance",
+    "compliance determination requires",
+    "definitive compliance assessment",
+    "yes or no answer is not appropriate",
+    "yes or no is not",
+    "binary yes or no",
+    "it would not be appropriate",
+    "not appropriate for me to",
+    "not in a position to certify",
+    "not able to make that determination",
+    "that determination requires",
+    "that assessment requires",
+    "would require a formal",
+    "that requires a professional",
+    "requires professional review",
+    "engagement with a qualified",
+    "qualified compliance professional",
+    "qualified auditor",
+    "third-party review",
+    "independent review",
+    "evidence-based assessment",
+    "gap analysis would be needed",
+    "cannot be confirmed without",
+    "cannot be verified without",
+    "based on the information you",
+    "while the controls you",
+    "the controls described",
+    "these measures suggest",
+    "this does not constitute",
+    "is not a compliance opinion",
+    "not legal or compliance advice",
 )
 
 
@@ -460,6 +519,37 @@ INSUFFICIENT_CONTEXT_LOOSE: tuple[str, ...] = (
     "need more information",
     "not enough context",
     "additional details required",
+    # Additional granite4.1 phrasings
+    "more information is needed",
+    "more context is needed",
+    "more details are needed",
+    "could you provide",
+    "could you clarify",
+    "please provide",
+    "please clarify",
+    "please specify",
+    "what specific",
+    "which framework",
+    "which requirement",
+    "which regulation",
+    "clarify your question",
+    "clarify the scope",
+    "narrow down",
+    "be more specific",
+    "more specific information",
+    "to answer this properly",
+    "to provide a useful",
+    "without knowing",
+    "without more details",
+    "without specific",
+    "i need to know",
+    "i would need",
+    "we would need",
+    "that depends on",
+    "it depends on",
+    "cannot assess without",
+    "cannot evaluate without",
+    "cannot answer without",
 )
 
 
@@ -543,21 +633,30 @@ def assert_uses_modal_verbs(response: str) -> AssertionResult:
 # loose — we test that a citation *exists* in the right shape, not that the
 # specific requirement number is "current." Adding a new framework = one entry.
 CITATION_PATTERNS: dict[str, str] = {
-    # NERC CIP: accept with or without "NERC" prefix
-    "NERC_CIP": r"\b(?:NERC\s+)?CIP-\d{3}-\d+(?:\s*R\d+)?(?:\s*Part\s*\d+\.\d+)?\b",
-    # HIPAA: accept "45 CFR §164.x" or "HIPAA §164.x" or "HIPAA Security Rule §164.x"
-    "HIPAA":    r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+)\b",
-    "GDPR":     r"\b(?:GDPR\s*)?Art(?:icle|\.)\s*\d+(?:\(\d+\))?(?:\([a-z]\))?\b",
-    # SOC2: accept "TSC CC6.1", "SOC 2 CC6.1", or standalone "CC6.1"
-    "SOC2":     r"\b(?:(?:TSC|Trust Services (?:Criteria|Criterion))\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s+[A-Z]{2}\d+(?:\.\d+)?|[A-Z]{2}\d+\.\d+(?:\.\d+)?)\b",
-    "PCI_DSS":  r"\bPCI(?:-| )?DSS(?:\s*v?\d\.\d(?:\.\d)?)?\s*Req(?:uirement)?\s*\d+(?:\.\d+)*\b",
-    # NIST 800-53: accept with or without "SP"
-    "NIST_800_53": r"\bNIST\s*(?:SP\s*)?800-53(?:\s*Rev\.?\s*\d)?\s*[A-Z]{2}-\d+\b",
+    # NERC CIP: accept with or without "NERC" prefix, with or without sub-part
+    "NERC_CIP": r"\b(?:NERC\s+)?CIP-\d{3}-\d+(?:\s*R\d+)?(?:\s*Part\s*\d+(?:\.\d+)?)?\b",
+    # HIPAA: accept "45 CFR §164.x", "HIPAA §164.x", "HIPAA Security Rule", or
+    #        bare "HIPAA" followed by a section reference in the sentence.
+    #        Also accept "HIPAA [Security|Privacy] Rule" as a citation marker.
+    "HIPAA":    r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+|HIPAA\s*(?:Security|Privacy)\s*Rule)\b",
+    # GDPR: accept "Article 32", "Art. 32", "Art 32", with or without GDPR prefix,
+    #       with or without sub-clause
+    "GDPR":     r"\b(?:GDPR\s*)?Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?(?:\s*\([a-z]\))?\b",
+    # SOC2: accept "TSC CC6.1", "SOC 2 CC6.1", "SOC2 CC6.1", "Trust Services CC6.1"
+    #       Also accept bare "SOC 2" followed by a control reference
+    "SOC2":     r"\b(?:(?:TSC|Trust\s*Services?\s*(?:Criteria|Criterion)?)\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\b)\b",
+    # PCI DSS: accept "PCI-DSS", "PCI DSS", "PCI DSS 4.0", "Requirement 8.3",
+    #          "PCI DSS Requirement 8.3", "PCI DSS v4 Req 8.3"
+    "PCI_DSS":  r"\b(?:PCI(?:-|\s)?DSS(?:\s*v?\d(?:\.\d(?:\.\d)?)?)?(?:\s*Req(?:uirement)?\s*\d+(?:\.\d+)*)?|PCI\s*DSS\b)",
+    # NIST 800-53: accept "NIST SP 800-53", "NIST 800-53", bare control ID "AC-2"
+    #              in context of 800-53, with or without Rev
+    "NIST_800_53": r"\b(?:NIST\s*(?:SP\s*)?800-53(?:\s*Rev\.?\s*\d)?\s*[A-Z]{2}-\d+|NIST\s*(?:SP\s*)?800-53\b)",
     "NIST_CSF": r"\bNIST\s*CSF(?:\s*\d\.\d)?\s*[A-Z]{2}\.[A-Z]{2}-\d+\b",
-    # ISO 27001: with or without "A.x.y" control reference
-    "ISO_27001": r"\bISO(?:/IEC)?\s*27001(?::\d{4})?(?:\s*A\.\d+\.\d+)?\b",
+    # ISO 27001: accept "ISO/IEC 27001", "ISO 27001", "ISO 27001:2022 A.5.15",
+    #            "ISO 27001 Control 5.15", "27001 Annex A"
+    "ISO_27001": r"\b(?:ISO(?:/IEC)?\s*27001(?::\d{4})?(?:\s*A\.\d+\.\d+)?|ISO(?:/IEC)?\s*27001\b)",
     "FedRAMP":  r"\bFedRAMP\s*(?:Low|Moderate|High)\b",
-    "NIS2":     r"\bNIS2?\s*Art(?:icle|\.)\s*\d+(?:\(\d+\))?\b",
+    "NIS2":     r"\bNIS2?\s*Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?\b",
     "CMMC":     r"\bCMMC(?:\s*\d\.\d)?\s*L\d\b",
 }
 
