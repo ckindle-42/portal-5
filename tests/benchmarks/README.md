@@ -36,7 +36,7 @@ primary-capability prompt:
   `bench-granite41-8b`, `bench-granite41-30b`, `bench-starcoder2`,
   `bench-omnicoder2`, `bench-toolace25`, `bench-nex-n2-mini` → coding
 - `bench-phi4`, `bench-phi4-reasoning`, `bench-gptoss`, `bench-laguna`,
-  `bench-apriel-nemotron`, `bench-mistral-small32`, `bench-r1-0528-qwen3-8b`,
+  `bench-mistral-small32`, `bench-r1-0528-qwen3-8b`,
   `bench-r1-0528-abliterated`, `bench-negentropy`, `bench-foundation-sec`,
   `bench-olmo3-32b` → reasoning
 - `bench-phi4-mini-reasoning` → reasoning *(+ extra math pass)*

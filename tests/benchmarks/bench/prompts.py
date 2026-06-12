@@ -145,7 +145,6 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
     "auto-phi4": "reasoning",  # phi4-reasoning:plus — STEM/chain-of-thought specialist
     # ── V7-final catalog refresh (TASK_MODEL_REFRESH_V7) ─────────────────
-    # bench-apriel-nemotron removed 2026-06-11 (OOM crash, not viable on 64GB M4 Pro)
     # Unsloth Dynamic 2.0 Qwen3.6 pair — quant-method probe vs stock 4-bit
     "bench-qwen36-27b-ud": "coding",
     "bench-qwen36-35b-a3b-ud": "coding",

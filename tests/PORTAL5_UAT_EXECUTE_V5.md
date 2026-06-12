@@ -193,8 +193,7 @@ python3 tests/portal5_uat_driver.py --append --section challenge
 # Then emit the shootout matrix (the deliverable — no verdict):
 python3 tests/scripts/cc_challenge_matrix.py
 # Expect long wall time: sub-8-TPS lanes run with timeout 1500 /
-# max_wait_no_progress 1800. CC-01-apriel-nemotron is a known-risk lane
-# (0/5 in the V8 direct bench) — a FAIL there is signal, not noise.
+# max_wait_no_progress 1800.
 ```
 
 ---

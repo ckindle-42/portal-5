@@ -388,8 +388,6 @@ TESTS: list[dict] = [    # -----------------------------------------------------
     },
     # CC-01-harness1, CC-01-nex-n2-mini removed 2026-06-11: consistently WARN (5/10) —
     # both fail to deliver a fenced HTML block; incapable of full game generation.
-    # CC-01-apriel-nemotron removed 2026-06-11: HTTP 500 OOM crash on every bench run;
-    # not viable on 64GB M4 Pro. Entire bench-apriel-nemotron workspace also removed.
     # ── V8 uncensored candidates (conditional — Phase 0 prunes if not pulled) ──
     {
         "id": "CC-01-r1-0528-abliterated",

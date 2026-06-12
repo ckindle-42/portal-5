@@ -324,7 +324,7 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 73 (21 production + 1 tools-specialist + 51 bench-* after Apriel-Nemotron removal)."""
+        """Total workspace count is 73 (21 production + 1 tools-specialist + 51 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 73, (
@@ -729,7 +729,7 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 73 (21 production + 1 tools-specialist + 51 bench-* after Apriel-Nemotron removal)."""
+        """Total workspace count must be 73 (21 production + 1 tools-specialist + 51 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
         assert len(WORKSPACES) == 73, (

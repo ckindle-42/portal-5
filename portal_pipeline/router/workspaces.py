@@ -482,7 +482,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-laguna": {
         "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
         "description": "Benchmark: Laguna-XS.2 (GGUF, Ollama, Poolside AI, 33B-A3B MoE, 68.2% SWE-bench Verified, interleaved reasoning)",
-        "model_hint": "laguna-xs.2:q4_K_M",
+        "model_hint": "laguna-xs.2:Q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
