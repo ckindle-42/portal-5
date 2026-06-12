@@ -35,6 +35,10 @@ Both pulls completed cleanly. The Qwopus Coder-MTP GGUF repo is properly llama.c
 
 **Smoke stream note:** Both models emit CoT reasoning traces in the `reasoning` delta field rather than `content` deltas on simple prompts. This is expected behavior for CoT-trained models. The streaming gate (HTTP 200, SSE chunk delivery, [DONE] termination, no error envelopes) passes for both. The `smoke_stream.sh` content-delta requirement is not applicable to reasoning-emitting models.
 
+**Content-only TPS (512 max_tokens, excluding reasoning):** The standard 256-token bench cap was consuming 60-70% of budget on reasoning traces before any content appeared. Re-tested with 512 max_tokens on a coding problem:
+- Gemma4-12B-Coder: 16.7s total, ~172 reasoning tokens, ~72 content tokens → real content TPS ~15 t/s
+- Qwopus3.6-27B-Coder-MTP: 53.6s total, ~430 reasoning tokens, ~65 content tokens → real content TPS ~6 t/s
+
 ### Comparable fleet models (for context)
 
 | Model | Avg TPS (V8) | SWE-bench | Size |
@@ -49,17 +53,16 @@ Both pulls completed cleanly. The Qwopus Coder-MTP GGUF repo is properly llama.c
 > **PROMOTE_POLICY: confirm-only. No action taken here. Operator decides.**
 
 ### bench-gemma4-12b-coder
-- TPS result: 15.7 direct / 13.6 pipeline
-- Code quality impression: [fill after eval]
-- Note: Below the 20 t/s preference, but quality/intent outweighs speed. 12B dense coding specialist with verifiable-Python-CoT training lineage (Composer 2.5 + Fable 5 traces). Distinct training methodology vs all fleet models. 131K ctx. CoT reasoning traces embedded in responses.
+- TPS result: 15.7 direct / 13.6 pipeline (bench cap); ~15 t/s content-only (512-token coding test)
+- Code quality impression: Clean, idiomatic Python. Produces correct palindrome function with proper filtering and example. Reasoning is structured planning (numbered steps). Much less verbose than Qwopus.
+- Note: The 256-token bench cap consumed budget on reasoning before content arrived — real content TPS matches direct bench. 12B dense coding specialist with verifiable-Python-CoT training lineage (Composer 2.5 + Fable 5 traces). Distinct training methodology vs all fleet models. 131K ctx. Needs `emits_reasoning: True` in workspace config for proper streaming.
 - Possible lanes: auto-coding fast-path, auto-agentic secondary
 - Operator verdict: [ ] Promote  [ ] Hold  [ ] Drop
 
 ### bench-qwopus-coder-mtp
-- TPS result: 6.1 direct / 6.1 pipeline
-- Code quality impression: [fill after eval]
-- Note: Well below 20 t/s. 27B dense, MTP speculative decoding heads. SWE-bench Verified 67.0%. Qwopus/Trace-Inversion lineage is unique in fleet. However, TPS makes it impractical for interactive lanes. Could serve as a batch/offline coding specialist if code quality is exceptional. MTP draft heads may improve TPS with native speculative decoding — worth testing.
-- Possible lanes: auto-coding, auto-agentic
+- TPS result: 6.1 direct / 6.1 pipeline (bench cap); ~6 t/s content-only (512-token coding test)
+- Code quality impression: Correct code with type annotations and docstrings. Extremely verbose reasoning — emits a full structured planning phase, self-verification checklist, and constraint audit before producing code. This thoroughness is a double-edged sword: great for complex multi-file tasks, painful for quick snippets.
+- Note: Well below 20 t/s. 27B dense, MTP speculative decoding heads. SWE-bench Verified 67.0%. Qwopus/Trace-Inversion lineage is unique in fleet. MTP draft heads untested — native speculative decoding could improve TPS. Needs `emits_reasoning: True` in workspace config. Could serve as a batch/offline coding specialist if code quality is exceptional.
 - Operator verdict: [ ] Promote  [ ] Hold  [ ] Drop
 
 ## Notes
