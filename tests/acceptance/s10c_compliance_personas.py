@@ -80,7 +80,7 @@ async def run() -> None:
                 "auto-compliance",
                 scenario.prompt,
                 system=system,
-                max_tokens=600,
+                max_tokens=1500,
                 timeout=240,
             )
 
