@@ -363,7 +363,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Connecticut CTDPA, etc.). Gap analysis, policy drafting, "
             "evidence review, cross-framework control mapping, audit prep."
         ),
-        "model_hint": "granite4.1:8b",
+        "model_hint": "deepseek-r1:32b-q4_k_m",
         "predict_limit": 16384,
         "emits_reasoning": False,
         "tools": [
