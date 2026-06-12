@@ -69,7 +69,7 @@ async def run() -> None:
                    t0=time.time())
             test_num += 1
             continue
-        system = persona_data.get("system_prompt", "")[:1200]
+        system = persona_data.get("system_prompt", "")[:8000]
 
         for scenario in persona_scenarios:
             tid = f"S10c-{test_num:03d}"

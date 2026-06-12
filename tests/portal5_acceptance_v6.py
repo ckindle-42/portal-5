@@ -1668,6 +1668,51 @@ async def S70() -> None:
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s70_information_access as _s
     await _s.run()
+def _load_prior_results(sections_to_skip: set[str]) -> None:
+    """Load ACCEPTANCE_RESULTS.md into _log, skipping sections being re-run.
+
+    Used by --append mode so a targeted re-run merges with the full-run baseline.
+    """
+    results_path = ROOT / "ACCEPTANCE_RESULTS.md"
+    if not results_path.exists():
+        print("  [append] No prior ACCEPTANCE_RESULTS.md found — starting fresh")
+        return
+    loaded = 0
+    for line in results_path.read_text().splitlines():
+        if not line.startswith("| ") or "| Section |" in line or line.startswith("|---"):
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        # Table row: ['', section, tid, name, status, detail, dur, '']
+        if len(parts) < 7:
+            continue
+        section = parts[1]
+        if not section or section in sections_to_skip:
+            continue
+        tid = parts[2]
+        name = parts[3]
+        status_raw = parts[4]
+        detail = parts[5].replace("\\|", "|")
+        dur_str = parts[6]
+        status = next(
+            (s for s in ("PASS", "FAIL", "BLOCKED", "WARN", "INFO") if s in status_raw),
+            None,
+        )
+        if not status:
+            continue
+        dur = 0.0
+        if dur_str.endswith("s"):
+            try:
+                dur = float(dur_str[:-1])
+            except ValueError:
+                pass
+        r = R(section=section, tid=tid, name=name, status=status, detail=detail, duration=dur)
+        _log.append(r)
+        if status == "BLOCKED":
+            _blocked.append(r)
+        loaded += 1
+    print(f"  [append] Loaded {loaded} prior results (excluding: {', '.join(sorted(sections_to_skip))})")
+
+
 def _write_results(elapsed: int, sections_run: list[str]) -> None:
     """Write ACCEPTANCE_RESULTS.md."""
     counts = {}
@@ -2024,12 +2069,19 @@ async def main() -> int:
     parser.add_argument(
         "--skip-passing", action="store_true", help="Skip sections that passed in prior run"
     )
+    parser.add_argument(
+        "--append", action="store_true",
+        help="Merge targeted re-run results into prior ACCEPTANCE_RESULTS.md baseline"
+    )
     args = parser.parse_args()
 
     _FORCE_REBUILD = args.rebuild
     _verbose = args.verbose
 
     sections = _parse_sections(args.section)
+
+    if args.append:
+        _load_prior_results(sections_to_skip=set(sections))
 
     # Define memory cleanup points between phases
     # Only apply when running ALL sections (full suite)
