@@ -391,6 +391,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Expected value = 5",
+                "critical": False,
                 "keywords": [
                     "e[x] = 5", "e(x) = 5", "e[x]=5", "e(x)=5",
                     "expected value", "expected number", "expected count",
@@ -429,6 +430,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Multiple interpretations",
+                "critical": False,
                 "keywords": [
                     "interpretation",
                     "approach",
