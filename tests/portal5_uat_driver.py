@@ -2352,7 +2352,7 @@ def _write_routing_summary() -> None:
             )
         lines.append("")
 
-    if not tier_fallbacks and not wrong_model and not silent_ollama:
+    if not tier_fallbacks and not wrong_model and not no_actual:
         lines.append("All routing checks passed — every test was served by its intended primary model.\n")
 
     with RESULTS_FILE.open("a") as f:
