@@ -2,6 +2,34 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [7.5.0] — 2026-06-11
+
+### Added
+- **Docling-first document parsing** in RAG MCP `kb_ingest`: layout-aware PDF
+  table/reading-order extraction, new formats (.pptx, .xlsx, .html, .htm,
+  .epub); pypdf/python-docx retained as automatic fallback; converter cached,
+  conversion off the event loop via `asyncio.to_thread`; Docling models
+  prefetched at image build (`Dockerfile.mcp`)
+- **LanceDB search modes**: `query_type` (vector/fts/hybrid) on `kb_search` and
+  `kb_search_all`; native Lance BM25 FTS index built via `kb_ingest fts=true`;
+  hybrid fused with built-in RRF; per-KB vector fallback in cross-KB search
+- **LanceDB index + rollback tools**: `kb_optimize` (IVF_PQ,
+  `num_sub_vectors=64`, <256-chunk skip), `kb_versions`, `kb_restore`;
+  `rebuild=true` now tags + row-deletes instead of `drop_table`, preserving
+  version history
+- **Promptfoo eval framework** (setup only): 7 grouped configs covering all 21
+  `auto*` workspaces + tools-specialist; locally graded via
+  `ollama:chat:gemma4:26b-a4b-it-qat`; `./launch.sh promptfoo [area|all]`;
+  `promptfoo>=0.1.4` in dev extras with npx fallback
+- **bench_tps decomposition**: monolith (2090 lines) split into
+  `tests/benchmarks/bench/` package; entry-point shim preserves CLI verbatim
+- Unit tests: `tests/unit/test_rag.py`, `tests/unit/test_promptfoo_configs.py`
+
+### Fixed
+- **Rule 6 repair**: completed the Apriel-Nemotron removal (84cf26e left stale
+  refs in `workspaces.py`, `dispatcher.py`, persona YAML, Open WebUI import
+  JSONs, CLAUDE.md counts); workspace count 74 → 73, personas 140 → 139
+
 ## [7.4.0] — 2026-06-10
 
 ### Added
