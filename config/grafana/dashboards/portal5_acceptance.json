@@ -1,0 +1,79 @@
+{
+  "id": null,
+  "uid": "portal5-acceptance",
+  "title": "Portal 5 Acceptance Results",
+  "tags": ["portal5", "acceptance"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {"from": "now-6h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Summary",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"padding:16px;text-align:center;color:#888\">Run <code>python3 scripts/update_grafana_acceptance.py</code> after an acceptance run to populate this dashboard.</div>"
+      }
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "Run Metadata",
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 4},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"font-size:11px;color:#888;padding:2px 8px\">No data — run update script.</div>"
+      }
+    },
+    {
+      "id": 10,
+      "type": "text",
+      "title": "Results by Section",
+      "gridPos": {"h": 16, "w": 10, "x": 0, "y": 6},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"padding:8px;color:#888\">No data.</div>"
+      }
+    },
+    {
+      "id": 20,
+      "type": "text",
+      "title": "Failures & Warnings (0)",
+      "gridPos": {"h": 16, "w": 14, "x": 10, "y": 6},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"padding:8px;color:#888\">No data.</div>"
+      }
+    },
+    {
+      "id": 30,
+      "type": "text",
+      "title": "Classifier Breakdown",
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 22},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"padding:8px;color:#888\">No data.</div>"
+      }
+    },
+    {
+      "id": 40,
+      "type": "text",
+      "title": "Run Trend — last 0 corpus runs",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "description": "",
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"padding:8px;color:#888\">No corpus files found in tests/acceptance_corpus/.</div>"
+      }
+    }
+  ]
+}

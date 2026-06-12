@@ -128,25 +128,35 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "kb_search",
-        "description": "Search a specific knowledge base. Returns top relevant chunks with source file and similarity score. Use kb_list first to find available KB IDs.",
+        "description": "Search a specific knowledge base. Returns top relevant chunks with source file and similarity score. Use kb_list first to find available KB IDs. query_type: vector (semantic, default), fts (BM25 keyword — exact terms/IDs), hybrid (both, RRF-fused). fts/hybrid require the KB to be ingested with fts=true.",
         "parameters": {
             "type": "object",
             "properties": {
                 "kb_id": {"type": "string", "description": "Knowledge base identifier"},
                 "query": {"type": "string"},
                 "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
+                "query_type": {
+                    "type": "string",
+                    "enum": ["vector", "fts", "hybrid"],
+                    "default": "vector",
+                },
             },
             "required": ["kb_id", "query"],
         },
     },
     {
         "name": "kb_search_all",
-        "description": "Search across all knowledge bases simultaneously. Useful when the user's question may match multiple KBs.",
+        "description": "Search across all knowledge bases simultaneously. Useful when the user's question may match multiple KBs. query_type: vector (default), fts, hybrid; KBs without an FTS index transparently fall back to vector.",
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
                 "top_k": {"type": "integer", "default": 5, "minimum": 1, "maximum": 20},
+                "query_type": {
+                    "type": "string",
+                    "enum": ["vector", "fts", "hybrid"],
+                    "default": "vector",
+                },
             },
             "required": ["query"],
         },
@@ -167,8 +177,43 @@ TOOLS_MANIFEST = [
                     "description": "Drop existing chunks and reingest",
                     "default": False,
                 },
+                "fts": {
+                    "type": "boolean",
+                    "description": "Build a native Lance BM25 full-text index after ingest (enables query_type fts/hybrid on this KB)",
+                    "default": False,
+                },
             },
             "required": ["kb_id", "source_dir"],
+        },
+    },
+    {
+        "name": "kb_optimize",
+        "description": "Admin: build an IVF_PQ vector index on a KB for faster search. Skipped automatically for KBs under 256 chunks (brute-force is already fast). Run after large ingests.",
+        "parameters": {
+            "type": "object",
+            "properties": {"kb_id": {"type": "string"}},
+            "required": ["kb_id"],
+        },
+    },
+    {
+        "name": "kb_versions",
+        "description": "List a KB's LanceDB version history and named tags (e.g. automatic pre-rebuild tags). Use with kb_restore to roll back.",
+        "parameters": {
+            "type": "object",
+            "properties": {"kb_id": {"type": "string"}},
+            "required": ["kb_id"],
+        },
+    },
+    {
+        "name": "kb_restore",
+        "description": "Admin: restore a KB to an earlier LanceDB version (see kb_versions). The restore itself is a new version, so it can be undone.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "kb_id": {"type": "string"},
+                "version": {"type": "integer", "description": "Version number from kb_versions"},
+            },
+            "required": ["kb_id", "version"],
         },
     },
 ]
@@ -269,6 +314,7 @@ async def kb_ingest_endpoint(request):
     kb_id = args.get("kb_id", "")
     source_dir = args.get("source_dir", "")
     rebuild = args.get("rebuild", False)
+    fts = args.get("fts", False)
     if not kb_id or not source_dir:
         return JSONResponse({"error": "kb_id and source_dir are required"}, status_code=400)
     src = Path(source_dir).expanduser().resolve()
@@ -276,8 +322,20 @@ async def kb_ingest_endpoint(request):
         return JSONResponse({"error": f"directory not found: {src}"}, status_code=404)
 
     if rebuild:
-        with contextlib.suppress(Exception):
-            _get_db().drop_table(_kb_table_name(kb_id))
+        tname = _kb_table_name(kb_id)
+        try:
+            existing = _get_db().open_table(tname)
+            pre_version = existing.version
+            with contextlib.suppress(Exception):
+                existing.tags.create(f"pre-rebuild-{int(time.time())}", pre_version)
+            # Delete rows instead of dropping the table: the delete is itself a
+            # new version, so the pre-rebuild state stays restorable via
+            # kb_restore. drop_table would destroy the version history.
+            existing.delete("chunk_id IS NOT NULL")
+        except Exception:
+            # Table missing or version-safe path unavailable — fall back to drop.
+            with contextlib.suppress(Exception):
+                _get_db().drop_table(tname)
 
     table = _kb_table(kb_id, create_if_missing=True)
 
@@ -324,8 +382,113 @@ async def kb_ingest_endpoint(request):
             table.add(records)
             total_chunks += len(records)
 
+    fts_created = False
+    if fts and total_chunks > 0:
+        try:
+            try:
+                table.create_fts_index("text", use_tantivy=False, replace=True)
+            except TypeError:
+                # use_tantivy kwarg removed in newer lancedb (native is default)
+                table.create_fts_index("text", replace=True)
+            fts_created = True
+        except Exception as e:
+            logger.warning("FTS index creation failed for %s: %s", kb_id, e)
+
     return JSONResponse(
-        {"kb_id": kb_id, "files_ingested": len(files), "chunks_added": total_chunks}
+        {
+            "kb_id": kb_id,
+            "files_ingested": len(files),
+            "chunks_added": total_chunks,
+            "fts_index": fts_created,
+        }
+    )
+
+
+@mcp.custom_route("/tools/kb_optimize", methods=["POST"])
+async def kb_optimize_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    kb_id = args.get("kb_id", "")
+    if not kb_id:
+        return JSONResponse({"error": "kb_id required"}, status_code=400)
+    table = _kb_table(kb_id)
+    if table is None:
+        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+    rows = len(table)
+    if rows < 256:
+        return JSONResponse(
+            {
+                "kb_id": kb_id,
+                "rows": rows,
+                "skipped": "fewer than 256 chunks; brute-force scan is already fast",
+            }
+        )
+    num_partitions = min(512, int(rows**0.5))
+    try:
+        # num_sub_vectors must divide the embedding dim (1024); the lancedb
+        # default of 96 does not and raises. 64 divides 1024 cleanly.
+        table.create_index(
+            metric="l2",
+            num_partitions=num_partitions,
+            num_sub_vectors=64,
+            replace=True,
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"index build failed: {e}"}, status_code=500)
+    with contextlib.suppress(Exception):
+        table.optimize()
+    return JSONResponse(
+        {
+            "kb_id": kb_id,
+            "rows": rows,
+            "index": "IVF_PQ",
+            "num_partitions": num_partitions,
+            "num_sub_vectors": 64,
+        }
+    )
+
+
+@mcp.custom_route("/tools/kb_versions", methods=["POST"])
+async def kb_versions_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    kb_id = args.get("kb_id", "")
+    if not kb_id:
+        return JSONResponse({"error": "kb_id required"}, status_code=400)
+    table = _kb_table(kb_id)
+    if table is None:
+        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+    versions = [
+        # timestamp is a datetime — not JSON serializable without str()
+        {"version": v["version"], "timestamp": str(v["timestamp"])}
+        for v in table.list_versions()
+    ]
+    tags = {}
+    with contextlib.suppress(Exception):
+        for name, t in table.tags.list().items():
+            tags[name] = t["version"] if isinstance(t, dict) else getattr(t, "version", None)
+    return JSONResponse(
+        {"kb_id": kb_id, "current_version": table.version, "versions": versions, "tags": tags}
+    )
+
+
+@mcp.custom_route("/tools/kb_restore", methods=["POST"])
+async def kb_restore_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    kb_id = args.get("kb_id", "")
+    version = args.get("version")
+    if not kb_id or version is None:
+        return JSONResponse({"error": "kb_id and version required"}, status_code=400)
+    table = _kb_table(kb_id)
+    if table is None:
+        return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
+    try:
+        table.restore(int(version))
+    except Exception as e:
+        return JSONResponse({"error": f"restore failed: {e}"}, status_code=400)
+    return JSONResponse(
+        {"kb_id": kb_id, "restored_to": int(version), "current_version": table.version}
     )
 
 
@@ -352,8 +515,29 @@ async def kb_search_endpoint(request):
     if table is None:
         return JSONResponse({"error": f"unknown kb_id '{kb_id}'"}, status_code=404)
 
-    qvec = await _embed(query)
-    candidates = table.search(qvec).limit(50).to_list()
+    query_type = args.get("query_type", "vector")
+    if query_type == "fts":
+        try:
+            candidates = table.search(query, query_type="fts").limit(50).to_list()
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"fts search failed (no FTS index? re-ingest with fts=true): {e}"},
+                status_code=400,
+            )
+    elif query_type == "hybrid":
+        qvec = await _embed(query)
+        try:
+            candidates = (
+                table.search(query_type="hybrid").vector(qvec).text(query).limit(50).to_list()
+            )
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"hybrid search failed (no FTS index? re-ingest with fts=true): {e}"},
+                status_code=400,
+            )
+    else:
+        qvec = await _embed(query)
+        candidates = table.search(qvec).limit(50).to_list()
     if not candidates:
         return JSONResponse({"kb_id": kb_id, "query": query, "results": []})
 
@@ -386,13 +570,26 @@ async def kb_search_all_endpoint(request):
     if not kbs:
         return JSONResponse({"query": query, "results": []})
 
+    query_type = args.get("query_type", "vector")
     qvec = await _embed(query)
     all_candidates = []
     for kb_id in kbs:
         t = _kb_table(kb_id)
         if t is None:
             continue
-        for c in t.search(qvec).limit(20).to_list():
+        try:
+            if query_type == "fts":
+                hits = t.search(query, query_type="fts").limit(20).to_list()
+            elif query_type == "hybrid":
+                hits = (
+                    t.search(query_type="hybrid").vector(qvec).text(query).limit(20).to_list()
+                )
+            else:
+                hits = t.search(qvec).limit(20).to_list()
+        except Exception:
+            # KBs without an FTS index fall back to vector search.
+            hits = t.search(qvec).limit(20).to_list()
+        for c in hits:
             c["_kb_id"] = kb_id
             all_candidates.append(c)
     if not all_candidates:

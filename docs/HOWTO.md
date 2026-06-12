@@ -749,6 +749,50 @@ Optional: Docling also ships an Open WebUI document-extraction integration
 (OWUI Admin → Settings → Document Extraction), independent of this MCP. See
 https://docs.openwebui.com/features/rag/document-extraction/docling
 
+### LanceDB Search Modes, Indexing & Rollback (RAG MCP :8921)
+
+**Search modes** — `kb_search` / `kb_search_all` accept `query_type`:
+
+| query_type | What it does | When to use |
+|---|---|---|
+| `vector` (default) | Semantic similarity (bge embeddings) | Conceptual questions |
+| `fts` | Native Lance BM25 keyword search | Exact terms: CIP-007 R2, CVE IDs, hostnames |
+| `hybrid` | Vector + FTS fused with built-in RRF | Best of both; mixed queries |
+
+`fts`/`hybrid` need an FTS index: re-ingest with `"fts": true` on `kb_ingest`.
+`kb_search_all` silently falls back to vector for KBs without an index.
+All modes keep the existing pipeline: 50 candidates -> bge reranker -> top_k.
+
+**Vector indexing** — `kb_optimize` builds an IVF_PQ index (L2,
+`num_partitions = min(512, sqrt(rows))`, `num_sub_vectors=64`). KBs under 256
+chunks are skipped — brute force is already fast there. Run after large ingests:
+
+```bash
+curl -s localhost:8921/tools/kb_optimize -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"arguments": {"kb_id": "nerc-cip"}}'
+```
+
+**Version history & rollback** — every LanceDB write creates a version.
+`kb_ingest` with `"rebuild": true` no longer drops the table; it tags the
+current state (`pre-rebuild-<timestamp>`) and deletes rows, so a bad rebuild is
+recoverable:
+
+```bash
+# list versions + tags
+curl -s localhost:8921/tools/kb_versions -X POST \
+  -H 'Content-Type: application/json' -d '{"arguments": {"kb_id": "nerc-cip"}}'
+
+# roll back
+curl -s localhost:8921/tools/kb_restore -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"arguments": {"kb_id": "nerc-cip", "version": 42}}'
+```
+
+Note: `optimize()` prunes **untagged** versions older than 7 days; the
+automatic pre-rebuild tags are exempt. The restore itself is a new version, so
+restores are undoable.
+
 ## 15. User Management
 
 ### Create users via CLI
