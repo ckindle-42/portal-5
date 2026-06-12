@@ -1,6 +1,6 @@
 """Shared Metal GPU memory guard for Portal 5 test harnesses.
 
-Used by:  tests/portal5_uat_driver.py
+Used by:  tests/uat/ (health, lifecycle, monitor — entry: tests/portal5_uat_driver.py)
           tests/benchmarks/bench_tps.py
           tests/portal5_acceptance_v6.py
 

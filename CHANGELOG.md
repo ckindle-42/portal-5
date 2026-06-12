@@ -2,6 +2,24 @@
 
 All notable changes to Portal 5 will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **UAT driver modularized** (TASK_UAT_MODULARIZE_V1): `tests/portal5_uat_driver.py`
+  (4,540 lines) decomposed into the `tests/uat/` package (17 modules), mirroring
+  the landed `tests/benchmarks/bench/` pattern; the driver file is now a thin
+  entry-point shim with the full public surface re-exported. CLI invocation,
+  behavior, and test catalog unchanged. Unit-test monkeypatch targets repointed
+  to owning modules.
+
+### Fixed
+- **UAT routing telemetry** — `run_test` referenced the undefined name
+  `pipeline_backend` inside a swallowed exception path, so `_ROUTING_LOG` was
+  never populated and the Routing Summary never emitted; now resolved via
+  `_get_backend_from_pipeline_logs`. Also fixed the undefined `silent_ollama`
+  reference in `_write_routing_summary`'s all-clear branch (latent NameError),
+  and the driver's `--help`/script invocation no longer requires `PYTHONPATH=`.
+
 ## [7.5.0] — 2026-06-11
 
 ### Added
