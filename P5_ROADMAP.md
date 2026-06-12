@@ -115,21 +115,19 @@ Full bake-off completed 2026-04-25. Decision: **RETIRE**. See `OMLX_DECISION.md`
 
 ### P5-FUT-014-V7: Model Refresh Waterline
 
-TASK_MODEL_REFRESH_V7 (2026-05-27) added 6 bench workspaces:
-bench-apriel-nemotron, bench-voxtral-realtime, bench-voxtral-tts,
+TASK_MODEL_REFRESH_V7 (2026-05-27) added 6 bench workspaces (one since
+removed from the fleet): bench-voxtral-realtime, bench-voxtral-tts,
 bench-granite-speech, bench-qwen36-27b-ud, bench-qwen36-35b-a3b-ud.
 
 **Promotion gates** (each model is bench-only until):
 
-1. `bench-apriel-nemotron` → auto-reasoning candidate: must Pareto-dominate
-   Magistral-Small-2509 on bench_tps.py reasoning prompts.
-2. `bench-qwen36-{27b,35b-a3b}-ud` → replace stock 4-bit in respective
+1. `bench-qwen36-{27b,35b-a3b}-ud` → replace stock 4-bit in respective
    bench pins: must show ≥1-point improvement on Creative Coder CC-01
    AND match-or-improve coding-shootout-v2.
-3. `bench-granite-speech` → new `auto-transcribe-domain` lane: must
+2. `bench-granite-speech` → new `auto-transcribe-domain` lane: must
    outperform mlx-whisper-large-v3-turbo on a domain-vocab keyword-biased
    benchmark.
-4. `bench-voxtral-realtime` / `bench-voxtral-tts` → defer to dedicated
+3. `bench-voxtral-realtime` / `bench-voxtral-tts` → defer to dedicated
    P5-FUT-SPEECH-002 speech-shootout task.
 
 ---

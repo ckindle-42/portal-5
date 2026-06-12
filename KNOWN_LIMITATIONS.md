@@ -77,8 +77,7 @@ workspaces to general-purpose GGUF substitutes:
 via the first-party Cisco GGUF `hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`
 (TASK_PARITY_FOUNDATION_SEC_V1, direct swap, no bench gate — consistent with how
 the original MLX→Ollama migration set models by assumption; this restores the
-pre-migration primary). Apriel-Nemotron-15B retained as reasoning fallback +
-bench-apriel-nemotron.
+pre-migration primary).
 
 **Status — ToolACE:** RESOLVED (accepted). granite4.1:8b adopted as the
 tools-specialist model by operator decision; ToolACE-2.5 evaluated and dropped
