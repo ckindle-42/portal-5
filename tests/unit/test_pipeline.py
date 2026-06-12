@@ -359,9 +359,14 @@ class TestR17bModelExpansion:
             )
 
     def test_documents_workspace_uses_fast_coding_model(self):
-        """auto-documents workspace model_hint uses phi4:14b-q8_0 (high-precision document model)."""
+        """auto-documents workspace model_hint uses granite4.1:8b (tool-capable document model).
+
+        phi4:14b-q8_0 was demoted in commit 7376ba4: Ollama 0.30.x rejects tool injection
+        (HTTP 400) for phi4, but auto-documents requires MCP tools (create_word_document etc.).
+        granite4.1:8b is verified tool-capable (BFCL V3 68.27) and already in fleet.
+        """
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "phi4" in hint.lower(), f"Expected auto-documents to use phi4 variant, got: {hint}"
+        assert "granite4.1" in hint.lower(), f"Expected auto-documents to use granite4.1:8b, got: {hint}"
 
     @_comfyui_enabled
     def test_comfyui_download_script_has_all_image_models(self):
@@ -418,8 +423,8 @@ class TestR18ModelCompleteness:
         assert "qwen3-coder" in WORKSPACES["auto-coding"]["model_hint"].lower(), (
             "auto-coding should use qwen3-coder:30b-a3b-q4_K_M (Qwen3-Coder-30B MoE, primary coder, promoted V2 Phase 6)"
         )
-        assert "phi4" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
-            "auto-documents should use phi4 (high-precision document model)"
+        assert "granite4.1" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
+            "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 7376ba4)"
         )
         # R23: baronllm:q6_k is the imported GGUF model
         assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
