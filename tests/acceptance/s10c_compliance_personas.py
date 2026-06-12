@@ -1,4 +1,5 @@
 """S10c: Compliance persona tests — fixture-driven via auto-compliance."""
+
 import asyncio
 import time
 
@@ -27,26 +28,34 @@ async def run() -> None:
     try:
         from tests.lib.compliance_fixtures import expand_scenarios, run_assertions
     except ImportError as e:
-        record(sec, "S10c-00", "fixture import", "BLOCKED", str(e)[:120],
-               t0=time.time())
+        record(sec, "S10c-00", "fixture import", "BLOCKED", str(e)[:120], t0=time.time())
         return
 
     try:
         scenarios = expand_scenarios()
     except Exception as e:
-        record(sec, "S10c-00", "fixture expansion", "FAIL", str(e)[:120],
-               t0=time.time())
+        record(sec, "S10c-00", "fixture expansion", "FAIL", str(e)[:120], t0=time.time())
         return
 
     if not scenarios:
-        record(sec, "S10c-00", "fixture expansion", "FAIL",
-               "expand_scenarios() returned empty list",
-               t0=time.time())
+        record(
+            sec,
+            "S10c-00",
+            "fixture expansion",
+            "FAIL",
+            "expand_scenarios() returned empty list",
+            t0=time.time(),
+        )
         return
 
-    record(sec, "S10c-00", "fixture loaded", "PASS",
-           f"{len(scenarios)} concrete scenarios across compliance personas",
-           t0=time.time())
+    record(
+        sec,
+        "S10c-00",
+        "fixture loaded",
+        "PASS",
+        f"{len(scenarios)} concrete scenarios across compliance personas",
+        t0=time.time(),
+    )
 
     # Group scenarios by persona for cleaner console output and to allow
     # per-persona settling time between batches (model context warmth).
@@ -60,13 +69,16 @@ async def run() -> None:
         print(f"\n  ── Persona: {persona_slug} ({len(persona_scenarios)} scenarios) ──")
 
         # Find this persona's system prompt for context preloading
-        persona_data = next(
-            (p for p in PERSONAS if p.get("slug") == persona_slug), None
-        )
+        persona_data = next((p for p in PERSONAS if p.get("slug") == persona_slug), None)
         if not persona_data:
-            record(sec, f"S10c-{test_num:02d}", f"persona {persona_slug}",
-                   "BLOCKED", "persona YAML not loaded by acceptance_v6 PERSONAS",
-                   t0=time.time())
+            record(
+                sec,
+                f"S10c-{test_num:02d}",
+                f"persona {persona_slug}",
+                "BLOCKED",
+                "persona YAML not loaded by acceptance_v6 PERSONAS",
+                t0=time.time(),
+            )
             test_num += 1
             continue
         system = persona_data.get("system_prompt", "")[:8000]
@@ -85,8 +97,7 @@ async def run() -> None:
             )
 
             if code != 200:
-                record(sec, tid, label, "FAIL",
-                       f"HTTP {code}: {response[:100]}", t0=t0)
+                record(sec, tid, label, "FAIL", f"HTTP {code}: {response[:100]}", t0=t0)
                 test_num += 1
                 continue
 
