@@ -1001,6 +1001,40 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 16384,
         "tools": [],
     },
+    "bench-qwopus-coder-mtp": {
+        "name": "🔬 Bench · Qwopus3.6-27B-Coder-MTP (Jackrong)",
+        "description": (
+            "Benchmark: hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf "
+            "(Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). "
+            "Coder SFT on Qwopus3.6-27B-v2 (Qwen3.6-27B + Trace Inversion). "
+            "Agentic coding, tool-use, multi-turn orchestration. "
+            "SWE-bench Verified 67.0% (thinking-off). MTP embedded draft heads. "
+            "Candidate for auto-coding / auto-agentic fallback if TPS >= 20 and code quality competitive. "
+            "Head-to-head vs qwen3.6:27b-q4_K_M (77.2% SWE, 27B dense) and laguna-xs.2 (68.2% SWE, 33B MoE). "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-gemma4-12b-coder": {
+        "name": "🔬 Bench · Gemma4-12B-Coder Fable5 (yuxinlu1)",
+        "description": (
+            "Benchmark: hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M "
+            "(yuxinlu1, Gemma license, June 2026, 12B dense, ~6.87GB Q4_K_M). "
+            "Fine-tune of Gemma 4 12B on verifiable Python CoT: "
+            "Composer 2.5 real reasoning + Fable 5 synthetic second-attempt traces, "
+            "both gated on test execution. Coding + reasoning specialist. 131K ctx. "
+            "Candidate for auto-coding fast-path or auto-agentic secondary if TPS >= 20. "
+            "Head-to-head vs portal5/gemma4-12b:q4_K_M-ctx8k (general) and omnicoder2:9b-q4_k_m. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

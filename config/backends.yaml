@@ -173,6 +173,12 @@ backends:
   - id: "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M"
     supports_tools: true
     notes: "Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. bench-qwen3-coder-next-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true per Qwen coding family (same architecture as production qwen3-coder-next)."
+  - id: "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf"
+    supports_tools: true
+    notes: "Qwopus3.6-27B-Coder-MTP Q5_K_M (~19GB, Jackrong, Apache 2.0, June 2026). Coder SFT on Qwopus3.6-27B-v2 (Qwen3.6-27B base + Trace Inversion). Agentic coding + tool-use training on Claude Opus traces + hermes-agent-reasoning trajectories. SWE-bench Verified 67.0% (thinking-off, Q5_K_M). MTP embedded heads for speculative self-decoding. 27B dense, ~19GB, 32K native fine-tune ctx (RoPE/YaRN for longer). Note: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF (the base reasoning repo) had pull failures 2026-06-09 — this is a separate Coder-specific GGUF repo with llama.cpp tags; verify pull succeeds before noting as operational. bench-qwopus-coder-mtp target (TASK_MODEL_EVAL_V9_CANDIDATES). supports_tools=true per Qwen3.6 tool-call format inherited by Qwopus; verify via --audit-tools before promotion."
+  - id: "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Gemma4-12B-Coder-Fable5-Composer2.5-v1 Q4_K_M (~6.87GB, yuxinlu1, Gemma license, June 2026). Fine-tune of Gemma 4 12B on verifiable Python CoT: Composer 2.5 real reasoning traces + Fable 5 synthetic second-attempt traces, both gated on test execution. Coding + reasoning specialist. 131K ctx. No tool-use tag on card — supports_tools=false pending --audit-tools verification. bench-gemma4-12b-coder target (TASK_MODEL_EVAL_V9_CANDIDATES). Lightweight (~7GB) coding specialist with distinct training lineage vs fleet. Gemma license: commercial-OK consistent with other Gemma4 fleet models."
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -591,6 +597,12 @@ workspace_routing:
   - security
   - general
   bench-qwen3-coder-next-abliterated:
+  - coding
+  - general
+  bench-qwopus-coder-mtp:
+  - coding
+  - general
+  bench-gemma4-12b-coder:
   - coding
   - general
   tools-specialist:
