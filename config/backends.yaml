@@ -39,8 +39,8 @@ backends:
     supports_tools: true
     notes: "Gemma 4 26B A4B QAT (~15GB, Apache 2.0, 256K ctx, vision+text, QAT near-BF16 quality at same ~15GB footprint). Promoted to auto-daily primary (V8: +23% TPS vs q4_K_M, same memory, near-BF16 quality). Also in ollama-vision for bench-gemma4-26b-qat."
   - id: phi4:14b-q8_0
-    supports_tools: true
-    notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision)."
+    supports_tools: false
+    notes: "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision). tools=false: Ollama 0.30.x rejects tool injection with 400 (no template support)."
   - id: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
     supports_tools: false
     notes: "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2). Template has [AVAILABLE_TOOLS] format but Ollama tool dispatch does not fire — model reasons about tools in prose instead of generating tool_calls (verified TV-04 + direct API test, TASK_TOOL_AUDIT_V2). Kept false."
