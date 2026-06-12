@@ -1,4 +1,5 @@
 """S60: M2 tool-calling orchestration."""
+
 import time
 
 from tests.acceptance._common import (

@@ -6,6 +6,7 @@ Usage:
     python3 scripts/update_grafana_uat.py --dry-run
     python3 scripts/update_grafana_uat.py --input tests/UAT_RESULTS.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,16 +75,18 @@ def _parse_uat_results(path: Path) -> dict:
         test_id = parts[0] if parts else name
         sec_m = re.match(r"([A-Z]{1,3})-?(\d+)?", test_id)
         section = sec_m.group(1) if sec_m else "OTHER"
-        rows.append({
-            "test_id": test_id,
-            "name": name,
-            "status": status,
-            "model": model,
-            "detail": detail,
-            "elapsed": elapsed,
-            "url": url,
-            "section": section,
-        })
+        rows.append(
+            {
+                "test_id": test_id,
+                "name": name,
+                "status": status,
+                "model": model,
+                "detail": detail,
+                "elapsed": elapsed,
+                "url": url,
+                "section": section,
+            }
+        )
     return {"run_ts": run_ts, "summary": summary, "rows": rows}
 
 
@@ -108,13 +111,15 @@ def _parse_corpus_runs(corpus_dir: Path, last_n: int = 10) -> list[dict]:
         total = len(entries)
         eligible = total - counts.get("SKIP", 0) - counts.get("MANUAL", 0)
         pass_pct = round(100 * counts.get("PASS", 0) / eligible) if eligible else 0
-        runs.append({
-            "run_id": run_id,
-            "total": total,
-            "counts": dict(counts),
-            "pass_pct": pass_pct,
-            "timestamp": entries[0].get("timestamp", ""),
-        })
+        runs.append(
+            {
+                "run_id": run_id,
+                "total": total,
+                "counts": dict(counts),
+                "pass_pct": pass_pct,
+                "timestamp": entries[0].get("timestamp", ""),
+            }
+        )
     return runs
 
 
@@ -156,7 +161,7 @@ def _build_summary_panel(summary: dict, total: int) -> str:
         f'<span><b style="color:{GRAY}">SKIP</b> — excluded from this run (fixture missing, env gate)</span>'
         f'<span><b style="color:#555">MANUAL</b> — requires human verification, not scored</span>'
         f'<span style="color:#555">Pass rate = PASS ÷ eligible (excludes SKIP &amp; MANUAL)</span>'
-        '</div>'
+        "</div>"
     )
 
     return (
@@ -177,15 +182,17 @@ def _build_summary_panel(summary: dict, total: int) -> str:
         f'<div style="color:#aaa">MANUAL</div></div>'
         f'<div><div style="font-size:28px;font-weight:bold;color:{pass_color}">{pass_ct}/{eligible}</div>'
         f'<div style="color:#aaa">Pass Rate ({pct}%)</div></div>'
-        '</div>'
-        f'{legend}'
-        '</div>'
+        "</div>"
+        f"{legend}"
+        "</div>"
     )
 
 
 def _build_metadata_panel(run_ts: str, total: int, fail_ct: int, blocked_ct: int) -> str:
-    health = "🟢 HEALTHY" if fail_ct + blocked_ct == 0 else (
-        "🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING"
+    health = (
+        "🟢 HEALTHY"
+        if fail_ct + blocked_ct == 0
+        else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
     )
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return (
@@ -199,18 +206,18 @@ def _build_metadata_panel(run_ts: str, total: int, fail_ct: int, blocked_ct: int
 
 
 _SECTION_DESCRIPTIONS: dict[str, str] = {
-    "WS":  "Workspace routing — end-to-end intent detection, model assignment, and workspace-level feature tests (WS-DD daily driver, WS-MATH, WS-TOOLS)",
-    "P":   "Persona behavioral — individual persona response quality, tone, format, and domain expertise (P-W writing, P-V vision, P-S security, P-R reasoning, P-N creative, P-DA data, P-B browser, P-TOOLS tool-use)",
-    "TV":  "Tool Validation — proof-of-execution tests; correct answer requires the tool to have actually run (execute_python, execute_bash, read_excel, read_pdf, read_powerpoint, read_word_document)",
-    "T":   "Tool functional — document generation (DOCX, XLSX, PPTX), file read/write, web search, code execution end-to-end",
-    "CC":  "Cross-capability benchmark — CC-01 persona suite run against each model in the fleet; validates routing, system prompt injection, and model-specific behavior",
-    "A":   "Agentic multi-step — autonomous task chains, memory store/recall, multi-tool orchestration, and long-horizon planning",
-    "M":   "Media — audio transcription (Whisper STT), text-to-speech (TTS/Kokoro), and voice workflow integration",
-    "S":   "Security workspace — vulnerability analysis, threat modeling, CVE lookup via SearXNG, and NERC/CIP compliance",
-    "TR":  "Transcription workflow — diarized speaker transcription (mlx-whisper + pyannote), transcript formatting, and downstream document creation",
-    "EX":  "Extended / exploratory — edge-case and regression tests outside the main catalog",
-    "BT":  "Benchmark targeted — single-model deep-dive tests run against a specific model build (e.g., Foundation-Sec-8B-Reasoning); not part of the general fleet sweep",
-    "DD":  "Daily Driver Tool Validation — tool-proof tests run inside the daily-driver workspace to confirm general-purpose models can invoke tools, not just specialist workspaces",
+    "WS": "Workspace routing — end-to-end intent detection, model assignment, and workspace-level feature tests (WS-DD daily driver, WS-MATH, WS-TOOLS)",
+    "P": "Persona behavioral — individual persona response quality, tone, format, and domain expertise (P-W writing, P-V vision, P-S security, P-R reasoning, P-N creative, P-DA data, P-B browser, P-TOOLS tool-use)",
+    "TV": "Tool Validation — proof-of-execution tests; correct answer requires the tool to have actually run (execute_python, execute_bash, read_excel, read_pdf, read_powerpoint, read_word_document)",
+    "T": "Tool functional — document generation (DOCX, XLSX, PPTX), file read/write, web search, code execution end-to-end",
+    "CC": "Cross-capability benchmark — CC-01 persona suite run against each model in the fleet; validates routing, system prompt injection, and model-specific behavior",
+    "A": "Agentic multi-step — autonomous task chains, memory store/recall, multi-tool orchestration, and long-horizon planning",
+    "M": "Media — audio transcription (Whisper STT), text-to-speech (TTS/Kokoro), and voice workflow integration",
+    "S": "Security workspace — vulnerability analysis, threat modeling, CVE lookup via SearXNG, and NERC/CIP compliance",
+    "TR": "Transcription workflow — diarized speaker transcription (mlx-whisper + pyannote), transcript formatting, and downstream document creation",
+    "EX": "Extended / exploratory — edge-case and regression tests outside the main catalog",
+    "BT": "Benchmark targeted — single-model deep-dive tests run against a specific model build (e.g., Foundation-Sec-8B-Reasoning); not part of the general fleet sweep",
+    "DD": "Daily Driver Tool Validation — tool-proof tests run inside the daily-driver workspace to confirm general-purpose models can invoke tools, not just specialist workspaces",
 }
 
 
@@ -230,7 +237,7 @@ def _build_section_table(rows: list[dict]) -> str:
         '<summary style="cursor:pointer;color:#6b9cd4;padding:4px 0">▶ Section key — what each prefix covers</summary>'
         '<div style="padding:6px 0;border-bottom:1px solid #333;margin-bottom:6px">'
         f'<table style="border-collapse:collapse;width:100%">{legend_items}</table>'
-        '</div></details>'
+        "</div></details>"
     )
 
     header = (
@@ -261,16 +268,16 @@ def _build_section_table(rows: list[dict]) -> str:
         table_rows.append(
             f"<tr{bg}>"
             f'<td style="font-family:monospace;color:{color};white-space:nowrap">{icon} {sec}</td>'
-            f'{desc_cell}'
+            f"{desc_cell}"
             f'<td style="color:{GREEN}">{pass_ct}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
-            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED",0)}</td>'
+            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
+            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
+            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED", 0)}</td>'
             f'<td style="text-align:right">{total}</td>'
             f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
-        f'{legend_html}'
+        f"{legend_html}"
         '<div style="overflow:auto;max-height:480px">'
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'
         f"{header}{''.join(table_rows)}</table></div>"
@@ -290,12 +297,12 @@ def _build_model_table(rows: list[dict]) -> str:
     legend_html = (
         '<div style="font-size:10px;color:#666;padding:4px 0 8px 0;border-bottom:1px solid #333;margin-bottom:6px">'
         '<b style="color:#888">How to read this table:</b> Each row is a <b>persona slug</b> — the named AI assistant '
-        'used for that test (e.g. <code>auto-documents</code>, <code>statistician</code>, <code>pentester</code>). '
-        'Persona slugs are Open WebUI model presets defined in <code>config/personas/</code>; each maps to an '
-        'Ollama model via workspace routing. Rows are sorted by failures first (worst → best), then by test count. '
-        'A persona appearing in this table ran at least one test; its pass% reflects how well that model+system-prompt '
-        'combination performed across all tasks assigned to it.'
-        '</div>'
+        "used for that test (e.g. <code>auto-documents</code>, <code>statistician</code>, <code>pentester</code>). "
+        "Persona slugs are Open WebUI model presets defined in <code>config/personas/</code>; each maps to an "
+        "Ollama model via workspace routing. Rows are sorted by failures first (worst → best), then by test count. "
+        "A persona appearing in this table ran at least one test; its pass% reflects how well that model+system-prompt "
+        "combination performed across all tasks assigned to it."
+        "</div>"
     )
 
     header = (
@@ -320,13 +327,13 @@ def _build_model_table(rows: list[dict]) -> str:
             f"<tr{bg}>"
             f'<td style="font-family:monospace;color:{color}">{model[:42]}</td>'
             f'<td style="color:{GREEN if pass_ct > 0 else GRAY}">{pass_ct}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
+            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
+            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
             f'<td style="text-align:right">{total}</td>'
             f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
-        f'{legend_html}'
+        f"{legend_html}"
         '<div style="overflow:auto;max-height:480px">'
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'
         f"{header}{''.join(table_rows)}</table></div>"
@@ -353,7 +360,8 @@ def _build_failures_table(rows: list[dict]) -> str:
         url = r.get("url", "")
         name_cell = (
             f'<a href="{url}" style="color:#6b9cd4;text-decoration:none">{r["name"][:60]}</a>'
-            if url else r["name"][:60]
+            if url
+            else r["name"][:60]
         )
         detail = r["detail"][:90].replace("<", "&lt;").replace(">", "&gt;")
         table_rows.append(
@@ -399,11 +407,11 @@ def _build_trend_table(runs: list[dict]) -> str:
             f"<tr{bg}>"
             f'<td style="font-family:monospace;font-size:10px">{run["run_id"]}</td>'
             f"<td>{ts}</td>"
-            f'<td style="text-align:right;color:{GREEN}">{c.get("PASS",0)}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
-            f"<td style=\"text-align:right\">{total}</td>"
-            f"<td>{_bar(c.get('PASS',0), total, color)}</td></tr>"
+            f'<td style="text-align:right;color:{GREEN}">{c.get("PASS", 0)}</td>'
+            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
+            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
+            f'<td style="text-align:right">{total}</td>'
+            f"<td>{_bar(c.get('PASS', 0), total, color)}</td></tr>"
         )
     return (
         '<div style="overflow:auto;max-height:280px">'
@@ -440,8 +448,8 @@ def main() -> None:
 
     print(
         f"UAT results: {total} tests — "
-        f"{pass_ct} PASS, {summary.get('WARN',0)} WARN, {fail_ct} FAIL, "
-        f"{blocked_ct} BLOCKED, {summary.get('SKIP',0)} SKIP"
+        f"{pass_ct} PASS, {summary.get('WARN', 0)} WARN, {fail_ct} FAIL, "
+        f"{blocked_ct} BLOCKED, {summary.get('SKIP', 0)} SKIP"
     )
     print(f"Corpus runs found: {len(trend_runs)}")
 

@@ -28,10 +28,7 @@ def test_coding_scenarios_expand():
 
 
 def test_run_assertions_dispatches_language():
-    sample = next(
-        c for c in cf.expand_scenarios()
-        if c.scenario_id == "self-evident-rust-fizzbuzz"
-    )
+    sample = next(c for c in cf.expand_scenarios() if c.scenario_id == "self-evident-rust-fizzbuzz")
     rust_response = """
     Here it is:
 
@@ -54,10 +51,7 @@ def test_run_assertions_dispatches_language():
 
 
 def test_constraint_violation_detected():
-    sample = next(
-        c for c in cf.expand_scenarios()
-        if c.scenario_id == "stdlib-only-python-csv"
-    )
+    sample = next(c for c in cf.expand_scenarios() if c.scenario_id == "stdlib-only-python-csv")
     bad_response = """
     ```python
     import pandas as pd

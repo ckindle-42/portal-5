@@ -1,4 +1,5 @@
 """S16: Security MCP tool tests — classify_vulnerability."""
+
 import time
 
 from tests.acceptance._common import (

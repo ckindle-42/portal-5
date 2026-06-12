@@ -1,4 +1,5 @@
 """UAT catalog group: auto (intent-driven router workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-01",
         "name": "Auto Router — Intent-Driven Routing",
@@ -248,4 +249,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 ],
             },
         ],
-    },]
+    },
+]

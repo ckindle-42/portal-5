@@ -134,7 +134,9 @@ def _archive_run_chats(run_date: str, quiet: bool = False) -> None:
     fid = state._run_folder_id
     if not tok or not fid:
         if not quiet:
-            print(f"\n  WARNING: UAT folder unavailable — {len(state._run_chat_ids)} chats remain in root")
+            print(
+                f"\n  WARNING: UAT folder unavailable — {len(state._run_chat_ids)} chats remain in root"
+            )
         return
     moved = 0
     for cid in state._run_chat_ids:
@@ -193,6 +195,8 @@ def owui_migrate_loose_uat_chats(token: str, root_folder_id: str) -> int:
     except Exception as e:
         print(f"  WARNING: migrate error — {e}")
     return moved
+
+
 def owui_get_last_response(token: str, chat_id: str, min_messages: int = 1) -> str:
     """Fetch the last assistant response from OWUI API — avoids Playwright truncation.
 
@@ -264,6 +268,8 @@ def owui_get_routed_model(token: str, chat_id: str) -> str:
         return str(model) if model else ""
     except Exception:
         return ""
+
+
 async def _wait_for_response_arrival(
     token: str,
     chat_id: str,

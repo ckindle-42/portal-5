@@ -1,4 +1,5 @@
 """S2: Service health checks."""
+
 import time
 
 from tests.acceptance._common import (

@@ -62,10 +62,12 @@ def test_improvement_surfaced(tmp_path):
 
 def test_added_and_removed_cells(tmp_path):
     base = _make_report([_cell("p1", "ollama", "m1", 9, 0, 1)])
-    new = _make_report([
-        _cell("p1", "ollama", "m1", 9, 0, 1),
-        _cell("p1", "ollama", "m2-NEW", 8, 0, 2),
-    ])
+    new = _make_report(
+        [
+            _cell("p1", "ollama", "m1", 9, 0, 1),
+            _cell("p1", "ollama", "m2-NEW", 8, 0, 2),
+        ]
+    )
     base_path = tmp_path / "base.json"
     base_path.write_text(json.dumps(base))
     added, removed = pmd.added_removed_cells(base_path, new)

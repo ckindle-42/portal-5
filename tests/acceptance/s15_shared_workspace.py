@@ -1,4 +1,5 @@
 """S15: Shared workspace verification (TASK-WORKSPACE-001)."""
+
 import asyncio
 import contextlib
 import os
@@ -55,17 +56,32 @@ async def run() -> None:
     probe.write_text("portal-5 workspace probe")
     try:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", "deploy/portal-5/docker-compose.yml",
-            "exec", "-T", "open-webui",
-            "cat", "/app/backend/data/uploads/.workspace_probe",
+            "docker",
+            "compose",
+            "-f",
+            "deploy/portal-5/docker-compose.yml",
+            "exec",
+            "-T",
+            "open-webui",
+            "cat",
+            "/app/backend/data/uploads/.workspace_probe",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, _ = await proc.communicate()
         if b"portal-5 workspace probe" in stdout:
-            record(sec, "S15-03", "OWUI uploads bind mount", "PASS", "host↔OWUI bidirectional", t0=t0)
+            record(
+                sec, "S15-03", "OWUI uploads bind mount", "PASS", "host↔OWUI bidirectional", t0=t0
+            )
         else:
-            record(sec, "S15-03", "OWUI uploads bind mount", "FAIL", "probe not visible from OWUI", t0=t0)
+            record(
+                sec,
+                "S15-03",
+                "OWUI uploads bind mount",
+                "FAIL",
+                "probe not visible from OWUI",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S15-03", "OWUI uploads bind mount", "FAIL", str(e)[:100], t0=t0)
     finally:
@@ -76,6 +92,7 @@ async def run() -> None:
     t0 = time.time()
     try:
         from portal_mcp.core.workspace import get_generated_dir, get_workspace_root
+
         root = get_workspace_root()
         get_generated_dir("transcripts")
         record(sec, "S15-04", "workspace helper imports", "PASS", str(root), t0=t0)
@@ -86,9 +103,16 @@ async def run() -> None:
     t0 = time.time()
     try:
         proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", "deploy/portal-5/docker-compose.yml",
-            "exec", "-T", "open-webui",
-            "sh", "-c", "echo \"${AUDIO_STT_ENGINE}\"",
+            "docker",
+            "compose",
+            "-f",
+            "deploy/portal-5/docker-compose.yml",
+            "exec",
+            "-T",
+            "open-webui",
+            "sh",
+            "-c",
+            'echo "${AUDIO_STT_ENGINE}"',
             stdout=asyncio.subprocess.PIPE,
         )
         stdout, _ = await proc.communicate()
@@ -96,7 +120,13 @@ async def run() -> None:
         if not value:
             record(sec, "S15-05", "AUDIO_STT_ENGINE disabled", "PASS", "empty (correct)", t0=t0)
         else:
-            record(sec, "S15-05", "AUDIO_STT_ENGINE disabled", "WARN",
-                   f"unexpected value: {value!r}", t0=t0)
+            record(
+                sec,
+                "S15-05",
+                "AUDIO_STT_ENGINE disabled",
+                "WARN",
+                f"unexpected value: {value!r}",
+                t0=t0,
+            )
     except Exception as e:
         record(sec, "S15-05", "AUDIO_STT_ENGINE disabled", "FAIL", str(e)[:100], t0=t0)

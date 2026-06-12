@@ -1,4 +1,5 @@
 """S70: M3 information access MCPs — research, memory, RAG, SearXNG."""
+
 import time
 import uuid
 
@@ -162,17 +163,24 @@ async def run() -> None:
         # Step 1: remember
         r_store = await c.post(
             "http://localhost:8920/tools/remember",
-            json={"arguments": {
-                "text": fact_text,
-                "category": "test",
-                "tags": ["acceptance", unique_tag],
-            }},
+            json={
+                "arguments": {
+                    "text": fact_text,
+                    "category": "test",
+                    "tags": ["acceptance", unique_tag],
+                }
+            },
             timeout=15,
         )
         if r_store.status_code != 200:
-            record(sec, "S70-08", "Memory MCP round-trip",
-                   "FAIL", f"remember HTTP {r_store.status_code}: {r_store.text[:120]}",
-                   t0=t0)
+            record(
+                sec,
+                "S70-08",
+                "Memory MCP round-trip",
+                "FAIL",
+                f"remember HTTP {r_store.status_code}: {r_store.text[:120]}",
+                t0=t0,
+            )
         else:
             mem_id = r_store.json().get("id", "")
             # Step 2: recall — deliberately query for the *content* not the tag,
@@ -180,17 +188,24 @@ async def run() -> None:
             # bypass the actual semantic recall.
             r_recall = await c.post(
                 "http://localhost:8920/tools/recall",
-                json={"arguments": {
-                    "query": "what is the Portal 5 mascot",
-                    "top_k": 10,
-                    "tags": ["acceptance", unique_tag],  # constrain to this run
-                }},
+                json={
+                    "arguments": {
+                        "query": "what is the Portal 5 mascot",
+                        "top_k": 10,
+                        "tags": ["acceptance", unique_tag],  # constrain to this run
+                    }
+                },
                 timeout=15,
             )
             if r_recall.status_code != 200:
-                record(sec, "S70-08", "Memory MCP round-trip",
-                       "FAIL", f"recall HTTP {r_recall.status_code}: {r_recall.text[:120]}",
-                       t0=t0)
+                record(
+                    sec,
+                    "S70-08",
+                    "Memory MCP round-trip",
+                    "FAIL",
+                    f"recall HTTP {r_recall.status_code}: {r_recall.text[:120]}",
+                    t0=t0,
+                )
             else:
                 memories = r_recall.json().get("memories", [])
                 # Find our fact by ID (avoids false positives from other tagged data)
@@ -198,15 +213,18 @@ async def run() -> None:
                 if hit:
                     sim = hit.get("similarity", 0.0)
                     record(
-                        sec, "S70-08", "Memory MCP round-trip",
+                        sec,
+                        "S70-08",
+                        "Memory MCP round-trip",
                         "PASS",
-                        f"stored+recalled: id={mem_id[:8]}, sim={sim:.2f}, "
-                        f"{len(memories)} hits",
+                        f"stored+recalled: id={mem_id[:8]}, sim={sim:.2f}, {len(memories)} hits",
                         t0=t0,
                     )
                 else:
                     record(
-                        sec, "S70-08", "Memory MCP round-trip",
+                        sec,
+                        "S70-08",
+                        "Memory MCP round-trip",
                         "FAIL",
                         f"stored {mem_id[:8]} but recall returned "
                         f"{len(memories)} memories without it",

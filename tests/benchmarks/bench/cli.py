@@ -315,8 +315,7 @@ def _run_main(args) -> None:
         reverse=True,
     )[:5]
     _top_lines = "\n".join(
-        f"  {r.get('model', r.get('workspace', '?'))[:30]:30s} {r['avg_tps']:.1f} t/s"
-        for r in _top
+        f"  {r.get('model', r.get('workspace', '?'))[:30]:30s} {r['avg_tps']:.1f} t/s" for r in _top
     )
     _send_bench_notification(
         f"{tested}/{available_ct} passed  {failed_ct} failed  {total_time:.0f}s\n"

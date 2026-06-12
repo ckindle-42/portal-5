@@ -1,4 +1,5 @@
 """UAT catalog group: auto-audio (audio analysis workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-21",
         "name": "Audio Analyst — Capabilities Overview",
@@ -53,7 +54,15 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Mentions action items",
-                "keywords": ["action item", "action point", "follow-up", "follow up", "task", "todo", "to do"],
+                "keywords": [
+                    "action item",
+                    "action point",
+                    "follow-up",
+                    "follow up",
+                    "task",
+                    "todo",
+                    "to do",
+                ],
             },
             {
                 "type": "any_of",

@@ -1,4 +1,5 @@
 """S40: Metrics and monitoring tests."""
+
 import time
 
 from tests.acceptance._common import (

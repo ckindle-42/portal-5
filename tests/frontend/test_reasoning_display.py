@@ -81,6 +81,7 @@ def _strip_think(text: str) -> str:
 
 # ── API baseline (no browser) ─────────────────────────────────────────────────
 
+
 @pytest.mark.timeout(RESPONSE_TIMEOUT_S)
 def test_pipeline_reasoning_response():
     """Pipeline returns non-empty actual content after thinking for auto-security.
@@ -114,16 +115,20 @@ def test_pipeline_reasoning_response():
         "may be stripping the answer (see 5fa1cd0 fix)."
     )
     print(f"\n[pipeline] Response length: {len(full_content)} chars")
-    print(f"[pipeline] Thinking present: {'<think>' in full_content or 'reasoning' in full_content}")
+    print(
+        f"[pipeline] Thinking present: {'<think>' in full_content or 'reasoning' in full_content}"
+    )
     print(f"[pipeline] Actual content length: {len(actual)} chars")
     print(f"[pipeline] Actual content preview: {actual[:200]}")
 
 
 # ── Playwright DOM tests ───────────────────────────────────────────────────────
 
+
 def _playwright_available() -> bool:
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -135,6 +140,7 @@ def browser_context():
     if not _playwright_available():
         pytest.skip("playwright not installed — run: playwright install chromium")
     from playwright.sync_api import sync_playwright
+
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         context = browser.new_context()
@@ -235,16 +241,25 @@ def test_owui_thinking_hidden_in_details(browser_context):
         )
 
         if details_count > 0:
-            print(f"[owui] CONFIRMED: thinking content is in {details_count} <details type='reasoning'> element(s)")
-            print("       innerText sees these as EMPTY while collapsed — this IS the UAT failure mode.")
-            print("       The UAT driver workaround: poll /api/v1/chats/{id} instead of DOM innerText.")
+            print(
+                f"[owui] CONFIRMED: thinking content is in {details_count} <details type='reasoning'> element(s)"
+            )
+            print(
+                "       innerText sees these as EMPTY while collapsed — this IS the UAT failure mode."
+            )
+            print(
+                "       The UAT driver workaround: poll /api/v1/chats/{id} instead of DOM innerText."
+            )
         elif has_details_html:
-            print("[owui] <details type='reasoning'> found in HTML but count=0 — shadow DOM or dynamic render")
+            print(
+                "[owui] <details type='reasoning'> found in HTML but count=0 — shadow DOM or dynamic render"
+            )
         else:
-            print("[owui] No <details type='reasoning'> found — AEON may not be loaded or prompt didn't trigger thinking")
+            print(
+                "[owui] No <details type='reasoning'> found — AEON may not be loaded or prompt didn't trigger thinking"
+            )
             print("       This is still a PASS: we confirmed a non-empty response was delivered.")
             print("       To verify OWUI behaviour: ensure Qwen3 AEON is loaded and re-run.")
 
     finally:
         page.close()
-

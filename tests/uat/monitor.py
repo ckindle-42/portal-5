@@ -227,10 +227,7 @@ class CrashWatcher:
             pass
         mem_pct = _get_memory_pct()
 
-        msg = (
-            f"  [CRASH DETECTED] proc={proc} file={f.name} "
-            f"mem={mem_pct:.0f}%"
-        )
+        msg = f"  [CRASH DETECTED] proc={proc} file={f.name} mem={mem_pct:.0f}%"
         print(msg, flush=True)
         self.crash_log.append(msg)
         self.crash_pending = True

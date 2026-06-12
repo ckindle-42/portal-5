@@ -1,4 +1,5 @@
 """UAT catalog group: auto-music (music generation workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-12",
         "name": "Music Producer — Dark Ambient Generation",
@@ -26,7 +27,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No error",
-                "keywords": ["an error occurred", "tool error", "failed to generate", "generation failed", "unavailable"],
+                "keywords": [
+                    "an error occurred",
+                    "tool error",
+                    "failed to generate",
+                    "generation failed",
+                    "unavailable",
+                ],
             },
             {"type": "wav_valid", "label": "WAV ≥5s", "min_seconds": 5.0},
         ],
@@ -54,4 +61,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             },
             {"type": "wav_valid", "label": "WAV ≥1.5s", "min_seconds": 1.2},
         ],
-    },]
+    },
+]

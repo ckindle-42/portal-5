@@ -1,4 +1,5 @@
 """UAT catalog group: auto-creative (creative workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-08",
         "name": "Creative Writer — Constrained Flash Fiction",
@@ -182,4 +183,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]

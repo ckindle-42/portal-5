@@ -28,9 +28,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 mcp = FastMCP("reranker", host="0.0.0.0")
 
-RERANKER_MODEL = os.environ.get(
-    "RERANKER_MODEL", "mlx-community/Qwen3-Reranker-0.6B-mxfp8"
-)
+RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "mlx-community/Qwen3-Reranker-0.6B-mxfp8")
 
 _model = None
 _processor = None
@@ -69,14 +67,12 @@ def rerank(query: str, documents: list[str], top_n: int | None = None) -> list[d
     if _self.generate is None:
         import mlx.core as _mx_mod  # noqa: PLC0415
         from mlx_embeddings import generate as _gen_mod  # noqa: PLC0415
+
         _self.mx = _mx_mod  # type: ignore[assignment]
         _self.generate = _gen_mod  # type: ignore[assignment]
 
     instruction = "Given a query and a document, judge whether the document is relevant."
-    pairs = [
-        f"<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {doc}"
-        for doc in documents
-    ]
+    pairs = [f"<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {doc}" for doc in documents]
 
     output = _self.generate(model, processor, texts=pairs)
 

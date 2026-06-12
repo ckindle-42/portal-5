@@ -14,6 +14,7 @@ Exits non-zero if any item in scope is missing. Run from repo root:
     python3 scripts/check_docstrings.py
     python3 scripts/check_docstrings.py --paths portal_pipeline
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,12 +29,32 @@ EXCLUDE_PREFIXES: tuple[str, ...] = (
     "tests/_archive/",
 )
 
-SKIP_DUNDERS: frozenset[str] = frozenset({
-    "__repr__", "__str__", "__eq__", "__ne__", "__hash__", "__lt__", "__le__",
-    "__gt__", "__ge__", "__iter__", "__next__", "__len__", "__contains__",
-    "__getitem__", "__setitem__", "__delitem__", "__enter__", "__exit__",
-    "__aenter__", "__aexit__", "__bool__", "__post_init__",
-})
+SKIP_DUNDERS: frozenset[str] = frozenset(
+    {
+        "__repr__",
+        "__str__",
+        "__eq__",
+        "__ne__",
+        "__hash__",
+        "__lt__",
+        "__le__",
+        "__gt__",
+        "__ge__",
+        "__iter__",
+        "__next__",
+        "__len__",
+        "__contains__",
+        "__getitem__",
+        "__setitem__",
+        "__delitem__",
+        "__enter__",
+        "__exit__",
+        "__aenter__",
+        "__aexit__",
+        "__bool__",
+        "__post_init__",
+    }
+)
 
 MIN_STUB_LEN = 20
 
@@ -68,13 +89,37 @@ def analyse_file(path: Path, root: Path) -> list[dict]:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
     except SyntaxError as e:
-        return [{"file": rel, "line": e.lineno or 1, "kind": "parse_error", "name": "", "reason": str(e)}]
+        return [
+            {
+                "file": rel,
+                "line": e.lineno or 1,
+                "kind": "parse_error",
+                "name": "",
+                "reason": str(e),
+            }
+        ]
 
     mod_len = get_doc_len(tree)
     if mod_len == 0:
-        issues.append({"file": rel, "line": 1, "kind": "module", "name": "<module>", "reason": "missing module docstring"})
+        issues.append(
+            {
+                "file": rel,
+                "line": 1,
+                "kind": "module",
+                "name": "<module>",
+                "reason": "missing module docstring",
+            }
+        )
     elif mod_len < MIN_STUB_LEN:
-        issues.append({"file": rel, "line": 1, "kind": "module", "name": "<module>", "reason": f"stub module docstring ({mod_len}c)"})
+        issues.append(
+            {
+                "file": rel,
+                "line": 1,
+                "kind": "module",
+                "name": "<module>",
+                "reason": f"stub module docstring ({mod_len}c)",
+            }
+        )
 
     class V(ast.NodeVisitor):
         def __init__(self) -> None:
@@ -83,9 +128,25 @@ def analyse_file(path: Path, root: Path) -> list[dict]:
         def visit_ClassDef(self, node: ast.ClassDef) -> None:
             n = get_doc_len(node)
             if n == 0:
-                issues.append({"file": rel, "line": node.lineno, "kind": "class", "name": node.name, "reason": "missing class docstring"})
+                issues.append(
+                    {
+                        "file": rel,
+                        "line": node.lineno,
+                        "kind": "class",
+                        "name": node.name,
+                        "reason": "missing class docstring",
+                    }
+                )
             elif n < MIN_STUB_LEN:
-                issues.append({"file": rel, "line": node.lineno, "kind": "class", "name": node.name, "reason": f"stub class docstring ({n}c)"})
+                issues.append(
+                    {
+                        "file": rel,
+                        "line": node.lineno,
+                        "kind": "class",
+                        "name": node.name,
+                        "reason": f"stub class docstring ({n}c)",
+                    }
+                )
             self.stack.append(node.name)
             self.generic_visit(node)
             self.stack.pop()
@@ -98,13 +159,25 @@ def analyse_file(path: Path, root: Path) -> list[dict]:
             if self.stack:
                 kind = "async_method" if isinstance(node, ast.AsyncFunctionDef) else "method"
             if n == 0:
-                issues.append({"file": rel, "line": node.lineno, "kind": kind,
-                               "name": ".".join(self.stack + [node.name]),
-                               "reason": "missing docstring"})
+                issues.append(
+                    {
+                        "file": rel,
+                        "line": node.lineno,
+                        "kind": kind,
+                        "name": ".".join(self.stack + [node.name]),
+                        "reason": "missing docstring",
+                    }
+                )
             elif n < MIN_STUB_LEN:
-                issues.append({"file": rel, "line": node.lineno, "kind": kind,
-                               "name": ".".join(self.stack + [node.name]),
-                               "reason": f"stub docstring ({n}c)"})
+                issues.append(
+                    {
+                        "file": rel,
+                        "line": node.lineno,
+                        "kind": kind,
+                        "name": ".".join(self.stack + [node.name]),
+                        "reason": f"stub docstring ({n}c)",
+                    }
+                )
 
         def visit_FunctionDef(self, node):
             self._visit_func(node)

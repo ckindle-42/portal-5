@@ -45,7 +45,6 @@ def _get_hardware_info() -> dict:
     return info
 
 
-
 def _unload_ollama_model(model: str) -> None:
     """Send keep_alive=0 to an Ollama model to force memory reclamation.
 
@@ -131,8 +130,9 @@ def _check_memory_pressure(threshold_pct: float = 85.0) -> tuple[bool, float]:
     return used < threshold_pct, used
 
 
-def _wait_metal_drain(threshold_pct: float = 80.0, timeout_s: float = 30.0,
-                      retries: int = 2) -> bool:
+def _wait_metal_drain(
+    threshold_pct: float = 80.0, timeout_s: float = 30.0, retries: int = 2
+) -> bool:
     """Wait for Metal drain with retry+recovery. See tests/memory_guard.py."""
     return _wait_for_drain_mg(
         threshold_pct=threshold_pct,

@@ -1,4 +1,5 @@
 """S31: Video generation tests (Wan2.2)."""
+
 import time
 
 from tests.acceptance._common import (

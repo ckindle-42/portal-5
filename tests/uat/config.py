@@ -52,9 +52,7 @@ SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
 
 # Memory pressure thresholds
 MEMORY_WARN_PCT = 80.0  # Log warning
-MEMORY_CRITICAL_PCT = (
-    90.0  # Force eviction before next test
-)
+MEMORY_CRITICAL_PCT = 90.0  # Force eviction before next test
 MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
 # Same-model eviction: even when the next test uses the same model, evict if
 # memory exceeds this after the previous test. KV cache from long inference

@@ -164,7 +164,9 @@ def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
 
     from tests.uat import owui_api
 
-    monkeypatch.setattr(owui_api, "owui_get_last_response", lambda t, c, min_messages=1: "hello world")
+    monkeypatch.setattr(
+        owui_api, "owui_get_last_response", lambda t, c, min_messages=1: "hello world"
+    )
     sleep_calls: list[float] = []
 
     async def fake_sleep(s):
@@ -172,9 +174,7 @@ def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-    result = asyncio.run(
-        drv._wait_for_response_arrival("tok", "chat-1", max_wait=15.0)
-    )
+    result = asyncio.run(drv._wait_for_response_arrival("tok", "chat-1", max_wait=15.0))
     assert result == "hello world"
     assert sleep_calls == [2.0], "should sleep 2s stability check then return"
 
@@ -192,9 +192,7 @@ def test_wait_for_response_arrival_no_token_falls_back_to_safety_buffer(monkeypa
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-    result = asyncio.run(
-        drv._wait_for_response_arrival("", "chat-1")
-    )
+    result = asyncio.run(drv._wait_for_response_arrival("", "chat-1"))
     assert result == ""
     assert sleep_calls == [2.0], f"expected single 2s safety buffer, got {sleep_calls}"
 
@@ -215,9 +213,7 @@ def test_wait_for_backend_alive_returns_true_on_recovery(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-    result = asyncio.run(
-        drv._wait_for_backend_alive("ollama", max_wait=10.0)
-    )
+    result = asyncio.run(drv._wait_for_backend_alive("ollama", max_wait=10.0))
     assert result is True
 
 
@@ -243,9 +239,7 @@ def test_wait_for_backend_alive_skips_polling_for_non_backend_tier(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-    result = asyncio.run(
-        drv._wait_for_backend_alive("any", max_wait=10.0)
-    )
+    result = asyncio.run(drv._wait_for_backend_alive("any", max_wait=10.0))
     assert result is True
     assert call_count == 0, "tier='any' should not poll backend"
 

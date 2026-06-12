@@ -51,10 +51,7 @@ def test_insufficient_context_scenario_not_multi_framework():
 
 def test_run_assertions_dispatches_correctly():
     concrete = cf.expand_scenarios()
-    sample = next(
-        c for c in concrete
-        if c.scenario_id == "insufficient-context-vague-prompt"
-    )
+    sample = next(c for c in concrete if c.scenario_id == "insufficient-context-vague-prompt")
     response_pass = "Insufficient context — needed: framework, scope."
     outcome = cf.run_assertions(sample, response_pass)
     assert outcome.status == "PASS", str(outcome.results)

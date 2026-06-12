@@ -343,7 +343,8 @@ async def kb_ingest_endpoint(request):
         f
         for f in src.rglob("*")
         if f.is_file()
-        and f.suffix.lower() in (".md", ".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
+        and f.suffix.lower()
+        in (".md", ".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
     ]
     files = files[:5000]
 
@@ -581,9 +582,7 @@ async def kb_search_all_endpoint(request):
             if query_type == "fts":
                 hits = t.search(query, query_type="fts").limit(20).to_list()
             elif query_type == "hybrid":
-                hits = (
-                    t.search(query_type="hybrid").vector(qvec).text(query).limit(20).to_list()
-                )
+                hits = t.search(query_type="hybrid").vector(qvec).text(query).limit(20).to_list()
             else:
                 hits = t.search(qvec).limit(20).to_list()
         except Exception:

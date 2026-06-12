@@ -366,7 +366,9 @@ class TestR17bModelExpansion:
         granite4.1:8b is verified tool-capable (BFCL V3 68.27) and already in fleet.
         """
         hint = WORKSPACES["auto-documents"]["model_hint"]
-        assert "granite4.1" in hint.lower(), f"Expected auto-documents to use granite4.1:8b, got: {hint}"
+        assert "granite4.1" in hint.lower(), (
+            f"Expected auto-documents to use granite4.1:8b, got: {hint}"
+        )
 
     @_comfyui_enabled
     def test_comfyui_download_script_has_all_image_models(self):

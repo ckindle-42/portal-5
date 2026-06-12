@@ -1,4 +1,5 @@
 """UAT catalog group: vision personas (M6-T08)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "P-V10",
         "name": "Code Screenshot Reader — Protocol",
@@ -149,4 +150,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 ],
             },
         ],
-    },]
+    },
+]

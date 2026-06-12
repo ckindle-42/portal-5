@@ -261,8 +261,12 @@ async def _run_two_chat_test(
 
         # Assertions
         _incl_think = test.get("include_thinking_in_assertions", False)
-        assertions_result = run_assertions(response1, test.get("assertions", []), include_thinking=_incl_think)
-        t2_results = run_assertions(response2, test.get("turn2_assertions", []), include_thinking=_incl_think)
+        assertions_result = run_assertions(
+            response1, test.get("assertions", []), include_thinking=_incl_think
+        )
+        t2_results = run_assertions(
+            response2, test.get("turn2_assertions", []), include_thinking=_incl_think
+        )
         assertions_result.extend(t2_results)
 
         all_specs = test.get("assertions", []) + test.get("turn2_assertions", [])
@@ -470,7 +474,9 @@ async def run_test(
 
         elapsed = time.time() - t0_disp
         _incl_think = test.get("include_thinking_in_assertions", False)
-        assertions_result = run_assertions(response_text, test.get("assertions", []), include_thinking=_incl_think)
+        assertions_result = run_assertions(
+            response_text, test.get("assertions", []), include_thinking=_incl_think
+        )
         status = compute_status(assertions_result, test.get("assertions", []))
         # No chat URL — this path doesn't create an Open WebUI chat. Use a
         # synthetic marker so the report shows where the response came from.
@@ -593,7 +599,9 @@ async def run_test(
         if test.get("pre_stage_audio"):
             import shutil as _shutil
 
-            _fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / test.get("fixture", "")
+            _fixture_path = (
+                Path(__file__).resolve().parents[1] / "fixtures" / test.get("fixture", "")
+            )
             _ai_output = Path(os.environ.get("AI_OUTPUT_DIR") or (Path.home() / "AI_Output"))
             _uploads = _ai_output / "uploads"
             _uploads.mkdir(parents=True, exist_ok=True)
@@ -694,7 +702,9 @@ async def run_test(
                 response_text = (
                     await _fe_get_last_response(page, token, chat_id) or response_text or ""
                 )
-            artifact_path = await _fe_download_artifact(page, art_ext, response_text=response_text, since_ts=t0)
+            artifact_path = await _fe_download_artifact(
+                page, art_ext, response_text=response_text, since_ts=t0
+            )
 
         # Multi-turn: send second message if defined
         turn2 = test.get("turn2")
@@ -718,12 +728,16 @@ async def run_test(
 
         # Run assertions on turn 1
         _incl_think = test.get("include_thinking_in_assertions", False)
-        assertions_result = run_assertions(response_text, test.get("assertions", []), artifact_path, include_thinking=_incl_think)
+        assertions_result = run_assertions(
+            response_text, test.get("assertions", []), artifact_path, include_thinking=_incl_think
+        )
 
         # Run turn2 assertions if defined
         t2_spec = test.get("turn2_assertions", [])
         if t2_spec and turn2_response:
-            t2_results = run_assertions(turn2_response, t2_spec, artifact_path, include_thinking=_incl_think)
+            t2_results = run_assertions(
+                turn2_response, t2_spec, artifact_path, include_thinking=_incl_think
+            )
             assertions_result.extend(t2_results)
 
         # Combine all specs for status computation
@@ -775,22 +789,25 @@ async def run_test(
         try:
             import sys as _sys
             from pathlib import Path as _Path
+
             _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
             intended_keys = route_detail  # contains expected key info
             intended_ollama = test.get("workspace_tier", "") == "ollama"
             pipeline_backend = _get_backend_from_pipeline_logs(test.get("model_slug", ""))
-            state._ROUTING_LOG.append({
-                "test_id": test_id,
-                "name": name,
-                "section": test.get("section", ""),
-                "workspace": test.get("model_slug", ""),
-                "intended": test.get("model_slug", ""),
-                "actual": routed_model,
-                "matched": matched,
-                "tier_mismatch": intended_ollama and not matched,
-                "pipeline_backend": pipeline_backend,
-                "intended_ollama": intended_ollama,
-            })
+            state._ROUTING_LOG.append(
+                {
+                    "test_id": test_id,
+                    "name": name,
+                    "section": test.get("section", ""),
+                    "workspace": test.get("model_slug", ""),
+                    "intended": test.get("model_slug", ""),
+                    "actual": routed_model,
+                    "matched": matched,
+                    "tier_mismatch": intended_ollama and not matched,
+                    "pipeline_backend": pipeline_backend,
+                    "intended_ollama": intended_ollama,
+                }
+            )
         except Exception:
             pass
 

@@ -12,6 +12,7 @@ Output:
 Per TASK_MODEL_REFRESH_V5 §F. The report is the operator's decision input
 for TASK_WORKSPACE_PROMOTION_V1.md.
 """
+
 import json
 import statistics
 from collections import defaultdict
@@ -92,16 +93,18 @@ def main():
         ws = workspace_for(model_id)
         median_tps = statistics.median(tps_list) if tps_list else 0
         meta = catalog.get(model_id, {})
-        by_workspace[ws].append({
-            "model": model_id,
-            "median_tps": round(median_tps, 1),
-            "memory_gb": meta.get("memory_gb", "?"),
-            "supports_tools": meta.get("supports_tools", "?"),
-            "is_vlm": meta.get("is_vlm", False),
-            "big_model": meta.get("big_model", False),
-            "smoke": smoke_status.get(model_id, "—"),
-            "n_runs": len(tps_list),
-        })
+        by_workspace[ws].append(
+            {
+                "model": model_id,
+                "median_tps": round(median_tps, 1),
+                "memory_gb": meta.get("memory_gb", "?"),
+                "supports_tools": meta.get("supports_tools", "?"),
+                "is_vlm": meta.get("is_vlm", False),
+                "big_model": meta.get("big_model", False),
+                "smoke": smoke_status.get(model_id, "—"),
+                "n_runs": len(tps_list),
+            }
+        )
 
     # Generate report
     lines = []
@@ -116,8 +119,14 @@ def main():
 
     # Per-workspace section
     workspace_order = [
-        "auto-vision", "auto-creative", "auto-reasoning", "auto-compliance",
-        "auto-coding", "auto-security/redteam", "auto-redteam", "auto",
+        "auto-vision",
+        "auto-creative",
+        "auto-reasoning",
+        "auto-compliance",
+        "auto-coding",
+        "auto-security/redteam",
+        "auto-redteam",
+        "auto",
         "uncategorized",
     ]
     for ws in workspace_order:
@@ -126,15 +135,23 @@ def main():
         entries = sorted(by_workspace[ws], key=lambda e: e["median_tps"], reverse=True)
         lines.append(f"## {ws}")
         lines.append("")
-        lines.append("| Model | Median TPS | Memory (GB) | Tools | VLM | BIG_MODEL | Smoke | Notes |")
+        lines.append(
+            "| Model | Median TPS | Memory (GB) | Tools | VLM | BIG_MODEL | Smoke | Notes |"
+        )
         lines.append("|---|---:|---:|:-:|:-:|:-:|:-:|---|")
         for e in entries:
-            tools = "✓" if e["supports_tools"] is True else ("✗" if e["supports_tools"] is False else "?")
+            tools = (
+                "✓"
+                if e["supports_tools"] is True
+                else ("✗" if e["supports_tools"] is False else "?")
+            )
             vlm = "✓" if e["is_vlm"] else ""
             big = "✓" if e["big_model"] else ""
             note_raw = catalog.get(e["model"], {}).get("notes", "")
             note = (note_raw[:80] + "...") if note_raw else ""
-            lines.append(f"| `{e['model']}` | {e['median_tps']} | {e['memory_gb']} | {tools} | {vlm} | {big} | {e['smoke']} | {note} |")
+            lines.append(
+                f"| `{e['model']}` | {e['median_tps']} | {e['memory_gb']} | {tools} | {vlm} | {big} | {e['smoke']} | {note} |"
+            )
         lines.append("")
 
         # Identify Pareto frontier (within this workspace)
@@ -164,7 +181,9 @@ def main():
     # Promotion recommendation summary
     lines.append("## Promotion recommendations")
     lines.append("")
-    lines.append("Speed-quality dominance based on measured TPS. **Quality estimates pending T-* probes — these are speed-only Pareto recommendations.** The operator should run T-RSN/T-COD/T-CMP/T-VIS/T-CRE benchmarks before flipping workspace primaries.")
+    lines.append(
+        "Speed-quality dominance based on measured TPS. **Quality estimates pending T-* probes — these are speed-only Pareto recommendations.** The operator should run T-RSN/T-COD/T-CMP/T-VIS/T-CRE benchmarks before flipping workspace primaries."
+    )
     lines.append("")
     for ws in workspace_order:
         if ws not in by_workspace or not by_workspace[ws]:
@@ -178,8 +197,12 @@ def main():
             continue
         top = entries[0]
         lines.append(f"### {ws}")
-        lines.append(f"- **Fastest measured (smoke-passed):** `{top['model']}` at {top['median_tps']} TPS, {top['memory_gb']} GB resident")
-        lines.append("- **Decision gate:** run T-* quality probes (see `TASK_*_SHOOTOUT_V1.md`) before promoting to workspace MLX primary.")
+        lines.append(
+            f"- **Fastest measured (smoke-passed):** `{top['model']}` at {top['median_tps']} TPS, {top['memory_gb']} GB resident"
+        )
+        lines.append(
+            "- **Decision gate:** run T-* quality probes (see `TASK_*_SHOOTOUT_V1.md`) before promoting to workspace MLX primary."
+        )
         lines.append("")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

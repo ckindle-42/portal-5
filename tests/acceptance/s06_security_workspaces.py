@@ -1,4 +1,5 @@
 """S6: Security workspace tests."""
+
 import time
 
 from tests.acceptance._common import (
@@ -32,7 +33,10 @@ async def run() -> None:
     else:
         status = "WARN"
     record(
-        sec, "S6-01", "auto-security routing", status,
+        sec,
+        "S6-01",
+        "auto-security routing",
+        status,
         f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )
@@ -55,7 +59,10 @@ async def run() -> None:
     else:
         status = "WARN"
     record(
-        sec, "S6-02", "auto-redteam routing", status,
+        sec,
+        "S6-02",
+        "auto-redteam routing",
+        status,
         f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )
@@ -78,7 +85,10 @@ async def run() -> None:
     else:
         status = "WARN"
     record(
-        sec, "S6-03", "auto-blueteam routing", status,
+        sec,
+        "S6-03",
+        "auto-blueteam routing",
+        status,
         f"signals: {found[:3]} | {route_detail}",
         t0=t0,
     )

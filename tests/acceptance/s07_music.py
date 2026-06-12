@@ -1,4 +1,5 @@
 """S7: Music generation tests."""
+
 import time
 
 from tests.acceptance._common import (

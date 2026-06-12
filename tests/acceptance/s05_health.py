@@ -1,4 +1,5 @@
 """S5: Code sandbox tests."""
+
 import time
 
 from tests.acceptance._common import (

@@ -4,6 +4,7 @@ REFUSAL_PHRASES is the canonical refusal keyword list (also imported by the
 driver from ``common``); the _CC01 assertion specs are reused across coding
 entries. Defined once here so catalog data modules import from one place.
 """
+
 from __future__ import annotations
 
 from tests.common import REFUSAL_PHRASES  # noqa: F401  (re-exported for catalog modules)

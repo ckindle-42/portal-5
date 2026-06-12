@@ -66,7 +66,9 @@ class TestReadFile:
     def test_docling_pptx_supported(self, tmp_path, monkeypatch):
         f = tmp_path / "slides.pptx"
         f.write_bytes(b"dummy")
-        monkeypatch.setattr(rag_mcp, "_docling_convert", lambda p: "# Slide 1\n\nBullet points here")
+        monkeypatch.setattr(
+            rag_mcp, "_docling_convert", lambda p: "# Slide 1\n\nBullet points here"
+        )
         assert "Slide 1" in asyncio.run(rag_mcp._read_file(f))
 
     def test_docling_failure_falls_back_to_pypdf(self, tmp_path, monkeypatch):
@@ -129,7 +131,15 @@ class TestManifest:
     """All expected tools are registered (final Phase 3 state)."""
 
     _EXPECTED_TOOLS = frozenset(
-        {"kb_list", "kb_search", "kb_search_all", "kb_ingest", "kb_optimize", "kb_versions", "kb_restore"}
+        {
+            "kb_list",
+            "kb_search",
+            "kb_search_all",
+            "kb_ingest",
+            "kb_optimize",
+            "kb_versions",
+            "kb_restore",
+        }
     )
 
     def test_all_tools_present(self):

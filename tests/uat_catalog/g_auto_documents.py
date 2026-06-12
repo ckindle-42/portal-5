@@ -1,4 +1,5 @@
 """UAT catalog group: auto-documents (Transcript Analyst golden-path chain)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # (transcribe_with_speakers → create_word_document)
+TESTS: list[dict] = [  # (transcribe_with_speakers → create_word_document)
     # -----------------------------------------------------------------------
     {
         "id": "TR-01",
@@ -57,4 +58,5 @@ TESTS: list[dict] = [    # (transcribe_with_speakers → create_word_document)
                 "critical": False,
             },
         ],
-    },]
+    },
+]

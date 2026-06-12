@@ -80,6 +80,7 @@ def _get_voxtral_model() -> Any:
     global _voxtral_model
     if _voxtral_model is None:
         from mlx_audio.stt.utils import load
+
         logger.info("Loading Voxtral model: %s", VOXTRAL_MODEL)
         _voxtral_model = load(VOXTRAL_MODEL)
         logger.info("Voxtral model ready")
@@ -183,7 +184,8 @@ def _diarize(audio_path: str, num_speakers: int | None) -> list[dict]:
     try:
         subprocess.run(
             [ffmpeg, "-y", "-i", audio_path, "-ar", "16000", "-ac", "1", wav_tmp],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         diarize_input = wav_tmp
     except Exception as e:
@@ -200,6 +202,7 @@ def _diarize(audio_path: str, num_speakers: int | None) -> list[dict]:
         annotation = getattr(output, "speaker_diarization", output)
     finally:
         import os
+
         if diarize_input != audio_path:
             os.unlink(wav_tmp)
 
@@ -274,7 +277,9 @@ def _run_pipeline(
     try:
         speaker_turns = _diarize(audio_path, num_speakers)
     except Exception as e:
-        diarization_warning = f"Diarization unavailable ({type(e).__name__}: {e}); using single-speaker fallback"
+        diarization_warning = (
+            f"Diarization unavailable ({type(e).__name__}: {e}); using single-speaker fallback"
+        )
         logger.warning(diarization_warning)
         speaker_turns = []
     t_diarize = time.time() - t1
@@ -368,8 +373,7 @@ def _latest_audio_upload() -> Path | None:
     """Return the most recently modified audio file in the uploads directory."""
     uploads = get_uploads_dir()
     candidates = [
-        f for f in uploads.iterdir()
-        if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS
+        f for f in uploads.iterdir() if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS
     ]
     if not candidates:
         return None
@@ -412,7 +416,9 @@ def _resolve_audio_input(file: str) -> tuple[Path | None, str]:
     # Last resort: fall back to most recent audio upload with a warning
     fallback = _latest_audio_upload()
     if fallback is not None:
-        logger.warning("Could not resolve %r — falling back to most recent upload: %s", file, fallback.name)
+        logger.warning(
+            "Could not resolve %r — falling back to most recent upload: %s", file, fallback.name
+        )
         return fallback, fallback.name
     return None, f"upload not found: {file!r} (no match in uploads directory)"
 
@@ -486,42 +492,44 @@ async def invoke_tool(tool_name: str, request: Request) -> JSONResponse:
 
 @app.get("/tools")
 async def list_tools() -> JSONResponse:
-    return JSONResponse({
-        "tools": [
-            {
-                "name": "transcribe_with_speakers",
-                "description": (
-                    "Transcribe an audio file using MLX. Default engine: whisper-large-v3-turbo "
-                    "with pyannote speaker diarization. Use engine='voxtral-mini-3b' for "
-                    "multilingual transcription (en/fr/de/es/it/pt/nl/ru, no diarization). "
-                    "Call with no arguments to auto-detect the most recently uploaded audio file."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "file": {
-                            "type": "string",
-                            "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
+    return JSONResponse(
+        {
+            "tools": [
+                {
+                    "name": "transcribe_with_speakers",
+                    "description": (
+                        "Transcribe an audio file using MLX. Default engine: whisper-large-v3-turbo "
+                        "with pyannote speaker diarization. Use engine='voxtral-mini-3b' for "
+                        "multilingual transcription (en/fr/de/es/it/pt/nl/ru, no diarization). "
+                        "Call with no arguments to auto-detect the most recently uploaded audio file."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "file": {
+                                "type": "string",
+                                "description": "Audio file reference: OWUI file ID, filename in uploads/, or absolute path. Omit to auto-detect most recent upload.",
+                            },
+                            "num_speakers": {
+                                "type": "integer",
+                                "description": "Expected speaker count (whisper engine only). Auto-detected if omitted. Recommended for >15 min audio.",
+                            },
+                            "language": {
+                                "type": "string",
+                                "description": "ISO language code (e.g. 'en', 'fr'). Auto-detected if omitted.",
+                            },
+                            "engine": {
+                                "type": "string",
+                                "enum": ["whisper-large-v3-turbo", "voxtral-mini-3b"],
+                                "description": "Transcription engine. 'whisper-large-v3-turbo' (default): speaker-diarized English-optimized. 'voxtral-mini-3b': Mistral multilingual (8 languages), no diarization.",
+                            },
                         },
-                        "num_speakers": {
-                            "type": "integer",
-                            "description": "Expected speaker count (whisper engine only). Auto-detected if omitted. Recommended for >15 min audio.",
-                        },
-                        "language": {
-                            "type": "string",
-                            "description": "ISO language code (e.g. 'en', 'fr'). Auto-detected if omitted.",
-                        },
-                        "engine": {
-                            "type": "string",
-                            "enum": ["whisper-large-v3-turbo", "voxtral-mini-3b"],
-                            "description": "Transcription engine. 'whisper-large-v3-turbo' (default): speaker-diarized English-optimized. 'voxtral-mini-3b': Mistral multilingual (8 languages), no diarization.",
-                        },
+                        "required": [],
                     },
-                    "required": [],
-                },
-            }
-        ]
-    })
+                }
+            ]
+        }
+    )
 
 
 @app.get("/files/{filename}", response_model=None)
@@ -629,7 +637,13 @@ async def transcribe_with_speakers(
 
         On error: {"error": "..."}
     """
-    logger.info("transcribe_with_speakers called: file=%r num_speakers=%r language=%r engine=%r", file, num_speakers, language, engine)
+    logger.info(
+        "transcribe_with_speakers called: file=%r num_speakers=%r language=%r engine=%r",
+        file,
+        num_speakers,
+        language,
+        engine,
+    )
     path, source_name = _resolve_audio_input(file)
     if path is None:
         logger.warning("file not resolved: %r — %s", file, source_name)

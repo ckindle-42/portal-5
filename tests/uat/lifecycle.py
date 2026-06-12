@@ -62,6 +62,8 @@ def _unload_running_ollama_models() -> None:
                 )
     except Exception as e:
         print(f"  WARNING: Ollama unload failed: {e}", flush=True)
+
+
 # Model unload helpers
 # ---------------------------------------------------------------------------
 

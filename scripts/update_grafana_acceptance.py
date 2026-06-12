@@ -8,6 +8,7 @@ Usage:
     python3 scripts/update_grafana_acceptance.py --dry-run
     python3 scripts/update_grafana_acceptance.py --input tests/ACCEPTANCE_RESULTS.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,18 +39,18 @@ STATUS_COLOR = {
 }
 
 _SECTION_DESCRIPTIONS: dict[str, str] = {
-    "S0":  "Prerequisites — Python version, required packages, .env file, Git repo",
-    "S1":  "Config consistency — backends.yaml, workspace IDs vs WORKSPACES, persona catalog, model hint reachability",
-    "S2":  "Service health — Docker, Ollama, Open WebUI, SearXNG, Prometheus, Grafana, all MCP + MLX services",
+    "S0": "Prerequisites — Python version, required packages, .env file, Git repo",
+    "S1": "Config consistency — backends.yaml, workspace IDs vs WORKSPACES, persona catalog, model hint reachability",
+    "S2": "Service health — Docker, Ollama, Open WebUI, SearXNG, Prometheus, Grafana, all MCP + MLX services",
     "S3a": "Workspace routing (production) — 21 workspaces (20 auto-* + tools-specialist): routing, content signal, served model match",
-    "S4":  "Document generation MCP (:8913) — Word, Excel, PowerPoint generation end-to-end",
-    "S5":  "Code sandbox MCP (:8914) — Python/Bash execution, sandboxed isolation",
-    "S6":  "Security workspaces — auto-blueteam and auto-compliance routing + content signal",
-    "S7":  "Music generation MCP (:8912) — MusicGen end-to-end",
-    "S8":  "Text-to-Speech — MLX speech server Kokoro/Qwen3-TTS (:8918)",
-    "S9":  "Speech-to-Text — MLX transcribe mlx-whisper + pyannote diarization (:8924)",
+    "S4": "Document generation MCP (:8913) — Word, Excel, PowerPoint generation end-to-end",
+    "S5": "Code sandbox MCP (:8914) — Python/Bash execution, sandboxed isolation",
+    "S6": "Security workspaces — auto-blueteam and auto-compliance routing + content signal",
+    "S7": "Music generation MCP (:8912) — MusicGen end-to-end",
+    "S8": "Text-to-Speech — MLX speech server Kokoro/Qwen3-TTS (:8918)",
+    "S9": "Speech-to-Text — MLX transcribe mlx-whisper + pyannote diarization (:8924)",
     "S10": "Personas (Ollama) — 86 non-bench personas grouped by Ollama model, behavioral signal",
-    "S10c":"Compliance personas — 7 NERC/CIP compliance scenarios via fixture",
+    "S10c": "Compliance personas — 7 NERC/CIP compliance scenarios via fixture",
     "S12": "Web search — SearXNG integration, search result quality",
     "S13": "RAG/Embedding — MLX embedding (:8917) + Qwen3-Reranker (:8925) two-stage retrieval",
     "S15": "Shared workspace — /workspace mounts, OWUI uploads bind, AUDIO_STT_ENGINE gate",
@@ -64,7 +65,7 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "S50": "Negative testing — empty/oversized prompts, invalid models, malformed JSON, auth",
     "S60": "Tool-calling orchestration — MCP tool dispatch end-to-end, tool-loop correctness",
     "S70": "Information access MCPs — memory (:8920), research (:8922), browser (:8923)",
-    "S3":  "Workspace routing wrapper (runs S3a)",
+    "S3": "Workspace routing wrapper (runs S3a)",
 }
 
 
@@ -101,14 +102,16 @@ def _parse_results(path: Path) -> dict:
         elapsed = float(m.group(6))
         if section in ("Section", "---"):
             continue
-        rows.append({
-            "section": section,
-            "tid": tid,
-            "name": name,
-            "status": status,
-            "detail": detail,
-            "elapsed": elapsed,
-        })
+        rows.append(
+            {
+                "section": section,
+                "tid": tid,
+                "name": name,
+                "status": status,
+                "detail": detail,
+                "elapsed": elapsed,
+            }
+        )
 
     return {"meta": meta, "rows": rows}
 
@@ -134,14 +137,16 @@ def _parse_corpus_runs(corpus_dir: Path, last_n: int = 10) -> list[dict]:
         total = len(entries)
         eligible = total - counts.get("INFO", 0)
         pass_pct = round(100 * counts.get("PASS", 0) / eligible) if eligible else 0
-        runs.append({
-            "run_id": run_id,
-            "git_sha": entries[0].get("git_sha", ""),
-            "date": entries[0].get("date", ""),
-            "total": total,
-            "counts": dict(counts),
-            "pass_pct": pass_pct,
-        })
+        runs.append(
+            {
+                "run_id": run_id,
+                "git_sha": entries[0].get("git_sha", ""),
+                "date": entries[0].get("date", ""),
+                "total": total,
+                "counts": dict(counts),
+                "pass_pct": pass_pct,
+            }
+        )
     return runs
 
 
@@ -155,17 +160,19 @@ def _archive_corpus(rows: list[dict], meta: dict) -> Path | None:
     date = meta.get("Date", "")
     out = CORPUS_DIR / f"acceptance_{run_id}.jsonl"
     lines = [
-        json.dumps({
-            "run_id": run_id,
-            "git_sha": git_sha,
-            "date": date,
-            "section": r["section"],
-            "tid": r["tid"],
-            "name": r["name"],
-            "status": r["status"],
-            "detail": r["detail"][:120],
-            "elapsed": r["elapsed"],
-        })
+        json.dumps(
+            {
+                "run_id": run_id,
+                "git_sha": git_sha,
+                "date": date,
+                "section": r["section"],
+                "tid": r["tid"],
+                "name": r["name"],
+                "status": r["status"],
+                "detail": r["detail"][:120],
+                "elapsed": r["elapsed"],
+            }
+        )
         for r in rows
     ]
     out.write_text("\n".join(lines) + "\n")
@@ -209,7 +216,7 @@ def _build_summary_panel(rows: list[dict]) -> str:
         f'<span><b style="color:{RED}">FAIL</b> — critical assertion failed</span>'
         f'<span><b style="color:{GRAY}">BLOCKED</b> — test could not run (infra/model unavailable)</span>'
         f'<span style="color:#555">Pass rate = PASS ÷ eligible (excludes INFO)</span>'
-        '</div>'
+        "</div>"
     )
     return (
         '<div style="display:flex;flex-direction:column;justify-content:center;height:100%">'
@@ -225,9 +232,9 @@ def _build_summary_panel(rows: list[dict]) -> str:
         f'<div style="color:#aaa">BLOCKED</div></div>'
         f'<div><div style="font-size:28px;font-weight:bold;color:{pass_color}">{pass_ct}/{eligible}</div>'
         f'<div style="color:#aaa">Pass Rate ({pct}%)</div></div>'
-        '</div>'
-        f'{legend}'
-        '</div>'
+        "</div>"
+        f"{legend}"
+        "</div>"
     )
 
 
@@ -236,8 +243,10 @@ def _build_metadata_panel(meta: dict, rows: list[dict]) -> str:
     fail_ct = counts.get("FAIL", 0)
     blocked_ct = counts.get("BLOCKED", 0)
     total = len(rows)
-    health = "🟢 HEALTHY" if fail_ct + blocked_ct == 0 else (
-        "🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING"
+    health = (
+        "🟢 HEALTHY"
+        if fail_ct + blocked_ct == 0
+        else ("🟡 DEGRADED" if fail_ct <= 3 else "🔴 FAILING")
     )
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     date = meta.get("Date", "unknown")
@@ -274,7 +283,7 @@ def _build_section_table(rows: list[dict]) -> str:
         '<summary style="cursor:pointer;color:#6b9cd4;padding:4px 0">▶ Section key — what each covers</summary>'
         '<div style="padding:6px 0;border-bottom:1px solid #333;margin-bottom:6px">'
         f'<table style="border-collapse:collapse;width:100%">{legend_items}</table>'
-        '</div></details>'
+        "</div></details>"
     )
 
     header = (
@@ -289,7 +298,9 @@ def _build_section_table(rows: list[dict]) -> str:
         '<th style="text-align:left;min-width:100px">Pass%</th></tr>'
     )
     section_order = list(_SECTION_DESCRIPTIONS.keys())
-    ordered = sorted(sections.keys(), key=lambda s: (section_order.index(s) if s in section_order else 999, s))
+    ordered = sorted(
+        sections.keys(), key=lambda s: (section_order.index(s) if s in section_order else 999, s)
+    )
 
     table_rows = []
     for i, sec in enumerate(ordered):
@@ -308,16 +319,16 @@ def _build_section_table(rows: list[dict]) -> str:
         table_rows.append(
             f"<tr{bg}>"
             f'<td style="font-family:monospace;color:{color};white-space:nowrap">{icon} {sec}</td>'
-            f'{desc_cell}'
+            f"{desc_cell}"
             f'<td style="color:{GREEN}">{pass_ct}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
-            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED",0)}</td>'
+            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
+            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
+            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED", 0)}</td>'
             f'<td style="text-align:right">{total}</td>'
             f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
-        f'{legend_html}'
+        f"{legend_html}"
         '<div style="overflow:auto;max-height:560px">'
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'
         f"{header}{''.join(table_rows)}</table></div>"
@@ -341,7 +352,15 @@ def _build_failures_panel(rows: list[dict]) -> tuple[str, int]:
         '<th style="text-align:left">Detail</th></tr>'
     )
     table_rows = []
-    for i, r in enumerate(sorted(bad, key=lambda x: (STATUS_ORDER.index(x["status"]) if x["status"] in STATUS_ORDER else 99, x["section"]))):
+    for i, r in enumerate(
+        sorted(
+            bad,
+            key=lambda x: (
+                STATUS_ORDER.index(x["status"]) if x["status"] in STATUS_ORDER else 99,
+                x["section"],
+            ),
+        )
+    ):
         color = STATUS_COLOR.get(r["status"], GRAY)
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
         detail = r["detail"][:100].replace("<", "&lt;").replace(">", "&gt;")
@@ -368,7 +387,9 @@ def _build_classifier_panel(rows: list[dict]) -> str:
 
     code_defects = [r for r in bad if "CODE-DEFECT" in r["detail"]]
     env_issues = [r for r in bad if "ENV-ISSUE" in r["detail"]]
-    unclassified = [r for r in bad if "CODE-DEFECT" not in r["detail"] and "ENV-ISSUE" not in r["detail"]]
+    unclassified = [
+        r for r in bad if "CODE-DEFECT" not in r["detail"] and "ENV-ISSUE" not in r["detail"]
+    ]
 
     def _pill(label: str, count: int, color: str) -> str:
         return (
@@ -378,37 +399,47 @@ def _build_classifier_panel(rows: list[dict]) -> str:
             f'<span style="color:#aaa;font-size:12px">{label}</span></div>'
         )
 
-    items = "".join([
-        _pill("Code Defects", len(code_defects), RED),
-        _pill("Env Issues", len(env_issues), YELLOW),
-        _pill("Unclassified", len(unclassified), GRAY),
-    ])
+    items = "".join(
+        [
+            _pill("Code Defects", len(code_defects), RED),
+            _pill("Env Issues", len(env_issues), YELLOW),
+            _pill("Unclassified", len(unclassified), GRAY),
+        ]
+    )
 
     rows_html = ""
     if bad:
         trs = []
         for i, r in enumerate(bad):
-            classifier = "CODE-DEFECT" if "CODE-DEFECT" in r["detail"] else ("ENV-ISSUE" if "ENV-ISSUE" in r["detail"] else "unclassified")
-            color = RED if classifier == "CODE-DEFECT" else (YELLOW if classifier == "ENV-ISSUE" else GRAY)
+            classifier = (
+                "CODE-DEFECT"
+                if "CODE-DEFECT" in r["detail"]
+                else ("ENV-ISSUE" if "ENV-ISSUE" in r["detail"] else "unclassified")
+            )
+            color = (
+                RED
+                if classifier == "CODE-DEFECT"
+                else (YELLOW if classifier == "ENV-ISSUE" else GRAY)
+            )
             bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
             trs.append(
                 f"<tr{bg}>"
                 f'<td style="font-family:monospace;white-space:nowrap;font-size:10px">{r["tid"]}</td>'
                 f'<td style="color:{STATUS_COLOR.get(r["status"], GRAY)}">{r["status"]}</td>'
                 f'<td style="color:{color};font-size:10px">{classifier}</td>'
-                f"<td style=\"font-size:10px\">{r['name'][:60]}</td></tr>"
+                f'<td style="font-size:10px">{r["name"][:60]}</td></tr>'
             )
         rows_html = (
             '<div style="overflow:auto;max-height:200px;margin-top:8px">'
             '<table style="width:100%;border-collapse:collapse;font-size:11px">'
             '<tr style="background:#1f1f1f"><th style="text-align:left">ID</th>'
             '<th style="text-align:left">Status</th><th style="text-align:left">Classifier</th>'
-            '<th style="text-align:left">Name</th></tr>'
-            + "".join(trs)
-            + "</table></div>"
+            '<th style="text-align:left">Name</th></tr>' + "".join(trs) + "</table></div>"
         )
 
-    return f'<div style="display:flex;flex-wrap:wrap;gap:4px;padding:8px 0">{items}</div>{rows_html}'
+    return (
+        f'<div style="display:flex;flex-wrap:wrap;gap:4px;padding:8px 0">{items}</div>{rows_html}'
+    )
 
 
 def _build_trend_panel(runs: list[dict]) -> str:
@@ -441,11 +472,11 @@ def _build_trend_panel(runs: list[dict]) -> str:
             f'<td style="font-family:monospace;font-size:10px">{run["run_id"]}</td>'
             f"<td>{date}</td>"
             f'<td style="font-family:monospace;color:#aaa">{sha}</td>'
-            f'<td style="text-align:right;color:{GREEN}">{c.get("PASS",0)}</td>'
-            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
-            f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
-            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED",0)}</td>'
-            f"<td style=\"text-align:right\">{total}</td>"
+            f'<td style="text-align:right;color:{GREEN}">{c.get("PASS", 0)}</td>'
+            f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN", 0)}</td>'
+            f'<td style="text-align:right;color:{RED}">{c.get("FAIL", 0)}</td>'
+            f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED", 0)}</td>'
+            f'<td style="text-align:right">{total}</td>'
             f"<td>{_bar(c.get('PASS', 0), total, color)}</td></tr>"
         )
     return (
@@ -483,11 +514,11 @@ def main() -> None:
     total = len(rows)
     print(
         f"Acceptance results: {total} tests — "
-        f"{counts.get('PASS',0)} PASS, {counts.get('WARN',0)} WARN, "
-        f"{counts.get('FAIL',0)} FAIL, {counts.get('BLOCKED',0)} BLOCKED, "
-        f"{counts.get('INFO',0)} INFO"
+        f"{counts.get('PASS', 0)} PASS, {counts.get('WARN', 0)} WARN, "
+        f"{counts.get('FAIL', 0)} FAIL, {counts.get('BLOCKED', 0)} BLOCKED, "
+        f"{counts.get('INFO', 0)} INFO"
     )
-    print(f"Run date: {meta.get('Date','?')}  Git SHA: {meta.get('Git SHA','?')}")
+    print(f"Run date: {meta.get('Date', '?')}  Git SHA: {meta.get('Git SHA', '?')}")
 
     if args.dry_run:
         print("Dry run — dashboard not updated.")

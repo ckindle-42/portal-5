@@ -95,7 +95,11 @@ TOOLS_MANIFEST = [
         "parameters": {
             "type": "object",
             "properties": {
-                "count": {"type": "integer", "description": "Number of images to return", "default": 5},
+                "count": {
+                    "type": "integer",
+                    "description": "Number of images to return",
+                    "default": 5,
+                },
             },
         },
     },
@@ -519,7 +523,17 @@ async def start_image_generation(
         seed: -1 for random
     """
     workflow, seed = _build_image_workflow(
-        prompt, width, height, steps, cfg, negative_prompt, seed, model, checkpoint, lora, lora_strength
+        prompt,
+        width,
+        height,
+        steps,
+        cfg,
+        negative_prompt,
+        seed,
+        model,
+        checkpoint,
+        lora,
+        lora_strength,
     )
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
@@ -646,12 +660,16 @@ async def get_latest_images(count: int = 5) -> list[dict]:
             for img in node_output.get("images", []):
                 filename = img.get("filename", "")
                 # Skip video files that appear as image frames
-                if filename and not any(filename.endswith(ext) for ext in (".mp4", ".webm", ".gif")):
-                    images.append({
-                        "filename": filename,
-                        "url": f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output",
-                        "job_id": prompt_id,
-                    })
+                if filename and not any(
+                    filename.endswith(ext) for ext in (".mp4", ".webm", ".gif")
+                ):
+                    images.append(
+                        {
+                            "filename": filename,
+                            "url": f"{COMFYUI_PUBLIC_URL}/view?filename={filename}&type=output",
+                            "job_id": prompt_id,
+                        }
+                    )
 
     # Sort by filename — portal__XXXXX_.png sequential numbering gives recency order
     images.sort(key=lambda x: x["filename"], reverse=True)
@@ -694,7 +712,17 @@ async def generate_image(
         lora_strength: LoRA strength 0.0-2.0 (default 1.0)
     """
     workflow, seed = _build_image_workflow(
-        prompt, width, height, steps, cfg, negative_prompt, seed, model, checkpoint, lora, lora_strength
+        prompt,
+        width,
+        height,
+        steps,
+        cfg,
+        negative_prompt,
+        seed,
+        model,
+        checkpoint,
+        lora,
+        lora_strength,
     )
     prompt_id, err = await _submit_comfyui(workflow)
     if err:

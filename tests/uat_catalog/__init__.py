@@ -10,6 +10,7 @@ append its import to ``_GROUPS`` below — no edits to the 11k-line driver.
 Catalog order is significant: it is the stable pre-sort order consumed by
 ``tests.uat.runner.sort_tests_cascade`` before cascade reordering.
 """
+
 from __future__ import annotations
 
 # Import order == catalog order. Append new groups at the correct position.

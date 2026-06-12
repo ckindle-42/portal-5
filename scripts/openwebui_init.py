@@ -407,9 +407,7 @@ async def create_persona_presets_async(
     # 2. Fetch base models (connections) via /api/models — these IDs also
     #    collide with persona slug if they share the same value.
     try:
-        resp2 = await client.get(
-            f"{OPENWEBUI_URL}/api/models", headers=auth_headers(token)
-        )
+        resp2 = await client.get(f"{OPENWEBUI_URL}/api/models", headers=auth_headers(token))
         if resp2.status_code == 200:
             base_data = resp2.json()
             base_items = base_data.get("data", []) if isinstance(base_data, dict) else []
@@ -628,8 +626,12 @@ def verify_persona_tool_bindings(client: httpx.Client, token: str) -> None:
 
     for slug, required_tools in required_bindings.items():
         match = next(
-            (m for m in models
-             if m.get("id") == slug or (isinstance(m.get("info"), dict) and m["info"].get("id") == slug)),
+            (
+                m
+                for m in models
+                if m.get("id") == slug
+                or (isinstance(m.get("info"), dict) and m["info"].get("id") == slug)
+            ),
             None,
         )
         if match is None:

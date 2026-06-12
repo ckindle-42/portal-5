@@ -14,5 +14,5 @@ _ROUTING_LOG: list[dict] = []
 _run_chat_ids: list[str] = []
 
 # Archival state: set at run start, used by the SIGINT handler to archive on interrupt.
-_run_folder_id: str | None = None   # UAT/{date} folder ID, resolved before first test
-_archive_token: str | None = None   # OWUI token for use in signal handler
+_run_folder_id: str | None = None  # UAT/{date} folder ID, resolved before first test
+_archive_token: str | None = None  # OWUI token for use in signal handler

@@ -1,4 +1,5 @@
 """S4: Document generation tests."""
+
 import asyncio
 import time
 

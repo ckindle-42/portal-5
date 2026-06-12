@@ -1,4 +1,5 @@
 """UAT catalog group: auto-agentic (agentic workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-03",
         "name": "Agentic Coder Heavy — Flask Migration Plan",
@@ -90,4 +91,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]
