@@ -464,7 +464,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
         "description": "Benchmark: GLM-4.7-Flash (GGUF, Ollama, Zhiyu AI — distinct Chinese research lineage, 59.2% SWE-bench)",
-        "model_hint": "glm-4.7-flash:q4_K_M",
+        "model_hint": "glm-4.7-flash:Q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
