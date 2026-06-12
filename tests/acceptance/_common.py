@@ -181,6 +181,11 @@ async def _unload_ollama_models() -> None:
     return await _monolith()._unload_ollama_models()
 
 
+async def _await_ollama_ready(timeout_s: float = 300.0, poll_s: float = 5.0) -> bool:
+    """Event-driven cold-load wait via memory_guard.wait_for_model_loaded."""
+    return await _monolith()._await_ollama_ready(timeout_s=timeout_s, poll_s=poll_s)
+
+
 def _get_workspace_prompts() -> dict:
     """Return WORKSPACE_PROMPTS from the monolith."""
     return _monolith().WORKSPACE_PROMPTS
