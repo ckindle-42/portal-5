@@ -78,3 +78,54 @@ Both pulls completed cleanly. The Qwopus Coder-MTP GGUF repo is properly llama.c
 5. **Unit tests:** All pass (excluding 13 pre-existing PermissionError tests unrelated to this task). Two workspace-count tests updated (73→75). VALID_WORKSPACES in dispatcher.py updated.
 
 6. **CoT behavior:** Both models emit `reasoning` delta tokens. The pipeline's `emits_reasoning` flag is not yet set on either workspace (both default to `emits_reasoning: False`). If promoted, set `emits_reasoning: True` to enable proper reasoning-token handling in the streaming layer.
+
+7. **emits_reasoning fix applied (TASK_V9_EVAL_EXTENDED Phase 1):** Both workspaces now have `emits_reasoning: True`. Confirmed deployed in running pipeline container after `docker compose up -d --force-recreate` (note: `restart` does not pick up new images).
+
+---
+
+## Extended Evaluation (TASK_V9_EVAL_EXTENDED)
+
+### CC-01 Asteroids Challenge Results
+
+| Model | Workspace | Status | Assertions | Time | Notes |
+|---|---|---|---|---|---|
+| Gemma4-12B-Coder Q4_K_M | bench-gemma4-12b-coder | WARN | 5/10 (50%) | 34.9s | Code block present (1197 chars with fix, 472 chars without). Full Asteroids HTML but no game loop (no requestAnimationFrame/setInterval). Asteroid/lives/score keywords present. Behavioral patterns (lives decrement, score increment, asteroid push) not matched. |
+| Qwopus3.6-27B-Coder-MTP Q5_K_M | bench-qwopus-coder-mtp | WARN | 6/10 (60%) | 820.7s | Massive output (36,976 chars). Asteroid split/push behavioral=✓, lives+score keywords=✓. Canvas game loop keywords MISSING (no requestAnimationFrame/setInterval/game loop). Lives+score behavioral patterns not matched. Qwopus may use DOM-based animation (setTimeout) that falls outside assertion patterns. |
+
+**Critical note:** Initial CC-01 runs were executed WITHOUT the `emits_reasoning` fix deployed (pipeline container still on old image after `docker compose restart`). Gemma4 produced only 472 chars vs 1197 chars after fix. Qwopus showed 10/10 PASS without fix (reasoning tokens were counted as content, inflating assertion matches) vs 6/10 WARN with fix (reasoning separated). Both results above reflect the CORRECT runs with the fix active.
+
+### Coding Shootout V3 — Per-Shape Pass Rate
+
+| Model | REPL | Audit | Composite | Ship-It | Overall* | TPS | Memory |
+|---|---|---|---|---|---|---|---|
+| Qwopus3.6-27B-Coder-MTP Q5_K_M | 87.5% | 75.0% | 88.9% | 92.3% | **88.2%** | 38.9 | 19 GB |
+| laguna-xs.2:Q4_K_M (incumbent) | 100.0% | 100.0% | 62.5% | 92.3% | **87.9%** | 153.2 | 19 GB |
+| devstral-small-2 | 62.5% | 75.0% | 100.0% | 92.3% | **85.3%** | 55.6 | 15 GB |
+| Gemma4-12B-Coder Q4_K_M | 75.0% | 100.0% | 88.9% | 84.6% | **85.3%** | 85.6 | 7 GB |
+| qwen3-coder:30b-a3b-q4_K_M | 12.5% | 100.0% | 100.0% | 92.3% | **76.5%** | 236.3 | 19 GB |
+| glm-4.7-flash:Q4_K_M | 50.0% | 75.0% | 77.8% | 61.5% | **64.7%** | 166.1 | 15 GB |
+| qwen3-coder-next (REF) | 62.5% | 75.0% | 77.8% | 92.3% | 79.4% | 123.8 | 46 GB |
+| huihui-ai Qwen3-Coder-Next abl (REF) | 62.5% | 100.0% | 88.9% | 92.3% | 85.3% | 131.0 | 46 GB |
+
+*Overall = candidate columns only. Reference models excluded.
+
+### Key Observations
+
+1. **Qwopus-27B leader**: Strongest overall candidate (88.2%). Excellent Ship-It (92.3%), solid REPL (87.5%), strong Composite (88.9%). Weakest shape is Audit (75.0% — tied with devstral and glm). Slowest TPS (38.9) — acceptable for batch/offline coding but painful for interactive. 19 GB memory is reasonable.
+
+2. **Gemma4-12B outlier**: 85.3% overall in only 7 GB — best efficiency ratio in the shootout. Perfect Audit (100%), strong Composite (88.9%). Weakest shape is RePL (75.0%) and Ship-It (84.6%). 12B coding specialist at 85.6 TPS — viable fast-path candidate. Fails CC-01 (can't implement a full game loop), but passes most production coding scenarios.
+
+3. **Laguna's weak spot exposed**: Perfect REPL/Audit but 62.5% Composite — worst in field. The model dominates simple, stateful output formats but struggles with multi-element deliverables (fullstack, e2e test author). Consistent with V1→V2 delta pattern (93.9% single-prompt → 87.9% production shapes).
+
+4. **Shape specialization pattern**: No single model dominates every shape. Qwopus wins Ship-It; devstral wins Composite; laguna wins REPL; gemma4 wins Audit (tied with laguna at 100%). This confirms the workspace-decomposition argument from Shootout V2.
+
+5. **qwen3-coder-30b REPL collapse**: 12.5% REPL is the single worst per-shape score. The model appears fundamentally unable to produce exact-format stateful terminal output (SQL: 0/3, Python: 0/2, JS: 0/1). This is a disqualifying weakness for the `auto-coding` workspace's REPL persona tier.
+
+### Extended Promotion Verdicts
+
+> **PROMOTE_POLICY: confirm-only. Operator decides.**
+
+| Workspace | CC-01 | Shootout Overall | Recommended Lane | Verdict |
+|---|---|---|---|---|
+| bench-qwopus-coder-mtp | WARN (6/10) | 88.2% (1st) | auto-agentic fallback / batch coding | Hold — CC-01 game loop gap needs investigation. Strong Shootout leader but 38.9 TPS limits interactive use. |
+| bench-gemma4-12b-coder | WARN (5/10) | 85.3% (tied-3rd) | auto-coding fast-path (7 GB, 85.6 TPS) | Hold — CC-01 failure disqualifies from Ship-It role. Strong Audit+Composite at 7 GB is compelling for lightweight personas. |
