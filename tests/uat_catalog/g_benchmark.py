@@ -15,6 +15,7 @@ Two groups live here:
   (TASK_UAT_CHALLENGE_RESTORE_V2). Run the group alone with
   ``--section challenge``.
 """
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (
@@ -23,7 +24,7 @@ from tests.uat_catalog._shared import (
     _CC01_PROMPT,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-MATH-01",
         "name": "Math Reasoner — Calculus Problem",
@@ -411,6 +412,35 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "prompt": _CC01_PROMPT,
         "assertions": _CC01_ASSERTIONS,
     },
+    # ── V9 candidate CC-01 entries (TASK_V9_EVAL_EXTENDED) ──────────────────
+    {
+        "id": "CC-01-gemma4-12b-coder",
+        "name": "CC-01 Asteroids · Gemma4-12B-Coder Fable5 (yuxinlu1)",
+        "section": "challenge",
+        "model_slug": "bench-gemma4-12b-coder",
+        "timeout": 900,
+        "workspace_tier": "ollama",
+        "max_wait_no_progress": 1800,
+        "prompt": _CC01_PROMPT,
+        # CoT-trained Gemma4 coder — SFT on verifiable Python; should deliver
+        # HTML code blocks. Full _CC01_ASSERTIONS (not _BENCH variant).
+        "assertions": _CC01_ASSERTIONS,
+    },
+    {
+        "id": "CC-01-qwopus-coder-mtp",
+        "name": "CC-01 Asteroids · Qwopus3.6-27B-Coder-MTP (Jackrong)",
+        "section": "challenge",
+        "model_slug": "bench-qwopus-coder-mtp",
+        "timeout": 1800,
+        "workspace_tier": "ollama",
+        "max_wait_no_progress": 1800,
+        "prompt": _CC01_PROMPT,
+        # 27B dense, 6 t/s — extremely verbose CoT before code; 1800s timeout
+        # matches worst-case: ~430 reasoning tokens + full Asteroids impl.
+        # Full _CC01_ASSERTIONS — Qwopus is a coder SFT that produced clean
+        # code blocks in V9 bench quality observations.
+        "assertions": _CC01_ASSERTIONS,
+    },
     # ── Domain challenges (restored, fleet trued-up) ────────────────────────
     # BT-01 — Foundation-Sec: domain challenge (CVE triage), not CC-01 (code
     # gen is not its scope). Model is now the Cisco Q8_0 GGUF via Ollama
@@ -432,7 +462,15 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "CWE classification present",
-                "keywords": ["cwe", "cwe-20", "cwe-502", "cwe-917", "improper", "injection", "deserialization"],
+                "keywords": [
+                    "cwe",
+                    "cwe-20",
+                    "cwe-502",
+                    "cwe-917",
+                    "improper",
+                    "injection",
+                    "deserialization",
+                ],
             },
             {
                 "type": "any_of",
@@ -447,7 +485,16 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Containment steps",
-                "keywords": ["patch", "firewall", "block", "isolat", "contain", "waf", "rule", "update"],
+                "keywords": [
+                    "patch",
+                    "firewall",
+                    "block",
+                    "isolat",
+                    "contain",
+                    "waf",
+                    "rule",
+                    "update",
+                ],
             },
             {"type": "min_length", "label": "Substantive response", "chars": 300},
         ],

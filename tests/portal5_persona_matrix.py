@@ -131,14 +131,17 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
             "githubexpert": "Ship-It",
         },
         "models_explicit": (
-            # Candidates (~15-25 GB, comparable weight class)
+            # V2 incumbents retained for continuity — per-shape delta directly comparable
             "laguna-xs.2:q4_K_M",
             "glm-4.7-flash:q4_K_M",
             "qwen3-coder:30b-a3b-q4_K_M",
             "devstral-small-2",
+            # V9 candidates (TASK_V9_EVAL_EXTENDED)
+            "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
+            "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
             # Reference columns — 80B/3B MoE (~46 GB), different weight class.
             # NOT auto-coding repin candidates. Comparison points for the upper tier.
-            "qwen3-coder-next",           # auto-agentic production pin
+            "qwen3-coder-next",  # auto-agentic production pin
             "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",  # auto-spl production pin (V8)
         ),
         # Models that should be flagged in the matrix as "reference" rather than
@@ -213,6 +216,7 @@ AUDIT_PROMPT = "What time is it in Paris right now?"
 
 # ── Backend enumeration ───────────────────────────────────────────────────
 
+
 def load_backends_yaml() -> dict[str, Any]:
     with open(_REPO / "config" / "backends.yaml") as f:
         return yaml.safe_load(f)
@@ -236,13 +240,15 @@ def models_in_group(cfg: dict[str, Any], group: str) -> list[dict[str, Any]]:
                     model_id = mid["id"]
                 else:
                     model_id = mid
-                out.append({
-                    "id": model_id,
-                    "backend_type": "ollama",
-                    "big_model": False,
-                    "is_vlm": False,
-                    "memory_gb": _ollama_size_estimate(model_id),
-                })
+                out.append(
+                    {
+                        "id": model_id,
+                        "backend_type": "ollama",
+                        "big_model": False,
+                        "is_vlm": False,
+                        "memory_gb": _ollama_size_estimate(model_id),
+                    }
+                )
     return out
 
 
@@ -270,7 +276,8 @@ def _ollama_size_estimate(model_id: str) -> float:
 
 
 def chain_models_for_workspace(
-    cfg: dict[str, Any], workspace_id: str,
+    cfg: dict[str, Any],
+    workspace_id: str,
 ) -> list[dict[str, Any]]:
     seen: set[tuple[str, str]] = set()
     out: list[dict[str, Any]] = []
@@ -286,14 +293,15 @@ def chain_models_for_workspace(
 
 # ── Persona ↔ workspace lookup ────────────────────────────────────────────
 
+
 def load_personas_for_workspace(
     workspace_id: str,
     categories: tuple[str, ...],
 ) -> list[dict[str, Any]]:
     """Return parsed YAML for every persona that:
-      (a) has its workspace_model == workspace_id, OR
-      (b) has category in `categories` (broader catch for personas not
-          explicitly bound to this workspace).
+    (a) has its workspace_model == workspace_id, OR
+    (b) has category in `categories` (broader catch for personas not
+        explicitly bound to this workspace).
     """
     out = []
     for f in sorted((_REPO / "config" / "personas").glob("*.yaml")):
@@ -348,6 +356,7 @@ def load_personas_by_slugs(slugs: tuple[str, ...]) -> list[dict[str, Any]]:
 
 # ── Direct backend calls ──────────────────────────────────────────────────
 
+
 async def _chat_direct(
     client: httpx.AsyncClient,
     backend_type: str,
@@ -383,9 +392,7 @@ async def _chat_direct(
         "stream": False,
     }
     try:
-        r = await client.post(
-            f"{base_url}/v1/chat/completions", json=payload, timeout=timeout
-        )
+        r = await client.post(f"{base_url}/v1/chat/completions", json=payload, timeout=timeout)
         if r.status_code != 200:
             return r.status_code, r.text[:300]
         data = r.json()
@@ -421,30 +428,46 @@ async def _audit_tool_support(
     }
     t0 = time.time()
     try:
-        r = await client.post(
-            f"{base_url}/v1/chat/completions", json=payload, timeout=timeout
-        )
+        r = await client.post(f"{base_url}/v1/chat/completions", json=payload, timeout=timeout)
         elapsed = round(time.time() - t0, 2)
         if r.status_code != 200:
-            return {"outcome": "api_error", "http_status": r.status_code,
-                    "detail": r.text[:300], "elapsed_s": elapsed}
+            return {
+                "outcome": "api_error",
+                "http_status": r.status_code,
+                "detail": r.text[:300],
+                "elapsed_s": elapsed,
+            }
         data = r.json()
         msg = data.get("choices", [{}])[0].get("message", {})
         tool_calls = msg.get("tool_calls")
         if tool_calls:
-            return {"outcome": "tool_call", "http_status": 200,
-                    "detail": f"emitted {len(tool_calls)} tool_call(s); first={tool_calls[0].get('function', {}).get('name')}",
-                    "elapsed_s": elapsed}
+            return {
+                "outcome": "tool_call",
+                "http_status": 200,
+                "detail": f"emitted {len(tool_calls)} tool_call(s); first={tool_calls[0].get('function', {}).get('name')}",
+                "elapsed_s": elapsed,
+            }
         content = msg.get("content", "") or ""
-        return {"outcome": "text_only", "http_status": 200,
-                "detail": f"no tool_calls; text response {len(content)} chars",
-                "elapsed_s": elapsed}
+        return {
+            "outcome": "text_only",
+            "http_status": 200,
+            "detail": f"no tool_calls; text response {len(content)} chars",
+            "elapsed_s": elapsed,
+        }
     except httpx.ReadTimeout:
-        return {"outcome": "exception", "http_status": 408,
-                "detail": "timeout", "elapsed_s": round(time.time() - t0, 2)}
+        return {
+            "outcome": "exception",
+            "http_status": 408,
+            "detail": "timeout",
+            "elapsed_s": round(time.time() - t0, 2),
+        }
     except Exception as e:
-        return {"outcome": "exception", "http_status": 0,
-                "detail": str(e)[:200], "elapsed_s": round(time.time() - t0, 2)}
+        return {
+            "outcome": "exception",
+            "http_status": 0,
+            "detail": str(e)[:200],
+            "elapsed_s": round(time.time() - t0, 2),
+        }
 
 
 async def run_audit_tools(args) -> dict:
@@ -467,14 +490,21 @@ async def run_audit_tools(args) -> dict:
     results = []
     async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
         for i, m in enumerate(chain_models, 1):
-            print(f"  [{i}/{len(chain_models)}] {m['backend_type']:6} {m['id'][:60]:60} ... ",
-                  end="", flush=True)
+            print(
+                f"  [{i}/{len(chain_models)}] {m['backend_type']:6} {m['id'][:60]:60} ... ",
+                end="",
+                flush=True,
+            )
             audit = await _audit_tool_support(client, m["backend_type"], m["id"])
             print(f"{audit['outcome']:10} ({audit['elapsed_s']:5.1f}s)")
-            results.append({
-                "model": m["id"], "backend": m["backend_type"],
-                "memory_gb": m.get("memory_gb"), **audit,
-            })
+            results.append(
+                {
+                    "model": m["id"],
+                    "backend": m["backend_type"],
+                    "memory_gb": m.get("memory_gb"),
+                    **audit,
+                }
+            )
             if m["backend_type"] == "ollama":
                 await _ollama_unload(client, m["id"])
                 await asyncio.sleep(EVICT_BACKOFF_S)
@@ -488,8 +518,10 @@ async def run_audit_tools(args) -> dict:
     }
 
     output = (
-        Path(args.output) if args.output
-        else RESULTS_DIR / f"audit_tools_{workspace_id}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        Path(args.output)
+        if args.output
+        else RESULTS_DIR
+        / f"audit_tools_{workspace_id}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2))
@@ -542,6 +574,7 @@ async def _ollama_unload(client: httpx.AsyncClient, model_id: str) -> None:
 
 # ── Per-cell runner ───────────────────────────────────────────────────────
 
+
 async def run_cell(
     client: httpx.AsyncClient,
     persona: dict[str, Any],
@@ -575,15 +608,17 @@ async def run_cell(
         elapsed = time.time() - t0
 
         if code != 200:
-            cell["scenarios"].append({
-                "id": scenario.scenario_id,
-                "framework": scenario.framework_id,
-                "status": "ERROR",
-                "http_status": code,
-                "detail": f"HTTP {code}: {response[:120]}",
-                "response_preview": response[:800],
-                "elapsed_s": round(elapsed, 2),
-            })
+            cell["scenarios"].append(
+                {
+                    "id": scenario.scenario_id,
+                    "framework": scenario.framework_id,
+                    "status": "ERROR",
+                    "http_status": code,
+                    "detail": f"HTTP {code}: {response[:120]}",
+                    "response_preview": response[:800],
+                    "elapsed_s": round(elapsed, 2),
+                }
+            )
             cell["summary"]["ERROR"] += 1
             continue
 
@@ -597,17 +632,19 @@ async def run_cell(
             }
             for r in outcome.results
         ]
-        cell["scenarios"].append({
-            "id": scenario.scenario_id,
-            "framework": scenario.framework_id,
-            "status": outcome.status,
-            "http_status": 200,
-            "results": results_payload,
-            "response_chars": len(response),
-            "response_preview": response[:800],
-            "elapsed_s": round(elapsed, 2),
-            "tps": round(len(response) / elapsed, 1) if elapsed > 0 else 0.0,
-        })
+        cell["scenarios"].append(
+            {
+                "id": scenario.scenario_id,
+                "framework": scenario.framework_id,
+                "status": outcome.status,
+                "http_status": 200,
+                "results": results_payload,
+                "response_chars": len(response),
+                "response_preview": response[:800],
+                "elapsed_s": round(elapsed, 2),
+                "tps": round(len(response) / elapsed, 1) if elapsed > 0 else 0.0,
+            }
+        )
         cell["summary"][outcome.status] += 1
         await asyncio.sleep(0.2)
 
@@ -615,6 +652,7 @@ async def run_cell(
 
 
 # ── Sweep orchestrator ────────────────────────────────────────────────────
+
 
 async def run_sweep(args) -> dict[str, Any]:
     cfg = load_backends_yaml()
@@ -695,10 +733,7 @@ async def run_sweep(args) -> dict[str, Any]:
     if args.require:
         required = [r.strip() for r in args.require.split(",") if r.strip()]
         chain_ids = [m["id"] for m in chain]
-        missing = [
-            r for r in required
-            if not any(r in cid for cid in chain_ids)
-        ]
+        missing = [r for r in required if not any(r in cid for cid in chain_ids)]
         if missing:
             print(
                 f"REQUIRED models missing from resolved chain: {missing}\n"
@@ -718,6 +753,7 @@ async def run_sweep(args) -> dict[str, Any]:
     # Guard on the signature so workspaces with persona_categories but a
     # non-parameterised fixtures module (auto-compliance) don't TypeError.
     import inspect as _inspect
+
     _accepts_categories = "categories" in _inspect.signature(cf.expand_scenarios).parameters
     if _persona_categories and _accepts_categories:
         scenarios = list(cf.expand_scenarios(categories=_persona_categories))
@@ -726,17 +762,25 @@ async def run_sweep(args) -> dict[str, Any]:
     if args.max_scenarios:
         kept: dict[str, int] = {}
         scenarios = [
-            s for s in scenarios
-            if (kept.setdefault(s.persona_slug, 0) < args.max_scenarios
-                and not kept.update({s.persona_slug: kept[s.persona_slug] + 1}))
+            s
+            for s in scenarios
+            if (
+                kept.setdefault(s.persona_slug, 0) < args.max_scenarios
+                and not kept.update({s.persona_slug: kept[s.persona_slug] + 1})
+            )
         ]
 
     plan = {
         "workspace": workspace_id,
         "personas": [p["slug"] for p in personas],
         "models": [
-            {"id": m["id"], "backend": m["backend_type"], "group": m["group"],
-             "big_model": m["big_model"], "memory_gb": m["memory_gb"]}
+            {
+                "id": m["id"],
+                "backend": m["backend_type"],
+                "group": m["group"],
+                "big_model": m["big_model"],
+                "memory_gb": m["memory_gb"],
+            }
             for m in chain
         ],
         "scenarios_total": len(scenarios),
@@ -751,7 +795,9 @@ async def run_sweep(args) -> dict[str, Any]:
     if args.dry_run:
         print("\nDRY RUN — exiting without execution.")
         for m in chain:
-            print(f"    {m['backend_type']:6}  {m['id']:60}  {m['memory_gb']:5.1f}GB  group={m['group']}")
+            print(
+                f"    {m['backend_type']:6}  {m['id']:60}  {m['memory_gb']:5.1f}GB  group={m['group']}"
+            )
         return {"plan": plan, "cells": []}
 
     results: list[dict[str, Any]] = []
@@ -759,7 +805,9 @@ async def run_sweep(args) -> dict[str, Any]:
 
     async with httpx.AsyncClient() as client:
         for mi, model in enumerate(chain, start=1):
-            print(f"\n  [{mi}/{len(chain)}] model: {model['backend_type']}/{model['id']}  ({model['memory_gb']:.1f}GB)")
+            print(
+                f"\n  [{mi}/{len(chain)}] model: {model['backend_type']}/{model['id']}  ({model['memory_gb']:.1f}GB)"
+            )
             # Pre-model cleanup: evict ALL Ollama models to ensure only one
             # model is resident at a time. Without this, Ollama accumulates
             # models and exhausts 64GB unified memory mid-sweep.
@@ -801,6 +849,7 @@ async def run_sweep(args) -> dict[str, Any]:
 
 # ── Console summary table ─────────────────────────────────────────────────
 
+
 def render_matrix_table(report: dict[str, Any]) -> str:
     cells = report["cells"]
     if not cells:
@@ -831,10 +880,7 @@ def render_matrix_table(report: dict[str, Any]) -> str:
         cells_for_p = []
         for be, m in models:
             s = by_pm.get((p, be, m), {})
-            label = (
-                f"P{s.get('PASS', 0)}/W{s.get('WARN', 0)}/F{s.get('FAIL', 0)}"
-                if s else "-"
-            )
+            label = f"P{s.get('PASS', 0)}/W{s.get('WARN', 0)}/F{s.get('FAIL', 0)}" if s else "-"
             cells_for_p.append(label.ljust(24))
         lines.append(p.ljust(persona_w) + " | " + " | ".join(cells_for_p))
     return "\n".join(lines)
@@ -842,10 +888,12 @@ def render_matrix_table(report: dict[str, Any]) -> str:
 
 # ── Main ──────────────────────────────────────────────────────────────────
 
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument(
-        "--workspace", default="auto-compliance",
+        "--workspace",
+        default="auto-compliance",
         choices=tuple(WORKSPACE_REGISTRY.keys()),
         help=(
             "Which workspace's chain to sweep. Default: auto-compliance. "
@@ -856,15 +904,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--persona", help="filter persona slugs by substring")
     p.add_argument("--model", help="filter model ids by substring")
     p.add_argument(
-        "--backend", choices=("ollama",),
+        "--backend",
+        choices=("ollama",),
         help="restrict to one backend type",
     )
     p.add_argument(
-        "--include-big-models", action="store_true",
+        "--include-big-models",
+        action="store_true",
         help="include models flagged big_model: true (default: skip)",
     )
     p.add_argument(
-        "--require", default="",
+        "--require",
+        default="",
         help=(
             "comma-separated list of model substrings that MUST appear in "
             "the resolved chain (after filters). Driver exits non-zero "
@@ -873,7 +924,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--max-scenarios", type=int, default=0,
+        "--max-scenarios",
+        type=int,
+        default=0,
         help="cap scenarios per persona (0 = no cap, default)",
     )
     p.add_argument("--dry-run", action="store_true", help="print plan and exit")
@@ -881,14 +934,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--audit-tools",
         action="store_true",
         help="Per-model tool-call verification mode. Skips persona/scenario "
-             "fixtures; sends AUDIT_PROMPT with AUDIT_TOOL_DEFINITION attached "
-             "and classifies the response. See TASK_TOOL_SUPPORT_AUDIT_V1 §A14.",
+        "fixtures; sends AUDIT_PROMPT with AUDIT_TOOL_DEFINITION attached "
+        "and classifies the response. See TASK_TOOL_SUPPORT_AUDIT_V1 §A14.",
     )
     p.add_argument(
-        "--output", help="JSON output path (default: results dir UTC-stamped)",
+        "--output",
+        help="JSON output path (default: results dir UTC-stamped)",
     )
     p.add_argument(
-        "--baseline-compare", default="",
+        "--baseline-compare",
+        default="",
         help=(
             "Path to an existing matrix-result JSON to diff this run against. "
             "After the sweep completes, the driver runs the diff equivalent "
@@ -898,7 +953,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     p.add_argument(
-        "--regression-threshold", type=float, default=10.0,
+        "--regression-threshold",
+        type=float,
+        default=10.0,
         help=(
             "Per-(persona, model) PASS-rate drop in percentage points that "
             "counts as a regression. Default: 10.0. Used only with "
@@ -918,9 +975,10 @@ async def amain(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return 0
 
-    ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_path = (
-        Path(args.output) if args.output
+        Path(args.output)
+        if args.output
         else RESULTS_DIR / f"persona_matrix_{args.workspace}_{ts}.json"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -934,6 +992,7 @@ async def amain(argv: list[str] | None = None) -> int:
     if args.baseline_compare:
         try:
             from tests.persona_matrix_diff import compute_regressions  # noqa: E402
+
             regressions = compute_regressions(
                 Path(args.baseline_compare),
                 report,
@@ -944,8 +1003,7 @@ async def amain(argv: list[str] | None = None) -> int:
 
     if regressions:
         print(
-            f"\n--- REGRESSIONS vs baseline (threshold "
-            f"{args.regression_threshold:.1f}pp) ---",
+            f"\n--- REGRESSIONS vs baseline (threshold {args.regression_threshold:.1f}pp) ---",
             file=sys.stderr,
         )
         for line in regressions:

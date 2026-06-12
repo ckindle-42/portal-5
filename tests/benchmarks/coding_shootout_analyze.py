@@ -38,6 +38,9 @@ MODEL_MEMORY_GB = {
     "glm-4.7-flash:q4_K_M": 15,
     "qwen3-coder:30b-a3b-q4_K_M": 19,
     "devstral-small-2": 15,
+    # V9 candidates (TASK_V9_EVAL_EXTENDED)
+    "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M": 7,
+    "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf": 19,
     "qwen3-coder-next": 46,
     "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M": 46,
 }
@@ -61,8 +64,10 @@ def _persona_shape_map_from_results(report: dict) -> dict[str, str]:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
         from tests.portal5_persona_matrix import WORKSPACE_REGISTRY
     except Exception as exc:
-        print(f"WARNING: could not import WORKSPACE_REGISTRY ({exc}); "
-              f"shape labels will be 'Unknown'", file=sys.stderr)
+        print(
+            f"WARNING: could not import WORKSPACE_REGISTRY ({exc}); shape labels will be 'Unknown'",
+            file=sys.stderr,
+        )
         return {}
     entry = WORKSPACE_REGISTRY.get("auto-coding-bench", {})
     return dict(entry.get("persona_shapes", {}))
@@ -128,14 +133,21 @@ def summarize_per_model_per_shape(
             overall["n_scenarios"] += s["n_scenarios"]
             overall["tps_samples"].extend(s["tps_samples"])
         overall["pass_rate"] = (
-            overall["n_passed"] / overall["n_assertions"]
-        ) if overall["n_assertions"] else 0.0
-        overall["tps_median"] = statistics.median(overall["tps_samples"]) if overall["tps_samples"] else 0.0
+            (overall["n_passed"] / overall["n_assertions"]) if overall["n_assertions"] else 0.0
+        )
+        overall["tps_median"] = (
+            statistics.median(overall["tps_samples"]) if overall["tps_samples"] else 0.0
+        )
         shapes["_overall"] = overall
     return out
 
 
-def render_markdown(per_model: dict, sources: list[Path], reference: set[str], report_cells: list[dict] | None = None) -> str:
+def render_markdown(
+    per_model: dict,
+    sources: list[Path],
+    reference: set[str],
+    report_cells: list[dict] | None = None,
+) -> str:
     lines: list[str] = []
     lines.append("# Coding Shootout V2 — Capability Matrix")
     lines.append("")
@@ -165,7 +177,7 @@ def render_markdown(per_model: dict, sources: list[Path], reference: set[str], r
         for shape in SHAPE_ORDER:
             s = shapes.get(shape)
             if s and s["n_assertions"]:
-                cells.append(f"{s['pass_rate']*100:.1f}%")
+                cells.append(f"{s['pass_rate'] * 100:.1f}%")
             else:
                 cells.append("—")
         overall = shapes["_overall"]
@@ -175,10 +187,12 @@ def render_markdown(per_model: dict, sources: list[Path], reference: set[str], r
         lines.append(
             f"| `{model}`{flag}{marker} | "
             + " | ".join(cells)
-            + f" | {overall['pass_rate']*100:.1f}% | {overall['tps_median']:.1f} | {mem} GB |"
+            + f" | {overall['pass_rate'] * 100:.1f}% | {overall['tps_median']:.1f} | {mem} GB |"
         )
     lines.append("")
-    lines.append("*Overall = aggregate across all shapes. Reference models are NOT in candidate ranking.")
+    lines.append(
+        "*Overall = aggregate across all shapes. Reference models are NOT in candidate ranking."
+    )
     lines.append("")
 
     # V1 reconciliation
@@ -187,28 +201,37 @@ def render_markdown(per_model: dict, sources: list[Path], reference: set[str], r
     delta = (laguna.get("pass_rate", 0.0) - V1_LAGUNA_PASS_RATE) * 100
     lines.append("## V1 Reconciliation")
     lines.append("")
-    lines.append(f"- Laguna under V1 (bench-laguna Creative Coder framing): "
-                 f"**{V1_LAGUNA_PASS_RATE*100:.1f}%**")
-    lines.append(f"- Laguna under V2 (15 production personas across 4 shapes): "
-                 f"**{laguna_v2:.1f}%**")
+    lines.append(
+        f"- Laguna under V1 (bench-laguna Creative Coder framing): "
+        f"**{V1_LAGUNA_PASS_RATE * 100:.1f}%**"
+    )
+    lines.append(
+        f"- Laguna under V2 (15 production personas across 4 shapes): **{laguna_v2:.1f}%**"
+    )
     sign = "+" if delta >= 0 else ""
     lines.append(f"- Delta: **{sign}{delta:.1f} pp**")
     lines.append("")
-    lines.append("If the delta is sharply negative, V1's verdict (INCONCLUSIVE) was correct "
-                 "for V1's question (single-system-prompt control) but uninformative for "
-                 "production load. V2's per-shape decomposition is the right input to the "
-                 "next design conversation.")
+    lines.append(
+        "If the delta is sharply negative, V1's verdict (INCONCLUSIVE) was correct "
+        "for V1's question (single-system-prompt control) but uninformative for "
+        "production load. V2's per-shape decomposition is the right input to the "
+        "next design conversation."
+    )
     lines.append("")
 
     # Per-cell breakdown — useful for spot-checking and for the design conversation
     lines.append("## Per-Cell Detail")
     lines.append("")
-    lines.append("Drill-down per (model, persona, scenario). Each row's status reflects all "
-                 "assertions for that cell.")
+    lines.append(
+        "Drill-down per (model, persona, scenario). Each row's status reflects all "
+        "assertions for that cell."
+    )
     lines.append("")
     lines.append("| Model | Persona | Scenario | Pass | Total | Status |")
     lines.append("|---|---|---|---|---|---|")
-    cells = report_cells if report_cells is not None else source_cells(sources[0]) if sources else []
+    cells = (
+        report_cells if report_cells is not None else source_cells(sources[0]) if sources else []
+    )
     for cell in cells:
         model = cell.get("model", "?")
         persona = cell.get("persona", "?")
@@ -216,11 +239,7 @@ def render_markdown(per_model: dict, sources: list[Path], reference: set[str], r
             results = sc.get("results", sc.get("assertions", []))
             n_pass = sum(1 for a in results if a.get("passed"))
             n_total = len(results)
-            status = (
-                "PASS" if n_pass == n_total
-                else "FAIL" if n_pass == 0
-                else "WARN"
-            )
+            status = "PASS" if n_pass == n_total else "FAIL" if n_pass == 0 else "WARN"
             marker = {"PASS": "✓", "FAIL": "✗", "WARN": "~"}[status]
             lines.append(
                 f"| `{model.split('/')[-1]}` | {persona} | "
@@ -231,13 +250,16 @@ def render_markdown(per_model: dict, sources: list[Path], reference: set[str], r
     lines.append("")
     lines.append("## Next Step")
     lines.append("")
-    lines.append("This matrix is INPUT to a workspace-decomposition design conversation, not "
-                 "a repin recommendation. Read the per-shape columns; identify whether one "
-                 "model dominates every shape (→ simple repin candidate) or whether different "
-                 "models win different shapes (→ workspace decomposition needed).")
+    lines.append(
+        "This matrix is INPUT to a workspace-decomposition design conversation, not "
+        "a repin recommendation. Read the per-shape columns; identify whether one "
+        "model dominates every shape (→ simple repin candidate) or whether different "
+        "models win different shapes (→ workspace decomposition needed)."
+    )
     lines.append("")
-    lines.append("The successor task (workspace decomposition or repin) is not generated by "
-                 "this script.")
+    lines.append(
+        "The successor task (workspace decomposition or repin) is not generated by this script."
+    )
     return "\n".join(lines) + "\n"
 
 

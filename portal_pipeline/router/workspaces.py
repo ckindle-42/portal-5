@@ -1018,6 +1018,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "emits_reasoning": True,
         "tools": [],
     },
     "bench-gemma4-12b-coder": {
@@ -1035,6 +1036,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "emits_reasoning": True,
         "tools": [],
     },
 }
