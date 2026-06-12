@@ -72,6 +72,60 @@ TESTS: list[dict] = [    # -----------------------------------------------------
     # execute_python — it would have to multiply 42 × 1337 in weights, which is not
     # reliably stored. The assertion is the computed output, not keyword presence.
     {
+        "id": "TV-05",
+        "name": "Tool Validation — execute_bash proof (arithmetic)",
+        "section": "tools-specialist",
+        "model_slug": "auto-coding",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Use execute_bash to run this script and return ONLY the numeric result:\n"
+            "```bash\n"
+            "echo $((731 * 457))\n"
+            "```"
+        ),
+        "assertions": [
+            {
+                "type": "contains",
+                "label": "Correct computed output (334067) — proves execute_bash ran",
+                "keywords": ["334067"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Did not refuse tool use",
+                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "TV-06",
+        "name": "Tool Validation — execute_nodejs proof (arithmetic)",
+        "section": "tools-specialist",
+        "model_slug": "auto-coding",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Use execute_nodejs to run this code and return ONLY the numeric result:\n"
+            "```javascript\n"
+            "console.log(731 * 457);\n"
+            "```"
+        ),
+        "assertions": [
+            {
+                "type": "contains",
+                "label": "Correct computed output (334067) — proves execute_nodejs ran",
+                "keywords": ["334067"],
+            },
+            {
+                "type": "not_contains",
+                "label": "Did not refuse tool use",
+                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "critical": False,
+            },
+        ],
+    },
+    {
         "id": "TV-01",
         "name": "Tool Validation — execute_python proof (auto-coding/qwen3-coder baseline)",
         "section": "tools-specialist",
