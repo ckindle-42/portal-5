@@ -82,23 +82,25 @@ async def openai_models(request):
 TOOLS_MANIFEST = [
     {
         "name": "transcribe_audio",
-        "description": "Transcribe audio using faster-whisper",
+        "description": (
+            "Transcribe audio using faster-whisper. "
+            "If the user uploaded an audio file, omit audio_path and the tool will "
+            "auto-detect the most recently uploaded file from the workspace."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "audio_path": {"type": "string", "description": "Path to audio file"},
+                "audio_path": {
+                    "type": "string",
+                    "description": "Absolute path to audio file. Omit to auto-detect latest upload.",
+                },
                 "language": {
                     "type": "string",
                     "description": "Language code (e.g., en, zh)",
                     "default": "auto",
                 },
-                "model_size": {
-                    "type": "string",
-                    "description": "Whisper model size",
-                    "default": "base",
-                },
             },
-            "required": ["audio_path"],
+            "required": [],
         },
     },
     {
@@ -181,17 +183,28 @@ def get_model():
 
 
 @mcp.tool()
-async def transcribe_audio(file_path: str, language: str | None = None) -> dict:
+async def transcribe_audio(file_path: str | None = None, language: str | None = None) -> dict:
     """
     Transcribe an audio file using Whisper.
 
     Args:
-        file_path: Absolute path to the audio file (mp3, wav, m4a, ogg, flac)
+        file_path: Absolute path to the audio file (mp3, wav, m4a, ogg, flac).
+                   Omit to auto-detect the most recently uploaded file from the workspace.
         language: Language code (e.g. 'en', 'es'). Auto-detected if not provided.
 
     Returns:
         dict with 'text' (full transcript) and 'segments' (timestamped segments)
     """
+    if file_path is None:
+        ai_output = Path(os.environ.get("AI_OUTPUT_DIR") or (Path.home() / "AI_Output"))
+        uploads = ai_output / "uploads"
+        audio_exts = [".wav", ".mp3", ".m4a", ".ogg", ".flac", ".webm"]
+        candidates = [p for ext in audio_exts for p in uploads.glob(f"*{ext}") if p.is_file()]
+        if not candidates:
+            return {"error": "No audio file found in workspace uploads. Please provide audio_path."}
+        file_path = str(max(candidates, key=lambda p: p.stat().st_mtime))
+        logger.info("transcribe_audio: auto-detected latest upload: %s", file_path)
+
     path = Path(file_path)
     if not path.exists():
         return {"error": f"File not found: {file_path}"}
