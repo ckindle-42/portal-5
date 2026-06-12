@@ -1,0 +1,62 @@
+description: "Portal 5 — Coding workspaces quality evaluation (auto-coding, auto-agentic, tools-specialist)"
+prompts:
+  - file://prompts/coding.txt
+providers:
+  - id: ollama:chat:qwen3-coder:30b-a3b-q4_K_M
+    label: auto-coding
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:qwen3-coder-next
+    label: auto-agentic
+    config:
+      temperature: 0
+      num_predict: 2048
+  - id: ollama:chat:granite4.1:8b
+    label: tools-specialist
+    config:
+      temperature: 0
+      num_predict: 512
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: not-contains
+      value: "as an AI language model"
+    - type: latency
+      threshold: 60000
+tests:
+  - vars:
+      task: "Write a Python function that merges two sorted lists into one sorted list."
+    assert:
+      - type: contains
+        value: "def "
+      - type: contains
+        value: "return"
+      - type: llm-rubric
+        value: "Is this correct Python code that would pass a basic unit test for merging two sorted lists?"
+  - vars:
+      task: "Write a SQL query to find duplicate emails in a users table with columns id, email, name."
+    assert:
+      - type: icontains
+        value: "select"
+      - type: icontains
+        value: "group by"
+      - type: llm-rubric
+        value: "Is this a correct SQL query that would find duplicate emails?"
+  - vars:
+      task: "Explain what git rebase does and when to use it instead of git merge."
+    assert:
+      - type: contains
+        value: "rebase"
+      - type: contains
+        value: "commit"
+      - type: llm-rubric
+        value: "Does this explanation correctly describe git rebase and its appropriate use cases?"
+  - vars:
+      task: "Find and fix the bug: def factorial(n): return n * factorial(n-1)"
+    assert:
+      - type: contains
+        value: "factorial"
+      - type: llm-rubric
+        value: "Does the fix correctly add a base case (e.g., n <= 1) to the recursive factorial function?"

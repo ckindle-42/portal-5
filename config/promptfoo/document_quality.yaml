@@ -1,0 +1,47 @@
+description: "Portal 5 — Document workspaces quality evaluation (auto-documents, auto-compliance, auto-spl)"
+prompts:
+  - file://prompts/document.txt
+providers:
+  - id: ollama:chat:phi4:14b-q8_0
+    label: auto-documents
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:granite4.1:8b
+    label: auto-compliance
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
+    label: auto-spl
+    config:
+      temperature: 0
+      num_predict: 512
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: latency
+      threshold: 60000
+tests:
+  - vars:
+      task: "Write a one-page executive summary for a project status report."
+    assert:
+      - type: javascript
+        value: "output.length >= 300"
+      - type: contains-any
+        value: ["executive summary", "Executive Summary", "status", "project"]
+  - vars:
+      task: "What are the key requirements of NERC CIP-005 for electronic security perimeters?"
+    assert:
+      - type: contains
+        value: "NERC"
+      - type: contains-any
+        value: ["perimeter", "ESP", "Electronic Security", "boundary"]
+  - vars:
+      task: "Write a Splunk SPL query to find privilege escalation events on Windows."
+    assert:
+      - type: icontains
+        value: "eventcode"
+      - type: contains-any
+        value: ["4672", "4673", "4674", "privilege"]
