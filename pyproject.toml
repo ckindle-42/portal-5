@@ -124,6 +124,10 @@ ignore = ["E501"]
 "tests/portal5_acceptance_comfyui.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
 "tests/portal5_acceptance_v6.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
 "tests/portal5_uat_driver.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
+# tests/uat inherits the UAT driver's pre-existing patterns (TASK_UAT_MODULARIZE_V1).
+# F821 is deliberately NOT ignored here — undefined-name checking is the
+# import-hygiene gate for the decomposition.
+"tests/uat/**/*.py" = ["N802", "E741", "F841", "SIM115", "SIM117"]
 
 [tool.mypy]
 python_version = "3.10"

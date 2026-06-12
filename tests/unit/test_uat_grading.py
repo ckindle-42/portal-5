@@ -55,8 +55,9 @@ def test_word_boundary_default_preserves_legacy_behavior():
 
 def test_remove_rows_for_test_ids(tmp_path, monkeypatch):
     """_remove_rows_for_test_ids drops rows for the given IDs and leaves others."""
-    import portal5_uat_driver as drv
     from portal5_uat_driver import _remove_rows_for_test_ids
+
+    from tests.uat import config as uat_config
 
     f = tmp_path / "UAT_RESULTS.md"
     f.write_text(
@@ -68,7 +69,7 @@ def test_remove_rows_for_test_ids(tmp_path, monkeypatch):
         "| 2 | FAIL | [WS-02 second](url) | `auto` | bad | 1.0s |\n"
         "| 3 | PASS | [WS-03 third](url) | `auto` | ok | 1.0s |\n"
     )
-    monkeypatch.setattr(drv, "RESULTS_FILE", f)
+    monkeypatch.setattr(uat_config, "RESULTS_FILE", f)
     removed = _remove_rows_for_test_ids({"WS-02", "WS-03"})
     assert removed == 2
     text = f.read_text()
@@ -79,8 +80,9 @@ def test_remove_rows_for_test_ids(tmp_path, monkeypatch):
 
 def test_rebuild_summary_from_rows(tmp_path, monkeypatch):
     """_rebuild_summary_from_rows recomputes the summary header from row data."""
-    import portal5_uat_driver as drv
     from portal5_uat_driver import _rebuild_summary_from_rows
+
+    from tests.uat import config as uat_config
 
     f = tmp_path / "UAT_RESULTS.md"
     f.write_text(
@@ -96,7 +98,7 @@ def test_rebuild_summary_from_rows(tmp_path, monkeypatch):
         "| 3 | FAIL | [C test](u) | m | x | 1s |\n"
         "| 4 | SKIP | [D test](u) | m | x | 1s |\n"
     )
-    monkeypatch.setattr(drv, "RESULTS_FILE", f)
+    monkeypatch.setattr(uat_config, "RESULTS_FILE", f)
     _rebuild_summary_from_rows()
     text = f.read_text()
     assert "- **PASS**: 2" in text
