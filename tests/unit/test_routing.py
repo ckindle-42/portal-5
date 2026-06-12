@@ -246,14 +246,16 @@ class TestLastUserText:
     def test_list_content_extraction(self):
         from portal_pipeline.router.routing import _last_user_text
 
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "first part"},
-                {"type": "image_url", "image_url": {"url": "http://img"}},
-                {"type": "text", "text": "second part"},
-            ],
-        }]
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "first part"},
+                    {"type": "image_url", "image_url": {"url": "http://img"}},
+                    {"type": "text", "text": "second part"},
+                ],
+            }
+        ]
         result = _last_user_text(messages, 100)
         assert result == "first part second part"
 
@@ -317,7 +319,10 @@ class TestResolvePersonaTools:
         from portal_pipeline.router.workspaces import _resolve_persona_tools
 
         result = _resolve_persona_tools(
-            {"tools_allow": ["execute_python", "execute_bash", "remember"], "tools_deny": ["execute_bash"]},
+            {
+                "tools_allow": ["execute_python", "execute_bash", "remember"],
+                "tools_deny": ["execute_bash"],
+            },
             "auto-coding",
         )
         assert set(result) == {"execute_python", "remember"}
@@ -353,9 +358,5 @@ class TestPersonaCatalogAudit:
                 and "no tools" not in raw.lower()
                 and "no-tools" not in raw.lower()
             ):
-                issues.append(
-                    f"{yf.name}: tools_allow: [] without 'no tools' comment"
-                )
-        assert not issues, (
-            f"Personas with tools_allow: [] missing intent comment: {issues}"
-        )
+                issues.append(f"{yf.name}: tools_allow: [] without 'no tools' comment")
+        assert not issues, f"Personas with tools_allow: [] missing intent comment: {issues}"

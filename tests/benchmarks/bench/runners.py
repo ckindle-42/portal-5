@@ -161,9 +161,7 @@ def bench_direct(
                 )
             # Extra math pass — math-specialist models run the math prompt in addition
             # to their primary category prompt so both QS scores are in the results.
-            is_math_specialist = any(
-                p.lower() in model.lower() for p in _MATH_SPECIALIST_PATTERNS
-            )
+            is_math_specialist = any(p.lower() in model.lower() for p in _MATH_SPECIALIST_PATTERNS)
             if is_math_specialist and r.get("available", True) and not dry_run:
                 math_model_label = f"{model}:math"
                 if output_path and _result_already_done(output_path, "model", math_model_label):
@@ -189,7 +187,9 @@ def bench_direct(
                     if output_path:
                         _append_result(output_path, rm)
                     if rm["avg_tps"] > 0:
-                        print(f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]")
+                        print(
+                            f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]"
+                        )
                     else:
                         errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
                         print(f"FAIL [math] ({', '.join(set(errors))})")
@@ -215,8 +215,11 @@ def bench_direct(
                 # Returns False if drain fails after all retries — skip next model
                 # rather than loading into a known-bad memory state.
                 if not _wait_metal_drain(threshold_pct=80.0, timeout_s=30.0, retries=2):
-                    print(f"    [{i}/{len(ollama_unique)}] SKIP next — Metal drain failed, "
-                          "continuing to avoid OOM cascade", flush=True)
+                    print(
+                        f"    [{i}/{len(ollama_unique)}] SKIP next — Metal drain failed, "
+                        "continuing to avoid OOM cascade",
+                        flush=True,
+                    )
 
     return results
 
@@ -313,7 +316,9 @@ def bench_pipeline(
                 if output_path:
                     _append_result(output_path, rm)
                 if rm["avg_tps"] > 0:
-                    print(f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]")
+                    print(
+                        f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]"
+                    )
                 else:
                     errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
                     print(f"FAIL [math] ({', '.join(set(errors))})")

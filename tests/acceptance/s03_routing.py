@@ -6,6 +6,7 @@ is the job of tests/benchmarks/bench_tps.py (--mode pipeline), not the
 acceptance suite. Acceptance asserts functional routing + a content-signal
 sanity check per production lane.
 """
+
 import asyncio
 import time
 
@@ -29,7 +30,10 @@ async def run() -> None:
         ("General / daily", ["auto", "auto-daily", "auto-mistral", "auto-music", "auto-video"]),
         ("Coding / agentic", ["auto-coding", "auto-agentic", "auto-spl", "auto-documents"]),
         ("Security", ["auto-security", "auto-redteam", "auto-blueteam"]),
-        ("Reasoning / analysis", ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-math"]),
+        (
+            "Reasoning / analysis",
+            ["auto-reasoning", "auto-research", "auto-data", "auto-compliance", "auto-math"],
+        ),
         ("Creative / vision / audio", ["auto-creative", "auto-vision", "auto-audio"]),
         ("Tool calling", ["tools-specialist"]),
     ]
@@ -42,7 +46,10 @@ async def run() -> None:
         for ws_id in workspaces:
             if ws_id not in WORKSPACE_PROMPTS:
                 record(
-                    sec, f"S3a-{test_num:02d}", f"Workspace {ws_id}", "FAIL",
+                    sec,
+                    f"S3a-{test_num:02d}",
+                    f"Workspace {ws_id}",
+                    "FAIL",
                     "no WORKSPACE_PROMPTS entry — add one to portal5_acceptance_v6.py",
                 )
                 test_num += 1
@@ -66,30 +73,40 @@ async def run() -> None:
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
 
-            route_status, route_detail = await _assert_routing(
-                sec, tid, ws_id, model
-            )
+            route_status, route_detail = await _assert_routing(sec, tid, ws_id, model)
             if found and route_status == "match":
                 record(
-                    sec, tid, f"Workspace {ws_id}", "PASS",
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "PASS",
                     f"signals: {found[:3]} | {route_detail}",
                     t0=t0,
                 )
             elif found and route_status == "mismatch":
                 record(
-                    sec, tid, f"Workspace {ws_id}", "WARN",
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "WARN",
                     f"signals OK but {route_detail}",
                     t0=t0,
                 )
             elif found:
                 record(
-                    sec, tid, f"Workspace {ws_id}", "PASS",
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "PASS",
                     f"signals: {found[:3]} | {route_detail}",
                     t0=t0,
                 )
             else:
                 record(
-                    sec, tid, f"Workspace {ws_id}", "WARN",
+                    sec,
+                    tid,
+                    f"Workspace {ws_id}",
+                    "WARN",
                     f"no signals in: {response[:80]} | {route_detail}",
                     t0=t0,
                 )

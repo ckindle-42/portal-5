@@ -1,4 +1,5 @@
 """UAT catalog group: tools-specialist (ToolACE-2.5, purpose-trained tool-calling)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-TOOLS-01",
         "name": "Tool Composer — Multi-Step Tool Plan",
@@ -93,7 +94,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
@@ -120,7 +126,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
@@ -148,7 +159,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
@@ -182,4 +198,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": ["step", "first", "then", "next", "1.", "2.", "order"],
             },
         ],
-    },]
+    },
+]

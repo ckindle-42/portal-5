@@ -137,12 +137,18 @@ def _write_routing_summary() -> None:
 
     correct = [r for r in state._ROUTING_LOG if r["matched"]]
     tier_fallbacks = [r for r in state._ROUTING_LOG if not r["matched"] and r.get("tier_mismatch")]
-    wrong_model = [r for r in state._ROUTING_LOG if not r["matched"] and not r.get("tier_mismatch") and r["actual"]]
+    wrong_model = [
+        r
+        for r in state._ROUTING_LOG
+        if not r["matched"] and not r.get("tier_mismatch") and r["actual"]
+    ]
     no_actual = [r for r in state._ROUTING_LOG if not r["actual"]]
 
     # Pipeline backend breakdown: among correctly-matched tests that had an ollama-intended
     # workspace, how many confirmed correct routing.
-    ollama_intended_correct = [r for r in correct if r.get("intended_ollama") and r.get("pipeline_backend")]
+    ollama_intended_correct = [
+        r for r in correct if r.get("intended_ollama") and r.get("pipeline_backend")
+    ]
     confirmed_ollama = [r for r in ollama_intended_correct if r.get("pipeline_backend")]
 
     lines: list[str] = [
@@ -217,7 +223,9 @@ def _write_routing_summary() -> None:
         lines.append("")
 
     if not tier_fallbacks and not wrong_model and not no_actual:
-        lines.append("All routing checks passed — every test was served by its intended primary model.\n")
+        lines.append(
+            "All routing checks passed — every test was served by its intended primary model.\n"
+        )
 
     with config.RESULTS_FILE.open("a") as f:
         f.write("\n".join(lines))

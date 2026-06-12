@@ -1,4 +1,5 @@
 """UAT catalog group: auto-compliance (compliance workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-16",
         "name": "Compliance Analyst — CIP-003-9 R1.2.6",
@@ -207,4 +208,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]

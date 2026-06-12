@@ -1,4 +1,5 @@
 """S21: LLM Intent Router tests."""
+
 import json
 import os
 import time
@@ -74,11 +75,20 @@ async def run() -> None:
     )
     if routed_workspace in expected_security:
         route_status, route_detail = await _assert_routing(
-            sec, "S21-03", routed_workspace, model,
+            sec,
+            "S21-03",
+            routed_workspace,
+            model,
         )
         if route_status == "mismatch":
-            record(sec, "S21-03b", f"Model identity for {routed_workspace}",
-                   "WARN", route_detail, t0=time.time())
+            record(
+                sec,
+                "S21-03b",
+                f"Model identity for {routed_workspace}",
+                "WARN",
+                route_detail,
+                t0=time.time(),
+            )
 
     # S21-04: Test content-aware routing with coding keywords
     t0 = time.time()
@@ -100,11 +110,20 @@ async def run() -> None:
     )
     if routed_workspace in expected_coding:
         route_status, route_detail = await _assert_routing(
-            sec, "S21-04", routed_workspace, model,
+            sec,
+            "S21-04",
+            routed_workspace,
+            model,
         )
         if route_status == "mismatch":
-            record(sec, "S21-04b", f"Model identity for {routed_workspace}",
-                   "WARN", route_detail, t0=time.time())
+            record(
+                sec,
+                "S21-04b",
+                f"Model identity for {routed_workspace}",
+                "WARN",
+                route_detail,
+                t0=time.time(),
+            )
 
     # S21-05: Test content-aware routing with compliance keywords
     t0 = time.time()
@@ -126,11 +145,20 @@ async def run() -> None:
     )
     if routed_workspace in expected_compliance:
         route_status, route_detail = await _assert_routing(
-            sec, "S21-05", routed_workspace, model,
+            sec,
+            "S21-05",
+            routed_workspace,
+            model,
         )
         if route_status == "mismatch":
-            record(sec, "S21-05b", f"Model identity for {routed_workspace}",
-                   "WARN", route_detail, t0=time.time())
+            record(
+                sec,
+                "S21-05b",
+                f"Model identity for {routed_workspace}",
+                "WARN",
+                route_detail,
+                t0=time.time(),
+            )
 
     # S21-06: routing_descriptions.json valid
     t0 = time.time()

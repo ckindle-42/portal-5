@@ -1,4 +1,5 @@
 """UAT catalog group: browser automation (M5 personas)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "P-B01",
         "name": "E2E Test Author — Test Strategy",
@@ -1024,7 +1025,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "team is",
                     "changed 'have'",
                     "replace 'have'",
-                    "have\" should",
+                    'have" should',
                     "'have' to 'has'",
                     "have to has",
                 ],
@@ -1040,8 +1041,14 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "type": "any_of",
                 "label": "Apostrophe error found",
                 "keywords": [
-                    "it's", "its", "possessive", "apostrophe", "contraction",
-                    "its impact", "incorrect apostrophe", "possessive form",
+                    "it's",
+                    "its",
+                    "possessive",
+                    "apostrophe",
+                    "contraction",
+                    "its impact",
+                    "incorrect apostrophe",
+                    "possessive form",
                 ],
                 "critical": False,
             },

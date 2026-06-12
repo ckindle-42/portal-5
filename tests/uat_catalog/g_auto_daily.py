@@ -1,4 +1,5 @@
 """UAT catalog group: auto-daily (daily-driver workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-DD-01",
         "name": "Daily Driver — Casual Chat Snap (no reasoning leak)",
@@ -166,9 +167,18 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "type": "any_of",
                 "label": "Names the command",
                 "keywords": [
-                    "reset", "--hard", "git reset", "hard reset", "overwrites", "resets your",
-                    "reset --hard", "reset --soft", "HEAD~", "HEAD^",
-                    "undo commit", "revert commit",
+                    "reset",
+                    "--hard",
+                    "git reset",
+                    "hard reset",
+                    "overwrites",
+                    "resets your",
+                    "reset --hard",
+                    "reset --soft",
+                    "HEAD~",
+                    "HEAD^",
+                    "undo commit",
+                    "revert commit",
                 ],
             },
             {
@@ -281,7 +291,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
@@ -302,8 +317,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "type": "any_of",
                 "label": "URL in response — proves web_search ran",
                 "keywords": [
-                    "http://", "https://", "python.org", "wikipedia.org",
-                    "docs.python", "pypi.org", "realpython.com",
+                    "http://",
+                    "https://",
+                    "python.org",
+                    "wikipedia.org",
+                    "docs.python",
+                    "pypi.org",
+                    "realpython.com",
                 ],
             },
             {
@@ -420,7 +440,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Recalled marker value in response — proves both memory tools ran",
-                "keywords": ["portal5-uat-marker-2026", "portal5-uat", "uat_test_key", "uat-marker"],
+                "keywords": [
+                    "portal5-uat-marker-2026",
+                    "portal5-uat",
+                    "uat_test_key",
+                    "uat-marker",
+                ],
             },
             {
                 "type": "not_contains",
@@ -456,4 +481,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": [".docx", "Computation_Result", "computation", "download"],
             },
         ],
-    },]
+    },
+]

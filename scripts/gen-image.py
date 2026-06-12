@@ -170,6 +170,7 @@ def poll(job_id: str, label: str = "", interval: int = 10) -> str | None:
             _notify(f"Image ready{suffix}", f"Done in {mins}m{secs:02d}s")
             try:
                 import subprocess
+
                 subprocess.run(["open", url], check=False)
             except Exception:
                 pass
@@ -190,9 +191,7 @@ def poll(job_id: str, label: str = "", interval: int = 10) -> str | None:
 
 def main() -> None:
     qwen_names = sorted(QWEN_IMAGE_PRESETS.keys())
-    qwen_help = "\n".join(
-        f"  {k:25s} {v['description']}" for k, v in QWEN_IMAGE_PRESETS.items()
-    )
+    qwen_help = "\n".join(f"  {k:25s} {v['description']}" for k, v in QWEN_IMAGE_PRESETS.items())
     parser = argparse.ArgumentParser(
         description="Submit image generation jobs to Portal ComfyUI MCP and poll until done.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -232,21 +231,41 @@ Examples:
 """,
     )
     parser.add_argument("prompt", nargs="?", help="Text prompt for image generation")
-    parser.add_argument("--quality", action="store_true", help="Quality preset: 30 steps, 1328x1328")
+    parser.add_argument(
+        "--quality", action="store_true", help="Quality preset: 30 steps, 1328x1328"
+    )
     parser.add_argument("--fast", action="store_true", help="Fast preset: 4 steps, 1024x1024")
-    parser.add_argument("--preset", choices=qwen_names, metavar="PRESET",
-                        help=f"Qwen-Image preset. Choices: {', '.join(qwen_names)}")
-    parser.add_argument("--model", dest="model_override", type=str, default=None, metavar="MODEL_ID",
-                        help="Override model ID (e.g. qwen-image-2512, qwen-image-edit-2511, sdxl)")
+    parser.add_argument(
+        "--preset",
+        choices=qwen_names,
+        metavar="PRESET",
+        help=f"Qwen-Image preset. Choices: {', '.join(qwen_names)}",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model_override",
+        type=str,
+        default=None,
+        metavar="MODEL_ID",
+        help="Override model ID (e.g. qwen-image-2512, qwen-image-edit-2511, sdxl)",
+    )
     parser.add_argument("--steps", type=int, default=None, help="Inference steps")
     parser.add_argument("--cfg", type=float, default=None, help="CFG / guidance scale")
     parser.add_argument("--width", type=int, default=None, help="Image width in pixels")
     parser.add_argument("--height", type=int, default=None, help="Image height in pixels")
-    parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Negative prompt")
+    parser.add_argument(
+        "--negative", type=str, default=None, metavar="TEXT", help="Negative prompt"
+    )
     parser.add_argument("--seed", type=int, default=None, help="Seed (-1 = random)")
-    parser.add_argument("--lora", type=str, default=None, metavar="FILE", help="LoRA filename to apply")
-    parser.add_argument("--poll-interval", type=int, default=10, help="Seconds between status polls (default: 10)")
-    parser.add_argument("--no-wait", action="store_true", help="Submit and exit immediately, printing job_id")
+    parser.add_argument(
+        "--lora", type=str, default=None, metavar="FILE", help="LoRA filename to apply"
+    )
+    parser.add_argument(
+        "--poll-interval", type=int, default=10, help="Seconds between status polls (default: 10)"
+    )
+    parser.add_argument(
+        "--no-wait", action="store_true", help="Submit and exit immediately, printing job_id"
+    )
     parser.add_argument("--status", metavar="JOB_ID", help="Poll an existing job by ID")
 
     args = parser.parse_args()
@@ -280,7 +299,9 @@ Examples:
     w = args.width or base["width"]
     h = args.height or base["height"]
     model_tag = args.model_override or base.get("model", "flux")
-    print(f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}")
+    print(
+        f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}"
+    )
     print(f"  model={model_tag}  steps={steps}  cfg={cfg}  {w}x{h}")
 
     payload = build_payload(args.prompt, args, base)

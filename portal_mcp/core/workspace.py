@@ -81,6 +81,7 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
     # Strip OWUI API URL wrapper if the model passes a full path like
     # "/api/v1/files/<id>/content" — extract just the id segment.
     import re as _re
+
     _url_match = _re.search(r"/files/([^/]+)/", file_id_or_name)
     if _url_match:
         file_id_or_name = _url_match.group(1)
@@ -98,7 +99,9 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
         return candidates[0].resolve()
 
     # Suffix match — original filename only (``meeting.mp3`` matches ``{uuid}_meeting.mp3``)
-    candidates = [f for f in uploads.iterdir() if f.is_file() and f.name.endswith(f"_{file_id_or_name}")]
+    candidates = [
+        f for f in uploads.iterdir() if f.is_file() and f.name.endswith(f"_{file_id_or_name}")
+    ]
     if candidates:
         candidates.sort(key=lambda c: c.stat().st_mtime, reverse=True)
         return candidates[0].resolve()

@@ -1,4 +1,5 @@
 """S12: Web search tests."""
+
 import time
 
 from tests.acceptance._common import (

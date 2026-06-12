@@ -1,4 +1,5 @@
 """UAT catalog group: auto-coding (coding workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-02",
         "name": "Code Expert — Async HTTP Retry Wrapper",
@@ -511,7 +512,14 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "typeof null = object",
-                "keywords": ["object", "'object'", '"object"', "typeof null", "null is object", "null"],
+                "keywords": [
+                    "object",
+                    "'object'",
+                    '"object"',
+                    "typeof null",
+                    "null is object",
+                    "null",
+                ],
                 "critical": False,
             },
             {
@@ -651,7 +659,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         ),
         "assertions": [
             {"type": "any_of", "label": "D2 = 10500", "keywords": ["10500", "10,500"]},
-            {"type": "any_of", "label": "D3 = 9000", "keywords": ["9000", "9,000", "9.000", "9 000"], "critical": False},
+            {
+                "type": "any_of",
+                "label": "D3 = 9000",
+                "keywords": ["9000", "9,000", "9.000", "9 000"],
+                "critical": False,
+            },
             {"type": "any_of", "label": "B4 = 80000", "keywords": ["80000", "80,000"]},
             {"type": "any_of", "label": "D4 = 19500", "keywords": ["19500", "19,500"]},
             # NOTE: previously had a not_contains check for raw formula text.
@@ -988,4 +1001,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]

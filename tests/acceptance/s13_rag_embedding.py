@@ -1,4 +1,5 @@
 """S13: RAG/Embedding tests."""
+
 import time
 
 from tests.acceptance._common import (

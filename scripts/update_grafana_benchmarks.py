@@ -440,18 +440,14 @@ def main() -> None:
     )
     metadata_html = _build_metadata_panel(data, runs, cooldown, wall_s, hw)
     ws_notes_html = _build_ws_notes(ws_fastest, ws_slowest, ws_count)
-    findings_html = _build_key_findings(
-        direct_results, persona_results, ollama_avg, passed, total
-    )
+    findings_html = _build_key_findings(direct_results, persona_results, ollama_avg, passed, total)
     size_cmp_html = _build_size_breakdown(direct_results, ollama_avg)
 
     print(
         f"Results: {len(results)} entries ({len(ol_ok)} Ollama, "
         f"{ws_count} workspaces, {persona_count} personas)"
     )
-    print(
-        f"Passed: {passed}/{total}  Ollama avg: {ollama_avg}  Peak: {round(peak, 1)}"
-    )
+    print(f"Passed: {passed}/{total}  Ollama avg: {ollama_avg}  Peak: {round(peak, 1)}")
 
     if args.dry_run:
         print("Dry run — dashboard not updated.")

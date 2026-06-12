@@ -152,10 +152,10 @@ def classify_lines(
 
 
 _COLORS = {
-    "match": "\033[90m",          # gray
+    "match": "\033[90m",  # gray
     "missing": "\033[38;5;214m",  # orange
-    "hallucinated": "\033[33m",   # yellow
-    "bonus": "\033[36m",          # cyan
+    "hallucinated": "\033[33m",  # yellow
+    "bonus": "\033[36m",  # cyan
 }
 _RESET = "\033[0m"
 

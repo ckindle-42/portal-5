@@ -1,4 +1,5 @@
 """S30: Image generation tests (ComfyUI/FLUX)."""
+
 import time
 
 from tests.acceptance._common import (

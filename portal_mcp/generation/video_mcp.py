@@ -164,7 +164,9 @@ COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 # Public URL used in links returned to the browser — differs from COMFYUI_URL when the
 # MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
 COMFYUI_PUBLIC_URL = os.getenv("COMFYUI_PUBLIC_URL", "http://localhost:8188")
-VIDEO_BACKEND = os.getenv("VIDEO_BACKEND", "wan22")  # "wan22", "wan21-nsfw", "cogvideox", or "wan22-*"
+VIDEO_BACKEND = os.getenv(
+    "VIDEO_BACKEND", "wan22"
+)  # "wan22", "wan21-nsfw", "cogvideox", or "wan22-*"
 
 # Video model filename — single-file model in models/diffusion_models/.
 # Default: HunyuanVideo merged single-file (hunyuanvideo_comfyui.safetensors symlink →
@@ -225,20 +227,26 @@ WAN22_T2V_VAE = os.getenv("WAN22_T2V_VAE", "wan_2.1_vae.safetensors")
 # ── Wan 2.2 shared fp8 text encoder (TI2V-5B and S2V-14B) ────────────────────
 # From Comfy-Org/Wan_2.1_ComfyUI_repackaged (same encoder, different packaging).
 # Download: ./launch.sh pull-wan22
-WAN22_CLIP_FP8 = os.getenv("WAN22_CLIP_FP8", "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors")
+WAN22_CLIP_FP8 = os.getenv(
+    "WAN22_CLIP_FP8", "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+)
 
 # ── Wan 2.2 TI2V-5B env vars ─────────────────────────────────────────────────
 # Image-to-video: Wan22ImageToVideoLatent conditions on a start frame.
 # Single-file ComfyUI format from Comfy-Org/Wan_2.2_ComfyUI_Repackaged.
 # Download: ./launch.sh pull-wan22
-WAN22_TI2V_MODEL = os.getenv("WAN22_TI2V_MODEL", "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors")
+WAN22_TI2V_MODEL = os.getenv(
+    "WAN22_TI2V_MODEL", "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"
+)
 WAN22_TI2V_VAE = os.getenv("WAN22_TI2V_VAE", "split_files/vae/wan2.2_vae.safetensors")
 
 # ── Wan 2.2 S2V-14B env vars ─────────────────────────────────────────────────
 # Sound-to-video: WanSoundImageToVideo conditions on audio + reference image.
 # Requires audio_encoders/wav2vec2_large_english_fp16.safetensors.
 # Download: ./launch.sh pull-wan22
-WAN22_S2V_MODEL = os.getenv("WAN22_S2V_MODEL", "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors")
+WAN22_S2V_MODEL = os.getenv(
+    "WAN22_S2V_MODEL", "split_files/diffusion_models/wan2.2_s2v_14B_fp8_scaled.safetensors"
+)
 WAN22_S2V_VAE = os.getenv("WAN22_S2V_VAE", "wan_2.1_vae.safetensors")
 WAN22_S2V_AUDIO_ENCODER = os.getenv(
     "WAN22_S2V_AUDIO_ENCODER", "wav2vec2_large_english_fp16.safetensors"
@@ -890,7 +898,9 @@ async def generate_video(
         model: Override model name (optional, auto-detected from backend)
         seed: Random seed, -1 for random
     """
-    workflow, seed = _build_video_workflow(prompt, width, height, frames, fps, steps, cfg, model, seed, negative_prompt=negative_prompt)
+    workflow, seed = _build_video_workflow(
+        prompt, width, height, frames, fps, steps, cfg, model, seed, negative_prompt=negative_prompt
+    )
     prompt_id, err = await _submit_comfyui(workflow)
     if err:
         logger.error("ComfyUI /prompt error: %s", err)
@@ -1089,9 +1099,7 @@ async def _upload_audio_to_comfyui(audio_url: str) -> str:
         pass
 
     # Fallback: write directly to ComfyUI input directory
-    comfyui_input = os.path.expanduser(
-        os.getenv("COMFYUI_INPUT_DIR", "~/ComfyUI/input")
-    )
+    comfyui_input = os.path.expanduser(os.getenv("COMFYUI_INPUT_DIR", "~/ComfyUI/input"))
     os.makedirs(comfyui_input, exist_ok=True)
     with open(os.path.join(comfyui_input, fname), "wb") as fh:
         fh.write(data)
@@ -1275,8 +1283,20 @@ async def start_video_generation(
 
     try:
         workflow, seed = _build_video_workflow(
-            prompt, width, height, frames, fps, steps, cfg, model, seed, shift, sampler,
-            negative_prompt, image_filename, audio_filename,
+            prompt,
+            width,
+            height,
+            frames,
+            fps,
+            steps,
+            cfg,
+            model,
+            seed,
+            shift,
+            sampler,
+            negative_prompt,
+            image_filename,
+            audio_filename,
         )
     except ValueError as e:
         return {"success": False, "error": str(e)}
@@ -1414,11 +1434,13 @@ async def get_latest_videos(count: int = 5) -> list[dict]:
         url = _extract_video_url(entry.get("outputs", {}))
         if url:
             filename = url.split("filename=")[-1].split("&")[0]
-            videos.append({
-                "filename": filename,
-                "url": url,
-                "job_id": prompt_id,
-            })
+            videos.append(
+                {
+                    "filename": filename,
+                    "url": url,
+                    "job_id": prompt_id,
+                }
+            )
 
     videos.sort(key=lambda x: x["filename"], reverse=True)
     return videos[:count]
@@ -1488,6 +1510,7 @@ async def invoke_tool(request):
 
     try:
         import inspect
+
         logger.info("invoke_tool: %s args=%s", tool_name, arguments)
         dispatch = {
             "generate_video": generate_video,

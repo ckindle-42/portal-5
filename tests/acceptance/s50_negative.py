@@ -48,9 +48,7 @@ async def run() -> None:
     # Pipeline configured with MAX_REQUEST_BYTES=4MB by default; 600KB shouldn't hit that.
     # The model may produce truncated context, but the pipeline shouldn't 5xx.
     if code in (200, 400, 408, 413):
-        record(
-            sec, "S50-02", "Oversized prompt handled", "PASS", f"HTTP {code}", t0=t0
-        )
+        record(sec, "S50-02", "Oversized prompt handled", "PASS", f"HTTP {code}", t0=t0)
     else:
         record(sec, "S50-02", "Oversized prompt", "WARN", f"unexpected HTTP {code}", t0=t0)
 

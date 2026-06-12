@@ -1,4 +1,5 @@
 """UAT catalog group: auto-docs (documents workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-10",
         "name": "Document Builder — Change Management DOCX",
@@ -154,7 +155,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No error",
-                "keywords": ["an error occurred", "tool error", "failed to generate", "generation failed", "unable to create"],
+                "keywords": [
+                    "an error occurred",
+                    "tool error",
+                    "failed to generate",
+                    "generation failed",
+                    "unable to create",
+                ],
             },
             {"type": "xlsx_valid", "label": "XLSX file valid"},
         ],
@@ -212,8 +219,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "type": "any_of",
                 "label": "Document content found — proves read_word_document ran",
                 "keywords": [
-                    "Network Security", "Access Control", "Introduction",
-                    "Authentication", "least privilege", "RBAC",
+                    "Network Security",
+                    "Access Control",
+                    "Introduction",
+                    "Authentication",
+                    "least privilege",
+                    "RBAC",
                 ],
                 "critical": False,
             },
@@ -274,7 +285,13 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Fixture text found — proves read_pdf ran",
-                "keywords": ["Portal 5 UAT Fixture", "Portal 5", "UAT Fixture", "Section 1", "Overview"],
+                "keywords": [
+                    "Portal 5 UAT Fixture",
+                    "Portal 5",
+                    "UAT Fixture",
+                    "Section 1",
+                    "Overview",
+                ],
             },
             {
                 "type": "not_contains",
@@ -337,7 +354,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "any_of",
                 "label": "Section headings found",
-                "keywords": ["Introduction", "Access Control Policy", "Authentication", "Conclusion"],
+                "keywords": [
+                    "Introduction",
+                    "Access Control Policy",
+                    "Authentication",
+                    "Conclusion",
+                ],
                 "critical": False,
             },
             {
@@ -347,4 +369,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]

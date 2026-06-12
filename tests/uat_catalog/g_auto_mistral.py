@@ -1,4 +1,5 @@
 """UAT catalog group: auto-mistral (Mistral workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-17",
         "name": "Mistral Reasoner — Multi-Stakeholder OT Problem",
@@ -170,8 +171,14 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
-    },]
+    },
+]

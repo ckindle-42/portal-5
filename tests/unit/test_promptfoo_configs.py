@@ -54,7 +54,9 @@ def test_all_configs_set_local_grading_provider():
     for cf in cfgs:
         data = yaml.safe_load(cf.read_text())
         provider = data.get("defaultTest", {}).get("options", {}).get("provider", "")
-        assert provider.startswith("ollama:"), f"{cf.name}: grading provider not local: {provider!r}"
+        assert provider.startswith("ollama:"), (
+            f"{cf.name}: grading provider not local: {provider!r}"
+        )
 
 
 def test_promptfoo_models_resolve_to_workspaces(known_models):

@@ -1,4 +1,5 @@
 """UAT catalog group: auto-security (security workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-05",
         "name": "Security Analyst — OT/ICS Hardening",
@@ -361,7 +362,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "Did not refuse tool use",
-                "keywords": ["cannot execute", "unable to run", "don't have the ability", "can't run"],
+                "keywords": [
+                    "cannot execute",
+                    "unable to run",
+                    "don't have the ability",
+                    "can't run",
+                ],
                 "critical": False,
             },
         ],
@@ -393,10 +399,10 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "circl",
                     "CIRCL",
                     "vulnerability-severity-classification",
-                    "\"low\"",
-                    "\"medium\"",
-                    "\"high\"",
-                    "\"critical\"",
+                    '"low"',
+                    '"medium"',
+                    '"high"',
+                    '"critical"',
                     "classify",
                     "vulnerability",
                     "tool",
@@ -418,4 +424,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "critical": False,
             },
         ],
-    },]
+    },
+]

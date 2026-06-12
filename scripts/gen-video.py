@@ -54,6 +54,7 @@ def _download_video(comfyui_url: str) -> str | None:
         req = urllib.request.Request(comfyui_url)
         with urllib.request.urlopen(req, timeout=60) as resp:
             import tempfile
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
                 f.write(resp.read())
                 return f.name
@@ -341,7 +342,7 @@ def _eta_seconds(steps: int, frames: int, width: int, height: int) -> int:
     Back-solving: ref_step_s = 55320 / (35 × 10.52) ≈ 150s at 832×480 9-frame reference.
     Scales linearly with (width×height) and (frames).
     """
-    ref_step_s = 150.0         # seconds/step at reference config (832×480, 9 frames)
+    ref_step_s = 150.0  # seconds/step at reference config (832×480, 9 frames)
     ref_pixels = 832 * 480
     ref_frames = 9
     res_scale = (width * height) / ref_pixels
@@ -356,7 +357,9 @@ def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
     h = base.get("height", 480)
     eta_each = _eta_seconds(base["steps"], base["frames"], w, h)
     eta_total = eta_each * total
-    print(f"Batch: {total} prompts  |  ~{int(eta_each/60)}min each  |  ~{int(eta_total/3600)}h{int((eta_total%3600)/60)}m total")
+    print(
+        f"Batch: {total} prompts  |  ~{int(eta_each / 60)}min each  |  ~{int(eta_total / 3600)}h{int((eta_total % 3600) / 60)}m total"
+    )
     print(f"Preset: steps={base['steps']} frames={base['frames']} {w}x{h}")
     print()
 
@@ -371,7 +374,7 @@ def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
         if url is None:
             failed.append((idx, prompt))
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Batch complete: {total - len(failed)}/{total} succeeded")
     if failed:
         print("Failed:")
@@ -382,9 +385,7 @@ def run_batch(prompts: list[str], args: argparse.Namespace, base: dict) -> None:
 
 def main() -> None:
     wan22_preset_names = sorted(WAN22_PRESETS.keys())
-    wan22_preset_help = "\n".join(
-        f"  {k:20s} {v['description']}" for k, v in WAN22_PRESETS.items()
-    )
+    wan22_preset_help = "\n".join(f"  {k:20s} {v['description']}" for k, v in WAN22_PRESETS.items())
     parser = argparse.ArgumentParser(
         description="Submit video generation jobs to Portal and poll until done.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -437,29 +438,70 @@ Examples:
 """,
     )
     parser.add_argument("prompt", nargs="?", help="Text prompt for video generation")
-    parser.add_argument("--preview", action="store_true", help="Preview preset: 20 steps, 480p, 9 frames (~52 min) — prompt quality check")
-    parser.add_argument("--quality", action="store_true", help="Quality preset: 35 steps, 480p, 41 frames (~6.7 hr) — best quality at 480p")
-    parser.add_argument("--overnight", action="store_true", help="Overnight preset: 35 steps, 720p, 41 frames (~15-17 hr) — leave running overnight")
-    parser.add_argument("--preset", choices=wan22_preset_names, metavar="PRESET",
-                        help=f"Wan 2.2 preset. Choices: {', '.join(wan22_preset_names)}")
-    parser.add_argument("--model", type=str, default=None, metavar="MODEL_ID",
-                        help="Override model ID (e.g. wan22-t2v-a14b, wan22-ti2v-5b)")
-    parser.add_argument("--image-url", type=str, default=None, metavar="URL",
-                        help="Start-frame image URL or local path (required for wan22-ti2v and wan22-s2v)")
-    parser.add_argument("--audio-url", type=str, default=None, metavar="URL",
-                        help="Reference audio URL or local path (required for wan22-s2v)")
-    parser.add_argument("--batch", metavar="FILE", help="Run all prompts from FILE (one per line) sequentially")
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Preview preset: 20 steps, 480p, 9 frames (~52 min) — prompt quality check",
+    )
+    parser.add_argument(
+        "--quality",
+        action="store_true",
+        help="Quality preset: 35 steps, 480p, 41 frames (~6.7 hr) — best quality at 480p",
+    )
+    parser.add_argument(
+        "--overnight",
+        action="store_true",
+        help="Overnight preset: 35 steps, 720p, 41 frames (~15-17 hr) — leave running overnight",
+    )
+    parser.add_argument(
+        "--preset",
+        choices=wan22_preset_names,
+        metavar="PRESET",
+        help=f"Wan 2.2 preset. Choices: {', '.join(wan22_preset_names)}",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        metavar="MODEL_ID",
+        help="Override model ID (e.g. wan22-t2v-a14b, wan22-ti2v-5b)",
+    )
+    parser.add_argument(
+        "--image-url",
+        type=str,
+        default=None,
+        metavar="URL",
+        help="Start-frame image URL or local path (required for wan22-ti2v and wan22-s2v)",
+    )
+    parser.add_argument(
+        "--audio-url",
+        type=str,
+        default=None,
+        metavar="URL",
+        help="Reference audio URL or local path (required for wan22-s2v)",
+    )
+    parser.add_argument(
+        "--batch", metavar="FILE", help="Run all prompts from FILE (one per line) sequentially"
+    )
     parser.add_argument("--steps", type=int, default=None, help="Inference steps")
     parser.add_argument("--cfg", type=float, default=None, help="CFG scale (range 5.5–7.0)")
     parser.add_argument("--frames", type=int, default=None, help="Number of frames")
     parser.add_argument("--width", type=int, default=None, help="Width in pixels")
     parser.add_argument("--height", type=int, default=None, help="Height in pixels")
-    parser.add_argument("--shift", type=float, default=None, help="Sample shift (range 8–11, higher = more motion)")
+    parser.add_argument(
+        "--shift", type=float, default=None, help="Sample shift (range 8–11, higher = more motion)"
+    )
     parser.add_argument("--sampler", type=str, default=None, help="Sampler name (default: uni_pc)")
-    parser.add_argument("--negative", type=str, default=None, metavar="TEXT", help="Override negative prompt")
+    parser.add_argument(
+        "--negative", type=str, default=None, metavar="TEXT", help="Override negative prompt"
+    )
     parser.add_argument("--seed", type=int, default=None, help="Seed (-1 = random)")
-    parser.add_argument("--poll-interval", type=int, default=30, help="Seconds between status polls (default: 30)")
-    parser.add_argument("--no-wait", action="store_true", help="Submit and exit immediately, printing job_id")
+    parser.add_argument(
+        "--poll-interval", type=int, default=30, help="Seconds between status polls (default: 30)"
+    )
+    parser.add_argument(
+        "--no-wait", action="store_true", help="Submit and exit immediately, printing job_id"
+    )
     parser.add_argument("--status", metavar="JOB_ID", help="Poll an existing job by ID")
 
     args = parser.parse_args()
@@ -476,7 +518,11 @@ Examples:
 
     if args.preset:
         wan22 = WAN22_PRESETS[args.preset]
-        base = {k: v for k, v in wan22.items() if k not in ("model", "description", "_requires_image", "_requires_audio")}
+        base = {
+            k: v
+            for k, v in wan22.items()
+            if k not in ("model", "description", "_requires_image", "_requires_audio")
+        }
         if not args.model:
             args.model = wan22["model"]
         preset_label = args.preset
@@ -519,7 +565,9 @@ Examples:
     frames = args.frames or base["frames"]
 
     model_tag = f"  model={args.model}" if getattr(args, "model", None) else ""
-    print(f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}")
+    print(
+        f"Submitting [{preset_label}]: {args.prompt[:80]}{'...' if len(args.prompt) > 80 else ''}"
+    )
     print(f"  steps={steps}  cfg={cfg}  shift={shift}  {w}x{h}  frames={frames}{model_tag}")
 
     payload = build_payload(args.prompt, args, base)

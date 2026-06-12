@@ -78,8 +78,12 @@ def render(rows: list[dict], source: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", default=str(ROOT / "tests" / "UAT_RESULTS.md"))
-    default_out = ROOT / "tests" / "benchmarks" / "results" / (
-        "CC01_CHALLENGE_MATRIX_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md"
+    default_out = (
+        ROOT
+        / "tests"
+        / "benchmarks"
+        / "results"
+        / ("CC01_CHALLENGE_MATRIX_" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md")
     )
     ap.add_argument("--output", default=str(default_out))
     args = ap.parse_args()

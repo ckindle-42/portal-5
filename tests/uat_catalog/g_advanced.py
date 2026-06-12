@@ -1,4 +1,5 @@
 """UAT catalog group: advanced (advanced/multi-turn workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "A-01",
         "name": "Document RAG — Upload, Query, Follow-Up",
@@ -323,4 +324,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             },
         ],
         "cleanup_marker_tag": "uat-a08-marker",
-    },]
+    },
+]

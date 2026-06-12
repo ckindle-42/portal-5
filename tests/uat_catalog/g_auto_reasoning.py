@@ -1,4 +1,5 @@
 """UAT catalog group: auto-reasoning (reasoning workspace)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "WS-09",
         "name": "Deep Reasoner — Secrets Management Trade-off",
@@ -208,4 +209,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": ["second opinion", "independent", "disagree", "however", "actually"],
             },
         ],
-    },]
+    },
+]

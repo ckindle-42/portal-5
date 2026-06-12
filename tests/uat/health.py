@@ -81,7 +81,10 @@ def _check_memory_before_test(test_name: str = "") -> bool:
         )
         unload_all_models()
         if not _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label=test_name):
-            print(f"  [MEMORY] Still above {MEMORY_WARN_PCT:.0f}% after 90s drain — skipping {test_name}", flush=True)
+            print(
+                f"  [MEMORY] Still above {MEMORY_WARN_PCT:.0f}% after 90s drain — skipping {test_name}",
+                flush=True,
+            )
             return False
         return True
 
@@ -132,6 +135,8 @@ def _backend_alive(tier: str) -> tuple[bool, str]:
             ollama_ok = False
         return ollama_ok, f"ollama={'ok' if ollama_ok else 'down'}"
     return True, "tier=any"
+
+
 async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
     """Poll backend until ready or max_wait seconds elapsed.
 
@@ -159,6 +164,8 @@ async def _wait_for_backend(tier: str, max_wait: int = 120) -> bool:
             )
             last_log = time.time()
         await asyncio.sleep(10)
+
+
 async def _wait_for_backend_alive(tier: str, max_wait: float = BACKEND_SETTLE_WAIT_S) -> bool:
     """Poll _backend_alive until the backend reports healthy or max_wait elapses.
 

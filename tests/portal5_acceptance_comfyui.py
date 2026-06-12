@@ -299,9 +299,7 @@ async def _mcp(
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 if timeout is not None:
-                    result = await asyncio.wait_for(
-                        session.call_tool(tool, args), timeout=timeout
-                    )
+                    result = await asyncio.wait_for(session.call_tool(tool, args), timeout=timeout)
                 else:
                     result = await session.call_tool(tool, args)
                 text = ""
@@ -326,7 +324,11 @@ async def _mcp(
             or "Cancel" in type(e).__name__
             or isinstance(e, BaseExceptionGroup)
         ):
-            label = f"timeout after {timeout}s (TaskGroup)" if timeout else f"cancelled ({err_str[:80]})"
+            label = (
+                f"timeout after {timeout}s (TaskGroup)"
+                if timeout
+                else f"cancelled ({err_str[:80]})"
+            )
             record(section, tid, name, "WARN", label, t0=t0)
         else:
             record(section, tid, name, "FAIL", err_str[:200], t0=t0)
@@ -479,7 +481,7 @@ async def _comfyui_watchdog(interval: int = 60, stall_limit: int = 2400) -> None
                 )
                 if elapsed > stall_limit:
                     print(
-                        f"  ⚠️  WATCHDOG: same job running for >{stall_limit//60}min — "
+                        f"  ⚠️  WATCHDOG: same job running for >{stall_limit // 60}min — "
                         "may be stuck. Check ComfyUI logs."
                     )
             else:
@@ -913,7 +915,7 @@ async def C4() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected", "not available"],
-            )
+    )
 
     # Verify output accessible from ComfyUI /view endpoint
     t0 = time.time()
@@ -1029,7 +1031,7 @@ async def C5() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "rejected"],
-            )
+    )
 
     # LoRA tests — verify both regular and NSFW LoRAs work with image generation
     code, lora_data = await _comfyui_get("/object_info/LoraLoader", timeout=15)
@@ -1062,7 +1064,7 @@ async def C5() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-                    )
+        )
     else:
         record(
             sec, "C5-03", "LoRA generation (regular)", "WARN", "no regular LoRA installed", t0=None
@@ -1100,7 +1102,7 @@ async def C5() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-                    )
+        )
     else:
         record(
             sec,
@@ -1220,7 +1222,7 @@ async def C6() -> None:
             ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
             detail_fn=lambda t: t[:200],
             warn_if=["error", "failed", "rejected"],
-                    )
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1284,7 +1286,7 @@ async def C7() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-            )
+    )
 
     # Different step count — fast vs quality comparison
     await _wait_for_comfyui_idle()
@@ -1303,7 +1305,7 @@ async def C7() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-            )
+    )
 
     # Negative prompt support
     await _wait_for_comfyui_idle()
@@ -1328,7 +1330,7 @@ async def C7() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-            )
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1394,7 +1396,7 @@ async def C8() -> None:
         ),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-            )
+    )
 
     # Second full-quality clip — different subject
     await _wait_for_comfyui_idle()
@@ -1415,7 +1417,7 @@ async def C8() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed"],
-            )
+    )
 
     # NSFW video test — HunyuanVideo with nsfw-e7 LoRA (trigger: nsfwsks)
     await _wait_for_comfyui_idle()
@@ -1436,7 +1438,7 @@ async def C8() -> None:
         ok_fn=lambda t: "success" in t.lower() or "url" in t.lower() or "filename" in t.lower(),
         detail_fn=lambda t: t[:200],
         warn_if=["error", "failed", "not installed", "not available"],
-            )
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

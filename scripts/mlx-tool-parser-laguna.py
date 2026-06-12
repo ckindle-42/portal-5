@@ -10,9 +10,7 @@ import regex as re
 tool_call_start = "<tool_call>"
 tool_call_end = "</tool_call>"
 
-_tool_call_regex = re.compile(
-    r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL
-)
+_tool_call_regex = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 
 
 def parse_tool_call(text: str, tools: Any | None = None):

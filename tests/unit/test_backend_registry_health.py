@@ -95,6 +95,7 @@ defaults: {}
 
         # Cross threshold -> unhealthy at WARNING
         from portal_pipeline.cluster_backends import logger as cb_logger
+
         with caplog.at_level(logging.WARNING, logger=cb_logger.name):
             if be.consecutive_failures >= reg._health_failure_threshold:
                 cb_logger.warning(
@@ -137,9 +138,7 @@ defaults: {}
         with caplog.at_level(logging.INFO, logger=cb_logger.name):
             if healthy_count != reg._last_healthy_count:
                 reg._last_healthy_count = healthy_count
-                cb_logger.info(
-                    "Health check complete: %d/%d healthy", healthy_count, 0
-                )
+                cb_logger.info("Health check complete: %d/%d healthy", healthy_count, 0)
         assert any("healthy" in r.message for r in caplog.records)
         caplog.clear()
 

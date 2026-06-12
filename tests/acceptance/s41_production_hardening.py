@@ -1,4 +1,5 @@
 """S41: M6 production hardening tests."""
+
 import os
 import time
 

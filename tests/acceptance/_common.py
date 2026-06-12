@@ -166,7 +166,9 @@ async def _assert_routing(
     *,
     persona_slug: str = "",
 ):
-    return await _monolith()._assert_routing(section, tid, workspace, model, persona_slug=persona_slug)
+    return await _monolith()._assert_routing(
+        section, tid, workspace, model, persona_slug=persona_slug
+    )
 
 
 async def _mcp_get(port: int, path: str, timeout: int = 10):
@@ -215,9 +217,16 @@ async def _mcp(
     timeout: int = 30,
 ) -> None:
     return await _monolith()._mcp(
-        port, tool, args,
-        section=section, tid=tid, name=name,
-        ok_fn=ok_fn, detail_fn=detail_fn, warn_if=warn_if, timeout=timeout,
+        port,
+        tool,
+        args,
+        section=section,
+        tid=tid,
+        name=name,
+        ok_fn=ok_fn,
+        detail_fn=detail_fn,
+        warn_if=warn_if,
+        timeout=timeout,
     )
 
 
@@ -232,8 +241,13 @@ async def _mcp_raw(
     timeout: int = 30,
 ) -> None:
     return await _monolith()._mcp_raw(
-        port, tool, args,
-        section=section, tid=tid, name=name, timeout=timeout,
+        port,
+        tool,
+        args,
+        section=section,
+        tid=tid,
+        name=name,
+        timeout=timeout,
     )
 
 

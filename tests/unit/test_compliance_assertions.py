@@ -12,6 +12,7 @@ from tests.lib import compliance_assertions as ca
 
 # ── Structural ────────────────────────────────────────────────────────────
 
+
 class TestStructuralTableColumns:
     def test_passes_with_all_columns_in_markdown_table(self):
         resp = """
@@ -41,6 +42,7 @@ class TestStructuralTableColumns:
 
 # ── Classification ────────────────────────────────────────────────────────
 
+
 class TestClassificationToken:
     def test_passes_with_token_in_table_cell(self):
         resp = "| CIP-007-6 | R2 | Partial | needs work | logs | P2 |"
@@ -58,6 +60,7 @@ class TestClassificationToken:
 
 
 # ── Anti-fabrication ──────────────────────────────────────────────────────
+
 
 class TestAntiFabrication:
     def test_passes_with_refusal_phrase(self):
@@ -80,6 +83,7 @@ class TestAntiFabrication:
 
 # ── Refuse to certify ─────────────────────────────────────────────────────
 
+
 class TestRefuseToCertify:
     def test_passes_with_hedge(self):
         resp = (
@@ -97,6 +101,7 @@ class TestRefuseToCertify:
 
 
 # ── Insufficient context ──────────────────────────────────────────────────
+
 
 class TestInsufficientContext:
     def test_passes_with_exact_phrase(self):
@@ -117,6 +122,7 @@ class TestInsufficientContext:
 
 
 # ── Modal verbs ───────────────────────────────────────────────────────────
+
 
 class TestModalVerbs:
     def test_passes_with_shall_and_no_aspirational(self):
@@ -141,16 +147,20 @@ class TestModalVerbs:
 
 # ── Citation patterns ─────────────────────────────────────────────────────
 
+
 class TestCitationPatterns:
-    @pytest.mark.parametrize("framework,sample", [
-        ("NERC_CIP", "Per CIP-007-6 R2 Part 2.2, the entity shall..."),
-        ("HIPAA", "45 CFR §164.312(a)(1) requires access controls."),
-        ("GDPR", "GDPR Article 32(1)(a) requires security measures."),
-        ("SOC2", "TSC CC6.1 covers logical access controls."),
-        ("PCI_DSS", "PCI-DSS 4.0.1 Req 8.3.1 mandates MFA."),
-        ("NIST_800_53", "NIST SP 800-53 Rev. 5 AC-2 covers account management."),
-        ("ISO_27001", "ISO/IEC 27001:2022 A.5.15 addresses access control."),
-    ])
+    @pytest.mark.parametrize(
+        "framework,sample",
+        [
+            ("NERC_CIP", "Per CIP-007-6 R2 Part 2.2, the entity shall..."),
+            ("HIPAA", "45 CFR §164.312(a)(1) requires access controls."),
+            ("GDPR", "GDPR Article 32(1)(a) requires security measures."),
+            ("SOC2", "TSC CC6.1 covers logical access controls."),
+            ("PCI_DSS", "PCI-DSS 4.0.1 Req 8.3.1 mandates MFA."),
+            ("NIST_800_53", "NIST SP 800-53 Rev. 5 AC-2 covers account management."),
+            ("ISO_27001", "ISO/IEC 27001:2022 A.5.15 addresses access control."),
+        ],
+    )
     def test_citation_format_recognized(self, framework, sample):
         r = ca.assert_citation_present(sample, framework)
         assert r.passed, f"{framework}: {r.detail}"
@@ -161,6 +171,7 @@ class TestCitationPatterns:
 
 
 # ── Aggregate outcome ─────────────────────────────────────────────────────
+
 
 class TestScenarioOutcome:
     def test_all_must_pass_means_pass(self):
@@ -189,8 +200,6 @@ class TestScenarioOutcome:
         oc = ca.ScenarioOutcome(
             scenario_id="x",
             framework="GDPR",
-            results=(
-                ca.AssertionResult("a", False, "x", "MUST"),
-            ),
+            results=(ca.AssertionResult("a", False, "x", "MUST"),),
         )
         assert oc.status == "FAIL"

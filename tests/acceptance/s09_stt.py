@@ -1,4 +1,5 @@
 """S9: Speech-to-Text tests."""
+
 import contextlib
 import time
 import uuid
@@ -55,7 +56,9 @@ async def run() -> None:
         "S9-03",
         "MLX Transcribe health",
         "PASS" if mlx_transcribe_code == 200 else "INFO",
-        f"HTTP {mlx_transcribe_code}" if mlx_transcribe_code == 200 else "not running (start with ./launch.sh start-transcribe)",
+        f"HTTP {mlx_transcribe_code}"
+        if mlx_transcribe_code == 200
+        else "not running (start with ./launch.sh start-transcribe)",
         t0=t0,
     )
 
@@ -80,17 +83,41 @@ async def run() -> None:
                     spk_count = result.get("speaker_count", 0)
                     total_s = result.get("timing", {}).get("total_s", 0)
                     if spk_count >= 2 and total_s < 60:
-                        record(sec, "S9-04", "MLX Transcribe diarization",
-                               "PASS", f"{spk_count} speakers in {total_s:.1f}s", t0=t0)
+                        record(
+                            sec,
+                            "S9-04",
+                            "MLX Transcribe diarization",
+                            "PASS",
+                            f"{spk_count} speakers in {total_s:.1f}s",
+                            t0=t0,
+                        )
                     elif spk_count >= 2:
-                        record(sec, "S9-04", "MLX Transcribe diarization",
-                               "WARN", f"{spk_count} speakers but slow ({total_s:.1f}s)", t0=t0)
+                        record(
+                            sec,
+                            "S9-04",
+                            "MLX Transcribe diarization",
+                            "WARN",
+                            f"{spk_count} speakers but slow ({total_s:.1f}s)",
+                            t0=t0,
+                        )
                     else:
-                        record(sec, "S9-04", "MLX Transcribe diarization",
-                               "WARN", f"only {spk_count} speaker(s) detected", t0=t0)
+                        record(
+                            sec,
+                            "S9-04",
+                            "MLX Transcribe diarization",
+                            "WARN",
+                            f"only {spk_count} speaker(s) detected",
+                            t0=t0,
+                        )
                 else:
-                    record(sec, "S9-04", "MLX Transcribe diarization",
-                           "FAIL", f"HTTP {r.status_code}: {r.text[:100]}", t0=t0)
+                    record(
+                        sec,
+                        "S9-04",
+                        "MLX Transcribe diarization",
+                        "FAIL",
+                        f"HTTP {r.status_code}: {r.text[:100]}",
+                        t0=t0,
+                    )
             except Exception as e:
                 record(sec, "S9-04", "MLX Transcribe diarization", "FAIL", str(e)[:100], t0=t0)
     else:
@@ -105,6 +132,7 @@ async def run() -> None:
             record(sec, "S9-05", "Workspace upload resolution", "INFO", "fixture missing", t0=t0)
         else:
             from portal_mcp.core.workspace import get_uploads_dir
+
             uploads = get_uploads_dir()
             test_id = f"test_{uuid.uuid4().hex[:8]}"
             target = uploads / f"{test_id}_two_speaker.wav"
@@ -116,14 +144,25 @@ async def run() -> None:
                         json={"file": test_id, "num_speakers": 2},
                     )
                 if r.status_code == 200 and "error" not in r.text:
-                    record(sec, "S9-05", "Workspace upload resolution",
-                           "PASS", "file ID resolved", t0=t0)
+                    record(
+                        sec,
+                        "S9-05",
+                        "Workspace upload resolution",
+                        "PASS",
+                        "file ID resolved",
+                        t0=t0,
+                    )
                 else:
-                    record(sec, "S9-05", "Workspace upload resolution",
-                           "WARN", f"HTTP {r.status_code}", t0=t0)
+                    record(
+                        sec,
+                        "S9-05",
+                        "Workspace upload resolution",
+                        "WARN",
+                        f"HTTP {r.status_code}",
+                        t0=t0,
+                    )
             except Exception as e:
-                record(sec, "S9-05", "Workspace upload resolution",
-                       "FAIL", str(e)[:100], t0=t0)
+                record(sec, "S9-05", "Workspace upload resolution", "FAIL", str(e)[:100], t0=t0)
             finally:
                 with contextlib.suppress(Exception):
                     target.unlink()

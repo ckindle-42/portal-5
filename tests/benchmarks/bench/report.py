@@ -3,6 +3,7 @@
 Extracted byte-for-byte from tests/benchmarks/bench_tps.py.
 """
 
+
 def _print_availability_report(
     ollama_available: bool,
     pipeline_available: bool,

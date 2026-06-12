@@ -35,10 +35,7 @@ def _load_report(path: Path) -> dict[str, Any]:
     with open(path) as f:
         d = json.load(f)
     if d.get("schema") != "portal5.persona_matrix.v1":
-        raise ValueError(
-            f"{path}: not a persona_matrix.v1 report "
-            f"(schema={d.get('schema')!r})"
-        )
+        raise ValueError(f"{path}: not a persona_matrix.v1 report (schema={d.get('schema')!r})")
     return d
 
 
@@ -51,10 +48,7 @@ def _cell_pass_rate(cell: dict[str, Any]) -> float | None:
 
 
 def _index_cells(report: dict[str, Any]) -> dict[tuple[str, str, str], dict]:
-    return {
-        (c["persona"], c["backend"], c["model"]): c
-        for c in report.get("cells", [])
-    }
+    return {(c["persona"], c["backend"], c["model"]): c for c in report.get("cells", [])}
 
 
 def compute_regressions(
@@ -128,11 +122,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("baseline", type=Path, help="baseline JSON path")
     parser.add_argument("new", type=Path, help="new run JSON path")
     parser.add_argument(
-        "--threshold", type=float, default=10.0,
+        "--threshold",
+        type=float,
+        default=10.0,
         help="regression threshold in percentage points (default: 10.0)",
     )
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="emit machine-readable JSON instead of human text",
     )
     args = parser.parse_args(argv)
@@ -167,8 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(out, indent=2))
     else:
         print(
-            f"# Diff: {args.baseline.name} → {args.new.name}  "
-            f"(threshold ±{args.threshold:.1f}pp)\n"
+            f"# Diff: {args.baseline.name} → {args.new.name}  (threshold ±{args.threshold:.1f}pp)\n"
         )
         if regressions:
             print(f"## Regressions ({len(regressions)})")

@@ -7,7 +7,7 @@
 ## Summary
 
 - **PASS**: 163
-- **WARN**: 4
+- **WARN**: 6
 - **FAIL**: 0
 - **SKIP**: 7
 - **BLOCKED**: 0
@@ -201,3 +201,113 @@
 | 15 | PASS | [WS-12 Music Producer — Dark Ambient Generation](http://localhost:8080/c/26f4ae97-1205-4329-9187-cef95d082e9e) | `auto-music` | 3/3(100%) No error=✓(ok); WAV ≥5s=✓(19.9s, 1276204 bytes); Routed model: auto-music=✓(matches Ollama:lfm2.5 — pipeline confirms: ollama-general|lfm2.5:8b) | 32.7s |
 | 1 | PASS | [P-DA05 STEM Analyst — Binomial Derivation](http://localhost:8080/c/b86ba14b-c7b5-4786-a1eb-fe4630a1dfd2) | `phi4stemanalyst` | 4/5(80%) Binomial stated=✓(found: ['binomial', 'bernoulli', '5,000', '5000', '0.001']); Expected value = 5=✗(none of: ['e[x] = 5', 'e(x) = 5', 'e[x]=5', 'e(x)=5', 'expected value', 'expected number', 'expected count', '5 successes', '5 blocked', '5 packet', 'mean = 5', 'mean=5', 'mean of 5', 'average of 5', 'average = 5', 'μ = 5', 'μ=5', 'μ≈5', 'λ = 5', 'λ=5', 'λ≈5', 'lambda = 5', 'lambda=5', 'np = 5', 'np=5', 'np ≈ 5', 'n*p = 5', 'n*p=5', 'n × p = 5', 'n·p = 5', '= 5.0', '=5.0', 'equals 5', ' = 5 ', ' = 5,', ' = 5.', 'is 5,', 'is 5.', 'is 5\n', 'equals 5.', 'the mean is 5', 'mean is 5', '5000 × 0.001', '5000*0.001', '5,000 × 0.001', 'n * p = 5', 'approximately 5', '≈ 5', 'about 5', 'roughly 5', 'is 5', 'value of 5', 'result is 5', '5000 x 0.001']); Approximation or exact method noted=✓(found: ['poisson', 'approximation', 'normal approximation', 'exact binomial']); Multiple interpretations=✓(found: ['approach', '>10', 'more than 10', 'depend']); Routed model: phi4stemanalyst=✓(matches via workspace 'auto-phi4': Ollama:phi4-reasoning — pipeline confirms: ollama-security|huihui_ai/Qwen3.6-abliterated:27b) | 136.5s |
 | 1 | PASS | [M-01 Whisper STT — Voice-to-Text Round-Trip](http://localhost:8080/c/39ccea5d-be44-4e13-8e30-960a02d6f5e1) | `auto-music` | 4/4(100%) No tool error=✓(ok); Transcript length=✓(len=5157, min=20); Transcript matches fixture content=✓(found: ['portal', 'acceptance', 'quick', 'brown', 'fox', 'lazy dog']); Routed model: auto-music=✓(matches Ollama:lfm2.5 — pipeline confirms: ollama-general|lfm2.5:8b) | 22.4s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 1 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| CC-01-gemma4-12b-coder | CC-01 Asteroids · Gemma4-12B-Coder Fable | challenge | `ollama-coding|hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 1 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| CC-01-qwopus-coder-mtp | CC-01 Asteroids · Qwopus3.6-27B-Coder-MT | challenge | `ollama-coding|hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | WARN | [CC-01-gemma4-12b-coder CC-01 Asteroids · Gemma4-12B-Coder Fable5 (yuxinlu1)](http://localhost:8080/c/3a42b899-fa3d-4763-a0a6-a11dff023e39) | `bench-gemma4-12b-coder` | 5/10(50%) [routed: bench-gemma4-12b-coder] HTML file delivered=✓(code block present); Game loop (behavioral)=✗(no pattern matched in code (1197 chars)); Lives manipulation (behavioral)=✗(no pattern matched in code (1197 chars)); Score increment (behavioral)=✗(no pattern matched in code (1197 chars)); Asteroid split/push (behavioral)=✗(no pattern matched in code (1197 chars)); Canvas game loop (keyword)=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['split', 'asteroid']); Lives system (keyword)=✓(found: ['lives']); Score system=✓(ok); Routed model: bench-gemma4-12b-coder=✓(matches Ollama:gemma-4-12b-coder-fable5-composer2.5-v1 — pipeline confirms: ollama-coding|hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M) | 34.9s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 1 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| CC-01-gemma4-12b-coder | CC-01 Asteroids · Gemma4-12B-Coder Fable | challenge | `ollama-coding|hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | WARN | [CC-01-qwopus-coder-mtp CC-01 Asteroids · Qwopus3.6-27B-Coder-MTP (Jackrong)](http://localhost:8080/c/5845df6b-6cdf-41b3-b484-23d7e9ab70db) | `bench-qwopus-coder-mtp` | 6/10(60%) [routed: bench-qwopus-coder-mtp] HTML file delivered=✓(code block present); Game loop (behavioral)=✗(no pattern matched in code (36976 chars)); Lives manipulation (behavioral)=✗(no pattern matched in code (36976 chars)); Score increment (behavioral)=✗(no pattern matched in code (36976 chars)); Asteroid split/push (behavioral)=✓(matched: asteroid push); Canvas game loop (keyword)=✗(none of: ['requestanimationframe', 'requestAnimationFrame', 'setinterval', 'setInterval', 'game loop', 'gameloop', 'game_loop']); Asteroids split logic=✓(found: ['asteroid', 'fragment']); Lives system (keyword)=✓(found: ['lives', 'life']); Score system=✓(ok); Routed model: bench-qwopus-coder-mtp=✓(matches Ollama:qwopus3.6-27b-coder-mtp — pipeline confirms: ollama-coding|hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf) | 820.7s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 1 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| CC-01-qwopus-coder-mtp | CC-01 Asteroids · Qwopus3.6-27B-Coder-MT | challenge | `ollama-coding|hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf` |
+
+All routing checks passed — every test was served by its intended primary model.

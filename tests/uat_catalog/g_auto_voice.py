@@ -1,4 +1,5 @@
 """UAT catalog group: auto-voice (Whisper STT round-trip)."""
+
 from __future__ import annotations
 
 from tests.uat_catalog._shared import (  # noqa: F401
@@ -7,7 +8,7 @@ from tests.uat_catalog._shared import (  # noqa: F401
     REFUSAL_PHRASES,
 )
 
-TESTS: list[dict] = [    # -----------------------------------------------------------------------
+TESTS: list[dict] = [  # -----------------------------------------------------------------------
     {
         "id": "M-01",
         "name": "Whisper STT — Voice-to-Text Round-Trip",
@@ -28,7 +29,14 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No tool error",
-                "keywords": ["tool error", "failed to transcribe", "unavailable", "no audio file", "audio not found", "file not found"],
+                "keywords": [
+                    "tool error",
+                    "failed to transcribe",
+                    "unavailable",
+                    "no audio file",
+                    "audio not found",
+                    "file not found",
+                ],
                 "critical": False,
             },
             {
@@ -44,4 +52,5 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": ["portal", "acceptance", "quick", "brown", "fox", "lazy dog"],
             },
         ],
-    },]
+    },
+]

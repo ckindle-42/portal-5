@@ -141,7 +141,6 @@ RESULTS_FILE = str(
 )
 
 
-
 def _load_env() -> None:
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists():

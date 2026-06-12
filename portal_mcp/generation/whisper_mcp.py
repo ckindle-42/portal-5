@@ -154,12 +154,14 @@ async def invoke_tool(request):
     try:
         if tool_name == "transcribe_audio":
             import inspect
+
             valid = set(inspect.signature(transcribe_audio).parameters.keys())
             filtered = {k: v for k, v in arguments.items() if k in valid}
             result = await transcribe_audio(**filtered)
             return JSONResponse(result)
         elif tool_name == "transcribe_with_speakers":
             import inspect
+
             valid = set(inspect.signature(transcribe_with_speakers).parameters.keys())
             filtered = {k: v for k, v in arguments.items() if k in valid}
             result = await transcribe_with_speakers(**filtered)
@@ -168,6 +170,7 @@ async def invoke_tool(request):
             return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
     except Exception as e:
         import logging as _log
+
         _log.getLogger(__name__).exception("Tool invocation failed for %s", tool_name)
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -200,11 +203,14 @@ async def transcribe_audio(file_path: str | None = None, language: str | None = 
     """
     if file_path is None:
         from portal_mcp.core.workspace import get_uploads_dir
+
         uploads = get_uploads_dir()
         audio_exts = [".wav", ".mp3", ".m4a", ".ogg", ".flac", ".webm"]
         candidates = [p for ext in audio_exts for p in uploads.glob(f"*{ext}") if p.is_file()]
         if not candidates:
-            return {"error": "Audio file not found in workspace uploads. Please provide audio_path."}
+            return {
+                "error": "Audio file not found in workspace uploads. Please provide audio_path."
+            }
         file_path = str(max(candidates, key=lambda p: p.stat().st_mtime))
         logger.info("transcribe_audio: auto-detected latest upload: %s", file_path)
 

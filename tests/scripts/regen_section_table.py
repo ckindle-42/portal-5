@@ -39,18 +39,36 @@ END_MARKER = "<!-- SECTION_TABLE_END -->"
 # changes; verified against PORTAL5_ACCEPTANCE_EXECUTE_V8.md phase commands.
 PHASE_FOR_SECTION: dict[str, int] = {
     # Phase 1: no-model
-    "S0": 1, "S1": 1, "S2": 1, "S12": 1, "S13": 1,
-    "S15": 1, "S16": 1, "S40": 1, "S41": 1, "S42": 1,
+    "S0": 1,
+    "S1": 1,
+    "S2": 1,
+    "S12": 1,
+    "S13": 1,
+    "S15": 1,
+    "S16": 1,
+    "S40": 1,
+    "S41": 1,
+    "S42": 1,
     # Phase 2: Ollama
-    "S3a": 2, "S6": 2, "S10": 2,
+    "S3a": 2,
+    "S6": 2,
+    "S10": 2,
     # Phase 3: router + diversity (Ollama)
-    "S21": 3, "S23": 3,
+    "S21": 3,
+    "S23": 3,
     # Phase 4: MCPs
-    "S4": 4, "S5": 4, "S50": 4, "S60": 4, "S70": 4,
+    "S4": 4,
+    "S5": 4,
+    "S50": 4,
+    "S60": 4,
+    "S70": 4,
     # Phase 5: audio
-    "S8": 5, "S9": 5, "S7": 5,
+    "S8": 5,
+    "S9": 5,
+    "S7": 5,
     # Phase 6: ComfyUI last
-    "S30": 6, "S31": 6,
+    "S30": 6,
+    "S31": 6,
     # Wrapper / not in phases
     "S3": 0,
 }
@@ -59,17 +77,17 @@ PHASE_FOR_SECTION: dict[str, int] = {
 # width. New sections without a label here render as "<section name>" so the
 # generator never blocks on missing metadata.
 SECTION_LABELS: dict[str, str] = {
-    "S0":  "Prerequisites",
-    "S1":  "Config consistency",
-    "S2":  "Service health",
-    "S3":  "Workspace routing (wrapper for S3a)",
+    "S0": "Prerequisites",
+    "S1": "Config consistency",
+    "S2": "Service health",
+    "S3": "Workspace routing (wrapper for S3a)",
     "S3a": "Workspaces (Ollama)",
-    "S4":  "Document generation",
-    "S5":  "Code sandbox",
-    "S6":  "Security workspaces",
-    "S7":  "Music generation",
-    "S8":  "Text-to-Speech",
-    "S9":  "Speech-to-Text",
+    "S4": "Document generation",
+    "S5": "Code sandbox",
+    "S6": "Security workspaces",
+    "S7": "Music generation",
+    "S8": "Text-to-Speech",
+    "S9": "Speech-to-Text",
     "S10": "Personas (Ollama)",
     "S12": "Web search",
     "S13": "RAG/Embedding",
@@ -113,6 +131,7 @@ def _discover_sections(source: str) -> list[tuple[str, int]]:
 
 def _count_workspaces() -> int:
     import yaml  # noqa: PLC0415
+
     cfg = yaml.safe_load(BACKENDS_YAML.read_text())
     return len(cfg.get("workspace_routing", {}))
 
@@ -123,8 +142,10 @@ def _count_personas() -> int:
 
 def _build_table(sections: list[tuple[str, int]]) -> str:
     """Render the markdown table."""
-    rows = ["| Phase | Section | Description | Tests |",
-            "|-------|---------|-------------|-------|"]
+    rows = [
+        "| Phase | Section | Description | Tests |",
+        "|-------|---------|-------------|-------|",
+    ]
 
     # Order: by phase, then by numeric portion of section name.
     def sort_key(item: tuple[str, int]) -> tuple[int, int, str]:
@@ -187,21 +208,15 @@ def _replace_block(prompt_text: str, new_block: str) -> str:
     )
     m = section_header_re.search(prompt_text)
     if m:
-        return (
-            prompt_text[: m.start(2)] + "\n" + new_block + "\n\n" + prompt_text[m.end(2) :]
-        )
+        return prompt_text[: m.start(2)] + "\n" + new_block + "\n\n" + prompt_text[m.end(2) :]
 
     # Last resort: append at end with an h2 header.
-    return (
-        prompt_text.rstrip()
-        + "\n\n## Section Quick Reference\n\n"
-        + new_block
-        + "\n"
-    )
+    return prompt_text.rstrip() + "\n\n## Section Quick Reference\n\n" + new_block + "\n"
 
 
 def _diff(a: str, b: str) -> str:
     import difflib  # noqa: PLC0415
+
     return "".join(
         difflib.unified_diff(
             a.splitlines(keepends=True),
@@ -215,10 +230,10 @@ def _diff(a: str, b: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--check", action="store_true",
-                   help="Exit 1 if regeneration would change the file")
-    p.add_argument("--diff", action="store_true",
-                   help="Print diff and exit; do not write")
+    p.add_argument(
+        "--check", action="store_true", help="Exit 1 if regeneration would change the file"
+    )
+    p.add_argument("--diff", action="store_true", help="Print diff and exit; do not write")
     args = p.parse_args(argv)
 
     current = PROMPT_FILE.read_text()

@@ -16,7 +16,6 @@ def _load_backends_config() -> dict:
     return yaml.safe_load(cfg_path.read_text()) or {}
 
 
-
 def _parse_ollama_sizes_from_config() -> dict[str, float]:
     """Parse model→GB size estimates from backends.yaml inline comments.
 
@@ -200,4 +199,3 @@ def _discover_personas() -> list[dict]:
             }
         )
     return personas
-

@@ -4,6 +4,7 @@ MLX-proxy queries retired in commit 3a0c58e (TASK_MLX_RETIRE_TRUEUP_V1/V2).
 All target models now live in the Ollama catalog; these checks verify
 registration via the Ollama /api/tags listing only (lightweight).
 """
+
 import time
 
 from tests.acceptance._common import (

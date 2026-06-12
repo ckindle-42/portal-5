@@ -1,4 +1,5 @@
 """S1: Configuration consistency."""
+
 import json
 import time
 
@@ -129,10 +130,24 @@ async def run() -> None:
 
     # S1-08: MLX VLM routing — retired (MLX proxy deleted in 3a0c58e)
     t0 = time.time()
-    record(sec, "S1-08", "MLX routing: VLM models (retired)", "INFO", "MLX proxy retired in 3a0c58e", t0=t0)
+    record(
+        sec,
+        "S1-08",
+        "MLX routing: VLM models (retired)",
+        "INFO",
+        "MLX proxy retired in 3a0c58e",
+        t0=t0,
+    )
 
     # S1-09: MLX text-only routing — retired (MLX proxy deleted in 3a0c58e)
-    record(sec, "S1-09", "MLX routing: text-only models (retired)", "INFO", "MLX proxy retired in 3a0c58e", t0=t0)
+    record(
+        sec,
+        "S1-09",
+        "MLX routing: text-only models (retired)",
+        "INFO",
+        "MLX proxy retired in 3a0c58e",
+        t0=t0,
+    )
 
     # S1-10: All persona workspace_model values are valid pipeline workspace IDs or Ollama tags.
     t0 = time.time()
@@ -163,7 +178,8 @@ async def run() -> None:
     t0 = time.time()
     non_bench = [p for p in PERSONAS if p.get("category") != "benchmark"]
     missing_prompts = [
-        p["slug"] for p in non_bench
+        p["slug"]
+        for p in non_bench
         if p["slug"] not in PERSONA_PROMPTS and p["slug"] not in PERSONA_PROMPTS_EXCLUDED
     ]
     record(

@@ -357,6 +357,7 @@ async def execute_bash_endpoint(request):
     if stripped.startswith("python3 -c ") or stripped.startswith("python -c "):
         # Extract the inline code from the python3 -c "..." invocation
         import shlex
+
         try:
             parts = shlex.split(stripped)
             py_code = parts[2] if len(parts) >= 3 else ""

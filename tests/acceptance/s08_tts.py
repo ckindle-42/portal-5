@@ -1,4 +1,5 @@
 """S8: Text-to-Speech tests."""
+
 import time
 
 from tests.acceptance._common import (

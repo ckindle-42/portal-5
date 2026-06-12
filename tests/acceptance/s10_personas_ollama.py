@@ -1,4 +1,5 @@
 """S10: Persona tests (Ollama-routed) — driven by PERSONAS, grouped by workspace."""
+
 import asyncio
 import itertools
 import time
@@ -25,7 +26,8 @@ async def run() -> None:
 
     # Compliance personas → S10c; benchmark personas → bench_tps; skip both here.
     candidates = [
-        p for p in PERSONAS
+        p
+        for p in PERSONAS
         if p.get("workspace_model") in OLLAMA_WORKSPACES
         and p.get("category") not in ("compliance", "benchmark")
     ]
@@ -41,8 +43,12 @@ async def run() -> None:
             t0 = time.time()
             if slug in PERSONA_PROMPTS_EXCLUDED:
                 record(
-                    sec, tid, f"Persona {slug}", "INFO",
-                    "excluded from text-prompt smoke (attachment-driven)", t0=t0,
+                    sec,
+                    tid,
+                    f"Persona {slug}",
+                    "INFO",
+                    "excluded from text-prompt smoke (attachment-driven)",
+                    t0=t0,
                 )
                 test_num += 1
                 continue
@@ -66,7 +72,11 @@ async def run() -> None:
             response_lower = response.lower()
             found = [s for s in signals if s.lower() in response_lower]
             route_status, route_detail = await _assert_routing(
-                sec, tid, ws_id, model, persona_slug=slug,
+                sec,
+                tid,
+                ws_id,
+                model,
+                persona_slug=slug,
             )
             if found and route_status in ("match", "no_expectation", "no_actual"):
                 status = "PASS"
@@ -76,7 +86,8 @@ async def run() -> None:
                 status = "WARN"
             detail = (
                 f"signals: {found[:3]} | {route_detail}"
-                if found else f"no signals in: {response[:60]} | {route_detail}"
+                if found
+                else f"no signals in: {response[:60]} | {route_detail}"
             )
             record(sec, tid, f"Persona {slug}", status, detail, t0=t0)
             test_num += 1
