@@ -18,10 +18,12 @@ Each model/workspace is tested with a category-mapped prompt (~200 tokens output
 | `creative` | ~200 tokens | Noir detective opening scene (narrative) |
 | `vision` | ~200 tokens | Image analysis framework (structured + meta) |
 
-**Mapping (auto-* workspaces — see `WORKSPACE_PROMPT_MAP` in `bench_tps.py`):**
-- `auto-coding`, `auto-agentic`, `auto-spl`, `auto-documents` → coding
+**Mapping (auto-* workspaces — see `WORKSPACE_PROMPT_MAP` in `bench/prompts.py`):**
+- `auto-coding`, `auto-spl`, `auto-documents` → coding
 - `auto-security`, `auto-redteam`, `auto-blueteam` → security
-- `auto-reasoning`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-research` → reasoning
+- `auto-reasoning`, `auto-agentic`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-research` → reasoning
+  *(`auto-agentic` uses the reasoning prompt — the coding prompt's "return only the function"
+  instruction triggers empty hop-2 synthesis on tool-enabled workspaces)*
 - `auto-math` → reasoning *(+ extra math pass, see below)*
 - `auto-creative`, `auto-video`, `auto-music` → creative
 - `auto-vision` → vision
@@ -73,7 +75,7 @@ Quality signals for `math`: `180` (train distance), `11` (11:00 AM meeting time)
 ### Reasoning model budget
 
 Thinking models emit `<think>` blocks before their response. `REASONING_WORKSPACES` and
-`_REASONING_MODEL_PATTERNS` in `bench_tps.py` gate a larger `REASONING_MAX_TOKENS=512`
+`_REASONING_MODEL_PATTERNS` in `bench/config.py` gate a larger `REASONING_MAX_TOKENS=512`
 budget and `enable_thinking=False` suppression so TPS reflects output speed, not CoT overhead.
 
 Covered workspaces: `bench-laguna`, `bench-phi4-reasoning`, `bench-phi4-mini-reasoning`,
