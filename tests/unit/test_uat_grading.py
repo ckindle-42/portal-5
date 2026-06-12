@@ -162,13 +162,15 @@ def test_wait_for_response_arrival_returns_immediately_on_content(monkeypatch):
 
     import portal5_uat_driver as drv
 
-    monkeypatch.setattr(drv, "owui_get_last_response", lambda t, c, min_messages=1: "hello world")
+    from tests.uat import owui_api
+
+    monkeypatch.setattr(owui_api, "owui_get_last_response", lambda t, c, min_messages=1: "hello world")
     sleep_calls: list[float] = []
 
     async def fake_sleep(s):
         sleep_calls.append(s)
 
-    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
     result = asyncio.run(
         drv._wait_for_response_arrival("tok", "chat-1", max_wait=15.0)
@@ -188,7 +190,7 @@ def test_wait_for_response_arrival_no_token_falls_back_to_safety_buffer(monkeypa
     async def fake_sleep(s):
         sleep_calls.append(s)
 
-    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
     result = asyncio.run(
         drv._wait_for_response_arrival("", "chat-1")
@@ -203,13 +205,15 @@ def test_wait_for_backend_alive_returns_true_on_recovery(monkeypatch):
 
     import portal5_uat_driver as drv
 
+    from tests.uat import health
+
     states = iter([(False, "down"), (False, "down"), (True, "ok")])
-    monkeypatch.setattr(drv, "_backend_alive", lambda tier: next(states))
+    monkeypatch.setattr(health, "_backend_alive", lambda tier: next(states))
 
     async def fake_sleep(s):
         pass
 
-    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
     result = asyncio.run(
         drv._wait_for_backend_alive("ollama", max_wait=10.0)
@@ -230,12 +234,14 @@ def test_wait_for_backend_alive_skips_polling_for_non_backend_tier(monkeypatch):
         call_count += 1
         return (False, "should not be called")
 
-    monkeypatch.setattr(drv, "_backend_alive", mock_backend_alive)
+    from tests.uat import health
+
+    monkeypatch.setattr(health, "_backend_alive", mock_backend_alive)
 
     async def fake_sleep(s):
         pass
 
-    monkeypatch.setattr(drv.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
     result = asyncio.run(
         drv._wait_for_backend_alive("any", max_wait=10.0)
