@@ -997,8 +997,9 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "name": "Proofreader — Copy Editing Pass",
         "section": "auto-creative",
         "model_slug": "proofreader",
-        "timeout": 60,
-        "workspace_tier": "ollama",  # auto-creative → dolphin-llama3:8b via Ollama (Gemma 4 VLM thinking model is wrong for text tasks)
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "include_thinking_in_assertions": True,  # auto-creative uses Qwen3.6-HauhauCS (thinking model); include <think> so keywords match even if final block is sparse
         "prompt": (
             "Proofread this sentence and explain all corrections: "
             "'The team have agreed, that they will meet on tuesday at 3pm "
@@ -1021,6 +1022,11 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     "should be 'has'",
                     "use 'has'",
                     "team is",
+                    "changed 'have'",
+                    "replace 'have'",
+                    "have\" should",
+                    "'have' to 'has'",
+                    "have to has",
                 ],
                 "critical": False,
             },
