@@ -295,7 +295,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-documents": {
         "name": "📄 Portal Document Builder",
         "description": "Create Word, Excel, PowerPoint via MCP tools; diarized transcription",
-        "model_hint": "phi4:14b-q8_0",
+        "model_hint": "granite4.1:8b",
         "predict_limit": 8192,
         "tools": [
             "create_word_document",
