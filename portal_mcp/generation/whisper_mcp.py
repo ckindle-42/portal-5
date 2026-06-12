@@ -196,12 +196,12 @@ async def transcribe_audio(file_path: str | None = None, language: str | None = 
         dict with 'text' (full transcript) and 'segments' (timestamped segments)
     """
     if file_path is None:
-        ai_output = Path(os.environ.get("AI_OUTPUT_DIR") or (Path.home() / "AI_Output"))
-        uploads = ai_output / "uploads"
+        from portal_mcp.core.workspace import get_uploads_dir
+        uploads = get_uploads_dir()
         audio_exts = [".wav", ".mp3", ".m4a", ".ogg", ".flac", ".webm"]
         candidates = [p for ext in audio_exts for p in uploads.glob(f"*{ext}") if p.is_file()]
         if not candidates:
-            return {"error": "No audio file found in workspace uploads. Please provide audio_path."}
+            return {"error": "Audio file not found in workspace uploads. Please provide audio_path."}
         file_path = str(max(candidates, key=lambda p: p.stat().st_mtime))
         logger.info("transcribe_audio: auto-detected latest upload: %s", file_path)
 

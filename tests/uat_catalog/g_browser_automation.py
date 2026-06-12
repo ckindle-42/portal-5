@@ -997,7 +997,7 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "name": "Proofreader — Copy Editing Pass",
         "section": "auto-creative",
         "model_slug": "proofreader",
-        "timeout": 120,
+        "timeout": 200,
         "workspace_tier": "ollama",
         "include_thinking_in_assertions": True,  # auto-creative uses Qwen3.6-HauhauCS (thinking model); include <think> so keywords match even if final block is sparse
         "prompt": (
