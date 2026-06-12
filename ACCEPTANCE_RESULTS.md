@@ -1,19 +1,19 @@
 # Portal 5 Acceptance Test Results — V6
 
-**Date:** 2026-06-12 10:03:00
-**Git SHA:** f945eb6
+**Date:** 2026-06-12 10:44:00
+**Git SHA:** 2119738
 **Sections:** S0, S1, S2, S3a, S4, S5, S6, S7, S8, S9, S10, S10c, S12, S13, S15, S16, S21, S23, S30, S31, S40, S41, S42, S50, S60, S70
-**Notes:** Blended from 3 runs — full run (798614d), targeted rerun (5c64a01), standalone S10c with [:8000] fix (f945eb6)
+**Notes:** Blended — full run (798614d), targeted rerun (5c64a01), S10c standalone (f945eb6), S10 production-persona rerun (ACCEPTANCE_RESULTS.md)
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ PASS | 325 |
-| ❌ FAIL | 58 |
-| ⚠️  WARN | 215 |
+| ✅ PASS | 320 |
+| ❌ FAIL | 5 |
+| ⚠️  WARN | 220 |
 | ℹ️  INFO | 10 |
-| **Total** | **608** |
+| **Total** | **555** |
 
 ## Results
 
@@ -117,138 +117,85 @@
 | S9 | S9-03 | MLX Transcribe health | ℹ️  INFO | not running (start with ./launch.sh start-transcribe) | 0.0s |
 | S9 | S9-04 | MLX Transcribe diarization | ℹ️  INFO | service not running | 0.0s |
 | S9 | S9-05 | Workspace upload resolution | ℹ️  INFO | service not running | 0.0s |
-| S10 | S10-01 | Persona itexpert | ✅ PASS | signals: ['diagnose', 'gather', 'troubleshoot'] \| routed -> huihui_ai/qwen3.5-a | 12.1s |
-| S10 | S10-02 | Persona techreviewer | ✅ PASS | signals: ['feature', 'review'] \| routed -> huihui_ai/qwen3.5-abliterated:9b mat | 7.3s |
+| S10 | S10-01 | Persona itexpert | ✅ PASS | signals: ['bandwidth', 'gather', 'troubleshoot'] \| routed -> huihui_ai/qwen3.5- | 12.1s |
+| S10 | S10-02 | Persona techreviewer | ✅ PASS | signals: ['feature', 'review'] \| routed -> huihui_ai/qwen3.5-abliterated:9b mat | 7.0s |
 | S10 | S10-03 | Persona webnavigator | ✅ PASS | signals: ['source'] \| routed -> huihui_ai/qwen3.5-abliterated:9b matches via wo | 7.3s |
-| S10 | S10-04 | Persona agentorchestrator | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> qwen3-coder-next matches via wor | 39.1s |
-| S10 | S10-05 | Persona codebasewikidocumentationskill | ✅ PASS | signals: ['Args', 'str', 'dict'] \| routed -> qwen3-coder-next matches via works | 17.2s |
-| S10 | S10-06 | Persona blueteamdefender | ✅ PASS | signals: ['encrypt', 'extension', 'ransom'] \| routed -> hf.co/fdtn-ai/Foundatio | 15.8s |
-| S10 | S10-07 | Persona bugdiscoverycodeassistant | ✅ PASS | signals: ['indexerror', 'out of range', 'empty list'] \| routed -> qwen3-coder:3 | 22.1s |
-| S10 | S10-08 | Persona codereviewassistant | ✅ PASS | signals: ['list', 'comprehension'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 4.9s |
-| S10 | S10-09 | Persona codereviewer | ✅ PASS | signals: ['==', 'bool', 'True'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches  | 6.4s |
-| S10 | S10-10 | Persona creativecoder | ✅ PASS | signals: ['canvas', 'ball', 'click'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 11.2s |
-| S10 | S10-11 | Persona devopsautomator | ✅ PASS | signals: ['#!/', 'bash', 'date'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches | 6.6s |
-| S10 | S10-12 | Persona e2edebugger | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 8.1s |
-| S10 | S10-13 | Persona e2etestauthor | ✅ PASS | signals: ['stage'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace | 9.2s |
-| S10 | S10-14 | Persona ethereumdeveloper | ✅ PASS | signals: ['contract', 'pragma', 'solidity'] \| routed -> qwen3-coder:30b-a3b-q4_ | 4.1s |
-| S10 | S10-15 | Persona excelsheet | ✅ PASS | signals: ['VLOOKUP', 'formula', 'range'] \| routed -> qwen3-coder:30b-a3b-q4_K_M | 5.4s |
-| S10 | S10-16 | Persona formfiller | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace 'a | 6.5s |
-| S10 | S10-17 | Persona fullstacksoftwaredeveloper | ✅ PASS | signals: ['REST', 'API'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via wor | 6.5s |
-| S10 | S10-18 | Persona githubexpert | ✅ PASS | signals: ['rebase', 'merge', 'history'] \| routed -> qwen3-coder:30b-a3b-q4_K_M  | 6.5s |
-| S10 | S10-19 | Persona goengineer | ✅ PASS | signals: ['middleware', 'http.handler', 'context'] \| routed -> qwen3-coder:30b- | 11.3s |
-| S10 | S10-20 | Persona javascriptconsole | ✅ PASS | signals: ['Math', 'PI'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via work | 2.4s |
-| S10 | S10-21 | Persona kubernetesdockerrpglearningengin | ✅ PASS | signals: ['layer', 'image', 'build'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 6.4s |
-| S10 | S10-22 | Persona linuxterminal | ✅ PASS | signals: ['total', 'user', '-rw'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matche | 6.5s |
-| S10 | S10-23 | Persona pythoncodegeneratorcleanoptimize | ✅ PASS | signals: ['sorted', 'key', 'dict'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 6.5s |
-| S10 | S10-24 | Persona pythoninterpreter | ✅ PASS | signals: ['[3, 2, 1]', '3, 2, 1'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matche | 2.4s |
-| S10 | S10-25 | Persona rustengineer | ✅ PASS | signals: ['arc', 'lru', 'instant'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 11.2s |
-| S10 | S10-26 | Persona seniorfrontenddeveloper | ✅ PASS | signals: ['useState', 'useEffect', 'hook'] \| routed -> qwen3-coder:30b-a3b-q4_K | 8.7s |
+| S10 | S10-04 | Persona agentorchestrator | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> qwen3-coder-next matches via wor | 39.3s |
+| S10 | S10-05 | Persona codebasewikidocumentationskill | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder-next matches via workspace 'auto-agenti | 14.8s |
+| S10 | S10-06 | Persona blueteamdefender | ✅ PASS | signals: ['ransom', 'detect', 'behavior'] \| routed -> hf.co/fdtn-ai/Foundation- | 15.7s |
+| S10 | S10-07 | Persona bugdiscoverycodeassistant | ✅ PASS | signals: ['indexerror', 'bounds', 'empty list'] \| routed -> qwen3-coder:30b-a3b | 20.9s |
+| S10 | S10-08 | Persona codereviewassistant | ✅ PASS | signals: ['list', 'comprehension', 'memory'] \| routed -> qwen3-coder:30b-a3b-q4 | 5.9s |
+| S10 | S10-09 | Persona codereviewer | ✅ PASS | signals: ['==', 'bool', 'True'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches  | 6.3s |
+| S10 | S10-10 | Persona creativecoder | ✅ PASS | signals: ['canvas', 'ball', 'click'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 6.4s |
+| S10 | S10-11 | Persona devopsautomator | ✅ PASS | signals: ['#!/', 'bash', 'date'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches | 8.3s |
+| S10 | S10-12 | Persona e2edebugger | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 7.9s |
+| S10 | S10-13 | Persona e2etestauthor | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> qwen3-coder:30b-a3b-q4_K_M match | 8.4s |
+| S10 | S10-14 | Persona ethereumdeveloper | ✅ PASS | signals: ['contract', 'pragma', 'solidity'] \| routed -> qwen3-coder:30b-a3b-q4_ | 10.3s |
+| S10 | S10-15 | Persona excelsheet | ✅ PASS | signals: ['VLOOKUP', 'range', 'col_index'] \| routed -> qwen3-coder:30b-a3b-q4_K | 4.4s |
+| S10 | S10-16 | Persona formfiller | ⚠️  WARN | no signals in: {
+| S10 | S10-17 | Persona fullstacksoftwaredeveloper | ✅ PASS | signals: ['POST', 'endpoint', 'REST'] \| routed -> qwen3-coder:30b-a3b-q4_K_M ma | 6.4s |
+| S10 | S10-18 | Persona githubexpert | ✅ PASS | signals: ['rebase', 'merge', 'history'] \| routed -> qwen3-coder:30b-a3b-q4_K_M  | 6.9s |
+| S10 | S10-19 | Persona goengineer | ✅ PASS | signals: ['middleware', 'http.handler', 'context'] \| routed -> qwen3-coder:30b- | 10.8s |
+| S10 | S10-20 | Persona javascriptconsole | ✅ PASS | signals: ['Math', 'PI'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via work | 2.7s |
+| S10 | S10-21 | Persona kubernetesdockerrpglearningengin | ✅ PASS | signals: ['layer', 'image', 'build'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 8.8s |
+| S10 | S10-22 | Persona linuxterminal | ✅ PASS | signals: ['total', 'user', '-rw'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matche | 7.5s |
+| S10 | S10-23 | Persona pythoncodegeneratorcleanoptimize | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace 'a | 6.3s |
+| S10 | S10-24 | Persona pythoninterpreter | ✅ PASS | signals: ['[3, 2, 1]', '3, 2, 1'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matche | 2.3s |
+| S10 | S10-25 | Persona rustengineer | ✅ PASS | signals: ['arc', 'mutex', 'rwlock'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matc | 6.8s |
+| S10 | S10-26 | Persona seniorfrontenddeveloper | ✅ PASS | signals: ['useState', 'useEffect', 'hook'] \| routed -> qwen3-coder:30b-a3b-q4_K | 6.4s |
 | S10 | S10-27 | Persona softwarequalityassurancetester | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace 'a | 6.4s |
-| S10 | S10-28 | Persona sqlterminal | ✅ PASS | signals: ['SELECT', 'FROM', 'WHERE'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 2.6s |
+| S10 | S10-28 | Persona sqlterminal | ✅ PASS | signals: ['SELECT', 'FROM', 'WHERE'] \| routed -> qwen3-coder:30b-a3b-q4_K_M mat | 2.4s |
 | S10 | S10-29 | Persona terraformwriter | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace 'a | 6.4s |
-| S10 | S10-30 | Persona typescriptengineer | ✅ PASS | signals: ['discriminated union', 'type', 'loading'] \| routed -> qwen3-coder:30b | 6.5s |
+| S10 | S10-30 | Persona typescriptengineer | ⚠️  WARN | no signals in:  \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspace 'a | 6.4s |
 | S10 | S10-31 | Persona ux-uideveloper | ✅ PASS | signals: ['mobile'] \| routed -> qwen3-coder:30b-a3b-q4_K_M matches via workspac | 2.4s |
 | S10 | S10-32 | Persona creativewriter | ✅ PASS | signals: ['rain', 'detective', 'dark'] \| routed -> fredrezones55/Qwen3.6-35B-A3 | 15.6s |
 | S10 | S10-33 | Persona hermes3writer | ✅ PASS | signals: ['detective', 'coastal', 'town'] \| routed -> fredrezones55/Qwen3.6-35B | 5.1s |
-| S10 | S10-34 | Persona interviewcoach | ✅ PASS | signals: ['star', 'behavioral'] \| routed -> fredrezones55/Qwen3.6-35B-A3B-Uncen | 5.2s |
-| S10 | S10-35 | Persona proofreader | ✅ PASS | signals: ['address'] \| routed -> fredrezones55/Qwen3.6-35B-A3B-Uncensored match | 5.2s |
+| S10 | S10-34 | Persona interviewcoach | ✅ PASS | signals: ['behavioral'] \| routed -> fredrezones55/Qwen3.6-35B-A3B-Uncensored ma | 5.1s |
+| S10 | S10-35 | Persona proofreader | ✅ PASS | signals: ['address'] \| routed -> fredrezones55/Qwen3.6-35B-A3B-Uncensored match | 5.1s |
 | S10 | S10-36 | Persona dailydriver | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
-| S10 | S10-37 | Persona personalassistant | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> gemma4:26b-a4b-it-qat matches vi | 18.0s |
-| S10 | S10-38 | Persona dashboardarchitect | ✅ PASS | signals: ['mrr', 'above the fold'] \| routed -> deepseek-r1:32b-q8_0 matches via | 56.1s |
-| S10 | S10-39 | Persona dataanalyst | ✅ PASS | signals: ['correlation', 'causation', 'variable'] \| routed -> deepseek-r1:32b-q | 38.1s |
-| S10 | S10-40 | Persona databasearchitect | ✅ PASS | signals: ['users', 'organizations', 'tenant'] \| routed -> deepseek-r1:32b-q8_0  | 37.4s |
-| S10 | S10-41 | Persona dataextractor | ✅ PASS | signals: ['field', 'value'] \| routed -> deepseek-r1:32b-q8_0 matches via worksp | 37.2s |
-| S10 | S10-42 | Persona datascientist | ✅ PASS | signals: ['feature', 'normalize', 'engineer'] \| routed -> deepseek-r1:32b-q8_0  | 36.8s |
-| S10 | S10-43 | Persona machinelearningengineer | ✅ PASS | signals: ['gradient', 'descent', 'learning'] \| routed -> deepseek-r1:32b-q8_0 m | 37.5s |
-| S10 | S10-44 | Persona statistician | ✅ PASS | signals: ['p-value', 'null', 'hypothesis'] \| routed -> deepseek-r1:32b-q8_0 mat | 37.6s |
-| S10 | S10-45 | Persona documentationarchitect | ⚠️  WARN | no signals in:  \| routed -> granite4.1:8b matches via workspace 'auto-documents | 13.6s |
-| S10 | S10-46 | Persona phi4specialist | ⚠️  WARN | no signals in:  \| routed -> granite4.1:8b matches via workspace 'auto-documents | 9.2s |
-| S10 | S10-47 | Persona techwriter | ✅ PASS | signals: ['endpoint', 'request', 'response'] \| routed -> granite4.1:8b matches  | 7.7s |
+| S10 | S10-37 | Persona personalassistant | ✅ PASS | signals: ['step', 'plan', 'stage'] \| routed -> gemma4:26b-a4b-it-qat matches vi | 23.5s |
+| S10 | S10-38 | Persona dashboardarchitect | ✅ PASS | signals: ['mrr', 'trend', 'churn'] \| routed -> deepseek-r1:32b-q8_0 matches via | 56.7s |
+| S10 | S10-39 | Persona dataanalyst | ✅ PASS | signals: ['correlation', 'causation', 'relationship'] \| routed -> deepseek-r1:3 | 38.5s |
+| S10 | S10-40 | Persona databasearchitect | ✅ PASS | signals: ['users', 'organizations', 'tenant'] \| routed -> deepseek-r1:32b-q8_0  | 37.7s |
+| S10 | S10-41 | Persona dataextractor | ✅ PASS | signals: ['value'] \| routed -> deepseek-r1:32b-q8_0 matches via workspace 'auto | 37.5s |
+| S10 | S10-42 | Persona datascientist | ✅ PASS | signals: ['feature'] \| routed -> deepseek-r1:32b-q8_0 matches via workspace 'au | 36.9s |
+| S10 | S10-43 | Persona machinelearningengineer | ✅ PASS | signals: ['gradient', 'descent', 'learning'] \| routed -> deepseek-r1:32b-q8_0 m | 37.4s |
+| S10 | S10-44 | Persona statistician | ✅ PASS | signals: ['p-value', 'null', 'hypothesis'] \| routed -> deepseek-r1:32b-q8_0 mat | 37.2s |
+| S10 | S10-45 | Persona documentationarchitect | ⚠️  WARN | no signals in:  \| routed -> granite4.1:8b matches via workspace 'auto-documents | 13.7s |
+| S10 | S10-46 | Persona phi4specialist | ✅ PASS | signals: ['spec', 'requirement', 'structure'] \| routed -> granite4.1:8b matches | 9.2s |
+| S10 | S10-47 | Persona techwriter | ✅ PASS | signals: ['endpoint', 'request', 'response'] \| routed -> granite4.1:8b matches  | 9.1s |
 | S10 | S10-48 | Persona transcriptanalyst | ℹ️  INFO | excluded from text-prompt smoke (attachment-driven) | 0.0s |
 | S10 | S10-49 | Persona mathreasoner | ✅ PASS | signals: ['eigenvalue', 'det', 'lambda'] \| routed -> phi4-mini-reasoning matche | 7.0s |
-| S10 | S10-50 | Persona magistralstrategist | ✅ PASS | signals: ['milestone', 'KPI', 'launch'] \| routed -> hf.co/unsloth/Magistral-Sma | 38.1s |
-| S10 | S10-51 | Persona phi4stemanalyst | ⚠️  WARN | signals: ['pythagor', 'triangle', 'hypotenuse'] \| ROUTING MISMATCH: got dolphin | 9.7s |
-| S10 | S10-52 | Persona businessanalyst | ✅ PASS | signals: ['stakeholder', 'process'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528- | 9.7s |
-| S10 | S10-53 | Persona devopsengineer | ✅ PASS | signals: ['pod', 'pending', 'running'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.4s |
-| S10 | S10-54 | Persona gptossanalyst | ✅ PASS | signals: ['trade', 'scale', 'deploy'] \| routed -> hf.co/unsloth/DeepSeek-R1-052 | 6.5s |
-| S10 | S10-55 | Persona itarchitect | ✅ PASS | signals: ['availability'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-  | 6.5s |
-| S10 | S10-56 | Persona productmanager | ✅ PASS | signals: ['problem', 'success metric'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.6s |
-| S10 | S10-57 | Persona seniorsoftwareengineersoftwarear | ✅ PASS | signals: ['pattern', 'queue', 'scale'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.4s |
-| S10 | S10-58 | Persona pentester | ✅ PASS | signals: ['OWASP'] \| routed -> baronllm:q6_k matches via workspace 'auto-redtea | 13.2s |
-| S10 | S10-59 | Persona redteamoperator | ⚠️  WARN | signals: ['exploit', 'technique'] \| ROUTING MISMATCH: got dolphin-llama3:8b, ex | 7.0s |
-| S10 | S10-60 | Persona factchecker | ✅ PASS | signals: ['source'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate matche | 20.8s |
-| S10 | S10-61 | Persona gemmaresearchanalyst | ✅ PASS | signals: ['method', 'data', 'collect'] \| routed -> huihui_ai/tongyi-deepresearc | 5.4s |
-| S10 | S10-62 | Persona kbnavigator | ✅ PASS | signals: ['search', 'query', 'results'] \| routed -> huihui_ai/tongyi-deepresear | 7.3s |
-| S10 | S10-63 | Persona marketanalyst | ✅ PASS | signals: ['trend', 'growth', 'revenue'] \| routed -> huihui_ai/tongyi-deepresear | 5.5s |
-| S10 | S10-64 | Persona paywalledresearcher | ✅ PASS | signals: ['source', 'url'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate | 7.0s |
-| S10 | S10-65 | Persona researchanalyst | ✅ PASS | signals: ['systematic', 'search', 'inclusion'] \| routed -> huihui_ai/tongyi-dee | 5.4s |
-| S10 | S10-66 | Persona supergemma4researcher | ✅ PASS | signals: ['OSINT', 'search', 'verify'] \| routed -> huihui_ai/tongyi-deepresearc | 6.6s |
-| S10 | S10-67 | Persona webresearcher | ✅ PASS | signals: ['source', 'url'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate | 5.5s |
-| S10 | S10-68 | Persona cybersecurityspecialist | ⚠️  WARN | signals: ['zero', 'trust', 'verify'] \| ROUTING MISMATCH: got qwen3.5:9b, expect | 18.5s |
-| S10 | S10-69 | Persona networkengineer | ⚠️  WARN | signals: ['vlan', 'access', 'GigabitEthernet'] \| ROUTING MISMATCH: got qwen3-vl | 67.5s |
-| S10 | S10-70 | Persona splunkdetectionauthor | ✅ PASS | signals: ['tstats', 'authentication', 't1110'] \| routed -> hf.co/bartowski/huih | 31.8s |
-| S10 | S10-71 | Persona splunksplgineer | ✅ PASS | signals: ['stats', 'count', 'fail'] \| routed -> hf.co/bartowski/huihui-ai_Qwen3 | 8.7s |
-| S10 | S10-72 | Persona chartanalyst | ✅ PASS | signals: ['quarter', 'revenue'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen | 9.9s |
+| S10 | S10-50 | Persona magistralstrategist | ✅ PASS | signals: ['milestone', 'KPI', 'launch'] \| routed -> hf.co/unsloth/Magistral-Sma | 38.3s |
+| S10 | S10-51 | Persona phi4stemanalyst | ⚠️  WARN | signals: ['pythagor', 'triangle', 'hypotenuse'] \| ROUTING MISMATCH: got dolphin | 7.7s |
+| S10 | S10-52 | Persona businessanalyst | ⚠️  WARN | no signals in: 
+| S10 | S10-53 | Persona devopsengineer | ✅ PASS | signals: ['pod', 'lifecycle'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen3- | 6.5s |
+| S10 | S10-54 | Persona gptossanalyst | ✅ PASS | signals: ['trade', 'scale', 'complex'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.6s |
+| S10 | S10-55 | Persona itarchitect | ✅ PASS | signals: ['availability'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-  | 6.6s |
+| S10 | S10-56 | Persona productmanager | ⚠️  WARN | no signals in: 
+| S10 | S10-57 | Persona seniorsoftwareengineersoftwarear | ✅ PASS | signals: ['pattern', 'load', 'horizontal'] \| routed -> hf.co/unsloth/DeepSeek-R | 6.5s |
+| S10 | S10-58 | Persona pentester | ⚠️  WARN | signals: ['OWASP', 'test', 'methodology'] \| ROUTING MISMATCH: got dolphin-llama | 13.6s |
+| S10 | S10-59 | Persona redteamoperator | ⚠️  WARN | signals: ['phishing', 'technique', 'initial'] \| ROUTING MISMATCH: got deepseek- | 48.2s |
+| S10 | S10-60 | Persona factchecker | ✅ PASS | signals: ['source'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate matche | 23.1s |
+| S10 | S10-61 | Persona gemmaresearchanalyst | ✅ PASS | signals: ['method', 'data', 'collect'] \| routed -> huihui_ai/tongyi-deepresearc | 5.6s |
+| S10 | S10-62 | Persona kbnavigator | ✅ PASS | signals: ['search', 'document', 'knowledge'] \| routed -> huihui_ai/tongyi-deepr | 8.2s |
+| S10 | S10-63 | Persona marketanalyst | ✅ PASS | signals: ['trend', 'growth', 'quarter'] \| routed -> huihui_ai/tongyi-deepresear | 5.7s |
+| S10 | S10-64 | Persona paywalledresearcher | ✅ PASS | signals: ['source'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate matche | 5.7s |
+| S10 | S10-65 | Persona researchanalyst | ✅ PASS | signals: ['systematic', 'search', 'inclusion'] \| routed -> huihui_ai/tongyi-dee | 5.7s |
+| S10 | S10-66 | Persona supergemma4researcher | ✅ PASS | signals: ['OSINT', 'search', 'verify'] \| routed -> huihui_ai/tongyi-deepresearc | 5.7s |
+| S10 | S10-67 | Persona webresearcher | ✅ PASS | signals: ['source', 'url'] \| routed -> huihui_ai/tongyi-deepresearch-abliterate | 5.7s |
+| S10 | S10-68 | Persona cybersecurityspecialist | ⚠️  WARN | signals: ['zero', 'trust', 'verify'] \| ROUTING MISMATCH: got dolphin-llama3:8b, | 11.9s |
+| S10 | S10-69 | Persona networkengineer | ⚠️  WARN | signals: ['vlan', 'switchport', 'interface'] \| ROUTING MISMATCH: got dolphin-ll | 5.6s |
+| S10 | S10-70 | Persona splunkdetectionauthor | ✅ PASS | signals: ['authentication', 't1110', 'mitre'] \| routed -> hf.co/bartowski/huihu | 31.7s |
+| S10 | S10-71 | Persona splunksplgineer | ✅ PASS | signals: ['index', 'stats', 'count'] \| routed -> hf.co/bartowski/huihui-ai_Qwen | 8.7s |
+| S10 | S10-72 | Persona chartanalyst | ✅ PASS | signals: ['value', 'quarter', 'revenue'] \| routed -> hf.co/unsloth/DeepSeek-R1- | 9.9s |
 | S10 | S10-73 | Persona codescreenshotreader | ✅ PASS | signals: ['function', 'code'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen3- | 6.4s |
-| S10 | S10-74 | Persona diagramreader | ✅ PASS | signals: ['relationships', 'components', 'abstraction'] \| routed -> hf.co/unslo | 6.3s |
+| S10 | S10-74 | Persona diagramreader | ✅ PASS | signals: ['components', 'abstraction'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.3s |
 | S10 | S10-75 | Persona gemma4e4bvision | ✅ PASS | signals: ['stack', 'trace', 'error'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528 | 6.4s |
-| S10 | S10-76 | Persona gemma4jangvision | ✅ PASS | signals: ['credential', 'password', 'screenshot'] \| routed -> hf.co/unsloth/Dee | 6.5s |
+| S10 | S10-76 | Persona gemma4jangvision | ✅ PASS | signals: ['credential', 'screenshot', 'extract'] \| routed -> hf.co/unsloth/Deep | 6.4s |
 | S10 | S10-77 | Persona ocrspecialist | ✅ PASS | signals: ['receipt', 'layout'] \| routed -> hf.co/unsloth/DeepSeek-R1-0528-Qwen3 | 6.3s |
 | S10 | S10-78 | Persona whiteboardconverter | ✅ PASS | signals: ['entities', 'relationships'] \| routed -> hf.co/unsloth/DeepSeek-R1-05 | 6.4s |
-| S10 | S10-79 | Persona bench-devstral | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-80 | Persona bench-devstral-small-2 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-81 | Persona bench-dolphin8b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-82 | Persona bench-foundation-sec | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-83 | Persona bench-gemma4-12b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-84 | Persona bench-gemma4-26b-optiq | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-85 | Persona bench-gemma4-26b-qat | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-86 | Persona bench-gemma4-31b-qat | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-87 | Persona bench-gemma4-e2b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-88 | Persona bench-gemma4-e4b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-89 | Persona bench-gemma4-e4b-qat | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-90 | Persona bench-glm | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-91 | Persona bench-gptoss | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-92 | Persona bench-granite-speech | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-93 | Persona bench-granite41-30b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-94 | Persona bench-granite41-8b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-95 | Persona bench-harness1 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-96 | Persona bench-huihui-qwen36-27b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-97 | Persona bench-huihui-qwen36-35b-a3b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-98 | Persona bench-laguna | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-99 | Persona bench-lfm2-moe | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-100 | Persona bench-lfm25-8b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-101 | Persona bench-lfm25-8b-uncensored | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-102 | Persona bench-llama33-70b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-103 | Persona bench-mistral-small32 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-104 | Persona bench-nanonets-ocr2 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-105 | Persona bench-negentropy | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-106 | Persona bench-nex-n2-mini | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-107 | Persona bench-olmo3-32b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-108 | Persona bench-olmocr2 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-109 | Persona bench-omnicoder2 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-110 | Persona bench-phi4 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-111 | Persona bench-phi4-mini | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-112 | Persona bench-phi4-mini-reasoning | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-113 | Persona bench-phi4-reasoning | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-114 | Persona bench-qwen3-coder-30b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-115 | Persona bench-qwen3-coder-next | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-116 | Persona bench-qwen3-coder-next-abliterat | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-117 | Persona bench-qwen35-abliterated | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-118 | Persona bench-qwen36-27b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-119 | Persona bench-qwen36-27b-mtp | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-120 | Persona bench-qwen36-27b-optiq | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-121 | Persona bench-qwen36-27b-ud | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-122 | Persona bench-qwen36-35b-a3b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-123 | Persona bench-qwen36-35b-a3b-ud | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-124 | Persona bench-qwen36-hauhaucs | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-125 | Persona bench-r1-0528-abliterated | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-126 | Persona bench-r1-0528-qwen3-8b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-127 | Persona bench-starcoder2 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-128 | Persona bench-toolace25 | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-129 | Persona bench-voxtral-realtime | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-130 | Persona bench-voxtral-tts | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-131 | Persona bench-qwen36-abl-27b | ❌ FAIL | no PERSONA_PROMPTS entry  [UNCLASSIFIED] | 0.0s |
-| S10 | S10-132 | Persona toolcomposer | ✅ PASS | signals: ['execute_python', 'remember', 'read'] \| routed -> granite4.1:8b match | 16.1s |
+| S10 | S10-79 | Persona toolcomposer | ✅ PASS | signals: ['remember', 'read', 'call'] \| routed -> granite4.1:8b matches via wor | 15.7s |
 | S10c | S10c-00 | fixture loaded | ✅ PASS | 317 concrete scenarios across compliance personas | 0.0s |
 | S10c | S10c-001 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 21.5s |
 | S10c | S10c-002 | cippolicywriter/gap-analysis-table-struc | ⚠️  WARN | MUSTs OK; SHOULD failed: structural.table_columns, classification.exact_token \| | 22.7s |

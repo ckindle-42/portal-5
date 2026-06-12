@@ -1766,7 +1766,7 @@ def _write_results(elapsed: int, sections_run: list[str]) -> None:
     for r in _log:
         icon = _ICON.get(r.status, "")
         detail = r.detail.replace("|", "\\|")[:80]
-        dur = f"{r.duration:.1f}s" if r.duration else ""
+        dur = f"{r.duration:.1f}s" if r.duration is not None else ""
         lines.append(
             f"| {r.section} | {r.tid} | {r.name[:40]} | {icon} {r.status} | {detail} | {dur} |"
         )
