@@ -605,6 +605,9 @@ workspace_routing:
   bench-gemma4-12b-coder:
   - coding
   - general
+  bench-deepseek-coder-v2:
+  - coding
+  - general
   tools-specialist:
   - general
 defaults:

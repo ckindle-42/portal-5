@@ -18,6 +18,240 @@ _CC01_PROMPT = (
     "an asteroid, and the game ends when all lives are lost. "
     "Include a high score that persists within the session."
 )
+# ══════════════════════════════════════════════════════════════════════════
+# GAME-CHALLENGE TIER (TASK_CODING_GAMECHALLENGE_V1)
+# Three difficulty bands; each is a single self-contained web package
+# (one HTML file, inline CSS+JS, zero external deps). Assertions check
+# behavioral mechanisms (collision, state machine, the hard-part logic),
+# not just keywords. Play@k render-check is a separate post-run pass.
+# ══════════════════════════════════════════════════════════════════════════
+
+_GC_SINGLE_FILE_NOTE = (
+    " Deliver as ONE complete self-contained HTML file: inline <style> and "
+    "<script>, NO external <script src=>, NO CDN links, NO asset files, NO "
+    "build step. It must run by opening the file in a browser. Don't ask "
+    "clarifying questions — ship it."
+)
+
+_GC01_PROMPT = (
+    "Create a fully playable Flappy Bird game in the browser. The bird falls "
+    "under gravity and flaps upward on spacebar or click. Pipes scroll from "
+    "the right with gaps to fly through. Colliding with a pipe or the ground "
+    "ends the game. Score increases by 1 for each pipe passed. Show a "
+    "game-over screen with the score and a way to restart." + _GC_SINGLE_FILE_NOTE
+)
+
+_GC02_PROMPT = (
+    "Create a fully playable Tetris game in the browser. Tetrominoes (all 7 "
+    "shapes) fall into a grid; arrow keys move and rotate them, down speeds "
+    "the drop. Completed horizontal lines clear and award points. The fall "
+    "speed increases as more lines are cleared. The game ends when a new "
+    "piece can't spawn. Show the score and next piece." + _GC_SINGLE_FILE_NOTE
+)
+
+_GC03_PROMPT = (
+    "Create a fully playable side-scrolling platformer in the browser. An "
+    "arrow-key controlled character runs and jumps (gravity + ground "
+    "collision) across a tile-based level. At least one patrolling enemy "
+    "moves on its own; touching it costs a life. The camera scrolls to follow "
+    "the player. Reaching the right end of the level wins. Show lives and a "
+    "win/lose screen." + _GC_SINGLE_FILE_NOTE
+)
+
+# ── Shared structural checks for every game band ───────────────────────────
+_GC_BASE_ASSERTIONS = [
+    {"type": "has_code", "label": "HTML file delivered"},
+    {
+        "type": "code_pattern",
+        "label": "Single-file constraint (no external script src)",
+        # PASS = the forbidden pattern is ABSENT. The matrix analyzer treats a
+        # code_pattern with "negate": True as passing when no regex matches.
+        "negate": True,
+        "patterns": [
+            {"regex": r"<script[^>]+src\s*=", "label": "external <script src=>"},
+            {"regex": r"https?://\S+\.js", "label": "remote .js URL"},
+            {"regex": r"cdn\.\S+", "label": "CDN reference"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Game loop present",
+        "patterns": [
+            {"regex": r"requestAnimationFrame\s*\(", "label": "requestAnimationFrame()"},
+            {"regex": r"setInterval\s*\(", "label": "setInterval()"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Collision detection present",
+        "patterns": [
+            {"regex": r"\bcollid", "label": "collide/collision identifier"},
+            {"regex": r"getBoundingClientRect|intersect|overlap", "label": "intersection test"},
+            {"regex": r"<=?.*&&.*<=?|x\s*<.*&&.*y\s*<", "label": "AABB bounds check"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Game-over / restart state",
+        "patterns": [
+            {
+                "regex": r"gameOver|game_over|isGameOver|state\s*=\s*['\"]",
+                "label": "game state flag",
+            },
+            {"regex": r"\brestart|\breset\s*\(|location\.reload", "label": "restart mechanism"},
+        ],
+        "critical": False,
+    },
+    {"type": "contains", "label": "Score system", "keywords": ["score"]},
+]
+
+# ── GC-01 Flappy Bird — gravity + single collision + score ─────────────────
+_GC01_ASSERTIONS = [
+    *_GC_BASE_ASSERTIONS,
+    {
+        "type": "code_pattern",
+        "label": "Gravity physics (velocity accumulation)",
+        "patterns": [
+            {"regex": r"velocity\s*\+=|vy\s*\+=|dy\s*\+=", "label": "velocity += gravity"},
+            {"regex": r"gravity", "label": "gravity identifier"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Flap/jump impulse on input",
+        "patterns": [
+            {
+                "regex": r"velocity\s*=\s*-|vy\s*=\s*-|dy\s*=\s*-",
+                "label": "negative velocity (flap)",
+            },
+            {
+                "regex": r"(keydown|click|keyup).*space|space.*keydown|' '|'Space'|32",
+                "label": "spacebar/click handler",
+            },
+        ],
+        "critical": False,
+    },
+    {
+        "type": "any_of",
+        "label": "Pipe obstacle logic",
+        "keywords": ["pipe", "obstacle", "gap", "barrier"],
+    },
+]
+
+# ── GC-02 Tetris — grid + rotation matrix + line clear + speed curve ───────
+_GC02_ASSERTIONS = [
+    *_GC_BASE_ASSERTIONS,
+    {
+        "type": "code_pattern",
+        "label": "2D grid / board state",
+        "patterns": [
+            {
+                "regex": r"\[\s*\]\s*\.\s*fill|Array\s*\(.*\)\.fill|new Array",
+                "label": "array board init",
+            },
+            {"regex": r"board\s*\[|grid\s*\[|field\s*\[", "label": "board[][] access"},
+            {"regex": r"for\s*\(.*\)\s*\{?\s*.*\[.*\]\s*\[", "label": "2D iteration"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Rotation logic (the hard part)",
+        "patterns": [
+            {"regex": r"rotat", "label": "rotate identifier"},
+            {
+                "regex": r"\[\s*\w+\s*\]\s*\[\s*\w+\s*\]\s*=\s*\w+\s*\[",
+                "label": "matrix transpose assign",
+            },
+            {"regex": r"map\s*\(.*=>.*\[", "label": "matrix map rotation"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Line clear logic",
+        "patterns": [
+            {"regex": r"every\s*\(.*=>|\.every\(", "label": "row .every() full check"},
+            {"regex": r"splice\s*\(|filter\s*\(.*=>.*some", "label": "row removal"},
+            {"regex": r"clearLine|clearRow|fullRow|completedLine", "label": "clear-line function"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Difficulty / speed curve",
+        "patterns": [
+            {
+                "regex": r"speed\s*[-*]?=|dropInterval|fallSpeed|level\s*\+\+",
+                "label": "speed adjustment",
+            },
+        ],
+        "critical": False,
+    },
+    {
+        "type": "any_of",
+        "label": "Tetromino shapes",
+        "keywords": ["tetromino", "piece", "shape", "block", "SHAPES", "PIECES"],
+    },
+]
+
+# ── GC-03 Platformer — tiles + jump physics + enemy AI + camera ────────────
+_GC03_ASSERTIONS = [
+    *_GC_BASE_ASSERTIONS,
+    {
+        "type": "code_pattern",
+        "label": "Jump physics (gravity + ground collision)",
+        "patterns": [
+            {"regex": r"gravity|velocityY\s*\+=|vy\s*\+=", "label": "gravity accumulation"},
+            {"regex": r"onGround|grounded|canJump|isJumping", "label": "ground state flag"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Tile-based level rendering",
+        "patterns": [
+            {"regex": r"tile|level\s*\[|map\s*\[|levelData", "label": "tile/level map"},
+            {"regex": r"for\s*\(.*\).*for\s*\(", "label": "nested tile loop"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Enemy patrol AI (the hard part)",
+        "patterns": [
+            {"regex": r"enemy|enemies|patrol", "label": "enemy identifier"},
+            {
+                "regex": r"direction\s*\*=\s*-1|dir\s*=\s*-dir|speed\s*=\s*-",
+                "label": "patrol direction flip",
+            },
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Scrolling camera",
+        "patterns": [
+            {"regex": r"camera|scrollX|offsetX|cameraX|viewport", "label": "camera offset"},
+            {"regex": r"translate\s*\(|ctx\.translate", "label": "canvas translate (camera)"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Lives + win condition",
+        "patterns": [
+            {"regex": r"\blives\b", "label": "lives identifier"},
+            {"regex": r"\bwin|youWin|levelComplete|reachEnd|victory", "label": "win condition"},
+        ],
+        "critical": False,
+    },
+]
+
 _CC01_ASSERTIONS = [
     {"type": "has_code", "label": "HTML file delivered"},
     # ── Behavioral checks (code patterns, not variable names) ──────────────
