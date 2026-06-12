@@ -237,6 +237,7 @@ from portal_pipeline.router.tools import (  # noqa: E402, F401  (facade re-expor
 # file works unchanged.
 from portal_pipeline.router.workspaces import (  # noqa: E402
     _PERSONA_MAP,
+    MAX_TOOL_HOPS,  # noqa: F401 — re-exported for tests and external callers
     WORKSPACES,
     _resolve_persona_tools,
     _workspace_tools,  # noqa: F401 — re-exported for tests and external callers
