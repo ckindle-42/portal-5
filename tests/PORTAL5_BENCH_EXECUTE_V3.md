@@ -33,6 +33,55 @@ are still loaded, available, or producing similar TPS. Every run is fresh.
 
 ---
 
+## Autonomous Monitoring Loop — Required Default Behavior
+
+Full bench runs take 3–6 hours (277 tests across 3 modes). **Immediately
+after launching, establish a `ScheduleWakeup` loop.** This is not optional —
+it is the required execution pattern for any run that exceeds a single session.
+
+### On launch
+```python
+# After starting the process, schedule the first wakeup:
+ScheduleWakeup(
+    delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
+    reason="monitoring bench run — check progress, handle model failures",
+    prompt="<self-contained context — see template below>"
+)
+```
+
+### On each wakeup
+1. **Check process:** `ps aux | grep bench_tps | grep -v grep`
+2. **Check results file:** `ls -lt tests/benchmarks/results/*.json | head -3`
+3. **Scan for failures:** look for `available: false`, `0 TPS`, errors in the
+   most recent JSON result entries.
+4. **If running cleanly:** re-schedule at 270s and return.
+5. **If model unavailable / 0 TPS:** see Handling Failures section; apply fix
+   (model skip, retry) and re-schedule.
+6. **If process died:** check for OOM (see Known Behavior Notes); restart with
+   `--retry-failed` to skip completed tests.
+7. **If run complete:** execute the post-run steps below.
+
+### Post-run steps (run in order on completion)
+```bash
+RUN_TS=$(ls -t tests/benchmarks/results/*.json | head -1 | xargs basename .json | sed 's/bench_tps_//')
+python3 tests/benchmarks/bench_tps.py --update-grafana \
+    --input tests/benchmarks/results/bench_tps_${RUN_TS}.json
+GRAFANA_PASS=$(grep GRAFANA_PASSWORD .env | cut -d= -f2)
+curl -s -X POST "http://admin:${GRAFANA_PASS}@localhost:3000/api/admin/provisioning/dashboards/reload"
+git add config/grafana/dashboards/portal5_benchmarks.json && \
+    git commit -m "bench: TPS results @ ${RUN_TS}"
+```
+
+### Wakeup prompt template
+The wakeup prompt must be self-contained — it re-enters cold. Include:
+- Process PID and log path (always use `python3 -u` for unbuffered output)
+- Most recent result file path and last model tested
+- Run flags used (`--mode`, `--order`, `--runs`, etc.)
+- Any model skips or fixes applied this session
+- The post-run steps listed above
+
+---
+
 ## What Gets Benchmarked
 
 Counts derive at run time from `config/backends.yaml` and `config/personas/`.
