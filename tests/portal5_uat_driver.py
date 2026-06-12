@@ -941,6 +941,7 @@ async def run_test(
             _sys.path.insert(0, str(_Path(__file__).parent))
             intended_keys = route_detail  # contains expected key info
             intended_ollama = test.get("workspace_tier", "") == "ollama"
+            pipeline_backend = _get_backend_from_pipeline_logs(test.get("model_slug", ""))
             state._ROUTING_LOG.append({
                 "test_id": test_id,
                 "name": name,
