@@ -1,4 +1,4 @@
-"""Tests for the pipeline_bench_skip mechanism in bench_tps.py.
+"""Tests for the pipeline_bench_skip mechanism in the bench package.
 
 The skip list lives in config/backends.yaml top-level and is honored by
 _config_workspaces(). An explicit --workspace filter passed to
@@ -36,11 +36,11 @@ def _make_cfg(skip_list: list[str] | None = None) -> dict:
 
 
 def test_skip_list_excludes_workspaces() -> None:
-    from tests.benchmarks import bench_tps
+    from tests.benchmarks.bench import discovery
 
     skip = ["bench-voxtral-realtime", "bench-granite-speech"]
-    with patch.object(bench_tps, "_load_backends_config", return_value=_make_cfg(skip)):
-        ws = bench_tps._config_workspaces()
+    with patch.object(discovery, "_load_backends_config", return_value=_make_cfg(skip)):
+        ws = discovery._config_workspaces()
     assert "bench-voxtral-realtime" not in ws
     assert "bench-granite-speech" not in ws
     # Non-skipped workspaces still present
@@ -51,20 +51,20 @@ def test_skip_list_excludes_workspaces() -> None:
 
 def test_skip_list_absent_means_no_filter() -> None:
     """A missing pipeline_bench_skip key should not filter anything."""
-    from tests.benchmarks import bench_tps
+    from tests.benchmarks.bench import discovery
 
-    with patch.object(bench_tps, "_load_backends_config", return_value=_make_cfg(None)):
-        ws = bench_tps._config_workspaces()
+    with patch.object(discovery, "_load_backends_config", return_value=_make_cfg(None)):
+        ws = discovery._config_workspaces()
     assert "bench-voxtral-realtime" in ws
     assert "bench-granite-speech" in ws
 
 
 def test_skip_list_empty_means_no_filter() -> None:
     """An empty pipeline_bench_skip list should not filter anything."""
-    from tests.benchmarks import bench_tps
+    from tests.benchmarks.bench import discovery
 
-    with patch.object(bench_tps, "_load_backends_config", return_value=_make_cfg([])):
-        ws = bench_tps._config_workspaces()
+    with patch.object(discovery, "_load_backends_config", return_value=_make_cfg([])):
+        ws = discovery._config_workspaces()
     assert "bench-voxtral-realtime" in ws
     assert "bench-granite-speech" in ws
 
