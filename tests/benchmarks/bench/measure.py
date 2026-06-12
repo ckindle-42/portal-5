@@ -12,6 +12,8 @@ import time
 
 import httpx
 
+from tests.lib.stream_wait import IDLE_GAP_S as _IDLE_GAP_S  # idle-gap = primary stall signal
+
 from .config import (
     _NOTHINK_PATTERNS,
     MATH_MAX_TOKENS,
@@ -147,12 +149,21 @@ def bench_tps(
         response_model = ""
 
         try:
+            # Idle gap (read) is the primary stall signal; request_timeout becomes the
+            # overall connect/pool bound. A model streaming steadily never trips `read`.
+            _stream_timeout = httpx.Timeout(
+                connect=min(request_timeout, 10.0),
+                read=_IDLE_GAP_S,
+                write=10.0,
+                pool=10.0,
+            )
+            _ceiling = time.perf_counter() + request_timeout
             with client.stream(
                 "POST",
                 f"{base_url}/v1/chat/completions",
                 json=payload,
                 headers=headers,
-                timeout=request_timeout,
+                timeout=_stream_timeout,
             ) as resp:
                 if resp.status_code != 200:
                     body = resp.read()[:200].decode(errors="replace")
@@ -162,6 +173,9 @@ def bench_tps(
                         "elapsed_s": round(time.perf_counter() - t0, 2),
                     }
                 for raw_line in resp.iter_lines():
+                    if time.perf_counter() > _ceiling:
+                        # Overall ceiling (last resort) — healthy streams never reach it.
+                        break
                     line = (
                         raw_line.strip()
                         if isinstance(raw_line, str)
