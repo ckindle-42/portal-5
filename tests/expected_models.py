@@ -7,7 +7,7 @@ request" given a workspace ID or a persona slug.
 
 Used by:
   - tests/portal5_acceptance_v6.py (S3a, S6, S10, S21 routing checks)
-  - tests/portal5_uat_driver.py (per-test routed_model validation)
+  - tests/uat/routing.py (per-test routed_model validation; entry tests/portal5_uat_driver.py)
   - tests/benchmarks/bench_tps.py (expected_model_match flag in JSON output)
 
 All checks are case-insensitive substring matches against the actual model

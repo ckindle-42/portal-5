@@ -8,7 +8,7 @@ To add a workspace's tests: create ``g_<group>.py`` with a ``TESTS`` list and
 append its import to ``_GROUPS`` below — no edits to the 11k-line driver.
 
 Catalog order is significant: it is the stable pre-sort order consumed by
-``portal5_uat_driver.sort_tests_cascade`` before cascade reordering.
+``tests.uat.runner.sort_tests_cascade`` before cascade reordering.
 """
 from __future__ import annotations
 
