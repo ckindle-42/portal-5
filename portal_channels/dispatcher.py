@@ -112,6 +112,9 @@ VALID_WORKSPACES = frozenset(
         "bench-lfm25-8b-uncensored",
         "bench-r1-0528-abliterated",
         "bench-qwen3-coder-next-abliterated",
+        # V9 candidate benches (TASK_MODEL_EVAL_V9_CANDIDATES)
+        "bench-qwopus-coder-mtp",
+        "bench-gemma4-12b-coder",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }
