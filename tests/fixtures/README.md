@@ -1,6 +1,6 @@
 # tests/fixtures
 
-Test fixtures for portal5_uat_driver.py and the acceptance suite.
+Test fixtures for the UAT driver (tests/uat package — entry: tests/portal5_uat_driver.py) and the acceptance suite.
 
 ## Audio
 
@@ -15,7 +15,7 @@ rm /tmp/sample.aiff
 
 Format: 16-bit signed-LE PCM @ 16 kHz mono (Whisper's preferred input — no resample needed).
 Content must include at least one of: `portal`, `five`, `acceptance`, `quick`, `brown`, `fox`
-(see portal5_uat_driver.py M-01 assertion list).
+(see the M-01 assertion list in tests/uat_catalog).
 
 ## Other fixtures
 

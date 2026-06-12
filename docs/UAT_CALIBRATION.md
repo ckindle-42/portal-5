@@ -62,7 +62,7 @@ This writes `updated_signals.py` containing:
 Review `updated_signals.py`, then:
 
 1. Merge relevant entries into `tests/quality_signals.py` (`QUALITY_SIGNALS` dict)
-2. Add suggested `assert_any_of` entries to matching tests in `portal5_uat_driver.py`
+2. Add suggested `assert_any_of` entries to the matching tests in the catalog generators (`tests/uat_catalog/g_*.py`)
 3. Commit both files with a message like:
    ```
    test(uat): update quality signals from calibration-YYYY-MM-DD
