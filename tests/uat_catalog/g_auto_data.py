@@ -407,6 +407,12 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                     " = 5 ", " = 5,", " = 5.", "is 5,", "is 5.", "is 5\n",
                     "equals 5.", "the mean is 5", "mean is 5",
                     "5000 × 0.001", "5000*0.001", "5,000 × 0.001", "n * p = 5",
+                    # Approximation forms the model may use
+                    "approximately 5", "≈ 5", "about 5", "roughly 5",
+                    # Bare "is 5" without punctuation constraint
+                    "is 5", "value of 5", "result is 5",
+                    # Lowercase-x multiplication (model may not use × symbol)
+                    "5000 x 0.001",
                 ],
             },
             {
