@@ -34,8 +34,8 @@ INCUMBENT_MODEL_ID = "laguna-xs.2:q4_K_M"
 
 # Memory hardcoded — same rationale as V1 analyzer.
 MODEL_MEMORY_GB = {
-    "laguna-xs.2:q4_K_M": 19,
-    "glm-4.7-flash:q4_K_M": 15,
+    "laguna-xs.2:Q4_K_M": 19,
+    "glm-4.7-flash:Q4_K_M": 15,
     "qwen3-coder:30b-a3b-q4_K_M": 19,
     "devstral-small-2": 15,
     # V9 candidates (TASK_V9_EVAL_EXTENDED)
