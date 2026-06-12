@@ -537,21 +537,6 @@
     }
   },
   {
-    "id": "bench-apriel-nemotron",
-    "name": "🔬 Bench · Apriel-Nemotron-15B (ServiceNow+NVIDIA)",
-    "meta": {
-      "description": "Benchmark: mlx-community/Apriel-Nemotron-15B-Thinker-8bit — ServiceNow+NVIDIA dense 15B reasoning, native <think>, MIT, ~16GB",
-      "profile_image_url": "",
-      "toolIds": [
-        "portal_code"
-      ]
-    },
-    "params": {
-      "system": "You are a reasoning probe. Show your work step by step using <think>...</think> blocks. Be thorough.",
-      "model": "bench-apriel-nemotron"
-    }
-  },
-  {
     "id": "auto-agentic",
     "name": "⚡ Portal Agentic Coder (Heavy)",
     "meta": {
@@ -651,7 +636,9 @@
     "meta": {
       "description": "Benchmark: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL — Alibaba MoE 3B active, ~22GB, Unsloth Dynamic 2.0 quant",
       "profile_image_url": "",
-      "toolIds": ["portal_code"]
+      "toolIds": [
+        "portal_code"
+      ]
     },
     "params": {
       "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",

@@ -653,14 +653,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": False,
     },
     # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ────────────────────────────
-    "bench-apriel-nemotron": {
-        "name": "🔬 Bench · Apriel-Nemotron-15B-Thinker",
-        "description": "Benchmark: Apriel-Nemotron-15B-Thinker (GGUF, Ollama, ServiceNow+NVIDIA, dense 15B reasoning, native <think>, MIT)",
-        "model_hint": "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-voxtral-realtime": {
         "name": "🔬 Bench · Voxtral Realtime ASR",
         "description": "Benchmark: Voxtral-Mini-4B-Realtime (Mistral, streaming ASR, 13 languages — requires audio-capable infrastructure)",
