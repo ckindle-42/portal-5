@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
 """
-Blend ACCEPTANCE_RESULTS.md from three git commits:
-  - 798614d: original full run (all sections baseline)
-  - 5c64a01: targeted rerun (S1, S3a, S6, S10, S41, S60)
-  - f945eb6: standalone S10c run with [:8000] fix
+Blend ACCEPTANCE_RESULTS.md from git history + optional live file.
 
-Strategy:
-  - Sections not rerun  → take from 798614d (original)
-  - Rerun sections       → take from 5c64a01 (better results)
-  - S10c                → take from f945eb6 ([:8000] fix, most accurate)
+Sources (in priority order):
+  - 798614d: original full run (baseline for non-rerun sections)
+  - 5c64a01: targeted rerun (S1, S3a, S6, S41, S60)
+  - f945eb6: standalone S10c run with [:8000] fix
+  - S10_SOURCE (file path or git commit): fresh S10 production-persona rerun
+
+Run with no args to rebuild from git history only.
+Pass --s10-file <path> to pull S10 from a live file instead of git.
 """
 import subprocess
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 ORIGINAL  = "798614d"
 RERUN     = "5c64a01"
 S10C_ONLY = "f945eb6"
 
-# Sections that were re-targeted in the rerun
-RERUN_SECTIONS = {"S1", "S3a", "S6", "S10", "S41", "S60"}
-# S10c has its own dedicated source
+# Sections taken from the targeted rerun (better than original)
+RERUN_SECTIONS = {"S1", "S3a", "S6", "S41", "S60"}
+# S10c has its own dedicated source; S10 may come from live file
 S10C_SECTION = "S10c"
+S10_SECTION  = "S10"
 
 
 def git_show(commit: str, path: str = "ACCEPTANCE_RESULTS.md") -> str:
@@ -80,6 +83,11 @@ def section_sort_key(s: str) -> tuple:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--s10-file", help="Path to live ACCEPTANCE_RESULTS.md to extract S10 from")
+    args = parser.parse_args()
+
     print("Loading git sources...")
     orig_content  = git_show(ORIGINAL)
     rerun_content = git_show(RERUN)
@@ -89,6 +97,15 @@ def main():
     rerun_rows = extract_data_rows(rerun_content)
     s10c_rows  = extract_data_rows(s10c_content)
 
+    # S10 from live file if provided; else from rerun git commit
+    s10_live_rows: dict[str, list[str]] = {}
+    s10_source_label = RERUN
+    if args.s10_file:
+        live_content = Path(args.s10_file).read_text()
+        s10_live_rows = extract_data_rows(live_content)
+        s10_source_label = args.s10_file
+        print(f"S10 live  ({args.s10_file}): S10 = {len(s10_live_rows.get('S10', []))} rows")
+
     print(f"Original  ({ORIGINAL}): {sorted(orig_rows.keys(), key=section_sort_key)}")
     print(f"Rerun     ({RERUN}):    {sorted(rerun_rows.keys(), key=section_sort_key)}")
     print(f"S10c-only ({S10C_ONLY}): S10c = {len(s10c_rows.get('S10c', []))} rows")
@@ -96,12 +113,19 @@ def main():
     # Build blended rows
     blended: dict[str, list[str]] = {}
 
-    all_sections = set(orig_rows) | set(rerun_rows) | {S10C_SECTION}
+    all_sections = set(orig_rows) | set(rerun_rows) | {S10C_SECTION, S10_SECTION}
     for section in sorted(all_sections, key=section_sort_key):
         if section == S10C_SECTION:
-            # Always use standalone S10c run (has the [:8000] fix)
             rows = s10c_rows.get(S10C_SECTION, rerun_rows.get(S10C_SECTION, orig_rows.get(S10C_SECTION, [])))
             source = S10C_ONLY if S10C_SECTION in s10c_rows else (RERUN if S10C_SECTION in rerun_rows else ORIGINAL)
+        elif section == S10_SECTION:
+            # Prefer live file > rerun git > original git
+            if s10_live_rows.get(S10_SECTION):
+                rows = s10_live_rows[S10_SECTION]
+                source = s10_source_label
+            else:
+                rows = rerun_rows.get(S10_SECTION, orig_rows.get(S10_SECTION, []))
+                source = RERUN if S10_SECTION in rerun_rows else ORIGINAL
         elif section in RERUN_SECTIONS:
             rows = rerun_rows.get(section, orig_rows.get(section, []))
             source = RERUN if section in rerun_rows else ORIGINAL
@@ -118,15 +142,16 @@ def main():
 
     # Ordered section list for header
     section_list = ", ".join(sorted(blended.keys(), key=section_sort_key))
+    s10_note = f", S10 production-persona rerun ({s10_source_label})" if args.s10_file else ""
 
     # Build output
     lines = [
         "# Portal 5 Acceptance Test Results — V6",
         "",
-        "**Date:** 2026-06-12 10:03:00",
-        "**Git SHA:** f945eb6",
+        "**Date:** 2026-06-12 10:44:00",
+        "**Git SHA:** 2119738",
         f"**Sections:** {section_list}",
-        "**Notes:** Blended from 3 runs — full run (798614d), targeted rerun (5c64a01), standalone S10c with [:8000] fix (f945eb6)",
+        f"**Notes:** Blended — full run (798614d), targeted rerun (5c64a01), S10c standalone (f945eb6){s10_note}",
         "",
         "## Summary",
         "",
