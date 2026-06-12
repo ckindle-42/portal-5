@@ -111,6 +111,7 @@ if _pmd:
     except (PermissionError, OSError):
         # macOS: /dev/shm not user-writable; use temp dir instead
         import tempfile
+
         _alt = tempfile.mkdtemp(prefix="portal5_prom_")
         os.environ["PROMETHEUS_MULTIPROC_DIR"] = _alt
 
@@ -376,7 +377,9 @@ def _load_workspaces() -> tuple[list[str], dict[str, str]]:
     sys.path.insert(0, str(ROOT))
     from portal_pipeline.router.workspaces import WORKSPACES  # noqa: PLC0415
 
-    ids = sorted(k for k in WORKSPACES if k.startswith(("auto", "bench")) or k == "tools-specialist")
+    ids = sorted(
+        k for k in WORKSPACES if k.startswith(("auto", "bench")) or k == "tools-specialist"
+    )
     names = {k: WORKSPACES[k].get("name", k) for k in ids}
     return ids, names
 
@@ -639,63 +642,32 @@ async def _chat_with_model(
     if system:
         msgs.append({"role": "system", "content": system[:800]})
     msgs.append({"role": "user", "content": prompt})
-    body: dict = {"model": workspace, "messages": msgs, "stream": stream, "max_tokens": max_tokens}
+    # Always stream: the inter-token idle gap is the primary failure signal, so the
+    # wall-clock `timeout` argument becomes the overall ceiling (last resort) rather
+    # than the driver. tool_calls fragments are accumulated into text by the module.
+    body: dict = {"model": workspace, "messages": msgs, "stream": True, "max_tokens": max_tokens}
     if tools:
         body["tools"] = tools
-    backoff = [0, 5, 15, 30]
 
-    for attempt, delay in enumerate(backoff):
-        if delay:
-            await asyncio.sleep(delay)
-        try:
-            c = _get_acc_client()
-            r = await c.post(
-                f"{PIPELINE_URL}/v1/chat/completions",
-                headers=AUTH,
-                json=body,
-                timeout=timeout,
-            )
-            route_hdr = r.headers.get("x-portal-route", "")
-            if r.status_code not in (200,):
-                if r.status_code in (502, 503) and attempt < len(backoff) - 1:
-                    continue
-                return r.status_code, r.text[:200], "", ""
+    result = await _stream_chat(
+        url=f"{PIPELINE_URL}/v1/chat/completions",
+        body=body,
+        headers=AUTH,
+        client=_get_acc_client(),
+        overall_ceiling_s=float(timeout),
+        ollama_url=OLLAMA_URL,
+    )
 
-            if stream:
-                text = ""
-                for line in r.text.splitlines():
-                    if line.startswith("data: ") and line != "data: [DONE]":
-                        try:
-                            d = json.loads(line[6:])
-                            text += d.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                        except Exception:
-                            pass
-                return 200, text, "", route_hdr
-
-            data = r.json()
-            msg = data.get("choices", [{}])[0].get("message", {})
-            model = data.get("model", "")
-            content = msg.get("content", "") or msg.get("reasoning", "")
-            # When model responds with structured tool_calls instead of text content,
-            # serialize them so signal checks in tool-calling tests can inspect them.
-            if not content and msg.get("tool_calls"):
-                content = json.dumps(msg["tool_calls"])
-            return 200, content, model, route_hdr
-        except httpx.ReadTimeout:
-            if attempt < len(backoff) - 1:
-                # Event-driven cold-load wait: poll /api/ps until Ollama has
-                # a model loaded rather than sleeping a fixed interval.
-                loaded = await _await_ollama_ready(timeout_s=300.0)
-                if loaded:
-                    continue
-            return 408, "timeout", "", ""
-        except Exception as e:
-            if attempt < len(backoff) - 1 and any(
-                x in str(e).lower() for x in ["502", "connection refused"]
-            ):
-                continue
-            return 0, str(e)[:100], "", ""
-    return 503, "pipeline unreachable after retries", "", ""
+    if result.status is _StreamStatus.OK:
+        return 200, result.text, result.model, result.route
+    if result.status is _StreamStatus.HTTP_ERROR:
+        return result.http_status, result.detail[:200], "", result.route
+    if result.status in (_StreamStatus.STALLED, _StreamStatus.CEILING):
+        # Silence/ceiling after one retry → 408 so the caller records WARN, not FAIL.
+        # Return whatever partial text streamed so signal checks can still inspect it.
+        return 408, result.text or "timeout", result.model, result.route
+    # CONN_ERROR
+    return 0, result.detail[:100], "", ""
 
 
 async def _assert_routing(
@@ -722,13 +694,15 @@ async def _assert_routing(
 
     matched = model_matches_expected(actual_model, keys)
 
-    _ROUTING_LOG.append({
-        "tid": f"{sec}/{tid}",
-        "workspace": workspace or persona_slug,
-        "intended": src,
-        "actual": actual_model,
-        "matched": matched,
-    })
+    _ROUTING_LOG.append(
+        {
+            "tid": f"{sec}/{tid}",
+            "workspace": workspace or persona_slug,
+            "intended": src,
+            "actual": actual_model,
+            "matched": matched,
+        }
+    )
 
     if matched:
         return "match", f"routed -> {actual_model[:40]} matches {src}"
@@ -852,13 +826,16 @@ async def _wait_for_docker_recovery(timeout: int = 600) -> tuple[bool, int]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+from tests.lib.stream_wait import StreamStatus as _StreamStatus
+from tests.lib.stream_wait import stream_chat as _stream_chat
 from tests.memory_guard import free_ram_gb as _free_ram_gb
 from tests.memory_guard import wait_for_drain_async as _mg_drain_async
 from tests.memory_guard import wait_for_model_loaded as _await_model_loaded
 
 
-async def _wait_metal_drain_async(timeout_s: float = 30.0, poll_s: float = 3.0,
-                                  retries: int = 2) -> float:
+async def _wait_metal_drain_async(
+    timeout_s: float = 30.0, poll_s: float = 3.0, retries: int = 2
+) -> float:
     """Wait for Metal drain with retry+recovery. See tests/memory_guard.py."""
     return await _mg_drain_async(
         timeout_s=timeout_s,
@@ -893,8 +870,6 @@ async def _unload_ollama_models() -> None:
         await asyncio.sleep(5)
     except Exception as e:
         print(f"  ⚠️  Ollama eviction failed: {e}")
-
-
 
 
 def _stop_comfyui() -> None:
@@ -1003,9 +978,17 @@ WORKSPACE_PROMPTS = {
     "auto-data": (
         "Explain how to calculate standard deviation.",
         [
-            "sum of squares", "(x - mean)", "n - 1", "n-1",
-            "square root", "sqrt", "mean", "variance", "deviation",
-            "σ", "sigma",
+            "sum of squares",
+            "(x - mean)",
+            "n - 1",
+            "n-1",
+            "square root",
+            "sqrt",
+            "mean",
+            "variance",
+            "deviation",
+            "σ",
+            "sigma",
         ],
     ),
     "auto-compliance": (
@@ -1017,8 +1000,7 @@ WORKSPACE_PROMPTS = {
         ["trade", "scale", "complex", "deploy", "maintain"],
     ),
     "auto-math": (
-        "Find the area enclosed by the curves y = x^2 and y = 2x. "
-        "Show your work step by step.",
+        "Find the area enclosed by the curves y = x^2 and y = 2x. Show your work step by step.",
         ["integral", "intersection", "area", "4/3", "x^2", "2x"],
     ),
     "auto-audio": (
@@ -1053,7 +1035,7 @@ PERSONA_PROMPTS_EXCLUDED: set[str] = {
     "pcidssassessor",
     "soc2auditor",
     # Specialized personas tested via workspace routing or S24
-    "dailydriver",   # auto-daily workspace, general-purpose
+    "dailydriver",  # auto-daily workspace, general-purpose
 }
 PERSONA_PROMPTS = {
     # Development (18 personas)
@@ -1061,10 +1043,22 @@ PERSONA_PROMPTS = {
     "bugdiscoverycodeassistant": (
         "Find the bugs in this code:\ndef get_first(lst):\n    return lst[0]",
         [
-            "indexerror", "out of range", "out-of-range", "bounds",
-            "empty list", "empty input", "len(lst)", "len(list)",
-            "if not", "if lst", "if list", "guard", "check empty",
-            "default", "raise", "validation",
+            "indexerror",
+            "out of range",
+            "out-of-range",
+            "bounds",
+            "empty list",
+            "empty input",
+            "len(lst)",
+            "len(list)",
+            "if not",
+            "if lst",
+            "if list",
+            "guard",
+            "check empty",
+            "default",
+            "raise",
+            "validation",
         ],
     ),
     "codereviewassistant": (
@@ -1231,9 +1225,21 @@ PERSONA_PROMPTS = {
     "itexpert": (
         "Troubleshoot slow network.",
         [
-            "bandwidth", "latency", "packet", "loss", "diagnose",
-            "gather", "troubleshoot", "speed", "connection", "router",
-            "check", "ping", "traceroute", "iperf", "qos",
+            "bandwidth",
+            "latency",
+            "packet",
+            "loss",
+            "diagnose",
+            "gather",
+            "troubleshoot",
+            "speed",
+            "connection",
+            "router",
+            "check",
+            "ping",
+            "traceroute",
+            "iperf",
+            "qos",
         ],
     ),
     "techreviewer": (
@@ -1329,7 +1335,20 @@ PERSONA_PROMPTS = {
     # ── M1: Language personas ────────────────────────────────────────────
     "rustengineer": (
         "Write a thread-safe LRU cache in Rust with capacity bound and TTL eviction.",
-        ["arc", "mutex", "rwlock", "hashmap", "vecdeque", "lru", "instant", "duration", "fn", "struct", "impl", "cache"],
+        [
+            "arc",
+            "mutex",
+            "rwlock",
+            "hashmap",
+            "vecdeque",
+            "lru",
+            "instant",
+            "duration",
+            "fn",
+            "struct",
+            "impl",
+            "cache",
+        ],
     ),
     "goengineer": (
         "Write a Go HTTP middleware that adds request IDs and structured logging via slog.",
@@ -1468,8 +1487,20 @@ PERSONA_PROMPTS = {
     "toolcomposer": (
         "I need to read a file at /workspace/data.csv, count the rows, and store the count "
         "in memory under the key 'row_count'. What tool calls would you plan, in order?",
-        ["execute_python", "remember", "read", "call", "step", "tool", "plan",
-         "memory", "store", "count", "function", "order"],
+        [
+            "execute_python",
+            "remember",
+            "read",
+            "call",
+            "step",
+            "tool",
+            "plan",
+            "memory",
+            "store",
+            "count",
+            "function",
+            "order",
+        ],
     ),
 }
 
@@ -1482,27 +1513,43 @@ PERSONA_PROMPTS = {
 async def S0() -> None:
     """S0: Prerequisites and environment check — delegates to tests/acceptance/s00_startup.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s00_startup as _s
+
     await _s.run()
+
+
 async def S1() -> None:
     """S1: Configuration consistency — delegates to tests/acceptance/s01_static_config.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s01_static_config as _s
+
     await _s.run()
+
+
 async def S2() -> None:
     """S2: Service health checks — delegates to tests/acceptance/s02_services.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s02_services as _s
+
     await _s.run()
+
+
 async def S3a() -> None:
     """S3a: Workspace routing (Ollama) — delegates to tests/acceptance/s03_routing.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s03_routing as _s
+
     await _s.run()
+
+
 # retired async def S3b() -> None:
 # retired     """S3b: Workspace routing (MLX) — delegates to tests/acceptance/_archive/s03b_routing_mlx.py."""
 # retired     import sys as _sys
@@ -1517,63 +1564,103 @@ async def S3() -> None:
 async def S4() -> None:
     """S4: Document generation — delegates to tests/acceptance/s04_documents.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s04_documents as _s
+
     await _s.run()
+
+
 async def S5() -> None:
     """S5: Code sandbox — delegates to tests/acceptance/s05_health.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s05_health as _s
+
     await _s.run()
+
+
 async def S6() -> None:
     """S6: Security workspace tests — delegates to tests/acceptance/s06_security_workspaces.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s06_security_workspaces as _s
+
     await _s.run()
+
+
 async def S15() -> None:
     """S15: Shared workspace verification — delegates to tests/acceptance/s15_shared_workspace.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s15_shared_workspace as _s
+
     await _s.run()
+
+
 async def S16() -> None:
     """S16: Security MCP tools — delegates to tests/acceptance/s16_security_mcp.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s16_security_mcp as _s
+
     await _s.run()
+
+
 async def S7() -> None:
     """S7: Music generation tests — delegates to tests/acceptance/s07_music.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s07_music as _s
+
     await _s.run()
+
+
 async def S8() -> None:
     """S8: TTS tests — delegates to tests/acceptance/s08_tts.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s08_tts as _s
+
     await _s.run()
+
+
 async def S9() -> None:
     """S9: STT tests — delegates to tests/acceptance/s09_stt.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s09_stt as _s
+
     await _s.run()
+
+
 async def S10() -> None:
     """S10: Persona tests (Ollama) — delegates to tests/acceptance/s10_personas_ollama.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s10_personas_ollama as _s
+
     await _s.run()
+
+
 async def S10c() -> None:
     """S10c: Compliance personas — delegates to tests/acceptance/s10c_compliance_personas.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s10c_compliance_personas as _s
+
     await _s.run()
+
+
 # retired — MLX proxy deleted in 3a0c58e
 # async def S11() -> None:
 #     """S11: Persona tests (MLX) — delegates to tests/acceptance/_archive/s11_personas_mlx.py."""
@@ -1584,15 +1671,23 @@ async def S10c() -> None:
 async def S12() -> None:
     """S12: Web search tests — delegates to tests/acceptance/s12_web_search.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s12_web_search as _s
+
     await _s.run()
+
+
 async def S13() -> None:
     """S13: RAG/Embedding tests — delegates to tests/acceptance/s13_rag_embedding.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s13_rag_embedding as _s
+
     await _s.run()
+
+
 # retired — MLX proxy deleted in 3a0c58e
 # async def S20() -> None:
 #     """S20: MLX acceleration tests — delegates to tests/acceptance/_archive/s20_mlx.py."""
@@ -1603,9 +1698,13 @@ async def S13() -> None:
 async def S21() -> None:
     """S21: LLM Intent Router — delegates to tests/acceptance/s21_llm_router.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s21_llm_router as _s
+
     await _s.run()
+
+
 # retired — MLX proxy deleted in 3a0c58e
 # async def S22() -> None:
 #     """S22: MLX Admission Control — delegates to tests/acceptance/_archive/s22_admission_control.py."""
@@ -1616,9 +1715,13 @@ async def S21() -> None:
 async def S23() -> None:
     """S23: Model diversity — delegates to tests/acceptance/s23_model_diversity.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s23_model_diversity as _s
+
     await _s.run()
+
+
 # retired — MLX proxy deleted in 3a0c58e; specialists lost (see KNOWN_LIMITATIONS)
 # async def S24() -> None:
 #     """S24: Specialist MLX models — delegates to tests/acceptance/_archive/s24_specialist_mlx.py."""
@@ -1629,45 +1732,73 @@ async def S23() -> None:
 async def S30() -> None:
     """S30: Image generation — delegates to tests/acceptance/s30_image_video.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s30_image_video as _s
+
     await _s.run()
+
+
 async def S31() -> None:
     """S31: Video generation — delegates to tests/acceptance/s31_video_gen.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s31_video_gen as _s
+
     await _s.run()
+
+
 async def S40() -> None:
     """S40: Metrics and monitoring — delegates to tests/acceptance/s40_metrics.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s40_metrics as _s
+
     await _s.run()
+
+
 async def S41() -> None:
     """S41: M6 production hardening — delegates to tests/acceptance/s41_production_hardening.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s41_production_hardening as _s
+
     await _s.run()
+
+
 async def S42() -> None:
     """S42: Browser automation — delegates to tests/acceptance/s42_browser_automation.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s42_browser_automation as _s
+
     await _s.run()
+
+
 async def S60() -> None:
     """S60: Tool-calling orchestration — delegates to tests/acceptance/s60_tool_calling.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s60_tool_calling as _s
+
     await _s.run()
+
+
 async def S70() -> None:
     """S70: Information access MCPs — delegates to tests/acceptance/s70_information_access.py."""
     import sys as _sys
+
     _sys.path.insert(0, str(ROOT / "tests"))
     from acceptance import s70_information_access as _s
+
     await _s.run()
+
+
 def _load_prior_results(sections_to_skip: set[str]) -> None:
     """Load ACCEPTANCE_RESULTS.md into _log, skipping sections being re-run.
 
@@ -1710,7 +1841,9 @@ def _load_prior_results(sections_to_skip: set[str]) -> None:
         if status == "BLOCKED":
             _blocked.append(r)
         loaded += 1
-    print(f"  [append] Loaded {loaded} prior results (excluding: {', '.join(sorted(sections_to_skip))})")
+    print(
+        f"  [append] Loaded {loaded} prior results (excluding: {', '.join(sorted(sections_to_skip))})"
+    )
 
 
 def _write_results(elapsed: int, sections_run: list[str]) -> None:
@@ -2070,8 +2203,9 @@ async def main() -> int:
         "--skip-passing", action="store_true", help="Skip sections that passed in prior run"
     )
     parser.add_argument(
-        "--append", action="store_true",
-        help="Merge targeted re-run results into prior ACCEPTANCE_RESULTS.md baseline"
+        "--append",
+        action="store_true",
+        help="Merge targeted re-run results into prior ACCEPTANCE_RESULTS.md baseline",
     )
     args = parser.parse_args()
 
