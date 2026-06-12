@@ -58,9 +58,18 @@ def _strip_think_blocks(text: str) -> str:
     return _THINK_RE.sub("\n", text)
 
 
+_MARKDOWN_BOLD_RE = re.compile(r'\*\*([^*]+)\*\*')
+_MARKDOWN_ITALIC_RE = re.compile(r'\*([^*]+)\*')
+
+
 def _normalize_response(text: str) -> str:
     """Full normalization for assertion matching."""
-    return _strip_think_blocks(text)
+    text = _strip_think_blocks(text)
+    # Strip markdown bold/italic so patterns like **Coverage:** don't break
+    # separator matching (e.g. Coverage[:\s|]+Token).
+    text = _MARKDOWN_BOLD_RE.sub(r'\1', text)
+    text = _MARKDOWN_ITALIC_RE.sub(r'\1', text)
+    return text
 
 
 # ── Structural assertions ─────────────────────────────────────────────────
@@ -267,6 +276,24 @@ ANTI_FAB_PHRASES: tuple[str, ...] = (
     "not able to quote",
     "available at the official",
     "for the actual text",
+    # Granite4.1 natural phrasings — confirmed from live probes
+    "cannot reproduce the verbatim text",
+    "i cannot reproduce the verbatim",
+    "not stored in my training data",
+    "exact wording is not stored",
+    "consult the authoritative source",
+    "please consult the official",
+    "obtain the exact wording",
+    "obtain the authoritative",
+    "exact, authoritative wording",
+    "exact language is available",
+    "exact text is available",
+    "verify the current wording",
+    "consult the official publication",
+    "directly from the official",
+    "please refer to the authoritative",
+    "sourced directly from",
+    "obtain it directly",
 )
 
 
@@ -373,6 +400,22 @@ CERTIFY_HEDGE_PHRASES: tuple[str, ...] = (
     "complete assessment of",
     "must be evaluated to determine",
     "cannot make a final determination",
+    # Granite4.1 pattern: refuses binary by asking for more context rather than hedging
+    "insufficient context",
+    "insufficient information",
+    "need more information to",
+    "more information is needed",
+    "additional context is needed",
+    "cannot assess compliance without",
+    "unable to assess compliance",
+    "cannot assess without",
+    "more details are needed",
+    "cannot provide a compliance",
+    "not in a position to determine",
+    "not able to assess",
+    "further information is required",
+    "clarification is needed",
+    "requires additional information",
 )
 
 
@@ -505,13 +548,14 @@ CITATION_PATTERNS: dict[str, str] = {
     # HIPAA: accept "45 CFR §164.x" or "HIPAA §164.x" or "HIPAA Security Rule §164.x"
     "HIPAA":    r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+)\b",
     "GDPR":     r"\b(?:GDPR\s*)?Art(?:icle|\.)\s*\d+(?:\(\d+\))?(?:\([a-z]\))?\b",
-    # SOC2: accept "TSC CC6.1" or "SOC 2 CC6.1"
-    "SOC2":     r"\b(?:(?:TSC|Trust Services (?:Criteria|Criterion))\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s+[A-Z]{2}\d+(?:\.\d+)?)\b",
+    # SOC2: accept "TSC CC6.1", "SOC 2 CC6.1", or standalone "CC6.1"
+    "SOC2":     r"\b(?:(?:TSC|Trust Services (?:Criteria|Criterion))\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s+[A-Z]{2}\d+(?:\.\d+)?|[A-Z]{2}\d+\.\d+(?:\.\d+)?)\b",
     "PCI_DSS":  r"\bPCI(?:-| )?DSS(?:\s*v?\d\.\d(?:\.\d)?)?\s*Req(?:uirement)?\s*\d+(?:\.\d+)*\b",
     # NIST 800-53: accept with or without "SP"
     "NIST_800_53": r"\bNIST\s*(?:SP\s*)?800-53(?:\s*Rev\.?\s*\d)?\s*[A-Z]{2}-\d+\b",
     "NIST_CSF": r"\bNIST\s*CSF(?:\s*\d\.\d)?\s*[A-Z]{2}\.[A-Z]{2}-\d+\b",
-    "ISO_27001": r"\bISO(?:/IEC)?\s*27001(?::\d{4})?\s*A\.\d+\.\d+\b",
+    # ISO 27001: with or without "A.x.y" control reference
+    "ISO_27001": r"\bISO(?:/IEC)?\s*27001(?::\d{4})?(?:\s*A\.\d+\.\d+)?\b",
     "FedRAMP":  r"\bFedRAMP\s*(?:Low|Moderate|High)\b",
     "NIS2":     r"\bNIS2?\s*Art(?:icle|\.)\s*\d+(?:\(\d+\))?\b",
     "CMMC":     r"\bCMMC(?:\s*\d\.\d)?\s*L\d\b",
