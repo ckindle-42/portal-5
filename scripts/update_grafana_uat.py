@@ -194,20 +194,49 @@ def _build_metadata_panel(run_ts: str, total: int, fail_ct: int, blocked_ct: int
     )
 
 
+_SECTION_DESCRIPTIONS: dict[str, str] = {
+    "WS":  "Workspace routing — end-to-end intent detection, model assignment, and workspace-level feature tests (WS-DD daily driver, WS-MATH, WS-TOOLS)",
+    "P":   "Persona behavioral — individual persona response quality, tone, format, and domain expertise (P-W writing, P-V vision, P-S security, P-R reasoning, P-N creative, P-DA data, P-B browser, P-TOOLS tool-use)",
+    "TV":  "Tool Validation — proof-of-execution tests; correct answer requires the tool to have actually run (execute_python, execute_bash, read_excel, read_pdf, read_powerpoint, read_word_document)",
+    "T":   "Tool functional — document generation (DOCX, XLSX, PPTX), file read/write, web search, code execution end-to-end",
+    "CC":  "Cross-capability benchmark — CC-01 persona suite run against each model; validates that routing delivers the right model for a given task class",
+    "A":   "Agentic multi-step — autonomous task chains, memory store/recall, multi-tool orchestration, and long-horizon planning",
+    "M":   "Media — audio transcription (Whisper STT), text-to-speech (TTS/Kokoro), and voice workflow integration",
+    "S":   "Security workspace — vulnerability analysis, threat modeling, CVE lookup via SearXNG, and NERC/CIP compliance",
+    "TR":  "Transcription workflow — diarized speaker transcription, transcript formatting, and downstream document creation",
+    "EX":  "Extended / exploratory — edge-case and regression tests outside the main catalog",
+}
+
+
 def _build_section_table(rows: list[dict]) -> str:
     sections: dict[str, Counter] = defaultdict(Counter)
     for r in rows:
         sections[r["section"]][r["status"]] += 1
 
+    legend_items = "".join(
+        f'<tr><td style="font-family:monospace;font-weight:bold;color:#6b9cd4;white-space:nowrap;padding:2px 8px 2px 0">{k}</td>'
+        f'<td style="color:#888;font-size:10px;padding:2px 0">{v}</td></tr>'
+        for k, v in _SECTION_DESCRIPTIONS.items()
+        if k in sections
+    )
+    legend_html = (
+        '<details style="margin-bottom:8px;font-size:10px">'
+        '<summary style="cursor:pointer;color:#6b9cd4;padding:4px 0">▶ Section key — what each prefix covers</summary>'
+        '<div style="padding:6px 0;border-bottom:1px solid #333;margin-bottom:6px">'
+        f'<table style="border-collapse:collapse;width:100%">{legend_items}</table>'
+        '</div></details>'
+    )
+
     header = (
         '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        '<th style="text-align:left">Section'
-        '<th style="text-align:left">Pass'
-        '<th style="text-align:right">Warn'
-        '<th style="text-align:right">Fail'
-        '<th style="text-align:right">Blk'
-        '<th style="text-align:right">Total'
-        '<th style="text-align:left;min-width:100px">Pass%</tr>'
+        '<th style="text-align:left">Section</th>'
+        '<th style="text-align:left;font-size:10px;color:#888">What it covers</th>'
+        '<th style="text-align:left">Pass</th>'
+        '<th style="text-align:right">Warn</th>'
+        '<th style="text-align:right">Fail</th>'
+        '<th style="text-align:right">Blk</th>'
+        '<th style="text-align:right">Total</th>'
+        '<th style="text-align:left;min-width:100px">Pass%</th></tr>'
     )
     table_rows = []
     for i, sec in enumerate(sorted(sections)):
@@ -220,18 +249,22 @@ def _build_section_table(rows: list[dict]) -> str:
         color = GREEN if fail_ct == 0 else (YELLOW if c.get("FAIL", 0) == 0 else RED)
         icon = "✓" if fail_ct == 0 else "✗"
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
+        desc = _SECTION_DESCRIPTIONS.get(sec, "")
+        desc_cell = f'<td style="color:#555;font-size:10px;max-width:260px">{desc[:80]}{"…" if len(desc) > 80 else ""}</td>'
         table_rows.append(
             f"<tr{bg}>"
-            f'<td style="font-family:monospace;color:{color}">{icon} {sec}</td>'
+            f'<td style="font-family:monospace;color:{color};white-space:nowrap">{icon} {sec}</td>'
+            f'{desc_cell}'
             f'<td style="color:{GREEN}">{pass_ct}</td>'
             f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
             f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
             f'<td style="text-align:right;color:{GRAY}">{c.get("BLOCKED",0)}</td>'
             f'<td style="text-align:right">{total}</td>'
-            f"<td>{_bar(pass_ct, total, color)}</td></tr>"
+            f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
-        '<div style="overflow:auto;max-height:550px">'
+        f'{legend_html}'
+        '<div style="overflow:auto;max-height:480px">'
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'
         f"{header}{''.join(table_rows)}</table></div>"
     )
@@ -247,14 +280,25 @@ def _build_model_table(rows: list[dict]) -> str:
         c = kv[1]
         return (-(c.get("FAIL", 0) + c.get("BLOCKED", 0)), -sum(c.values()))
 
+    legend_html = (
+        '<div style="font-size:10px;color:#666;padding:4px 0 8px 0;border-bottom:1px solid #333;margin-bottom:6px">'
+        '<b style="color:#888">How to read this table:</b> Each row is a <b>persona slug</b> — the named AI assistant '
+        'used for that test (e.g. <code>auto-documents</code>, <code>statistician</code>, <code>pentester</code>). '
+        'Persona slugs are Open WebUI model presets defined in <code>config/personas/</code>; each maps to an '
+        'Ollama model via workspace routing. Rows are sorted by failures first (worst → best), then by test count. '
+        'A persona appearing in this table ran at least one test; its pass% reflects how well that model+system-prompt '
+        'combination performed across all tasks assigned to it.'
+        '</div>'
+    )
+
     header = (
         '<tr style="background:#1f1f1f;position:sticky;top:0">'
-        '<th style="text-align:left">Model / Workspace'
-        '<th style="text-align:left">Pass'
-        '<th style="text-align:right">Warn'
-        '<th style="text-align:right">Fail'
-        '<th style="text-align:right">Total'
-        '<th style="text-align:left;min-width:120px">Pass%</tr>'
+        '<th style="text-align:left">Persona / Workspace slug</th>'
+        '<th style="text-align:left">Pass</th>'
+        '<th style="text-align:right">Warn</th>'
+        '<th style="text-align:right">Fail</th>'
+        '<th style="text-align:right">Total</th>'
+        '<th style="text-align:left;min-width:120px">Pass%</th></tr>'
     )
     table_rows = []
     for i, (model, c) in enumerate(sorted(models.items(), key=sort_key)):
@@ -274,7 +318,8 @@ def _build_model_table(rows: list[dict]) -> str:
             f"<td>{_bar(pass_ct, total, color)}</td></tr>"
         )
     return (
-        '<div style="overflow:auto;max-height:550px">'
+        f'{legend_html}'
+        '<div style="overflow:auto;max-height:480px">'
         '<table style="width:100%;border-collapse:collapse;font-size:11px">'
         f"{header}{''.join(table_rows)}</table></div>"
     )
