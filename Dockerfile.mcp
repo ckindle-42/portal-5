@@ -63,7 +63,13 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir \
     "lancedb>=0.13.0" \
     "pyarrow>=18.0.0" \
-    "pypdf>=4.0.0"
+    "pypdf>=4.0.0" \
+    "docling>=2.0.0"
+
+# Pre-fetch Docling layout/TableFormer model weights at build time (best-effort).
+RUN docling-tools models download \
+    || python3 -c "from docling.utils.model_downloader import download_models; download_models()" \
+    || echo "WARN: docling model prefetch failed; models will download at first use"
 
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \
