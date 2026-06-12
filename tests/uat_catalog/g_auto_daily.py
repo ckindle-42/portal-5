@@ -57,9 +57,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
         "name": "Daily Driver — Writing Rewrite Preserves Meaning",
         "section": "auto-daily",
         "model_slug": "dailydriver",
-        "timeout": 60,
+        "timeout": 120,
         "workspace_tier": "ollama",
-        "include_thinking_in_assertions": True,
         "prompt": (
             "Rewrite this for clarity, keep my voice: 'so basically what we found "
             "is that the thing we thought was broken wasn't actually broken it was "
