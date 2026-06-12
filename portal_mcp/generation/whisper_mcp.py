@@ -5,8 +5,11 @@ Wraps faster-whisper for audio transcription as an MCP tool.
 
 import asyncio
 import contextlib
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from starlette.responses import JSONResponse
 
