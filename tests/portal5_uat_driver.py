@@ -44,6 +44,9 @@ for _p in (str(_PROJECT_ROOT), str(_TESTS_DIR)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from tests.memory_guard import (  # noqa: E402, F401
+    memory_pct as _get_memory_pct,
+)
 from tests.uat import config, state  # noqa: E402, F401
 from tests.uat.browser import (  # noqa: E402, F401
     _download_artifact,
@@ -128,7 +131,6 @@ from tests.uat.health import (  # noqa: E402, F401
     _backend_alive,
     _check_for_oom_crash,
     _check_memory_before_test,
-    _get_memory_pct,
     _wait_for_backend,
     _wait_for_backend_alive,
     _wait_for_drain,
