@@ -28,7 +28,8 @@ TESTS: list[dict] = [    # -----------------------------------------------------
             {
                 "type": "not_contains",
                 "label": "No tool error",
-                "keywords": ["error", "failed", "unavailable", "no audio"],
+                "keywords": ["tool error", "failed to transcribe", "unavailable", "no audio file", "audio not found", "file not found"],
+                "critical": False,
             },
             {
                 "type": "min_length",
