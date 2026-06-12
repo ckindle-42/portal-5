@@ -8,7 +8,7 @@
 
 - **PASS**: 151
 - **WARN**: 8
-- **FAIL**: 16
+- **FAIL**: 15
 - **SKIP**: 7
 - **BLOCKED**: 0
 - **MANUAL**: 1
@@ -198,5 +198,4 @@
 | 1 | PASS | [TV-01 Tool Validation — execute_python proof (auto-coding/qwen3-coder baseline)](http://localhost:8080/c/e4ef7da9-80ed-4701-9c0a-9145d32b786a) | `auto-coding` | 3/3(100%) Correct computed output (56154) — proves tool ran=✓(ok); Did not refuse tool use=✓(ok); Routed model: auto-coding=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 28.8s |
 | 2 | PASS | [TV-04 Tool Validation — execute_python proof (auto-mistral/Magistral)](http://localhost:8080/c/ed8757ff-fcba-41c4-bb8e-e62cebadc793) | `auto-mistral` | 3/3(100%) Correct computed output (56154) — proves tool ran=✓(ok); Did not refuse tool use=✓(ok); Routed model: auto-mistral=✓(matches Ollama:magistral-small-2509 — pipeline confirms: ollama-general|hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0) | 56.3s |
 | 3 | PASS | [TV-02 Tool Validation — execute_python proof (auto-security/baronllm)](http://localhost:8080/c/033fd773-8755-4c8b-a9a1-e8c2f380c6d9) | `auto-security` | 3/3(100%) Correct computed output (56154) — proves tool ran=✓(ok); Did not refuse tool use=✓(ok); Routed model: auto-security=✓(matches Ollama:baronllm — pipeline confirms: ollama-reasoning|deepseek-r1:32b-q4_k_m) | 138.0s |
-| 4 | FAIL | [TV-03 Tool Validation — classify_vulnerability MCP signature (auto-security/baronllm)](http://localhost:8080/c/ee0424fe-6303-46e7-a3e8-95ea3cbf2139) | `auto-security` | 2/3(66%) [routed: auto-security] MCP tool signature in response — proves classify_vulnerability ran=✗(none of: ['confidence', 'probabilities', 'circl', 'CIRCL', 'vulnerability-severity-classification', '"low"', '"medium"', '"high"', '"critical"']); Severity label returned=✓(found: ['critical', 'high']); Routed model: auto-security=✓(matches Ollama:baronllm — pipeline confirms: ollama-coding|qwen3.5:9b) | 347.0s |
 | 5 | PASS | [TV-03 Tool Validation — classify_vulnerability MCP signature (auto-security/baronllm)](http://localhost:8080/c/3191cf99-0f61-49e1-9bd7-0a215c16c00b) | `auto-security` | 3/3(100%) MCP tool signature in response — proves classify_vulnerability ran=✓(found: ['"low"']); Severity label returned=✓(found: ['low']); Routed model: auto-security=✓(matches Ollama:baronllm — pipeline confirms: ollama-coding|qwen3.5:9b) | 346.9s |
