@@ -78,7 +78,6 @@ VALID_WORKSPACES = frozenset(
         "bench-foundation-sec",
         "bench-toolace25",
         # V7 catalog refresh (TASK_MODEL_REFRESH_V7)
-        "bench-apriel-nemotron",
         "bench-voxtral-realtime",
         "bench-voxtral-tts",
         "bench-granite-speech",

@@ -63,7 +63,7 @@ portal-5/
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 140 persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 139 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
@@ -129,7 +129,7 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 ### 5 — Personas Live in config/personas/
 
-Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (140 personas).
+Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (139 personas).
 
 ### 6 — Workspace Routing Must Stay Consistent
 
@@ -290,7 +290,7 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Topic | Location |
 |---|---|
 | Model catalog + memory budgets | `config/backends.yaml` (annotated YAML comments) |
-| Persona catalog (140 personas) | `config/personas/*.yaml` |
+| Persona catalog (139 personas) | `config/personas/*.yaml` |
 | Notification system setup | `docs/ALERTS.md` |
 | ComfyUI image/video setup | `docs/COMFYUI_SETUP.md` |
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
