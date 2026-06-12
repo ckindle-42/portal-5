@@ -132,8 +132,8 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
         },
         "models_explicit": (
             # V2 incumbents retained for continuity — per-shape delta directly comparable
-            "laguna-xs.2:q4_K_M",
-            "glm-4.7-flash:q4_K_M",
+            "laguna-xs.2:Q4_K_M",
+            "glm-4.7-flash:Q4_K_M",
             "qwen3-coder:30b-a3b-q4_K_M",
             "devstral-small-2",
             # V9 candidates (TASK_V9_EVAL_EXTENDED)
