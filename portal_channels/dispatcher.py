@@ -115,6 +115,7 @@ VALID_WORKSPACES = frozenset(
         # V9 candidate benches (TASK_MODEL_EVAL_V9_CANDIDATES)
         "bench-qwopus-coder-mtp",
         "bench-gemma4-12b-coder",
+        "bench-deepseek-coder-v2",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

@@ -1039,6 +1039,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": [],
     },
+    "bench-deepseek-coder-v2": {
+        "name": "🔬 Bench · DeepSeek-Coder-V2-Lite 16B (DeepSeek)",
+        "description": (
+            "Benchmark: deepseek-coder-v2:16b-lite-instruct-q4_K_M "
+            "(DeepSeek, MIT-style license, 16B/2.4B MoE, ~9GB Q4_K_M). "
+            "FIM-trained dedicated coder, 338 programming languages, 128K ctx. "
+            "12.7% SWE-bench, 73.7% Aider, 90.2% HumanEval. Older (mid-2024) but "
+            "a genuine code-specialist lineage absent elsewhere in fleet. "
+            "Wired for game-challenge evaluation (TASK_CODING_GAMECHALLENGE_V1 A5). "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────
