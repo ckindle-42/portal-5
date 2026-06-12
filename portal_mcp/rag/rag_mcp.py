@@ -10,6 +10,7 @@ Tools: kb_list, kb_search, kb_search_all, kb_ingest.
 Port: 8921 (RAG_MCP_PORT env override).
 """
 
+import asyncio
 import contextlib
 import hashlib
 import logging
@@ -152,7 +153,7 @@ TOOLS_MANIFEST = [
     },
     {
         "name": "kb_ingest",
-        "description": "Admin: ingest files from a directory into a knowledge base. Reads .md, .txt, .pdf, .docx files. Run via curl or as setup; not typically called from chat.",
+        "description": "Admin: ingest files from a directory into a knowledge base. Reads .md, .txt, .pdf, .docx, .pptx, .xlsx, .html, .htm, .epub files (Docling-first extraction with pypdf/python-docx fallback). Run via curl or as setup; not typically called from chat.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -195,11 +196,51 @@ def _chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
     return chunks
 
 
+_DOCLING_FORMATS = (".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
+_docling_converter = None
+
+
+def _get_docling_converter():
+    """Lazily build and cache a Docling DocumentConverter (expensive to init)."""
+    global _docling_converter
+    if _docling_converter is None:
+        from docling.document_converter import DocumentConverter
+
+        _docling_converter = DocumentConverter()
+    return _docling_converter
+
+
+def _docling_convert(path):
+    """Blocking Docling conversion -> markdown. Raises on any failure.
+
+    Kept as a module-level indirection so unit tests can patch it without
+    installing docling on the host (docling ships only in Dockerfile.mcp).
+    """
+    result = _get_docling_converter().convert(str(path))
+    return result.document.export_to_markdown()
+
+
 async def _read_file(path):
-    """Best-effort text extraction from common formats."""
+    """Extract text via Docling (preferred) with pypdf/python-docx fallback.
+
+    Docling adds table extraction, layout preservation, and reading-order
+    awareness, and extends coverage to PPTX/XLSX/HTML/EPUB. Conversion runs
+    in a worker thread (CPU-bound). Falls back to pypdf (PDF) or python-docx
+    (DOCX) when docling is unavailable, fails, or returns no usable text.
+    """
     suffix = path.suffix.lower()
     if suffix in (".md", ".txt"):
         return path.read_text(encoding="utf-8", errors="replace")
+
+    if suffix in _DOCLING_FORMATS:
+        try:
+            text = await asyncio.to_thread(_docling_convert, path)
+            if text and len(text.strip()) > 20:
+                return text
+            logger.warning("Docling returned no usable text for %s, falling back", path)
+        except Exception as e:
+            logger.warning("Docling read failed for %s, falling back: %s", path, e)
+
     if suffix == ".pdf":
         try:
             from pypdf import PdfReader
@@ -207,7 +248,7 @@ async def _read_file(path):
             r = PdfReader(str(path))
             return "\n\n".join(p.extract_text() or "" for p in r.pages)
         except Exception as e:
-            logger.warning("PDF read failed for %s: %s", path, e)
+            logger.warning("PDF fallback read failed for %s: %s", path, e)
             return ""
     if suffix == ".docx":
         try:
@@ -216,7 +257,7 @@ async def _read_file(path):
             d = Document(str(path))
             return "\n\n".join(p.text for p in d.paragraphs)
         except Exception as e:
-            logger.warning("DOCX read failed for %s: %s", path, e)
+            logger.warning("DOCX fallback read failed for %s: %s", path, e)
             return ""
     return ""
 
@@ -243,7 +284,8 @@ async def kb_ingest_endpoint(request):
     files = [
         f
         for f in src.rglob("*")
-        if f.is_file() and f.suffix.lower() in (".md", ".txt", ".pdf", ".docx")
+        if f.is_file()
+        and f.suffix.lower() in (".md", ".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".html", ".htm", ".epub")
     ]
     files = files[:5000]
 
