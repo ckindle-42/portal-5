@@ -7,16 +7,15 @@
 ## Summary
 
 - **PASS**: 163
-- **WARN**: 5
+- **WARN**: 4
 - **FAIL**: 0
 - **SKIP**: 7
 - **BLOCKED**: 0
 - **MANUAL**: 1
 
-**Pass rate**: 163 / 168 eligible = **97.0%** (target: ≥95% ✓)
+**Pass rate**: 163 / 167 eligible = **97.6%** (target: ≥95% ✓)
 
 > Known limitations (WARN):
-> - **P-N19** Proofreader: auto-creative routes to Qwen3.6-HauhauCS (35B thinking model), consistently >600s for proofreading — timeout, not wrong answers; fix pending
 > - **T-12** Web Search CVEs: baronllm returns empty response under model-switching load
 > - **WS-DD-03** Daily Driver rewrite: empty response under backend switching pressure  
 > - **P-R02** IT Architect: keyword "message queue" triggers architecture-output assertion

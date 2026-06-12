@@ -106,7 +106,8 @@ def _parse_corpus_runs(corpus_dir: Path, last_n: int = 10) -> list[dict]:
         run_id = entries[0].get("corpus_run_id", f.stem.replace("uat_", ""))
         counts = Counter(e.get("status", "?") for e in entries)
         total = len(entries)
-        pass_pct = round(100 * counts.get("PASS", 0) / total) if total else 0
+        eligible = total - counts.get("SKIP", 0) - counts.get("MANUAL", 0)
+        pass_pct = round(100 * counts.get("PASS", 0) / eligible) if eligible else 0
         runs.append({
             "run_id": run_id,
             "total": total,
@@ -136,11 +137,28 @@ def _build_summary_panel(summary: dict, total: int) -> str:
     fail_ct = summary.get("FAIL", 0)
     blocked_ct = summary.get("BLOCKED", 0)
     skip_ct = summary.get("SKIP", 0)
-    pct = round(100 * pass_ct / total) if total else 0
+    manual_ct = summary.get("MANUAL", 0)
+    eligible = total - skip_ct - manual_ct
+    pct = round(100 * pass_ct / eligible) if eligible else 0
     pass_color = GREEN if fail_ct + blocked_ct == 0 else (YELLOW if fail_ct <= 3 else RED)
+
+    legend = (
+        '<div style="font-size:10px;color:#666;margin-top:10px;text-align:left;'
+        'padding:6px 12px;border-top:1px solid #333;display:flex;gap:16px;flex-wrap:wrap">'
+        f'<span><b style="color:{GREEN}">PASS</b> — all assertions satisfied</span>'
+        f'<span><b style="color:{YELLOW}">WARN</b> — non-critical assertions failed (critical passed)</span>'
+        f'<span><b style="color:{RED}">FAIL</b> — one or more critical assertions failed</span>'
+        f'<span><b style="color:{GRAY}">BLOCKED</b> — test could not run (infra/model unavailable)</span>'
+        f'<span><b style="color:{GRAY}">SKIP</b> — excluded from this run (fixture missing, env gate)</span>'
+        f'<span><b style="color:#555">MANUAL</b> — requires human verification, not scored</span>'
+        f'<span style="color:#555">Pass rate = PASS ÷ eligible (excludes SKIP &amp; MANUAL)</span>'
+        '</div>'
+    )
+
     return (
+        '<div style="display:flex;flex-direction:column;justify-content:center;height:100%">'
         '<div style="display:flex;justify-content:space-around;align-items:center;'
-        'height:100%;text-align:center;font-size:14px">'
+        'text-align:center;font-size:14px;padding:8px 0">'
         f'<div><div style="font-size:28px;font-weight:bold;color:{GREEN}">{pass_ct}</div>'
         f'<div style="color:#aaa">PASS</div></div>'
         f'<div><div style="font-size:28px;font-weight:bold;color:{YELLOW}">{warn_ct}</div>'
@@ -151,9 +169,13 @@ def _build_summary_panel(summary: dict, total: int) -> str:
         f'<div style="color:#aaa">BLOCKED</div></div>'
         f'<div><div style="font-size:28px;font-weight:bold;color:{GRAY}">{skip_ct}</div>'
         f'<div style="color:#aaa">SKIP</div></div>'
-        f'<div><div style="font-size:28px;font-weight:bold;color:{pass_color}">{pass_ct}/{total}</div>'
+        f'<div><div style="font-size:28px;font-weight:bold;color:#555">{manual_ct}</div>'
+        f'<div style="color:#aaa">MANUAL</div></div>'
+        f'<div><div style="font-size:28px;font-weight:bold;color:{pass_color}">{pass_ct}/{eligible}</div>'
         f'<div style="color:#aaa">Pass Rate ({pct}%)</div></div>'
-        "</div>"
+        '</div>'
+        f'{legend}'
+        '</div>'
     )
 
 
@@ -193,7 +215,8 @@ def _build_section_table(rows: list[dict]) -> str:
         total = sum(c.values())
         pass_ct = c.get("PASS", 0)
         fail_ct = c.get("FAIL", 0) + c.get("BLOCKED", 0)
-        pct = round(100 * pass_ct / total) if total else 0
+        eligible = total - c.get("SKIP", 0) - c.get("MANUAL", 0)
+        pct = round(100 * pass_ct / eligible) if eligible else 0
         color = GREEN if fail_ct == 0 else (YELLOW if c.get("FAIL", 0) == 0 else RED)
         icon = "✓" if fail_ct == 0 else "✗"
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""

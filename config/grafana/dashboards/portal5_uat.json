@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 4,
+  "version": 6,
   "refresh": "",
   "time": {
     "from": "now-6h",
@@ -28,7 +28,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style=\"display:flex;justify-content:space-around;align-items:center;height:100%;text-align:center;font-size:14px\"><div><div style=\"font-size:28px;font-weight:bold;color:#73BF69\">163</div><div style=\"color:#aaa\">PASS</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#FFD700\">5</div><div style=\"color:#aaa\">WARN</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#F2495C\">0</div><div style=\"color:#aaa\">FAIL</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#888888\">0</div><div style=\"color:#aaa\">BLOCKED</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#888888\">7</div><div style=\"color:#aaa\">SKIP</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#73BF69\">163/175</div><div style=\"color:#aaa\">Pass Rate (93%)</div></div></div>"
+        "content": "<div style=\"display:flex;flex-direction:column;justify-content:center;height:100%\"><div style=\"display:flex;justify-content:space-around;align-items:center;text-align:center;font-size:14px;padding:8px 0\"><div><div style=\"font-size:28px;font-weight:bold;color:#73BF69\">163</div><div style=\"color:#aaa\">PASS</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#FFD700\">4</div><div style=\"color:#aaa\">WARN</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#F2495C\">0</div><div style=\"color:#aaa\">FAIL</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#888888\">0</div><div style=\"color:#aaa\">BLOCKED</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#888888\">7</div><div style=\"color:#aaa\">SKIP</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#555\">1</div><div style=\"color:#aaa\">MANUAL</div></div><div><div style=\"font-size:28px;font-weight:bold;color:#73BF69\">163/167</div><div style=\"color:#aaa\">Pass Rate (98%)</div></div></div><div style=\"font-size:10px;color:#666;margin-top:10px;text-align:left;padding:6px 12px;border-top:1px solid #333;display:flex;gap:16px;flex-wrap:wrap\"><span><b style=\"color:#73BF69\">PASS</b> \u2014 all assertions satisfied</span><span><b style=\"color:#FFD700\">WARN</b> \u2014 non-critical assertions failed (critical passed)</span><span><b style=\"color:#F2495C\">FAIL</b> \u2014 one or more critical assertions failed</span><span><b style=\"color:#888888\">BLOCKED</b> \u2014 test could not run (infra/model unavailable)</span><span><b style=\"color:#888888\">SKIP</b> \u2014 excluded from this run (fixture missing, env gate)</span><span><b style=\"color:#555\">MANUAL</b> \u2014 requires human verification, not scored</span><span style=\"color:#555\">Pass rate = PASS \u00f7 eligible (excludes SKIP &amp; MANUAL)</span></div></div>"
       },
       "description": ""
     },
@@ -44,7 +44,7 @@
       },
       "options": {
         "mode": "html",
-        "content": "<div style=\"font-size:11px;color:#888;padding:2px 8px;display:flex;gap:16px;flex-wrap:wrap\"><span><b>Source run:</b> 2026-06-11 (multi-session, completed 2026-06-12)</span><span><b>Health:</b> \ud83d\udfe2 HEALTHY</span><span><b>Total tests:</b> 175</span><span><b>Dashboard updated:</b> 2026-06-12 03:12 UTC</span></div>"
+        "content": "<div style=\"font-size:11px;color:#888;padding:2px 8px;display:flex;gap:16px;flex-wrap:wrap\"><span><b>Source run:</b> 2026-06-11 (multi-session, completed 2026-06-12)</span><span><b>Health:</b> \ud83d\udfe2 HEALTHY</span><span><b>Total tests:</b> 175</span><span><b>Dashboard updated:</b> 2026-06-12 03:39 UTC</span></div>"
       },
       "description": ""
     },

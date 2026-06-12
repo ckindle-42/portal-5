@@ -208,5 +208,143 @@ TESTS: list[dict] = [    # -----------------------------------------------------
                 "keywords": ["cannot read", "unable to read", "can't access"],
             },
             {"type": "min_length", "label": "Substantive summary", "chars": 150},
+            {
+                "type": "any_of",
+                "label": "Document content found — proves read_word_document ran",
+                "keywords": [
+                    "Network Security", "Access Control", "Introduction",
+                    "Authentication", "least privilege", "RBAC",
+                ],
+                "critical": False,
+            },
+        ],
+    },
+    # ── Tool-read validation (TV-07 – TV-10): prove read tools actually ran ──────
+    # Each test stages a fixture to ~/AI_Output/uploads/ (→ /app/data/generated/uploads/
+    # inside the documents container), then asks the model to read it at that path.
+    # The assertion checks for specific fixture content — a model hallucinating without
+    # calling the tool cannot produce those exact values.
+    {
+        "id": "TV-07",
+        "name": "Tool Validation — read_excel proof (sample.xlsx)",
+        "section": "auto-docs",
+        "model_slug": "auto-documents",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "fixture": "sample.xlsx",
+        "pre_stage_audio": True,
+        "prompt": (
+            "Use read_excel to read the file at /app/data/generated/uploads/sample.xlsx "
+            "and tell me the column headers and every data value in the spreadsheet."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Column headers found — proves read_excel ran",
+                "keywords": ["Name", "Value"],
+            },
+            {
+                "type": "any_of",
+                "label": "Row data found",
+                "keywords": ["Test", "42"],
+                "critical": False,
+            },
+            {
+                "type": "not_contains",
+                "label": "No file-not-found error",
+                "keywords": ["file not found", "cannot read", "failed to read"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "TV-08",
+        "name": "Tool Validation — read_pdf proof (sample.pdf)",
+        "section": "auto-docs",
+        "model_slug": "auto-documents",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "fixture": "sample.pdf",
+        "pre_stage_audio": True,
+        "prompt": (
+            "Use read_pdf to read the file at /app/data/generated/uploads/sample.pdf "
+            "and tell me the text content on each page."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Fixture text found — proves read_pdf ran",
+                "keywords": ["Portal 5 UAT Fixture", "Portal 5", "UAT Fixture", "Section 1", "Overview"],
+            },
+            {
+                "type": "not_contains",
+                "label": "No file-not-found error",
+                "keywords": ["file not found", "cannot read", "pdfplumber not installed"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "TV-09",
+        "name": "Tool Validation — read_powerpoint proof (sample.pptx)",
+        "section": "auto-docs",
+        "model_slug": "auto-documents",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "fixture": "sample.pptx",
+        "pre_stage_audio": True,
+        "prompt": (
+            "Use read_powerpoint to read the file at /app/data/generated/uploads/sample.pptx "
+            "and tell me the title and content of each slide."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Slide content found — proves read_powerpoint ran",
+                "keywords": ["Test Presentation", "acceptance testing", "Sample content"],
+            },
+            {
+                "type": "not_contains",
+                "label": "No file-not-found error",
+                "keywords": ["file not found", "cannot read", "failed to read"],
+                "critical": False,
+            },
+        ],
+    },
+    {
+        "id": "TV-10",
+        "name": "Tool Validation — read_word_document proof (sample.docx)",
+        "section": "auto-docs",
+        "model_slug": "auto-documents",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "fixture": "sample.docx",
+        "pre_stage_audio": True,
+        "prompt": (
+            "Use read_word_document to read the file at /app/data/generated/uploads/sample.docx "
+            "and tell me the document title and list each section heading."
+        ),
+        "assertions": [
+            {
+                "type": "any_of",
+                "label": "Document title found — proves read_word_document ran",
+                "keywords": [
+                    "Network Security Policy",
+                    "Access Control Framework",
+                    "Network Security",
+                ],
+            },
+            {
+                "type": "any_of",
+                "label": "Section headings found",
+                "keywords": ["Introduction", "Access Control Policy", "Authentication", "Conclusion"],
+                "critical": False,
+            },
+            {
+                "type": "not_contains",
+                "label": "No file-not-found error",
+                "keywords": ["file not found", "cannot read", "failed to read"],
+                "critical": False,
+            },
         ],
     },]
