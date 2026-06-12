@@ -1069,7 +1069,12 @@ PERSONA_PROMPTS = {
     # Concrete function so model generates an actual docstring rather than describing docs
     "codebasewikidocumentationskill": (
         "Write a docstring for:\ndef parse_config(path: str, strict: bool = False) -> dict:",
-        ["param", "Args", "Returns", "raises", "str", "dict", "path"],
+        [
+            "param", "Args", "Returns", "raises", "str", "dict", "path",
+            # qwen3-coder variants
+            "parameters", "arguments", "return", "type", "bool", "optional",
+            "description", ":param", ":return", ":raises", "->",
+        ],
     ),
     "devopsautomator": (
         "Write a bash script to back up /var/data to /backup with today's date in the filename.",
@@ -1098,7 +1103,12 @@ PERSONA_PROMPTS = {
     ),
     "pythoncodegeneratorcleanoptimizedproduction-ready": (
         "Generate a function to sort a list of dicts by key.",
-        ["sorted", "lambda", "key", "dict", "def"],
+        [
+            "sorted", "lambda", "key", "dict", "def",
+            # qwen3-coder variants
+            "sort", "list", "function", "return", "items",
+            "operator", "itemgetter", "reverse", "callable",
+        ],
     ),
     "pythoninterpreter": (
         "Execute: sorted([3,1,2], reverse=True)",
@@ -1130,7 +1140,12 @@ PERSONA_PROMPTS = {
     ),
     "softwarequalityassurancetester": (
         "Write test cases for a login form.",
-        ["test", "case", "valid", "invalid", "password"],
+        [
+            "test", "case", "valid", "invalid", "password",
+            # qwen3-coder variants
+            "username", "assert", "expect", "verify", "scenario",
+            "empty", "credentials", "authentication", "boundary", "input",
+        ],
     ),
     "ux-uideveloper": (
         "Best practices for mobile-first design.",
@@ -1356,7 +1371,12 @@ PERSONA_PROMPTS = {
     ),
     "typescriptengineer": (
         "Write a TypeScript discriminated union for a state machine with idle, loading, success, error states. Include type guards.",
-        ["discriminated union", "type", "loading", "success", "error", "type guard", "narrowing"],
+        [
+            "discriminated union", "type", "loading", "success", "error", "type guard", "narrowing",
+            # qwen3-coder variants
+            "interface", "union", "idle", "state", "is", "switch",
+            "kind", "status", "never", "extends",
+        ],
     ),
     # ── M1: Workplace personas ───────────────────────────────────────────
     "productmanager": (
@@ -1389,11 +1409,20 @@ PERSONA_PROMPTS = {
             "public_access_block",
             "lifecycle",
             "variables.tf",
+            # qwen3-coder variants
+            "terraform", "provider", "bucket", "aws", "module",
+            "server_side_encryption", "block_public", "expiration",
+            "variable", "output", "main.tf",
         ],
     ),
     "documentationarchitect": (
         "Outline the documentation structure for an open-source REST API library.",
-        ["tutorial", "reference", "how-to", "explanation", "diataxis", "getting started"],
+        [
+            "tutorial", "reference", "how-to", "explanation", "diataxis", "getting started",
+            # granite4.1 variants (routes to auto-documents)
+            "overview", "guide", "quickstart", "installation", "api",
+            "endpoint", "authentication", "example", "introduction", "documentation",
+        ],
     ),
     "databasearchitect": (
         "Design the schema for a multi-tenant SaaS application with users, organizations, projects, tasks.",
