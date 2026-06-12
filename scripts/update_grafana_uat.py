@@ -122,11 +122,15 @@ def _parse_corpus_runs(corpus_dir: Path, last_n: int = 10) -> list[dict]:
 
 
 def _bar(filled: int, total: int, color: str = GREEN) -> str:
-    pct = max(1, min(100, round(filled / total * 100))) if total > 0 else 0
+    if total == 0:
+        return '<div style="color:#555;font-size:10px">n/a</div>'
+    pct = round(filled / total * 100)
+    bar_color = color if filled > 0 else RED
+    bar_width = pct if filled > 0 else 0
     return (
         f'<div style="display:flex;align-items:center;gap:4px">'
-        f'<span style="width:42px;text-align:right;font-weight:bold;color:{color}">{filled}/{total}</span>'
-        f'<div style="background:{color};height:8px;width:{pct}%;min-width:2px;border-radius:2px;max-width:80px"></div>'
+        f'<span style="width:42px;text-align:right;font-weight:bold;color:{bar_color}">{filled}/{total}</span>'
+        f'<div style="background:{bar_color};height:8px;width:{bar_width}%;border-radius:2px;max-width:80px"></div>'
         f'<span style="color:#888;font-size:10px">{pct}%</span></div>'
     )
 
@@ -199,12 +203,14 @@ _SECTION_DESCRIPTIONS: dict[str, str] = {
     "P":   "Persona behavioral — individual persona response quality, tone, format, and domain expertise (P-W writing, P-V vision, P-S security, P-R reasoning, P-N creative, P-DA data, P-B browser, P-TOOLS tool-use)",
     "TV":  "Tool Validation — proof-of-execution tests; correct answer requires the tool to have actually run (execute_python, execute_bash, read_excel, read_pdf, read_powerpoint, read_word_document)",
     "T":   "Tool functional — document generation (DOCX, XLSX, PPTX), file read/write, web search, code execution end-to-end",
-    "CC":  "Cross-capability benchmark — CC-01 persona suite run against each model; validates that routing delivers the right model for a given task class",
+    "CC":  "Cross-capability benchmark — CC-01 persona suite run against each model in the fleet; validates routing, system prompt injection, and model-specific behavior",
     "A":   "Agentic multi-step — autonomous task chains, memory store/recall, multi-tool orchestration, and long-horizon planning",
     "M":   "Media — audio transcription (Whisper STT), text-to-speech (TTS/Kokoro), and voice workflow integration",
     "S":   "Security workspace — vulnerability analysis, threat modeling, CVE lookup via SearXNG, and NERC/CIP compliance",
-    "TR":  "Transcription workflow — diarized speaker transcription, transcript formatting, and downstream document creation",
+    "TR":  "Transcription workflow — diarized speaker transcription (mlx-whisper + pyannote), transcript formatting, and downstream document creation",
     "EX":  "Extended / exploratory — edge-case and regression tests outside the main catalog",
+    "BT":  "Benchmark targeted — single-model deep-dive tests run against a specific model build (e.g., Foundation-Sec-8B-Reasoning); not part of the general fleet sweep",
+    "DD":  "Daily Driver Tool Validation — tool-proof tests run inside the daily-driver workspace to confirm general-purpose models can invoke tools, not just specialist workspaces",
 }
 
 
@@ -246,8 +252,9 @@ def _build_section_table(rows: list[dict]) -> str:
         fail_ct = c.get("FAIL", 0) + c.get("BLOCKED", 0)
         eligible = total - c.get("SKIP", 0) - c.get("MANUAL", 0)
         pct = round(100 * pass_ct / eligible) if eligible else 0
-        color = GREEN if fail_ct == 0 else (YELLOW if c.get("FAIL", 0) == 0 else RED)
-        icon = "✓" if fail_ct == 0 else "✗"
+        warn_only = fail_ct == 0 and pass_ct == 0 and c.get("WARN", 0) > 0
+        color = RED if fail_ct > 0 else (YELLOW if warn_only else GREEN)
+        icon = "✗" if fail_ct > 0 else ("⚠" if warn_only else "✓")
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
         desc = _SECTION_DESCRIPTIONS.get(sec, "")
         desc_cell = f'<td style="color:#555;font-size:10px;max-width:260px">{desc[:80]}{"…" if len(desc) > 80 else ""}</td>'
@@ -305,17 +312,18 @@ def _build_model_table(rows: list[dict]) -> str:
         total = sum(c.values())
         pass_ct = c.get("PASS", 0)
         fail_ct = c.get("FAIL", 0) + c.get("BLOCKED", 0)
-        pct = round(100 * pass_ct / total) if total else 0
-        color = GREEN if fail_ct == 0 else (YELLOW if c.get("FAIL", 0) == 0 else RED)
+        eligible = total - c.get("SKIP", 0) - c.get("MANUAL", 0)
+        warn_only = fail_ct == 0 and pass_ct == 0 and c.get("WARN", 0) > 0
+        color = RED if fail_ct > 0 else (YELLOW if warn_only else GREEN)
         bg = ' style="background:#1a1a2e"' if i % 2 == 1 else ""
         table_rows.append(
             f"<tr{bg}>"
             f'<td style="font-family:monospace;color:{color}">{model[:42]}</td>'
-            f'<td style="color:{GREEN}">{pass_ct}</td>'
+            f'<td style="color:{GREEN if pass_ct > 0 else GRAY}">{pass_ct}</td>'
             f'<td style="text-align:right;color:{YELLOW}">{c.get("WARN",0)}</td>'
             f'<td style="text-align:right;color:{RED}">{c.get("FAIL",0)}</td>'
             f'<td style="text-align:right">{total}</td>'
-            f"<td>{_bar(pass_ct, total, color)}</td></tr>"
+            f"<td>{_bar(pass_ct, eligible, color)}</td></tr>"
         )
     return (
         f'{legend_html}'
