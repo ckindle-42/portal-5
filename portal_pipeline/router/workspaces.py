@@ -237,6 +237,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔒 Portal Security Analyst",
         "description": "Security analysis, hardening, vulnerability assessment",
         "model_hint": "baronllm:q6_k",
+        "keep_alive": "10m",
         "tools": [
             "web_search",
             "web_fetch",
@@ -251,6 +252,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔴 Portal Red Team",
         "description": "Offensive security, penetration testing, exploit research",
         "model_hint": "baronllm:q6_k",
+        "keep_alive": "10m",
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
     },
     "auto-blueteam": {
