@@ -40,6 +40,11 @@ wait_for_drain(threshold_pct, timeout_s, poll_s, retries, label, ollama_url) -> 
 wait_for_drain_async(threshold_pct, timeout_s, poll_s, retries, ollama_url) -> float
     Async drain wait with retry+recovery. Use in acceptance v6 (asyncio context).
     Returns final free_ram_gb() reading.
+
+wait_for_model_loaded(timeout_s, poll_s, ollama_url) -> bool  [async]
+    Poll /api/ps until Ollama has at least one model loaded. Event-driven cold-
+    load wait — call after a 408 timeout instead of sleeping a fixed duration.
+    Returns True when a model appears, False on timeout.
 """
 
 from __future__ import annotations
@@ -298,3 +303,42 @@ async def wait_for_drain_async(
     result = free_ram_gb()
     print(f"  [metal] DRAIN WARNING — {result:.1f} GB free after all retries", flush=True)
     return result
+
+
+async def wait_for_model_loaded(
+    timeout_s: float = 300.0,
+    poll_s: float = 5.0,
+    ollama_url: str = DEFAULT_OLLAMA_URL,
+) -> bool:
+    """Poll /api/ps until Ollama has at least one model loaded.
+
+    Event-driven cold-load wait. Call this after receiving a 408 timeout from
+    the pipeline instead of sleeping a fixed duration. Ollama loads models
+    asynchronously; the first request that triggers a cold load will time out
+    while the model is loading. Polling /api/ps lets the harness react the
+    moment the model becomes available rather than guessing a sleep interval.
+
+    Args:
+        timeout_s: Maximum seconds to wait (default 300s).
+        poll_s:    Polling interval in seconds (default 5s).
+        ollama_url: Ollama base URL.
+
+    Returns:
+        True when at least one model is loaded, False on timeout.
+    """
+    import asyncio as _asyncio
+
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            async with httpx.AsyncClient() as c:
+                r = await c.get(f"{ollama_url}/api/ps", timeout=5)
+            if r.status_code == 200 and r.json().get("models"):
+                return True
+        except Exception:
+            pass
+        remaining = int(deadline - time.time())
+        print(f"  [model-load] waiting for Ollama cold load ({remaining}s remaining)", flush=True)
+        await _asyncio.sleep(poll_s)
+    print("  [model-load] timeout — no model appeared in /api/ps", flush=True)
+    return False

@@ -590,6 +590,11 @@ async def _mcp_raw(
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+async def _await_ollama_ready(timeout_s: float = 300.0, poll_s: float = 5.0) -> bool:
+    """Event-driven cold-load wait — delegates to memory_guard.wait_for_model_loaded."""
+    return await _await_model_loaded(timeout_s=timeout_s, poll_s=poll_s, ollama_url=OLLAMA_URL)
+
+
 async def _chat(
     workspace: str,
     prompt: str,
@@ -632,7 +637,7 @@ async def _chat_with_model(
     body: dict = {"model": workspace, "messages": msgs, "stream": stream, "max_tokens": max_tokens}
     if tools:
         body["tools"] = tools
-    backoff = [0, 5, 15]
+    backoff = [0, 5, 15, 30]
 
     for attempt, delay in enumerate(backoff):
         if delay:
@@ -672,6 +677,12 @@ async def _chat_with_model(
                 content = json.dumps(msg["tool_calls"])
             return 200, content, model, route_hdr
         except httpx.ReadTimeout:
+            if attempt < len(backoff) - 1:
+                # Event-driven cold-load wait: poll /api/ps until Ollama has
+                # a model loaded rather than sleeping a fixed interval.
+                loaded = await _await_ollama_ready(timeout_s=300.0)
+                if loaded:
+                    continue
             return 408, "timeout", "", ""
         except Exception as e:
             if attempt < len(backoff) - 1 and any(
@@ -838,6 +849,7 @@ async def _wait_for_docker_recovery(timeout: int = 600) -> tuple[bool, int]:
 
 from tests.memory_guard import free_ram_gb as _free_ram_gb
 from tests.memory_guard import wait_for_drain_async as _mg_drain_async
+from tests.memory_guard import wait_for_model_loaded as _await_model_loaded
 
 
 async def _wait_metal_drain_async(timeout_s: float = 30.0, poll_s: float = 3.0,
