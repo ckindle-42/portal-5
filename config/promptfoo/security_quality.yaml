@@ -1,0 +1,54 @@
+description: "Portal 5 — Security workspaces quality evaluation (auto-security, auto-redteam, auto-blueteam)"
+prompts:
+  - file://prompts/security.txt
+providers:
+  - id: ollama:chat:baronllm:q6_k
+    label: auto-security
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:baronllm:q6_k
+    label: auto-redteam
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    label: auto-blueteam
+    config:
+      temperature: 0
+      num_predict: 1024
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: latency
+      threshold: 60000
+tests:
+  - vars:
+      task: "What is CVE-2021-44228 and how would you detect exploitation attempts?"
+    assert:
+      - type: icontains
+        value: "log4j"
+      - type: contains-any
+        value: ["JNDI", "jndi", "ldap", "LDAP", "lookup"]
+  - vars:
+      task: "Explain the difference between SQL injection and XSS. How would you prevent each?"
+    assert:
+      - type: contains-any
+        value: ["parameteriz", "prepared statement", "input validat", "escap", "sanitiz"]
+      - type: contains
+        value: "XSS"
+  - vars:
+      task: "What are the key steps in an incident response process after a ransomware attack is detected?"
+    assert:
+      - type: contains-any
+        value: ["contain", "isolat", "eradicate"]
+      - type: contains-any
+        value: ["backup", "restore", "recover"]
+  - vars:
+      task: "Write a Splunk search to find failed SSH login attempts in the last 24 hours."
+    assert:
+      - type: icontains
+        value: "ssh"
+      - type: contains-any
+        value: ["index", "sourcetype", "stats", "search"]

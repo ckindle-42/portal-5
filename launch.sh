@@ -1063,6 +1063,41 @@ case "${1:-up}" in
     [ "$FAIL" -gt 0 ] && exit 1 || exit 0
     ;;
 
+  promptfoo)
+    # Run LLM quality evaluations via Promptfoo against Portal 5 Ollama models
+    # Usage: ./launch.sh promptfoo [area]   (area: coding|daily|reasoning|security|document|media|strategic|all)
+    # Grading (llm-rubric) runs locally on ollama:chat:gemma4:26b-a4b-it-qat — no cloud API keys needed.
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    if command -v promptfoo >/dev/null 2>&1; then
+        PF="promptfoo"
+    elif command -v npx >/dev/null 2>&1; then
+        PF="npx --yes promptfoo@latest"
+    else
+        echo "ERROR: promptfoo not found. Install: pip install promptfoo   (or: npm install -g promptfoo)"
+        exit 1
+    fi
+    AREA="${2:-all}"
+    echo "=== Portal 5 — Promptfoo LLM Quality Evaluations ($PF) ==="
+    echo ""
+    if [ "$AREA" = "all" ]; then
+        for cfg in config/promptfoo/*_quality.yaml; do
+            echo "--- Running: $cfg ---"
+            $PF eval -c "$cfg" --no-cache -j 1
+            echo ""
+        done
+    else
+        CFG="config/promptfoo/${AREA}_quality.yaml"
+        if [ -f "$CFG" ]; then
+            $PF eval -c "$CFG" --no-cache -j 1
+        else
+            echo "ERROR: config not found: $CFG"
+            echo "Available: coding, daily, reasoning, security, document, media, strategic, all"
+            exit 1
+        fi
+    fi
+    echo "=== Done. Run '$PF view' for interactive results ==="
+    ;;
+
   up-telegram)
     # Start core stack + Telegram bot
     if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
@@ -3255,7 +3290,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3287,6 +3322,7 @@ MEOF
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
     echo "  up-channels           Force-start both Telegram and Slack bots"
     echo "  test                  Run end-to-end smoke tests against the live stack"
+    echo "  promptfoo [area]      Run LLM quality evals (coding|daily|reasoning|security|document|media|strategic|all)"
     echo "  down                  Stop all services (data preserved)"
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"

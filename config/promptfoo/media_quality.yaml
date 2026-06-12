@@ -1,0 +1,59 @@
+description: "Portal 5 — Media workspaces quality evaluation (auto-vision, auto-video, auto-music, auto-audio)"
+prompts:
+  - file://prompts/media.txt
+providers:
+  - id: ollama:chat:qwen3-vl:32b
+    label: auto-vision
+    config:
+      temperature: 0
+      num_predict: 512
+  - id: ollama:chat:granite4.1:8b
+    label: auto-video
+    config:
+      temperature: 0
+      num_predict: 512
+  - id: ollama:chat:lfm2.5:8b
+    label: auto-music
+    config:
+      temperature: 0.7
+      num_predict: 512
+  - id: ollama:chat:gemma4:12b-it-qat
+    label: auto-audio
+    config:
+      temperature: 0
+      num_predict: 512
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: not-contains
+      value: "as an AI language model"
+    - type: latency
+      threshold: 60000
+tests:
+  - vars:
+      task: "Describe what types of visual content you can analyze. What image formats do you support?"
+    assert:
+      - type: javascript
+        value: "output.length >= 100"
+  - vars:
+      task: "What are the key elements of a good video description for AI generation?"
+    assert:
+      - type: javascript
+        value: "output.length >= 100"
+      - type: contains-any
+        value: ["prompt", "describ", "scene", "visual", "style"]
+  - vars:
+      task: "What would be a good chord progression for an uplifting pop song in C major?"
+    assert:
+      - type: javascript
+        value: "output.length >= 100"
+      - type: contains-any
+        value: ["C", "G", "F", "Am", "chord", "progression"]
+  - vars:
+      task: "What can you tell me about audio transcription workflows?"
+    assert:
+      - type: javascript
+        value: "output.length >= 100"
+      - type: contains-any
+        value: ["transcript", "audio", "speech", "whisper"]

@@ -1,0 +1,65 @@
+description: "Portal 5 — Daily-driver workspaces quality evaluation (auto-daily, auto, auto-creative)"
+prompts:
+  - file://prompts/daily.txt
+providers:
+  - id: ollama:chat:gemma4:26b-a4b-it-qat
+    label: auto-daily
+    config:
+      temperature: 0.3
+      num_predict: 512
+  - id: ollama:chat:huihui_ai/qwen3.5-abliterated:9b
+    label: auto
+    config:
+      temperature: 0.3
+      num_predict: 512
+  - id: ollama:chat:fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+    label: auto-creative
+    config:
+      temperature: 0.7
+      num_predict: 1024
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: not-contains
+      value: "as an AI language model"
+    - type: latency
+      threshold: 30000
+tests:
+  - vars:
+      task: "What's a quick lunch I can make in 10 minutes with eggs, bread, and tomato?"
+    assert:
+      - type: javascript
+        value: "output.length >= 200"
+      - type: contains-any
+        value: ["egg", "bread", "tomato"]
+  - vars:
+      task: "Rewrite this for clarity: 'so basically what we found is that the thing we thought was broken wasn't actually broken it was just configured wrong which honestly is kind of worse'"
+    assert:
+      - type: javascript
+        value: "output.length >= 80"
+      - type: contains-any
+        value: ["broken", "configur", "misconfigur"]
+  - vars:
+      task: "Summarize the main idea of photosynthesis in one paragraph."
+    assert:
+      - type: javascript
+        value: "output.length >= 100"
+      - type: contains-any
+        value: ["light", "sugar", "glucose", "chlorophyll", "energy"]
+  - vars:
+      task: "Plan a 90-minute focused work block: reply to 4 emails, draft a memo, and review a PR."
+    assert:
+      - type: javascript
+        value: "output.length >= 150"
+      - type: contains-any
+        value: ["minutes", "min", "block", "first", "then", "next"]
+      - type: contains-any
+        value: ["email", "memo", "PR", "pull request", "review"]
+  - vars:
+      task: "Write a short creative story about a robot learning to paint."
+    assert:
+      - type: javascript
+        value: "output.length >= 200"
+      - type: contains-any
+        value: ["robot", "paint", "color", "brush", "art"]

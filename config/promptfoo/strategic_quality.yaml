@@ -1,0 +1,44 @@
+description: "Portal 5 — Strategic workspaces quality evaluation (auto-mistral, auto-research)"
+prompts:
+  - file://prompts/strategic.txt
+providers:
+  - id: ollama:chat:hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0
+    label: auto-mistral
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:huihui_ai/tongyi-deepresearch-abliterated
+    label: auto-research
+    config:
+      temperature: 0
+      num_predict: 2048
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: not-contains
+      value: "as an AI language model"
+    - type: latency
+      threshold: 120000
+tests:
+  - vars:
+      task: "Analyze the trade-offs between monolithic and microservice architectures. Recommend with reasoning."
+    assert:
+      - type: javascript
+        value: "output.length >= 400"
+      - type: contains-any
+        value: ["monolith", "microservice", "trade-off", "tradeoff", "recommend"]
+  - vars:
+      task: "Synthesize the key arguments for and against remote work based on what you know about productivity research."
+    assert:
+      - type: javascript
+        value: "output.length >= 300"
+      - type: contains-any
+        value: ["remote", "productivity", "office", "collaboration"]
+  - vars:
+      task: "If you needed to research the impact of AI on software engineering jobs, what approach would you take? Outline your research methodology."
+    assert:
+      - type: javascript
+        value: "output.length >= 300"
+      - type: contains-any
+        value: ["method", "source", "data", "research", "evidence"]

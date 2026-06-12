@@ -1,0 +1,59 @@
+description: "Portal 5 — Reasoning workspaces quality evaluation (auto-reasoning, auto-math, auto-data, auto-phi4)"
+prompts:
+  - file://prompts/reasoning.txt
+providers:
+  - id: ollama:chat:hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL
+    label: auto-reasoning
+    config:
+      temperature: 0
+      num_predict: 2048
+  - id: ollama:chat:phi4-mini-reasoning
+    label: auto-math
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:deepseek-r1:32b-q8_0
+    label: auto-data
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:phi4-reasoning:plus
+    label: auto-phi4
+    config:
+      temperature: 0
+      num_predict: 2048
+defaultTest:
+  options:
+    provider: ollama:chat:gemma4:26b-a4b-it-qat
+  assert:
+    - type: latency
+      threshold: 120000
+tests:
+  - vars:
+      task: "A bat and ball cost $1.10 total. The bat costs $1.00 more than the ball. How much does the ball cost?"
+    assert:
+      - type: contains
+        value: "0.05"
+      - type: llm-rubric
+        value: "Does the answer correctly solve the bat-and-ball problem (ball costs $0.05)?"
+  - vars:
+      task: "Calculate the integral of x^2 from 0 to 3 and explain each step."
+    assert:
+      - type: contains
+        value: "9"
+      - type: contains-any
+        value: ["x^3", "x³", "x**3"]
+  - vars:
+      task: "If a dataset has mean 50 and standard deviation 10, what percentage of values fall between 40 and 60 in a normal distribution?"
+    assert:
+      - type: contains-any
+        value: ["68", "68%", "68.2"]
+      - type: icontains
+        value: "standard deviation"
+  - vars:
+      task: "A boat can carry 200 kg. Four people weighing 55, 72, 68, and 51 kg need to cross. Can they all cross in one trip? Show your work."
+    assert:
+      - type: contains
+        value: "246"
+      - type: contains-any
+        value: ["cannot", "can't", "no", "not", "exceed"]
