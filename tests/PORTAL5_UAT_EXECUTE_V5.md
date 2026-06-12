@@ -55,6 +55,64 @@ report. You do NOT modify product code (`portal_pipeline/**`,
 
 ---
 
+## Autonomous Monitoring Loop — Required Default Behavior
+
+UAT runs span 8 phases and 3–8 hours total. **Immediately after launching each
+phase, establish a `ScheduleWakeup` loop.** This is not optional — it is the
+required execution pattern. Do not hand off to the user to re-invoke you.
+
+### On launch of each phase
+```python
+# After starting the phase process, schedule the first wakeup:
+ScheduleWakeup(
+    delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
+    reason="monitoring UAT phase N — check progress, handle failures",
+    prompt="<self-contained context — see template below>"
+)
+```
+
+### On each wakeup
+1. **Check process:** `ps aux | grep portal5_uat | grep -v grep`
+2. **Tail the log** (always launch with `python3 -u ... > /tmp/uat_phaseN.log 2>&1 &`):
+   `tail -20 /tmp/uat_phaseN.log`
+3. **Check UAT_RESULTS.md** for new FAIL rows: `grep FAIL tests/UAT_RESULTS.md | tail -10`
+4. **If running cleanly:** re-schedule at 270s and return.
+5. **If FAILs appeared:** investigate per the Failure Investigation Protocol.
+   Apply fixes, mark the row, re-run the failed test with `--rerun-failed`.
+6. **If process died unexpectedly:** check log tail; check memory (`vm_stat`);
+   see Resume Protocol; restart the phase from where it stopped.
+7. **If phase complete:** run the inter-phase gate, log the phase row, then
+   launch the next phase and re-establish the loop.
+
+### Inter-phase gate (run after every phase)
+```bash
+python3 tests/portal5_uat_driver.py --section inter_phase_gate
+```
+Gate exits 1 if unrecoverable (memory, service down). Fix before proceeding.
+
+### Final completion steps (after Phase 7 / last phase)
+```bash
+# Archive UAT chats into dated folder (driver does this on clean exit;
+# run manually if the driver was interrupted):
+python3 tests/portal5_uat_driver.py --archive-only
+# Commit results
+git add tests/UAT_RESULTS.md && git commit -m "results(uat): <run date> — P/W/F summary"
+```
+Update memory file at
+`~/.claude/projects/-Users-chris-projects-portal-5/memory/` with final counts
+and any defects found.
+
+### Wakeup prompt template
+The wakeup prompt must be self-contained — it re-enters cold. Include:
+- Current phase number and section name
+- Process PID and log path
+- Phase plan table row (which phases done, which remain)
+- Last test number and result seen in the log
+- Any fixes or model skips applied this session
+- The inter-phase gate and next-phase launch command
+
+---
+
 ## What the UAT Driver Tests
 
 Per-test browser-driven validation through Open WebUI (:8080) → pipeline

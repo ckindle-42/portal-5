@@ -21,6 +21,64 @@ pass/fail report with evidence. You do NOT modify product code
 
 ---
 
+## Autonomous Monitoring Loop — Required Default Behavior
+
+Long acceptance runs (82+ min full suite, 50+ min S10c) outlast a single
+session. **Immediately after launching any run, establish a `ScheduleWakeup`
+loop.** This is not optional — it is the required execution pattern.
+
+### On launch
+```python
+# After starting the process, schedule the first wakeup:
+ScheduleWakeup(
+    delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
+    reason="monitoring acceptance run — check progress, handle failures",
+    prompt="<self-contained context — see template below>"
+)
+```
+
+### On each wakeup
+1. **Check process:** `ps aux | grep portal5_acceptance | grep -v grep`
+2. **Tail the log:** `tail -30 /tmp/acceptance_run.log` (or wherever you
+   redirected output — always use `python3 -u` for unbuffered output)
+3. **If running cleanly:** re-schedule at 270s and return.
+4. **If FAILs appeared:** investigate immediately (see Handling Failures).
+   Fix code defects; do NOT fix model-behavior WARNs mid-run.
+5. **If process died:** check log tail for error, fix if code issue, restart
+   with `--append` so prior results are preserved.
+6. **If run complete:** execute the post-run steps below, then schedule a
+   long idle wakeup (1800s) or let the loop end.
+
+### Post-run steps (run in order on completion)
+```bash
+python3 scripts/update_grafana_acceptance.py --input ACCEPTANCE_RESULTS.md
+GRAFANA_PASS=$(grep GRAFANA_PASSWORD .env | cut -d= -f2)
+curl -s -X POST "http://admin:${GRAFANA_PASS}@localhost:3000/api/admin/provisioning/dashboards/reload"
+git add ACCEPTANCE_RESULTS.md config/grafana/dashboards/portal5_acceptance.json \
+    tests/acceptance_corpus/
+git commit -m "results(acceptance): <summary of sections / counts>"
+```
+Then update the memory file at
+`~/.claude/projects/-Users-chris-projects-portal-5/memory/project_acceptance_v8_run1.md`
+with final counts and any defects found.
+
+### Targeted reruns with --append
+When re-running specific sections after fixes, **always use `--append`** so
+prior results are preserved and blended. Never overwrite the full results file.
+If a chained append is needed across multiple reruns, use
+`scripts/blend_acceptance_results.py` to rebuild from git history rather than
+chaining from a partially-merged file (chaining causes lossy section drops).
+
+### Wakeup prompt template
+The wakeup prompt must be self-contained — it re-enters cold. Include:
+- Process PID and log path
+- Current run state (section, test number, counts so far)
+- Which sections still to run (if targeted rerun)
+- Any fixes applied this session
+- The post-run steps listed above
+
+---
+
 ## What V8 Tests
 
 Counts derive at run time from `config/backends.yaml` and `config/personas/`.
