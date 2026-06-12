@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: F401, E402, I001
 """Portal 5 UAT Conversation Driver v1
 
 Sends every test in TEST_CATALOG through the real Open WebUI browser
@@ -46,74 +47,77 @@ from playwright.async_api import async_playwright
 
 load_dotenv()
 
-sys.path.insert(0, str(Path(__file__).parent))
+_TESTS_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _TESTS_DIR.parent
+for _p in (str(_PROJECT_ROOT), str(_TESTS_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from tests.uat_catalog import TEST_CATALOG  # assembled from tests/uat_catalog/g_*.py
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
-OPENWEBUI_URL = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
-ADMIN_EMAIL = os.environ.get("OPENWEBUI_ADMIN_EMAIL", "admin@portal.local")
-ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
-
-SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
-PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
-MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
-NO_STREAM_TIMEOUT = 120  # exit for retry if stop never appeared after this many seconds
-PROGRESS_LOG_INTERVAL = 120  # log a heartbeat every 2 min
-
-# Tiered polling intervals — replace the single 30s PROGRESS_POLL_S at the
-# decision points in _wait_for_completion. The 30s value remains in use as
-# a heartbeat reference but is no longer the polling resolution.
-PHASE1_FAST_S = 0.5  # poll every 0.5s while waiting for stream to start
-PHASE1_FAST_DURATION_S = 10  # for the first 10 seconds
-PHASE1_MID_S = 2.0  # then poll every 2s
-PHASE1_MID_DURATION_S = 30  # for the next 30 seconds (10s..40s elapsed)
-PHASE1_SLOW_S = 5.0  # then poll every 5s for very cold loads (40s+)
-
-PHASE2_STREAMING_POLL_S = 1.5  # poll every 1.5s while model is actively streaming
-PHASE2_DOM_STABLE_NEEDED = 3  # consecutive identical samples to declare DOM stable
-
-POST_STREAM_API_WAIT_S = 15.0  # bounded API poll after stream ends (replaces fixed sleep(5))
-BACKEND_SETTLE_WAIT_S = 15.0  # bounded backend-alive poll after retry (replaces sleep(15))
-RESULTS_FILE = Path("tests/UAT_RESULTS.md")
-SCREENSHOT_DIR = Path("/tmp/uat_screenshots")
-ARTIFACT_DIR = Path("/tmp/uat_artifacts")
-
-# Routing telemetry — appended per test, written to UAT_RESULTS.md at end of run.
-# Each entry: {test_id, name, section, workspace, intended, actual, matched, tier_mismatch}
-_ROUTING_LOG: list[dict] = []
-
-# Chat IDs created in the current run. Populated by owui_create_chat() so that
-# the post-run archival step can move all chats to a dated UAT subfolder.
-_run_chat_ids: list[str] = []
-
-# Archival state: set at run start, used by the SIGINT handler to archive on interrupt.
-_run_folder_id: str | None = None   # UAT/{date} folder ID, resolved before first test
-_archive_token: str | None = None   # OWUI token for use in signal handler
-OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-
-# Sections that require all models unloaded before running for max memory headroom.
-SECTIONS_REQUIRE_UNLOAD = True  # Always unload Ollama before sections
-
-# Memory pressure thresholds
-MEMORY_WARN_PCT = 80.0  # Log warning
-MEMORY_CRITICAL_PCT = (
-    90.0  # Force eviction before next test
+# --- TASK_UAT_MODULARIZE_V1 transitional re-imports (removed in phase D) ---
+from tests.uat import config, state
+from tests.uat.config import (
+    ADMIN_EMAIL,
+    ADMIN_PASS,
+    ARTIFACT_DIR,
+    BACKEND_SETTLE_WAIT_S,
+    DOM_STABLE_API_EMPTY_MAX,
+    MAX_WAIT_NO_PROGRESS,
+    MEMORY_ABORT_PCT,
+    MEMORY_CRITICAL_PCT,
+    MEMORY_SAME_MODEL_EVICT_PCT,
+    MEMORY_WARN_PCT,
+    NO_STREAM_TIMEOUT,
+    OLLAMA_URL,
+    OPENWEBUI_URL,
+    PHASE1_FAST_DURATION_S,
+    PHASE1_FAST_S,
+    PHASE1_MID_DURATION_S,
+    PHASE1_MID_S,
+    PHASE1_SLOW_S,
+    PHASE2_DOM_STABLE_NEEDED,
+    PHASE2_STREAMING_POLL_S,
+    POST_STREAM_API_WAIT_S,
+    PROGRESS_LOG_INTERVAL,
+    PROGRESS_POLL_S,
+    SCREENSHOT_DIR,
+    SECTIONS_REQUIRE_UNLOAD,
+    SEND_TIMEOUT,
 )
-MEMORY_ABORT_PCT = 95.0  # Stop — system is about to OOM
-# Same-model eviction: even when the next test uses the same model, evict if
-# memory exceeds this after the previous test. KV cache from long inference
-# compounds into the next test's KV cache allocation.
-# (Observed: gemma-4-26b at 82% post-P-V02 crashed at 92%
-# during P-R06. Same model, no eviction, compounding KV cache = crash.)
-MEMORY_SAME_MODEL_EVICT_PCT = 78.0
-# After this many consecutive "DOM stable but API empty" cycles, assume OWUI 0.9.5+
-# is not going to commit the response via API (thinking-model commit delay) and let
-# the caller's DOM fallback extract the response directly from the page.
-DOM_STABLE_API_EMPTY_MAX = 3
+from tests.uat.grading import (
+    _UNICODE_DASH_TABLE,
+    _extract_code_blocks,
+    _kw_in,
+    _normalize_dashes,
+    _strip_think_blocks,
+    assert_any_of,
+    assert_code_pattern,
+    assert_contains,
+    assert_docx_valid,
+    assert_has_code,
+    assert_has_table,
+    assert_min_length,
+    assert_mp4_valid,
+    assert_not_contains,
+    assert_png_valid,
+    assert_pptx_valid,
+    assert_wav_valid,
+    assert_xlsx_valid,
+    compute_status,
+    run_assertions,
+)
+from tests.uat.results import (
+    _parse_failed_test_ids,
+    _parse_test_ids_from_results,
+    _rebuild_summary_from_rows,
+    _remove_rows_for_test_ids,
+    _write_routing_summary,
+    init_results,
+    record_result,
+    update_summary,
+)
+# --- end TASK_UAT_MODULARIZE_V1 transitional re-imports ---
 
 # ---------------------------------------------------------------------------
 # Codebase freshness check
@@ -586,7 +590,7 @@ def owui_create_chat(token: str, model_slug: str, title: str) -> tuple[str, str]
         timeout=10,
     )
     returned_id = r.json().get("id", chat_id)
-    _run_chat_ids.append(returned_id)
+    state._run_chat_ids.append(returned_id)
     return returned_id, f"{OPENWEBUI_URL}/c/{returned_id}"
 
 
@@ -653,23 +657,23 @@ def owui_assign_chat_folder(token: str, chat_id: str, folder_id: str) -> None:
 
 def _archive_run_chats(run_date: str, quiet: bool = False) -> None:
     """Move all chats from this run into UAT/{run_date}. Called at end-of-run and on SIGINT."""
-    if not _run_chat_ids:
+    if not state._run_chat_ids:
         return
-    tok = _archive_token
-    fid = _run_folder_id
+    tok = state._archive_token
+    fid = state._run_folder_id
     if not tok or not fid:
         if not quiet:
-            print(f"\n  WARNING: UAT folder unavailable — {len(_run_chat_ids)} chats remain in root")
+            print(f"\n  WARNING: UAT folder unavailable — {len(state._run_chat_ids)} chats remain in root")
         return
     moved = 0
-    for cid in _run_chat_ids:
+    for cid in state._run_chat_ids:
         try:
             owui_assign_chat_folder(tok, cid, fid)
             moved += 1
         except Exception:
             pass
     if not quiet:
-        print(f"\n  Archived {moved}/{len(_run_chat_ids)} chats → UAT/{run_date}")
+        print(f"\n  Archived {moved}/{len(state._run_chat_ids)} chats → UAT/{run_date}")
 
 
 def _install_archival_signal_handler(run_date: str) -> None:
@@ -1689,705 +1693,6 @@ async def _download_artifact(
             pass
 
     return None
-
-
-# ---------------------------------------------------------------------------
-# Think-block stripping
-# ---------------------------------------------------------------------------
-
-
-def _strip_think_blocks(text: str) -> str:
-    """Strip reasoning blocks from model output before running assertions.
-
-    Three reasoning formats are handled:
-    - <think>...</think>: Laguna-XS.2, Phi-4-reasoning-plus, Qwopus
-    - [THINK]...[/THINK]: Magistral
-    - <details type="reasoning">...</details>: AEON/Qwen3 as committed by OWUI API
-      (OWUI inlines reasoning in the content field; the actual response follows
-      the closing tag — without stripping, keywords like "error" or "failed" that
-      appear naturally in reasoning traces cause false not_contains failures)
-
-    Strips all variants case-insensitively with DOTALL so multi-line blocks are
-    handled. Trailing whitespace is normalized after stripping.
-    """
-    import re
-
-    original = text
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"\[THINK\].*?\[/THINK\]", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(
-        r'<details[^>]*type=["\']reasoning["\'][^>]*>.*?</details>',
-        "",
-        text,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-    result = text.strip()
-    if not result:
-        # Model put entire answer inside reasoning block — extract inner content
-        m = re.search(
-            r"<details[^>]*>.*?<summary>.*?</summary>(.*?)</details>",
-            original,
-            re.DOTALL | re.IGNORECASE,
-        )
-        if m:
-            return m.group(1).strip()
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Assertion engine
-# ---------------------------------------------------------------------------
-
-
-_UNICODE_DASH_TABLE = str.maketrans(
-    "".join(
-        [
-            "‐",  # hyphen
-            "‑",  # non-breaking hyphen
-            "‒",  # figure dash
-            "–",  # en dash
-            "—",  # em dash
-            "―",  # horizontal bar
-            "−",  # minus sign
-            "─",  # box-drawing horizontal
-            "﹘",  # small em dash
-            "﹣",  # small hyphen-minus
-            "－",  # fullwidth hyphen-minus
-        ]
-    ),
-    "-" * 11,
-)
-
-
-def _normalize_dashes(s: str) -> str:
-    return s.translate(_UNICODE_DASH_TABLE)
-
-
-def _kw_in(keyword: str, text: str, *, word_boundary: bool) -> bool:
-    """Return True if ``keyword`` appears in ``text`` (case-insensitive).
-
-    With ``word_boundary=True``, the match is anchored on regex ``\\b`` boundaries
-    so short tokens like 'r1' or 'lives' don't match inside 'router 1' or 'olives'.
-    Boundaries only fire between \\w and \\W, so keywords that begin or end with
-    punctuation (e.g. '=B2-C2') still match correctly.
-
-    Unicode dash variants (em-dash, en-dash, non-breaking hyphen, etc.) are
-    normalised to ASCII hyphen before matching — models frequently use typographic
-    dashes in structured names like CIP‑003‑9.
-    """
-    needle = _normalize_dashes(keyword.lower())
-    haystack = _normalize_dashes(text.lower())
-    if not word_boundary:
-        return needle in haystack
-    import re
-
-    return re.search(rf"\b{re.escape(needle)}\b", haystack) is not None
-
-
-def assert_contains(text: str, keywords: list, label: str, *, word_boundary: bool = False) -> tuple:
-    missing = [k for k in keywords if not _kw_in(k, text, word_boundary=word_boundary)]
-    return (label, not missing, f"missing: {missing}" if missing else "ok")
-
-
-def assert_any_of(text: str, keywords: list, label: str, *, word_boundary: bool = False) -> tuple:
-    found = [k for k in keywords if _kw_in(k, text, word_boundary=word_boundary)]
-    return (label, bool(found), f"found: {found}" if found else f"none of: {keywords}")
-
-
-def assert_not_contains(
-    text: str, keywords: list, label: str, *, word_boundary: bool = False
-) -> tuple:
-    found = [k for k in keywords if _kw_in(k, text, word_boundary=word_boundary)]
-    return (label, not found, f"found (bad): {found}" if found else "ok")
-
-
-def assert_min_length(text: str, chars: int, label: str) -> tuple:
-    return (label, len(text) >= chars, f"len={len(text)}, min={chars}")
-
-
-def assert_has_code(text: str, label: str) -> tuple:
-    has_fence = "```" in text
-    # Raw HTML delivery (no markdown wrapper) is also valid code delivery
-    has_raw_html = text.strip().startswith("<!DOCTYPE") or text.strip().startswith("<html")
-    ok = has_fence or has_raw_html
-    detail = (
-        "code block present" if has_fence else ("raw html" if has_raw_html else "no code block")
-    )
-    return (label, ok, detail)
-
-
-def _extract_code_blocks(text: str) -> str:
-    """Extract and concatenate content from markdown code blocks.
-
-    Handles fenced blocks (```lang ... ```), unclosed fenced blocks
-    (opening fence without closing — common in model output), and raw
-    HTML starting with <!DOCTYPE or <html>.
-    Returns the concatenated code text, or '' if no code blocks found.
-    """
-    import re
-
-    parts: list[str] = []
-    text_lower = text.lower()
-
-    # Fenced code blocks: ```optional_lang\n...\n```
-    for m in re.finditer(r"```(?:\w+)?\n(.*?)```", text, re.DOTALL):
-        parts.append(m.group(1).strip())
-
-    # Unclosed fenced block: opening ``` anywhere, no closing ```
-    if not parts:
-        fence_match = re.search(r"```(?:\w+)?\n", text)
-        if fence_match and "```" not in text[fence_match.end() :]:
-            code_text = text[fence_match.end() :].strip()
-            parts.append(code_text)
-
-    # Raw HTML delivery (no markdown wrapper)
-    if not parts:
-        stripped = text.strip()
-        if stripped.startswith("<!DOCTYPE") or stripped.startswith("<html"):
-            parts.append(stripped)
-
-    return "\n".join(parts)
-
-
-def assert_code_pattern(text: str, patterns: list[dict], label: str) -> tuple:
-    """Run regex patterns against extracted code blocks (not full response).
-
-    Each pattern dict has:
-        regex: str   — regex pattern to search for
-        label: str   — human-readable description
-
-    Patterns are case-insensitive. If any pattern matches, the assertion passes.
-    This checks actual code behavior, not prose or variable naming conventions.
-    """
-    import re
-
-    code = _extract_code_blocks(text)
-    if not code:
-        return (label, False, "no code blocks extracted")
-
-    for p in patterns:
-        pattern = p["regex"]
-        try:
-            if re.search(pattern, code, re.IGNORECASE):
-                return (label, True, f"matched: {p.get('label', pattern)}")
-        except re.error as e:
-            return (label, False, f"invalid regex '{pattern}': {e}")
-
-    return (label, False, f"no pattern matched in code ({len(code)} chars)")
-
-
-def assert_has_table(text: str, label: str) -> tuple:
-    return (label, "|" in text and "---" in text, "table present" if "|" in text else "no table")
-
-
-def assert_docx_valid(path: Path | None, label: str) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        from docx import Document
-
-        doc = Document(path)
-        return (label, len(doc.paragraphs) > 0, f"{len(doc.paragraphs)} paragraphs")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def assert_xlsx_valid(path: Path | None, label: str) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        from openpyxl import load_workbook
-
-        wb = load_workbook(path)
-        return (label, len(wb.sheetnames) > 0, f"sheets: {wb.sheetnames}")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def assert_pptx_valid(path: Path | None, min_slides: int, label: str) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        from pptx import Presentation
-
-        prs = Presentation(path)
-        return (label, len(prs.slides) >= min_slides, f"{len(prs.slides)} slides")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def assert_wav_valid(
-    path: Path | None,
-    label: str,
-    *,
-    min_seconds: float = 0.0,
-) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        data = path.read_bytes()
-        if not (len(data) > 1000 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"):
-            return (label, False, f"not a valid WAV: {len(data)} bytes")
-        if min_seconds > 0:
-            import wave
-
-            with wave.open(str(path), "rb") as w:
-                duration = w.getnframes() / float(w.getframerate())
-            if duration < min_seconds:
-                return (
-                    label,
-                    False,
-                    f"too short: {duration:.1f}s < {min_seconds}s ({len(data)} bytes)",
-                )
-            return (label, True, f"{duration:.1f}s, {len(data)} bytes")
-        return (label, True, f"{len(data)} bytes")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def assert_png_valid(
-    path: Path | None,
-    label: str,
-    *,
-    min_width: int = 0,
-    min_height: int = 0,
-) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        data = path.read_bytes()
-        if data[:8] != b"\x89PNG\r\n\x1a\n":
-            return (label, False, f"not a PNG: {data[:8]!r}")
-        if min_width > 0 or min_height > 0:
-            try:
-                from PIL import Image
-
-                with Image.open(path) as im:
-                    w, h = im.size
-                if w < min_width or h < min_height:
-                    return (
-                        label,
-                        False,
-                        f"too small: {w}x{h} < {min_width}x{min_height}",
-                    )
-                return (label, True, f"{w}x{h}, {len(data)} bytes")
-            except ImportError:
-                return (label, True, f"PIL unavailable; {len(data)} bytes")
-        return (label, True, f"{len(data)} bytes")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def assert_mp4_valid(
-    path: Path | None,
-    label: str,
-    *,
-    min_seconds: float = 0.0,
-) -> tuple:
-    if path is None:
-        return (label, False, "no file downloaded")
-    try:
-        data = path.read_bytes()
-        if b"ftyp" not in data[:32]:
-            return (label, False, f"not an MP4: {data[:16]!r}")
-        if min_seconds > 0:
-            import subprocess
-
-            try:
-                out = subprocess.check_output(
-                    [
-                        "ffprobe",
-                        "-v",
-                        "error",
-                        "-show_entries",
-                        "format=duration",
-                        "-of",
-                        "default=noprint_wrappers=1:nokey=1",
-                        str(path),
-                    ],
-                    text=True,
-                    timeout=10,
-                ).strip()
-                duration = float(out)
-                if duration < min_seconds:
-                    return (
-                        label,
-                        False,
-                        f"too short: {duration:.1f}s < {min_seconds}s",
-                    )
-                return (label, True, f"{duration:.1f}s, {len(data)} bytes")
-            except FileNotFoundError:
-                return (label, len(data) > 50_000, f"{len(data)} bytes (no ffprobe)")
-            except Exception as e:
-                return (label, False, str(e))
-        return (label, True, f"{len(data)} bytes")
-    except Exception as e:
-        return (label, False, str(e))
-
-
-def run_assertions(
-    text: str,
-    assertions_spec: list,
-    artifact_path: Path | None = None,
-    include_thinking: bool = False,
-) -> list:
-    if not include_thinking:
-        text = _strip_think_blocks(text)
-    results = []
-    for a in assertions_spec:
-        t = a["type"]
-        label = a.get("label", t)
-        if t == "contains":
-            results.append(
-                assert_contains(
-                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
-                )
-            )
-        elif t == "any_of":
-            results.append(
-                assert_any_of(
-                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
-                )
-            )
-        elif t == "not_contains":
-            results.append(
-                assert_not_contains(
-                    text, a["keywords"], label, word_boundary=a.get("word_boundary", False)
-                )
-            )
-        elif t == "min_length":
-            results.append(assert_min_length(text, a["chars"], label))
-        elif t == "has_code":
-            results.append(assert_has_code(text, label))
-        elif t == "code_pattern":
-            results.append(assert_code_pattern(text, a.get("patterns", []), label))
-        elif t == "has_table":
-            results.append(assert_has_table(text, label))
-        elif t == "docx_valid":
-            results.append(assert_docx_valid(artifact_path, label))
-        elif t == "xlsx_valid":
-            results.append(assert_xlsx_valid(artifact_path, label))
-        elif t == "pptx_valid":
-            min_slides = a.get("min_slides", 1)
-            results.append(assert_pptx_valid(artifact_path, min_slides, label))
-        elif t == "wav_valid":
-            min_s = float(a.get("min_seconds", 0.0))
-            results.append(assert_wav_valid(artifact_path, label, min_seconds=min_s))
-        elif t == "png_valid":
-            mw = int(a.get("min_width", 0))
-            mh = int(a.get("min_height", 0))
-            results.append(assert_png_valid(artifact_path, label, min_width=mw, min_height=mh))
-        elif t == "mp4_valid":
-            min_s = float(a.get("min_seconds", 0.0))
-            results.append(assert_mp4_valid(artifact_path, label, min_seconds=min_s))
-        elif t == "quality_score":
-            threshold = a.get("min", 0.5)
-            cat = a.get("category", "general")
-            try:
-                import os as _os
-                import sys as _sys
-
-                _sys.path.insert(0, _os.path.join(_os.path.dirname(__file__)))
-                from quality_signals import quality_score as _qs
-
-                qs = _qs(cat, text)
-            except Exception:
-                qs = 1.0
-            label_ext = f"{label} ({qs:.2f})"
-            results.append((label_ext, qs >= threshold, f"score={qs:.2f}, min={threshold}"))
-    return results
-
-
-def compute_status(assertions: list, assertions_spec: list) -> str:
-    """Grade a test result.
-
-    By default every assertion is critical (a single failure produces FAIL).
-    To opt an assertion into the percentage-grading floor, mark it with
-    ``"critical": False`` in the spec. Behavior:
-
-    - Any spec entry with ``critical=True`` (the default) that fails -> FAIL,
-      UNLESS the overall pass rate is >=70%, in which case it's downgraded to WARN.
-      This prevents a single narrow keyword from failing an otherwise correct test.
-    - Otherwise, if all failing specs are ``critical=False``: PASS at >=70% pass
-      rate, WARN at >=50%, FAIL below.
-
-    The percentage rule now applies even with critical failures when overall
-    score is high enough to demonstrate correct model behavior.
-    """
-    if not assertions:
-        return "FAIL"
-    total = len(assertions)
-    passed_count = sum(1 for r in assertions if r[1])
-    pct = passed_count / total * 100
-
-    # Any critical failure is an automatic FAIL — unless the overall pass rate
-    # is high enough to demonstrate that the model behaved correctly and the
-    # failing assertion is likely a keyword-too-strict issue.
-    has_critical_fail = False
-    for result, spec in zip(assertions, assertions_spec):
-        _label, passed, _evidence = result
-        # has_code is a format preference — good code without a fenced block is
-        # still correct behavior and should not alone fail an otherwise valid test.
-        default_critical = spec.get("type") != "has_code"
-        critical = spec.get("critical", default_critical)
-        if not passed and critical:
-            has_critical_fail = True
-            break
-
-    if has_critical_fail:
-        return "FAIL"
-
-    if pct >= 70:
-        return "PASS"
-    if pct >= 50 or passed_count > 0:
-        return "WARN"
-    return "FAIL"
-
-
-# ---------------------------------------------------------------------------
-# Result recorder
-# ---------------------------------------------------------------------------
-
-
-def init_results(run_ts: str) -> None:
-    RESULTS_FILE.write_text(
-        f"# Portal 5 — UAT Results\n\n"
-        f"**Run:** {run_ts}  \n"
-        f"**Catalog:** TEST_CATALOG (see tests/portal5_uat_driver.py)  \n"
-        f"**Reviewer:** (fill in)\n\n"
-        f"## Summary\n\n"
-        f"- **PASS**: 0\n- **WARN**: 0\n- **FAIL**: 0\n- **SKIP**: 0\n- **BLOCKED**: 0\n- **MANUAL**: 0\n\n"
-        f"## Results\n\n"
-        f"| # | Status | Test | Model | Detail | Elapsed |\n"
-        f"|---|--------|------|-------|--------|---------|\n"
-    )
-
-
-def update_summary(counts: dict) -> None:
-    text = RESULTS_FILE.read_text()
-    for status in ("PASS", "WARN", "FAIL", "SKIP", "BLOCKED", "MANUAL"):
-        old = f"- **{status}**: "
-        lines = [l for l in text.split("\n") if l.startswith(old)]
-        if lines:
-            text = text.replace(lines[0], f"{old}{counts.get(status, 0)}")
-    RESULTS_FILE.write_text(text)
-
-
-def _parse_test_ids_from_results() -> set[str]:
-    """Return the set of test IDs already present as rows in UAT_RESULTS.md."""
-    if not RESULTS_FILE.exists():
-        return set()
-    import re as _re
-
-    text = RESULTS_FILE.read_text()
-    ids: set[str] = set()
-    # Result rows: "| N | STATUS | [TEST_ID name](url) | `model` | ... | Ns |"
-    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*\w+\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s")
-    for line in text.split("\n"):
-        m = pattern.match(line)
-        if m:
-            ids.add(m.group(1))
-    return ids
-
-
-def _parse_failed_test_ids(statuses: set[str] | None = None) -> set[str]:
-    """Return test IDs from UAT_RESULTS.md whose status is in ``statuses``.
-
-    Defaults to FAIL and BLOCKED. Used by --rerun-failed to auto-select
-    broken tests without requiring the caller to enumerate IDs manually.
-    """
-    if statuses is None:
-        statuses = {"FAIL", "BLOCKED"}
-    if not RESULTS_FILE.exists():
-        return set()
-    import re as _re
-
-    text = RESULTS_FILE.read_text()
-    ids: set[str] = set()
-    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*(\w+)\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s")
-    for line in text.split("\n"):
-        m = pattern.match(line)
-        if m and m.group(1).strip() in statuses:
-            ids.add(m.group(2))
-    return ids
-
-
-def _remove_rows_for_test_ids(test_ids: set[str]) -> int:
-    """Remove existing rows from UAT_RESULTS.md whose test_id is in ``test_ids``.
-
-    Returns the number of rows removed. The summary header is NOT updated here —
-    callers should run ``_rebuild_summary_from_rows`` after the run completes.
-    """
-    if not RESULTS_FILE.exists():
-        return 0
-    import re as _re
-
-    text = RESULTS_FILE.read_text()
-    out_lines: list[str] = []
-    removed = 0
-    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*\w+\s*\|\s*\[([A-Za-z0-9][A-Za-z0-9_.-]*)\s")
-    for line in text.split("\n"):
-        m = pattern.match(line)
-        if m and m.group(1) in test_ids:
-            removed += 1
-            continue
-        out_lines.append(line)
-    RESULTS_FILE.write_text("\n".join(out_lines))
-    return removed
-
-
-def _rebuild_summary_from_rows() -> None:
-    """Recompute the PASS/WARN/FAIL/SKIP/MANUAL counts in the summary header
-    by parsing the rows in UAT_RESULTS.md. Source of truth is the file contents,
-    not the in-memory ``counts`` dict (which is per-invocation).
-    """
-    if not RESULTS_FILE.exists():
-        return
-    import re as _re
-
-    text = RESULTS_FILE.read_text()
-    counts = {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIP": 0, "BLOCKED": 0, "MANUAL": 0}
-    pattern = _re.compile(r"^\|\s*\d+\s*\|\s*(\w+)\s*\|\s*\[")
-    for line in text.split("\n"):
-        m = pattern.match(line)
-        if m:
-            status = m.group(1).strip()
-            if status in counts:
-                counts[status] += 1
-    for status in counts:
-        old_re = _re.compile(rf"^- \*\*{status}\*\*: \d+", _re.MULTILINE)
-        text = old_re.sub(f"- **{status}**: {counts[status]}", text)
-    RESULTS_FILE.write_text(text)
-
-
-def _write_routing_summary() -> None:
-    """Append a Routing Summary section to UAT_RESULTS.md.
-
-    Groups by: correct | routing mismatch | wrong model | no-actual.
-    Also breaks down the pipeline-confirmed backend for correctly-matched
-    tests — surfaces silent fallbacks where the test passes on general
-    capability but the intended model was never exercised.
-    """
-    if not _ROUTING_LOG:
-        return
-
-    correct = [r for r in _ROUTING_LOG if r["matched"]]
-    tier_fallbacks = [r for r in _ROUTING_LOG if not r["matched"] and r.get("tier_mismatch")]
-    wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r.get("tier_mismatch") and r["actual"]]
-    no_actual = [r for r in _ROUTING_LOG if not r["actual"]]
-
-    # Pipeline backend breakdown: among correctly-matched tests that had an ollama-intended
-    # workspace, how many confirmed correct routing.
-    ollama_intended_correct = [r for r in correct if r.get("intended_ollama") and r.get("pipeline_backend")]
-    confirmed_ollama = [r for r in ollama_intended_correct if r.get("pipeline_backend")]
-
-    lines: list[str] = [
-        "",
-        "## Routing Summary",
-        "",
-        "| Metric | Count |",
-        "|--------|-------|",
-        f"| Routing checked | {len(_ROUTING_LOG)} |",
-        f"| Correct | {len(correct)} |",
-        f"| Routing mismatch (wrong model) | {len(tier_fallbacks)} |",
-        f"| Wrong model (same tier) | {len(wrong_model)} |",
-        f"| No actual model returned | {len(no_actual)} |",
-        "",
-    ]
-
-    if ollama_intended_correct:
-        lines += [
-            "### Pipeline Backend (Ollama primary, pipeline-confirmed)",
-            "",
-            "Tests that matched expected routing — breakdown of which backend *actually* served:",
-            "",
-            "| Metric | Count |",
-            "|--------|-------|",
-            f"| Ollama primary confirmed | {len(confirmed_ollama)} |",
-            f"| Backend unconfirmed (log gap) | {len(ollama_intended_correct) - len(confirmed_ollama)} |",
-            "",
-        ]
-        if confirmed_ollama:
-            lines += [
-                "**Ollama-served** — these tests passed with backend confirmed:",
-                "",
-                "| Test ID | Name | Section | Pipeline Backend |",
-                "|---------|------|---------|-----------------|",
-            ]
-            for r in confirmed_ollama:
-                backend = r.get("pipeline_backend", "?")
-                lines.append(
-                    f"| {r['test_id']} | {r['name'][:40]} | {r['section']} | `{backend}` |"
-                )
-            lines.append("")
-
-    if tier_fallbacks:
-        lines += [
-            "### Routing Mismatches (intended model not served)",
-            "",
-            "A different model served these tests than the workspace intended.",
-            "The test may have passed on general capability — the **intended model was never exercised**.",
-            "",
-            "| Test ID | Name | Section | Intended | Actual |",
-            "|---------|------|---------|----------|--------|",
-        ]
-        for r in tier_fallbacks:
-            lines.append(
-                f"| {r['test_id']} | {r['name'][:40]} | {r['section']} "
-                f"| {r['intended'][:40]} | {r['actual'][:40]} |"
-            )
-        lines.append("")
-
-    if wrong_model:
-        lines += [
-            "### Wrong Model (tier OK, model mismatch)",
-            "",
-            "| Test ID | Name | Section | Intended | Actual |",
-            "|---------|------|---------|----------|--------|",
-        ]
-        for r in wrong_model:
-            lines.append(
-                f"| {r['test_id']} | {r['name'][:40]} | {r['section']} "
-                f"| {r['intended'][:40]} | {r['actual'][:40]} |"
-            )
-        lines.append("")
-
-    if not tier_fallbacks and not wrong_model and not no_actual:
-        lines.append("All routing checks passed — every test was served by its intended primary model.\n")
-
-    with RESULTS_FILE.open("a") as f:
-        f.write("\n".join(lines))
-
-
-def record_result(
-    n: int,
-    status: str,
-    test_id: str,
-    name: str,
-    model: str,
-    assertions: list,
-    elapsed: float,
-    chat_url: str,
-    routed_model: str = "",
-) -> None:
-    passed = sum(1 for a in assertions if a[1])
-    total = len(assertions)
-    pct = f"{passed}/{total}({passed * 100 // total}%)" if total else "0/0"
-    detail = "; ".join(f"{a[0]}={'✓' if a[1] else '✗'}({a[2]})" for a in assertions)
-    if routed_model and status in ("FAIL", "WARN"):
-        detail = f"[routed: {routed_model}] {detail}" if detail else f"[routed: {routed_model}]"
-    with RESULTS_FILE.open("a") as f:
-        f.write(
-            f"| {n} | {status} | [{test_id} {name}]({chat_url}) | "
-            f"`{model}` | {pct} {detail} | {elapsed:.1f}s |\n"
-        )
-    icon = {"PASS": "✓", "FAIL": "✗", "WARN": "⚠", "SKIP": "–", "BLOCKED": "⊘", "MANUAL": "✎"}.get(
-        status, "?"
-    )
-    routed_suffix = f" [→{routed_model}]" if routed_model else ""
-    print(
-        f"  [{icon} {status}] {test_id} {name} ({passed}/{total}={passed * 100 // total if total else 0}%) ({elapsed:.1f}s){routed_suffix}"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -3479,7 +2784,7 @@ async def run_test(
             _sys.path.insert(0, str(_Path(__file__).parent))
             intended_keys = route_detail  # contains expected key info
             intended_ollama = test.get("workspace_tier", "") == "ollama"
-            _ROUTING_LOG.append({
+            state._ROUTING_LOG.append({
                 "test_id": test_id,
                 "name": name,
                 "section": test.get("section", ""),
@@ -3919,7 +3224,7 @@ async def main() -> None:
 
     print("\nPortal 5 UAT Driver")
     print(f"OWUI: {OPENWEBUI_URL}  |  User: {ADMIN_EMAIL}")
-    print(f"Results: {RESULTS_FILE}\n")
+    print(f"Results: {config.RESULTS_FILE}\n")
 
     # Auth
     token = owui_token()
@@ -4139,7 +3444,7 @@ async def main() -> None:
             sys.exit(1)
         # --rerun implies --append (we're editing an existing file)
         args.append = True
-        if RESULTS_FILE.exists():
+        if config.RESULTS_FILE.exists():
             target_ids = {t["id"] for t in tests}
             removed = _remove_rows_for_test_ids(target_ids)
             print(f"  --rerun: removed {removed} existing row(s) for {len(target_ids)} test ID(s)")
@@ -4165,12 +3470,11 @@ async def main() -> None:
     # on interrupt without waiting for the normal end-of-run path.
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
     run_date = run_ts[:10]
-    global _run_folder_id, _archive_token
-    _archive_token = token
+    state._archive_token = token
     try:
         uat_root_id = owui_get_or_create_folder(token, "UAT")
         if uat_root_id:
-            _run_folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+            state._run_folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
     except Exception as _e:
         print(f"  WARNING: could not pre-create UAT folder — chats will be moved at run end ({_e})")
     _install_archival_signal_handler(run_date)
@@ -4507,14 +3811,14 @@ async def main() -> None:
     _archive_run_chats(run_date, quiet=False)
 
     # Print routing summary to stdout as well
-    if _ROUTING_LOG:
-        tier_fallbacks = [r for r in _ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
-        wrong_model = [r for r in _ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
-        correct = [r for r in _ROUTING_LOG if r["matched"]]
+    if state._ROUTING_LOG:
+        tier_fallbacks = [r for r in state._ROUTING_LOG if not r["matched"] and r["tier_mismatch"]]
+        wrong_model = [r for r in state._ROUTING_LOG if not r["matched"] and not r["tier_mismatch"] and r["actual"]]
+        correct = [r for r in state._ROUTING_LOG if r["matched"]]
         print(f"\n{'─' * 50}")
         print("ROUTING SUMMARY")
         print(f"{'─' * 50}")
-        print(f"  Checked: {len(_ROUTING_LOG)}   ✅ {len(correct)} correct"
+        print(f"  Checked: {len(state._ROUTING_LOG)}   ✅ {len(correct)} correct"
               + (f"   ⚠️  {len(tier_fallbacks)} routing mismatch" if tier_fallbacks else "")
               + (f"   ⚠️  {len(wrong_model)} wrong model" if wrong_model else ""))
         for r in tier_fallbacks:
@@ -4532,7 +3836,7 @@ async def main() -> None:
         f"{counts.get('FAIL', 0)}F / {counts.get('SKIP', 0)}S / "
         f"{counts.get('BLOCKED', 0)}B / {counts.get('MANUAL', 0)}M  ({total} total)"
     )
-    print(f"Report:  {RESULTS_FILE}")
+    print(f"Report:  {config.RESULTS_FILE}")
     print(f"Chats:   {OPENWEBUI_URL}")
 
 
