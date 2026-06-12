@@ -87,8 +87,12 @@ ARTIFACT_DIR = Path("/tmp/uat_artifacts")
 _ROUTING_LOG: list[dict] = []
 
 # Chat IDs created in the current run. Populated by owui_create_chat() so that
-# the post-run archival step can move all chats to a dated UAT subfolder.
+# the post-run archival step can catch any chats that weren't inline-assigned.
 _run_chat_ids: list[str] = []
+
+# Folder ID for the current run's UAT/{date} subfolder. Set at run start so
+# owui_create_chat() can assign each chat immediately — surviving any interruption.
+_run_folder_id: str | None = None
 OLLAMA_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Sections that require all models unloaded before running for max memory headroom.
@@ -583,6 +587,13 @@ def owui_create_chat(token: str, model_slug: str, title: str) -> tuple[str, str]
     )
     returned_id = r.json().get("id", chat_id)
     _run_chat_ids.append(returned_id)
+    # Inline folder assignment: if the run folder is already known, move this
+    # chat immediately so an interrupted run doesn't strand chats in root.
+    if _run_folder_id:
+        try:
+            owui_assign_chat_folder(token, returned_id, _run_folder_id)
+        except Exception:
+            pass
     return returned_id, f"{OPENWEBUI_URL}/c/{returned_id}"
 
 
@@ -4122,16 +4133,23 @@ async def main() -> None:
     # stopped; UAT doesn't do that.
 
     # ---- Chat archival strategy ----
-    # Tests run in the main (root) chat history so conversations are immediately
-    # visible during the run. After completion, all chats from this run are moved
-    # to UAT/{YYYY-MM-DD} so the root stays clean and runs are date-stamped.
-    folder_id: str | None = None  # No pre-assignment — root during run
-    print("  Chat archival: conversations run in root, moved to UAT/{date} on completion")
-
-    # Init results file
-    # Targeted runs (--test / --section without --rerun) auto-append so they don't
-    # wipe the full run report.  Full runs (no filter, or explicit --rerun) reset it.
+    # Create UAT/{YYYY-MM-DD} folder up front and assign each chat immediately
+    # on creation (via _run_folder_id global). This ensures chats land in the
+    # right folder even when a run is killed or interrupted mid-way.
     run_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    run_date = run_ts[:10]
+    global _run_folder_id
+    try:
+        uat_root_id = owui_get_or_create_folder(token, "UAT")
+        if uat_root_id:
+            _run_folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
+    except Exception as _e:
+        print(f"  WARNING: could not pre-create UAT folder — chats will be moved at run end ({_e})")
+    if _run_folder_id:
+        print(f"  Chat archival: chats → UAT/{run_date} (inline, interrupt-safe)")
+    else:
+        print(f"  Chat archival: folder unavailable — will attempt move at run end")
+    folder_id: str | None = None  # kept for legacy call sites in run_single_test
     _targeted = bool((args.test or args.section) and not args.rerun and not args.append)
     if _targeted:
         args.append = True
@@ -4459,28 +4477,19 @@ async def main() -> None:
     # is correct after partial / phased / rerun executions.
     _rebuild_summary_from_rows()
 
-    # ---- Post-run archival: move all chats from this run to UAT/{run_date} ----
-    run_date = run_ts[:10]  # YYYY-MM-DD from run_ts set at start of run
-    if _run_chat_ids:
-        try:
-            uat_root_id = owui_get_or_create_folder(token, "UAT")
-            if uat_root_id:
-                dated_folder_id = owui_get_or_create_folder(token, run_date, parent_id=uat_root_id)
-                if dated_folder_id:
-                    moved = 0
-                    for cid in _run_chat_ids:
-                        try:
-                            owui_assign_chat_folder(token, cid, dated_folder_id)
-                            moved += 1
-                        except Exception:
-                            pass
-                    print(f"\n  Archived {moved}/{len(_run_chat_ids)} chats → UAT/{run_date}")
-                else:
-                    print(f"\n  WARNING: could not create UAT/{run_date} subfolder — chats remain in root")
-            else:
-                print("\n  WARNING: could not create UAT folder — chats remain in root")
-        except Exception as e:
-            print(f"\n  WARNING: post-run archival failed: {e} — chats remain in root")
+    # ---- Post-run archival safety net ----
+    # Chats are inline-assigned to _run_folder_id on creation, so most are already
+    # in UAT/{run_date}. This pass catches any that slipped through (e.g. folder
+    # creation failed at run start, or API assigned a different ID than expected).
+    if _run_chat_ids and _run_folder_id:
+        safety_moved = 0
+        for cid in _run_chat_ids:
+            try:
+                owui_assign_chat_folder(token, cid, _run_folder_id)
+                safety_moved += 1
+            except Exception:
+                pass
+        print(f"\n  Post-run archival: confirmed {safety_moved}/{len(_run_chat_ids)} chats in UAT/{run_date}")
 
     # Print routing summary to stdout as well
     if _ROUTING_LOG:
