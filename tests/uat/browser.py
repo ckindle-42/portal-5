@@ -99,6 +99,10 @@ async def _wait_for_completion(
 ) -> None:
     """Progress-monitoring wait with tiered polling.
 
+    Event-driven sibling of tests/lib/stream_wait.stream_chat (HTTP/SSE path):
+    both treat token/DOM activity as the primary signal and the wall-clock as a
+    last-resort ceiling. Keep the two in sync if the philosophy changes.
+
     Phase 1 (waiting for stream start): poll PHASE1_FAST_S → PHASE1_MID_S →
     PHASE1_SLOW_S as elapsed time grows. This catches warm-load starts (<2s)
     without forcing the same resolution on cold loads (30s+).
