@@ -453,6 +453,7 @@ services:
       # Point at DinD instead of host Docker
       - DOCKER_HOST=tcp://dind:2375
       - WORKSPACE_DIR=/workspace
+      - SANDBOX_ALLOW_NETWORK=${SANDBOX_ALLOW_NETWORK:-false}
     # Run as root to chown shared volume on startup, then drop to portal
     user: root
     entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal_mcp.execution.code_sandbox_mcp'"]
