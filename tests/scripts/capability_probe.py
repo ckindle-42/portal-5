@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,6 +33,18 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent.parent
 PIPELINE_URL = "http://localhost:9099"
 SANDBOX_URL = "http://localhost:8914"
+
+PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
+if not PIPELINE_API_KEY:
+    # Fallback: try to read from .env in the project root
+    env_file = ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("PIPELINE_API_KEY="):
+                PIPELINE_API_KEY = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+
+HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"} if PIPELINE_API_KEY else {}
 
 DEFAULT_MODELS = [
     "bench-qwen3-coder-next", "bench-qwen3-coder-30b", "bench-devstral-small-2",
@@ -56,6 +70,7 @@ async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
     r = await client.post(
         f"{PIPELINE_URL}/v1/chat/completions",
         json={"model": workspace, "messages": msgs, "stream": False},
+        headers=HEADERS,
         timeout=600,
     )
     r.raise_for_status()
