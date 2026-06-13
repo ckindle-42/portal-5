@@ -92,6 +92,16 @@ NODE_IMAGE = os.getenv("SANDBOX_NODE_IMAGE", "node:20-alpine")
 BASH_IMAGE = os.getenv("SANDBOX_BASH_IMAGE", "alpine:latest")
 MAX_OUTPUT_BYTES = 50_000  # 50KB output cap
 
+# Opt-in network access (DEFAULT OFF — production posture unchanged).
+# Set SANDBOX_ALLOW_NETWORK=true ONLY for capability-probe test runs that need
+# pip install / real dependencies (TASK_CODING_CAPABILITY_PROBE_V1 A2). When
+# enabled the resource envelope is widened so pip has room; otherwise the
+# sandbox is byte-for-byte its locked-down self.
+SANDBOX_ALLOW_NETWORK = os.getenv("SANDBOX_ALLOW_NETWORK", "false").lower() == "true"
+SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
+SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
+SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
+
 # DOCKER_HOST — for DinD setups, use tcp://dind:2375
 # The docker CLI automatically reads this env var
 DOCKER_HOST = os.environ.get("DOCKER_HOST", "")
@@ -120,16 +130,21 @@ async def _run_in_docker(
     code_file = work_dir / "code"
     code_file.write_text(code, encoding="utf-8")
 
+    # Network + resource envelope: locked down by default; widened only when
+    # SANDBOX_ALLOW_NETWORK=true (capability-probe runs). See A2.
+    _net = "bridge" if SANDBOX_ALLOW_NETWORK else "none"
+    _cpus = SANDBOX_NET_CPUS if SANDBOX_ALLOW_NETWORK else "0.5"
+    _mem = SANDBOX_NET_MEMORY if SANDBOX_ALLOW_NETWORK else "256m"
     docker_cmd = [
         "docker",
         "run",
         "--rm",
         "--network",
-        "none",  # No network access
+        _net,  # "none" by default; "bridge" only under SANDBOX_ALLOW_NETWORK
         "--cpus",
-        "0.5",  # Max 0.5 CPU
+        _cpus,  # 0.5 default; SANDBOX_NET_CPUS when network-enabled
         "--memory",
-        "256m",  # Max 256MB RAM
+        _mem,  # 256m default; SANDBOX_NET_MEMORY when network-enabled
         "--pids-limit",
         "64",  # Max 64 processes
         "--security-opt",
@@ -209,7 +224,7 @@ async def execute_python(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
-    timeout = min(timeout, 120)
+    timeout = min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=PYTHON_IMAGE,
@@ -238,7 +253,7 @@ async def execute_nodejs(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
-    timeout = min(timeout, 120)
+    timeout = min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=NODE_IMAGE,
@@ -302,7 +317,7 @@ async def sandbox_status() -> dict:
         "bash_image": BASH_IMAGE,
         "timeout_seconds": DEFAULT_TIMEOUT,
         "constraints": {
-            "network": "disabled",
+            "network": "bridge" if SANDBOX_ALLOW_NETWORK else "disabled",
             "memory_mb": 256,
             "cpu_fraction": 0.5,
             "pids_limit": 64,
@@ -364,7 +379,7 @@ async def execute_bash_endpoint(request):
         except Exception:
             py_code = ""
         if py_code:
-            result = await execute_python(code=py_code, timeout=min(timeout, 120))
+            result = await execute_python(code=py_code, timeout=min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120))
             return JSONResponse(result)
     result = await execute_bash(code=code, timeout=timeout)
     return JSONResponse(result)
