@@ -43,6 +43,13 @@ MODEL_MEMORY_GB = {
     "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf": 19,
     "qwen3-coder-next": 46,
     "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M": 46,
+    # V4 fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
+    "lfm2.5:8b": 5,
+    "granite4.1:8b": 5,
+    "granite4.1:30b": 17,
+    "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL": 5,
+    "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M": 5,
+    "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M": 12,
 }
 
 # V1's verdict reconciliation — Laguna's pass-rate under bench-laguna's

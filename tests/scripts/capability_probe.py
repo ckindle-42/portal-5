@@ -47,10 +47,14 @@ if not PIPELINE_API_KEY:
 HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"} if PIPELINE_API_KEY else {}
 
 DEFAULT_MODELS = [
+    # V1 incumbents
     "bench-qwen3-coder-next", "bench-qwen3-coder-30b", "bench-devstral-small-2",
     "bench-laguna", "bench-glm", "bench-omnicoder2", "bench-qwen36-27b",
     "bench-deepseek-coder-v2", "bench-starcoder2", "bench-qwopus-coder-mtp",
     "bench-gemma4-12b-coder",
+    # V2 additions — fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
+    "bench-lfm25-8b", "bench-granite41-8b", "bench-granite41-30b",
+    "bench-r1-0528-qwen3-8b", "bench-r1-0528-abliterated", "bench-harness1",
 ]
 
 CODE_FENCE = re.compile(r"```(?:[a-zA-Z+]*)\n([\s\S]+?)\n```", re.MULTILINE)

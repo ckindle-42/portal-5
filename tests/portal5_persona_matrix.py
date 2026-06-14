@@ -139,6 +139,13 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
             # V9 candidates (TASK_V9_EVAL_EXTENDED)
             "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
             "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
+            # V4 fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
+            "lfm2.5:8b",
+            "granite4.1:8b",
+            "granite4.1:30b",
+            "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
+            "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
+            "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M",
             # Reference columns — 80B/3B MoE (~46 GB), different weight class.
             # NOT auto-coding repin candidates. Comparison points for the upper tier.
             "qwen3-coder-next",  # auto-agentic production pin
@@ -151,6 +158,7 @@ WORKSPACE_REGISTRY: dict[str, dict[str, str]] = {
         "models_reference_only": (
             "qwen3-coder-next",
             "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
+            "granite4.1:30b",  # different weight class — observation only
         ),
     },
 }
