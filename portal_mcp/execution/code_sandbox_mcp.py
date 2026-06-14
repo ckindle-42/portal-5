@@ -154,6 +154,15 @@ async def _run_in_docker(
         "--read-only",  # Read-only root filesystem
         "--tmpfs",
         "/tmp:size=64m",  # 64MB /tmp
+    ] + (
+        # pip writes to /root/.local; needs a writable home when network-enabled.
+        # PYTHONPATH set so user-installed packages are importable immediately
+        # (user site isn't in sys.path at startup when the dir doesn't exist yet).
+        [
+            "--tmpfs", "/root:size=256m,exec",  # exec needed for C-extension .so files
+            "--env", "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
+        ] if SANDBOX_ALLOW_NETWORK else []
+    ) + [
         "-v",
         f"{code_file.absolute()}:/code:ro",
         image,

@@ -26,3 +26,11 @@ def test_timeout_cap_conditional():
 
 def test_health_reports_network_honestly():
     assert '"network": "bridge" if SANDBOX_ALLOW_NETWORK else "disabled"' in SRC
+
+
+def test_writable_root_tmpfs_for_pip():
+    assert '"--tmpfs", "/root:size=256m,exec"' in SRC
+
+
+def test_pythonpath_set_for_user_installs():
+    assert "PYTHONPATH=/root/.local/lib/python3.11/site-packages" in SRC
