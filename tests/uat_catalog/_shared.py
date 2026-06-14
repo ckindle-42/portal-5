@@ -272,18 +272,39 @@ _GC04_PROMPT = (
     "that slowly dim. 60fps, no external libraries." + _GC_SINGLE_FILE_NOTE
 )
 
-_GC04_ASSERTIONS = [
-    *_GC_BASE_ASSERTIONS,
+# ── GC-04 base assertions (visual animation — no game mechanics) ──────────
+_GC04_BASE_ASSERTIONS = [
+    {"type": "has_code", "label": "HTML file delivered"},
     {
         "type": "code_pattern",
-        "label": "Canvas rendering (60fps loop)",
+        "label": "Single-file constraint (no external script src)",
+        "negate": True,
         "patterns": [
-            {"regex": r"requestAnimationFrame\s*\(|setInterval\s*\(.*16", "label": "rAF/60fps loop"},
+            {"regex": r"<script[^>]+src\s*=", "label": "external <script src=>"},
+            {"regex": r"https?://\S+\.js", "label": "remote .js URL"},
+            {"regex": r"cdn\.\S+", "label": "CDN reference"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Canvas + animation loop present",
+        "patterns": [
             {"regex": r"<canvas", "label": "canvas element"},
+            {"regex": r"requestAnimationFrame\s*\(|setInterval\s*\(", "label": "animation loop"},
             {"regex": r"getContext\s*\(\s*['\"]2d", "label": "2d context"},
         ],
         "critical": False,
     },
+    {
+        "type": "any_of",
+        "label": "Visual atmosphere described",
+        "keywords": ["paper", "letter", "cursive", "desk", "wooden", "yellow", "flame", "fire", "smoke", "particle"],
+    },
+]
+
+_GC04_ASSERTIONS = [
+    *_GC04_BASE_ASSERTIONS,
     {
         "type": "code_pattern",
         "label": "Fire particles (core/orange/tip layers)",
