@@ -92,7 +92,6 @@ from tests.uat.config import (  # noqa: E402, F401
     SEND_TIMEOUT,
 )
 from tests.uat.dispatch import (  # noqa: E402, F401
-    _PresetUnreachableError,
     _extract_dom_response,
     _fe_assign_folder,
     _fe_current_chat_url,
@@ -103,6 +102,7 @@ from tests.uat.dispatch import (  # noqa: E402, F401
     _fe_login,
     _fe_send_and_wait,
     _fe_start_chat,
+    _PresetUnreachableError,
 )
 from tests.uat.freshness import _REPO_ROOT, _check_image_freshness  # noqa: E402, F401
 from tests.uat.grading import (  # noqa: E402, F401

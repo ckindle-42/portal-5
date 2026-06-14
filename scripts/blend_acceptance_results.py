@@ -11,9 +11,8 @@ Sources (in priority order):
 Run with no args to rebuild from git history only.
 Pass --s10-file <path> to pull S10 from a live file instead of git.
 """
-import subprocess
 import re
-import sys
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
