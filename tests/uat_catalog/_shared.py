@@ -252,6 +252,81 @@ _GC03_ASSERTIONS = [
     },
 ]
 
+# ── GC-04 Burning Letter — fire particles + smoke + scorching + lighting ───
+_GC04_PROMPT = (
+    "Create a single HTML file with a canvas animation of a handwritten letter "
+    "burning. Show an aged, slightly yellowed sheet of paper with visible "
+    "handwritten cursive text (procedurally drawn lines are fine) resting on a "
+    "dark wooden desk. After 2 seconds, a flame ignites at the bottom-right "
+    "corner and spreads organically across the page — the burn front should "
+    "advance with an irregular, noisy edge, never a straight line. Just ahead "
+    "of the flames, the paper should darken and brown (scorching), then char "
+    "black, then disappear entirely, revealing the desk beneath. Render the "
+    "fire with layered particles: a bright white-yellow core, orange mid-flame, "
+    "and translucent red tips that flicker and lick upward. Glowing embers "
+    "should detach from the burn edge and drift upward on turbulent air "
+    "currents, fading from orange to gray. Add wisps of semi-transparent smoke "
+    "rising and dispersing above the flames, and a warm flickering light that "
+    "the fire casts onto the surrounding desk. The entire page should be "
+    "consumed in roughly 15 seconds, leaving only a few glowing ash fragments "
+    "that slowly dim. 60fps, no external libraries." + _GC_SINGLE_FILE_NOTE
+)
+
+_GC04_ASSERTIONS = [
+    *_GC_BASE_ASSERTIONS,
+    {
+        "type": "code_pattern",
+        "label": "Canvas rendering (60fps loop)",
+        "patterns": [
+            {"regex": r"requestAnimationFrame\s*\(|setInterval\s*\(.*16", "label": "rAF/60fps loop"},
+            {"regex": r"<canvas", "label": "canvas element"},
+            {"regex": r"getContext\s*\(\s*['\"]2d", "label": "2d context"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Fire particles (core/orange/tip layers)",
+        "patterns": [
+            {"regex": r"\bparticle|\bember|\bspark", "label": "particle/ember identifier"},
+            {"regex": r"\bflame|\bfire|\bburn", "label": "flame/fire identifier"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Irregular burn front (noise-driven edge)",
+        "patterns": [
+            {"regex": r"\bnoise|\brandom|\bMath\.random", "label": "random/noise for edge"},
+            {"regex": r"\bburn|\bscorch|\bchar", "label": "burn/scorch/char state"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Smoke wisps + lighting glow",
+        "patterns": [
+            {"regex": r"\bsmoke|\bwisp|\bopacity|\balpha", "label": "smoke/opacity"},
+            {"regex": r"\bglow|\blight|\bradial", "label": "glow/light effect"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "code_pattern",
+        "label": "Paper consumption timeline (~15s)",
+        "patterns": [
+            {"regex": r"\btime|\belapsed|\bduration", "label": "time tracking"},
+            {"regex": r"\bprogress|\bt\s*[*/]", "label": "progress/normalized time"},
+        ],
+        "critical": False,
+    },
+    {
+        "type": "any_of",
+        "label": "Visual atmosphere described",
+        "keywords": ["paper", "letter", "cursive", "desk", "wooden", "yellow"],
+    },
+]
+
 _CC01_ASSERTIONS = [
     {"type": "has_code", "label": "HTML file delivered"},
     # ── Behavioral checks (code patterns, not variable names) ──────────────
