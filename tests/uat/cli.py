@@ -411,7 +411,7 @@ async def main() -> None:
     _targeted = bool((args.test or args.section) and not args.rerun and not args.append)
     if _targeted:
         args.append = True
-        print(f"  [targeted run] --append implied — UAT_RESULTS.md preserved (use --rerun to replace rows)")
+        print("  [targeted run] --append implied — UAT_RESULTS.md preserved (use --rerun to replace rows)")
     if not args.append:
         init_results(run_ts)
     counts: dict[str, int] = {}

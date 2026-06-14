@@ -292,10 +292,10 @@ async def wait_for_drain_async(
             prev = cur
         # Timeout — escalate before next attempt
         if attempt == 0:
-            print(f"  [metal] Timeout at attempt 1 — running purge", flush=True)
+            print("  [metal] Timeout at attempt 1 — running purge", flush=True)
             purge_memory()
         elif attempt == 1:
-            print(f"  [metal] Timeout at attempt 2 — restarting Ollama", flush=True)
+            print("  [metal] Timeout at attempt 2 — restarting Ollama", flush=True)
             # Async restart: brew services restart is sync; wrap in thread
             import asyncio as _asyncio
             loop = _asyncio.get_event_loop()
