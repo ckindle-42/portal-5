@@ -262,6 +262,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": ["execute_python", "classify_vulnerability"],
     },
+    "auto-bigfix": {
+        "name": "🩹 Portal BigFix Analyst",
+        "description": (
+            "HCL BigFix endpoint management and patch compliance workspace. "
+            "Handles: BigFix REST API queries and response parsing, Relevance Language "
+            "expressions for targeting endpoints, RQL fixlet applicability queries, "
+            "patch deployment status reporting, computer property retrieval, and "
+            "compliance gap analysis across managed endpoints. "
+            "Model_hint pending D10 sec10-bigfix-parse probe results — "
+            "will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES."
+        ),
+        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+        "tools": ["execute_python", "execute_bash", "web_search"],
+    },
     "tools-specialist": {
         "name": "🔧 Portal Tool Composer",
         "description": "Structured function/API calling via Granite-4.1 8B (tool-tagged, BFCL V3 68.27). Substitutes for ToolACE-2.5 (no GGUF after MLX retirement; re-sourcing tracked in P5-FUT-PARITY-001). Use for tasks composing multiple tool calls in sequence.",
