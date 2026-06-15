@@ -114,9 +114,11 @@ SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
 SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
 
-# PowerShell image — pulled into dind on first use (~200MB, Alpine-based).
+# PowerShell image — portal5-pwsh:latest is a native arm64 image built from
+# Dockerfile.pwsh (ubuntu:22.04 + Microsoft pwsh apt package). Falls back to
+# the amd64-only MCR Alpine image if the local build hasn't been done yet.
 # Override with SANDBOX_PS_IMAGE env var.
-PS_IMAGE = os.getenv("SANDBOX_PS_IMAGE", "mcr.microsoft.com/powershell:lts-alpine-3.17")
+PS_IMAGE = os.getenv("SANDBOX_PS_IMAGE", "portal5-pwsh:latest")
 
 # DOCKER_HOST — for DinD setups, use tcp://dind:2375
 # The docker CLI automatically reads this env var
@@ -136,6 +138,7 @@ async def _run_in_docker(
     command: list[str],
     code: str,
     timeout: int,
+    extra_args: list[str] | None = None,
 ) -> dict:
     """Run code in a Docker container with isolation constraints."""
     run_id = uuid.uuid4().hex[:8]
@@ -178,7 +181,7 @@ async def _run_in_docker(
             "--tmpfs", "/root:size=256m,exec",  # exec needed for C-extension .so files
             "--env", "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
         ] if SANDBOX_ALLOW_NETWORK else []
-    ) + [
+    ) + (extra_args or []) + [
         "-v",
         f"{code_file.absolute()}:/code:ro",
         image,
@@ -323,11 +326,12 @@ async def execute_powershell(
     timeout: int = 60,
 ) -> dict:
     """
-    Execute a PowerShell script in an isolated Docker sandbox (pwsh on Alpine Linux).
+    Execute a PowerShell script in an isolated Docker sandbox (pwsh on Ubuntu arm64).
 
-    Uses mcr.microsoft.com/powershell:lts-alpine-3.17 (pulled into dind on first use).
-    No Windows-specific subsystems (WMI, COM, registry) — cross-platform PS Core only.
-    Same security constraints as execute_python: no network by default, 256MB RAM.
+    Uses portal5-pwsh:latest — a native arm64 image built from Dockerfile.pwsh
+    (pwsh 7.4 LTS on Ubuntu 22.04). No Windows-specific subsystems (WMI, COM,
+    registry) — cross-platform PS Core only. Same security constraints as
+    execute_python: no network by default, 256MB RAM.
 
     Args:
         code: PowerShell script to execute
@@ -342,6 +346,10 @@ async def execute_powershell(
         command=["pwsh", "-NonInteractive", "-File", "/code"],
         code=code,
         timeout=timeout,
+        # pwsh writes cache/config to ~/.cache and ~/.config on startup;
+        # these don't exist in a read-only root filesystem, so provide a
+        # writable tmpfs for /root to prevent TypeInitializationException.
+        extra_args=["--tmpfs", "/root:size=64m"],
     )
 
 
