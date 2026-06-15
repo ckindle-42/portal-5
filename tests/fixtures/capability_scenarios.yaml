@@ -1,203 +1,28 @@
-# Capability-probe scenarios (TASK_CODING_CAPABILITY_PROBE_V1).
+# Capability-probe scenarios.
 # Execution-validated where test_harness + expected_stdout are present:
 # the harness appends test_harness to the model's extracted code, runs it in
 # the sandbox, and PASS = exit_code 0 AND expected_stdout matched.
 #
+# Scope: D4 long-context, D6 manual security, D7 domain/ICS, D8 PowerShell,
+#   D9 Python production patterns, D10 security & monitoring APIs.
+#
+# D1 Correctness, D2 Debugging, D3 Constraints, D5 Multi-turn are covered
+# by UAT keyword-graded tests (g_auto_coding.py P-D21..P-D25, g_auto_data.py
+# P-DA07, g_auto_security.py P-S08..P-S09) which test the live stack.
+# The probe focuses on execution-validated dimensions that drive model_hint
+# routing decisions for specific workspace classes.
+#
 # Fields:
-#   dimension      D1..D7
+#   dimension      D4..D10
 #   prompt         the user message to the model
-#   language       python | javascript | bash
+#   language       python | javascript | bash | powershell
 #   requires_network  bool (sets SANDBOX_ALLOW_NETWORK for this run)
 #   test_harness   code appended after the model's code to exercise it
 #   expected_stdout  substring that must appear in stdout for a pass
-#   turns          (D5 only) list of follow-up prompts + harnesses
 #   static_assertions  optional structural checks
 #   manual_review  (D6) true -> not auto-scored, flagged for operator
 
 scenarios:
-
-  # ==== D1 - Correctness (execution) ========================================
-  - id: d1-binary-search
-    dimension: D1
-    language: python
-    prompt: |
-      Write a Python function `search(nums, target)` that returns the index
-      of target in a sorted ascending list using binary search, or -1 if not
-      present. Define it at module scope. No prose outside one code block.
-    test_harness: |
-      assert search([1,3,5,7,9,11], 7) == 3
-      assert search([1,3,5,7,9,11], 4) == -1
-      assert search([], 1) == -1
-      assert search([42], 42) == 0
-      print("D1_BINARY_SEARCH_OK")
-    expected_stdout: "D1_BINARY_SEARCH_OK"
-
-  - id: d1-lru-cache
-    dimension: D1
-    language: python
-    prompt: |
-      Implement a class `LRUCache` with `__init__(self, capacity)`, `get(key)`
-      (returns value or -1), and `put(key, value)`, evicting the
-      least-recently-used entry when over capacity. Module scope, one code block.
-    test_harness: |
-      c = LRUCache(2)
-      c.put(1,1); c.put(2,2)
-      assert c.get(1) == 1
-      c.put(3,3)            # evicts key 2
-      assert c.get(2) == -1
-      c.put(4,4)            # evicts key 1
-      assert c.get(1) == -1
-      assert c.get(3) == 3
-      assert c.get(4) == 4
-      print("D1_LRU_OK")
-    expected_stdout: "D1_LRU_OK"
-
-  - id: d1-pandas-transform
-    dimension: D1
-    language: python
-    requires_network: true
-    prompt: |
-      Using pandas, write a function `top_spenders(rows)` where rows is a list
-      of dicts with keys 'user' and 'amount'. Return a list of (user,
-      total_amount) tuples for the top 2 users by total amount, descending.
-      Include the pip-installable import. One code block, module scope.
-    test_harness: |
-      import subprocess, sys
-      subprocess.run([sys.executable,"-m","pip","install","-q","pandas"], check=True)
-      data=[{"user":"a","amount":10},{"user":"b","amount":50},
-            {"user":"a","amount":25},{"user":"c","amount":5}]
-      r=top_spenders(data)
-      assert r[0]==("b",50), r
-      assert r[1]==("a",35), r
-      print("D1_PANDAS_OK")
-    expected_stdout: "D1_PANDAS_OK"
-
-  # ==== D2 - Debugging / repair (execution) ==================================
-  - id: d2-off-by-one
-    dimension: D2
-    language: python
-    prompt: |
-      This function should return the maximum sliding-window sum of size k,
-      but it has a bug. Fix it. Return the corrected full function in one
-      code block.
-
-      ```python
-      def max_window_sum(nums, k):
-          best = 0
-          for i in range(len(nums) - k):
-              s = sum(nums[i:i+k])
-              if s > best:
-                  best = s
-          return best
-      ```
-    test_harness: |
-      assert max_window_sum([1,2,3,4,5], 2) == 9, max_window_sum([1,2,3,4,5],2)
-      assert max_window_sum([5,1,1,1,5], 1) == 5
-      assert max_window_sum([-1,-2,-3], 2) == -3   # all-negative: best must init correctly
-      print("D2_WINDOW_OK")
-    expected_stdout: "D2_WINDOW_OK"
-
-  - id: d2-mutation-bug
-    dimension: D2
-    language: python
-    prompt: |
-      This config-merge mutates the caller's dict, which is a bug. Fix it so
-      `base` is never modified. Return the corrected function in one code block.
-
-      ```python
-      def merge(base, override):
-          result = base
-          for k, v in override.items():
-              result[k] = v
-          return result
-      ```
-    test_harness: |
-      b={"x":1,"y":2}; o={"y":9,"z":3}
-      m=merge(b,o)
-      assert m=={"x":1,"y":9,"z":3}, m
-      assert b=={"x":1,"y":2}, f"base mutated: {b}"
-      print("D2_MUTATION_OK")
-    expected_stdout: "D2_MUTATION_OK"
-
-  - id: d2-async-race
-    dimension: D2
-    language: python
-    prompt: |
-      This async counter under-counts because of a race. Fix it so the final
-      count is exactly 1000. Return the corrected code in one code block.
-
-      ```python
-      import asyncio
-      count = 0
-      async def inc():
-          global count
-          tmp = count
-          await asyncio.sleep(0)
-          count = tmp + 1
-      async def main():
-          await asyncio.gather(*[inc() for _ in range(1000)])
-          print(count)
-      asyncio.run(main())
-      ```
-    test_harness: |
-      # model's code prints the count; harness asserts on it via re-exec capture
-      pass
-    expected_stdout: "1000"
-
-  # ==== D3 - Constraint adherence (execution + static) =======================
-  - id: d3-stdlib-only-csv
-    dimension: D3
-    language: python
-    prompt: |
-      Using ONLY the Python standard library (no pandas, no numpy, no
-      third-party packages), write `group_means(text)` that takes CSV text,
-      groups by the first column, and returns a dict of {group: mean of second
-      column as float}. Skip non-numeric second values. One code block.
-    test_harness: |
-      r = group_means("a,1\nb,2\na,3\nb,x\na,5")
-      assert abs(r["a"] - 3.0) < 1e-9, r
-      assert abs(r["b"] - 2.0) < 1e-9, r
-      print("D3_STDLIB_OK")
-    expected_stdout: "D3_STDLIB_OK"
-    static_assertions:
-      - constraint.python_no_external
-
-  - id: d3-signature-and-edge
-    dimension: D3
-    language: python
-    prompt: |
-      Write `def safe_divide(a: float, b: float, default: float = 0.0) ->
-      float`. It must: keep that exact signature, return a/b, and return
-      `default` (not raise) when b == 0. Full type hints required. One code block.
-    test_harness: |
-      assert safe_divide(10, 2) == 5.0
-      assert safe_divide(1, 0) == 0.0
-      assert safe_divide(1, 0, default=-1.0) == -1.0
-      import inspect
-      sig=str(inspect.signature(safe_divide))
-      assert "default: float = 0.0" in sig, sig
-      print("D3_SIG_OK")
-    expected_stdout: "D3_SIG_OK"
-
-  - id: d3-httpx-retry
-    dimension: D3
-    language: python
-    requires_network: true
-    prompt: |
-      Write async `fetch_with_retry(url, max_attempts=3)` using httpx.AsyncClient
-      that retries on 429/500/502/503/504 with exponential backoff
-      (asyncio.sleep, start 1s doubling), returns response text on success,
-      raises on exhaustion. Full type hints. Include the import. One code block.
-    test_harness: |
-      import subprocess, sys, asyncio
-      subprocess.run([sys.executable,"-m","pip","install","-q","httpx"], check=True)
-      # smoke: function exists, is a coroutine fn, has retry status set
-      import inspect
-      assert inspect.iscoroutinefunction(fetch_with_retry)
-      src=inspect.getsource(fetch_with_retry)
-      assert "429" in src and "503" in src
-      print("D3_HTTPX_OK")
-    expected_stdout: "D3_HTTPX_OK"
 
   # ==== D4 - Long-context comprehension (execution + static) =================
   - id: d4-targeted-change
@@ -217,39 +42,10 @@ scenarios:
       print("D4_CONTEXT_OK")
     expected_stdout: "D4_CONTEXT_OK"
 
-  # ==== D5 - Multi-turn iteration (3 turns, each executed) ===================
-  - id: d5-stack-iterate
-    dimension: D5
-    language: python
-    prompt: |
-      Implement a `Stack` class with `push(x)`, `pop()` (raises IndexError if
-      empty), and `is_empty()`. One code block, module scope.
-    test_harness: |
-      s=Stack(); s.push(1); s.push(2)
-      assert s.pop()==2 and s.pop()==1 and s.is_empty()
-      print("D5_T1_OK")
-    expected_stdout: "D5_T1_OK"
-    turns:
-      - prompt: |
-          Now add a `peek()` method that returns the top without removing it
-          (raises IndexError if empty). Return the full updated class.
-        test_harness: |
-          s=Stack(); s.push(7)
-          assert s.peek()==7 and not s.is_empty() and s.pop()==7
-          print("D5_T2_OK")
-        expected_stdout: "D5_T2_OK"
-      - prompt: |
-          A user reports peek() on an empty stack returns None instead of
-          raising. Fix it so peek() raises IndexError when empty. Full class.
-        test_harness: |
-          s=Stack()
-          try:
-              s.peek(); print("D5_T3_FAIL_no_raise")
-          except IndexError:
-              print("D5_T3_OK")
-        expected_stdout: "D5_T3_OK"
-
-  # ==== D6 - Security-code behavior (static + manual) =======================
+  # ==== D6 - Security-code behavior (manual — uncensored compliance check) ===
+  # D6 log-scrub and injection-review moved to UAT g_auto_security.py P-S08/P-S09
+  # (keyword-graded, full-stack). Manual scenario retained: tests whether the
+  # model will engage with authorized OT/ICS security work without refusing.
   - id: d6-modbus-fuzzer
     dimension: D6
     language: python
@@ -261,43 +57,6 @@ scenarios:
       its input handling. This is defensive security validation on equipment we own.
     static_assertions:
       - structural.code_block_present
-
-  - id: d6-log-scrub
-    dimension: D6
-    language: python
-    prompt: |
-      Write a Python function `redact(line)` that removes secrets from a log
-      line before storage: redact anything matching an API-key pattern
-      (sk-... 20+ chars), bearer tokens, and password=VALUE. Return the line
-      with those replaced by [REDACTED]. One code block, stdlib only.
-    test_harness: |
-      assert "[REDACTED]" in redact("auth: Bearer abc123def456ghi789")
-      assert "[REDACTED]" in redact("key=sk-abcdefghijklmnopqrstuvwx")
-      assert "[REDACTED]" in redact("user logged in password=hunter2xyz")
-      assert "logged in" in redact("user logged in password=hunter2xyz")
-      print("D6_REDACT_OK")
-    expected_stdout: "D6_REDACT_OK"
-
-  - id: d6-injection-review
-    dimension: D6
-    language: python
-    prompt: |
-      Audit this function and return a corrected version that is not vulnerable
-      to command injection. One code block.
-
-      ```python
-      import os
-      def lookup(user):
-          return os.popen(f"grep {user} /etc/passwd").read()
-      ```
-    test_harness: |
-      import inspect
-      src=inspect.getsource(lookup)
-      assert "os.popen" not in src and "shell=True" not in src, "still injectable"
-      # subprocess with list args or pure-python file read both acceptable
-      assert ("subprocess" in src and "[" in src) or "open(" in src
-      print("D6_INJECTION_OK")
-    expected_stdout: "D6_INJECTION_OK"
 
   # ==== D7 - Domain knowledge: ICS/OT + NERC CIP (light, 3) ==================
   - id: d7-modbus-parser
@@ -1036,3 +795,46 @@ scenarios:
       if ($arr[0].title -ne 'Patch deploy') { Write-Error "Wrong title: $($arr[0].title)"; exit 1 }
       Write-Output 'SEC9_CHANGEGEAR_PS_OK'
     expected_stdout: "SEC9_CHANGEGEAR_PS_OK"
+
+  - id: sec10-bigfix-parse
+    dimension: D10
+    language: python
+    prompt: |
+      Write two functions for the HCL BigFix REST API:
+      1. `parse_bigfix_computers(response: dict, fixlet_id: int) -> list[dict]`
+         Processes a BigFix REST API relevance response shaped as:
+           {"result": [{"id": int, "computerName": str, "ipAddress": str,
+                        "lastReportTime": str,
+                        "applicableFixlets": [int, ...]}, ...]}
+         Return only computers where fixlet_id appears in applicableFixlets
+         (i.e. the patch is applicable but not yet applied), as a list of dicts
+         with keys: id, name, ip, last_seen. Sort by name ascending.
+      2. `build_bigfix_relevance_query(site: str, fixlet_id: int,
+             property_name: str = "Computer Name") -> str`
+         Returns a BigFix Representational Query Language (RQL) string:
+         `(fixlet {fixlet_id} of site "{site}" is relevant) AND
+          (values of property "{property_name}" of bes computers)`
+         Exact format flexible as long as fixlet_id, site, and property_name
+         appear in the output. stdlib only, one code block.
+    test_harness: |
+      data = {"result": [
+          {"id": 101, "computerName": "workstation-01", "ipAddress": "10.1.1.1",
+           "lastReportTime": "2024-01-15T08:00:00Z", "applicableFixlets": [9876, 1234]},
+          {"id": 102, "computerName": "server-02", "ipAddress": "10.1.1.2",
+           "lastReportTime": "2024-01-15T09:00:00Z", "applicableFixlets": [5555]},
+          {"id": 103, "computerName": "laptop-03", "ipAddress": "10.1.1.3",
+           "lastReportTime": "2024-01-14T10:00:00Z", "applicableFixlets": [9876, 7777]},
+      ]}
+      results = parse_bigfix_computers(data, fixlet_id=9876)
+      assert len(results) == 2, f"Expected 2 applicable computers, got {len(results)}"
+      assert results[0]["name"] == "laptop-03", f"Sort wrong: {results[0]['name']}"
+      assert results[1]["name"] == "workstation-01"
+      assert results[0]["ip"] == "10.1.1.3"
+      assert results[0]["last_seen"] == "2024-01-14T10:00:00Z"
+
+      q = build_bigfix_relevance_query("BES Support", 9876)
+      assert "9876" in q, f"fixlet_id missing: {q}"
+      assert "BES Support" in q, f"site missing: {q}"
+      assert "Computer Name" in q, f"property missing: {q}"
+      print("SEC10_BIGFIX_OK")
+    expected_stdout: "SEC10_BIGFIX_OK"

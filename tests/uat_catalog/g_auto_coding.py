@@ -1002,4 +1002,142 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── D1/D2/D3 equivalents (moved from capability probe; keyword-graded) ──
+    {
+        "id": "P-D21",
+        "name": "Code Correctness — LRU Cache Eviction",
+        "section": "auto-coding",
+        "model_slug": "auto-coding",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Implement a Python class `LRUCache` with `__init__(self, capacity)`, "
+            "`get(key)` returning the value or -1, and `put(key, value)` evicting "
+            "the least-recently-used entry when over capacity. Module scope, one code block."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "OrderedDict or deque approach",
+             "keywords": ["ordereddict", "deque", "collections", "move_to_end", "capacity"]},
+            {"type": "any_of", "label": "get method defined",
+             "keywords": ["def get", "def get("]},
+            {"type": "any_of", "label": "put method defined",
+             "keywords": ["def put", "def put("]},
+            {"type": "any_of", "label": "Eviction logic present",
+             "keywords": ["evict", "popitem", "popleft", "pop(", "capacity"]},
+        ],
+    },
+    {
+        "id": "P-D22",
+        "name": "Debug — Sliding Window Off-by-One",
+        "section": "auto-coding",
+        "model_slug": "auto-coding",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "This function should return the maximum sliding-window sum of size k "
+            "but has a bug. Fix it and explain what was wrong.\n\n"
+            "```python\n"
+            "def max_window_sum(nums, k):\n"
+            "    best = 0\n"
+            "    for i in range(len(nums) - k):\n"
+            "        s = sum(nums[i:i+k])\n"
+            "        if s > best:\n"
+            "            best = s\n"
+            "    return best\n"
+            "```"
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Fixed code present"},
+            {"type": "any_of", "label": "Off-by-one identified",
+             "keywords": ["off-by-one", "off by one", "+ 1", "+1", "inclusive", "range(len"]},
+            {"type": "any_of", "label": "Correct range fix",
+             "keywords": ["len(nums) - k + 1", "- k + 1", "range(len(nums) - k + 1)"]},
+            {"type": "any_of", "label": "Explains the bug",
+             "keywords": ["bug", "issue", "problem", "misses", "excludes", "last window"]},
+        ],
+    },
+    {
+        "id": "P-D23",
+        "name": "Debug — Config Merge Mutation Bug",
+        "section": "auto-coding",
+        "model_slug": "auto-coding",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "This config-merge function mutates the caller's dict. Fix it so `base` "
+            "is never modified. Return the corrected function and explain the fix.\n\n"
+            "```python\n"
+            "def merge(base, override):\n"
+            "    result = base\n"
+            "    for k, v in override.items():\n"
+            "        result[k] = v\n"
+            "    return result\n"
+            "```"
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Fixed code present"},
+            {"type": "any_of", "label": "Copy approach used",
+             "keywords": ["copy()", ".copy()", "dict(base)", "{**base}", "deepcopy", "result = {"]},
+            {"type": "any_of", "label": "Mutation explained",
+             "keywords": ["mutate", "mutation", "reference", "alias", "same object", "modif"]},
+        ],
+    },
+    {
+        "id": "P-D24",
+        "name": "Constraint — Stdlib-Only CSV Grouping",
+        "section": "auto-coding",
+        "model_slug": "auto-coding",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Using ONLY the Python standard library (no pandas, no numpy, no third-party "
+            "packages), write `group_means(text)` that takes CSV text, groups by the first "
+            "column, and returns a dict of {group: mean of second column as float}. "
+            "Skip non-numeric second values. One code block."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "csv module used",
+             "keywords": ["import csv", "csv.reader", "splitlines", "split(',')"]},
+            {"type": "not_contains", "label": "No pandas",
+             "keywords": ["import pandas", "pd.read_csv", "DataFrame"], "critical": True},
+            {"type": "any_of", "label": "Mean computed",
+             "keywords": ["sum(", "/ len", "mean", "average", "total"]},
+        ],
+    },
+    {
+        "id": "P-D25",
+        "name": "Debug — Async Race Condition Fix",
+        "section": "auto-coding",
+        "model_slug": "auto-coding",
+        "timeout": 150,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "This async counter under-counts because of a race condition. Fix it so the "
+            "final count is exactly 1000. Return the corrected code and explain why it races.\n\n"
+            "```python\n"
+            "import asyncio\n"
+            "count = 0\n"
+            "async def inc():\n"
+            "    global count\n"
+            "    tmp = count\n"
+            "    await asyncio.sleep(0)\n"
+            "    count = tmp + 1\n"
+            "async def main():\n"
+            "    await asyncio.gather(*[inc() for _ in range(1000)])\n"
+            "    print(count)\n"
+            "asyncio.run(main())\n"
+            "```"
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Fixed code present"},
+            {"type": "any_of", "label": "Lock or atomic fix",
+             "keywords": ["lock", "asyncio.lock", "lock()", "async with", "semaphore", "atomic"]},
+            {"type": "any_of", "label": "Race condition explained",
+             "keywords": ["race", "interleav", "context switch", "yield", "await", "concurrent"]},
+            {"type": "any_of", "label": "1000 referenced as expected value",
+             "keywords": ["1000", "thousand"]},
+        ],
+    },
 ]

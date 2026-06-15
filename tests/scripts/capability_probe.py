@@ -184,10 +184,11 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
 
 
 DIM_LABELS = {
-    "D1": "D1 Correct", "D2": "D2 Debug", "D3": "D3 Constraint",
-    "D4": "D4 LongCtx", "D5": "D5 MultiTurn", "D6": "D6 Security",
+    # D1/D2/D3/D5 moved to UAT keyword-graded tests (g_auto_coding, g_auto_data, g_auto_security).
+    # Probe focuses on execution-validated routing dimensions only.
+    "D4": "D4 LongCtx", "D6": "D6 Security",
     "D7": "D7 Domain", "D8": "D8 PowerShell", "D9": "D9 PyProd",
-    "D10": "D10 SecAPI",
+    "D10": "D10 SecAPI",  # Nessus, Splunk, SolarWinds, Tripwire, MSSQL, SSRS×2, ChangeGear×2, BigFix
 }
 
 
