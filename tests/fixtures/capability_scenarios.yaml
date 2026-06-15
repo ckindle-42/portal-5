@@ -533,7 +533,7 @@ scenarios:
       assert ns.command == 'list', f"command={ns.command}"
       assert ns.verbose is False
 
-      ns2 = build_parser().parse_args(['list', '--verbose', '--filter', 'status=active'])
+      ns2 = build_parser().parse_args(['--verbose', 'list', '--filter', 'status=active'])
       assert ns2.verbose is True
       assert ns2.filter == ['status=active'], f"filter={ns2.filter}"
 

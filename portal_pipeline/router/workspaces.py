@@ -877,19 +877,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
-    "bench-starcoder2": {
-        "name": "🔬 Bench · StarCoder2-15B (BigCode)",
-        "description": (
-            "Benchmark: starcoder2:15b (Ollama, BigCode + Hugging Face, ~9GB Q4, 16K ctx). "
-            "600+ programming languages. FIM fill-in-the-middle — unique editor-style code "
-            "insertion capability not in fleet. BigCode OpenRAIL-M license: commercial OK "
-            "with responsible-AI clauses — review before external exposure. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "starcoder2:15b",
-        "max_concurrent": 1,
-        "predict_limit": 4096,
-        "tools": [],
-    },
     "bench-devstral-small-2": {
         "name": "🔬 Bench · Devstral Small 2 (Mistral)",
         "description": (

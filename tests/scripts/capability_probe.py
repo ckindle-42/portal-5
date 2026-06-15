@@ -50,7 +50,7 @@ DEFAULT_MODELS = [
     # V1 incumbents
     "bench-qwen3-coder-next", "bench-qwen3-coder-30b", "bench-devstral-small-2",
     "bench-laguna", "bench-glm", "bench-omnicoder2", "bench-qwen36-27b",
-    "bench-deepseek-coder-v2", "bench-starcoder2", "bench-qwopus-coder-mtp",
+    "bench-deepseek-coder-v2", "bench-qwopus-coder-mtp",
     "bench-gemma4-12b-coder",
     # V2 additions — fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
     "bench-lfm25-8b", "bench-granite41-8b", "bench-granite41-30b",
@@ -69,12 +69,17 @@ def extract_code(response: str) -> str | None:
 
 
 _MAIN_GUARD_RE = re.compile(r'\nif __name__\s*==\s*[\'"]__main__[\'"]\s*:.*', re.DOTALL)
+# Also catches bare unindented `main()` / `main(sys.argv[1:])` calls without a guard.
+_MODULE_MAIN_CALL_RE = re.compile(r'^main\s*\(.*?\)\s*$', re.MULTILINE)
 
 
 def _strip_main_guard(code: str) -> str:
     # Models often append `if __name__ == '__main__': main()` which fires before the
     # test harness runs (argparse sees sys.argv=['/code'] and exits 2). Strip it.
-    return _MAIN_GUARD_RE.sub("", code).rstrip()
+    # Also strip bare module-level main() calls that skip the guard entirely.
+    code = _MAIN_GUARD_RE.sub("", code)
+    code = _MODULE_MAIN_CALL_RE.sub("", code)
+    return code.rstrip()
 
 
 async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
@@ -166,7 +171,8 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
         cell["passed"] = "```" in resp
         cell["detail"] = "static: code block present" if cell["passed"] else "no code"
         return cell
-    full = _strip_main_guard(code) + "\n\n" + harness
+    stripped = _strip_main_guard(code)
+    full = stripped + "\n\n" + harness
     res = await sandbox_exec(client, full, lang)
     ok, detail = score_execution(res, scn.get("expected_stdout", ""))
     cell["passed"] = ok

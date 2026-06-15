@@ -136,13 +136,6 @@ backends:
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: true
     notes: "Qwen3.6-35B-A3B Unsloth Dynamic 2.0 UD-Q4_K_XL (~22GB, hf.co, MoE 3B active). Sensitivity-aware quant — bench-qwen36-35b-a3b-ud agentic lane C1 candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4)."
-  - id: starcoder2:15b
-    supports_tools: false
-    notes: "StarCoder2-15B Instruct (BigCode + Hugging Face, ~9GB Q4, 16K ctx, 600+\
-      \ programming languages, BigCode OpenRAIL-M license — commercial OK with\
-      \ responsible-AI clauses; review before external exposure). FIM fill-in-the-middle\
-      \ support for editor-style code insertion — unique capability vs all other fleet\
-      \ models. bench-starcoder2 target (TASK_MODEL_REFRESH_V8 A9)."
   - id: qwen3.6:27b-q4_K_M
     supports_tools: true
     notes: "Qwen3.6-27B dense Q4 (~16GB, Alibaba, April 2026, Apache 2.0, 262K ctx).\
@@ -570,9 +563,6 @@ workspace_routing:
   - reasoning
   - general
   bench-lfm25-8b:
-  - general
-  bench-starcoder2:
-  - coding
   - general
   bench-devstral-small-2:
   - coding
