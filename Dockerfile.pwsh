@@ -1,0 +1,37 @@
+# Dockerfile.pwsh — native arm64 PowerShell sandbox image.
+#
+# mcr.microsoft.com/powershell only publishes linux/amd64 Alpine images.
+# On Apple Silicon this runs under QEMU, causing platform-mismatch warnings
+# and syscall failures for some PS scripts. This image installs pwsh 7.4 LTS
+# from the GitHub release tar.gz, which ships a native arm64 binary.
+#
+# Built by: ./launch.sh rebuild (tagged portal5-pwsh:latest)
+# Used by:  portal_mcp/execution/code_sandbox_mcp.py execute_powershell
+#           via SANDBOX_PS_IMAGE env var (default: portal5-pwsh:latest)
+FROM ubuntu:22.04
+
+# Avoid interactive tzdata prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# PowerShell 7.4 LTS — native arm64 binary from GitHub Releases.
+# Microsoft's apt repo does not publish arm64 .deb packages for Ubuntu 22.04.
+ARG PS_VERSION=7.4.16
+ARG PS_TARBALL=powershell-${PS_VERSION}-linux-arm64.tar.gz
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        wget \
+        ca-certificates \
+        less \
+        libicu70 \
+        libssl3 \
+        libc6 \
+    && wget -q "https://github.com/PowerShell/PowerShell/releases/download/v${PS_VERSION}/${PS_TARBALL}" \
+    && mkdir -p /opt/microsoft/powershell/7 \
+    && tar zxf "${PS_TARBALL}" -C /opt/microsoft/powershell/7 \
+    && rm "${PS_TARBALL}" \
+    && chmod +x /opt/microsoft/powershell/7/pwsh \
+    && ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh \
+    && rm -rf /var/lib/apt/lists/*
+
+CMD ["pwsh"]

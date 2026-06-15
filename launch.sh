@@ -1264,6 +1264,8 @@ case "${1:-up}" in
     docker compose build portal-pipeline
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
+    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
+    docker build -t portal5-pwsh:latest -f "$SCRIPT_DIR/Dockerfile.pwsh" "$SCRIPT_DIR"
     echo "[portal-5] Restarting all rebuilt containers..."
     docker compose up -d --no-deps portal-pipeline $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -1277,6 +1279,8 @@ case "${1:-up}" in
     [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
+    echo "[portal-5] Building native arm64 PowerShell sandbox image..."
+    docker build -t portal5-pwsh:latest -f "$SCRIPT_DIR/Dockerfile.pwsh" "$SCRIPT_DIR"
     echo "[portal-5] Restarting MCP containers..."
     docker compose up -d --no-deps $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
