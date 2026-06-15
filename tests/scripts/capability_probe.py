@@ -85,7 +85,7 @@ async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
 async def sandbox_exec(client: httpx.AsyncClient, code: str,
                        language: str, timeout: int = 120) -> dict:
     tool = {"python": "execute_python", "javascript": "execute_nodejs",
-            "bash": "execute_bash"}.get(language, "execute_python")
+            "bash": "execute_bash", "powershell": "execute_powershell"}.get(language, "execute_python")
     key = "command" if tool == "execute_bash" else "code"
     r = await client.post(
         f"{SANDBOX_URL}/tools/{tool}",
@@ -165,13 +165,22 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
     return cell
 
 
+DIM_LABELS = {
+    "D1": "D1 Correct", "D2": "D2 Debug", "D3": "D3 Constraint",
+    "D4": "D4 LongCtx", "D5": "D5 MultiTurn", "D6": "D6 Security",
+    "D7": "D7 Domain", "D8": "D8 PowerShell", "D9": "D9 PyProd",
+    "D10": "D10 SecAPI",
+}
+
+
 def render_matrix(cells: list[dict], source: str) -> str:
-    dims = ["D1", "D2", "D3", "D4", "D5", "D6", "D7"]
+    dims = sorted(set(c["dimension"] for c in cells), key=lambda d: int(d[1:]))
     by_model: dict[str, dict[str, list]] = {}
     for c in cells:
         by_model.setdefault(c["model"], {}).setdefault(c["dimension"], []).append(c)
+    dim_headers = " | ".join(DIM_LABELS.get(d, d) for d in dims)
     out = [
-        "# Coding Capability Probe — Matrix (V1)",
+        "# Coding Capability Probe — Matrix",
         "",
         f"**Source**: `{source}` · generated "
         f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}",
@@ -180,9 +189,8 @@ def render_matrix(cells: list[dict], source: str) -> str:
         "the sandbox and produced correct output. D6 is manual-review "
         "(refusal disposition). No verdict — promotions operator-only.",
         "",
-        "| Model | D1 Correct | D2 Debug | D3 Constraint | D4 LongCtx | "
-        "D5 MultiTurn | D6 Security | D7 Domain |",
-        "|---|---|---|---|---|---|---|---|",
+        f"| Model | {dim_headers} |",
+        "|---|" + "---|" * len(dims),
     ]
     def frac(lst):
         scored = [c for c in lst if c["passed"] is not None]
@@ -206,6 +214,9 @@ def render_matrix(cells: list[dict], source: str) -> str:
 async def main_async(args) -> int:
     scn_data = yaml.safe_load(Path(args.scenarios).read_text())
     scenarios = scn_data["scenarios"]
+    if args.dimensions:
+        dim_filter = set(args.dimensions.split(","))
+        scenarios = [s for s in scenarios if s["dimension"] in dim_filter]
     models = args.models.split(",") if args.models else DEFAULT_MODELS
 
     # Pre-load D4 context files
@@ -263,6 +274,9 @@ def main() -> int:
     ap.add_argument("--scenarios",
                     default=str(ROOT / "tests" / "fixtures" / "capability_scenarios.yaml"))
     ap.add_argument("--models", default="")
+    ap.add_argument("--dimensions", default="",
+                    help="Comma-separated list of dimensions to run (e.g. D8,D9,D10). "
+                         "Empty means all.")
     ap.add_argument("--output", default="")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()

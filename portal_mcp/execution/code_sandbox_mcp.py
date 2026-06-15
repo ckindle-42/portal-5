@@ -69,6 +69,18 @@ TOOLS_MANIFEST = [
         },
     },
     {
+        "name": "execute_powershell",
+        "description": "Execute a PowerShell script in an isolated Docker container (pwsh on Alpine)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "PowerShell script to execute"},
+                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 60},
+            },
+            "required": ["code"],
+        },
+    },
+    {
         "name": "sandbox_status",
         "description": "Check if the code sandbox (Docker/DinD) is available",
         "parameters": {"type": "object", "properties": {}, "required": []},
@@ -101,6 +113,10 @@ SANDBOX_ALLOW_NETWORK = os.getenv("SANDBOX_ALLOW_NETWORK", "false").lower() == "
 SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
 SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
+
+# PowerShell image — pulled into dind on first use (~200MB, Alpine-based).
+# Override with SANDBOX_PS_IMAGE env var.
+PS_IMAGE = os.getenv("SANDBOX_PS_IMAGE", "mcr.microsoft.com/powershell:lts-alpine-3.17")
 
 # DOCKER_HOST — for DinD setups, use tcp://dind:2375
 # The docker CLI automatically reads this env var
@@ -302,6 +318,34 @@ async def execute_bash(
 
 
 @mcp.tool()
+async def execute_powershell(
+    code: str,
+    timeout: int = 60,
+) -> dict:
+    """
+    Execute a PowerShell script in an isolated Docker sandbox (pwsh on Alpine Linux).
+
+    Uses mcr.microsoft.com/powershell:lts-alpine-3.17 (pulled into dind on first use).
+    No Windows-specific subsystems (WMI, COM, registry) — cross-platform PS Core only.
+    Same security constraints as execute_python: no network by default, 256MB RAM.
+
+    Args:
+        code: PowerShell script to execute
+        timeout: Execution timeout in seconds (default 60, max 120)
+
+    Returns:
+        dict with success, stdout, stderr, exit_code, timed_out
+    """
+    timeout = min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
+    return await _run_in_docker(
+        image=PS_IMAGE,
+        command=["pwsh", "-NonInteractive", "-File", "/code"],
+        code=code,
+        timeout=timeout,
+    )
+
+
+@mcp.tool()
 async def sandbox_status() -> dict:
     """Check sandbox availability (Docker daemon and image availability)."""
     try:
@@ -324,6 +368,7 @@ async def sandbox_status() -> dict:
         "python_image": PYTHON_IMAGE,
         "node_image": NODE_IMAGE,
         "bash_image": BASH_IMAGE,
+        "ps_image": PS_IMAGE,
         "timeout_seconds": DEFAULT_TIMEOUT,
         "constraints": {
             "network": "bridge" if SANDBOX_ALLOW_NETWORK else "disabled",
@@ -391,6 +436,18 @@ async def execute_bash_endpoint(request):
             result = await execute_python(code=py_code, timeout=min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120))
             return JSONResponse(result)
     result = await execute_bash(code=code, timeout=timeout)
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/execute_powershell", methods=["POST"])
+async def execute_powershell_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    code = args.get("code", "")
+    if not code:
+        return JSONResponse({"error": "code is required"}, status_code=400)
+    timeout = min(int(args.get("timeout", 60)), 120)
+    result = await execute_powershell(code=code, timeout=timeout)
     return JSONResponse(result)
 
 
