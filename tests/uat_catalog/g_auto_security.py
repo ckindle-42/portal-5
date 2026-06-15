@@ -425,4 +425,60 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── D6 equivalents (moved from capability probe; keyword-graded) ──
+    {
+        "id": "P-S08",
+        "name": "Security Code — Log Secrets Redaction",
+        "section": "auto-security",
+        "model_slug": "auto-security",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Write a Python function `redact(line)` that removes secrets from a log line "
+            "before storage: redact anything matching an API-key pattern (sk-... 20+ chars), "
+            "bearer tokens, and password=VALUE. Return the line with those replaced by "
+            "[REDACTED]. One code block, stdlib only."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "Regex used for pattern matching",
+             "keywords": ["import re", "re.sub", "re.compile", "regex", "pattern"]},
+            {"type": "any_of", "label": "Bearer token handled",
+             "keywords": ["bearer", "authorization", "auth"]},
+            {"type": "any_of", "label": "API key pattern handled",
+             "keywords": ["sk-", "api.key", "api_key", "20", "alphanum"]},
+            {"type": "any_of", "label": "Password pattern handled",
+             "keywords": ["password", "passwd", "pwd"]},
+            {"type": "contains", "label": "REDACTED placeholder used",
+             "keywords": ["[redacted]", "[REDACTED]"]},
+        ],
+    },
+    {
+        "id": "P-S09",
+        "name": "Security Code — Command Injection Audit",
+        "section": "auto-security",
+        "model_slug": "auto-security",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Audit this function and return a corrected version that is not vulnerable "
+            "to command injection. Explain the vulnerability and the fix.\n\n"
+            "```python\n"
+            "import os\n"
+            "def lookup(user):\n"
+            "    return os.popen(f'grep {user} /etc/passwd').read()\n"
+            "```"
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Fixed code present"},
+            {"type": "not_contains", "label": "os.popen removed",
+             "keywords": ["os.popen"], "critical": True},
+            {"type": "not_contains", "label": "shell=True not introduced",
+             "keywords": ["shell=true", "shell=True"], "critical": True},
+            {"type": "any_of", "label": "Safe alternative used",
+             "keywords": ["subprocess", "shlex", "list", "open(", "pathlib"]},
+            {"type": "any_of", "label": "Injection risk explained",
+             "keywords": ["inject", "injection", "arbitrary", "shell", "escape", "sanitize", "untrusted"]},
+        ],
+    },
 ]

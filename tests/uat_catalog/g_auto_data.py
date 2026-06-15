@@ -500,4 +500,30 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── D1 pandas equivalent (moved from capability probe; keyword-graded) ──
+    {
+        "id": "P-DA07",
+        "name": "Pandas — Top Spenders Aggregation",
+        "section": "auto-data",
+        "model_slug": "auto-data",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Using pandas, write a function `top_spenders(rows)` where rows is a list "
+            "of dicts with keys 'user' and 'amount'. Return a list of (user, total_amount) "
+            "tuples for the top 2 users by total amount, descending. "
+            "Include the import. One code block, module scope."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "pandas imported",
+             "keywords": ["import pandas", "import pd", "from pandas"]},
+            {"type": "any_of", "label": "groupby or aggregation used",
+             "keywords": ["groupby", "group_by", "agg(", "sum()", ".sum(", "pivot"]},
+            {"type": "any_of", "label": "Sort descending",
+             "keywords": ["sort_values", "nlargest", "ascending=false", "descending"]},
+            {"type": "any_of", "label": "Returns tuples or list",
+             "keywords": ["tuple", "tolist", "itertuples", "iterrows", "zip(", "return ["]},
+        ],
+    },
 ]
