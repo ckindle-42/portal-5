@@ -55,6 +55,9 @@ DEFAULT_MODELS = [
     # V2 additions — fast-lane / reasoning probes (TASK_CODING_CAPABILITY_PROBE_V2)
     "bench-lfm25-8b", "bench-granite41-8b", "bench-granite41-30b",
     "bench-r1-0528-qwen3-8b", "bench-r1-0528-abliterated", "bench-harness1",
+    # V3 additions — new fleet candidates (TASK_MODEL_EVAL_V9_CANDIDATES)
+    "bench-devstral", "bench-magistral", "bench-apriel-nemotron",
+    "bench-qwopus-coder-mtp-v2",
 ]
 
 CODE_FENCE = re.compile(r"```(?:[a-zA-Z+]*)\n([\s\S]+?)\n```", re.MULTILINE)
