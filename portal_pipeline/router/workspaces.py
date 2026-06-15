@@ -990,18 +990,17 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-fastcontext": {
         "name": "🔬 Bench · FastContext-1.0-4B-SFT (Microsoft)",
         "description": (
-            "Benchmark: hf.co/bartowski/microsoft_FastContext-1.0-4B-SFT-GGUF:Q4_K_M "
-            "(Microsoft, bartowski GGUF — verify pull path before use; "
-            "hf.co/microsoft/FastContext-1.0-4B-SFT is the source repo). "
+            "Benchmark: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M "
+            "(Microsoft github.com/microsoft/fastcontext, mitkox GGUF quant). "
             "4B SFT model purpose-trained for long-context retrieval and reasoning: "
             "needle-in-haystack, multi-hop QA, instruction following at 32K–128K ctx. "
             "NOT a coding or tool-use model. NOT suitable as router (standard model; refusals). "
             "Primary probe dimensions: D4 LongCtx. Also scores D9/D10 to establish floor. "
             "Candidate for auto-data / auto-docs long-document QA if D4 score > fleet average. "
-            "PROMOTE_POLICY=confirm. Pull: ollama pull hf.co/bartowski/"
-            "microsoft_FastContext-1.0-4B-SFT-GGUF:Q4_K_M (verify repo name on HF first)."
+            "PROMOTE_POLICY=confirm. Pull: ollama pull "
+            "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
         ),
-        "model_hint": "hf.co/bartowski/microsoft_FastContext-1.0-4B-SFT-GGUF:Q4_K_M",
+        "model_hint": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "predict_limit": 4096,
         "tools": [],
