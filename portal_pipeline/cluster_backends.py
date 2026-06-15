@@ -590,6 +590,12 @@ class BackendRegistry:
                 logger.error("System memory critical: %.0f%% — OOM risk, backends may fail", _mem)
             elif _mem >= 80.0:
                 logger.warning("System memory high: %.0f%%", _mem)
+            # Push to admission gate — no subprocess call per request
+            try:
+                import portal_pipeline.router.concurrency as _conc
+                _conc._last_memory_pct = _mem
+            except Exception:
+                pass
         except Exception:
             pass
 

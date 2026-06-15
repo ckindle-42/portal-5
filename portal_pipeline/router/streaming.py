@@ -369,6 +369,36 @@ async def _stream_with_tool_loop_impl(
                                 continue
 
                     yield (line + "\n\n").encode()
+        except httpx.TimeoutException:
+            _ollama_base = backend_url.split("/v1/")[0]
+            logger.warning(
+                "Tool-loop backend %s timed out (workspace=%s, hop=%d) — checking /api/ps",
+                backend_url, workspace_id, hop,
+            )
+            try:
+                from portal_pipeline.router.monitor import wait_for_model_loaded as _wfml
+                _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
+            except Exception:
+                _still_running = False
+            if _still_running:
+                logger.warning(
+                    "Backend %s: model still in /api/ps after stream timeout — "
+                    "reasoning model mid-generation? (workspace=%s)",
+                    backend_url, workspace_id,
+                )
+                yield (
+                    f"data: {json.dumps({'error': 'Response timed out — model may still be generating. Please retry.'})}\n\n"
+                ).encode()
+            else:
+                logger.warning(
+                    "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
+                    backend_url, workspace_id,
+                )
+                _record_error(workspace_id, "stream_timeout")
+                yield (
+                    f"data: {json.dumps({'error': 'Backend timed out and no model is loaded. Please retry.'})}\n\n"
+                ).encode()
+            return
         except Exception as e:
             logger.error("Tool-loop stream error from %s: %s", backend_url, e)
             _record_error(workspace_id, "stream_error")
@@ -641,6 +671,39 @@ async def _stream_from_backend_guarded(
                         pass  # Fall through to raw yield on parse failure
 
                 yield (line + "\n\n").encode()
+    except httpx.TimeoutException:
+        _ollama_base = url.split("/v1/")[0]
+        logger.warning(
+            "Backend %s timed out during stream (workspace=%s) — checking /api/ps",
+            url, workspace_id,
+        )
+        try:
+            from portal_pipeline.router.monitor import wait_for_model_loaded as _wfml
+            _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
+        except Exception:
+            _still_running = False
+        if _still_running:
+            logger.warning(
+                "Backend %s: model still in /api/ps after stream timeout — "
+                "reasoning model mid-generation? (workspace=%s)",
+                url, workspace_id,
+            )
+            yield (
+                "data: "
+                + json.dumps({"error": "Response timed out — model may still be generating. Please retry."})
+                + "\n\n"
+            ).encode()
+        else:
+            logger.warning(
+                "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
+                url, workspace_id,
+            )
+            _record_error(workspace_id, "stream_timeout")
+            yield (
+                "data: "
+                + json.dumps({"error": "Backend timed out and no model is loaded. Please retry."})
+                + "\n\n"
+            ).encode()
     except Exception as e:
         logger.error("Stream error from %s: %s", url, e)
         _record_error(workspace_id, "stream_error")
