@@ -43,7 +43,7 @@ HTTP_CODE=$(curl -s -o "$_tmpfile" -w "%{http_code}" \
     -X POST "$PIPE/v1/chat/completions" \
     -H "Authorization: Bearer $API_KEY" \
     -H "Content-Type: application/json" \
-    -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG in one word."}],"stream":true,"max_tokens":16}' \
+    -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG in one word."}],"stream":true,"max_tokens":64}' \
     2>/dev/null) || true
 
 # curl writes body to $_tmpfile and "%{http_code}" to stdout; on streaming
@@ -81,17 +81,20 @@ if [ "$HAS_DONE" -lt 1 ]; then
     exit 1
 fi
 
-# Condition 4: require at least one non-empty content delta.
+# Condition 4: require at least one non-empty token delta (content or reasoning).
 # The preamble role chunk emits "content": "" — the ERE pattern requires
 # a non-quote character immediately after the opening quote, so empty-string
 # content correctly does NOT match. Handles both compact ("content":"X") and
 # spaced ("content": "X") JSON serialisation from different backends.
-if ! grep -qE '"content"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null; then
-    echo "FAIL — no non-empty content delta received (model produced no tokens)"
+# Thinking models (Qwen3, DeepSeek-R1) emit tokens in "reasoning" before
+# "content" — accept either field so auto-routing to a thinking workspace
+# doesn't false-fail when max_tokens is small.
+if ! grep -qE '"(content|reasoning)"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null; then
+    echo "FAIL — no non-empty token delta received (model produced no tokens)"
     cat "$_tmpfile"
     exit 1
 fi
 
-CONTENT_CHUNKS=$(grep -cE '"content"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null || echo 0)
-echo "PASS — $CHUNK_COUNT SSE chunk(s), $CONTENT_CHUNKS with content, [DONE] received"
+CONTENT_CHUNKS=$(grep -cE '"(content|reasoning)"[[:space:]]*:[[:space:]]*"[^"]' "$_tmpfile" 2>/dev/null || echo 0)
+echo "PASS — $CHUNK_COUNT SSE chunk(s), $CONTENT_CHUNKS with token delta(s), [DONE] received"
 exit 0
