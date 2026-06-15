@@ -1265,7 +1265,7 @@ case "${1:-up}" in
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$SCRIPT_DIR/Dockerfile.pwsh" "$SCRIPT_DIR"
+    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Restarting all rebuilt containers..."
     docker compose up -d --no-deps portal-pipeline $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
@@ -1280,7 +1280,7 @@ case "${1:-up}" in
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
     echo "[portal-5] Building native arm64 PowerShell sandbox image..."
-    docker build -t portal5-pwsh:latest -f "$SCRIPT_DIR/Dockerfile.pwsh" "$SCRIPT_DIR"
+    docker build -t portal5-pwsh:latest -f "$PORTAL_ROOT/Dockerfile.pwsh" "$PORTAL_ROOT"
     echo "[portal-5] Restarting MCP containers..."
     docker compose up -d --no-deps $MCP_SERVICES
     echo "[portal-5] Done. Check status: ./launch.sh status"
