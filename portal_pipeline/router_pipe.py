@@ -487,7 +487,7 @@ def _init_notifications(registry: BackendRegistry) -> None:
     _notification_dispatcher.add_channel(WebhookChannel(_http_client))
 
     # Run threshold check on first health cycle to catch any immediate issues
-    _notification_dispatcher.check_thresholds_and_alert(registry)
+    await _notification_dispatcher.check_thresholds_and_alert(registry)
 
     # Schedule daily summary
     _notification_scheduler = NotificationScheduler(_notification_dispatcher)
