@@ -588,6 +588,9 @@ workspace_routing:
   bench-deepseek-coder-v2:
   - coding
   - general
+  auto-bigfix:
+  - security
+  - general
   bench-fastcontext:
   - general
   bench-devstral:
