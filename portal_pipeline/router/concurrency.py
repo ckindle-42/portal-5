@@ -26,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 _MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "20"))
 
+# Memory gate — updated by BackendRegistry.health_check_all() every ~30s.
+# acquire_global() rejects requests before the semaphore when memory is critical,
+# preventing work from being queued that would OOM mid-stream.
+_MEMORY_GATE_THRESHOLD = float(os.environ.get("MEMORY_GATE_PCT", "90.0"))
+_last_memory_pct: float = 0.0  # pushed here by cluster_backends.py health cycle
+
 try:
     _SEMAPHORE_TIMEOUT = float(os.environ.get("SEMAPHORE_TIMEOUT_MS", "50")) / 1000.0
 except ValueError:
@@ -235,8 +241,14 @@ class RequestSlot:
         """Acquire the global request semaphore.
 
         Raises:
-            HTTPException 503: semaphore not initialised, or timeout.
+            HTTPException 503: memory critical, semaphore not initialised, or timeout.
         """
+        if _last_memory_pct >= _MEMORY_GATE_THRESHOLD:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Server memory critical ({_last_memory_pct:.0f}%) — please retry in a moment.",
+                headers={"Retry-After": "30"},
+            )
         if _request_semaphore is None:
             raise HTTPException(status_code=503, detail="Request semaphore not initialised")
         try:
