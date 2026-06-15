@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -243,9 +244,14 @@ async def main_async(args) -> int:
         return 0
 
     cells = []
+    probe_start = time.monotonic()
+    total_scenarios = len(models) * len(scenarios)
+    done_count = 0
+
     async with httpx.AsyncClient() as client:
         for mi, model in enumerate(models, 1):
-            print(f"\n[{mi}/{len(models)}] model: {model}")
+            model_start = time.monotonic()
+            print(f"\n[{mi}/{len(models)}] {model}", flush=True)
             # Evict others first (model-major; one resident at a time)
             try:
                 ps = (await client.get("http://localhost:11434/api/ps", timeout=5)).json()
@@ -255,25 +261,63 @@ async def main_async(args) -> int:
                                       timeout=10)
             except Exception:
                 pass
-            for scn in scenarios:
+            model_pass = model_fail = model_manual = 0
+            for _si, scn in enumerate(scenarios, 1):
                 ctx = ctx_cache.get(scn.get("context_file", ""), "")
+                done_count += 1
+                elapsed_probe = time.monotonic() - probe_start
+                # Show what's in flight before the call blocks
+                print(
+                    f"  [{done_count:3d}/{total_scenarios}] "
+                    f"{scn['dimension']} {scn['id']:<24} running...  "
+                    f"(probe {elapsed_probe/60:.0f}m{elapsed_probe%60:.0f}s)",
+                    end="\r", flush=True,
+                )
+                t0 = time.monotonic()
                 try:
                     cell = await run_scenario(client, model, scn, ctx)
                 except Exception as e:  # noqa: BLE001
                     cell = {"model": model, "dimension": scn["dimension"],
                             "id": scn["id"], "passed": False,
                             "detail": f"harness error: {e}"}
+                scn_elapsed = time.monotonic() - t0
                 mark = "manual" if cell["passed"] is None else (
                     "PASS" if cell["passed"] else "FAIL")
-                print(f"    {scn['dimension']} {scn['id']:28} {mark}  {cell['detail'][:60]}")
+                icon = "~" if cell["passed"] is None else ("✓" if cell["passed"] else "✗")
+                if cell["passed"] is None:
+                    model_manual += 1
+                elif cell["passed"]:
+                    model_pass += 1
+                else:
+                    model_fail += 1
+                print(
+                    f"  [{done_count:3d}/{total_scenarios}] "
+                    f"{icon} {scn['dimension']} {scn['id']:<24} {mark:<6} "
+                    f"{scn_elapsed:5.0f}s  {cell['detail'][:55]}",
+                    flush=True,
+                )
                 cells.append(cell)
+            model_elapsed = time.monotonic() - model_start
+            print(
+                f"  ── {model}: {model_pass}P/{model_fail}F/{model_manual}M  "
+                f"({model_elapsed/60:.0f}m{model_elapsed%60:.0f}s)",
+                flush=True,
+            )
 
     out_path = args.output or str(
         ROOT / "tests" / "benchmarks" / "results" /
         ("CAPABILITY_PROBE_" +
          datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".md"))
     Path(out_path).write_text(render_matrix(cells, args.scenarios))
-    print(f"\nwrote {out_path} ({len(cells)} cells)")
+    total_elapsed = time.monotonic() - probe_start
+    passed = sum(1 for c in cells if c["passed"] is True)
+    failed = sum(1 for c in cells if c["passed"] is False)
+    manual = sum(1 for c in cells if c["passed"] is None)
+    print(
+        f"\n── probe complete: {passed}P/{failed}F/{manual}M  "
+        f"total {total_elapsed/60:.0f}m{total_elapsed%60:.0f}s"
+    )
+    print(f"wrote {out_path} ({len(cells)} cells)")
     return 0
 
 
