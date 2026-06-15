@@ -23,7 +23,6 @@ import argparse
 import asyncio
 import os
 import re
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,6 +65,15 @@ def extract_code(response: str) -> str | None:
         return None
     # Prefer the longest block (usually the full solution).
     return max(blocks, key=len)
+
+
+_MAIN_GUARD_RE = re.compile(r'\nif __name__\s*==\s*[\'"]__main__[\'"]\s*:.*', re.DOTALL)
+
+
+def _strip_main_guard(code: str) -> str:
+    # Models often append `if __name__ == '__main__': main()` which fires before the
+    # test harness runs (argparse sees sys.argv=['/code'] and exits 2). Strip it.
+    return _MAIN_GUARD_RE.sub("", code).rstrip()
 
 
 async def chat(client: httpx.AsyncClient, workspace: str, prompt: str,
@@ -137,7 +145,7 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
             if not code:
                 turn_results.append(False)
                 continue
-            full = code + "\n\n" + (t.get("test_harness") or "")
+            full = _strip_main_guard(code) + "\n\n" + (t.get("test_harness") or "")
             res = await sandbox_exec(client, full, lang)
             ok, _ = score_execution(res, t.get("expected_stdout", ""))
             turn_results.append(ok)
@@ -157,7 +165,7 @@ async def run_scenario(client, workspace, scn, context_text="") -> dict:
         cell["passed"] = "```" in resp
         cell["detail"] = "static: code block present" if cell["passed"] else "no code"
         return cell
-    full = code + "\n\n" + harness
+    full = _strip_main_guard(code) + "\n\n" + harness
     res = await sandbox_exec(client, full, lang)
     ok, detail = score_execution(res, scn.get("expected_stdout", ""))
     cell["passed"] = ok
@@ -174,7 +182,7 @@ DIM_LABELS = {
 
 
 def render_matrix(cells: list[dict], source: str) -> str:
-    dims = sorted(set(c["dimension"] for c in cells), key=lambda d: int(d[1:]))
+    dims = sorted({c["dimension"] for c in cells}, key=lambda d: int(d[1:]))
     by_model: dict[str, dict[str, list]] = {}
     for c in cells:
         by_model.setdefault(c["model"], {}).setdefault(c["dimension"], []).append(c)
