@@ -486,8 +486,11 @@ def _init_notifications(registry: BackendRegistry) -> None:
     _notification_dispatcher.add_channel(PushoverChannel(_http_client))
     _notification_dispatcher.add_channel(WebhookChannel(_http_client))
 
-    # Run threshold check on first health cycle to catch any immediate issues
-    await _notification_dispatcher.check_thresholds_and_alert(registry)
+    # Run threshold check on first health cycle to catch any immediate issues.
+    # check_thresholds_and_alert is async; schedule it as a fire-and-forget task
+    # so _init_notifications (sync) can trigger the first check without blocking.
+    import asyncio as _asyncio  # noqa: PLC0415
+    _asyncio.ensure_future(_notification_dispatcher.check_thresholds_and_alert(registry))
 
     # Schedule daily summary
     _notification_scheduler = NotificationScheduler(_notification_dispatcher)
