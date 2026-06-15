@@ -57,7 +57,7 @@ DEFAULT_MODELS = [
     "bench-r1-0528-qwen3-8b", "bench-r1-0528-abliterated", "bench-harness1",
     # V3 additions — new fleet candidates (TASK_MODEL_EVAL_V9_CANDIDATES)
     "bench-devstral", "bench-magistral", "bench-apriel-nemotron",
-    "bench-qwopus-coder-mtp-v2",
+    "bench-qwopus-coder-mtp-v2", "bench-fastcontext",
 ]
 
 CODE_FENCE = re.compile(r"```(?:[a-zA-Z+]*)\n([\s\S]+?)\n```", re.MULTILINE)
