@@ -253,6 +253,7 @@ class BackendRegistry:
         self._candidate_cache_ttl: float = 5.0  # 5s TTL — short enough to react to failures
         self._tool_support: dict[str, bool] = {}
         self._last_healthy_count: int = -1
+        self._last_memory_pct: float = 0.0
 
         self._load_config()
 
@@ -580,6 +581,17 @@ class BackendRegistry:
                 healthy_count,
                 len(self._backends),
             )
+        try:
+            from portal_pipeline.router.monitor import memory_pct as _mp
+
+            _mem = _mp()
+            self._last_memory_pct = _mem
+            if _mem >= 90.0:
+                logger.error("System memory critical: %.0f%% — OOM risk, backends may fail", _mem)
+            elif _mem >= 80.0:
+                logger.warning("System memory high: %.0f%%", _mem)
+        except Exception:
+            pass
 
     async def _check_one(
         self,
@@ -684,6 +696,11 @@ class BackendRegistry:
     def request_timeout(self) -> float:
         """Request timeout in seconds, loaded from ``defaults.request_timeout`` in YAML."""
         return self._request_timeout
+
+    @property
+    def last_memory_pct(self) -> float:
+        """System memory used % from the most recent health cycle (0.0 = not yet measured)."""
+        return self._last_memory_pct
 
     @property
     def workspace_routes(self) -> dict[str, list[str]]:
