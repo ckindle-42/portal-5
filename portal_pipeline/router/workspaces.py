@@ -635,15 +635,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
         "emits_reasoning": False,
     },
-    "bench-lfm2-moe": {
-        "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
-        "description": "Benchmark: LFM2-8B-A1B (Liquid AI, 8.3B/1.5B-active MoE, hybrid Liquid arch — NON-TRANSFORMER). Scope per Liquid AI: agentic / data-extraction / RAG / creative / multi-turn. NOT for code or knowledge. Lineage diversification value.",
-        "model_hint": "dolphin-llama3:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-        "emits_reasoning": False,
-    },
     "bench-foundation-sec": {
         "name": "🔬 Bench · Foundation-Sec (Cisco)",
         "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, first-party Q8_0 GGUF ~8.5GB, 128K ctx). Native <think>. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance. Now the auto-blueteam primary (P5-FUT-PARITY-001).",
@@ -653,56 +644,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
         "emits_reasoning": True,
     },
-    "bench-toolace25": {
-        "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
-        "description": "[SUBSTITUTED — served model is granite4.1:8b, not ToolACE-2.5; P5-FUT-PARITY-001] Benchmark: ToolACE-2.5-Llama-3.1-8B (Team-ACE, LLaMA-3.1-8B + ToolACE synthetic data, BFCL-topping). Purpose-trained for tool-calling accuracy.",
-        "model_hint": "granite4.1:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": ["filesystem", "memory", "time"],
-        "emits_reasoning": False,
-    },
     # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ────────────────────────────
-    "bench-voxtral-realtime": {
-        "name": "🔬 Bench · Voxtral Realtime ASR",
-        "description": "Benchmark: Voxtral-Mini-4B-Realtime (Mistral, streaming ASR, 13 languages — requires audio-capable infrastructure)",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-voxtral-tts": {
-        "name": "🔬 Bench · Voxtral TTS (4B)",
-        "description": "Benchmark: Voxtral-4B-TTS (Mistral, 20 voices x 9 languages — requires audio-capable infrastructure)",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-granite-speech": {
-        "name": "🔬 Bench · Granite Speech 4.1 2B",
-        "description": "Benchmark: granite-speech-4.1-2b (IBM, #1 OpenASR, native keyword biasing, EN/FR/DE/ES/PT/JA — requires audio-capable infrastructure)",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-qwen36-27b-ud": {
-        "name": "🔬 Bench · Qwen3.6-27B (Unsloth UD)",
-        "description": "Benchmark: Qwen3.6-27B Unsloth Dynamic 2.0 (GGUF, Ollama, dense 27B, head-to-head vs stock 4-bit)",
-        "model_hint": "qwen3-coder:30b",
+        "name": "🔬 Bench · Qwen3.6-27B Q4 (Unsloth UD proxy)",
+        "description": (
+            "Benchmark: qwen3.6:27b-q4_K_M (Ollama, dense 27B Q4). Proxy for Unsloth Dynamic "
+            "2.0 UD-Q4_K_XL (not yet pulled) — establishes baseline for quant comparison "
+            "when UD variant becomes available. TASK_QUANT_TRUEUP_V1."
+        ),
+        "model_hint": "qwen3.6:27b-q4_K_M",
         "max_concurrent": 1,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    # ── TASK_QUANT_TRUEUP_V1: optimized-quant bench candidates ──────────────
-    "bench-qwen36-27b-optiq": {
-        "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
-        "description": "Benchmark: Qwen3.6-27B OptiQ (GGUF, Ollama, sensitivity-aware mixed 4-bit), pairs against plain 4-bit",
-        "model_hint": "qwen3-coder:30b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
         "emits_reasoning": True,
         "keep_alive": "5m",
         "tools": [],
@@ -717,18 +668,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "bench-huihui-qwen36-27b": {
         "name": "🔬 Bench · Huihui-Qwen3.6-27B (Abliterated)",
-        "description": "Benchmark: Huihui-Qwen3.6-27B-abliterated (GGUF, Ollama, dense 27B abliterated), uncensored refresh candidate vs Qwen3.5-9B",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-        "max_concurrent": 1,
-    },
-    "bench-huihui-qwen36-35b-a3b": {
-        "name": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
-        "description": "Benchmark: Huihui-Qwen3.6-35B-A3B-abliterated (GGUF, Ollama, MoE 3B active abliterated), uncensored speed-play vs Qwen3.5-9B",
-        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "description": (
+            "Benchmark: huihui_ai/Qwen3.6-abliterated:27b (Ollama, dense 27B abliterated, "
+            "~16GB Q4). Uncensored Qwen3.6-27B — head-to-head vs stock qwen3.6:27b-q4_K_M. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "predict_limit": 8192,
         "emits_reasoning": True,
         "keep_alive": "5m",
@@ -1040,6 +985,78 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-devstral": {
+        "name": "🔬 Bench · Devstral 24B (Mistral)",
+        "description": (
+            "Benchmark: devstral:24b (Ollama, Mistral, Apache 2.0, 24B MoE 22B active, ~14GB). "
+            "State-of-the-art open-source agent model for software engineering tasks. "
+            "46.8% SWE-bench Verified, #1 open-source at release (May 2025). "
+            "Designed for agentic coding: multi-step tool use, file editing, repo navigation. "
+            "Head-to-head vs bench-devstral-small-2 (7B MoE) and bench-qwopus-coder-mtp (27B). "
+            "Candidate for auto-agentic primary if TPS competitive and quality > small variant. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "devstral:24b",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
+    "bench-magistral": {
+        "name": "🔬 Bench · Magistral-Small 24B Reasoning (Mistral)",
+        "description": (
+            "Benchmark: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0 "
+            "(Mistral, unsloth quant, Apache 2.0, 24B MoE, ~26GB Q8_0). "
+            "Mistral's reasoning-specialized variant of Mistral-Small-3. "
+            "Extended chain-of-thought, competitive on MATH and coding-with-reasoning benchmarks. "
+            "Head-to-head vs bench-r1-0528-abliterated (32B) and bench-qwen36-27b (27B). "
+            "Candidate for auto-reasoning or auto-coding if thinking quality >= R1. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-apriel-nemotron": {
+        "name": "🔬 Bench · Apriel-Nemotron-15B Thinker (ServiceNow/NVIDIA)",
+        "description": (
+            "Benchmark: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:"
+            "ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf "
+            "(ServiceNow AI + NVIDIA, Apache 2.0, 15B dense, ~10GB Q5_K_M). "
+            "Enterprise reasoning model: extended thinking via chain-of-thought, "
+            "strong on code, math, and multi-step problem-solving. "
+            "Smaller footprint than 27B class — candidate for auto-reasoning fast-path. "
+            "Head-to-head vs bench-r1-0528-qwen3-8b (8B) and bench-granite41-30b (32B). "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": (
+            "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:"
+            "ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf"
+        ),
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-qwopus-coder-mtp-v2": {
+        "name": "🔬 Bench · Qwopus3.6-27B-v2-MTP (Jackrong)",
+        "description": (
+            "Benchmark: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf "
+            "(Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). "
+            "v2 of Qwopus3.6-27B-Coder-MTP — direct head-to-head vs bench-qwopus-coder-mtp (v1). "
+            "Updated SFT mix: additional agentic + multi-turn traces. MTP embedded draft heads. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "keep_alive": "5m",
         "tools": [],
     },
     "bench-deepseek-coder-v2": {
