@@ -724,11 +724,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if mp_dir := os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
         os.makedirs(mp_dir, exist_ok=True)
     # P1: create shared client with a connection pool sized for concurrent inference
-    # Timeout raised to 300s: cold-loading 32B models under memory pressure takes
-    # 2-4 min before the first token. 120s was causing S3-18 streaming timeouts.
+    # Safety-net timeout: per-request timeouts in _try_non_streaming are the
+    # operative control (registry.request_timeout + reasoning modifier).
+    # This client-level value is the absolute upper bound — raise to 600s so
+    # reasoning workspaces (which get 600s per-request) are never clamped by it.
     # connect stays 5s — local backends should bind immediately.
     _http_client = httpx.AsyncClient(
-        timeout=httpx.Timeout(300.0, connect=5.0),
+        timeout=httpx.Timeout(600.0, connect=5.0),
         limits=httpx.Limits(
             max_keepalive_connections=20,
             max_connections=100,
@@ -1278,6 +1280,80 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+def _apply_non_stream_response(
+    data: dict,
+    backend: Any,
+    workspace_id: str,
+    target_model: str,
+    start_time: float,
+) -> JSONResponse:
+    """Normalise + record + wrap a completed non-streaming response dict.
+
+    Called from both the normal path and the timeout-retry path in
+    ``_try_non_streaming`` to avoid duplicating ~60 lines of post-processing.
+    Pure sync — no awaits.
+    """
+    try:
+        import re as _re_think
+
+        for choice in data.get("choices") or []:
+            msg = choice.get("message") or {}
+            content = msg.get("content") or ""
+            reasoning = msg.get("reasoning") or ""
+            reasoning_content = msg.get("reasoning_content") or ""
+
+            if not content and reasoning:
+                logger.debug(
+                    "Backend %s: reasoning→content promotion for workspace=%s "
+                    "(thinking chain consumed all tokens)",
+                    backend.id,
+                    workspace_id,
+                )
+                msg["content"] = reasoning
+
+            elif not content and reasoning_content:
+                msg["content"] = reasoning_content
+
+            elif content and "<think>" in content:
+                stripped = _re_think.sub(
+                    r"<think>.*?</think>",
+                    "",
+                    content,
+                    flags=_re_think.DOTALL | _re_think.IGNORECASE,
+                ).strip()
+                if not stripped:
+                    inner = _re_think.sub(
+                        r"<think>(.*?)</think>",
+                        r"\1",
+                        content,
+                        flags=_re_think.DOTALL | _re_think.IGNORECASE,
+                    ).strip()
+                    if inner:
+                        msg["content"] = inner
+
+    except Exception:
+        pass  # Never let normalisation break a valid response
+
+    _record_usage(
+        model=target_model,
+        workspace=workspace_id,
+        data=data,
+        elapsed_seconds=time.monotonic() - start_time,
+    )
+    if "model" not in data or not data["model"]:
+        data["model"] = target_model
+    logger.info(
+        "Backend %s succeeded for workspace=%s model=%s",
+        backend.id,
+        workspace_id,
+        target_model,
+    )
+    return JSONResponse(
+        content=data,
+        headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
+    )
+
+
 async def _try_non_streaming(
     backend: Any,
     body: dict,
@@ -1376,6 +1452,15 @@ async def _try_non_streaming(
             )
             return None
         target_model = backend.models[0]
+        if model_hint and target_model != model_hint:
+            logger.warning(
+                "workspace=%s: model_hint mismatch — wanted %s, serving %s via %s "
+                "(all preferred backends exhausted; response may be from wrong model)",
+                workspace_id,
+                model_hint,
+                target_model,
+                backend.id,
+            )
 
     if enforce_hint:
         logger.info(
@@ -1384,6 +1469,14 @@ async def _try_non_streaming(
             backend.id,
             target_model,
         )
+
+    # Per-request timeout: reasoning workspaces get extra runway since their
+    # chain-of-thought generation routinely exceeds the default window.
+    # registry.request_timeout is loaded from backends.yaml defaults.request_timeout.
+    _req_timeout = getattr(registry, "request_timeout", 300.0)
+    if ws_cfg.get("emits_reasoning"):
+        _req_timeout = max(_req_timeout, 600.0)
+    _timeout_obj = httpx.Timeout(_req_timeout, connect=5.0)
 
     req_body = {**body, "model": target_model, "stream": False}
     if backend.type == "ollama":
@@ -1411,126 +1504,108 @@ async def _try_non_streaming(
                 len(_tools_arr),
             )
 
-    try:
-        resp = await _http_client.post(backend.chat_url, json=req_body)
-        resp.raise_for_status()
-        data = resp.json()
-
-        # Non-streaming tool loop: if the model returned tool_calls, dispatch them
-        # and call the model once more for synthesis. This handles OWUI's second
-        # non-streaming request (which it always sends when workspace tools are enabled)
-        # so that the committed DB response contains the recalled content, not a stub.
-        _ns_tool_calls: list[dict] = []
-        for _c in data.get("choices") or []:
-            _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
-
-        if _ns_tool_calls and _ns_tools:
-            _ns_dispatch = await asyncio.gather(
-                *[
-                    _dispatch_tool_call(
-                        tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
-                    )
-                    for tc in _ns_tool_calls
-                ]
-            )
-            _synth_messages = (
-                (req_body.get("messages") or [])
-                + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
-                + list(_ns_dispatch)
-            )
-            _synth_body = {
-                **req_body,
-                "messages": _synth_messages,
-                "tools": None,
-                "tool_choice": None,
-            }
-            _synth_resp = await _http_client.post(backend.chat_url, json=_synth_body)
-            _synth_resp.raise_for_status()
-            data = _synth_resp.json()
-            logger.info(
-                "Non-stream tool loop: workspace=%s dispatched %d tool(s), synthesis complete",
-                workspace_id,
-                len(_ns_tool_calls),
-            )
-
-        # Reasoning model normalisation: DeepSeek-R1, Qwen3 thinking mode, and Magistral
-        # populate message.reasoning instead of message.content when the thinking chain
-        # exhausts max_tokens. Promote reasoning→content so Open WebUI and all callers
-        # always find the response in the standard OpenAI content field.
+    async def _run_request() -> JSONResponse | None:
+        """POST → tool loop → normalise → return. None on any failure."""
         try:
-            import re as _re_think
+            resp = await _http_client.post(  # type: ignore[union-attr]
+                backend.chat_url, json=req_body, timeout=_timeout_obj
+            )
+            resp.raise_for_status()
+            data = resp.json()
 
-            for choice in data.get("choices") or []:
-                msg = choice.get("message") or {}
-                content = msg.get("content") or ""
-                reasoning = msg.get("reasoning") or ""
-                reasoning_content = msg.get("reasoning_content") or ""
+            # Non-streaming tool loop: if the model returned tool_calls, dispatch them
+            # and call the model once more for synthesis. This handles OWUI's second
+            # non-streaming request (which it always sends when workspace tools are enabled)
+            # so that the committed DB response contains the recalled content, not a stub.
+            _ns_tool_calls: list[dict] = []
+            for _c in data.get("choices") or []:
+                _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
 
-                if not content and reasoning:
-                    logger.debug(
-                        "Backend %s: reasoning→content promotion for workspace=%s "
-                        "(thinking chain consumed all tokens)",
-                        backend.id,
-                        workspace_id,
-                    )
-                    msg["content"] = reasoning
+            if _ns_tool_calls and _ns_tools:
+                _ns_dispatch = await asyncio.gather(
+                    *[
+                        _dispatch_tool_call(
+                            tc, set(_ns_tools), workspace_id, persona, f"ns-{int(time.time())}"
+                        )
+                        for tc in _ns_tool_calls
+                    ]
+                )
+                _synth_messages = (
+                    (req_body.get("messages") or [])
+                    + [{"role": "assistant", "content": None, "tool_calls": _ns_tool_calls}]
+                    + list(_ns_dispatch)
+                )
+                _synth_body = {
+                    **req_body,
+                    "messages": _synth_messages,
+                    "tools": None,
+                    "tool_choice": None,
+                }
+                _synth_resp = await _http_client.post(  # type: ignore[union-attr]
+                    backend.chat_url, json=_synth_body, timeout=_timeout_obj
+                )
+                _synth_resp.raise_for_status()
+                data = _synth_resp.json()
+                logger.info(
+                    "Non-stream tool loop: workspace=%s dispatched %d tool(s), synthesis complete",
+                    workspace_id,
+                    len(_ns_tool_calls),
+                )
 
-                elif not content and reasoning_content:
-                    # Ollama thinking models emit reasoning_content separately.
-                    # When content is empty, surface the reasoning as content so
-                    # OWUI commits the answer instead of an empty message.
-                    msg["content"] = reasoning_content
-
-                elif content and "<think>" in content:
-                    # Model put answer inside <think>...</think> with empty actual
-                    # content (Gemma 4 with enable_thinking=False). Strip wrapper
-                    # and surface the inner text as regular content.
-                    stripped = _re_think.sub(
-                        r"<think>.*?</think>",
-                        "",
-                        content,
-                        flags=_re_think.DOTALL | _re_think.IGNORECASE,
-                    ).strip()
-                    if not stripped:
-                        inner = _re_think.sub(
-                            r"<think>(.*?)</think>",
-                            r"\1",
-                            content,
-                            flags=_re_think.DOTALL | _re_think.IGNORECASE,
-                        ).strip()
-                        if inner:
-                            msg["content"] = inner
-
+            return _apply_non_stream_response(data, backend, workspace_id, target_model, start_time)
+        except httpx.TimeoutException:
+            raise  # propagate so outer handler can check /api/ps
         except Exception:
-            pass  # Never let normalisation break a valid response
+            return None
 
-        _record_usage(
-            model=target_model,
-            workspace=workspace_id,
-            data=data,
-            elapsed_seconds=time.monotonic() - start_time,
-        )
-        # Inject model field — ensures callers can always identify which backend
-        # served the request. Defensive default (backend may omit this field).
-        if "model" not in data or not data["model"]:
-            data["model"] = target_model
-        logger.info(
-            "Backend %s succeeded for workspace=%s model=%s",
-            backend.id,
-            workspace_id,
-            target_model,
-        )
-        return JSONResponse(
-            content=data,
-            headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
-        )
-    except Exception as e:
+    try:
+        result = await _run_request()
+        if result is not None:
+            return result
+        # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
         logger.warning(
-            "Backend %s failed for workspace=%s: %s — trying next candidate",
+            "Backend %s failed for workspace=%s — trying next candidate",
             backend.id,
             workspace_id,
-            e,
         )
+        return None
+    except httpx.TimeoutException:
+        # Before cascading, check whether the model is still running in Ollama.
+        # A timeout on a reasoning model mid-generation is not a backend failure.
+        _ollama_base = backend.chat_url.split("/v1/")[0]
+        logger.warning(
+            "Backend %s timed out for workspace=%s (%.0fs) — checking /api/ps",
+            backend.id,
+            workspace_id,
+            _req_timeout,
+        )
+        _model_still_running = False
+        try:
+            from portal_pipeline.router.monitor import wait_for_model_loaded as _wfml
+
+            _model_still_running = await _wfml(timeout_s=60.0, ollama_url=_ollama_base)
+        except Exception:
+            pass
+
+        if _model_still_running:
+            logger.warning(
+                "Backend %s: model present in /api/ps — retrying once with %.0fs timeout",
+                backend.id,
+                _req_timeout,
+            )
+            result = await _run_request()
+            if result is not None:
+                return result
+            logger.warning(
+                "Backend %s retry also failed for workspace=%s — cascading",
+                backend.id,
+                workspace_id,
+            )
+        else:
+            logger.warning(
+                "Backend %s: model absent from /api/ps — cascading to next candidate",
+                backend.id,
+            )
         return None
 
 
