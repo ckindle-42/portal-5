@@ -348,3 +348,691 @@ scenarios:
       assert cip_lookup("lunch menu") == "UNKNOWN"
       print("D7_CIP_OK")
     expected_stdout: "D7_CIP_OK"
+
+  # ==== D8 - PowerShell (locked-down environment, 5) ========================
+  # Runs via pwsh -NonInteractive -File on Alpine Linux (no WMI/COM/registry).
+  # Tests PS Core constructs valid in ConstrainedLanguageMode-aware scripts.
+
+  - id: ps1-pipeline-filter
+    dimension: D8
+    language: powershell
+    prompt: |
+      Write a PowerShell function `Get-LargeItems` that accepts parameters
+      -Path [string] and -MinSizeMB [double] (default 1.0). It should
+      return objects with properties Name, SizeMB (rounded to 2 decimal
+      places), and LastWriteTime for every file under Path whose size
+      exceeds MinSizeMB. Use Get-ChildItem, Where-Object, ForEach-Object,
+      and [math]::Round. No external modules. One code block only.
+    test_harness: |
+      $null = New-Item -ItemType Directory -Path /tmp/pstest1 -Force
+      [System.IO.File]::WriteAllBytes('/tmp/pstest1/small.txt', [byte[]](1..500))
+      $big = New-Object byte[] (2 * 1024 * 1024)
+      [System.IO.File]::WriteAllBytes('/tmp/pstest1/large.log', $big)
+
+      $results = Get-LargeItems -Path '/tmp/pstest1' -MinSizeMB 1.0
+      if (-not $results) { Write-Error 'No results returned'; exit 1 }
+      $r = @($results)
+      $large = $r | Where-Object { $_.Name -eq 'large.log' }
+      if (-not $large) { Write-Error 'large.log missing from results'; exit 1 }
+      if ($large.SizeMB -lt 1.9) { Write-Error "SizeMB too small: $($large.SizeMB)"; exit 1 }
+      $small = $r | Where-Object { $_.Name -eq 'small.txt' }
+      if ($small) { Write-Error 'small.txt should be filtered out'; exit 1 }
+      Write-Output 'PS1_PIPELINE_OK'
+    expected_stdout: "PS1_PIPELINE_OK"
+
+  - id: ps2-error-handling
+    dimension: D8
+    language: powershell
+    prompt: |
+      Write a PowerShell function `Invoke-SafeBlock` that accepts a mandatory
+      ScriptBlock parameter -Action. Execute the ScriptBlock and return a
+      [PSCustomObject] with three properties: Success (bool), Output (the
+      result of the block, $null on failure), and ErrorMessage (string,
+      $null on success). Use try/catch; set $ErrorActionPreference = 'Stop'
+      inside the function so all errors are terminating. One code block only.
+    test_harness: |
+      $ok = Invoke-SafeBlock -Action { 21 * 2 }
+      if (-not $ok.Success) { Write-Error "Expected Success=true"; exit 1 }
+      if ($ok.Output -ne 42) { Write-Error "Expected Output=42, got $($ok.Output)"; exit 1 }
+      if ($null -ne $ok.ErrorMessage) { Write-Error "Expected null ErrorMessage"; exit 1 }
+
+      $fail = Invoke-SafeBlock -Action { throw 'something went boom' }
+      if ($fail.Success) { Write-Error "Expected Success=false for throw"; exit 1 }
+      if ($fail.ErrorMessage -notmatch 'boom') { Write-Error "ErrorMessage missing 'boom': $($fail.ErrorMessage)"; exit 1 }
+      if ($null -ne $fail.Output) { Write-Error "Expected null Output on failure"; exit 1 }
+      Write-Output 'PS2_ERROR_HANDLING_OK'
+    expected_stdout: "PS2_ERROR_HANDLING_OK"
+
+  - id: ps3-log-parse
+    dimension: D8
+    language: powershell
+    prompt: |
+      Write a PowerShell function `Parse-W3CLog` that accepts a [string]
+      parameter -LogContent containing W3C extended log format text. Skip
+      lines starting with '#'. Split each data line on whitespace; assume
+      columns in order: date, time, cs-method, cs-uri-stem, sc-status,
+      time-taken. Return an array of [PSCustomObject] with those exact
+      property names. Handle empty input gracefully (return empty array).
+      One code block only.
+    test_harness: |
+      $sample = @'
+      #Version: 1.0
+      #Fields: date time cs-method cs-uri-stem sc-status time-taken
+      2024-01-15 08:00:01 GET /api/health 200 12
+      2024-01-15 08:00:02 POST /api/login 401 45
+      2024-01-15 08:00:03 DELETE /api/session 204 8
+      '@
+
+      $rows = @(Parse-W3CLog -LogContent $sample)
+      if ($rows.Count -ne 3) { Write-Error "Expected 3 rows, got $($rows.Count)"; exit 1 }
+      if ($rows[1].'cs-method' -ne 'POST') { Write-Error "Method wrong: $($rows[1].'cs-method')"; exit 1 }
+      if ($rows[1].'sc-status' -ne '401') { Write-Error "Status wrong: $($rows[1].'sc-status')"; exit 1 }
+      if ($rows[2].'cs-uri-stem' -ne '/api/session') { Write-Error "URI wrong: $($rows[2].'cs-uri-stem')"; exit 1 }
+
+      $empty = @(Parse-W3CLog -LogContent '')
+      if ($empty.Count -ne 0) { Write-Error "Empty input should return 0 rows"; exit 1 }
+      Write-Output 'PS3_LOG_PARSE_OK'
+    expected_stdout: "PS3_LOG_PARSE_OK"
+
+  - id: ps4-json-transform
+    dimension: D8
+    language: powershell
+    prompt: |
+      Write a PowerShell function `ConvertTo-FlatReport` that accepts a
+      [string] parameter -JsonInput containing a JSON array of host-check
+      objects shaped as:
+        [{"host":"name","checks":[{"name":"metric","value":N,"warn":N},...]}]
+      Use ConvertFrom-Json to parse it. Return a flat array of [PSCustomObject]
+      with properties: Host, Check, Value (int), Status ("WARN" if value
+      exceeds warn threshold, otherwise "OK"). No Add-Type, no
+      Invoke-Expression. One code block only.
+    test_harness: |
+      $json = '[{"host":"srv1","checks":[{"name":"cpu","value":92,"warn":80},{"name":"disk","value":40,"warn":85}]},{"host":"srv2","checks":[{"name":"cpu","value":60,"warn":80}]}]'
+      $rows = @(ConvertTo-FlatReport -JsonInput $json)
+      if ($rows.Count -ne 3) { Write-Error "Expected 3 rows, got $($rows.Count)"; exit 1 }
+      $warn = $rows | Where-Object { $_.Host -eq 'srv1' -and $_.Check -eq 'cpu' }
+      if ($warn.Status -ne 'WARN') { Write-Error "cpu@srv1 should be WARN, got $($warn.Status)"; exit 1 }
+      $ok = $rows | Where-Object { $_.Host -eq 'srv2' -and $_.Check -eq 'cpu' }
+      if ($ok.Status -ne 'OK') { Write-Error "cpu@srv2 should be OK, got $($ok.Status)"; exit 1 }
+      $disk = $rows | Where-Object { $_.Host -eq 'srv1' -and $_.Check -eq 'disk' }
+      if ($disk.Status -ne 'OK') { Write-Error "disk@srv1 should be OK (40 < 85), got $($disk.Status)"; exit 1 }
+      Write-Output 'PS4_JSON_TRANSFORM_OK'
+    expected_stdout: "PS4_JSON_TRANSFORM_OK"
+
+  - id: ps5-retry-block
+    dimension: D8
+    language: powershell
+    prompt: |
+      Write a PowerShell function `Invoke-WithRetry` that accepts:
+        -Action [scriptblock]  — the operation to attempt
+        -MaxRetries [int]      — maximum attempts (default 3)
+        -RetryPatterns [string[]] — substrings in exception messages that
+          trigger a retry (default @('429','503','timeout'))
+      Execute the Action. If it throws and the exception message matches any
+      RetryPattern, wait 0 seconds (for testability) and retry up to
+      MaxRetries times total. On success return the result. After exhausting
+      retries, throw with message "Max retries exceeded after N attempts".
+      Non-matching exceptions propagate immediately without retry.
+      One code block only.
+    test_harness: |
+      # Success on first try
+      $r = Invoke-WithRetry -Action { 'hello' } -MaxRetries 3
+      if ($r -ne 'hello') { Write-Error "Expected 'hello', got $r"; exit 1 }
+
+      # Retry then succeed
+      $script:n = 0
+      $result = Invoke-WithRetry -MaxRetries 3 -Action {
+          $script:n++
+          if ($script:n -lt 3) { throw "HTTP 429 Too Many Requests" }
+          'done'
+      }
+      if ($result -ne 'done') { Write-Error "Expected 'done', got $result"; exit 1 }
+      if ($script:n -ne 3) { Write-Error "Expected 3 attempts, got $($script:n)"; exit 1 }
+
+      # Exhaust retries
+      try {
+          Invoke-WithRetry -MaxRetries 2 -Action { throw '503 Service Unavailable' }
+          Write-Error 'Should have thrown'; exit 1
+      } catch {
+          if ($_.Exception.Message -notmatch 'Max retries exceeded') {
+              Write-Error "Wrong exception: $($_.Exception.Message)"; exit 1
+          }
+      }
+
+      # Non-matching error propagates immediately without retry
+      $script:pn = 0
+      try {
+          Invoke-WithRetry -MaxRetries 5 -Action {
+              $script:pn++
+              throw 'ArgumentNullException: value cannot be null'
+          }
+      } catch {}
+      if ($script:pn -ne 1) { Write-Error "Non-retryable should not retry, got $($script:pn) attempts"; exit 1 }
+      Write-Output 'PS5_RETRY_OK'
+    expected_stdout: "PS5_RETRY_OK"
+
+  # ==== D9 - Python production patterns (4) ==================================
+
+  - id: py1-argparse-cli
+    dimension: D9
+    language: python
+    prompt: |
+      Write a Python module with a function `build_parser()` returning an
+      ArgumentParser with:
+      - A global --verbose flag (store_true)
+      - Subcommand `list` with --format (choices: csv, json, table; default:
+        table) and --filter (nargs='*', KEY=VALUE pairs, default: [])
+      - Subcommand `get` with required --id (type=int) and optional --fields
+        (str, default: '*')
+      Each subcommand sets defaults(command='list') / defaults(command='get').
+      Also define `main(argv=None)` that calls build_parser().parse_args(argv).
+      stdlib only, one code block.
+    test_harness: |
+      ns = build_parser().parse_args(['list', '--format', 'csv'])
+      assert ns.format == 'csv', f"format={ns.format}"
+      assert ns.command == 'list', f"command={ns.command}"
+      assert ns.verbose is False
+
+      ns2 = build_parser().parse_args(['list', '--verbose', '--filter', 'status=active'])
+      assert ns2.verbose is True
+      assert ns2.filter == ['status=active'], f"filter={ns2.filter}"
+
+      ns3 = build_parser().parse_args(['get', '--id', '42', '--fields', 'name,email'])
+      assert ns3.id == 42, f"id={ns3.id}"
+      assert ns3.fields == 'name,email'
+      assert ns3.command == 'get'
+
+      import sys
+      try:
+          build_parser().parse_args(['get'])  # --id required
+          assert False, "Should exit"
+      except SystemExit as e:
+          assert e.code != 0
+
+      print("PY1_ARGPARSE_OK")
+    expected_stdout: "PY1_ARGPARSE_OK"
+
+  - id: py2-subprocess-safe
+    dimension: D9
+    language: python
+    prompt: |
+      Write a function `run_command(cmd: list, timeout: int = 30) -> dict`
+      that runs cmd using subprocess.run (never shell=True). Return a dict:
+        {"returncode": int, "stdout": str, "stderr": str, "timed_out": bool}
+      On subprocess.TimeoutExpired: return returncode=-1, timed_out=True.
+      On FileNotFoundError: return returncode=-2, timed_out=False,
+        stderr=f"command not found: {cmd[0]}".
+      stdlib only, one code block.
+    test_harness: |
+      r = run_command(['echo', 'hello world'])
+      assert r['returncode'] == 0, f"rc={r['returncode']}"
+      assert 'hello world' in r['stdout'], f"stdout={r['stdout']!r}"
+      assert r['timed_out'] is False
+
+      r2 = run_command(['sh', '-c', 'exit 1'])
+      assert r2['returncode'] == 1, f"rc={r2['returncode']}"
+
+      r3 = run_command(['/no/such/binary/exists'])
+      assert r3['returncode'] == -2, f"rc={r3['returncode']}"
+      assert 'not found' in r3['stderr'], f"stderr={r3['stderr']!r}"
+      assert r3['timed_out'] is False
+
+      r4 = run_command(['sleep', '10'], timeout=1)
+      assert r4['timed_out'] is True, f"timed_out={r4['timed_out']}"
+      assert r4['returncode'] == -1
+
+      print("PY2_SUBPROCESS_OK")
+    expected_stdout: "PY2_SUBPROCESS_OK"
+
+  - id: py3-retry-fn
+    dimension: D9
+    language: python
+    prompt: |
+      Write a function `with_retry(fn, max_attempts=3, backoff_base=0.0,
+      retryable=('429', '503', 'timeout'))`. Call fn(). If it raises an
+      exception whose str() contains any string in retryable, wait
+      backoff_base * (2 ** attempt) seconds and retry. After max_attempts
+      total attempts, re-raise the last exception. Non-matching exceptions
+      propagate immediately. Return the value on success. stdlib only,
+      one code block.
+    test_harness: |
+      assert with_retry(lambda: 99) == 99
+
+      calls = [0]
+      def flaky():
+          calls[0] += 1
+          if calls[0] < 3:
+              raise Exception("HTTP 429 Too Many Requests")
+          return "ok"
+      assert with_retry(flaky) == "ok"
+      assert calls[0] == 3, f"expected 3 calls, got {calls[0]}"
+
+      err_calls = [0]
+      def always_fail():
+          err_calls[0] += 1
+          raise Exception("503 Service Unavailable")
+      try:
+          with_retry(always_fail, max_attempts=2)
+          assert False, "Should raise"
+      except Exception as e:
+          assert "503" in str(e)
+      assert err_calls[0] == 2, f"expected 2 attempts, got {err_calls[0]}"
+
+      perm_calls = [0]
+      try:
+          def perm():
+              perm_calls[0] += 1
+              raise ValueError("auth failed")
+          with_retry(perm)
+      except ValueError:
+          pass
+      assert perm_calls[0] == 1, f"non-retryable should not retry, got {perm_calls[0]}"
+
+      print("PY3_RETRY_OK")
+    expected_stdout: "PY3_RETRY_OK"
+
+  - id: py4-deep-merge
+    dimension: D9
+    language: python
+    prompt: |
+      Write a function `merge_configs(*configs: dict) -> dict` that
+      deep-merges an arbitrary number of dicts with right-side precedence:
+      - Nested dicts are merged recursively (not replaced wholesale)
+      - Lists are replaced entirely (right wins, not extended)
+      - None values in a later config do NOT overwrite existing values
+      - All other scalar values: right wins
+      stdlib only, one code block.
+    test_harness: |
+      base = {"a": 1, "b": {"x": 10, "y": 20}, "c": [1, 2]}
+      override = {"b": {"y": 99, "z": 30}, "c": [3], "d": None}
+      r = merge_configs(base, override)
+      assert r["a"] == 1, f"a={r['a']}"
+      assert r["b"] == {"x": 10, "y": 99, "z": 30}, f"b={r['b']}"
+      assert r["c"] == [3], f"c={r['c']}"
+      assert r["d"] is None  # None is set if key didn't exist before
+
+      # None does not overwrite existing value
+      r2 = merge_configs({"k": "keep"}, {"k": None})
+      assert r2["k"] == "keep", f"None should not overwrite existing: {r2['k']}"
+
+      # Three-way merge
+      r3 = merge_configs({"a": 1}, {"a": 2, "b": 5}, {"b": 10})
+      assert r3["a"] == 2
+      assert r3["b"] == 10
+
+      print("PY4_DEEP_MERGE_OK")
+    expected_stdout: "PY4_DEEP_MERGE_OK"
+
+  # ==== D10 - Security & monitoring tool APIs (9) ===========================
+  # Scenarios test parsing and client logic for the fleet of tools in use:
+  # Nessus SecurityCenter, Splunk, SolarWinds NPM, Tripwire Enterprise,
+  # Microsoft SQL Server (pyodbc pattern), SSRS, SunView ChangeGear.
+  # Each scenario provides realistic sample API response data so that the
+  # model's parsing/transformation logic is execution-validated without
+  # requiring a live tool instance.
+
+  - id: sec1-nessus-parse
+    dimension: D10
+    language: python
+    prompt: |
+      Write a function `parse_nessus_vulns(response: dict) -> dict` that
+      processes a Nessus SecurityCenter REST API vulnerability response.
+      The response has shape:
+        {"response": {"vulnerabilities": [{"name": str,
+          "severity": {"id": str, "name": str},
+          "cvssV3BaseScore": str, "count": str}, ...]}}
+      Severity IDs: "4"=Critical, "3"=High, "2"=Medium, "1"=Low, "0"=Info.
+      Return:
+        {"summary": {"critical": int, "high": int, "medium": int,
+                     "low": int, "info": int, "total": int},
+         "top_critical": [list of up to 5 dicts sorted by cvssV3BaseScore
+                          desc, each with name, cvssV3BaseScore (float),
+                          count (int)]}
+      stdlib only, one code block.
+    test_harness: |
+      data = {"response": {"vulnerabilities": [
+          {"name": "Critical RCE", "severity": {"id": "4", "name": "Critical"}, "cvssV3BaseScore": "9.8", "count": "2"},
+          {"name": "SSL Expired", "severity": {"id": "3", "name": "High"}, "cvssV3BaseScore": "7.5", "count": "4"},
+          {"name": "Weak Cipher", "severity": {"id": "2", "name": "Medium"}, "cvssV3BaseScore": "5.3", "count": "8"},
+          {"name": "Info Leak", "severity": {"id": "0", "name": "Info"}, "cvssV3BaseScore": "0.0", "count": "1"},
+          {"name": "Privesc", "severity": {"id": "4", "name": "Critical"}, "cvssV3BaseScore": "8.8", "count": "1"},
+      ]}}
+      r = parse_nessus_vulns(data)
+      assert r["summary"]["critical"] == 2, f"critical={r['summary']['critical']}"
+      assert r["summary"]["high"] == 1
+      assert r["summary"]["medium"] == 1
+      assert r["summary"]["info"] == 1
+      assert r["summary"]["total"] == 5
+      tc = r["top_critical"]
+      assert len(tc) == 2, f"top_critical len={len(tc)}"
+      assert tc[0]["name"] == "Critical RCE", f"top={tc[0]['name']}"
+      assert tc[0]["cvssV3BaseScore"] == 9.8
+      assert tc[0]["count"] == 2
+      print("SEC1_NESSUS_OK")
+    expected_stdout: "SEC1_NESSUS_OK"
+
+  - id: sec2-splunk-search
+    dimension: D10
+    language: python
+    prompt: |
+      Write two functions:
+      1. `build_spl(index: str, sourcetype: str, earliest: str, latest: str,
+            fields: list[str], where_clause: str = "") -> str`
+         Returns a Splunk SPL search string:
+         `search index=<index> sourcetype=<sourcetype> earliest=<earliest>
+          latest=<latest> | fields <comma-joined fields>
+          [| where <where_clause> if not empty]`
+      2. `parse_splunk_results(response: dict) -> list[dict]`
+         Parses a Splunk REST /search/jobs/{sid}/results JSON response shaped
+         as {"results": [{"field": "value", ...}]}. Returns the list of
+         result dicts, stripping any keys that start with underscore ('_').
+      stdlib only, one code block.
+    test_harness: |
+      spl = build_spl("security", "wineventlog", "-24h", "now",
+                      ["EventCode", "host", "user"], "EventCode=4625")
+      assert "index=security" in spl, f"spl={spl}"
+      assert "sourcetype=wineventlog" in spl
+      assert "earliest=-24h" in spl
+      assert "EventCode,host,user" in spl or "EventCode, host, user" in spl
+      assert "EventCode=4625" in spl
+
+      spl2 = build_spl("main", "syslog", "-1h", "now", ["host", "message"])
+      assert "where" not in spl2, f"empty where_clause should omit | where: {spl2}"
+
+      resp = {"results": [
+          {"EventCode": "4625", "host": "dc01", "_raw": "raw data", "_time": "2024-01-15"},
+          {"EventCode": "4625", "host": "dc02", "_indextime": "123"},
+      ]}
+      rows = parse_splunk_results(resp)
+      assert len(rows) == 2
+      assert "_raw" not in rows[0], f"underscore keys should be stripped: {rows[0]}"
+      assert rows[0]["host"] == "dc01"
+      print("SEC2_SPLUNK_OK")
+    expected_stdout: "SEC2_SPLUNK_OK"
+
+  - id: sec3-solarwinds-parse
+    dimension: D10
+    language: python
+    prompt: |
+      Write two functions:
+      1. `build_swql(table: str, fields: list[str],
+            where: str = "", order_by: str = "") -> str`
+         Returns a SolarWinds SWQL query string:
+         `SELECT <fields> FROM <table> [WHERE <where>] [ORDER BY <order_by>]`
+      2. `parse_orion_nodes(response: dict) -> list[dict]`
+         Parses a SolarWinds Orion SWIS REST response:
+         {"results": [{"NodeID": int, "Caption": str, "IPAddress": str,
+                       "Status": int, "StatusDescription": str}, ...]}
+         Returns only nodes where Status != 1 (1 = Up), with an added
+         "alert_level" key: "critical" if Status==2, else "warning".
+      stdlib only, one code block.
+    test_harness: |
+      q = build_swql("Orion.Nodes", ["NodeID", "Caption", "Status"],
+                     where="Status != 1", order_by="Caption")
+      assert "SELECT" in q and "NodeID" in q and "Caption" in q and "Status" in q
+      assert "Orion.Nodes" in q
+      assert "Status != 1" in q
+      assert "ORDER BY Caption" in q
+
+      q2 = build_swql("Orion.Interfaces", ["InterfaceID", "Name"])
+      assert "WHERE" not in q2 and "ORDER BY" not in q2
+
+      resp = {"results": [
+          {"NodeID": 1, "Caption": "core-sw-01", "IPAddress": "10.0.1.1", "Status": 2, "StatusDescription": "Down"},
+          {"NodeID": 2, "Caption": "dist-sw-01", "IPAddress": "10.0.1.2", "Status": 1, "StatusDescription": "Up"},
+          {"NodeID": 3, "Caption": "edge-rtr-01", "IPAddress": "10.0.2.1", "Status": 3, "StatusDescription": "Unmanaged"},
+      ]}
+      nodes = parse_orion_nodes(resp)
+      assert len(nodes) == 2, f"Expected 2 non-up nodes, got {len(nodes)}"
+      down = next(n for n in nodes if n["Caption"] == "core-sw-01")
+      assert down["alert_level"] == "critical", f"Status=2 should be critical"
+      unm = next(n for n in nodes if n["Caption"] == "edge-rtr-01")
+      assert unm["alert_level"] == "warning"
+      print("SEC3_SOLARWINDS_OK")
+    expected_stdout: "SEC3_SOLARWINDS_OK"
+
+  - id: sec4-tripwire-parse
+    dimension: D10
+    language: python
+    prompt: |
+      Write a function `parse_tripwire_results(data: dict,
+          min_severity: int = 5000) -> list[dict]`
+      that processes a Tripwire Enterprise REST API node-check response:
+        {"data": [{"nodeLabel": str, "ruleName": str, "checkState": str,
+                   "severity": int, "filePath": str}, ...]}
+      Return only entries where checkState == "modified" AND
+      severity >= min_severity, as a list of dicts with keys:
+      node, rule, path, severity. Sort by severity descending, then by
+      node ascending. stdlib only, one code block.
+    test_harness: |
+      data = {"data": [
+          {"nodeLabel": "web01", "ruleName": "Critical OS Files", "checkState": "modified", "severity": 10000, "filePath": "/etc/passwd"},
+          {"nodeLabel": "web01", "ruleName": "Log Files", "checkState": "modified", "severity": 5000, "filePath": "/var/log/auth.log"},
+          {"nodeLabel": "db01",  "ruleName": "Critical OS Files", "checkState": "unmodified", "severity": 10000, "filePath": "/etc/shadow"},
+          {"nodeLabel": "db01",  "ruleName": "App Config", "checkState": "modified", "severity": 1000, "filePath": "/opt/app/config.ini"},
+          {"nodeLabel": "db01",  "ruleName": "Critical OS Files", "checkState": "modified", "severity": 10000, "filePath": "/etc/crontab"},
+      ]}
+      results = parse_tripwire_results(data, min_severity=5000)
+      assert len(results) == 3, f"Expected 3, got {len(results)}: {results}"
+      assert results[0]["severity"] == 10000
+      # Two 10000-severity entries: db01 and web01 — sorted by node asc
+      sev10 = [r for r in results if r["severity"] == 10000]
+      assert len(sev10) == 2
+      assert sev10[0]["node"] == "db01", f"node sort wrong: {sev10[0]['node']}"
+      assert results[-1]["severity"] == 5000
+      assert "unmodified" not in str(results)
+      print("SEC4_TRIPWIRE_OK")
+    expected_stdout: "SEC4_TRIPWIRE_OK"
+
+  - id: sec5-mssql-query
+    dimension: D10
+    language: python
+    prompt: |
+      Write a function `get_failed_logins(cursor, days: int = 7) -> list[dict]`
+      that queries a `security_events` table (columns: id, username, event_type,
+      ip_address, event_time TEXT as ISO-8601 string). Return rows where
+      event_type = 'LOGIN_FAILED' and event_time is within the last `days` days,
+      as a list of dicts with keys: username, ip_address, event_time. Use only
+      parameterized queries (no f-strings or % formatting in SQL). stdlib only,
+      one code block. The cursor follows the DB-API 2.0 interface (pyodbc/sqlite3
+      compatible).
+    test_harness: |
+      import sqlite3
+      from datetime import datetime, timedelta
+
+      conn = sqlite3.connect(':memory:')
+      conn.row_factory = sqlite3.Row
+      cur = conn.cursor()
+      cur.execute("""CREATE TABLE security_events
+          (id INTEGER, username TEXT, event_type TEXT, ip_address TEXT, event_time TEXT)""")
+      now = datetime.now()
+      rows = [
+          (1, "jdoe",  "LOGIN_FAILED",   "10.0.0.1", (now - timedelta(days=1)).isoformat()),
+          (2, "admin", "LOGIN_FAILED",   "10.0.0.2", (now - timedelta(days=2)).isoformat()),
+          (3, "admin", "LOGIN_SUCCESS",  "10.0.0.2", (now - timedelta(days=1)).isoformat()),
+          (4, "ghost", "LOGIN_FAILED",   "10.0.0.3", (now - timedelta(days=30)).isoformat()),
+      ]
+      cur.executemany("INSERT INTO security_events VALUES (?,?,?,?,?)", rows)
+      conn.commit()
+
+      results = get_failed_logins(cur, days=7)
+      assert len(results) == 2, f"Expected 2 rows, got {len(results)}"
+      usernames = [dict(r)["username"] if hasattr(r, "keys") else r[0] for r in results]
+      assert "jdoe" in usernames, f"jdoe missing: {usernames}"
+      assert "ghost" not in usernames, f"ghost is outside 7-day window"
+      print("SEC5_MSSQL_OK")
+    expected_stdout: "SEC5_MSSQL_OK"
+
+  - id: sec6-ssrs-deploy
+    dimension: D10
+    language: python
+    prompt: |
+      Write two functions for SQL Server Reporting Services (SSRS):
+      1. `build_ssrs_dataset_query(table: str, date_field: str,
+             param_start: str = "@StartDate",
+             param_end: str = "@EndDate") -> str`
+         Returns a T-SQL SELECT * query with a WHERE clause filtering
+         date_field BETWEEN param_start AND param_end.
+         Example: "SELECT * FROM [dbo].[FailedLogins]
+                   WHERE [EventTime] BETWEEN @StartDate AND @EndDate"
+      2. `parse_ssrs_catalog(response: dict) -> list[dict]`
+         Parses an SSRS REST API v2.0 CatalogItems response:
+         {"value": [{"Id": str, "Name": str, "Path": str,
+                     "Type": str, "Description": str}, ...]}
+         Return only items where Type == "Report", as list of dicts
+         with keys: id, name, path. stdlib only, one code block.
+    test_harness: |
+      q = build_ssrs_dataset_query("[dbo].[SecurityEvents]", "[EventTime]")
+      assert "[dbo].[SecurityEvents]" in q, f"table missing: {q}"
+      assert "[EventTime]" in q, f"date field missing: {q}"
+      assert "@StartDate" in q and "@EndDate" in q, f"params missing: {q}"
+      assert "BETWEEN" in q.upper(), f"BETWEEN missing: {q}"
+      assert q.strip().upper().startswith("SELECT"), f"should start with SELECT: {q}"
+
+      q2 = build_ssrs_dataset_query("Nodes", "ScanDate", "@From", "@To")
+      assert "@From" in q2 and "@To" in q2
+
+      catalog = {"value": [
+          {"Id": "abc-1", "Name": "Security Summary", "Path": "/Reports/Security Summary", "Type": "Report", "Description": ""},
+          {"Id": "abc-2", "Name": "My Folder",        "Path": "/Reports",                  "Type": "Folder", "Description": ""},
+          {"Id": "abc-3", "Name": "Vuln Trends",      "Path": "/Reports/Vuln Trends",      "Type": "Report", "Description": "Monthly"},
+      ]}
+      reports = parse_ssrs_catalog(catalog)
+      assert len(reports) == 2, f"Expected 2 reports, got {len(reports)}"
+      assert all(r["id"] for r in reports)
+      names = [r["name"] for r in reports]
+      assert "Security Summary" in names and "Vuln Trends" in names
+      assert "My Folder" not in names
+      print("SEC6_SSRS_OK")
+    expected_stdout: "SEC6_SSRS_OK"
+
+  - id: sec7-changegear-api
+    dimension: D10
+    language: python
+    prompt: |
+      Write three functions for the SunView ChangeGear REST API:
+      1. `build_ticket_filter(ticket_type: str, status: str = "",
+             priority: str = "", assignee: str = "") -> dict`
+         Returns a query params dict for GET /api/v1/{ticket_type}.
+         Include "status", "priority", "assignee" keys only when non-empty.
+         Always include "ticket_type": ticket_type.
+      2. `parse_changegear_tickets(response: dict) -> list[dict]`
+         Parses {"data": [{"id": int, "title": str, "status": str,
+           "priority": str, "assignee": str, "created_date": str,
+           "change_type": str}, ...]}
+         Return list of dicts with those keys. Lowercase all status/priority
+         values for normalisation.
+      3. `summarise_by_priority(tickets: list[dict]) -> dict`
+         Return {"critical": int, "high": int, "medium": int,
+                 "low": int, "other": int} counts. stdlib only, one code block.
+    test_harness: |
+      f = build_ticket_filter("changes", status="Open", priority="High")
+      assert f["ticket_type"] == "changes"
+      assert f["status"] == "Open"
+      assert f["priority"] == "High"
+      assert "assignee" not in f, f"empty assignee should be omitted: {f}"
+
+      f2 = build_ticket_filter("incidents")
+      assert "status" not in f2 and "priority" not in f2 and "assignee" not in f2
+
+      resp = {"data": [
+          {"id": 1, "title": "Firewall rule change", "status": "OPEN",  "priority": "HIGH",     "assignee": "alice", "created_date": "2024-01-10", "change_type": "Standard"},
+          {"id": 2, "title": "Patch deployment",     "status": "closed","priority": "Critical",  "assignee": "bob",   "created_date": "2024-01-11", "change_type": "Emergency"},
+          {"id": 3, "title": "Config backup",        "status": "Open",  "priority": "low",      "assignee": "",      "created_date": "2024-01-12", "change_type": "Standard"},
+      ]}
+      tickets = parse_changegear_tickets(resp)
+      assert len(tickets) == 3
+      assert tickets[0]["status"] == "open", f"status not lowercased: {tickets[0]['status']}"
+      assert tickets[0]["priority"] == "high"
+      assert tickets[1]["priority"] == "critical"
+
+      s = summarise_by_priority(tickets)
+      assert s["high"] == 1, f"high={s['high']}"
+      assert s["critical"] == 1
+      assert s["low"] == 1
+      assert s.get("medium", 0) == 0
+      print("SEC7_CHANGEGEAR_OK")
+    expected_stdout: "SEC7_CHANGEGEAR_OK"
+
+  - id: sec8-ssrs-powershell
+    dimension: D10
+    language: powershell
+    prompt: |
+      Write PowerShell functions to manage SSRS reports via its REST API:
+      1. `Get-SSRSReports -BaseUrl [string] -Token [string]`
+         Calls GET {BaseUrl}/reports/api/v2.0/CatalogItems with an
+         Authorization: Bearer header. Returns the parsed response object.
+         (In tests this function will be replaced by a mock — write it so
+         it calls Invoke-RestMethod with -Uri and -Headers.)
+      2. `ConvertTo-ReportSummary -Reports [object]`
+         Takes the parsed response (has a .value array of catalog items).
+         Returns a filtered array of [PSCustomObject]@{Name; Path; Id}
+         for items where .Type -eq 'Report'.
+      One code block only. No Add-Type, no COM objects.
+    test_harness: |
+      # Mock Invoke-RestMethod before calling Get-SSRSReports
+      function Invoke-RestMethod {
+          param($Uri, $Headers, $Method)
+          return [PSCustomObject]@{
+              value = @(
+                  [PSCustomObject]@{Id='r1';Name='Security Summary';Path='/Reports/Sec';Type='Report'},
+                  [PSCustomObject]@{Id='f1';Name='My Folder';Path='/Reports';Type='Folder'},
+                  [PSCustomObject]@{Id='r2';Name='Vuln Trends';Path='/Reports/Vuln';Type='Report'}
+              )
+          }
+      }
+      $raw = Get-SSRSReports -BaseUrl 'http://ssrs/server' -Token 'tok123'
+      $reports = ConvertTo-ReportSummary -Reports $raw
+      $arr = @($reports)
+      if ($arr.Count -ne 2) { Write-Error "Expected 2 reports, got $($arr.Count)"; exit 1 }
+      $names = $arr | Select-Object -ExpandProperty Name
+      if ('Security Summary' -notin $names) { Write-Error "Security Summary missing"; exit 1 }
+      if ('My Folder' -in $names) { Write-Error "Folder should be excluded"; exit 1 }
+      Write-Output 'SEC8_SSRS_PS_OK'
+    expected_stdout: "SEC8_SSRS_PS_OK"
+
+  - id: sec9-changegear-powershell
+    dimension: D10
+    language: powershell
+    prompt: |
+      Write PowerShell functions for the SunView ChangeGear REST API:
+      1. `New-ChangeGearTicket -BaseUrl [string] -Token [string]
+             -Title [string] -Priority [string] -Description [string]
+             [-ChangeType [string]]`
+         POSTs to {BaseUrl}/api/v1/changes with Authorization: Bearer and
+         Content-Type: application/json body containing title, priority,
+         description, change_type (default "Standard"). Returns the response.
+      2. `Get-OpenChanges -BaseUrl [string] -Token [string]
+             [-Priority [string]]`
+         GETs {BaseUrl}/api/v1/changes?status=Open[&priority=<Priority>].
+         Returns the .data array from the response, filtered to where
+         status is 'Open' or 'open'. Returns empty array on null/empty data.
+      One code block. No Add-Type, no Invoke-Expression.
+    test_harness: |
+      $script:lastBody = $null
+      $script:lastUri = $null
+      function Invoke-RestMethod {
+          param($Uri, $Headers, $Method, $Body, $ContentType)
+          $script:lastUri = $Uri
+          $script:lastBody = $Body
+          if ($Method -eq 'POST') {
+              return [PSCustomObject]@{id=42; title='Test'; status='Open'}
+          }
+          return [PSCustomObject]@{
+              data = @(
+                  [PSCustomObject]@{id=1;title='Patch deploy';status='Open';priority='High'},
+                  [PSCustomObject]@{id=2;title='Old closed';status='Closed';priority='Low'}
+              )
+          }
+      }
+
+      $r = New-ChangeGearTicket -BaseUrl 'http://cg' -Token 'tok' -Title 'Test CR' -Priority 'High' -Description 'desc'
+      if ($r.id -ne 42) { Write-Error "Expected id=42, got $($r.id)"; exit 1 }
+      if ($script:lastBody -notmatch 'Test CR') { Write-Error "Title missing from body: $($script:lastBody)"; exit 1 }
+
+      $changes = Get-OpenChanges -BaseUrl 'http://cg' -Token 'tok'
+      $arr = @($changes)
+      if ($arr.Count -ne 1) { Write-Error "Expected 1 open change, got $($arr.Count)"; exit 1 }
+      if ($arr[0].title -ne 'Patch deploy') { Write-Error "Wrong title: $($arr[0].title)"; exit 1 }
+      Write-Output 'SEC9_CHANGEGEAR_PS_OK'
+    expected_stdout: "SEC9_CHANGEGEAR_PS_OK"
