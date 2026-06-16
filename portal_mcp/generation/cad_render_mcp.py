@@ -49,21 +49,28 @@ def _out_dir() -> Path:
 
 
 def _resolve_input(path_str: str) -> Path:
-    """Resolve a user-supplied artifact path. Accepts an absolute path, or a bare
-    filename which is looked up under the models3d generated dir then the workspace
-    uploads dir."""
-    p = Path(path_str)
-    if p.is_absolute() and p.exists():
-        return p
-    cand = _out_dir() / path_str
-    if cand.exists():
-        return cand
-    from portal_mcp.core.workspace import get_uploads_dir
+    """Resolve a caller-supplied filename to an absolute path confined to the workspace.
 
-    up = get_uploads_dir() / path_str
-    if up.exists():
-        return up
-    raise FileNotFoundError(f"Input not found: {path_str}")
+    Only bare filenames are accepted — no absolute paths, no directory components.
+    The resolved path must live under the workspace root (realpath check).
+    """
+    from portal_mcp.core.workspace import get_uploads_dir, get_workspace_root
+
+    # Strip any directory component the caller may have supplied and reject traversal.
+    name = Path(path_str).name
+    if not name or name != path_str.replace("\\", "/").split("/")[-1]:
+        raise ValueError(f"Only bare filenames are accepted, got: {path_str!r}")
+
+    workspace = get_workspace_root().resolve()
+    for base in (_out_dir(), get_uploads_dir()):
+        cand = (base / name).resolve()
+        try:
+            cand.relative_to(workspace)
+        except ValueError:
+            continue
+        if cand.is_file():
+            return cand
+    raise FileNotFoundError(f"Input not found: {name}")
 
 
 # ── rendering primitives ────────────────────────────────────────────────────
