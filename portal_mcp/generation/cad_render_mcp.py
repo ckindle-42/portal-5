@@ -109,7 +109,7 @@ def _render_mesh_to_png(mesh_path: Path, png_path: Path, resolution: int = 1024)
     ax.set_ylim(b[0][1], b[1][1])
     ax.set_zlim(b[0][2], b[1][2])
     try:
-        ax.set_box_aspect((b[1] - b[0]))
+        ax.set_box_aspect(b[1] - b[0])
     except Exception:  # noqa: BLE001 — older mpl lacks set_box_aspect
         pass
     ax.set_axis_off()

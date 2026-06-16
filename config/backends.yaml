@@ -256,6 +256,12 @@ backends:
   - id: "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Dolphin3-Cyber-8B (~4-5GB). Dolphin3.0-Llama3.1-8B-abliterated + cybersec fine-tune (OWASP, ATT&CK, CVEs). Uncensored base + security specialization. bench-dolphin3-cyber target (June 2026)."
+  - id: supergemma4-26b-uncensored:q4_k_m
+    supports_tools: true
+    notes: "SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-capable. Production model for auto-redteam-deep (bench_security score 0.90 avg, 6.7 ATT&CK IDs, 0 disclaimers, June 2026). Also in ollama-reasoning — duplicate entry required for security-group routing."
+  - id: "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. bench-vulnllm-r7b target (June 2026). Different use case from red team workspaces."
 - id: ollama-reasoning
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -685,6 +691,12 @@ workspace_routing:
   - security
   - general
   bench-dolphin3-cyber:
+  - security
+  - general
+  auto-redteam-deep:
+  - security
+  - general
+  bench-vulnllm-r7b:
   - security
   - general
   bench-c3d-v0:

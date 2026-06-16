@@ -223,6 +223,7 @@ from portal_pipeline.router.routing import (  # noqa: E402, F401  (facade re-exp
 from portal_pipeline.router.streaming import (  # noqa: E402, F401  (facade re-export)
     _json_completion_to_sse,
     _stream_from_backend_guarded,
+    _stream_with_chain,
     _stream_with_preamble,
     _stream_with_secondary_chain,
     _stream_with_tool_loop,
@@ -498,6 +499,7 @@ def _init_notifications(registry: BackendRegistry) -> None:
     # check_thresholds_and_alert is async; schedule it as a fire-and-forget task
     # so _init_notifications (sync) can trigger the first check without blocking.
     import asyncio as _asyncio  # noqa: PLC0415
+
     _asyncio.ensure_future(_notification_dispatcher.check_thresholds_and_alert(registry))
 
     # Schedule daily summary
@@ -1291,6 +1293,84 @@ async def list_backends_endpoint(authorization: str | None = Header(None)) -> di
     }
 
 
+async def _run_non_streaming_chain(
+    primary_text: str,
+    chain: list[dict],
+    backend: Any,
+    body: dict,
+    workspace_id: str,
+    start_time: float,
+    primary_data: dict,
+    primary_model: str,
+) -> JSONResponse:
+    """Run the N additional hops for a non-streaming chain request.
+
+    Each hop posts directly to backend.chat_url with the hop model + system/user
+    templates. Results are concatenated with separator headers and returned as a
+    single non-streaming JSONResponse, matching the structure of a normal completion.
+    """
+    timeout_s = float(os.environ.get("PIPELINE_TIMEOUT", "300"))
+    collected: list[str] = [primary_text]
+    combined_parts: list[str] = [primary_text]
+
+    for hop_cfg in chain:
+        hop_model = hop_cfg["model"]
+        label = hop_cfg.get("label", "")
+        system_prompt = hop_cfg.get("system", "")
+        user_tmpl = hop_cfg.get("user_template", "{hop_0}")
+        context_vars = {f"hop_{i}": collected[i] for i in range(len(collected))}
+        user_content = user_tmpl.format(**context_vars)
+
+        hop_body = {
+            **body,
+            "model": hop_model,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            "tools": None,
+            "tool_choice": None,
+        }
+        hop_body = {k: v for k, v in hop_body.items() if v is not None}
+
+        try:
+            resp = await _http_client.post(  # type: ignore[union-attr]
+                backend.chat_url,
+                json=hop_body,
+                timeout=httpx.Timeout(timeout_s),
+            )
+            resp.raise_for_status()
+            hop_data = resp.json()
+            hop_text = str(hop_data.get("choices", [{}])[0].get("message", {}).get("content", ""))
+        except Exception as exc:
+            logger.warning(
+                "Non-streaming chain hop failed for workspace=%s model=%s: %s",
+                workspace_id,
+                hop_model,
+                exc,
+            )
+            hop_text = ""
+
+        collected.append(hop_text)
+        if hop_text:
+            sep = f"\n\n---\n\n{label}\n\n" if label else "\n\n---\n\n"
+            combined_parts.append(sep + hop_text)
+
+    full_content = "".join(combined_parts)
+    primary_data["choices"][0]["message"]["content"] = full_content
+    _record_usage(
+        model=primary_model,
+        workspace=workspace_id,
+        data=primary_data,
+        elapsed_seconds=time.monotonic() - start_time,
+    )
+    return JSONResponse(
+        content=primary_data,
+        headers={"x-portal-route": f"{workspace_id};{backend.id};{primary_model}"},
+    )
+
+
 def _apply_non_stream_response(
     data: dict,
     backend: Any,
@@ -1843,6 +1923,7 @@ async def chat_completions(
                 len(candidates),
                 stream,
             )
+            _ns_chain = WORKSPACES.get(workspace_id, {}).get("chain") or []
             for i, backend in enumerate(candidates):
                 is_last = i == len(candidates) - 1
                 result = await _try_non_streaming(
@@ -1866,6 +1947,27 @@ async def chat_completions(
                         time.monotonic() - start_time,
                     )
                     _record_persona(persona, resolved_model)
+                    if _ns_chain:
+                        primary_data = result.body
+                        if isinstance(primary_data, bytes):
+                            import json as _json
+
+                            primary_data = _json.loads(primary_data)
+                        primary_text = str(
+                            primary_data.get("choices", [{}])[0]
+                            .get("message", {})
+                            .get("content", "")
+                        )
+                        return await _run_non_streaming_chain(
+                            primary_text=primary_text,
+                            chain=_ns_chain,
+                            backend=backend,
+                            body=body,
+                            workspace_id=workspace_id,
+                            start_time=start_time,
+                            primary_data=primary_data,
+                            primary_model=resolved_model,
+                        )
                     return result
             # All backends failed
             _record_error(workspace_id, "all_backends_failed")
@@ -1879,6 +1981,7 @@ async def chat_completions(
         backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
+        _chain = ws_cfg.get("chain") or []
         _secondary_model = ws_cfg.get("secondary_model", "")
         _tertiary_model = ws_cfg.get("tertiary_model", "")
 
@@ -1995,6 +2098,16 @@ async def chat_completions(
                     set(effective_tools),
                     start_time,
                 )
+            elif _chain:
+                _stream_fn = _stream_with_chain(
+                    backend.chat_url,
+                    backend_body,
+                    slot.detach(),
+                    workspace_id=workspace_id,
+                    primary_model=target_model,
+                    chain=_chain,
+                    start_time=start_time,
+                )
             elif _secondary_model:
                 _stream_fn = _stream_with_secondary_chain(
                     backend.chat_url,
@@ -2079,6 +2192,16 @@ async def chat_completions(
                         persona,
                         set(effective_tools),
                         start_time,
+                    )
+                elif _chain:
+                    _inner_stream = _stream_with_chain(
+                        backend.chat_url,
+                        backend_body,
+                        slot.detach(),
+                        workspace_id=workspace_id,
+                        primary_model=target_model,
+                        chain=_chain,
+                        start_time=start_time,
                     )
                 elif _secondary_model:
                     _inner_stream = _stream_with_secondary_chain(

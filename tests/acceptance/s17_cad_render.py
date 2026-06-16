@@ -11,18 +11,15 @@ Also validates the file-serving HTTP route and the auto-cad workspace routing.
 import json
 import os
 import struct
-import tempfile
 import time
 
 from tests.acceptance._common import (
-    MCP,
-    _get,
-    _mcp,
-    _mcp_get,
-    _mcp_raw,
-    _post,
     AUTH,
     PIPELINE_URL,
+    _get,
+    _mcp,
+    _mcp_raw,
+    _post,
     record,
 )
 
@@ -92,7 +89,9 @@ async def run() -> None:
 
     # ── S17-03: render_mesh — STL → PNG with correct bounding box ────────────
     # Write a fresh test STL into the shared workspace so the container can see it.
-    from portal_mcp.core.workspace import get_generated_dir  # noqa: PLC0415 — lazy import, avoids import at module level
+    from portal_mcp.core.workspace import (
+        get_generated_dir,  # noqa: PLC0415 — lazy import, avoids import at module level
+    )
     models3d = get_generated_dir("models3d")
     models3d.mkdir(parents=True, exist_ok=True)
     test_stl = models3d / "s17_smoke_box.stl"
@@ -137,7 +136,7 @@ async def run() -> None:
             pass
     if png_url:
         # Convert container-internal URL to host-accessible URL
-        host_url = png_url.replace("http://localhost", f"http://localhost")
+        host_url = png_url.replace("http://localhost", "http://localhost")
         code_f, _ = await _get(host_url, timeout=10)
         record(sec, "S17-04", "render_mesh PNG URL reachable via HTTP", "PASS" if code_f == 200 else "FAIL", f"GET {host_url} → {code_f}", t0=t0)
     else:

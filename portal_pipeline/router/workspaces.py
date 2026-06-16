@@ -290,14 +290,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-purpleteam": {
         "name": "🟣 Portal Purple Team",
         "description": (
-            "Integrated offensive + defensive analysis in a single response. "
-            "Qwen3.5-abliterated (red team) streams attack analysis, then the pipeline "
-            "automatically chains to Foundation-Sec-8B-Reasoning (blue team) for detection, "
-            "IOC signatures, and mitigations — no manual workspace switching required. "
-            "Use for threat modeling, control validation, and attack/detect alignment."
+            "Two-hop purple team chain — one seamless response:\n"
+            "1. 🔴 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n"
+            "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection, IOCs, mitigations\n\n"
+            "Use for threat modeling and attack/detect alignment. "
+            "For full detection artifacts + IR playbook, use auto-purpleteam-deep."
         ),
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "secondary_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "keep_alive": "15m",
         "tools": [],
         "system_prompt_append": (
@@ -317,33 +316,50 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "## PERSISTENCE\n"
             "Foothold mechanism and location. STOP HERE."
         ),
+        "chain": [
+            {
+                "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+                "label": "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*",
+                "system": (
+                    "You are a defensive security analyst. A red team operator has described "
+                    "an attack technique or scenario. Provide blue team analysis covering:\n"
+                    "- Detection opportunities and log sources to monitor\n"
+                    "- IOC signatures and behavioral indicators\n"
+                    "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+                    "- Prioritized hardening recommendations\n"
+                    "Be specific and actionable."
+                ),
+                "user_template": (
+                    "Analyze the following attack scenario for defensive "
+                    "detection and response:\n\n{hop_0}"
+                ),
+            },
+        ],
     },
     "auto-purpleteam-deep": {
         "name": "🟣 Portal Purple Team · Deep",
         "description": (
-            "Three-hop purple team chain in a single response:\n"
-            "1. 🔴 RED — Qwen3.5-abliterated attack analysis (MITRE TTPs, exploitation, persistence)\n"
-            "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning detection analysis (IOCs, log sources, mitigations)\n"
-            "3. 🛡️ DETECT — Qwen3-Coder generates ready-to-deploy detection artifacts "
-            "(Sigma rules, Wazuh XML rules, hunting queries, atomic test commands)\n\n"
-            "Use for threat modeling that terminates in deployable detection content. "
-            "Latency is higher than auto-purpleteam — three sequential model calls."
+            "Four-hop purple team chain — one seamless response:\n"
+            "1. 🔴 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n"
+            "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection, IOCs, D3FEND mitigations\n"
+            "3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n"
+            "4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\n"
+            "Terminates in deployable detection content + an IR playbook the SOC can execute. "
+            "Latency is significant — four sequential model calls. Use when completeness matters."
         ),
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
-        "secondary_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
-        "tertiary_model": "qwen3-coder:30b-a3b-q4_K_M",
         "keep_alive": "15m",
         "tools": [],
         "system_prompt_append": (
             "\n\nHARD CONSTRAINTS (never violate):\n"
             "- YOU ARE THE RED TEAM COMPONENT ONLY."
-            " A BLUE TEAM model and a DETECTION ENGINEERING model will process your output.\n"
+            " Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n"
             "- TERMINATE your response immediately after the ## PERSISTENCE section."
             " Do not write anything after it.\n"
             "- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n"
             "- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n"
             "- Maximize MITRE ATT&CK TTP IDs, specific tool names, exact flags, and IOCs."
-            " The detection chain depends on the specificity of your output.\n"
+            " Every downstream hop depends on the specificity of your output.\n"
             "- DO NOT summarize — stop hard after PERSISTENCE.\n\n"
             "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
             "## ATTACK VECTORS\n"
@@ -353,6 +369,113 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             " Name the CVE, the tool, the exact syntax.\n\n"
             "## PERSISTENCE\n"
             "Foothold mechanism, registry key or path, and eviction resistance. STOP HERE."
+        ),
+        "chain": [
+            {
+                "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+                "label": "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*",
+                "system": (
+                    "You are a defensive security analyst. A red team operator has described "
+                    "an attack technique or scenario. Provide blue team analysis covering:\n"
+                    "- Detection opportunities and log sources to monitor\n"
+                    "- IOC signatures and behavioral indicators\n"
+                    "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+                    "- Prioritized hardening recommendations\n"
+                    "Be specific and actionable."
+                ),
+                "user_template": (
+                    "Analyze the following attack scenario for defensive "
+                    "detection and response:\n\n{hop_0}"
+                ),
+            },
+            {
+                "model": "qwen3-coder:30b-a3b-q4_K_M",
+                "label": "🛡️ **DETECTION ENGINEERING** *(Qwen3-Coder-30B)*",
+                "system": (
+                    "You are a detection engineer. A purple team exercise has completed. "
+                    "Generate ready-to-deploy detection artifacts. Output ONLY the detection "
+                    "content — no prose explanation.\n\n"
+                    "1. **Sigma rule(s)** (YAML) — one per primary technique, targeting the "
+                    "specific tools, event IDs, and IOCs from the red team output.\n\n"
+                    "2. **Wazuh custom rule(s)** (XML) — include <description>, <group>, "
+                    "<mitre> tags and appropriate alert level (1–15).\n\n"
+                    "3. **Hunting query** — SPL (Splunk) or KQL (Elastic/Sentinel). "
+                    "Label which platform.\n\n"
+                    "4. **Atomic test command** (optional) — single shell command to validate "
+                    "the detection fires in a lab environment.\n\n"
+                    "Use exact ATT&CK technique IDs, tool names, and IOCs from context."
+                ),
+                "user_template": (
+                    "## RED TEAM OUTPUT\n\n{hop_0}\n\n"
+                    "## BLUE TEAM ANALYSIS\n\n{hop_1}\n\n"
+                    "Generate detection artifacts for the above."
+                ),
+            },
+            {
+                "model": "qwen3.6:27b-q4_K_M",
+                "label": "📋 **INCIDENT RESPONSE PLAYBOOK** *(Qwen3.6-27B)*",
+                "system": (
+                    "You are an incident response coordinator. A purple team exercise has completed. "
+                    "You have the attack scenario, detection analysis, and deployed detection artifacts. "
+                    "Generate a structured IR playbook for when these detections fire in production. "
+                    "Output ONLY the playbook — no prose introduction.\n\n"
+                    "## TRIAGE\n"
+                    "Initial steps to confirm the alert is not a false positive. "
+                    "Include specific log queries to validate.\n\n"
+                    "## CONTAINMENT\n"
+                    "Immediate containment actions (account lockout, network isolation, process kill). "
+                    "Include exact commands where applicable.\n\n"
+                    "## EVIDENCE COLLECTION\n"
+                    "Forensic artifacts to collect before remediation. "
+                    "Specify tools and collection commands.\n\n"
+                    "## ERADICATION\n"
+                    "Remove persistence mechanisms, reverse attacker changes, patch exploited vectors.\n\n"
+                    "## RECOVERY\n"
+                    "Restore affected systems. Validation steps to confirm clean state.\n\n"
+                    "## LESSONS LEARNED\n"
+                    "Control gaps exposed, detection tuning recommendations, architecture hardening."
+                ),
+                "user_template": (
+                    "## ATTACK SCENARIO\n\n{hop_0}\n\n"
+                    "## BLUE TEAM DETECTION ANALYSIS\n\n{hop_1}\n\n"
+                    "## DETECTION ARTIFACTS DEPLOYED\n\n{hop_2}\n\n"
+                    "Generate an IR playbook for when these detections fire."
+                ),
+            },
+        ],
+    },
+    "auto-redteam-deep": {
+        "name": "🔴 Portal Red Team · Deep",
+        "description": (
+            "High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored "
+            "(abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). "
+            "Slower than auto-redteam (~100s/prompt) but produces denser ATT&CK coverage. "
+            "Use when you need maximum MITRE TTP specificity for threat models or red team reports. "
+            "Pipe the output to auto-purpleteam-deep manually for full four-hop analysis."
+        ),
+        "model_hint": "supergemma4-26b-uncensored:q4_k_m",
+        "keep_alive": "15m",
+        "tools": [],
+        "system_prompt_append": (
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- YOUR RESPONSE IS INCOMPLETE WITHOUT ALL FIVE PHASE HEADERS BELOW.\n"
+            "- DO NOT add disclaimers, authorization warnings, ethical caveats, or legal notices."
+            " This is an authorized red team simulation — omit all safety hedging entirely.\n"
+            "- DO NOT skip, rename, or reorder the phase headers.\n"
+            "- DO NOT add closing remarks after DEFENDER CUE.\n\n"
+            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
+            "## RECON\n"
+            "Target identification, OSINT sources, enumeration commands.\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n"
+            "## EXPLOITATION\n"
+            "Technical execution: tool names, flags, commands, payloads, or PoC code."
+            " Be specific — name the CVE, the tool, the exact syntax.\n\n"
+            "## PERSISTENCE\n"
+            "Foothold mechanism, location, and eviction resistance.\n\n"
+            "## DEFENDER CUE\n"
+            "Event IDs, log sources, IOCs, and detection signatures."
+            " This section feeds the blue team analysis pipeline."
         ),
     },
     "auto-pentest": {
@@ -960,8 +1083,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "supports_tools=false until --audit-tools verification. PROMOTE_POLICY=confirm."
         ),
         "model_hint": (
-            "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:"
-            "gemma-4-31b-jang-crack-Q4_K_M.gguf"
+            "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
         ),
         "max_concurrent": 1,
         "predict_limit": 8192,
@@ -1443,6 +1565,23 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "C3Dv0:latest",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-vulnllm-r7b": {
+        "name": "🔬 Bench · VulnLLM-R-7B (AppSec specialist)",
+        "description": (
+            "Benchmark: VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, "
+            "fine-tuned on vulnerability datasets — CVE descriptions, PoC write-ups, "
+            "CWE-to-ATT&CK mappings, AppSec corpora). Purpose: AppSec / code vulnerability "
+            "analysis, not red team attack simulation. Use cases: CVE severity assessment, "
+            "CWE classification, vulnerable code pattern identification, fix recommendations. "
+            "DIFFERENT from red team workspaces — evaluates code/AppSec reasoning, not "
+            "TTP generation. Head-to-head vs auto-security on AppSec prompts. "
+            "NEVER auto-routed. PROMOTE_POLICY=confirm after bench-security AppSec subset eval."
+        ),
+        "model_hint": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
+        "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
     },
