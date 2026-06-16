@@ -224,6 +224,43 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+# ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
+
+@mcp.custom_route("/tools/render_mesh", methods=["POST"])
+async def render_mesh_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await render_mesh(
+        mesh_path=args.get("mesh_path", ""),
+        resolution=int(args.get("resolution", 1024)),
+        review=bool(args.get("review", False)),
+        prompt=args.get("prompt", ""),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/render_openscad", methods=["POST"])
+async def render_openscad_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await render_openscad(
+        code=args.get("code", ""),
+        resolution=int(args.get("resolution", 1024)),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/convert_cad", methods=["POST"])
+async def convert_cad_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await convert_cad(
+        input_path=args.get("input_path", ""),
+        to_format=args.get("to_format", ""),
+    )
+    return JSONResponse(result)
+
+
 # ── tools ───────────────────────────────────────────────────────────────────
 @mcp.tool()
 async def render_mesh(mesh_path: str, resolution: int = 1024, review: bool = False, prompt: str = "") -> dict:
