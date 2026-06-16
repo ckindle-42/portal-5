@@ -262,7 +262,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Defensive security, incident response, threat hunting. Served by Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, Llama-3.1-8B + cybersec corpus, native <think>). Purpose-trained defender model restored after the MLX retirement (P5-FUT-PARITY-001).",
         "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "emits_reasoning": True,
-        "tools": ["execute_python", "classify_vulnerability"],
+        # supports_tools=false (reasoning model, Llama-3.1 template — no tool-call format).
+        # Tools removed: advertising them wastes context and the model cannot emit calls.
+        "tools": [],
     },
     "auto-bigfix": {
         "name": "🩹 Portal BigFix Analyst",
@@ -383,7 +385,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         # 35 GB q8 — keep warm for back-to-back queries but don't pin forever
         "keep_alive": "10m",
-        "tools": ["execute_python", "create_excel", "kb_search"],
+        # supports_tools=false (reasoning model, chain-of-thought format — no tool template).
+        # Tools removed: model cannot emit tool calls. Switch model_hint to a tool-capable
+        # model (granite4.1:8b, qwen3-coder) if tool use is required for this workspace.
+        "tools": [],
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
@@ -423,7 +428,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "phi4-mini-reasoning",
         "predict_limit": 8192,
         "emits_reasoning": True,
-        "tools": ["execute_python"],
+        # supports_tools=false (math reasoning specialist, no tool-call template).
+        # Tools removed: model cannot emit tool calls.
+        "tools": [],
     },
     "auto-phi4": {
         "name": "🧮 Portal STEM Analyst",
