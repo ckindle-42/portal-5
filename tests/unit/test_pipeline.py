@@ -324,11 +324,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 77 (22 production + 1 tools-specialist + 54 bench-*)."""
+        """Total workspace count is 87 (26 production + 1 tools-specialist + 60 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 79, (
-            f"Expected 79 workspaces (24 production + 1 tools-specialist + 54 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 87, (
+            f"Expected 87 workspaces (26 production + 1 tools-specialist + 60 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -347,8 +347,7 @@ class TestR17bModelExpansion:
                 all_models.append(m["id"] if isinstance(m, dict) else m)
 
         required = [
-            # R23: dolphin-3-llama3-70b-GGUF → imported as dolphin-llama3:70b-q4_k_m
-            "dolphin-llama3:70b",
+            # dolphin-llama3:70b intentionally removed 2026-06-16 (42GB old Llama-3 base, superseded)
             # R23: meta-llama → imported as llama3.3:70b-q4_k_m (bartowski rehost)
             "llama3.3:70b",
             # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
@@ -402,16 +401,16 @@ class TestR18ModelCompleteness:
 
         required = [
             # Security
-            "baronllm:q6_k",  # R23: BaronLLM_Offensive now imported as baronllm:q6_k
-            "lily-cybersecurity:7b-q4_k_m",  # R23: exact import name
-            "dolphin3-r1-mistral:24b-q4_k_m",  # R23: updated to bartowski rehost
-            "whiterabbitneo:33b-v1.5",  # R23: updated from 33b to 33b-v1.5
-            "dolphin-llama3:70b",  # R23: dolphin-2.9.1-llama-3-70b
+            "baronllm:q6_k",  # BaronLLM_Offensive
+            "lily-cybersecurity:7b-q4_k_m",  # Lily Cybersecurity 7B (bench, retired but still in yaml)
+            "dolphin3-r1-mistral:24b-q4_k_m",  # Dolphin3-R1-Mistral 24B (bench, retired)
+            # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16):
+            # WRN-33B hallucinated Go templates; dolphin-llama3:70b is 42GB old Llama-3 base, superseded
             # Coding (Ollama GGUF only — MLX retired)
             "glm-4.7-flash",  # GLM-4.7-Flash GGUF (coding primary)
-            "llama3.3:70b-q4_k_m",  # R23: updated to bartowski rehost
+            "llama3.3:70b-q4_k_m",  # updated to bartowski rehost
             # Reasoning
-            "deepseek-r1:32b-q4_k_m",  # R23: DeepSeek-R1-Distill-Qwen-32B
+            "deepseek-r1:32b-q4_k_m",  # DeepSeek-R1-Distill-Qwen-32B
         ]
         for frag in required:
             found = any(frag.lower() in m.lower() for m in all_models)
@@ -736,11 +735,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 77 (22 production + 1 tools-specialist + 54 bench-*)."""
+        """Total workspace count must be 87 (26 production + 1 tools-specialist + 60 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 79, (
-            f"Expected 79 workspaces (24 production + 1 tools-specialist + 54 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 87, (
+            f"Expected 87 workspaces (26 production + 1 tools-specialist + 60 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

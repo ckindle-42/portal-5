@@ -49,7 +49,7 @@ _load_env()
 
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
-REQUEST_TIMEOUT = 180.0
+REQUEST_TIMEOUT = 360.0
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Prompt library ────────────────────────────────────────────────────────────

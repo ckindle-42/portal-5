@@ -135,6 +135,10 @@ VALID_WORKSPACES = frozenset(
         "bench-supergemma4-sec",
         "bench-r1-0528-abliterated",
         "bench-xploiter-pentester",
+        # June 2026 security candidate round 2
+        "bench-foundation-sec-abliterated",
+        "bench-sylink",
+        "bench-dolphin3-cyber",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }
