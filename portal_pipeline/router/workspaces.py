@@ -1009,10 +1009,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "4B SFT model purpose-trained for long-context retrieval and reasoning: "
             "needle-in-haystack, multi-hop QA, instruction following at 32K–128K ctx. "
             "NOT a coding or tool-use model. NOT suitable as router (standard model; refusals). "
-            "Primary probe dimensions: D4 LongCtx. Also scores D9/D10 to establish floor. "
-            "Candidate for auto-data / auto-docs long-document QA if D4 score > fleet average. "
-            "PROMOTE_POLICY=confirm. Pull: ollama pull "
-            "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
+            "PROBE RESULT (2026-06-15): returns empty content for most standard chat prompts "
+            "via Ollama — only activates on long-context retrieval patterns (document+question). "
+            "D4 PASS (1/1), D7 2/3; all D9/D10 returned 500 (pipeline choked on empty response). "
+            "NOT viable as a pipeline workspace until a correct Modelfile/prompt template is "
+            "written. PROMOTE_POLICY=blocked. Revisit if Microsoft publishes a chat-tuned "
+            "variant or a community Modelfile with the right system prompt format."
         ),
         "model_hint": "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
         "max_concurrent": 1,
