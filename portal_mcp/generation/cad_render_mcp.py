@@ -258,24 +258,39 @@ async def render_mesh(mesh_path: str, resolution: int = 1024, review: bool = Fal
 
 @mcp.tool()
 async def render_openscad(code: str, resolution: int = 1024) -> dict:
-    """Render OpenSCAD source to PNG via the openscad binary."""
-    scad_name = f"model_{uuid.uuid4().hex[:8]}.scad"
-    png_name = scad_name.replace(".scad", ".png")
-    scad_path = _out_dir() / scad_name
+    """Render OpenSCAD source to PNG.
+
+    Strategy: openscad headless can produce STL without a display; PNG requires GL.
+    We export STL first (always works), then feed it through _render_mesh_to_png
+    which has a matplotlib CPU fallback — so a PNG is always produced.
+    """
+    uid = uuid.uuid4().hex[:8]
+    scad_path = _out_dir() / f"model_{uid}.scad"
+    stl_path = _out_dir() / f"model_{uid}.stl"
+    png_name = f"model_{uid}.png"
     png_path = _out_dir() / png_name
     scad_path.write_text(code)
 
     openscad = os.getenv("OPENSCAD_BIN", "openscad")
-    cmd = [openscad, "--render", "-o", str(png_path), f"--imgsize={resolution},{resolution}", str(scad_path)]
+    # Export to STL (no display required); PNG via mesh renderer below.
+    cmd = [openscad, "--render", "-o", str(stl_path), str(scad_path)]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120, check=False)  # noqa: S603
     except FileNotFoundError:
         return {"error": f"openscad binary not found (set OPENSCAD_BIN). Tried: {openscad}"}
     except subprocess.TimeoutExpired:
         return {"error": "openscad render timed out (120s)"}
-    if proc.returncode != 0 or not png_path.exists():
+    if proc.returncode != 0 or not stl_path.exists():
         return {"error": f"openscad failed (rc={proc.returncode}): {proc.stderr[:400]}"}
-    return {"png_path": str(png_path), "png_url": f"{PUBLIC_URL}/{png_name}", "scad_path": str(scad_path)}
+
+    note = _render_mesh_to_png(stl_path, png_path, resolution=resolution)
+    return {
+        "png_path": str(png_path),
+        "png_url": f"{PUBLIC_URL}/{png_name}",
+        "scad_path": str(scad_path),
+        "stl_path": str(stl_path),
+        "render_note": note,
+    }
 
 
 @mcp.tool()

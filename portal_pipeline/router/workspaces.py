@@ -819,6 +819,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "JANG_4M-CRACK: abliterated + uncensored Gemma 4 31B fine-tune with 4M context. "
             "Vision+text. Head-to-head vs bench-gemma4-31b-qat (refusals baseline) "
             "and bench-huihui-qwen36-27b (abliterated comparison). "
+            "PROBE RESULT (2026-06-16): 20/23 — D8 5/5 (matches laguna/qwen36-27b), "
+            "D10 9/10 (matches qwen3-coder-30b). Strong promotion candidate for "
+            "security/PowerShell workspaces. 2 unexplained 500s (D6, D9 py4) likely "
+            "empty-content on refusal-adjacent prompts. "
             "supports_tools=false until --audit-tools verification. PROMOTE_POLICY=confirm."
         ),
         "model_hint": (
@@ -1104,7 +1108,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "(Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). "
             "v2 of Qwopus3.6-27B-Coder-MTP — direct head-to-head vs bench-qwopus-coder-mtp (v1). "
             "Updated SFT mix: additional agentic + multi-turn traces. MTP embedded draft heads. "
-            "PROMOTE_POLICY=confirm."
+            "PROBE RESULT (2026-06-16): 10/23 — widespread 500 Internal Server Errors on complex "
+            "prompts (same empty-content pattern as bench-fastcontext and bench-qwopus-coder-mtp-v1 "
+            "at longer context). v2 regresses vs v1 on probe coverage. PROMOTE_POLICY=blocked."
         ),
         "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
         "max_concurrent": 1,
