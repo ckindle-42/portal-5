@@ -82,6 +82,13 @@ RUN pip install --no-cache-dir \
     "matplotlib>=3.8.0" \
     "numpy>=1.26.0"
 
+# Code-CAD geometry libs — trimesh + numpy-stl for procedural STL generation in Python.
+# Note: CadQuery/build123d require OCP (OpenCASCADE Python bindings) which has no
+# pre-built arm64 wheels; they cannot be installed on linux/arm64 without a source
+# build. Primary code-CAD path on this platform is OpenSCAD (via render_openscad tool).
+RUN pip install --no-cache-dir \
+    "numpy-stl>=3.0.0"
+
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \
     "python-telegram-bot>=20.7" \
