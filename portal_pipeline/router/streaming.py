@@ -220,6 +220,8 @@ async def _stream_with_tool_loop_impl(
         # Accumulators for this iteration
         tool_calls_buf: list[dict] = []
         finish_reason: str | None = None
+        _content_emitted: bool = False      # any non-think content reached client
+        _think_content_buf: list[str] = []  # reasoning fallback if content is empty
 
         # Emit preamble (role chunk) on first hop
         if hop == 1:
@@ -325,14 +327,18 @@ async def _stream_with_tool_loop_impl(
                             # Suppress finish_reason=tool_calls chunk too
                             continue
 
-                    # When thinking is disabled, Gemma 4 puts its answer in
-                    # reasoning_content with empty content, or inside <think>
-                    # tags in content. Both render as <details type="reasoning">
-                    # in OWUI and get stripped by the test driver. Convert to
-                    # regular content so the answer is visible.
+                    # ── Think-content handling ──────────────────────────────
+                    # Centralised logic for both reasoning_content (Qwen3/Ollama
+                    # thinking mode) and <think>...</think> inline tags.
+                    # Mirrors the non-stream promotion in router_pipe.py so the
+                    # same fallback behaviour applies regardless of stream mode.
                     _thinking_off = not current_body.get("enable_thinking", True)
                     _rc = delta.get("reasoning_content")
                     _ct = delta.get("content") or ""
+
+                    # Buffer reasoning_content for end-of-stream fallback.
+                    if _rc:
+                        _think_content_buf.append(_rc)
 
                     if _rc and not _ct and (_thinking_off or hop > 1):
                         # reasoning_content with no content — surface as content.
@@ -343,30 +349,36 @@ async def _stream_with_tool_loop_impl(
                         _new_obj = dict(obj)
                         _new_obj["choices"] = [dict(choice, delta=_new_delta)]
                         yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                        _content_emitted = True
                         continue
 
-                    if _ct and "<think>" in _ct and _thinking_off:
-                        # <think>answer</think> in content with empty actual
-                        # response — strip wrapper and surface inner text.
+                    if _ct and "<think>" in _ct:
                         import re as _re_s
 
                         _stripped = _re_s.sub(
                             r"<think>.*?</think>", "", _ct, flags=_re_s.DOTALL | _re_s.IGNORECASE
                         ).strip()
-                        if not _stripped:
-                            _inner = _re_s.sub(
-                                r"<think>(.*?)</think>",
-                                r"\1",
-                                _ct,
-                                flags=_re_s.DOTALL | _re_s.IGNORECASE,
-                            ).strip()
-                            if _inner:
+                        # Buffer any inline think content for end-of-stream fallback.
+                        _inner_think = _re_s.sub(
+                            r"<think>(.*?)</think>", r"\1", _ct,
+                            flags=_re_s.DOTALL | _re_s.IGNORECASE,
+                        ).strip()
+                        if _inner_think and _inner_think != _stripped:
+                            _think_content_buf.append(_inner_think)
+
+                        if _thinking_off and not _stripped:
+                            # Thinking disabled + content is pure think block —
+                            # surface inner text as content.
+                            if _inner_think:
                                 _new_delta = dict(delta)
-                                _new_delta["content"] = _inner
+                                _new_delta["content"] = _inner_think
                                 _new_obj = dict(obj)
                                 _new_obj["choices"] = [dict(choice, delta=_new_delta)]
                                 yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                                _content_emitted = True
                                 continue
+                    elif _ct:
+                        _content_emitted = True
 
                     yield (line + "\n\n").encode()
         except httpx.TimeoutException:
@@ -404,6 +416,27 @@ async def _stream_with_tool_loop_impl(
             _record_error(workspace_id, "stream_error")
             yield (f"data: {json.dumps({'error': 'Backend connection error'})}\n\n").encode()
             return
+
+        # End-of-stream think fallback: if the model exhausted its token budget
+        # inside a <think> block and emitted no actual content, surface the
+        # accumulated reasoning as the response rather than returning empty.
+        # Mirrors the non-stream promotion in router_pipe.py:1308-1335.
+        if not _content_emitted and _think_content_buf:
+            _fallback = " ".join(_think_content_buf).strip()
+            if _fallback:
+                logger.warning(
+                    "Streaming hop %d/%d: model produced only thinking content "
+                    "(workspace=%s) — promoting reasoning as response.",
+                    hop, MAX_TOOL_HOPS, workspace_id,
+                )
+                _fb_chunk = {
+                    "id": request_id,
+                    "object": "chat.completion.chunk",
+                    "created": int(time.time()),
+                    "model": workspace_id,
+                    "choices": [{"index": 0, "delta": {"content": _fallback}, "finish_reason": None}],
+                }
+                yield f"data: {json.dumps(_fb_chunk)}\n\n".encode()
 
         # After stream completes, check if tool calls were emitted
         if finish_reason == "tool_calls":

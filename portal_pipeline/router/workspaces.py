@@ -1147,7 +1147,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "predict_limit": 16384,
-        "think": False,
         "system_prompt_append": (
             "\n\nCAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE "
             "OpenSCAD source code in a fenced ```openscad block. State all dimensions as named "
