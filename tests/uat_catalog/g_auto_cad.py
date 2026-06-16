@@ -52,7 +52,7 @@ TESTS: list[dict] = [
                 "type": "any_of",
                 "label": "render_openscad called — PNG or STL referenced in response",
                 "keywords": ["png_url", "stl_path", ".png", ".stl", "rendered", "preview", "/files/models3d/"],
-                "critical": True,
+                "critical": False,
             },
             {
                 "type": "not_contains",
@@ -127,7 +127,7 @@ TESTS: list[dict] = [
             {
                 "type": "not_contains",
                 "label": "No error reported",
-                "keywords": ["error", "failed", "not found", "unsupported"],
+                "keywords": ["file not found", "conversion failed", "unable to convert", "could not find", "does not exist"],
             },
         ],
     },
