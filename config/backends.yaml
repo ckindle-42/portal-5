@@ -124,6 +124,28 @@ backends:
   - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
     notes: "GLM-4.7-Flash 30B-A3B MoE Q4 (~15GB, Z.AI, 59.2% SWE-bench, 200K ctx). auto-coding primary."
+  - id: C3Dv0:latest
+    supports_tools: false
+    notes: "C3D-v0 (joshuaokolo/C3Dv0:latest) — CADQuery code-generation specialist. Gemma-3n-E4B\
+      \ 4B base, LoRA fine-tune on Text-to-CadQuery dataset (~48K examples, 50% of set, 1 epoch\
+      \ free-tier). ~7.3GB GGUF, 32K ctx (trained 16K), TEXT-ONLY, NO TOOLS. Scope: simple-to-\
+      \ moderate parametric geometry only. BENCH-ONLY candidate for bench-c3d-v0 — own-hardware\
+      \ CAD eval vs incumbent coders. NEVER auto-routed, NEVER auto-promoted (PROMOTE_POLICY).\
+      \ Verified live ollama.com/joshuaokolo/C3Dv0 2026-06 (TASK_CAD_3DPRINT_V1 A1)."
+  - id: cad-coder-guan:NEEDS-GGUF-CONVERSION
+    supports_tools: false
+    notes: "[NEEDS-GGUF-CONVERSION — NOT PULLABLE, catalog record only] CAD-Coder (Guan et al.,\
+      \ NeurIPS 2025 poster, arXiv 2505.19713, hf.co/gudo7208/CAD-Coder). Qwen2.5-7B-Instruct\
+      \ base, two-stage SFT + GRPO with a CAD geometric reward (Chamfer Distance + format);\
+      \ CoT planning; trained on 110K text-CadQuery-3D triplets + 1.5K CoT. Reported CD 6.54 vs\
+      \ Text2CAD 29.29 — strongest text->CAD model found in the 2026-06 HF+Ollama sweep, and the\
+      \ real promotion target FOR auto-cad once a GGUF exists. BLOCKER: HF repo is Safetensors/\
+      \ BF16 only, no GGUF, not deployed by any inference provider — NOT pullable into the\
+      \ Ollama chat tier as-is. To activate: llama.cpp convert_hf_to_gguf.py + quantize from BF16,\
+      \ then ollama create; replace this id with the real GGUF tag in a separate operator task\
+      \ (see post-task note 5). Do NOT wire to a workspace while this placeholder id stands —\
+      \ the model_hint would not resolve. NOT the MIT/Doris image->CAD VLM of the same name\
+      \ (arXiv 2505.14646). Recorded additive-only per verify-before-recommend."
   - id: laguna-xs.2:Q4_K_M
     supports_tools: true
     notes: "Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified)."
@@ -612,6 +634,12 @@ workspace_routing:
   - reasoning
   - general
   bench-qwopus-coder-mtp-v2:
+  - coding
+  - general
+  auto-cad:
+  - coding
+  - general
+  bench-c3d-v0:
   - coding
   - general
   tools-specialist:
