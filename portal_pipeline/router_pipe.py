@@ -1305,11 +1305,13 @@ async def _run_non_streaming_chain(
 ) -> JSONResponse:
     """Run the N additional hops for a non-streaming chain request.
 
-    Each hop posts directly to backend.chat_url with the hop model + system/user
-    templates. Results are concatenated with separator headers and returned as a
-    single non-streaming JSONResponse, matching the structure of a normal completion.
+    Each hop uses SSE streaming internally so completion is event-driven
+    (we finish when [DONE] arrives, not when a fixed timer fires). Results
+    are concatenated with separator headers and returned as a single
+    non-streaming JSONResponse.
     """
-    timeout_s = float(os.environ.get("PIPELINE_TIMEOUT", "300"))
+    import json as _json
+
     collected: list[str] = [primary_text]
     combined_parts: list[str] = [primary_text]
 
@@ -1324,7 +1326,7 @@ async def _run_non_streaming_chain(
         hop_body = {
             **body,
             "model": hop_model,
-            "stream": False,
+            "stream": True,  # stream internally — event-driven, no read timeout
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -1334,20 +1336,29 @@ async def _run_non_streaming_chain(
         }
         hop_body = {k: v for k, v in hop_body.items() if v is not None}
 
+        hop_parts: list[str] = []
         try:
-            resp = await _http_client.post(  # type: ignore[union-attr]
-                backend.chat_url,
-                json=hop_body,
-                timeout=httpx.Timeout(timeout_s),
-            )
-            resp.raise_for_status()
-            hop_data = resp.json()
-            hop_text = str(hop_data.get("choices", [{}])[0].get("message", {}).get("content", ""))
+            async with _http_client.stream(  # type: ignore[union-attr]
+                "POST", backend.chat_url, json=hop_body
+            ) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: ") or line == "data: [DONE]":
+                        continue
+                    try:
+                        d = _json.loads(line[6:])
+                        c = d["choices"][0]["delta"].get("content") or ""
+                        if c:
+                            hop_parts.append(c)
+                    except Exception:
+                        pass
+            hop_text = "".join(hop_parts)
         except Exception as exc:
             logger.warning(
-                "Non-streaming chain hop failed for workspace=%s model=%s: %s",
+                "Non-streaming chain hop failed for workspace=%s model=%s: %s(%s)",
                 workspace_id,
                 hop_model,
+                type(exc).__name__,
                 exc,
             )
             hop_text = ""
