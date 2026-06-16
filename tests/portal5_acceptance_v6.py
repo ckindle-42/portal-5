@@ -1713,6 +1713,16 @@ async def S16() -> None:
     await _s.run()
 
 
+async def S17() -> None:
+    """S17: CAD render MCP tests — delegates to tests/acceptance/s17_cad_render.py."""
+    import sys as _sys
+
+    _sys.path.insert(0, str(ROOT / "tests"))
+    from acceptance import s17_cad_render as _s
+
+    await _s.run()
+
+
 async def S7() -> None:
     """S7: Music generation tests — delegates to tests/acceptance/s07_music.py."""
     import sys as _sys
@@ -2232,6 +2242,7 @@ ALL_SECTIONS = {
     # Phase 4: MCP tests
     "S4": S4,
     "S5": S5,
+    "S17": S17,  # CAD render MCP (TASK_CAD_RENDER_MCP_V1)
     # Phase 5: Audio tests
     "S8": S8,
     "S9": S9,

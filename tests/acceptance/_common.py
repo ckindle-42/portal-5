@@ -42,6 +42,7 @@ MCP = {
     "tts": int(os.environ.get("TTS_HOST_PORT", "8916")),
     "embedding": int(os.environ.get("EMBEDDING_HOST_PORT", "8917")),
     "security": int(os.environ.get("SECURITY_HOST_PORT", "8919")),
+    "cad_render": int(os.environ.get("CAD_RENDER_HOST_PORT", "8926")),
 }
 
 # ── Lazy delegation to monolith ──────────────────────────────────────────────
