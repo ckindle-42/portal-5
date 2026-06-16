@@ -223,6 +223,9 @@ backends:
     notes: "Tool template verified in Ollama (Llama-3 header format with .Tools support). supports_tools corrected from false (TASK_TOOL_AUDIT_V2)."
   - id: xploiter/the-xploiter
     supports_tools: false
+  - id: xploiter/pentester:v2
+    supports_tools: false
+    notes: "xploiter/pentester v2 (~1.6GB, Phi-2 2.8B Q4_0, Microsoft Research License, ctx=2048/8192). Bench 2026-06-16: composite 0.612 vs the-xploiter 0.325, zero disclaimers vs 2.5 avg, 6x faster. auto-pentest PRIMARY (no tools — Phi-2 has no function-call capability)."
   - id: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0
     supports_tools: false
   - id: deepseek-r1:32b-q4_k_m
@@ -647,6 +650,9 @@ workspace_routing:
   - general
   auto-cad:
   - coding
+  - general
+  bench-xploiter-pentester:
+  - security
   - general
   bench-c3d-v0:
   - coding
