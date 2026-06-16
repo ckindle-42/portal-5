@@ -1128,6 +1128,52 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
+    "auto-cad": {
+        "name": "📐 Portal CAD / 3D-Print Designer",
+        "description": (
+            "Parametric 3D-model generation via code-CAD (CadQuery / build123d). "
+            "Emits executable Python that produces STL/STEP/3MF for FDM/SLA printing. "
+            "Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s) — runs the CAD "
+            "toolchain in the code sandbox (:8914)."
+        ),
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "predict_limit": 16384,
+        "system_prompt_append": (
+            "\n\nCAD OUTPUT RULE: When asked for a 3D model or printable part, emit a COMPLETE, "
+            "executable CadQuery (preferred) or build123d Python script in a fenced ```python "
+            "block. The script must define `result` (CadQuery) or a build123d object and end "
+            "with an export call (e.g. cq.exporters.export(result, 'part.step') and "
+            "'part.stl'). State key parameters (wall thickness, tolerances, units=mm) as "
+            "named variables at the top so the part is parametric. Do not leave stubs."
+        ),
+        "tools": [
+            "execute_python",
+            "execute_bash",
+            "sandbox_status",
+            "read_pdf",
+            "read_word_document",
+            "web_search",
+            "web_fetch",
+            "remember",
+            "recall",
+            "kb_search",
+        ],
+    },
+    "bench-c3d-v0": {
+        "name": "🔬 Bench · C3D-v0 (CADQuery specialist)",
+        "description": (
+            "Benchmark: C3Dv0:latest (joshuaokolo/C3Dv0, Ollama, Gemma-3n-E4B 4B base, "
+            "LoRA on Text-to-CadQuery ~48K/50%/1-epoch, ~7.3GB, 32K ctx). TEXT-ONLY, "
+            "NO TOOLS. Simple-to-moderate parametric geometry only. Own-hardware CAD eval "
+            "vs incumbent coders. NEVER auto-routed/auto-promoted (PROMOTE_POLICY). "
+            "Verified live 2026-06."
+        ),
+        "model_hint": "C3Dv0:latest",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

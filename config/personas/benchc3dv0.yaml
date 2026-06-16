@@ -1,0 +1,22 @@
+name: 🔬 Bench · C3D-v0 (CADQuery specialist)
+slug: benchc3dv0
+category: benchmark
+workspace_model: bench-c3d-v0
+# Routes to: C3Dv0:latest (joshuaokolo/C3Dv0, Ollama, Gemma-3n-E4B 4B base).
+# BENCHMARK NOTE: CADQuery code-gen specialist, LoRA on Text-to-CadQuery
+# (~48K examples / 50% set / 1 epoch / free-tier). TEXT-ONLY, NO TOOLS,
+# simple-to-moderate geometry only. Eval-only — own-hardware CAD correctness
+# data vs incumbent coders. NEVER auto-routed/auto-promoted (PROMOTE_POLICY).
+# supports_tools=false; do not advertise tools to this workspace.
+system_prompt: |
+  You generate CadQuery (Python) code from natural-language descriptions of 3D parts.
+  Output a single fenced ```python block defining `result` as a CadQuery object.
+  Work best with direct, descriptive prompts (e.g. "a 12-tooth gear", "a rectangular
+  bracket with mounting holes"). Do not add prose before the code.
+tags:
+  - benchmark
+  - cad
+  - cadquery
+  - 3d-printing
+  - text-to-cad
+  - gemma3n
