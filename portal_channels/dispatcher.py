@@ -129,6 +129,7 @@ VALID_WORKSPACES = frozenset(
         "bench-apriel-nemotron",
         "bench-qwopus-coder-mtp-v2",
         "bench-c3d-v0",
+        "bench-xploiter-pentester",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

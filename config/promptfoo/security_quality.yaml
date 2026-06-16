@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:xploiter/the-xploiter
+  - id: ollama:chat:xploiter/pentester:v2
     label: auto-pentest
     config:
       temperature: 0

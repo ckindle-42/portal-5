@@ -322,13 +322,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
             "Authorized penetration testing methodology, scoping, RoE, and professional "
-            "reporting. xploiter (guardrailed ethical hacking assistant — operates strictly "
-            "within authorized scope, web app / AD / cloud attack paths, exec-ready findings). "
-            "Use for engagement setup, structured findings, and deliverable generation."
+            "reporting. xploiter/pentester:v2 (1.6GB, zero disclaimers, faster than the-xploiter "
+            "at 9.2GB — outperformed it on structure and disclaimer density in bench 2026-06-16). "
+            "Web app / AD / cloud attack paths, exec-ready findings, engagement setup."
         ),
-        "model_hint": "xploiter/the-xploiter",
+        "model_hint": "xploiter/pentester:v2",
         "keep_alive": "10m",
-        "tools": ["web_search", "web_fetch", "classify_vulnerability", "kb_search"],
+        "tools": [],
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
@@ -1265,6 +1265,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "render_openscad",
             "convert_cad",
         ],
+    },
+    "bench-xploiter-pentester": {
+        "name": "🔬 Bench · xploiter/pentester:v2",
+        "description": (
+            "Benchmark: xploiter/pentester:v2 (Ollama, ~1.6GB, recently updated). "
+            "Head-to-head vs xploiter/the-xploiter (~9.2GB) on pentest/red-team prompts. "
+            "Evaluate: structure adherence, disclaimer density, ATT&CK ID usage, command specificity. "
+            "PROMOTE_POLICY=confirm — if v2 matches the-xploiter quality at 6x smaller size, "
+            "consider swapping auto-pentest primary."
+        ),
+        "model_hint": "xploiter/pentester:v2",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
     },
     "bench-c3d-v0": {
         "name": "🔬 Bench · C3D-v0 (CADQuery specialist)",
