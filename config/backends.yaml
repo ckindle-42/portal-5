@@ -441,6 +441,7 @@ workspace_routing:
   - general
   auto-purpleteam:
   - security
+  - general
   auto-pentest:
   - security
   auto-blueteam:
@@ -625,8 +626,10 @@ workspace_routing:
   - general
   auto-bigfix:
   - security
+  - coding
   - general
   bench-fastcontext:
+  - coding
   - general
   bench-devstral:
   - coding
@@ -636,8 +639,10 @@ workspace_routing:
   - general
   bench-apriel-nemotron:
   - reasoning
+  - coding
   - general
   bench-qwopus-coder-mtp-v2:
+  - reasoning
   - coding
   - general
   auto-cad:
@@ -705,8 +710,5 @@ embedding_candidates:
 # P5-FUT-SPEECH-002), which uses a dedicated audio-prompt driver, not
 # bench_tps.py.
 pipeline_bench_skip:
-- bench-voxtral-realtime    # Mistral streaming ASR — audio-modality probe required
-- bench-voxtral-tts         # Mistral TTS — audio-output probe required
-- bench-granite-speech      # IBM ASR with keyword biasing — audio-modality probe required
 - bench-nanonets-ocr2       # OCR vision specialist — image-input probe required
 - bench-olmocr2             # OCR vision specialist — image-input probe required

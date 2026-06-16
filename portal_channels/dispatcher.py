@@ -118,6 +118,17 @@ VALID_WORKSPACES = frozenset(
         "bench-qwopus-coder-mtp",
         "bench-gemma4-12b-coder",
         "bench-deepseek-coder-v2",
+        # June 2026 new production workspaces
+        "auto-bigfix",
+        "auto-cad",
+        # June 2026 bench candidates
+        "bench-gemma4-31b-crack",
+        "bench-devstral",
+        "bench-fastcontext",
+        "bench-magistral",
+        "bench-apriel-nemotron",
+        "bench-qwopus-coder-mtp-v2",
+        "bench-c3d-v0",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

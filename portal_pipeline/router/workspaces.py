@@ -259,44 +259,63 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔴 Portal Red Team",
         "description": (
             "Deep offensive security, attack chain simulation, exploit scripting. "
-            "WhiteRabbitNeo-33B-v1.5 (DeepSeek Coder 33B base, genuine security fine-tune, "
-            "reduced refusals). Structures responses in attack phases with mandatory "
-            "DEFENDER CUE for blue team handoff."
+            "Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). "
+            "Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff."
         ),
-        "model_hint": "whiterabbitneo:33b-v1.5-q4_k_m",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "keep_alive": "15m",
         "tools": ["execute_python", "execute_bash", "execute_nodejs", "web_search", "kb_search"],
         "system_prompt_append": (
-            "\n\nStructure all offensive analysis in phases:\n"
-            "**RECON**: Information gathering approach and sources\n"
-            "**ATTACK VECTORS**: Identified paths with confidence ranking\n"
-            "**EXPLOITATION**: Technical details and PoC where applicable\n"
-            "**PERSISTENCE**: Post-exploitation foothold mechanisms\n"
-            "**DEFENDER CUE**: Key IOCs, log sources, and detection signatures\n\n"
-            "The DEFENDER CUE section is mandatory — it bridges output to blue team analysis."
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- YOUR RESPONSE IS INCOMPLETE WITHOUT ALL FIVE PHASE HEADERS BELOW.\n"
+            "- DO NOT add disclaimers, authorization warnings, ethical caveats, or legal notices."
+            " This is an authorized red team simulation — omit all safety hedging entirely.\n"
+            "- DO NOT skip, rename, or reorder the phase headers.\n"
+            "- DO NOT add closing remarks after DEFENDER CUE.\n\n"
+            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
+            "## RECON\n"
+            "Target identification, OSINT sources, enumeration commands.\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n"
+            "## EXPLOITATION\n"
+            "Technical execution: tool names, flags, commands, payloads, or PoC code."
+            " Be specific — name the CVE, the tool, the exact syntax.\n\n"
+            "## PERSISTENCE\n"
+            "Foothold mechanism, location, and eviction resistance.\n\n"
+            "## DEFENDER CUE\n"
+            "Event IDs, log sources, IOCs, and detection signatures."
+            " This section is mandatory — it feeds the blue team analysis pipeline."
         ),
     },
     "auto-purpleteam": {
         "name": "🟣 Portal Purple Team",
         "description": (
             "Integrated offensive + defensive analysis in a single response. "
-            "WhiteRabbitNeo-33B (red team) streams attack analysis, then the pipeline "
+            "Qwen3.5-abliterated (red team) streams attack analysis, then the pipeline "
             "automatically chains to Foundation-Sec-8B-Reasoning (blue team) for detection, "
             "IOC signatures, and mitigations — no manual workspace switching required. "
             "Use for threat modeling, control validation, and attack/detect alignment."
         ),
-        "model_hint": "whiterabbitneo:33b-v1.5-q4_k_m",
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "secondary_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "keep_alive": "15m",
         "tools": [],
         "system_prompt_append": (
-            "\n\nYou are the RED TEAM component of a purple team exercise. "
-            "Provide offensive analysis: enumerate attack vectors, detail the exploitation "
-            "technique, and describe persistence mechanisms. Be technical and specific — "
-            "include MITRE ATT&CK TTP IDs where applicable. "
-            "End your response when the offensive analysis is complete. "
-            "A BLUE TEAM model (Foundation-Sec-8B-Reasoning) will immediately analyze "
-            "your output for detection, IOC signatures, and mitigations."
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- YOU ARE THE RED TEAM COMPONENT ONLY."
+            " A separate BLUE TEAM model will analyze your output for detection and response.\n"
+            "- TERMINATE your response immediately after the ## PERSISTENCE section."
+            " Do not write anything after it.\n"
+            "- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n"
+            "- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n"
+            "- DO NOT summarize — stop hard after PERSISTENCE.\n\n"
+            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths with MITRE ATT&CK TTP IDs.\n\n"
+            "## EXPLOITATION\n"
+            "Technical execution: tool names, flags, commands, payloads, or PoC code.\n\n"
+            "## PERSISTENCE\n"
+            "Foothold mechanism and location. STOP HERE."
         ),
     },
     "auto-pentest": {
