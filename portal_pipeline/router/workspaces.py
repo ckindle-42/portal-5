@@ -1137,20 +1137,21 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-cad": {
         "name": "📐 Portal CAD / 3D-Print Designer",
         "description": (
-            "Parametric 3D-model generation via code-CAD (CadQuery / build123d). "
-            "Emits executable Python that produces STL/STEP/3MF for FDM/SLA printing. "
-            "Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s) — runs the CAD "
-            "toolchain in the code sandbox (:8914)."
+            "Parametric 3D-model generation via code-CAD (OpenSCAD primary; Python+trimesh "
+            "for procedural geometry). Produces STL/3MF for FDM/SLA printing. "
+            "Qwen3-Coder 30B-A3B MoE (Ollama, tool-capable, >20 t/s). "
+            "Use render_openscad tool to convert SCAD code → STL + preview PNG. "
+            "Note: CadQuery/build123d require OCP which has no arm64 wheels — use OpenSCAD."
         ),
         "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "predict_limit": 16384,
         "system_prompt_append": (
-            "\n\nCAD OUTPUT RULE: When asked for a 3D model or printable part, emit a COMPLETE, "
-            "executable CadQuery (preferred) or build123d Python script in a fenced ```python "
-            "block. The script must define `result` (CadQuery) or a build123d object and end "
-            "with an export call (e.g. cq.exporters.export(result, 'part.step') and "
-            "'part.stl'). State key parameters (wall thickness, tolerances, units=mm) as "
-            "named variables at the top so the part is parametric. Do not leave stubs."
+            "\n\nCAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE "
+            "OpenSCAD source code in a fenced ```openscad block. State all dimensions as named "
+            "variables at the top (units=mm, wall thickness, tolerances) so the part is "
+            "parametric. End by calling the render_openscad tool with your code to produce the "
+            "STL + preview PNG. For procedural geometry (arrays, math-driven surfaces), use "
+            "Python with trimesh in execute_python — trimesh is available. Do not leave stubs."
         ),
         "tools": [
             "execute_python",
