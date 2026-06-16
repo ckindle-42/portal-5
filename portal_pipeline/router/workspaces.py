@@ -273,7 +273,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Model_hint pending D10 sec10-bigfix-parse probe results — "
             "will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES."
         ),
-        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "tools": ["execute_python", "execute_bash", "web_search"],
     },
     "tools-specialist": {
