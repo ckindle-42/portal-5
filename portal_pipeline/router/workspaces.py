@@ -111,6 +111,8 @@ _load_persona_map()
 #   context_limit              Max context window for this workspace.
 #   max_concurrent             Per-workspace concurrency cap (router_pipe semaphore).
 #   system_prompt_append       String appended after the persona system prompt.
+#   think                      False → disable Qwen3/thinking-mode extended thinking
+#                              (prevents token-budget exhaustion in <think> blocks).
 #   emits_reasoning            True → model emits reasoning chains (DeepSeek-R1 family);
 #                              affects how the streaming layer parses delta fields.
 #
@@ -1145,6 +1147,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
         "predict_limit": 16384,
+        "think": False,
         "system_prompt_append": (
             "\n\nCAD OUTPUT RULE: When asked for a 3D model or printable part, write COMPLETE "
             "OpenSCAD source code in a fenced ```openscad block. State all dimensions as named "
@@ -1191,7 +1194,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
 # Max iterations of the streaming tool-call loop before the pipeline gives up
 # and returns whatever the model has so far. Env-overridable. Consumed in
 # router_pipe._stream_with_tool_loop_impl.
-MAX_TOOL_HOPS = int(os.environ.get("MAX_TOOL_HOPS", "10"))
+MAX_TOOL_HOPS = int(os.environ.get("MAX_TOOL_HOPS", "20"))
 
 
 def _workspace_tools(workspace_id: str) -> list[str]:

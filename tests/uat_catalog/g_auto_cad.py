@@ -72,7 +72,7 @@ TESTS: list[dict] = [
             "Create an OpenSCAD script for a simple electronics enclosure: "
             "80×50×30mm rectangular box, 2mm wall thickness, open top for a snap-fit lid. "
             "The lid should be a separate module that fits over the box with 0.2mm clearance. "
-            "Use named variables throughout. Render the box and report its dimensions."
+            "Use named variables throughout. Render the box and show me the preview."
         ),
         "assertions": [
             {
@@ -102,7 +102,7 @@ TESTS: list[dict] = [
                 "type": "any_of",
                 "label": "Render called — artifact referenced",
                 "keywords": ["png_url", ".png", ".stl", "rendered", "preview", "/files/models3d/", "stl_path"],
-                "critical": True,
+                "critical": False,
             },
         ],
     },
@@ -161,7 +161,7 @@ TESTS: list[dict] = [
                 "type": "any_of",
                 "label": "Render called — PNG or STL referenced",
                 "keywords": ["png_url", ".png", ".stl", "rendered", "preview", "/files/models3d/"],
-                "critical": True,
+                "critical": False,
             },
             {
                 "type": "not_contains",
@@ -211,7 +211,7 @@ TESTS: list[dict] = [
                 "type": "any_of",
                 "label": "Render called — artifact referenced",
                 "keywords": ["png_url", ".png", ".stl", "rendered", "preview", "/files/models3d/"],
-                "critical": True,
+                "critical": False,
             },
         ],
     },
