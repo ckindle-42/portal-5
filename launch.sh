@@ -1178,6 +1178,70 @@ case "${1:-up}" in
     echo "[portal-5] Stack + all channels started"
     ;;
 
+  lab-up)
+    # Start Incalmo C2 + Talon SOC analyst (lab profile).
+    # Does NOT start Wazuh — use lab-up-wazuh for that.
+    # Requires VMs on LAB_TARGET_NETWORK (see docs/LAB_SETUP.md).
+    set -a; source "$ENV_FILE"; set +a
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
+    cd "$COMPOSE_DIR"
+    docker compose -f docker-compose.yml -f docker-compose.lab.yml --profile lab up -d
+    echo "[portal-5] Lab services started:"
+    echo "  Incalmo C2  → http://localhost:${INCALMO_PORT:-8930}"
+    echo "  Talon SOC   → http://localhost:${TALON_PORT:-8931}"
+    echo ""
+    echo "  LLM routing: Incalmo → auto-redteam | Talon → auto-blueteam"
+    echo "  Set LAB_TARGET_NETWORK, LAB_TARGET_DC, LAB_TARGET_WS in .env"
+    echo "  See: docs/LAB_SETUP.md"
+    ;;
+
+  lab-up-wazuh)
+    # Start Incalmo + Talon + full Wazuh SIEM stack.
+    # Requires ~6GB extra RAM for Wazuh manager + indexer.
+    # Set LAB_OPENSEARCH_PASSWORD in .env before running.
+    set -a; source "$ENV_FILE"; set +a
+    if [ -z "${LAB_OPENSEARCH_PASSWORD:-}" ]; then
+        echo "[portal-5] ERROR: LAB_OPENSEARCH_PASSWORD not set in .env"
+        echo "  Set a strong password (min 8 chars, 1 upper, 1 digit, 1 special)"
+        exit 1
+    fi
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
+    cd "$COMPOSE_DIR"
+    docker compose -f docker-compose.yml -f docker-compose.lab.yml \
+        --profile lab --profile lab-wazuh up -d
+    echo "[portal-5] Lab + Wazuh started:"
+    echo "  Incalmo C2       → http://localhost:${INCALMO_PORT:-8930}"
+    echo "  Talon SOC        → http://localhost:${TALON_PORT:-8931}"
+    echo "  Wazuh Manager    → enrolled agents on :1515, syslog on :1514/udp"
+    echo "  OpenSearch API   → http://localhost:9201"
+    echo "  Wazuh REST API   → https://localhost:55000"
+    echo ""
+    echo "  Deploy Wazuh agents on VMs: see docs/LAB_SETUP.md"
+    ;;
+
+  lab-down)
+    # Stop all lab services (Incalmo, Talon, Wazuh).
+    set -a; source "$ENV_FILE"; set +a
+    if [ ! -f "$COMPOSE_DIR/.env" ]; then
+        ln -s "$ENV_FILE" "$COMPOSE_DIR/.env"
+    fi
+    cd "$COMPOSE_DIR"
+    docker compose -f docker-compose.yml -f docker-compose.lab.yml \
+        --profile lab --profile lab-wazuh --profile lab-wazuh-ui down
+    echo "[portal-5] Lab services stopped"
+    ;;
+
+  lab-status)
+    # Show status of all lab containers.
+    echo "[portal-5] Lab service status:"
+    docker ps --filter "name=portal5-lab" \
+        --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+    ;;
+
   prune)
     # Remove unused Docker resources to reclaim disk space.
     # Removes: dangling images, stopped containers, unused networks.
@@ -3355,6 +3419,10 @@ MEOF
       echo "  up-telegram           Force-start Telegram bot (auto-detected by 'up' when TELEGRAM_BOT_TOKEN is set)"
     echo "  up-slack              Force-start Slack bot (auto-detected by 'up' when SLACK_BOT_TOKEN + SLACK_APP_TOKEN are set)"
     echo "  up-channels           Force-start both Telegram and Slack bots"
+    echo "  lab-up                Start Incalmo C2 + Talon SOC analyst (lab profile, no Wazuh)"
+    echo "  lab-up-wazuh          Start Incalmo + Talon + full Wazuh SIEM stack (~6GB extra RAM)"
+    echo "  lab-down              Stop all lab services"
+    echo "  lab-status            Show lab container status"
     echo "  test                  Run end-to-end smoke tests against the live stack"
     echo "  promptfoo [area]      Run LLM quality evals (coding|daily|reasoning|security|document|media|strategic|all)"
     echo "  down                  Stop all services (data preserved)"
