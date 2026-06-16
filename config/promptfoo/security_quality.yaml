@@ -7,7 +7,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:whiterabbitneo:33b-v1.5-q4_k_m
+  - id: ollama:chat:huihui_ai/qwen3.5-abliterated:9b
     label: auto-redteam
     config:
       temperature: 0
