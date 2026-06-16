@@ -379,16 +379,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-data": {
         "name": "📊 Portal Data Analyst",
-        "description": "Data analysis, statistics, visualization guidance",
-        "model_hint": "deepseek-r1:32b-q8_0",
-        "predict_limit": 32768,
-        "emits_reasoning": True,
-        # 35 GB q8 — keep warm for back-to-back queries but don't pin forever
-        "keep_alive": "10m",
-        # supports_tools=false (reasoning model, chain-of-thought format — no tool template).
-        # Tools removed: model cannot emit tool calls. Switch model_hint to a tool-capable
-        # model (granite4.1:8b, qwen3-coder) if tool use is required for this workspace.
-        "tools": [],
+        "description": (
+            "Data analysis, statistics, visualization guidance. "
+            "Qwen3-Coder-30B MoE (tool-capable, writes pandas/numpy/matplotlib, "
+            "executes Python, produces Excel output)."
+        ),
+        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {
         "name": "⚖️  Portal Compliance Analyst",
