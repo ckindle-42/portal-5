@@ -565,6 +565,7 @@ rows = [
     ('portal5-mcp-research',  'MCP Research',         ':8922'),
     ('portal5-mcp-memory',    'MCP Memory',           ':8920'),
     ('portal5-mcp-rag',       'MCP RAG',              ':8921'),
+    ('portal5-mcp-cad-render','MCP CAD Render',       ':8926'),
 ]
 icons = {'healthy': '✅', 'running': '✅', 'starting': '⏳'}
 for key, label, url in rows:
@@ -1258,7 +1259,7 @@ case "${1:-up}" in
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render"
     [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding portal-pipeline..."
     docker compose build portal-pipeline
@@ -1277,7 +1278,7 @@ case "${1:-up}" in
     # Rebuild and restart all MCP containers (e.g. after a docker-compose.yml or Dockerfile.mcp change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render"
     [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Rebuilding MCP images..."
     docker compose build $MCP_SERVICES
@@ -1294,7 +1295,7 @@ case "${1:-up}" in
     # Restart all MCP containers without rebuilding (e.g. after a config or env change)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     cd "$COMPOSE_DIR"
-    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp"
+    MCP_SERVICES="mcp-documents mcp-tts mcp-whisper mcp-sandbox mcp-security mcp-research mcp-memory mcp-rag playwright-mcp mcp-cad-render"
     [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && MCP_SERVICES="$MCP_SERVICES mcp-comfyui mcp-video"
     echo "[portal-5] Restarting MCP containers..."
     docker compose restart $MCP_SERVICES
