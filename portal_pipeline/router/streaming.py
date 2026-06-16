@@ -744,6 +744,19 @@ async def _stream_from_backend_guarded(
             _record_response_time(model, workspace_id, time.monotonic() - start_time)
 
 
+def _collect_text(chunk: bytes, parts: list[str]) -> None:
+    """Extract content delta from an SSE chunk and append to parts list."""
+    if chunk.startswith(b"data:"):
+        try:
+            obj = json.loads(chunk[5:].strip())
+            for choice in obj.get("choices", []):
+                text = choice.get("delta", {}).get("content") or ""
+                if text:
+                    parts.append(text)
+        except Exception:
+            pass
+
+
 async def _stream_with_secondary_chain(
     url: str,
     body: dict,
@@ -751,17 +764,21 @@ async def _stream_with_secondary_chain(
     workspace_id: str = "unknown",
     model: str = "unknown",
     secondary_model: str = "",
+    tertiary_model: str = "",
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
-    """Purple-team two-model chain: stream primary (red team), then chain to secondary (blue team).
+    """Purple-team chain: red → blue → (optional) detection engineering.
 
-    Buffers the primary model's text content while streaming it to the client, then —
-    without closing the SSE connection — emits a visual separator and makes a second
-    request to ``secondary_model`` (Foundation-Sec-8B) with the primary output as
-    context for blue team analysis. The slot is held across both model calls.
+    Two-hop mode (tertiary_model=""): streams red attack analysis, then chains to
+    Foundation-Sec-8B for blue team detection/hardening. The slot is held across
+    both hops; secondary [DONE] closes the connection.
 
-    Primary [DONE] is suppressed so the client stays connected through the chain.
-    The secondary model's natural [DONE] terminates the stream.
+    Three-hop mode (tertiary_model set): adds a third hop — a coding model receives
+    the full red+blue context and generates ready-to-deploy detection artifacts
+    (Sigma rules, Wazuh XML, hunting queries). Tertiary [DONE] closes the connection.
+
+    Primary and secondary [DONE] tokens are suppressed so the client stays connected
+    through the chain.
     """
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
@@ -780,83 +797,142 @@ async def _stream_with_secondary_chain(
 
     if _SHOW_ROUTING_STATUS:
         ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
-        yield _make_chunk(
-            {"content": f"`⚡ {ws_name} → {model} ⟶ {secondary_model}`\n\n"}
-        )
+        chain_label = f"{model} ⟶ {secondary_model}"
+        if tertiary_model:
+            chain_label += f" ⟶ {tertiary_model}"
+        yield _make_chunk({"content": f"`⚡ {ws_name} → {chain_label}`\n\n"})
 
     primary_parts: list[str] = []
     try:
+        # ── Hop 1: Red team ──────────────────────────────────────────────────
         async for chunk in _stream_from_backend_guarded(
             url, body, workspace_id=workspace_id, model=model, start_time=start_time
         ):
-            # Suppress primary [DONE] — secondary stream will close the connection
             if chunk == b"data: [DONE]\n\n":
                 continue
-            # Buffer content while passing through to client
-            if chunk.startswith(b"data:"):
-                try:
-                    obj = json.loads(chunk[5:].strip())
-                    for choice in obj.get("choices", []):
-                        text = choice.get("delta", {}).get("content") or ""
-                        if text:
-                            primary_parts.append(text)
-                except Exception:
-                    pass
+            _collect_text(chunk, primary_parts)
             yield chunk
 
-        if secondary_model and primary_parts:
-            primary_text = "".join(primary_parts)
-            yield _make_chunk(
-                {
-                    "content": (
-                        "\n\n---\n\n"
-                        "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*\n\n"
-                    )
-                }
-            )
-            secondary_body = {
-                k: v
-                for k, v in {
-                    **body,
-                    "model": secondary_model,
-                    "stream": True,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are a defensive security analyst. A red team operator has "
-                                "described an attack technique or scenario. Provide blue team "
-                                "analysis covering:\n"
-                                "- Detection opportunities and log sources to monitor\n"
-                                "- IOC signatures and behavioral indicators\n"
-                                "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
-                                "- Prioritized hardening recommendations\n"
-                                "Be specific and actionable."
-                            ),
-                        },
-                        {
-                            "role": "user",
-                            "content": (
-                                "Analyze the following attack scenario for defensive "
-                                "detection and response:\n\n" + primary_text
-                            ),
-                        },
-                    ],
-                    "tools": None,
-                    "tool_choice": None,
-                }.items()
-                if v is not None
-            }
-            async for chunk in _stream_from_backend_guarded(
-                url,
-                secondary_body,
-                workspace_id=workspace_id,
-                model=secondary_model,
-                start_time=None,
-            ):
-                yield chunk
-        else:
+        if not (secondary_model and primary_parts):
             yield b"data: [DONE]\n\n"
+            return
+
+        # ── Hop 2: Blue team ─────────────────────────────────────────────────
+        primary_text = "".join(primary_parts)
+        yield _make_chunk(
+            {"content": "\n\n---\n\n🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*\n\n"}
+        )
+        secondary_body = {
+            k: v
+            for k, v in {
+                **body,
+                "model": secondary_model,
+                "stream": True,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a defensive security analyst. A red team operator has "
+                            "described an attack technique or scenario. Provide blue team "
+                            "analysis covering:\n"
+                            "- Detection opportunities and log sources to monitor\n"
+                            "- IOC signatures and behavioral indicators\n"
+                            "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+                            "- Prioritized hardening recommendations\n"
+                            "Be specific and actionable."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Analyze the following attack scenario for defensive "
+                            "detection and response:\n\n" + primary_text
+                        ),
+                    },
+                ],
+                "tools": None,
+                "tool_choice": None,
+            }.items()
+            if v is not None
+        }
+
+        secondary_parts: list[str] = []
+        async for chunk in _stream_from_backend_guarded(
+            url,
+            secondary_body,
+            workspace_id=workspace_id,
+            model=secondary_model,
+            start_time=None,
+        ):
+            if tertiary_model and chunk == b"data: [DONE]\n\n":
+                continue
+            _collect_text(chunk, secondary_parts)
+            yield chunk
+
+        if not (tertiary_model and secondary_parts):
+            # Two-hop chain ends here
+            if tertiary_model:
+                yield b"data: [DONE]\n\n"
+            return
+
+        # ── Hop 3: Detection engineering ─────────────────────────────────────
+        secondary_text = "".join(secondary_parts)
+        yield _make_chunk(
+            {"content": "\n\n---\n\n🛡️ **DETECTION ENGINEERING** *(Qwen3-Coder)*\n\n"}
+        )
+        tertiary_body = {
+            k: v
+            for k, v in {
+                **body,
+                "model": tertiary_model,
+                "stream": True,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a detection engineer. A purple team exercise has completed. "
+                            "You will receive the red team attack scenario and the blue team "
+                            "defensive analysis. Your job: generate ready-to-deploy detection "
+                            "artifacts. Output ONLY the detection content — no prose explanation.\n\n"
+                            "Generate all of the following that apply to the attack scenario:\n\n"
+                            "1. **Sigma rule(s)** (YAML) — one rule per primary technique, "
+                            "targeting the specific tools, event IDs, and IOCs from the red team output.\n\n"
+                            "2. **Wazuh custom rule(s)** (XML) — map to the Wazuh rule groups "
+                            "and alert levels appropriate to the severity. Include <description>, "
+                            "<group>, and <mitre> tags.\n\n"
+                            "3. **Hunting query** — SPL (Splunk) or KQL (Elastic/Sentinel) targeting "
+                            "the behavioral patterns identified. Label which platform.\n\n"
+                            "4. **Atomic test command** (optional) — a single shell command to "
+                            "validate the detection fires correctly in a lab environment.\n\n"
+                            "Use exact ATT&CK technique IDs, tool names, and IOCs from the context. "
+                            "Output must be production-ready."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "## RED TEAM OUTPUT\n\n"
+                            + primary_text
+                            + "\n\n## BLUE TEAM ANALYSIS\n\n"
+                            + secondary_text
+                            + "\n\nGenerate detection artifacts for the above."
+                        ),
+                    },
+                ],
+                "tools": None,
+                "tool_choice": None,
+            }.items()
+            if v is not None
+        }
+
+        async for chunk in _stream_from_backend_guarded(
+            url,
+            tertiary_body,
+            workspace_id=workspace_id,
+            model=tertiary_model,
+            start_time=None,
+        ):
+            yield chunk
 
     finally:
         slot.release()

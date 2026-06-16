@@ -674,6 +674,10 @@ workspace_routing:
   bench-xploiter-pentester:
   - security
   - general
+  auto-purpleteam-deep:
+  - security
+  - coding
+  - general
   bench-foundation-sec-abliterated:
   - security
   - general

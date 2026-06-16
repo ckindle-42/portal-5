@@ -1880,6 +1880,7 @@ async def chat_completions(
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
         _secondary_model = ws_cfg.get("secondary_model", "")
+        _tertiary_model = ws_cfg.get("tertiary_model", "")
 
         # Pick target model from Ollama hint
         if model_hint:
@@ -2002,6 +2003,7 @@ async def chat_completions(
                     workspace_id=workspace_id,
                     model=target_model,
                     secondary_model=_secondary_model,
+                    tertiary_model=_tertiary_model,
                     start_time=start_time,
                 )
             else:
@@ -2086,6 +2088,7 @@ async def chat_completions(
                         workspace_id=workspace_id,
                         model=target_model,
                         secondary_model=_secondary_model,
+                        tertiary_model=_tertiary_model,
                         start_time=start_time,
                     )
                 else:

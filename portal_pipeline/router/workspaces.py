@@ -318,6 +318,43 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Foothold mechanism and location. STOP HERE."
         ),
     },
+    "auto-purpleteam-deep": {
+        "name": "🟣 Portal Purple Team · Deep",
+        "description": (
+            "Three-hop purple team chain in a single response:\n"
+            "1. 🔴 RED — Qwen3.5-abliterated attack analysis (MITRE TTPs, exploitation, persistence)\n"
+            "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning detection analysis (IOCs, log sources, mitigations)\n"
+            "3. 🛡️ DETECT — Qwen3-Coder generates ready-to-deploy detection artifacts "
+            "(Sigma rules, Wazuh XML rules, hunting queries, atomic test commands)\n\n"
+            "Use for threat modeling that terminates in deployable detection content. "
+            "Latency is higher than auto-purpleteam — three sequential model calls."
+        ),
+        "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
+        "secondary_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+        "tertiary_model": "qwen3-coder:30b-a3b-q4_K_M",
+        "keep_alive": "15m",
+        "tools": [],
+        "system_prompt_append": (
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- YOU ARE THE RED TEAM COMPONENT ONLY."
+            " A BLUE TEAM model and a DETECTION ENGINEERING model will process your output.\n"
+            "- TERMINATE your response immediately after the ## PERSISTENCE section."
+            " Do not write anything after it.\n"
+            "- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n"
+            "- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n"
+            "- Maximize MITRE ATT&CK TTP IDs, specific tool names, exact flags, and IOCs."
+            " The detection chain depends on the specificity of your output.\n"
+            "- DO NOT summarize — stop hard after PERSISTENCE.\n\n"
+            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n"
+            "## EXPLOITATION\n"
+            "Technical execution: exact tool names, flags, commands, payloads, or PoC code."
+            " Name the CVE, the tool, the exact syntax.\n\n"
+            "## PERSISTENCE\n"
+            "Foothold mechanism, registry key or path, and eviction resistance. STOP HERE."
+        ),
+    },
     "auto-pentest": {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
