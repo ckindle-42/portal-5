@@ -1266,6 +1266,76 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "convert_cad",
         ],
     },
+    # ── Security candidate bench workspaces ─────────────────────────────────
+    # Run: python3 tests/benchmarks/bench_security.py \
+    #        --workspaces bench-wrn8b bench-lily bench-dolphin-r1 bench-supergemma4-sec \
+    #                     bench-r1-0528-abliterated auto-redteam auto-security
+    "bench-wrn8b": {
+        "name": "🔬 Bench · WRN-8B-v2.0 (lazarevtill)",
+        "description": (
+            "Security eval: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0 (~4.9GB). "
+            "WRN security fine-tune at 8B scale. bench_security.py eval before removal/promotion decision. "
+            "PROMOTE_POLICY=confirm — check disclaimer density vs WRN-33B."
+        ),
+        "model_hint": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-lily-cybersec": {
+        "name": "🔬 Bench · Lily Cybersecurity 7B (segolilylabs)",
+        "description": (
+            "Security eval: lily-cybersecurity:7b-q4_k_m (~4.4GB, Lily-Cybersecurity-7B-v0.2). "
+            "Purpose-built cybersecurity model. bench_security.py eval before removal decision. "
+            "PROMOTE_POLICY=confirm — fast+small candidate for auto-security if quality holds."
+        ),
+        "model_hint": "lily-cybersecurity:7b-q4_k_m",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-dolphin-r1": {
+        "name": "🔬 Bench · Dolphin3-R1-Mistral 24B",
+        "description": (
+            "Security eval: dolphin3-r1-mistral:24b-q4_k_m (~14GB). "
+            "Uncensored Dolphin3 lineage + R1 reasoning on Mistral 24B. "
+            "Candidate for auto-redteam (reasoning + no refusals). "
+            "bench_security.py eval — compare disclaimer rate vs qwen3.5-abliterated. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "dolphin3-r1-mistral:24b-q4_k_m",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-supergemma4-sec": {
+        "name": "🔬 Bench · SuperGemma4 26B Uncensored",
+        "description": (
+            "Security eval: supergemma4-26b-uncensored:Q4_K_M (~16GB). "
+            "Abliterated/uncensored Gemma4 26B A4B MoE. Tool-capable. "
+            "bench_security.py eval — check for zero disclaimers and ATT&CK density. "
+            "Candidate for auto-redteam or auto-security upgrade. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "supergemma4-26b-uncensored:q4_k_m",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-r1-0528-abliterated": {
+        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated (mradermacher)",
+        "description": (
+            "Security eval: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M "
+            "(~5GB). Abliterated R1-0528 reasoning model. Candidate for auto-redteam reasoning lane. "
+            "bench_security.py eval vs qwen3.5-abliterated. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": (
+            "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
+        ),
+        "max_concurrent": 1,
+        "emits_reasoning": True,
+        "keep_alive": "5m",
+        "tools": [],
+    },
     "bench-xploiter-pentester": {
         "name": "🔬 Bench · xploiter/pentester:v2",
         "description": (

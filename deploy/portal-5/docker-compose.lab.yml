@@ -1,0 +1,189 @@
+# Portal 5 — Lab Environment (Incalmo + Talon + Wazuh)
+#
+# Offensive/defensive AI testing stack.  NOT started by ./launch.sh up.
+# Use: ./launch.sh lab-up            (Incalmo C2 + Talon SOC)
+#      ./launch.sh lab-up-wazuh      (adds Wazuh SIEM, needs ~6GB extra RAM)
+#      ./launch.sh lab-down          (stop all lab services)
+#
+# External prerequisites (VMs — see docs/LAB_SETUP.md):
+#   dc01  192.168.56.100  Windows Server 2022 — AD Domain Controller
+#   ws01  192.168.56.101  Windows 10/11       — Domain workstation
+#   srv01 192.168.56.102  Windows Server 2019 — Member server (IIS+SQL)
+#   kali01 192.168.56.10  Kali Linux          — Attack pivot (optional)
+#
+# Incalmo orchestrates red-team operations; its LLM brain routes to the
+# Portal pipeline at host.docker.internal:9099 (auto-redteam workspace).
+#
+# Talon polls OpenSearch/Wazuh for security alerts and triages them via
+# the portal pipeline (auto-blueteam workspace).
+#
+# Required .env keys (see .env.example for full list):
+#   PIPELINE_API_KEY          — already set by ./launch.sh up
+#   LAB_OPENSEARCH_PASSWORD   — set this before lab-up-wazuh
+#   LAB_TARGET_NETWORK        — CIDR of your VM lab (default: 192.168.56.0/24)
+
+services:
+
+  # ── Incalmo C2 — Autonomous LLM-Assisted Red Teaming ─────────────────────
+  # GitHub: github.com/cylabcyberautonomy/Incalmo
+  # Paper: arXiv 2501.16466 (Jan 2025, revised Nov 2025)
+  # Dockerized C2 layer — LLM writes declarative attack plans, domain agents
+  # execute them (nmap, Metasploit, C2 beacons) across the target network.
+  # Portal 5 integration: Incalmo calls portal-pipeline as its OpenAI backend.
+  incalmo-c2:
+    image: ghcr.io/cylabcyberautonomy/incalmo:latest
+    # Build from source if pre-built image is unavailable:
+    # build:
+    #   context: https://github.com/cylabcyberautonomy/Incalmo.git
+    #   dockerfile: Dockerfile
+    container_name: portal5-lab-incalmo
+    profiles: [lab]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${INCALMO_PORT:-8930}:8930"
+    environment:
+      # LLM backend — Portal 5 pipeline
+      - OPENAI_API_BASE=http://host.docker.internal:${PIPELINE_PORT:-9099}/v1
+      - OPENAI_API_KEY=${PIPELINE_API_KEY}
+      - OPENAI_MODEL=${LAB_REDTEAM_WORKSPACE:-auto-redteam}
+      # Purple team: set to auto-purpleteam for chained red+blue analysis
+      # - OPENAI_MODEL=auto-purpleteam
+      #
+      # Target network (your VM lab)
+      - TARGET_NETWORK=${LAB_TARGET_NETWORK:-192.168.56.0/24}
+      - TARGET_DC=${LAB_TARGET_DC:-192.168.56.100}
+      - TARGET_WORKSTATION=${LAB_TARGET_WS:-192.168.56.101}
+      - TARGET_SERVER=${LAB_TARGET_SRV:-192.168.56.102}
+      - ATTACK_HOST=${LAB_ATTACK_HOST:-192.168.56.10}
+      - INCALMO_PORT=8930
+    volumes:
+      - incalmo-data:/data
+      - incalmo-logs:/logs
+    networks:
+      - portal-lab
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Talon SOC Analyst — Alert Triage via Foundation-Sec-8B ───────────────
+  # GitHub: github.com/taylorwalton/talon (SOCFortress)
+  # Polls OpenSearch/Wazuh for SIEM alerts, enriches with threat intel,
+  # produces structured P1-P4 triage reports via LLM.
+  # Routes to portal-pipeline → auto-blueteam (Foundation-Sec-8B-Reasoning).
+  talon-soc:
+    image: ghcr.io/taylorwalton/talon:latest
+    # Build from source if pre-built image is unavailable:
+    # build:
+    #   context: https://github.com/taylorwalton/talon.git
+    container_name: portal5-lab-talon
+    profiles: [lab]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TALON_PORT:-8931}:8931"
+    environment:
+      # OpenSearch connection (Wazuh indexer)
+      - OPENSEARCH_URL=${LAB_OPENSEARCH_URL:-http://portal5-lab-wazuh-indexer:9200}
+      - OPENSEARCH_USER=${LAB_OPENSEARCH_USER:-admin}
+      - OPENSEARCH_PASSWORD=${LAB_OPENSEARCH_PASSWORD:-}
+      - OPENSEARCH_INDEX=${LAB_OPENSEARCH_INDEX:-wazuh-alerts-*}
+      # LLM backend — Portal 5 pipeline → auto-blueteam
+      - OPENAI_BASE_URL=http://host.docker.internal:${PIPELINE_PORT:-9099}/v1
+      - OPENAI_API_KEY=${PIPELINE_API_KEY}
+      - OPENAI_MODEL=${LAB_BLUETEAM_WORKSPACE:-auto-blueteam}
+      # Direct Ollama path (uncomment if bypassing pipeline):
+      # - OLLAMA_URL=http://host.docker.internal:11434
+      # - OLLAMA_MODEL=hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+      - TALON_PORT=8931
+      - POLL_INTERVAL_SECONDS=${LAB_TALON_POLL_INTERVAL:-30}
+      - SEVERITY_THRESHOLD=${LAB_TALON_SEVERITY:-3}
+    volumes:
+      - talon-data:/data
+    networks:
+      - portal-lab
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Wazuh Manager — SIEM engine ───────────────────────────────────────────
+  # Profile: lab-wazuh (separate — adds ~4GB RAM)
+  # Install Wazuh agents on dc01/ws01/srv01 to ship events here.
+  # Agent install: see docs/LAB_SETUP.md → "Wazuh Agent Deployment"
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.9.2
+    container_name: portal5-lab-wazuh-manager
+    profiles: [lab-wazuh]
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:1514:1514/udp"    # Syslog from agents (must reach VMs)
+      - "0.0.0.0:1515:1515"        # Agent enrollment
+      - "127.0.0.1:55000:55000"    # Wazuh REST API
+    environment:
+      - WAZUH_API_USERNAME=${LAB_WAZUH_API_USER:-wazuh}
+      - WAZUH_API_PASSWORD=${LAB_OPENSEARCH_PASSWORD:-ChangeMe1!}
+      - FILEBEAT_SSL_VERIFICATION_MODE=none
+    volumes:
+      - wazuh-manager-data:/var/ossec/data
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+      - ./config/lab/wazuh/ossec.conf:/var/ossec/etc/ossec.conf:ro
+    networks:
+      - portal-lab
+
+  # ── Wazuh Indexer — OpenSearch backend for alert storage ─────────────────
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.9.2
+    container_name: portal5-lab-wazuh-indexer
+    profiles: [lab-wazuh]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9201:9200"    # OpenSearch API (offset from 9200 to avoid MCP RAG clash)
+    environment:
+      - OPENSEARCH_JAVA_OPTS=-Xms2g -Xmx2g
+      - bootstrap.memory_lock=true
+      - WAZUH_INDEXER_PASSWORD=${LAB_OPENSEARCH_PASSWORD:-ChangeMe1!}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+    networks:
+      - portal-lab
+
+  # ── Wazuh Dashboard — Kibana-based UI (optional, memory-heavy) ───────────
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.9.2
+    container_name: portal5-lab-wazuh-dashboard
+    profiles: [lab-wazuh-ui]    # separate profile — only start if you need the UI
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5601:5601"
+    environment:
+      - WAZUH_API_URL=https://portal5-lab-wazuh-manager
+      - WAZUH_API_PORT=55000
+      - WAZUH_API_USERNAME=${LAB_WAZUH_API_USER:-wazuh}
+      - WAZUH_API_PASSWORD=${LAB_OPENSEARCH_PASSWORD:-ChangeMe1!}
+      - OPENSEARCH_HOSTS=https://portal5-lab-wazuh-indexer:9200
+    depends_on:
+      - wazuh-manager
+      - wazuh-indexer
+    networks:
+      - portal-lab
+
+networks:
+  portal-lab:
+    driver: bridge
+    name: portal5-lab
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  incalmo-data:
+  incalmo-logs:
+  talon-data:
+  wazuh-manager-data:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+  wazuh-indexer-data:
