@@ -36,6 +36,8 @@ VALID_WORKSPACES = frozenset(
         "auto-spl",
         "auto-security",
         "auto-redteam",
+        "auto-purpleteam",
+        "auto-pentest",
         "auto-blueteam",
         "auto-creative",
         "auto-reasoning",

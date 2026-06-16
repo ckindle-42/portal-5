@@ -237,8 +237,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
-        "description": "Security analysis, hardening, vulnerability assessment",
-        "model_hint": "baronllm:q6_k",
+        "description": (
+            "Authorized security assessment, vulnerability analysis, hardening. "
+            "BaronLLM-abliterated (Llama-3.1-8B, 53K security examples across 200+ cybersec "
+            "domains, CyberSec-Eval validated, fully abliterated, tool-capable). Fast general "
+            "security analysis with web search, vuln classification, and code execution."
+        ),
+        "model_hint": "huihui_ai/baronllm-abliterated",
         "keep_alive": "10m",
         "tools": [
             "web_search",
@@ -252,14 +257,67 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     },
     "auto-redteam": {
         "name": "🔴 Portal Red Team",
-        "description": "Offensive security, penetration testing, exploit research",
-        "model_hint": "baronllm:q6_k",
+        "description": (
+            "Deep offensive security, attack chain simulation, exploit scripting. "
+            "WhiteRabbitNeo-33B-v1.5 (DeepSeek Coder 33B base, genuine security fine-tune, "
+            "reduced refusals). Structures responses in attack phases with mandatory "
+            "DEFENDER CUE for blue team handoff."
+        ),
+        "model_hint": "whiterabbitneo:33b-v1.5-q4_k_m",
+        "keep_alive": "15m",
+        "tools": ["execute_python", "execute_bash", "execute_nodejs", "web_search", "kb_search"],
+        "system_prompt_append": (
+            "\n\nStructure all offensive analysis in phases:\n"
+            "**RECON**: Information gathering approach and sources\n"
+            "**ATTACK VECTORS**: Identified paths with confidence ranking\n"
+            "**EXPLOITATION**: Technical details and PoC where applicable\n"
+            "**PERSISTENCE**: Post-exploitation foothold mechanisms\n"
+            "**DEFENDER CUE**: Key IOCs, log sources, and detection signatures\n\n"
+            "The DEFENDER CUE section is mandatory — it bridges output to blue team analysis."
+        ),
+    },
+    "auto-purpleteam": {
+        "name": "🟣 Portal Purple Team",
+        "description": (
+            "Integrated offensive + defensive analysis in a single response. "
+            "WhiteRabbitNeo-33B (red team) streams attack analysis, then the pipeline "
+            "automatically chains to Foundation-Sec-8B-Reasoning (blue team) for detection, "
+            "IOC signatures, and mitigations — no manual workspace switching required. "
+            "Use for threat modeling, control validation, and attack/detect alignment."
+        ),
+        "model_hint": "whiterabbitneo:33b-v1.5-q4_k_m",
+        "secondary_model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+        "keep_alive": "15m",
+        "tools": [],
+        "system_prompt_append": (
+            "\n\nYou are the RED TEAM component of a purple team exercise. "
+            "Provide offensive analysis: enumerate attack vectors, detail the exploitation "
+            "technique, and describe persistence mechanisms. Be technical and specific — "
+            "include MITRE ATT&CK TTP IDs where applicable. "
+            "End your response when the offensive analysis is complete. "
+            "A BLUE TEAM model (Foundation-Sec-8B-Reasoning) will immediately analyze "
+            "your output for detection, IOC signatures, and mitigations."
+        ),
+    },
+    "auto-pentest": {
+        "name": "🖊️ Portal Pentest Assistant",
+        "description": (
+            "Authorized penetration testing methodology, scoping, RoE, and professional "
+            "reporting. xploiter (guardrailed ethical hacking assistant — operates strictly "
+            "within authorized scope, web app / AD / cloud attack paths, exec-ready findings). "
+            "Use for engagement setup, structured findings, and deliverable generation."
+        ),
+        "model_hint": "xploiter/the-xploiter",
         "keep_alive": "10m",
-        "tools": ["execute_python", "execute_bash", "execute_nodejs", "classify_vulnerability"],
+        "tools": ["web_search", "web_fetch", "classify_vulnerability", "kb_search"],
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
-        "description": "Defensive security, incident response, threat hunting. Served by Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, Llama-3.1-8B + cybersec corpus, native <think>). Purpose-trained defender model restored after the MLX retirement (P5-FUT-PARITY-001).",
+        "description": (
+            "Defensive security, incident response, threat hunting. "
+            "Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, Llama-3.1-8B + cybersec corpus, "
+            "native <think>). Purpose-trained defender model."
+        ),
         "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
         "emits_reasoning": True,
         # supports_tools=false (reasoning model, Llama-3.1 template — no tool-call format).
@@ -385,6 +443,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "executes Python, produces Excel output)."
         ),
         "model_hint": "granite4.1:30b",
+        "keep_alive": "10m",
         "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {

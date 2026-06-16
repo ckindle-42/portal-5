@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:deepseek-r1:32b-q8_0
+  - id: ollama:chat:granite4.1:30b
     label: auto-data
     config:
       temperature: 0

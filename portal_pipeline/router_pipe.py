@@ -224,6 +224,7 @@ from portal_pipeline.router.streaming import (  # noqa: E402, F401  (facade re-e
     _json_completion_to_sse,
     _stream_from_backend_guarded,
     _stream_with_preamble,
+    _stream_with_secondary_chain,
     _stream_with_tool_loop,
     _stream_with_tool_loop_impl,
 )
@@ -1878,6 +1879,7 @@ async def chat_completions(
         backend = candidates[0]
         ws_cfg = WORKSPACES.get(workspace_id, {})
         model_hint = ws_cfg.get("model_hint", "")
+        _secondary_model = ws_cfg.get("secondary_model", "")
 
         # Pick target model from Ollama hint
         if model_hint:
@@ -1981,8 +1983,8 @@ async def chat_completions(
         if len(candidates) == 1:
             # Single candidate — no fallback possible, return streaming directly
             _record_persona(persona, target_model)
-            _stream_fn = (
-                _stream_with_tool_loop(
+            if _has_tools:
+                _stream_fn = _stream_with_tool_loop(
                     backend.chat_url,
                     backend_body,
                     slot.detach(),
@@ -1992,8 +1994,18 @@ async def chat_completions(
                     set(effective_tools),
                     start_time,
                 )
-                if _has_tools
-                else _stream_with_preamble(
+            elif _secondary_model:
+                _stream_fn = _stream_with_secondary_chain(
+                    backend.chat_url,
+                    backend_body,
+                    slot.detach(),
+                    workspace_id=workspace_id,
+                    model=target_model,
+                    secondary_model=_secondary_model,
+                    start_time=start_time,
+                )
+            else:
+                _stream_fn = _stream_with_preamble(
                     backend.chat_url,
                     backend_body,
                     slot.detach(),
@@ -2001,7 +2013,6 @@ async def chat_completions(
                     model=target_model,
                     start_time=start_time,
                 )
-            )
             _streaming_response = StreamingResponse(
                 _stream_fn,
                 media_type="text/event-stream",
@@ -2056,8 +2067,8 @@ async def chat_completions(
             stream_failed = False
             _error_buffer = None
             try:
-                _inner_stream = (
-                    _stream_with_tool_loop(
+                if _has_tools:
+                    _inner_stream = _stream_with_tool_loop(
                         backend.chat_url,
                         backend_body,
                         slot.detach(),
@@ -2067,8 +2078,18 @@ async def chat_completions(
                         set(effective_tools),
                         start_time,
                     )
-                    if _has_tools
-                    else _stream_with_preamble(
+                elif _secondary_model:
+                    _inner_stream = _stream_with_secondary_chain(
+                        backend.chat_url,
+                        backend_body,
+                        slot.detach(),
+                        workspace_id=workspace_id,
+                        model=target_model,
+                        secondary_model=_secondary_model,
+                        start_time=start_time,
+                    )
+                else:
+                    _inner_stream = _stream_with_preamble(
                         backend.chat_url,
                         backend_body,
                         slot.detach(),
@@ -2076,7 +2097,6 @@ async def chat_completions(
                         model=target_model,
                         start_time=start_time,
                     )
-                )
                 async for chunk in _inner_stream:
                     if b'"error"' in chunk:
                         stream_failed = True

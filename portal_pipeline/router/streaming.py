@@ -742,3 +742,121 @@ async def _stream_from_backend_guarded(
     finally:
         if start_time is not None:
             _record_response_time(model, workspace_id, time.monotonic() - start_time)
+
+
+async def _stream_with_secondary_chain(
+    url: str,
+    body: dict,
+    slot: RequestSlot,
+    workspace_id: str = "unknown",
+    model: str = "unknown",
+    secondary_model: str = "",
+    start_time: float | None = None,
+) -> AsyncIterator[bytes]:
+    """Purple-team two-model chain: stream primary (red team), then chain to secondary (blue team).
+
+    Buffers the primary model's text content while streaming it to the client, then —
+    without closing the SSE connection — emits a visual separator and makes a second
+    request to ``secondary_model`` (Foundation-Sec-8B) with the primary output as
+    context for blue team analysis. The slot is held across both model calls.
+
+    Primary [DONE] is suppressed so the client stays connected through the chain.
+    The secondary model's natural [DONE] terminates the stream.
+    """
+    ts = int(time.time())
+    request_id = f"chatcmpl-p5-{ts}"
+
+    def _make_chunk(delta: dict) -> bytes:
+        payload = {
+            "id": request_id,
+            "object": "chat.completion.chunk",
+            "created": ts,
+            "model": workspace_id,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+        }
+        return f"data: {json.dumps(payload)}\n\n".encode()
+
+    yield _make_chunk({"role": "assistant", "content": ""})
+
+    if _SHOW_ROUTING_STATUS:
+        ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
+        yield _make_chunk(
+            {"content": f"`⚡ {ws_name} → {model} ⟶ {secondary_model}`\n\n"}
+        )
+
+    primary_parts: list[str] = []
+    try:
+        async for chunk in _stream_from_backend_guarded(
+            url, body, workspace_id=workspace_id, model=model, start_time=start_time
+        ):
+            # Suppress primary [DONE] — secondary stream will close the connection
+            if chunk == b"data: [DONE]\n\n":
+                continue
+            # Buffer content while passing through to client
+            if chunk.startswith(b"data:"):
+                try:
+                    obj = json.loads(chunk[5:].strip())
+                    for choice in obj.get("choices", []):
+                        text = choice.get("delta", {}).get("content") or ""
+                        if text:
+                            primary_parts.append(text)
+                except Exception:
+                    pass
+            yield chunk
+
+        if secondary_model and primary_parts:
+            primary_text = "".join(primary_parts)
+            yield _make_chunk(
+                {
+                    "content": (
+                        "\n\n---\n\n"
+                        "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*\n\n"
+                    )
+                }
+            )
+            secondary_body = {
+                k: v
+                for k, v in {
+                    **body,
+                    "model": secondary_model,
+                    "stream": True,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a defensive security analyst. A red team operator has "
+                                "described an attack technique or scenario. Provide blue team "
+                                "analysis covering:\n"
+                                "- Detection opportunities and log sources to monitor\n"
+                                "- IOC signatures and behavioral indicators\n"
+                                "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+                                "- Prioritized hardening recommendations\n"
+                                "Be specific and actionable."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                "Analyze the following attack scenario for defensive "
+                                "detection and response:\n\n" + primary_text
+                            ),
+                        },
+                    ],
+                    "tools": None,
+                    "tool_choice": None,
+                }.items()
+                if v is not None
+            }
+            async for chunk in _stream_from_backend_guarded(
+                url,
+                secondary_body,
+                workspace_id=workspace_id,
+                model=secondary_model,
+                start_time=None,
+            ):
+                yield chunk
+        else:
+            yield b"data: [DONE]\n\n"
+
+    finally:
+        slot.release()
