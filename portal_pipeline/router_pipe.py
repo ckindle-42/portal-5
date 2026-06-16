@@ -1304,42 +1304,11 @@ def _apply_non_stream_response(
     Pure sync — no awaits.
     """
     try:
-        import re as _re_think
+        from portal_pipeline.router.thinking import normalize_think_message
 
         for choice in data.get("choices") or []:
             msg = choice.get("message") or {}
-            content = msg.get("content") or ""
-            reasoning = msg.get("reasoning") or ""
-            reasoning_content = msg.get("reasoning_content") or ""
-
-            if not content and reasoning:
-                logger.debug(
-                    "Backend %s: reasoning→content promotion for workspace=%s "
-                    "(thinking chain consumed all tokens)",
-                    backend.id,
-                    workspace_id,
-                )
-                msg["content"] = reasoning
-
-            elif not content and reasoning_content:
-                msg["content"] = reasoning_content
-
-            elif content and "<think>" in content:
-                stripped = _re_think.sub(
-                    r"<think>.*?</think>",
-                    "",
-                    content,
-                    flags=_re_think.DOTALL | _re_think.IGNORECASE,
-                ).strip()
-                if not stripped:
-                    inner = _re_think.sub(
-                        r"<think>(.*?)</think>",
-                        r"\1",
-                        content,
-                        flags=_re_think.DOTALL | _re_think.IGNORECASE,
-                    ).strip()
-                    if inner:
-                        msg["content"] = inner
+            normalize_think_message(msg, workspace_id=workspace_id, backend_id=backend.id)
 
     except Exception:
         pass  # Never let normalisation break a valid response
