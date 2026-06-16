@@ -427,6 +427,13 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
         "keep_alive", ws_keep_alive if ws_keep_alive is not None else _OLLAMA_KEEP_ALIVE
     )
     body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
+    # Per-workspace thinking control: "think": false disables extended thinking
+    # for Qwen3/similar models that support it. Prevents token-budget exhaustion
+    # in thinking mode where the model burns all tokens in <think> and produces
+    # empty output. Set in workspace config as {"think": false}.
+    ws_think = ws_cfg_local.get("think")
+    if ws_think is not None:
+        body.setdefault("think", ws_think)
     return body
 
 

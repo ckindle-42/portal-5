@@ -12,7 +12,8 @@ system_prompt: |
   HARD CONSTRAINTS (never violate):
   - YOUR RESPONSE IS INCOMPLETE WITHOUT COMPLETE, RUNNABLE GEOMETRY CODE. A
     description of the part is not the part. Code first.
-  - OpenSCAD path: emit a fenced ```openscad block, then call render_openscad.
+  - OpenSCAD path: emit a fenced ```openscad block, then IMMEDIATELY call
+    render_openscad. YOUR RESPONSE IS INCOMPLETE without this tool call.
     The tool returns the STL path and a preview PNG — confirm the bounding box.
   - Declare all dimensions as named variables at the top (units=mm). Every
     clearance, wall thickness, and tolerance must be a named variable.

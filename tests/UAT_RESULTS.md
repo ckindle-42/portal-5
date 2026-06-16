@@ -6,9 +6,9 @@
 
 ## Summary
 
-- **PASS**: 260
+- **PASS**: 264
 - **WARN**: 36
-- **FAIL**: 76
+- **FAIL**: 90
 - **SKIP**: 7
 - **BLOCKED**: 0
 - **MANUAL**: 1
@@ -838,3 +838,115 @@ Tests that matched expected routing — breakdown of which backend *actually* se
 | GC-04-starcoder2 | GC-04 Burning Letter · StarCoder2-15B | game_challenge | `ollama-coding|starcoder2:15b` |
 
 All routing checks passed — every test was served by its intended primary model.
+| 1 | FAIL | [WS-CAD-01 CAD Workspace — Parametric Mounting Bracket](http://localhost:8080/c/547fb2df-157b-4695-8932-ccd819238295) | `auto-cad` | 1/2(50%) [routed: auto-cad] exception=✗([Errno 32] Broken pipe); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 0.2s |
+| 2 | FAIL | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/6ec37910-a322-470f-a4ab-f65ebfe87ca8) | `auto-cad` | 1/2(50%) [routed: auto-cad] exception=✗([Errno 32] Broken pipe); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 0.1s |
+| 3 | FAIL | [WS-CAD-03 CAD Workspace — Convert STL to OBJ](http://localhost:8080/c/96ccb25d-494c-4eb2-a6fe-301117d73310) | `auto-cad` | 1/2(50%) [routed: auto-cad] exception=✗([Errno 32] Broken pipe); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 0.1s |
+| 4 | FAIL | [P-CAD-01 CAD Designer Persona — Spur Gear](http://localhost:8080/c/daceaadf-147c-44f5-be33-e9c2d0b39f06) | `cadquerydesigner` | 0/1(0%) exception=✗([Errno 32] Broken pipe) | 0.1s |
+| 5 | FAIL | [P-CAD-02 Printability Engineer Persona — FDM Bracket Analysis](http://localhost:8080/c/dd3fdd7e-61cf-4bb4-821e-2e1959309851) | `printabilityengineer` | 0/1(0%) exception=✗([Errno 32] Broken pipe) | 0.1s |
+| 1 | PASS | [WS-CAD-01 CAD Workspace — Parametric Mounting Bracket](http://localhost:8080/c/c1af05bd-804e-4782-bb91-20b670ec2833) | `auto-cad` | 6/6(100%) OpenSCAD code block present=✓(found: ['```openscad', 'translate(', 'cube(', 'cylinder(']); Named dimension variables declared=✓(found: ['base_w', 'base_width', 'arm_height', 'thickness', 'clearance', 'fillet', '=']); M4 / hole feature present=✓(found: ['m4', 'hole', '3mm', 'cylinder', 'translate']); render_openscad called — PNG or STL referenced in response=✓(found: ['preview']); No CadQuery import attempted=✓(ok); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 123.0s |
+| 2 | FAIL | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/f06688df-aa97-42df-b91b-3159de8cbf25) | `auto-cad` | 5/6(83%) [routed: auto-cad] OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'difference(', 'cube(']); Wall thickness variable declared=✓(found: ['wall', 'wall_t', 'thickness', 'wall_thickness']); Clearance/tolerance variable declared=✓(found: ['clearance', 'fit', '0.2']); Two modules (box + lid)=✓(found: ['module lid', 'module box']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/', 'stl_path']); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 139.7s |
+| 3 | PASS | [WS-CAD-03 CAD Workspace — Convert STL to OBJ](http://localhost:8080/c/a6458f85-0840-4dd9-8865-661c8102b06d) | `auto-cad` | 3/3(100%) Convert tool called — OBJ output referenced=✓(found: ['obj format']); No error reported=✓(ok); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 77.3s |
+| 1 | PASS | [WS-CAD-01 CAD Workspace — Parametric Mounting Bracket](http://localhost:8080/c/82617513-cffe-4365-bd1f-b782aafa762c) | `auto-cad` | 6/6(100%) OpenSCAD code block present=✓(found: ['```openscad', 'translate(', 'cube(', 'cylinder(']); Named dimension variables declared=✓(found: ['base_w', 'base_width', 'arm_height', 'thickness', 'clearance', 'fillet', '=']); M4 / hole feature present=✓(found: ['m4', 'hole', '3mm', 'cylinder', 'translate']); render_openscad called — PNG or STL referenced in response=✓(found: ['preview']); No CadQuery import attempted=✓(ok); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 94.0s |
+| 2 | FAIL | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/607bcddc-e214-4f35-a5af-0f7e27d5c243) | `auto-cad` | 5/6(83%) [routed: auto-cad] OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'difference(', 'cube(']); Wall thickness variable declared=✓(found: ['wall', 'thickness', 'wall =']); Clearance/tolerance variable declared=✓(found: ['clearance', 'tolerance', 'fit', '0.2']); Two modules (box + lid)=✓(found: ['module lid', 'module box']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/', 'stl_path']); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 71.2s |
+| 3 | PASS | [WS-CAD-03 CAD Workspace — Convert STL to OBJ](http://localhost:8080/c/aae8fdb6-2860-4b53-a2dc-f894032f1276) | `auto-cad` | 3/3(100%) Convert tool called — OBJ output referenced=✓(found: ['.obj', 'converted', 'obj format']); No error reported=✓(ok); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 10.2s |
+| 4 | FAIL | [P-CAD-01 CAD Designer Persona — Spur Gear](http://localhost:8080/c/f92f4a42-2049-4ee5-abb1-4fffc2fd6bda) | `cadquerydesigner` | 5/6(83%) [routed: cadquerydesigner] OpenSCAD or parametric geometry code present=✓(found: ['```openscad', 'teeth', 'module =']); Named tooth/module variables=✓(found: ['teeth', 'module', 'modul', 'face_width', 'bore']); Render called — PNG or STL referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); No CadQuery import=✓(ok); Recovery: passed on attempt 2/3=✓(1 retries needed (backend instability signal)); Routed model: cadquerydesigner=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 656.4s |
+| 5 | FAIL | [P-CAD-02 Printability Engineer Persona — FDM Bracket Analysis](http://localhost:8080/c/f24869e0-04cb-4575-b767-2dbf83374fa7) | `printabilityengineer` | 5/6(83%) [routed: printabilityengineer] OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'linear_extrude', 'cube(', 'cylinder(']); DfAM parameters declared=✓(found: ['nozzle_dia', 'nozzle', 'wall_count', 'overhang', 'clearance', 'layer_height']); Chamfer or overhang mitigation referenced=✓(found: ['chamfer', '45', 'overhang', 'support']); M2.5 / mounting holes addressed=✓(found: ['m2.5', '2.5', 'hole', 'mount', 'cylinder']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); Routed model: printabilityengineer=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 92.6s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 5 |
+| Correct | 5 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 5 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| WS-CAD-01 | CAD Workspace — Parametric Mounting Brac | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| WS-CAD-02 | CAD Workspace — Hex Enclosure with Lid | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| WS-CAD-03 | CAD Workspace — Convert STL to OBJ | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| P-CAD-01 | CAD Designer Persona — Spur Gear | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| P-CAD-02 | Printability Engineer Persona — FDM Brac | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | FAIL | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/a380f30f-3c22-497e-bfa8-8b43b6c83c4f) | `auto-cad` | 3/6(50%) [routed: auto-cad] OpenSCAD code block present=✗(none of: ['```openscad', '```scad', 'module ', 'difference(', 'cube(']); Wall thickness variable declared=✓(found: ['wall', 'thickness']); Clearance/tolerance variable declared=✓(found: ['clearance', 'fit', '0.2']); Two modules (box + lid)=✗(none of: ['module lid', 'module box', 'module enclosure', 'module top', 'module cover']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/', 'stl_path']); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 80.5s |
+| 4 | FAIL | [P-CAD-01 CAD Designer Persona — Spur Gear](http://localhost:8080/c/a5708161-3403-4513-bb2b-a62d5c5065b5) | `cadquerydesigner` | 2/5(40%) OpenSCAD or parametric geometry code present=✗(none of: ['```openscad', '```scad', 'module gear', 'module spur', 'teeth', 'module =', 'modul =']); Named tooth/module variables=✗(none of: ['teeth', 'num_teeth', 'tooth_count', 'module', 'modul', 'face_width', 'bore']); Render called — PNG or STL referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); No CadQuery import=✓(ok); Recovery: passed on attempt 2/3=✓(1 retries needed (backend instability signal)) | 1156.4s |
+| 2 | FAIL | [P-CAD-01 CAD Designer Persona — Spur Gear](http://localhost:8080/c/5c1a0427-a894-4662-be90-4c137aa778b5) | `cadquerydesigner` | 4/5(80%) [routed: cadquerydesigner] OpenSCAD or parametric geometry code present=✓(found: ['```openscad', 'teeth', 'module =']); Named tooth/module variables=✓(found: ['teeth', 'module', 'modul', 'face_width', 'bore']); Render called — PNG or STL referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); No CadQuery import=✓(ok); Routed model: cadquerydesigner=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 113.9s |
+| 5 | FAIL | [P-CAD-02 Printability Engineer Persona — FDM Bracket Analysis](http://localhost:8080/c/8d9ab809-775d-4486-bf0a-2e8dbb7004de) | `printabilityengineer` | 5/6(83%) [routed: printabilityengineer] OpenSCAD code block present=✓(found: ['```openscad', 'linear_extrude', 'cube(', 'cylinder(']); DfAM parameters declared=✓(found: ['nozzle_dia', 'nozzle', 'wall_count', 'overhang', 'clearance', 'layer_height']); Chamfer or overhang mitigation referenced=✓(found: ['chamfer', '45', 'overhang', 'support']); M2.5 / mounting holes addressed=✓(found: ['m2.5', '2.5', 'hole', 'mount', 'screw', 'cylinder']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); Routed model: printabilityengineer=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 181.0s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 4 |
+| Correct | 4 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 4 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| WS-CAD-01 | CAD Workspace — Parametric Mounting Brac | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| WS-CAD-02 | CAD Workspace — Hex Enclosure with Lid | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| WS-CAD-03 | CAD Workspace — Convert STL to OBJ | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| P-CAD-02 | Printability Engineer Persona — FDM Brac | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 3 | FAIL | [P-CAD-02 Printability Engineer Persona — FDM Bracket Analysis](http://localhost:8080/c/37c80672-c421-4545-9bb9-e6c7b125c41f) | `printabilityengineer` | 5/6(83%) [routed: printabilityengineer] OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'cube(', 'cylinder(']); DfAM parameters declared=✓(found: ['nozzle_dia', 'nozzle', 'wall_count', 'overhang', 'clearance', 'layer_height']); Chamfer or overhang mitigation referenced=✓(found: ['chamfer', '45', 'overhang', 'support', 'angle']); M2.5 / mounting holes addressed=✓(found: ['m2.5', '2.5', 'hole', 'mount', 'screw', 'cylinder']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); Routed model: printabilityengineer=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 187.1s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 3 |
+| Correct | 3 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 3 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| WS-CAD-02 | CAD Workspace — Hex Enclosure with Lid | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| P-CAD-01 | CAD Designer Persona — Spur Gear | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+| P-CAD-02 | Printability Engineer Persona — FDM Brac | auto-cad | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | FAIL | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/c329c1b3-727c-4f1d-b597-4ba54156558c) | `auto-cad` | 1/6(16%) [routed: auto-cad] OpenSCAD code block present=✗(none of: ['```openscad', '```scad', 'module ', 'difference(', 'cube(']); Wall thickness variable declared=✗(none of: ['wall', 'wall_t', 'thickness', 'wall_thickness', 'wall =']); Clearance/tolerance variable declared=✗(none of: ['clearance', 'tolerance', 'fit', '0.2']); Two modules (box + lid)=✗(none of: ['module lid', 'module box', 'module enclosure', 'module top', 'module cover']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/', 'stl_path']); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 59.0s |
+| 1 | PASS | [WS-CAD-02 CAD Workspace — Hex Enclosure with Lid](http://localhost:8080/c/da2e5a99-12b9-4a36-94ba-fb921181ba50) | `auto-cad` | 6/6(100%) OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'difference(', 'cube(']); Wall thickness variable declared=✓(found: ['wall', 'wall_t', 'thickness', 'wall_thickness']); Clearance/tolerance variable declared=✓(found: ['clearance', 'fit', '0.2']); Two modules (box + lid)=✓(found: ['module lid', 'module box']); Render called — artifact referenced=✓(found: ['rendered']); Routed model: auto-cad=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 54.5s |
+| 2 | PASS | [P-CAD-01 CAD Designer Persona — Spur Gear](http://localhost:8080/c/f00acd5a-03f6-4b06-880a-7cedb5c3d6ac) | `cadquerydesigner` | 4/5(80%) OpenSCAD or parametric geometry code present=✓(found: ['```openscad', 'teeth', 'module =']); Named tooth/module variables=✓(found: ['teeth', 'module', 'modul', 'face_width', 'bore']); Render called — PNG or STL referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); No CadQuery import=✓(ok); Routed model: cadquerydesigner=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 65.1s |
+| 3 | PASS | [P-CAD-02 Printability Engineer Persona — FDM Bracket Analysis](http://localhost:8080/c/745e8e1a-2e6f-4818-a2b3-8a13f3c645d0) | `printabilityengineer` | 5/6(83%) OpenSCAD code block present=✓(found: ['```openscad', 'module ', 'cube(', 'cylinder(']); DfAM parameters declared=✓(found: ['nozzle_dia', 'nozzle', 'wall_count', 'overhang', 'clearance', 'layer_height']); Chamfer or overhang mitigation referenced=✓(found: ['chamfer', '45', 'overhang', 'support']); M2.5 / mounting holes addressed=✓(found: ['m2.5', '2.5', 'hole', 'mount', 'screw', 'cylinder']); Render called — artifact referenced=✗(none of: ['png_url', '.png', '.stl', 'rendered', 'preview', '/files/models3d/']); Routed model: printabilityengineer=✓(matches via workspace 'auto-cad': Ollama:qwen3-coder — pipeline confirms: ollama-coding|qwen3-coder:30b-a3b-q4_K_M) | 87.9s |
