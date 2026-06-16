@@ -1157,6 +1157,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "remember",
             "recall",
             "kb_search",
+            "render_mesh",
+            "render_openscad",
+            "convert_cad",
         ],
     },
     "bench-c3d-v0": {

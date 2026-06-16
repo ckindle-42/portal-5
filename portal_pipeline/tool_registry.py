@@ -60,6 +60,7 @@ MCP_SERVERS: dict[str, str] = {
     "research": os.environ.get("MCP_RESEARCH_URL", "http://localhost:8922"),
     "memory": os.environ.get("MCP_MEMORY_URL", "http://localhost:8920"),
     "rag": os.environ.get("MCP_RAG_URL", "http://localhost:8921"),
+    "cad_render": os.environ.get("MCP_CAD_RENDER_URL", "http://localhost:8926"),
 }
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
