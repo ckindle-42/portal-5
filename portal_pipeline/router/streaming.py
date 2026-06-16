@@ -38,6 +38,7 @@ import httpx
 
 from portal_pipeline.router.metrics import _record_response_time, _tool_loop_hops
 from portal_pipeline.router.state import _record_error
+from portal_pipeline.router.thinking import extract_think_inner, strip_think
 from portal_pipeline.router.tools import _dispatch_tool_call
 from portal_pipeline.router.workspaces import MAX_TOOL_HOPS, WORKSPACES
 
@@ -353,16 +354,9 @@ async def _stream_with_tool_loop_impl(
                         continue
 
                     if _ct and "<think>" in _ct:
-                        import re as _re_s
-
-                        _stripped = _re_s.sub(
-                            r"<think>.*?</think>", "", _ct, flags=_re_s.DOTALL | _re_s.IGNORECASE
-                        ).strip()
-                        # Buffer any inline think content for end-of-stream fallback.
-                        _inner_think = _re_s.sub(
-                            r"<think>(.*?)</think>", r"\1", _ct,
-                            flags=_re_s.DOTALL | _re_s.IGNORECASE,
-                        ).strip()
+                        _stripped = strip_think(_ct)
+                        _inner_think = extract_think_inner(_ct)
+                        # Buffer inline think content for end-of-stream fallback.
                         if _inner_think and _inner_think != _stripped:
                             _think_content_buf.append(_inner_think)
 
