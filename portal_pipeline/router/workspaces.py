@@ -381,10 +381,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "📊 Portal Data Analyst",
         "description": (
             "Data analysis, statistics, visualization guidance. "
-            "Qwen3-Coder-30B MoE (tool-capable, writes pandas/numpy/matplotlib, "
+            "Granite 4.1 30B (IBM, tool-capable, writes pandas/numpy/matplotlib, "
             "executes Python, produces Excel output)."
         ),
-        "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "model_hint": "granite4.1:30b",
         "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {

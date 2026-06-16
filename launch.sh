@@ -261,6 +261,22 @@ _ensure_native_services() {
             fi
         fi
     fi
+
+    # ── MLX Transcribe (Apple Silicon native only) ───────────────────────────
+    if [ "$ARCH" = "arm64" ]; then
+        local TRANSCRIBE_PID_FILE="/tmp/portal-mlx-transcribe.pid"
+        local TRANSCRIBE_SCRIPT="$PORTAL_ROOT/scripts/mlx-transcribe.py"
+        if [ -f "$TRANSCRIBE_PID_FILE" ] && kill -0 "$(cat "$TRANSCRIBE_PID_FILE")" 2>/dev/null; then
+            echo "[portal-5]   ✅ MLX Transcribe: running (PID $(cat "$TRANSCRIBE_PID_FILE"))"
+        elif [ -f "$TRANSCRIBE_SCRIPT" ]; then
+            echo "[portal-5]   MLX Transcribe not running — starting..."
+            mkdir -p "$HOME/.portal5/logs"
+            nohup python3 "$TRANSCRIBE_SCRIPT" \
+                >> "$HOME/.portal5/logs/mlx-transcribe.log" 2>&1 &
+            echo $! > "$TRANSCRIBE_PID_FILE"
+            echo "[portal-5]   ✅ MLX Transcribe started on :${MLX_TRANSCRIBE_PORT:-8924}"
+        fi
+    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -307,6 +323,15 @@ _do_down() {
             echo "[portal-5] MLX Speech stopped."
         else
             echo "[portal-5] MLX Speech: not running (nothing to stop)."
+        fi
+
+        # MLX Transcribe (:8924)
+        if [ -f /tmp/portal-mlx-transcribe.pid ] && kill -0 "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-mlx-transcribe.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-mlx-transcribe.pid
+            echo "[portal-5] MLX Transcribe stopped."
+        else
+            echo "[portal-5] MLX Transcribe: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)
