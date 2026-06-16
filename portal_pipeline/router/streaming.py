@@ -221,7 +221,7 @@ async def _stream_with_tool_loop_impl(
         # Accumulators for this iteration
         tool_calls_buf: list[dict] = []
         finish_reason: str | None = None
-        _content_emitted: bool = False      # any non-think content reached client
+        _content_emitted: bool = False  # any non-think content reached client
         _think_content_buf: list[str] = []  # reasoning fallback if content is empty
 
         # Emit preamble (role chunk) on first hop
@@ -379,10 +379,13 @@ async def _stream_with_tool_loop_impl(
             _ollama_base = backend_url.split("/v1/")[0]
             logger.warning(
                 "Tool-loop backend %s timed out (workspace=%s, hop=%d) — checking /api/ps",
-                backend_url, workspace_id, hop,
+                backend_url,
+                workspace_id,
+                hop,
             )
             try:
                 from portal_pipeline.router.monitor import wait_for_model_loaded as _wfml
+
                 _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
             except Exception:
                 _still_running = False
@@ -390,7 +393,8 @@ async def _stream_with_tool_loop_impl(
                 logger.warning(
                     "Backend %s: model still in /api/ps after stream timeout — "
                     "reasoning model mid-generation? (workspace=%s)",
-                    backend_url, workspace_id,
+                    backend_url,
+                    workspace_id,
                 )
                 yield (
                     f"data: {json.dumps({'error': 'Response timed out — model may still be generating. Please retry.'})}\n\n"
@@ -398,7 +402,8 @@ async def _stream_with_tool_loop_impl(
             else:
                 logger.warning(
                     "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
-                    backend_url, workspace_id,
+                    backend_url,
+                    workspace_id,
                 )
                 _record_error(workspace_id, "stream_timeout")
                 yield (
@@ -421,14 +426,18 @@ async def _stream_with_tool_loop_impl(
                 logger.warning(
                     "Streaming hop %d/%d: model produced only thinking content "
                     "(workspace=%s) — promoting reasoning as response.",
-                    hop, MAX_TOOL_HOPS, workspace_id,
+                    hop,
+                    MAX_TOOL_HOPS,
+                    workspace_id,
                 )
                 _fb_chunk = {
                     "id": request_id,
                     "object": "chat.completion.chunk",
                     "created": int(time.time()),
                     "model": workspace_id,
-                    "choices": [{"index": 0, "delta": {"content": _fallback}, "finish_reason": None}],
+                    "choices": [
+                        {"index": 0, "delta": {"content": _fallback}, "finish_reason": None}
+                    ],
                 }
                 yield f"data: {json.dumps(_fb_chunk)}\n\n".encode()
 
@@ -702,10 +711,12 @@ async def _stream_from_backend_guarded(
         _ollama_base = url.split("/v1/")[0]
         logger.warning(
             "Backend %s timed out during stream (workspace=%s) — checking /api/ps",
-            url, workspace_id,
+            url,
+            workspace_id,
         )
         try:
             from portal_pipeline.router.monitor import wait_for_model_loaded as _wfml
+
             _still_running = await _wfml(timeout_s=5.0, poll_s=5.0, ollama_url=_ollama_base)
         except Exception:
             _still_running = False
@@ -713,17 +724,21 @@ async def _stream_from_backend_guarded(
             logger.warning(
                 "Backend %s: model still in /api/ps after stream timeout — "
                 "reasoning model mid-generation? (workspace=%s)",
-                url, workspace_id,
+                url,
+                workspace_id,
             )
             yield (
                 "data: "
-                + json.dumps({"error": "Response timed out — model may still be generating. Please retry."})
+                + json.dumps(
+                    {"error": "Response timed out — model may still be generating. Please retry."}
+                )
                 + "\n\n"
             ).encode()
         else:
             logger.warning(
                 "Backend %s: no model in /api/ps after timeout — backend may be down (workspace=%s)",
-                url, workspace_id,
+                url,
+                workspace_id,
             )
             _record_error(workspace_id, "stream_timeout")
             yield (
@@ -757,29 +772,37 @@ def _collect_text(chunk: bytes, parts: list[str]) -> None:
             pass
 
 
-async def _stream_with_secondary_chain(
+async def _stream_with_chain(
     url: str,
     body: dict,
     slot: RequestSlot,
     workspace_id: str = "unknown",
-    model: str = "unknown",
-    secondary_model: str = "",
-    tertiary_model: str = "",
+    primary_model: str = "unknown",
+    chain: list[dict] | None = None,
     start_time: float | None = None,
 ) -> AsyncIterator[bytes]:
-    """Purple-team chain: red → blue → (optional) detection engineering.
+    """Multi-hop purple-team chain: primary model followed by any number of follow-on hops.
 
-    Two-hop mode (tertiary_model=""): streams red attack analysis, then chains to
-    Foundation-Sec-8B for blue team detection/hardening. The slot is held across
-    both hops; secondary [DONE] closes the connection.
+    Hop 0 is the primary model using ``body`` as-is (system_prompt_append already
+    applied by the router). Each subsequent hop is driven by an entry in ``chain``:
 
-    Three-hop mode (tertiary_model set): adds a third hop — a coding model receives
-    the full red+blue context and generates ready-to-deploy detection artifacts
-    (Sigma rules, Wazuh XML, hunting queries). Tertiary [DONE] closes the connection.
+        model         — Ollama model ID for this hop
+        label         — Markdown string emitted as the visual separator before this hop
+        system        — Full system prompt for this hop
+        user_template — User message with {hop_0}, {hop_1}, … placeholders referencing
+                        prior hops' collected text. Defaults to "{hop_0}".
 
-    Primary and secondary [DONE] tokens are suppressed so the client stays connected
-    through the chain.
+    All hops' [DONE] tokens are suppressed until the final hop, which closes the SSE
+    connection naturally. The slot is held across all hops and released in finally.
+
+    Example chain for auto-purpleteam-deep (4 hops):
+        [
+          {model: blue_model,   label: "🔵 BLUE TEAM ...",    system: "...", user_template: "{hop_0}"},
+          {model: coder_model,  label: "🛡️ DETECTION ...",    system: "...", user_template: "RED:\n{hop_0}\nBLUE:\n{hop_1}"},
+          {model: reason_model, label: "📋 IR PLAYBOOK ...",  system: "...", user_template: "RED:\n{hop_0}\nBLUE:\n{hop_1}\nDETECT:\n{hop_2}"},
+        ]
     """
+    _chain = chain or []
     ts = int(time.time())
     request_id = f"chatcmpl-p5-{ts}"
 
@@ -797,142 +820,140 @@ async def _stream_with_secondary_chain(
 
     if _SHOW_ROUTING_STATUS:
         ws_name = WORKSPACES.get(workspace_id, {}).get("name", workspace_id)
-        chain_label = f"{model} ⟶ {secondary_model}"
-        if tertiary_model:
-            chain_label += f" ⟶ {tertiary_model}"
+        hop_models = [primary_model] + [h["model"] for h in _chain]
+        chain_label = " ⟶ ".join(hop_models)
         yield _make_chunk({"content": f"`⚡ {ws_name} → {chain_label}`\n\n"})
 
-    primary_parts: list[str] = []
+    # collected[i] holds the joined text output of hop i
+    collected: list[str] = []
     try:
-        # ── Hop 1: Red team ──────────────────────────────────────────────────
+        # ── Hop 0: primary model (uses body as-is) ───────────────────────────
+        hop0_parts: list[str] = []
+        has_more = bool(_chain)
         async for chunk in _stream_from_backend_guarded(
-            url, body, workspace_id=workspace_id, model=model, start_time=start_time
+            url, body, workspace_id=workspace_id, model=primary_model, start_time=start_time
         ):
-            if chunk == b"data: [DONE]\n\n":
+            if has_more and chunk == b"data: [DONE]\n\n":
                 continue
-            _collect_text(chunk, primary_parts)
+            _collect_text(chunk, hop0_parts)
             yield chunk
+        collected.append("".join(hop0_parts))
 
-        if not (secondary_model and primary_parts):
-            yield b"data: [DONE]\n\n"
-            return
-
-        # ── Hop 2: Blue team ─────────────────────────────────────────────────
-        primary_text = "".join(primary_parts)
-        yield _make_chunk(
-            {"content": "\n\n---\n\n🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*\n\n"}
-        )
-        secondary_body = {
-            k: v
-            for k, v in {
-                **body,
-                "model": secondary_model,
-                "stream": True,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a defensive security analyst. A red team operator has "
-                            "described an attack technique or scenario. Provide blue team "
-                            "analysis covering:\n"
-                            "- Detection opportunities and log sources to monitor\n"
-                            "- IOC signatures and behavioral indicators\n"
-                            "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
-                            "- Prioritized hardening recommendations\n"
-                            "Be specific and actionable."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            "Analyze the following attack scenario for defensive "
-                            "detection and response:\n\n" + primary_text
-                        ),
-                    },
-                ],
-                "tools": None,
-                "tool_choice": None,
-            }.items()
-            if v is not None
-        }
-
-        secondary_parts: list[str] = []
-        async for chunk in _stream_from_backend_guarded(
-            url,
-            secondary_body,
-            workspace_id=workspace_id,
-            model=secondary_model,
-            start_time=None,
-        ):
-            if tertiary_model and chunk == b"data: [DONE]\n\n":
-                continue
-            _collect_text(chunk, secondary_parts)
-            yield chunk
-
-        if not (tertiary_model and secondary_parts):
-            # Two-hop chain ends here
-            if tertiary_model:
+        # ── Hops 1..N ────────────────────────────────────────────────────────
+        for hop_idx, hop_cfg in enumerate(_chain):
+            prior_text = collected[-1]
+            if not prior_text:
+                # previous hop produced nothing — abort chain, emit [DONE]
                 yield b"data: [DONE]\n\n"
-            return
+                return
 
-        # ── Hop 3: Detection engineering ─────────────────────────────────────
-        secondary_text = "".join(secondary_parts)
-        yield _make_chunk(
-            {"content": "\n\n---\n\n🛡️ **DETECTION ENGINEERING** *(Qwen3-Coder)*\n\n"}
-        )
-        tertiary_body = {
-            k: v
-            for k, v in {
-                **body,
-                "model": tertiary_model,
-                "stream": True,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a detection engineer. A purple team exercise has completed. "
-                            "You will receive the red team attack scenario and the blue team "
-                            "defensive analysis. Your job: generate ready-to-deploy detection "
-                            "artifacts. Output ONLY the detection content — no prose explanation.\n\n"
-                            "Generate all of the following that apply to the attack scenario:\n\n"
-                            "1. **Sigma rule(s)** (YAML) — one rule per primary technique, "
-                            "targeting the specific tools, event IDs, and IOCs from the red team output.\n\n"
-                            "2. **Wazuh custom rule(s)** (XML) — map to the Wazuh rule groups "
-                            "and alert levels appropriate to the severity. Include <description>, "
-                            "<group>, and <mitre> tags.\n\n"
-                            "3. **Hunting query** — SPL (Splunk) or KQL (Elastic/Sentinel) targeting "
-                            "the behavioral patterns identified. Label which platform.\n\n"
-                            "4. **Atomic test command** (optional) — a single shell command to "
-                            "validate the detection fires correctly in a lab environment.\n\n"
-                            "Use exact ATT&CK technique IDs, tool names, and IOCs from the context. "
-                            "Output must be production-ready."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            "## RED TEAM OUTPUT\n\n"
-                            + primary_text
-                            + "\n\n## BLUE TEAM ANALYSIS\n\n"
-                            + secondary_text
-                            + "\n\nGenerate detection artifacts for the above."
-                        ),
-                    },
-                ],
-                "tools": None,
-                "tool_choice": None,
-            }.items()
-            if v is not None
-        }
+            hop_model = hop_cfg["model"]
+            label = hop_cfg.get("label", "")
+            system_prompt = hop_cfg.get("system", "")
+            user_tmpl = hop_cfg.get("user_template", "{hop_0}")
 
-        async for chunk in _stream_from_backend_guarded(
-            url,
-            tertiary_body,
-            workspace_id=workspace_id,
-            model=tertiary_model,
-            start_time=None,
-        ):
-            yield chunk
+            # Format user message using all collected outputs so far
+            context_vars = {f"hop_{i}": collected[i] for i in range(len(collected))}
+            try:
+                user_content = user_tmpl.format(**context_vars)
+            except KeyError:
+                user_content = prior_text  # safe fallback
+
+            if label:
+                yield _make_chunk({"content": f"\n\n---\n\n{label}\n\n"})
+
+            hop_body = {
+                k: v
+                for k, v in {
+                    **body,
+                    "model": hop_model,
+                    "stream": True,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content},
+                    ],
+                    "tools": None,
+                    "tool_choice": None,
+                }.items()
+                if v is not None
+            }
+
+            is_last_hop = hop_idx == len(_chain) - 1
+            hop_parts: list[str] = []
+            async for chunk in _stream_from_backend_guarded(
+                url,
+                hop_body,
+                workspace_id=workspace_id,
+                model=hop_model,
+                start_time=None,
+            ):
+                if not is_last_hop and chunk == b"data: [DONE]\n\n":
+                    continue
+                _collect_text(chunk, hop_parts)
+                yield chunk
+            collected.append("".join(hop_parts))
 
     finally:
         slot.release()
+
+
+# ── Legacy two/three-hop shim (kept for any callers outside this module) ──────
+
+
+async def _stream_with_secondary_chain(
+    url: str,
+    body: dict,
+    slot: RequestSlot,
+    workspace_id: str = "unknown",
+    model: str = "unknown",
+    secondary_model: str = "",
+    tertiary_model: str = "",
+    start_time: float | None = None,
+) -> AsyncIterator[bytes]:
+    """Legacy shim — delegates to _stream_with_chain. Do not add new callers."""
+    _BLUE = (
+        "You are a defensive security analyst. A red team operator has described an attack "
+        "technique or scenario. Provide blue team analysis covering:\n"
+        "- Detection opportunities and log sources to monitor\n"
+        "- IOC signatures and behavioral indicators\n"
+        "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+        "- Prioritized hardening recommendations\n"
+        "Be specific and actionable."
+    )
+    _DETECT = (
+        "You are a detection engineer. A purple team exercise has completed. "
+        "Generate ready-to-deploy detection artifacts. Output ONLY the detection content.\n\n"
+        "1. Sigma rule(s) (YAML) — one per primary technique.\n"
+        "2. Wazuh custom rule(s) (XML) with <description>, <group>, <mitre> tags.\n"
+        "3. Hunting query (SPL or KQL — label which platform).\n"
+        "4. Atomic test command (optional) to validate the detection fires in a lab."
+    )
+    chain: list[dict] = []
+    if secondary_model:
+        chain.append(
+            {
+                "model": secondary_model,
+                "label": "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*",
+                "system": _BLUE,
+                "user_template": "Analyze the following attack scenario for defensive detection and response:\n\n{hop_0}",
+            }
+        )
+    if tertiary_model:
+        chain.append(
+            {
+                "model": tertiary_model,
+                "label": "🛡️ **DETECTION ENGINEERING** *(Qwen3-Coder)*",
+                "system": _DETECT,
+                "user_template": "## RED TEAM OUTPUT\n\n{hop_0}\n\n## BLUE TEAM ANALYSIS\n\n{hop_1}\n\nGenerate detection artifacts for the above.",
+            }
+        )
+    async for chunk in _stream_with_chain(
+        url,
+        body,
+        slot,
+        workspace_id=workspace_id,
+        primary_model=model,
+        chain=chain,
+        start_time=start_time,
+    ):
+        yield chunk
