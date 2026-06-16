@@ -335,9 +335,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-music": {
         "name": "🎵 Portal Music Producer",
         "description": "Generate music and audio via AudioCraft/MusicGen. LFM2.5-8B-A1B hybrid (V8: fastest structured-output model in fleet, 89 t/s, unique non-transformer architecture, tool-capable, Apache 2.0).",
-        # auto-music dispatches via OWUI Path 2 (server:mcp:portal_music + portal_tts).
         "model_hint": "lfm2.5:8b",
-        "tools": ["transcribe_audio"],
+        "tools": [
+            "generate_music",
+            "generate_continuation",
+            "list_music_models",
+            "speak",
+            "transcribe_audio",
+        ],
+        "system_prompt_append": (
+            "\n\nYou have music and speech tools available. "
+            "Use generate_music to create original music from a text description. "
+            "Use generate_continuation to extend an existing audio clip. "
+            "Use list_music_models to show available model sizes. "
+            "Use speak to synthesise speech from text. "
+            "Always call the appropriate tool rather than just describing what you would do."
+        ),
     },
     "auto-research": {
         "name": "🔍 Portal Research Assistant",

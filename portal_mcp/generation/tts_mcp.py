@@ -298,6 +298,32 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+# ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
+
+@mcp.custom_route("/tools/speak", methods=["POST"])
+async def speak_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await speak(
+        text=args.get("text", ""),
+        voice=args.get("voice", ""),
+        speed=float(args.get("speed", 1.0)),
+        backend=args.get("backend", ""),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/clone_voice", methods=["POST"])
+async def clone_voice_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await clone_voice(
+        text=args.get("text", ""),
+        reference_audio_path=args.get("reference_audio_path", ""),
+    )
+    return JSONResponse(result)
+
+
 @mcp.tool()
 async def speak(
     text: str,

@@ -119,6 +119,42 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+# ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
+
+@mcp.custom_route("/tools/generate_music", methods=["POST"])
+async def generate_music_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await generate_music(
+        prompt=args.get("prompt", ""),
+        duration=float(args.get("duration", 10.0)),
+        model_size=args.get("model_size", "large"),
+        top_k=int(args.get("top_k", 250)),
+        temperature=float(args.get("temperature", 1.0)),
+        cfg_coef=float(args.get("cfg_coef", 3.0)),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/generate_continuation", methods=["POST"])
+async def generate_continuation_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await generate_continuation(
+        prompt=args.get("prompt", ""),
+        audio_file=args.get("audio_file", ""),
+        duration=float(args.get("duration", 10.0)),
+        model_size=args.get("model_size", "large"),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/list_music_models", methods=["POST"])
+async def list_music_models_endpoint(request):
+    result = await list_music_models()
+    return JSONResponse(result)
+
+
 logger = logging.getLogger(__name__)
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/generated"))

@@ -148,6 +148,78 @@ async def list_tools(request):
     return JSONResponse({"tools": TOOLS_MANIFEST})
 
 
+# ── POST /tools/<name> — pipeline dispatch endpoints ─────────────────────────
+
+@mcp.custom_route("/tools/start_image_generation", methods=["POST"])
+async def start_image_generation_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await start_image_generation(
+        prompt=args.get("prompt", ""),
+        width=int(args.get("width", 1024)),
+        height=int(args.get("height", 1024)),
+        steps=int(args.get("steps", 4)),
+        cfg=float(args.get("cfg", 1.0)),
+        negative_prompt=args.get("negative_prompt", ""),
+        seed=int(args.get("seed", -1)),
+        model=args.get("model", "flux"),
+        checkpoint=args.get("checkpoint", ""),
+        lora=args.get("lora", ""),
+        lora_strength=float(args.get("lora_strength", 1.0)),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/get_image_status", methods=["POST"])
+async def get_image_status_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await get_image_status(job_id=args.get("job_id", ""))
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/get_latest_images", methods=["POST"])
+async def get_latest_images_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await get_latest_images(count=int(args.get("count", 5)))
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/generate_image", methods=["POST"])
+async def generate_image_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await generate_image(
+        prompt=args.get("prompt", ""),
+        width=int(args.get("width", 1024)),
+        height=int(args.get("height", 1024)),
+        steps=int(args.get("steps", 4)),
+        cfg=float(args.get("cfg", 1.0)),
+        negative_prompt=args.get("negative_prompt", ""),
+        seed=int(args.get("seed", -1)),
+        model=args.get("model", "flux"),
+        checkpoint=args.get("checkpoint", ""),
+        lora=args.get("lora", ""),
+        lora_strength=float(args.get("lora_strength", 1.0)),
+    )
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/list_workflows", methods=["POST"])
+async def list_workflows_endpoint(request):
+    result = await list_workflows()
+    return JSONResponse(result)
+
+
+@mcp.custom_route("/tools/get_generation_status", methods=["POST"])
+async def get_generation_status_endpoint(request):
+    body = await request.json()
+    args = body.get("arguments", {})
+    result = await get_generation_status(job_id=args.get("job_id", ""))
+    return JSONResponse(result)
+
+
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
 # Public URL used in links returned to the browser — differs from COMFYUI_URL when the
 # MCP container reaches ComfyUI via host.docker.internal but the browser uses localhost.
