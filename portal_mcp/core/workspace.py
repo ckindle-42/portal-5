@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Container default; on host, callers can pass a path or set AI_OUTPUT_DIR.
 _DEFAULT_WORKSPACE = "/workspace"
-_VALID_CATEGORIES = frozenset({"transcripts", "documents", "images", "videos", "music", "speech"})
+_VALID_CATEGORIES = frozenset({"transcripts", "documents", "images", "videos", "music", "speech", "models3d"})
 
 
 def get_workspace_root() -> Path:
@@ -52,7 +52,7 @@ def get_generated_dir(category: str) -> Path:
     """Return a category-specific generated output directory.
 
     Args:
-        category: One of: transcripts, documents, images, videos, music, speech.
+        category: One of: transcripts, documents, images, videos, music, speech, models3d.
 
     Raises:
         ValueError: if category is not in the canonical set.

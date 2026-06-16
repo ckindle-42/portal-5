@@ -127,6 +127,7 @@ services:
       - MCP_RESEARCH_URL=http://portal5-mcp-research:8922
       - MCP_MEMORY_URL=http://portal5-mcp-memory:8920
       - MCP_RAG_URL=http://portal5-mcp-rag:8921
+      - MCP_CAD_RENDER_URL=http://portal5-mcp-cad-render:8926
       - TOOL_DISPATCH_TIMEOUT_S=${TOOL_DISPATCH_TIMEOUT_S:-180}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -791,6 +792,33 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 60s
+      retries: 3
+
+  # ── MCP: CAD Render (headless STL/mesh→PNG + format conversion) ─────────────
+  mcp-cad-render:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-cad-render
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CAD_RENDER_HOST_PORT:-8926}:8926"
+    environment:
+      - CAD_RENDER_MCP_PORT=8926
+      - CAD_RENDER_PUBLIC_URL=${CAD_RENDER_PUBLIC_URL:-http://localhost:8926/files/models3d}
+      - PYOPENGL_PLATFORM=osmesa
+      - CAD_RENDER_REVIEW_LOOP=${CAD_RENDER_REVIEW_LOOP:-0}
+      - CAD_RENDER_REVIEW_MODEL=${CAD_RENDER_REVIEW_MODEL:-qwen3-vl:32b}
+      - PORTAL_PIPELINE_URL=http://portal5-pipeline:9099
+      - WORKSPACE_DIR=/workspace
+    command: ["python", "-m", "portal_mcp.generation.cad_render_mcp"]
+    volumes:
+      - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8926/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
       retries: 3
 
   # ── ComfyUI — Image and Video Generation Engine (opt-in, native is default) ──

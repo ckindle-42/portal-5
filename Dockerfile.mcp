@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     espeak-ng \
     libespeak-ng1 \
+    openscad \
+    libosmesa6 \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Core deps
@@ -70,6 +74,13 @@ RUN pip install --no-cache-dir \
 RUN docling-tools models download \
     || python3 -c "from docling.utils.model_downloader import download_models; download_models()" \
     || echo "WARN: docling model prefetch failed; models will download at first use"
+
+# CAD render MCP deps — headless mesh rendering + format conversion
+RUN pip install --no-cache-dir \
+    "trimesh[easy]>=4.0.0" \
+    "pyrender>=0.1.45" \
+    "matplotlib>=3.8.0" \
+    "numpy>=1.26.0"
 
 # Channel adapters (Telegram + Slack) — used by portal-telegram, portal-slack
 RUN pip install --no-cache-dir \
