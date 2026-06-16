@@ -1270,12 +1270,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # Run: python3 tests/benchmarks/bench_security.py \
     #        --workspaces bench-wrn8b bench-lily bench-dolphin-r1 bench-supergemma4-sec \
     #                     bench-r1-0528-abliterated auto-redteam auto-security
+    # BENCH RESULTS (2026-06-16): r1-abliterated=1.00 (kerberoasting fails), supergemma4=0.90,
+    # auto-redteam=0.847, auto-security=0.830, wrn8b=0.770, lily=0.755, dolphin-r1=0.700
+    # RETIRED: wrn8b, lily, dolphin-r1 (below baseline; dolphin-r1 unusably slow 4-5min/prompt)
+    # CANDIDATE: supergemma4 (0.90, 0 disclaimers, 6.7 ATT&CK IDs — promote pending new-model eval)
     "bench-wrn8b": {
-        "name": "🔬 Bench · WRN-8B-v2.0 (lazarevtill)",
+        "name": "🔬 Bench · WRN-8B-v2.0 (lazarevtill) [RETIRED]",
         "description": (
-            "Security eval: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0 (~4.9GB). "
-            "WRN security fine-tune at 8B scale. bench_security.py eval before removal/promotion decision. "
-            "PROMOTE_POLICY=confirm — check disclaimer density vs WRN-33B."
+            "BENCH RESULT 2026-06-16: avg=0.770, disclaimers=0.3, ATT&CK=1.0. "
+            "Below auto-redteam baseline (0.847). Disclaimer issues. RETIRED from fleet. "
+            "Model: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
         ),
         "model_hint": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
         "max_concurrent": 1,
@@ -1283,11 +1287,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-lily-cybersec": {
-        "name": "🔬 Bench · Lily Cybersecurity 7B (segolilylabs)",
+        "name": "🔬 Bench · Lily Cybersecurity 7B (segolilylabs) [RETIRED]",
         "description": (
-            "Security eval: lily-cybersecurity:7b-q4_k_m (~4.4GB, Lily-Cybersecurity-7B-v0.2). "
-            "Purpose-built cybersecurity model. bench_security.py eval before removal decision. "
-            "PROMOTE_POLICY=confirm — fast+small candidate for auto-security if quality holds."
+            "BENCH RESULT 2026-06-16: avg=0.755, disclaimers=0.3, ATT&CK=1.0. "
+            "Below auto-redteam baseline. No MITRE IDs generated. RETIRED from fleet. "
+            "Model: lily-cybersecurity:7b-q4_k_m"
         ),
         "model_hint": "lily-cybersecurity:7b-q4_k_m",
         "max_concurrent": 1,
@@ -1295,13 +1299,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-dolphin-r1": {
-        "name": "🔬 Bench · Dolphin3-R1-Mistral 24B",
+        "name": "🔬 Bench · Dolphin3-R1-Mistral 24B [RETIRED]",
         "description": (
-            "Security eval: dolphin3-r1-mistral:24b-q4_k_m (~14GB). "
-            "Uncensored Dolphin3 lineage + R1 reasoning on Mistral 24B. "
-            "Candidate for auto-redteam (reasoning + no refusals). "
-            "bench_security.py eval — compare disclaimer rate vs qwen3.5-abliterated. "
-            "PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=0.700, disclaimers=0.7, ATT&CK=0.0. "
+            "4-5 min/prompt latency — unusable for production. Zero MITRE IDs. RETIRED. "
+            "Model: dolphin3-r1-mistral:24b-q4_k_m"
         ),
         "model_hint": "dolphin3-r1-mistral:24b-q4_k_m",
         "max_concurrent": 1,
@@ -1309,12 +1311,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-supergemma4-sec": {
-        "name": "🔬 Bench · SuperGemma4 26B Uncensored",
+        "name": "🔬 Bench · SuperGemma4 26B Uncensored [CANDIDATE]",
         "description": (
-            "Security eval: supergemma4-26b-uncensored:Q4_K_M (~16GB). "
-            "Abliterated/uncensored Gemma4 26B A4B MoE. Tool-capable. "
-            "bench_security.py eval — check for zero disclaimers and ATT&CK density. "
-            "Candidate for auto-redteam or auto-security upgrade. PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=0.900, disclaimers=0.0, ATT&CK=6.7. "
+            "Scores above auto-redteam baseline (0.847). Zero disclaimers. Strong ATT&CK density. "
+            "Slow (~100s/prompt). Pending promotion decision after new-candidate eval round. "
+            "Model: supergemma4-26b-uncensored:q4_k_m"
         ),
         "model_hint": "supergemma4-26b-uncensored:q4_k_m",
         "max_concurrent": 1,
@@ -1322,11 +1324,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-r1-0528-abliterated": {
-        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated (mradermacher)",
+        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated [CANDIDATE]",
         "description": (
-            "Security eval: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M "
-            "(~5GB). Abliterated R1-0528 reasoning model. Candidate for auto-redteam reasoning lane. "
-            "bench_security.py eval vs qwen3.5-abliterated. PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=1.000 (2 prompts), disclaimers=0.5, ATT&CK=11.5. "
+            "Kerberoasting prompt fails (empty content — residual refusal pocket). "
+            "Highest ATT&CK density of all candidates. Pending kerberoasting fix investigation. "
+            "Model: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
         ),
         "model_hint": (
             "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
@@ -1346,6 +1349,46 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "consider swapping auto-pentest primary."
         ),
         "model_hint": "xploiter/pentester:v2",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    # June 2026 security candidate round 2 (bench_security.py eval pending)
+    "bench-foundation-sec-abliterated": {
+        "name": "🔬 Bench · Foundation-Sec-8B Abliterated (huihui_ai)",
+        "description": (
+            "Security eval: huihui_ai/foundation-sec-abliterated:8b (~4.9GB Q4_K_M). "
+            "Cisco Foundation-Sec-8B (security domain pretraining) + huihui-ai abliteration. "
+            "Combines security domain knowledge with zero refusals. "
+            "Prime candidate for auto-redteam replacement. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "huihui_ai/foundation-sec-abliterated:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-sylink": {
+        "name": "🔬 Bench · SYLink 8B (sylink/sylink)",
+        "description": (
+            "Security eval: sylink/sylink:8b (~4-5GB, SYLink Technologie). "
+            "Purpose-built for SOC triage, threat intel, incident response, ATT&CK mapping. "
+            "Full MITRE ATT&CK coverage claimed. bench_security.py eval vs auto-security baseline. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "sylink/sylink:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-dolphin3-cyber": {
+        "name": "🔬 Bench · Dolphin3-Cyber-8B (RavichandranJ)",
+        "description": (
+            "Security eval: hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M (~4-5GB). "
+            "Dolphin3.0-Llama3.1-8B-abliterated + cybersecurity fine-tune (OWASP, ATT&CK, CVEs). "
+            "Uncensored base + security specialization. bench_security.py eval. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],

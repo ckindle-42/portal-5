@@ -247,6 +247,15 @@ backends:
   - id: "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Josiefied R1-0528-Qwen3-8B abliterated (~5GB). Abliterated reasoning for redteam/security use. Also in ollama-reasoning."
+  - id: huihui_ai/foundation-sec-abliterated:8b
+    supports_tools: false
+    notes: "Foundation-Sec-8B (Cisco security domain pretraining) + huihui-ai abliteration (~4.9GB Q4_K_M). Security domain knowledge + zero refusals. bench-foundation-sec-abliterated target (June 2026)."
+  - id: sylink/sylink:8b
+    supports_tools: false
+    notes: "SYLink 8B (SYLink Technologie). Purpose-built for SOC triage, threat intel, ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. bench-sylink target (June 2026)."
+  - id: "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Dolphin3-Cyber-8B (~4-5GB). Dolphin3.0-Llama3.1-8B-abliterated + cybersec fine-tune (OWASP, ATT&CK, CVEs). Uncensored base + security specialization. bench-dolphin3-cyber target (June 2026)."
 - id: ollama-reasoning
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -665,6 +674,15 @@ workspace_routing:
   bench-xploiter-pentester:
   - security
   - general
+  bench-foundation-sec-abliterated:
+  - security
+  - general
+  bench-sylink:
+  - security
+  - general
+  bench-dolphin3-cyber:
+  - security
+  - general
   bench-c3d-v0:
   - coding
   - general
@@ -672,7 +690,7 @@ workspace_routing:
   - general
 defaults:
   fallback_group: general
-  request_timeout: 120
+  request_timeout: 300
   health_timeout: 3
   health_check_interval: 15
 # MTP speculative decoding is supported natively by models with embedded MTP heads
