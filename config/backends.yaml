@@ -364,6 +364,12 @@ backends:
       \ near-BF16 quality). Bench comparison vs production gemma4:31b-it-q4_K_M.\
       \ bench-gemma4-31b-qat target (TASK_MODEL_REFRESH_V8 A5).\
       \ supports_tools=false until --audit-tools verification."
+  - id: "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
+    supports_tools: false
+    notes: "Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M,\
+      \ dealignai, Gemma license, 4M context, vision+text). douyamv community quant\
+      \ (33K downloads). bench-gemma4-31b-crack target (TASK_MODEL_EVAL_V9_CANDIDATES).\
+      \ supports_tools=false until --audit-tools verification."
 - id: ollama-creative
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -547,6 +553,9 @@ workspace_routing:
   - vision
   - general
   bench-gemma4-31b-qat:
+  - vision
+  - general
+  bench-gemma4-31b-crack:
   - vision
   - general
   bench-phi4-mini-reasoning:
