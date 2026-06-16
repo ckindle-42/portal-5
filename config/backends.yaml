@@ -252,7 +252,7 @@ backends:
     notes: "Foundation-Sec-8B (Cisco security domain pretraining) + huihui-ai abliteration (~4.9GB Q4_K_M). Security domain knowledge + zero refusals. bench-foundation-sec-abliterated target (June 2026)."
   - id: sylink/sylink:8b
     supports_tools: false
-    notes: "SYLink 8B (SYLink Technologie). Purpose-built for SOC triage, threat intel, ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. bench-sylink target (June 2026)."
+    notes: "SYLink 8B F16 (~16GB — only available quantization, Qwen3 8B base). Purpose-built for SOC triage, threat intel, ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. bench-sylink target (June 2026)."
   - id: "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Dolphin3-Cyber-8B (~4-5GB). Dolphin3.0-Llama3.1-8B-abliterated + cybersec fine-tune (OWASP, ATT&CK, CVEs). Uncensored base + security specialization. bench-dolphin3-cyber target (June 2026)."

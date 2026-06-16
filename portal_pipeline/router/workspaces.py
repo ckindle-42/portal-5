@@ -1353,14 +1353,17 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    # June 2026 security candidate round 2 (bench_security.py eval pending)
+    # June 2026 security candidate round 2 — all RETIRED below baseline
+    # Finding: cybersec-specialized small models score below baseline on structured red team output.
+    # Models that win are general large abliterated models (supergemma4, r1, qwen3.5) —
+    # abliteration removes refusals while preserving MITRE ATT&CK format knowledge.
     "bench-foundation-sec-abliterated": {
-        "name": "🔬 Bench · Foundation-Sec-8B Abliterated (huihui_ai)",
+        "name": "🔬 Bench · Foundation-Sec-8B Abliterated (huihui_ai) [RETIRED]",
         "description": (
-            "Security eval: huihui_ai/foundation-sec-abliterated:8b (~4.9GB Q4_K_M). "
-            "Cisco Foundation-Sec-8B (security domain pretraining) + huihui-ai abliteration. "
-            "Combines security domain knowledge with zero refusals. "
-            "Prime candidate for auto-redteam replacement. PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=0.647, disclaimers=0.0, ATT&CK=0.0. "
+            "Below auto-redteam baseline (0.847). Zero MITRE IDs — security domain training "
+            "doesn't produce T1XXX format output. Same result on blue team prompts (0.65). "
+            "RETIRED. Model: huihui_ai/foundation-sec-abliterated:8b"
         ),
         "model_hint": "huihui_ai/foundation-sec-abliterated:8b",
         "max_concurrent": 1,
@@ -1368,12 +1371,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-sylink": {
-        "name": "🔬 Bench · SYLink 8B (sylink/sylink)",
+        "name": "🔬 Bench · SYLink 8B (sylink/sylink) [RETIRED]",
         "description": (
-            "Security eval: sylink/sylink:8b (~4-5GB, SYLink Technologie). "
-            "Purpose-built for SOC triage, threat intel, incident response, ATT&CK mapping. "
-            "Full MITRE ATT&CK coverage claimed. bench_security.py eval vs auto-security baseline. "
-            "PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=0.311, disclaimers=0.0, ATT&CK=0.0. "
+            "Well below baseline. Poor header adherence, zero MITRE IDs. "
+            "F16 16GB footprint. RETIRED. Model: sylink/sylink:8b"
         ),
         "model_hint": "sylink/sylink:8b",
         "max_concurrent": 1,
@@ -1381,12 +1383,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-dolphin3-cyber": {
-        "name": "🔬 Bench · Dolphin3-Cyber-8B (RavichandranJ)",
+        "name": "🔬 Bench · Dolphin3-Cyber-8B (RavichandranJ) [RETIRED]",
         "description": (
-            "Security eval: hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M (~4-5GB). "
-            "Dolphin3.0-Llama3.1-8B-abliterated + cybersecurity fine-tune (OWASP, ATT&CK, CVEs). "
-            "Uncensored base + security specialization. bench_security.py eval. "
-            "PROMOTE_POLICY=confirm."
+            "BENCH RESULT 2026-06-16: avg=0.673, disclaimers=0.0, ATT&CK=0.0. "
+            "Below auto-redteam baseline (0.847). Zero MITRE IDs despite cybersec fine-tuning. "
+            "RETIRED. Model: hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
         ),
         "model_hint": "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M",
         "max_concurrent": 1,
