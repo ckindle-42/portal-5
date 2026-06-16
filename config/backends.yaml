@@ -439,6 +439,10 @@ workspace_routing:
   auto-redteam:
   - security
   - general
+  auto-purpleteam:
+  - security
+  auto-pentest:
+  - security
   auto-blueteam:
   - reasoning
   - security

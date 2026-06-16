@@ -1,14 +1,19 @@
-description: "Portal 5 — Security workspaces quality evaluation (auto-security, auto-redteam, auto-blueteam)"
+description: "Portal 5 — Security workspaces quality evaluation (auto-security, auto-redteam, auto-pentest, auto-blueteam)"
 prompts:
   - file://prompts/security.txt
 providers:
-  - id: ollama:chat:baronllm:q6_k
+  - id: ollama:chat:huihui_ai/baronllm-abliterated
     label: auto-security
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:baronllm:q6_k
+  - id: ollama:chat:whiterabbitneo:33b-v1.5-q4_k_m
     label: auto-redteam
+    config:
+      temperature: 0
+      num_predict: 1024
+  - id: ollama:chat:xploiter/the-xploiter
+    label: auto-pentest
     config:
       temperature: 0
       num_predict: 1024
