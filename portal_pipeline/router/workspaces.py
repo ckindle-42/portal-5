@@ -809,6 +809,26 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "tools": [],
     },
+    "bench-gemma4-31b-crack": {
+        "name": "🔬 Bench · Gemma 4 31B JANG-4M-CRACK (dealignai)",
+        "description": (
+            "Benchmark: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:"
+            "gemma-4-31b-jang-crack-Q4_K_M.gguf "
+            "(douyamv quant of dealignai/Gemma-4-31B-JANG_4M-CRACK, Gemma license, "
+            "31B dense, ~20GB Q4_K_M). "
+            "JANG_4M-CRACK: abliterated + uncensored Gemma 4 31B fine-tune with 4M context. "
+            "Vision+text. Head-to-head vs bench-gemma4-31b-qat (refusals baseline) "
+            "and bench-huihui-qwen36-27b (abliterated comparison). "
+            "supports_tools=false until --audit-tools verification. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": (
+            "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:"
+            "gemma-4-31b-jang-crack-Q4_K_M.gguf"
+        ),
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "tools": [],
+    },
     "bench-phi4-mini-reasoning": {
         "name": "🔬 Bench · Phi-4-Mini-Reasoning (Microsoft)",
         "description": (
@@ -1089,7 +1109,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
         "max_concurrent": 1,
         "predict_limit": 8192,
-        "emits_reasoning": True,
         "keep_alive": "5m",
         "tools": [],
     },
