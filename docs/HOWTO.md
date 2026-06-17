@@ -210,26 +210,67 @@ curl -s http://localhost:8914/health
 
 ## 6. Security Analysis
 
-**What:** Three security-focused workspaces for different threat perspectives.
+**What:** Eight security-focused workspaces across three tiers — simulation, research, and execution.
+
+| Workspace | Tier | Model | Tools |
+|---|---|---|---|
+| `auto-security` | Research | BaronLLM-9B | web_search, kb_search |
+| `auto-redteam` | Simulation | Qwen3.5-abliterated 9B | none |
+| `auto-redteam-deep` | Simulation | SuperGemma4-26B (0.915 bench) | none |
+| `auto-blueteam` | Research | Foundation-Sec-8B-Reasoning | none |
+| `auto-pentest` | Execution | JANG-CRACK 31B (0.933 bench) | execute_bash, execute_python, web_search |
+| `auto-purpleteam` | Simulation | Qwen3.5-abliterated → Foundation-Sec-8B | none |
+| `auto-purpleteam-deep` | Simulation | 4-hop chain (red→blue→detect→IR) | none |
+| `auto-purpleteam-exec` | Execution | 4-hop chain, primary has live execution | execute_bash, execute_python, web_search |
 
 ### Defensive Security (auto-security)
 
 1. Select `Portal Security Analyst`
 2. Type: `Review this nginx config for security misconfigurations: [paste config]`
-3. Routes to BaronLLM for defensive analysis
+3. Routes to BaronLLM with web_search and kb_search for current CVE lookup
 
-### Offensive Security (auto-redteam)
+### Offensive Security — Simulation (auto-redteam / auto-redteam-deep)
 
-1. Select `Portal Red Team`
-2. Type: `Enumerate potential injection points in this GraphQL schema: [paste schema]`
-3. Routes to BaronLLM with red team perspective
-4. LLM-based intent classifier routes offensive content to `auto-redteam`; keyword scoring provides fallback (strong signals like "exploit", "payload", "shellcode" carry weight 3). Threshold of 4+ triggers auto-redteam
+Red team workspaces generate structured ATT&CK content. **No tools** — simulation only.
+
+1. Select `Portal Red Team` (fast, 9B) or `Portal Red Team · Deep` (SuperGemma4-26B, denser ATT&CK coverage)
+2. Type: `Enumerate attack vectors against an Active Directory environment with Kerberos`
+3. Output structured with `## ATTACK VECTORS`, `## EXPLOITATION`, `## PERSISTENCE`, `## DEFENDER CUE`
+
+LLM-based intent classifier auto-routes offensive prompts to `auto-redteam`; keyword scoring provides fallback (signals like "exploit", "payload", "shellcode" trigger routing).
+
+### Penetration Testing with Execution (auto-pentest)
+
+For **authorized** penetration tests only. JANG-CRACK 31B uses `execute_bash` and `execute_python` to validate commands live against real targets.
+
+1. Select `Portal Pentest Assistant`
+2. Type: `The target runs Apache 2.4.49. Identify the CVE, confirm the vulnerability, and attempt path traversal to /etc/passwd`
+3. Model plans the attack, executes curl/exploit commands via tools, reports real output
+
+### Purple Team Chains
+
+Purple team workspaces run multi-hop chains — red team output feeds directly into blue team analysis.
+
+**`auto-purpleteam`** (2-hop, ~3 min):
+```
+Attack scenario: AWS S3 bucket misconfiguration allowing public read access
+```
+1. Hop 1 — Qwen3.5-abliterated: attack vectors, exploitation, persistence
+2. Hop 2 — Foundation-Sec-8B-Reasoning: detection, IOCs, mitigations
+
+**`auto-purpleteam-deep`** (4-hop, ~10-15 min):
+Same as above plus:
+3. Hop 3 — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries
+4. Hop 4 — Qwen3.6-27B: full IR playbook (triage → containment → recovery)
+
+**`auto-purpleteam-exec`** (4-hop with live execution, authorized targets only):
+Primary hop has `execute_bash`/`execute_python` — actually runs enumeration and PoC commands, passes real output through the detection/IR chain.
 
 ### Blue Team (auto-blueteam)
 
 1. Select `Portal Blue Team`
 2. Type: `Analyze these firewall logs for indicators of compromise: [paste logs]`
-3. Routes to Lily-Cybersecurity model
+3. Routes to Foundation-Sec-8B-Reasoning (Cisco cybersec-trained, native `<think>` reasoning)
 
 **Verify security routing:**
 ```bash

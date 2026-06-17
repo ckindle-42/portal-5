@@ -88,9 +88,14 @@ Portal 5 includes **19 functional workspaces** (plus 18 benchmark workspaces for
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning (gemma-4-26b-a4b, 57.8 TPS) | Research + Memory |
 | `auto-coding` | Code generation and review | Code sandbox |
 | `auto-agentic` | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) | Code sandbox |
-| `auto-security` | Security analysis and hardening | Code sandbox |
-| `auto-redteam` | Offensive security research | Code sandbox |
-| `auto-blueteam` | Defensive security, incident response | Code sandbox |
+| `auto-security` | Security analysis, CVE triage, hardening | web_search, kb_search |
+| `auto-redteam` | Offensive security — structured ATT&CK output, simulation only | — |
+| `auto-redteam-deep` | High-fidelity red team — SuperGemma4-26B (0.915 bench, 6.7 ATT&CK IDs avg) | — |
+| `auto-blueteam` | Defensive security, incident response, threat hunting | — |
+| `auto-pentest` | Authorized pentest assistant with live execution — JANG-CRACK 31B (0.933 bench) | execute_bash, execute_python, web_search |
+| `auto-purpleteam` | Two-hop purple team chain — red (Qwen3.5-abliterated) → blue (Foundation-Sec-8B) | — |
+| `auto-purpleteam-deep` | Four-hop purple team — red → blue → detection artifacts (Sigma/Wazuh) → IR playbook | — |
+| `auto-purpleteam-exec` | Four-hop execution-mode purple team — live attack execution + detection + IR playbook | execute_bash, execute_python, web_search |
 | `auto-documents` | Create Word, Excel, PowerPoint | Documents + Code |
 | `auto-music` | Generate music via HuggingFace MusicGen | Music + TTS |
 | `auto-video` | Generate video via ComfyUI | Video + Image |
@@ -220,10 +225,10 @@ These pin a specific model for direct performance comparison. Not intended for d
 - `nomic-embed-text` — document embeddings for RAG
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
-- **Security:** BaronLLM-6B, Lily-Cybersecurity-7B, WhiteRabbitNeo-33B, The-Xploiter
-- **Coding:** Qwen3-Coder-30B, GLM-4.7-Flash, Devstral-24B, DeepSeek-Coder-V2
-- **Reasoning:** DeepSeek-R1-32B, Tongyi-DeepResearch-30B
-- **Vision:** Qwen3-VL 32B, LLaVA-7B
+- **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), Foundation-Sec-8B (blue team)
+- **Coding:** Qwen3-Coder-30B, Devstral-24B, DeepSeek-Coder-V2, GLM-4.7-Flash
+- **Reasoning:** DeepSeek-R1-32B, Qwen3.6-27B, Tongyi-DeepResearch-30B
+- **Vision:** Qwen3-VL 32B, LLaVA-7B, Gemma4-26B Vision
 
 ### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
 - **Speech:** MLX speech server (:8918) — Kokoro + Qwen3-TTS/ASR, host-native
