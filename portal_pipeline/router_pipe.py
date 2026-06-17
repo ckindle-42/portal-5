@@ -424,10 +424,15 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     # "10m" (long enough to absorb back-to-back queries without reload cost, but
     # not forever — a 35 GB q8 pinned by "-1" evicts the rest of the fleet).
     # Falls back to the global _OLLAMA_KEEP_ALIVE ("-1") for all other workspaces.
+    # IMPORTANT: workspace-declared keep_alive is a hard override — use direct
+    # assignment, not setdefault. OWUI sends its own keep_alive but doesn't know
+    # about bench workspace model lifecycle; letting OWUI win here causes large
+    # models to stay loaded indefinitely, blocking subsequent bench runs.
     ws_keep_alive = ws_cfg_local.get("keep_alive")
-    body.setdefault(
-        "keep_alive", ws_keep_alive if ws_keep_alive is not None else _OLLAMA_KEEP_ALIVE
-    )
+    if ws_keep_alive is not None:
+        body["keep_alive"] = ws_keep_alive
+    else:
+        body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
     body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
     # Per-workspace thinking control: "think": false disables extended thinking
     # for Qwen3/similar models that support it. Prevents token-budget exhaustion
