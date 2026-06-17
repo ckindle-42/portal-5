@@ -114,6 +114,31 @@ SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
 SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
 
+# Lab-exec lane (DEFAULT OFF — production/probe posture unchanged).
+# Set SANDBOX_LAB_EXEC=true ONLY when the *-exec security workspaces
+# (auto-purpleteam-exec, auto-pentest) should run live enumeration/PoC against a
+# routable remote lab (the Incalmo/Talon GOAD lab on a separate machine). When
+# enabled this is a SUPERSET of SANDBOX_ALLOW_NETWORK: containers get bridge
+# networking (outbound routable to the lab machine), the attack image replaces
+# the default alpine/python-slim base, the timeout envelope widens, and the
+# LAB_TARGET_* coordinates are injected into the container env so model-emitted
+# commands can reference them. The operator is responsible for IP-level
+# reachability between this host and the lab machine (route / VPN / same LAN).
+SANDBOX_LAB_EXEC = os.getenv("SANDBOX_LAB_EXEC", "false").lower() == "true"
+# Attack-capable image for the lab lane. Must contain the tooling the *-exec
+# workspaces invoke (nmap, impacket, netexec, etc.). No default that ships
+# attack tooling is pulled implicitly — operator sets this explicitly.
+SANDBOX_LAB_IMAGE = os.getenv("SANDBOX_LAB_IMAGE", "")
+SANDBOX_LAB_MEMORY = os.getenv("SANDBOX_LAB_MEMORY", "2g")
+SANDBOX_LAB_CPUS = os.getenv("SANDBOX_LAB_CPUS", "2.0")
+SANDBOX_LAB_TIMEOUT_MAX = int(os.getenv("SANDBOX_LAB_TIMEOUT_MAX", "600"))
+# Lab target coordinates injected into the spawned container's environment.
+# Mirror the LAB_TARGET_* vars consumed by docker-compose.lab.yml.
+SANDBOX_LAB_TARGET_NETWORK = os.getenv("LAB_TARGET_NETWORK", "")
+SANDBOX_LAB_TARGET_DC = os.getenv("LAB_TARGET_DC", "")
+SANDBOX_LAB_TARGET_WS = os.getenv("LAB_TARGET_WS", "")
+SANDBOX_LAB_TARGET_SRV = os.getenv("LAB_TARGET_SRV", "")
+
 # PowerShell image — portal5-pwsh:latest is a native arm64 image built from
 # Dockerfile.pwsh (ubuntu:22.04 + Microsoft pwsh apt package). Falls back to
 # the amd64-only MCR Alpine image if the local build hasn't been done yet.
