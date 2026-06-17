@@ -191,3 +191,62 @@ Wazuh volumes (`wazuh-*-data`) persist alert history across restarts. To wipe:
 ```bash
 docker volume rm portal-5_wazuh-indexer-data portal-5_wazuh-manager-data portal-5_wazuh-manager-logs portal-5_wazuh-manager-queue
 ```
+
+---
+
+## Lab-Exec Lane (live execution from `*-exec` workspaces)
+
+By default the `auto-purpleteam-exec` and `auto-pentest` workspaces' `execute_bash`
+/ `execute_python` tools run in the locked-down code sandbox (`:8914`,
+`--network none`) — they can validate logic but cannot reach lab targets. The
+**lab-exec lane** lets those tools run live enumeration/PoC against a routable
+remote lab machine.
+
+Because the lab runs on a separate routable machine (not a Mac-local host-only
+adapter), the DinD bridge network already provides the outbound path. You only
+need to (1) ensure IP reachability and (2) set env vars.
+
+### Enable
+
+In `.env`:
+```bash
+SANDBOX_LAB_EXEC=true
+SANDBOX_LAB_IMAGE=your-registry/portal5-attack:latest   # must contain nmap/impacket/netexec
+LAB_TARGET_NETWORK=10.0.0.0/24      # your routable lab subnet
+LAB_TARGET_DC=10.0.0.10
+LAB_TARGET_WS=10.0.0.22
+LAB_TARGET_SRV=10.0.0.23
+```
+
+Restart the sandbox service so it picks up the env:
+```bash
+./launch.sh restart   # or: docker compose -f deploy/portal-5/docker-compose.yml up -d mcp-sandbox
+```
+
+### Reachability prerequisite
+
+This host (the Mac running Portal 5) must be able to route to the lab machine —
+same LAN, a static route, or a VPN. Verify before enabling:
+```bash
+# From the Mac:
+ping -c1 "$LAB_TARGET_DC"
+# From inside the sandbox lane (proves the spawned container can reach it):
+#   ask auto-pentest to run:  execute_bash -> "nc -zv $LAB_TARGET_DC 445"
+```
+
+### Posture matrix
+
+| `SANDBOX_LAB_EXEC` | `SANDBOX_ALLOW_NETWORK` | network | image | env injected |
+|---|---|---|---|---|
+| false | false | none | alpine / python-slim | — |
+| false | true | bridge | alpine / python-slim | — |
+| true | (forced) | bridge | `SANDBOX_LAB_IMAGE` | `LAB_TARGET_*` |
+
+### Safety
+
+- `SANDBOX_LAB_EXEC=true` removes the network isolation that protects everything
+  else. Only enable it on a host dedicated to lab work, and only point
+  `LAB_TARGET_*` at systems you are authorized to test.
+- The flag is global to the sandbox MCP — while it is on, **any** workspace whose
+  tools reach `execute_bash`/`execute_python` runs network-enabled. Keep it off
+  except during active lab sessions.
