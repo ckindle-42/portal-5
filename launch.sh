@@ -3406,7 +3406,7 @@ MEOF
     ;;
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3430,6 +3430,7 @@ MEOF
     echo "  install-powermetrics        Install powermetrics daemon (sudo) — power telemetry for cost tracking"
     echo "  uninstall-powermetrics      Remove powermetrics daemon (sudo)"
     echo "  rebuild               Rebuild all Docker images (pipeline + MCP) + restart (after git pull)"
+    echo "  build-lab-attack      Build the arm64 attack image (portal5-attack) for the lab-exec lane + load into DinD"
     echo "  update                Full update: git pull, Docker images, rebuilds, model refresh, re-seed"
     echo "                          --skip-models   Skip Ollama model refresh"
     echo "                          --models-only   Only refresh models (Ollama)"
