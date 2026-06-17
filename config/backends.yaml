@@ -205,6 +205,9 @@ backends:
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
   group: security
   models:
+  - id: huihui_ai/qwen3.5-abliterated:9b
+    supports_tools: true
+    notes: "PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised for TTP generation. Also in ollama-general — duplicate entry required for security-group routing so streaming hint resolution uses the correct model."
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
     notes: "Current-gen generalist add (TASK_QUANT_TRUEUP_V1 C). Specialists retained\
