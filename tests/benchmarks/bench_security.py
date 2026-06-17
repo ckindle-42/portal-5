@@ -140,8 +140,10 @@ PROMPTS: dict[str, dict[str, Any]] = {
 DEFAULT_WORKSPACES = [
     "auto-security",
     "auto-redteam",
+    "auto-redteam-deep",
     "auto-pentest",
     "auto-blueteam",
+    "auto-purpleteam-exec",
 ]
 
 # Disclaimer phrases that indicate the model hedged its response

@@ -94,7 +94,11 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-spl": "coding",
     "auto-security": "security",
     "auto-redteam": "security",
+    "auto-redteam-deep": "security",
     "auto-blueteam": "security",
+    "auto-pentest": "security",
+    "auto-purpleteam-deep": "security",
+    "auto-purpleteam-exec": "security",
     "auto-creative": "creative",
     "auto-reasoning": "reasoning",
     "auto-documents": "coding",
@@ -144,6 +148,10 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "auto-daily": "general",  # gemma4:26b-a4b-it-qat daily driver
     "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
     "auto-phi4": "reasoning",  # phi4-reasoning:plus — STEM/chain-of-thought specialist
+    "auto-bigfix": "coding",  # IBM BigFix endpoint management — coding prompt (API scripting)
+    # auto-cad uses the coding prompt: OpenSCAD code generation is pure text output;
+    # the CAD render MCP (:8926) is optional and does not affect TPS measurement.
+    "auto-cad": "coding",  # OpenSCAD / 3D-print workspace — parametric code generation
     # ── V7-final catalog refresh (TASK_MODEL_REFRESH_V7) ─────────────────
     # Unsloth Dynamic 2.0 Qwen3.6 pair — quant-method probe vs stock 4-bit
     "bench-qwen36-27b-ud": "coding",
@@ -179,6 +187,23 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-nex-n2-mini": "coding",  # Nex-N2-Mini — compact agentic coding
     "bench-harness1": "general",  # Harness-1 eval model
     "bench-qwen36-hauhaucs": "creative",  # Qwen3.6-35B-A3B HauhauCS uncensored (auto-creative primary)
+    # ── Security model bench workspaces ─────────────────────────────────────
+    "bench-gemma4-31b-crack": "security",  # JANG-CRACK — auto-pentest primary (0.933 bench score)
+    "bench-supergemma4": "security",       # SuperGemma4-26B uncensored (auto-redteam-deep primary)
+    # ── 3B reasoning/uncensored bench workspaces (2026-06-17) ───────────────
+    "bench-vibethinker-3b": "reasoning",   # VibeThinker-3B — Qwen2.5-3B, 0.938 avg, 39s (= phi4-mini at half latency)
+    "bench-vibethinker-3b-ablated": "security",  # VibeThinker-3B-Ablated — 0.775 security avg
+    # ── CAD/3D-print bench workspace ────────────────────────────────────────
+    "bench-c3d-v0": "coding",              # 3D-print coding candidate (auto-cad evaluation)
+    # ── Fast-context bench workspace ────────────────────────────────────────
+    "bench-fastcontext": "coding",         # FastContext-1.0-4B-SFT (Microsoft long-context)
+    # ── Generative image bench workspace ────────────────────────────────────
+    # bench-diffusiongemma is a text→image diffusion model; the text harness produces
+    # only the prompt text, not the image output, so TPS is not meaningful here.
+    # Keep it in WORKSPACE_PROMPT_MAP so it doesn't fall through to "general" silently.
+    "bench-diffusiongemma": "vision",      # DiffusionGemma-26B-A4B — image gen via token diffusion
+    # ── Qwopus v2 MTP bench ─────────────────────────────────────────────────
+    "bench-qwopus-coder-mtp-v2": "coding",  # Qwopus3.6-27B-v2-MTP (BLOCKED — widespread 500s)
     # Speech models — NOT in WORKSPACE_PROMPT_MAP by design:
     # - bench-voxtral-realtime (streaming ASR — text harness cannot exercise)
     # - bench-voxtral-tts (TTS — text harness cannot exercise)

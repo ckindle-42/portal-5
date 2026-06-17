@@ -19,8 +19,9 @@ Each model/workspace is tested with a category-mapped prompt (~200 tokens output
 | `vision` | ~200 tokens | Image analysis framework (structured + meta) |
 
 **Mapping (auto-* workspaces — see `WORKSPACE_PROMPT_MAP` in `bench/prompts.py`):**
-- `auto-coding`, `auto-spl`, `auto-documents` → coding
-- `auto-security`, `auto-redteam`, `auto-blueteam` → security
+- `auto-coding`, `auto-spl`, `auto-documents`, `auto-bigfix`, `auto-cad` → coding
+- `auto-security`, `auto-redteam`, `auto-redteam-deep`, `auto-blueteam`, `auto-pentest`,
+  `auto-purpleteam-deep`, `auto-purpleteam-exec` → security
 - `auto-reasoning`, `auto-agentic`, `auto-data`, `auto-compliance`, `auto-mistral`, `auto-research` → reasoning
   *(`auto-agentic` uses the reasoning prompt — the coding prompt's "return only the function"
   instruction triggers empty hop-2 synthesis on tool-enabled workspaces)*
@@ -34,21 +35,23 @@ primary-capability prompt:
 - `bench-devstral-small-2`, `bench-qwen3-coder-next`, `bench-qwen3-coder-30b`,
   `bench-qwen3-coder-next-abliterated`, `bench-llama33-70b`, `bench-glm`,
   `bench-granite41-8b`, `bench-granite41-30b`, `bench-starcoder2`,
-  `bench-omnicoder2`, `bench-toolace25`, `bench-nex-n2-mini` → coding
+  `bench-omnicoder2`, `bench-toolace25`, `bench-nex-n2-mini`,
+  `bench-c3d-v0`, `bench-fastcontext`, `bench-qwopus-coder-mtp-v2` → coding
 - `bench-phi4`, `bench-phi4-reasoning`, `bench-gptoss`, `bench-laguna`,
   `bench-mistral-small32`, `bench-r1-0528-qwen3-8b`,
   `bench-r1-0528-abliterated`, `bench-negentropy`, `bench-foundation-sec`,
-  `bench-olmo3-32b` → reasoning
+  `bench-olmo3-32b`, `bench-vibethinker-3b` → reasoning
 - `bench-phi4-mini-reasoning` → reasoning *(+ extra math pass)*
 - `bench-lfm2-moe`, `bench-lfm25-8b`, `bench-lfm25-8b-uncensored`,
   `bench-dolphin8b`, `bench-qwen36-hauhaucs` → creative
 - `bench-olmocr2`, `bench-nanonets-ocr2`, `bench-gemma4-e2b`, `bench-gemma4-e4b`,
-  `bench-gemma4-e4b-qat` → vision
+  `bench-gemma4-e4b-qat`, `bench-diffusiongemma` → vision
 - `bench-qwen35-abliterated`, `bench-gemma4-12b`, `bench-gemma4-26b-qat`,
   `bench-gemma4-31b-qat`, `bench-gemma4-26b-optiq`, `bench-harness1`,
   `bench-huihui-qwen36-27b`, `bench-huihui-qwen36-35b-a3b` → general
 - `bench-qwen36-27b`, `bench-qwen36-27b-mtp`, `bench-qwen36-35b-a3b`,
   `bench-qwen36-27b-ud`, `bench-qwen36-35b-a3b-ud`, `bench-qwen36-27b-optiq` → coding
+- `bench-gemma4-31b-crack`, `bench-supergemma4`, `bench-vibethinker-3b-ablated` → security
 
 Speech-only workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech`)
 are excluded from `WORKSPACE_PROMPT_MAP` by design — the text harness cannot exercise ASR/TTS.
