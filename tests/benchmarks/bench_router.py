@@ -50,6 +50,8 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
+# Default to localhost — the bench runs on the host, not inside a container.
+# Production pipeline (inside Docker) uses host.docker.internal; bench does not.
 OLLAMA_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "500"))
 CONFIDENCE_THRESHOLD: float = 0.5
@@ -103,6 +105,44 @@ DEFAULT_CANDIDATES: list[str] = [
     "qwen2.5:1.5b",        # Alibaba 1.5B, tiny
     "qwen2.5:3b",          # Alibaba 3B, strong IFEval
     "phi4-mini",           # Microsoft 3.8B, quality ceiling
+]
+
+# Round 2: huihui_ai abliterated variants of the best Round 1 candidates.
+# Purpose: test whether abliteration helps/hurts compared to base models.
+# Round 1 finding: non-abliterated models did NOT refuse security queries
+# (security_refused=0 across all 9 models) — abliteration may offer zero benefit
+# while potentially reducing instruction-following quality.
+#
+# Pull commands:
+#   ollama pull huihui_ai/llama3.2-abliterate:3b      # vs llama3.2:3b (75.3%)
+#   ollama pull huihui_ai/gemma-4-abliterated:e2b     # vs gemma4:e2b-it-qat (74.0%) [7.2GB]
+#   ollama pull huihui_ai/qwen2.5-abliterate:3b       # vs qwen2.5:3b (69.9%)
+#   ollama pull huihui_ai/phi4-mini-abliterated       # vs phi4-mini (71.2%)
+#   ollama pull huihui_ai/granite3.2-abliterated:2b   # vs granite3.3:2b (68.5%)
+ROUND2_CANDIDATES: list[str] = [
+    "huihui_ai/llama3.2-abliterate:3b",      # huihui abliterated vs plain llama3.2:3b
+    "huihui_ai/gemma-4-abliterated:e2b",     # huihui abliterated gemma4 e2b (7.2GB Ollama quant)
+    "huihui_ai/qwen2.5-abliterate:3b",       # huihui abliterated qwen2.5 3B
+    "huihui_ai/phi4-mini-abliterated",       # huihui abliterated phi4-mini
+    "huihui_ai/granite3.2-abliterated:2b",   # huihui abliterated granite3.2 2B
+]
+
+# Round 3: mradermacher GGUF abliterations + OBLITERATED E4B variant.
+# Includes: Huihui-E2B Q4_K_M (4.0GB, mradermacher — different quant vs 7.2GB Ollama served E2B),
+#           Huihui-E4B Q4_K_M (5.9GB), OBLITERATED E4B Q4_K_M (5.3GB, different abliteration method).
+# Note: E4B models are too large (5-6GB) to keep warm alongside production fleet; benched for
+# completeness so user can evaluate quality ceiling before ruling out as router candidates.
+# coder3101 heretic variants are SafeTensors-only (not GGUF), not pullable via hf.co/ prefix.
+# Falcon3-3B-abliterated (bartowski) incompatible with llama.cpp — cannot be pulled via Ollama.
+#
+# Pull commands:
+#   ollama pull hf.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-GGUF:Q4_K_M   # 4.0GB
+#   ollama pull hf.co/mradermacher/Huihui-gemma-4-E4B-it-abliterated-GGUF:Q4_K_M   # 5.9GB
+#   ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M           # 5.3GB
+ROUND3_CANDIDATES: list[str] = [
+    "hf.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-GGUF:Q4_K_M",   # mradermacher Q4_K_M, 4.0GB
+    "hf.co/mradermacher/Huihui-gemma-4-E4B-it-abliterated-GGUF:Q4_K_M",   # E4B abliterated, 5.9GB
+    "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",           # OBLITERATED E4B, 5.3GB
 ]
 
 # ── Golden test set ───────────────────────────────────────────────────────────
@@ -310,7 +350,7 @@ def route_one(
                 "model": model,
                 "prompt": prompt,
                 "stream": False,
-                "keep_alive": "-1",
+                "keep_alive": -1,
                 "options": {"temperature": 0, "num_predict": 40, "num_ctx": 2048},
                 "format": schema,
             },
@@ -528,6 +568,7 @@ def print_comparison(all_results: dict[str, list[dict]]) -> None:
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
+    global TIMEOUT_MS  # noqa: PLW0603
     parser = argparse.ArgumentParser(
         description="Bench LLM router model candidates",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -536,10 +577,12 @@ def main() -> None:
     parser.add_argument(
         "--models",
         nargs="+",
-        default=DEFAULT_CANDIDATES,
+        default=None,
         metavar="MODEL",
-        help="Ollama model IDs to evaluate (default: 4 candidates)",
+        help="Ollama model IDs to evaluate (default: DEFAULT_CANDIDATES or ROUND2_CANDIDATES with --round2)",
     )
+    parser.add_argument("--round2", action="store_true", help="Run Round 2 huihui_ai abliterated candidates")
+    parser.add_argument("--round3", action="store_true", help="Run Round 3 mradermacher GGUF + OBLITERATED E4B candidates")
     parser.add_argument("--dry-run", action="store_true", help="Print test cases only, don't run")
     parser.add_argument("--output", metavar="FILE", help="Save full results as JSON")
     parser.add_argument(
@@ -549,18 +592,26 @@ def main() -> None:
         help=f"Per-request timeout ms (default: {TIMEOUT_MS})",
     )
     args = parser.parse_args()
-
-    global TIMEOUT_MS
     TIMEOUT_MS = args.timeout_ms
 
+    models: list[str]
+    if args.models:
+        models = args.models
+    elif args.round3:
+        models = ROUND3_CANDIDATES
+    elif args.round2:
+        models = ROUND2_CANDIDATES
+    else:
+        models = DEFAULT_CANDIDATES
+
     print(f"Portal 5 — Router Model Bench")
-    print(f"Candidates : {len(args.models)} models")
+    print(f"Candidates : {len(models)} models")
     print(f"Test cases : {len(GOLDEN_SET)}")
     print(f"Timeout    : {TIMEOUT_MS}ms per request")
     print(f"Ollama     : {OLLAMA_URL}")
     print(f"Config dir : {ROUTING_CONFIG_DIR}")
 
-    all_results = run_bench(args.models, dry_run=args.dry_run)
+    all_results = run_bench(models, dry_run=args.dry_run)
 
     if all_results:
         print_comparison(all_results)
