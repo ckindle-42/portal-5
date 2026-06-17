@@ -56,9 +56,30 @@ def _auth_headers() -> dict:
     return {"Authorization": f"PVEAPIToken={PROXMOX_TOKEN_ID}={PROXMOX_TOKEN_SECRET}"}
 
 
-async def _agent_post(c, vmid: int, body: dict) -> dict:
-    """POST to the QEMU agent endpoint with a raw dict body (handles hyphenated keys)."""
-    r = await c.post(f"{API_BASE}/nodes/{NODE}/qemu/{vmid}/agent", json=body)
+def _decode_agent_field(s: str) -> str:
+    """Decode a Proxmox agent out-data/err-data field.
+    Proxmox base64-encodes agent output. Windows PowerShell emits UTF-16LE.
+    """
+    if not s:
+        return ""
+    # Fix missing base64 padding
+    s_padded = s + "=" * (-len(s) % 4)
+    try:
+        raw = base64.b64decode(s_padded, validate=False)
+    except Exception:
+        return s  # not base64, return as-is
+    # Detect UTF-16LE: null bytes at every odd position
+    if len(raw) >= 4 and raw[1] == 0 and raw[3] == 0:
+        return raw.decode("utf-16-le", errors="replace")
+    return raw.decode("utf-8", errors="replace")
+
+
+async def _agent_post(c, vmid: int, path_suffix: str, body: dict | None = None) -> dict:
+    """POST to /nodes/{NODE}/qemu/{vmid}/agent/{path_suffix} with optional JSON body."""
+    r = await c.post(
+        f"{API_BASE}/nodes/{NODE}/qemu/{vmid}/agent/{path_suffix}",
+        json=body or {},
+    )
     r.raise_for_status()
     return r.json().get("data") or {}
 
@@ -66,37 +87,37 @@ async def _agent_post(c, vmid: int, body: dict) -> dict:
 async def _exec_ps(c, vmid: int, script: str, timeout: int = 600) -> str:
     """
     Execute a PowerShell script inside a Windows VM via QEMU guest agent.
-    Pipes the script via stdin so it doesn't need to be written to disk first.
+    Uses -EncodedCommand (UTF-16LE base64) to avoid stdin/input-data issues.
     Returns decoded stdout + stderr.
     """
-    encoded = base64.b64encode(script.encode("utf-8")).decode()
+    # Prepend UTF-8 output encoding so the agent gets clean ASCII output
+    script_with_encoding = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n"
+        "$OutputEncoding = [System.Text.Encoding]::UTF8\n"
+    ) + script
+    # PowerShell -EncodedCommand requires UTF-16LE base64
+    encoded = base64.b64encode(script_with_encoding.encode("utf-16-le")).decode("ascii")
     print(f"  [exec vmid={vmid}] {len(script)} chars of PowerShell...")
 
-    # Start process: pipe script to powershell via stdin ("-" means stdin)
-    result = await _agent_post(c, vmid, {
-        "command": "guest-exec",
-        "path": "powershell.exe",
-        "arg": ["-NonInteractive", "-NoProfile", "-"],
-        "input-data": encoded,
-        "capture-output": True,
+    result = await _agent_post(c, vmid, "exec", {
+        "command": ["powershell.exe", "-NonInteractive", "-NoProfile", "-EncodedCommand", encoded],
     })
     pid = result.get("pid")
     if not pid:
         return f"ERROR: no pid returned: {result}"
 
-    # Poll until exited
+    # GET /agent/exec-status?pid=N  until exited=true
     deadline = time.time() + timeout
     while time.time() < deadline:
         await asyncio.sleep(5)
-        st = await _agent_post(c, vmid, {"command": "guest-exec-status", "pid": pid})
+        st = await _get(c, f"/nodes/{NODE}/qemu/{vmid}/agent/exec-status", pid=pid)
+        st = st or {}
         if st.get("exited"):
             out = st.get("out-data", "")
             err = st.get("err-data", "")
             rc = st.get("exitcode", 0)
-            if out:
-                out = base64.b64decode(out).decode("utf-8", errors="replace")
-            if err:
-                err = base64.b64decode(err).decode("utf-8", errors="replace")
+            out = _decode_agent_field(out)
+            err = _decode_agent_field(err)
             result_str = ""
             if out.strip():
                 result_str += out.strip() + "\n"
@@ -111,7 +132,7 @@ async def _exec_ps(c, vmid: int, script: str, timeout: int = 600) -> str:
 async def _ping_agent(c, vmid: int) -> bool:
     """Return True if the QEMU guest agent responds to a ping."""
     try:
-        await _agent_post(c, vmid, {"command": "guest-ping"})
+        await _agent_post(c, vmid, "ping")
         return True
     except Exception:
         return False
@@ -135,8 +156,8 @@ async def _wait_agent(c, vmid: int, name: str, timeout: int = 900) -> bool:
 async def _get_ip(c, vmid: int) -> str:
     """Get the primary IPv4 of a VM via QEMU agent network-get-interfaces."""
     try:
-        ifaces_data = await _agent_post(c, vmid, {"command": "guest-network-get-interfaces"})
-        ifaces = ifaces_data if isinstance(ifaces_data, list) else []
+        ifaces_data = await _get(c, f"/nodes/{NODE}/qemu/{vmid}/agent/network-get-interfaces")
+        ifaces = (ifaces_data or {}).get("result", []) if isinstance(ifaces_data, dict) else (ifaces_data or [])
         for iface in ifaces:
             if iface.get("name", "").lower() in ("lo", "loopback"):
                 continue
@@ -219,8 +240,15 @@ async def phase2_promote_dc(c):
     ps = _load_ps("lab_provision_dc.ps1")
     out = await _exec_ps(c, DC_VMID, ps, timeout=600)
     print(out)
-    print("\n  DC is rebooting to complete promotion. Waiting for reboot...")
-    await asyncio.sleep(90)
+    print("\n  Triggering reboot to complete DC promotion...")
+    try:
+        await _agent_post(c, DC_VMID, "exec", {
+            "command": ["shutdown.exe", "/r", "/t", "5", "/f"],
+        })
+    except Exception as e:
+        print(f"  Reboot trigger error (may be OK if already rebooting): {e}")
+    print("  Waiting for DC to go down and come back up (allow 3 min)...")
+    await asyncio.sleep(120)
     await _wait_agent(c, DC_VMID, "lab-dc01", timeout=600)
     print("  ✓ DC back online after promotion reboot")
 
