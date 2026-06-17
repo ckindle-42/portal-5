@@ -1474,6 +1474,48 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
+    "bench-vibethinker-3b": {
+        "name": "🔬 Bench · VibeThinker-3B (WeiboAI)",
+        "description": (
+            "Benchmark: hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M "
+            "(WeiboAI, MIT, Qwen2.5-3B base, ~1.93GB). "
+            "Reasoning specialist fine-tuned with curriculum SFT + RL across math/code/STEM domains. "
+            "Native <think> reasoning tags. 64K context. 96.1% LeetCode acceptance, "
+            "AIME/HMMT/IMO competitive vs much larger models. "
+            "NOT tool-trained — no function calling. "
+            "Eval goals: (1) reasoning quality per token at 3B scale, "
+            "(2) viability as a fast thinking hop in chains (auto-purpleteam-deep, auto-agentic), "
+            "(3) head-to-head vs bench-phi4-mini-reasoning (3.8B) and bench-r1-0528-qwen3-8b (8B). "
+            "Pull: ollama pull hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-vibethinker-3b-ablated": {
+        "name": "🔬 Bench · VibeThinker-3B-Ablated (Darkfibre)",
+        "description": (
+            "Benchmark: hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M "
+            "(Darkfibre, Apache 2.0, Qwen2.5-Coder-3B base — distinct from VibeThinker-3B, ~1.93GB). "
+            "Refusal direction surgically removed at layer 11 via diff-in-means projection. "
+            "131K context (2× the base model). "
+            "Eval goals: (1) uncensored generation quality at 3B scale, "
+            "(2) security/red-team task compliance vs baron/supergemma4, "
+            "(3) viability as a zero-VRAM-cost red team generation hop. "
+            "D6 refusal probe included — ablation claims complete removal of 'no' direction. "
+            "Pull: ollama pull hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
     "bench-qwopus-coder-mtp-v2": {
         "name": "🔬 Bench · Qwopus3.6-27B-v2-MTP (Jackrong)",
         "description": (

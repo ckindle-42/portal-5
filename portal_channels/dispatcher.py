@@ -40,6 +40,8 @@ VALID_WORKSPACES = frozenset(
         "auto-purpleteam-deep",
         "auto-purpleteam-exec",
         "auto-pentest",
+        "bench-vibethinker-3b",
+        "bench-vibethinker-3b-ablated",
         "auto-blueteam",
         "auto-creative",
         "auto-reasoning",
