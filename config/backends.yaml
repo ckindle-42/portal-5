@@ -421,11 +421,11 @@ backends:
       \ bench-gemma4-31b-qat target (TASK_MODEL_REFRESH_V8 A5).\
       \ supports_tools=false until --audit-tools verification."
   - id: "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
-    supports_tools: false
+    supports_tools: true
     notes: "Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M,\
       \ dealignai, Gemma license, 4M context, vision+text). douyamv community quant\
-      \ (33K downloads). bench-gemma4-31b-crack target (TASK_MODEL_EVAL_V9_CANDIDATES).\
-      \ supports_tools=false until --audit-tools verification."
+      \ (33K downloads). audit-tools 2026-06-16: finish_reason=tool_calls confirmed.\
+      \ Pentest bench 0.933 vs supergemma4 0.867. PROMOTED to auto-pentest primary."
 - id: ollama-creative
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
