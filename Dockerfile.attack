@@ -1,0 +1,58 @@
+# Dockerfile.attack — native arm64 attack image for the lab-exec lane.
+#
+# Used ONLY by the *-exec security workspaces (auto-purpleteam-exec, auto-pentest)
+# when SANDBOX_LAB_EXEC=true. The code sandbox MCP swaps this image in for the
+# default alpine/python-slim base so execute_bash/execute_python have real
+# offensive AD tooling (nmap, impacket, netexec, certipy, responder, bloodhound)
+# to drive against a routable lab.
+#
+# Built by: ./launch.sh build-lab-attack  (tagged portal5-attack:latest, loaded into DinD)
+# Pointed at by: SANDBOX_LAB_IMAGE=portal5-attack:latest  (see .env / docs/LAB_SETUP.md)
+#
+# Kali rolling ships native linux/arm64 — no QEMU emulation on Apple Silicon.
+# Install is apt-only: netexec's Kali package co-installs a coherent, Kali-tested
+# impacket/certipy/bloodhound set, avoiding pip resolver conflicts and PEP-668.
+FROM kali-rolling
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Recon/base + the AD attack set, all from the Kali repo. Kept lean: no full
+# kali-linux-headless metapackage (GBs of desktop tooling the *-exec workspaces
+# don't need). netexec transitively pulls python3-impacket, certipy-ad, and
+# bloodhound.py; impacket-scripts adds the impacket-* CLIs to PATH; responder and
+# bloodhound-ce-python are added explicitly.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        nmap \
+        netcat-traditional \
+        dnsutils \
+        iproute2 \
+        iputils-ping \
+        smbclient \
+        ldap-utils \
+        curl \
+        wget \
+        git \
+        ca-certificates \
+        openssh-client \
+        python3 \
+        netexec \
+        impacket-scripts \
+        certipy-ad \
+        responder \
+        bloodhound-ce-python \
+    && rm -rf /var/lib/apt/lists/*
+
+# Sanity: fail the build if the headline tools aren't runnable. Each must exit 0.
+RUN set -e; \
+    nmap --version >/dev/null; \
+    nxc --version >/dev/null; \
+    certipy-ad --version >/dev/null 2>&1 || certipy-ad -h >/dev/null; \
+    command -v responder >/dev/null; \
+    command -v bloodhound-ce-python >/dev/null; \
+    command -v impacket-secretsdump >/dev/null; \
+    python3 -c "import impacket; print('impacket', impacket.version.version)"
+
+# execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
+# Default shell entrypoint; the sandbox overrides command per call anyway.
+CMD ["sh"]
