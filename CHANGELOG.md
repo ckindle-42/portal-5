@@ -4,7 +4,40 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **`auto-purpleteam-exec`** — new 4-hop execution-mode purple team workspace. Primary model
+  (JANG-CRACK) has `execute_bash`, `execute_python`, `web_search` tools; runs live attack
+  commands and passes real execution output through Foundation-Sec-8B → Qwen3-Coder-30B →
+  Qwen3.6-27B chain for detection artifacts and IR playbook. Distinct from `auto-purpleteam-deep`
+  (simulation only, no tools).
+- **Tool-loop-aware chain hops** (`portal_pipeline/router/streaming.py`): `_stream_with_chain`
+  now supports per-hop `tools` key. Tool-enabled hops route through `_stream_with_tool_loop_impl`
+  (semaphore-free generator) so a chain can mix plain generation hops with full tool-loop hops.
+- **Bench workspaces**: `bench-vibethinker-3b`, `bench-vibethinker-3b-ablated`,
+  `bench-diffusiongemma`, `bench-gemma4-31b-crack` (Gemma-4-31B-JANG_4M-CRACK). Workspace count
+  91 → 94.
+
 ### Changed
+- **`auto-pentest` primary model** upgraded: `xploiter/pentester:v2` (Phi-2 1.6B, no tools) →
+  `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:Q4_K_M` (31B, bench score 0.933 vs prior
+  supergemma4 0.867, audit-tools verified `finish_reason=tool_calls`). `execute_bash`,
+  `execute_python`, `web_search` tools now active for live PoC validation.
+- **`auto-redteam`** tools cleared (`tools: []`). Previously had 5 tools active; qwen3.5-abliterated
+  was attempting tool calls instead of generating structured red team content, collapsing scores
+  (0.10–0.46 → 0.915 after fix). Red team simulation workspaces intentionally have no tools.
+- **`auto-redteam-deep`** — SuperGemma4-26B-uncensored promoted as primary (bench_security 0.915,
+  6.7 ATT&CK IDs avg, 0 disclaimers).
+- **Security workspace tool philosophy** clarified across three tiers:
+  - *Simulation* (`auto-redteam`, `auto-purpleteam*`): `tools: []` — pure generation
+  - *Research* (`auto-security`): `web_search`, `kb_search`
+  - *Execution* (`auto-pentest`, `auto-purpleteam-exec`): `execute_bash`, `execute_python`, `web_search`
+
+### Fixed
+- **`keep_alive` hard override** (`portal_pipeline/router_pipe.py`): workspace-declared `keep_alive`
+  now uses direct assignment instead of `setdefault`. Open WebUI was sending its own `keep_alive`
+  value in request bodies, silently overriding workspace config (bench `5m`/production `10-15m`
+  settings ignored). Large models were pinned in VRAM indefinitely, blocking subsequent bench runs.
+  Workspace value wins when declared; OWUI value still wins when no workspace `keep_alive` is set.
 - **UAT driver modularized** (TASK_UAT_MODULARIZE_V1): `tests/portal5_uat_driver.py`
   (4,540 lines) decomposed into the `tests/uat/` package (17 modules), mirroring
   the landed `tests/benchmarks/bench/` pattern; the driver file is now a thin
