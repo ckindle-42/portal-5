@@ -143,6 +143,8 @@ VALID_WORKSPACES = frozenset(
         "auto-redteam-deep",
         # June 2026 AppSec bench candidate
         "bench-vulnllm-r7b",
+        # June 2026 diffusion research bench
+        "bench-diffusiongemma",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
     }

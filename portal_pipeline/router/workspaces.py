@@ -453,7 +453,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Use when you need maximum MITRE TTP specificity for threat models or red team reports. "
             "Pipe the output to auto-purpleteam-deep manually for full four-hop analysis."
         ),
-        "model_hint": "supergemma4-26b-uncensored:q4_k_m",
+        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
         "keep_alive": "15m",
         "tools": [],
         "system_prompt_append": (
@@ -1475,9 +1475,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "BENCH RESULT 2026-06-16: avg=0.900, disclaimers=0.0, ATT&CK=6.7. "
             "Scores above auto-redteam baseline (0.847). Zero disclaimers. Strong ATT&CK density. "
             "Slow (~100s/prompt). Pending promotion decision after new-candidate eval round. "
-            "Model: supergemma4-26b-uncensored:q4_k_m"
+            "Model: supergemma4-26b-uncensored:Q4_K_M"
         ),
-        "model_hint": "supergemma4-26b-uncensored:q4_k_m",
+        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
@@ -1486,8 +1486,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated [CANDIDATE]",
         "description": (
             "BENCH RESULT 2026-06-16: avg=1.000 (2 prompts), disclaimers=0.5, ATT&CK=11.5. "
-            "Kerberoasting prompt fails (empty content — residual refusal pocket). "
-            "Highest ATT&CK density of all candidates. Pending kerberoasting fix investigation. "
+            "Kerberoasting prior failure was transient (Ollama contention during chain tests). "
+            "Re-verified 2026-06-16: kerberoasting produces full structured response with RECON/"
+            "ATTACK/EXPLOIT/PERSIST/DETECT headers. Highest ATT&CK density of all candidates. "
+            "Full 6-prompt re-bench pending. "
             "Model: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
         ),
         "model_hint": (
@@ -1565,6 +1567,21 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "C3Dv0:latest",
         "max_concurrent": 1,
         "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-diffusiongemma": {
+        "name": "🔬 Bench · DiffusionGemma 26B A4B (unsloth)",
+        "description": (
+            "Benchmark: unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M (~16GB). "
+            "Experimental diffusion-based generation on Gemma4 26B A4B MoE base. "
+            "Compare vs gemma4:26b-a4b-it-qat (production reasoning candidate) on "
+            "reasoning, coding (CC-01), and bench_tps. Key question: does diffusion "
+            "decoding provide quality or speed advantage over standard autoregressive? "
+            "NEVER auto-routed. PROMOTE_POLICY=confirm after head-to-head eval."
+        ),
+        "model_hint": "hf.co/unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M",
+        "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
     },
