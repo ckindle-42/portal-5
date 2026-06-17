@@ -746,7 +746,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
             "model": _LLM_ROUTER_MODEL,
             "prompt": prompt,
             "stream": False,
-            "keep_alive": "-1",  # Keep model warm — no cold-start penalty
+            "keep_alive": -1,  # Keep model warm — int not string (Ollama 0.30+ rejects "-1")
             "options": {
                 "temperature": 0,
                 "num_predict": 40,
