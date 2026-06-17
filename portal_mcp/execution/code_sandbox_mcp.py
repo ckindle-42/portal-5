@@ -309,9 +309,11 @@ async def execute_python(
     """
     Execute Python code in an isolated Docker sandbox.
 
-    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
-    read-only filesystem, no Linux capabilities, no privilege escalation.
-    Python standard library only — no pip, no network, no third-party packages.
+    Security constraints (default posture): no network, 256MB RAM, 0.5 CPU,
+    30s timeout, read-only filesystem, no Linux capabilities, no privilege
+    escalation, Python standard library only. Widened under SANDBOX_ALLOW_NETWORK
+    (pip/probe) and replaced by the attack-image lab envelope under
+    SANDBOX_LAB_EXEC (live *-exec workspaces against a routable lab).
 
     Args:
         code: Python code to execute
@@ -372,9 +374,11 @@ async def execute_bash(
     """
     Execute a Bash script in an isolated Docker sandbox.
 
-    Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
-    read-only filesystem, no Linux capabilities, no privilege escalation.
-    Common Unix utilities available (Alpine-based). No sudo, no network.
+    Security constraints (default posture): no network, 256MB RAM, 0.5 CPU,
+    30s timeout, read-only filesystem, no Linux capabilities, no privilege
+    escalation, common Unix utilities (Alpine-based), no sudo. Widened under
+    SANDBOX_ALLOW_NETWORK and replaced by the attack-image lab envelope under
+    SANDBOX_LAB_EXEC (live *-exec workspaces against a routable lab).
 
     Args:
         code: Bash script to execute
