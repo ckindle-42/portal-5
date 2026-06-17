@@ -223,6 +223,12 @@ async def _run_in_docker(
         "no-new-privileges",  # Prevent privilege escalation
         "--cap-drop",
         "ALL",  # Drop all Linux capabilities
+    ] + (
+        # Lab-exec: nmap and raw-socket tools need NET_RAW + NET_ADMIN.
+        # Added back here after the blanket drop above.
+        ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN"]
+        if SANDBOX_LAB_EXEC else []
+    ) + [
         "--read-only",  # Read-only root filesystem
         "--tmpfs",
         "/tmp:size=64m",  # 64MB /tmp
