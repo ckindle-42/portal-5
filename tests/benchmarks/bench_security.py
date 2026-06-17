@@ -34,6 +34,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+try:
+    from tests.benchmarks.bench.notify import _send_bench_notification
+except ImportError:
+    def _send_bench_notification(message: str, title: str = "Portal 5 Bench") -> None:  # type: ignore[misc]
+        pass
+
 
 def _load_env() -> None:
     env_file = _PROJECT_ROOT / ".env"
@@ -412,6 +418,14 @@ def main() -> None:
     print(f"Output     : {out_path}")
     print()
 
+    _send_bench_notification(
+        f"Security bench started\n"
+        f"Workspaces: {', '.join(args.workspaces)}\n"
+        f"Prompts: {', '.join(args.prompts)}",
+        title="🔐 Security Bench — START",
+    )
+
+    t0_bench = time.monotonic()
     results = run_bench(args.workspaces, args.prompts, dry_run=args.dry_run)
 
     if args.dry_run:
@@ -422,6 +436,22 @@ def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps({"timestamp": ts, "results": results}, indent=2))
     print(f"\nResults written → {out_path}")
+
+    # Summary notification
+    by_ws: dict[str, list[dict[str, Any]]] = {}
+    for r in results:
+        if r["status"] == "ok":
+            by_ws.setdefault(r["workspace"], []).append(r)
+    lines = []
+    for ws, rs in sorted(by_ws.items()):
+        avg = sum(r["scores"]["composite"] for r in rs) / len(rs)
+        lines.append(f"{ws[:28]:28s}  {avg:.3f}")
+    elapsed = time.monotonic() - t0_bench
+    _send_bench_notification(
+        f"{len(by_ws)} workspaces  {len(results)} results  {elapsed/60:.1f}min\n\n"
+        + "\n".join(lines),
+        title="🔐 Security Bench — DONE",
+    )
 
 
 if __name__ == "__main__":
