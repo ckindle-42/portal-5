@@ -163,6 +163,16 @@ test -f tests/inter_phase_gate.sh && echo "gate OK"
 > Ollama model-load completion via the streaming response (the first token IS
 > the ready signal) and `/api/ps`.
 
+```bash
+# Confirm LLM router model is pulled (required for Layer 1 routing)
+ollama list | grep -i "OBLITERATED\|gemma-4-E4B" || echo "WARN: router model not downloaded"
+# Pull if missing:
+# ollama pull hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
+
+# Confirm OLLAMA_MAX_LOADED_MODELS=3 is active in the running process
+ps eww -p $(pgrep -f "ollama serve") 2>/dev/null | tr ' ' '\n' | grep MAX_LOADED || echo "check plist"
+```
+
 ### Initialize the run tracker
 ```bash
 RUN_TS=$(date -u +%Y%m%dT%H%MZ)

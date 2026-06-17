@@ -4,6 +4,9 @@
 
 Optimizations targeting routing overhead identified by `bench_tps.py`. Look for `P7-PERF` comments in code to find these paths.
 
+### LLM Router Warmup at Startup
+`_warmup_llm_router()` in `router_pipe.py` fires at pipeline startup to pre-load the intent classifier into Ollama VRAM before the first request arrives. The warmup uses `keep_alive: -1` (integer) — Ollama 0.30.8+ rejects the string form `"-1"`.
+
 ### Shared HTTP Client
 All backend requests use a single `httpx.AsyncClient` with connection pooling (20 keepalive, 100 max connections). The LLM router also uses this shared client instead of creating per-request clients.
 

@@ -170,6 +170,78 @@ via Prometheus scrape.
 
 ---
 
+## Router Accuracy Benchmark (`bench_router.py`)
+
+Tests the LLM intent classifier against a 36-query GOLDEN_SET of workspace routing decisions.
+
+### What it tests
+
+Each query is sent through the router (`/api/generate` with grammar-enforced JSON) and the result is compared against the expected workspace. Reports accuracy, per-workspace breakdown, and latency percentiles.
+
+### Usage
+
+```bash
+# Run against the current production router model
+OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router.py
+
+# Override model
+LLM_ROUTER_MODEL=llama3.2:3b python3 tests/benchmarks/bench_router.py
+
+# Quick 1-pass (default is 3 rounds)
+python3 tests/benchmarks/bench_router.py --rounds 1
+```
+
+### Validated candidates (2026-06-17, 3 rounds × 36 queries)
+
+| Model | Overall Acc | Security Acc | p50 Warm | VRAM | Role |
+|-------|-------------|--------------|----------|------|------|
+| OBLITERATED E4B (`hf.co/mradermacher/...Q4_K_M`) | **82.2%** | 77.8% | ~840ms | 5.3GB | PRIMARY |
+| `llama3.2:3b` | 75.3% | 66.7% | ~433ms | ~2GB | STANDBY |
+| `qwen2.5:1.5b` | 67.1% | 77.8% | ~339ms | 1GB | FALLBACK |
+
+---
+
+## Router Conditions Benchmark (`bench_router_conditions.py`)
+
+Tests router accuracy and eviction behavior under realistic VRAM pressure scenarios. Designed to answer: "does MAX_LOADED_MODELS=3 keep the router hot when production inference models are loaded?"
+
+### Scenarios
+
+| Scenario | Description |
+|----------|-------------|
+| `isolated` | Router only — no peers. Establishes warm accuracy baseline. |
+| `one_peer` | Router + one companion loaded simultaneously. |
+| `eviction_test` | Load router first, then load large companions. Checks if router survived or was evicted. |
+| `cold_entry` | Measures actual cold-load time (60s timeout); then confirms router times out at production `LLM_ROUTER_TIMEOUT_MS`. |
+
+### Usage
+
+```bash
+# Full run — all 3 routers × 4 scenarios, companions = devstral + granite
+OLLAMA_URL=http://localhost:11434 python3 tests/benchmarks/bench_router_conditions.py \
+  --companions devstral:24b granite4.1:8b
+
+# Single router only
+python3 tests/benchmarks/bench_router_conditions.py --router obliterated
+
+# Skip cold_entry (slow — loads model with 60s timeout)
+python3 tests/benchmarks/bench_router_conditions.py --skip cold_entry
+
+# Custom output file
+python3 tests/benchmarks/bench_router_conditions.py --output results/router_conditions_$(date +%Y%m%d).json
+```
+
+### Key findings (2026-06-17, M4 Pro 48GB)
+
+- **MAX_LOADED=3 works**: OBLITERATED E4B (5.3GB) + qwen2.5:1.5b (1GB) + granite4.1:8b (5.3GB file / 16.8GB runtime) all coexist at ~24.2GB combined.
+- **devstral:24b evicts everything**: 25.7GB runtime footprint exceeds available headroom when combined with the router. Memory-pressure eviction is graceful (CPU offload, no crash). One Layer 2 fallback fires, then router reloads. Not a bug.
+- **Cold-load times exceed production timeout**: PRIMARY 4.2s · STANDBY 2.4s · FALLBACK 1.6s — all above the `LLM_ROUTER_TIMEOUT_MS` gate, so the first post-eviction request always goes to Layer 2.
+- **Conclusion**: Stay on OBLITERATED E4B PRIMARY. Under normal fleet load (no devstral), the router holds its slot. Under devstral load, graceful Layer 2 fallback applies for one request.
+
+Results are written to `tests/benchmarks/results/router_conditions_<UTC>.json`.
+
+---
+
 ## Grafana Dashboards
 
 | Dashboard | File | Data source | Freshness |

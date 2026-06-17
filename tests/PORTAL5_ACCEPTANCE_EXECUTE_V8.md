@@ -199,6 +199,8 @@ There is no `--list` flag; the registry is `ALL_SECTIONS` in
   issue, not a model identity issue.
 - `auto-agentic`/`auto-spl` use a very large MoE GGUF — first cold load can
   exceed a minute; that is a slow PASS, not a failure.
+- **LLM router (Layer 1)**: intent classifier runs at startup via `_warmup_llm_router()`. If the router model (`hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`) is not pulled, Layer 2 keyword scoring handles all `auto` routing — functionally correct but lower accuracy. Pull the model before a full acceptance run.
+- **`OLLAMA_MAX_LOADED_MODELS=3` required**: the router holds its own slot alongside two inference models. Verify the running Ollama process has this set (`ps eww -p $(pgrep -f "ollama serve") | tr ' ' '\n' | grep MAX_LOADED`) — plist is the source of truth for native Ollama, not docker-compose env.
 
 ---
 
