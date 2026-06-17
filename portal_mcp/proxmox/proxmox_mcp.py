@@ -886,6 +886,6 @@ async def list_tools(request):
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PROXMOX_MCP_PORT", "8926"))
+    port = int(os.getenv("PROXMOX_MCP_PORT", "8927"))
     mcp.settings.port = port
     mcp.run(transport="streamable-http")
