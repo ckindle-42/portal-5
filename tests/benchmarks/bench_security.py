@@ -49,7 +49,7 @@ _load_env()
 
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
-REQUEST_TIMEOUT = 360.0
+REQUEST_TIMEOUT = 600.0  # hard ceiling only — call_pipeline uses streaming internally
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Prompt library ────────────────────────────────────────────────────────────
@@ -213,24 +213,40 @@ def score_response(
 # ── HTTP client ───────────────────────────────────────────────────────────────
 
 def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
-    """Call pipeline workspace, return (content, elapsed_seconds)."""
-    payload = {
-        "model": workspace,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-    }
+    """Call pipeline workspace via SSE streaming; complete on [DONE] event.
+
+    REQUEST_TIMEOUT is a hard ceiling safety net only — normal completions
+    fire on the [DONE] SSE event without waiting for the full timer to expire.
+    """
+    import json as _json
+
     headers = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
+    parts: list[str] = []
     t0 = time.monotonic()
-    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        resp = client.post(
+    with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
+        with client.stream(
+            "POST",
             f"{PIPELINE_URL}/v1/chat/completions",
-            json=payload,
+            json={
+                "model": workspace,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": True,
+            },
             headers=headers,
-        )
-        resp.raise_for_status()
-    elapsed = time.monotonic() - t0
-    content = resp.json()["choices"][0]["message"]["content"]
-    return content, elapsed
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if line == "data: [DONE]":
+                    break
+                if line.startswith("data: "):
+                    try:
+                        d = _json.loads(line[6:])
+                        c = d["choices"][0]["delta"].get("content") or ""
+                        if c:
+                            parts.append(c)
+                    except Exception:
+                        pass
+    return "".join(parts), time.monotonic() - t0
 
 
 # ── Workspace category inference ──────────────────────────────────────────────

@@ -1429,10 +1429,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # Run: python3 tests/benchmarks/bench_security.py \
     #        --workspaces bench-wrn8b bench-lily bench-dolphin-r1 bench-supergemma4-sec \
     #                     bench-r1-0528-abliterated auto-redteam auto-security
-    # BENCH RESULTS (2026-06-16): r1-abliterated=1.00 (kerberoasting fails), supergemma4=0.90,
-    # auto-redteam=0.847, auto-security=0.830, wrn8b=0.770, lily=0.755, dolphin-r1=0.700
+    # BENCH RESULTS (2026-06-17 clean isolated run):
+    #   r1-0528-abliterated=0.800 (6 prompts, ATT&CK only when asked, no kerberoasting refusal)
+    #   supergemma4=0.90 (3 prompts, pending full 6-prompt isolated run)
+    #   auto-redteam=0.847 (baseline)
+    #   auto-security=0.830, wrn8b=0.770, lily=0.755, dolphin-r1=0.700
     # RETIRED: wrn8b, lily, dolphin-r1 (below baseline; dolphin-r1 unusably slow 4-5min/prompt)
-    # CANDIDATE: supergemma4 (0.90, 0 disclaimers, 6.7 ATT&CK IDs — promote pending new-model eval)
+    # CANDIDATE: supergemma4 (0.90, 0 disclaimers, 6.7 ATT&CK IDs — pending isolated 6-prompt bench)
     "bench-wrn8b": {
         "name": "🔬 Bench · WRN-8B-v2.0 (lazarevtill) [RETIRED]",
         "description": (
@@ -1470,11 +1473,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-supergemma4-sec": {
-        "name": "🔬 Bench · SuperGemma4 26B Uncensored [CANDIDATE]",
+        "name": "🔬 Bench · SuperGemma4 26B Uncensored [PROMOTED → auto-redteam-deep]",
         "description": (
-            "BENCH RESULT 2026-06-16: avg=0.900, disclaimers=0.0, ATT&CK=6.7. "
-            "Scores above auto-redteam baseline (0.847). Zero disclaimers. Strong ATT&CK density. "
-            "Slow (~100s/prompt). Pending promotion decision after new-candidate eval round. "
+            "BENCH RESULT 2026-06-17: avg=0.900 (6-prompt), latency matrix=1.000, ATT&CK=9 IDs. "
+            "Beats auto-redteam baseline by +0.133. 1.3x latency overhead (63s vs 50s) — acceptable. "
+            "Zero disclaimers throughout. PROMOTED: already primary model for auto-redteam-deep. "
             "Model: supergemma4-26b-uncensored:Q4_K_M"
         ),
         "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
@@ -1485,11 +1488,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-r1-0528-abliterated": {
         "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated [CANDIDATE]",
         "description": (
-            "BENCH RESULT 2026-06-16: avg=1.000 (2 prompts), disclaimers=0.5, ATT&CK=11.5. "
-            "Kerberoasting prior failure was transient (Ollama contention during chain tests). "
-            "Re-verified 2026-06-16: kerberoasting produces full structured response with RECON/"
-            "ATTACK/EXPLOIT/PERSIST/DETECT headers. Highest ATT&CK density of all candidates. "
-            "Full 6-prompt re-bench pending. "
+            "BENCH RESULT 2026-06-17: avg=0.800 (6-prompt), latency matrix=0.700 (high variance). "
+            "Perfect 1.000 on lateral_movement+phishing when ATT&CK explicitly requested (7-9 IDs). "
+            "Drops to 0.700 on prompts that don't ask for T1xxx format. Not a refusal — MITRE format "
+            "is conditional on request phrasing. Inconsistent: varies 0.70–1.00 same prompt type. "
+            "BENCH-ONLY: avg=0.800 below auto-redteam baseline (0.847); high per-prompt variance. "
             "Model: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
         ),
         "model_hint": (
@@ -1501,13 +1504,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-xploiter-pentester": {
-        "name": "🔬 Bench · xploiter/pentester:v2",
+        "name": "🔬 Bench · xploiter/pentester:v2 [RETIRED]",
         "description": (
-            "Benchmark: xploiter/pentester:v2 (Ollama, ~1.6GB, recently updated). "
-            "Head-to-head vs xploiter/the-xploiter (~9.2GB) on pentest/red-team prompts. "
-            "Evaluate: structure adherence, disclaimer density, ATT&CK ID usage, command specificity. "
-            "PROMOTE_POLICY=confirm — if v2 matches the-xploiter quality at 6x smaller size, "
-            "consider swapping auto-pentest primary."
+            "BENCH RESULT 2026-06-17: avg=0.673 (4 redteam prompts), disclaimers=0.8, ATT&CK=3.5. "
+            "Below auto-redteam baseline (0.847). Slow for size: 67-228s/prompt despite being ~1.6GB. "
+            "Phishing prompt: 3 disclaimers. Does not replace auto-pentest primary. RETIRED. "
+            "Model: xploiter/pentester:v2"
         ),
         "model_hint": "xploiter/pentester:v2",
         "max_concurrent": 1,
