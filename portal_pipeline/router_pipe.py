@@ -577,7 +577,7 @@ async def _warmup_auto_model(registry: BackendRegistry) -> None:
             "model": backend.models[0],
             "prompt": "ok",
             "stream": False,
-            "keep_alive": "-1",
+            "keep_alive": -1,  # int not string — Ollama 0.30.8+ rejects "-1"
             "options": {"num_predict": 1},
         }
 
