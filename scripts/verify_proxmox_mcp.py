@@ -4,9 +4,8 @@ Quick verification script for the Proxmox MCP.
 Runs without Docker — directly hits the Proxmox API using the same client
 code as the MCP server.
 
-Usage:
-  PROXMOX_TOKEN_ID=root@pam!claude \
-  PROXMOX_TOKEN_SECRET=<uuid> \
+Reads credentials from .env (same file the rest of the stack uses).
+Just set PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET there and run:
   python3 scripts/verify_proxmox_mcp.py
 """
 
@@ -14,7 +13,22 @@ import asyncio
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Load .env from repo root (mirrors launch.sh: set -a; source .env)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_ENV_FILE = os.path.join(_REPO_ROOT, ".env")
+if os.path.exists(_ENV_FILE):
+    with open(_ENV_FILE) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if not _line or _line.startswith("#") or "=" not in _line:
+                continue
+            _k, _, _v = _line.partition("=")
+            _k = _k.strip()
+            _v = _v.strip().strip('"').strip("'")
+            # Don't overwrite vars already set in the shell environment
+            os.environ.setdefault(_k, _v)
+
+sys.path.insert(0, _REPO_ROOT)
 
 from portal_mcp.proxmox.proxmox_mcp import (
     PROXMOX_URL,
@@ -57,7 +71,9 @@ async def main():
 
     if not PROXMOX_TOKEN_ID or not PROXMOX_TOKEN_SECRET:
         print(f"{RED}ERROR: PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET must be set.{RESET}")
-        print("  Run: PROXMOX_TOKEN_ID=root@pam!claude PROXMOX_TOKEN_SECRET=<uuid> python3 scripts/verify_proxmox_mcp.py")
+        print("  Add them to .env:")
+        print("    PROXMOX_TOKEN_ID=root@pam!yourtoken")
+        print("    PROXMOX_TOKEN_SECRET=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
         sys.exit(1)
 
     async with _client() as c:
