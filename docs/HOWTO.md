@@ -50,8 +50,13 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 ```bash
 # Check pipeline logs for routing decision
 ./launch.sh logs | grep "Routing workspace="
-# Should show: Routing workspace=auto → backend=ollama-local model=dolphin-llama3:8b stream=True
-# LLM router is primary; keyword scoring is fallback if LLM is low confidence or times out
+# Should show: Routing workspace=auto → backend=ollama-local model=<model> stream=True
+
+# Check which model Ollama has loaded (router should always be in the list)
+curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
+
+# LLM router (Layer 1) is primary — grammar-enforced JSON output from OBLITERATED E4B
+# Keyword scoring (Layer 2) fires when router times out or returns low confidence
 ```
 
 ---
@@ -64,29 +69,29 @@ docker compose -f deploy/portal-5/docker-compose.yml logs <service-name>
 
 | Workspace | Select this when... | Routes to |
 |-----------|---------------------|-----------|
-| Portal Auto Router | You're unsure | Qwen3.5-abliterated (MLX / Ollama) |
-| Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B (MLX, 57.8 TPS) · Qwen3.5-abliterated (Ollama) |
-| Portal Code Expert | Writing or reviewing code | Laguna-XS.2 (MLX) · Qwen3-Coder-30B (Ollama) |
-| Portal Security Analyst | Security questions | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
-| Portal Red Team | Offensive security | AEON Qwen3.6-27B (MLX) · BaronLLM (Ollama) |
-| Portal Blue Team | Incident response | Lily-Cybersecurity (Ollama) |
-| Portal Creative Writer | Stories, scripts | Gemma-4-heretic (MLX) · Dolphin (Ollama) |
-| Portal Deep Reasoner | Complex analysis | Qwopus3.5-27B (MLX) · DeepSeek-R1 (Ollama) |
-| Portal Document Builder | Word/Excel/PPT files | Phi-4 (MLX) · Qwen3.5-9B (Ollama) + Documents MCP |
+| Portal Auto Router | You're unsure | LLM router classifies intent → best-fit workspace (Ollama) |
+| Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B-IT (Ollama) |
+| Portal Code Expert | Writing or reviewing code | Devstral-Small (Ollama) · Qwen3-Coder-30B (Ollama) |
+| Portal Security Analyst | Security questions | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
+| Portal Red Team | Offensive security | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
+| Portal Blue Team | Incident response | Foundation-Sec-8B (Ollama) |
+| Portal Creative Writer | Stories, scripts | Gemma-4-heretic (Ollama) · Dolphin (Ollama) |
+| Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
+| Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
 | Portal Video Creator | Text-to-video | Granite-4.1-8B (Ollama) + Video MCP |
 | Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
-| Portal Research Assistant | Web research | Gemma-4-26B-A4B (MLX) · Tongyi-DeepResearch (Ollama) |
-| Portal Vision | Image analysis | Gemma-4-26B-A4B (MLX) · Qwen3-VL (Ollama) |
-| Portal Data Analyst | Statistics, analysis | DeepSeek-R1-32B (MLX + Ollama) |
-| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (MLX) · DeepSeek-R1 (Ollama) |
-| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (MLX) |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (MLX) · DeepSeek-Coder-V2 (Ollama) |
-| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (MLX big-model) |
+| Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
+| Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |
+| Portal Data Analyst | Statistics, analysis | DeepSeek-R1-32B (Ollama) |
+| Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (Ollama) · DeepSeek-R1 (Ollama) |
+| Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (Ollama) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (Ollama) · DeepSeek-Coder-V2 (Ollama) |
+| Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (Ollama) |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
 2. Type: `Write a Python function that finds the longest palindromic substring`
-3. The pipeline routes to `mlx-community/Laguna-XS.2-4bit` via MLX (or `qwen3-coder:30b` Ollama fallback)
+3. The pipeline routes to `devstral:24b` via Ollama (or `qwen3-coder:30b` as alternate)
 4. The code sandbox MCP is auto-activated
 
 **Verify workspace routing:**
