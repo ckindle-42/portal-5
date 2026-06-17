@@ -48,6 +48,14 @@ All notable changes to Portal 5 will be documented in this file.
   - *Simulation* (`auto-redteam`, `auto-redteam-deep`, `auto-purpleteam-deep`): `tools: []` — pure generation
   - *Research* (`auto-security`): `web_search`, `kb_search`
   - *Execution* (`auto-pentest`, `auto-purpleteam-exec`): `execute_bash`, `execute_python`, `web_search`
+- **LLM intent router — three-tier model selection** (`portal_pipeline/router/routing.py`,
+  `.env.example`, `deploy/portal-5/docker-compose.yml`): router bench across 17 candidates
+  promoted a three-tier scheme. PRIMARY `hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`
+  (82.2% acc / 77.8% sec / ~840ms / 5.3GB) replaces the prior QuantFactory abliterated default;
+  STANDBY `llama3.2:3b` (75.3% / 66.7% / ~433ms) and FALLBACK `qwen2.5:1.5b`
+  (67.1% / 77.8% / ~339ms) selectable via env without code change. `LLM_ROUTER_TIMEOUT_MS`
+  default raised 500 → 1000 to fit PRIMARY warm latency; `OLLAMA_MAX_LOADED_MODELS` raised
+  2 → 3 so the router stays warm alongside two inference models under full fleet load.
 
 ### Fixed
 - **`keep_alive` hard override** (`portal_pipeline/router_pipe.py`): workspace-declared `keep_alive`
