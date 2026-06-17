@@ -780,6 +780,7 @@ async def _stream_with_chain(
     primary_model: str = "unknown",
     chain: list[dict] | None = None,
     start_time: float | None = None,
+    persona: str = "unknown",
 ) -> AsyncIterator[bytes]:
     """Multi-hop purple-team chain: primary model followed by any number of follow-on hops.
 
@@ -862,35 +863,83 @@ async def _stream_with_chain(
             if label:
                 yield _make_chunk({"content": f"\n\n---\n\n{label}\n\n"})
 
-            hop_body = {
-                k: v
-                for k, v in {
-                    **body,
+            hop_tools: list[str] = hop_cfg.get("tools") or []
+            is_last_hop = hop_idx == len(_chain) - 1
+            hop_parts: list[str] = []
+
+            if hop_tools:
+                # Tool-enabled hop — build body without stripping tools, then
+                # inject the hop's own tool schema and route through the tool loop.
+                from portal_pipeline.tool_registry import tool_registry  # noqa: PLC0415
+
+                await tool_registry.refresh()
+                tools_array = tool_registry.get_openai_tools(set(hop_tools))
+                hop_body = {
+                    **{k: v for k, v in body.items() if k not in ("tools", "tool_choice")},
                     "model": hop_model,
                     "stream": True,
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_content},
                     ],
-                    "tools": None,
-                    "tool_choice": None,
-                }.items()
-                if v is not None
-            }
+                }
+                if tools_array:
+                    hop_body["tools"] = tools_array
+                    hop_body["tool_choice"] = "auto"
+                    logger.info(
+                        "Chain hop %d tool-loop: workspace=%s model=%s tools=%d",
+                        hop_idx + 1, workspace_id, hop_model, len(tools_array),
+                    )
+                    async for chunk in _stream_with_tool_loop_impl(
+                        backend_url=url,
+                        body=hop_body,
+                        workspace_id=workspace_id,
+                        model=hop_model,
+                        persona=persona,
+                        effective_tools=set(hop_tools),
+                        start_time=None,
+                    ):
+                        if not is_last_hop and chunk == b"data: [DONE]\n\n":
+                            continue
+                        _collect_text(chunk, hop_parts)
+                        yield chunk
+                else:
+                    # Tool registry returned nothing — fall through to no-tools path
+                    logger.warning(
+                        "Chain hop %d: tools=%s resolved to empty list, falling back to no-tools",
+                        hop_idx + 1, hop_tools,
+                    )
+                    hop_tools = []
 
-            is_last_hop = hop_idx == len(_chain) - 1
-            hop_parts: list[str] = []
-            async for chunk in _stream_from_backend_guarded(
-                url,
-                hop_body,
-                workspace_id=workspace_id,
-                model=hop_model,
-                start_time=None,
-            ):
-                if not is_last_hop and chunk == b"data: [DONE]\n\n":
-                    continue
-                _collect_text(chunk, hop_parts)
-                yield chunk
+            if not hop_tools:
+                # No-tools path (original behaviour)
+                hop_body = {
+                    k: v
+                    for k, v in {
+                        **body,
+                        "model": hop_model,
+                        "stream": True,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content},
+                        ],
+                        "tools": None,
+                        "tool_choice": None,
+                    }.items()
+                    if v is not None
+                }
+                async for chunk in _stream_from_backend_guarded(
+                    url,
+                    hop_body,
+                    workspace_id=workspace_id,
+                    model=hop_model,
+                    start_time=None,
+                ):
+                    if not is_last_hop and chunk == b"data: [DONE]\n\n":
+                        continue
+                    _collect_text(chunk, hop_parts)
+                    yield chunk
+
             collected.append("".join(hop_parts))
 
     finally:

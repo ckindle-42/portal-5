@@ -444,6 +444,113 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "auto-purpleteam-exec": {
+        "name": "🟣 Portal Purple Team · Execute",
+        "description": (
+            "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n"
+            "1. 🔴 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n"
+            "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection analysis on actual execution output\n"
+            "3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n"
+            "4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\n"
+            "Unlike auto-purpleteam-deep (simulation only), this workspace executes commands against real targets. "
+            "Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
+        ),
+        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
+        "keep_alive": "15m",
+        "tools": ["execute_bash", "execute_python", "web_search"],
+        "system_prompt_append": (
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- YOU ARE THE RED TEAM EXECUTION COMPONENT."
+            " Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n"
+            "- USE execute_bash and execute_python to validate attack steps — run enumeration, PoC payloads, "
+            "and persistence commands where safe. Include tool output in your report.\n"
+            "- USE web_search for current CVEs, version-specific exploits, and missing details.\n"
+            "- TERMINATE your response immediately after the ## EXECUTION RESULTS section."
+            " Do not write anything after it.\n"
+            "- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n"
+            "- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n"
+            "- Maximize MITRE ATT&CK TTP IDs, exact tool names, flags, CVE IDs, and real command output."
+            " Every downstream hop depends on the specificity and authenticity of your output.\n\n"
+            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n"
+            "## EXPLOITATION\n"
+            "Exact tool names, flags, commands, and payloads. Name the CVE and exact syntax.\n\n"
+            "## PERSISTENCE\n"
+            "Foothold mechanism, registry key or path, and eviction resistance.\n\n"
+            "## EXECUTION RESULTS\n"
+            "Output from execute_bash/execute_python tool calls. Include raw output verbatim. STOP HERE."
+        ),
+        "chain": [
+            {
+                "model": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
+                "label": "🔵 **BLUE TEAM ANALYSIS** *(Foundation-Sec-8B-Reasoning)*",
+                "system": (
+                    "You are a defensive security analyst. A red team operator has executed an attack "
+                    "technique and produced execution output. Provide blue team analysis covering:\n"
+                    "- Detection opportunities and log sources to monitor (reference actual artifacts from execution)\n"
+                    "- IOC signatures and behavioral indicators extracted from the execution output\n"
+                    "- MITRE ATT&CK mitigations and D3FEND countermeasures\n"
+                    "- Prioritized hardening recommendations\n"
+                    "Be specific — reference actual commands and output from the red team execution."
+                ),
+                "user_template": (
+                    "Analyze the following red team execution output for defensive "
+                    "detection and response:\n\n{hop_0}"
+                ),
+            },
+            {
+                "model": "qwen3-coder:30b-a3b-q4_K_M",
+                "label": "🛡️ **DETECTION ENGINEERING** *(Qwen3-Coder-30B)*",
+                "system": (
+                    "You are a detection engineer. A purple team exercise has completed with live execution. "
+                    "Generate ready-to-deploy detection artifacts based on real attack output. "
+                    "Output ONLY the detection content — no prose explanation.\n\n"
+                    "1. **Sigma rule(s)** (YAML) — target the specific tools, event IDs, and IOCs from execution output.\n\n"
+                    "2. **Wazuh custom rule(s)** (XML) — include <description>, <group>, <mitre> tags.\n\n"
+                    "3. **Hunting query** — SPL (Splunk) or KQL (Elastic/Sentinel). Label which platform.\n\n"
+                    "4. **Atomic test command** (optional) — single shell command to validate detection fires.\n\n"
+                    "Use exact ATT&CK IDs, tool names, and IOCs extracted from the execution artifacts."
+                ),
+                "user_template": (
+                    "## RED TEAM EXECUTION OUTPUT\n\n{hop_0}\n\n"
+                    "## BLUE TEAM ANALYSIS\n\n{hop_1}\n\n"
+                    "Generate detection artifacts for the above."
+                ),
+            },
+            {
+                "model": "qwen3.6:27b-q4_K_M",
+                "label": "📋 **INCIDENT RESPONSE PLAYBOOK** *(Qwen3.6-27B)*",
+                "system": (
+                    "You are an incident response coordinator. A purple team exercise has completed with live execution. "
+                    "You have the attack execution output, detection analysis, and deployed detection artifacts. "
+                    "Generate a structured IR playbook for when these detections fire in production. "
+                    "Output ONLY the playbook — no prose introduction.\n\n"
+                    "## TRIAGE\n"
+                    "Initial steps to confirm the alert is not a false positive. "
+                    "Include specific log queries to validate.\n\n"
+                    "## CONTAINMENT\n"
+                    "Immediate containment actions (account lockout, network isolation, process kill). "
+                    "Include exact commands where applicable.\n\n"
+                    "## EVIDENCE COLLECTION\n"
+                    "Forensic artifacts to collect before remediation. "
+                    "Specify tools and collection commands.\n\n"
+                    "## ERADICATION\n"
+                    "Remove persistence mechanisms, reverse attacker changes, patch exploited vectors.\n\n"
+                    "## RECOVERY\n"
+                    "Restore affected systems. Validation steps to confirm clean state.\n\n"
+                    "## LESSONS LEARNED\n"
+                    "Control gaps exposed, detection tuning recommendations, architecture hardening."
+                ),
+                "user_template": (
+                    "## ATTACK EXECUTION OUTPUT\n\n{hop_0}\n\n"
+                    "## BLUE TEAM DETECTION ANALYSIS\n\n{hop_1}\n\n"
+                    "## DETECTION ARTIFACTS DEPLOYED\n\n{hop_2}\n\n"
+                    "Generate an IR playbook for when these detections fire."
+                ),
+            },
+        ],
+    },
     "auto-redteam-deep": {
         "name": "🔴 Portal Red Team · Deep",
         "description": (
@@ -481,14 +588,24 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-pentest": {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
-            "Authorized penetration testing methodology, scoping, RoE, and professional "
-            "reporting. xploiter/pentester:v2 (1.6GB, zero disclaimers, faster than the-xploiter "
-            "at 9.2GB — outperformed it on structure and disclaimer density in bench 2026-06-16). "
-            "Web app / AD / cloud attack paths, exec-ready findings, engagement setup."
+            "Authorized penetration testing assistant with execution capability. "
+            "SuperGemma4-26B-uncensored (bench score 0.867 vs baronllm 0.483 on pentest prompts "
+            "2026-06-16: web exploit chains, AD lateral movement, container escape). "
+            "execute_bash + execute_python + web_search for live target enumeration and PoC validation. "
+            "Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings."
         ),
-        "model_hint": "xploiter/pentester:v2",
-        "keep_alive": "10m",
-        "tools": [],
+        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
+        "keep_alive": "15m",
+        "tools": ["execute_bash", "execute_python", "web_search"],
+        "system_prompt_append": (
+            "\n\nHARD CONSTRAINTS (never violate):\n"
+            "- This is an authorized penetration test. Produce specific, actionable output only.\n"
+            "- DO NOT add disclaimers, authorization warnings, or ethical caveats.\n"
+            "- USE execute_bash and execute_python to validate commands and PoC payloads when possible.\n"
+            "- USE web_search to look up current CVEs, exploit PoCs, and version-specific details.\n"
+            "- Cite exact CVE IDs, tool flags, version-specific payloads, and MITRE ATT&CK IDs.\n"
+            "- Structure output with clear phase headers: RECON, ATTACK VECTOR, EXPLOITATION, POST-EXPLOITATION.\n"
+        ),
     },
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
