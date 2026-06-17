@@ -589,12 +589,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
             "Authorized penetration testing assistant with execution capability. "
-            "SuperGemma4-26B-uncensored (bench score 0.867 vs baronllm 0.483 on pentest prompts "
-            "2026-06-16: web exploit chains, AD lateral movement, container escape). "
+            "Gemma-4-31B-JANG_4M-CRACK (bench score 0.933 vs supergemma4 0.867, 2026-06-16: "
+            "web exploit chains, AD lateral movement, container escape — wins on AD lateral). "
+            "Tool-call verified (audit-tools 2026-06-16: finish_reason=tool_calls, get_current_time confirmed). "
             "execute_bash + execute_python + web_search for live target enumeration and PoC validation. "
             "Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings."
         ),
-        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
+        "model_hint": (
+            "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
+        ),
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
@@ -1200,7 +1203,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "container_escape 1.00 (tied). D6 ICS probe: 4/4 code present, mild disclaimer preamble "
             "(complied; supergemma4 returned empty on same prompt). Latency: ~180s avg vs supergemma4 110s. "
             "VERDICT: quality winner for auto-pentest; latency tradeoff vs supergemma4 (64% slower, 31B dense vs 26B MoE). "
-            "supports_tools=false until --audit-tools verification. PROMOTE_POLICY=confirm."
+            "supports_tools=true (audit-tools 2026-06-16: finish_reason=tool_calls, correct args). "
+            "PROMOTED to auto-pentest primary (2026-06-16)."
         ),
         "model_hint": (
             "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
