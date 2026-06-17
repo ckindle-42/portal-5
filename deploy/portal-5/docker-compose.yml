@@ -456,6 +456,17 @@ services:
       - WORKSPACE_DIR=/workspace
       - SANDBOX_ALLOW_NETWORK=${SANDBOX_ALLOW_NETWORK:-false}
       - SANDBOX_DOCKER_IMAGE=${SANDBOX_DOCKER_IMAGE:-python:3.11-slim}
+      # Lab-exec lane — live *-exec workspaces against a routable remote lab.
+      # Off by default; set these in .env to enable. See docs/LAB_SETUP.md.
+      - SANDBOX_LAB_EXEC=${SANDBOX_LAB_EXEC:-false}
+      - SANDBOX_LAB_IMAGE=${SANDBOX_LAB_IMAGE:-}
+      - SANDBOX_LAB_MEMORY=${SANDBOX_LAB_MEMORY:-2g}
+      - SANDBOX_LAB_CPUS=${SANDBOX_LAB_CPUS:-2.0}
+      - SANDBOX_LAB_TIMEOUT_MAX=${SANDBOX_LAB_TIMEOUT_MAX:-600}
+      - LAB_TARGET_NETWORK=${LAB_TARGET_NETWORK:-}
+      - LAB_TARGET_DC=${LAB_TARGET_DC:-}
+      - LAB_TARGET_WS=${LAB_TARGET_WS:-}
+      - LAB_TARGET_SRV=${LAB_TARGET_SRV:-}
     # Run as root to chown shared volume on startup, then drop to portal
     user: root
     entrypoint: ["sh", "-c", "chown portal:portal /app/data/sandbox 2>/dev/null; exec su portal -c 'python -m portal_mcp.execution.code_sandbox_mcp'"]
