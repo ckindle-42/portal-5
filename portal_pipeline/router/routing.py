@@ -477,13 +477,18 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 # Router bench results (73 tests, 29 workspaces, 17 candidates — 2026-06-17):
 #
 #   PRIMARY:  hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
-#             82.2% acc / 77.8% sec / p50=840ms warm — best quality overall
-#             Requires LLM_ROUTER_TIMEOUT_MS=1000 (set below)
+#             82.2% acc / 77.8% sec / p50=840ms warm / 5.3GB VRAM
+#             Requires LLM_ROUTER_TIMEOUT_MS=1000 and OLLAMA_MAX_LOADED_MODELS=3
 #
 #   STANDBY:  llama3.2:3b
-#             75.3% acc / 66.7% sec / p50=433ms warm — best within 500ms budget
-#             Switch to this if routing latency becomes a UX concern:
+#             75.3% acc / 66.7% sec / p50=433ms warm / ~2GB VRAM
 #             LLM_ROUTER_MODEL=llama3.2:3b LLM_ROUTER_TIMEOUT_MS=500
+#
+#   FALLBACK: qwen2.5:1.5b
+#             67.1% acc / 77.8% sec / p50=339ms warm / 1GB VRAM
+#             Best option if VRAM eviction is observed in production — too small
+#             to compete with any inference model, stays hot with MAX_LOADED=3.
+#             LLM_ROUTER_MODEL=qwen2.5:1.5b LLM_ROUTER_TIMEOUT_MS=500
 #
 # Non-abliterated models score zero security refusals (routing = classification,
 # not generation) — abliteration offers no benefit for this use case.

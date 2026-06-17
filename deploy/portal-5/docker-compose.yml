@@ -21,7 +21,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_KEEP_ALIVE=24h
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4}     # 4 concurrent LLM requests
-      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-2}  # Keep 2 models in VRAM
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-3}  # router + 2 inference models
       - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-25}           # Queue up to 25 requests
     # P7: Memory limits prevent runaway model loads from crashing other services.
     # OLLAMA_MEMORY_LIMIT defaults to 0 (unlimited) since model sizes vary.

@@ -636,7 +636,7 @@ async def _warmup_llm_router() -> None:
                 "model": _LLM_ROUTER_MODEL,
                 "prompt": "ok",
                 "stream": False,
-                "keep_alive": "-1",
+                "keep_alive": -1,
                 "options": {"num_predict": 1},
             },
         )
