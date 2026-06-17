@@ -158,6 +158,26 @@ def _get_docker_env() -> dict:
     return env
 
 
+def _resolve_image(default_image: str) -> str:
+    """Return the attack image under lab-exec, else the caller's default.
+
+    Lab-exec swaps the locked-down alpine/python-slim base for an
+    attack-capable image (SANDBOX_LAB_IMAGE) so execute_bash/execute_python
+    have nmap/impacket/netexec etc. If SANDBOX_LAB_EXEC is set but
+    SANDBOX_LAB_IMAGE is empty, fall back to the default image and log — the
+    lane still has network reachability, just no preinstalled attack tooling.
+    """
+    if SANDBOX_LAB_EXEC and SANDBOX_LAB_IMAGE:
+        return SANDBOX_LAB_IMAGE
+    if SANDBOX_LAB_EXEC and not SANDBOX_LAB_IMAGE:
+        logger.warning(
+            "SANDBOX_LAB_EXEC=true but SANDBOX_LAB_IMAGE is empty — using "
+            "default image %s with no preinstalled attack tooling",
+            default_image,
+        )
+    return default_image
+
+
 async def _run_in_docker(
     image: str,
     command: list[str],
@@ -174,11 +194,19 @@ async def _run_in_docker(
     code_file = work_dir / "code"
     code_file.write_text(code, encoding="utf-8")
 
-    # Network + resource envelope: locked down by default; widened only when
-    # SANDBOX_ALLOW_NETWORK=true (capability-probe runs). See A2.
-    _net = "bridge" if SANDBOX_ALLOW_NETWORK else "none"
-    _cpus = SANDBOX_NET_CPUS if SANDBOX_ALLOW_NETWORK else "0.5"
-    _mem = SANDBOX_NET_MEMORY if SANDBOX_ALLOW_NETWORK else "256m"
+    # Network + resource envelope. Three postures, locked-down first:
+    #   default            → no network, tight envelope (production/probe-off)
+    #   SANDBOX_ALLOW_NETWORK → bridge + wider envelope (capability-probe pip)
+    #   SANDBOX_LAB_EXEC      → bridge + lab envelope (live *-exec against lab),
+    #                           superset of ALLOW_NETWORK
+    _network_on = SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC
+    _net = "bridge" if _network_on else "none"
+    if SANDBOX_LAB_EXEC:
+        _cpus, _mem = SANDBOX_LAB_CPUS, SANDBOX_LAB_MEMORY
+    elif SANDBOX_ALLOW_NETWORK:
+        _cpus, _mem = SANDBOX_NET_CPUS, SANDBOX_NET_MEMORY
+    else:
+        _cpus, _mem = "0.5", "256m"
     docker_cmd = [
         "docker",
         "run",
@@ -205,7 +233,22 @@ async def _run_in_docker(
         [
             "--tmpfs", "/root:size=256m,exec",  # exec needed for C-extension .so files
             "--env", "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
-        ] if SANDBOX_ALLOW_NETWORK else []
+        ] if _network_on else []
+    ) + (
+        # Lab-exec: inject target coordinates so model-emitted commands and
+        # scripts can reference the lab without hardcoding. Empty values are
+        # skipped so a partial config doesn't pass blank envs.
+        [
+            arg
+            for k, v in (
+                ("LAB_TARGET_NETWORK", SANDBOX_LAB_TARGET_NETWORK),
+                ("LAB_TARGET_DC", SANDBOX_LAB_TARGET_DC),
+                ("LAB_TARGET_WS", SANDBOX_LAB_TARGET_WS),
+                ("LAB_TARGET_SRV", SANDBOX_LAB_TARGET_SRV),
+            )
+            if v
+            for arg in ("--env", f"{k}={v}")
+        ] if SANDBOX_LAB_EXEC else []
     ) + (extra_args or []) + [
         "-v",
         f"{code_file.absolute()}:/code:ro",
@@ -277,10 +320,15 @@ async def execute_python(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
-    timeout = min(timeout, SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
+    _cap = (
+        SANDBOX_LAB_TIMEOUT_MAX
+        if SANDBOX_LAB_EXEC
+        else (SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
+    )
+    timeout = min(timeout, _cap)
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
-        image=PYTHON_IMAGE,
+        image=_resolve_image(PYTHON_IMAGE),
         command=["python", "/code"],
         code=code,
         timeout=timeout,
@@ -335,10 +383,13 @@ async def execute_bash(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
-    timeout = min(timeout, 60)  # Stricter timeout for shell
+    _cap = SANDBOX_LAB_TIMEOUT_MAX if SANDBOX_LAB_EXEC else 60
+    timeout = min(timeout, _cap)  # shell stays tight unless lab-exec widens it
+    # Lab-exec attack images are commonly Debian/Kali-based; fall back to the
+    # POSIX shell entrypoint either way (sh is present on both alpine and kali).
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
-        image=BASH_IMAGE,
+        image=_resolve_image(BASH_IMAGE),
         command=["sh", "/code"],
         code=code,
         timeout=timeout,
