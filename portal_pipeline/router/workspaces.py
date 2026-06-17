@@ -1590,14 +1590,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "bench-vulnllm-r7b": {
         "name": "🔬 Bench · VulnLLM-R-7B (AppSec specialist)",
         "description": (
-            "Benchmark: VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, "
-            "fine-tuned on vulnerability datasets — CVE descriptions, PoC write-ups, "
-            "CWE-to-ATT&CK mappings, AppSec corpora). Purpose: AppSec / code vulnerability "
-            "analysis, not red team attack simulation. Use cases: CVE severity assessment, "
-            "CWE classification, vulnerable code pattern identification, fix recommendations. "
-            "DIFFERENT from red team workspaces — evaluates code/AppSec reasoning, not "
-            "TTP generation. Head-to-head vs auto-security on AppSec prompts. "
-            "NEVER auto-routed. PROMOTE_POLICY=confirm after bench-security AppSec subset eval."
+            "BENCH RESULT 2026-06-17 (strict AppSec v2 criteria): avg=0.812 vs auto-security=0.725. "
+            "VulnLLM wins on CVE analysis: Log4Shell=1.00 (CWE-917, CVSS 10.0, JNDI, versions, "
+            "mitigation all correct); auto-security scores 0.40 same prompt. "
+            "auto-security wins on SCA/dependency (knows specific upgrade versions). "
+            "Models complement each other — neither universally dominant. Both miss CVSS vector strings. "
+            "Use case: CVE/CWE analysis specialist. PROMOTE_POLICY=confirm for auto-security replacement "
+            "on CVE-heavy workloads. Qwen2.5-7B base, ~4.4GB Q4_K_M. NEVER auto-routed."
         ),
         "model_hint": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
         "max_concurrent": 1,
