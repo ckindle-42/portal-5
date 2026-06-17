@@ -474,21 +474,29 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
-# Uses llama3.2:3b as a fast semantic intent classifier (Layer 1).
-# Router bench (73 tests, 29 workspaces) results — llama3.2:3b 75.3% vs prior
-# QuantFactory abliterated 42.5%. Non-abliterated models score zero security
-# refusals (classification ≠ generation), so abliteration provides no benefit.
-# Falls back to keyword scoring on low confidence or timeout.
-# To override: set LLM_ROUTER_MODEL env var (e.g. for testing candidates).
+# Router bench results (73 tests, 29 workspaces, 17 candidates — 2026-06-17):
+#
+#   PRIMARY:  hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M
+#             82.2% acc / 77.8% sec / p50=840ms warm — best quality overall
+#             Requires LLM_ROUTER_TIMEOUT_MS=1000 (set below)
+#
+#   STANDBY:  llama3.2:3b
+#             75.3% acc / 66.7% sec / p50=433ms warm — best within 500ms budget
+#             Switch to this if routing latency becomes a UX concern:
+#             LLM_ROUTER_MODEL=llama3.2:3b LLM_ROUTER_TIMEOUT_MS=500
+#
+# Non-abliterated models score zero security refusals (routing = classification,
+# not generation) — abliteration offers no benefit for this use case.
+# Falls back to keyword scoring (Layer 2) on low confidence or timeout.
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
 _LLM_ROUTER_MODEL: str = os.environ.get(
-    "LLM_ROUTER_MODEL", "llama3.2:3b"
+    "LLM_ROUTER_MODEL", "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M"
 )
 _LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
     os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")
 )
-_LLM_ROUTER_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "500"))
+_LLM_ROUTER_TIMEOUT_MS: int = int(os.environ.get("LLM_ROUTER_TIMEOUT_MS", "1000"))
 _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
     "LLM_ROUTER_OLLAMA_URL", "http://host.docker.internal:11434"
 )
