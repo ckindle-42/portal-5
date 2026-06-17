@@ -474,13 +474,16 @@ def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
 
 
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
-# Uses an uncensored Llama 3.2 3B abliterated as a fast semantic intent classifier.
-# Abliterated (surgical refusal removal) so red-team/security queries aren't refused.
+# Uses llama3.2:3b as a fast semantic intent classifier (Layer 1).
+# Router bench (73 tests, 29 workspaces) results — llama3.2:3b 75.3% vs prior
+# QuantFactory abliterated 42.5%. Non-abliterated models score zero security
+# refusals (classification ≠ generation), so abliteration provides no benefit.
 # Falls back to keyword scoring on low confidence or timeout.
+# To override: set LLM_ROUTER_MODEL env var (e.g. for testing candidates).
 
 _LLM_ROUTER_ENABLED: bool = os.environ.get("LLM_ROUTER_ENABLED", "true").lower() == "true"
 _LLM_ROUTER_MODEL: str = os.environ.get(
-    "LLM_ROUTER_MODEL", "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
+    "LLM_ROUTER_MODEL", "llama3.2:3b"
 )
 _LLM_ROUTER_CONFIDENCE_THRESHOLD: float = float(
     os.environ.get("LLM_ROUTER_CONFIDENCE_THRESHOLD", "0.5")
