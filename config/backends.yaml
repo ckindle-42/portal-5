@@ -347,14 +347,16 @@ backends:
     notes: "VibeThinker-3B Q4_K_M (~1.93GB, WeiboAI, MIT, Qwen2.5-3B base). Reasoning\
       \ specialist fine-tune: curriculum SFT + RL across math/code/STEM. Native <think>\
       \ tags. 64K ctx. 96.1% LeetCode acceptance, AIME/HMMT competitive vs much larger\
-      \ models. No tool-calling (not in training). bench-vibethinker-3b target\
-      \ (added 2026-06-16). Candidate for fast reasoning hop in chains."
+      \ models. audit-tools 2026-06-16: text_only — reasons about tool in <think> but\
+      \ does not emit tool_calls (not tool-trained, confirmed). bench-vibethinker-3b\
+      \ target. Candidate for fast reasoning hop in chains."
   - id: "hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M"
     supports_tools: false
     notes: "VibeThinker-3B-Ablated Q4_K_M (~1.93GB, Darkfibre, Apache 2.0,\
       \ Qwen2.5-Coder-3B base — different base from VibeThinker-3B). Refusal direction\
-      \ removed at layer 11 via diff-in-means projection. 131K ctx. bench-vibethinker-3b-ablated\
-      \ target (added 2026-06-16). Security/uncensored eval at near-zero VRAM cost."
+      \ removed at layer 11 via diff-in-means projection. 131K ctx. audit-tools\
+      \ 2026-06-16: text_only — same tool reasoning pattern, no tool_calls emitted.\
+      \ bench-vibethinker-3b-ablated target."
   - id: "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Harness-1 Q4_K_M (~12GB, gpt-oss-20B fine-tuned search agent, Apache 2.0,\
