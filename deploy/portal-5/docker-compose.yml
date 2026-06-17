@@ -484,6 +484,35 @@ services:
       retries: 3
     # NO docker.sock mount
 
+  # ── MCP: Proxmox VE Management ────────────────────────────────────────────
+  # Full VM/LXC/snapshot/storage management via Proxmox REST API.
+  # Auth: set PROXMOX_TOKEN_ID and PROXMOX_TOKEN_SECRET in .env.
+  # Proxmox UI: Datacenter → Permissions → API Tokens → Add (role: PVEAdmin on /)
+  mcp-proxmox:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.mcp
+    container_name: portal5-mcp-proxmox
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PROXMOX_MCP_HOST_PORT:-8926}:8926"
+    environment:
+      - PROXMOX_MCP_PORT=8926
+      - MCP_PORT=8926
+      - PROXMOX_URL=${PROXMOX_URL:-https://10.0.0.203:8006}
+      - PROXMOX_TOKEN_ID=${PROXMOX_TOKEN_ID:-}
+      - PROXMOX_TOKEN_SECRET=${PROXMOX_TOKEN_SECRET:-}
+      - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
+      - PROXMOX_DEFAULT_NODE=${PROXMOX_DEFAULT_NODE:-}
+      - PROXMOX_TASK_TIMEOUT=${PROXMOX_TASK_TIMEOUT:-120}
+    command: ["python", "-m", "portal_mcp.proxmox.proxmox_mcp"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8926/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   # ── MCP: Security Tools (CVE severity classification) ──────────────────────
   mcp-security:
     build:
