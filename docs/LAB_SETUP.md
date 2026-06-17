@@ -204,7 +204,22 @@ remote lab machine.
 
 Because the lab runs on a separate routable machine (not a Mac-local host-only
 adapter), the DinD bridge network already provides the outbound path. You only
-need to (1) ensure IP reachability and (2) set env vars.
+need to (1) build the attack image, (2) ensure IP reachability, and (3) set env vars.
+
+### Build the attack image
+
+The lane runs `execute_bash`/`execute_python` inside `portal5-attack:latest` —
+a native arm64 Kali image with nmap, smbclient, ldap-utils, netexec (nxc),
+the impacket-* scripts, certipy-ad, responder, and the BloodHound CE ingestor.
+Build it once (rebuild after tooling bumps):
+
+```bash
+./launch.sh build-lab-attack
+```
+
+This builds on the host and loads the image into DinD (where sandbox containers
+spawn). It is intentionally NOT part of `./launch.sh rebuild` — it's only needed
+for live lab sessions.
 
 ### Enable
 
