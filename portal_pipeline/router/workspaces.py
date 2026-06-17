@@ -1490,11 +1490,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Native <think> reasoning tags. 64K context. 96.1% LeetCode acceptance, "
             "AIME/HMMT/IMO competitive vs much larger models. "
             "NOT tool-trained — no function calling. "
-            "Eval goals: (1) reasoning quality per token at 3B scale, "
-            "(2) viability as a fast thinking hop in chains (auto-purpleteam-deep, auto-agentic), "
-            "(3) head-to-head vs bench-phi4-mini-reasoning (3.8B) and bench-r1-0528-qwen3-8b (8B). "
-            "Pull: ollama pull hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M. "
-            "PROMOTE_POLICY=confirm."
+            "BENCH RESULT (2026-06-17): avg=0.938, 39s avg — matches phi4-mini-reasoning (3.8B) at 0.938 "
+            "with 46% lower latency (39s vs 70s). Perfect on logic_puzzle/code_reasoning/multi_step_math. "
+            "Fails AIME-2024 (gets 46 not 71) same as phi4. "
+            "VERDICT: strongest open reasoning at 3B class; viable as fast thinking hop in chains. "
+            "PROMOTE_POLICY=confirm (fast chain hop candidate for auto-purpleteam-deep, auto-agentic)."
         ),
         "model_hint": "hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M",
         "max_concurrent": 1,
@@ -1510,12 +1510,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "(Darkfibre, Apache 2.0, Qwen2.5-Coder-3B base — distinct from VibeThinker-3B, ~1.93GB). "
             "Refusal direction surgically removed at layer 11 via diff-in-means projection. "
             "131K context (2× the base model). "
-            "Eval goals: (1) uncensored generation quality at 3B scale, "
-            "(2) security/red-team task compliance vs baron/supergemma4, "
-            "(3) viability as a zero-VRAM-cost red team generation hop. "
-            "D6 refusal probe included — ablation claims complete removal of 'no' direction. "
-            "Pull: ollama pull hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M. "
-            "PROMOTE_POLICY=confirm."
+            "BENCH RESULT (2026-06-17): avg=0.775 vs reference 1.000 (auto-redteam), 43s avg. "
+            "Fails on SPN enumeration detail (kerberoasting), MITRE IDs (lateral_movement, phishing). "
+            "Adds disclaimers on kerberoasting and SQLi. Fast (9s on lateral_movement) but incomplete. "
+            "VERDICT: 0.225 gap vs production auto-redteam; not a replacement. "
+            "Viable as zero-cost draft or filter hop — not as standalone red-team model. "
+            "PROMOTE_POLICY=bench-only (insufficient quality for production use)."
         ),
         "model_hint": "hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M",
         "max_concurrent": 1,

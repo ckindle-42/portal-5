@@ -262,6 +262,12 @@ backends:
   - id: "supergemma4-26b-uncensored:Q4_K_M"
     supports_tools: true
     notes: "SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-capable. Production model for auto-redteam-deep (bench_security score 0.90 avg, 6.7 ATT&CK IDs, 0 disclaimers, June 2026). Also in ollama-reasoning — duplicate entry required for security-group routing."
+  - id: "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
+    supports_tools: true
+    notes: "Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M,\
+      \ dealignai, Gemma license, 4M context). audit-tools 2026-06-16: tool_calls confirmed.\
+      \ Pentest bench 0.933 vs supergemma4 0.867. auto-pentest PRIMARY.\
+      \ Also in ollama-general — duplicate entry required for security-group routing."
   - id: "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M"
     supports_tools: false
     notes: "VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. bench-vulnllm-r7b target (June 2026). Different use case from red team workspaces."

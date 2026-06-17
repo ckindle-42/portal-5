@@ -16,6 +16,23 @@ All notable changes to Portal 5 will be documented in this file.
 - **Bench workspaces**: `bench-vibethinker-3b`, `bench-vibethinker-3b-ablated`,
   `bench-diffusiongemma`, `bench-gemma4-31b-crack` (Gemma-4-31B-JANG_4M-CRACK). Workspace count
   91 → 94.
+- **VibeThinker-3B bench results** (2026-06-17): avg=0.938 reasoning, 39s — matches
+  phi4-mini-reasoning (3.8B) at identical score with 46% lower latency. Viable as fast thinking
+  hop in chains. VibeThinker-3B-Ablated: avg=0.775 security (vs 1.000 reference); gap too large
+  for production red-team use, bench-only status confirmed.
+- **UAT catalog**: new `g_auto_pentest.py` (WS-08, WS-09, P-PT01), `g_auto_purpleteam.py`
+  (WS-PT01, WS-PT02, WS-PE01) covering penetration testing and purple team execution workspaces.
+- **Acceptance tests**: S6-05 (auto-redteam-deep), S6-06 (auto-pentest / JANG-CRACK),
+  S6-07 (auto-purpleteam-exec) added to `tests/acceptance/s06_security_workspaces.py`.
+- **bench_security.py DEFAULT_WORKSPACES** expanded: added `auto-redteam-deep` and
+  `auto-purpleteam-exec` to default run set.
+- **`bench/prompts.py` WORKSPACE_PROMPT_MAP** backfilled for all workspaces added since TC-6:
+  `auto-bigfix`, `auto-cad`, `auto-redteam-deep`, `auto-pentest`, `auto-purpleteam-deep`,
+  `auto-purpleteam-exec`; new bench workspaces `bench-vibethinker-3b`, `bench-vibethinker-3b-ablated`,
+  `bench-gemma4-31b-crack`, `bench-supergemma4`, `bench-c3d-v0`, `bench-fastcontext`,
+  `bench-diffusiongemma`, `bench-qwopus-coder-mtp-v2`.
+- **backends.yaml**: JANG-CRACK added to `ollama-security` group (duplicate entry pattern, same
+  as supergemma4) so hint validator correctly resolves `auto-pentest` model_hint.
 
 ### Changed
 - **`auto-pentest` primary model** upgraded: `xploiter/pentester:v2` (Phi-2 1.6B, no tools) →
@@ -28,7 +45,7 @@ All notable changes to Portal 5 will be documented in this file.
 - **`auto-redteam-deep`** — SuperGemma4-26B-uncensored promoted as primary (bench_security 0.915,
   6.7 ATT&CK IDs avg, 0 disclaimers).
 - **Security workspace tool philosophy** clarified across three tiers:
-  - *Simulation* (`auto-redteam`, `auto-purpleteam*`): `tools: []` — pure generation
+  - *Simulation* (`auto-redteam`, `auto-redteam-deep`, `auto-purpleteam-deep`): `tools: []` — pure generation
   - *Research* (`auto-security`): `web_search`, `kb_search`
   - *Execution* (`auto-pentest`, `auto-purpleteam-exec`): `execute_bash`, `execute_python`, `web_search`
 
@@ -44,8 +61,6 @@ All notable changes to Portal 5 will be documented in this file.
   entry-point shim with the full public surface re-exported. CLI invocation,
   behavior, and test catalog unchanged. Unit-test monkeypatch targets repointed
   to owning modules.
-
-### Fixed
 - **UAT routing telemetry** — `run_test` referenced the undefined name
   `pipeline_backend` inside a swallowed exception path, so `_ROUTING_LOG` was
   never populated and the Routing Summary never emitted; now resolved via
