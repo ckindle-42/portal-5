@@ -2118,6 +2118,7 @@ async def chat_completions(
                     primary_model=target_model,
                     chain=_chain,
                     start_time=start_time,
+                    persona=persona,
                 )
             elif _secondary_model:
                 _stream_fn = _stream_with_secondary_chain(
@@ -2213,6 +2214,7 @@ async def chat_completions(
                         primary_model=target_model,
                         chain=_chain,
                         start_time=start_time,
+                        persona=persona,
                     )
                 elif _secondary_model:
                     _inner_stream = _stream_with_secondary_chain(
