@@ -706,7 +706,7 @@ async def _route_with_llm(messages: list[dict]) -> str | None:
     * ``LLM_ROUTER_ENABLED=false`` — feature disabled outright.
     * HTTP client not yet initialised (request arrived before
       ``lifespan`` finished).
-    * Hard timeout (default 500ms, via ``LLM_ROUTER_TIMEOUT_MS``).
+    * Hard timeout (default 1000ms, via ``LLM_ROUTER_TIMEOUT_MS``).
     * HTTP failure, JSON parse failure, missing fields.
     * Workspace returned is not in ``_VALID_WORKSPACE_IDS`` (logged
       at WARNING — usually means a model hallucination or schema
