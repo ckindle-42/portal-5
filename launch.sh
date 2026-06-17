@@ -1344,6 +1344,24 @@ case "${1:-up}" in
 
     echo "[portal-5] Restore complete. Run: ./launch.sh up"
     ;;
+  build-lab-attack)
+    # Build the native arm64 attack image for the lab-exec lane and load it
+    # into DinD. Opt-in / lab-only — NOT part of `rebuild` (heavy image, only
+    # needed by operators running live lab sessions). Mirrors the pwsh
+    # build->save->DinD-load pattern.
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
+    echo "[portal-5] Building native arm64 attack image (portal5-attack:latest)..."
+    docker build -t portal5-attack:latest -f "$PORTAL_ROOT/Dockerfile.attack" "$PORTAL_ROOT"
+    echo "[portal-5] Loading attack image into DinD..."
+    if ! docker ps --format '{{.Names}}' | grep -q '^portal5-dind$'; then
+      echo "[portal-5] ERROR: portal5-dind is not running. Start the stack first (./launch.sh up)."
+      exit 1
+    fi
+    docker save portal5-attack:latest | docker exec -i portal5-dind docker load
+    echo "[portal-5] Done. Set SANDBOX_LAB_IMAGE=portal5-attack:latest and SANDBOX_LAB_EXEC=true"
+    echo "[portal-5] in .env, then: ./launch.sh restart-mcp   (see docs/LAB_SETUP.md)"
+    ;;
+
   rebuild)
     # Rebuild and restart all Docker images (pipeline + MCP servers)
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
