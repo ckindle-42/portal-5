@@ -259,12 +259,15 @@ backends:
   - id: "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Dolphin3-Cyber-8B (~4-5GB). Dolphin3.0-Llama3.1-8B-abliterated + cybersec fine-tune (OWASP, ATT&CK, CVEs). Uncensored base + security specialization. bench-dolphin3-cyber target (June 2026)."
-  - id: supergemma4-26b-uncensored:q4_k_m
+  - id: "supergemma4-26b-uncensored:Q4_K_M"
     supports_tools: true
     notes: "SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-capable. Production model for auto-redteam-deep (bench_security score 0.90 avg, 6.7 ATT&CK IDs, 0 disclaimers, June 2026). Also in ollama-reasoning — duplicate entry required for security-group routing."
   - id: "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M"
     supports_tools: false
     notes: "VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist — CVE severity, CWE classification, vulnerable code patterns. bench-vulnllm-r7b target (June 2026). Different use case from red team workspaces."
+  - id: "hf.co/unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "DiffusionGemma 26B A4B (~16GB). Experimental diffusion-based generation on Gemma4 MoE base. bench-diffusiongemma target (June 2026). Head-to-head vs gemma4:26b-a4b-it-qat on reasoning/coding/bench_tps."
 - id: ollama-reasoning
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -289,9 +292,12 @@ backends:
     supports_tools: true
     notes: Verified tool-capable via --audit-tools 2026-05-04 (emitted tool_call).
       Abliterated Qwen3.5-abliterated lineage; tools tag confirmed.
-  - id: supergemma4-26b-uncensored:q4_k_m
+  - id: "supergemma4-26b-uncensored:Q4_K_M"
     supports_tools: true
     notes: "SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-use capable. bench_security eval pending before final removal/promotion."
+  - id: "hf.co/unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "DiffusionGemma 26B A4B (~16GB). Experimental diffusion-based generation on Gemma4 MoE base. bench-diffusiongemma target (June 2026)."
   - id: granite4.1:30b
     supports_tools: true
     notes: "IBM Granite 4.1 30B Q4_K_M (~17GB, 128K ctx, dense, no-think) \u2014 leaderboard\
@@ -701,6 +707,9 @@ workspace_routing:
   - general
   bench-vulnllm-r7b:
   - security
+  - general
+  bench-diffusiongemma:
+  - reasoning
   - general
   bench-c3d-v0:
   - coding
