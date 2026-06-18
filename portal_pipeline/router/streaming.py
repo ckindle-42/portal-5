@@ -679,8 +679,12 @@ async def _stream_from_backend_guarded(
                     )
 
                 # Reasoning-model deltas under Ollama /v1: keep the behaviour,
-                # fix the attribution — promote reasoning → content
-                if '"reasoning"' in line and '"content"' not in line:
+                # fix the attribution — promote reasoning → content.
+                # Gate on '"reasoning"' only — not '"content"' not in line, because
+                # qwen3.6 HauhauCS emits {"content":"","reasoning":"..."} (empty
+                # string content) which makes that substring check false. The inner
+                # `not delta.get("content")` correctly handles both absent and empty.
+                if '"reasoning"' in line:
                     try:
                         if not line.startswith("data:") or line == "data: [DONE]":
                             yield (line + "\n\n").encode()
