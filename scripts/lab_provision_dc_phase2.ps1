@@ -97,17 +97,39 @@ foreach ($svc in @("svc_backup","svc_iis")) {
 }
 
 # ── Weak ACL: give svc_backup GenericAll on Domain Admins group ──────────────
+# Uses dsacls (built into Windows Server) which is more reliable than Set-Acl
+# for AD object permissions — avoids SecurityIdentifier cast issues in ADSI.
 try {
-    $da = Get-ADGroup "Domain Admins" -Properties DistinguishedName
-    $acl = Get-Acl "AD:$($da.DistinguishedName)"
-    $sid = (Get-ADUser svc_backup).SID
-    $ace = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
-        $sid, [System.DirectoryServices.ActiveDirectoryRights]::GenericAll,
-        [System.Security.AccessControl.AccessControlType]::Allow
-    )
-    $acl.AddAccessRule($ace)
-    Set-Acl -Path "AD:$($da.DistinguishedName)" -AclObject $acl
-    Write-Host "  ACL: svc_backup → GenericAll on Domain Admins"
+    $da  = Get-ADGroup "Domain Admins"
+    $svc = Get-ADUser  "svc_backup"
+    # dsacls /G <trustee DN>:<right>  GA = GenericAll
+    $result = dsacls $da.DistinguishedName /G "$($svc.DistinguishedName):GA" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  ACL: svc_backup → GenericAll on Domain Admins (dsacls OK)"
+    } else {
+        # Fallback: explicit SecurityIdentifier cast for Set-Acl
+        $sid = New-Object System.Security.Principal.SecurityIdentifier($svc.SID.Value)
+        $acl = Get-Acl "AD:$($da.DistinguishedName)"
+        $ace = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+            $sid,
+            [System.DirectoryServices.ActiveDirectoryRights]::GenericAll,
+            [System.Security.AccessControl.AccessControlType]::Allow,
+            [System.DirectoryServices.ActiveDirectorySecurityInheritance]::None
+        )
+        $acl.AddAccessRule($ace)
+        Set-Acl -Path "AD:$($da.DistinguishedName)" -AclObject $acl
+        Write-Host "  ACL: svc_backup → GenericAll on Domain Admins (Set-Acl fallback)"
+    }
+    # Verify: read back the DACL and confirm svc_backup SID is present
+    $check = (Get-Acl "AD:$($da.DistinguishedName)").Access | Where-Object {
+        $_.IdentityReference -like "*svc_backup*" -or
+        $_.IdentityReference -eq $svc.SID.Value
+    }
+    if ($check) {
+        Write-Host "  ACL verified: $($check.Count) ACE(s) for svc_backup on Domain Admins"
+    } else {
+        Write-Host "  ACL WARN: svc_backup not found in Domain Admins DACL after write"
+    }
 } catch { Write-Host "  ACL error: $($_.Exception.Message)" }
 
 Write-Host ""
