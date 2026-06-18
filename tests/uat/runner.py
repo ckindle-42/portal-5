@@ -695,15 +695,9 @@ async def run_test(
             if response_text:
                 break
             elapsed_now = time.time() - t0
-            # Hard cap: if total elapsed exceeds 3× the test timeout, stop retrying.
-            # Prevents runaway reasoning models from consuming unbounded wall time.
-            if elapsed_now > _test_budget_s * 3:
-                print(
-                    f"  [{test_id}] total elapsed {elapsed_now:.0f}s > 3× timeout "
-                    f"({_test_budget_s * 3}s) — stopping retries",
-                    flush=True,
-                )
-                break
+            # No timer-based hard cap here — browser.py's max_wait_no_progress
+            # (900s with zero progress) and backend-dead detection are the ceilings.
+            # A timer cap here aborts slow-but-streaming models (3a false failures).
             print(
                 f"  [{test_id}] empty response on attempt {attempt + 1}/3 ({elapsed_now:.0f}s)",
                 flush=True,
