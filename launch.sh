@@ -293,6 +293,7 @@ _ensure_native_services() {
         PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}" \
         OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
         PIPELINE_MCP_REPO_ROOT="$PORTAL_ROOT" \
+        PIPELINE_MCP_PORT="${PIPELINE_MCP_PORT:-8928}" \
         nohup python3 -m "$PIPELINE_MCP_MODULE" \
             >> "$HOME/.portal5/logs/pipeline-mcp.log" 2>&1 &
         echo $! > "$PIPELINE_MCP_PID_FILE"
