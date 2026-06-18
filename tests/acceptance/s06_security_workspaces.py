@@ -3,8 +3,10 @@
 import time
 
 from tests.acceptance._common import (
+    PIPELINE_URL,
     _assert_routing,
     _chat_with_model,
+    _get,
     _grep_logs,
     record,
 )
@@ -164,28 +166,55 @@ async def run() -> None:
         t0=t0,
     )
 
-    # S6-07: auto-purpleteam-exec routing (execution chain)
+    # S6-07: auto-purpleteam-exec — routing + actual execute_bash tool call
+    # Snapshot tool_calls counter before the request.
+    tool_calls_before = 0
+    try:
+        _, metrics_before = await _get(f"{PIPELINE_URL}/metrics", timeout=5)
+        if isinstance(metrics_before, str):
+            for ln in metrics_before.splitlines():
+                if ln.startswith("portal5_tool_calls_total") and "{" not in ln:
+                    tool_calls_before = float(ln.split()[-1])
+    except Exception:
+        pass
+
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
         "auto-purpleteam-exec",
-        "Authorized exercise. Enumerate the local network (192.168.1.0/24) and identify live hosts.",
-        max_tokens=500,
+        # Prompt is explicit and concrete so the model calls execute_bash immediately
+        # rather than describing what it would do.
+        "Authorized purple team exercise. Run execute_bash to check which network hosts "
+        "respond on port 445 in 192.168.1.0/24. Show only the command and its output.",
+        max_tokens=600,
         timeout=600,
     )
-    signals = ["nmap", "scan", "host", "port", "network", "live", "192.168", "enumerate"]
+    signals = ["nmap", "scan", "host", "port", "smb", "445", "192.168", "execute_bash"]
     found = [s for s in signals if s.lower() in response.lower()]
     route_status, route_detail = await _assert_routing(sec, "S6-07", "auto-purpleteam-exec", model)
-    if found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
+
+    # Check if a tool call was dispatched by comparing the metric counter.
+    tool_called = False
+    try:
+        _, metrics_after = await _get(f"{PIPELINE_URL}/metrics", timeout=5)
+        if isinstance(metrics_after, str):
+            for ln in metrics_after.splitlines():
+                if ln.startswith("portal5_tool_calls_total") and "{" not in ln:
+                    tool_calls_after = float(ln.split()[-1])
+                    tool_called = tool_calls_after > tool_calls_before
+    except Exception:
+        pass
+
+    if found and code == 200 and tool_called and route_status in ("match", "no_expectation", "no_actual"):
         status = "PASS"
-    elif found and code == 200:
-        status = "WARN"
+    elif found and code == 200 and route_status in ("match", "no_expectation", "no_actual"):
+        status = "WARN"  # content OK but tool call not confirmed
     else:
         status = "WARN"
     record(
         sec,
         "S6-07",
-        "auto-purpleteam-exec routing",
+        "auto-purpleteam-exec: routing + execute_bash tool call",
         status,
-        f"signals: {found[:3]} | {route_detail}",
+        f"signals: {found[:3]} | tool_called={tool_called} | {route_detail}",
         t0=t0,
     )

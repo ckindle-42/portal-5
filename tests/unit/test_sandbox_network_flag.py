@@ -12,12 +12,15 @@ def test_flag_defined_default_off():
 
 
 def test_network_conditional():
-    assert '_net = "bridge" if SANDBOX_ALLOW_NETWORK else "none"' in SRC
+    # lab-exec is a superset of ALLOW_NETWORK — both use bridge; only default uses none.
+    assert "_network_on = SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC" in SRC
+    assert '_net = "bridge" if _network_on else "none"' in SRC
 
 
 def test_resource_envelope_conditional():
-    assert "_cpus = SANDBOX_NET_CPUS if SANDBOX_ALLOW_NETWORK else" in SRC
-    assert "_mem = SANDBOX_NET_MEMORY if SANDBOX_ALLOW_NETWORK else" in SRC
+    # Three-tier envelope: lab-exec (widest) > allow-network > default (locked-down).
+    assert "_cpus, _mem = SANDBOX_LAB_CPUS, SANDBOX_LAB_MEMORY" in SRC
+    assert "_cpus, _mem = SANDBOX_NET_CPUS, SANDBOX_NET_MEMORY" in SRC
 
 
 def test_timeout_cap_conditional():

@@ -148,7 +148,7 @@ class TestWhisperOpenAIEndpoints:
 class TestBackendModelHintRouting:
     """Test backend routing and workspace configuration completeness."""
 
-    def test_all_13_workspaces_have_routing_entries(self):
+    def test_all_workspaces_have_routing_entries(self):
         """Every workspace ID must have a routing entry in backends.yaml."""
         from pathlib import Path
 
@@ -183,11 +183,33 @@ class TestBackendModelHintRouting:
         cfg = yaml.safe_load(Path("config/backends.yaml").read_text())
         routing = cfg.get("workspace_routing", {})
 
-        for ws_id in ["auto-security", "auto-redteam", "auto-blueteam"]:
+        for ws_id in [
+            "auto-security", "auto-redteam", "auto-blueteam",
+            "auto-purpleteam-exec", "auto-pentest",
+        ]:
             groups = routing.get(ws_id, [])
             assert "security" in groups, (
                 f"Workspace '{ws_id}' should prefer security group, got: {groups}"
             )
+
+    def test_exec_workspaces_have_execute_bash_tool(self):
+        """auto-purpleteam-exec and auto-pentest must declare execute_bash in their tool list."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        for ws_id in ["auto-purpleteam-exec", "auto-pentest"]:
+            tools = WORKSPACES[ws_id].get("tools", [])
+            assert "execute_bash" in tools, (
+                f"Exec workspace '{ws_id}' must include execute_bash in tools list"
+            )
+
+    def test_purpleteam_exec_has_chain_hops(self):
+        """auto-purpleteam-exec must define at least 3 follow-on chain hops."""
+        from portal_pipeline.router_pipe import WORKSPACES
+
+        chain = WORKSPACES["auto-purpleteam-exec"].get("chain", [])
+        assert len(chain) >= 3, (
+            f"auto-purpleteam-exec chain must have ≥3 hops (blue/detect/IR), got {len(chain)}"
+        )
 
     def test_backend_registry_loads_all_groups(self):
         """All core backend groups (general, coding, security, etc.) must load."""
