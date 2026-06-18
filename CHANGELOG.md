@@ -5,6 +5,33 @@ All notable changes to Portal 5 will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Claude Code / opencode integration** — Portal 5 now works as a local AI backend and tool
+  provider for AI coding assistants. Two files at the repo root activate automatically:
+  - **`.mcp.json`** — 6 MCP servers: `filesystem`, `fetch`, `git`, `docker`,
+    `portal-sandbox` (execute_bash/python), `portal-pipeline` (stack introspection + explorer)
+  - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local
+    OpenAI-compat provider; all 95 workspaces available as models; cloud providers disabled
+- **Pipeline MCP server** (`portal_mcp/platform/pipeline_mcp.py`, `:8928`, host-native) —
+  FastMCP service exposing 7 tools to coding tools: `get_pipeline_status`, `list_workspaces`,
+  `get_loaded_models`, `get_metrics_summary`, `get_workspace_recommendation`,
+  `trigger_backend_warmup`, and `explore_repository` (FastContext subagent).
+  Started automatically by `./launch.sh up`.
+- **FastContext repository explorer** — `explore_repository(query)` runs
+  `hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF` (Microsoft, 2.5 GB) as a subagent that
+  issues parallel READ/GLOB/GREP calls and returns compact file+line citations. Reduces the main
+  coding agent's exploration token burn by ~50-60% (SWE-bench data). FastContext notes in
+  `config/backends.yaml` updated to reflect its role as a tool-use subagent.
+- **`auto-coding-agentic` workspace** — new Devstral-24B workspace tuned for the Portal 5
+  self-improvement loop: `explore_repository` as first tool, agentic read→explore→edit→verify
+  system prompt, `keep_alive: 15m`. Lighter than `auto-agentic` (no media tools). 95 workspaces
+  total (was 94).
+- **Port 8928** reserved for Pipeline MCP. Port table updated in `CLAUDE.md`, `.env.example`,
+  `imports/openwebui/mcp-servers.json`.
+- **`docs/MCP_DEV_TOOLING.md`** rewritten — full guide covering both tools, FastContext
+  integration, workflow examples for bug fixing / feature addition / MCP server debugging.
+- **`README.md`** updated — workspace count (19 → 30), full workspace table, MCP server list
+  (12 → 14 + pipeline MCP), coding tool integration section.
+
 - **`auto-purpleteam-exec`** — new 4-hop execution-mode purple team workspace. Primary model
   (JANG-CRACK) has `execute_bash`, `execute_python`, `web_search` tools; runs live attack
   commands and passes real execution output through Foundation-Sec-8B → Qwen3-Coder-30B →
