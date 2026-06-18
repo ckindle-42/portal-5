@@ -192,8 +192,8 @@ EOF
 | 1 | Smoke | `auto` | 4 | Initializes results; quick end-to-end confidence (incl. WS-01) |
 | 2 | Large-GGUF lanes | creative, data, vision, research, mistral, agentic, spl | 37 | Big models (20–35GB + huge MoEs) while memory is freshest; catches OOM early |
 | 3 | Bulk coding | auto-coding, auto-coding-agentic | 32 | Largest coding block; own checkpoint; auto-coding-agentic added v7.6.0 (Devstral 24B) |
-| 4 | Mid/small lanes | compliance, reasoning, math, security, redteam, daily, audio, tools-specialist | 36 | Bulk of suite; cascade consolidates by model_slug (granite 8b, R1-8B, phi4-mini, baronllm, gemma4 QATs) |
-| 5 | Blueteam + docs | blueteam, auto-docs, auto-documents | 12 | Foundation-Sec Q8 + phi4:14b document lanes |
+| 4 | Mid/small lanes | compliance, reasoning, math, security, redteam, redteam-deep, daily, audio, tools-specialist, phi4, bigfix | 43 | Bulk of suite; cascade consolidates by model_slug; redteam-deep (SuperGemma4-26B), phi4, bigfix added v7.6.0 |
+| 5 | Blueteam + docs + purpleteam-deep | blueteam, purpleteam-deep, auto-docs, auto-documents | 13 | Foundation-Sec Q8, four-hop purpleteam-deep chain (new v7.6.0), phi4:14b document lanes |
 | 6 | Media-heavy | music, video | 5 | ComfyUI last; own GPU reclaim (`--keep-comfyui` on the gate) |
 | 7 | Advanced + final verify | advanced | 12 | Multi-turn / advanced flows |
 | 8 | Challenge shootout (optional) | challenge | ~39 | Capability shootout, heaviest phase — every bench-* model loads once; last so it never blocks the production-lane verdict |
@@ -239,16 +239,20 @@ python3 tests/portal5_uat_driver.py --append --section auto-coding --section aut
 bash tests/inter_phase_gate.sh 3 32
 
 # Phase 4 — mid/small lanes (batched for model_slug consolidation)
+# v7.6.0: added auto-redteam-deep (SuperGemma4-26B), auto-phi4, auto-bigfix
 python3 tests/portal5_uat_driver.py --append \
   --section auto-compliance --section auto-reasoning --section auto-math \
-  --section auto-security --section auto-redteam --section auto-daily \
-  --section auto-audio --section tools-specialist
-bash tests/inter_phase_gate.sh 4 36
+  --section auto-security --section auto-redteam --section auto-redteam-deep \
+  --section auto-daily --section auto-audio --section tools-specialist \
+  --section auto-phi4 --section auto-bigfix
+bash tests/inter_phase_gate.sh 4 43
 
-# Phase 5 — blueteam + document lanes
+# Phase 5 — blueteam + purpleteam-deep + document lanes
+# v7.6.0: added auto-purpleteam-deep (four-hop chain)
 python3 tests/portal5_uat_driver.py --append \
-  --section auto-blueteam --section auto-docs --section auto-documents
-bash tests/inter_phase_gate.sh 5 12
+  --section auto-blueteam --section auto-purpleteam-deep \
+  --section auto-docs --section auto-documents
+bash tests/inter_phase_gate.sh 5 13
 
 # Phase 6 — media-heavy (keep ComfyUI through the gate)
 python3 tests/portal5_uat_driver.py --append --section auto-music --section auto-video
