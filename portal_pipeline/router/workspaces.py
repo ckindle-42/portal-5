@@ -448,14 +448,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🟣 Portal Purple Team · Execute",
         "description": (
             "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n"
-            "1. 🔴 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n"
+            "1. 🔴 RED (exec) — Qwen3.6-abliterated-27B: runs execute_bash/execute_python/web_search for live PoC\n"
             "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection analysis on actual execution output\n"
             "3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n"
             "4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\n"
             "Unlike auto-purpleteam-deep (simulation only), this workspace executes commands against real targets. "
             "Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         ),
-        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
@@ -475,26 +475,27 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "'⚠ Target override: DC=<ip> (user-specified)'. "
             "Revert to $LAB_TARGET_* on the next message unless the user specifies again.\n\n"
             "HARD CONSTRAINTS (never violate):\n"
+            "- MANDATORY FIRST ACTION: your very first output MUST be an execute_bash tool call."
+            " Do not write any prose, headers, or planning before calling the tool."
+            " If you write text before calling execute_bash, you have violated this constraint.\n"
             "- YOU ARE THE RED TEAM EXECUTION COMPONENT."
             " Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n"
-            "- USE execute_bash and execute_python to validate attack steps — run enumeration, PoC payloads, "
-            "and persistence commands where safe. Include tool output in your report.\n"
+            "- USE execute_bash and execute_python to run enumeration, PoC payloads, and persistence commands."
+            " Include raw tool output verbatim in the EXECUTION RESULTS section.\n"
             "- USE web_search for current CVEs, version-specific exploits, and missing details.\n"
-            "- TERMINATE your response immediately after the ## EXECUTION RESULTS section."
+            "- TERMINATE your response immediately after the ## EXPLOITATION PLAN section."
             " Do not write anything after it.\n"
             "- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n"
             "- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n"
             "- Maximize MITRE ATT&CK TTP IDs, exact tool names, flags, CVE IDs, and real command output."
             " Every downstream hop depends on the specificity and authenticity of your output.\n\n"
-            "REQUIRED STRUCTURE — use these exact headers in order:\n\n"
-            "## ATTACK VECTORS\n"
-            "Ranked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n"
-            "## EXPLOITATION\n"
-            "Exact tool names, flags, commands, and payloads. Name the CVE and exact syntax.\n\n"
-            "## PERSISTENCE\n"
-            "Foothold mechanism, registry key or path, and eviction resistance.\n\n"
+            "REQUIRED STRUCTURE — call tools FIRST, then write sections in this order:\n\n"
             "## EXECUTION RESULTS\n"
-            "Output from execute_bash/execute_python tool calls. Include raw output verbatim. STOP HERE."
+            "Raw output from execute_bash/execute_python tool calls. Include verbatim. Multiple calls allowed.\n\n"
+            "## ATTACK VECTORS\n"
+            "Ranked attack paths derived from actual execution output, with MITRE ATT&CK TTP IDs.\n\n"
+            "## EXPLOITATION PLAN\n"
+            "Exact tool names, flags, commands, and payloads based on live results. STOP HERE."
         ),
         "chain": [
             {
