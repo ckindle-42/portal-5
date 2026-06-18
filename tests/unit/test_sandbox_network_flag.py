@@ -28,7 +28,8 @@ def test_timeout_cap_conditional():
 
 
 def test_health_reports_network_honestly():
-    assert '"network": "bridge" if SANDBOX_ALLOW_NETWORK else "disabled"' in SRC
+    # Lab-exec also routes through bridge — both flags enable bridge
+    assert '"network": "bridge" if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC else "disabled"' in SRC
 
 
 def test_writable_root_tmpfs_for_pip():

@@ -27,7 +27,13 @@ mcp = FastMCP("code-sandbox", host="0.0.0.0")
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
-    return JSONResponse({"status": "ok", "service": "sandbox-mcp"})
+    return JSONResponse({
+        "status": "ok",
+        "service": "sandbox-mcp",
+        "lab_exec_active": SANDBOX_LAB_EXEC,
+        "lab_image": SANDBOX_LAB_IMAGE or None,
+        "network": "bridge" if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC else "disabled",
+    })
 
 
 # Tool manifest for discovery
