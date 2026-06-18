@@ -41,6 +41,8 @@ RUN apt-get update \
         certipy-ad \
         responder \
         bloodhound-ce-python \
+        john \
+        wordlists \
     && rm -rf /var/lib/apt/lists/*
 
 # Sanity: verify headline tools are on PATH. Use command -v (existence check) — nmap and
@@ -53,6 +55,8 @@ RUN set -e; \
     command -v responder >/dev/null; \
     command -v bloodhound-ce-python >/dev/null; \
     command -v impacket-secretsdump >/dev/null; \
+    command -v john >/dev/null; \
+    test -f /usr/share/wordlists/rockyou.txt.gz; \
     python3 -c "import impacket; print('impacket ok')"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
