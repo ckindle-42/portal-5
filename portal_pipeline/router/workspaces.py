@@ -456,7 +456,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         ),
         "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
-        "think": False,
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
