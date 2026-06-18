@@ -1847,6 +1847,102 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
+    # ── TASK_MODEL_REFRESH_V8 / TASK_SPEECH_SHOOTOUT_V1 additions ───────────
+    "bench-granite-speech": {
+        "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
+        "description": (
+            "ASR bench — mlx-community/granite-speech-4.1-2b (native keyword biasing). "
+            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
+            "model_hint points to Ollama text fallback (granite4.1:8b) for graceful degradation."
+        ),
+        "model_hint": "granite4.1:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-huihui-qwen36-35b-a3b": {
+        "name": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
+        "description": (
+            "Benchmark: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated (MoE 3B active, "
+            "~20GB, abliterated). Speed play vs bench-huihui-qwen36-27b — 3B active MoE "
+            "for fast decode. Pull from HF GGUF before benching."
+        ),
+        "model_hint": "hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-lfm2-moe": {
+        "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
+        "description": (
+            "Benchmark: LiquidAI/LFM2-8B-A1B (non-Transformer hybrid arch, Ollama GGUF). "
+            "Not for code/knowledge — strengths: agentic tasks, data extraction, RAG, creative. "
+            "See persona system prompt for Liquid AI recommended parameters."
+        ),
+        "model_hint": "hf.co/bartowski/LFM2-8B-A1B-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-qwen36-27b-optiq": {
+        "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
+        "description": (
+            "Benchmark: Qwen3.6-27B with OptiQ per-layer quantization "
+            "(sensitive layers 8-bit, robust layers 4-bit). "
+            "Head-to-head vs bench-qwen36-27b (plain Q4_K_M) — TASK_QUANT_TRUEUP_V1 Finding A."
+        ),
+        "model_hint": "hf.co/bartowski/Qwen3.6-27B-OptiQ-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-starcoder2": {
+        "name": "🔬 Bench · StarCoder2-15B (BigCode)",
+        "description": (
+            "Benchmark: BigCode StarCoder2-15B (OpenRAIL-M license — review before external exposure). "
+            "Code completion and fill-in-the-middle (FIM). V8 model refresh A9."
+        ),
+        "model_hint": "starcoder2:15b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-toolace25": {
+        "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
+        "description": (
+            "SUBSTITUTED: served model is granite4.1:8b (original ToolACE-2.5 retired with "
+            "MLX inference tier 3a0c58e). Re-sourcing tracked in P5-FUT-PARITY-001. "
+            "Purpose: tool-calling empirical comparison vs other tool-capable models."
+        ),
+        "model_hint": "granite4.1:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-voxtral-realtime": {
+        "name": "🔬 Bench · Voxtral Realtime ASR (Mistral)",
+        "description": (
+            "ASR bench — mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit (streaming ASR). "
+            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
+            "Distinct from production batched Voxtral-2507 path in mlx-transcribe.py."
+        ),
+        "model_hint": "granite4.1:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-voxtral-tts": {
+        "name": "🔬 Bench · Voxtral TTS 4B (Mistral)",
+        "description": (
+            "TTS bench — mlx-community/Voxtral-4B-TTS-2603-mlx-6bit. "
+            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
+            "Promotion gate: win >=4/5 categories vs Kokoro AND Qwen3-TTS on multilingual phrases."
+        ),
+        "model_hint": "granite4.1:8b",
+        "max_concurrent": 1,
+        "keep_alive": "5m",
+        "tools": [],
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

@@ -83,6 +83,12 @@ backends:
   - id: gemma4:e4b-it-q4_K_M
     supports_tools: true
     notes: "Gemma 4 E4B MoE (~9.6GB, Google, 4B active, 128K ctx, VLM+thinking+audio). Daily-driver candidate bench."
+  - id: "hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Huihui-Qwen3.6-35B-A3B abliterated Q4_K_M (~20GB, vanch007, MoE 3B active). Speed play — 3B active parameters for fast decode. Same huihui-ai abliteration lineage. bench-huihui-qwen36-35b-a3b target. Pull: ollama pull hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M"
+  - id: "hf.co/bartowski/LFM2-8B-A1B-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "LFM2-8B-A1B Q4_K_M (~5GB, LiquidAI, non-Transformer hybrid arch). Strengths: agentic tasks, data extraction, RAG, creative writing. NOT for code/knowledge. bench-lfm2-moe target (TASK_MODEL_REFRESH_V8 A8 successor). Pull: ollama pull hf.co/bartowski/LFM2-8B-A1B-GGUF:Q4_K_M"
 - id: ollama-coding
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -200,6 +206,12 @@ backends:
   - id: "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf"
     supports_tools: false
     notes: "Apriel-Nemotron-15b-Thinker Q5_K_M (~10GB, bartowski GGUF, ServiceNow AI + NVIDIA, Apache 2.0, 15B dense). Enterprise reasoning model with extended chain-of-thought thinking. Strong on code, math, and multi-step problem-solving. Smaller than 27B class — candidate for auto-reasoning fast-path if quality competitive. bench-apriel-nemotron target (TASK_MODEL_EVAL_V9_CANDIDATES). supports_tools=false (reasoning/thinking model; verify via --audit-tools before promotion)."
+  - id: starcoder2:15b
+    supports_tools: false
+    notes: "StarCoder2-15B (BigCode, OpenRAIL-M license — review before external exposure). Code completion and FIM specialist. V8 model refresh A9. Pull: ollama pull starcoder2:15b"
+  - id: "hf.co/bartowski/Qwen3.6-27B-OptiQ-GGUF:Q4_K_M"
+    supports_tools: true
+    notes: "Qwen3.6-27B OptiQ Q4_K_M (~16GB, bartowski, per-layer KL sensitivity quantization). Head-to-head vs bench-qwen36-27b (plain Q4_K_M) — TASK_QUANT_TRUEUP_V1 Finding A. supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen3.6-27B-OptiQ-GGUF:Q4_K_M"
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -749,6 +761,25 @@ workspace_routing:
   - general
   bench-c3d-v0:
   - coding
+  - general
+  bench-granite-speech:
+  - general
+  bench-huihui-qwen36-35b-a3b:
+  - general
+  - creative
+  bench-lfm2-moe:
+  - general
+  bench-qwen36-27b-optiq:
+  - general
+  - coding
+  bench-starcoder2:
+  - coding
+  - general
+  bench-toolace25:
+  - general
+  bench-voxtral-realtime:
+  - general
+  bench-voxtral-tts:
   - general
   tools-specialist:
   - general
