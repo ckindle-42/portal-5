@@ -17,9 +17,12 @@
     "portal": {
       "name": "Portal 5 (local)",
       "api": "openai",
+      // opencode reads PIPELINE_API_KEY from the environment and passes it as
+      // the Bearer token. Before running opencode, export the key:
+      //   export $(grep PIPELINE_API_KEY .env | xargs)
+      "env": ["PIPELINE_API_KEY"],
       "options": {
-        "baseURL": "http://localhost:9099/v1",
-        "apiKey": "PIPELINE_API_KEY"
+        "baseURL": "http://localhost:9099/v1"
       },
       // Curated workspace subset for coding tasks — use `opencode models`
       // to see all 94 or select any workspace from the model picker.
