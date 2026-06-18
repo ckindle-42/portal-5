@@ -61,6 +61,14 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 | `trigger_backend_warmup` | Pre-loads a workspace model into VRAM before a long session |
 | `explore_repository` | **FastContext subagent** — finds relevant files and line ranges |
 
+> **Two consumer paths.** These tools are reachable two ways:
+> (A) **opencode / Claude Code** connect to `:8928` directly over MCP streamable-http
+> (via `.mcp.json`); (B) the **in-pipeline `auto-coding-agentic` workspace** reaches them
+> through the pipeline's ToolRegistry, which discovers `GET :8928/tools` and dispatches
+> `POST :8928/tools/{name}`. Both paths are served by the same `_impl_*` helpers in
+> `pipeline_mcp.py`, so behavior is identical. `:8928` is registered in
+> `MCP_SERVERS["pipeline"]` (`MCP_PIPELINE_URL` to override).
+
 ### FastContext Repository Explorer
 
 `explore_repository(query)` runs **FastContext-1.0-4B-SFT** (Microsoft, 2.5 GB,
