@@ -277,6 +277,27 @@ _ensure_native_services() {
             echo "[portal-5]   ✅ MLX Transcribe started on :${MLX_TRANSCRIBE_PORT:-8924}"
         fi
     fi
+
+    # ── Pipeline MCP (host-native, :8928) ────────────────────────────────────
+    # Exposes get_pipeline_status, list_workspaces, get_loaded_models,
+    # explore_repository (FastContext subagent), and get_metrics_summary
+    # to coding tools (Claude Code, opencode) via .mcp.json.
+    local PIPELINE_MCP_PID_FILE="/tmp/portal-pipeline-mcp.pid"
+    local PIPELINE_MCP_MODULE="portal_mcp.platform.pipeline_mcp"
+    if [ -f "$PIPELINE_MCP_PID_FILE" ] && kill -0 "$(cat "$PIPELINE_MCP_PID_FILE")" 2>/dev/null; then
+        echo "[portal-5]   ✅ Pipeline MCP: running (PID $(cat "$PIPELINE_MCP_PID_FILE"))"
+    else
+        echo "[portal-5]   Pipeline MCP not running — starting..."
+        mkdir -p "$HOME/.portal5/logs"
+        PIPELINE_API_KEY="${PIPELINE_API_KEY:-}" \
+        PIPELINE_URL="${PIPELINE_URL:-http://localhost:9099}" \
+        OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}" \
+        PIPELINE_MCP_REPO_ROOT="$PORTAL_ROOT" \
+        nohup python3 -m "$PIPELINE_MCP_MODULE" \
+            >> "$HOME/.portal5/logs/pipeline-mcp.log" 2>&1 &
+        echo $! > "$PIPELINE_MCP_PID_FILE"
+        echo "[portal-5]   ✅ Pipeline MCP started on :${PIPELINE_MCP_PORT:-8928}"
+    fi
 }
 
 # ── Teardown helper (shared by 'down' and the pre-start phase of 'up') ────────
@@ -332,6 +353,15 @@ _do_down() {
             echo "[portal-5] MLX Transcribe stopped."
         else
             echo "[portal-5] MLX Transcribe: not running (nothing to stop)."
+        fi
+
+        # Pipeline MCP (:8928)
+        if [ -f /tmp/portal-pipeline-mcp.pid ] && kill -0 "$(cat /tmp/portal-pipeline-mcp.pid)" 2>/dev/null; then
+            kill "$(cat /tmp/portal-pipeline-mcp.pid)" 2>/dev/null || true
+            rm -f /tmp/portal-pipeline-mcp.pid
+            echo "[portal-5] Pipeline MCP stopped."
+        else
+            echo "[portal-5] Pipeline MCP: not running (nothing to stop)."
         fi
 
         # ARM64 embedding server (:8917)

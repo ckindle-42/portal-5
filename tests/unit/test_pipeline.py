@@ -324,11 +324,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 92 (30 production + 1 tools-specialist + 61 bench-*)."""
+        """Total workspace count is 95 (31 production + 1 tools-specialist + 61 bench-* + 2 agentic coding)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 94, (
-            f"Expected 94 workspaces (30 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 95, (
+            f"Expected 95 workspaces (31 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -735,11 +735,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 92 (30 production + 1 tools-specialist + 61 bench-*)."""
+        """Total workspace count must be 95 (31 production + 1 tools-specialist + 61 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 94, (
-            f"Expected 94 workspaces (30 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 95, (
+            f"Expected 95 workspaces (31 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

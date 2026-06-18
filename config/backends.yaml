@@ -195,8 +195,8 @@ backends:
     supports_tools: false
     notes: "Gemma4-12B-Coder-Fable5-Composer2.5-v1 Q4_K_M (~6.87GB, yuxinlu1, Gemma license, June 2026). Fine-tune of Gemma 4 12B on verifiable Python CoT: Composer 2.5 real reasoning traces + Fable 5 synthetic second-attempt traces, both gated on test execution. Coding + reasoning specialist. 131K ctx. No tool-use tag on card — supports_tools=false pending --audit-tools verification. bench-gemma4-12b-coder target (TASK_MODEL_EVAL_V9_CANDIDATES). Lightweight (~7GB) coding specialist with distinct training lineage vs fleet. Gemma license: commercial-OK consistent with other Gemma4 fleet models."
   - id: "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
-    supports_tools: false
-    notes: "FastContext-1.0-4B-SFT Q4_K_M (~2.5GB, Microsoft github.com/microsoft/fastcontext, mitkox GGUF quant). Purpose-trained for long-context retrieval: needle-in-haystack, multi-hop QA, 32K-128K ctx. NOT a coding or tool-use model. NOT suitable as router (standard model with refusals). bench-fastcontext target. Pull: ollama pull hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
+    supports_tools: true
+    notes: "FastContext-1.0-4B-SFT Q4_K_M (~2.5GB, Microsoft arxiv:2606.14066, mitkox GGUF quant). Repository-exploration SUBAGENT: issues parallel READ/GLOB/GREP tool calls to locate relevant code, returns compact file+line citations. Reduces main-agent exploration token burn by ~50-60% on SWE-bench. Used by pipeline_mcp.explore_repository() — called by auto-coding-agentic before edits. NOT for direct workspace routing. supports_tools=true (READ/GLOB/GREP are its three native tools per paper). Pull: ollama pull hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
   - id: "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf"
     supports_tools: false
     notes: "Apriel-Nemotron-15b-Thinker Q5_K_M (~10GB, bartowski GGUF, ServiceNow AI + NVIDIA, Apache 2.0, 15B dense). Enterprise reasoning model with extended chain-of-thought thinking. Strong on code, math, and multi-step problem-solving. Smaller than 27B class — candidate for auto-reasoning fast-path if quality competitive. bench-apriel-nemotron target (TASK_MODEL_EVAL_V9_CANDIDATES). supports_tools=false (reasoning/thinking model; verify via --audit-tools before promotion)."
@@ -467,6 +467,9 @@ workspace_routing:
   auto-daily:
   - general
   auto-coding:
+  - coding
+  - general
+  auto-coding-agentic:
   - coding
   - general
   auto-agentic:
