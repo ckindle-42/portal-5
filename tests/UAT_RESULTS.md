@@ -6,9 +6,9 @@
 
 ## Summary
 
-- **PASS**: 393
+- **PASS**: 395
 - **WARN**: 33
-- **FAIL**: 14
+- **FAIL**: 12
 - **SKIP**: 12
 - **BLOCKED**: 0
 - **MANUAL**: 2
@@ -1550,3 +1550,31 @@ Tests that matched expected routing — breakdown of which backend *actually* se
 
 All routing checks passed — every test was served by its intended primary model.
 | 1 | PASS | [P-N05 Database Architect — Multi-Tenant Schema](http://localhost:8080/c/fd0c01ff-5df5-41fa-b6d8-a2116b7255f0) | `databasearchitect` | 4/4(100%) Tenancy model discussed=✓(found: ['row-level', 'schema-per', 'tenant_id', 'tenancy', 'isolation']); Trade-offs acknowledged=✓(found: ['trade-off', 'cost', 'isolation', 'performance', 'cons']); Schema DDL or pseudo-code present=✓(code block present); Routed model: databasearchitect=✓(matches via workspace 'auto-data': Ollama:granite4.1 — pipeline confirms: ollama-reasoning|granite4.1:30b) | 412.8s |
+| 1 | PASS | [P-N19 Proofreader — Copy Editing Pass](http://localhost:8080/c/1d245441-2460-4ee9-bcf5-e7349afca83d) | `proofreader` | 4/4(100%) Subject-verb agreement noted=✓(found: ['team has', 'subject-verb', 'collective noun', 'singular', 'has agreed', 'verb agreement', 'agreement error']); Spelling error found=✓(found: ['discuss', 'dicuss', 'spelling']); Apostrophe error found=✓(found: ["it's", 'its', 'possessive', 'apostrophe', 'contraction', 'its impact', 'possessive form']); Routed model: proofreader=✓(matches via workspace 'auto-creative': Ollama:qwen3.6-35b-a3b-uncensored-hauhaucs-aggressive — pipeline confirms: ollama-creative|fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4) | 112.5s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 1 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| P-N19 | Proofreader — Copy Editing Pass | auto-creative | `ollama-creative|fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` |
+
+All routing checks passed — every test was served by its intended primary model.
