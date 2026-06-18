@@ -17,7 +17,7 @@ import httpx
 from tests.uat import state
 from tests.uat.browser import _navigate_to_chat, _send_and_wait
 from tests.uat.calibration import _emit_corpus_row
-from tests.uat.config import MAX_WAIT_NO_PROGRESS, SCREENSHOT_DIR
+from tests.uat.config import MAX_WAIT_NO_PROGRESS, OPENWEBUI_URL, SCREENSHOT_DIR
 from tests.uat.dispatch import (
     _fe_current_chat_url,
     _fe_download_artifact,
@@ -564,18 +564,32 @@ async def run_test(
             counts["FAIL"] = counts.get("FAIL", 0) + 1
             return
 
-    # Create chat and assign folder via API BEFORE browser navigation.
-    # Assigning the folder after the browser has loaded an empty chat causes
-    # OWUI to broadcast a chat-updated SSE event. The Svelte component re-renders
-    # the "new chat" suggestions view in response, which corrupts the submit handler
-    # and silently drops Enter keypresses. Assigning the folder first means the
-    # browser opens the chat with the folder already set — no SSE event fires
-    # during the test session.
-    chat_id, chat_url = owui_create_chat(token, model, title_pending)
-    if folder_id:
-        owui_assign_chat_folder(token, chat_id, folder_id)
+    # Navigate to /?models=<slug> (new-chat mode) instead of /c/<pre-created-id>.
+    #
+    # OWUI's /c/<id> mode for an existing empty chat shows a "suggestions view".
+    # In this state Svelte's contenteditable draft bindings are broken: ta.fill()
+    # updates the DOM (making the send button appear) but does NOT update the
+    # Svelte store that builds the user_message in the API request. The send button
+    # click therefore fires with messages=null → 400. Root cause: P-N19 failures.
+    #
+    # /?models=<slug> puts OWUI in "new chat" mode where Svelte initialises its
+    # draft store correctly. After the first send OWUI auto-creates the chat and
+    # redirects to /c/<auto-id>, which we capture via _fe_current_chat_url().
+    #
+    # Folder assignment happens after the first send (not before navigation) because
+    # the auto-created chat_id is unknown until then. The SSE-corruption concern
+    # (assigning folder while browser shows an empty chat) does not apply here:
+    # by the time we assign the folder the model is already streaming.
+    chat_id = ""
+    chat_url = ""
     try:
-        await _navigate_to_chat(page, chat_url)
+        await page.goto(
+            f"{OPENWEBUI_URL}/?models={model}",
+            wait_until="networkidle",
+            timeout=60000,
+        )
+        await page.wait_for_selector("textarea, [contenteditable='true']", timeout=30000)
+        await page.wait_for_timeout(2000)
     except _PresetUnreachableError as exc:
         record_result(
             n,
@@ -672,6 +686,17 @@ async def run_test(
             if _needs_metrics:
                 _tool_calls_after = _snapshot_tool_calls()
             chat_url = _fe_current_chat_url(page, fallback=chat_url)
+            # After the first send OWUI auto-creates a chat (/?models= navigation)
+            # and redirects to /c/<auto-id>. Capture the new chat_id from the URL
+            # so all subsequent API calls (get_last_response, rename, folder) target
+            # the correct chat.
+            if not chat_id and "/c/" in chat_url:
+                chat_id = chat_url.split("/c/")[-1].split("?")[0].rstrip("/")
+                # Set title and folder on the auto-created chat now that we have its id.
+                if chat_id:
+                    owui_rename_chat(token, chat_id, title_pending)
+                    if folder_id:
+                        owui_assign_chat_folder(token, chat_id, folder_id)
             response_text = await _fe_get_last_response(page, token, chat_id)
             if response_text:
                 break

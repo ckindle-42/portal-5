@@ -160,5 +160,11 @@ async def _fe_download_artifact(
 
 
 def _fe_current_chat_url(page, fallback: str) -> str:
-    """Return the API-given chat_url."""
+    """Return the current chat URL from page.url (populated after OWUI auto-creates a chat on send)."""
+    try:
+        url = page.url
+        if "/c/" in url:
+            return url
+    except Exception:
+        pass
     return fallback

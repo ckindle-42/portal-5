@@ -352,9 +352,34 @@ async def _send_and_wait(
     turn-2 calls so completion detection requires ≥ 2 committed assistant
     responses, preventing turn-1's stable content from firing a false early exit.
     """
+    # Fill + submit for OWUI's contenteditable input.
+    #
+    # OWUI 0.9.5+ uses a contenteditable <div> for chat input. The send button
+    # (#send-message-button) is rendered dynamically by Svelte when the draft
+    # is non-empty. Svelte's reactivity requires a native browser `input` event
+    # with inputType='insertText' — Playwright's ta.fill() on a contenteditable
+    # dispatches an 'input' event via CDP's Input.insertText, but in a headless
+    # cold-session context OWUI's Svelte handler sometimes misses it, leaving
+    # the draft store empty and making the submit send a null message.
+    #
+    # document.execCommand('insertText') fires the DOM's native input event with
+    # the correct inputType and bubbles through all Svelte reactive handlers,
+    # reliably updating the draft store. The send button then appears within
+    # Svelte's next microtask tick (~0ms, but we wait 600ms for safety).
+    #
+    # NOTE: this path is called in /?models=<slug> mode (new-chat state).
+    # /c/<id> (existing empty chat) mode has a separate Svelte state bug fixed
+    # by the navigation change in runner.py.
     ta = page.locator("textarea, [contenteditable='true']").first
     await ta.click()
-    await ta.fill(prompt)
+    # Use page.keyboard.type() which fires CDP Input.dispatchKeyEvent for every
+    # character — the most faithful simulation of real typing. ta.fill() uses
+    # CDP Input.insertText which in some headless Svelte contexts does not trigger
+    # the reactive input handler (draft store stays empty → send submits null
+    # message). Keyboard events go through the full browser event pipeline and
+    # reliably update OWUI's Svelte draft store.
+    await page.keyboard.type(prompt, delay=0)
+    await page.wait_for_timeout(600)  # Svelte async DOM update
     send_btn = page.locator("#send-message-button")
     if await send_btn.count() > 0:
         await send_btn.click()
