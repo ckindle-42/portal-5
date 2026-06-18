@@ -622,16 +622,20 @@ async def main() -> None:
                 corpus_run_id=corpus_run_id,
             )
 
-            # Post-test memory cleanup: only evict when the NEXT test uses a
-            # different model_slug. Cascade grouping already keeps same-model
-            # tests together to minimize model switches — don't undo that.
+            # Post-test memory cleanup: evict unconditionally on model change.
+            # With OLLAMA_MAX_LOADED_MODELS=3 and keep_alive=-1, prior models
+            # stay resident even after we switch — they stack with the next
+            # large model and exhaust Metal memory. Always evict on model
+            # change regardless of current memory percentage.
+            # Same-model runs still respect a threshold to preserve KV cache
+            # (avoids re-loading cost for same-model test groups).
             if i < len(tests):
                 next_test = tests[i]
                 same_model = test.get("model_slug") == next_test.get("model_slug") and test.get(
                     "workspace_tier"
                 ) == next_test.get("workspace_tier")
                 mem_pct = _get_memory_pct()
-                if not same_model and mem_pct >= MEMORY_WARN_PCT:
+                if not same_model:
                     print(f"  [mem] Post-test memory at {mem_pct:.0f}% — evicting (model changing)")
                     unload_all_models()
                     _wait_for_drain(threshold_pct=MEMORY_WARN_PCT, timeout_s=90.0, label="post-evict")
