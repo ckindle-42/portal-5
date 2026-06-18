@@ -327,8 +327,8 @@ class TestComplianceWorkspace:
         """Total workspace count is 95 (31 production + 1 tools-specialist + 61 bench-* + 2 agentic coding)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 95, (
-            f"Expected 95 workspaces (31 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 103, (
+            f"Expected 103 workspaces (32 production + 1 tools-specialist + 70 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -738,8 +738,8 @@ class TestSPLWorkspace:
         """Total workspace count must be 95 (31 production + 1 tools-specialist + 61 bench-*)."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 95, (
-            f"Expected 95 workspaces (31 production + 1 tools-specialist + 61 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 103, (
+            f"Expected 103 workspaces (32 production + 1 tools-specialist + 70 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 

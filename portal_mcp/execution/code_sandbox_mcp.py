@@ -355,7 +355,7 @@ async def execute_python(
     # Use file-based execution to avoid shell escaping issues
     return await _run_in_docker(
         image=_resolve_image(PYTHON_IMAGE),
-        command=["python", "/code"],
+        command=["python3", "/code"],
         code=code,
         timeout=timeout,
     )

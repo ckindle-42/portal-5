@@ -239,6 +239,9 @@ async def _mcp_raw(
     section: str,
     tid: str,
     name: str,
+    ok_fn,
+    detail_fn=None,
+    warn_if=None,
     timeout: int = 30,
 ) -> None:
     return await _monolith()._mcp_raw(
@@ -248,6 +251,9 @@ async def _mcp_raw(
         section=section,
         tid=tid,
         name=name,
+        ok_fn=ok_fn,
+        detail_fn=detail_fn,
+        warn_if=warn_if,
         timeout=timeout,
     )
 

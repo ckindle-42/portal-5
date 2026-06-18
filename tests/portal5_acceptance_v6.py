@@ -1608,6 +1608,24 @@ PERSONA_PROMPTS = {
             "order",
         ],
     ),
+    # ── M1: Security / pentest personas ──────────────────────────────────
+    "adversarysimulator": (
+        "Simulate an adversary attempting lateral movement after initial access. List three techniques with MITRE ATT&CK IDs.",
+        ["lateral", "movement", "T1", "technique", "ATT&CK", "credential", "pivot", "pass-the-hash", "psexec"],
+    ),
+    "pentestlead": (
+        "Outline the phases of a black-box web application penetration test and list two tools per phase.",
+        ["reconnaissance", "scanning", "exploitation", "reporting", "tool", "nmap", "burp", "nikto", "phase"],
+    ),
+    # ── M1: CAD / 3D printing personas ───────────────────────────────────
+    "cadquerydesigner": (
+        "Write CadQuery Python code to create a simple 10mm cube.",
+        ["cadquery", "cq", "box", "workplane", "export", "solid", "10"],
+    ),
+    "printabilityengineer": (
+        "Review this 3D model issue: overhangs greater than 45 degrees with no support. What printability problems arise and how would you fix them?",
+        ["overhang", "support", "45", "layer", "print", "bridge", "orient", "sag"],
+    ),
 }
 
 
