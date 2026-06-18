@@ -60,14 +60,16 @@ Everything runs with a single command. No manual configuration.
 | Service | What it does | URL |
 |---|---|---|
 | Open WebUI | Chat interface — your main portal | http://localhost:8080 |
-| Portal Pipeline | Intelligent routing to models | (internal) |
-| Ollama | Runs local language models | (internal) |
+| Portal Pipeline | Intelligent routing, auth, metrics | :9099 (internal) |
+| Ollama | Runs local GGUF models via Metal | :11434 (internal) |
 | SearXNG | Private web search for research | (internal) |
 | ComfyUI | Image and video generation (host-native) | http://localhost:8188 |
-| 12 MCP Servers | Documents (:8913), Code sandbox (:8914), Security (:8919), Whisper (:8915), TTS (:8916), ComfyUI (:8910), Video (:8911), Music (:8912, host-native — requires `./launch.sh install-music`), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923) | (internal) |
-| MLX Transcribe | Diarized transcription (mlx-whisper + pyannote speaker labeling, Apple Silicon only) | :8924 (internal) |
-| MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (host-native, Apple Silicon only) | :8918 (internal) |
-| Embedding | Harrier-0.6B text embeddings for RAG | :8917 (internal) |
+| MCP Servers (14) | ComfyUI (:8910), Video (:8911), Music (:8912), Documents (:8913), Code sandbox (:8914), Whisper (:8915), TTS (:8916), Security (:8919), Memory (:8920), RAG (:8921), Research (:8922), Browser (:8923), CAD render (:8926), Proxmox (:8927) | (internal) |
+| Pipeline MCP | Stack introspection + FastContext code explorer for Claude Code / opencode | :8928 (host-native) |
+| MLX Transcribe | Diarized transcription — mlx-whisper + pyannote (Apple Silicon) | :8924 (host-native) |
+| MLX Speech | Kokoro TTS + Qwen3-TTS/ASR (Apple Silicon) | :8918 (host-native) |
+| Embedding | Harrier-0.6B text embeddings for RAG | :8917 (host-native) |
+| Reranker | Qwen3-Reranker-0.6B two-stage RAG | :8925 (host-native) |
 | Prometheus | Metrics collection | http://localhost:9090 |
 | Grafana | Metrics dashboard | http://localhost:3000 |
 
@@ -78,36 +80,41 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **19 functional workspaces** (plus 18 benchmark workspaces for performance comparison).
+Portal 5 includes **30 functional workspaces** (plus 65 benchmark workspaces for performance comparison).
 
 ### Functional Workspaces
 
 | Workspace | Purpose | Auto-activates |
 |---|---|---|
-| `auto` | General — routes to best model | — |
-| `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning (gemma-4-26b-a4b, 57.8 TPS) | Research + Memory |
-| `auto-coding` | Code generation and review | Code sandbox |
-| `auto-agentic` | Long-horizon multi-file agentic coding (Qwen3-Coder-Next 80B) | Code sandbox |
-| `auto-security` | Security analysis, CVE triage, hardening | web_search, kb_search |
-| `auto-redteam` | Offensive security — structured ATT&CK output, simulation only | — |
-| `auto-redteam-deep` | High-fidelity red team — SuperGemma4-26B (0.915 bench, 6.7 ATT&CK IDs avg) | — |
-| `auto-blueteam` | Defensive security, incident response, threat hunting | — |
-| `auto-pentest` | Authorized pentest assistant with live execution — JANG-CRACK 31B (0.933 bench) | execute_bash, execute_python, web_search |
-| `auto-purpleteam` | Two-hop purple team chain — red (Qwen3.5-abliterated) → blue (Foundation-Sec-8B) | — |
-| `auto-purpleteam-deep` | Four-hop purple team — red → blue → detection artifacts (Sigma/Wazuh) → IR playbook | — |
-| `auto-purpleteam-exec` | Four-hop execution-mode purple team — live attack execution + detection + IR playbook | execute_bash, execute_python, web_search |
+| `auto` | General — routes to best model for each task | — |
+| `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
+| `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE) | Code sandbox |
+| `auto-coding-agentic` | Agentic coding for Portal 5 self-improvement — Devstral 24B with FastContext explorer | execute_bash, explore_repository |
+| `auto-agentic` | Long-horizon multi-file agentic coding — Qwen3-Coder-Next 80B MoE | Code sandbox, full tool suite |
+| `auto-reasoning` | Extended reasoning, complex analysis — Qwopus 27B | — |
+| `auto-research` | Web research and synthesis | web_search, web_fetch |
+| `auto-vision` | Image understanding, visual Q&A | — |
+| `auto-creative` | Creative writing with voice output | TTS |
 | `auto-documents` | Create Word, Excel, PowerPoint | Documents + Code |
-| `auto-music` | Generate music via HuggingFace MusicGen | Music + TTS |
-| `auto-video` | Generate video via ComfyUI | Video + Image |
-| `auto-vision` | Image understanding, visual tasks | Image generation |
-| `auto-creative` | Creative writing | TTS voice |
-| `auto-research` | Web research and synthesis | — |
-| `auto-reasoning` | Deep reasoning, complex analysis | — |
-| `auto-data` | Data analysis, statistics | Code + Documents |
+| `auto-data` | Data analysis, statistics, charting | Code + Documents |
 | `auto-math` | Mathematical problem solving, proofs, calculus | Code sandbox |
-| `auto-spl` | Splunk SPL queries, pipeline explanation | — |
+| `auto-audio` | Audio processing and transcription | Transcribe |
+| `auto-music` | Generate music via MusicGen | Music |
+| `auto-video` | Generate video via ComfyUI | Video |
+| `auto-cad` | 3D CAD model generation — OpenSCAD, CadQuery | CAD render |
+| `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
 | `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | — |
 | `auto-mistral` | Strategic analysis, business reasoning | — |
+| `auto-phi4` | Phi-4 specialist — math, science, structured reasoning | — |
+| `auto-bigfix` | IBM BigFix relevance scripting | — |
+| `auto-security` | Security analysis, CVE triage, hardening | web_search, kb_search |
+| `auto-redteam` | Offensive security — structured ATT&CK output, simulation only | — |
+| `auto-redteam-deep` | High-fidelity red team — SuperGemma4-26B (0.915 bench) | — |
+| `auto-blueteam` | Defensive security, incident response, threat hunting | — |
+| `auto-pentest` | Authorized pentest assistant with live execution — JANG-CRACK 31B | execute_bash, execute_python, web_search |
+| `auto-purpleteam` | Two-hop purple team chain — red → blue | — |
+| `auto-purpleteam-deep` | Four-hop purple team — red → blue → Sigma/Wazuh → IR playbook | — |
+| `auto-purpleteam-exec` | Execution-mode purple team — live attack + detection + IR playbook | execute_bash, execute_python, web_search |
 
 ### Benchmark Workspaces (user-selected only)
 
@@ -322,10 +329,40 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 
 ---
 
+## Coding Tool Integration (Claude Code / opencode)
+
+Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
+activate automatically when either tool opens this project:
+
+- **`.mcp.json`** — 6 MCP servers: filesystem, git, docker, fetch, portal-sandbox (execute_bash),
+  portal-pipeline (FastContext code explorer + stack introspection)
+- **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
+  all 95 workspaces available as models; cloud providers disabled
+
+**Claude Code** (uses Anthropic AI, Portal 5 as tool provider):
+```bash
+claude .    # .mcp.json picked up automatically — portal-sandbox + pipeline tools available
+```
+
+**opencode** (uses Portal 5 models locally, zero cloud):
+```bash
+export $(grep PIPELINE_API_KEY .env | xargs)
+opencode .  # default model: portal/auto-coding-agentic (Devstral 24B)
+```
+
+The `auto-coding-agentic` workspace uses **FastContext-4B** as an exploration subagent — it finds
+exact file paths and line ranges before Devstral edits anything, reducing wasted token budget by
+~50-60% compared to unguided file scanning.
+
+See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow examples, and tool reference.
+
+---
+
 ## Documentation
 
 | Guide | Contents |
 |---|---|
+| [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) | Claude Code & opencode integration, FastContext explorer, workflow examples |
 | [How-To Guide](docs/HOWTO.md) | Complete guide with working examples for every feature, including remote API access |
 | [User Guide](docs/USER_GUIDE.md) | How to use workspaces, tools, personas |
 | [Admin Guide](docs/ADMIN_GUIDE.md) | User management, configuration, security |

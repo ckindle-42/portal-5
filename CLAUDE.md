@@ -298,6 +298,6 @@ Before adding new tasks or filing issues, check `KNOWN_LIMITATIONS.md` — some 
 | Speech pipeline (Kokoro + Qwen3-TTS/ASR) | `docs/HOWTO.md` (§ MLX Speech) |
 | Voice cloning (fish-speech, optional) | `docs/FISH_SPEECH_SETUP.md` |
 | Diarized transcription | `docs/HOWTO.md` (§ Transcription) |
-| IDE MCP tooling (filesystem, fetch, git, docker) | `docs/MCP_DEV_TOOLING.md` |
+| Claude Code / opencode integration + FastContext explorer | `docs/MCP_DEV_TOOLING.md` |
 | Cluster scaling | `docs/CLUSTER_SCALE.md` |
 | Admin guide | `docs/ADMIN_GUIDE.md` |
