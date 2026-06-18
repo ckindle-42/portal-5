@@ -12,10 +12,12 @@ and opencode pick it up automatically when opening the portal-5 project.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import pathlib
 import re
+from typing import Any
 
 import httpx
 from starlette.responses import JSONResponse
@@ -28,8 +30,9 @@ PORT = int(os.environ.get("PIPELINE_MCP_PORT", 8928))
 PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
+# parents[2]: pipeline_mcp.py → platform/ → portal_mcp/ → portal-5/
 REPO_ROOT = pathlib.Path(
-    os.environ.get("PIPELINE_MCP_REPO_ROOT", pathlib.Path(__file__).parents[3])
+    os.environ.get("PIPELINE_MCP_REPO_ROOT", pathlib.Path(__file__).parents[2])
 ).resolve()
 
 _FASTCONTEXT_MODEL = "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M"
@@ -104,12 +107,12 @@ _FASTCONTEXT_TOOLS = [
 mcp = FastMCP("portal-pipeline")
 
 
-def _pipeline_headers() -> dict:
+def _pipeline_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {PIPELINE_API_KEY}"} if PIPELINE_API_KEY else {}
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health_check(request):
+async def health_check(request: Any) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "pipeline-mcp", "port": PORT})
 
 
@@ -117,7 +120,7 @@ async def health_check(request):
 
 
 @mcp.tool()
-async def get_pipeline_status() -> dict:
+async def get_pipeline_status() -> dict[str, Any]:
     """Return Portal 5 pipeline health: backend count, workspace count, version.
 
     Use this before starting any coding task to confirm the stack is up and
@@ -126,13 +129,14 @@ async def get_pipeline_status() -> dict:
     async with httpx.AsyncClient(timeout=10) as client:
         try:
             r = await client.get(f"{PIPELINE_URL}/health", headers=_pipeline_headers())
-            return r.json()
+            result: dict[str, Any] = r.json()
+            return result
         except Exception as e:
             return {"error": str(e), "pipeline_url": PIPELINE_URL}
 
 
 @mcp.tool()
-async def list_workspaces(filter: str = "") -> list[dict]:
+async def list_workspaces(filter: str = "") -> list[dict[str, Any]]:
     """List all Portal 5 workspaces (AI models) with their routing metadata.
 
     Args:
@@ -164,7 +168,7 @@ async def list_workspaces(filter: str = "") -> list[dict]:
 
 
 @mcp.tool()
-async def get_loaded_models() -> list[dict]:
+async def get_loaded_models() -> list[dict[str, Any]]:
     """Return which Ollama models are currently loaded in VRAM/RAM.
 
     Shows model name, size, and expiry time. Use this to check if the model
@@ -188,7 +192,7 @@ async def get_loaded_models() -> list[dict]:
 
 
 @mcp.tool()
-async def get_metrics_summary() -> dict:
+async def get_metrics_summary() -> dict[str, Any]:
     """Return key Portal 5 operational metrics from Prometheus.
 
     Returns request totals, tool call counts, error rates, and TPS.
@@ -199,7 +203,7 @@ async def get_metrics_summary() -> dict:
         try:
             r = await client.get(f"{PIPELINE_URL}/metrics", headers=_pipeline_headers())
             lines = r.text.splitlines()
-            summary: dict = {}
+            summary: dict[str, Any] = {}
             for ln in lines:
                 if ln.startswith("#"):
                     continue
@@ -218,7 +222,7 @@ async def get_metrics_summary() -> dict:
 
 
 @mcp.tool()
-async def get_workspace_recommendation(task: str) -> dict:
+async def get_workspace_recommendation(task: str) -> dict[str, Any]:
     """Suggest the best Portal 5 workspace for a given task description.
 
     Args:
@@ -305,7 +309,7 @@ async def get_workspace_recommendation(task: str) -> dict:
 
 
 @mcp.tool()
-async def explore_repository(query: str, max_turns: int = 6) -> dict:
+async def explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
     """Locate relevant code using the FastContext-4B Explorer SubAgent.
 
     FastContext issues parallel READ/GLOB/GREP tool calls to find relevant
@@ -324,7 +328,7 @@ async def explore_repository(query: str, max_turns: int = 6) -> dict:
         model: the explorer model used
         error: set if FastContext is not available (pull the model first)
     """
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {
             "role": "system",
             "content": (
@@ -401,9 +405,7 @@ async def explore_repository(query: str, max_turns: int = 6) -> dict:
                 tc_id = tc.get("id", "")
                 fn_name = tc.get("function", {}).get("name", "")
                 try:
-                    fn_args = __import__("json").loads(
-                        tc.get("function", {}).get("arguments", "{}")
-                    )
+                    fn_args = json.loads(tc.get("function", {}).get("arguments", "{}"))
                 except Exception:
                     fn_args = {}
                 result = _dispatch_fastcontext_tool(fn_name, fn_args)
@@ -431,7 +433,7 @@ async def explore_repository(query: str, max_turns: int = 6) -> dict:
 
 
 @mcp.tool()
-async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict:
+async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
     """Trigger a warmup request for the specified workspace to pre-load its model.
 
     Call this before starting a long coding session so the model is already
@@ -465,7 +467,7 @@ async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _dispatch_fastcontext_tool(name: str, args: dict) -> str:
+def _dispatch_fastcontext_tool(name: str, args: dict[str, Any]) -> str:
     """Execute one of FastContext's three read-only repo tools."""
     if name == "READ":
         path = REPO_ROOT / args.get("path", "")
@@ -528,9 +530,9 @@ def _dispatch_fastcontext_tool(name: str, args: dict) -> str:
     return f"ERROR: unknown tool {name}"
 
 
-def _parse_fastcontext_citations(content: str) -> list[dict]:
+def _parse_fastcontext_citations(content: str) -> list[dict[str, Any]]:
     """Extract file+line citations from a FastContext <final_answer> block."""
-    citations: list[dict] = []
+    citations: list[dict[str, Any]] = []
     block_match = re.search(r"<final_answer>(.*?)</final_answer>", content, re.DOTALL)
     source = block_match.group(1) if block_match else content
     for line in source.splitlines():
