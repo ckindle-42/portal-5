@@ -116,16 +116,82 @@ async def health_check(request: Any) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "pipeline-mcp", "port": PORT})
 
 
+# ── REST discovery manifest (consumed by portal_pipeline ToolRegistry) ────────
+# The pipeline discovers tools via GET /tools and dispatches via
+# POST /tools/{name} with body {"arguments": {...}, "request_id": "..."}.
+# This manifest MUST stay in sync with the @mcp.tool() functions below and the
+# POST /tools/{name} routes — tests/unit/test_pipeline_mcp_rest.py enforces parity.
+TOOLS_MANIFEST: list[dict[str, Any]] = [
+    {
+        "name": "get_pipeline_status",
+        "description": "Return Portal 5 pipeline health: backend count, workspace count, version.",
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "list_workspaces",
+        "description": "List all Portal 5 workspaces (AI models) with routing metadata. Optional substring filter.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filter": {"type": "string", "description": "Substring to filter by id or name"}
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_loaded_models",
+        "description": "Return which Ollama models are currently loaded in VRAM/RAM with size and expiry.",
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_metrics_summary",
+        "description": "Return key Portal 5 operational metrics from Prometheus (requests, tool calls, errors, TPS).",
+        "parameters": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_workspace_recommendation",
+        "description": "Suggest the best Portal 5 workspace for a plain-English task description.",
+        "parameters": {
+            "type": "object",
+            "properties": {"task": {"type": "string", "description": "Plain-English task"}},
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "explore_repository",
+        "description": "Locate relevant code via the FastContext-4B explorer subagent. Returns file+line citations. Call before editing.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to find in the repo"},
+                "max_turns": {"type": "integer", "description": "Exploration turns (default 6)"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "trigger_backend_warmup",
+        "description": "Pre-load a workspace model into VRAM before a long session.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "workspace": {"type": "string", "description": "Workspace id (default auto-coding-agentic)"}
+            },
+            "required": [],
+        },
+    },
+]
+
+
+@mcp.custom_route("/tools", methods=["GET"])
+async def list_tools_manifest(request: Any) -> JSONResponse:
+    return JSONResponse(TOOLS_MANIFEST)
+
+
 # ── Tools ────────────────────────────────────────────────────────────────────
 
 
-@mcp.tool()
-async def get_pipeline_status() -> dict[str, Any]:
-    """Return Portal 5 pipeline health: backend count, workspace count, version.
-
-    Use this before starting any coding task to confirm the stack is up and
-    all backends are healthy.
-    """
+async def _impl_get_pipeline_status() -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10) as client:
         try:
             r = await client.get(f"{PIPELINE_URL}/health", headers=_pipeline_headers())
@@ -136,16 +202,21 @@ async def get_pipeline_status() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def list_workspaces(filter: str = "") -> list[dict[str, Any]]:
-    """List all Portal 5 workspaces (AI models) with their routing metadata.
+async def get_pipeline_status() -> dict[str, Any]:
+    """Return Portal 5 pipeline health: backend count, workspace count, version.
 
-    Args:
-        filter: Optional substring to filter by workspace ID or name
-                (e.g. "coding", "security", "agentic")
-
-    Returns list of {id, name, description_snippet} sorted by ID.
-    Use this to pick the right workspace for a task before calling the pipeline.
+    Use this before starting any coding task to confirm the stack is up and
+    all backends are healthy.
     """
+    return await _impl_get_pipeline_status()
+
+
+@mcp.custom_route("/tools/get_pipeline_status", methods=["POST"])
+async def get_pipeline_status_endpoint(request: Any) -> JSONResponse:
+    return JSONResponse(await _impl_get_pipeline_status())
+
+
+async def _impl_list_workspaces(filter: str = "") -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             r = await client.get(f"{PIPELINE_URL}/v1/models", headers=_pipeline_headers())
@@ -168,12 +239,27 @@ async def list_workspaces(filter: str = "") -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def get_loaded_models() -> list[dict[str, Any]]:
-    """Return which Ollama models are currently loaded in VRAM/RAM.
+async def list_workspaces(filter: str = "") -> list[dict[str, Any]]:
+    """List all Portal 5 workspaces (AI models) with their routing metadata.
 
-    Shows model name, size, and expiry time. Use this to check if the model
-    you need is warm (fast response) or cold (will take time to load).
+    Args:
+        filter: Optional substring to filter by workspace ID or name
+                (e.g. "coding", "security", "agentic")
+
+    Returns list of {id, name, description_snippet} sorted by ID.
+    Use this to pick the right workspace for a task before calling the pipeline.
     """
+    return await _impl_list_workspaces(filter)
+
+
+@mcp.custom_route("/tools/list_workspaces", methods=["POST"])
+async def list_workspaces_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(await _impl_list_workspaces(args.get("filter", "")))
+
+
+async def _impl_get_loaded_models() -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=10) as client:
         try:
             r = await client.get(f"{OLLAMA_URL}/api/ps")
@@ -192,13 +278,21 @@ async def get_loaded_models() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def get_metrics_summary() -> dict[str, Any]:
-    """Return key Portal 5 operational metrics from Prometheus.
+async def get_loaded_models() -> list[dict[str, Any]]:
+    """Return which Ollama models are currently loaded in VRAM/RAM.
 
-    Returns request totals, tool call counts, error rates, and TPS.
-    Use this to verify that a tool call was dispatched (tool_calls_total
-    should increment after a workspace request that invokes execute_bash).
+    Shows model name, size, and expiry time. Use this to check if the model
+    you need is warm (fast response) or cold (will take time to load).
     """
+    return await _impl_get_loaded_models()
+
+
+@mcp.custom_route("/tools/get_loaded_models", methods=["POST"])
+async def get_loaded_models_endpoint(request: Any) -> JSONResponse:
+    return JSONResponse(await _impl_get_loaded_models())
+
+
+async def _impl_get_metrics_summary() -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10) as client:
         try:
             r = await client.get(f"{PIPELINE_URL}/metrics", headers=_pipeline_headers())
@@ -222,7 +316,22 @@ async def get_metrics_summary() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def get_workspace_recommendation(task: str) -> dict[str, Any]:
+async def get_metrics_summary() -> dict[str, Any]:
+    """Return key Portal 5 operational metrics from Prometheus.
+
+    Returns request totals, tool call counts, error rates, and TPS.
+    Use this to verify that a tool call was dispatched (tool_calls_total
+    should increment after a workspace request that invokes execute_bash).
+    """
+    return await _impl_get_metrics_summary()
+
+
+@mcp.custom_route("/tools/get_metrics_summary", methods=["POST"])
+async def get_metrics_summary_endpoint(request: Any) -> JSONResponse:
+    return JSONResponse(await _impl_get_metrics_summary())
+
+
+async def _impl_get_workspace_recommendation(task: str) -> dict[str, Any]:
     """Suggest the best Portal 5 workspace for a given task description.
 
     Args:
@@ -309,7 +418,27 @@ async def get_workspace_recommendation(task: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
+async def get_workspace_recommendation(task: str) -> dict[str, Any]:
+    """Suggest the best Portal 5 workspace for a given task description.
+
+    Args:
+        task: Plain-English description of the task
+              (e.g. "fix a bug in router_pipe.py", "analyze a CVE",
+               "generate a Word document", "run a port scan on the lab DC")
+
+    Returns the recommended workspace ID and model, with reasoning.
+    """
+    return await _impl_get_workspace_recommendation(task)
+
+
+@mcp.custom_route("/tools/get_workspace_recommendation", methods=["POST"])
+async def get_workspace_recommendation_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(await _impl_get_workspace_recommendation(args.get("task", "")))
+
+
+async def _impl_explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
     """Locate relevant code using the FastContext-4B Explorer SubAgent.
 
     FastContext issues parallel READ/GLOB/GREP tool calls to find relevant
@@ -433,15 +562,31 @@ async def explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
-    """Trigger a warmup request for the specified workspace to pre-load its model.
+async def explore_repository(query: str, max_turns: int = 6) -> dict[str, Any]:
+    """Locate relevant code using the FastContext-4B Explorer SubAgent.
 
-    Call this before starting a long coding session so the model is already
-    loaded in VRAM when you send your first real request.
+    Issues parallel READ/GLOB/GREP tool calls to find relevant files and line
+    ranges, then returns compact citations. Call before making code changes.
 
     Args:
-        workspace: The workspace ID to warm up (default: auto-coding-agentic)
+        query: What you're looking for in the repo.
+        max_turns: Exploration turns before forcing a final answer (default 6).
     """
+    return await _impl_explore_repository(query, max_turns)
+
+
+@mcp.custom_route("/tools/explore_repository", methods=["POST"])
+async def explore_repository_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    query = args.get("query", "")
+    max_turns = int(args.get("max_turns", 6))
+    if not query:
+        return JSONResponse({"error": "query required", "citations": []}, status_code=400)
+    return JSONResponse(await _impl_explore_repository(query, max_turns))
+
+
+async def _impl_trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
     warmup_payload = {
         "model": workspace,
         "messages": [{"role": "user", "content": "warmup"}],
@@ -462,6 +607,28 @@ async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+
+@mcp.tool()
+async def trigger_backend_warmup(workspace: str = "auto-coding-agentic") -> dict[str, Any]:
+    """Trigger a warmup request for the specified workspace to pre-load its model.
+
+    Call this before starting a long coding session so the model is already
+    loaded in VRAM when you send your first real request.
+
+    Args:
+        workspace: The workspace ID to warm up (default: auto-coding-agentic)
+    """
+    return await _impl_trigger_backend_warmup(workspace)
+
+
+@mcp.custom_route("/tools/trigger_backend_warmup", methods=["POST"])
+async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(
+        await _impl_trigger_backend_warmup(args.get("workspace", "auto-coding-agentic"))
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
