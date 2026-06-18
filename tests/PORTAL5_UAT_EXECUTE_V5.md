@@ -191,7 +191,7 @@ EOF
 |---|---|---|---|---|
 | 1 | Smoke | `auto` | 4 | Initializes results; quick end-to-end confidence (incl. WS-01) |
 | 2 | Large-GGUF lanes | creative, data, vision, research, mistral, agentic, spl | 37 | Big models (20–35GB + huge MoEs) while memory is freshest; catches OOM early |
-| 3 | Bulk coding | auto-coding | 30 | Largest single section; own checkpoint |
+| 3 | Bulk coding | auto-coding, auto-coding-agentic | 32 | Largest coding block; own checkpoint; auto-coding-agentic added v7.6.0 (Devstral 24B) |
 | 4 | Mid/small lanes | compliance, reasoning, math, security, redteam, daily, audio, tools-specialist | 36 | Bulk of suite; cascade consolidates by model_slug (granite 8b, R1-8B, phi4-mini, baronllm, gemma4 QATs) |
 | 5 | Blueteam + docs | blueteam, auto-docs, auto-documents | 12 | Foundation-Sec Q8 + phi4:14b document lanes |
 | 6 | Media-heavy | music, video | 5 | ComfyUI last; own GPU reclaim (`--keep-comfyui` on the gate) |
@@ -234,9 +234,9 @@ python3 tests/portal5_uat_driver.py --append \
   --section auto-spl
 bash tests/inter_phase_gate.sh 2 37
 
-# Phase 3 — bulk coding
-python3 tests/portal5_uat_driver.py --append --section auto-coding
-bash tests/inter_phase_gate.sh 3 30
+# Phase 3 — bulk coding (auto-coding-agentic added v7.6.0)
+python3 tests/portal5_uat_driver.py --append --section auto-coding --section auto-coding-agentic
+bash tests/inter_phase_gate.sh 3 32
 
 # Phase 4 — mid/small lanes (batched for model_slug consolidation)
 python3 tests/portal5_uat_driver.py --append \
