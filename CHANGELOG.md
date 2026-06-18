@@ -4,6 +4,14 @@ All notable changes to Portal 5 will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Coding-tool in-pipeline path**: pipeline-mcp (`:8928`) now exposes its 7 tools over the
+  REST contract (`GET /tools`, `POST /tools/{name}`) the ToolRegistry uses, and is
+  registered in `MCP_SERVERS`. The `auto-coding-agentic` workspace can now actually call
+  `explore_repository` (its mandated first tool) instead of getting "not in registry".
+  opencode/Claude Code (JSON-RPC path) unaffected. `launch.sh` now exports
+  `PIPELINE_MCP_PORT`. Added `tests/unit/test_pipeline_mcp_rest.py`.
+
 ### Added
 - **Claude Code / opencode integration** — Portal 5 now works as a local AI backend and tool
   provider for AI coding assistants. Two files at the repo root activate automatically:
