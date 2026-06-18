@@ -61,6 +61,9 @@ MCP_SERVERS: dict[str, str] = {
     "memory": os.environ.get("MCP_MEMORY_URL", "http://localhost:8920"),
     "rag": os.environ.get("MCP_RAG_URL", "http://localhost:8921"),
     "cad_render": os.environ.get("MCP_CAD_RENDER_URL", "http://localhost:8926"),
+    # Host-native pipeline-introspection MCP (coding tools): exposes
+    # explore_repository (FastContext subagent), list_workspaces, etc.
+    "pipeline": os.environ.get("MCP_PIPELINE_URL", "http://localhost:8928"),
 }
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
