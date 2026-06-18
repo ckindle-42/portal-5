@@ -24,7 +24,7 @@ ADMIN_PASS = os.environ.get("OPENWEBUI_ADMIN_PASSWORD", "")
 SEND_TIMEOUT = 300_000  # initial window for stop-button to appear (cold load)
 PROGRESS_POLL_S = 30  # legacy heartbeat interval (kept for compatibility)
 MAX_WAIT_NO_PROGRESS = 900  # 15 min hard cap if zero progress detected
-NO_STREAM_TIMEOUT = 120  # exit for retry if stop never appeared after this many seconds
+NO_STREAM_TIMEOUT = 450  # exit for retry if stop never appeared after this many seconds (cold 30B loads can take 3-4 min)
 PROGRESS_LOG_INTERVAL = 120  # log a heartbeat every 2 min
 
 # Tiered polling intervals — replace the single 30s PROGRESS_POLL_S at the
