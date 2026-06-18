@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re as _re_mod
 import time
 from pathlib import Path
 
@@ -43,6 +44,36 @@ from tests.uat.skips import _bot_container_running, _run_via_dispatcher
 
 # Model cascade ordering
 # ---------------------------------------------------------------------------
+
+_PIPELINE_METRICS_URL = os.environ.get("PIPELINE_URL", "http://localhost:9099") + "/metrics"
+
+
+def _snapshot_tool_calls() -> float:
+    """Return current total portal5_tool_calls_total across all label variants.
+
+    Called before and after a test send to detect whether the pipeline dispatched
+    any tool calls during the request. Uses a sync HTTP call — acceptable since
+    it runs in the test harness outside the async event loop hot path.
+    """
+    try:
+        resp = httpx.get(_PIPELINE_METRICS_URL, timeout=5)
+        total = 0.0
+        for ln in resp.text.splitlines():
+            if ln.startswith("portal5_tool_calls_total{") and not ln.startswith("#"):
+                try:
+                    total += float(ln.rsplit(" ", 1)[-1])
+                except ValueError:
+                    pass
+        return total
+    except Exception:
+        return 0.0
+
+
+def _test_needs_tool_metrics(test: dict) -> bool:
+    """Return True if any assertion spec requires pipeline_tool_called metrics."""
+    specs = test.get("assertions", []) + test.get("turn2_assertions", [])
+    return any(a.get("type") == "pipeline_tool_called" for a in specs)
+
 
 # Tier execution order: ollama first, then any, then media_heavy
 _TIER_ORDER = ["ollama", "any", "media_heavy"]
@@ -623,6 +654,10 @@ async def run_test(
         _test_budget_s = test.get("timeout", 120)
         response_text = ""
         attempts_used = 0
+        # Snapshot pipeline tool_calls counter before the first attempt.
+        _needs_metrics = _test_needs_tool_metrics(test)
+        _tool_calls_before = _snapshot_tool_calls() if _needs_metrics else 0.0
+        _tool_calls_after = _tool_calls_before
         for attempt in range(3):
             attempts_used = attempt + 1
             await _fe_send_and_wait(
@@ -634,6 +669,8 @@ async def run_test(
                 token=token,
                 chat_id=chat_id,
             )
+            if _needs_metrics:
+                _tool_calls_after = _snapshot_tool_calls()
             chat_url = _fe_current_chat_url(page, fallback=chat_url)
             response_text = await _fe_get_last_response(page, token, chat_id)
             if response_text:
@@ -729,14 +766,19 @@ async def run_test(
         # Run assertions on turn 1
         _incl_think = test.get("include_thinking_in_assertions", False)
         assertions_result = run_assertions(
-            response_text, test.get("assertions", []), artifact_path, include_thinking=_incl_think
+            response_text, test.get("assertions", []), artifact_path,
+            include_thinking=_incl_think,
+            tool_calls_before=_tool_calls_before,
+            tool_calls_after=_tool_calls_after,
         )
 
         # Run turn2 assertions if defined
         t2_spec = test.get("turn2_assertions", [])
         if t2_spec and turn2_response:
             t2_results = run_assertions(
-                turn2_response, t2_spec, artifact_path, include_thinking=_incl_think
+                turn2_response, t2_spec, artifact_path, include_thinking=_incl_think,
+                tool_calls_before=_tool_calls_before,
+                tool_calls_after=_tool_calls_after,
             )
             assertions_result.extend(t2_results)
 

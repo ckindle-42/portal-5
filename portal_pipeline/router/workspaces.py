@@ -448,14 +448,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🟣 Portal Purple Team · Execute",
         "description": (
             "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n"
-            "1. 🔴 RED (exec) — Qwen3.6-abliterated-27B: runs execute_bash/execute_python/web_search for live PoC\n"
+            "1. 🔴 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n"
             "2. 🔵 BLUE — Foundation-Sec-8B-Reasoning: detection analysis on actual execution output\n"
             "3. 🛡️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n"
             "4. 📋 IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\n"
             "Unlike auto-purpleteam-deep (simulation only), this workspace executes commands against real targets. "
             "Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
         ),
-        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
+        "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
+        "think": False,
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (

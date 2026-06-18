@@ -342,11 +342,47 @@ def assert_mp4_valid(
         return (label, False, str(e))
 
 
+def assert_tool_output_pattern(text: str, patterns: list, label: str) -> tuple:
+    """Check that the response contains command output from an actual tool execution.
+
+    Matches regex patterns against the full response (after think-stripping).
+    Used to distinguish real tool execution (raw command output) from the model
+    describing what it would do.
+    """
+    import re
+    stripped = _strip_think_blocks(text)
+    for p in patterns:
+        try:
+            if re.search(p, stripped, re.IGNORECASE | re.MULTILINE):
+                return (label, True, f"matched: {p[:60]}")
+        except re.error:
+            pass
+    return (label, False, f"no tool output pattern matched in {len(stripped)}-char response")
+
+
+def assert_pipeline_tool_called(
+    tool_calls_before: float,
+    tool_calls_after: float,
+    label: str,
+) -> tuple:
+    """Verify that at least one tool dispatch happened between two metric snapshots."""
+    called = tool_calls_after > tool_calls_before
+    delta = tool_calls_after - tool_calls_before
+    return (
+        label,
+        called,
+        f"tool_calls delta={delta:.0f} (before={tool_calls_before:.0f}, after={tool_calls_after:.0f})",
+    )
+
+
 def run_assertions(
     text: str,
     assertions_spec: list,
     artifact_path: Path | None = None,
     include_thinking: bool = False,
+    *,
+    tool_calls_before: float = 0.0,
+    tool_calls_after: float = 0.0,
 ) -> list:
     if not include_thinking:
         text = _strip_think_blocks(text)
@@ -394,6 +430,14 @@ def run_assertions(
             mw = int(a.get("min_width", 0))
             mh = int(a.get("min_height", 0))
             results.append(assert_png_valid(artifact_path, label, min_width=mw, min_height=mh))
+        elif t == "tool_output_pattern":
+            results.append(
+                assert_tool_output_pattern(text, a.get("patterns", []), label)
+            )
+        elif t == "pipeline_tool_called":
+            results.append(
+                assert_pipeline_tool_called(tool_calls_before, tool_calls_after, label)
+            )
         elif t == "mp4_valid":
             min_s = float(a.get("min_seconds", 0.0))
             results.append(assert_mp4_valid(artifact_path, label, min_seconds=min_s))
