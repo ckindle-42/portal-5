@@ -219,14 +219,26 @@ async def _run_in_docker(
         _mem,  # 256m default; SANDBOX_NET_MEMORY when network-enabled
         "--pids-limit",
         "64",  # Max 64 processes
-        "--security-opt",
-        "no-new-privileges",  # Prevent privilege escalation
+    ] + (
+        # Default + ALLOW_NETWORK: block privilege escalation via setuid/file-caps.
+        # Lab-exec: omit — Kali tools (nmap, responder) rely on cap_net_raw+eip file
+        # capabilities which no-new-privileges blocks even after --cap-add NET_RAW.
+        [] if SANDBOX_LAB_EXEC else ["--security-opt", "no-new-privileges"]
+    ) + [
         "--cap-drop",
         "ALL",  # Drop all Linux capabilities
     ] + (
-        # Lab-exec: nmap and raw-socket tools need NET_RAW + NET_ADMIN.
-        # Added back here after the blanket drop above.
+        # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.
+        # Inject DC FQDN via --add-host so tools requiring hostname (bloodhound-ce-python,
+        # certipy) can resolve it — container /etc/hosts is read-only under --read-only.
         ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN"]
+        + (
+            [
+                f"--add-host=lab-dc01.portal.lab:{SANDBOX_LAB_TARGET_DC}",
+                f"--add-host=lab-dc01:{SANDBOX_LAB_TARGET_DC}",
+            ]
+            if SANDBOX_LAB_TARGET_DC else []
+        )
         if SANDBOX_LAB_EXEC else []
     ) + [
         "--read-only",  # Read-only root filesystem
