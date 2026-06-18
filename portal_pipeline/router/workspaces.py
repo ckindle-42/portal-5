@@ -202,6 +202,51 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "recall",
         ],
     },
+    "auto-coding-agentic": {
+        "name": "🔄 Portal Agentic Coder",
+        "description": (
+            "Multi-turn agentic coding workspace for maintaining and advancing Portal 5 itself. "
+            "Devstral-24B (Mistral's SWE-agent model, top of SWE-bench open-weight, tool-native). "
+            "Tuned for the read → understand → edit → verify loop: inspects files via execute_bash, "
+            "makes targeted changes, runs tests, iterates. Use for refactors, bug fixes, new features, "
+            "and capability additions. For one-shot code generation, use auto-coding instead."
+        ),
+        "model_hint": "devstral:24b",
+        "keep_alive": "15m",
+        "tools": [
+            "explore_repository",  # FastContext 4B subagent — locates files before edits
+            "execute_bash",
+            "execute_python",
+            "execute_nodejs",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
+        "system_prompt_append": (
+            "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n"
+            "1. EXPLORE: call explore_repository('what you need to find') first.\n"
+            "   It returns exact file paths and line numbers — use these, do not guess paths.\n"
+            "2. READ: use execute_bash to read those specific files/line ranges before editing\n"
+            "   (cat -n <file> | sed -n '<start>,<end>p')\n"
+            "3. PLAN: state the minimal change needed and which files are affected\n"
+            "4. EDIT: make precise, targeted changes — do not rewrite whole files\n"
+            "5. VERIFY: run tests or linters with execute_bash after every change\n"
+            "   (pytest tests/unit/ -q; ruff check <file>)\n"
+            "6. REPORT: state what changed, what passed, and what remains\n\n"
+            "HARD CONSTRAINTS:\n"
+            "- Never hardcode model names, backend URLs, or credentials\n"
+            "- Never modify Open WebUI source — use extension points only\n"
+            "- Never commit .env or add cloud dependencies\n"
+            "- Run pytest before declaring a fix complete\n"
+            "- Keep portal_pipeline lean — no ML framework imports\n"
+            "- Changes to workspace routing must pass the Rule 6 consistency check:\n"
+            '  python3 -c "from portal_pipeline.router_pipe import WORKSPACES; '
+            "import yaml; cfg=yaml.safe_load(open('config/backends.yaml')); "
+            "assert set(WORKSPACES)==set(cfg['workspace_routing']), 'mismatch'\""
+        ),
+    },
     "auto-agentic": {
         "name": "⚡ Portal Agentic Coder (Heavy)",
         "description": (

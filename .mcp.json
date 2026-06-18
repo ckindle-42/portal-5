@@ -20,12 +20,25 @@
       "args": ["mcp-fetch"]
     },
     "git": {
-      "command": "/Users/chris/.local/bin/uvx",
-      "args": ["mcp-server-git", "--repository", "/Users/chris/projects/portal-5"]
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "${HOME}/projects/portal-5"
+      ]
     },
     "docker": {
-      "command": "/opt/homebrew/bin/npx",
-      "args": ["-y", "mcp-docker-server"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-docker"
+      ]
+    },
+    "portal-sandbox": {
+      "url": "http://localhost:8914/mcp"
+    },
+    "portal-pipeline": {
+      "url": "http://localhost:8928/mcp"
     }
   }
 }

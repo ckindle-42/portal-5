@@ -164,6 +164,8 @@ Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llam
 | 8923 | MCP Browser (Playwright) |
 | 8924 | MLX Transcribe (mlx-whisper + pyannote diarization, host-native) |
 | 8925 | MCP Reranker (Qwen3-Reranker-0.6B-mxfp8, MLX-native, two-stage RAG) |
+| 8926 | MCP CAD Render (OpenSCAD / CadQuery 3D model generation) |
+| 8928 | Pipeline MCP (host-native; exposes explore_repository + stack introspection for Claude Code / opencode) |
 | 8188 | ComfyUI |
 | 8088 | SearXNG |
 | 11434 | Ollama |

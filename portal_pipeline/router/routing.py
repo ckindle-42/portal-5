@@ -413,6 +413,24 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "keywords": _CODING_KEYWORDS,
         "threshold": 3,
     },
+    "auto-coding-agentic": {
+        "keywords": {
+            "fix this bug": 3,
+            "refactor": 2,
+            "add feature": 2,
+            "maintain": 2,
+            "advance": 2,
+            "iterate": 2,
+            "run tests": 3,
+            "make changes": 2,
+            "update the code": 2,
+            "edit the file": 3,
+            "modify portal": 3,
+            "agentic coding": 3,
+            "devstral": 3,
+        },
+        "threshold": 3,
+    },
     "auto-agentic": {
         "keywords": {
             "agentic": 3,
