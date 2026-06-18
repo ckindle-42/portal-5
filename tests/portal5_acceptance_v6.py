@@ -927,6 +927,10 @@ WORKSPACE_PROMPTS = {
         "Write a Python function that reverses a string.",
         ["def", "return", "reverse", "[::-1]", "str"],
     ),
+    "auto-coding-agentic": (
+        "Fix a bug: a Python function returns None instead of the computed value.",
+        ["return", "def", "bug", "fix", "value"],
+    ),
     "auto-agentic": (
         "Explain how you would refactor a monolith into microservices.",
         ["service", "API", "boundary", "domain", "decouple"],
