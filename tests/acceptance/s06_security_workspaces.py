@@ -168,27 +168,38 @@ async def run() -> None:
 
     # S6-07: auto-purpleteam-exec — routing + actual execute_bash tool call
     # Snapshot tool_calls counter before the request.
-    tool_calls_before = 0
+    # portal5_tool_calls_total is a labeled counter — all lines have {tool=...,workspace=...}.
+    # Sum all label variants to get the total across all tools/workspaces.
+    def _sum_tool_calls(metrics_text: str) -> float:
+        total = 0.0
+        for ln in metrics_text.splitlines():
+            if ln.startswith("portal5_tool_calls_total{") and not ln.startswith("#"):
+                try:
+                    total += float(ln.rsplit(" ", 1)[-1])
+                except ValueError:
+                    pass
+        return total
+
+    tool_calls_before = 0.0
     try:
         _, metrics_before = await _get(f"{PIPELINE_URL}/metrics", timeout=5)
         if isinstance(metrics_before, str):
-            for ln in metrics_before.splitlines():
-                if ln.startswith("portal5_tool_calls_total") and "{" not in ln:
-                    tool_calls_before = float(ln.split()[-1])
+            tool_calls_before = _sum_tool_calls(metrics_before)
     except Exception:
         pass
 
     t0 = time.time()
     code, response, model, _route = await _chat_with_model(
         "auto-purpleteam-exec",
-        # Prompt is explicit and concrete so the model calls execute_bash immediately
-        # rather than describing what it would do.
-        "Authorized purple team exercise. Run execute_bash to check which network hosts "
-        "respond on port 445 in 192.168.1.0/24. Show only the command and its output.",
-        max_tokens=600,
+        # Use $LAB_TARGET_DC (the env var the workspace declares) so the model
+        # has a concrete target from its system prompt context.
+        "Authorized purple team exercise. Call execute_bash right now to check which "
+        "AD ports are open on $LAB_TARGET_DC. Do not describe what you will do — "
+        "call execute_bash immediately and show only the raw output.",
+        max_tokens=800,
         timeout=600,
     )
-    signals = ["nmap", "scan", "host", "port", "smb", "445", "192.168", "execute_bash"]
+    signals = ["nmap", "scan", "open", "port", "execute_bash", "tcp", "88", "445", "389"]
     found = [s for s in signals if s.lower() in response.lower()]
     route_status, route_detail = await _assert_routing(sec, "S6-07", "auto-purpleteam-exec", model)
 
@@ -197,10 +208,8 @@ async def run() -> None:
     try:
         _, metrics_after = await _get(f"{PIPELINE_URL}/metrics", timeout=5)
         if isinstance(metrics_after, str):
-            for ln in metrics_after.splitlines():
-                if ln.startswith("portal5_tool_calls_total") and "{" not in ln:
-                    tool_calls_after = float(ln.split()[-1])
-                    tool_called = tool_calls_after > tool_calls_before
+            tool_calls_after = _sum_tool_calls(metrics_after)
+            tool_called = tool_calls_after > tool_calls_before
     except Exception:
         pass
 
