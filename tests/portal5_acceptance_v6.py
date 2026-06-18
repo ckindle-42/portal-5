@@ -1891,6 +1891,16 @@ async def S42() -> None:
     await _s.run()
 
 
+async def S18() -> None:
+    """S18: Lab-exec lane — live AD attack chain (skips if SANDBOX_LAB_EXEC not set)."""
+    import sys as _sys
+
+    _sys.path.insert(0, str(ROOT / "tests"))
+    from acceptance import s18_lab_exec as _s
+
+    await _s.run()
+
+
 async def S60() -> None:
     """S60: Tool-calling orchestration — delegates to tests/acceptance/s60_tool_calling.py."""
     import sys as _sys
@@ -2243,6 +2253,7 @@ ALL_SECTIONS = {
     "S4": S4,
     "S5": S5,
     "S17": S17,  # CAD render MCP (TASK_CAD_RENDER_MCP_V1)
+    "S18": S18,  # Lab-exec lane AD attack chain (skips gracefully if not configured)
     # Phase 5: Audio tests
     "S8": S8,
     "S9": S9,

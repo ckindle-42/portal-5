@@ -51,9 +51,10 @@ class TestBuildRouterPrompt:
             assert ws in prompt, f"Expected '{ws}' in prompt"
 
     def test_capped_at_reasonable_length(self):
-        """Prompt must stay under 6000 chars (fits within Llama-3.2-3B 4096-token context)."""
+        """Prompt must stay under 10000 chars (fits within Llama-3.2-3B 4096-token context).
+        Cap raised from 6000 → 10000 to accommodate the 94-workspace catalog (was 13)."""
         prompt = _build_router_prompt("a" * 500)
-        assert len(prompt) < 6000
+        assert len(prompt) < 10000
 
 
 class TestRouteWithLLM:
@@ -219,7 +220,8 @@ class TestRouteWithLLM:
 
     @pytest.mark.asyncio
     async def test_llm_router_payload_includes_keep_alive(self):
-        """_route_with_llm payload must include top-level keep_alive: "-1"."""
+        """_route_with_llm payload must include top-level keep_alive=-1 (int).
+        String '-1' was changed to int -1 in commit 3f20d51 (warmup keep_alive fix)."""
         mock_resp = _mock_llm_response("auto-coding", 0.95)
         with patch(
             "portal_pipeline.router.routing._http_client", new_callable=AsyncMock
@@ -228,8 +230,8 @@ class TestRouteWithLLM:
             await _route_with_llm(_user_messages("write a Python function"))
             call_args = mock_client.post.call_args
             payload = call_args[1]["json"]
-            assert payload.get("keep_alive") == "-1", (
-                f"Expected keep_alive='-1' in LLM router payload, got {payload.get('keep_alive')!r}"
+            assert payload.get("keep_alive") == -1, (
+                f"Expected keep_alive=-1 (int) in LLM router payload, got {payload.get('keep_alive')!r}"
             )
             assert "keep_alive" in payload
 
