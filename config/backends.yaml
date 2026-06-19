@@ -82,7 +82,7 @@ backends:
       \ supports_tools=true per Mistral function-calling format; verify via --audit-tools."
   - id: gemma4:e4b-it-q4_K_M
     supports_tools: true
-    notes: "Gemma 4 E4B MoE (~9.6GB, Google, 4B active, 128K ctx, VLM+thinking+audio). Daily-driver candidate bench."
+    notes: "Gemma 4 E4B MoE (~9.6GB, Google, 4B active, 128K ctx, VLM+thinking+audio). Daily-driver candidate bench. audit-tools 2026-06-18: tool_call confirmed."
   - id: "hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M"
     supports_tools: false
     notes: "Huihui-Qwen3.6-35B-A3B abliterated Q4_K_M (~20GB, vanch007, MoE 3B active). Speed play — 3B active parameters for fast decode. Same huihui-ai abliteration lineage. bench-huihui-qwen36-35b-a3b target. Pull: ollama pull hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M"
@@ -100,7 +100,7 @@ backends:
     supports_tools: true
     notes: "30B-A3B MoE (3B active), 19GB \u2014 primary Ollama coding fallback"
   - id: omnicoder2:9b-q4_k_m
-    supports_tools: false
+    supports_tools: true
     notes: V6 bench candidate (TASK_MODEL_REFRESH_V6). OmniCoder-2 9B Q4_K_M (~5.7GB,
       Apache 2.0). Qwen3.5-9B base, SFT on 425K agentic trajectories from Claude Opus
       4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. v2 fixes v1's repetition loops, bloated
@@ -190,7 +190,7 @@ backends:
       \ MoE. Non-reasoning for ultra-fast code responses. Agentic training on 800K executable\
       \ tasks with RL. Fits 64GB unified memory (~18GB headroom). Fast TPS due to 3B active.\
       \ Wires pre-existing bench-qwen3-coder-next workspace (TASK_MODEL_REFRESH_V8 A17).\
-      \ supports_tools=true per Qwen coding family; verify via --audit-tools."
+      \ supports_tools=true per Qwen coding family; audit-tools 2026-06-18 returned ERROR (model busy/evicted during probe — retest needed before tool dispatch)."
   - id: "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M"
     supports_tools: true
     notes: "Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next — 80B/3B MoE agentic coder without refusals. bench-qwen3-coder-next-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true per Qwen coding family (same architecture as production qwen3-coder-next)."
@@ -213,11 +213,11 @@ backends:
     supports_tools: true
     notes: "Qwen3.6-27B OptiQ Q4_K_M (~16GB, bartowski, per-layer KL sensitivity quantization). Head-to-head vs bench-qwen36-27b (plain Q4_K_M) — TASK_QUANT_TRUEUP_V1 Finding A. supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen3.6-27B-OptiQ-GGUF:Q4_K_M"
   - id: "hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf"
-    supports_tools: false
-    notes: "Qwable-3.6-27B Q4_K_M (~15GB, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-27B on a cleaned Fable 5-style reasoning+instruction dataset. Dense 27B (all params active, no MoE). No MTP layers. 'Trace-like assistant behavior' for code, technical reasoning, structured outputs. Dense counterpart to our A3B MoE fleet — quality vs speed trade-off unknown until benched. supports_tools=false pending --audit-tools (Qwen3.6 family usually yes; verify before promotion). bench-qwable-27b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf"
+    supports_tools: true
+    notes: "Qwable-3.6-27B Q4_K_M (~15GB, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-27B on a cleaned Fable 5-style reasoning+instruction dataset. Dense 27B (all params active, no MoE). No MTP layers. 'Trace-like assistant behavior' for code, technical reasoning, structured outputs. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. GC-03 FAIL 9/12=75%. bench-qwable-27b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf"
   - id: "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf"
-    supports_tools: false
-    notes: "Qwable-3.6-35B Q4_K_M (~21GB actual, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-35b on a cleaned Fable 5-style reasoning+instruction dataset. DENSE 35B (all params active). bench_tps 2026-06-18: 30.8 t/s Ollama direct — matches qwen3.6:35b-a3b-q4_K_M (29.4 t/s bench_20260611). GC-03 Platformer: 10/12=83% PASS (216.9s) — same score as Devstral-Small-2 and Gemma4-12B-Coder. Dense 35B adds no TPS penalty vs A3B MoE on this hardware (MLX Metal). No MTP layers. supports_tools=false pending --audit-tools (Qwen3.6 family usually yes; verify before promotion). bench-qwable-35b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf"
+    supports_tools: true
+    notes: "Qwable-3.6-35B Q4_K_M (~21GB actual, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-35b on a cleaned Fable 5-style reasoning+instruction dataset. DENSE 35B (all params active). bench_tps 2026-06-18: 30.8 t/s Ollama direct — matches qwen3.6:35b-a3b-q4_K_M (29.4 t/s bench_20260611). GC-03 Platformer: 10/12=83% PASS (216.9s). Dense 35B adds no TPS penalty vs A3B MoE on this hardware. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. bench-qwable-35b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf"
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -303,10 +303,10 @@ backends:
       \ \u2014 supports_tools intentionally false to prevent reasoning-budget exhaustion\
       \ mixing with tool-call rendering."
   - id: gpt-oss:20b
-    supports_tools: false
+    supports_tools: true
     notes: "~12GB \u2014 OpenAI open-weight MoE, o3-mini level, configurable thinking\
-      \ depth, designed for agent/tool use. supports_tools set to false: --audit-tools\
-      \ 2026-05-14 returned text_only (no tool_call emitted despite model card claims)."
+      \ depth, designed for agent/tool use. supports_tools=true: audit-tools 2026-06-18\
+      \ confirmed tool_call (was false from 2026-05-14 text_only \u2014 likely stale Ollama template)."
   - id: granite4.1:8b
     supports_tools: true
     notes: "REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1\
@@ -405,10 +405,10 @@ backends:
     supports_tools: true
     notes: "Gemma 4 26B VLM Q4 — vision primary, same model as ollama-general entry."
   - id: gemma4:e4b-it-q4_K_M
-    supports_tools: false
+    supports_tools: true
     notes: "Gemma 4 E4B standard Q4 (~5GB). CORRECTED NOTES: supports audio+image+video\
       \ input and thinking mode (<|think|> token). Per-Layer Embeddings (PLE) give\
-      \ representational depth well above 4B weight count. supports_tools=false — queue\
+      \ representational depth well above 4B weight count. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. queue\
       \ for --audit-tools re-verification (Gemma4 family supports function calling).\
       \ Retained as production vision fallback; bench-gemma4-e4b-qat benchmarks the QAT\
       \ upgrade (TASK_MODEL_REFRESH_V8 A18)."
@@ -441,7 +441,7 @@ backends:
       \ bench-gemma4-26b-qat target (TASK_MODEL_REFRESH_V8 A4).\
       \ supports_tools=true per Gemma4 family; verify via --audit-tools before promotion."
   - id: gemma4:31b-it-qat
-    supports_tools: false
+    supports_tools: true
     notes: "Gemma 4 31B Dense QAT (~18GB, Apache 2.0, 256K ctx, vision+text, QAT:\
       \ near-BF16 quality). Bench comparison vs production gemma4:31b-it-q4_K_M.\
       \ bench-gemma4-31b-qat target (TASK_MODEL_REFRESH_V8 A5).\
@@ -469,14 +469,14 @@ backends:
     supports_tools: false
     notes: No-restrictions creative. Unverified for tools.
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
-    supports_tools: true
-    notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). supports_tools=true per Qwen3.6 family (verify with --audit-tools before promotion)."
+    supports_tools: false
+    notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). supports_tools=false: audit-tools 2026-06-18 confirmed no_tool (empty content response — abliteration may have disrupted tool template)."
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
     notes: "Qwen3.6-27B abliterated dense Q4 (~17GB, huihui-ai, Apache 2.0). bench-qwen36-abl-27b creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). Already in ollama-general for AUTO routing; entry here is for creative group routing of bench-qwen36-abl-27b."
   - id: "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M"
-    supports_tools: true
-    notes: "LFM2.5-8B-A1B Uncensored (gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated base: LiquidAI/LFM2.5-8B-A1B). Head-to-head vs production lfm2.5:8b for creative/music/agentic lanes. bench-lfm25-8b-uncensored target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true assumed (inherits LFM2.5 tool format; verify with --audit-tools)."
+    supports_tools: false
+    notes: "LFM2.5-8B-A1B Uncensored (gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated base: LiquidAI/LFM2.5-8B-A1B). Head-to-head vs production lfm2.5:8b for creative/music/agentic lanes. bench-lfm25-8b-uncensored target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=false: audit-tools 2026-06-18 confirmed no_tool (empty content — production lfm2.5:8b is true; abliteration broke tool template)."
 workspace_routing:
   auto:
   - security
