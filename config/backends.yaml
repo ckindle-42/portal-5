@@ -198,6 +198,9 @@ backends:
   - id: "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M"
     supports_tools: true
     notes: "Qwen3.6-27B Q4_K_M (~16GB, bartowski). Head-to-head vs bench-qwen36-27b (unsloth Q4_K_XL) — TASK_QUANT_TRUEUP_V1 Finding A. Originally catalogued as OptiQ variant; bartowski repo was renamed to Qwen_Qwen3.6-27B-GGUF (no separate OptiQ GGUF published). supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M"
+  - id: "hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8"
+    supports_tools: false
+    notes: "Huihui-Qwable-3.6-27b abliterated Q4_K_M_Q8 (~18.3GB, huihui-ai, June 2026). Abliterated fine-tune of Mia-AiLab/Qwable-3.6-27b (Fable 5-style SFT base). Dense 27B, zero refusals. supports_tools=false: pending audit-tools probe. bench-huihui-qwable-27b target — head-to-head vs bench-qwable-27b (base) and bench-huihui-qwen36-27b (sibling abliteration). Security + coding eval: is Qwable a better abliteration base than Qwen3.6 for redteam/coding? PROMOTE_POLICY=confirm after bench. Pull: ollama pull hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8"
   - id: "hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf"
     supports_tools: true
     notes: "Qwable-3.6-27B Q4_K_M (~15GB, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-27B on a cleaned Fable 5-style reasoning+instruction dataset. Dense 27B (all params active, no MoE). No MTP layers. 'Trace-like assistant behavior' for code, technical reasoning, structured outputs. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. GC-03 FAIL 9/12=75%. bench-qwable-27b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf"
@@ -225,6 +228,9 @@ backends:
       \ — card header tags 'other'). Native <think>. auto-blueteam PRIMARY — restores\
       \ the pre-migration production model lost in 3a0c58e (P5-FUT-PARITY-001).\
       \ supports_tools=false (reasoning model, not tool-trained)."
+  - id: "hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8"
+    supports_tools: false
+    notes: "Huihui-Qwable-3.6-27b abliterated Q4_K_M_Q8 — security group copy for bench-huihui-qwable-27b security eval (redteam/purple candidate). Abliterated Qwable-3.6-27b base. Zero refusals. supports_tools=false pending audit-tools."
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
     notes: "audit-tools 2026-06-18: text_only — model emits tool-call JSON in content field (not structured tool_calls). Ollama .Tools template parses but baronllm's output format doesn't match what llama.cpp treats as a function call delta. Previously marked supports_tools=true (TASK_TOOL_AUDIT_V2) — that result was false-positive from template header inspection, not a live response probe. TV-02/P-S09 failures in UAT run 2026-06-18 confirm. See P5-TOOL-001 in KNOWN_LIMITATIONS.md."
@@ -684,6 +690,9 @@ workspace_routing:
   bench-gemma4-12b-coder:
   - coding
   - general
+  bench-huihui-qwable-27b:
+  - coding
+  - security
   bench-qwable-27b:
   - coding
   - general
