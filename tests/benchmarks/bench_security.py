@@ -419,7 +419,7 @@ CHAIN_TOOLS: list[dict] = [
                     "vmid": {"type": "integer", "description": "Proxmox VM ID to start"},
                     "snapshot": {
                         "type": "string",
-                        "description": "Snapshot to revert to before starting (use 'clean' for baseline)",
+                        "description": "Snapshot to revert to before starting (use 'baseline-ad' for the seeded red-team baseline)",
                     },
                 },
                 "required": ["vmid"],
@@ -505,7 +505,7 @@ CHAIN_TOOLS: list[dict] = [
                     "vmid": {"type": "integer", "description": "Proxmox VM ID to revert"},
                     "snapshot": {
                         "type": "string",
-                        "description": "Snapshot name to restore (use 'clean')",
+                        "description": "Snapshot name to restore (use 'baseline-ad')",
                     },
                 },
                 "required": ["vmid", "snapshot"],
@@ -527,7 +527,7 @@ _CHAIN_STEP_RESULTS: dict[str, str] = {
     "check_cve": "VULNERABLE: CVE confirmed on target. Service not patched.",
     "exploit_service": "Shell obtained: root@target-host:/# — session 1 opened",
     "establish_persistence": "Persistence established. Backdoor active.",
-    "revert_lab_target": "VM reverted to snapshot 'clean'. Lab restored to baseline.",
+    "revert_lab_target": "VM reverted to snapshot 'baseline-ad'. Lab restored to baseline.",
 }
 
 CHAIN_EXPECTED_ORDER = [

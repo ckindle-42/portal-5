@@ -83,7 +83,7 @@ PROXMOX_TASK_TIMEOUT = int(os.environ.get("PROXMOX_TASK_TIMEOUT", "120"))
 LAB_DC_VMID      = os.environ.get("LAB_DC_VMID", "")       # VMID of Domain Controller
 LAB_SRV_VMID     = os.environ.get("LAB_SRV_VMID", "")      # VMID of member server
 LAB_WS_VMID      = os.environ.get("LAB_WS_VMID", "")       # VMID of workstation (optional)
-LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "clean")  # snapshot name to revert to
+LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "baseline-ad")  # agent creates this in lab_setup.py phase6
 
 PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
 _PROXMOX_AVAILABLE = bool(LAB_DC_VMID)  # MCP handles auth; we just need a VMID
