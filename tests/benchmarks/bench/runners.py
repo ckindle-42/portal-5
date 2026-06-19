@@ -45,7 +45,7 @@ from .results_io import _append_result, _result_already_done
 
 def bench_direct(
     ollama_available: bool,
-    models_filter: str | None,
+    models_filter: list[str] | str | None,
     runs: int,
     dry_run: bool,
     cooldown: float = 10.0,
@@ -58,7 +58,8 @@ def bench_direct(
         ollama_groups = _config_ollama_models_by_group()
         ollama_unique = _config_ollama_models_unique()
         if models_filter:
-            ollama_unique = [m for m in ollama_unique if models_filter in m]
+            _filters = [models_filter] if isinstance(models_filter, str) else models_filter
+            ollama_unique = [m for m in ollama_unique if any(f in m for f in _filters)]
         if order in ("size", "largest"):
             ollama_unique = sorted(
                 ollama_unique,

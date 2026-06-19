@@ -52,7 +52,13 @@ def main() -> None:
         help="Test direct backends, pipeline workspaces, persona routing, or all (default: all)",
     )
     parser.add_argument("--runs", type=int, default=5, help="Runs per model/workspace (default: 5)")
-    parser.add_argument("--model", help="Filter: substring match on model name (direct only)")
+    parser.add_argument(
+        "--model",
+        action="append",
+        dest="models",
+        metavar="MODEL",
+        help="Filter: substring match on model name (direct only, repeatable — OR logic)",
+    )
     parser.add_argument("--workspace", help="Filter: exact workspace ID (pipeline only)")
     parser.add_argument("--persona", help="Filter: substring match on persona slug/name")
     parser.add_argument("--prompt", help="Override all prompts with this single prompt string")
@@ -224,7 +230,7 @@ def _run_main(args) -> None:
     do_personas = args.mode in ("personas", "all")
 
     _ws_filter = f" ws={args.workspace}" if getattr(args, "workspace", None) else ""
-    _model_filter = f" model={args.model}" if getattr(args, "model", None) else ""
+    _model_filter = f" model={','.join(args.models)}" if getattr(args, "models", None) else ""
     _send_bench_notification(
         f"mode={args.mode}{_ws_filter}{_model_filter}  runs={args.runs}\n"
         f"HW: {hw.get('cpu', '?')}  {hw.get('unified_memory_gb', '?')}GB\n"
@@ -245,7 +251,7 @@ def _run_main(args) -> None:
         all_results.extend(
             bench_direct(
                 ollama_available,
-                args.model,
+                args.models,
                 args.runs,
                 args.dry_run,
                 cooldown=args.cooldown,
