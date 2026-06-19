@@ -868,3 +868,9 @@ embedding_candidates:
 pipeline_bench_skip:
 - bench-nanonets-ocr2       # OCR vision specialist — image-input probe required
 - bench-olmocr2             # OCR vision specialist — image-input probe required
+# [BENCH-CRASH 2026-06-19] llama-server terminated (HTTP 500) under bench load.
+# Skipped to stop failure-count/Grafana pollution. NOT purged (additive-only
+# catalog). Re-enable only after root-cause + clean manual load confirmed.
+- bench-apriel-nemotron     # HTTP 500 llama-server terminated; also 3/5 timeout
+- bench-diffusiongemma      # HTTP 500; diffusion-LM arch — CONFIRM llama.cpp support before re-enable
+- bench-xploiter-pentester  # HTTP 500 llama_init failure (xploiter/pentester:v2)
