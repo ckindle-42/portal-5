@@ -8,7 +8,7 @@
 
 - **PASS**: 397
 - **WARN**: 34
-- **FAIL**: 4
+- **FAIL**: 5
 - **SKIP**: 12
 - **BLOCKED**: 0
 - **MANUAL**: 2
@@ -1637,3 +1637,17 @@ Tests that matched expected routing — breakdown of which backend *actually* se
 | TV-02 | Tool Validation — execute_python proof ( | auto-security | `ollama-security|huihui_ai/baronllm-abliterated` |
 
 All routing checks passed — every test was served by its intended primary model.
+| 1 | FAIL | [GC-03-qwable-27b GC-03 Platformer · Qwable-3.6-27B](http://localhost:8080/c/e3e77353-2630-4bf9-9c61-a75c38484517) | `bench-qwable-27b` | 9/12(75%) [routed: auto] HTML file delivered=✓(code block present); Single-file constraint (no external script src)=✗(no pattern matched in code (14992 chars)); Game loop present=✓(matched: requestAnimationFrame()); Collision detection present=✗(no pattern matched in code (14992 chars)); Game-over / restart state=✓(matched: restart mechanism); Score system=✗(missing: ['score']); Jump physics (gravity + ground collision)=✓(matched: gravity accumulation); Tile-based level rendering=✓(matched: tile/level map); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✓(matched: camera offset); Lives + win condition=✓(matched: lives identifier); Routed model: auto=✓(matches Ollama:qwable-3.6-27b) | 165.5s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 1 |
+| Correct | 1 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | PASS | [GC-03-qwable-35b GC-03 Platformer · Qwable-3.6-35B](http://localhost:8080/c/470f0188-7927-4419-8688-a0906e9a2e45) | `bench-qwable-35b` | 10/12(83%) HTML file delivered=✓(code block present); Single-file constraint (no external script src)=✗(no pattern matched in code (13592 chars)); Game loop present=✓(matched: requestAnimationFrame()); Collision detection present=✓(matched: intersection test); Game-over / restart state=✗(no pattern matched in code (13592 chars)); Score system=✓(ok); Jump physics (gravity + ground collision)=✓(matched: gravity accumulation); Tile-based level rendering=✓(matched: tile/level map); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✓(matched: camera offset); Lives + win condition=✓(matched: lives identifier); Routed model: auto=✓(matches Ollama:qwable-3.6-35b) | 216.9s |
