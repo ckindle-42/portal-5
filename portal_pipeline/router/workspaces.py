@@ -1481,6 +1481,40 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": [],
     },
+    "bench-qwable-27b": {
+        "name": "🔬 Bench · Qwable-3.6-27B (Mia-AiLab)",
+        "description": (
+            "Benchmark: hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf "
+            "(Mia-AiLab, MIT, June 2026, dense 27B, ~15GB Q4_K_M). "
+            "Full fine-tune of Qwen3.6-27B on a cleaned Fable 5-style reasoning+instruction dataset. "
+            "Dense (all 27B params active per token, no MoE). No MTP. "
+            "Bench question: does Fable 5 SFT improve instruction quality measurably over "
+            "base Qwen3.6-27B and Qwopus-27B? Head-to-head: GC-03 Platformer vs qwen3.6:27b and qwopus fleet. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "tools": [],
+    },
+    "bench-qwable-35b": {
+        "name": "🔬 Bench · Qwable-3.6-35B (Mia-AiLab)",
+        "description": (
+            "Benchmark: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf "
+            "(Mia-AiLab, MIT, June 2026, dense 35B, ~20GB Q4_K_M). "
+            "Full fine-tune of Qwen3.6-35b on a cleaned Fable 5-style reasoning+instruction dataset. "
+            "DENSE 35B — all parameters active per token, vs Qwen3.6-35B-A3B MoE (3B active, ~23 TPS). "
+            "Bench question: does the higher active parameter count produce quality gains that "
+            "justify the TPS cost on this hardware? GC-03 head-to-head vs qwen3.6:35b-a3b-q4_K_M. "
+            "PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "emits_reasoning": True,
+        "tools": [],
+    },
     "bench-fastcontext": {
         "name": "🔬 Bench · FastContext-1.0-4B-SFT (Microsoft)",
         "description": (

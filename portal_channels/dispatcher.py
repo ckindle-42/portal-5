@@ -123,6 +123,8 @@ VALID_WORKSPACES = frozenset(
         "bench-qwopus-coder-mtp",
         "bench-gemma4-12b-coder",
         "bench-deepseek-coder-v2",
+        "bench-qwable-27b",
+        "bench-qwable-35b",
         # June 2026 new production workspaces
         "auto-bigfix",
         "auto-cad",
