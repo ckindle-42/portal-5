@@ -72,7 +72,154 @@ DOMAIN        = "portal.lab"
 ADMIN_PASS    = "LabAdmin1!"
 SVC_BACKUP_PASS = "Backup123!"
 
+# Proxmox lifecycle — optional; if not set, bench assumes VMs are already running
+PROXMOX_URL          = os.environ.get("PROXMOX_URL", "https://10.0.0.203:8006")
+PROXMOX_TOKEN_ID     = os.environ.get("PROXMOX_TOKEN_ID", "")
+PROXMOX_TOKEN_SECRET = os.environ.get("PROXMOX_TOKEN_SECRET", "")
+PROXMOX_VERIFY_SSL   = os.environ.get("PROXMOX_VERIFY_SSL", "false").lower() == "true"
+PROXMOX_NODE         = os.environ.get("PROXMOX_DEFAULT_NODE", "")
+PROXMOX_TASK_TIMEOUT = int(os.environ.get("PROXMOX_TASK_TIMEOUT", "120"))
+
+LAB_DC_VMID      = os.environ.get("LAB_DC_VMID", "")       # VMID of Domain Controller
+LAB_SRV_VMID     = os.environ.get("LAB_SRV_VMID", "")      # VMID of member server
+LAB_WS_VMID      = os.environ.get("LAB_WS_VMID", "")       # VMID of workstation (optional)
+LAB_CLEAN_SNAPSHOT = os.environ.get("LAB_CLEAN_SNAPSHOT", "clean")  # snapshot name to revert to
+
+PROXMOX_MCP_PORT = int(os.environ.get("PROXMOX_MCP_HOST_PORT", "8927"))
+_PROXMOX_AVAILABLE = bool(LAB_DC_VMID)  # MCP handles auth; we just need a VMID
+
 ALL_PHASES = ["recon", "kerberoast", "asrep", "crack", "spray", "bloodhound", "winrm", "dcsync"]
+
+
+# ── Proxmox MCP call ──────────────────────────────────────────────────────────
+
+def _proxmox_mcp_call(tool_name: str, arguments: dict[str, Any], timeout: int = 180) -> dict[str, Any]:
+    """Call a proxmox_mcp tool via the Proxmox MCP server (:8927).
+
+    Uses the same FastMCP SSE protocol as _mcp_call (sandbox). Returns
+    {ok, output, elapsed_s} for consistency with the sandbox API.
+    """
+    base = f"http://localhost:{PROXMOX_MCP_PORT}/mcp"
+    hdrs = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+    t0 = time.monotonic()
+
+    with httpx.Client(timeout=timeout + 30) as c:
+        sid = ""
+        with c.stream("POST", base, headers=hdrs, json={
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                       "clientInfo": {"name": "bench_lab_exec", "version": "1"}},
+        }) as r:
+            r.raise_for_status()
+            sid = r.headers.get("mcp-session-id", "")
+            for _ in r.iter_lines():
+                pass
+
+        call_hdrs = {**hdrs, "mcp-session-id": sid} if sid else hdrs
+        last_result: dict = {}
+        with c.stream("POST", base, headers=call_hdrs, json={
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        }) as r:
+            r.raise_for_status()
+            for line in r.iter_lines():
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload:
+                    continue
+                try:
+                    obj = json.loads(payload)
+                    if "result" in obj or "error" in obj:
+                        last_result = obj
+                except json.JSONDecodeError:
+                    pass
+
+    elapsed = time.monotonic() - t0
+    error = last_result.get("error")
+    content = last_result.get("result", {}).get("content", [{}])
+    text = content[0].get("text", "") if content else json.dumps(last_result.get("result", {}))
+    ok = error is None
+    return {"ok": ok, "output": text, "elapsed_s": round(elapsed, 2), "error": error}
+
+
+def _lab_vm_start(vmid: str, label: str = "") -> bool:
+    """Start a Proxmox VM via Proxmox MCP and wait for guest agent to respond."""
+    if not vmid:
+        return True
+    label = label or vmid
+    print(f"  [proxmox-mcp] start {label} (vmid={vmid}) ...", end=" ", flush=True)
+    try:
+        r = _proxmox_mcp_call("proxmox_vm_start", {"vmid": int(vmid), "wait": True}, timeout=120)
+        if not r["ok"]:
+            print(f"FAIL: {r.get('error')}")
+            return False
+        print("OK")
+        return True
+    except Exception as exc:
+        print(f"ERR: {exc}")
+        return False
+
+
+def _lab_vm_revert(vmid: str, snapname: str, label: str = "") -> bool:
+    """Rollback a VM to a named snapshot via Proxmox MCP."""
+    if not vmid:
+        return True
+    label = label or vmid
+    print(f"  [proxmox-mcp] revert {label} (vmid={vmid}) → {snapname} ...", end=" ", flush=True)
+    try:
+        r = _proxmox_mcp_call(
+            "proxmox_rollback_snapshot",
+            {"vmid": int(vmid), "snapname": snapname},
+            timeout=PROXMOX_TASK_TIMEOUT * 2,
+        )
+        if not r["ok"]:
+            print(f"FAIL: {r.get('error')}")
+            return False
+        print("OK")
+        return True
+    except Exception as exc:
+        print(f"ERR: {exc}")
+        return False
+
+
+def lab_setup(dry_run: bool = False) -> bool:
+    """Start all lab VMs via Proxmox MCP. No-ops if LAB_DC_VMID not set."""
+    if not _PROXMOX_AVAILABLE:
+        print("  [proxmox-mcp] lifecycle skipped — LAB_DC_VMID not set")
+        return True
+    print("\n── Lab Setup (Proxmox MCP :8927) ──")
+    if dry_run:
+        print(f"  [proxmox-mcp] DRY-RUN — would start vmid={LAB_DC_VMID},{LAB_SRV_VMID},{LAB_WS_VMID}")
+        return True
+    ok = True
+    ok &= _lab_vm_start(LAB_DC_VMID,  label="dc01")
+    ok &= _lab_vm_start(LAB_SRV_VMID, label="srv01")
+    if LAB_WS_VMID:
+        ok &= _lab_vm_start(LAB_WS_VMID, label="ws01")
+    if ok:
+        print("  [proxmox-mcp] VMs up — waiting 15s for AD services to settle ...", end=" ", flush=True)
+        time.sleep(15)
+        print("ok")
+    return ok
+
+
+def lab_teardown(dry_run: bool = False) -> bool:
+    """Revert all lab VMs to clean snapshot via Proxmox MCP."""
+    if not _PROXMOX_AVAILABLE:
+        print("  [proxmox-mcp] teardown skipped — LAB_DC_VMID not set")
+        return True
+    print("\n── Lab Teardown (Proxmox MCP :8927) ──")
+    if dry_run:
+        print(f"  [proxmox-mcp] DRY-RUN — would revert to snapshot '{LAB_CLEAN_SNAPSHOT}'")
+        return True
+    ok = True
+    ok &= _lab_vm_revert(LAB_DC_VMID,  LAB_CLEAN_SNAPSHOT, label="dc01")
+    ok &= _lab_vm_revert(LAB_SRV_VMID, LAB_CLEAN_SNAPSHOT, label="srv01")
+    if LAB_WS_VMID:
+        ok &= _lab_vm_revert(LAB_WS_VMID, LAB_CLEAN_SNAPSHOT, label="ws01")
+    return ok
 
 
 # ── MCP sandwich ──────────────────────────────────────────────────────────────
@@ -328,7 +475,13 @@ PHASE_FNS = {
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
-def run_bench(phases: list[str], runs: int, dry_run: bool, output_path: Path | None) -> None:
+def run_bench(
+    phases: list[str],
+    runs: int,
+    dry_run: bool,
+    output_path: Path | None,
+    manage_lifecycle: bool = True,
+) -> None:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     results: dict[str, Any] = {
         "bench": "lab_exec",
@@ -338,13 +491,21 @@ def run_bench(phases: list[str], runs: int, dry_run: bool, output_path: Path | N
         "domain": DOMAIN,
         "dry_run": dry_run,
         "runs": runs,
+        "proxmox_lifecycle": manage_lifecycle and _PROXMOX_AVAILABLE,
+        "lab_clean_snapshot": LAB_CLEAN_SNAPSHOT if _PROXMOX_AVAILABLE else None,
         "phases": {},
     }
 
     total_t0 = time.monotonic()
     print(f"\nPortal 5 — Lab-Exec Bench  [{ts}]")
     print(f"DC={DC}  SRV={SRV}  runs={runs}  dry_run={dry_run}")
+    print(f"Proxmox lifecycle: {'enabled' if manage_lifecycle and _PROXMOX_AVAILABLE else 'disabled'}")
     print(f"Phases: {', '.join(phases)}\n")
+
+    if manage_lifecycle:
+        if not lab_setup(dry_run=dry_run):
+            print("[!] Lab setup failed — aborting bench to avoid running against dirty state")
+            return
 
     for phase in phases:
         fn = PHASE_FNS[phase]
@@ -394,6 +555,10 @@ def run_bench(phases: list[str], runs: int, dry_run: bool, output_path: Path | N
     out.write_text(json.dumps(results, indent=2))
     print(f"Results → {out}")
 
+    # ── Teardown: revert to clean snapshot ───────────────────────────────────
+    if manage_lifecycle:
+        lab_teardown(dry_run=dry_run)
+
     if any(pr["fail"] > 0 for pr in results["phases"].values()):
         sys.exit(1)
 
@@ -407,6 +572,14 @@ def _parse() -> argparse.Namespace:
     p.add_argument("--runs", type=int, default=1, help="repetitions per phase")
     p.add_argument("--output", type=Path, help="JSON results file path")
     p.add_argument("--dry-run", action="store_true", help="skip MCP calls, measure overhead only")
+    p.add_argument(
+        "--no-lifecycle",
+        action="store_true",
+        help=(
+            "Skip Proxmox VM start/revert (assumes lab VMs already running and clean). "
+            "Useful when iterating on a single phase without wanting teardown between runs."
+        ),
+    )
     return p.parse_args()
 
 
