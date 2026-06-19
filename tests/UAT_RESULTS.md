@@ -7,8 +7,8 @@
 ## Summary
 
 - **PASS**: 397
-- **WARN**: 33
-- **FAIL**: 5
+- **WARN**: 34
+- **FAIL**: 4
 - **SKIP**: 12
 - **BLOCKED**: 0
 - **MANUAL**: 2
@@ -1562,8 +1562,6 @@ Tests that matched expected routing — breakdown of which backend *actually* se
 
 All routing checks passed — every test was served by its intended primary model.
 | 1 | PASS | [WS-BF-02 BigFix — REST API Patch Compliance Query](http://localhost:8080/c/d371069f-a39d-4757-9af4-110894d8a438) | `auto-bigfix` | 5/5(100%) REST API endpoint structure=✓(found: ['bigfix', 'https://']); Python requests usage=✓(found: ['requests.get', 'import requests']); Response parsing=✓(found: ['json()', '.json', 'response', 'parse', 'data']); Substantive response=✓(len=5617, min=300); Routed model: auto-bigfix=✓(matches Ollama:qwen3-coder — pipeline confirms: ollama-security|huihui_ai/qwen3.5-abliterated:9b) | 232.2s |
-| 2 | FAIL | [P-S09 Security Code — Command Injection Audit](http://localhost:8080/c/cb8ed20e-eb6c-4c96-b9f0-e6c82be806a3) | `auto-security` | 4/6(66%) [routed: auto-security] Fixed code present=✓(code block present); os.popen removed=✓(ok); shell=True not introduced=✓(ok); Safe alternative used=✗(none of: ['subprocess', 'shlex', 'list', 'open(', 'pathlib']); Injection risk explained=✗(none of: ['inject', 'injection', 'arbitrary', 'shell', 'escape', 'sanitize', 'untrusted']); Routed model: auto-security=✓(matches Ollama:baronllm-abliterated — pipeline confirms: ollama-security|huihui_ai/baronllm-abliterated) | 79.2s |
-| 3 | FAIL | [TV-02 Tool Validation — execute_python proof (auto-security/baronllm)](http://localhost:8080/c/e12c930d-57db-4597-ad87-a0897e782a61) | `auto-security` | 2/3(66%) [routed: auto-security] Correct computed output (56154) — proves tool ran=✗(missing: ['56154']); Did not refuse tool use=✓(ok); Routed model: auto-security=✓(matches Ollama:baronllm-abliterated — pipeline confirms: ollama-security|huihui_ai/baronllm-abliterated) | 30.6s |
 | 4 | FAIL | [GC-03-deepseek-coder-v2 GC-03 Platformer · DeepSeek-Coder-V2-Lite](http://localhost:8080/c/ac80bbc6-144e-4c47-9123-3942c8b3fa4b) | `bench-deepseek-coder-v2` | 8/12(66%) [routed: bench-deepseek-coder-v2] HTML file delivered=✓(code block present); Single-file constraint (no external script src)=✗(no pattern matched in code (4227 chars)); Game loop present=✓(matched: requestAnimationFrame()); Collision detection present=✗(no pattern matched in code (4227 chars)); Game-over / restart state=✓(matched: restart mechanism); Score system=✗(missing: ['score']); Jump physics (gravity + ground collision)=✓(matched: gravity accumulation); Tile-based level rendering=✓(matched: tile/level map); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✗(no pattern matched in code (4227 chars)); Lives + win condition=✓(matched: lives identifier); Routed model: bench-deepseek-coder-v2=✓(matches Ollama:deepseek-coder-v2 — pipeline confirms: ollama-coding|deepseek-coder-v2:16b-lite-instruct-q4_K_M) | 50.0s |
 | 5 | PASS | [GC-03-devstral-small-2 GC-03 Platformer · Devstral-Small-2](http://localhost:8080/c/d7275958-3701-4b27-b78a-980b2c095bba) | `bench-devstral-small-2` | 10/12(83%) HTML file delivered=✓(code block present); Single-file constraint (no external script src)=✗(no pattern matched in code (6141 chars)); Game loop present=✓(matched: requestAnimationFrame()); Collision detection present=✗(no pattern matched in code (6141 chars)); Game-over / restart state=✓(matched: restart mechanism); Score system=✓(ok); Jump physics (gravity + ground collision)=✓(matched: gravity accumulation); Tile-based level rendering=✓(matched: tile/level map); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✓(matched: camera offset); Lives + win condition=✓(matched: lives identifier); Routed model: bench-devstral-small-2=✓(matches via workspace 'bench-devstral-small-2': Ollama:devstral-small-2 — pipeline confirms: ollama-coding|devstral-small-2) | 169.4s |
 | 6 | FAIL | [GC-03-dolphin8b GC-03 Platformer · Dolphin-Llama3-8B](http://localhost:8080/c/6be9124f-d8e0-4b65-ae53-920f6038a329) | `bench-dolphin8b` | 6/12(50%) [routed: bench-dolphin8b] HTML file delivered=✓(raw html); Single-file constraint (no external script src)=✗(no pattern matched in code (5182 chars)); Game loop present=✗(no pattern matched in code (5182 chars)); Collision detection present=✓(matched: intersection test); Game-over / restart state=✓(matched: restart mechanism); Score system=✗(missing: ['score']); Jump physics (gravity + ground collision)=✗(no pattern matched in code (5182 chars)); Tile-based level rendering=✗(no pattern matched in code (5182 chars)); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✗(no pattern matched in code (5182 chars)); Lives + win condition=✓(matched: lives identifier); Routed model: bench-dolphin8b=✓(matches via workspace 'bench-dolphin8b': Ollama:dolphin-llama3 — pipeline confirms: ollama-general|dolphin-llama3:8b) | 78.9s |
@@ -1607,5 +1605,35 @@ Tests that matched expected routing — breakdown of which backend *actually* se
 | GC-03-gemma4-12b-coder | GC-03 Platformer · Gemma4-12B-Coder | game_challenge | `ollama-coding|hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M` |
 | P-D05 | Fullstack Developer — Secure JWT Auth | auto-coding | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
 | P-N23 | Terraform Writer — S3 Module | auto-coding | `ollama-coding|qwen3-coder:30b-a3b-q4_K_M` |
+
+All routing checks passed — every test was served by its intended primary model.
+| 1 | FAIL | [P-S09 Security Code — Command Injection Audit](http://localhost:8080/c/919b85aa-4459-4696-8729-7ca2b451aca5) | `auto-security` | 4/6(66%) [routed: auto-security] Fixed code present=✗(no code block); os.popen removed=✓(ok); shell=True not introduced=✓(ok); Safe alternative used=✗(none of: ['subprocess', 'shlex', 'list', 'open(', 'pathlib', 'Popen', 'run(', 'check_output', 'check_call', 'getoutput', 'execvp']); Injection risk explained=✓(found: ['inject', 'injection', 'command', 'attack', 'concatenat', 'vulnerable']); Routed model: auto-security=✓(matches Ollama:baronllm-abliterated — pipeline confirms: ollama-security|huihui_ai/baronllm-abliterated) | 33.8s |
+| 2 | WARN | [TV-02 Tool Validation — execute_python proof (auto-security/baronllm)](http://localhost:8080/c/243dbfd0-f9f2-4ba2-9ef4-872f9e452fe8) | `auto-security` | 2/3(66%) [routed: auto-security] Correct computed output (56154) — proves tool ran=✗(missing: ['56154']); Did not refuse tool use=✓(ok); Routed model: auto-security=✓(matches Ollama:baronllm-abliterated — pipeline confirms: ollama-security|huihui_ai/baronllm-abliterated) | 20.0s |
+
+## Routing Summary
+
+| Metric | Count |
+|--------|-------|
+| Routing checked | 2 |
+| Correct | 2 |
+| Routing mismatch (wrong model) | 0 |
+| Wrong model (same tier) | 0 |
+| No actual model returned | 0 |
+
+### Pipeline Backend (Ollama primary, pipeline-confirmed)
+
+Tests that matched expected routing — breakdown of which backend *actually* served:
+
+| Metric | Count |
+|--------|-------|
+| Ollama primary confirmed | 2 |
+| Backend unconfirmed (log gap) | 0 |
+
+**Ollama-served** — these tests passed with backend confirmed:
+
+| Test ID | Name | Section | Pipeline Backend |
+|---------|------|---------|-----------------|
+| P-S09 | Security Code — Command Injection Audit | auto-security | `ollama-security|huihui_ai/baronllm-abliterated` |
+| TV-02 | Tool Validation — execute_python proof ( | auto-security | `ollama-security|huihui_ai/baronllm-abliterated` |
 
 All routing checks passed — every test was served by its intended primary model.
