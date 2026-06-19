@@ -35,9 +35,11 @@
       ]
     },
     "portal-sandbox": {
+      "type": "http",
       "url": "http://localhost:8914/mcp"
     },
     "portal-pipeline": {
+      "type": "http",
       "url": "http://localhost:8928/mcp"
     }
   }
