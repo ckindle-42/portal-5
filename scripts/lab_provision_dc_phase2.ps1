@@ -132,6 +132,33 @@ try {
     }
 } catch { Write-Host "  ACL error: $($_.Exception.Message)" }
 
+# ── Audit policy: emit the events the blue/purple detection bench grades on ──
+# Default Server 2022 auditing does NOT reliably log 4769 RC4 ticket detail,
+# 4662 (DCSync), or 4720/4728 (persistence). Force them on via Advanced Audit
+# Policy subcategories so the lab produces a real detection corpus.
+try {
+    $subcats = @(
+        "Kerberos Service Ticket Operations",  # 4769 / 4770
+        "Kerberos Authentication Service",      # 4768 / 4771
+        "Credential Validation",                # 4776
+        "Logon",                                # 4624 / 4625
+        "Directory Service Access",             # 4662  (DCSync)
+        "User Account Management",              # 4720 / 4722 / 4738
+        "Security Group Management",            # 4728 / 4732 / 4756
+        "Other Object Access Events"            # scheduled task creation (4698)
+    )
+    foreach ($sc in $subcats) {
+        auditpol /set /subcategory:"$sc" /success:enable /failure:enable | Out-Null
+    }
+    # RC4 downgrade detail in 4769 is what lets a hunter spot Kerberoasting.
+    # Ticket Encryption Type 0x17 (RC4) appears only when this audit is on AND
+    # the SPN accounts allow RC4 (they do — lab default).
+    Write-Host "  Audit: advanced audit policy enabled (4769/4768/4662/4720/4728/4698)"
+} catch { Write-Host "  Audit: $($_.Exception.Message)" }
+
+# Force the change to settle in the local security policy store.
+try { gpupdate /target:computer /force | Out-Null } catch {}
+
 Write-Host ""
 Write-Host "[DC] Phase 2 complete. Lab misconfigurations seeded:"
 Write-Host "  Kerberoastable:        svc_mssql, svc_iis, svc_backup"
