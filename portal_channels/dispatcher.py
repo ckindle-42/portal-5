@@ -123,6 +123,7 @@ VALID_WORKSPACES = frozenset(
         "bench-qwopus-coder-mtp",
         "bench-gemma4-12b-coder",
         "bench-deepseek-coder-v2",
+        "bench-gemmable-12b",
         "bench-huihui-qwable-27b",
         "bench-qwable-27b",
         "bench-qwable-35b",

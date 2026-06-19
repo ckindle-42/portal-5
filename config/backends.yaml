@@ -183,6 +183,9 @@ backends:
   - id: "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf"
     supports_tools: true
     notes: "Qwopus3.6-27B-Coder-MTP Q5_K_M (~19GB, Jackrong, Apache 2.0, June 2026). Coder SFT on Qwopus3.6-27B-v2 (Qwen3.6-27B base + Trace Inversion). Agentic coding + tool-use training on Claude Opus traces + hermes-agent-reasoning trajectories. SWE-bench Verified 67.0% (thinking-off, Q5_K_M). MTP embedded heads for speculative self-decoding. 27B dense, ~19GB, 32K native fine-tune ctx (RoPE/YaRN for longer). Note: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF (the base reasoning repo) had pull failures 2026-06-09 — this is a separate Coder-specific GGUF repo with llama.cpp tags; verify pull succeeds before noting as operational. bench-qwopus-coder-mtp target (TASK_MODEL_EVAL_V9_CANDIDATES). supports_tools=true per Qwen3.6 tool-call format inherited by Qwopus; verify via --audit-tools before promotion."
+  - id: "hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Gemmable-4-12B Q4_K_M (~6.9GB, Mia-AiLab, June 2026). Fine-tune of Gemma 4 12B — same Mia-AiLab Fable 5-style dataset lineage as Qwable-3.6-27B. MTP repo also ships gemmable-4-12b-Q4_K_M-mtp.gguf (~0.3GB) for speculative decode. supports_tools=false: pending audit-tools. bench-gemmable-12b target. Head-to-head vs bench-gemma4-12b (base Gemma 4 12B) and bench-gemma4-12b-coder (Fable5+Composer SFT). PROMOTE_POLICY=confirm. Pull: ollama pull hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M"
   - id: "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M"
     supports_tools: true
     notes: "Gemma4-12B-Coder-Fable5-Composer2.5-v1 Q4_K_M (~6.87GB, yuxinlu1, Gemma license, June 2026). Fine-tune of Gemma 4 12B on verifiable Python CoT: Composer 2.5 real reasoning traces + Fable 5 synthetic second-attempt traces, both gated on test execution. Coding + reasoning specialist. 131K ctx. audit-tools 2026-06-18: tool_call — emitted 1 structured tool_call (get_current_time) in 10.6s, Gemma4 function-calling format confirmed. bench-gemma4-12b-coder target (TASK_MODEL_EVAL_V9_CANDIDATES). Lightweight (~7GB) coding specialist with distinct training lineage vs fleet. Gemma license: commercial-OK consistent with other Gemma4 fleet models."
@@ -231,6 +234,9 @@ backends:
   - id: "hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8"
     supports_tools: false
     notes: "Huihui-Qwable-3.6-27b abliterated Q4_K_M_Q8 — security group copy for bench-huihui-qwable-27b security eval (redteam/purple candidate). Abliterated Qwable-3.6-27b base. Zero refusals. supports_tools=false pending audit-tools."
+  - id: "hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M"
+    supports_tools: false
+    notes: "Gemmable-4-12B Q4_K_M — security group copy for bench-gemmable-12b security eval. Fable 5-style SFT on Gemma 4 12B. Structured analysis + AppSec use case bench vs foundation-sec and fleet. supports_tools=false: pending audit-tools."
   - id: huihui_ai/baronllm-abliterated
     supports_tools: false
     notes: "audit-tools 2026-06-18: text_only — model emits tool-call JSON in content field (not structured tool_calls). Ollama .Tools template parses but baronllm's output format doesn't match what llama.cpp treats as a function call delta. Previously marked supports_tools=true (TASK_TOOL_AUDIT_V2) — that result was false-positive from template header inspection, not a live response probe. TV-02/P-S09 failures in UAT run 2026-06-18 confirm. See P5-TOOL-001 in KNOWN_LIMITATIONS.md."
@@ -632,6 +638,10 @@ workspace_routing:
   - creative
   - general
   # Daily-driver candidate bench
+  bench-gemmable-12b:
+  - coding
+  - security
+  - general
   bench-gemma4-12b:
   - vision
   - general
