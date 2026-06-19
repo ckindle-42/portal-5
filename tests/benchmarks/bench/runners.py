@@ -230,7 +230,7 @@ def bench_direct(
 
 def bench_pipeline(
     pipeline_available: bool,
-    workspace_filter: str | None,
+    workspace_filter: list[str] | str | None,
     runs: int,
     dry_run: bool,
     output_path: str = "",
@@ -240,10 +240,11 @@ def bench_pipeline(
 
     if workspace_filter:
         # Explicit operator filter overrides pipeline_bench_skip — operator
-        # wants to probe this specific workspace intentionally.
+        # wants to probe these specific workspaces intentionally.
+        _filters = [workspace_filter] if isinstance(workspace_filter, str) else workspace_filter
         cfg = _load_backends_config()
         routing: dict[str, list[str]] = cfg.get("workspace_routing", {})
-        workspaces = [workspace_filter] if workspace_filter in routing else []
+        workspaces = [ws for ws in _filters if ws in routing]
     else:
         workspaces = _config_workspaces()
 
