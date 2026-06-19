@@ -6,7 +6,7 @@
 
 ## Summary
 
-- **PASS**: 397
+- **PASS**: 398
 - **WARN**: 34
 - **FAIL**: 5
 - **SKIP**: 12
@@ -1650,4 +1650,3 @@ All routing checks passed — every test was served by its intended primary mode
 | No actual model returned | 0 |
 
 All routing checks passed — every test was served by its intended primary model.
-| 1 | PASS | [GC-03-qwable-35b GC-03 Platformer · Qwable-3.6-35B](http://localhost:8080/c/470f0188-7927-4419-8688-a0906e9a2e45) | `bench-qwable-35b` | 10/12(83%) HTML file delivered=✓(code block present); Single-file constraint (no external script src)=✗(no pattern matched in code (13592 chars)); Game loop present=✓(matched: requestAnimationFrame()); Collision detection present=✓(matched: intersection test); Game-over / restart state=✗(no pattern matched in code (13592 chars)); Score system=✓(ok); Jump physics (gravity + ground collision)=✓(matched: gravity accumulation); Tile-based level rendering=✓(matched: tile/level map); Enemy patrol AI (the hard part)=✓(matched: enemy identifier); Scrolling camera=✓(matched: camera offset); Lives + win condition=✓(matched: lives identifier); Routed model: auto=✓(matches Ollama:qwable-3.6-35b) | 216.9s |
