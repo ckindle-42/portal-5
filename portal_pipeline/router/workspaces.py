@@ -1985,7 +1985,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "vs incumbent coders. NEVER auto-routed/auto-promoted (PROMOTE_POLICY). "
             "Verified live 2026-06."
         ),
-        "model_hint": "C3Dv0:latest",
+        "model_hint": "joshuaokolo/C3Dv0:latest",
         "max_concurrent": 1,
         "predict_limit": 8192,
         "keep_alive": "5m",
@@ -2042,7 +2042,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "~20GB, abliterated). Speed play vs bench-huihui-qwen36-27b — 3B active MoE "
             "for fast decode. Pull from HF GGUF before benching."
         ),
-        "model_hint": "hf.co/vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+        "model_hint": "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
@@ -2054,7 +2054,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Not for code/knowledge — strengths: agentic tasks, data extraction, RAG, creative. "
             "See persona system prompt for Liquid AI recommended parameters."
         ),
-        "model_hint": "hf.co/bartowski/LFM2-8B-A1B-GGUF:Q4_K_M",
+        "model_hint": "hf.co/bartowski/LiquidAI_LFM2-8B-A1B-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
@@ -2066,7 +2066,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "(sensitive layers 8-bit, robust layers 4-bit). "
             "Head-to-head vs bench-qwen36-27b (plain Q4_K_M) — TASK_QUANT_TRUEUP_V1 Finding A."
         ),
-        "model_hint": "hf.co/bartowski/Qwen3.6-27B-OptiQ-GGUF:Q4_K_M",
+        "model_hint": "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
