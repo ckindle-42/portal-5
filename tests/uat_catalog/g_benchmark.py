@@ -1659,4 +1659,33 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── Qwable-3.6 series (Mia-AiLab, Fable 5 SFT) — TASK_MODEL_EVAL_V9_CANDIDATES ──
+    # Dense fine-tunes on Qwen3.6-27B / Qwen3.6-35B (full params active, no MoE).
+    # Bench question: does Fable 5 SFT produce measurably better instruction quality
+    # than base Qwen3.6, and does the dense 35B quality-per-token justify the TPS cost
+    # vs our Qwen3.6-35B-A3B MoE fleet (3B active params, ~23 TPS)?
+    {
+        "id": "GC-03-qwable-27b",
+        "name": "GC-03 Platformer · Qwable-3.6-27B",
+        "section": "game_challenge",
+        "model_slug": "bench-qwable-27b",
+        "timeout": 1200,
+        "workspace_tier": "ollama",
+        "max_wait_no_progress": 1800,
+        "prompt": _GC03_PROMPT,
+        "assertions": _GC03_ASSERTIONS,
+        "artifact_ext": "html",
+    },
+    {
+        "id": "GC-03-qwable-35b",
+        "name": "GC-03 Platformer · Qwable-3.6-35B",
+        "section": "game_challenge",
+        "model_slug": "bench-qwable-35b",
+        "timeout": 1200,
+        "workspace_tier": "ollama",
+        "max_wait_no_progress": 1800,
+        "prompt": _GC03_PROMPT,
+        "assertions": _GC03_ASSERTIONS,
+        "artifact_ext": "html",
+    },
 ]
