@@ -1318,6 +1318,23 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     # ── Daily-driver candidate bench (gemma4:12b + phi4-mini) ──────────────
+    "bench-gemmable-12b": {
+        "name": "🔬 Bench · Gemmable-4-12B (Mia-AiLab)",
+        "description": (
+            "Benchmark: hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M "
+            "(Mia-AiLab, June 2026, ~6.9GB). Fable 5-style SFT fine-tune of Gemma 4 12B. "
+            "DUAL EVAL: (1) coding — head-to-head vs bench-gemma4-12b (base) and "
+            "bench-gemma4-12b-coder (Composer SFT) for instruction-following quality; "
+            "(2) security — structured AppSec analysis vs foundation-sec and fleet, "
+            "testing whether Fable 5 SFT improves security report quality at 12B scale. "
+            "MTP variant available (~0.3GB) for speculative decode. PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
     "bench-gemma4-12b": {
         "name": "🔬 Bench · Gemma 4 12B QAT (Google)",
         "description": (
