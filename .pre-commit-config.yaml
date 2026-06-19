@@ -1,0 +1,8 @@
+# Portal 5 pre-commit hooks. Install once: pip install pre-commit && pre-commit install
+# Run on all files ad hoc: pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (block committed secrets)

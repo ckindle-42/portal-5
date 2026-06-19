@@ -1,0 +1,15 @@
+# Extends gitleaks default ruleset; only adds an allowlist for known test fixtures.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Portal 5 known non-secrets (test fixtures, placeholders)"
+regexes = [
+  '''sk-abcdefghijklmnopqrstuvwx''',   # dummy key in redaction unit test
+  '''PIPELINE_API_KEY=mykey''',         # usage example in smoke_stream.sh
+  '''CHANGEME''',                       # .env.example placeholder
+]
+paths = [
+  '''\.env\.example$''',
+  '''config/searxng/settings\.yml\.new$''',  # vendored upstream example config
+]
