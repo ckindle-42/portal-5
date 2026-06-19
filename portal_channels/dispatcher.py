@@ -147,6 +147,12 @@ VALID_WORKSPACES = frozenset(
         "bench-dolphin3-cyber",
         # June 2026 new production security workspaces
         "auto-redteam-deep",
+        # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
+        "auto-coding-uncensored",
+        "auto-coding-uncensored-agentic",
+        "auto-extract-uncensored",
+        "auto-general-uncensored",
+        "auto-security-uncensored",
         # June 2026 AppSec bench candidate
         "bench-vulnllm-r7b",
         # June 2026 diffusion research bench

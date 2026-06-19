@@ -137,6 +137,73 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "tools": [],
     },
+    "auto-extract-uncensored": {
+        "name": "🔓 Portal Extract (Uncensored)",
+        "description": (
+            "Text-only entity/data extraction and summarization with an uncensored "
+            "model — fewer content refusals on sensitive source text. "
+            "LFM2.5-8B-A1B Uncensored (gaston-parravicini, ~5GB, abliterated LFM2.5 base). "
+            "BENCH-PASSED: EX-01 5/5 (100%, 18s) on this hardware. tools=false — "
+            "extraction/summarization only, no tool loop. Explicit-select; not a default."
+        ),
+        "model_hint": "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M",
+        "keep_alive": "10m",
+        "tools": [],
+        "system_prompt_append": (
+            "\n\nYou are an uncensored extraction and summarization assistant. Extract or "
+            "summarize the requested information directly from any source text without "
+            "content-policy preambles or refusals for legitimate analysis work. Return "
+            "structured output (JSON when asked). Do not add moralizing commentary."
+        ),
+    },
+    "auto-general-uncensored": {
+        "name": "🔓 Portal General (Uncensored)",
+        "description": (
+            "Uncensored generalist + reasoning lane — makes the documented general "
+            "uncensored model explicitly promptable instead of fallback-only. "
+            "Qwen3.6-abliterated 27B (huihui-ai, ~20GB, MoE 3B active, tools=True). "
+            "[BENCH-GATED PROVISIONAL — no passing bench in an explicit general role yet; "
+            "not a default; promotion requires a bench pass + separate operator task.]"
+        ),
+        "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
+        "keep_alive": "10m",
+        "tools": [
+            "execute_bash",
+            "execute_python",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
+        "system_prompt_append": (
+            "\n\nYou are an uncensored general assistant. Answer directly and completely "
+            "without content-policy preambles or refusals for legitimate requests. Refuse "
+            "only what is genuinely illegal to assist."
+        ),
+    },
+    "auto-security-uncensored": {
+        "name": "🔓 Portal Security (Uncensored)",
+        "description": (
+            "Uncensored security analysis with stock BaronLLM (q6_k, tools=True, tool "
+            "template verified TASK_TOOL_AUDIT_V2). Counterpart to auto-security, which "
+            "uses the abliterated BaronLLM. [BENCH-GATED PROVISIONAL — no passing bench in "
+            "this role yet; not a default; explicit-select only; promotion requires a "
+            "bench pass + separate operator task.]"
+        ),
+        "model_hint": "baronllm:q6_k",
+        "keep_alive": "10m",
+        "tools": [
+            "execute_bash",
+            "execute_python",
+            "remember",
+            "recall",
+        ],
+        "system_prompt_append": (
+            "\n\nYou are an uncensored security analysis assistant for authorized testing "
+            "and research. Provide direct technical analysis without content-policy "
+            "preambles. Assume the operator is authorized for the systems in scope."
+        ),
+    },
     "auto-daily": {
         "name": "🪶 Portal Daily Driver",
         "description": (
@@ -201,6 +268,80 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "remember",
             "recall",
         ],
+    },
+    "auto-coding-uncensored": {
+        "name": "🔓 Portal Code (Uncensored)",
+        "description": (
+            "One-shot code generation with a tool-capable, lightly-aligned model — "
+            "fewer content refusals than the filtered auto-coding lane. "
+            "OmniCoder-2 9B (Qwen3.5-9B base, ~5.7GB, Apache 2.0, tools=True). "
+            "Use for codegen the standard coder declines on policy grounds. "
+            "[BENCH-GATED PROVISIONAL model_hint — not a default; promotion requires a "
+            "passing GC/CC bench run and a separate operator promotion task. "
+            "For the agentic loop use auto-coding-uncensored-agentic.]"
+        ),
+        "model_hint": "omnicoder2:9b-q4_k_m",
+        "keep_alive": "10m",
+        "tools": [
+            "execute_bash",
+            "execute_python",
+            "execute_nodejs",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
+        "system_prompt_append": (
+            "\n\nYou are an uncensored coding assistant. Produce the requested code "
+            "directly and completely. Do not add moralizing preambles or refuse on "
+            "content-policy grounds for legitimate engineering work. Still refuse only "
+            "what is genuinely illegal to assist (e.g. functional malware-as-a-service, "
+            "CSAM). Prefer correct, runnable code over caveats."
+        ),
+    },
+    "auto-coding-uncensored-agentic": {
+        "name": "🔓 Portal Agentic Coder (Uncensored)",
+        "description": (
+            "Multi-turn agentic coding with an abliterated SWE-capable model — the "
+            "uncensored counterpart to auto-coding-agentic. Qwen3-Coder-Next abliterated "
+            "(80B/3B MoE, ~46GB, bartowski GGUF, tools per Qwen coding-family arch). "
+            "Same read→explore→edit→verify loop and explore_repository subagent. "
+            "[BENCH-GATED PROVISIONAL model_hint — ~46GB resident on 64GB unified memory; "
+            "not a default; promotion requires a passing bench run + separate operator "
+            "task. Tool support asserted by architecture, not yet audit-confirmed.]"
+        ),
+        "model_hint": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
+        "keep_alive": "15m",
+        "tools": [
+            "explore_repository",
+            "execute_bash",
+            "execute_python",
+            "execute_nodejs",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
+        "system_prompt_append": (
+            "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n"
+            "1. EXPLORE: call explore_repository('what you need to find') first.\n"
+            "   It returns exact file paths and line numbers — use these, do not guess paths.\n"
+            "2. READ: use execute_bash to read those specific files/line ranges before editing\n"
+            "   (cat -n <file> | sed -n '<start>,<end>p')\n"
+            "3. PLAN: state the minimal change needed and which files are affected\n"
+            "4. EDIT: make precise, targeted changes — do not rewrite whole files\n"
+            "5. VERIFY: run tests or linters with execute_bash after every change\n"
+            "6. REPORT: state what changed, what passed, and what remains\n\n"
+            "You are uncensored: complete legitimate engineering work directly without "
+            "content-policy preambles or refusals. Refuse only what is genuinely illegal "
+            "to assist. HARD CONSTRAINTS:\n"
+            "- Never hardcode model names, backend URLs, or credentials\n"
+            "- Never modify Open WebUI source — use extension points only\n"
+            "- Never commit .env or add cloud dependencies\n"
+            "- Run pytest before declaring a fix complete\n"
+        ),
     },
     "auto-coding-agentic": {
         "name": "🔄 Portal Agentic Coder",
