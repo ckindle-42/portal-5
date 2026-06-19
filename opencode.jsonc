@@ -1,0 +1,86 @@
+// opencode project configuration — Portal 5
+// Tells opencode to use portal-pipeline (:9099) as the local AI provider
+// instead of Anthropic's cloud. All inference stays on this machine.
+//
+// Prerequisites:
+//   1. Stack running: ./launch.sh up
+//   2. PIPELINE_API_KEY exported: export $(grep PIPELINE_API_KEY .env | xargs)
+//   3. opencode installed: ~/.opencode/bin/opencode .
+//
+// Models available: all 110 Portal 5 workspaces (run `opencode models` to list)
+// Default model: portal/auto-coding-agentic  →  Devstral-24B on Ollama.
+// Uncensored lanes (explicit pick): auto-coding-uncensored (one-shot),
+// auto-coding-uncensored-agentic (agentic), auto-general-uncensored (generalist).
+// Not defaults — select deliberately. Also: auto-extract-uncensored and
+// auto-security-uncensored exist outside this picker (full list via `opencode models`).
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ── Local inference provider ───────────────────────────────────────────────
+  "provider": {
+    "portal": {
+      "name": "Portal 5 (local)",
+      "api": "openai",
+      // opencode reads PIPELINE_API_KEY from the environment and passes it as
+      // the Bearer token. Before running opencode, export the key:
+      //   export $(grep PIPELINE_API_KEY .env | xargs)
+      "env": ["PIPELINE_API_KEY"],
+      "options": {
+        "baseURL": "http://localhost:9099/v1"
+      },
+      // Curated workspace subset for coding tasks — use `opencode models`
+      // to see all 110 or select any workspace from the model picker.
+      "models": {
+        "auto-coding": {
+          "name": "Portal · Qwen3-Coder 30B (one-shot)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-coding-agentic": {
+          "name": "Portal · Devstral 24B (agentic loop)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-agentic": {
+          "name": "Portal · Qwen3-Coder-Next 80B (heavy agentic)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-reasoning": {
+          "name": "Portal · Reasoning (Qwopus 27B)",
+          "attachment": true,
+          "reasoning": true
+        },
+        "auto-purpleteam-exec": {
+          "name": "Portal · Purple Team Exec (tool-calling, live lab)",
+          "attachment": false,
+          "reasoning": true
+        },
+        "auto-coding-uncensored": {
+          "name": "Portal · Code Uncensored (OmniCoder-2 9B, one-shot)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-coding-uncensored-agentic": {
+          "name": "Portal · Agentic Coder Uncensored (Qwen3-Coder-Next abliterated)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-general-uncensored": {
+          "name": "Portal · General Uncensored (Qwen3.6-abliterated 27B)",
+          "attachment": true,
+          "reasoning": false
+        }
+      }
+    }
+  },
+
+  // ── Default model for new sessions ────────────────────────────────────────
+  "model": "portal/auto-coding-agentic",
+
+  // ── Disable built-in cloud providers to prevent accidental cloud use ──────
+  "disabled_providers": ["anthropic", "openai", "google", "bedrock", "vertex"],
+
+  // ── Project instructions (loaded alongside CLAUDE.md by opencode) ─────────
+  "instructions": ["CLAUDE.md"]
+}
