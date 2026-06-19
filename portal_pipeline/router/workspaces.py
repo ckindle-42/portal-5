@@ -1622,6 +1622,22 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": [],
     },
+    "bench-huihui-qwable-27b": {
+        "name": "🔬 Bench · Huihui-Qwable-3.6-27B (Abliterated)",
+        "description": (
+            "Benchmark: hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8 "
+            "(huihui-ai, June 2026, dense 27B, ~18.3GB, abliterated Qwable-3.6-27b base). "
+            "Zero refusals. Dual eval: (1) coding — head-to-head vs bench-qwable-27b (same base, censored) "
+            "to measure abliteration quality cost; (2) security/redteam — head-to-head vs "
+            "bench-huihui-qwen36-27b (abliterated Qwen3.6-27B) to measure Qwable-base advantage. "
+            "PROMOTE_POLICY=confirm after bench results for auto-redteam / auto-purpleteam upgrade."
+        ),
+        "model_hint": "hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
     "bench-qwable-27b": {
         "name": "🔬 Bench · Qwable-3.6-27B (Mia-AiLab)",
         "description": (
