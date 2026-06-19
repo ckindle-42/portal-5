@@ -40,14 +40,26 @@ import httpx
 
 # Optional lab exec import — only available when SANDBOX_LAB_EXEC=true + lab env is up
 try:
+    from bench_lab_exec import (
+        ADMIN_PASS as _LAB_ADMIN_PASS,
+    )
+    from bench_lab_exec import (
+        DC as _LAB_DC,
+    )
+    from bench_lab_exec import (
+        DOMAIN as _LAB_DOMAIN,
+    )
+    from bench_lab_exec import (
+        SRV as _LAB_SRV,
+    )
+    from bench_lab_exec import (
+        SVC_BACKUP_PASS as _LAB_SVC_PASS,
+    )
     from bench_lab_exec import (  # type: ignore[import]
         _mcp_call as _lab_mcp_call,
+    )
+    from bench_lab_exec import (
         _phase_recon as _lab_recon,
-        DC as _LAB_DC,
-        SRV as _LAB_SRV,
-        DOMAIN as _LAB_DOMAIN,
-        ADMIN_PASS as _LAB_ADMIN_PASS,
-        SVC_BACKUP_PASS as _LAB_SVC_PASS,
     )
     _LAB_EXEC_AVAILABLE = True
 except ImportError:
@@ -952,7 +964,7 @@ def _score_purple(red_result: dict, blue_result: dict, scenario: dict) -> dict:
     - purple_composite: blended score rewarding a working red chain AND a blue
       side that caught it.
     """
-    gt = set(t.upper() for t in scenario["detect_ground_truth"])
+    gt = {t.upper() for t in scenario["detect_ground_truth"]}
     detected = set(blue_result.get("score", {}).get("detected", []))
     coverage = len(detected & gt) / len(gt) if gt else 0.0
 
