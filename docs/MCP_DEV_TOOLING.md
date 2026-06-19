@@ -151,6 +151,23 @@ opencode . --model portal/auto-purpleteam-exec # security/lab execution workspac
 
 Run `opencode models` to list all 95 available workspaces.
 
+### Dual mode: Portal vs stock (no file renaming)
+
+Portal is the in-repo default — bare `opencode .` auto-discovers `opencode.jsonc`. To run
+**stock** opencode (your normal cloud providers) while inside the repo, use the wrapper,
+which points `OPENCODE_CONFIG` at your global config:
+
+```bash
+scripts/oc-portal.sh            # Portal: local pipeline backend (default)
+scripts/oc-stock.sh             # stock: your global/cloud opencode config
+scripts/oc-stock.sh --model anthropic/claude-sonnet-4-6   # extra args pass through
+```
+
+opencode has no `--strict` MCP bypass and merges configs by cwd, so if `oc-stock.sh` still
+shows Portal models, run opencode from outside the repo (`cd ~ && opencode`) or set
+`OC_GLOBAL_CONFIG=/path/to/your/opencode.json`. Neither mode renames or edits
+`opencode.jsonc`.
+
 ---
 
 ## Claude Code Integration
@@ -173,6 +190,23 @@ Available tools after opening this project:
 | `fetch/*` | fetch (HTTP GET) — pipeline health, models, Prometheus, Grafana |
 | `portal-sandbox/*` | execute_bash, execute_python, execute_nodejs, sandbox_status |
 | `portal-pipeline/*` | explore_repository, list_workspaces, get_loaded_models, get_metrics_summary |
+
+### Dual mode: Portal vs stock (no file renaming)
+
+Portal is the in-repo default — bare `claude` auto-discovers `.mcp.json` + `CLAUDE.md`.
+To run **stock** cloud Claude Code while inside the repo (ignoring the Portal MCP servers
+without renaming `.mcp.json`), use the documented bypass via the wrapper:
+
+```bash
+scripts/cc-portal.sh            # Portal: .mcp.json tools + CLAUDE.md (default)
+scripts/cc-stock.sh             # stock: claude --strict-mcp-config --mcp-config '{}' (zero MCP)
+CC_STOCK_KEEP_GENERIC=1 scripts/cc-stock.sh   # stock intelligence, keep filesystem/git/fetch/docker
+CC_STOCK_IGNORE_SETTINGS=1 scripts/cc-stock.sh  # also ignore project/local settings (--setting-sources user)
+```
+
+`--strict-mcp-config` makes Claude Code use only command-line MCP servers and ignore all
+file-based ones, so `.mcp.json` stays in place untouched. Extra args pass through to
+`claude`.
 
 ---
 
