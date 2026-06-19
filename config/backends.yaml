@@ -484,10 +484,24 @@ workspace_routing:
   - general
   auto-daily:
   - general
+  auto-extract-uncensored:
+  - general
+  - creative
+  auto-general-uncensored:
+  - general
+  auto-security-uncensored:
+  - security
+  - general
   auto-coding:
   - coding
   - general
   auto-coding-agentic:
+  - coding
+  - general
+  auto-coding-uncensored:
+  - coding
+  - general
+  auto-coding-uncensored-agentic:
   - coding
   - general
   auto-agentic:
