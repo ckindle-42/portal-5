@@ -261,8 +261,21 @@ def bench_tps(
             result["reasoning_text"] = reasoning_text
         return result
 
-    for run_num in range(1, runs + 1):
+    def _run_with_empty_retry(run_num: int) -> dict:
+        # A clean HTTP 200 stream that yields zero content/reasoning tokens is an
+        # intermittent transient (degenerate empty completion), NOT a model failure:
+        # adjacent runs of the same cell return 110-125 tokens (see
+        # bench_tps_20260619T031107Z.json auto-coding cells). Retry ONCE before
+        # recording the failure. Timeouts ("timeout") and HTTP errors ("HTTP 5xx")
+        # are deliberately NOT retried here — they have distinct error strings and
+        # represent genuine load/crash conditions, not transient empties.
         result = _stream_one_run(run_num)
+        if result.get("error") == "empty response (0 tokens)":
+            result = _stream_one_run(run_num)
+        return result
+
+    for run_num in range(1, runs + 1):
+        result = _run_with_empty_retry(run_num)
         run_results.append(result)
 
     successful = [r for r in run_results if "tps" in r]
