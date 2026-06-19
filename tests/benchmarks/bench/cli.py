@@ -59,7 +59,13 @@ def main() -> None:
         metavar="MODEL",
         help="Filter: substring match on model name (direct only, repeatable — OR logic)",
     )
-    parser.add_argument("--workspace", help="Filter: exact workspace ID (pipeline only)")
+    parser.add_argument(
+        "--workspace",
+        action="append",
+        dest="workspaces",
+        metavar="WORKSPACE",
+        help="Filter: exact workspace ID (pipeline only, repeatable — OR logic)",
+    )
     parser.add_argument("--persona", help="Filter: substring match on persona slug/name")
     parser.add_argument("--prompt", help="Override all prompts with this single prompt string")
     parser.add_argument("--output", default=RESULTS_FILE, help="Output JSON path")
@@ -229,7 +235,7 @@ def _run_main(args) -> None:
     do_pipeline = args.mode in ("pipeline", "all")
     do_personas = args.mode in ("personas", "all")
 
-    _ws_filter = f" ws={args.workspace}" if getattr(args, "workspace", None) else ""
+    _ws_filter = f" ws={','.join(args.workspaces)}" if getattr(args, "workspaces", None) else ""
     _model_filter = f" model={','.join(args.models)}" if getattr(args, "models", None) else ""
     _send_bench_notification(
         f"mode={args.mode}{_ws_filter}{_model_filter}  runs={args.runs}\n"
@@ -264,7 +270,7 @@ def _run_main(args) -> None:
         print("\n── Pipeline Workspace Tests ──")
         all_results.extend(
             bench_pipeline(
-                pipeline_available, args.workspace, args.runs, args.dry_run, output_path=args.output
+                pipeline_available, args.workspaces, args.runs, args.dry_run, output_path=args.output
             )
         )
 
