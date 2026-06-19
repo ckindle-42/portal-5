@@ -1,21 +1,18 @@
-# PORTAL5_BENCH_EXECUTE_V3 — Claude Code Prompt
+# PORTAL5_BENCH_EXECUTE_V3 — opencode Bench Execution Prompt
 
 Run the Portal 5 comprehensive TPS benchmark suite (Ollama-only). The live
 stack is expected to be running when you begin. At the end, update the
-Grafana benchmarks dashboard with the results and reload it.
+Grafana benchmarks dashboard with the results and commit them.
 
-**V3 changes from V2 (HEAD 7.3.1):** the V8 catalog refresh + promotions
-landed. Current scale (verify with the dry-run plan — counts are
-config-driven and drift): **68 unique Ollama catalog models, 69 benchable
-workspaces (74 total − 5 pipeline_bench_skip), 140 personas, ~277 total tests
-at `--mode all`**. The skip list is exactly five non-text-modality workspaces:
-`bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech` (audio)
-plus `bench-nanonets-ocr2`, `bench-olmocr2` (OCR vision — image-input probe
-required). `bench-nemotron-omni` no longer exists (placeholder removed). New
-flags since V2: `--retry-failed` (resume from the most recent results file,
-re-testing only failures) and `--order largest`. **bench_tps.py is the sole
-TPS instrument for the platform** — the acceptance and UAT suites assert no
-performance numbers.
+Current scale (verify with the dry-run plan — counts are config-driven and
+drift): **85 configured Ollama models (75 installed), 103 benchable
+workspaces (105 total − 2 pipeline_bench_skip), 144 personas, ~332 total
+tests at `--mode all`**. The skip list is exactly two OCR-vision workspaces:
+`bench-nanonets-ocr2`, `bench-olmocr2` (image-input probe required).
+Speech workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
+`bench-granite-speech`) are no longer skipped; they are benchable.
+`bench_tps.py` is the sole TPS instrument for the platform — the
+acceptance and UAT suites assert no performance numbers.
 
 ---
 
@@ -35,12 +32,15 @@ are still loaded, available, or producing similar TPS. Every run is fresh.
 
 ## Autonomous Monitoring Loop — Required Default Behavior
 
-Full bench runs take 3–6 hours (277 tests across 3 modes). **Immediately
+Full bench runs take 3–6 hours (~332 tests across 3 modes). **Immediately
 after launching, establish a `ScheduleWakeup` loop.** This is not optional —
 it is the required execution pattern for any run that exceeds a single session.
 
 ### On launch
 ```python
+# Always launch with unbuffered output and log redirection:
+# python3 -u tests/benchmarks/bench_tps.py --mode all --order size --runs 5 --cooldown 10 \
+#     > /tmp/bench_tps.log 2>&1 &
 # After starting the process, schedule the first wakeup:
 ScheduleWakeup(
     delaySeconds=270,          # stay within 5-min cache TTL for warm re-entry
@@ -51,25 +51,25 @@ ScheduleWakeup(
 
 ### On each wakeup
 1. **Check process:** `ps aux | grep bench_tps | grep -v grep`
-2. **Check results file:** `ls -lt tests/benchmarks/results/*.json | head -3`
-3. **Scan for failures:** look for `available: false`, `0 TPS`, errors in the
+2. **Tail the log:** `tail -20 /tmp/bench_tps.log`
+3. **Check results file:** `ls -lt tests/benchmarks/results/bench_tps_*.json | head -3`
+4. **Scan for failures:** look for `available: false`, `0 TPS`, errors in the
    most recent JSON result entries.
-4. **If running cleanly:** re-schedule at 270s and return.
-5. **If model unavailable / 0 TPS:** see Handling Failures section; apply fix
+5. **If running cleanly:** re-schedule at 270s and return.
+6. **If model unavailable / 0 TPS:** see Handling Failures section; apply fix
    (model skip, retry) and re-schedule.
-6. **If process died:** check for OOM (see Known Behavior Notes); restart with
+7. **If process died:** check for OOM (see Known Behavior Notes); restart with
    `--retry-failed` to skip completed tests.
-7. **If run complete:** execute the post-run steps below.
+8. **If run complete:** execute the post-run steps below.
 
 ### Post-run steps (run in order on completion)
 ```bash
-RUN_TS=$(ls -t tests/benchmarks/results/*.json | head -1 | xargs basename .json | sed 's/bench_tps_//')
-python3 tests/benchmarks/bench_tps.py --update-grafana \
-    --input tests/benchmarks/results/bench_tps_${RUN_TS}.json
+RESULTS=$(ls -t tests/benchmarks/results/bench_tps_*.json | head -1)
+python3 scripts/update_grafana_benchmarks.py --input "$RESULTS"
 GRAFANA_PASS=$(grep GRAFANA_PASSWORD .env | cut -d= -f2)
 curl -s -X POST "http://admin:${GRAFANA_PASS}@localhost:3000/api/admin/provisioning/dashboards/reload"
-git add config/grafana/dashboards/portal5_benchmarks.json && \
-    git commit -m "bench: TPS results @ ${RUN_TS}"
+git add "$RESULTS" config/grafana/dashboards/portal5_benchmarks.json && \
+    git commit -m "bench: TPS baseline $(date -u +%Y-%m-%d)"
 ```
 
 ### Wakeup prompt template
@@ -87,12 +87,13 @@ The wakeup prompt must be self-contained — it re-enters cold. Include:
 Counts derive at run time from `config/backends.yaml` and `config/personas/`.
 Confirm with the dry-run before committing to a long run:
 
-| Dimension | Count (7.3.1) |
+| Dimension | Count |
 |---|---|
-| Unique Ollama catalog models | 68 |
-| Benchable pipeline workspaces | 69 (74 total − 5 skip) |
-| Personas | 140 |
-| **Total tests (mode=all)** | **~277** |
+| Ollama catalog models (configured) | 85 |
+| Ollama models (installed) | 75 |
+| Benchable pipeline workspaces | 103 (105 total − 2 skip) |
+| Personas | 144 |
+| **Total tests (mode=all)** | **~332** |
 
 ### Three test modes (run together with `--mode all`):
 
@@ -107,10 +108,10 @@ general, coding, security, reasoning, creative, vision, math) map per
 workspace:
 
 | Auto workspaces | Category |
-|---|---|
+|---|---|---|
 | auto, auto-daily | general |
-| auto-coding, auto-agentic, auto-spl, auto-documents | coding |
-| auto-security, auto-redteam, auto-blueteam | security |
+| auto-coding, auto-agentic, auto-coding-agentic, auto-spl, auto-cad, auto-documents, auto-phi4 | coding |
+| auto-security, auto-redteam, auto-redteam-deep, auto-blueteam, auto-purpleteam, auto-purpleteam-deep, auto-purpleteam-exec, auto-pentest, auto-bigfix | security |
 | auto-reasoning, auto-research, auto-data, auto-compliance, auto-mistral | reasoning |
 | auto-math | math |
 | auto-creative, auto-video, auto-music | creative |
@@ -127,9 +128,9 @@ the dry-run plan prints the full resolved mapping.
 > Foundation-Sec-8B-Reasoning
 > (`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`);
 > `auto-compliance` and `tools-specialist` → `granite4.1:8b`; `auto-agentic`
-> → `qwen3-coder-next` (80B/3B-active MoE — slow cold load is normal);
-> `auto-creative` → Qwen3.6-35B-A3B HauhauCS. Authoritative source:
-> `portal_pipeline/router/workspaces.py`.
+> → `qwen3-coder-next` (MoE — slow cold load is normal);
+> `auto-creative` → `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`.
+> Authoritative source: `portal_pipeline/router/workspaces.py`.
 
 ---
 
@@ -152,11 +153,12 @@ curl -sf http://localhost:9099/health | python3 -m json.tool             # Pipel
 
 ### 2. Image freshness (stale images = false failures)
 ```bash
-docker compose -f deploy/portal-5/docker-compose.yml ps
-# If the pipeline image is older than the last code change, rebuild before benching.
+docker images --format "table {{.Repository}}\t{{.CreatedAt}}" | grep portal
+# If any portal image predates a recent commit, rebuild before benching.
+./launch.sh rebuild
 ```
 
-### 3. Workspace consistency (CLAUDE.md Rule 6)
+### 3. Workspace consistency (Rule 6)
 ```bash
 python3 - <<'PY'
 import sys, yaml; sys.path.insert(0, ".")
@@ -175,27 +177,30 @@ python3 tests/benchmarks/bench_tps.py --mode all --dry-run
 ```
 
 ### 5. Skip mechanism reference
-Non-text-modality bench workspaces carry entries in the top-level
-`pipeline_bench_skip:` list in `backends.yaml` (currently exactly five:
-`bench-voxtral-realtime`, `bench-voxtral-tts`, `bench-granite-speech`,
+OCR-vision bench workspaces carry entries in the top-level
+`pipeline_bench_skip:` list in `backends.yaml` (currently exactly two:
 `bench-nanonets-ocr2`, `bench-olmocr2`). An explicit `--workspace <id>`
 filter overrides the skip (operator wants to probe that workspace
-intentionally). Speech benches belong to the deferred audio-prompt driver
-(P5-FUT-SPEECH-002); OCR benches need an image-input probe — neither is
-bench_tps.py's job.
+intentionally). OCR benches need an image-input probe — not bench_tps.py's
+job. Speech workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
+`bench-granite-speech`) are no longer skipped and will be tested.
 
 ### 6. No MLX watchdog
-There is no MLX proxy or watchdog. Ollama manages its own model lifecycle;
-the harness handles eviction between models via `keep_alive:0`.
+There is no MLX proxy or watchdog for inference. Ollama manages its own
+model lifecycle; the harness handles eviction between models via
+`keep_alive:0`.
 
 ---
 
 ## Execution
 
 ```bash
-RUN_TS=$(date -u +%Y%m%dT%H%M%SZ)
+# Default output filename is auto-generated as bench_tps_<timestamp>.json
+python3 tests/benchmarks/bench_tps.py --mode all --order size --runs 5 --cooldown 10
+
+# Or specify an explicit output path:
 python3 tests/benchmarks/bench_tps.py --mode all --order size --runs 5 --cooldown 10 \
-  --output tests/benchmarks/results/bench_${RUN_TS}.json
+  --output tests/benchmarks/results/bench_tps_$(date -u +%Y%m%dT%H%M%SZ).json
 ```
 
 ### Memory management (automatic)
@@ -210,8 +215,10 @@ waits for the VM pager before proceeding.
 ## Monitoring Progress
 
 ```bash
-ls -la tests/benchmarks/results/ | tail -3
-python3 -c "import json; d=json.load(open('tests/benchmarks/results/bench_${RUN_TS}.json')); print(len([r for r in d.get('results',[]) if r.get('tps')]))"
+ls -lt tests/benchmarks/results/bench_tps_*.json | head -5
+# Get TPS count from the latest results file:
+RESULTS=$(ls -t tests/benchmarks/results/bench_tps_*.json | head -1)
+python3 -c "import json; d=json.load(open('$RESULTS')); print(len([r for r in d.get('results',[]) if r.get('tps')]))"
 ```
 
 ---
@@ -231,8 +238,8 @@ declaring failure.
 
 ### Resume after interruption / retry all failures
 ```bash
+# Resumes from the most recent bench_tps_*.json results file, skipping successful entries.
 python3 tests/benchmarks/bench_tps.py --mode all --retry-failed
-# Resumes from the most recent results file, skipping successful entries.
 # Pair with --mode to scope (e.g. --mode pipeline --retry-failed).
 ```
 
@@ -245,8 +252,8 @@ product code (`portal_pipeline/**` is protected).
 python3 tests/benchmarks/bench_tps.py --mode direct  --model foundation-sec
 python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace auto-blueteam
 python3 tests/benchmarks/bench_tps.py --mode personas --persona bench-laguna
-# Force-probe a skipped speech workspace (explicit --workspace overrides skip):
-python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-voxtral-realtime
+# Force-probe a skipped OCR workspace (explicit --workspace overrides skip):
+python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-nanonets-ocr2
 ```
 
 ---
@@ -254,8 +261,9 @@ python3 tests/benchmarks/bench_tps.py --mode pipeline --workspace bench-voxtral-
 ## Validation After Run
 
 ```bash
+RESULTS=$(ls -t tests/benchmarks/results/bench_tps_*.json | head -1)
 python3 -c "
-import json; d=json.load(open('tests/benchmarks/results/bench_${RUN_TS}.json'))
+import json; d=json.load(open('$RESULTS'))
 r=d['results']; print('total', len(r), '| with TPS', len([x for x in r if x.get('tps')]), '| unavailable', len([x for x in r if not x.get('available', True)]))
 "
 # Routing accuracy (pipeline mode): served model should match the workspace
@@ -267,11 +275,12 @@ r=d['results']; print('total', len(r), '| with TPS', len([x for x in r if x.get(
 
 ## Updating the Grafana Dashboard
 ```bash
-# Update config/grafana/dashboards/portal5_benchmarks.json from the result JSON, then:
-curl -s -X POST http://localhost:3000/api/admin/provisioning/dashboards/reload \
-  -H "Authorization: Bearer $GRAFANA_TOKEN" || echo "reload via UI if API unavailable"
-git add config/grafana/dashboards/portal5_benchmarks.json && \
-  git commit -m "bench: TPS results @ ${RUN_TS}"
+RESULTS=$(ls -t tests/benchmarks/results/bench_tps_*.json | head -1)
+python3 scripts/update_grafana_benchmarks.py --input "$RESULTS"
+GRAFANA_PASS=$(grep GRAFANA_PASSWORD .env | cut -d= -f2)
+curl -s -X POST "http://admin:${GRAFANA_PASS}@localhost:3000/api/admin/provisioning/dashboards/reload"
+git add "$RESULTS" config/grafana/dashboards/portal5_benchmarks.json && \
+    git commit -m "bench: TPS baseline $(date -u +%Y-%m-%d)"
 ```
 
 ---
