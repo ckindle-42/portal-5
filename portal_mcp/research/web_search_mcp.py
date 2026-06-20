@@ -131,12 +131,62 @@ async def _searxng_search(query, num_results=5, time_range="any", category="gene
                     "url": x.get("url", ""),
                     "snippet": x.get("content", "")[:500],
                     "engine": x.get("engine", ""),
+                    "published": x.get("publishedDate", "") or "",
                 }
                 for x in r.json().get("results", [])[:num_results]
             ]
         except Exception as e:
             logger.error("SearXNG failed: %s", e)
             return []
+
+
+async def _brave_search(query, num_results=5, time_range="any", category="general"):
+    """Brave Search API fallback. Only called when SearXNG returns nothing/errors.
+
+    Maps time_range -> Brave 'freshness' (pd/pw/pm/py). category 'news' uses the
+    /news endpoint; everything else uses /web. Returns the same result shape as
+    _searxng_search (title/url/snippet/engine/published).
+    """
+    if not BRAVE_API_KEY:
+        return []
+    freshness = {"day": "pd", "week": "pw", "month": "pm", "year": "py"}.get(time_range)
+    endpoint = "news" if category == "news" else "web"
+    url = f"https://api.search.brave.com/res/v1/{endpoint}/search"
+    params = {"q": query, "count": min(max(num_results, 1), 20)}
+    if freshness:
+        params["freshness"] = freshness
+    headers = {"X-Subscription-Token": BRAVE_API_KEY, "Accept": "application/json"}
+    async with httpx.AsyncClient(timeout=10) as c:
+        try:
+            r = await c.get(url, params=params, headers=headers)
+            if r.status_code != 200:
+                logger.warning("Brave HTTP %s", r.status_code)
+                return []
+            data = r.json()
+            items = (data.get("results") or data.get("web", {}).get("results") or [])[:num_results]
+            return [
+                {
+                    "title": x.get("title", ""),
+                    "url": x.get("url", ""),
+                    "snippet": (x.get("description", "") or "")[:500],
+                    "engine": "brave",
+                    "published": x.get("age", "") or x.get("page_age", "") or "",
+                }
+                for x in items
+            ]
+        except Exception as e:
+            logger.error("Brave failed: %s", e)
+            return []
+
+
+async def _search_with_fallback(query, num_results=5, time_range="any", category="general"):
+    """SearXNG primary; Brave fallback on empty result or error. Brave is only
+    consulted when BRAVE_API_KEY is set and SearXNG yielded nothing."""
+    results = await _searxng_search(query, num_results, time_range, category)
+    if not results and BRAVE_API_KEY:
+        logger.info("SearXNG empty for %r — falling back to Brave", query)
+        results = await _brave_search(query, num_results, time_range, category)
+    return results
 
 
 @mcp.custom_route("/tools/web_search", methods=["POST"])
@@ -146,7 +196,7 @@ async def web_search_endpoint(request):
     if not args.get("query"):
         return JSONResponse({"error": "query is required"}, status_code=400)
     num = min(max(args.get("num_results", 5), 1), 20)
-    results = await _searxng_search(args["query"], num, args.get("time_range", "any"), "general")
+    results = await _search_with_fallback(args["query"], num, args.get("time_range", "any"), "general")
     return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
 
 
@@ -157,7 +207,7 @@ async def news_search_endpoint(request):
     if not args.get("query"):
         return JSONResponse({"error": "query is required"}, status_code=400)
     num = min(max(args.get("num_results", 5), 1), 20)
-    results = await _searxng_search(args["query"], num, "week", "news")
+    results = await _search_with_fallback(args["query"], num, "week", "news")
     return JSONResponse({"query": args["query"], "num_results": len(results), "results": results})
 
 
@@ -166,8 +216,15 @@ _WS = re.compile(r"\s+")
 _SCRIPT = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 
 
+_CHROME = re.compile(
+    r"<(nav|header|footer|aside|form)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL
+)
+
+
 def _html_to_text(html):
-    return _WS.sub(" ", _HTML_TAG.sub(" ", _SCRIPT.sub("", html))).strip()
+    # Drop scripts/styles, then obvious page chrome, then remaining tags.
+    stripped = _CHROME.sub(" ", _SCRIPT.sub("", html))
+    return _WS.sub(" ", _HTML_TAG.sub(" ", stripped)).strip()
 
 
 @mcp.custom_route("/tools/web_fetch", methods=["POST"])
