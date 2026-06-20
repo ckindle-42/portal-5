@@ -127,6 +127,8 @@ ignore = ["E501"]
 # F821 is deliberately NOT ignored here — undefined-name checking is the
 # import-hygiene gate for the decomposition.
 "tests/uat/**/*.py" = ["N802", "E741", "F841", "SIM115", "SIM117"]
+# bench_security.py: SIM117 nested-with + SIM105 try/except/pass are pre-existing patterns
+"tests/benchmarks/bench_security.py" = ["SIM117", "SIM105"]
 
 [tool.mypy]
 python_version = "3.10"
