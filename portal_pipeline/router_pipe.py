@@ -1852,6 +1852,49 @@ async def chat_completions(
                     }
                     body = {**body, "messages": [vision_system] + messages}
 
+        # Temporal context injection — give web-tool-enabled workspaces today's date
+        # plus a search-first nudge so local models don't answer time-sensitive
+        # questions from a frozen training cutoff. Merges into the system message the
+        # same way system_prompt_append does. Gated by RESEARCH_DATE_INJECTION (env,
+        # default on) and by the workspace declaring a web tool or inject_temporal_context.
+        if os.environ.get("RESEARCH_DATE_INJECTION", "true").lower() in ("1", "true", "yes"):
+            _ws_cfg = WORKSPACES.get(workspace_id, {})
+            _ws_tools = set(_ws_cfg.get("tools", []) or [])
+            _web_tools = {"web_search", "news_search", "web_fetch"}
+            if _ws_tools & _web_tools or _ws_cfg.get("inject_temporal_context"):
+                _today = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+                _temporal = (
+                    f"\n\nToday's date is {_today} (UTC). Your training data has a fixed "
+                    "cutoff and is very likely out of date for anything that changes over "
+                    "time — current events, news, software and library versions, CVEs and "
+                    "exploit availability, prices, or who currently holds a role.\n"
+                    "Follow this order strictly:\n"
+                    "1. For any such question, call web_search (or news_search) FIRST and "
+                    "answer from the results. Cite the source URL for each fact you use.\n"
+                    "2. If search is unavailable or returns nothing useful, you MAY answer "
+                    "from training knowledge — but state plainly that it may be outdated and "
+                    "was not verified against a current source.\n"
+                    "3. If you cannot get reliable information either way, say you don't "
+                    "know. Never invent specifics — version numbers, CVE IDs, dates, names, "
+                    "statistics, or URLs. A clear 'I don't know' is correct; a confident "
+                    "fabrication is a failure."
+                )
+                _msgs = body.get("messages", [])
+                _sys_i = next(
+                    (i for i, m in enumerate(_msgs) if m.get("role") == "system"), None
+                )
+                if _sys_i is not None:
+                    _u = dict(_msgs[_sys_i])
+                    _u["content"] = _u.get("content", "") + _temporal
+                    _msgs = list(_msgs)
+                    _msgs[_sys_i] = _u
+                    body = {**body, "messages": _msgs}
+                else:
+                    body = {
+                        **body,
+                        "messages": [{"role": "system", "content": _temporal.lstrip()}] + _msgs,
+                    }
+
         # Workspace-level system_prompt_append — appended to existing system message
         # or injected as a new system message if none is present.
         _prompt_append = WORKSPACES.get(workspace_id, {}).get("system_prompt_append", "")
