@@ -467,8 +467,8 @@ backends:
     notes: NousResearch, long-form narrative coherence. Tools-tagged in Ollama (Hermes
       function-calling format).
   - id: huihui_ai/baronllm-abliterated
-    supports_tools: false
-    notes: No-restrictions creative. Unverified for tools.
+    supports_tools: true
+    notes: "No-restrictions creative. Tool-calling confirmed 2026-06-20 via corrected template (TASK_TOOLCALL_FIX_LOCKIN_V1) — see the security-group entry and the P5-TOOL-001 resolution in KNOWN_LIMITATIONS.md."
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
     supports_tools: true
     notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). audit-tools 2026-06-20 (TASK_TOOLCALL_TEMPLATE_FIX_V1): tool_call — chain 12/8 unique, lcs_acc=1.00, WIN. Corrects 2026-06-18 no_tool result."
