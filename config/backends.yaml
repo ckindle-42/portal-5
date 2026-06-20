@@ -218,9 +218,6 @@ backends:
   - id: huihui_ai/qwen3.5-abliterated:9b
     supports_tools: true
     notes: "PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised for TTP generation. Also in ollama-general — duplicate entry required for security-group routing so streaming hint resolution uses the correct model."
-  - id: huihui_ai/Qwen3.6-abliterated:27b
-    supports_tools: true
-    notes: "Fleet bench 2026-06-20: 0/8 kerberoast_to_da (timeout 120s) + 0/7 asrep_to_lateral (timeout 120s) — PRUNE SIGNAL. audit-tools timed out. Dense 27B too slow for the chain (6.3 t/s confirmed). Does not belong in security group primary rotation. Retained for creative/general group where latency is acceptable. supports_tools=true per Qwen3.6 family (not chain-verified under time budget)."
   - id: hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest
     supports_tools: true
     notes: "Qwen3.6 35B-A3B abliterated + MTP self-speculative (huihui-ai GGUF, Apache 2.0). MoE 3B active + draft-mtp. Fix: stock GGUF ships TEMPLATE {{ .Prompt }}; alias qwen36-a3b-abl-fixed adds RENDERER/PARSER qwen3.5. Fleet bench 2026-06-20: kerberoast_to_da WIN (12/8 1.00 adapt=2/2 52s); asrep_to_lateral STALL (0/7 — does not start chain on scenario 2). audit-tools intermittent: text_only in cold fleet probe (first-model load-timing); tool_call in focused single-model run. NOT reliable across scenarios — auto-security kept on baronllm (Case A). Build: ollama create qwen36-a3b-abl-fixed -f Modelfile (RENDERER/PARSER qwen3.5). Pull: ollama pull ...MTP-GGUF:latest (~13GB Q4_K_M)."
