@@ -220,13 +220,10 @@ backends:
     notes: "PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised for TTP generation. Also in ollama-general — duplicate entry required for security-group routing so streaming hint resolution uses the correct model."
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
-    notes: "Current-gen generalist add (TASK_QUANT_TRUEUP_V1 C). Specialists retained\
-      \ as domain experts. No purpose-built newer cyber model verified this cycle.\
-      \ Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Same huihui-ai source\
-      \ as baronllm-abliterated. supports_tools=true per Qwen3.6 family."
+    notes: "Fleet bench 2026-06-20: 0/8 kerberoast_to_da (timeout 120s) + 0/7 asrep_to_lateral (timeout 120s) — PRUNE SIGNAL. audit-tools timed out. Dense 27B too slow for the chain (6.3 t/s confirmed). Does not belong in security group primary rotation. Retained for creative/general group where latency is acceptable. supports_tools=true per Qwen3.6 family (not chain-verified under time budget)."
   - id: hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest
     supports_tools: true
-    notes: "Qwen3.6 35B-A3B abliterated + MTP self-speculative (huihui-ai GGUF, Apache 2.0). CANDIDATE auto-security primary (TASK_TOOLCALL_TEMPLATE_FIX_V1). MoE 3B active + draft-mtp = fast decode. Fix: stock GGUF ships TEMPLATE {{ .Prompt }} (P5-TOOL-001 class); Ollama alias qwen36-a3b-abl-fixed adds RENDERER qwen3.5 + PARSER qwen3.5. audit-tools 2026-06-20: qwen36-a3b-abl-fixed=tool_call WIN (12/8 1.00); stock=500 (confirmed P5-TOOL-001). Build: ollama create qwen36-a3b-abl-fixed -f Modelfile.qwen36a3b-fixed (RENDERER/PARSER qwen3.5). Pull: ollama pull hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest (Q4_K_M tag not published; latest ~13GB Q4_K_M). Use qwen36-a3b-abl-fixed alias for all routing."
+    notes: "Qwen3.6 35B-A3B abliterated + MTP self-speculative (huihui-ai GGUF, Apache 2.0). MoE 3B active + draft-mtp. Fix: stock GGUF ships TEMPLATE {{ .Prompt }}; alias qwen36-a3b-abl-fixed adds RENDERER/PARSER qwen3.5. Fleet bench 2026-06-20: kerberoast_to_da WIN (12/8 1.00 adapt=2/2 52s); asrep_to_lateral STALL (0/7 — does not start chain on scenario 2). audit-tools intermittent: text_only in cold fleet probe (first-model load-timing); tool_call in focused single-model run. NOT reliable across scenarios — auto-security kept on baronllm (Case A). Build: ollama create qwen36-a3b-abl-fixed -f Modelfile (RENDERER/PARSER qwen3.5). Pull: ollama pull ...MTP-GGUF:latest (~13GB Q4_K_M)."
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
     supports_tools: false
     notes: "Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai FIRST-PARTY\
@@ -242,7 +239,7 @@ backends:
     notes: "Gemmable-4-12B Q4_K_M — security group copy for bench-gemmable-12b security eval. Fable 5-style SFT on Gemma 4 12B. Structured analysis + AppSec use case bench vs foundation-sec and fleet. supports_tools=false: pending audit-tools."
   - id: huihui_ai/baronllm-abliterated
     supports_tools: true
-    notes: "audit-tools 2026-06-20 (TASK_TOOLCALL_TEMPLATE_FIX_V1): tool_call — chain 8/8 unique, lcs_acc=1.00, WIN. Corrects 2026-06-18 text_only result (probe/model state issue). Llama-3.1-8B tool template embedded in Ollama modelfile emits structured tool_calls. TV-02/P-S09 UAT failures may have been a different root cause — re-test needed."
+    notes: "audit-tools 2026-06-20: tool_call confirmed. Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s — fastest in fleet); asrep_to_lateral STALL (1/7 0.14 — scenario-specific; 8B scale may not carry the longer AS-REP chain). auto-security PRIMARY (Case A, TASK_TOOLCALL_FIX_LOCKIN_V1). Llama-3.1-8B security specialist (53K examples, 200+ cybersec domains). Fast for kerberoast/standard scenarios; use qwen3.5-abliterated:9b if asrep_to_lateral coverage is required."
   - id: xploiter/the-xploiter
     supports_tools: false
   - id: xploiter/pentester:v2
