@@ -1405,6 +1405,11 @@ def _run_chain_test(model: str, dry_run: bool = False, lab_exec: bool = False) -
 
                 messages.append({"role": "tool", "content": tool_result})
 
+            # Early exit: all required steps hit at least once — no point continuing
+            required_set = set(CHAIN_EXPECTED_ORDER)
+            if required_set.issubset(set(tools_called)):
+                break
+
     except Exception as exc:
         error = str(exc)
 
