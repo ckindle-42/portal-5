@@ -224,6 +224,9 @@ backends:
       \ as domain experts. No purpose-built newer cyber model verified this cycle.\
       \ Qwen3.6 35B-A3B MoE abliterated (~20GB Q4, Apache 2.0). Same huihui-ai source\
       \ as baronllm-abliterated. supports_tools=true per Qwen3.6 family."
+  - id: hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest
+    supports_tools: true
+    notes: "Qwen3.6 35B-A3B abliterated + MTP self-speculative (huihui-ai GGUF, Apache 2.0). CANDIDATE auto-security primary (TASK_TOOLCALL_TEMPLATE_FIX_V1). MoE 3B active + draft-mtp = fast decode. Fix: stock GGUF ships TEMPLATE {{ .Prompt }} (P5-TOOL-001 class); Ollama alias qwen36-a3b-abl-fixed adds RENDERER qwen3.5 + PARSER qwen3.5. audit-tools 2026-06-20: qwen36-a3b-abl-fixed=tool_call WIN (12/8 1.00); stock=500 (confirmed P5-TOOL-001). Build: ollama create qwen36-a3b-abl-fixed -f Modelfile.qwen36a3b-fixed (RENDERER/PARSER qwen3.5). Pull: ollama pull hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest (Q4_K_M tag not published; latest ~13GB Q4_K_M). Use qwen36-a3b-abl-fixed alias for all routing."
   - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
     supports_tools: false
     notes: "Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai FIRST-PARTY\
@@ -238,8 +241,8 @@ backends:
     supports_tools: false
     notes: "Gemmable-4-12B Q4_K_M — security group copy for bench-gemmable-12b security eval. Fable 5-style SFT on Gemma 4 12B. Structured analysis + AppSec use case bench vs foundation-sec and fleet. supports_tools=false: pending audit-tools."
   - id: huihui_ai/baronllm-abliterated
-    supports_tools: false
-    notes: "audit-tools 2026-06-18: text_only — model emits tool-call JSON in content field (not structured tool_calls). Ollama .Tools template parses but baronllm's output format doesn't match what llama.cpp treats as a function call delta. Previously marked supports_tools=true (TASK_TOOL_AUDIT_V2) — that result was false-positive from template header inspection, not a live response probe. TV-02/P-S09 failures in UAT run 2026-06-18 confirm. See P5-TOOL-001 in KNOWN_LIMITATIONS.md."
+    supports_tools: true
+    notes: "audit-tools 2026-06-20 (TASK_TOOLCALL_TEMPLATE_FIX_V1): tool_call — chain 8/8 unique, lcs_acc=1.00, WIN. Corrects 2026-06-18 text_only result (probe/model state issue). Llama-3.1-8B tool template embedded in Ollama modelfile emits structured tool_calls. TV-02/P-S09 UAT failures may have been a different root cause — re-test needed."
   - id: xploiter/the-xploiter
     supports_tools: false
   - id: xploiter/pentester:v2
@@ -467,8 +470,8 @@ backends:
     supports_tools: false
     notes: No-restrictions creative. Unverified for tools.
   - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
-    supports_tools: false
-    notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). supports_tools=false: audit-tools 2026-06-18 confirmed no_tool (empty content response — abliteration may have disrupted tool template)."
+    supports_tools: true
+    notes: "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). audit-tools 2026-06-20 (TASK_TOOLCALL_TEMPLATE_FIX_V1): tool_call — chain 12/8 unique, lcs_acc=1.00, WIN. Corrects 2026-06-18 no_tool result."
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
     notes: "Qwen3.6-27B abliterated dense Q4 (~17GB, huihui-ai, Apache 2.0). bench-qwen36-abl-27b creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). Already in ollama-general for AUTO routing; entry here is for creative group routing of bench-qwen36-abl-27b."
