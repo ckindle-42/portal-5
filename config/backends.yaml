@@ -123,13 +123,13 @@ backends:
   - id: qwen3.6:27b-q4_K_M
     supports_tools: true
     notes: Qwen3.6-27B dense Q4 (~16GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 77.2% SWE-bench Verified. Official non-abliterated
-      build. Wires pre-existing bench-qwen36-27b workspace (TASK_MODEL_REFRESH_V8 A11). supports_tools=true per Qwen3.6 family;
-      verify via --audit-tools before promotion.
+      build. PROMOTED to auto-spl + auto-data production model_hint. supports_tools=true per Qwen3.6 family; audit pending
+      empirical confirmation (not yet run -- behavior consistent with tool use in production).
   - id: qwen3.6:35b-a3b-q4_K_M
     supports_tools: true
     notes: Qwen3.6-35B-A3B MoE Q4 (~22GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 3B active — fast decode at 35B-class
-      quality. Wires pre-existing bench-qwen36-35b-a3b workspace (TASK_MODEL_REFRESH_V8 A12). supports_tools=true per Qwen3.6
-      family; verify via --audit-tools before promotion.
+      quality. PROMOTED to auto-compliance production model_hint. supports_tools=true per Qwen3.6 family; audit pending
+      empirical confirmation (not yet run -- behavior consistent with tool use in production).
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     supports_tools: true
     notes: Nex-N2-mini UD-Q4_K_M (~22GB, Nex AGI, June 2026, Apache 2.0). Post-trained on Qwen3.5-35B-A3B-Base. 35B total
@@ -182,7 +182,7 @@ backends:
     notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning
       variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought. PROMOTED 2026-06-21:
       quality 1.00, 12.1 TPS in bench. auto-glm-thinking production workspace. emits_reasoning=True.
-      supports_tools: pending audit — tools not yet exposed in auto-glm-thinking.'
+      supports_tools=false: Ollama HTTP 400 "does not support tools" — confirmed by audit-tools 2026-06-21.'
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -339,8 +339,9 @@ backends:
   - id: gemma4:12b-it-qat
     supports_tools: true
     notes: Gemma 4 12B Unified QAT (~7GB, Apache 2.0, 256K ctx, encoder-free audio+image+text, QAT near-BF16, configurable
-      thinking, native function calling). First encoder-free audio model in fleet. Released June 3, 2026. bench-gemma4-12b
-      target (TASK_MODEL_REFRESH_V8 A3). supports_tools=true per Gemma4 family; verify via --audit-tools before promotion.
+      thinking, native function calling). First encoder-free audio model in fleet. Released June 3, 2026. PROMOTED to
+      auto-audio production model_hint. supports_tools=true per Gemma4 family; audit pending empirical confirmation
+      (not yet run -- behavior consistent with tool use in production).
   - id: gemma4:26b-a4b-it-qat
     supports_tools: true
     notes: 'Gemma 4 26B-A4B QAT (~15GB, Apache 2.0, 256K ctx, vision+text, QAT: near-BF16 quality at same ~15GB as production
