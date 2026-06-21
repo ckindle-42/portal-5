@@ -1046,24 +1046,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    "bench-llama33-70b": {
-        "name": "🔬 Bench · Llama-3.3-70B",
-        "description": "Benchmark: Llama-3.3-70B-Instruct (GGUF, Ollama, Meta)",
-        "model_hint": "llama3.3:70b-q4_k_m",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },    "bench-glm": {
-        "name": "🔬 Bench · GLM-4.7-Flash",
-        "description": "Benchmark: GLM-4.7-Flash (GGUF, Ollama, Zhiyu AI — distinct Chinese research lineage, 59.2% SWE-bench)",
-        "model_hint": "glm-4.7-flash:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-gptoss": {
         "name": "🔬 Bench · GPT-OSS-20B ✓ PROMOTED",
         "description": (
@@ -1451,24 +1433,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "tools": [],
     },
-    "bench-qwopus-coder-mtp": {
-        "name": "🔬 Bench · Qwopus3.6-27B-Coder-MTP (Jackrong)",
-        "description": (
-            "Benchmark: hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf "
-            "(Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). "
-            "Coder SFT on Qwopus3.6-27B-v2 (Qwen3.6-27B + Trace Inversion). "
-            "Agentic coding, tool-use, multi-turn orchestration. "
-            "SWE-bench Verified 67.0% (thinking-off). MTP embedded draft heads. "
-            "Candidate for auto-coding / auto-agentic fallback if TPS >= 20 and code quality competitive. "
-            "Head-to-head vs qwen3.6:27b-q4_K_M (77.2% SWE, 27B dense) and laguna-xs.2 (68.2% SWE, 33B MoE). "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "tools": [],
-    },
     "bench-qwable-35b": {
         "name": "🔬 Bench · Qwable-3.6-35B [RETIRED — promotion reversed]",
         "description": (
@@ -1510,7 +1474,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "State-of-the-art open-source agent model for software engineering tasks. "
             "46.8% SWE-bench Verified, #1 open-source at release (May 2025). "
             "Designed for agentic coding: multi-step tool use, file editing, repo navigation. "
-            "Head-to-head vs bench-devstral-small-2 (7B MoE) and bench-qwopus-coder-mtp (27B). "
+            "Head-to-head vs bench-devstral-small-2 (7B MoE). "
             "Candidate for auto-agentic primary if TPS competitive and quality > small variant. "
             "PROMOTE_POLICY=confirm."
         ),
@@ -1523,10 +1487,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": (
             "Benchmark: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf "
             "(Jackrong, Apache 2.0, June 2026, 27B dense, ~19GB Q5_K_M). "
-            "v2 of Qwopus3.6-27B-Coder-MTP — direct head-to-head vs bench-qwopus-coder-mtp (v1). "
+            "v2 of Qwopus3.6-27B-Coder-MTP (v1 retired 2026-06-21: quality 0.67, 6.5 TPS — both below gate). "
             "Updated SFT mix: additional agentic + multi-turn traces. MTP embedded draft heads. "
             "PROBE RESULT (2026-06-16): 10/23 — widespread 500 Internal Server Errors on complex "
-            "prompts (same empty-content pattern as bench-fastcontext and bench-qwopus-coder-mtp-v1 "
+            "prompts (same empty-content pattern as bench-fastcontext "
             "at longer context). v2 regresses vs v1 on probe coverage. PROMOTE_POLICY=blocked."
         ),
         "model_hint": "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf",
