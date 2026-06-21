@@ -14,9 +14,9 @@
     "cpu": "Apple M4 Pro"
   },
   "config_summary": {
-    "ollama_models_configured": 64,
-    "workspaces_configured": 75,
-    "personas_configured": 144
+    "ollama_models_configured": 59,
+    "workspaces_configured": 77,
+    "personas_configured": 146
   },
   "backends": {
     "ollama": {
@@ -22794,6 +22794,118 @@
       "persona_name": "Tool Composer",
       "persona_category": "coding",
       "workspace_model": "tools-specialist"
+    },
+    {
+      "model": "bench-glm-reap",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 12.3,
+      "min_tps": 12.0,
+      "max_tps": 12.5,
+      "stddev_tps": 0.25,
+      "cv": 0.02,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 20.89,
+      "avg_ttft_s": 0.727,
+      "routed_model": "bench-glm-reap",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 12.3,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "Ollama:glm-4.7-flash-reap-23b-a3b",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 21.28,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 12.0,
+          "time_to_first_token_s": 1.255,
+          "response_model": "bench-glm-reap",
+          "response_text": "Thinking Process:\n\n1.  **Deconstruct the user's request:**\n    *   Goal: List 7 OSI model layers from bottom to top.\n    *   Requirements per layer: Layer number, Standard name, One example protocol/technology.\n    *   Format: Numbered list, one line per layer. concise answer.\n\n2.  **Recall the OSI Model:**\n    *   Mnemonic devices help (Please Do Not Throw Sausage Pizza Away -> Physical to Application? No, that's top-down usually. Bottom-up is \"All People Seem To Need Data Processing\" reversed? Or just standard order).\n    *   Standard order (Bottom 1 to Top 7):\n        1.  Physical\n        2.  Data Link\n        3.  Network\n        4.  Transport\n        5.  Session\n        6.  Presentation\n        7.  Application\n\n3.  **Assign Numbers, Names, and Examples:**\n    *   Layer 1: Physical. Example: Ethernet cabling (Cat5/6), Coaxial, Fiber optics, USB? Protocol example might be harder since it's physical signals. \"RS-23"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 20.56,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 12.5,
+          "time_to_first_token_s": 0.458,
+          "response_model": "bench-glm-reap",
+          "response_text": "Thinking Process:\n\n1.  **Analyze the Request:**\n    *   Role: Helpful assistant.\n    *   Constraint: Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom to top (Layer 1 to Layer 7).\n    *   Details per layer needed:\n        1.  Layer number.\n        2.  Standard name.\n        3.  One example protocol or technology.\n    *   Format: Numbered list with one line per layer.\n\n2.  **Recall/Verify OSI Model Layers (Bottom to Top):**\n    *   7 -> Application\n    *   6 -> Presentation\n    *   5 -> Session\n    *   4 -> Transport\n    *   3 -> Network\n    *   2 -> Data Link\n    *   1 -> Physical\n    *   Note: \"Bottom to top\" means starting at Layer 1 ending at Layer 7.\n\n3.  **Select Examples for Each Layer:**\n    *   L1 (Physical): Ethernet cables, Fiber optics, USB, RJ-45 connector. Let's use \"Copper cable\". Or just \"Ethernet"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 20.82,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 12.3,
+          "time_to_first_token_s": 0.467,
+          "response_model": "bench-glm-reap",
+          "response_text": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - Task: List the 7 OSI model layers from bottom to top.\n   - Requirements for each layer: \n     1) Layer number\n     2) Standard name\n     3) One example protocol or technology\n   - Format: Numbered list, one line per layer.\n   - Constraint: Answer concisely.\n\n2.  **Recall OSI Model Layers (Bottom to Top):**\n   - Physical Layer (Layer 1)\n   - Data Link Layer (Layer 2)\n   - Network Layer (Layer 3)\n   - Transport Layer (Layer 4)\n   - Session Layer (Layer 5)\n   - Presentation Layer (Layer 6)\n   - Application Layer (Layer 7)\n\n3.  **Match Requirements for Each Layer:**\n   - Layer 1: Physical | Example: Ethernet, Fibre Channel, USB, coaxial cable -> I'll use \"Ethernet cables\" or just \"Physical signaling/cables\". Let's stick to a standard protocol/tech: \"RJ-45/Copper cabling\" or \"IEEE 802.3 (Ethernet physical"
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-glm-reap"
+    },
+    {
+      "model": "bench-glm-z1-rumination",
+      "label": "pipeline",
+      "runs_total": 3,
+      "runs_success": 3,
+      "avg_tps": 12.1,
+      "min_tps": 11.8,
+      "max_tps": 12.3,
+      "stddev_tps": 0.29,
+      "cv": 0.024,
+      "avg_completion_tokens": 256,
+      "avg_elapsed_s": 21.1,
+      "avg_ttft_s": 0.746,
+      "routed_model": "bench-glm-z1-rumination",
+      "prompt_category": "general",
+      "quality_score": 1.0,
+      "tps_quality": 12.1,
+      "reasoning_mode": false,
+      "expected_model_match": true,
+      "expected_model_detail": "Ollama:thudm_glm-z1-rumination-32b-0414",
+      "runs": [
+        {
+          "run": 1,
+          "elapsed_s": 21.78,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 11.8,
+          "time_to_first_token_s": 1.324,
+          "response_model": "bench-glm-z1-rumination",
+          "response_text": "Thinking Process:\n\n1.  **Analyze Request:**\n    *   Goal: List OSI model layers (bottom to top).\n    *   Components per item: Layer number, standard name, example protocol/technology.\n    *   Format constraints: Numbered list, one line per layer, concise answer.\n\n2.  **Recall OSI Model Layers (Bottom-up / Physical to Application):**\n    *   Layer 1: Physical\n        *   Examples: Ethernet cables (Cat5/Cat6), Fiber optics, Bluetooth radio waves. Let's use \"Ethernet\" or \"Coaxial Cable\". Actually, often people say specific physical media like \"Twisted Pair\", or protocols that span PHY/DataLink like Wi-Fi/802.11? Best to stick to the most classic OSI Layer 1 definition: Physical interface (cables). Ethernet actually spans L1 and L2. Let's use something clearly L1 for safety, like \"Coaxial Cable\" or just list a technology that defines signaling bits. Alternatively, common protocol lists often accept things like RS-232 or specific cables. I will choose the most recognizable example: *Twisted Pair* (or Ethernet cable). Wait, sometimes people treat physical"
+        },
+        {
+          "run": 2,
+          "elapsed_s": 20.75,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 12.3,
+          "time_to_first_token_s": 0.453,
+          "response_model": "bench-glm-z1-rumination",
+          "response_text": "Thinking Process:\n\n1.  **Analyze User Request:**\n    *   Role/Persona: Helpful assistant. Answer concisely.\n    *   Task: List the 7 OSI model layers from bottom to top (Layer 1 to Layer 7).\n    *   For each layer, provide:\n        1) The layer number\n        2) Standard name\n        3) One example protocol or technology\n    *   Format requirements: Numbered list with one line per layer.\n\n2.  **Information Retrieval (Internal Knowledge):**\n    *   Layer 7: Application - HTTP, FTP, DNS, etc.\n    *   Layer 6: Presentation - SSL/TLS, JPEG, ASCII\n    *   Layer 5: Session - NetBIOS, RPC, SAP\n    *   Layer 4: Transport - TCP, UDP\n    *   Layer 3: Network - IP (IPv4/IPv6), ICMP, OSPF\n    *   Layer 2: Data Link - Ethernet, Wi-Fi (802.11), PPP\n    *   Layer 1: Physical - Fiber optics, twisted pair cable, hubs\n\n3.  **Format Construction:**"
+        },
+        {
+          "run": 3,
+          "elapsed_s": 20.76,
+          "prompt_tokens": 74,
+          "completion_tokens": 256,
+          "tps": 12.3,
+          "time_to_first_token_s": 0.461,
+          "response_model": "bench-glm-z1-rumination",
+          "response_text": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - Task: List the 7 OSI model layers from bottom to top.\n   - Requirements for each layer: \n     1) Layer number\n     2) Standard name\n     3) One example protocol or technology\n   - Format: Numbered list, one line per layer.\n   - Tone/Style: Concise.\n\n2.  **Recall OSI Model Layers (Bottom to Top):**\n   1. Physical\n   2. Data Link\n   3. Network\n   4. Transport\n   5. Session\n   6. Presentation\n   7. Application\n\n3.  **Match Requirements:**\n   For each layer, I need: number, name, example protocol/tech. Format as a single line per item in a numbered list.\n   Let's draft:\n   1. Physical Layer - Ethernet (or Copper cable/Fiber optics) -> Actually, \"Ethernet\" is shared with Data Link, but physical signals/cables are fine. Better: Coaxial cable / Fiber optic / RS-232. I'll use \"Twisted-pair cabling\"."
+        }
+      ],
+      "backend": "pipeline",
+      "path": "pipeline",
+      "workspace": "bench-glm-z1-rumination"
     }
   ],
   "prompts": {
