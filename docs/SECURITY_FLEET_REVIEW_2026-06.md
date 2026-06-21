@@ -3,9 +3,11 @@
 **Date**: 2026-06-21  
 **Bench data**: `sec_bench_20260620T153821Z.json` (105 models, full fleet)  
 **TPS data**: `bench_tps_20260621T030634Z.json` (286 results)  
-**Completion bench**: `sec_bench_20260621T132602Z.json` (Run A — baronllm-abl, Foundation-Sec, devstral-small-2)  
+**Completion bench A**: `sec_bench_20260621T132602Z.json` (Run A — baronllm-abl, Foundation-Sec, devstral-small-2)  
+**Completion bench B**: `sec_bench_20260621T143339Z.json` (Run B — HauhauCS, lfm2.5, granite4.1, sylink)  
+**Quality eval**: `config/promptfoo/security_quality.yaml` Run 2 (auto-security 3/4, auto-redteam 4/4, auto-pentest 4/4, auto-blueteam 4/4)  
 **Prior plan**: `tests/PORTAL5_CANDIDATE_EVAL_V1.md` — covers prior removal decisions; read before changing workspace counts  
-**Status**: All bench data complete. Ready for config changes.
+**Status**: COMPLETE — all validation data in. Config changes committed.
 
 ---
 
@@ -85,13 +87,18 @@ Understanding what each model was actually built for changes every placement dec
 | `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF` | 1.00 | 10.5 | 5.2 | General Gemma 4 uncensored | `auto-purpleteam-exec` — TPS 5.2 rules it out for interactive chains; 31B quality + general:1.0 is right for long-form executive synthesis where latency is acceptable |
 | `huihui_ai/qwen3.5-abliterated:9b` | 1.00 | 11.0 | 16.9 | General Qwen3.5 uncensored | Backbone generalist fallback — covers gaps when specialized models are loaded |
 
-### Add (data complete, decision clear)
+### Add (validated by Run B chain bench)
 
-| Model | Cov | Depth | TPS | Training purpose | Target role |
-|---|---|---|---|---|---|
-| `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` | 1.00 | 11.5 | 30.8 | Aggressively uncensored Qwen3.6 | `auto-redteam`, `auto-security-uncensored` — explicitly offensive uncensored; creative:1.0 quality; best chain depth + speed for adversarial creative work. Currently creative only. |
-| `lfm2.5:8b` | 1.00 | 10.0 | 78.5 | Agentic tool use, hybrid architecture | `auto-security`, general security assistant — fast, agentic by design, unique non-transformer architecture adds diversity. Not security-domain trained but strong tool discipline. Currently general only. |
-| `granite4.1:8b` | 1.00 | 8.0 | 19.3 | Enterprise structured output, compliance | `auto-blueteam` support — IBM-trained for structured output and instruction fidelity; IFEval 87.1; right for detection engineering, SPL/KQL writing, compliance analysis. Currently general + reasoning; cross-listing directly in security makes it selectable for `auto-blueteam` alongside sylink. |
+| Model | Fleet Cov | Run B Avg | Run B Depth | TPS | Training purpose | Target role |
+|---|---|---|---|---|---|---|
+| `lfm2.5:8b` | 1.00 | **1.00** | 11.5 | 78.5 | Agentic tool use, hybrid architecture | `auto-security` — fast, agentic by design, non-transformer architecture diversity. kerberoast depth=14, asrep depth=9 — both WIN at 30s avg. |
+| `granite4.1:8b` | 1.00 | **1.00** | 8.0 | 19.3 | Enterprise structured output, compliance | `auto-blueteam` support — structured output + instruction fidelity; right for SPL/KQL, detection engineering. kerberoast depth=8, asrep depth=8 — both WIN at 15s avg (fastest in batch). |
+
+### Not added — Run B failed CANDIDATE_EVAL_V1 gate
+
+| Model | Fleet Cov | Run B Avg | Reason |
+|---|---|---|---|
+| `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4` | 1.00 | **0.50** | kerberoast WIN (depth=12, 45s) but STALLED on asrep_to_lateral (0/7, 14s — no tool calls emitted on first step). 0.50 < 2/2 WIN threshold. Stays in creative group; not cross-listed to security. Fleet bench 1.00 result may reflect VRAM-pressure variance across 105 models. Run B clean result is authoritative. |
 
 ### Conditional on Run A (now resolved)
 
@@ -116,7 +123,7 @@ ollama-security:
 
   # Uncensored offensive — red team and adversarial
   - supergemma4-26b-uncensored:Q4_K_M               # uncensored general quality, security:1.0
-  - fredrezones55/.../HauhauCS-Aggressive:Q4        # aggressively uncensored, depth 11.5, 31 TPS
+  # HauhauCS-Aggressive:Q4 NOT added — Run B 0.50 (stalled asrep_to_lateral); stays in creative only
 
   # Deep analysis / exec synthesis
   - hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF   # 31B quality for purpleteam-exec long-form
@@ -141,7 +148,50 @@ ollama-security:
 
 ---
 
-## 5. Role Corrections Summary
+## 5. Validation Data — Run B Chain Bench
+
+**File**: `sec_bench_20260621T143339Z.json`  
+**Scenario averages** (kerberoast_to_da + asrep_to_lateral):
+
+| Model | Unique | Acc | Depth | Avg Time | Verdict |
+|---|---|---|---|---|---|
+| `lfm2.5:8b` | 1.00 | 1.00 | 11.5 | 30s | **WIN** |
+| `granite4.1:8b` | 1.00 | 1.00 | 8.0 | 15s | **WIN** |
+| `sylink/sylink:8b` | 1.00 | 1.00 | 12.0 | 242s | **WIN** |
+| `HauhauCS-Aggressive:Q4` | 0.50 | 0.50 | 6.0 | 30s | **FAIL** |
+
+Per-scenario detail:
+
+| Model | kerberoast_to_da | asrep_to_lateral |
+|---|---|---|
+| HauhauCS:Q4 | depth=12/8, 1.00, 45s WIN | depth=0/7, 0.00, 14s **STALLED** |
+| lfm2.5:8b | depth=14/8, 1.00, 32s WIN | depth=9/7, 1.00, 28s WIN |
+| granite4.1:8b | depth=8/8, 1.00, 15s WIN | depth=8/7, 1.00, 14s WIN |
+| sylink/sylink:8b | depth=14/8, 1.00, 237s WIN | depth=10/7, 1.00, 247s WIN |
+
+All 4 models passed audit-tools probe (emitted valid `get_current_time` tool_call).
+
+SYLink confirms: depth 12.0 avg, 1.00/1.00 — **auto-blueteam anchor validated**.
+
+---
+
+## 6. Validation Data — Promptfoo Quality Eval (Run 2)
+
+**Config**: `config/promptfoo/security_quality.yaml`  
+**4 tests**: Log4Shell CVE, SQLi/XSS, ransomware IR, Splunk SSH search
+
+| Workspace | Model | Score | Notes |
+|---|---|---|---|
+| `auto-security` | VulnLLM-R-7B Q4_K_M | **3/4** | FAIL: Log4Shell — describes CVE as "deserialization flaw" + wrong class ref; JNDI/LDAP not mentioned. Real knowledge gap, not test artifact. |
+| `auto-redteam` | qwen3.5-abliterated:9b | **4/4** | All pass |
+| `auto-pentest` | Gemma-4-31B-JANG Q4_K_M | **4/4** | All pass |
+| `auto-blueteam` | sylink/sylink:8b | **4/4** | All pass |
+
+**VulnLLM Log4Shell gap**: Consistent across runs. The model knows Log4j is involved but misidentifies the vulnerability class (calls it "deserialization" rather than JNDI injection). This is a genuine training gap for Log4Shell specifically, not a general capability issue. VulnLLM remains in `auto-security` — its vuln research depth is confirmed in other areas. The gap should inform prompt engineering for Log4Shell-specific work.
+
+---
+
+## 7. Role Corrections Summary
 
 The fleet bench was read correctly for scores, but training purpose was not factored into placements. Two corrections beyond just adding/removing:
 
