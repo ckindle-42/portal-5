@@ -9,9 +9,9 @@ phase plan now includes the previously-omitted `auto-docs` (9 tests) and
 smoke phase is `--section auto` (4 tests, includes WS-01). V8 fleet
 promotions changed which models are "large": the heavy lanes are now
 auto-creative (Qwen3.6-35B-A3B HauhauCS ~20GB), auto-data
-(deepseek-r1:32b-q8_0 ~35GB), auto-vision (qwen3-vl:32b), auto-agentic +
+(granite4.1:30b ~17GB), auto-vision (qwen3-vl:32b), auto-agentic +
 auto-spl (qwen3-coder-next 80B/3B-active MoE), auto-research
-(tongyi-deepresearch), auto-mistral (Magistral Q8 ~25GB). The driver also
+(tongyi-deepresearch-abliterated), auto-mistral (Magistral Q8 ~25GB). The driver also
 gained `--rerun` / `--rerun-failed` (preferred over duplicate-tolerant
 re-appends) and a dated-archival flow: tests run in root chat history for
 live visibility, then bulk-move to `UAT/{YYYY-MM-DD}` on completion.
@@ -191,7 +191,7 @@ EOF
 |---|---|---|---|---|
 | 1 | Smoke | `auto` | 4 | Initializes results; quick end-to-end confidence (incl. WS-01) |
 | 2 | Large-GGUF lanes | creative, data, vision, research, mistral, agentic, spl | 37 | Big models (20–35GB + huge MoEs) while memory is freshest; catches OOM early |
-| 3 | Bulk coding | auto-coding, auto-coding-agentic | 32 | Largest coding block; own checkpoint; auto-coding-agentic added v7.6.0 (Devstral 24B) |
+| 3 | Bulk coding | auto-coding, auto-coding-agentic | 32 | Largest coding block; own checkpoint; auto-coding-agentic primary is Laguna-XS.2 (Poolside AI 33B-A3B MoE, promoted 2026-06-20) |
 | 4 | Mid/small lanes | compliance, reasoning, math, security, redteam, redteam-deep, daily, audio, tools-specialist, phi4, bigfix | 43 | Bulk of suite; cascade consolidates by model_slug; redteam-deep (SuperGemma4-26B), phi4, bigfix added v7.6.0 |
 | 5 | Blueteam + docs + purpleteam-deep | blueteam, purpleteam-deep, auto-docs, auto-documents | 13 | Foundation-Sec Q8, four-hop purpleteam-deep chain (new v7.6.0), phi4:14b document lanes |
 | 6 | Media-heavy | music, video | 5 | ComfyUI last; own GPU reclaim (`--keep-comfyui` on the gate) |
@@ -235,6 +235,7 @@ python3 tests/portal5_uat_driver.py --append \
 bash tests/inter_phase_gate.sh 2 37
 
 # Phase 3 — bulk coding (auto-coding-agentic added v7.6.0)
+# auto-coding-agentic primary: Laguna-XS.2 (33B-A3B MoE, promoted 2026-06-20)
 python3 tests/portal5_uat_driver.py --append --section auto-coding --section auto-coding-agentic
 bash tests/inter_phase_gate.sh 3 32
 
