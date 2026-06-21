@@ -796,15 +796,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
             "Authorized penetration testing assistant with execution capability. "
-            "Gemma-4-31B-JANG_4M-CRACK (bench score 0.933 vs supergemma4 0.867, 2026-06-16: "
-            "web exploit chains, AD lateral movement, container escape — wins on AD lateral). "
-            "Tool-call verified (audit-tools 2026-06-16: finish_reason=tool_calls, get_current_time confirmed). "
+            "Qwable-3.6-35B MoE (Mia-AiLab, MIT, 29.7 t/s, PROMOTED 2026-06-20: "
+            "security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s, 3/3 argument adaptation — "
+            "correctly targeted real open ports 445/8080, full coherence 20/20). "
+            "Single-hop execution focus (pentest of one target); for multi-hop lateral movement use auto-purpleteam. "
+            "Prior primary: Gemma-4-31B-JANG_4M-CRACK (bench score 0.933, 2026-06-16). "
             "execute_bash + execute_python + web_search for live target enumeration and PoC validation. "
             "Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings."
         ),
-        "model_hint": (
-            "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf"
-        ),
+        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
@@ -1467,14 +1467,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-qwable-35b": {
-        "name": "🔬 Bench · Qwable-3.6-35B Security (Mia-AiLab MoE)",
+        "name": "🔬 Bench · Qwable-3.6-35B (PROMOTED → auto-pentest)",
         "description": (
-            "Benchmark: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf "
-            "(Mia-AiLab, MIT, June 2026, MoE 35B/3.6B active, ~21GB Q4_K_M). "
-            "29.7 t/s on M4 Pro — fast. 5/5 TPS runs clean. Disqualified from coding pool "
-            "due to Claude Code persona bleed (agent-trace fine-tune memorised lane/TII workspace paths). "
-            "Security eval: does the abliterated MoE base perform well on offensive/defensive chain "
-            "without the persona contamination mattering? Chain test target. PROMOTE_POLICY=confirm."
+            "PROMOTED 2026-06-20 to auto-pentest primary. "
+            "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf "
+            "(Mia-AiLab, MIT, MoE 35B/3.6B active, ~21GB Q4_K_M, 29.7 t/s). "
+            "Security chain kerberoast_to_da: 7/8 steps, 0 refusals, 100s, adapt=3/3. "
+            "Disqualified from coding (persona bleed); security context unaffected."
         ),
         "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
         "max_concurrent": 1,

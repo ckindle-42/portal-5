@@ -189,9 +189,9 @@ backends:
       OptiQ GGUF published). supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M'
   - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
-    notes: 'Qwable-3.6-35B Q4_K_M (~21GB, Mia-AiLab, MIT). MoE 35B/3.6B active — 29.7 t/s bench_tps 2026-06-20,
-      5/5 runs clean. Disqualified from coding: agent-trace fine-tune memorised lane/TII Claude Code paths (persona bleed
-      run 2). Security chain eval pending: bench-qwable-35b. supports_tools=true: audit-tools 2026-06-18 confirmed.'
+    notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab, MIT). 29.7 t/s, 5/5 TPS runs. PROMOTED 2026-06-20
+      to auto-pentest primary: security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s, adapt=3/3.
+      Disqualified from coding (persona bleed). supports_tools=true: audit-tools 2026-06-18 confirmed.'
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -217,9 +217,8 @@ backends:
       production model lost in 3a0c58e (P5-FUT-PARITY-001). supports_tools=false (reasoning model, not tool-trained).
   - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
-    notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab). Security group copy for bench-qwable-35b chain eval.
-      29.7 t/s, 5/5 TPS runs. Disqualified from coding due to persona bleed; security context unaffected.
-      supports_tools=true: audit-tools 2026-06-18 confirmed.'
+    notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab). auto-pentest primary (PROMOTED 2026-06-20).
+      Security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s. supports_tools=true: audit-tools 2026-06-18 confirmed.'
   - id: huihui_ai/baronllm-abliterated
     supports_tools: true
     notes: 'audit-tools 2026-06-20: tool_call confirmed. Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2
