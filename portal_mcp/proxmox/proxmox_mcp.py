@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shlex
 import urllib.parse
 from typing import Any
 
@@ -695,7 +696,7 @@ async def proxmox_container_exec(vmid: int, command: str, node: str = "", timeou
         node: Node name (informational, auto-resolves via SSH)
         timeout: Seconds to wait (default 60)
     """
-    pct_cmd = f"pct exec {vmid} -- bash -c {repr(command)}"
+    pct_cmd = f"pct exec {int(vmid)} -- bash -c {shlex.quote(command)}"
     r = await _ssh_exec(pct_cmd, timeout=timeout)
     return _ok(r) if r.get("ok") else {"success": False, "error": r.get("error") or r.get("stderr", "pct exec failed")}
 
@@ -838,9 +839,14 @@ async def proxmox_find_vm(name: str) -> dict:
 # NODE EXEC (SSH-BASED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PROXMOX_SSH_HOST = os.getenv("PROXMOX_SSH_HOST", "") or PROXMOX_URL.split("://")[-1].split(":")[0]
-PROXMOX_SSH_USER = os.getenv("PROXMOX_SSH_USER", "root")
-PROXMOX_SSH_KEY  = os.getenv("PROXMOX_SSH_KEY", "")
+PROXMOX_SSH_HOST       = os.getenv("PROXMOX_SSH_HOST", "") or PROXMOX_URL.split("://")[-1].split(":")[0]
+PROXMOX_SSH_USER       = os.getenv("PROXMOX_SSH_USER", "root")
+PROXMOX_SSH_KEY        = os.getenv("PROXMOX_SSH_KEY", "")
+PROXMOX_SSH_KNOWN_HOSTS = os.getenv("PROXMOX_SSH_KNOWN_HOSTS", "~/.ssh/known_hosts")
+
+_CTF_LAB_GIT_ALLOWLIST = {
+    "https://github.com/bayufedra/MBPTL",
+}
 
 
 async def _ssh_exec(command: str, timeout: int = 60) -> dict:
@@ -848,7 +854,13 @@ async def _ssh_exec(command: str, timeout: int = 60) -> dict:
     if not PROXMOX_SSH_HOST:
         return {"ok": False, "error": "PROXMOX_SSH_HOST not set"}
 
-    ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
+    known_hosts = os.path.expanduser(PROXMOX_SSH_KNOWN_HOSTS)
+    ssh_cmd = [
+        "ssh",
+        "-o", "StrictHostKeyChecking=yes",
+        "-o", f"UserKnownHostsFile={known_hosts}",
+        "-o", "ConnectTimeout=10",
+    ]
     if PROXMOX_SSH_KEY:
         ssh_cmd += ["-i", PROXMOX_SSH_KEY]
     ssh_cmd += [f"{PROXMOX_SSH_USER}@{PROXMOX_SSH_HOST}", command]
@@ -907,19 +919,26 @@ async def proxmox_deploy_ctf_lab(
         git_url: Git URL of the lab (default: MBPTL GitHub)
         deploy_dir: Directory on the LXC to clone into (default: /opt/ctf-labs)
     """
+    if git_url not in _CTF_LAB_GIT_ALLOWLIST:
+        return {"success": False, "error": f"git_url not in allowlist: {git_url}"}
+
+    lab_safe       = shlex.quote(lab)
+    deploy_dir_safe = shlex.quote(deploy_dir)
+    git_url_safe   = shlex.quote(git_url)
     compose_subdir = {"mbptl": "mbptl"}.get(lab, "")
+    compose_path   = shlex.quote(f"{deploy_dir}/{lab}/{compose_subdir}".rstrip("/"))
 
     steps = [
         f"apt-get install -y git docker.io docker-compose-plugin 2>&1 | tail -5",
-        f"mkdir -p {deploy_dir}",
-        f"git -C {deploy_dir}/{lab} pull 2>/dev/null || git clone {git_url} {deploy_dir}/{lab}",
-        f"cd {deploy_dir}/{lab}/{compose_subdir} && docker compose up -d --build 2>&1 | tail -20",
-        f"docker ps --filter 'name={lab}' --format 'table {{{{.Names}}}}\\t{{{{.Status}}}}'",
+        f"mkdir -p {deploy_dir_safe}",
+        f"git -C {deploy_dir_safe}/{lab_safe} pull 2>/dev/null || git clone {git_url_safe} {deploy_dir_safe}/{lab_safe}",
+        f"cd {compose_path} && docker compose up -d --build 2>&1 | tail -20",
+        f"docker ps --filter name={lab_safe} --format 'table {{{{.Names}}}}\\t{{{{.Status}}}}'",
     ]
 
     results = []
     for step in steps:
-        pct_cmd = f"pct exec {vmid} -- bash -c {repr(step)}"
+        pct_cmd = f"pct exec {int(vmid)} -- bash -c {shlex.quote(step)}"
         r = await _ssh_exec(pct_cmd, timeout=300)
         results.append({"cmd": step[:80], "ok": r.get("ok"), "stdout": r.get("stdout", "")[-500:]})
         if not r.get("ok") and "docker compose up" in step:
