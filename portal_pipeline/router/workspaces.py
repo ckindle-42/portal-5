@@ -1015,7 +1015,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 32768,
         "emits_reasoning": True,
         "keep_alive": "10m",
-        "tools": ["execute_python", "create_excel", "kb_search"],
+        # supports_tools=false — phi4-reasoning:plus returns 400 Bad Request on tool calls
+        # in Ollama 0.30.x (Ollama rejects the request before the model sees it; same root
+        # cause as phi4, phi4-mini, phi4-mini-reasoning). Verified full-fleet bench
+        # 2026-06-20: audit=ERR, 0/2 chain. Tools removed: model cannot emit calls.
+        "tools": [],
     },
     "auto-audio": {
         "name": "🎙️  Portal Audio Analyst",
