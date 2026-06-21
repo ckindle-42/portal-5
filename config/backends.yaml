@@ -124,11 +124,6 @@ backends:
     supports_tools: true
     notes: 'OpenAI open-weight MoE, ~12GB, o3-mini level, configurable thinking depth. PROMOTED 2026-06-20 to coding pool:
       auto-agentic fallback. 2/2 security chain at 45s. Also in ollama-reasoning.'
-  - id: hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
-    supports_tools: true
-    notes: 'Qwable-5-27B-Coder Q4_K_M (~16.8GB, DJLougen, Apache 2.0). Qwen3.6-27B fine-tuned on
-      Claude Fable 5 + Kimi 2.7 coder-agent traces. 262K ctx, vision. No public benchmark scores.
-      bench-qwable5-27b target. supports_tools=true per Qwen3.6 family; verify via --audit-tools.'
   - id: phi4-reasoning:plus
     supports_tools: true
     notes: Phi-4-reasoning-plus Q4 (~8GB, Microsoft RL-trained, strong STEM/math).
@@ -192,26 +187,11 @@ backends:
     notes: 'Qwen3.6-27B Q4_K_M (~16GB, bartowski). Head-to-head vs bench-qwen36-27b (unsloth Q4_K_XL) — TASK_QUANT_TRUEUP_V1
       Finding A. Originally catalogued as OptiQ variant; bartowski repo was renamed to Qwen_Qwen3.6-27B-GGUF (no separate
       OptiQ GGUF published). supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M'
-  - id: hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8
-    supports_tools: false
-    notes: 'Huihui-Qwable-3.6-27b abliterated Q4_K_M_Q8 (~18.3GB, huihui-ai, June 2026). Abliterated fine-tune of Mia-AiLab/Qwable-3.6-27b
-      (Fable 5-style SFT base). Dense 27B, zero refusals. supports_tools=false: pending audit-tools probe. bench-huihui-qwable-27b
-      target — head-to-head vs bench-qwable-27b (base) and bench-huihui-qwen36-27b (sibling abliteration). Security + coding
-      eval: is Qwable a better abliteration base than Qwen3.6 for redteam/coding? PROMOTE_POLICY=confirm after bench. Pull:
-      ollama pull hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8'
-  - id: hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf
-    supports_tools: true
-    notes: 'Qwable-3.6-27B Q4_K_M (~15GB, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-27B on a cleaned Fable
-      5-style reasoning+instruction dataset. Dense 27B (all params active, no MoE). No MTP layers. ''Trace-like assistant
-      behavior'' for code, technical reasoning, structured outputs. supports_tools=true: audit-tools 2026-06-18 confirmed
-      tool_call. GC-03 FAIL 9/12=75%. bench-qwable-27b target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf'
   - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
-    notes: 'Qwable-3.6-35B Q4_K_M (~21GB actual, Mia-AiLab, MIT, June 2026). Full fine-tune of unsloth/Qwen3.6-35b on a cleaned
-      Fable 5-style reasoning+instruction dataset. DENSE 35B (all params active). bench_tps 2026-06-18: 30.8 t/s Ollama direct
-      — matches qwen3.6:35b-a3b-q4_K_M (29.4 t/s bench_20260611). GC-03 Platformer: 10/12=83% PASS (216.9s). Dense 35B adds
-      no TPS penalty vs A3B MoE on this hardware. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. bench-qwable-35b
-      target (TASK_MODEL_EVAL_V9_CANDIDATES). Pull: ollama pull hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf'
+    notes: 'Qwable-3.6-35B Q4_K_M (~21GB, Mia-AiLab, MIT). MoE 35B/3.6B active — 29.7 t/s bench_tps 2026-06-20,
+      5/5 runs clean. Disqualified from coding: agent-trace fine-tune memorised lane/TII Claude Code paths (persona bleed
+      run 2). Security chain eval pending: bench-qwable-35b. supports_tools=true: audit-tools 2026-06-18 confirmed.'
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -235,10 +215,11 @@ backends:
     notes: Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai FIRST-PARTY GGUF, Llama-3.1-8B cybersec continued-pretrain
       + reasoning, Apache 2.0 per body — card header tags 'other'). Native <think>. auto-blueteam PRIMARY — restores the pre-migration
       production model lost in 3a0c58e (P5-FUT-PARITY-001). supports_tools=false (reasoning model, not tool-trained).
-  - id: hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8
-    supports_tools: false
-    notes: Huihui-Qwable-3.6-27b abliterated Q4_K_M_Q8 — security group copy for bench-huihui-qwable-27b security eval (redteam/purple
-      candidate). Abliterated Qwable-3.6-27b base. Zero refusals. supports_tools=false pending audit-tools.
+  - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    supports_tools: true
+    notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab). Security group copy for bench-qwable-35b chain eval.
+      29.7 t/s, 5/5 TPS runs. Disqualified from coding due to persona bleed; security context unaffected.
+      supports_tools=true: audit-tools 2026-06-18 confirmed.'
   - id: huihui_ai/baronllm-abliterated
     supports_tools: true
     notes: 'audit-tools 2026-06-20: tool_call confirmed. Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2
@@ -519,9 +500,6 @@ workspace_routing:
   - general
   bench-qwen35-abliterated:
   - general
-  bench-qwable5-27b:
-  - coding
-  - general
   bench-qwen36-27b:
   - reasoning
   - coding
@@ -587,14 +565,8 @@ workspace_routing:
   bench-qwopus-coder-mtp:
   - coding
   - general
-  bench-huihui-qwable-27b:
-  - coding
-  - security
-  bench-qwable-27b:
-  - coding
-  - general
   bench-qwable-35b:
-  - coding
+  - security
   - general
   auto-bigfix:
   - security
