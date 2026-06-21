@@ -2,7 +2,7 @@ description: "Portal 5 — Security workspaces quality evaluation (auto-security
 prompts:
   - file://prompts/security.txt
 providers:
-  - id: ollama:chat:huihui_ai/baronllm-abliterated
+  - id: ollama:chat:hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
     label: auto-security
     config:
       temperature: 0
@@ -12,7 +12,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:xploiter/pentester:v2
+  - id: ollama:chat:hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     label: auto-pentest
     config:
       temperature: 0

@@ -2,7 +2,7 @@ description: "Portal 5 — Document workspaces quality evaluation (auto-document
 prompts:
   - file://prompts/document.txt
 providers:
-  - id: ollama:chat:phi4:14b-q8_0
+  - id: ollama:chat:granite4.1:8b
     label: auto-documents
     config:
       temperature: 0

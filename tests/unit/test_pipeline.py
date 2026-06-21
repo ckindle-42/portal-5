@@ -254,12 +254,15 @@ class TestWorkspaceModelHintUpdated:
     """Verify model hints use the updated recs.md models."""
 
     def test_security_uses_baronllm(self):
+        # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
+        # baronllm retained in auto-security-uncensored
         ws = WORKSPACES.get("auto-security", {})
+        hint = ws.get("model_hint", "").lower()
         assert (
-            "baronllm" in ws.get("model_hint", "").lower()
-            or "baron" in ws.get("model_hint", "").lower()
-            or "xploiter" in ws.get("model_hint", "").lower()
-        ), "Security workspace should use a dedicated security model"
+            "vulnllm" in hint
+            or "baronllm" in hint
+            or "baron" in hint
+        ), "Security workspace should use a dedicated security model (VulnLLM-R-7B or baronllm)"
 
     def test_coding_uses_qwen_or_glm(self):
         ws = WORKSPACES.get("auto-coding", {})
@@ -324,11 +327,11 @@ class TestComplianceWorkspace:
             )
 
     def test_workspace_count_is_14(self):
-        """Total workspace count is 112 (37 production + 1 tools-specialist + 74 bench-*)."""
+        """Total workspace count is 77 (35 production + 42 bench-*) after V8 prune pass."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 112, (
-            f"Expected 112 workspaces (37 production + 1 tools-specialist + 74 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 77, (
+            f"Expected 77 workspaces (35 production + 42 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -401,11 +404,10 @@ class TestR18ModelCompleteness:
 
         required = [
             # Security
-            "baronllm:q6_k",  # BaronLLM_Offensive
-            "lily-cybersecurity:7b-q4_k_m",  # Lily Cybersecurity 7B (bench, retired but still in yaml)
-            "dolphin3-r1-mistral:24b-q4_k_m",  # Dolphin3-R1-Mistral 24B (bench, retired)
-            # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16):
-            # WRN-33B hallucinated Go templates; dolphin-llama3:70b is 42GB old Llama-3 base, superseded
+            "baronllm:q6_k",  # BaronLLM_Offensive (auto-security-uncensored)
+            "hf.co/mradermacher/VulnLLM-R-7B-GGUF",  # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
+            # lily-cybersecurity and dolphin3-r1-mistral removed 2026-06-20 (pruned from fleet)
+            # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16)
             # Coding (Ollama GGUF only — MLX retired)
             "glm-4.7-flash",  # GLM-4.7-Flash GGUF (coding primary)
             "llama3.3:70b-q4_k_m",  # updated to bartowski rehost
@@ -427,9 +429,9 @@ class TestR18ModelCompleteness:
         assert "granite4.1" in WORKSPACES["auto-documents"]["model_hint"].lower(), (
             "auto-documents should use granite4.1:8b (tool-capable document model; phi4:14b-q8_0 rejected by Ollama 0.30.x for tool calls — see commit 7376ba4)"
         )
-        # R23: baronllm:q6_k is the imported GGUF model
-        assert "baronllm" in WORKSPACES["auto-security"]["model_hint"].lower(), (
-            "auto-security should use baronllm as primary"
+        # R23: VulnLLM-R-7B promoted to auto-security primary 2026-06-20
+        assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
+            "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
         )
         assert "foundation-sec" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
             "auto-blueteam should use Foundation-Sec-8B-Reasoning (cybersec defender, GGUF)"
@@ -735,11 +737,11 @@ class TestSPLWorkspace:
         assert "auto-spl" in routing, "auto-spl missing from workspace_routing in backends.yaml"
 
     def test_workspace_count_is_16(self):
-        """Total workspace count must be 111 (37 production + 1 tools-specialist + 73 bench-*)."""
+        """Total workspace count must be 77 (35 production + 42 bench-*) after V8 prune pass."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 112, (
-            f"Expected 112 workspaces (37 production + 1 tools-specialist + 74 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 77, (
+            f"Expected 77 workspaces (35 production + 42 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -900,8 +902,8 @@ class TestAgenticWorkspace:
         from portal_pipeline.router_pipe import WORKSPACES
 
         hint = WORKSPACES["auto-agentic"].get("model_hint")
-        assert hint == "qwen3-coder-next", (
-            f"auto-agentic hint should be qwen3-coder-next (V8 promotion), got: {hint}"
+        assert hint is not None and "qwen3-coder-next" in hint, (
+            f"auto-agentic hint should be qwen3-coder-next:latest (V8 promotion), got: {hint}"
         )
         ctx = WORKSPACES["auto-agentic"].get("context_limit")
         assert ctx is None, (

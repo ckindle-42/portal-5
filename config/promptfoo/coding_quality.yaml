@@ -7,7 +7,7 @@ providers:
     config:
       temperature: 0
       num_predict: 1024
-  - id: ollama:chat:qwen3-coder-next
+  - id: ollama:chat:qwen3-coder-next:latest
     label: auto-agentic
     config:
       temperature: 0
