@@ -344,15 +344,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
     },
     "auto-coding-agentic": {
-        "name": "🔄 Portal Agentic Coder",
+        "name": "🔄 Portal IDE / Agentic Coder",
         "description": (
-            "Multi-turn agentic coding workspace for maintaining and advancing Portal 5 itself. "
-            "Devstral-24B (Mistral's SWE-agent model, top of SWE-bench open-weight, tool-native). "
-            "Tuned for the read → understand → edit → verify loop: inspects files via execute_bash, "
-            "makes targeted changes, runs tests, iterates. Use for refactors, bug fixes, new features, "
-            "and capability additions. For one-shot code generation, use auto-coding instead."
+            "Multi-turn agentic coding workspace — the default model for opencode and Claude Code "
+            "in this repo. Laguna-XS.2 (Poolside AI, 33B-A3B MoE, ~19GB, 68.2% SWE-bench Verified, "
+            "interleaved reasoning, 2/2 security chain). Tuned for the read → understand → edit → verify "
+            "loop: inspects files via explore_repository + execute_bash, makes targeted changes, runs tests, "
+            "iterates. Devstral-small-2 (V2, 256K ctx, vision) is the first fallback in the coding pool. "
+            "For one-shot code generation, use auto-coding instead."
         ),
-        "model_hint": "devstral:24b",
+        "model_hint": "laguna-xs.2:Q4_K_M",
         "keep_alive": "15m",
         "tools": [
             "explore_repository",  # FastContext 4B subagent — locates files before edits
@@ -393,7 +394,9 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": (
             "Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style "
             "workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL "
-            "training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline)."
+            "training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). "
+            "Fallback: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, "
+            "2/2 security chain at 45s) — available in the coding pool when the primary is not loaded."
         ),
         "model_hint": "qwen3-coder-next:latest",
         "tools": [
@@ -1048,38 +1051,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-phi4": {
-        "name": "🔬 Bench · Phi-4",
-        "description": "Benchmark: phi-4 (GGUF, Ollama, Microsoft, 14B, synthetic training data — distinct methodology)",
-        "model_hint": "phi4:14b-q8_0",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-phi4-reasoning": {
-        "name": "🔬 Bench · Phi-4-reasoning-plus",
-        "description": "Benchmark: Phi-4-reasoning-plus (GGUF, Ollama, Microsoft, RL-trained — produces reasoning traces before code)",
-        "model_hint": "phi4-reasoning:plus",
-        "max_concurrent": 1,
-        # Raised from 16384: RL reasoning traces consume 8-12K tokens before code begins;
-        # 16384 left insufficient budget for a complete 6-8K token game implementation.
-        "predict_limit": 32768,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-dolphin8b": {
-        "name": "🔬 Bench · Dolphin-Llama3-8B",
-        "description": "Benchmark: Dolphin3.0-Llama3.1-8B (GGUF, Ollama, Cognitive Computations — fast baseline, uncensored)",
-        "model_hint": "dolphin-llama3:8b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-glm": {
+    },    "bench-glm": {
         "name": "🔬 Bench · GLM-4.7-Flash",
         "description": "Benchmark: GLM-4.7-Flash (GGUF, Ollama, Zhiyu AI — distinct Chinese research lineage, 59.2% SWE-bench)",
         "model_hint": "glm-4.7-flash:Q4_K_M",
@@ -1090,23 +1062,50 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-gptoss": {
-        "name": "🔬 Bench · GPT-OSS-20B",
-        "description": "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level — configurable thinking depth)",
+        "name": "🔬 Bench · GPT-OSS-20B ✓ PROMOTED",
+        "description": (
+            "Benchmark: gpt-oss:20b (Ollama, OpenAI open-weight MoE, ~12GB, o3-mini level, "
+            "configurable thinking depth). PROMOTED 2026-06-20 to auto-agentic fallback + "
+            "coding pool. 2/2 security chain at 45s. Coding arena: full tool suite."
+        ),
         "model_hint": "gpt-oss:20b",
         "max_concurrent": 1,
-        "predict_limit": 8192,
+        "predict_limit": 16384,
         "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
+        "keep_alive": "10m",
+        "tools": [
+            "execute_bash",
+            "execute_python",
+            "execute_nodejs",
+            "sandbox_status",
+            "explore_repository",
+            "remember",
+            "recall",
+        ],
     },
     "bench-laguna": {
-        "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
-        "description": "Benchmark: Laguna-XS.2 (GGUF, Ollama, Poolside AI, 33B-A3B MoE, 68.2% SWE-bench Verified, interleaved reasoning)",
+        "name": "🔬 Bench · Laguna-XS.2 (Poolside) ✓ PROMOTED",
+        "description": (
+            "Benchmark: Laguna-XS.2 (GGUF, Ollama, Poolside AI, 33B-A3B MoE, ~19GB Q4, "
+            "68.2% SWE-bench Verified, interleaved reasoning). PROMOTED 2026-06-20 to "
+            "auto-coding-agentic primary — opencode/Claude Code default. "
+            "2/2 security chain at 63s. Coding arena: full tool suite."
+        ),
         "model_hint": "laguna-xs.2:Q4_K_M",
         "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
+        "predict_limit": 16384,
+        "keep_alive": "15m",
+        "tools": [
+            "explore_repository",
+            "execute_bash",
+            "execute_python",
+            "execute_nodejs",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
     },
     "bench-granite41-8b": {
         "name": "🔬 Bench · Granite-4.1 8B (IBM)",
@@ -1202,49 +1201,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-negentropy": {
-        "name": "🔬 Bench · Negentropy-9B (Jackrong)",
-        "description": (
-            "Benchmark: Jackrong/Negentropy-claude-opus-4.7-9B (GGUF, Ollama, Qwen3.5-9B "
-            "base, trace-inversion methodology). Card-acknowledged: "
-            "'logic-style hallucinations' possible — unsuited for compliance/NERC CIP work."
-        ),
-        "model_hint": "deepseek-r1:32b-q4_k_m",
-        "max_concurrent": 1,
-        "predict_limit": 16384,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },    # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
-    "bench-olmocr2": {
-        "name": "🔬 Bench · olmOCR-2 (Allen AI)",
-        "description": "Benchmark: olmOCR-2-7B (Allen AI, 7B Qwen2.5-VL base, RLVR document OCR). Strengths: math formulas, tables, multi-column layouts, markdown-clean output.",
-        "model_hint": "qwen3-vl:32b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-        "emits_reasoning": False,
-    },
-    "bench-nanonets-ocr2": {
-        "name": "🔬 Bench · Nanonets-OCR2 (Nanonets)",
-        "description": "Benchmark: Nanonets-OCR2-3B (Nanonets, Qwen2.5-VL-3B base). Strengths: pdf2markdown structure, LaTeX equations, semantic image tags, tables (HTML/markdown), signatures/watermarks/checkboxes. Pairs with bench-olmocr2.",
-        "model_hint": "qwen3-vl:32b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-        "emits_reasoning": False,
-    },
-    "bench-foundation-sec": {
-        "name": "🔬 Bench · Foundation-Sec (Cisco)",
-        "description": "Benchmark: Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, first-party Q8_0 GGUF ~8.5GB, 128K ctx). Native <think>. Defender-side: CVE→CWE, MITRE ATT&CK, SOC triage, compliance. Now the auto-blueteam primary (P5-FUT-PARITY-001).",
-        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-        "emits_reasoning": True,
-    },
-    # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ────────────────────────────
+    },    # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────    # ── V7 catalog refresh (TASK_MODEL_REFRESH_V7) ────────────────────────────
     "bench-qwen36-27b-ud": {
         "name": "🔬 Bench · Qwen3.6-27B Q4 (Unsloth UD proxy)",
         "description": (
@@ -1321,21 +1278,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
-    },
-    "bench-phi4-mini": {
-        "name": "🔬 Bench · Phi-4-Mini (Microsoft)",
-        "description": (
-            "Benchmark: phi4-mini (Ollama, Microsoft, Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). "
-            "Synthetic-data reasoning: function calling, multilingual, math. "
-            "Outperforms Llama 3.2 3B and Qwen 2.5 3B on reasoning at 3.8B. "
-            "Ultra-fast daily tier candidate. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "phi4-mini",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "tools": [],
-    },
-    "bench-gemma4-e4b": {
+    },    "bench-gemma4-e4b": {
         "name": "🔬 Bench · Gemma 4 E4B (MoE 4B active)",
         "description": "Benchmark: gemma4:e4b-it-q4_K_M (~9.6GB, Google MoE, 4B active, 128K ctx, vision+thinking+tools). Daily-driver candidate.",
         "model_hint": "gemma4:e4b-it-q4_K_M",
@@ -1421,21 +1364,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
-    },
-    "bench-phi4-mini-reasoning": {
-        "name": "🔬 Bench · Phi-4-Mini-Reasoning (Microsoft)",
-        "description": (
-            "Benchmark: phi4-mini-reasoning (Ollama, Microsoft, MIT, 3.8B, ~2.5GB Q4, 128K ctx). "
-            "RL-trained math/logic specialist. Beats 7B models on AIME/MATH-500/GPQA. "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "phi4-mini-reasoning",
-        "max_concurrent": 1,
-        "predict_limit": 16384,
-        "emits_reasoning": True,
-        "tools": [],
-    },
-    "bench-lfm25-8b": {
+    },    "bench-lfm25-8b": {
         "name": "🔬 Bench · LFM2.5-8B-A1B (Liquid AI)",
         "description": (
             "Benchmark: lfm2.5:8b (Ollama, Liquid AI, June 2026, Apache 2.0, ~5GB Q4, 128K ctx). "
@@ -1461,34 +1390,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 16384,
         "tools": [],
     },
-    "bench-mistral-small32": {
-        "name": "🔬 Bench · Mistral Small 3.2 (Mistral)",
-        "description": (
-            "Benchmark: mistral-small3.2:24b (Ollama, Mistral AI, June 2025, Apache 2.0, "
-            "24B, ~14GB Q4). Improved function calling and instruction following over Small 3.1. "
-            "auto-mistral lane candidate. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "mistral-small3.2:24b",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "tools": [],
-    },
-    "bench-r1-0528-qwen3-8b": {
-        "name": "🔬 Bench · DeepSeek R1-0528-Qwen3-8B (DeepSeek)",
-        "description": (
-            "Benchmark: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL "
-            "(Unsloth/DeepSeek, MIT, 8B Qwen3 base, ~5GB Q4_K_XL, May 2026). "
-            "R1-0528 chain-of-thought distilled into Qwen3-8B. "
-            "Matches Qwen3-235B on AIME 2024 at 8B parameters. "
-            "Complements existing deepseek-r1:32b — smaller/faster reasoning tier. "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
-        "max_concurrent": 1,
-        "predict_limit": 16384,
-        "emits_reasoning": True,
-        "tools": [],
-    },    "bench-nex-n2-mini": {
+    "bench-nex-n2-mini": {
         "name": "🔬 Bench · Nex-N2-mini (Nex AGI)",
         "description": (
             "Benchmark: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M "
@@ -1512,7 +1414,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Agentic training: 800K executable tasks + RL. "
             "PROMOTE_POLICY=confirm."
         ),
-        "model_hint": "qwen3-coder-next",
+        "model_hint": "qwen3-coder-next:latest",
         "max_concurrent": 1,
         "predict_limit": 16384,
         "emits_reasoning": True,
@@ -1648,24 +1550,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
-    },
-    "bench-magistral": {
-        "name": "🔬 Bench · Magistral-Small 24B Reasoning (Mistral)",
-        "description": (
-            "Benchmark: hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0 "
-            "(Mistral, unsloth quant, Apache 2.0, 24B MoE, ~26GB Q8_0). "
-            "Mistral's reasoning-specialized variant of Mistral-Small-3. "
-            "Extended chain-of-thought, competitive on MATH and coding-with-reasoning benchmarks. "
-            "Head-to-head vs bench-r1-0528-abliterated (32B) and bench-qwen36-27b (27B). "
-            "Candidate for auto-reasoning or auto-coding if thinking quality >= R1. "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
     },    "bench-qwopus-coder-mtp-v2": {
         "name": "🔬 Bench · Qwopus3.6-27B-v2-MTP (Jackrong)",
         "description": (
@@ -1775,18 +1659,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     # ── TASK_MODEL_REFRESH_V8 / TASK_SPEECH_SHOOTOUT_V1 additions ───────────
-    "bench-granite-speech": {
-        "name": "🔬 Bench · Granite Speech 4.1-2B (IBM)",
-        "description": (
-            "ASR bench — mlx-community/granite-speech-4.1-2b (native keyword biasing). "
-            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
-            "model_hint points to Ollama text fallback (granite4.1:8b) for graceful degradation."
-        ),
-        "model_hint": "granite4.1:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-huihui-qwen36-35b-a3b": {
         "name": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
         "description": (
@@ -1798,7 +1670,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
-    },    "bench-qwen36-27b-optiq": {
+    },
+    "bench-qwen36-27b-optiq": {
         "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
         "description": (
             "Benchmark: Qwen3.6-27B with OptiQ per-layer quantization "
@@ -1806,53 +1679,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Head-to-head vs bench-qwen36-27b (plain Q4_K_M) — TASK_QUANT_TRUEUP_V1 Finding A."
         ),
         "model_hint": "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-starcoder2": {
-        "name": "🔬 Bench · StarCoder2-15B (BigCode)",
-        "description": (
-            "Benchmark: BigCode StarCoder2-15B (OpenRAIL-M license — review before external exposure). "
-            "Code completion and fill-in-the-middle (FIM). V8 model refresh A9."
-        ),
-        "model_hint": "starcoder2:15b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-toolace25": {
-        "name": "🔬 Bench · ToolACE-2.5 (Team-ACE)",
-        "description": (
-            "SUBSTITUTED: served model is granite4.1:8b (original ToolACE-2.5 retired with "
-            "MLX inference tier 3a0c58e). Re-sourcing tracked in P5-FUT-PARITY-001. "
-            "Purpose: tool-calling empirical comparison vs other tool-capable models."
-        ),
-        "model_hint": "granite4.1:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-voxtral-realtime": {
-        "name": "🔬 Bench · Voxtral Realtime ASR (Mistral)",
-        "description": (
-            "ASR bench — mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit (streaming ASR). "
-            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
-            "Distinct from production batched Voxtral-2507 path in mlx-transcribe.py."
-        ),
-        "model_hint": "granite4.1:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-voxtral-tts": {
-        "name": "🔬 Bench · Voxtral TTS 4B (Mistral)",
-        "description": (
-            "TTS bench — mlx-community/Voxtral-4B-TTS-2603-mlx-6bit. "
-            "Text-LLM fallback only; primary capability via TASK_SPEECH_SHOOTOUT_V1. "
-            "Promotion gate: win >=4/5 categories vs Kokoro AND Qwen3-TTS on multilingual phrases."
-        ),
-        "model_hint": "granite4.1:8b",
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],

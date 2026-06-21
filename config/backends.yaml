@@ -118,7 +118,12 @@ backends:
     notes: GLM-4.7-Flash 30B-A3B MoE Q4 (~15GB, Z.AI, 59.2% SWE-bench, 200K ctx). auto-coding primary.
   - id: laguna-xs.2:Q4_K_M
     supports_tools: true
-    notes: Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified).
+    notes: 'Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified). PROMOTED 2026-06-20: auto-coding-agentic
+      primary (opencode/Claude Code default). 2/2 security chain at 63s.'
+  - id: gpt-oss:20b
+    supports_tools: true
+    notes: 'OpenAI open-weight MoE, ~12GB, o3-mini level, configurable thinking depth. PROMOTED 2026-06-20 to coding pool:
+      auto-agentic fallback. 2/2 security chain at 45s. Also in ollama-reasoning.'
   - id: phi4-reasoning:plus
     supports_tools: true
     notes: Phi-4-reasoning-plus Q4 (~8GB, Microsoft RL-trained, strong STEM/math).
@@ -145,7 +150,7 @@ backends:
       / 3B active MoE. Multimodal (image+text). Agentic coding, tool use, function calling, reasoning traces. imatrix quant
       from sjakek community GGUF. bench-nex-n2-mini target (TASK_MODEL_REFRESH_V8 A16). supports_tools=true per Nex-N2 function-calling
       support; verify via --audit-tools.
-  - id: qwen3-coder-next
+  - id: qwen3-coder-next:latest
     supports_tools: true
     notes: 'Qwen3-Coder-Next (Alibaba, Feb 2026, Apache 2.0, 80B total / 3B active MoE, ~46GB Q4, 256K ctx). Novel hybrid
       architecture: Gated DeltaNet + Gated Attention + MoE. Non-reasoning for ultra-fast code responses. Agentic training
@@ -493,14 +498,6 @@ workspace_routing:
   bench-qwen3-coder-next:
   - coding
   - general
-  bench-phi4:
-  - coding
-  - general
-  bench-phi4-reasoning:
-  - coding
-  - general
-  bench-dolphin8b:
-  - general
   bench-glm:
   - coding
   - general
@@ -531,22 +528,6 @@ workspace_routing:
   bench-omnicoder2:
   - coding
   - general
-  bench-negentropy:
-  - reasoning
-  - general
-  bench-olmo3-32b:
-  - reasoning
-  - general
-  bench-olmocr2:
-  - vision
-  - general
-  bench-nanonets-ocr2:
-  - vision
-  - general
-  bench-foundation-sec:
-  - security
-  - reasoning
-  - general
   bench-qwen36-27b-ud:
   - coding
   - general
@@ -561,14 +542,8 @@ workspace_routing:
   bench-qwen36-hauhaucs:
   - creative
   - general
-  bench-gemmable-12b:
-  - coding
-  - security
-  - general
   bench-gemma4-12b:
   - vision
-  - general
-  bench-phi4-mini:
   - general
   bench-gemma4-e4b:
   - general
@@ -587,21 +562,10 @@ workspace_routing:
   bench-gemma4-31b-crack:
   - vision
   - general
-  bench-phi4-mini-reasoning:
-  - reasoning
-  - general
   bench-lfm25-8b:
   - general
   bench-devstral-small-2:
   - coding
-  - general
-  bench-mistral-small32:
-  - general
-  bench-harness1:
-  - reasoning
-  - general
-  bench-r1-0528-qwen3-8b:
-  - reasoning
   - general
   bench-nex-n2-mini:
   - coding
@@ -609,17 +573,10 @@ workspace_routing:
   bench-lfm25-8b-uncensored:
   - creative
   - general
-  bench-r1-0528-abliterated:
-  - reasoning
-  - security
-  - general
   bench-qwen3-coder-next-abliterated:
   - coding
   - general
   bench-qwopus-coder-mtp:
-  - coding
-  - general
-  bench-gemma4-12b-coder:
   - coding
   - general
   bench-huihui-qwable-27b:
@@ -629,9 +586,6 @@ workspace_routing:
   - coding
   - general
   bench-qwable-35b:
-  - coding
-  - general
-  bench-deepseek-coder-v2:
   - coding
   - general
   auto-bigfix:
@@ -644,21 +598,6 @@ workspace_routing:
   bench-devstral:
   - coding
   - general
-  bench-magistral:
-  - reasoning
-  - general
-  bench-apriel-nemotron:
-  - reasoning
-  - coding
-  - general
-  bench-vibethinker-3b:
-  - reasoning
-  - coding
-  - general
-  bench-vibethinker-3b-ablated:
-  - reasoning
-  - security
-  - general
   bench-qwopus-coder-mtp-v2:
   - reasoning
   - coding
@@ -666,20 +605,8 @@ workspace_routing:
   auto-cad:
   - coding
   - general
-  bench-wrn8b:
-  - security
-  - general
-  bench-lily-cybersec:
-  - security
-  - general
-  bench-dolphin-r1:
-  - security
-  - general
   bench-supergemma4-sec:
   - reasoning
-  - security
-  - general
-  bench-xploiter-pentester:
   - security
   - general
   auto-purpleteam-deep:
@@ -690,13 +617,7 @@ workspace_routing:
   - security
   - coding
   - general
-  bench-foundation-sec-abliterated:
-  - security
-  - general
   bench-sylink:
-  - security
-  - general
-  bench-dolphin3-cyber:
   - security
   - general
   auto-redteam-deep:
@@ -705,31 +626,12 @@ workspace_routing:
   bench-vulnllm-r7b:
   - security
   - general
-  bench-diffusiongemma:
-  - reasoning
-  - general
-  bench-c3d-v0:
-  - coding
-  - general
-  bench-granite-speech:
-  - general
   bench-huihui-qwen36-35b-a3b:
   - general
   - creative
-  bench-lfm2-moe:
-  - general
   bench-qwen36-27b-optiq:
   - general
   - coding
-  bench-starcoder2:
-  - coding
-  - general
-  bench-toolace25:
-  - general
-  bench-voxtral-realtime:
-  - general
-  bench-voxtral-tts:
-  - general
   tools-specialist:
   - general
 defaults:
@@ -750,9 +652,4 @@ embedding_candidates:
 - id: Qwen/Qwen3-Embedding-8B
   notes: 'Qwen3-Embedding 8B (~8GB, Apache 2.0). MTEB multilingual #1 overall (70.58). Memory cost significant if loaded alongside
     an auto-coding MoE — likely too large for production. Bench-eval only.'
-pipeline_bench_skip:
-- bench-nanonets-ocr2
-- bench-olmocr2
-- bench-apriel-nemotron
-- bench-diffusiongemma
-- bench-xploiter-pentester
+pipeline_bench_skip: []
