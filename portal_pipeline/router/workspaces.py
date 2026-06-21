@@ -1037,7 +1037,8 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Non-Meta/Qwen lineage — distinct training data and architecture from fleet majority. "
             "REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix: quality 1.00 in bench 2026-06-21. "
             "Use for: coding tasks where Qwen/DeepSeek answers feel similar, 128K context jobs, "
-            "second-opinion analysis. 12.3 t/s pipeline."
+            "second-opinion analysis. 12.3 t/s pipeline. "
+            "supports_tools=true: audit-tools 2026-06-21 confirmed."
         ),
         "model_hint": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL",
         "predict_limit": 16384,
