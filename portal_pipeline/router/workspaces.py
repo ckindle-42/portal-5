@@ -1145,21 +1145,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
     },
     # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
-    "bench-qwable5-27b": {
-        "name": "🔬 Bench · Qwable-5-27B-Coder (DJLougen)",
-        "description": (
-            "Benchmark: hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M (~16.8GB, Apache 2.0). "
-            "Qwen3.6-27B fine-tuned on Claude Fable 5 + Kimi 2.7 coder-agent traces. "
-            "262K ctx, vision, no public benchmark scores. "
-            "Head-to-head vs bench-qwen36-27b (stock 27B) and bench-qwable-27b (Mia-AiLab Fable-5 SFT) "
-            "— does the agent-trace fine-tune outperform plain SFT? PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-qwen36-27b": {
         "name": "🔬 Bench · Qwen3.6-27B Q8 (Alibaba)",
         "description": (
@@ -1480,49 +1465,16 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "emits_reasoning": True,
         "tools": [],
-    },    "bench-huihui-qwable-27b": {
-        "name": "🔬 Bench · Huihui-Qwable-3.6-27B (Abliterated)",
-        "description": (
-            "Benchmark: hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8 "
-            "(huihui-ai, June 2026, dense 27B, ~18.3GB, abliterated Qwable-3.6-27b base). "
-            "Zero refusals. Dual eval: (1) coding — head-to-head vs bench-qwable-27b (same base, censored) "
-            "to measure abliteration quality cost; (2) security/redteam — head-to-head vs "
-            "bench-huihui-qwen36-27b (abliterated Qwen3.6-27B) to measure Qwable-base advantage. "
-            "PROMOTE_POLICY=confirm after bench results for auto-redteam / auto-purpleteam upgrade."
-        ),
-        "model_hint": "hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-qwable-27b": {
-        "name": "🔬 Bench · Qwable-3.6-27B (Mia-AiLab)",
-        "description": (
-            "Benchmark: hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf "
-            "(Mia-AiLab, MIT, June 2026, dense 27B, ~15GB Q4_K_M). "
-            "Full fine-tune of Qwen3.6-27B on a cleaned Fable 5-style reasoning+instruction dataset. "
-            "Dense (all 27B params active per token, no MoE). No MTP. "
-            "Bench question: does Fable 5 SFT improve instruction quality measurably over "
-            "base Qwen3.6-27B and Qwopus-27B? Head-to-head: GC-03 Platformer vs qwen3.6:27b and qwopus fleet. "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-27b:Qwable-27b_Q4_K_M.gguf",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "tools": [],
     },
     "bench-qwable-35b": {
-        "name": "🔬 Bench · Qwable-3.6-35B (Mia-AiLab)",
+        "name": "🔬 Bench · Qwable-3.6-35B Security (Mia-AiLab MoE)",
         "description": (
             "Benchmark: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf "
-            "(Mia-AiLab, MIT, June 2026, dense 35B, ~20GB Q4_K_M). "
-            "Full fine-tune of Qwen3.6-35b on a cleaned Fable 5-style reasoning+instruction dataset. "
-            "DENSE 35B — all parameters active per token, vs Qwen3.6-35B-A3B MoE (3B active, ~23 TPS). "
-            "Bench question: does the higher active parameter count produce quality gains that "
-            "justify the TPS cost on this hardware? GC-03 head-to-head vs qwen3.6:35b-a3b-q4_K_M. "
-            "PROMOTE_POLICY=confirm."
+            "(Mia-AiLab, MIT, June 2026, MoE 35B/3.6B active, ~21GB Q4_K_M). "
+            "29.7 t/s on M4 Pro — fast. 5/5 TPS runs clean. Disqualified from coding pool "
+            "due to Claude Code persona bleed (agent-trace fine-tune memorised lane/TII workspace paths). "
+            "Security eval: does the abliterated MoE base perform well on offensive/defensive chain "
+            "without the persona contamination mattering? Chain test target. PROMOTE_POLICY=confirm."
         ),
         "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
         "max_concurrent": 1,
