@@ -86,11 +86,6 @@ backends:
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
   group: coding
   models:
-  - id: qwen3.5:9b
-    supports_tools: true
-  - id: qwen3-coder:30b
-    supports_tools: true
-    notes: 30B-A3B MoE (3B active), 19GB — primary Ollama coding fallback
   - id: omnicoder2:9b-q4_k_m
     supports_tools: true
     notes: V6 bench candidate (TASK_MODEL_REFRESH_V6). OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0). Qwen3.5-9B base, SFT on
@@ -106,14 +101,6 @@ backends:
     notes: Mistral Devstral Small 2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4). V2 of devstral — 256K ctx (+2x vs V1), vision added,
       improved SWE-bench. bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10). supports_tools=true per Mistral function-calling
       format; verify via --audit-tools.
-  - id: llama3.3:70b-q4_k_m
-    supports_tools: false
-    notes: 'was: hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF (PULL_HEAVY) — verified NO Ollama tools tag on this GGUF (audit
-      2026-05-04: api_error). Llama 3.3 architecture supports tools natively, but this specific Ollama registry GGUF lacks
-      the template declaration.'
-  - id: glm-4.7-flash:Q4_K_M
-    supports_tools: true
-    notes: GLM-4.7-Flash 30B-A3B MoE Q4 (~15GB, Z.AI, 59.2% SWE-bench, 200K ctx). auto-coding primary.
   - id: laguna-xs.2:Q4_K_M
     supports_tools: true
     notes: 'Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified). PROMOTED 2026-06-20: auto-coding-agentic
@@ -161,15 +148,6 @@ backends:
     notes: Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next
       — 80B/3B MoE agentic coder without refusals. bench-qwen3-coder-next-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED).
       supports_tools=true per Qwen coding family (same architecture as production qwen3-coder-next).
-  - id: hf.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF:Qwopus3.6-27B-Coder-MTP-Q5_K_M.gguf
-    supports_tools: true
-    notes: 'Qwopus3.6-27B-Coder-MTP Q5_K_M (~19GB, Jackrong, Apache 2.0, June 2026). Coder SFT on Qwopus3.6-27B-v2 (Qwen3.6-27B
-      base + Trace Inversion). Agentic coding + tool-use training on Claude Opus traces + hermes-agent-reasoning trajectories.
-      SWE-bench Verified 67.0% (thinking-off, Q5_K_M). MTP embedded heads for speculative self-decoding. 27B dense, ~19GB,
-      32K native fine-tune ctx (RoPE/YaRN for longer). Note: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF (the base reasoning
-      repo) had pull failures 2026-06-09 — this is a separate Coder-specific GGUF repo with llama.cpp tags; verify pull succeeds
-      before noting as operational. bench-qwopus-coder-mtp target (TASK_MODEL_EVAL_V9_CANDIDATES). supports_tools=true per
-      Qwen3.6 tool-call format inherited by Qwopus; verify via --audit-tools before promotion.'
   - id: hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M
     supports_tools: true
     notes: 'FastContext-1.0-4B-SFT Q4_K_M (~2.5GB, Microsoft arxiv:2606.14066, mitkox GGUF quant). Repository-exploration
@@ -475,13 +453,7 @@ workspace_routing:
   bench-qwen3-coder-30b:
   - coding
   - general
-  bench-llama33-70b:
-  - coding
-  - general
   bench-qwen3-coder-next:
-  - coding
-  - general
-  bench-glm:
   - coding
   - general
   bench-gptoss:
@@ -557,9 +529,6 @@ workspace_routing:
   - creative
   - general
   bench-qwen3-coder-next-abliterated:
-  - coding
-  - general
-  bench-qwopus-coder-mtp:
   - coding
   - general
   bench-qwable-35b:

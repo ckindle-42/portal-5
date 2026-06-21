@@ -267,8 +267,8 @@ class TestWorkspaceModelHintUpdated:
     def test_coding_uses_qwen_or_glm(self):
         ws = WORKSPACES.get("auto-coding", {})
         hint = ws.get("model_hint", "").lower()
-        assert "glm-4.7-flash" in hint or "qwen" in hint or "deepseek" in hint, (
-            "Coding workspace should use glm-4.7-flash:q4_K_M or another specialized coding model"
+        assert "qwen" in hint or "deepseek" in hint or "laguna" in hint, (
+            "Coding workspace should use a specialized coding model (qwen3-coder or similar)"
         )
 
     def test_reasoning_uses_deepseek_or_tongyi(self):
@@ -330,8 +330,8 @@ class TestComplianceWorkspace:
         """Total workspace count is 77 (35 production + 42 bench-*) after V8 prune pass."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 75, (
-            f"Expected 75 workspaces (35 production + 40 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 72, (
+            f"Expected 72 workspaces (35 production + 37 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
@@ -351,8 +351,7 @@ class TestR17bModelExpansion:
 
         required = [
             # dolphin-llama3:70b intentionally removed 2026-06-16 (42GB old Llama-3 base, superseded)
-            # R23: meta-llama → imported as llama3.3:70b-q4_k_m (bartowski rehost)
-            "llama3.3:70b",
+            # llama3.3:70b-q4_k_m removed 2026-06-21: 3.8 TPS (below 20 TPS floor), supports_tools=false, bench-only
             # R23: MiniMax-M2.1 removed (138 GB, won't fit in 48 GB RAM)
         ]
         for model in required:
@@ -409,8 +408,8 @@ class TestR18ModelCompleteness:
             # lily-cybersecurity and dolphin3-r1-mistral removed 2026-06-20 (pruned from fleet)
             # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16)
             # Coding (Ollama GGUF only — MLX retired)
-            "glm-4.7-flash",  # GLM-4.7-Flash GGUF (coding primary)
-            "llama3.3:70b-q4_k_m",  # updated to bartowski rehost
+            # glm-4.7-flash removed 2026-06-21: quality 0.67 (below 0.83 floor), bench-only
+            # llama3.3:70b-q4_k_m removed 2026-06-21: 3.8 TPS, supports_tools=false, bench-only
             # Reasoning
             "deepseek-r1:32b-q4_k_m",  # DeepSeek-R1-Distill-Qwen-32B
         ]
@@ -584,26 +583,31 @@ class TestR22CodingModelUpdates:
     """Verify R22: Coding model updates from models2.md review."""
 
     def test_coding_model_updates_r22(self):
-        """R22 coding model updates: Llama 3.3 replaces 3.1, Qwen3.5-9B added."""
+        """R22 coding model updates (updated 2026-06-21: llama3.3 + qwen3.5:9b retired)."""
         import yaml
 
         cfg = yaml.safe_load(open("config/backends.yaml"))
         coding = next(b for b in cfg["backends"] if b["id"] == "ollama-coding")
         model_ids = [m["id"] if isinstance(m, dict) else m for m in coding["models"]]
 
-        # Llama 3.3 should be present (upgraded from 3.1)
-        assert any("llama3.3" in m.lower() for m in model_ids), (
-            "Llama 3.3-70B missing from coding group — should have replaced 3.1"
-        )
-
-        # Llama 3.1 should be gone
+        # Llama 3.1 should be gone (superseded)
         assert not any("Meta-Llama-3.1-70B" in m for m in model_ids), (
-            "Llama 3.1-70B still in coding group — should be replaced by 3.3"
+            "Llama 3.1-70B still in coding group — should be replaced"
         )
 
-        # Qwen3.5-9B should be present
-        assert any("qwen3.5" in m.lower() or "Qwen3.5" in m for m in model_ids), (
-            "qwen3.5:9b missing from coding group — fast coding slot"
+        # Llama 3.3 removed 2026-06-21: 3.8 TPS below floor, supports_tools=false
+        assert not any("llama3.3" in m.lower() for m in model_ids), (
+            "Llama 3.3-70B should have been removed (3.8 TPS, bench-only)"
+        )
+
+        # qwen3.5:9b removed 2026-06-21: quality 0.67 below floor
+        assert not any("qwen3.5:9b" in m.lower() for m in model_ids), (
+            "qwen3.5:9b should have been removed (quality 0.67, bench-only)"
+        )
+
+        # Primary coder should be qwen3-coder
+        assert any("qwen3-coder" in m.lower() for m in model_ids), (
+            "qwen3-coder missing from coding group"
         )
 
     def test_launch_sh_pull_models_has_r22_updates(self):
@@ -740,8 +744,8 @@ class TestSPLWorkspace:
         """Total workspace count must be 77 (35 production + 42 bench-*) after V8 prune pass."""
         from portal_pipeline.router_pipe import WORKSPACES
 
-        assert len(WORKSPACES) == 75, (
-            f"Expected 75 workspaces (35 production + 40 bench-*), got {len(WORKSPACES)}. "
+        assert len(WORKSPACES) == 72, (
+            f"Expected 72 workspaces (35 production + 37 bench-*), got {len(WORKSPACES)}. "
             "Update this test if workspaces are intentionally added or removed."
         )
 
