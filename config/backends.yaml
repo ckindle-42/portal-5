@@ -172,11 +172,11 @@ backends:
       prompt style may not favour GLM chat template). Restored 2026-06-21: lineage diversity value;
       re-bench after template verification. DO NOT pull :math variant. bench-glm target.'
   - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
-    supports_tools: false
+    supports_tools: true
     notes: 'GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same base as glm-4.7-flash but
       REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix. PROMOTED 2026-06-21:
       quality 1.00, 12.3 TPS in bench. auto-glm production workspace. Non-Meta/Qwen lineage
-      diversity. supports_tools: pending audit — tools not yet exposed in auto-glm.'
+      diversity. supports_tools=true: audit-tools 2026-06-21 confirmed tool_call (13.6s).'
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
     notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning
@@ -251,7 +251,8 @@ backends:
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
     notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI). Cross-listed from ollama-coding for auto-glm-thinking
-      workspace routing (groups reasoning+general). PROMOTED 2026-06-21: quality 1.00, 12.1 TPS.'
+      workspace routing (groups reasoning+general). PROMOTED 2026-06-21: quality 1.00, 12.1 TPS.
+      supports_tools=false: Ollama HTTP 400 "does not support tools" — confirmed by audit-tools 2026-06-21.'
   - id: gpt-oss:20b
     supports_tools: true
     notes: '~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools=true:
