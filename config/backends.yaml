@@ -124,6 +124,11 @@ backends:
     supports_tools: true
     notes: 'OpenAI open-weight MoE, ~12GB, o3-mini level, configurable thinking depth. PROMOTED 2026-06-20 to coding pool:
       auto-agentic fallback. 2/2 security chain at 45s. Also in ollama-reasoning.'
+  - id: hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M
+    supports_tools: true
+    notes: 'Qwable-5-27B-Coder Q4_K_M (~16.8GB, DJLougen, Apache 2.0). Qwen3.6-27B fine-tuned on
+      Claude Fable 5 + Kimi 2.7 coder-agent traces. 262K ctx, vision. No public benchmark scores.
+      bench-qwable5-27b target. supports_tools=true per Qwen3.6 family; verify via --audit-tools.'
   - id: phi4-reasoning:plus
     supports_tools: true
     notes: Phi-4-reasoning-plus Q4 (~8GB, Microsoft RL-trained, strong STEM/math).
@@ -513,6 +518,9 @@ workspace_routing:
   - reasoning
   - general
   bench-qwen35-abliterated:
+  - general
+  bench-qwable5-27b:
+  - coding
   - general
   bench-qwen36-27b:
   - reasoning

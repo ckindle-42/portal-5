@@ -1145,6 +1145,21 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
     },
     # ── V6 candidate benches (TASK_MODEL_REFRESH_V6) ────────────────────────
+    "bench-qwable5-27b": {
+        "name": "🔬 Bench · Qwable-5-27B-Coder (DJLougen)",
+        "description": (
+            "Benchmark: hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M (~16.8GB, Apache 2.0). "
+            "Qwen3.6-27B fine-tuned on Claude Fable 5 + Kimi 2.7 coder-agent traces. "
+            "262K ctx, vision, no public benchmark scores. "
+            "Head-to-head vs bench-qwen36-27b (stock 27B) and bench-qwable-27b (Mia-AiLab Fable-5 SFT) "
+            "— does the agent-trace fine-tune outperform plain SFT? PROMOTE_POLICY=confirm."
+        ),
+        "model_hint": "hf.co/DJLougen/Qwable-5-27B-Coder-GGUF:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
     "bench-qwen36-27b": {
         "name": "🔬 Bench · Qwen3.6-27B Q8 (Alibaba)",
         "description": (
