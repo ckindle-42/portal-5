@@ -404,7 +404,7 @@ class TestR18ModelCompleteness:
 
         required = [
             # Security
-            "baronllm:q6_k",  # BaronLLM_Offensive (auto-security-uncensored)
+            "baronllm-abliterated",  # BaronLLM (auto-security + auto-pentest primary; q6_k removed SECURITY_FLEET_REVIEW_2026-06)
             "hf.co/mradermacher/VulnLLM-R-7B-GGUF",  # VulnLLM-R-7B promoted to auto-security primary 2026-06-20
             # lily-cybersecurity and dolphin3-r1-mistral removed 2026-06-20 (pruned from fleet)
             # whiterabbitneo:33b-v1.5 and dolphin-llama3:70b intentionally removed (2026-06-16)
@@ -433,8 +433,8 @@ class TestR18ModelCompleteness:
         assert "vulnllm-r-7b" in WORKSPACES["auto-security"]["model_hint"].lower(), (
             "auto-security should use VulnLLM-R-7B (UCSB SURFI, AppSec/CVE/CWE specialist, promoted 2026-06-20)"
         )
-        assert "foundation-sec" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
-            "auto-blueteam should use Foundation-Sec-8B-Reasoning (cybersec defender, GGUF)"
+        assert "sylink" in WORKSPACES["auto-blueteam"]["model_hint"].lower(), (
+            "auto-blueteam should use SYLink 8B (SOC triage, ATT&CK, DFIR — promoted SECURITY_FLEET_REVIEW_2026-06)"
         )
         assert "deepseek-r1-0528" in WORKSPACES["auto-reasoning"]["model_hint"].lower(), (
             "auto-reasoning should use DeepSeek-R1-0528-Qwen3-8B (V8 primary; Qwopus pull fails as of 2026-06-09)"
@@ -630,7 +630,7 @@ class TestRecordUsageMetrics:
 
         # Should not raise
         _record_usage(
-            model="baronllm:q6_k",
+            model="huihui_ai/baronllm-abliterated",
             workspace="auto-security",
             data={
                 "eval_count": 312,

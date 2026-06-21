@@ -184,13 +184,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-security-uncensored": {
         "name": "🔓 Portal Security (Uncensored)",
         "description": (
-            "Uncensored security analysis with stock BaronLLM (q6_k, tools=True, tool "
-            "template verified TASK_TOOL_AUDIT_V2). Counterpart to auto-security, which "
-            "uses the abliterated BaronLLM. [BENCH-GATED PROVISIONAL — no passing bench in "
-            "this role yet; not a default; explicit-select only; promotion requires a "
-            "bench pass + separate operator task.]"
+            "Uncensored security analysis — same BaronLLM-abliterated as auto-security "
+            "(Llama-3.1-8B, 53K cybersec examples, 200+ domains) with no safety filtering. "
+            "Use when auto-security content-guards are interfering with authorized research. "
+            "Counterpart to auto-security."
         ),
-        "model_hint": "baronllm:q6_k",
+        "model_hint": "huihui_ai/baronllm-abliterated",
         "keep_alive": "10m",
         "tools": [
             "execute_bash",
@@ -796,15 +795,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
             "Authorized penetration testing assistant with execution capability. "
-            "Qwable-3.6-35B MoE (Mia-AiLab, MIT, 29.7 t/s, PROMOTED 2026-06-20: "
-            "security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s, 3/3 argument adaptation — "
-            "correctly targeted real open ports 445/8080, full coherence 20/20). "
+            "BaronLLM-abliterated (Llama-3.1-8B, 53K cybersec examples, 200+ domains — "
+            "broadest security domain training in fleet). Completion bench 2026-06-21: "
+            "1.00/1.00 both scenarios, 11s avg chain time — fastest correct pentest chain in group. "
             "Single-hop execution focus (pentest of one target); for multi-hop lateral movement use auto-purpleteam. "
-            "Prior primary: Gemma-4-31B-JANG_4M-CRACK (bench score 0.933, 2026-06-16). "
             "execute_bash + execute_python + web_search for live target enumeration and PoC validation. "
             "Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings."
         ),
-        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+        "model_hint": "huihui_ai/baronllm-abliterated",
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
@@ -835,15 +833,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-blueteam": {
         "name": "🔵 Portal Blue Team",
         "description": (
-            "Defensive security, incident response, threat hunting. "
-            "Foundation-Sec-8B-Reasoning (Cisco fdtn-ai, Llama-3.1-8B + cybersec corpus, "
-            "native <think>). Purpose-trained defender model."
+            "Defensive security, SOC triage, threat hunting, incident response. "
+            "SYLink 8B (Qwen3-8B base — purpose-built for SOC triage, threat intel, "
+            "MITRE ATT&CK mapping, and incident response). Fleet bench 2026-06-20: "
+            "1.00/1.00 both scenarios, chain depth 12 (deepest 8B in fleet), security quality 0.83. "
+            "Foundation-Sec-8B-Reasoning available via reasoning group for deep analytical tasks."
         ),
-        "model_hint": "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0",
-        "emits_reasoning": True,
-        # supports_tools=false (reasoning model, Llama-3.1 template — no tool-call format).
-        # Tools removed: advertising them wastes context and the model cannot emit calls.
-        "tools": [],
+        "model_hint": "sylink/sylink:8b",
+        "tools": [
+            "web_search",
+            "web_fetch",
+            "classify_vulnerability",
+            "kb_search",
+            "kb_list",
+        ],
     },
     "auto-bigfix": {
         "name": "🩹 Portal BigFix Analyst",
@@ -1467,18 +1470,17 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     "bench-qwable-35b": {
-        "name": "🔬 Bench · Qwable-3.6-35B (PROMOTED → auto-pentest)",
+        "name": "🔬 Bench · Qwable-3.6-35B [RETIRED — promotion reversed]",
         "description": (
-            "PROMOTED 2026-06-20 to auto-pentest primary. "
-            "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf "
-            "(Mia-AiLab, MIT, MoE 35B/3.6B active, ~21GB Q4_K_M, 29.7 t/s). "
-            "Security chain kerberoast_to_da: 7/8 steps, 0 refusals, 100s, adapt=3/3. "
-            "Disqualified from coding (persona bleed); security context unaffected."
+            "RETIRED 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06). "
+            "Promotion to auto-pentest primary (2026-06-20) reversed: fleet bench scored 0.64 coverage, "
+            "below CANDIDATE_EVAL_V1 2/2 WIN threshold. 3B active MoE loses chain coherence. "
+            "Replaced by baronllm-abliterated (53K cybersec examples, 1.00/1.00 Run A). "
+            "Model removed from fleet: ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf"
         ),
-        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+        "model_hint": "huihui_ai/baronllm-abliterated",
         "max_concurrent": 1,
         "predict_limit": 8192,
-        "emits_reasoning": True,
         "tools": [],
     },
     "bench-fastcontext": {
@@ -1598,11 +1600,13 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     # Models that win are general large abliterated models (supergemma4, r1, qwen3.5) —
     # abliteration removes refusals while preserving MITRE ATT&CK format knowledge.
     "bench-sylink": {
-        "name": "🔬 Bench · SYLink 8B (sylink/sylink) [RETIRED]",
+        "name": "🔬 Bench · SYLink 8B [PROMOTED → auto-blueteam]",
         "description": (
-            "BENCH RESULT 2026-06-16: avg=0.311, disclaimers=0.0, ATT&CK=0.0. "
-            "Well below baseline. Poor header adherence, zero MITRE IDs. "
-            "F16 16GB footprint. RETIRED. Model: sylink/sylink:8b"
+            "BENCH RESULT 2026-06-16: avg=0.311 on red-team structured output — correctly RETIRED from "
+            "offensive workspaces. Training purpose is SOC/DFIR/ATT&CK (blue team), not red team prose. "
+            "PROMOTED to auto-blueteam primary 2026-06-21 (SECURITY_FLEET_REVIEW_2026-06): "
+            "fleet bench chain 1.00/1.00, depth 12 (deepest 8B), purpose-aligned with its training. "
+            "Model: sylink/sylink:8b"
         ),
         "model_hint": "sylink/sylink:8b",
         "max_concurrent": 1,
