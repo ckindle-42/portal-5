@@ -173,16 +173,16 @@ backends:
       re-bench after template verification. DO NOT pull :math variant. bench-glm target.'
   - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: false
-    notes: 'GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same model as glm-4.7-flash but
-      using REAP (Refined Expert Activation Pruning) quant + Unsloth Dynamic imatrix. Better quality
-      per bit than standard Q4_K_M for MoE models. Head-to-head vs glm-4.7-flash:Q4_K_M (bench-glm-reap).
-      supports_tools: pending audit.'
+    notes: 'GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same base as glm-4.7-flash but
+      REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix. PROMOTED 2026-06-21:
+      quality 1.00, 12.3 TPS in bench. auto-glm production workspace. Non-Meta/Qwen lineage
+      diversity. supports_tools: pending audit — tools not yet exposed in auto-glm.'
   - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
     supports_tools: false
-    notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM reasoning/thinking
-      variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought trained. Candidate for
-      auto-reasoning pool alongside deepseek-r1:32b. bench-glm-z1-rumination target.
-      supports_tools: pending audit.'
+    notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM thinking/reasoning
+      variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought. PROMOTED 2026-06-21:
+      quality 1.00, 12.1 TPS in bench. auto-glm-thinking production workspace. emits_reasoning=True.
+      supports_tools: pending audit — tools not yet exposed in auto-glm-thinking.'
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -248,6 +248,10 @@ backends:
     supports_tools: false
     notes: 'Primary: strong reasoning + chain-of-thought. Reasoning-trained, not tool-trained — supports_tools intentionally
       false to prevent reasoning-budget exhaustion mixing with tool-call rendering.'
+  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
+    supports_tools: false
+    notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI). Cross-listed from ollama-coding for auto-glm-thinking
+      workspace routing (groups reasoning+general). PROMOTED 2026-06-21: quality 1.00, 12.1 TPS.'
   - id: gpt-oss:20b
     supports_tools: true
     notes: '~12GB — OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools=true:
@@ -565,6 +569,12 @@ workspace_routing:
   bench-qwopus-coder-mtp-v2:
   - reasoning
   - coding
+  - general
+  auto-glm:
+  - coding
+  - general
+  auto-glm-thinking:
+  - reasoning
   - general
   bench-glm:
   - coding

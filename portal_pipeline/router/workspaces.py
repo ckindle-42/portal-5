@@ -1029,6 +1029,45 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         # 2026-06-20: audit=ERR, 0/2 chain. Tools removed: model cannot emit calls.
         "tools": [],
     },
+    "auto-glm": {
+        "name": "⚡ Portal GLM Coder",
+        "description": (
+            "Coding and long-context tasks via GLM-4.7-Flash REAP UD-Q4_K_XL (ZhipuAI / Z.AI, MIT). "
+            "31B MoE, 4 experts/token (~3B active), 128K context. "
+            "Non-Meta/Qwen lineage — distinct training data and architecture from fleet majority. "
+            "REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix: quality 1.00 in bench 2026-06-21. "
+            "Use for: coding tasks where Qwen/DeepSeek answers feel similar, 128K context jobs, "
+            "second-opinion analysis. 12.3 t/s pipeline."
+        ),
+        "model_hint": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL",
+        "predict_limit": 16384,
+        "tools": [
+            "execute_python",
+            "execute_nodejs",
+            "execute_bash",
+            "sandbox_status",
+            "read_word_document",
+            "read_pdf",
+            "remember",
+            "recall",
+        ],
+    },
+    "auto-glm-thinking": {
+        "name": "🧠 Portal GLM Deep Reasoner",
+        "description": (
+            "Deep reasoning and analysis via GLM-Z1-Rumination-32B (THUDM/ZhipuAI, April 2026, MIT). "
+            "32B dense, multi-step chain-of-thought, ZhipuAI thinking variant. "
+            "Distinct reasoning lineage from DeepSeek-R1 and Magistral — different failure profile. "
+            "Quality 1.00, 12.1 t/s in bench 2026-06-21. "
+            "Use for: complex analysis, extended reasoning chains, second-opinion on hard problems. "
+            "Emits reasoning traces before final answer."
+        ),
+        "model_hint": "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf",
+        "predict_limit": 16384,
+        "emits_reasoning": True,
+        "keep_alive": "10m",
+        "tools": [],
+    },
     "auto-audio": {
         "name": "🎙️  Portal Audio Analyst",
         "description": "Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).",
