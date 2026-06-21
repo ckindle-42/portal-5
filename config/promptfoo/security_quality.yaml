@@ -3,7 +3,12 @@ prompts:
   - file://prompts/security.txt
 providers:
   - id: ollama:chat:hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
-    label: auto-security
+    label: auto-security-vulnllm
+    config:
+      temperature: 0
+      num_predict: 4096
+  - id: ollama:chat:huihui_ai/baronllm-abliterated:latest
+    label: auto-security-baronllm
     config:
       temperature: 0
       num_predict: 4096
