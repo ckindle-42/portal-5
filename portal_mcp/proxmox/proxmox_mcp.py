@@ -684,25 +684,20 @@ async def proxmox_container_shutdown(vmid: int, node: str = "", timeout: int = 6
 
 
 @mcp.tool()
-async def proxmox_container_exec(vmid: int, command: str, node: str = "") -> dict:
+async def proxmox_container_exec(vmid: int, command: str, node: str = "", timeout: int = 60) -> dict:
     """
-    Execute a shell command inside an LXC container (uses pct exec).
+    Execute a shell command inside an LXC container via SSH + pct exec on the Proxmox host.
+    Requires PROXMOX_SSH_HOST (auto-derived from PROXMOX_URL) and optionally PROXMOX_SSH_KEY.
 
     Args:
         vmid: Container ID
-        command: Shell command string to run
-        node: Node name (auto-discovers if empty)
+        command: Shell command to run inside the container
+        node: Node name (informational, auto-resolves via SSH)
+        timeout: Seconds to wait (default 60)
     """
-    async with _client() as c:
-        try:
-            n = node or await _find_vm_node(c, vmid)
-            upid = await _post(
-                c, f"/nodes/{n}/lxc/{vmid}/status/current",
-            )
-            # LXC exec is limited via the API; use agent exec pattern
-            return _ok({"note": "LXC exec via API is limited; use proxmox_exec_vm for QEMU VMs with guest agent", "node": n, "vmid": vmid, "command": command})
-        except Exception as e:
-            return _err(e)
+    pct_cmd = f"pct exec {vmid} -- bash -c {repr(command)}"
+    r = await _ssh_exec(pct_cmd, timeout=timeout)
+    return _ok(r) if r.get("ok") else {"success": False, "error": r.get("error") or r.get("stderr", "pct exec failed")}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -840,6 +835,101 @@ async def proxmox_find_vm(name: str) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# NODE EXEC (SSH-BASED)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PROXMOX_SSH_HOST = os.getenv("PROXMOX_SSH_HOST", "") or PROXMOX_URL.split("://")[-1].split(":")[0]
+PROXMOX_SSH_USER = os.getenv("PROXMOX_SSH_USER", "root")
+PROXMOX_SSH_KEY  = os.getenv("PROXMOX_SSH_KEY", "")
+
+
+async def _ssh_exec(command: str, timeout: int = 60) -> dict:
+    """Run a command on the Proxmox host via SSH. Returns {ok, stdout, stderr, returncode}."""
+    if not PROXMOX_SSH_HOST:
+        return {"ok": False, "error": "PROXMOX_SSH_HOST not set"}
+
+    ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
+    if PROXMOX_SSH_KEY:
+        ssh_cmd += ["-i", PROXMOX_SSH_KEY]
+    ssh_cmd += [f"{PROXMOX_SSH_USER}@{PROXMOX_SSH_HOST}", command]
+
+    proc = await asyncio.create_subprocess_exec(
+        *ssh_cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return {
+            "ok": proc.returncode == 0,
+            "stdout": stdout.decode(errors="replace"),
+            "stderr": stderr.decode(errors="replace"),
+            "returncode": proc.returncode,
+        }
+    except asyncio.TimeoutError:
+        proc.kill()
+        return {"ok": False, "error": f"SSH command timed out after {timeout}s"}
+
+
+@mcp.tool()
+async def proxmox_node_exec(command: str, timeout: int = 60) -> dict:
+    """
+    Execute a shell command on the Proxmox host itself via SSH.
+    Useful for: pct exec, docker operations, host-level diagnostics.
+    Requires PROXMOX_SSH_HOST (auto-derived from PROXMOX_URL) and optionally PROXMOX_SSH_KEY.
+
+    Args:
+        command: Shell command to run on the Proxmox host
+        timeout: Seconds to wait for command completion (default 60)
+    """
+    return _ok(await _ssh_exec(command, timeout=timeout))
+
+
+@mcp.tool()
+async def proxmox_deploy_ctf_lab(
+    vmid: int,
+    lab: str = "mbptl",
+    node: str = "",
+    git_url: str = "https://github.com/bayufedra/MBPTL",
+    deploy_dir: str = "/opt/ctf-labs",
+) -> dict:
+    """
+    Deploy a Docker-based CTF lab inside an LXC container with Docker installed.
+    Clones the lab repo and runs docker compose up -d.
+
+    Supported labs:
+      mbptl — Most Basic Penetration Testing Lab (17-flag web+binary CTF)
+
+    Args:
+        vmid: LXC container ID that has Docker installed
+        lab: Lab identifier (default: mbptl)
+        node: Proxmox node (auto-discovers if empty)
+        git_url: Git URL of the lab (default: MBPTL GitHub)
+        deploy_dir: Directory on the LXC to clone into (default: /opt/ctf-labs)
+    """
+    compose_subdir = {"mbptl": "mbptl"}.get(lab, "")
+
+    steps = [
+        f"apt-get install -y git docker.io docker-compose-plugin 2>&1 | tail -5",
+        f"mkdir -p {deploy_dir}",
+        f"git -C {deploy_dir}/{lab} pull 2>/dev/null || git clone {git_url} {deploy_dir}/{lab}",
+        f"cd {deploy_dir}/{lab}/{compose_subdir} && docker compose up -d --build 2>&1 | tail -20",
+        f"docker ps --filter 'name={lab}' --format 'table {{{{.Names}}}}\\t{{{{.Status}}}}'",
+    ]
+
+    results = []
+    for step in steps:
+        pct_cmd = f"pct exec {vmid} -- bash -c {repr(step)}"
+        r = await _ssh_exec(pct_cmd, timeout=300)
+        results.append({"cmd": step[:80], "ok": r.get("ok"), "stdout": r.get("stdout", "")[-500:]})
+        if not r.get("ok") and "docker compose up" in step:
+            break
+
+    containers_up = any(lab in r.get("stdout", "") for r in results)
+    return _ok({"lab": lab, "vmid": vmid, "steps": results, "containers_up": containers_up})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # REST DISPATCH (for portal-pipeline tool_registry)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -872,6 +962,9 @@ TOOLS_MANIFEST = [
     {"name": "proxmox_container_start", "description": "Start an LXC container"},
     {"name": "proxmox_container_stop", "description": "Force-stop an LXC container"},
     {"name": "proxmox_container_shutdown", "description": "Gracefully shut down an LXC container"},
+    {"name": "proxmox_container_exec", "description": "Execute a command inside an LXC container via pct exec"},
+    {"name": "proxmox_node_exec", "description": "Execute a command on the Proxmox host via SSH"},
+    {"name": "proxmox_deploy_ctf_lab", "description": "Deploy a CTF lab (MBPTL etc.) in an LXC container with Docker"},
     {"name": "proxmox_list_storage", "description": "List storage pools on a node"},
     {"name": "proxmox_list_storage_content", "description": "List content in a storage pool"},
     {"name": "proxmox_list_networks", "description": "List network interfaces on a node"},
