@@ -5,7 +5,7 @@
 **TPS data**: `bench_tps_20260621T030634Z.json` (286 results)  
 **Completion bench A**: `sec_bench_20260621T132602Z.json` (Run A — baronllm-abl, Foundation-Sec, devstral-small-2)  
 **Completion bench B**: `sec_bench_20260621T143339Z.json` (Run B — HauhauCS, lfm2.5, granite4.1, sylink)  
-**Quality eval**: `config/promptfoo/security_quality.yaml` Run 2 (auto-security 3/4, auto-redteam 4/4, auto-pentest 4/4, auto-blueteam 4/4)  
+**Quality eval**: `config/promptfoo/security_quality.yaml` Run 3 (baronllm 4/4, redteam 4/4, pentest 4/4, blueteam 4/4, vulnllm 3/4 — 19/20 overall)  
 **Prior plan**: `tests/PORTAL5_CANDIDATE_EVAL_V1.md` — covers prior removal decisions; read before changing workspace counts  
 **Status**: COMPLETE — all validation data in. Config changes committed.
 
@@ -80,12 +80,12 @@ Understanding what each model was actually built for changes every placement dec
 
 | Model | Cov | Depth | TPS | Training purpose | Role |
 |---|---|---|---|---|---|
-| `huihui_ai/baronllm-abliterated:latest` | **1.00** | 8.5 | 28.2 | Cybersecurity specialist — 53K examples, 200+ domains | **`auto-security` primary** — the most security-domain-trained model in the group; was previously primary before template issues; Run A confirmed: 1.00/1.00, 11s per chain, fastest of the batch |
-| `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` | 1.00 | 9.5 | 28.7 | Vulnerability research | `auto-pentest`, `auto-security` — domain-specific vuln knowledge; fast |
-| `sylink/sylink:8b` | 1.00 | **12.0** | 11.8 | **SOC triage, DFIR, ATT&CK, IR** | **`auto-blueteam` anchor** — deepest chains + purpose-built for defensive analysis. 267s/chain is fine for the analytical investigation pace of blueteam work. Previously misread as redteam-deep; its training says defensive. |
-| `supergemma4-26b-uncensored:Q4_K_M` | 1.00 | 8.0 | 24.2 | General Gemma 4 uncensored | `auto-redteam`, `auto-security-uncensored` — strongest uncensored general quality (security:1.0 in TPS bench); good at security because Gemma 4 is broadly capable |
-| `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF` | 1.00 | 10.5 | 5.2 | General Gemma 4 uncensored | `auto-purpleteam-exec` — TPS 5.2 rules it out for interactive chains; 31B quality + general:1.0 is right for long-form executive synthesis where latency is acceptable |
-| `huihui_ai/qwen3.5-abliterated:9b` | 1.00 | 11.0 | 16.9 | General Qwen3.5 uncensored | Backbone generalist fallback — covers gaps when specialized models are loaded |
+| `huihui_ai/baronllm-abliterated:latest` | **1.00** | 8.5 | 28.2 | Cybersecurity specialist — 53K examples, 200+ domains | **`auto-security` primary** — Run A: 1.00/1.00, 11s; quality 4/4 (Log4Shell correct); fastest 8B in batch |
+| `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` | 1.00 | 9.5 | 28.7 | Vulnerability research | `auto-pentest`, `auto-security` — domain-specific vuln knowledge; quality 3/4 (Log4Shell gap documented) |
+| `sylink/sylink:8b` | 1.00 | **12.0** | 11.8 | **SOC triage, DFIR, ATT&CK, IR** | **`auto-blueteam` anchor** — Run B: 1.00/1.00, 242s; quality 4/4; deepest chains + purpose-built defensive |
+| `supergemma4-26b-uncensored:Q4_K_M` | 1.00 | 8.5 | 24.2 | General Gemma 4 uncensored | `auto-redteam`, `auto-security-uncensored` — Run C: 1.00/1.00, 36s; fleet bench confirmed clean |
+| `hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF` | 1.00 | 10.5 | 5.2 | General Gemma 4 uncensored | `auto-purpleteam-exec` — quality 4/4; TPS 5.2 rules out interactive; right for long-form exec synthesis |
+| `huihui_ai/qwen3.5-abliterated:9b` | 1.00 | 11.0 | 16.9 | General Qwen3.5 uncensored | Backbone generalist fallback — quality 4/4; proven backbone when specialists are loaded |
 
 ### Add (validated by Run B chain bench)
 
@@ -175,19 +175,39 @@ SYLink confirms: depth 12.0 avg, 1.00/1.00 — **auto-blueteam anchor validated*
 
 ---
 
-## 6. Validation Data — Promptfoo Quality Eval (Run 2)
+## 6. Validation Data — Run C Chain Bench
+
+**File**: `sec_bench_20260621T145019Z.json`  
+**Model**: `supergemma4-26b-uncensored:Q4_K_M` — clean run, no VRAM contention
+
+| Scenario | Depth | Unique | Acc | Time | Verdict |
+|---|---|---|---|---|---|
+| kerberoast_to_da | 10/8 | 8/8 | 1.00 | 34s | WIN |
+| asrep_to_lateral | 7/7 | 7/7 | 1.00 | 37s | WIN |
+| **Average** | **8.5** | **1.00** | **1.00** | **36s** | **WIN** |
+
+Audit-tools probe passed. Fleet bench data (1.00, depth 8.0) confirmed accurate — clean run matched.
+
+---
+
+## 7. Validation Data — Promptfoo Quality Eval (Run 3)
 
 **Config**: `config/promptfoo/security_quality.yaml`  
-**4 tests**: Log4Shell CVE, SQLi/XSS, ransomware IR, Splunk SSH search
+**4 tests**: Log4Shell CVE, SQLi/XSS, ransomware IR, Splunk SSH search  
+**5 providers**: baronllm-abliterated (auto-security-baronllm), VulnLLM (auto-security-vulnllm), qwen3.5-abliterated (auto-redteam), Gemma-4-31B-JANG (auto-pentest), sylink (auto-blueteam)  
+**Result**: 19/20 (95%) — duration 17m 58s
 
 | Workspace | Model | Score | Notes |
 |---|---|---|---|
-| `auto-security` | VulnLLM-R-7B Q4_K_M | **3/4** | FAIL: Log4Shell — describes CVE as "deserialization flaw" + wrong class ref; JNDI/LDAP not mentioned. Real knowledge gap, not test artifact. |
+| `auto-security` (primary) | baronllm-abliterated | **4/4** | All pass — clean across Log4Shell, SQLi/XSS, IR, Splunk |
+| `auto-security` (specialist) | VulnLLM-R-7B Q4_K_M | **3/4** | FAIL: Log4Shell — describes CVE as "deserialization flaw" + wrong class ref; JNDI/LDAP not mentioned. Real knowledge gap, consistent across 3 runs. |
 | `auto-redteam` | qwen3.5-abliterated:9b | **4/4** | All pass |
 | `auto-pentest` | Gemma-4-31B-JANG Q4_K_M | **4/4** | All pass |
 | `auto-blueteam` | sylink/sylink:8b | **4/4** | All pass |
 
-**VulnLLM Log4Shell gap**: Consistent across runs. The model knows Log4j is involved but misidentifies the vulnerability class (calls it "deserialization" rather than JNDI injection). This is a genuine training gap for Log4Shell specifically, not a general capability issue. VulnLLM remains in `auto-security` — its vuln research depth is confirmed in other areas. The gap should inform prompt engineering for Log4Shell-specific work.
+**baronllm-abliterated confirmed 4/4**: The auto-security primary passes all quality checks including Log4Shell (correctly identifies JNDI injection, not deserialization). Higher quality than VulnLLM on this dimension despite being a generalist cybersec model vs. a vuln-specialist.
+
+**VulnLLM Log4Shell gap**: Consistent across 3 promptfoo runs. The model knows Log4j is involved but misidentifies the vulnerability class (calls it "deserialization" rather than JNDI injection). This is a genuine training gap for Log4Shell specifically. VulnLLM remains in `auto-security` for its vuln research depth in other areas — the gap should inform prompt engineering for Log4Shell-specific work.
 
 ---
 
