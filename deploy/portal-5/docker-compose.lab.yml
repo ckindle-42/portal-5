@@ -171,6 +171,55 @@ services:
     networks:
       - portal-lab
 
+  # ── MBPTL — Most Basic Penetration Testing Lab ────────────────────────────
+  # Black Hat Arsenal EU 2025. 17-flag CTF: web, SQLi, post-exploit, pivot, binary.
+  # Start: ./launch.sh lab-mbptl
+  # GitHub: github.com/bayufedra/MBPTL
+  #
+  # Access: http://localhost:${LAB_MBPTL_PORT_WEB:-80}
+  # Admin:  http://localhost:${LAB_MBPTL_PORT_ADMIN:-8080}/administrator/
+  # Creds:  admin / P@ssw0rd!
+  mbptl-main:
+    image: bayufedra/mbptl-main:latest
+    platform: linux/amd64
+    container_name: portal5-lab-mbptl-main
+    profiles: [lab-mbptl]
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LAB_MBPTL_MYSQL_ROOT:-MbptlRoot1!}
+      MYSQL_DATABASE: ${LAB_MBPTL_MYSQL_DB:-bookstore}
+      MYSQL_USER: ${LAB_MBPTL_MYSQL_USER:-mbptl}
+      MYSQL_PASSWORD: ${LAB_MBPTL_MYSQL_PASS:-MbptlUser1!}
+    ports:
+      - "${LAB_MBPTL_PORT_WEB:-80}:80"
+      - "${LAB_MBPTL_PORT_ADMIN:-8080}:8080"
+    volumes:
+      - mbptl-db:/var/lib/mysql
+    networks:
+      - portal-lab
+
+  mbptl-internal:
+    image: bayufedra/mbptl-internal:latest
+    platform: linux/amd64
+    container_name: portal5-lab-mbptl-internal
+    profiles: [lab-mbptl]
+    restart: unless-stopped
+    depends_on:
+      - mbptl-main
+    networks:
+      - portal-lab
+
+  mbptl-app:
+    image: bayufedra/mbptl-app:latest
+    platform: linux/amd64
+    container_name: portal5-lab-mbptl-app
+    profiles: [lab-mbptl]
+    restart: unless-stopped
+    depends_on:
+      - mbptl-main
+    networks:
+      - portal-lab
+
 networks:
   portal-lab:
     driver: bridge
@@ -187,3 +236,4 @@ volumes:
   wazuh-manager-logs:
   wazuh-manager-queue:
   wazuh-indexer-data:
+  mbptl-db:
