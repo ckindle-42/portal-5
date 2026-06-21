@@ -141,8 +141,8 @@ backends:
     notes: 'Qwen3-Coder-Next (Alibaba, Feb 2026, Apache 2.0, 80B total / 3B active MoE, ~46GB Q4, 256K ctx). Novel hybrid
       architecture: Gated DeltaNet + Gated Attention + MoE. Non-reasoning for ultra-fast code responses. Agentic training
       on 800K executable tasks with RL. Fits 64GB unified memory (~18GB headroom). Fast TPS due to 3B active. Wires pre-existing
-      bench-qwen3-coder-next workspace (TASK_MODEL_REFRESH_V8 A17). supports_tools=true per Qwen coding family; audit-tools
-      2026-06-18 returned ERROR (model busy/evicted during probe — retest needed before tool dispatch).'
+      bench-qwen3-coder-next workspace (TASK_MODEL_REFRESH_V8 A17). supports_tools=true: audit-tools 2026-06-21 confirmed
+      tool_call (6.8s) — retest resolved prior 2026-06-18 ERROR (model had been evicted during that probe).'
   - id: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M
     supports_tools: true
     notes: Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next
