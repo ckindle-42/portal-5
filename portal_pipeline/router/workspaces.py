@@ -1069,6 +1069,54 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "10m",
         "tools": [],
     },
+    "auto-gemma-fast": {
+        "name": "⚡ Portal Gemma Fast",
+        "description": (
+            "Speed-optimised multimodal assistant. Gemma 4 E2B QAT (~3GB, Google DeepMind, Apache 2.0). "
+            "76.3 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. "
+            "Use when response speed matters: quick Q&A, rapid iteration, conversational tasks, "
+            "live audio or image analysis. Fastest quality-passing production model in fleet."
+        ),
+        "model_hint": "gemma4:e2b-it-qat",
+        "predict_limit": 8192,
+        "tools": ["transcribe_audio"],
+    },
+    "auto-gemma-e4b": {
+        "name": "🎯 Portal Gemma E4B",
+        "description": (
+            "Compact multimodal model. Gemma 4 E4B QAT (~5GB, Google DeepMind, Apache 2.0). "
+            "48.6 t/s, quality 1.00 on bench 2026-06-21. Encoder-free audio+image+video+text, 128K ctx. "
+            "Second-tier audio/multimodal option alongside auto-audio (12B) — prefer this when throughput "
+            "matters more than depth. Good for audio+image tasks where E2B is too thin and 12B is overkill."
+        ),
+        "model_hint": "gemma4:e4b-it-qat",
+        "predict_limit": 8192,
+        "tools": ["transcribe_audio"],
+    },
+    "auto-devstral": {
+        "name": "🔥 Portal Devstral",
+        "description": (
+            "Mistral-lineage coding assistant. Devstral Small 2 (~14GB, Mistral AI + All Hands AI, Apache 2.0). "
+            "24B, 256K ctx, vision added V2. 14.6 t/s, quality 0.83 on bench 2026-06-21. "
+            "Distinct training lineage from Qwen-Coder — different strengths in repo navigation and agentic coding. "
+            "Use when Qwen-Coder misses or for Mistral-architecture diversity."
+        ),
+        "model_hint": "devstral-small-2",
+        "predict_limit": 16384,
+        "tools": ["execute_python", "execute_nodejs", "execute_bash", "sandbox_status", "read_word_document", "read_pdf"],
+    },
+    "auto-gemma-vision": {
+        "name": "👁️ Portal Gemma Vision",
+        "description": (
+            "Heavy vision analysis. Gemma 4 31B Dense QAT (~18GB, Google DeepMind, Apache 2.0). "
+            "11.4 t/s, quality 1.00 on bench 2026-06-21. 256K ctx, vision+text. "
+            "Gemma-architecture alternative to auto-vision (qwen3-vl:32b) — different model family, "
+            "complementary failure profile. Use for detailed image analysis where Qwen3-VL underperforms."
+        ),
+        "model_hint": "gemma4:31b-it-qat",
+        "predict_limit": 16384,
+        "tools": [],
+    },
     "auto-audio": {
         "name": "🎙️  Portal Audio Analyst",
         "description": "Audio transcription, speech analysis, audio understanding. Gemma 4 12B QAT (V8: first encoder-free audio model in fleet, native audio+image+text, 256K ctx, function calling, ~7GB, Google, Apache 2.0).",
