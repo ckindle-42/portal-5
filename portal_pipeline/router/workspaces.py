@@ -424,12 +424,14 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     "auto-security": {
         "name": "🔒 Portal Security Analyst",
         "description": (
-            "Authorized security assessment, vulnerability analysis, hardening. "
-            "BaronLLM-abliterated (Llama-3.1-8B, 53K security examples across 200+ cybersec "
-            "domains, CyberSec-Eval validated, fully abliterated, tool-capable). Fast general "
-            "security analysis with web search, vuln classification, and code execution."
+            "Authorized security assessment, vulnerability analysis, CVE/CWE classification, "
+            "hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on "
+            "AppSec vulnerability research: CVE severity, CWE classification, vulnerable code "
+            "patterns). Full-fleet bench 2026-06-20: 2/2 chain wins at 15s, fastest security "
+            "model in fleet. Fast vuln analysis with web search, vuln classification, and code "
+            "execution."
         ),
-        "model_hint": "huihui_ai/baronllm-abliterated",
+        "model_hint": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
         "keep_alive": "10m",
         "tools": [
             "web_search",
@@ -1214,21 +1216,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-olmo3-32b": {
-        "name": "🔬 Bench · Olmo-3-32B (Allen AI)",
-        "description": (
-            "Benchmark: Olmo-3-32B (GGUF, Ollama, Allen AI dense 32B, "
-            "Apache 2.0, NOT Qwen lineage). supports_tools=false per V5 catalog."
-        ),
-        "model_hint": "olmo-3.1:32b-think",
-        "max_concurrent": 1,
-        "predict_limit": 16384,
-        "keep_alive": "5m",
-        "emits_reasoning": True,
-        "tools": [],
-    },
-    # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
+    },    # ── V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2) ─────────────────────────────
     "bench-olmocr2": {
         "name": "🔬 Bench · olmOCR-2 (Allen AI)",
         "description": "Benchmark: olmOCR-2-7B (Allen AI, 7B Qwen2.5-VL base, RLVR document OCR). Strengths: math formulas, tables, multi-column layouts, markdown-clean output.",
@@ -1322,23 +1310,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": [],
     },
     # ── Daily-driver candidate bench (gemma4:12b + phi4-mini) ──────────────
-    "bench-gemmable-12b": {
-        "name": "🔬 Bench · Gemmable-4-12B (Mia-AiLab)",
-        "description": (
-            "Benchmark: hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M "
-            "(Mia-AiLab, June 2026, ~6.9GB). Fable 5-style SFT fine-tune of Gemma 4 12B. "
-            "DUAL EVAL: (1) coding — head-to-head vs bench-gemma4-12b (base) and "
-            "bench-gemma4-12b-coder (Composer SFT) for instruction-following quality; "
-            "(2) security — structured AppSec analysis vs foundation-sec and fleet, "
-            "testing whether Fable 5 SFT improves security report quality at 12B scale. "
-            "MTP variant available (~0.3GB) for speculative decode. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/Mia-AiLab/Gemmable-4-12B-MTP-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-gemma4-12b": {
         "name": "🔬 Bench · Gemma 4 12B QAT (Google)",
         "description": (
@@ -1517,23 +1488,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 16384,
         "emits_reasoning": True,
         "tools": [],
-    },
-    "bench-harness1": {
-        "name": "🔬 Bench · Harness-1 (search agent, gpt-oss-20B base)",
-        "description": (
-            "Benchmark: hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M "
-            "(June 2026, Apache 2.0, 20B gpt-oss fine-tune, ~12GB Q4_K_M). "
-            "RL-trained search agent with state-externalizing harness methodology. "
-            "NOTE: Full harness capability (Chroma vector DB + external state) not available "
-            "in Portal 5 pipeline. Standalone bench measures search-tuned gpt-oss-20B quality. "
-            "auto-research lane candidate. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/ijohn07/harness-1-Q4_K_M-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "tools": [],
-    },
-    "bench-nex-n2-mini": {
+    },    "bench-nex-n2-mini": {
         "name": "🔬 Bench · Nex-N2-mini (Nex AGI)",
         "description": (
             "Benchmark: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M "
@@ -1576,23 +1531,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "predict_limit": 8192,
         "tools": [],
-    },
-    "bench-r1-0528-abliterated": {
-        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated (Josiefied)",
-        "description": (
-            "Benchmark: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M "
-            "(mradermacher packaging of Goekdeniz-Guelmez Josiefied abliteration, ~5GB Q4_K_M). "
-            "Abliterated R1-0528-Qwen3-8B — chain-of-thought reasoning without refusals. "
-            "Candidate for auto-redteam / security reasoning lane. "
-            "Head-to-head vs non-abliterated bench-r1-0528-qwen3-8b. PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 16384,
-        "emits_reasoning": True,
-        "tools": [],
-    },
-    "bench-qwen3-coder-next-abliterated": {
+    },    "bench-qwen3-coder-next-abliterated": {
         "name": "🔬 Bench · Qwen3-Coder-Next Abliterated (huihui-ai/bartowski)",
         "description": (
             "Benchmark: hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M "
@@ -1624,26 +1563,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "emits_reasoning": True,
         "tools": [],
-    },
-    "bench-gemma4-12b-coder": {
-        "name": "🔬 Bench · Gemma4-12B-Coder Fable5 (yuxinlu1)",
-        "description": (
-            "Benchmark: hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M "
-            "(yuxinlu1, Gemma license, June 2026, 12B dense, ~6.87GB Q4_K_M). "
-            "Fine-tune of Gemma 4 12B on verifiable Python CoT: "
-            "Composer 2.5 real reasoning + Fable 5 synthetic second-attempt traces, "
-            "both gated on test execution. Coding + reasoning specialist. 131K ctx. "
-            "Candidate for auto-coding fast-path or auto-agentic secondary if TPS >= 20. "
-            "Head-to-head vs portal5/gemma4-12b:q4_K_M-ctx8k (general) and omnicoder2:9b-q4_k_m. "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "tools": [],
-    },
-    "bench-huihui-qwable-27b": {
+    },    "bench-huihui-qwable-27b": {
         "name": "🔬 Bench · Huihui-Qwable-3.6-27B (Abliterated)",
         "description": (
             "Benchmark: hf.co/huihui-ai/Huihui-Qwable-3.6-27b-abliterated-GGUF:Q4_K_M_Q8 "
@@ -1746,72 +1666,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "emits_reasoning": True,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-apriel-nemotron": {
-        "name": "🔬 Bench · Apriel-Nemotron-15B Thinker (ServiceNow/NVIDIA)",
-        "description": (
-            "Benchmark: hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:"
-            "ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf "
-            "(ServiceNow AI + NVIDIA, Apache 2.0, 15B dense, ~10GB Q5_K_M). "
-            "Enterprise reasoning model: extended thinking via chain-of-thought, "
-            "strong on code, math, and multi-step problem-solving. "
-            "Smaller footprint than 27B class — candidate for auto-reasoning fast-path. "
-            "Head-to-head vs bench-r1-0528-qwen3-8b (8B) and bench-granite41-30b (32B). "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": (
-            "hf.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF:"
-            "ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q5_K_M.gguf"
-        ),
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-vibethinker-3b": {
-        "name": "🔬 Bench · VibeThinker-3B (WeiboAI)",
-        "description": (
-            "Benchmark: hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M "
-            "(WeiboAI, MIT, Qwen2.5-3B base, ~1.93GB). "
-            "Reasoning specialist fine-tuned with curriculum SFT + RL across math/code/STEM domains. "
-            "Native <think> reasoning tags. 64K context. 96.1% LeetCode acceptance, "
-            "AIME/HMMT/IMO competitive vs much larger models. "
-            "NOT tool-trained — no function calling. "
-            "BENCH RESULT (2026-06-17): avg=0.938, 39s avg — matches phi4-mini-reasoning (3.8B) at 0.938 "
-            "with 46% lower latency (39s vs 70s). Perfect on logic_puzzle/code_reasoning/multi_step_math. "
-            "Fails AIME-2024 (gets 46 not 71) same as phi4. "
-            "VERDICT: strongest open reasoning at 3B class; viable as fast thinking hop in chains. "
-            "PROMOTE_POLICY=confirm (fast chain hop candidate for auto-purpleteam-deep, auto-agentic)."
-        ),
-        "model_hint": "hf.co/mradermacher/VibeThinker-3B-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-vibethinker-3b-ablated": {
-        "name": "🔬 Bench · VibeThinker-3B-Ablated (Darkfibre)",
-        "description": (
-            "Benchmark: hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M "
-            "(Darkfibre, Apache 2.0, Qwen2.5-Coder-3B base — distinct from VibeThinker-3B, ~1.93GB). "
-            "Refusal direction surgically removed at layer 11 via diff-in-means projection. "
-            "131K context (2× the base model). "
-            "BENCH RESULT (2026-06-17): avg=0.775 vs reference 1.000 (auto-redteam), 43s avg. "
-            "Fails on SPN enumeration detail (kerberoasting), MITRE IDs (lateral_movement, phishing). "
-            "Adds disclaimers on kerberoasting and SQLi. Fast (9s on lateral_movement) but incomplete. "
-            "VERDICT: 0.225 gap vs production auto-redteam; not a replacement. "
-            "Viable as zero-cost draft or filter hop — not as standalone red-team model. "
-            "PROMOTE_POLICY=bench-only (insufficient quality for production use)."
-        ),
-        "model_hint": "hf.co/mradermacher/VibeThinker-3B-Ablated-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-qwopus-coder-mtp-v2": {
+    },    "bench-qwopus-coder-mtp-v2": {
         "name": "🔬 Bench · Qwopus3.6-27B-v2-MTP (Jackrong)",
         "description": (
             "Benchmark: hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf "
@@ -1827,24 +1682,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-deepseek-coder-v2": {
-        "name": "🔬 Bench · DeepSeek-Coder-V2-Lite 16B (DeepSeek)",
-        "description": (
-            "Benchmark: deepseek-coder-v2:16b-lite-instruct-q4_K_M "
-            "(DeepSeek, MIT-style license, 16B/2.4B MoE, ~9GB Q4_K_M). "
-            "FIM-trained dedicated coder, 338 programming languages, 128K ctx. "
-            "12.7% SWE-bench, 73.7% Aider, 90.2% HumanEval. Older (mid-2024) but "
-            "a genuine code-specialist lineage absent elsewhere in fleet. "
-            "Wired for game-challenge evaluation (TASK_CODING_GAMECHALLENGE_V1 A5). "
-            "PROMOTE_POLICY=confirm."
-        ),
-        "model_hint": "deepseek-coder-v2:16b-lite-instruct-q4_K_M",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "tools": [],
-    },
-    "auto-cad": {
+    },    "auto-cad": {
         "name": "📐 Portal CAD / 3D-Print Designer",
         "description": (
             "Parametric 3D-model generation via code-CAD (OpenSCAD primary; Python+trimesh "
@@ -1890,42 +1728,6 @@ WORKSPACES: dict[str, dict[str, Any]] = {
     #   auto-security=0.830, wrn8b=0.770, lily=0.755, dolphin-r1=0.700
     # RETIRED: wrn8b, lily, dolphin-r1 (below baseline; dolphin-r1 unusably slow 4-5min/prompt)
     # CANDIDATE: supergemma4 (0.90, 0 disclaimers, 6.7 ATT&CK IDs — pending isolated 6-prompt bench)
-    "bench-wrn8b": {
-        "name": "🔬 Bench · WRN-8B-v2.0 (lazarevtill) [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-16: avg=0.770, disclaimers=0.3, ATT&CK=1.0. "
-            "Below auto-redteam baseline (0.847). Disclaimer issues. RETIRED from fleet. "
-            "Model: lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
-        ),
-        "model_hint": "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-lily-cybersec": {
-        "name": "🔬 Bench · Lily Cybersecurity 7B (segolilylabs) [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-16: avg=0.755, disclaimers=0.3, ATT&CK=1.0. "
-            "Below auto-redteam baseline. No MITRE IDs generated. RETIRED from fleet. "
-            "Model: lily-cybersecurity:7b-q4_k_m"
-        ),
-        "model_hint": "lily-cybersecurity:7b-q4_k_m",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-dolphin-r1": {
-        "name": "🔬 Bench · Dolphin3-R1-Mistral 24B [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-16: avg=0.700, disclaimers=0.7, ATT&CK=0.0. "
-            "4-5 min/prompt latency — unusable for production. Zero MITRE IDs. RETIRED. "
-            "Model: dolphin3-r1-mistral:24b-q4_k_m"
-        ),
-        "model_hint": "dolphin3-r1-mistral:24b-q4_k_m",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-supergemma4-sec": {
         "name": "🔬 Bench · SuperGemma4 26B Uncensored [PROMOTED → auto-redteam-deep]",
         "description": (
@@ -1941,54 +1743,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "5m",
         "tools": [],
     },
-    "bench-r1-0528-abliterated": {
-        "name": "🔬 Bench · R1-0528-Qwen3-8B Abliterated [CANDIDATE]",
-        "description": (
-            "BENCH RESULT 2026-06-17: avg=0.800 (6-prompt), latency matrix=0.700 (high variance). "
-            "Perfect 1.000 on lateral_movement+phishing when ATT&CK explicitly requested (7-9 IDs). "
-            "Drops to 0.700 on prompts that don't ask for T1xxx format. Not a refusal — MITRE format "
-            "is conditional on request phrasing. Inconsistent: varies 0.70–1.00 same prompt type. "
-            "BENCH-ONLY: avg=0.800 below auto-redteam baseline (0.847); high per-prompt variance. "
-            "Model: hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
-        ),
-        "model_hint": (
-            "hf.co/mradermacher/Josiefied-DeepSeek-R1-0528-Qwen3-8B-abliterated-v1-GGUF:Q4_K_M"
-        ),
-        "max_concurrent": 1,
-        "emits_reasoning": True,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-xploiter-pentester": {
-        "name": "🔬 Bench · xploiter/pentester:v2 [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-17: avg=0.673 (4 redteam prompts), disclaimers=0.8, ATT&CK=3.5. "
-            "Below auto-redteam baseline (0.847). Slow for size: 67-228s/prompt despite being ~1.6GB. "
-            "Phishing prompt: 3 disclaimers. Does not replace auto-pentest primary. RETIRED. "
-            "Model: xploiter/pentester:v2"
-        ),
-        "model_hint": "xploiter/pentester:v2",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     # June 2026 security candidate round 2 — all RETIRED below baseline
     # Finding: cybersec-specialized small models score below baseline on structured red team output.
     # Models that win are general large abliterated models (supergemma4, r1, qwen3.5) —
     # abliteration removes refusals while preserving MITRE ATT&CK format knowledge.
-    "bench-foundation-sec-abliterated": {
-        "name": "🔬 Bench · Foundation-Sec-8B Abliterated (huihui_ai) [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-16: avg=0.647, disclaimers=0.0, ATT&CK=0.0. "
-            "Below auto-redteam baseline (0.847). Zero MITRE IDs — security domain training "
-            "doesn't produce T1XXX format output. Same result on blue team prompts (0.65). "
-            "RETIRED. Model: huihui_ai/foundation-sec-abliterated:8b"
-        ),
-        "model_hint": "huihui_ai/foundation-sec-abliterated:8b",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
     "bench-sylink": {
         "name": "🔬 Bench · SYLink 8B (sylink/sylink) [RETIRED]",
         "description": (
@@ -2000,50 +1758,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-dolphin3-cyber": {
-        "name": "🔬 Bench · Dolphin3-Cyber-8B (RavichandranJ) [RETIRED]",
-        "description": (
-            "BENCH RESULT 2026-06-16: avg=0.673, disclaimers=0.0, ATT&CK=0.0. "
-            "Below auto-redteam baseline (0.847). Zero MITRE IDs despite cybersec fine-tuning. "
-            "RETIRED. Model: hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M"
-        ),
-        "model_hint": "hf.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-c3d-v0": {
-        "name": "🔬 Bench · C3D-v0 (CADQuery specialist)",
-        "description": (
-            "Benchmark: C3Dv0:latest (joshuaokolo/C3Dv0, Ollama, Gemma-3n-E4B 4B base, "
-            "LoRA on Text-to-CadQuery ~48K/50%/1-epoch, ~7.3GB, 32K ctx). TEXT-ONLY, "
-            "NO TOOLS. Simple-to-moderate parametric geometry only. Own-hardware CAD eval "
-            "vs incumbent coders. NEVER auto-routed/auto-promoted (PROMOTE_POLICY). "
-            "Verified live 2026-06."
-        ),
-        "model_hint": "joshuaokolo/C3Dv0:latest",
-        "max_concurrent": 1,
-        "predict_limit": 8192,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-diffusiongemma": {
-        "name": "🔬 Bench · DiffusionGemma 26B A4B (unsloth)",
-        "description": (
-            "Benchmark: unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M (~16GB). "
-            "Experimental diffusion-based generation on Gemma4 26B A4B MoE base. "
-            "Compare vs gemma4:26b-a4b-it-qat (production reasoning candidate) on "
-            "reasoning, coding (CC-01), and bench_tps. Key question: does diffusion "
-            "decoding provide quality or speed advantage over standard autoregressive? "
-            "NEVER auto-routed. PROMOTE_POLICY=confirm after head-to-head eval."
-        ),
-        "model_hint": "hf.co/unsloth/diffusiongemma-26B-A4B-it-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-vulnllm-r7b": {
+    },    "bench-vulnllm-r7b": {
         "name": "🔬 Bench · VulnLLM-R-7B (AppSec specialist)",
         "description": (
             "BENCH RESULT 2026-06-17 (strict AppSec v2 criteria): avg=0.812 vs auto-security=0.725. "
@@ -2083,20 +1798,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "max_concurrent": 1,
         "keep_alive": "5m",
         "tools": [],
-    },
-    "bench-lfm2-moe": {
-        "name": "🔬 Bench · LFM2-8B-A1B (Liquid AI)",
-        "description": (
-            "Benchmark: LiquidAI/LFM2-8B-A1B (non-Transformer hybrid arch, Ollama GGUF). "
-            "Not for code/knowledge — strengths: agentic tasks, data extraction, RAG, creative. "
-            "See persona system prompt for Liquid AI recommended parameters."
-        ),
-        "model_hint": "hf.co/bartowski/LiquidAI_LFM2-8B-A1B-GGUF:Q4_K_M",
-        "max_concurrent": 1,
-        "keep_alive": "5m",
-        "tools": [],
-    },
-    "bench-qwen36-27b-optiq": {
+    },    "bench-qwen36-27b-optiq": {
         "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
         "description": (
             "Benchmark: Qwen3.6-27B with OptiQ per-layer quantization "
