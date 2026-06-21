@@ -7,7 +7,7 @@ providers:
     config:
       temperature: 0
       num_predict: 4096
-  - id: ollama:chat:huihui_ai/baronllm-abliterated:latest
+  - id: ollama:chat:huihui_ai/baronllm-abliterated
     label: auto-security-baronllm
     config:
       temperature: 0

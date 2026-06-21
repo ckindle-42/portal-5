@@ -231,11 +231,6 @@ backends:
       CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest
       security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format).
       auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).'
-  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
-    supports_tools: true
-    notes: 'Qwen3.6-35B-A3B aggressively uncensored (HauhauCS, ~22GB Q4, MoE 3B active). auto-redteam + auto-security-uncensored
-      primary (SECURITY_FLEET_REVIEW_2026-06). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 11.5, 30.8 TPS, quality
-      creative:1.0. Best chain depth + speed for adversarial creative workspaces. Also in ollama-creative.'
   - id: lfm2.5:8b
     supports_tools: true
     notes: 'Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure
