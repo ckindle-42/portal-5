@@ -434,6 +434,14 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     else:
         body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
     body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
+    # Request usage stats in the final streaming chunk so TPS is recorded for every
+    # request. Without this, Ollama's /v1/chat/completions terminates with data:[DONE]
+    # (no token counts), which means _record_usage gets completion_tokens=0 and TPS
+    # is silently skipped. With include_usage=true, Ollama sends a final usage chunk
+    # before [DONE] containing prompt_tokens + completion_tokens, enabling accurate
+    # TPS tracking across all streaming requests.
+    if body.get("stream", True):
+        body.setdefault("stream_options", {})["include_usage"] = True
     # Per-workspace thinking control: "think": false disables extended thinking
     # for Qwen3/similar models that support it. Prevents token-budget exhaustion
     # in thinking mode where the model burns all tokens in <think> and produces
