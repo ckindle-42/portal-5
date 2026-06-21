@@ -395,7 +395,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL "
             "training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline)."
         ),
-        "model_hint": "qwen3-coder-next",
+        "model_hint": "qwen3-coder-next:latest",
         "tools": [
             "execute_python",
             "execute_bash",
