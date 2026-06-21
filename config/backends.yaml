@@ -202,41 +202,19 @@ backends:
     notes: PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised
       for TTP generation. Also in ollama-general — duplicate entry required for security-group routing so streaming hint resolution
       uses the correct model.
-  - id: hf.co/huihui-ai/Huihui-Qwen3.6-35B-A3B-abliterated-MTP-GGUF:latest
-    supports_tools: true
-    notes: 'Qwen3.6 35B-A3B abliterated + MTP self-speculative (huihui-ai GGUF, Apache 2.0). MoE 3B active + draft-mtp. Fix:
-      stock GGUF ships TEMPLATE {{ .Prompt }}; alias qwen36-a3b-abl-fixed adds RENDERER/PARSER qwen3.5. Fleet bench 2026-06-20:
-      kerberoast_to_da WIN (12/8 1.00 adapt=2/2 52s); asrep_to_lateral STALL (0/7 — does not start chain on scenario 2). audit-tools
-      intermittent: text_only in cold fleet probe (first-model load-timing); tool_call in focused single-model run. NOT reliable
-      across scenarios — auto-security kept on baronllm (Case A). Build: ollama create qwen36-a3b-abl-fixed -f Modelfile (RENDERER/PARSER
-      qwen3.5). Pull: ollama pull ...MTP-GGUF:latest (~13GB Q4_K_M).'
-  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
-    supports_tools: false
-    notes: Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai FIRST-PARTY GGUF, Llama-3.1-8B cybersec continued-pretrain
-      + reasoning, Apache 2.0 per body — card header tags 'other'). Native <think>. auto-blueteam PRIMARY — restores the pre-migration
-      production model lost in 3a0c58e (P5-FUT-PARITY-001). supports_tools=false (reasoning model, not tool-trained).
-  - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
-    supports_tools: true
-    notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab). auto-pentest primary (PROMOTED 2026-06-20).
-      Security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s. supports_tools=true: audit-tools 2026-06-18 confirmed.'
   - id: huihui_ai/baronllm-abliterated
     supports_tools: true
-    notes: 'audit-tools 2026-06-20: tool_call confirmed. Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2
-      14s — fastest in fleet); asrep_to_lateral STALL (1/7 0.14 — scenario-specific; 8B scale may not carry the longer AS-REP
-      chain). auto-security PRIMARY (Case A, TASK_TOOLCALL_FIX_LOCKIN_V1). Llama-3.1-8B security specialist (53K examples,
-      200+ cybersec domains). Fast for kerberoast/standard scenarios; use qwen3.5-abliterated:9b if asrep_to_lateral coverage
-      is required.'
-  - id: deepseek-r1:32b-q4_k_m
-    supports_tools: false
-    notes: Threat modeling + defensive analysis (shared with reasoning). R1 is reasoning-trained, not tool-trained.
-  - id: baronllm:q6_k
-    supports_tools: true
-    notes: 'was: hf.co/AlicanKiraz0/Cybersecurity-BaronLLM_... Tool template verified in Ollama (JSON function call format
-      with custom_tools/tools_in_user_message). supports_tools corrected from false (TASK_TOOL_AUDIT_V2).'
+    notes: 'Llama-3.1-8B security specialist (AlicanKiraz0/Cybersecurity-BaronLLM — 53K examples, 200+ cybersec domains).
+      auto-security + auto-pentest PRIMARY (reinstated 2026-06-21, SECURITY_FLEET_REVIEW_2026-06). Fleet bench 2026-06-20:
+      kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s — fastest in fleet); completion bench 2026-06-21: both scenarios 1.00/1.00
+      at 11s avg — asrep_to_lateral STALL in fleet run was memory-pressure artifact. Broadest security domain coverage in
+      group (53K training examples). Template fix: TASK_TOOLCALL_FIX_LOCKIN_V1.'
   - id: sylink/sylink:8b
     supports_tools: false
-    notes: SYLink 8B F16 (~16GB — only available quantization, Qwen3 8B base). Purpose-built for SOC triage, threat intel,
-      ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. bench-sylink target (June 2026).
+    notes: 'SYLink 8B F16 (~16GB — only available quantization, Qwen3 8B base). Purpose-built for SOC triage, threat intel,
+      ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. auto-blueteam PRIMARY (SECURITY_FLEET_REVIEW_2026-06) —
+      training is defensive/blue-team; chain depth 12 reflects multi-step SOC investigation patterns. Fleet bench 2026-06-20:
+      1.00/1.00 both scenarios, depth 12 (deepest 8B in fleet).'
   - id: supergemma4-26b-uncensored:Q4_K_M
     supports_tools: true
     notes: SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-capable. Production model for auto-redteam-deep
@@ -252,7 +230,29 @@ backends:
     notes: 'VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist —
       CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest
       security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format).
-      PROMOTED to auto-security primary.'
+      auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).'
+  - id: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4
+    supports_tools: true
+    notes: 'Qwen3.6-35B-A3B aggressively uncensored (HauhauCS, ~22GB Q4, MoE 3B active). auto-redteam + auto-security-uncensored
+      primary (SECURITY_FLEET_REVIEW_2026-06). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 11.5, 30.8 TPS, quality
+      creative:1.0. Best chain depth + speed for adversarial creative workspaces. Also in ollama-creative.'
+  - id: lfm2.5:8b
+    supports_tools: true
+    notes: 'Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure
+      transformer — adds architecture diversity to security group). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 10,
+      78.5 TPS, quality general:1.0. Purpose-built for agentic/tool-use per model card. Fast general security assistant.
+      Also in ollama-general. Cross-listed here for security group access.'
+  - id: granite4.1:8b
+    supports_tools: true
+    notes: 'IBM Granite 4.1 8B (~5.3GB Q4_K_M, 128K ctx, Apache 2.0, ISO-certified). Cross-listed from ollama-reasoning for
+      auto-blueteam detection engineering + compliance analysis access. BFCL V3 68.27, IFEval 87.1 — best structured output
+      in this size tier. Fleet bench 2026-06-20: 1.00/1.00, depth 8, 19.3 TPS, quality general:1.0.'
+  - id: devstral-small-2:latest
+    supports_tools: true
+    notes: 'Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model — cross-listed in security for deep
+      chain workspaces (auto-purpleteam-deep, auto-redteam-deep) where its structured sequential planning discipline and depth 11
+      chains are assets. 15.5 TPS pipeline — below interactive floor; deep async use only. Run A 2026-06-21: 1.00/1.00 both
+      scenarios, depth 11.0, 45s. Primary home: ollama-coding.'
 - id: ollama-reasoning
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -310,6 +310,13 @@ backends:
       into Qwen3 8B. Matches Qwen3-235B performance on AIME 2024 despite 8B parameters. Complements existing deepseek-r1:32b
       — smaller/faster reasoning tier at same TPS floor. bench-r1-0528-qwen3-8b target (TASK_MODEL_REFRESH_V8 A-r1-8b). supports_tools=false
       (reasoning model, chain-of-thought format).
+  - id: hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0
+    supports_tools: false
+    notes: 'Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai, Llama-3.1-8B cybersec continued-pretrain +
+      reasoning, Apache 2.0). Native <think>. MOVED from security group to reasoning (SECURITY_FLEET_REVIEW_2026-06) — training
+      is security reasoning/analysis, not agentic tool-calling; 400 error on all tool probes confirmed in Run A 2026-06-21.
+      Correctly serves auto-blueteam analytical work (DFIR, threat modeling, ATT&CK analysis) through reasoning group pathway.
+      supports_tools=false.'
 - id: ollama-vision
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}

@@ -190,7 +190,8 @@ def bench_tps(
                         obj = _json.loads(data_str)
                     except Exception:
                         continue
-                    delta = obj.get("choices", [{}])[0].get("delta", {})
+                    choices_list = obj.get("choices") or []
+                    delta = choices_list[0].get("delta", {}) if choices_list else {}
                     chunk_text = delta.get("content") or ""
                     reasoning_chunk = delta.get("reasoning") or ""
                     # Capture tool_calls delta: workspaces with tools (auto-agentic,
