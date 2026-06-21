@@ -1498,6 +1498,56 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "predict_limit": 8192,
         "keep_alive": "5m",
         "tools": [],
+    },
+    "bench-glm": {
+        "name": "🔬 Bench · GLM-4.7-Flash Q4_K_M (ZhipuAI)",
+        "description": (
+            "Benchmark: glm-4.7-flash:Q4_K_M (~13GB, ZhipuAI/Z.AI, MIT). "
+            "31B MoE, 4 experts/token (~3B active), 128K context. "
+            "Non-Meta/Qwen lineage — diverse training and architecture. "
+            "Coding bench 2026-06-21: quality 0.67 (template mismatch suspected). "
+            "Head-to-head vs bench-glm-reap (REAP UD-Q4_K_XL quant). "
+            "PROMOTE_POLICY: re-bench after chat template verification."
+        ),
+        "model_hint": "glm-4.7-flash:Q4_K_M",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-glm-reap": {
+        "name": "🔬 Bench · GLM-4.7-Flash REAP UD-Q4_K_XL (unsloth)",
+        "description": (
+            "Benchmark: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL "
+            "(~14.2GB, unsloth REAP + Unsloth Dynamic imatrix, MIT). "
+            "Same base model as bench-glm but REAP (Refined Expert Activation Pruning) "
+            "restructures MoE routing for better quality/bit on MoE models. "
+            "UD-Q4_K_XL adds sensitivity-aware imatrix on top. "
+            "Head-to-head vs bench-glm (standard Q4_K_M) — expect same or better quality at +0.4GB. "
+            "PROMOTE_POLICY: beat bench-glm on quality_score AND TPS ≥ 20."
+        ),
+        "model_hint": "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL",
+        "max_concurrent": 1,
+        "predict_limit": 8192,
+        "keep_alive": "5m",
+        "tools": [],
+    },
+    "bench-glm-z1-rumination": {
+        "name": "🔬 Bench · GLM-Z1-Rumination-32B (THUDM)",
+        "description": (
+            "Benchmark: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:Q4_K_M "
+            "(~20GB, THUDM/ZhipuAI, April 2026). "
+            "GLM thinking/reasoning model — ZhipuAI answer to QwQ/DeepSeek-R1. "
+            "Multi-step chain-of-thought, deep rumination mode. "
+            "Candidate for auto-reasoning pool alongside deepseek-r1:32b-q4_k_m. "
+            "PROMOTE_POLICY: quality_score ≥ 0.83 AND TPS ≥ 15 (reasoning models allowed lower floor). "
+            "Compare depth vs bench-qwopus-coder-mtp-v2 and bench-devstral."
+        ),
+        "model_hint": "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf",
+        "max_concurrent": 1,
+        "predict_limit": 16384,
+        "keep_alive": "5m",
+        "tools": [],
     },    "auto-cad": {
         "name": "📐 Portal CAD / 3D-Print Designer",
         "description": (

@@ -165,6 +165,24 @@ backends:
     notes: 'Qwable-3.6-35B MoE (~21GB, Mia-AiLab, MIT). 29.7 t/s, 5/5 TPS runs. PROMOTED 2026-06-20
       to auto-pentest primary: security chain kerberoast_to_da 7/8 steps, 0 refusals, 100s, adapt=3/3.
       Disqualified from coding (persona bleed). supports_tools=true: audit-tools 2026-06-18 confirmed.'
+  - id: glm-4.7-flash:Q4_K_M
+    supports_tools: false
+    notes: 'GLM-4.7-Flash Q4_K_M (~13GB, ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active).
+      128K context. Diverse non-Meta/Qwen lineage. Coding quality 0.67 in bench 2026-06-21 (benchmark
+      prompt style may not favour GLM chat template). Restored 2026-06-21: lineage diversity value;
+      re-bench after template verification. DO NOT pull :math variant. bench-glm target.'
+  - id: hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: false
+    notes: 'GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same model as glm-4.7-flash but
+      using REAP (Refined Expert Activation Pruning) quant + Unsloth Dynamic imatrix. Better quality
+      per bit than standard Q4_K_M for MoE models. Head-to-head vs glm-4.7-flash:Q4_K_M (bench-glm-reap).
+      supports_tools: pending audit.'
+  - id: hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf
+    supports_tools: false
+    notes: 'GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI, April 2026). GLM reasoning/thinking
+      variant — ZhipuAI answer to QwQ/DeepSeek-R1. Multi-step chain-of-thought trained. Candidate for
+      auto-reasoning pool alongside deepseek-r1:32b. bench-glm-z1-rumination target.
+      supports_tools: pending audit.'
 - id: ollama-security
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
@@ -545,6 +563,16 @@ workspace_routing:
   - coding
   - general
   bench-qwopus-coder-mtp-v2:
+  - reasoning
+  - coding
+  - general
+  bench-glm:
+  - coding
+  - general
+  bench-glm-reap:
+  - coding
+  - general
+  bench-glm-z1-rumination:
   - reasoning
   - coding
   - general

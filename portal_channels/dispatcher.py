@@ -65,6 +65,8 @@ VALID_WORKSPACES = frozenset(
         "bench-phi4-reasoning",
         "bench-dolphin8b",
         "bench-glm",
+        "bench-glm-reap",
+        "bench-glm-z1-rumination",
         "bench-gptoss",
         "bench-laguna",
         "bench-granite41-8b",
