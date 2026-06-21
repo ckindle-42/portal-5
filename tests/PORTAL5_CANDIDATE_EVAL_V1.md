@@ -41,10 +41,15 @@ for r in d.get('chain_results', []):
 
 **Promotion threshold:** 2/2 scenarios WIN, refusal_rate=0.0, chain_time_s < 300s.
 
-- If PASS → add model_hint to a security workspace (create new bench-to-production
-  mapping or promote to existing slot). Update workspace description. Commit.
-- If FAIL → remove bench-qwable-35b from workspaces.py, backends.yaml,
-  dispatcher.py. Run `ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`.
+NOTE: The coding disqualification (persona bleed, Claude Code context hallucination)
+was observed on a single coding prompt and is not necessarily a problem in security
+contexts. The chain result IS the real verdict — do not treat the coding observation
+as a disqualifier for security promotion. Evaluate on chain merit only.
+
+- If PASS → promote to a security workspace slot. Update workspace description. Commit.
+- If FAIL on chain (refusals, stalled steps, wrong tools) → remove bench-qwable-35b
+  from workspaces.py, backends.yaml, dispatcher.py. Run:
+  `ollama rm hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf`
   Update unit test workspace count. Commit and push.
 
 ---
