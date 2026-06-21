@@ -629,6 +629,7 @@ async def _stream_from_backend_guarded(
         yield ("data: " + json.dumps({"error": "Pipeline not ready"}) + "\n\n").encode()
         return
     try:
+        _usage_recorded = False  # guard: only record TPS once per request
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
@@ -651,10 +652,10 @@ async def _stream_from_backend_guarded(
             async for line in resp.aiter_lines():
                 if not line:
                     continue
-                # Fast-path: detect "done" (usage payload or [DONE] marker)
+                # Fast-path: detect Ollama native "done" chunk (has eval_count/eval_duration)
                 if '"done"' in line and line.startswith("data:") and line != "data: [DONE]":
                     payload = line[5:].strip()
-                    if payload:
+                    if payload and not _usage_recorded:
                         try:
                             usage_data = json.loads(payload)
                             elapsed = (
@@ -666,17 +667,34 @@ async def _stream_from_backend_guarded(
                                 data=usage_data,
                                 elapsed_seconds=elapsed,
                             )
+                            _usage_recorded = True
                         except Exception:
                             logger.debug("Could not parse usage payload from stream")
-                # OpenAI SSE: "data: [DONE]" terminator
+                # OpenAI usage chunk from Ollama stream_options.include_usage=true:
+                # Ollama sends a final data:{...,"usage":{"prompt_tokens":X,"completion_tokens":Y}}
+                # chunk before [DONE]. Detect by "completion_tokens" in the line so we parse
+                # it once and record TPS for every streaming request (not just the 13% that
+                # happen to return Ollama native format with eval_count/eval_duration).
+                elif '"completion_tokens"' in line and line.startswith("data:") and not _usage_recorded:
+                    payload = line[5:].strip()
+                    if payload:
+                        try:
+                            usage_data = json.loads(payload)
+                            elapsed = (
+                                (time.monotonic() - start_time) if start_time is not None else None
+                            )
+                            _record_usage(
+                                model=model,
+                                workspace=workspace_id,
+                                data=usage_data,
+                                elapsed_seconds=elapsed,
+                            )
+                            _usage_recorded = True
+                        except Exception:
+                            logger.debug("Could not parse OpenAI usage chunk from stream")
+                # OpenAI SSE: "data: [DONE]" — TPS already recorded from usage chunk above
                 if line.startswith("data: [DONE]"):
-                    elapsed = (time.monotonic() - start_time) if start_time is not None else None
-                    _record_usage(
-                        model=model,
-                        workspace=workspace_id,
-                        data={},
-                        elapsed_seconds=elapsed,
-                    )
+                    pass
 
                 # Reasoning-model deltas under Ollama /v1: keep the behaviour,
                 # fix the attribution — promote reasoning → content.
