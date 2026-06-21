@@ -5,12 +5,12 @@ stack is expected to be running when you begin. At the end, update the
 Grafana benchmarks dashboard with the results and commit them.
 
 Current scale (verify with the dry-run plan — counts are config-driven and
-drift): **85 configured Ollama models (75 installed), 103 benchable
-workspaces (105 total − 2 pipeline_bench_skip), 144 personas, ~332 total
-tests at `--mode all`**. The skip list is exactly two OCR-vision workspaces:
-`bench-nanonets-ocr2`, `bench-olmocr2` (image-input probe required).
-Speech workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
-`bench-granite-speech`) are no longer skipped; they are benchable.
+drift): **78 workspaces total (35 production auto- + 43 bench-), 0 pipeline_bench_skip,
+144 personas**. Speech bench workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
+`bench-granite-speech`) were pruned in 2026-06-20 workspace cleanup — they no longer exist.
+OCR workspaces (`bench-nanonets-ocr2`, `bench-olmocr2`) remain in the skip list only if
+re-added; currently `pipeline_bench_skip: []`. Always confirm with `--dry-run` before a
+long run — these counts drift as workspaces are added/pruned.
 `bench_tps.py` is the sole TPS instrument for the platform — the
 acceptance and UAT suites assert no performance numbers.
 
@@ -89,11 +89,11 @@ Confirm with the dry-run before committing to a long run:
 
 | Dimension | Count |
 |---|---|
-| Ollama catalog models (configured) | 85 |
-| Ollama models (installed) | 75 |
-| Benchable pipeline workspaces | 103 (105 total − 2 skip) |
+| Ollama catalog models | verify via `--dry-run` |
+| Pipeline workspaces total | 78 (35 auto- + 43 bench-) |
+| pipeline_bench_skip | 0 |
 | Personas | 144 |
-| **Total tests (mode=all)** | **~332** |
+| **Total tests (mode=all)** | **verify via `--dry-run`** |
 
 ### Three test modes (run together with `--mode all`):
 
@@ -125,10 +125,10 @@ the dry-run plan prints the full resolved mapping.
 `workspace_model`.
 
 > Production primaries worth knowing on sight: `auto-blueteam` →
-> Foundation-Sec-8B-Reasoning
-> (`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`);
-> `auto-compliance` and `tools-specialist` → `granite4.1:8b`; `auto-agentic`
-> → `qwen3-coder-next` (MoE — slow cold load is normal);
+> Foundation-Sec-8B-Reasoning (`hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0`);
+> `auto-compliance` and `tools-specialist` → `granite4.1:8b`; `auto-agentic` →
+> `qwen3-coder-next:latest` (MoE — slow cold load is normal); `auto-coding-agentic` →
+> `laguna-xs.2:Q4_K_M` (Poolside AI 33B-A3B MoE, opencode/Claude Code default);
 > `auto-creative` → `fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4`.
 > Authoritative source: `portal_pipeline/router/workspaces.py`.
 
@@ -177,13 +177,10 @@ python3 tests/benchmarks/bench_tps.py --mode all --dry-run
 ```
 
 ### 5. Skip mechanism reference
-OCR-vision bench workspaces carry entries in the top-level
-`pipeline_bench_skip:` list in `backends.yaml` (currently exactly two:
-`bench-nanonets-ocr2`, `bench-olmocr2`). An explicit `--workspace <id>`
-filter overrides the skip (operator wants to probe that workspace
-intentionally). OCR benches need an image-input probe — not bench_tps.py's
-job. Speech workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
-`bench-granite-speech`) are no longer skipped and will be tested.
+`pipeline_bench_skip` in `backends.yaml` is currently `[]` — nothing is skipped.
+OCR and speech bench workspaces were pruned in the 2026-06-20 cleanup and no longer exist.
+If any workspace is re-added to `pipeline_bench_skip`, an explicit `--workspace <id>` filter
+overrides the skip (operator wants to probe it intentionally).
 
 ### 6. No MLX watchdog
 There is no MLX proxy or watchdog for inference. Ollama manages its own
