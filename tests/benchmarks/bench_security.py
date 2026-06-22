@@ -89,7 +89,9 @@ _load_env()
 
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
-REQUEST_TIMEOUT = 600.0  # hard ceiling only — call_pipeline uses streaming internally
+REQUEST_TIMEOUT = 600.0  # per-chunk read ceiling; NOT a total response wall-clock limit
+PROMPT_WALL_TIMEOUT = 300.0  # max total seconds per prompt (kills runaway long-form generation)
+PROMPT_MAX_TOKENS = 2000     # cap tokens sent to model; prevents multi-hour single-response runaway
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Prompt library ────────────────────────────────────────────────────────────
@@ -903,8 +905,12 @@ def score_response(
 def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
     """Call pipeline workspace via SSE streaming; complete on [DONE] event.
 
-    REQUEST_TIMEOUT is a hard ceiling safety net only — normal completions
-    fire on the [DONE] SSE event without waiting for the full timer to expire.
+    Two-layer timeout protection:
+    - REQUEST_TIMEOUT: per-chunk httpx read ceiling (catches hung connections)
+    - PROMPT_WALL_TIMEOUT: total elapsed check inside the streaming loop (catches
+      models that stream tokens slowly forever — each chunk arrives in time but the
+      total generation runs for hours)
+    - PROMPT_MAX_TOKENS: sent to the model to cap generation length at source
     """
     import json as _json
 
@@ -919,11 +925,15 @@ def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
                 "model": workspace,
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": True,
+                "max_tokens": PROMPT_MAX_TOKENS,
             },
             headers=headers,
         ) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
+                if time.monotonic() - t0 > PROMPT_WALL_TIMEOUT:
+                    parts.append("\n[TRUNCATED: wall-clock limit]")
+                    break
                 if line == "data: [DONE]":
                     break
                 if line.startswith("data: "):
@@ -986,14 +996,19 @@ def run_bench(
                 print(" DRY-RUN")
                 continue
 
+            content, elapsed, status, error = "", 0.0, "ok", None
             try:
-                content, elapsed = call_pipeline(workspace, meta["text"])
+                import concurrent.futures as _cf
+                _deadline = PROMPT_WALL_TIMEOUT + 30  # outer hard kill: wall timeout + 30s grace
+                with _cf.ThreadPoolExecutor(max_workers=1) as _pool:
+                    _fut = _pool.submit(call_pipeline, workspace, meta["text"])
+                    try:
+                        content, elapsed = _fut.result(timeout=_deadline)
+                    except _cf.TimeoutError:
+                        elapsed = _deadline
+                        raise TimeoutError(f"prompt exceeded {_deadline:.0f}s hard deadline")
                 scores = score_response(content, meta, ws_cat)
-                status = "ok"
-                error = None
             except Exception as exc:
-                content = ""
-                elapsed = 0.0
                 scores = {"composite": 0.0, "disclaimers": 0, "mitre_count": 0, "words": 0}
                 status = "error"
                 error = str(exc)
