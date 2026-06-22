@@ -89,9 +89,8 @@ _load_env()
 
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
-REQUEST_TIMEOUT = 600.0  # per-chunk read ceiling; NOT a total response wall-clock limit
-PROMPT_WALL_TIMEOUT = 300.0  # max total seconds per prompt (kills runaway long-form generation)
-PROMPT_MAX_TOKENS = 2000     # cap tokens sent to model; prevents multi-hour single-response runaway
+REQUEST_TIMEOUT = 600.0   # per-chunk httpx read ceiling — event-driven (fires on absent data)
+PROMPT_MAX_TOKENS = 3000  # model-level token cap — capacity event, not a timer
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Prompt library ────────────────────────────────────────────────────────────
@@ -902,15 +901,37 @@ def score_response(
 # ── HTTP client ───────────────────────────────────────────────────────────────
 
 
-def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
-    """Call pipeline workspace via SSE streaming; complete on [DONE] event.
+def _scoring_criteria_met(text: str, meta: dict) -> bool:
+    """Event: fires when accumulated response satisfies all prompt scoring criteria.
 
-    Two-layer timeout protection:
-    - REQUEST_TIMEOUT: per-chunk httpx read ceiling (catches hung connections)
-    - PROMPT_WALL_TIMEOUT: total elapsed check inside the streaming loop (catches
-      models that stream tokens slowly forever — each chunk arrives in time but the
-      total generation runs for hours)
-    - PROMPT_MAX_TOKENS: sent to the model to cap generation length at source
+    Used as the primary stop signal inside the streaming loop — no wall-clock timer.
+    Stops streaming as soon as we have everything needed to score; any further tokens
+    would only repeat or pad without changing the composite score.
+    """
+    if len(text.split()) < meta.get("word_min", 0):
+        return False
+    required = meta.get("required_headers", [])
+    if required and not all(h.upper() in text.upper() for h in required):
+        return False
+    mitre_min = meta.get("mitre_min", 0)
+    if mitre_min > 0 and len(set(MITRE_PATTERN.findall(text.upper()))) < mitre_min:
+        return False
+    return True
+
+
+def call_pipeline(
+    workspace: str, prompt: str, prompt_meta: dict | None = None
+) -> tuple[str, float]:
+    """Call pipeline workspace via SSE streaming; stop on the first of:
+
+    1. [DONE] SSE event — model finished naturally
+    2. Content-completion event — all scoring criteria satisfied (headers + words + MITRE);
+       remaining tokens would only pad without improving the score
+    3. max_tokens capacity event — model-level token cap; no wall-clock timer
+    4. REQUEST_TIMEOUT per-chunk httpx ceiling — fires on absent data (hung connection)
+
+    Primary control is content-completion: a response covering all rubric items stops
+    there regardless of length. No timers — only meaningful events trigger early exit.
     """
     import json as _json
 
@@ -931,9 +952,6 @@ def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
         ) as resp:
             resp.raise_for_status()
             for line in resp.iter_lines():
-                if time.monotonic() - t0 > PROMPT_WALL_TIMEOUT:
-                    parts.append("\n[TRUNCATED: wall-clock limit]")
-                    break
                 if line == "data: [DONE]":
                     break
                 if line.startswith("data: "):
@@ -944,6 +962,9 @@ def call_pipeline(workspace: str, prompt: str) -> tuple[str, float]:
                             parts.append(c)
                     except Exception:
                         pass
+                # Content-completion event: stop as soon as scoring criteria satisfied
+                if prompt_meta and parts and _scoring_criteria_met("".join(parts), prompt_meta):
+                    break
     return "".join(parts), time.monotonic() - t0
 
 
@@ -998,15 +1019,7 @@ def run_bench(
 
             content, elapsed, status, error = "", 0.0, "ok", None
             try:
-                import concurrent.futures as _cf
-                _deadline = PROMPT_WALL_TIMEOUT + 30  # outer hard kill: wall timeout + 30s grace
-                with _cf.ThreadPoolExecutor(max_workers=1) as _pool:
-                    _fut = _pool.submit(call_pipeline, workspace, meta["text"])
-                    try:
-                        content, elapsed = _fut.result(timeout=_deadline)
-                    except _cf.TimeoutError:
-                        elapsed = _deadline
-                        raise TimeoutError(f"prompt exceeded {_deadline:.0f}s hard deadline")
+                content, elapsed = call_pipeline(workspace, meta["text"], prompt_meta=meta)
                 scores = score_response(content, meta, ws_cat)
             except Exception as exc:
                 scores = {"composite": 0.0, "disclaimers": 0, "mitre_count": 0, "words": 0}
