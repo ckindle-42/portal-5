@@ -90,7 +90,7 @@ _load_env()
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 REQUEST_TIMEOUT = 600.0   # per-chunk httpx read ceiling — event-driven (fires on absent data)
-PROMPT_MAX_TOKENS = 3000  # model-level token cap — capacity event, not a timer
+PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
 RESULTS_DIR = Path(__file__).parent / "results"
 
 # ── Prompt library ────────────────────────────────────────────────────────────
