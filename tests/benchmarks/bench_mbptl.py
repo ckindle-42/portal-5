@@ -477,28 +477,76 @@ PHASE_FLAGS = {
 
 # ── Lab lifecycle ─────────────────────────────────────────────────────────────
 
-def lab_setup(dry_run: bool = False) -> bool:
+MBPTL_SNAPSHOT = os.environ.get("LAB_MBPTL_SNAPSHOT", "clean")
+
+
+def lab_setup(dry_run: bool = False, snapshot: str = "") -> bool:
     if not MBPTL_LXC_VMID:
         print("  [proxmox-mcp] lifecycle skipped — LAB_MBPTL_LXC_VMID not set")
         return True
-    print("\n── Lab Setup (Proxmox MCP :8927) ──")
+    snap = snapshot or MBPTL_SNAPSHOT
+    print(f"\n── Lab Setup (Proxmox MCP :{PROXMOX_MCP_PORT}) ──")
     if dry_run:
-        print(f"  [proxmox-mcp] DRY-RUN — would start LXC vmid={MBPTL_LXC_VMID}")
+        print(f"  DRY-RUN — would revert vmid={MBPTL_LXC_VMID} to snapshot={snap!r} then start")
         return True
-    print(f"  [proxmox-mcp] starting LXC vmid={MBPTL_LXC_VMID} ...", end=" ", flush=True)
     try:
-        r = _proxmox_mcp_call("proxmox_container_start", {"vmid": int(MBPTL_LXC_VMID), "wait": True}, timeout=60)
+        # Revert to clean snapshot first — ensures repeatable state
+        print(f"  reverting vmid={MBPTL_LXC_VMID} → snapshot={snap!r} ...", end=" ", flush=True)
+        r = _proxmox_mcp_call(
+            "proxmox_rollback_snapshot",
+            {"vmid": int(MBPTL_LXC_VMID), "snapname": snap},
+            timeout=120,
+        )
+        if not r["ok"]:
+            print(f"WARN: revert failed ({r.get('error')}) — continuing with current state")
+        else:
+            print("OK")
+
+        # Start the container
+        print(f"  starting vmid={MBPTL_LXC_VMID} ...", end=" ", flush=True)
+        r = _proxmox_mcp_call(
+            "proxmox_container_start",
+            {"vmid": int(MBPTL_LXC_VMID), "wait": True},
+            timeout=60,
+        )
         if not r["ok"]:
             print(f"FAIL: {r.get('error')}")
             return False
         print("OK")
-        print("  waiting 10s for MBPTL containers to settle ...", end=" ", flush=True)
-        time.sleep(10)
+        print("  waiting 15s for MBPTL containers to settle ...", end=" ", flush=True)
+        time.sleep(15)
         print("ok")
         return True
     except Exception as exc:
         print(f"ERR: {exc}")
         return False
+
+
+def lab_revert(dry_run: bool = False, snapshot: str = "") -> None:
+    """Revert LXC to clean snapshot after a bench run for repeatability."""
+    if not MBPTL_LXC_VMID:
+        return
+    snap = snapshot or MBPTL_SNAPSHOT
+    print(f"\n── Lab Teardown — reverting vmid={MBPTL_LXC_VMID} → {snap!r} ...", end=" ", flush=True)
+    if dry_run:
+        print("DRY-RUN")
+        return
+    try:
+        # Stop containers first so Docker state is clean on next start
+        _proxmox_mcp_call(
+            "proxmox_container_exec",
+            {"vmid": int(MBPTL_LXC_VMID), "command": "docker compose -f /opt/ctf-labs/mbptl/mbptl/docker-compose.yml down 2>/dev/null; true"},
+            timeout=30,
+        )
+        _proxmox_mcp_call("proxmox_container_stop", {"vmid": int(MBPTL_LXC_VMID)}, timeout=30)
+        r = _proxmox_mcp_call(
+            "proxmox_rollback_snapshot",
+            {"vmid": int(MBPTL_LXC_VMID), "snapname": snap},
+            timeout=120,
+        )
+        print("OK" if r.get("ok") else f"WARN: {r.get('error')}")
+    except Exception as exc:
+        print(f"ERR: {exc}")
 
 
 # ── Runner ────────────────────────────────────────────────────────────────────
@@ -509,6 +557,7 @@ def run_bench(
     dry_run: bool,
     output_path: Path | None,
     manage_lifecycle: bool = False,
+    snapshot: str = "",
 ) -> None:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     results: dict[str, Any] = {
@@ -530,7 +579,7 @@ def run_bench(
     print(f"Phases: {', '.join(phases)}\n")
 
     if manage_lifecycle:
-        if not lab_setup(dry_run=dry_run):
+        if not lab_setup(dry_run=dry_run, snapshot=snapshot):
             print("[!] Lab setup failed — aborting")
             return
 
@@ -541,6 +590,10 @@ def run_bench(
         all_flags: list[str] = []
         last_result: dict = {}
         for run_n in range(1, runs + 1):
+            # Revert to clean snapshot between runs for repeatability
+            if manage_lifecycle and run_n > 1:
+                lab_setup(dry_run=dry_run, snapshot=snapshot)
+
             print(f"  [{phase}] run {run_n}/{runs} ...", end=" ", flush=True)
             result = fn(dry_run)
             timings.append(result["elapsed_s"])
@@ -594,6 +647,9 @@ def run_bench(
     out.write_text(json.dumps(results, indent=2))
     print(f"Results → {out}")
 
+    if manage_lifecycle:
+        lab_revert(dry_run=dry_run, snapshot=snapshot)
+
     if not dry_run and any(pr["fail"] > 0 for pr in results["phases"].values()):
         sys.exit(1)
 
@@ -608,13 +664,27 @@ def _parse() -> argparse.Namespace:
     p.add_argument("--output", type=Path, help="JSON results file path")
     p.add_argument("--dry-run", action="store_true", help="skip MCP calls, measure overhead only")
     p.add_argument("--lifecycle", action="store_true",
-                   help="Start MBPTL LXC via Proxmox MCP before bench (requires LAB_MBPTL_LXC_VMID)")
+                   help="Start MBPTL LXC via Proxmox MCP before bench, revert after (requires LAB_MBPTL_LXC_VMID)")
+    p.add_argument("--snapshot", default="",
+                   metavar="NAME",
+                   help=f"Proxmox snapshot to revert to before each run (default: LAB_MBPTL_SNAPSHOT env or 'clean')")
+    p.add_argument("--revert-only", action="store_true",
+                   help="Just revert the LXC to the clean snapshot and exit — useful for manual reset")
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = _parse()
+
+    if args.revert_only:
+        lab_revert(dry_run=args.dry_run, snapshot=args.snapshot)
+        sys.exit(0)
+
     if not HOST and not args.dry_run:
         print("ERROR: LAB_MBPTL_HOST not set. Set it in .env or environment.")
         sys.exit(1)
-    run_bench(args.phases, args.runs, args.dry_run, args.output, manage_lifecycle=args.lifecycle)
+    run_bench(
+        args.phases, args.runs, args.dry_run, args.output,
+        manage_lifecycle=args.lifecycle,
+        snapshot=args.snapshot,
+    )
