@@ -1821,59 +1821,88 @@ def _run_exec_chain(
                 results.append({"model": model, "steps_assigned": step_names, "dry_run": True})
                 continue
 
-            parts: list[str] = []
-            tc_buffers: dict[int, dict] = {}
             t0 = time.monotonic()
 
-            try:
-                with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
-                    # Call Ollama directly so each chain model is independent.
-                    # Tools are inline definitions — calls are captured but not executed;
-                    # this measures tool generation quality and handoff coherence.
-                    with client.stream(
+            def _call_chain_model(
+                msgs: list[dict],
+            ) -> tuple[list[str], list[dict]]:
+                """Stream one chain turn; return (text_parts, tool_calls)."""
+                _parts: list[str] = []
+                _tcbufs: dict[int, dict] = {}
+                with httpx.Client(
+                    timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)
+                ) as _client:
+                    with _client.stream(
                         "POST",
                         f"{ollama_url}/v1/chat/completions",
                         json={
                             "model": model,
-                            "messages": messages,
+                            "messages": msgs,
                             "stream": True,
                             "max_tokens": PROMPT_MAX_TOKENS,
                             "tools": INLINE_TOOLS,
                         },
-                    ) as resp:
-                        resp.raise_for_status()
-                        for line in resp.iter_lines():
-                            if line == "data: [DONE]":
+                    ) as _resp:
+                        _resp.raise_for_status()
+                        for _line in _resp.iter_lines():
+                            if _line == "data: [DONE]":
                                 break
-                            if not line.startswith("data: "):
+                            if not _line.startswith("data: "):
                                 continue
                             try:
-                                d = _json.loads(line[6:])
-                                delta = d["choices"][0]["delta"]
-                                c = delta.get("content") or ""
-                                if c:
-                                    parts.append(c)
-                                for tc in delta.get("tool_calls") or []:
-                                    idx = tc.get("index", 0)
-                                    if idx not in tc_buffers:
-                                        tc_buffers[idx] = {"tool": "", "args_raw": ""}
-                                    fn = tc.get("function", {})
-                                    if fn.get("name"):
-                                        tc_buffers[idx]["tool"] = fn["name"]
-                                    tc_buffers[idx]["args_raw"] += fn.get("arguments", "")
+                                _d = _json.loads(_line[6:])
+                                _delta = _d["choices"][0]["delta"]
+                                _c = _delta.get("content") or ""
+                                if _c:
+                                    _parts.append(_c)
+                                for _tc in _delta.get("tool_calls") or []:
+                                    _idx = _tc.get("index", 0)
+                                    if _idx not in _tcbufs:
+                                        _tcbufs[_idx] = {"tool": "", "args_raw": ""}
+                                    _fn = _tc.get("function", {})
+                                    if _fn.get("name"):
+                                        _tcbufs[_idx]["tool"] = _fn["name"]
+                                    _tcbufs[_idx]["args_raw"] += _fn.get("arguments", "")
                             except Exception:
                                 pass
+                _tcs: list[dict] = []
+                for _idx in sorted(_tcbufs):
+                    _buf = _tcbufs[_idx]
+                    try:
+                        _args = _json.loads(_buf["args_raw"]) if _buf["args_raw"] else {}
+                    except Exception:
+                        _args = {"_raw": _buf["args_raw"]}
+                    _tcs.append({"tool": _buf["tool"], "arguments": _args})
+                return _parts, _tcs
+
+            try:
+                parts, tool_calls_this = _call_chain_model(messages)
+
+                # Retry if prose-only: exec tasks require tool calls, not explanations.
+                retried = False
+                if not tool_calls_this:
+                    retry_hints = [s["tool_hint"] for s in assigned if s.get("tool_hint")]
+                    if retry_hints:
+                        _hint_lines = "\n".join(f"  {h}" for h in retry_hints)
+                        retry_directive = (
+                            f"REJECTED. You returned prose with no tool calls.\n"
+                            f"This is an execution task — explanations are invalid.\n"
+                            f"Call execute_bash RIGHT NOW with:\n{_hint_lines}\n"
+                            f"Do not explain. Call the tool immediately."
+                        )
+                    else:
+                        retry_directive = (
+                            "REJECTED. You returned prose with no tool calls.\n"
+                            "This is an execution task. Call execute_bash or execute_python immediately."
+                        )
+                    retry_messages = messages + [
+                        {"role": "assistant", "content": "".join(parts) or "(no response)"},
+                        {"role": "user", "content": retry_directive},
+                    ]
+                    parts, tool_calls_this = _call_chain_model(retry_messages)
+                    retried = True
 
                 elapsed = time.monotonic() - t0
-                tool_calls_this: list[dict] = []
-                for idx in sorted(tc_buffers):
-                    buf = tc_buffers[idx]
-                    try:
-                        args = _json.loads(buf["args_raw"]) if buf["args_raw"] else {}
-                    except Exception:
-                        args = {"_raw": buf["args_raw"]}
-                    tool_calls_this.append({"tool": buf["tool"], "arguments": args})
-
                 accumulated_tool_calls.extend(tool_calls_this)
 
                 sub_meta = {**meta, "exec_sequence": assigned}
@@ -1887,7 +1916,7 @@ def _run_exec_chain(
                     )
                     handoff = f"[{model} called: {tc_summary}]\n{content}"
                 else:
-                    handoff = content or f"[{model}: no tool calls, prose only]"
+                    handoff = content or f"[{model}: no tool calls after retry]"
                 shared_context.append({"role": "assistant", "content": handoff})
 
                 results.append({
@@ -1901,6 +1930,7 @@ def _run_exec_chain(
                     "exec_scores": exec_scores,
                     "elapsed_s": round(elapsed, 1),
                     "content_len": len(content),
+                    "retried": retried,
                 })
 
             except Exception as exc:
@@ -2232,16 +2262,18 @@ def run_bench(
                     _mtcs = _rm.get("tool_calls", [])
                     _msteps = _rm.get("steps_hit", [])
                     _mmissed = _rm.get("steps_missed", [])
+                    _retried = _rm.get("retried", False)
+                    _rtag = " [retried]" if _retried else ""
                     if _mtcs:
                         for _tc in _mtcs:
                             _asnip = str(_tc.get("arguments", ""))[:100]
-                            print(f"    [{_mname}] {_tc.get('tool','?')}({_asnip})")
+                            print(f"    [{_mname}{_rtag}] {_tc.get('tool','?')}({_asnip})")
                         if _msteps:
                             print(f"    [{_mname}] steps_hit={_msteps}")
                         if _mmissed:
                             print(f"    [{_mname}] steps_missed={_mmissed}")
                     else:
-                        print(f"    [{_mname}] NO TOOL CALLS — prose only (steps_missed={_mmissed})")
+                        print(f"    [{_mname}{_rtag}] FAIL — no tool calls after retry (steps_missed={_mmissed})")
                 if _be2:
                     _bsnip = _be2.get("response", "")[:200]
                     print(f"  blue: \"{_bsnip}\"")
