@@ -2020,19 +2020,63 @@ def run_bench(
 
     # ── Phase 2: Chain batch — all chain runs after theory/exec complete ─────
     # Running chains as a batch prevents pipeline models (loaded above) from
-    # evicting chain models. Pre-warm chain models once before the batch starts.
+    # evicting chain models. MAX_LOADED=3 means we must be surgical: unload
+    # non-chain models first, then warm chain models one by one so all 3 slots
+    # are occupied by chain models before any chain prompt runs.
     if chain_pending and exec_chain_models and not dry_run:
+        import json as _jw
+        import httpx as _hw
         _ollama_url = PIPELINE_URL.replace(":9099", ":11434")
-        print(f"\n── Chain phase: pre-warming {len(exec_chain_models)} model(s) ──")
-        for _cm in exec_chain_models:
-            print(f"  warming {_cm.split('/')[-1][:30]} ...", end="", flush=True)
+
+        # Step 1: inventory what's currently loaded
+        _loaded_ids: set[str] = set()
+        try:
+            with _hw.Client(timeout=_hw.Timeout(10, connect=3.0)) as _pc:
+                _ps = _pc.get(f"{_ollama_url}/api/ps")
+                _ps.raise_for_status()
+                for _m in _ps.json().get("models", []):
+                    _loaded_ids.add(_m["name"])
+        except Exception:
+            pass
+
+        # Step 2: unload non-chain models so we don't hit MAX_LOADED during pre-warm
+        _chain_set = set(exec_chain_models)
+        if blue_defender_model:
+            _chain_set.add(blue_defender_model)
+        _to_evict = [_lid for _lid in _loaded_ids if _lid not in _chain_set]
+        if _to_evict:
+            print(f"\n── Chain phase: evicting {len(_to_evict)} non-chain model(s) ──")
+            for _ev in _to_evict:
+                print(f"  unload {_ev.split('/')[-1][:35]} ...", end="", flush=True)
+                try:
+                    with _hw.Client(timeout=_hw.Timeout(30, connect=3.0)) as _ec:
+                        _er = _ec.delete(f"{_ollama_url}/api/delete", json={"name": _ev, "keep_alive": "0"})
+                    # Ollama /api/delete removes the model entry — use keep_alive=0 via generate instead
+                    with _hw.Client(timeout=_hw.Timeout(30, connect=3.0)) as _ec2:
+                        _ec2.post(
+                            f"{_ollama_url}/api/generate",
+                            json={"model": _ev, "prompt": "", "keep_alive": 0},
+                        )
+                    print(" done")
+                except Exception as _ee:
+                    print(f" skip({type(_ee).__name__})")
+
+        # Step 3: pre-warm chain models that aren't already loaded
+        _already_warm = _loaded_ids & _chain_set
+        _need_warm = [_cm for _cm in exec_chain_models if _cm not in _already_warm]
+        if blue_defender_model and blue_defender_model not in _already_warm:
+            _need_warm.append(blue_defender_model)
+
+        print(f"\n── Chain phase: pre-warming {len(_need_warm)} model(s) "
+              f"({len(_already_warm)} already loaded) ──")
+        for _cm in _need_warm:
+            print(f"  warming {_cm.split('/')[-1][:35]} ...", end="", flush=True)
             try:
-                import json as _jw
-                import httpx as _hw
-                with _hw.Client(timeout=_hw.Timeout(180, connect=5.0)) as _wc:
+                with _hw.Client(timeout=_hw.Timeout(240, connect=5.0)) as _wc:
                     _wr = _wc.post(
                         f"{_ollama_url}/v1/chat/completions",
-                        json={"model": _cm, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                        json={"model": _cm, "messages": [{"role": "user", "content": "hi"}],
+                              "max_tokens": 1, "stream": False},
                     )
                     _wr.raise_for_status()
                 print(" warm")
