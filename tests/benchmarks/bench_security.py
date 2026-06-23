@@ -1893,7 +1893,13 @@ def run_bench(
     results = []
     total = len(workspaces) * len(prompt_keys)
     done = 0
+    # Collect (row_index, prompt_key) pairs that need chain runs — executed as a
+    # separate phase AFTER all theory/exec pipeline passes complete. This prevents
+    # pipeline workspace models (loaded by theory/exec) from evicting chain models
+    # mid-run, which caused regression between runs.
+    chain_pending: list[tuple[int, str]] = []
 
+    # ── Phase 1: Theory + Exec pipeline passes ───────────────────────────────
     for workspace in workspaces:
         ws_cat = _workspace_category(workspace)
         is_exec_ws = workspace in EXECUTION_WORKSPACES
@@ -1926,7 +1932,6 @@ def run_bench(
                     request_overrides["portal_no_tools"] = True
 
                 if request_overrides:
-                    # Temporarily patch call_pipeline with overrides
                     import json as _json_tmp
                     import httpx as _httpx_tmp
                     _parts: list[str] = []
@@ -1980,19 +1985,6 @@ def run_bench(
                 except Exception as exc_e:
                     exec_scores = {"exec_composite": 0.0, "error": str(exc_e)}
 
-            # ── Execution chain pass (multi-model, prompt-level) ─────────────
-            exec_chain_results: list[dict] = []
-            if exec_eval and exec_chain_models and meta.get("exec_sequence") and status == "ok":
-                try:
-                    exec_chain_results = _run_exec_chain(
-                        key,
-                        exec_chain_models,
-                        dry_run=dry_run,
-                        blue_defender_model=blue_defender_model,
-                    )
-                except Exception as exc_c:
-                    exec_chain_results = [{"error": str(exc_c)}]
-
             row: dict[str, Any] = {
                 "workspace": workspace,
                 "prompt_key": key,
@@ -2006,10 +1998,12 @@ def run_bench(
             if exec_scores:
                 row["exec_scores"] = exec_scores
                 row["exec_elapsed_s"] = round(exec_elapsed, 2)
-            if exec_chain_results:
-                row["exec_chain"] = exec_chain_results
 
             results.append(row)
+
+            # Queue chain-eligible rows — executed as a batch in Phase 2
+            if exec_eval and exec_chain_models and meta.get("exec_sequence") and status == "ok":
+                chain_pending.append((len(results) - 1, key))
 
             c = theory_scores.get("composite", 0.0)
             d = theory_scores.get("disclaimers", 0)
@@ -2020,28 +2014,60 @@ def run_bench(
                 f"  exec={exec_scores.get('exec_composite', 0):.2f}"
                 f"  steps={len(exec_scores.get('steps_hit', []))}/{len(meta.get('exec_sequence', []))}"
             ) if exec_scores else ""
-            # Chain summary — lead with exec coverage + tool utilization (primary signals)
-            chain_tag = ""
-            if exec_chain_results:
-                _ar = [r for r in exec_chain_results if not r.get("_blue_defender")]
-                blue_entry = next((r for r in exec_chain_results if r.get("_blue_defender")), None)
-                if _ar:
-                    ch_comp = _ar[0].get("chain_exec_composite", 0)
-                    ch_util = _ar[0].get("chain_tool_utilization", 0)
-                    ch_calls_n = _ar[0].get("chain_models_with_calls", 0)
-                    ch_total_n = _ar[0].get("chain_total_models", len(_ar))
-                    ch_hoff = _ar[0].get("chain_handoff_quality", "?")
-                    chain_tag = (
-                        f"  chain({ch_total_n}m)"
-                        f"  exec={ch_comp:.2f}"
-                        f"  tools={ch_calls_n}/{ch_total_n}"
-                        f"  handoff={ch_hoff}"
-                    )
-                if blue_entry:
-                    chain_tag += f"  blue_det={blue_entry.get('detection_score', 0):.2f}"
             print(
-                f" {theory_elapsed:.0f}s  theory={c:.2f}  headers={h}  mitre={m}{exec_tag}{chain_tag}{flag}"
+                f" {theory_elapsed:.0f}s  theory={c:.2f}  headers={h}  mitre={m}{exec_tag}{flag}"
             )
+
+    # ── Phase 2: Chain batch — all chain runs after theory/exec complete ─────
+    # Running chains as a batch prevents pipeline models (loaded above) from
+    # evicting chain models. Pre-warm chain models once before the batch starts.
+    if chain_pending and exec_chain_models and not dry_run:
+        _ollama_url = PIPELINE_URL.replace(":9099", ":11434")
+        print(f"\n── Chain phase: pre-warming {len(exec_chain_models)} model(s) ──")
+        for _cm in exec_chain_models:
+            print(f"  warming {_cm.split('/')[-1][:30]} ...", end="", flush=True)
+            try:
+                import json as _jw
+                import httpx as _hw
+                with _hw.Client(timeout=_hw.Timeout(180, connect=5.0)) as _wc:
+                    _wr = _wc.post(
+                        f"{_ollama_url}/v1/chat/completions",
+                        json={"model": _cm, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                    )
+                    _wr.raise_for_status()
+                print(" warm")
+            except Exception as _we:
+                print(f" WARN({_we})")
+
+        print(f"\n── Chain phase: {len(chain_pending)} prompt(s) × 1 workspace ──")
+        for _ridx, _pkey in chain_pending:
+            _meta = PROMPTS[_pkey]
+            print(f"  chain {_pkey} ...", end="", flush=True)
+            _chain_results: list[dict] = []
+            try:
+                _chain_results = _run_exec_chain(
+                    _pkey,
+                    exec_chain_models,
+                    dry_run=False,
+                    blue_defender_model=blue_defender_model,
+                )
+            except Exception as _ce:
+                _chain_results = [{"error": str(_ce)}]
+
+            results[_ridx]["exec_chain"] = _chain_results
+
+            # Print chain summary
+            _ar2 = [_r for _r in _chain_results if not _r.get("_blue_defender")]
+            _be2 = next((_r for _r in _chain_results if _r.get("_blue_defender")), None)
+            if _ar2:
+                _cc = _ar2[0].get("chain_exec_composite", 0)
+                _cn = _ar2[0].get("chain_models_with_calls", 0)
+                _ct = _ar2[0].get("chain_total_models", len(_ar2))
+                _ch = _ar2[0].get("chain_handoff_quality", "?")
+                _bd = f"  blue_det={_be2.get('detection_score', 0):.2f}" if _be2 else ""
+                print(f"  exec={_cc:.2f}  tools={_cn}/{_ct}  handoff={_ch}{_bd}")
+            else:
+                print(" (no results)")
 
     return results
 
