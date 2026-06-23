@@ -1806,102 +1806,102 @@ def _run_exec_chain(
 
             messages = shared_context + [{"role": "user", "content": step_instruction}]
 
-        if dry_run:
-            results.append({"model": model, "steps_assigned": step_names, "dry_run": True})
-            continue
+            if dry_run:
+                results.append({"model": model, "steps_assigned": step_names, "dry_run": True})
+                continue
 
-        parts: list[str] = []
-        tc_buffers: dict[int, dict] = {}
-        t0 = time.monotonic()
+            parts: list[str] = []
+            tc_buffers: dict[int, dict] = {}
+            t0 = time.monotonic()
 
-        try:
-            with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
-                # Call Ollama directly so each chain model is independent.
-                # Tools are inline definitions — calls are captured but not executed;
-                # this measures tool generation quality and handoff coherence.
-                with client.stream(
-                    "POST",
-                    f"{ollama_url}/v1/chat/completions",
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "stream": True,
-                        "max_tokens": PROMPT_MAX_TOKENS,
-                        "tools": INLINE_TOOLS,
-                    },
-                ) as resp:
-                    resp.raise_for_status()
-                    for line in resp.iter_lines():
-                        if line == "data: [DONE]":
-                            break
-                        if not line.startswith("data: "):
-                            continue
-                        try:
-                            d = _json.loads(line[6:])
-                            delta = d["choices"][0]["delta"]
-                            c = delta.get("content") or ""
-                            if c:
-                                parts.append(c)
-                            for tc in delta.get("tool_calls") or []:
-                                idx = tc.get("index", 0)
-                                if idx not in tc_buffers:
-                                    tc_buffers[idx] = {"tool": "", "args_raw": ""}
-                                fn = tc.get("function", {})
-                                if fn.get("name"):
-                                    tc_buffers[idx]["tool"] = fn["name"]
-                                tc_buffers[idx]["args_raw"] += fn.get("arguments", "")
-                        except Exception:
-                            pass
+            try:
+                with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
+                    # Call Ollama directly so each chain model is independent.
+                    # Tools are inline definitions — calls are captured but not executed;
+                    # this measures tool generation quality and handoff coherence.
+                    with client.stream(
+                        "POST",
+                        f"{ollama_url}/v1/chat/completions",
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "stream": True,
+                            "max_tokens": PROMPT_MAX_TOKENS,
+                            "tools": INLINE_TOOLS,
+                        },
+                    ) as resp:
+                        resp.raise_for_status()
+                        for line in resp.iter_lines():
+                            if line == "data: [DONE]":
+                                break
+                            if not line.startswith("data: "):
+                                continue
+                            try:
+                                d = _json.loads(line[6:])
+                                delta = d["choices"][0]["delta"]
+                                c = delta.get("content") or ""
+                                if c:
+                                    parts.append(c)
+                                for tc in delta.get("tool_calls") or []:
+                                    idx = tc.get("index", 0)
+                                    if idx not in tc_buffers:
+                                        tc_buffers[idx] = {"tool": "", "args_raw": ""}
+                                    fn = tc.get("function", {})
+                                    if fn.get("name"):
+                                        tc_buffers[idx]["tool"] = fn["name"]
+                                    tc_buffers[idx]["args_raw"] += fn.get("arguments", "")
+                            except Exception:
+                                pass
 
-            elapsed = time.monotonic() - t0
-            tool_calls_this: list[dict] = []
-            for idx in sorted(tc_buffers):
-                buf = tc_buffers[idx]
-                try:
-                    args = _json.loads(buf["args_raw"]) if buf["args_raw"] else {}
-                except Exception:
-                    args = {"_raw": buf["args_raw"]}
-                tool_calls_this.append({"tool": buf["tool"], "arguments": args})
+                elapsed = time.monotonic() - t0
+                tool_calls_this: list[dict] = []
+                for idx in sorted(tc_buffers):
+                    buf = tc_buffers[idx]
+                    try:
+                        args = _json.loads(buf["args_raw"]) if buf["args_raw"] else {}
+                    except Exception:
+                        args = {"_raw": buf["args_raw"]}
+                    tool_calls_this.append({"tool": buf["tool"], "arguments": args})
 
-            accumulated_tool_calls.extend(tool_calls_this)
+                accumulated_tool_calls.extend(tool_calls_this)
 
-            sub_meta = {**meta, "exec_sequence": assigned}
-            exec_scores = score_execution(tool_calls_this, sub_meta)
+                sub_meta = {**meta, "exec_sequence": assigned}
+                exec_scores = score_execution(tool_calls_this, sub_meta)
 
-            content = "".join(parts)
-            # Build handoff: include tool call summaries as assistant context
-            if tool_calls_this:
-                tc_summary = "; ".join(
-                    f"{tc['tool']}({list(tc['arguments'].values())[:1]})" for tc in tool_calls_this
-                )
-                handoff = f"[{model} called: {tc_summary}]\n{content}"
-            else:
-                handoff = content or f"[{model}: no tool calls, prose only]"
-            shared_context.append({"role": "assistant", "content": handoff})
+                content = "".join(parts)
+                # Build handoff: include tool call summaries as assistant context
+                if tool_calls_this:
+                    tc_summary = "; ".join(
+                        f"{tc['tool']}({list(tc['arguments'].values())[:1]})" for tc in tool_calls_this
+                    )
+                    handoff = f"[{model} called: {tc_summary}]\n{content}"
+                else:
+                    handoff = content or f"[{model}: no tool calls, prose only]"
+                shared_context.append({"role": "assistant", "content": handoff})
 
-            results.append({
-                "model": model,
-                "role": role_name,
-                "round": round_num + 1,
-                "steps_assigned": step_names,
-                "steps_hit": exec_scores.get("steps_hit", []),
-                "steps_missed": exec_scores.get("steps_missed", []),
-                "tool_calls": tool_calls_this,
-                "exec_scores": exec_scores,
-                "elapsed_s": round(elapsed, 1),
-                "content_len": len(content),
-            })
+                results.append({
+                    "model": model,
+                    "role": role_name,
+                    "round": round_num + 1,
+                    "steps_assigned": step_names,
+                    "steps_hit": exec_scores.get("steps_hit", []),
+                    "steps_missed": exec_scores.get("steps_missed", []),
+                    "tool_calls": tool_calls_this,
+                    "exec_scores": exec_scores,
+                    "elapsed_s": round(elapsed, 1),
+                    "content_len": len(content),
+                })
 
-        except Exception as exc:
-            results.append({
-                "model": model,
-                "role": role_name,
-                "round": round_num + 1,
-                "steps_assigned": step_names,
-                "error": str(exc),
-                "exec_scores": {"exec_composite": 0.0},
-                "elapsed_s": 0.0,
-            })
+            except Exception as exc:
+                results.append({
+                    "model": model,
+                    "role": role_name,
+                    "round": round_num + 1,
+                    "steps_assigned": step_names,
+                    "error": str(exc),
+                    "exec_scores": {"exec_composite": 0.0},
+                    "elapsed_s": 0.0,
+                })
 
     # Full-chain score across all models' tool calls
     full_exec = score_execution(accumulated_tool_calls, meta)
