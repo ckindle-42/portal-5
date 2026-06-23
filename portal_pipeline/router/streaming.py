@@ -214,6 +214,8 @@ async def _stream_with_tool_loop_impl(
     request_id = f"chatcmpl-p5-{int(time.time())}"
     hop = 0
     current_body = dict(body)
+    _exec_audit: bool = bool(body.get("exec_audit"))
+    _exec_audit_calls: list[dict] = []  # accumulates tool calls across all hops when exec_audit=true
 
     while hop < MAX_TOOL_HOPS:
         hop += 1
@@ -504,9 +506,23 @@ async def _stream_with_tool_loop_impl(
                 workspace_id,
                 [tc["function"]["name"] for tc in all_tool_calls],
             )
+            if _exec_audit:
+                _exec_audit_calls.extend(all_tool_calls)
             # Continue loop for next iteration
         else:
             # Model finished without tool calls — done
+            if _exec_audit and _exec_audit_calls:
+                audit_event = {
+                    "type": "exec_audit",
+                    "tool_calls": [
+                        {
+                            "tool": tc.get("function", {}).get("name", ""),
+                            "arguments": tc.get("function", {}).get("arguments", ""),
+                        }
+                        for tc in _exec_audit_calls
+                    ],
+                }
+                yield f"data: {json.dumps(audit_event)}\n\n".encode()
             if start_time is not None:
                 _record_response_time(model, workspace_id, time.monotonic() - start_time)
             return

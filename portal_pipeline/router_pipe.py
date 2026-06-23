@@ -2113,7 +2113,15 @@ async def chat_completions(
         if not backend_supports_tools:
             backend_body.pop("tools", None)
             backend_body.pop("tool_choice", None)
-        _has_tools = bool(effective_tools) and backend_supports_tools
+        # portal_no_tools: bench theory-pass flag — skip tool attachment entirely
+        # so the model cannot call tools and must return prose (tool_choice=none
+        # alone leaves tool definitions in the request, causing skeletal responses).
+        if backend_body.pop("portal_no_tools", False):
+            backend_body.pop("tools", None)
+            backend_body.pop("tool_choice", None)
+            _has_tools = False
+        else:
+            _has_tools = bool(effective_tools) and backend_supports_tools
         if effective_tools and not backend_supports_tools:
             logger.info(
                 "Tool-call: workspace=%s persona=%s model=%s does not declare "
