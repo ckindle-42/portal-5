@@ -947,6 +947,11 @@ def call_pipeline(
                 "messages": [{"role": "user", "content": prompt}],
                 "stream": True,
                 "max_tokens": PROMPT_MAX_TOKENS,
+                # Disable tool use for prose evaluation — tool-use scoring is
+                # handled by the separate chain test path, not this function.
+                # Prevents auto-pentest / auto-purpleteam-exec from spinning
+                # execute_bash calls against a non-existent lab environment.
+                "tool_choice": "none",
             },
             headers=headers,
         ) as resp:
