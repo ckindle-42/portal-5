@@ -2157,10 +2157,7 @@ def run_bench(
                 print(f"  unload {_ev.split('/')[-1][:35]} ...", end="", flush=True)
                 try:
                     with _hw.Client(timeout=_hw.Timeout(30, connect=3.0)) as _ec:
-                        _er = _ec.delete(f"{_ollama_url}/api/delete", json={"name": _ev, "keep_alive": "0"})
-                    # Ollama /api/delete removes the model entry — use keep_alive=0 via generate instead
-                    with _hw.Client(timeout=_hw.Timeout(30, connect=3.0)) as _ec2:
-                        _ec2.post(
+                        _ec.post(
                             f"{_ollama_url}/api/generate",
                             json={"model": _ev, "prompt": "", "keep_alive": 0},
                         )
