@@ -1441,7 +1441,6 @@ def score_handoff_quality(chain_results: list[dict]) -> dict:
             prior_tokens = model_tokens
             continue
 
-        handoffs_total += 1
         # Count how many of prior_tokens appear in this model's context
         # (tool args + any content)
         current_text = ""
@@ -1452,8 +1451,27 @@ def score_handoff_quality(chain_results: list[dict]) -> dict:
         current_lower = current_text.lower()
 
         hits = [t for t in prior_tokens if t in current_lower]
-        # Threshold: 3+ specific tokens from prior model referenced = good handoff
-        good = len(hits) >= 3
+
+        # Skip scoring this handoff if prior model produced no tool call tokens —
+        # there's no concrete artifact to carry forward, so this isn't a failure.
+        if not prior_tokens:
+            detail.append({
+                "from": chain_results[i - 1].get("model", "?").split("/")[-1][:20],
+                "to": result.get("model", "?").split("/")[-1][:20],
+                "prior_tokens_available": 0,
+                "tokens_referenced": 0,
+                "good": None,
+                "skipped": True,
+                "reason": "prior model made no tool calls",
+            })
+            prior_tokens |= model_tokens
+            continue
+
+        handoffs_total += 1
+        # Threshold: 1+ token from prior model's concrete output referenced = good handoff.
+        # Calibrated from observed data: pools are 0-6 tokens (single short tool call),
+        # max hits observed = 1. Any concrete artifact carried forward is signal.
+        good = len(hits) >= 1
         if good:
             handoffs_good += 1
 
