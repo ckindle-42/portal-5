@@ -181,6 +181,15 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
     "http_8080": (8080, "curl -s -o /dev/null -w '%{http_code}' http://${host}:8080/ 2>&1", ["200", "301", "302", "403"]),
     "http_8983": (8983, "curl -s -o /dev/null -w '%{http_code}' http://${host}:8983/ 2>&1", ["200", "301", "404"]),
     "http_8081": (8081, "curl -s -o /dev/null -w '%{http_code}' http://${host}:8081/ 2>&1", ["200", "401", "404"]),
+    # Metasploitable3 Win2k8 services (10.10.11.10)
+    "meta3_smb":      (445,  "nxc smb ${host} -u '' -p '' --shares 2>&1 | head -5", ["SMB", "signing", "Win2008"]),
+    "meta3_mysql":    (3306, "timeout 3 bash -c 'echo > /dev/tcp/${host}/3306' 2>&1; echo OK", ["OK"]),
+    "meta3_http":     (80,   "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1", ["200", "301", "302"]),
+    "meta3_tomcat":   (8282, "curl -s -o /dev/null -w '%{http_code}' http://${host}:8282/ 2>&1", ["200", "302", "401"]),
+    "meta3_ftp":      (21,   "timeout 3 bash -c 'echo > /dev/tcp/${host}/21' 2>&1; echo OK", ["OK"]),
+    # VulnerableApp (on lab-vulhub LXC, port 80)
+    "vulnapp_web":    (80,   "curl -s -o /dev/null -w '%{http_code}' http://${host}/ 2>&1", ["200"]),
+    "vulnapp_api":    (80,   "curl -s -o /dev/null -w '%{http_code}' http://${host}/VulnerableApp/ 2>&1", ["200", "302"]),
 }
 
 # ── Stealth scoring: Windows Event IDs generated per technique ────────────────
@@ -2204,13 +2213,21 @@ def _probe_lab_services(
         return {}
     dc = target_dc or _LAB_DC or "10.10.11.21"
     web = target_web or _LAB_WEB or "10.10.11.50"
+    meta3 = os.environ.get("LAB_TARGET_META3_WIN", "10.10.11.10")
     results: dict[str, bool] = {}
     if dry_run:
         for svc in _LAB_SERVICE_PROBES:
             results[svc] = True
         return results
     for svc_name, (_port, cmd_template, exp_keywords) in _LAB_SERVICE_PROBES.items():
-        host = web if svc_name.startswith("http_") or svc_name == "redis" or svc_name == "nfs" else dc
+        if svc_name.startswith("meta3_"):
+            host = meta3
+        elif svc_name.startswith("vulnapp_"):
+            host = web
+        elif svc_name.startswith("http_") or svc_name == "redis" or svc_name == "nfs":
+            host = web
+        else:
+            host = dc
         cmd = cmd_template.replace("${host}", host)
         try:
             r = _lab_mcp_call(cmd, timeout=15)
@@ -5916,11 +5933,19 @@ def main() -> None:
                 "smb": ["kerberoasting", "asrep_roasting", "pass_the_hash", "smb_enum_relay",
                         "bloodhound_ad_recon", "rbcd_attack", "ad_dcsync_golden_ticket",
                         "adcs_template_abuse", "eternalblue_ms17010"],
+                "meta3_smb": ["kerberoasting", "asrep_roasting", "pass_the_hash", "smb_enum_relay",
+                        "bloodhound_ad_recon", "eternalblue_ms17010", "lateral_movement"],
+                "meta3_mysql": ["sqli_manual"],
+                "meta3_http": ["web_recon_basics", "web_shell_upload"],
+                "meta3_tomcat": ["tomcat_manager"],
+                "meta3_ftp": ["web_recon_basics"],
                 "redis": ["redis_to_rce"],
                 "nfs": ["nfs_privesc_chain"],
                 "http_8080": ["lfi_to_rce"],
                 "http_8081": ["tomcat_manager"],
                 "http_8983": ["log4shell_rce"],
+                "vulnapp_web": ["sqli_manual", "web_shell_upload", "ssrf_exploitation",
+                        "lfi_to_rce", "web_recon_basics", "sqli_manual"],
             }
             _enabled_prompts: set[str] = set()
             for svc, prompts in _svc_to_prompt.items():
