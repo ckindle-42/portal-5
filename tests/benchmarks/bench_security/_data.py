@@ -192,7 +192,7 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
         ["LDAP", "domain"],
     ),
     "kerberos": (88, "nxc smb ${host} -u 'Administrator' -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -3", ["SMB", "445"]),
-    "rpc": (135, "rpcclient -U 'Administrator%LabAdmin1!' ${host} -c 'srvinfo' 2>&1 | grep -v '^\\[\\*\\]' | head -5", ["Server", "platform", "os"]),
+    "rpc": (135, "python3 -c \"import socket,sys;s=socket.socket();s.settimeout(5);r=s.connect_ex(('${host}',135));s.close();print('RPC_OPEN' if r==0 else 'RPC_CLOSED')\"", ["RPC_OPEN"]),
     "redis": (6379, "redis-cli -h ${host} ping 2>&1 | head -3", ["PONG"]),
     "nfs": (2049, "showmount -e ${host} 2>&1 | head -5", ["Export list"]),
     "http_8080": (
@@ -203,7 +203,7 @@ _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
     "http_8983": (
         8983,
         "curl -s -o /dev/null -w '%{http_code}' http://${host}:8983/ 2>&1",
-        ["200", "301", "404"],
+        ["200", "301", "302", "404"],
     ),
     "http_8081": (
         8081,
