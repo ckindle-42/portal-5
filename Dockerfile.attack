@@ -35,6 +35,8 @@ RUN apt-get update \
         dnsutils \
         iproute2 \
         iputils-ping \
+        ntpsec-ntpdate \
+        rdate \
         smbclient \
         ldap-utils \
         nfs-common \

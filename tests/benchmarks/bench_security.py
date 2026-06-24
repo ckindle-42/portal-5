@@ -2013,6 +2013,33 @@ def _parse_sandbox_output(raw: str) -> tuple[bool, str]:
         return bool(raw.strip()), raw
 
 
+_LAB_TIME_SYNCED = False  # per-process flag; one sync per chain run is enough
+
+
+def _ensure_lab_time_sync() -> None:
+    """Sync container clock with DC once per bench run via ntpdate.
+
+    Kerberos requires clocks within 5 minutes (KRB_AP_ERR_SKEW). Containers
+    inherit Docker Desktop's VM clock which may drift from a Proxmox DC.
+    SYS_TIME cap is added in code_sandbox_mcp.py for lab-exec containers.
+    """
+    global _LAB_TIME_SYNCED
+    if _LAB_TIME_SYNCED:
+        return
+    try:
+        dc = os.environ.get("LAB_TARGET_DC", "")
+        if not dc:
+            return
+        r = _lab_mcp_call(f"ntpdate -u {dc} 2>&1 || rdate -s {dc} 2>&1 || true", timeout=15)  # type: ignore[name-defined]
+        _LAB_TIME_SYNCED = True
+        ok, out = _parse_sandbox_output(r.get("output", ""))
+        if out.strip():
+            import sys
+            print(f"  [lab-time-sync] {out.strip()[:80]}", file=sys.stderr)
+    except Exception:
+        pass
+
+
 def _dispatch_lab_tool(tool_name: str, arguments: dict) -> dict:
     """Execute a model-emitted tool call in the real lab sandbox.
 
@@ -2025,6 +2052,7 @@ def _dispatch_lab_tool(tool_name: str, arguments: dict) -> dict:
             cmd = arguments.get("cmd", "").strip()
             if not cmd:
                 return {"ok": False, "output": "(empty cmd)", "elapsed_s": 0.0}
+            _ensure_lab_time_sync()
             r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[name-defined]
             ok, clean = _parse_sandbox_output(r.get("output", ""))
             return {"ok": ok, "output": clean, "elapsed_s": r.get("elapsed_s", 0.0)}

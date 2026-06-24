@@ -235,9 +235,11 @@ async def _run_in_docker(
         "ALL",  # Drop all Linux capabilities
     ] + (
         # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.
+        # SYS_TIME allows ntpdate/rdate to sync container clock with the DC —
+        # required for Kerberos attacks (KRB_AP_ERR_SKEW if >5min drift).
         # Inject DC FQDN via --add-host so tools requiring hostname (bloodhound-ce-python,
         # certipy) can resolve it — container /etc/hosts is read-only under --read-only.
-        ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN"]
+        ["--cap-add", "NET_RAW", "--cap-add", "NET_ADMIN", "--cap-add", "SYS_TIME"]
         + (
             [
                 f"--add-host=lab-dc01.portal.lab:{SANDBOX_LAB_TARGET_DC}",
