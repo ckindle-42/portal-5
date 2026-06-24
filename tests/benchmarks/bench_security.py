@@ -2198,11 +2198,25 @@ def _run_exec_chain(
                 )
                 exec_hint = f"\nLab context: {_et[:_hint_end]}"
 
-            # Collect required command hints from assigned steps (tool_hint field)
-            tool_hints = [s["tool_hint"] for s in assigned if s.get("tool_hint")]
+            # Collect required command hints from assigned steps (tool_hint field).
+            # When lab_exec is active, substitute $LAB_TARGET_* placeholders with
+            # the real lab IPs so models execute against actual targets, not
+            # HTB training-data IPs that may appear in tool_hint strings.
+            _hint_dc = (_LAB_DC or "10.10.11.21") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$LAB_TARGET_DC"  # type: ignore[name-defined]
+            _hint_srv = (_LAB_SRV or "10.10.11.33") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$LAB_TARGET_SRV"  # type: ignore[name-defined]
+            _hint_dom = (_LAB_DOMAIN or "portal.lab") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$DOMAIN"  # type: ignore[name-defined]
+            _hint_pass = (_LAB_ADMIN_PASS or "LabAdmin1!") if (lab_exec and _LAB_EXEC_AVAILABLE) else "$ADMIN_PASS"  # type: ignore[name-defined]
+            def _sub_hint(h: str) -> str:
+                return (h
+                    .replace("$LAB_TARGET_DC", _hint_dc)
+                    .replace("$LAB_TARGET_SRV", _hint_srv)
+                    .replace("$DOMAIN", _hint_dom)
+                    .replace("$LAB_NETWORK", _hint_dc.rsplit(".", 1)[0] + ".0")
+                )
+            tool_hints = [_sub_hint(s["tool_hint"]) for s in assigned if s.get("tool_hint")]
             tool_hint_block = ""
             if tool_hints:
-                tool_hint_block = "\nRequired commands (adapt IPs/creds from context above):\n" + "\n".join(
+                tool_hint_block = "\nRequired commands (use these exact IPs and credentials):\n" + "\n".join(
                     f"  {h}" for h in tool_hints
                 )
 
@@ -2301,7 +2315,7 @@ def _run_exec_chain(
                 # in restrictive workspace contexts see precisely what to emit.
                 retried = False
                 if not tool_calls_this or not _has_meaningful_args(tool_calls_this):
-                    retry_hints = [s["tool_hint"] for s in assigned if s.get("tool_hint")]
+                    retry_hints = [_sub_hint(s["tool_hint"]) for s in assigned if s.get("tool_hint")]
                     if retry_hints:
                         _primary_hint = retry_hints[0]
                         _hint_lines = "\n".join(f"  {h}" for h in retry_hints)
@@ -2309,7 +2323,7 @@ def _run_exec_chain(
                             f"REJECTED — no tool calls detected. Prose is invalid for this task.\n\n"
                             f"You MUST call execute_bash now. Example of what your response must look like:\n\n"
                             f"  {{\"name\": \"execute_bash\", \"arguments\": {{\"cmd\": \"{_primary_hint}\"}}}}\n\n"
-                            f"Required commands (adapt IPs/creds from context):\n{_hint_lines}\n\n"
+                            f"Required commands (use these exact IPs and credentials):\n{_hint_lines}\n\n"
                             f"Call execute_bash immediately. No preamble, no explanation."
                         )
                     else:
