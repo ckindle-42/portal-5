@@ -1054,7 +1054,12 @@ def _run_exec_chain(
                 f"Call tools now — do not summarise or explain, execute.\n"
                 f"HARD CONSTRAINT: You MUST call at least one tool. "
                 f"Prose-only responses score ZERO for every assigned step — "
-                f"there is no partial credit for explanations without tool calls."
+                f"there is no partial credit for explanations without tool calls.\n"
+                f"SANDBOX RULES: nmap is NOT available (Operation not permitted). "
+                f"Use nc, curl, smbclient, nxc, rpcclient, or crackmapexec instead. "
+                f"ANTI-HALLUCINATION: Only reference files, paths, and hosts that appear "
+                f"in [OK] tool output above. Do NOT invent paths like /tmp/vulnllm/, "
+                f"portainer URLs, or credentials not shown in prior output."
             )
             if round_num > 0:
                 prior_missed: set[str] = set()
