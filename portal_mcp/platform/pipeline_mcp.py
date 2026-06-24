@@ -180,6 +180,56 @@ TOOLS_MANIFEST: list[dict[str, Any]] = [
             "required": [],
         },
     },
+    {
+        "name": "read_text_file",
+        "description": "Read a file from the host filesystem. Accepts absolute paths or repo-relative paths. Returns line-numbered content.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Absolute or repo-relative file path"},
+                "start_line": {"type": "integer", "description": "First line to return (1-indexed, inclusive)"},
+                "end_line": {"type": "integer", "description": "Last line to return (inclusive); omit for entire file"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "list_directory",
+        "description": "List files and directories at the given path. Returns [FILE]/[DIR] prefixed entries.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Absolute or repo-relative directory path"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "search_files",
+        "description": "Search for a regex pattern across project files. Returns file:line matches.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "Regex or literal string to search for"},
+                "path": {"type": "string", "description": "Directory to search (default: repo root)"},
+                "glob": {"type": "string", "description": "File glob filter, e.g. '**/*.py' (default: all files)"},
+                "max_results": {"type": "integer", "description": "Max matching lines to return (default 50)"},
+            },
+            "required": ["pattern"],
+        },
+    },
+    {
+        "name": "write_file",
+        "description": "Write or overwrite a file on the host filesystem. Constrained to the repo root and /tmp.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Absolute or repo-relative file path to write"},
+                "content": {"type": "string", "description": "Full file content to write"},
+            },
+            "required": ["path", "content"],
+        },
+    },
 ]
 
 
@@ -629,6 +679,198 @@ async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
     return JSONResponse(
         await _impl_trigger_backend_warmup(args.get("workspace", "auto-coding-agentic"))
     )
+
+
+# ── Filesystem tools (host-native; used by auto-coding-agentic via pipeline) ──
+
+
+def _resolve_path(path: str) -> pathlib.Path:
+    """Resolve path to absolute — accept absolute paths or repo-relative paths."""
+    p = pathlib.Path(path)
+    return p if p.is_absolute() else REPO_ROOT / p
+
+
+def _impl_read_text_file(
+    path: str, start_line: int | None = None, end_line: int | None = None
+) -> dict[str, Any]:
+    try:
+        resolved = _resolve_path(path)
+        lines = resolved.read_text(errors="replace").splitlines()
+        start = max(1, start_line or 1) - 1
+        end = end_line if end_line is not None else len(lines)
+        chunk = lines[start:end]
+        numbered = "\n".join(f"{start + i + 1}\t{ln}" for i, ln in enumerate(chunk))
+        return {"content": numbered, "path": str(resolved), "lines": len(chunk)}
+    except FileNotFoundError:
+        return {"error": f"file not found: {path}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
+async def read_text_file(
+    path: str, start_line: int | None = None, end_line: int | None = None
+) -> dict[str, Any]:
+    """Read a file from the host filesystem with optional line range.
+
+    Accepts absolute paths (e.g. /Users/chris/projects/portal-5/foo.py)
+    or repo-relative paths (e.g. portal_pipeline/router/streaming.py).
+    Returns line-numbered content. Use this — not execute_bash cat — to read
+    project files; execute_bash runs in an isolated container with no host access.
+
+    Args:
+        path: Absolute or repo-relative file path.
+        start_line: First line to return (1-indexed, inclusive).
+        end_line: Last line to return (inclusive); omit for full file.
+    """
+    return _impl_read_text_file(path, start_line, end_line)
+
+
+@mcp.custom_route("/tools/read_text_file", methods=["POST"])
+async def read_text_file_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(
+        _impl_read_text_file(
+            args.get("path", ""),
+            args.get("start_line"),
+            args.get("end_line"),
+        )
+    )
+
+
+def _impl_list_directory(path: str) -> dict[str, Any]:
+    try:
+        resolved = _resolve_path(path)
+        entries = []
+        for item in sorted(resolved.iterdir()):
+            prefix = "[DIR]" if item.is_dir() else "[FILE]"
+            entries.append(f"{prefix} {item.name}")
+        return {"path": str(resolved), "entries": entries}
+    except FileNotFoundError:
+        return {"error": f"directory not found: {path}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
+async def list_directory(path: str) -> dict[str, Any]:
+    """List files and directories at the given path.
+
+    Args:
+        path: Absolute or repo-relative directory path.
+    """
+    return _impl_list_directory(path)
+
+
+@mcp.custom_route("/tools/list_directory", methods=["POST"])
+async def list_directory_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(_impl_list_directory(args.get("path", ".")))
+
+
+def _impl_search_files(
+    pattern: str,
+    path: str = "",
+    glob: str = "**/*",
+    max_results: int = 50,
+) -> dict[str, Any]:
+    try:
+        base = _resolve_path(path) if path else REPO_ROOT
+        compiled = re.compile(pattern)
+        _skip = {".git", "__pycache__", ".mypy_cache", "node_modules", ".ruff_cache", ".venv"}
+        hits: list[str] = []
+        cap = min(max_results, 200)
+        for p in sorted(base.glob(glob)):
+            if any(part in _skip for part in p.parts):
+                continue
+            if not p.is_file():
+                continue
+            try:
+                for i, line in enumerate(p.read_text(errors="replace").splitlines(), 1):
+                    if compiled.search(line):
+                        rel = str(p.relative_to(REPO_ROOT)) if p.is_relative_to(REPO_ROOT) else str(p)
+                        hits.append(f"{rel}:{i}: {line.rstrip()}")
+                        if len(hits) >= cap:
+                            return {"matches": hits, "truncated": True}
+            except Exception:
+                continue
+        return {"matches": hits, "truncated": False}
+    except re.error as e:
+        return {"error": f"invalid regex: {e}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
+async def search_files(
+    pattern: str,
+    path: str = "",
+    glob: str = "**/*",
+    max_results: int = 50,
+) -> dict[str, Any]:
+    """Search for a regex pattern across project files.
+
+    Args:
+        pattern: Regex or literal string to search for.
+        path: Directory to search (default: repo root).
+        glob: File glob filter, e.g. '**/*.py' (default: all files).
+        max_results: Max matching lines to return (default 50).
+    """
+    return _impl_search_files(pattern, path, glob, max_results)
+
+
+@mcp.custom_route("/tools/search_files", methods=["POST"])
+async def search_files_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(
+        _impl_search_files(
+            args.get("pattern", ""),
+            args.get("path", ""),
+            args.get("glob", "**/*"),
+            int(args.get("max_results", 50)),
+        )
+    )
+
+
+_WRITE_ALLOWED_ROOTS = (REPO_ROOT, pathlib.Path("/tmp"))
+
+
+def _impl_write_file(path: str, content: str) -> dict[str, Any]:
+    try:
+        resolved = _resolve_path(path)
+        if not any(
+            resolved == root or resolved.is_relative_to(root) for root in _WRITE_ALLOWED_ROOTS
+        ):
+            return {"error": f"write blocked: path must be under {REPO_ROOT} or /tmp"}
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        resolved.write_text(content)
+        return {"status": "ok", "path": str(resolved), "bytes": len(content.encode())}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
+async def write_file(path: str, content: str) -> dict[str, Any]:
+    """Write or overwrite a file on the host filesystem.
+
+    Writes are constrained to the repo root and /tmp. Creates parent
+    directories as needed.
+
+    Args:
+        path: Absolute or repo-relative file path to write.
+        content: Full file content to write.
+    """
+    return _impl_write_file(path, content)
+
+
+@mcp.custom_route("/tools/write_file", methods=["POST"])
+async def write_file_endpoint(request: Any) -> JSONResponse:
+    body = await request.json()
+    args = body.get("arguments", {})
+    return JSONResponse(_impl_write_file(args.get("path", ""), args.get("content", "")))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

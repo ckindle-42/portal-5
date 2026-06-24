@@ -356,11 +356,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "15m",
         "tools": [
             "explore_repository",  # FastContext 4B subagent — locates files before edits
-            "read_text_file",      # filesystem MCP — reads host project files (not sandbox)
-            "read_file",           # filesystem MCP — alias, same host access
-            "search_files",        # filesystem MCP — grep across project tree
-            "list_directory",      # filesystem MCP — directory listings
-            "write_file",          # filesystem MCP — write/edit host files directly
+            "read_text_file",      # pipeline MCP :8928 — reads host project files
+            "list_directory",      # pipeline MCP :8928 — directory listings
+            "search_files",        # pipeline MCP :8928 — grep across project tree
+            "write_file",          # pipeline MCP :8928 — write host files
             "execute_bash",        # portal-sandbox — runs code/tests in isolated container
             "execute_python",
             "execute_nodejs",

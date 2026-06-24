@@ -29,6 +29,10 @@ EXPECTED_TOOLS = {
     "get_workspace_recommendation",
     "explore_repository",
     "trigger_backend_warmup",
+    "read_text_file",
+    "list_directory",
+    "search_files",
+    "write_file",
 }
 
 
