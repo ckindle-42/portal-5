@@ -34,9 +34,61 @@
         "@modelcontextprotocol/server-docker"
       ]
     },
+    "portal-comfyui": {
+      "type": "http",
+      "url": "http://localhost:8910/mcp"
+    },
+    "portal-video": {
+      "type": "http",
+      "url": "http://localhost:8911/mcp"
+    },
+    "portal-music": {
+      "type": "http",
+      "url": "http://localhost:8912/mcp"
+    },
+    "portal-documents": {
+      "type": "http",
+      "url": "http://localhost:8913/mcp"
+    },
     "portal-sandbox": {
       "type": "http",
       "url": "http://localhost:8914/mcp"
+    },
+    "portal-whisper": {
+      "type": "http",
+      "url": "http://localhost:8915/mcp"
+    },
+    "portal-tts": {
+      "type": "http",
+      "url": "http://localhost:8916/mcp"
+    },
+    "portal-security": {
+      "type": "http",
+      "url": "http://localhost:8919/mcp"
+    },
+    "portal-memory": {
+      "type": "http",
+      "url": "http://localhost:8920/mcp"
+    },
+    "portal-rag": {
+      "type": "http",
+      "url": "http://localhost:8921/mcp"
+    },
+    "portal-research": {
+      "type": "http",
+      "url": "http://localhost:8922/mcp"
+    },
+    "portal-browser": {
+      "type": "http",
+      "url": "http://localhost:8923/mcp"
+    },
+    "portal-mlx-transcribe": {
+      "type": "http",
+      "url": "http://localhost:8924/mcp"
+    },
+    "portal-proxmox": {
+      "type": "http",
+      "url": "http://localhost:8927/mcp"
     },
     "portal-pipeline": {
       "type": "http",
