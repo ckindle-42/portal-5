@@ -35,6 +35,15 @@ The bench supports three execution tiers:
 
 Lab-exec is the ground truth for red/purple team evaluation. All tiers run from the same CLI.
 
+### Source Material
+
+Attack chains are grounded in three sources:
+- **[HTB Writeups](https://github.com/momenbasel/htb-writeups)** — real attack patterns from HackTheBox machines (Responder relay chains, LFI log poisoning, SQLi-to-shell, privilege escalation techniques)
+- **[VulnHub](https://github.com/vulhub/vulhub)** — Docker-native vulnerable applications deployed on lab-vulhub (Redis, PHP LFI, Apache Solr Log4Shell, Tomcat, NFS, VulnerableApp)
+- **[Metasploitable3](https://github.com/rapid7/metasploitable3)** — Windows VM with 12+ vulnerable services (vsftpd backdoor, MySQL UDF, GlassFish WAR deploy, Elasticsearch script RCE, IIS WebDAV, SMB/AD)
+
+The bench exercises multi-model multi-chain theory calls, tool calls, and lab execution against all three targets. Cross-target chains (e.g., `web_to_dc_pivot`) test lateral movement from web-facing services to AD infrastructure.
+
 ---
 
 ## Lab Topology
@@ -196,6 +205,16 @@ python3 -m tests.benchmarks.bench_security \
     web_shell_upload \
     ssrf_exploitation \
     eternalblue_ms17010 \
+    ftp_backdoor \
+    mysql_udf_privesc \
+    glassfish_deploy \
+    es_script_rce \
+    iis_webdav_scanner \
+    meta3_full_compromise \
+    web_to_dc_pivot \
+    htb_responder_chain \
+    htb_lfi_log_poison \
+    htb_sqli_to_shell \
   --lab-exec \
   --blue-active \
   --lab-snapshot \
@@ -208,10 +227,11 @@ Target coverage of the Tier 3 command:
 
 | Target | Prompts exercising it |
 |---|---|
-| lab-dc01 (10.10.11.21) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, ad_dcsync_golden_ticket, rbcd_attack, adcs_template_abuse |
-| meta3-win2k8 (10.10.11.10) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager |
-| lab-vulhub (10.10.11.50) | redis_to_rce, lfi_to_rce, tomcat_manager, log4shell_rce, nfs_privesc_chain |
-| VulnerableApp (:80) | sqli_manual, web_shell_upload, ssrf_exploitation |
+| lab-dc01 (10.10.11.21) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, ad_dcsync_golden_ticket, rbcd_attack, adcs_template_abuse, htb_responder_chain |
+| meta3-win2k8 (10.10.11.10) | kerberoasting, asrep_roasting, bloodhound_ad_recon, pass_the_hash, smb_enum_relay, eternalblue_ms17010, tomcat_manager, ftp_backdoor, mysql_udf_privesc, glassfish_deploy, es_script_rce, iis_webdav_scanner, meta3_full_compromise |
+| lab-vulhub (10.10.11.50) | redis_to_rce, lfi_to_rce, tomcat_manager, log4shell_rce, nfs_privesc_chain, htb_lfi_log_poison |
+| VulnerableApp (:80) | sqli_manual, web_shell_upload, ssrf_exploitation, htb_sqli_to_shell |
+| Cross-target | web_to_dc_pivot (webshell → DC), htb_responder_chain (Responder → relay) |
 
 ### Run all three tiers in sequence
 
@@ -363,7 +383,7 @@ The answer key (`_DYNAMIC_CVE_DB` in `chain.py`) covers 18 lab service banners: 
 
 ## What the Bench Exercises
 
-### EXEC_SEQUENCES — 25 prompts with step definitions
+### EXEC_SEQUENCES — 36 prompts with step definitions
 
 Each step now carries optional fields:
 
@@ -384,7 +404,7 @@ Key AD-focused prompts:
 | `asrep_roasting` | enum_no_preauth → capture → crack | rpcclient, impacket-GetNPUsers, hashcat -m 18200 | ✅ |
 | `bloodhound_ad_recon` | collect → shortest_path → exploit_path → dcsync | bloodhound-python | ✅ |
 | `pass_the_hash` | dump_hash → pth_spray → lateral → confirm | impacket-secretsdump, evil-winrm | ✅ |
-| `smb_enum_relay` | signing_check → null_session → relay → responder | nxc, enum4linux-ng, ntlmrelayx | ✅ |
+| `smb_enum_relay` | signing_check → null_session → relay (conditional) → responder | nxc, enum4linux-ng, ntlmrelayx | ✅ |
 | `redis_to_rce` | connect → ssh_key → cron_write → confirm_rce | redis-cli | — (lxc 112) |
 | `adcs_template_abuse` | enum_templates → esc1_exploit → ptt → dcsync | certipy-ad | ⚠️ |
 | `ad_dcsync_golden_ticket` | dcsync → golden → verify → persist | impacket-secretsdump, impacket-ticketer | ✅ |
@@ -404,6 +424,26 @@ Web-focused prompts (validated against VulnerableApp + lab-vulhub):
 | `log4shell_rce` | 10.10.11.50:8983 | Apache Solr 8.11 CVE-2021-44228 |
 | `redis_to_rce` | 10.10.11.50:6379 | Unauthenticated Redis |
 | `nfs_privesc_chain` | 10.10.11.50:2049 | NFS with no_root_squash |
+
+Metasploitable3 service-specific prompts (10.10.11.10):
+
+| Prompt key | Steps | Service | CVE |
+|---|---|---|---|
+| `ftp_backdoor` | banner → exploit → confirm | vsftpd 2.3.4 on :21 | CVE-2011-2523 |
+| `mysql_udf_privesc` | creds → file_priv → udf_upload → exec | MySQL 5.7 on :3306 | UDF abuse |
+| `glassfish_deploy` | recon → creds → deploy → rce | GlassFish 4.1 on :4848 | Default creds + WAR deploy |
+| `es_script_rce` | recon → exploit → confirm | Elasticsearch 1.4 on :9200 | CVE-2014-3120 |
+| `iis_webdav_scanner` | shortname → webdav_enum → upload → rce | IIS 7.5 WebDAV on :80 | PUT/MOVE abuse |
+| `meta3_full_compromise` | enum_all → ftp_access → escalate → pivot → cred_dump | All meta3 services | Multi-CVE chain |
+
+Cross-target and HTB-pattern chains:
+
+| Prompt key | Steps | Pattern |
+|---|---|---|
+| `web_to_dc_pivot` | enum → discover_dc → cred_extract → pivot → confirm | Webshell → internal recon → DC compromise |
+| `htb_responder_chain` | config → poison → relay_list → relay → confirm | Responder + NTLM relay (signing-disabled) |
+| `htb_lfi_log_poison` | lfi_confirm → log_poison → rce → privesc | LFI → Apache log poison → shell |
+| `htb_sqli_to_shell` | sqli_detect → enum → dump → upload → shell | SQLi → admin → file upload → reverse shell |
 
 ### Chain structure (3 models × 2 rounds = 6 turns)
 
