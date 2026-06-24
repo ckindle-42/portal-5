@@ -178,21 +178,21 @@ _BLUE_ACTIVE_TOOLS: list[dict] = [
 _LAB_SERVICE_PROBES: dict[str, tuple[int, str, list[str]]] = {
     "smb": (
         445,
-        "nxc smb ${host} -u '' -p '' --shares 2>&1 | head -5",
-        ["SMB", "shares", "signing"],
+        "nxc smb ${host} -u 'Administrator' -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
+        ["SMB", "445"],
     ),
     "winrm": (
         5985,
-        "nxc winrm ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | head -5",
+        "nxc winrm ${host} -u 'Administrator' -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["Pwn3d", "WinRM", "STATUS"],
     ),
     "ldap": (
         389,
-        "nxc ldap ${host} -u Administrator -p 'LabAdmin1!' 2>&1 | head -5",
+        "nxc ldap ${host} -u 'Administrator' -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -5",
         ["LDAP", "domain"],
     ),
-    "kerberos": (88, "nxc smb ${host} -u '' -p '' 2>&1 | head -3", ["SMB", "445"]),
-    "rpc": (135, "rpcclient -U '' -N ${host} -c 'srvinfo' 2>&1 | head -5", ["Server", "platform"]),
+    "kerberos": (88, "nxc smb ${host} -u 'Administrator' -p 'LabAdmin1!' 2>&1 | grep -v '^\\[\\*\\]' | head -3", ["SMB", "445"]),
+    "rpc": (135, "rpcclient -U 'Administrator%LabAdmin1!' ${host} -c 'srvinfo' 2>&1 | grep -v '^\\[\\*\\]' | head -5", ["Server", "platform", "os"]),
     "redis": (6379, "redis-cli -h ${host} ping 2>&1 | head -3", ["PONG"]),
     "nfs": (2049, "showmount -e ${host} 2>&1 | head -5", ["Export list"]),
     "http_8080": (

@@ -903,10 +903,13 @@ def main() -> None:
     print(f"Output     : {out_path}")
     print()
 
+    _all_models = args.exec_chain_models or args.chain_models or []
     _send_bench_notification(
         f"Security bench started\n"
         f"Workspaces: {', '.join(args.workspaces) if not args.skip_workspace_bench else '(skipped)'}\n"
-        f"Chain models: {', '.join(args.chain_models) if args.chain_models else '(none)'}",
+        f"Prompts: {', '.join(args.prompts) if args.prompts else '(all)'}\n"
+        f"Chain models: {', '.join(_all_models) if _all_models else '(none)'}\n"
+        f"Lab-exec: {args.lab_exec}",
         title="🔐 Security Bench — START",
     )
 
@@ -939,9 +942,11 @@ def main() -> None:
 
     multimodel_results: list[dict] = []
 
-    # Step 2: tool call chain test (red), aligned to the selected scenario(s)
+    # ── Shared lab setup: probe + snapshot (runs for both --chain-models and --exec-chain-models) ──
     _snapshot_name = ""
-    if args.chain_models and not args.purple:
+    _enabled_prompts: set[str] = set()
+    _any_chain = (args.chain_models or args.exec_chain_models) and not args.purple
+    if _any_chain:
         if (args.lab_exec or args.lab_snapshot or args.probe_lab) and not _LAB_EXEC_AVAILABLE:
             print(
                 "  WARNING: lab exec requested but bench_lab_exec.py not importable — using synthetic"
@@ -951,7 +956,6 @@ def main() -> None:
         if args.probe_lab and _LAB_EXEC_AVAILABLE:
             _probe = probe_lab_services(dry_run=args.dry_run)
             print_lab_probe_report(_probe)
-            # Auto-filter prompts: only run prompts whose target services are up
             _svc_to_prompt: dict[str, list[str]] = {
                 "smb": [
                     "kerberoasting",
@@ -1003,7 +1007,6 @@ def main() -> None:
                     "htb_sqli_to_shell",
                 ],
             }
-            _enabled_prompts: set[str] = set()
             for svc, prompts in _svc_to_prompt.items():
                 if _probe.get(svc):
                     _enabled_prompts.update(prompts)
@@ -1013,12 +1016,14 @@ def main() -> None:
                 )
 
         # ── Proxmox VM snapshot before chain ──────────────────────────────────
-        _snapshot_name = ""
         if args.lab_snapshot and _LAB_EXEC_AVAILABLE:
             _snapshot_name = f"bench-{int(time.monotonic())}"
             if not args.dry_run:
                 snapshot_lab_vms(_snapshot_name, dry_run=args.dry_run)
             print(f"  [proxmox] snapshot '{_snapshot_name}' created\n")
+
+    # Step 2: tool call chain test (red), aligned to the selected scenario(s)
+    if args.chain_models and not args.purple:
 
         if args.dynamic_cve:
             cfg.dynamic_cve_mode = True
@@ -1099,8 +1104,9 @@ def main() -> None:
                         f"  {avg['avg_elapsed_s']:>4.0f}s"
                     )
 
-    # ── Proxmox VM restore after chain ──────────────────────────────────────
-    if args.lab_snapshot and _LAB_EXEC_AVAILABLE and _snapshot_name:
+    # ── Proxmox VM restore after chain_models tests (only if no exec_chain follows) ──
+    # exec_chain_models runs in Step 3; restore happens after Step 3 instead.
+    if args.lab_snapshot and _LAB_EXEC_AVAILABLE and _snapshot_name and not args.exec_chain_models:
         print()
         restore_lab_vms(_snapshot_name, dry_run=args.dry_run)
         print(f"  [proxmox] restored to snapshot '{_snapshot_name}'\n")
@@ -1234,6 +1240,10 @@ def main() -> None:
     if args.skip_workspace_bench and args.exec_chain_models:
         # Chain-only: bypass theory/exec passes and run chains directly
         _cp = args.prompts if args.prompts else [k for k in EXEC_SEQUENCES if k in PROMPTS]
+        # Apply probe-lab auto-filter when prompts were not explicitly listed
+        if _enabled_prompts and not args.prompts:
+            _cp = [k for k in _cp if k in _enabled_prompts]
+            print(f"  [probe-lab] exec-chain filtered to {len(_cp)} reachable prompts")
         print(f"\n── Chain-only mode ({len(_cp)} prompt(s)) ──")
         results = run_bench(
             [],  # no workspaces → chain-only shortcut
@@ -1282,6 +1292,12 @@ def main() -> None:
             chain_rounds=args.chain_rounds,
             lab_exec=args.lab_exec,
         )
+
+    # ── Proxmox VM restore after exec_chain (Step 3) ────────────────────────
+    if args.lab_snapshot and _LAB_EXEC_AVAILABLE and _snapshot_name and args.exec_chain_models:
+        print()
+        restore_lab_vms(_snapshot_name, dry_run=args.dry_run)
+        print(f"  [proxmox] restored to snapshot '{_snapshot_name}'\n")
 
     if args.dry_run:
         return
