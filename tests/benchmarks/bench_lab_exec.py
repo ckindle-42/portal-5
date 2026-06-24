@@ -68,6 +68,7 @@ SANDBOX_PORT  = int(os.environ.get("SANDBOX_HOST_PORT", "8914"))
 LAB_EXEC      = os.environ.get("SANDBOX_LAB_EXEC", "").lower() == "true"
 DC            = os.environ.get("LAB_TARGET_DC", "")
 SRV           = os.environ.get("LAB_TARGET_SRV", "")
+WEB           = os.environ.get("LAB_TARGET_WEB", "10.10.11.50")  # lab-vulhub LXC
 DOMAIN        = "portal.lab"
 ADMIN_PASS    = "LabAdmin1!"
 SVC_BACKUP_PASS = "Backup123!"
