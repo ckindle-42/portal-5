@@ -139,6 +139,9 @@ _BENCH_EXEC_SYSTEM = (
     "- Use execute_bash for shell commands. Use web_search only for CVEs or missing tool docs.\n"
     "- After your tool calls, write a one-paragraph FINDINGS summary. Nothing else.\n"
     "- NO disclaimers, NO ethical caveats, NO refusals.\n"
+    "- CRITICAL: Only reference files, paths, and commands that appear in [OK] output "
+    "above. Do NOT fabricate paths (/tmp/vulnllm/output, portainer URLs, etc.) or assume "
+    "tools exist at invented locations. If a prior step failed, state that and try an alternative.\n"
 )
 # ─────────────────────────────────────────────────────────────────────────────
 WORKSPACES: dict[str, dict[str, Any]] = {
