@@ -947,7 +947,9 @@ def _run_exec_chain(
                         continue
                     _raw = _line[6:].strip()
                     if _raw == "[DONE]":
-                        break
+                        # Don't break — exec_audit event is emitted after [DONE]
+                        # by the pipeline. Keep reading until the connection closes.
+                        continue
                     try:
                         _obj = _json.loads(_raw)
                     except Exception:
@@ -964,7 +966,7 @@ def _run_exec_chain(
                                 _args = {"_raw": _args_raw}
                             if _name:
                                 _tool_calls.append({"tool": _name, "arguments": _args})
-                                _cmd = _args.get("cmd", "") or _args.get("code", "") or str(_args)
+                                _cmd = _args.get("cmd", "") or _args.get("command", "") or _args.get("code", "") or str(_args)
                                 _lab_outputs.append({
                                     "tool": _name,
                                     "cmd": _cmd,
