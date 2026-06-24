@@ -331,6 +331,15 @@ wheels = [
 ]
 
 [[package]]
+name = "backoff"
+version = "2.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/d7/5bbeb12c44d7c4f2fb5b56abce497eb5ed9f34d85701de869acedd602619/backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba", size = 17001, upload-time = "2022-10-05T19:19:32.061Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/73/b6e24bd22e6720ca8ee9a85a0c4a2971af8497d8f3193fa05390cbd46e09/backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8", size = 15148, upload-time = "2022-10-05T19:19:30.546Z" },
+]
+
+[[package]]
 name = "backports-asyncio-runner"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1307,6 +1316,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/81/e1/56027a71e31b02ddc53c7d65b01e68edf64dea2932122fe7746a516f75d5/dill-0.4.1.tar.gz", hash = "sha256:423092df4182177d4d8ba8290c8a5b640c66ab35ec7da59ccfa00f6fa3eea5fa", size = 187315, upload-time = "2026-01-19T02:36:56.85Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/77/dc8c558f7593132cf8fefec57c4f60c83b16941c574ac5f619abb3ae7933/dill-0.4.1-py3-none-any.whl", hash = "sha256:1e1ce33e978ae97fcfcff5638477032b801c46c7c65cf717f95fbc2248f79a9d", size = 120019, upload-time = "2026-01-19T02:36:55.663Z" },
+]
+
+[[package]]
+name = "distro"
+version = "1.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722, upload-time = "2023-12-24T09:54:32.31Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277, upload-time = "2023-12-24T09:54:30.421Z" },
 ]
 
 [[package]]
@@ -4304,7 +4322,7 @@ wheels = [
 
 [[package]]
 name = "portal-5"
-version = "7.2.0"
+version = "7.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -4337,6 +4355,7 @@ channels = [
 dev = [
     { name = "mcp" },
     { name = "mypy" },
+    { name = "promptfoo" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -4398,6 +4417,7 @@ requires-dist = [
     { name = "pdfplumber", marker = "extra == 'mcp'", specifier = ">=0.11.0" },
     { name = "phonemizer", marker = "extra == 'apple-silicon'", specifier = ">=3.2.0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
+    { name = "promptfoo", marker = "extra == 'dev'", specifier = ">=0.1.4" },
     { name = "pyannote-audio", marker = "extra == 'apple-silicon'", specifier = ">=3.1.0" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pydantic-settings", specifier = ">=2.1.0" },
@@ -4422,6 +4442,21 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0" },
 ]
 provides-extras = ["channels", "notifications", "mcp", "generation", "rag", "apple-silicon", "dev"]
+
+[[package]]
+name = "posthog"
+version = "7.20.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "backoff" },
+    { name = "distro" },
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d7/06/a35a7c6aea06ed11c65ae25c3ff005b5616634160ff3004ba7df33ab74b1/posthog-7.20.3.tar.gz", hash = "sha256:2e72ac63419a8b9d9d57f323f3c54a56f37a143480fc5d58483da31413562840", size = 261704, upload-time = "2026-06-23T17:19:15.245Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/99/2899ce4cb432b96b5a36a5ca44e8b6b0ca95ab27540e53e0aaa0f38b1c16/posthog-7.20.3-py3-none-any.whl", hash = "sha256:d5e0b1f17057e78edd77492870b5cc9c481feb33aa8b597c36a0782524112a41", size = 303086, upload-time = "2026-06-23T17:19:13.69Z" },
+]
 
 [[package]]
 name = "preshed"
@@ -4499,6 +4534,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f0/58/a794d23feb6b00fc0c72787d7e87d872a6730dd9ed7c7b3e954637d8f280/prometheus_client-0.24.1.tar.gz", hash = "sha256:7e0ced7fbbd40f7b84962d5d2ab6f17ef88a72504dcf7c0b40737b43b2a461f9", size = 85616, upload-time = "2026-01-14T15:26:26.965Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/74/c3/24a2f845e3917201628ecaba4f18bab4d18a337834c1df2a159ee9d22a42/prometheus_client-0.24.1-py3-none-any.whl", hash = "sha256:150db128af71a5c2482b36e588fc8a6b95e498750da4b17065947c16070f4055", size = 64057, upload-time = "2026-01-14T15:26:24.42Z" },
+]
+
+[[package]]
+name = "promptfoo"
+version = "0.1.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "posthog" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/92/40b0b68d7576fccfd65a32f83001b6c8db672f1cc1938199f6c2e99d2eb4/promptfoo-0.1.4.tar.gz", hash = "sha256:c1a91c3fdc82a8c7ea9b7dd38b38c90dbc55ec501c1101158740db7101d618cc", size = 17385, upload-time = "2026-04-06T06:03:53.805Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/54/dd88dab13e85dd1e007d5d517c6bf6f8a1bbdb393a077c7268e51e0fb135/promptfoo-0.1.4-py3-none-any.whl", hash = "sha256:db4274c4bd5066dbaf252ea0903b80f8b8d53e04e7f68405b31a38a9f76ae965", size = 17647, upload-time = "2026-04-06T06:03:52.308Z" },
 ]
 
 [[package]]
