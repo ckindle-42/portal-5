@@ -42,7 +42,9 @@ from .chain import (
     _run_multimodel_chain,
     _run_refusal_test,
     run_audit_tools,
+    run_candidate_intake,
     run_chain_tests,
+    TPS_FLOOR,
 )
 from .lab import (
     print_lab_probe_report,
@@ -513,6 +515,39 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
     print("═" * 72)
 
 
+def _print_intake_summary(results: list) -> None:
+    """Print intake results and emit a ready-to-run bench command for queued models."""
+    queued = [r for r in results if r.get("queued")]
+    skipped = [r for r in results if not r.get("queued")]
+    print(f"\n── Intake summary: {len(queued)} queued, {len(skipped)} skipped ──")
+    if queued:
+        print("\nQueued for chain bench:")
+        for r in queued:
+            tps_str = f"{r['tps']} t/s" if r["tps"] > 0 else "dry-run"
+            print(f"  OK  {r['model'][:65]}  {tps_str}")
+    if skipped:
+        print("\nSkipped:")
+        for r in skipped:
+            print(f"  SKIP {r['model'][:65]}")
+            print(f"       reason: {r['skip_reason']}")
+    if queued and not all(r.get("tps", 0) == 0 for r in queued):
+        models_arg = " ".join(r["model"] for r in queued)
+        print("\nReady to bench (copy-paste):")
+        print(
+            f"  python3 tests/benchmarks/bench_security.py "
+            f"--skip-workspace-bench "
+            f"--exec-chain-models {models_arg}"
+        )
+        print(
+            f"\nTo keep current 3-slot chain structure (RECON/EXPLOIT/POST-EXPLOIT), "
+            f"add existing slots:\n"
+            f"  --exec-chain-models "
+            f"hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M "
+            f"<NEW_EXPLOIT_CANDIDATE> "
+            f"huihui_ai/baronllm-abliterated"
+        )
+
+
 # ── CLI entry point ───────────────────────────────────────────────────────────
 
 
@@ -549,6 +584,23 @@ def main() -> None:
         "--list-prompts",
         action="store_true",
         help="List available prompt keys and exit",
+    )
+    parser.add_argument(
+        "--candidate-intake",
+        nargs="+",
+        default=[],
+        metavar="MODEL",
+        help=(
+            "Pull, TPS-probe, and audit-tools each MODEL in order. "
+            "Models below the 20 t/s floor or that fail tool-call are skipped with reason. "
+            "Prints a ready-to-run --exec-chain-models command for all that pass. "
+            "Use --skip-pull if models are already local."
+        ),
+    )
+    parser.add_argument(
+        "--skip-pull",
+        action="store_true",
+        help="Skip Ollama pull step in --candidate-intake (use when models are already local)",
     )
     parser.add_argument(
         "--audit-tools",
@@ -919,6 +971,19 @@ def main() -> None:
         f"Lab-exec: {args.lab_exec}",
         title="🔐 Security Bench — START",
     )
+
+    # ── Candidate intake (pull → TPS gate → audit-tools → queue) ──────────────
+    intake_results: list[dict] = []
+    if args.candidate_intake:
+        intake_results = run_candidate_intake(
+            args.candidate_intake,
+            dry_run=args.dry_run,
+            skip_pull=getattr(args, "skip_pull", False),
+            tps_floor=TPS_FLOOR,
+        )
+        _print_intake_summary(intake_results)
+        if not args.dry_run and not args.workspaces and not args.chain_models and not args.exec_chain_models:
+            return  # intake-only run; nothing else to do
 
     t0_bench = time.monotonic()
     audit_results: list[dict] = []
