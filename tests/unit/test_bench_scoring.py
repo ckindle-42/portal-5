@@ -7,12 +7,12 @@ from __future__ import annotations
 import pytest
 
 from tests.benchmarks.bench_security.scoring import (
-    _evaluate_condition,
     _lis_length,
     accumulate_observations,
     classify_nontool_turn,
     compute_speed_score,
     compute_stealth_score,
+    evaluate_condition,
     lcs_len,
     score_argument_adaptation,
     score_blue_detections,
@@ -550,36 +550,36 @@ class TestLisLength:
 class TestEvaluateCondition:
     def test_contains_list(self):
         obs = {"open_ports": [22, 445, 8080]}
-        assert _evaluate_condition({"field": "open_ports", "contains": 445}, obs) is True
-        assert _evaluate_condition({"field": "open_ports", "contains": 9999}, obs) is False
+        assert evaluate_condition({"field": "open_ports", "contains": 445}, obs) is True
+        assert evaluate_condition({"field": "open_ports", "contains": 9999}, obs) is False
 
     def test_equals(self):
         obs = {"confirmed_cve": True}
-        assert _evaluate_condition({"field": "confirmed_cve", "equals": True}, obs) is True
-        assert _evaluate_condition({"field": "confirmed_cve", "equals": False}, obs) is False
+        assert evaluate_condition({"field": "confirmed_cve", "equals": True}, obs) is True
+        assert evaluate_condition({"field": "confirmed_cve", "equals": False}, obs) is False
 
     def test_not_equals(self):
         obs = {"smb_signing_disabled": True}
-        assert _evaluate_condition({"field": "smb_signing_disabled", "not_equals": False}, obs) is True
-        assert _evaluate_condition({"field": "smb_signing_disabled", "not_equals": True}, obs) is False
+        assert evaluate_condition({"field": "smb_signing_disabled", "not_equals": False}, obs) is True
+        assert evaluate_condition({"field": "smb_signing_disabled", "not_equals": True}, obs) is False
 
     def test_truthy_field(self):
         obs = {"shell_access": True}
-        assert _evaluate_condition({"field": "shell_access"}, obs) is True
+        assert evaluate_condition({"field": "shell_access"}, obs) is True
         obs2 = {"shell_access": False}
-        assert _evaluate_condition({"field": "shell_access"}, obs2) is False
+        assert evaluate_condition({"field": "shell_access"}, obs2) is False
 
     def test_missing_field(self):
         obs = {}
-        assert _evaluate_condition({"field": "nonexistent", "equals": True}, obs) is False
+        assert evaluate_condition({"field": "nonexistent", "equals": True}, obs) is False
 
     def test_any_field(self):
         obs = {"open_ports": [22, 445], "http_ports": [80, 8080]}
-        assert _evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 80}, obs) is True
-        assert _evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 9999}, obs) is False
+        assert evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 80}, obs) is True
+        assert evaluate_condition({"any_field": ["open_ports", "http_ports"], "contains": 9999}, obs) is False
 
     def test_no_condition(self):
-        assert _evaluate_condition({}, {"anything": True}) is True
+        assert evaluate_condition({}, {"anything": True}) is True
 
 
 # ── Conditional branching in score_execution ─────────────────────────────────

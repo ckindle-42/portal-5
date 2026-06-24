@@ -887,6 +887,7 @@ def _run_exec_chain(
     all_stealth_results: list[dict] = []
     shared_context: list[dict] = [{"role": "user", "content": start_prompt}]
     accumulated_tool_calls: list[dict] = []
+    lab_observations: dict = {}
     blue_turns: list[dict] = []
     ollama_url = cfg.ollama_url
 
@@ -1097,6 +1098,9 @@ def _run_exec_chain(
                                 "elapsed_s": _tr.get("elapsed_s", 0.0),
                             }
                         )
+                    # Accumulate observations from tool results for condition evaluation
+                    for _lo in lab_outputs:
+                        accumulate_observations(_lo["tool"], _lo.get("output", ""), lab_observations)
                     _stealth_results: list[dict] = []
                     if lab_exec and _LAB_EXEC_AVAILABLE:
                         for s in assigned:
@@ -1116,6 +1120,7 @@ def _run_exec_chain(
                     tool_calls_this,
                     sub_meta,
                     lab_outputs=lab_outputs if lab_outputs else None,
+                    lab_observations=lab_observations,
                 )
 
                 if lab_outputs:
@@ -1193,7 +1198,7 @@ def _run_exec_chain(
                     }
                 )
 
-    full_exec = score_execution(accumulated_tool_calls, meta)
+    full_exec = score_execution(accumulated_tool_calls, meta, lab_observations=lab_observations)
     handoff_scores = score_handoff_quality(results)
 
     attack_results = [r for r in results if not r.get("_blue_defender")]
@@ -1210,7 +1215,14 @@ def _run_exec_chain(
         all_inline_mitre.extend(bt.get("mitre_ids", []))
     inline_mitre_ids = sorted(set(all_inline_mitre))
 
-    speed_scores = compute_speed_score(results, seq)
+    # Build per-step timing from per-model results for speed scoring
+    _step_times: list[dict] = []
+    for r in results:
+        if r.get("_blue_defender"):
+            continue
+        for step_name in r.get("steps_hit", []):
+            _step_times.append({"step": step_name, "elapsed_s": r.get("elapsed_s", 0)})
+    speed_scores = compute_speed_score(_step_times, seq)
 
     from .scoring import compute_stealth_score as _css
 

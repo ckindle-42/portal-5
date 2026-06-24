@@ -109,7 +109,7 @@ def _lis_length(arr: list[int]) -> int:
     return len(tails)
 
 
-def _evaluate_condition(condition: dict, observations: dict) -> bool:
+def evaluate_condition(condition: dict, observations: dict) -> bool:
     """Evaluate a step condition against lab observations.
 
     Condition types:
@@ -208,7 +208,7 @@ def score_execution(
     for _s_idx, step in enumerate(seq):
         # ── Conditional branching: skip if condition not met ──────────────
         condition = step.get("condition")
-        if condition and not _evaluate_condition(condition, lab_observations or {}):
+        if condition and not evaluate_condition(condition, lab_observations or {}):
             steps_skipped.append(step["step"])
             continue
 

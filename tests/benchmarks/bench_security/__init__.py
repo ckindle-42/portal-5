@@ -54,6 +54,9 @@ from .chain import (
     CHAIN_TOOLS_BASE,
     OLLAMA_URL,
     SCENARIOS,
+    _run_exec_chain,
+    _run_multimodel_chain,
+    _run_refusal_test,
     run_audit_tools,
     run_chain_tests,
 )
@@ -75,6 +78,7 @@ from .lab import (
 
 # ── Scoring ──────────────────────────────────────────────────────────────────
 from .scoring import (
+    evaluate_condition,
     score_execution,
     score_handoff_quality,
     score_response,
@@ -89,6 +93,7 @@ __all__ = [
     # Config
     "BenchConfig",
     # Scoring
+    "evaluate_condition",
     "score_response",
     "score_execution",
     "score_handoff_quality",
@@ -107,6 +112,9 @@ __all__ = [
     "run_purple_tests",
     "BLUE_TOOLS",
     # Chain
+    "_run_exec_chain",
+    "_run_multimodel_chain",
+    "_run_refusal_test",
     "run_chain_tests",
     "run_audit_tools",
     "CHAIN_TOOLS_BASE",
