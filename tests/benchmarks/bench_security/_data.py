@@ -109,6 +109,10 @@ PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 REQUEST_TIMEOUT = 600.0  # per-chunk httpx read ceiling — event-driven (fires on absent data)
 PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
+# Hard wall-clock cap per model turn in the exec chain. Thinking models (Qwable-35B)
+# can generate 6000 reasoning tokens at ~10 TPS = 600s without hitting the per-chunk
+# timeout. This cap fires a thread-level abort so the bench never hangs per turn.
+CHAIN_MODEL_TURN_TIMEOUT_S = 300.0  # 5 minutes per model turn
 
 # Workspaces that use tools (execute_bash/execute_python) and need both passes:
 #   Theory pass  — tool_choice=none → prose rubric scoring (knowledge quality)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 import httpx
 
@@ -22,6 +23,7 @@ from ._data import (
     _LAB_PREFIX,
     _LAB_SRV,
     _LAB_WEB,
+    CHAIN_MODEL_TURN_TIMEOUT_S,
     PROMPT_MAX_TOKENS,
     PROMPTS,
     REQUEST_TIMEOUT,
@@ -1049,6 +1051,8 @@ def _run_exec_chain(
                 # Fallback: thinking models (Qwable, Qwen3-think) don't emit tool_call
                 # deltas in streaming but DO return them in non-streaming. Retry without
                 # stream if streaming produced no tool calls.
+                # Cap at 2000 tokens — tool calls don't need extensive reasoning output.
+                _FALLBACK_MAX_TOKENS = 2000
                 if not _tcs:
                     try:
                         with httpx.Client(
@@ -1060,7 +1064,7 @@ def _run_exec_chain(
                                     "model": model,
                                     "messages": msgs,
                                     "stream": False,
-                                    "max_tokens": PROMPT_MAX_TOKENS,
+                                    "max_tokens": _FALLBACK_MAX_TOKENS,
                                     "tools": INLINE_TOOLS,
                                 },
                             )
@@ -1084,8 +1088,25 @@ def _run_exec_chain(
 
                 return _parts, _tcs
 
+            def _call_chain_model_timed(
+                msgs: list[dict],
+            ) -> tuple[list[str], list[dict]]:
+                """Run _call_chain_model with a hard wall-clock timeout.
+
+                Thinking models can generate thousands of reasoning tokens at low
+                TPS, never hitting the per-chunk httpx timeout. This wrapper aborts
+                after CHAIN_MODEL_TURN_TIMEOUT_S seconds total.
+                """
+                with ThreadPoolExecutor(max_workers=1) as _pool:
+                    _fut = _pool.submit(_call_chain_model, msgs)
+                    try:
+                        return _fut.result(timeout=CHAIN_MODEL_TURN_TIMEOUT_S)
+                    except FuturesTimeout:
+                        _fut.cancel()
+                        return [], []
+
             try:
-                parts, tool_calls_this = _call_chain_model(messages)
+                parts, tool_calls_this = _call_chain_model_timed(messages)
 
                 def _has_meaningful_args(tcs: list[dict]) -> bool:
                     for tc in tcs:
