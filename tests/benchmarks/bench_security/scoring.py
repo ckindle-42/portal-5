@@ -400,21 +400,42 @@ def score_handoff_quality(chain_results: list[dict]) -> dict:
 
 
 def compute_speed_score(chain_results: list[dict], seq: list[dict]) -> dict:
-    """Score how quickly the chain reached each step (lower elapsed = better)."""
+    """Score how quickly the chain reached each step (lower elapsed = better).
+
+    Uses per-step time_budget_s if defined; falls back to 30s baseline.
+    Returns steps_on_budget / steps_over_budget for detailed reporting.
+    """
     if not chain_results or not seq:
-        return {"speed_score": 0.0, "step_times": []}
+        return {
+            "speed_score": 0.0,
+            "step_times": [],
+            "steps_on_budget": 0,
+            "steps_over_budget": 0,
+        }
+    budget_by_step: dict[str, float] = {
+        s["step"]: float(s.get("time_budget_s", 30.0)) for s in seq if "step" in s
+    }
     step_times: list[dict] = []
+    on_budget = 0
+    over_budget = 0
     for cr in chain_results:
-        step_times.append(
-            {
-                "step": cr.get("step", "?"),
-                "elapsed_s": cr.get("elapsed_s", 0),
-            }
-        )
-    total = sum(st["elapsed_s"] for st in step_times)
-    expected = len(seq) * 30.0  # 30s per step baseline
-    speed_score = min(1.0, expected / max(total, 1.0))
-    return {"speed_score": round(speed_score, 3), "step_times": step_times}
+        step_name = cr.get("step", "?")
+        elapsed = cr.get("elapsed_s", 0.0)
+        budget = budget_by_step.get(step_name, 30.0)
+        within = elapsed <= budget
+        if within:
+            on_budget += 1
+        else:
+            over_budget += 1
+        step_times.append({"step": step_name, "elapsed_s": elapsed, "budget_s": budget, "on_budget": within})
+    total_steps = on_budget + over_budget
+    speed_score = round(on_budget / max(total_steps, 1), 3)
+    return {
+        "speed_score": speed_score,
+        "step_times": step_times,
+        "steps_on_budget": on_budget,
+        "steps_over_budget": over_budget,
+    }
 
 
 def compute_stealth_score(stealth_results: list[dict]) -> dict:

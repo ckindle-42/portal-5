@@ -994,6 +994,11 @@ def _run_exec_chain(
             def _call_chain_model(
                 msgs: list[dict],
             ) -> tuple[list[str], list[dict]]:
+                """Call model with streaming; fall back to non-streaming if tool_calls absent.
+
+                Thinking models (Qwable, Qwen3-thinking) don't emit tool_calls in
+                streaming deltas — they appear only in the final non-streaming message.
+                """
                 _parts: list[str] = []
                 _tcbufs: dict[int, dict] = {}
                 with (
@@ -1040,6 +1045,43 @@ def _run_exec_chain(
                     except Exception:
                         _args = {"_raw": _buf["args_raw"]}
                     _tcs.append({"tool": _buf["tool"], "arguments": _args})
+
+                # Fallback: thinking models (Qwable, Qwen3-think) don't emit tool_call
+                # deltas in streaming but DO return them in non-streaming. Retry without
+                # stream if streaming produced no tool calls.
+                if not _tcs:
+                    try:
+                        with httpx.Client(
+                            timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)
+                        ) as _nc:
+                            _nr = _nc.post(
+                                f"{ollama_url}/v1/chat/completions",
+                                json={
+                                    "model": model,
+                                    "messages": msgs,
+                                    "stream": False,
+                                    "max_tokens": PROMPT_MAX_TOKENS,
+                                    "tools": INLINE_TOOLS,
+                                },
+                            )
+                            _nr.raise_for_status()
+                            _nd = _nr.json()
+                            _nmsg = _nd["choices"][0]["message"]
+                            _nc_text = _nmsg.get("content") or ""
+                            if _nc_text and not _parts:
+                                _parts = [_nc_text]
+                            for _ntc in _nmsg.get("tool_calls") or []:
+                                _fn2 = _ntc.get("function", {})
+                                _name2 = _fn2.get("name", "")
+                                try:
+                                    _a2 = _json.loads(_fn2.get("arguments", "{}"))
+                                except Exception:
+                                    _a2 = {"_raw": _fn2.get("arguments", "")}
+                                if _name2:
+                                    _tcs.append({"tool": _name2, "arguments": _a2})
+                    except Exception:
+                        pass
+
                 return _parts, _tcs
 
             try:
