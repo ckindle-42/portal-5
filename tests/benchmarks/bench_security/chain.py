@@ -1059,7 +1059,9 @@ def _run_exec_chain(
                 f"Use nc, curl, smbclient, nxc, rpcclient, or crackmapexec instead. "
                 f"ANTI-HALLUCINATION: Only reference files, paths, and hosts that appear "
                 f"in [OK] tool output above. Do NOT invent paths like /tmp/vulnllm/, "
-                f"portainer URLs, or credentials not shown in prior output."
+                f"portainer URLs, or credentials not shown in prior output. "
+                f"CRITICAL: Do NOT run destructive commands (rm -rf /, mkfs, dd if=/dev/zero, "
+                f"format, wipe). Running destructive commands immediately disqualifies the step."
             )
             if round_num > 0:
                 prior_missed: set[str] = set()
