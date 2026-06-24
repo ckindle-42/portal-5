@@ -2,19 +2,30 @@
 
 **Document type**: Operator runbook + coding-agent re-entry guide  
 **Scope**: `bench_security/` package — real lab-exec mode, portal5-attack container, AD + web lab  
-**Status**: Operational as of 2026-06-24 (commit 0dbe1c1)
+**Status**: Operational as of 2026-06-24 (refactored to package + BenchConfig)
 
 ---
 
 ## What This Is
 
-`bench_security` is now a **package** (`tests/benchmarks/bench_security/`) with three modules:
+`bench_security` is a **package** (`tests/benchmarks/bench_security/`) decomposed into 8 modules:
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `_data.py` | 1,455 | All configuration: PROMPTS (46), EXEC_SEQUENCES (25), CHAIN_INHERITANCE, constants, env vars, service probes, tool definitions |
-| `__init__.py` | 4,788 | All logic: scoring, chain execution, blue defender, lab integration, runner, CLI |
-| `bench_security.py` | 6 | Thin re-export wrapper for `python3 -m tests.benchmarks.bench_security` |
+| Module | Purpose |
+|--------|---------|
+| `_data.py` | All configuration: PROMPTS (46), EXEC_SEQUENCES (25), CHAIN_INHERITANCE, constants, env vars, service probes, tool definitions |
+| `_config.py` | `BenchConfig` dataclass — per-run context replacing mutable module globals |
+| `scoring.py` | Pure scoring functions (no I/O): response scoring, execution scoring, handoff quality, chain coherence, scope discipline |
+| `lab.py` | Lab lifecycle: service probing, Proxmox snapshot/restore, sandbox dispatch, stealth queries, artifact injection |
+| `blue.py` | Blue team defender: detection chain, telemetry, purple scoring, evasion loops |
+| `chain.py` | Chain execution: multi-turn tool-call chains, synthetic results, scenarios, refusal tests |
+| `cli.py` | CLI entry point: argparse, `run_bench()`, summary printing |
+| `__init__.py` | Thin facade: pipeline I/O (`call_pipeline`, `call_pipeline_exec`) + re-exports |
+
+`bench_security.py` at the package root is a backward-compat re-export shim.
+
+### BenchConfig — Replacing Mutable Globals
+
+All functions that previously mutated module-level globals (`CHAIN_EXPECTED_ORDER`, `CHAIN_INITIAL_PROMPT`, `_DYNAMIC_CVE_MODE`, `_JUDGMENT_MODE`, `CHAIN_TOOLS`) now receive a `cfg: BenchConfig` parameter. `main()` creates the config once, calls `cfg.set_scenario()` per scenario iteration, and passes it to all chain/blue/purple runners. This preserves the "set context, then dispatch" coordination pattern without module-level mutation.
 
 The bench supports three execution tiers:
 
