@@ -336,6 +336,7 @@ def _run_blue_turn(
     if not tool_calls and not lab_outputs:
         return {"detected": False, "detection_quality": 0.0, "response": "", "mitre_ids": []}
 
+    t0 = time.monotonic()
     red_tag = red_model.split("/")[-1][:30]
 
     if lab_outputs:
@@ -470,6 +471,7 @@ def _run_blue_turn(
         "response": content,
         "blue_active_calls": blue_tool_calls,
         "blue_active_results": blue_active_results,
+        "detection_latency_s": round(time.monotonic() - t0, 2),
     }
 
 

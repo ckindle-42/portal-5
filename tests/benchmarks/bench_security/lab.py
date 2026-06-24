@@ -255,6 +255,83 @@ def dispatch_blue_response(
         return {"ok": False, "output": str(exc), "elapsed_s": 0.0}
 
 
+# ── Defense verification ─────────────────────────────────────────────────────
+
+def verify_defense(tool_name: str, arguments: dict, dc: str = "") -> dict:
+    """Verify that a blue defensive action actually took effect.
+
+    Probes the target after block_ip/disable_account/revoke_tgt to confirm
+    the defense was deployed. Returns {"verified": bool, "evidence": str}.
+    """
+    if not _LAB_EXEC_AVAILABLE:
+        return {"verified": False, "evidence": "lab exec not available"}
+    dc = dc or _LAB_DC or "10.10.11.21"
+    try:
+        if tool_name == "block_ip":
+            ip = arguments.get("ip", "")
+            if not ip:
+                return {"verified": False, "evidence": "no IP specified"}
+            # Verify: try to connect to the blocked IP — should fail
+            cmd = f"timeout 3 bash -c 'echo > /dev/tcp/{ip}/445' 2>&1; echo EXIT=$?"
+            r = _lab_mcp_call(cmd, timeout=10)
+            ok, out = parse_sandbox_output(r.get("output", ""))
+            # If connection refused or timeout, the block is working
+            blocked = "EXIT=1" in out or "refused" in out.lower() or "timed out" in out.lower()
+            return {"verified": blocked, "evidence": out[:200]}
+        elif tool_name == "disable_account":
+            username = arguments.get("username", "")
+            if not username:
+                return {"verified": False, "evidence": "no username specified"}
+            # Verify: try to authenticate with the disabled account — should fail
+            cmd = f"nxc smb {dc} -u '{username}' -p 'InvalidPass123!' 2>&1 | head -3"
+            r = _lab_mcp_call(cmd, timeout=15)
+            ok, out = parse_sandbox_output(r.get("output", ""))
+            # Account disabled = logon failure with specific error
+            disabled = "account" in out.lower() or "disabled" in out.lower() or "logon" in out.lower()
+            return {"verified": disabled, "evidence": out[:200]}
+        elif tool_name == "revoke_tgt":
+            # Verify: check krbtgt password age — should be very recent
+            cmd = f"nxc smb {dc} -u Administrator -p '{_LAB_ADMIN_PASS}' -x 'net user krbtgt /domain' 2>&1 | head -10"
+            r = _lab_mcp_call(cmd, timeout=15)
+            ok, out = parse_sandbox_output(r.get("output", ""))
+            return {"verified": ok, "evidence": out[:200]}
+        else:
+            return {"verified": False, "evidence": f"unknown tool: {tool_name}"}
+    except Exception as exc:
+        return {"verified": False, "evidence": str(exc)[:200]}
+
+
+# ── Clean traffic generator (for false positive testing) ─────────────────────
+
+CLEAN_TRAFFIC_PROMPTS: list[dict] = [
+    {
+        "name": "benign_port_scan",
+        "description": "Normal nmap service scan of the lab subnet",
+        "command": "nmap -sV -p 22,80,445 10.10.11.21 2>&1 | head -10",
+    },
+    {
+        "name": "benign_http_request",
+        "description": "Normal HTTP GET to a web server",
+        "command": "curl -s -o /dev/null -w '%{http_code}' http://10.10.11.50/ 2>&1",
+    },
+    {
+        "name": "benign_dns_lookup",
+        "description": "Standard DNS lookup for the domain",
+        "command": "nslookup portal.lab 2>&1 | head -5",
+    },
+    {
+        "name": "benign_smb_list",
+        "description": "Normal SMB share listing with valid credentials",
+        "command": "smbclient -L //10.10.11.21 -U 'Administrator%LabAdmin1!' 2>&1 | head -10",
+    },
+    {
+        "name": "benign_ldap_query",
+        "description": "Normal LDAP search for user accounts",
+        "command": "ldapsearch -x -H ldap://10.10.11.21 -b 'DC=portal,DC=lab' '(objectClass=user)' sAMAccountName 2>&1 | head -10",
+    },
+]
+
+
 # ── Time sync ────────────────────────────────────────────────────────────────
 
 _lab_time_synced = False
