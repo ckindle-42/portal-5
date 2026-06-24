@@ -42,8 +42,12 @@ RUN apt-get update \
         responder \
         bloodhound-ce-python \
         john \
+        hashcat \
+        hydra \
         wordlists \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    # Decompress rockyou.txt so tools can use it directly without --stdin piping
+    && gunzip -k /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
 
 # Sanity: verify headline tools are on PATH. Use command -v (existence check) — nmap and
 # other cap-requiring binaries fail --version in Docker's restricted build sandbox even
@@ -56,7 +60,8 @@ RUN set -e; \
     command -v bloodhound-ce-python >/dev/null; \
     command -v impacket-secretsdump >/dev/null; \
     command -v john >/dev/null; \
-    test -f /usr/share/wordlists/rockyou.txt.gz; \
+    command -v hashcat >/dev/null; \
+    test -f /usr/share/wordlists/rockyou.txt; \
     python3 -c "import impacket; print('impacket ok')"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
