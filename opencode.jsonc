@@ -89,13 +89,7 @@
     "filesystem": {
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem",
-        "/Users/chris/projects/portal-5",
-        "/Users/chris/projects/portal-5/config",
-        "/Users/chris/projects/portal-5/portal_pipeline",
-        "/Users/chris/projects/portal-5/portal_mcp",
-        "/Users/chris/projects/portal-5/portal_channels",
-        "/Users/chris/projects/portal-5/tests",
-        "/Users/chris/.portal5/logs",
+        "/Users/chris/projects",
         "/tmp"
       ]
     },
