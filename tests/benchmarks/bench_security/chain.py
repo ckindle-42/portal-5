@@ -1092,8 +1092,8 @@ def _run_exec_chain(
                         lab_outputs.append(
                             {
                                 "tool": _tc["tool"],
-                                "cmd": str(list(_tc.get("arguments", {}).values())[:1])[:120],
-                                "output": _tr.get("output", "")[:1000],
+                                "cmd": str(list(_tc.get("arguments", {}).values())[:1])[:200],
+                                "output": _tr.get("output", ""),
                                 "ok": _tr.get("ok", False),
                                 "elapsed_s": _tr.get("elapsed_s", 0.0),
                             }
