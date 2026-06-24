@@ -683,11 +683,23 @@ async def trigger_backend_warmup_endpoint(request: Any) -> JSONResponse:
 
 # ── Filesystem tools (host-native; used by auto-coding-agentic via pipeline) ──
 
+_READ_ALLOWED_ROOTS = (REPO_ROOT.resolve(), pathlib.Path("/tmp").resolve())
+_WRITE_ALLOWED_ROOTS = (REPO_ROOT.resolve(),)  # /tmp intentionally excluded from writes
+
 
 def _resolve_path(path: str) -> pathlib.Path:
-    """Resolve path to absolute — accept absolute paths or repo-relative paths."""
+    """Resolve to an absolute, symlink-resolved path (repo-relative or absolute input)."""
     p = pathlib.Path(path)
-    return p if p.is_absolute() else REPO_ROOT / p
+    unresolved = p if p.is_absolute() else REPO_ROOT / p
+    return unresolved.resolve()
+
+
+def _check_read_allowed(resolved: pathlib.Path) -> bool:
+    return any(resolved == root or resolved.is_relative_to(root) for root in _READ_ALLOWED_ROOTS)
+
+
+def _check_write_allowed(resolved: pathlib.Path) -> bool:
+    return any(resolved == root or resolved.is_relative_to(root) for root in _WRITE_ALLOWED_ROOTS)
 
 
 def _impl_read_text_file(
@@ -695,6 +707,8 @@ def _impl_read_text_file(
 ) -> dict[str, Any]:
     try:
         resolved = _resolve_path(path)
+        if not _check_read_allowed(resolved):
+            return {"error": f"read blocked: path must be under {REPO_ROOT} or /tmp"}
         lines = resolved.read_text(errors="replace").splitlines()
         start = max(1, start_line or 1) - 1
         end = end_line if end_line is not None else len(lines)
@@ -742,6 +756,8 @@ async def read_text_file_endpoint(request: Any) -> JSONResponse:
 def _impl_list_directory(path: str) -> dict[str, Any]:
     try:
         resolved = _resolve_path(path)
+        if not _check_read_allowed(resolved):
+            return {"error": f"read blocked: path must be under {REPO_ROOT} or /tmp"}
         entries = []
         for item in sorted(resolved.iterdir()):
             prefix = "[DIR]" if item.is_dir() else "[FILE]"
@@ -777,7 +793,9 @@ def _impl_search_files(
     max_results: int = 50,
 ) -> dict[str, Any]:
     try:
-        base = _resolve_path(path) if path else REPO_ROOT
+        base = _resolve_path(path) if path else REPO_ROOT.resolve()
+        if not _check_read_allowed(base):
+            return {"error": f"read blocked: path must be under {REPO_ROOT} or /tmp"}
         compiled = re.compile(pattern)
         _skip = {".git", "__pycache__", ".mypy_cache", "node_modules", ".ruff_cache", ".venv"}
         hits: list[str] = []
@@ -835,16 +853,11 @@ async def search_files_endpoint(request: Any) -> JSONResponse:
     )
 
 
-_WRITE_ALLOWED_ROOTS = (REPO_ROOT, pathlib.Path("/tmp"))
-
-
 def _impl_write_file(path: str, content: str) -> dict[str, Any]:
     try:
         resolved = _resolve_path(path)
-        if not any(
-            resolved == root or resolved.is_relative_to(root) for root in _WRITE_ALLOWED_ROOTS
-        ):
-            return {"error": f"write blocked: path must be under {REPO_ROOT} or /tmp"}
+        if not _check_write_allowed(resolved):
+            return {"error": f"write blocked: path must be under {REPO_ROOT}"}
         resolved.parent.mkdir(parents=True, exist_ok=True)
         resolved.write_text(content)
         return {"status": "ok", "path": str(resolved), "bytes": len(content.encode())}
