@@ -24,6 +24,8 @@ from ._data import (
     _LAB_SRV,
     _LAB_WEB,
     CHAIN_MODEL_TURN_TIMEOUT_S,
+    PIPELINE_API_KEY,
+    PIPELINE_URL,
     PROMPT_MAX_TOKENS,
     PROMPTS,
     REQUEST_TIMEOUT,
@@ -893,6 +895,95 @@ def _run_exec_chain(
     blue_turns: list[dict] = []
     ollama_url = cfg.ollama_url
 
+    # ── Pipeline vs direct-Ollama routing ────────────────────────────────────
+    # A workspace slug has no "/" or ":" — it routes through the pipeline at
+    # PIPELINE_URL. A model ID (hf.co/org/name:tag or name:tag) calls Ollama
+    # directly. This lets callers mix modes: the same chain can have some
+    # models pinned via workspace (pipeline) and others tested directly.
+    def _is_workspace_slug(m: str) -> bool:
+        return "/" not in m and ":" not in m
+
+    def _call_via_pipeline(
+        msgs: list[dict],
+        workspace: str,
+    ) -> tuple[list[str], list[dict], list[dict]]:
+        """Call the pipeline for one exec-chain turn.
+
+        Sends exec_audit=true so the pipeline emits a bench_trace SSE event
+        containing every tool call (name + arguments + output) after the final
+        [DONE]. Returns (response_parts, tool_calls, lab_outputs) where
+        tool_calls use the same {tool, arguments} schema as _call_chain_model
+        and lab_outputs use {tool, cmd, output, ok, elapsed_s}.
+
+        The pipeline handles tool dispatch internally — no dispatch_lab_tool
+        call needed. Concurrency, keep_alive, and streaming timeouts are all
+        managed by the pipeline.
+        """
+        _parts: list[str] = []
+        _tool_calls: list[dict] = []
+        _lab_outputs: list[dict] = []
+
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if PIPELINE_API_KEY:
+            headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
+
+        try:
+            with httpx.Client(
+                timeout=httpx.Timeout(CHAIN_MODEL_TURN_TIMEOUT_S, connect=5.0)
+            ) as _client, _client.stream(
+                "POST",
+                f"{PIPELINE_URL}/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": workspace,
+                    "messages": msgs,
+                    "stream": True,
+                    "exec_audit": True,
+                },
+            ) as _resp:
+                _resp.raise_for_status()
+                for _line in _resp.iter_lines():
+                    if not _line.startswith("data: "):
+                        continue
+                    _raw = _line[6:].strip()
+                    if _raw == "[DONE]":
+                        break
+                    try:
+                        _obj = _json.loads(_raw)
+                    except Exception:
+                        continue
+                    # bench_trace event — collect tool calls + outputs
+                    if _obj.get("type") == "exec_audit":
+                        for _tc in _obj.get("tool_calls", []):
+                            _name = _tc.get("tool", "")
+                            _args_raw = _tc.get("arguments", "")
+                            _out = _tc.get("output", "")
+                            try:
+                                _args = _json.loads(_args_raw) if isinstance(_args_raw, str) else _args_raw
+                            except Exception:
+                                _args = {"_raw": _args_raw}
+                            if _name:
+                                _tool_calls.append({"tool": _name, "arguments": _args})
+                                _cmd = _args.get("cmd", "") or _args.get("code", "") or str(_args)
+                                _lab_outputs.append({
+                                    "tool": _name,
+                                    "cmd": _cmd,
+                                    "output": _out,
+                                    "ok": bool(_out) and "[stderr]" not in _out[:30],
+                                    "elapsed_s": 0.0,
+                                })
+                        continue
+                    # Content delta
+                    _choice = (_obj.get("choices") or [{}])[0]
+                    _delta = _choice.get("delta", {})
+                    _c = _delta.get("content") or ""
+                    if _c:
+                        _parts.append(_c)
+        except Exception as _e:
+            pass
+
+        return _parts, _tool_calls, _lab_outputs
+
     for round_num in range(max(chain_rounds, 1)):
         for model_idx, model in enumerate(chain_models):
             assigned = step_assignments[model]
@@ -1106,7 +1197,20 @@ def _run_exec_chain(
                         return [], []
 
             try:
-                parts, tool_calls_this = _call_chain_model_timed(messages)
+                # ── Dispatch: pipeline (workspace slug) or direct Ollama ──────
+                _is_pipeline_mode = _is_workspace_slug(model)
+                pipeline_lab_outputs: list[dict] = []
+
+                if _is_pipeline_mode:
+                    # Pipeline handles tool dispatch internally; exec_audit returns
+                    # tool calls + outputs. lab_exec=True is implied — the pipeline
+                    # workspace is wired to the real MCP sandbox.
+                    parts, tool_calls_this, pipeline_lab_outputs = _call_via_pipeline(
+                        messages, workspace=model
+                    )
+                    retried = False
+                else:
+                    parts, tool_calls_this = _call_chain_model_timed(messages)
 
                 def _has_meaningful_args(tcs: list[dict]) -> bool:
                     for tc in tcs:
@@ -1115,7 +1219,9 @@ def _run_exec_chain(
                     return False
 
                 retried = False
-                if not tool_calls_this or not _has_meaningful_args(tool_calls_this):
+                if not _is_pipeline_mode and (
+                    not tool_calls_this or not _has_meaningful_args(tool_calls_this)
+                ):
                     retry_hints = [
                         _sub_hint(s["tool_hint"]) for s in assigned if s.get("tool_hint")
                     ]
@@ -1149,7 +1255,12 @@ def _run_exec_chain(
                 content = "".join(parts)
 
                 lab_outputs: list[dict] = []
-                if lab_exec and _LAB_EXEC_AVAILABLE and tool_calls_this:
+                if _is_pipeline_mode and pipeline_lab_outputs:
+                    # Pipeline already executed the tools — outputs are in exec_audit.
+                    lab_outputs = pipeline_lab_outputs
+                    for _lo in lab_outputs:
+                        accumulate_observations(_lo["tool"], _lo.get("output", ""), lab_observations)
+                elif lab_exec and _LAB_EXEC_AVAILABLE and tool_calls_this:
                     for _tc in tool_calls_this:
                         _tr = dispatch_lab_tool(_tc["tool"], _tc.get("arguments", {}))
                         lab_outputs.append(

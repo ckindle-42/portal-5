@@ -167,6 +167,10 @@ VALID_WORKSPACES = frozenset(
         "bench-diffusiongemma",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
+        # June 2026 security bench exec-chain workspaces (pipeline-routed)
+        "bench-exec-recon",
+        "bench-exec-reasoning",
+        "bench-exec-exploit",
     }
 )
 

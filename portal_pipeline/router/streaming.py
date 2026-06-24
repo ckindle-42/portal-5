@@ -507,7 +507,12 @@ async def _stream_with_tool_loop_impl(
                 [tc["function"]["name"] for tc in all_tool_calls],
             )
             if _exec_audit:
-                _exec_audit_calls.extend(all_tool_calls)
+                _exec_audit_calls.extend(
+                    [
+                        {**tc, "_output": dr.get("content", "")}
+                        for tc, dr in zip(all_tool_calls, dispatch_results)
+                    ]
+                )
             # Continue loop for next iteration
         else:
             # Model finished without tool calls — done
@@ -518,6 +523,7 @@ async def _stream_with_tool_loop_impl(
                         {
                             "tool": tc.get("function", {}).get("name", ""),
                             "arguments": tc.get("function", {}).get("arguments", ""),
+                            "output": tc.get("_output", ""),
                         }
                         for tc in _exec_audit_calls
                     ],
