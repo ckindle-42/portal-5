@@ -822,6 +822,7 @@ def main() -> None:
                     "ad_dcsync_golden_ticket",
                     "adcs_template_abuse",
                     "eternalblue_ms17010",
+                    "htb_responder_chain",
                 ],
                 "meta3_smb": [
                     "kerberoasting",
@@ -831,14 +832,25 @@ def main() -> None:
                     "bloodhound_ad_recon",
                     "eternalblue_ms17010",
                     "lateral_movement",
+                    "htb_responder_chain",
+                    "meta3_full_compromise",
                 ],
-                "meta3_mysql": ["sqli_manual"],
-                "meta3_http": ["web_recon_basics", "web_shell_upload"],
-                "meta3_tomcat": ["tomcat_manager"],
-                "meta3_ftp": ["web_recon_basics"],
+                "meta3_mysql": ["sqli_manual", "mysql_udf_privesc", "meta3_full_compromise"],
+                "meta3_http": [
+                    "web_recon_basics",
+                    "web_shell_upload",
+                    "iis_webdav_scanner",
+                    "meta3_full_compromise",
+                ],
+                "meta3_tomcat": ["tomcat_manager", "meta3_full_compromise"],
+                "meta3_ftp": [
+                    "web_recon_basics",
+                    "ftp_backdoor",
+                    "meta3_full_compromise",
+                ],
                 "redis": ["redis_to_rce"],
                 "nfs": ["nfs_privesc_chain"],
-                "http_8080": ["lfi_to_rce"],
+                "http_8080": ["lfi_to_rce", "htb_lfi_log_poison"],
                 "http_8081": ["tomcat_manager"],
                 "http_8983": ["log4shell_rce"],
                 "vulnapp_web": [
@@ -847,6 +859,7 @@ def main() -> None:
                     "ssrf_exploitation",
                     "lfi_to_rce",
                     "web_recon_basics",
+                    "htb_sqli_to_shell",
                 ],
             }
             _enabled_prompts: set[str] = set()
