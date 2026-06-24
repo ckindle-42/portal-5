@@ -261,6 +261,7 @@ def score_execution(
     # Coverage: denominator is steps that were relevant (hit + missed, not skipped)
     relevant_count = len(steps_hit) + len(steps_missed)
     step_coverage = len(steps_hit) / max(relevant_count, 1)
+    proven_coverage = len(steps_proven) / max(relevant_count, 1)
 
     # Adherence: LIS of tool call indices / number of hits (measures execution order)
     lis = _lis_length(hit_order)
@@ -269,7 +270,12 @@ def score_execution(
     unique_tools = len({tc["tool"] for tc in tool_calls})
     diversity_bonus = min(1.0, unique_tools / 3)
 
-    composite = round(0.55 * step_coverage + 0.35 * sequence_adherence + 0.10 * diversity_bonus, 3)
+    # Composite: use proven_coverage when lab output is available (exploitation
+    # confirmed), fall back to step_coverage in synthetic mode (method-only).
+    # This ensures a failed attack doesn't score the same as a successful one.
+    has_lab_output = bool(all_output_text)
+    effective_coverage = proven_coverage if has_lab_output else step_coverage
+    composite = round(0.55 * effective_coverage + 0.35 * sequence_adherence + 0.10 * diversity_bonus, 3)
 
     calls_summary = [
         {"tool": tc.get("tool", "?"), "args_snip": _args_text(tc)[:120]} for tc in tool_calls
@@ -292,6 +298,7 @@ def score_execution(
     return {
         "exec_composite": composite,
         "step_coverage": round(step_coverage, 3),
+        "proven_coverage": round(proven_coverage, 3),
         "sequence_adherence": round(sequence_adherence, 3),
         "tool_diversity": unique_tools,
         "steps_hit": steps_hit,
@@ -300,6 +307,7 @@ def score_execution(
         "steps_proven": steps_proven,
         "steps_attempted": steps_attempted,
         "success_rate": round(success_rate, 3),
+        "has_lab_output": has_lab_output,
         "result_hits": result_hits,
         "tool_calls_made": len(tool_calls),
         "calls_made": calls_summary,
