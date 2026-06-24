@@ -406,8 +406,25 @@ _CVE_DEFAULT_MISS = "NOT VULNERABLE: Port {port} — no matching CVE for current
 _CVE_DEFAULT_HIT = "VULNERABLE: CVE confirmed on target. Service not patched. Port: {port}"
 
 _DYNAMIC_CVE_DB: dict[str, str] = {
-    "samba 4.7.6": "CVE-2017-0144",
-    "apache tomcat 9.0.0.m1": "CVE-2019-0232",
+    # Lab service banners → CVE (used by --dynamic-cve mode)
+    "samba 4.7.6": "CVE-2017-0144",           # EternalBlue/SambaRCE (lab-dc01)
+    "apache tomcat 9.0.0.m1": "CVE-2019-0232", # Tomcat CGI RCE (lab-vulhub :8282)
+    "apache tomcat 8.5": "CVE-2019-0232",      # Metasploitable3 Tomcat
+    "apache solr 8.11": "CVE-2021-44228",      # Log4Shell (lab-vulhub :8983)
+    "redis 6.0": "CVE-2022-0543",              # Redis Lua sandbox escape
+    "redis 5.0": "CVE-2022-0543",
+    "redis 4.0": "CVE-2022-0543",
+    "proftpd 1.3.5": "CVE-2019-12815",         # Metasploitable3 FTP
+    "mysql 5.7": "CVE-2012-5615",              # MySQL auth bypass
+    "vsftpd 2.3.4": "CVE-2011-2523",           # Metasploitable2 FTP backdoor
+    "apache httpd 2.4": "CVE-2021-41773",      # Apache path traversal
+    "apache httpd 2.2": "CVE-2017-9798",       # Optionsbleed
+    "openldap 2.4": "CVE-2020-25710",          # LDAP assertion DoS
+    "microsoft iis 7.5": "CVE-2010-2730",      # IIS Metasploitable3
+    "microsoft iis 8.5": "CVE-2017-7269",      # IIS WebDAV buffer overflow
+    "elasticsearch 1.4": "CVE-2014-3120",      # Metasploitable3 ES RCE
+    "glassfish 4.1": "CVE-2017-1000028",       # Metasploitable3 GlassFish
+    "nfs-utils 1.3": "CVE-2014-0208",          # NFS privilege escalation
 }
 
 _WEB_SEARCH_CHAIN_TOOL: dict = {

