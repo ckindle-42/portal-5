@@ -337,14 +337,21 @@ def run_bench(
         )
         for _cm in _need_warm:
             print(f"  warming {_cm.split('/')[-1][:35]} ...", end="", flush=True)
+            # Workspace slugs (no "/" or ":") route through the pipeline, not Ollama.
+            _is_slug = "/" not in _cm and ":" not in _cm
+            _warm_url = f"{PIPELINE_URL}/v1/chat/completions" if _is_slug else f"{_ollama_url}/v1/chat/completions"
+            _warm_headers: dict = {}
+            if _is_slug and PIPELINE_API_KEY:
+                _warm_headers["Authorization"] = f"Bearer {PIPELINE_API_KEY}"
             try:
-                with _hw.Client(timeout=_hw.Timeout(240, connect=5.0)) as _wc:
+                with _hw.Client(timeout=_hw.Timeout(300, connect=5.0)) as _wc:
                     _wr = _wc.post(
-                        f"{_ollama_url}/v1/chat/completions",
+                        _warm_url,
+                        headers=_warm_headers,
                         json={
                             "model": _cm,
                             "messages": [{"role": "user", "content": "hi"}],
-                            "max_tokens": 1,
+                            "max_tokens": 5,
                             "stream": False,
                         },
                     )
