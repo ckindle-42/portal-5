@@ -38,6 +38,12 @@ from typing import Any
 
 import httpx
 
+# Ensure benchmarks dir is importable so bench_lab_exec can be found regardless
+# of how this module is invoked (python3 -m tests.benchmarks.bench_security or direct).
+_BENCH_DIR = str(Path(__file__).resolve().parent)
+if _BENCH_DIR not in sys.path:
+    sys.path.insert(0, _BENCH_DIR)
+
 # Optional lab exec import — only available when SANDBOX_LAB_EXEC=true + lab env is up
 try:
     from bench_lab_exec import (
