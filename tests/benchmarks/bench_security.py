@@ -1986,6 +1986,33 @@ def _run_blue_turn(
     }
 
 
+def _parse_sandbox_output(raw: str) -> tuple[bool, str]:
+    """Extract clean terminal text from the MCP sandbox JSON envelope.
+
+    The sandbox MCP wraps command output in:
+      {"success": bool, "stdout": "...", "stderr": "...", "exit_code": N, ...}
+    Parse this and return (success, human-readable output) suitable for
+    injecting into model context as if it were raw terminal output.
+    """
+    import json as _json
+    try:
+        d = _json.loads(raw)
+        ok = d.get("success", False)
+        stdout = d.get("stdout", "").strip()
+        stderr = d.get("stderr", "").strip()
+        parts = []
+        if stdout:
+            parts.append(stdout)
+        if stderr:
+            parts.append(f"[stderr] {stderr}")
+        if not parts:
+            parts.append(f"[exit_code={d.get('exit_code', '?')}]")
+        return ok, "\n".join(parts)
+    except Exception:
+        # Not JSON — return raw (already clean terminal output or error string)
+        return bool(raw.strip()), raw
+
+
 def _dispatch_lab_tool(tool_name: str, arguments: dict) -> dict:
     """Execute a model-emitted tool call in the real lab sandbox.
 
@@ -1998,15 +2025,18 @@ def _dispatch_lab_tool(tool_name: str, arguments: dict) -> dict:
             cmd = arguments.get("cmd", "").strip()
             if not cmd:
                 return {"ok": False, "output": "(empty cmd)", "elapsed_s": 0.0}
-            return _lab_mcp_call(cmd, timeout=90)  # type: ignore[name-defined]
+            r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[name-defined]
+            ok, clean = _parse_sandbox_output(r.get("output", ""))
+            return {"ok": ok, "output": clean, "elapsed_s": r.get("elapsed_s", 0.0)}
         elif tool_name == "execute_python":
             code = arguments.get("code", "").strip()
             if not code:
                 return {"ok": False, "output": "(empty code)", "elapsed_s": 0.0}
-            # Wrap in python3 -c; escape single quotes
-            safe = code.replace("\\", "\\\\").replace("'", "\\'")
-            cmd = f"python3 -c '{safe}' 2>&1 | head -200"
-            return _lab_mcp_call(cmd, timeout=90)  # type: ignore[name-defined]
+            # Run as python3 script; pass via stdin to avoid shell quoting issues
+            py_cmd = f"echo {__import__('shlex').quote(code)} | python3 2>&1 | head -200"
+            r = _lab_mcp_call(py_cmd, timeout=90)  # type: ignore[name-defined]
+            ok, clean = _parse_sandbox_output(r.get("output", ""))
+            return {"ok": ok, "output": clean, "elapsed_s": r.get("elapsed_s", 0.0)}
         else:
             return {"ok": True, "output": f"[{tool_name}: not dispatched in lab-exec mode]", "elapsed_s": 0.0}
     except Exception as exc:
@@ -5455,6 +5485,9 @@ def main() -> None:
             by_ws.setdefault(r["workspace"], []).append(r)
     lines = []
     for ws, rs in sorted(by_ws.items()):
+        rs = [r for r in rs if r.get("scores", {}).get("composite") is not None]
+        if not rs:
+            continue
         avg = sum(r["scores"]["composite"] for r in rs) / len(rs)
         lines.append(f"{ws[:28]:28s}  {avg:.3f}")
     if chain_results:
