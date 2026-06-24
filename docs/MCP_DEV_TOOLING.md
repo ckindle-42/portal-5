@@ -2,7 +2,7 @@
 
 Portal 5 ships two configuration files that wire it into AI-powered coding tools:
 
-- **`.mcp.json`** — MCP server roster, picked up automatically by Claude Code and opencode
+- **`.mcp.json`** — MCP server roster, picked up automatically by Claude Code (not opencode — see `opencode.jsonc` `mcp` block)
 - **`opencode.jsonc`** — opencode provider config, points opencode at the local pipeline as its AI backend
 
 These let Claude Code and opencode read the repo, run code, call Portal 5 tools, and (for opencode)

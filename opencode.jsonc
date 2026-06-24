@@ -82,5 +82,94 @@
   "disabled_providers": ["anthropic", "openai", "google", "bedrock", "vertex"],
 
   // ── Project instructions (loaded alongside CLAUDE.md by opencode) ─────────
-  "instructions": ["CLAUDE.md"]
+  "instructions": ["CLAUDE.md"],
+
+  // ── MCP servers (opencode reads these; .mcp.json is Claude Code format only) ─
+  "mcp": {
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem",
+        "/Users/chris/projects/portal-5",
+        "/Users/chris/projects/portal-5/config",
+        "/Users/chris/projects/portal-5/portal_pipeline",
+        "/Users/chris/projects/portal-5/portal_mcp",
+        "/Users/chris/projects/portal-5/portal_channels",
+        "/Users/chris/projects/portal-5/tests",
+        "/Users/chris/.portal5/logs",
+        "/tmp"
+      ]
+    },
+    "fetch": {
+      "type": "local",
+      "command": ["uvx", "mcp-fetch"]
+    },
+    "git": {
+      "type": "local",
+      "command": ["uvx", "mcp-server-git", "--repository", "/Users/chris/projects/portal-5"]
+    },
+    "docker": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-docker"]
+    },
+    "portal-comfyui": {
+      "type": "remote",
+      "url": "http://localhost:8910/mcp"
+    },
+    "portal-video": {
+      "type": "remote",
+      "url": "http://localhost:8911/mcp"
+    },
+    "portal-music": {
+      "type": "remote",
+      "url": "http://localhost:8912/mcp"
+    },
+    "portal-documents": {
+      "type": "remote",
+      "url": "http://localhost:8913/mcp"
+    },
+    "portal-sandbox": {
+      "type": "remote",
+      "url": "http://localhost:8914/mcp"
+    },
+    "portal-whisper": {
+      "type": "remote",
+      "url": "http://localhost:8915/mcp"
+    },
+    "portal-tts": {
+      "type": "remote",
+      "url": "http://localhost:8916/mcp"
+    },
+    "portal-security": {
+      "type": "remote",
+      "url": "http://localhost:8919/mcp"
+    },
+    "portal-memory": {
+      "type": "remote",
+      "url": "http://localhost:8920/mcp"
+    },
+    "portal-rag": {
+      "type": "remote",
+      "url": "http://localhost:8921/mcp"
+    },
+    "portal-research": {
+      "type": "remote",
+      "url": "http://localhost:8922/mcp"
+    },
+    "portal-browser": {
+      "type": "remote",
+      "url": "http://localhost:8923/mcp"
+    },
+    "portal-mlx-transcribe": {
+      "type": "remote",
+      "url": "http://localhost:8924/mcp"
+    },
+    "portal-proxmox": {
+      "type": "remote",
+      "url": "http://localhost:8927/mcp"
+    },
+    "portal-pipeline": {
+      "type": "remote",
+      "url": "http://localhost:8928/mcp"
+    }
+  }
 }
