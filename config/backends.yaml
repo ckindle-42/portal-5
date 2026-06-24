@@ -222,6 +222,10 @@ backends:
       CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest
       security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format).
       auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).'
+  - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
+    supports_tools: true
+    notes: 'Qwable-3.6-35B MoE (~21GB, MIT). Cross-listed from ollama-coding for bench-exec-reasoning security routing.
+      Confirmed tool-use 2026-06-18. bench-exec-reasoning pipeline workspace target.'
   - id: lfm2.5:8b
     supports_tools: true
     notes: 'Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure
@@ -624,6 +628,12 @@ workspace_routing:
   bench-vulnllm-r7b:
   - security
   - general
+  bench-exec-recon:
+  - security
+  bench-exec-reasoning:
+  - security
+  bench-exec-exploit:
+  - security
   bench-huihui-qwen36-35b-a3b:
   - general
   - creative
