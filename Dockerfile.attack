@@ -3,24 +3,31 @@
 # Used ONLY by the *-exec security workspaces (auto-purpleteam-exec, auto-pentest)
 # when SANDBOX_LAB_EXEC=true. The code sandbox MCP swaps this image in for the
 # default alpine/python-slim base so execute_bash/execute_python have real
-# offensive AD tooling (nmap, impacket, netexec, certipy, responder, bloodhound)
-# to drive against a routable lab.
+# offensive AD tooling to drive against a routable lab.
 #
 # Built by: ./launch.sh build-lab-attack  (tagged portal5-attack:latest, loaded into DinD)
 # Pointed at by: SANDBOX_LAB_IMAGE=portal5-attack:latest  (see .env / docs/LAB_SETUP.md)
 #
+# Tool coverage matches all tool_hints in EXEC_SEQUENCES (bench_security.py):
+#   AD/Kerberos  — impacket-* (GetUserSPNs, GetNPUsers, secretsdump, psexec, ntlmrelayx,
+#                    addcomputer, findDelegation, rbcd, getST, ticketer), certipy-ad
+#   SMB/LDAP     — nxc, smbclient, rpcclient, enum4linux-ng, ldapsearch
+#   Lateral      — evil-winrm, impacket-wmiexec, impacket-smbexec
+#   Capture      — responder (with Responder.conf)
+#   Recon        — nmap, showmount (nfs-common), bloodhound-python
+#   Password     — hashcat, john, hydra, rockyou.txt (decompressed), seclists
+#   Web          — curl, ffuf, redis-cli
+#   Exploit      — AutoBlue-MS17-010 (python), marshalsec jar (log4shell)
+#   Java         — default-jre-headless (marshalsec + log4shell payload compile)
+#
 # Kali rolling ships native linux/arm64 — no QEMU emulation on Apple Silicon.
-# Install is apt-only: netexec's Kali package co-installs a coherent, Kali-tested
-# impacket/certipy/bloodhound set, avoiding pip resolver conflicts and PEP-668.
 FROM kalilinux/kali-rolling
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Recon/base + the AD attack set, all from the Kali repo. Kept lean: no full
-# kali-linux-headless metapackage (GBs of desktop tooling the *-exec workspaces
-# don't need). netexec transitively pulls python3-impacket, certipy-ad, and
-# bloodhound.py; impacket-scripts adds the impacket-* CLIs to PATH; responder and
-# bloodhound-ce-python are added explicitly.
+# ── Apt packages ──────────────────────────────────────────────────────────────
+# netexec co-installs python3-impacket, certipy-ad, bloodhound.py.
+# impacket-scripts adds all impacket-* CLIs to PATH.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         nmap \
@@ -30,28 +37,48 @@ RUN apt-get update \
         iputils-ping \
         smbclient \
         ldap-utils \
+        nfs-common \
         curl \
         wget \
         git \
         ca-certificates \
         openssh-client \
         python3 \
+        python3-pip \
+        default-jre-headless \
         netexec \
         impacket-scripts \
         certipy-ad \
         responder \
         bloodhound-ce-python \
+        enum4linux-ng \
+        evil-winrm \
+        ffuf \
+        redis-tools \
+        seclists \
         john \
         hashcat \
         hydra \
         wordlists \
     && rm -rf /var/lib/apt/lists/* \
-    # Decompress rockyou.txt so tools can use it directly without --stdin piping
+    # Decompress rockyou.txt so tools reference it directly (no gunzip pipe)
     && gunzip -k /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
 
-# Sanity: verify headline tools are on PATH. Use command -v (existence check) — nmap and
-# other cap-requiring binaries fail --version in Docker's restricted build sandbox even
-# though they work fine at container runtime.
+# ── AutoBlue MS17-010 ─────────────────────────────────────────────────────────
+# Python3 EternalBlue exploit suite — matches eternalblue_ms17010 tool_hint.
+RUN git clone --depth 1 https://github.com/3ndG4me/AutoBlue-MS17-010 /opt/AutoBlue-MS17-010 \
+    && pip3 install --no-cache-dir -r /opt/AutoBlue-MS17-010/requirements.txt 2>/dev/null || true
+
+# ── marshalsec (log4shell LDAP redirect server) ───────────────────────────────
+# Pre-built jar; java must be installed above for runtime.
+RUN mkdir -p /opt/marshalsec \
+    && wget -q -O /opt/marshalsec/marshalsec-0.0.3-SNAPSHOT-all.jar \
+       https://github.com/mbechler/marshalsec/releases/download/0.0.3-SNAPSHOT/marshalsec-0.0.3-SNAPSHOT-all.jar \
+    || echo "WARNING: marshalsec download failed — log4shell server step will need manual setup"
+
+# ── Tool verification ─────────────────────────────────────────────────────────
+# Use command -v (existence check) — nmap and cap-requiring binaries fail
+# --version in Docker's restricted build sandbox even though they work at runtime.
 RUN set -e; \
     command -v nmap >/dev/null; \
     command -v nxc >/dev/null; \
@@ -59,11 +86,27 @@ RUN set -e; \
     command -v responder >/dev/null; \
     command -v bloodhound-ce-python >/dev/null; \
     command -v impacket-secretsdump >/dev/null; \
+    command -v impacket-GetUserSPNs >/dev/null; \
+    command -v impacket-GetNPUsers >/dev/null; \
+    command -v impacket-ntlmrelayx >/dev/null; \
+    command -v impacket-addcomputer >/dev/null; \
+    command -v impacket-findDelegation >/dev/null; \
+    command -v impacket-rbcd >/dev/null; \
+    command -v impacket-getST >/dev/null; \
+    command -v impacket-ticketer >/dev/null; \
+    command -v enum4linux-ng >/dev/null; \
+    command -v evil-winrm >/dev/null; \
+    command -v showmount >/dev/null; \
+    command -v ffuf >/dev/null; \
+    command -v redis-cli >/dev/null; \
     command -v john >/dev/null; \
     command -v hashcat >/dev/null; \
+    command -v hydra >/dev/null; \
+    command -v java >/dev/null; \
     test -f /usr/share/wordlists/rockyou.txt; \
+    test -d /usr/share/seclists; \
+    test -f /opt/AutoBlue-MS17-010/eternalblue_exploit7.py; \
     python3 -c "import impacket; print('impacket ok')"
 
 # execute_bash invokes ["sh", "/code"]; execute_python invokes ["python", "/code"].
-# Default shell entrypoint; the sandbox overrides command per call anyway.
 CMD ["sh"]
