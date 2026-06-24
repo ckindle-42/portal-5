@@ -58,7 +58,12 @@ from .chain import (
     _run_multimodel_chain,
     _run_refusal_test,
     run_audit_tools,
+    run_candidate_intake,
     run_chain_tests,
+    _pull_model,
+    _tps_warmup,
+    TPS_FLOOR,
+    PULL_TIMEOUT_S,
 )
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -117,6 +122,11 @@ __all__ = [
     "_run_refusal_test",
     "run_chain_tests",
     "run_audit_tools",
+    "run_candidate_intake",
+    "_pull_model",
+    "_tps_warmup",
+    "TPS_FLOOR",
+    "PULL_TIMEOUT_S",
     "CHAIN_TOOLS_BASE",
     "OLLAMA_URL",
     "SCENARIOS",
