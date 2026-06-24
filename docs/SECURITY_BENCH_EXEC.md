@@ -2,7 +2,7 @@
 
 **Document type**: Operator runbook + coding-agent re-entry guide  
 **Scope**: `bench_security.py` — real lab-exec mode, portal5-attack container, AD lab  
-**Status**: Operational as of 2026-06-23 (commit d6b9255)
+**Status**: Operational as of 2026-06-23 (commit 088353c)
 
 ---
 
@@ -23,13 +23,14 @@ Lab-exec is the ground truth for red/purple team evaluation. Theory mode is fast
 
 ```bash
 # Verify from Proxmox (host 10.0.0.203)
-# lab-dc01   vmid 110  → 10.10.11.21  (portal.lab DC, Windows Server 2022)
-# lab-srv01  vmid 111  → 10.10.11.33  (member server)
+# lab-dc01     vmid 110  → 10.10.11.21  (portal.lab DC, Windows Server 2022)
+# lab-srv01    vmid 111  → 10.10.11.33  (member server)
+# lab-vulhub   lxc  112  → 10.10.11.50  (Kali, Docker, Redis/LFI/Tomcat/Log4Shell/NFS)
 
 # Quick reachability test from within DinD
 docker exec portal5-dind docker run --rm --net bridge portal5-attack:latest \
-  sh -c 'nxc smb 10.10.11.21 2>&1 | tail -2'
-# Expected: SMB line showing portal.lab hostname, OS, signing info
+  sh -c 'nxc smb 10.10.11.21 2>&1 | tail -2 && redis-cli -h 10.10.11.50 ping'
+# Expected: SMB portal.lab line + PONG
 ```
 
 If the VMs are off, start them from Proxmox web UI or:
@@ -60,6 +61,7 @@ SANDBOX_LAB_EXEC=true
 SANDBOX_LAB_IMAGE=portal5-attack:latest
 LAB_TARGET_DC=10.10.11.21
 LAB_TARGET_SRV=10.10.11.33
+LAB_TARGET_WEB=10.10.11.50
 
 # Optional — for Proxmox VM lifecycle
 PROXMOX_URL=https://10.0.0.203:8006
@@ -112,7 +114,9 @@ python3 -m tests.benchmarks.bench_security \
   2>&1 | tee /tmp/secbench_kerberoast.log
 ```
 
-### All prompts with exec chains
+### Full lab-exec run (all lab-backed prompts)
+
+Run this to exercise everything that has a real target in the current lab. Copy-paste ready.
 
 ```bash
 python3 -m tests.benchmarks.bench_security \
@@ -122,9 +126,28 @@ python3 -m tests.benchmarks.bench_security \
     "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf" \
     "huihui_ai/baronllm-abliterated:latest" \
   --blue-defender "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0" \
+  --prompt \
+    kerberoasting \
+    asrep_roasting \
+    bloodhound_ad_recon \
+    adcs_template_abuse \
+    pass_the_hash \
+    smb_enum_relay \
+    ad_dcsync_golden_ticket \
+    rbcd_attack \
+    redis_to_rce \
+    lfi_to_rce \
+    tomcat_manager \
+    log4shell_rce \
+    nfs_privesc_chain \
   --lab-exec \
-  2>&1 | tee /tmp/secbench_all.log
+  2>&1 | tee /tmp/secbench_full.log
 ```
+
+These 13 prompts all have real backing targets in the lab. The remaining prompts
+(`linux_privesc`, `cron_privesc`, `container_escape`, `windows_token_impersonation`,
+`eternalblue_ms17010`) need a pre-compromised shell or unpatched Windows — run them
+theory-only or skip with `--skip-workspace-bench` and no `--prompt` override.
 
 ### Theory-only (no lab, faster fleet scoring)
 
