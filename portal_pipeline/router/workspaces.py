@@ -356,7 +356,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "keep_alive": "15m",
         "tools": [
             "explore_repository",  # FastContext 4B subagent — locates files before edits
-            "execute_bash",
+            "read_text_file",      # filesystem MCP — reads host project files (not sandbox)
+            "read_file",           # filesystem MCP — alias, same host access
+            "search_files",        # filesystem MCP — grep across project tree
+            "list_directory",      # filesystem MCP — directory listings
+            "write_file",          # filesystem MCP — write/edit host files directly
+            "execute_bash",        # portal-sandbox — runs code/tests in isolated container
             "execute_python",
             "execute_nodejs",
             "sandbox_status",
@@ -369,13 +374,20 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "\n\nAGENTIC CODING LOOP — follow this pattern every turn:\n"
             "1. EXPLORE: call explore_repository('what you need to find') first.\n"
             "   It returns exact file paths and line numbers — use these, do not guess paths.\n"
-            "2. READ: use execute_bash to read those specific files/line ranges before editing\n"
-            "   (cat -n <file> | sed -n '<start>,<end>p')\n"
+            "2. READ: use filesystem/read_text_file to read those specific files before editing.\n"
+            "   NEVER use execute_bash cat/head/tail to read project files —\n"
+            "   execute_bash runs inside an isolated Docker container with NO access to the\n"
+            "   host filesystem. filesystem/* tools are the only way to read project files.\n"
             "3. PLAN: state the minimal change needed and which files are affected\n"
-            "4. EDIT: make precise, targeted changes — do not rewrite whole files\n"
+            "4. EDIT: use filesystem/write_file for targeted edits — do not rewrite whole files\n"
             "5. VERIFY: run tests or linters with execute_bash after every change\n"
             "   (pytest tests/unit/ -q; ruff check <file>)\n"
             "6. REPORT: state what changed, what passed, and what remains\n\n"
+            "TOOL ROUTING:\n"
+            "- filesystem/* (read_text_file, write_file, search_files, list_directory):\n"
+            "  host-native, full access to ~/projects — use for ALL file reads and writes\n"
+            "- execute_bash / execute_python / execute_nodejs:\n"
+            "  isolated sandbox container — use ONLY for running code, tests, and linters\n\n"
             "HARD CONSTRAINTS:\n"
             "- Never hardcode model names, backend URLs, or credentials\n"
             "- Never modify Open WebUI source — use extension points only\n"
