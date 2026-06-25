@@ -106,6 +106,7 @@ __all__ = [
     # Pipeline I/O (defined below)
     "call_pipeline",
     "call_pipeline_exec",
+    "call_theory_direct",
     # Lab
     "probe_lab_services",
     "print_lab_probe_report",
@@ -242,6 +243,82 @@ def call_pipeline_exec(
                     pass
 
     return "".join(parts), tool_calls, time.monotonic() - t0
+
+
+def call_theory_direct(
+    model_id: str,
+    prompt: str,
+    workspace: str | None = None,
+    prompt_meta: dict | None = None,
+    ollama_url: str | None = None,
+) -> tuple[str, float]:
+    """Call Ollama directly (no pipeline) for theory-pass benchmarking.
+
+    Injects the workspace's system_prompt_append and sampling params so the
+    model sees the same context it would through the pipeline — but without
+    the routing overhead.  Reduces per-prompt latency from ~500s to ~60-90s.
+
+    Args:
+        model_id:    Exact Ollama model ID (e.g. "huihui_ai/baronllm-abliterated")
+        prompt:      User message text
+        workspace:   Portal workspace slug — used to look up system prompt and
+                     sampling params from WORKSPACES config.  Optional; if None,
+                     no system prompt is injected.
+        prompt_meta: Prompt metadata dict (for early-exit scoring_criteria_met)
+        ollama_url:  Override Ollama URL (default: PIPELINE_URL port → 11434)
+    """
+    from portal_pipeline.router.workspaces import WORKSPACES
+
+    _ollama = ollama_url or PIPELINE_URL.replace(":9099", ":11434")
+
+    ws_cfg = WORKSPACES.get(workspace or "", {}) if workspace else {}
+    system_prompt = ws_cfg.get("system_prompt_append", "")
+
+    # Mirror the sampling params injected by _inject_ollama_options()
+    _SAMPLING_KEYS = ("temperature", "top_p", "top_k", "min_p", "repeat_penalty", "seed")
+    options: dict = {}
+    for key in _SAMPLING_KEYS:
+        val = ws_cfg.get(key)
+        if val is not None:
+            options[key] = val
+
+    messages: list[dict] = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+
+    payload: dict = {
+        "model": model_id,
+        "messages": messages,
+        "stream": True,
+        "max_tokens": PROMPT_MAX_TOKENS,
+    }
+    if options:
+        payload["options"] = options
+
+    parts: list[str] = []
+    t0 = time.monotonic()
+    with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
+        with client.stream(
+            "POST",
+            f"{_ollama}/v1/chat/completions",
+            json=payload,
+        ) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if line == "data: [DONE]":
+                    break
+                if line.startswith("data: "):
+                    try:
+                        d = _json.loads(line[6:])
+                        c = d["choices"][0]["delta"].get("content") or ""
+                        if c:
+                            parts.append(c)
+                    except Exception:
+                        pass
+                if prompt_meta and parts and scoring_criteria_met("".join(parts), prompt_meta):
+                    break
+    return "".join(parts), time.monotonic() - t0
 
 
 if __name__ == "__main__":

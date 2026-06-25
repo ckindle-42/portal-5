@@ -87,6 +87,8 @@ def run_bench(
     blue_defender_model: str | None = None,
     chain_rounds: int = 1,
     lab_exec: bool = False,
+    direct_theory_model: str | None = None,
+    strip_think: bool = False,
 ) -> list[dict[str, Any]]:
     """Run the dual-pass security bench.
 
@@ -98,7 +100,7 @@ def run_bench(
       multi-model handoff chain per prompt → chain_exec_composite score
     """
     # Deferred import to avoid circular dependency with __init__.py facade
-    from . import call_pipeline, call_pipeline_exec
+    from . import call_pipeline, call_pipeline_exec, call_theory_direct
 
     results = []
     total = len(workspaces) * len(prompt_keys)
@@ -209,11 +211,21 @@ def run_bench(
                                 break
                     theory_content = "".join(_parts)
                     theory_elapsed = time.monotonic() - _t0
+                elif direct_theory_model:
+                    theory_content, theory_elapsed = call_theory_direct(
+                        direct_theory_model,
+                        meta["text"],
+                        workspace=workspace,
+                        prompt_meta=meta,
+                    )
                 else:
                     theory_content, theory_elapsed = call_pipeline(
                         workspace, meta["text"], prompt_meta=meta
                     )
 
+                if strip_think:
+                    from portal_pipeline.router.thinking import strip_think as _strip_think
+                    theory_content = _strip_think(theory_content)
                 theory_scores = score_response(theory_content, meta, ws_cat)
             except Exception as exc:
                 theory_scores = {"composite": 0.0, "disclaimers": 0, "mitre_count": 0, "words": 0}
@@ -601,6 +613,27 @@ def main() -> None:
         "--skip-pull",
         action="store_true",
         help="Skip Ollama pull step in --candidate-intake (use when models are already local)",
+    )
+    parser.add_argument(
+        "--strip-think",
+        action="store_true",
+        help=(
+            "Strip <think>...</think> reasoning blocks from model responses before scoring. "
+            "Use when benchmarking thinking models (e.g. Gemma4 E2b/E4b) to score only the "
+            "final answer, not the reasoning chain."
+        ),
+    )
+    parser.add_argument(
+        "--direct-theory",
+        metavar="MODEL_ID",
+        help=(
+            "Run the theory (workspace text-quality) bench by calling Ollama directly "
+            "instead of routing through the pipeline.  Injects the workspace system "
+            "prompt and sampling params from the WORKSPACES config — same context the "
+            "model would see through the pipeline, without the routing overhead (~45 min "
+            "vs ~5 hours).  Provide the exact Ollama model ID "
+            "(e.g. 'huihui_ai/baronllm-abliterated').  Requires --workspaces."
+        ),
     )
     parser.add_argument(
         "--audit-tools",
@@ -1363,6 +1396,8 @@ def main() -> None:
             blue_defender_model=args.blue_defender_model or None,
             chain_rounds=args.chain_rounds,
             lab_exec=args.lab_exec,
+            direct_theory_model=getattr(args, "direct_theory", None) or None,
+            strip_think=getattr(args, "strip_think", False),
         )
 
     # ── Proxmox VM restore after exec_chain (Step 3) ────────────────────────

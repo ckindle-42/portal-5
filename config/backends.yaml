@@ -196,10 +196,10 @@ backends:
   - id: huihui_ai/baronllm-abliterated
     supports_tools: true
     notes: 'Llama-3.1-8B security specialist (AlicanKiraz0/Cybersecurity-BaronLLM — 53K examples, 200+ cybersec domains).
-      auto-security + auto-pentest PRIMARY (reinstated 2026-06-21, SECURITY_FLEET_REVIEW_2026-06). Fleet bench 2026-06-20:
-      kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s — fastest in fleet); completion bench 2026-06-21: both scenarios 1.00/1.00
-      at 11s avg — asrep_to_lateral STALL in fleet run was memory-pressure artifact. Broadest security domain coverage in
-      group (53K training examples). Template fix: TASK_TOOLCALL_FIX_LOCKIN_V1.'
+      auto-security PRIMARY. SUPERSEDED on auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25 head-to-head:
+      composite 0.50 vs 0.70, header 0.50 vs 0.83, MITRE 0.5 vs 1.4 avg — E2b stripped final answer wins across all metrics).
+      Fleet bench 2026-06-20: kerberoast_to_da WIN (8/8 1.00 adapt=2/2 14s). Retained for auto-security.
+      Template fix: TASK_TOOLCALL_FIX_LOCKIN_V1.'
   - id: sylink/sylink:8b
     supports_tools: false
     notes: 'SYLink 8B F16 (~16GB — only available quantization, Qwen3 8B base). Purpose-built for SOC triage, threat intel,
@@ -224,15 +224,17 @@ backends:
       auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).'
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true
-    notes: 'Gemma4-E2B QAT abliterated (~3GB, huihui_ai, Gemma4 base). bench-exec-exploit PRIMARY —
-      sec bench 2026-06-24: 80.0% (108/135) in EXPLOIT slot, best of 8 candidates tested.
-      71.6 t/s, zero zero-tool chains. Replaces Qwable-35B in bench chain (21GB → 3GB, +7.6pp score).
-      audit-tools 2026-06-24: tool_call confirmed (get_current_time). bench-exec-exploit pipeline target.'
+    notes: 'Gemma4-E2B QAT abliterated (~3GB, huihui_ai, Gemma4 base). auto-pentest PRIMARY (promoted 2026-06-25)
+      + bench-exec-exploit PRIMARY. Thinking model — strips <think> blocks in pipeline output.
+      Head-to-head vs baronllm 2026-06-25 (stripped final answer): composite 0.70 vs 0.50, header 0.83 vs 0.50,
+      MITRE 1.4 vs 0.5 avg, zero refusals/disclaimers. Exec chain: 80.0% EXPLOIT slot (108/135), 71.6 t/s,
+      zero zero-tool chains. Replaces Qwable-35B in bench chain (21GB → 3GB, +7.6pp) and baronllm on auto-pentest
+      (8B → 2B, +0.20 composite). audit-tools 2026-06-24: tool_call confirmed.'
   - id: hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf
     supports_tools: true
-    notes: 'Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain by gemma-4-abliterated:E2b-qat
-      (80.0% vs 72.4%, 3GB vs 21GB). Retained for auto-pentest primary role only.
-      Confirmed tool-use 2026-06-18. bench-exec-reasoning pipeline workspace target.'
+    notes: 'Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain and auto-pentest by
+      gemma-4-abliterated:E2b-qat (2026-06-25). bench-exec-reasoning pipeline workspace target.
+      Confirmed tool-use 2026-06-18.'
   - id: lfm2.5:8b
     supports_tools: true
     notes: 'Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure

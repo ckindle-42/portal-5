@@ -133,6 +133,7 @@ VALID_WORKSPACES = frozenset(
         "bench-deepseek-coder-v2",
         "bench-gemmable-12b",
         "bench-qwable-35b",
+        "bench-e2b-pentest",
         # June 2026 new production workspaces
         "auto-bigfix",
         "auto-cad",
