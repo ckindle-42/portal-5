@@ -29,30 +29,49 @@
         "baseURL": "http://localhost:9099/v1"
       },
       // Curated workspace subset for coding tasks — use `opencode models`
-      // to see all 110 or select any workspace from the model picker.
+      // to see all 89 or select any workspace from the model picker.
       "models": {
-        "auto-coding": {
-          "name": "Portal · Qwen3-Coder 30B (one-shot)",
-          "attachment": true,
-          "reasoning": false
-        },
-        "auto-coding-agentic": {
-          "name": "Portal · Laguna-XS.2 33B (agentic loop, opencode default)",
-          "attachment": true,
-          "reasoning": false
-        },
-        "auto-agentic": {
-          "name": "Portal · Qwen3-Coder-Next 80B (heavy agentic)",
+
+        // ── General ───────────────────────────────────────────────────────────
+        "auto-daily": {
+          "name": "Portal · Daily Driver (Gemma 4 26B QAT)",
           "attachment": true,
           "reasoning": false
         },
         "auto-reasoning": {
-          "name": "Portal · Reasoning (DeepSeek-R1-0528 8B)",
+          "name": "Portal · Deep Reasoner (DeepSeek-R1-0528 8B)",
           "attachment": true,
           "reasoning": true
         },
-        "auto-purpleteam-exec": {
-          "name": "Portal · Purple Team Exec (tool-calling, live lab)",
+        "auto-research": {
+          "name": "Portal · Research Assistant (web-augmented)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-data": {
+          "name": "Portal · Data Analyst (Qwen3.6-27B)",
+          "attachment": true,
+          "reasoning": false
+        },
+
+        // ── Coding ────────────────────────────────────────────────────────────
+        "auto-coding": {
+          "name": "Portal · Code Expert (Qwen3-Coder 30B, one-shot)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-coding-agentic": {
+          "name": "Portal · IDE Agentic (Laguna-XS.2 33B, opencode default)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-agentic": {
+          "name": "Portal · Agentic Heavy (Qwen3-Coder-Next 80B + AgentWorld 35B fallback)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "bench-agentworld": {
+          "name": "Portal · AgentWorld 35B (env-sim: MCP/SWE/Terminal/Web, 45 t/s)",
           "attachment": false,
           "reasoning": true
         },
@@ -66,15 +85,59 @@
           "attachment": true,
           "reasoning": false
         },
+
+        // ── Security ──────────────────────────────────────────────────────────
+        "auto-security": {
+          "name": "Portal · Security Analyst (VulnLLM-R-7B)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-pentest": {
+          "name": "Portal · Pentest Assistant (authorized engagements)",
+          "attachment": false,
+          "reasoning": false
+        },
+        "auto-redteam": {
+          "name": "Portal · Red Team (offensive, authorized)",
+          "attachment": false,
+          "reasoning": false
+        },
+        "auto-blueteam": {
+          "name": "Portal · Blue Team (defensive, IR, detection)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-purpleteam": {
+          "name": "Portal · Purple Team (TTP analysis)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-purpleteam-exec": {
+          "name": "Portal · Purple Team Exec (tool-calling, live lab)",
+          "attachment": false,
+          "reasoning": true
+        },
+        "auto-spl": {
+          "name": "Portal · SPL Engineer (Splunk, YARA, detections)",
+          "attachment": true,
+          "reasoning": false
+        },
+        "auto-security-uncensored": {
+          "name": "Portal · Security Uncensored (no refusals)",
+          "attachment": false,
+          "reasoning": false
+        },
+
+        // ── General uncensored ────────────────────────────────────────────────
         "auto-general-uncensored": {
           "name": "Portal · General Uncensored (Qwen3.6-abliterated 27B)",
           "attachment": true,
           "reasoning": false
         },
-        "bench-agentworld": {
-          "name": "Portal · AgentWorld 35B (env-sim, MCP/SWE/Terminal)",
-          "attachment": false,
-          "reasoning": true
+        "auto-extract-uncensored": {
+          "name": "Portal · Extract Uncensored (structured data parsing)",
+          "attachment": true,
+          "reasoning": false
         }
       }
     }
