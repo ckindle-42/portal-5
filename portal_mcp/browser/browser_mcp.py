@@ -30,13 +30,12 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
-from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import urlparse
 
-from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-from starlette.routing import Route
+
+from portal_mcp.mcp_server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
@@ -48,6 +47,8 @@ DEFAULT_BLOCKED_ORIGINS = os.environ.get(
     "localhost;127.0.0.1;169.254.169.254;metadata.google.internal",
 ).split(";")
 PRIVATE_PREFIXES = (
+    "127.",        # full loopback range (127.0.0.0/8), not just 127.0.0.1
+    "169.254.",    # full link-local range (169.254.0.0/16), not just the AWS metadata IP
     "192.168.",
     "10.",
     "172.16.",
@@ -252,10 +253,15 @@ class PlaywrightStdioClient:
 
 _clients: dict[str, PlaywrightStdioClient] = {}
 _clients_lock = asyncio.Lock()
+_reaper_started = False
 
 
 async def _get_client(profile: str) -> PlaywrightStdioClient:
+    global _reaper_started
     async with _clients_lock:
+        if not _reaper_started:
+            asyncio.create_task(_idle_reaper())
+            _reaper_started = True
         client = _clients.get(profile)
         if client is None:
             client = PlaywrightStdioClient(profile=profile)
@@ -277,19 +283,74 @@ async def _idle_reaper():
                 del _clients[p]
 
 
-# ── HTTP API ─────────────────────────────────────────────────────────────
+# ── Shared tool execution core ───────────────────────────────────────────
 
 
-async def health(request):
-    return JSONResponse(
-        {
-            "status": "ok",
-            "service": "browser-mcp",
-            "active_clients": len(_clients),
-            "profiles": [p.name for p in PROFILES_DIR.iterdir() if p.is_dir()],
-        }
-    )
+async def _execute_tool(
+    tool_name: str,
+    args: dict,
+    persona: str = "",
+    allowed_domains: list[str] | None = None,
+    blocked_domains: list[str] | None = None,
+    force_credential_fill: bool = False,
+) -> tuple[dict, int]:
+    """Common security + dispatch path for all browser tools. Returns (result, http_status)."""
+    profile = args.get("profile", "_isolated")
+    t0 = time.monotonic()
 
+    if tool_name == "browser_navigate":
+        ok, why = _validate_url(args.get("url", ""), allowed_domains, blocked_domains)
+        if not ok:
+            duration = (time.monotonic() - t0) * 1000
+            _audit_log(persona, profile, tool_name, args, f"denied: {why}", duration)
+            return {"error": why}, 403
+        host = (urlparse(args.get("url", "")).hostname or "").lower()
+        rate_ok, rate_why = _check_domain_rate(host)
+        if not rate_ok:
+            duration = (time.monotonic() - t0) * 1000
+            _audit_log(persona, profile, tool_name, args, f"rate_limited: {rate_why}", duration)
+            return {"error": rate_why}, 429
+
+    if tool_name == "browser_fill":
+        ref = args.get("element_ref", "")
+        if SENSITIVE_FIELD_PATTERNS.search(str(ref)) and not force_credential_fill:
+            duration = (time.monotonic() - t0) * 1000
+            _audit_log(persona, profile, tool_name, args, "denied: sensitive field", duration)
+            return {
+                "error": "sensitive field detected; persona does not have force_credential_fill"
+            }, 403
+
+    anomaly = _check_anomaly(persona, profile, tool_name, args)
+    if anomaly:
+        logger.warning("Browser anomaly: %s", anomaly)
+
+    client = await _get_client(profile)
+    try:
+        result = await asyncio.wait_for(client.request(tool_name, args), timeout=120)
+        duration = (time.monotonic() - t0) * 1000
+        status = "ok" if "error" not in result else "error"
+        _audit_log(persona, profile, tool_name, args, status, duration)
+        return result.get("result", result), 200
+    except asyncio.TimeoutError:
+        duration = (time.monotonic() - t0) * 1000
+        _audit_log(persona, profile, tool_name, args, "timeout", duration)
+        return {"error": "tool timed out after 120s"}, 504
+    except Exception as e:
+        duration = (time.monotonic() - t0) * 1000
+        _audit_log(persona, profile, tool_name, args, f"exception: {e}", duration)
+        return {"error": str(e)[:200]}, 500
+
+
+# ── MCP Server Setup ─────────────────────────────────────────────────────
+
+_port = int(os.environ.get("BROWSER_MCP_PORT", "8923"))
+
+mcp = FastMCP(
+    "Portal Browser Tools",
+    host="0.0.0.0",
+    port=_port,
+    instructions="Playwright browser automation: navigate, click, fill forms, screenshot, and inspect page content.",
+)
 
 TOOLS_MANIFEST = [
     {
@@ -377,82 +438,53 @@ TOOLS_MANIFEST = [
 ]
 
 
+# ── Custom routes (health + pipeline REST compat + admin) ────────────────
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "browser-mcp",
+            "active_clients": len(_clients),
+            "profiles": [p.name for p in PROFILES_DIR.iterdir() if p.is_dir()],
+        }
+    )
+
+
+@mcp.custom_route("/tools", methods=["GET"])
 async def list_tools(request):
     return JSONResponse(TOOLS_MANIFEST)
 
 
-async def _proxy_tool(request, tool_name: str):
-    body = await request.json()
+@mcp.custom_route("/tools/{tool_name}", methods=["POST"])
+async def invoke_tool(request):
+    """REST dispatch used by portal-pipeline tool_registry."""
+    tool_name = request.path_params.get("tool_name", "")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
     args = body.get("arguments", {})
     persona = body.get("persona", "")
     allowed = body.get("allowed_domains")
     blocked = body.get("blocked_domains")
-    profile = args.get("profile", "_isolated")
-    t0 = time.monotonic()
+    force = body.get("force_credential_fill", False)
 
-    if tool_name == "browser_navigate":
-        ok, why = _validate_url(args.get("url", ""), allowed, blocked)
-        if not ok:
-            duration = (time.monotonic() - t0) * 1000
-            _audit_log(persona, profile, tool_name, args, f"denied: {why}", duration)
-            return JSONResponse({"error": why}, status_code=403)
-        host = (urlparse(args.get("url", "")).hostname or "").lower()
-        rate_ok, rate_why = _check_domain_rate(host)
-        if not rate_ok:
-            duration = (time.monotonic() - t0) * 1000
-            _audit_log(persona, profile, tool_name, args, f"rate_limited: {rate_why}", duration)
-            return JSONResponse({"error": rate_why}, status_code=429)
+    if tool_name == "browser_list_profiles":
+        profiles = sorted([p.name for p in PROFILES_DIR.iterdir() if p.is_dir()])
+        return JSONResponse({"profiles": profiles})
 
-    if tool_name == "browser_fill":
-        ref = args.get("element_ref", "")
-        text = args.get("text", "")
-        if SENSITIVE_FIELD_PATTERNS.search(str(ref)) and not body.get(
-            "force_credential_fill", False
-        ):
-            duration = (time.monotonic() - t0) * 1000
-            _audit_log(persona, profile, tool_name, args, "denied: sensitive field", duration)
-            return JSONResponse(
-                {"error": "sensitive field detected; persona does not have force_credential_fill"},
-                status_code=403,
-            )
+    known = {t["name"] for t in TOOLS_MANIFEST}
+    if tool_name not in known:
+        return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
-    # Anomaly check
-    anomaly = _check_anomaly(persona, profile, tool_name, args)
-    if anomaly:
-        logger.warning("Browser anomaly: %s", anomaly)
-
-    client = await _get_client(profile)
-    try:
-        result = await asyncio.wait_for(client.request(tool_name, args), timeout=120)
-        duration = (time.monotonic() - t0) * 1000
-        status = "ok" if "error" not in result else "error"
-        _audit_log(persona, profile, tool_name, args, status, duration)
-        return JSONResponse(result.get("result", result))
-    except asyncio.TimeoutError:
-        duration = (time.monotonic() - t0) * 1000
-        _audit_log(persona, profile, tool_name, args, "timeout", duration)
-        return JSONResponse({"error": "tool timed out after 120s"}, status_code=504)
-    except Exception as e:
-        duration = (time.monotonic() - t0) * 1000
-        _audit_log(persona, profile, tool_name, args, f"exception: {e}", duration)
-        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+    result, status_code = await _execute_tool(tool_name, args, persona, allowed, blocked, force)
+    return JSONResponse(result, status_code=status_code)
 
 
-def _make_route(tool_name):
-    async def handler(request):
-        return await _proxy_tool(request, tool_name)
-
-    return Route(f"/tools/{tool_name}", handler, methods=["POST"])
-
-
-async def list_profiles_handler(request):
-    profiles = sorted([p.name for p in PROFILES_DIR.iterdir() if p.is_dir()])
-    return JSONResponse({"profiles": profiles})
-
-
-# ── Admin endpoints (profile management) ─────────────────────────────────
-
-
+@mcp.custom_route("/admin/browser_create_profile", methods=["POST"])
 async def admin_create_profile(request):
     body = await request.json()
     name = body.get("arguments", {}).get("name", "")
@@ -473,6 +505,7 @@ async def admin_create_profile(request):
     )
 
 
+@mcp.custom_route("/admin/browser_login_session", methods=["POST"])
 async def admin_login_session(request):
     body = await request.json()
     args = body.get("arguments", {})
@@ -513,6 +546,7 @@ async def admin_login_session(request):
     )
 
 
+@mcp.custom_route("/admin/browser_delete_profile", methods=["POST"])
 async def admin_delete_profile(request):
     body = await request.json()
     args = body.get("arguments", {})
@@ -526,32 +560,118 @@ async def admin_delete_profile(request):
     return JSONResponse({"profile": name, "deleted": True})
 
 
-# ── App assembly ─────────────────────────────────────────────────────────
-
-routes = [
-    Route("/health", health, methods=["GET"]),
-    Route("/tools", list_tools, methods=["GET"]),
-    Route("/tools/browser_list_profiles", list_profiles_handler, methods=["POST"]),
-    Route("/admin/browser_create_profile", admin_create_profile, methods=["POST"]),
-    Route("/admin/browser_login_session", admin_login_session, methods=["POST"]),
-    Route("/admin/browser_delete_profile", admin_delete_profile, methods=["POST"]),
-] + [_make_route(t["name"]) for t in TOOLS_MANIFEST if t["name"] != "browser_list_profiles"]
+# ── MCP tool definitions ─────────────────────────────────────────────────
 
 
-@asynccontextmanager
-async def _lifespan(app):
-    asyncio.create_task(_idle_reaper())
-    yield
+@mcp.tool()
+async def browser_navigate(
+    url: str,
+    profile: str = "_isolated",
+    wait_for: str = "",
+) -> dict:
+    """Navigate to a URL in a browser tab. Returns the page accessibility tree.
+
+    Args:
+        url: Full URL with http/https scheme.
+        profile: Browser profile name (_isolated for a fresh ephemeral session).
+        wait_for: Optional CSS selector or event to wait for before returning.
+    """
+    args = {"url": url, "profile": profile}
+    if wait_for:
+        args["wait_for"] = wait_for
+    result, _ = await _execute_tool("browser_navigate", args)
+    return result
 
 
-app = Starlette(routes=routes, lifespan=_lifespan)
+@mcp.tool()
+async def browser_snapshot(profile: str = "_isolated") -> dict:
+    """Return the current page's accessibility tree (structured DOM data).
+
+    Args:
+        profile: Browser profile name (_isolated for the ephemeral session).
+    """
+    result, _ = await _execute_tool("browser_snapshot", {"profile": profile})
+    return result
 
 
-def main():
-    import uvicorn
+@mcp.tool()
+async def browser_click(element_ref: str, profile: str = "_isolated") -> dict:
+    """Click an element identified by its accessibility ref.
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BROWSER_MCP_PORT", "8923")))
+    Args:
+        element_ref: Accessibility reference from a prior browser_snapshot call.
+        profile: Browser profile name.
+    """
+    result, _ = await _execute_tool("browser_click", {"element_ref": element_ref, "profile": profile})
+    return result
 
+
+@mcp.tool()
+async def browser_fill(element_ref: str, text: str, profile: str = "_isolated") -> dict:
+    """Type text into a form field. Sensitive fields are redacted in audit logs.
+
+    Args:
+        element_ref: Accessibility reference from a prior browser_snapshot call.
+        text: Text to type into the field.
+        profile: Browser profile name.
+    """
+    result, _ = await _execute_tool(
+        "browser_fill", {"element_ref": element_ref, "text": text, "profile": profile}
+    )
+    return result
+
+
+@mcp.tool()
+async def browser_screenshot(profile: str = "_isolated", full_page: bool = False) -> dict:
+    """Capture a PNG screenshot of the current page. Returns base64-encoded image.
+
+    Args:
+        profile: Browser profile name.
+        full_page: If true, captures the full scrollable page rather than the viewport.
+    """
+    result, _ = await _execute_tool(
+        "browser_screenshot", {"profile": profile, "full_page": full_page}
+    )
+    return result
+
+
+@mcp.tool()
+async def browser_evaluate(expression: str, profile: str = "_isolated") -> dict:
+    """Execute a JavaScript expression in the current page context.
+
+    Args:
+        expression: JavaScript expression to evaluate.
+        profile: Browser profile name.
+    """
+    result, _ = await _execute_tool(
+        "browser_evaluate", {"expression": expression, "profile": profile}
+    )
+    return result
+
+
+@mcp.tool()
+async def browser_close(profile: str = "_isolated") -> dict:
+    """Close the browser session for a profile and release its memory.
+
+    Args:
+        profile: Browser profile name to close.
+    """
+    async with _clients_lock:
+        client = _clients.pop(profile, None)
+    if client:
+        await client.close()
+        return {"closed": True, "profile": profile}
+    return {"closed": False, "profile": profile, "note": "no active session for this profile"}
+
+
+@mcp.tool()
+async def browser_list_profiles() -> dict:
+    """List the named browser profiles available on this host."""
+    profiles = sorted([p.name for p in PROFILES_DIR.iterdir() if p.is_dir()])
+    return {"profiles": profiles}
+
+
+# ── Entrypoint ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    mcp.run(transport="streamable-http")
