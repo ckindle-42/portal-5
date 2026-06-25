@@ -80,7 +80,7 @@ Everything runs with a single command. No manual configuration.
 Select a workspace in the Open WebUI model dropdown to activate the right model
 and tools automatically.
 
-Portal 5 includes **30 functional workspaces** (plus 65 benchmark workspaces for performance comparison).
+Portal 5 includes **42 functional workspaces** (plus 48 benchmark workspaces for performance comparison, 90 total).
 
 ### Functional Workspaces
 
@@ -89,57 +89,87 @@ Portal 5 includes **30 functional workspaces** (plus 65 benchmark workspaces for
 | `auto` | General — routes to best model for each task | — |
 | `auto-daily` | Fast everyday assistant — chat, writing, summarization, planning | web_search, memory, documents |
 | `auto-coding` | One-shot code generation and review (Qwen3-Coder-30B MoE) | Code sandbox |
-| `auto-coding-agentic` | Agentic coding for Portal 5 self-improvement — Devstral 24B with FastContext explorer | execute_bash, explore_repository |
+| `auto-coding-agentic` | Agentic coding for Portal 5 self-improvement — Laguna-XS.2 33B-A3B with FastContext explorer | execute_bash, explore_repository |
+| `auto-coding-uncensored` | Uncensored agentic code generation | Code sandbox |
+| `auto-coding-uncensored-agentic` | Uncensored long-horizon agentic coding | Code sandbox, full tool suite |
 | `auto-agentic` | Long-horizon multi-file agentic coding — Qwen3-Coder-Next 80B MoE | Code sandbox, full tool suite |
-| `auto-reasoning` | Extended reasoning, complex analysis — Qwopus 27B | — |
+| `auto-agentic-lite` | Lightweight agentic coding — AgentWorld 35B (45 t/s) | Code sandbox |
+| `auto-reasoning` | Extended reasoning, complex analysis | — |
 | `auto-research` | Web research and synthesis | web_search, web_fetch |
-| `auto-vision` | Image understanding, visual Q&A | — |
+| `auto-vision` | Image understanding, visual Q&A (Qwen3-VL 32B) | — |
+| `auto-gemma-vision` | Heavy vision analysis — Gemma 4 31B Dense QAT | — |
+| `auto-gemma-fast` | Fast Gemma 4 E2B/E4B responses | — |
+| `auto-gemma-e4b` | Gemma 4 E4B specialist (audio + vision + text) | — |
 | `auto-creative` | Creative writing with voice output | TTS |
 | `auto-documents` | Create Word, Excel, PowerPoint | Documents + Code |
-| `auto-data` | Data analysis, statistics, charting | Code + Documents |
+| `auto-data` | Data analysis, statistics, charting (Granite 4.1 30B) | Code + Documents |
 | `auto-math` | Mathematical problem solving, proofs, calculus | Code sandbox |
 | `auto-audio` | Audio processing and transcription | Transcribe |
 | `auto-music` | Generate music via MusicGen | Music |
 | `auto-video` | Generate video via ComfyUI | Video |
 | `auto-cad` | 3D CAD model generation — OpenSCAD, CadQuery | CAD render |
 | `auto-spl` | Splunk SPL queries, YARA rules, detection search | — |
-| `auto-compliance` | NERC CIP gap analysis, policy review, audit prep | — |
-| `auto-mistral` | Strategic analysis, business reasoning | — |
+| `auto-compliance` | NERC CIP gap analysis, policy review, audit prep (Granite 4.1 30B) | — |
+| `auto-mistral` | Strategic analysis, business reasoning — Magistral 24B | — |
 | `auto-phi4` | Phi-4 specialist — math, science, structured reasoning | — |
 | `auto-bigfix` | IBM BigFix relevance scripting | — |
+| `auto-devstral` | Devstral-Small-2 agentic coding lane | execute_bash |
+| `auto-glm` | GLM-4.7-Flash REAP — non-Meta/Qwen lineage diversity | — |
+| `auto-glm-thinking` | GLM-Z1-Rumination 32B extended reasoning | — |
 | `auto-security` | Security analysis, CVE triage, hardening | web_search, kb_search |
+| `auto-security-uncensored` | Uncensored security analysis, no refusal guardrails | web_search, kb_search |
+| `auto-general-uncensored` | General uncensored assistant | — |
+| `auto-extract-uncensored` | Uncensored information extraction | — |
 | `auto-redteam` | Offensive security — structured ATT&CK output, simulation only | — |
 | `auto-redteam-deep` | High-fidelity red team — SuperGemma4-26B (0.915 bench) | — |
-| `auto-blueteam` | Defensive security, incident response, threat hunting | — |
+| `auto-blueteam` | Defensive security, incident response, threat hunting — sylink:8b primary | — |
 | `auto-pentest` | Authorized pentest assistant with live execution — JANG-CRACK 31B | execute_bash, execute_python, web_search |
 | `auto-purpleteam` | Two-hop purple team chain — red → blue | — |
 | `auto-purpleteam-deep` | Four-hop purple team — red → blue → Sigma/Wazuh → IR playbook | — |
 | `auto-purpleteam-exec` | Execution-mode purple team — live attack + detection + IR playbook | execute_bash, execute_python, web_search |
+| `tools-specialist` | Tool-use specialist — structured output, function calling (Granite 4.1 8B) | — |
 
 ### Benchmark Workspaces (user-selected only)
 
 These pin a specific model for direct performance comparison. Not intended for daily use.
+Run `python3 -c "from portal_pipeline.router.workspaces import WORKSPACES; [print(k) for k in sorted(WORKSPACES) if k.startswith('bench-')]"` for the current full list (48 workspaces).
 
 | Workspace | Pinned model |
 |---|---|
-| `bench-devstral` | Devstral-Small-2507 (GGUF) |
-| `bench-dolphin8b` | Dolphin 3.0 Llama 3.1 8B (GGUF) |
-| `bench-glm` | GLM-4.7-Flash (Q4 GGUF) |
+| `bench-agentworld` | Qwen-AgentWorld-35B-A3B UD-Q4_K_XL |
+| `bench-devstral` | Devstral-Small-2507 24B (GGUF) |
+| `bench-devstral-small-2` | Devstral-Small-2 24B Dec 2025 (GGUF) |
+| `bench-fastcontext` | FastContext-1.0-4B-SFT (repository explorer subagent) |
+| `bench-gemma4-12b` | Gemma 4 12B Q4_K_M (ctx8k) |
+| `bench-gemma4-26b-qat` | Gemma 4 26B-A4B QAT |
+| `bench-gemma4-31b-crack` | Gemma-4-31B-JANG_4M-CRACK Q4_K_M |
+| `bench-gemma4-e2b` | Gemma 4 E2B MoE |
+| `bench-gemma4-e4b` | Gemma 4 E4B MoE Q4_K_M |
+| `bench-gemma4-e4b-qat` | Gemma 4 E4B QAT |
+| `bench-glm` | GLM-4.7-Flash Q4_K_M |
+| `bench-glm-reap` | GLM-4.7-Flash REAP 23B-A3B UD-Q4_K_XL |
+| `bench-glm-z1-rumination` | GLM-Z1-Rumination-32B Q4_K_M |
 | `bench-gptoss` | GPT-OSS 20B (Ollama) |
 | `bench-granite41-8b` | Granite 4.1 8B (Ollama) |
 | `bench-granite41-30b` | Granite 4.1 30B (Ollama) |
-| `bench-laguna` | Laguna-XS.2 33B-A3B (Q4 GGUF) |
-| `bench-llama33-70b` | Llama 3.3 70B (Q4 GGUF) |
-| `bench-negentropy` | Negentropy 9B (GGUF, Ollama) |
-| `bench-olmo3-32b` | Olmo-3 32B (GGUF, Ollama) |
-| `bench-omnicoder2` | OmniCoder-2 9B (Ollama) |
-| `bench-phi4` | Phi-4 (Q8 GGUF) |
-| `bench-phi4-reasoning` | Phi-4 reasoning plus (GGUF) |
+| `bench-huihui-qwen36-27b` | Huihui Qwen3.6-27B abliterated |
+| `bench-huihui-qwen36-35b-a3b` | Huihui Qwen3.6-35B-A3B abliterated Q4_K_M |
+| `bench-laguna` | Laguna-XS.2 33B-A3B Q4_K_M (Poolside AI) |
+| `bench-lfm25-8b` | LFM2.5-8B-A1B (Liquid AI hybrid architecture) |
+| `bench-lfm25-8b-uncensored` | LFM2.5-8B uncensored |
+| `bench-nex-n2-mini` | Nex-N2-mini UD-Q4_K_M (Nex AGI) |
+| `bench-omnicoder2` | OmniCoder-2 9B Q4_K_M |
+| `bench-qwable-35b` | Qwable-3.6-35B Q4_K_M |
 | `bench-qwen35-abliterated` | Qwen3.5-9B abliterated (Ollama) |
-| `bench-qwen36-27b` | Qwen3.6-27B (GGUF) |
-| `bench-qwen36-35b-a3b` | Qwen3.6-35B-A3B MoE (GGUF) |
-| `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B (Q4 GGUF) |
-| `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE (Q4 GGUF) |
+| `bench-qwen36-27b` | Qwen3.6-27B Q4_K_M |
+| `bench-qwen36-35b-a3b` | Qwen3.6-35B-A3B MoE Q4_K_M |
+| `bench-qwen36-35b-a3b-ud` | Qwen3.6-35B-A3B UD-Q4_K_XL (Unsloth Dynamic) |
+| `bench-qwen3-coder-30b` | Qwen3-Coder 30B MoE A3B Q4_K_M |
+| `bench-qwen3-coder-next` | Qwen3-Coder-Next 80B MoE Q4_K_M |
+| `bench-qwen3-coder-next-abliterated` | Huihui Qwen3-Coder-Next abliterated Q4_K_M |
+| `bench-sylink` | sylink:8b (SOC triage, DFIR, ATT&CK) |
+| `bench-vulnllm-r7b` | VulnLLM-R-7B Q4_K_M |
+| *(+ 15 more)* | Security exec chain, LFM micro, MTP, security bench lanes |
 
 ---
 
@@ -232,7 +262,7 @@ These pin a specific model for direct performance comparison. Not intended for d
 - `nomic-embed-text` — document embeddings for RAG
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
-- **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), Foundation-Sec-8B (blue team)
+- **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), sylink:8b (blue team primary — SOC triage, DFIR, ATT&CK); Foundation-Sec-8B in reasoning group for analytical blue-team work
 - **Coding:** Qwen3-Coder-30B, Devstral-24B, DeepSeek-Coder-V2, GLM-4.7-Flash
 - **Reasoning:** DeepSeek-R1-32B, Qwen3.6-27B, Tongyi-DeepResearch-30B
 - **Vision:** Qwen3-VL 32B, LLaVA-7B, Gemma4-26B Vision
@@ -337,7 +367,7 @@ activate automatically when either tool opens this project:
 - **`.mcp.json`** — 6 MCP servers: filesystem, git, docker, fetch, portal-sandbox (execute_bash),
   portal-pipeline (FastContext code explorer + stack introspection)
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
-  all 95 workspaces available as models; cloud providers disabled
+  all 90 workspaces available as models; cloud providers disabled
 
 **Claude Code** (uses Anthropic AI, Portal 5 as tool provider):
 ```bash
@@ -347,7 +377,7 @@ claude .    # .mcp.json picked up automatically — portal-sandbox + pipeline to
 **opencode** (uses Portal 5 models locally, zero cloud):
 ```bash
 export $(grep PIPELINE_API_KEY .env | xargs)
-opencode .  # default model: portal/auto-coding-agentic (Devstral 24B)
+opencode .  # default model: portal/auto-coding-agentic (Laguna-XS.2 33B-A3B)
 ```
 
 The `auto-coding-agentic` workspace uses **FastContext-4B** as an exploration subagent — it finds

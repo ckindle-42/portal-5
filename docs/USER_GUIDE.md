@@ -1,8 +1,8 @@
-# Portal 6.0.3 — User Guide
+# Portal 5 — User Guide
 
 ## Getting Access
 
-Portal 6.0.3 requires an account. Contact your admin or sign up at the login page.
+Portal 5 requires an account. Contact your admin or sign up at the login page.
 New accounts require admin approval — you'll see "pending" status until approved.
 
 ## Workspaces
