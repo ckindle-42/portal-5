@@ -653,6 +653,15 @@ workspace_routing:
   - coding
   tools-specialist:
   - general
+  bench-lfm-micro-230m:
+  - general
+  bench-lfm-micro-350m:
+  - general
+  bench-lfm-micro-1p2b:
+  - general
+  bench-agentworld:
+  - general
+  - coding
 defaults:
   fallback_group: general
   request_timeout: 300
