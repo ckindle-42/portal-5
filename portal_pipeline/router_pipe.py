@@ -244,6 +244,11 @@ from portal_pipeline.router.workspaces import (  # noqa: E402
     _resolve_persona_tools,
     _workspace_tools,  # noqa: F401 — re-exported for tests and external callers
 )
+from portal_pipeline.router.anthropic_compat import (  # noqa: E402
+    anthropic_to_openai_body,
+    openai_response_to_anthropic,
+    openai_stream_to_anthropic_sse,
+)
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
 if not _raw_api_key:
@@ -2383,3 +2388,88 @@ async def chat_completions(
         raise
     finally:
         slot.release_if_attached()
+
+
+@app.post("/v1/messages")
+async def anthropic_messages(
+    request: Request,
+    authorization: str | None = Header(None),
+) -> Any:
+    """POST /v1/messages — Anthropic Messages API compatibility endpoint.
+
+    Translates Anthropic SDK requests (Claude Code, ``anthropic`` Python
+    SDK, etc.) into the pipeline's OpenAI-compatible format, routes them
+    through the same workspace logic as ``/v1/chat/completions``, and
+    returns responses in Anthropic wire format.
+
+    This makes Claude Code usable as a **local-model IDE** with full
+    Portal 5 intelligence — set::
+
+        export ANTHROPIC_BASE_URL=http://localhost:9099
+        export ANTHROPIC_API_KEY=$PIPELINE_API_KEY
+        claude --model auto-agentic
+
+    or use ``scripts/cc-local.sh`` which handles the env vars automatically.
+
+    Implementation: translates the request body then dispatches to
+    ``/v1/chat/completions`` via ASGI-level loopback (zero network
+    overhead, full routing stack, independent semaphore slot).
+    """
+    _verify_key(authorization)
+
+    content_length = int(request.headers.get("content-length", 0))
+    if content_length > _MAX_REQUEST_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Request body too large (max {_MAX_REQUEST_BYTES // 1024 // 1024}MB)",
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
+
+    model_id = body.get("model", "auto")
+    openai_body = anthropic_to_openai_body(body)
+    stream = openai_body.get("stream", False)
+    msg_id = f"msg_{__import__('uuid').uuid4().hex[:24]}"
+
+    fwd_headers = {
+        "Authorization": authorization or "",
+        "Content-Type": "application/json",
+    }
+
+    if stream:
+        async def _generate() -> AsyncIterator[str]:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),  # type: ignore[arg-type]
+                base_url="http://portal-local",
+                timeout=httpx.Timeout(300.0),
+            ) as client:
+                async with client.stream(
+                    "POST",
+                    "/v1/chat/completions",
+                    json=openai_body,
+                    headers=fwd_headers,
+                ) as resp:
+                    async for chunk in openai_stream_to_anthropic_sse(
+                        resp.aiter_lines(), msg_id, model_id
+                    ):
+                        yield chunk
+
+        return StreamingResponse(_generate(), media_type="text/event-stream")
+
+    # Non-streaming
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),  # type: ignore[arg-type]
+        base_url="http://portal-local",
+        timeout=httpx.Timeout(300.0),
+    ) as client:
+        resp = await client.post(
+            "/v1/chat/completions",
+            json=openai_body,
+            headers=fwd_headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    return openai_response_to_anthropic(resp.json(), model_id)

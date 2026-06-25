@@ -7,7 +7,7 @@
 //   2. PIPELINE_API_KEY exported: export $(grep PIPELINE_API_KEY .env | xargs)
 //   3. opencode installed: ~/.opencode/bin/opencode .
 //
-// Models available: all 75 Portal 5 workspaces (run `opencode models` to list)
+// Models available: all 89 Portal 5 workspaces (run `opencode models` to list)
 // Default model: portal/auto-coding-agentic  →  Laguna-XS.2 (Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified).
 // Uncensored lanes (explicit pick): auto-coding-uncensored (one-shot),
 // auto-coding-uncensored-agentic (agentic), auto-general-uncensored (generalist).
@@ -70,6 +70,11 @@
           "name": "Portal · General Uncensored (Qwen3.6-abliterated 27B)",
           "attachment": true,
           "reasoning": false
+        },
+        "bench-agentworld": {
+          "name": "Portal · AgentWorld 35B (env-sim, MCP/SWE/Terminal)",
+          "attachment": false,
+          "reasoning": true
         }
       }
     }
