@@ -141,9 +141,15 @@ Accuracy figures are from `tests/benchmarks/bench_router.py` (36-query GOLDEN_SE
 
 ### OLLAMA_MAX_LOADED_MODELS=3
 
-The Ollama slot count is set to **3** (not 2) so the router model holds its own slot alongside two inference models. Without this, Ollama evicts the router to make room for inference models — the first request after eviction falls back to Layer 2 keyword scoring while the router cold-loads.
+The Ollama slot count is set to **3** (not 2) for two reasons:
+
+**1. Router keep-warm.** The router model holds its own slot alongside two inference models. Without this, Ollama evicts the router to make room for inference models — the first request after eviction falls back to Layer 2 keyword scoring while the router cold-loads.
 
 **Cold-load times** (after eviction): PRIMARY 4.2s · STANDBY 2.4s · FALLBACK 1.6s. All exceed the production `LLM_ROUTER_TIMEOUT_MS` limit, so the first post-eviction request always goes to Layer 2 — exactly one fallback, then the router reloads and stays warm.
+
+**2. Security multi-chain operations.** The purple team and security exec-chain workspaces (`auto-purpleteam`, `auto-purpleteam-deep`, `auto-purpleteam-exec`) run multi-hop model chains where two inference models need to be simultaneously warm: the attack model and the defender/blue-team model. The bench exec-chain driver (`tests/benchmarks/bench_security/cli.py`) explicitly relies on `MAX_LOADED=3` to pre-warm all chain models before any chain prompt runs — it evicts non-chain inference models first, then fills all 3 slots with chain models so no mid-chain eviction occurs.
+
+In production, the purple team chain steps execute sequentially (not concurrently), but having both models loaded avoids a cold-load stall between hops. With `MAX_LOADED=2`, the second chain model evicts the first, causing a cold-load on every hop reversal.
 
 ### Changing the Router Model
 
