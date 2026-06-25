@@ -144,6 +144,7 @@ opencode .
 ```bash
 opencode .                                          # default: portal/auto-coding-agentic (Laguna-XS.2 33B)
 opencode . --model portal/auto-agentic              # heavy 80B MoE for complex multi-file refactors
+opencode . --model portal/auto-agentic-lite         # AgentWorld 35B direct (lighter load, 45 t/s)
 opencode . --model portal/auto-coding               # one-shot code generation (Qwen3-Coder 30B)
 opencode . --model portal/auto-reasoning            # deep reasoning for architectural decisions
 opencode . --model portal/auto-security             # defensive security code review
@@ -208,6 +209,7 @@ compatibility endpoint. All tokens stay on your hardware. Same tool set as Mode 
 scripts/cc-local.sh                              # default: auto-agentic workspace
 scripts/cc-local.sh --model auto-coding-agentic  # Laguna-XS.2 33B (agentic loop)
 scripts/cc-local.sh --model auto-agentic         # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
+scripts/cc-local.sh --model auto-agentic-lite    # AgentWorld 35B direct (lighter, 45 t/s)
 scripts/cc-local.sh --model auto-coding          # Qwen3-Coder 30B (one-shot)
 scripts/cc-local.sh --model auto-reasoning       # DeepSeek-R1-0528 8B (reasoning)
 scripts/cc-local.sh --model auto-security        # VulnLLM-R-7B (security)

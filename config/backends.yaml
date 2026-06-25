@@ -672,6 +672,9 @@ workspace_routing:
   bench-agentworld:
   - general
   - coding
+  auto-agentic-lite:
+  - general
+  - coding
 defaults:
   fallback_group: general
   request_timeout: 300

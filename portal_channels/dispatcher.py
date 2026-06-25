@@ -177,6 +177,7 @@ VALID_WORKSPACES = frozenset(
         "bench-lfm-micro-350m",
         "bench-lfm-micro-1p2b",
         "bench-agentworld",
+        "auto-agentic-lite",
     }
 )
 
