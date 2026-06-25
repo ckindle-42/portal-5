@@ -155,12 +155,12 @@ curl -s http://localhost:9099/v1/models \
 **Example — Phi-4 Technical Analyst:**
 1. Select `Phi-4 Technical Analyst` from the model dropdown
 2. Type: `Write a technical design document for a rate-limiting middleware in FastAPI`
-3. Routes to Microsoft Phi-4 14B (MLX) — optimized for structured documentation and STEM reasoning
+3. Routes to `auto-documents` workspace → `granite4.1:8b` (Ollama) — structured document generation
 
 **Example — Phi-4 STEM Analyst:**
 1. Select `Phi-4 STEM Analyst` from the model dropdown
 2. Type: `Given a Poisson process with rate λ=3 events/hour, what is the probability of exactly 5 events in 2 hours?`
-3. Routes to Phi-4-reasoning-plus (MLX) — specialized for competition-level mathematics and statistical modeling
+3. Routes to `auto-phi4` workspace → `phi4-reasoning:plus` (Ollama) — RL-trained reasoning, competition-level mathematics
 
 **Example — GPT-OSS Analyst:**
 1. Select `GPT-OSS Analyst` from the model dropdown

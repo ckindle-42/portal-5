@@ -12,12 +12,15 @@ falls below threshold.
 
 ## What "compliance fallback" means
 
-The `auto-compliance` workspace routes through `[mlx, reasoning, general]`
-groups in that priority order. The MLX primary (currently
-`Jackrong/MLX-Qwen3.5-35B-A3B-Claude-...-8bit`) handles the request when
-MLX is healthy and has free memory. When it does not — MLX evicted, MLX
-loading another model, MLX in big_model mode, or memory pressure — the
-pipeline falls through to Ollama models in the listed groups.
+The `auto-compliance` workspace routes through `[reasoning, general]`
+groups in that priority order. The primary model hint is `granite4.1:8b`
+(IBM Granite 4.1 8B, Ollama GGUF, BFCL V3 #1 structured output, Apache 2.0).
+When `granite4.1:8b` is evicted or under memory pressure, the pipeline
+falls through to other Ollama models in the reasoning and general groups.
+
+Note: the MLX inference proxy was retired at commit 3a0c58e — the former
+`[mlx, reasoning, general]` group priority and the MLX primary
+(`Jackrong/MLX-Qwen3.5-35B-A3B-Claude-...-8bit`) no longer apply.
 
 Every Ollama model in `ollama-reasoning` and `ollama-general` is
 therefore a potential primary handler for a compliance request. This
@@ -52,7 +55,7 @@ tests/benchmarks/results/persona_matrix_baseline.json
 
 Re-baselining cadence: quarterly, or after any of the following changes:
 
-- New model added to `ollama-reasoning` / `ollama-general` / MLX text models
+- New model added to `ollama-reasoning` / `ollama-general`
 - Existing model upgraded (Ollama re-pull moves the digest)
 - Persona system prompt edited (TASK_COMPLIANCE_REFRAME class changes)
 - Fixture scenario added or modified

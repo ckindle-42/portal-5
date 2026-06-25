@@ -192,7 +192,7 @@ Ollama allocates KV cache at model-load time. Runtime resident size is **signifi
 
 ### OLLAMA_MEMORY_LIMIT (deferred)
 
-`OLLAMA_MEMORY_LIMIT` is currently **not set** (unlimited). On the M4 Pro 48GB, worst-case slot composition (router 5.3GB + devstral 25.7GB + granite 16.8GB) can hit ~47.8GB — very tight. Ollama gracefully offloads to CPU before crashing, but if kernel panics or Metal OOM errors appear under heavy multi-model loads, add to the plist:
+`OLLAMA_MEMORY_LIMIT` is currently **not set** (unlimited). On the M4 Pro 64GB, worst-case slot composition (router 5.3GB + devstral 25.7GB + granite 16.8GB) can hit ~47.8GB — well within budget. Ollama gracefully offloads to CPU before crashing, but if kernel panics or Metal OOM errors appear under heavy multi-model loads, add to the plist:
 
 ```xml
 <key>OLLAMA_MEMORY_LIMIT</key>
