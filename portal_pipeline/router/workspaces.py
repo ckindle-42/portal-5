@@ -482,6 +482,43 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "kb_list",
         ],
     },
+    "auto-agentic-lite": {
+        "name": "⚡ Portal Agentic Coder (Lite)",
+        "description": (
+            "Agentic coding workspace for tool-calling, MCP, SWE, and env-simulation tasks "
+            "where the full 80B is unnecessary or too slow to load. "
+            "Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, MoE 3B active, 262K ctx, "
+            "~21GB, 45 t/s) — trained on MCP/Terminal/SWE/Web/Android/OS/Search env-simulation "
+            "trajectories; strong tool-call coherence and long-horizon task planning. "
+            "Use this when you want AgentWorld directly: lighter memory footprint, faster "
+            "cold start, higher throughput than the heavy 80B workspace."
+        ),
+        "model_hint": "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL",
+        "max_concurrent": 1,
+        "keep_alive": "15m",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "tools": [
+            "execute_python",
+            "execute_bash",
+            "execute_nodejs",
+            "sandbox_status",
+            "read_word_document",
+            "read_excel",
+            "read_powerpoint",
+            "read_pdf",
+            "classify_vulnerability",
+            "web_search",
+            "web_fetch",
+            "remember",
+            "recall",
+            "kb_search",
+            "kb_list",
+        ],
+        "emits_reasoning": True,
+    },
     "auto-spl": {
         "name": "🔍 Portal SPL Engineer",
         "description": "Splunk SPL queries, YARA rules, detection search authoring, security scripting. Qwen3-Coder-Next abliterated (V8: 80B/3B MoE, 19 t/s, no refusals on offensive/security code, same quality as non-abliterated, ~46GB).",

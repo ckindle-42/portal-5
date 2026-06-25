@@ -70,6 +70,11 @@
           "attachment": true,
           "reasoning": false
         },
+        "auto-agentic-lite": {
+          "name": "Portal · Agentic Lite (AgentWorld 35B, 45 t/s, MCP/SWE/Terminal)",
+          "attachment": true,
+          "reasoning": true
+        },
         "auto-coding-uncensored": {
           "name": "Portal · Code Uncensored (OmniCoder-2 9B, one-shot)",
           "attachment": true,
