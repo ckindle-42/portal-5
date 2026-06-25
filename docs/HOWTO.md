@@ -71,10 +71,10 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 |-----------|---------------------|-----------|
 | Portal Auto Router | You're unsure | LLM router classifies intent → best-fit workspace (Ollama) |
 | Portal Daily Driver | Everyday chat, writing, summarization, planning (snappy) | Gemma-4-26B-A4B-IT (Ollama) |
-| Portal Code Expert | Writing or reviewing code | Devstral-Small (Ollama) · Qwen3-Coder-30B (Ollama) |
+| Portal Code Expert | Writing or reviewing code | Qwen3-Coder-30B MoE (Ollama) |
 | Portal Security Analyst | Security questions | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
 | Portal Red Team | Offensive security | Qwen3.6-27B (Ollama) · BaronLLM (Ollama) |
-| Portal Blue Team | Incident response | Foundation-Sec-8B (Ollama) |
+| Portal Blue Team | Incident response | sylink:8b (Ollama) — SOC triage, DFIR, ATT&CK |
 | Portal Creative Writer | Stories, scripts | Gemma-4-heretic (Ollama) · Dolphin (Ollama) |
 | Portal Deep Reasoner | Complex analysis | Qwen3.6-27B (Ollama) · DeepSeek-R1 (Ollama) |
 | Portal Document Builder | Word/Excel/PPT files | Granite-4.1-8B (Ollama) + Documents MCP |
@@ -82,16 +82,16 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 | Portal Music Producer | Generate music | Qwen3.5-abliterated (Ollama) + Music MCP |
 | Portal Research Assistant | Web research | Gemma-4-26B-A4B-IT (Ollama) · Tongyi-DeepResearch (Ollama) |
 | Portal Vision | Image analysis | Gemma-4-26B-A4B-IT (Ollama) · Qwen3-VL (Ollama) |
-| Portal Data Analyst | Statistics, analysis | DeepSeek-R1-32B (Ollama) |
+| Portal Data Analyst | Statistics, analysis | Granite-4.1-30B (Ollama) |
 | Portal Compliance Analyst | NERC CIP gap analysis, policy-to-standard mapping | Granite-4.1-30B (Ollama) · DeepSeek-R1 (Ollama) |
 | Portal Mistral Reasoner | Structured reasoning, strategic planning | Magistral-Small (Ollama) |
-| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-30B (Ollama) · DeepSeek-Coder-V2 (Ollama) |
+| Portal SPL Engineer | Writing or debugging Splunk SPL queries | Qwen3-Coder-Next-abliterated 80B (Ollama) |
 | Portal Agentic Coder (Heavy) | Long-horizon multi-file agentic coding tasks | Qwen3-Coder-Next 80B (Ollama) |
 
 **Example — coding:**
 1. Select `Portal Code Expert`
 2. Type: `Write a Python function that finds the longest palindromic substring`
-3. The pipeline routes to `devstral:24b` via Ollama (or `qwen3-coder:30b` as alternate)
+3. The pipeline routes to `qwen3-coder:30b-a3b-q4_K_M` via Ollama
 4. The code sandbox MCP is auto-activated
 
 **Verify workspace routing:**
@@ -99,7 +99,7 @@ curl -s http://localhost:11434/api/ps | jq '.models[] | {name, size_vram}'
 curl -s http://localhost:9099/v1/models \
   -H "Authorization: Bearer $(grep PIPELINE_API_KEY .env | cut -d= -f2)" \
   | python3 -m json.tool | grep '"id"'
-# Expected: 19 production workspace IDs (auto, auto-daily, auto-coding, auto-agentic, auto-spl, auto-security, auto-redteam, auto-blueteam, auto-creative, auto-reasoning, auto-documents, auto-video, auto-music, auto-research, auto-vision, auto-data, auto-compliance, auto-mistral, auto-math) plus bench-* workspaces
+# Expected: 90 workspace IDs total (42 auto-/tools-specialist + 48 bench-*)
 ```
 
 ---
@@ -110,7 +110,7 @@ curl -s http://localhost:9099/v1/models \
 
 **How:** Select a persona from the model dropdown (alongside workspaces).
 
-**Available personas (85 production + 17 benchmark = 102 total):**
+**Available personas (96 production + 54 benchmark = 150 total):**
 
 | Category | Count | Personas |
 |----------|-------|----------|
@@ -215,15 +215,16 @@ curl -s http://localhost:8914/health
 
 ## 6. Security Analysis
 
-**What:** Eight security-focused workspaces across three tiers — simulation, research, and execution.
+**What:** Nine security-focused workspaces across three tiers — simulation, research, and execution.
 
 | Workspace | Tier | Model | Tools |
 |---|---|---|---|
-| `auto-security` | Research | BaronLLM-9B | web_search, kb_search |
+| `auto-security` | Research | VulnLLM-R-7B (AppSec/CVE specialist) | web_search, web_fetch, classify_vulnerability, execute_python, execute_bash, kb_search |
+| `auto-security-uncensored` | Research | VulnLLM-R-7B (no guardrails) | web_search, kb_search |
 | `auto-redteam` | Simulation | Qwen3.5-abliterated 9B | none |
-| `auto-redteam-deep` | Simulation | SuperGemma4-26B (0.915 bench) | none |
-| `auto-blueteam` | Research | Foundation-Sec-8B-Reasoning | none |
-| `auto-pentest` | Execution | JANG-CRACK 31B (0.933 bench) | execute_bash, execute_python, web_search |
+| `auto-redteam-deep` | Simulation | SuperGemma4-26B uncensored (0.915 bench) | none |
+| `auto-blueteam` | Research | sylink:8b (SOC triage, DFIR, ATT&CK) | web_search, web_fetch, classify_vulnerability, kb_search |
+| `auto-pentest` | Execution | Gemma4-E2B-QAT abliterated (~3GB, thinking model) | execute_bash, execute_python, web_search |
 | `auto-purpleteam` | Simulation | Qwen3.5-abliterated → Foundation-Sec-8B | none |
 | `auto-purpleteam-deep` | Simulation | 4-hop chain (red→blue→detect→IR) | none |
 | `auto-purpleteam-exec` | Execution | 4-hop chain, primary has live execution | execute_bash, execute_python, web_search |
@@ -898,7 +899,7 @@ restores are undoable.
 Write me a Python web scraper   — normal chat (uses current workspace)
 ```
 
-**Available workspaces:** `auto`, `auto-daily`, `auto-coding`, `auto-compliance`, `auto-mistral`, `auto-security`, `auto-redteam`, `auto-blueteam`, `auto-creative`, `auto-reasoning`, `auto-documents`, `auto-video`, `auto-music`, `auto-research`, `auto-vision`, `auto-data`, `auto-spl`, `auto-agentic`, `auto-math`
+**Available workspaces:** `auto`, `auto-agentic`, `auto-agentic-lite`, `auto-audio`, `auto-bigfix`, `auto-blueteam`, `auto-cad`, `auto-coding`, `auto-coding-agentic`, `auto-coding-uncensored`, `auto-coding-uncensored-agentic`, `auto-compliance`, `auto-creative`, `auto-daily`, `auto-data`, `auto-devstral`, `auto-documents`, `auto-extract-uncensored`, `auto-gemma-e4b`, `auto-gemma-fast`, `auto-gemma-vision`, `auto-general-uncensored`, `auto-glm`, `auto-glm-thinking`, `auto-math`, `auto-mistral`, `auto-music`, `auto-pentest`, `auto-phi4`, `auto-purpleteam`, `auto-purpleteam-deep`, `auto-purpleteam-exec`, `auto-reasoning`, `auto-redteam`, `auto-redteam-deep`, `auto-research`, `auto-security`, `auto-security-uncensored`, `auto-spl`, `auto-video`, `auto-vision`, `tools-specialist`
 
 ### Verify
 

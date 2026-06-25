@@ -54,7 +54,7 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
-| `list_workspaces` | All 89 workspaces with names/descriptions; accepts optional filter string |
+| `list_workspaces` | All 90 workspaces with names/descriptions; accepts optional filter string |
 | `get_loaded_models` | Which Ollama models are in VRAM, their sizes, expiry times |
 | `get_metrics_summary` | Request totals, tool call counts, error rates, TPS from Prometheus |
 | `get_workspace_recommendation` | Given a task description, returns the best workspace ID with reasoning |
@@ -119,8 +119,8 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **89 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
-  `portal/auto-coding-agentic` (Devstral 24B with FastContext explore loop).
+- **90 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
+  `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
 - **All 6 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, and pipeline tools.
 - **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
@@ -253,7 +253,7 @@ Built specifically for Portal 5 self-improvement work. Available in Open WebUI a
 
 | Property | Value |
 |---|---|
-| **Model** | `devstral:24b` — Mistral's SWE-agent model, top SWE-bench open-weight (14 GB) |
+| **Model** | `laguna-xs.2:Q4_K_M` — Poolside AI 33B-A3B MoE, 68.2% SWE-bench Verified (~19 GB) |
 | **Keep alive** | 15 min |
 | **First tool** | `explore_repository` — FastContext finds exact files/lines before any edit |
 | **Other tools** | `execute_bash`, `execute_python`, `execute_nodejs`, `sandbox_status`, file readers, memory |
@@ -287,12 +287,12 @@ Claude Code:
   git/git_commit
 ```
 
-### Adding a feature (opencode with local Devstral)
+### Adding a feature (opencode with local Laguna)
 
 ```
 You: "Add a new auto-lab-report workspace for generating pentest reports"
 
-opencode (Devstral 24B via portal/auto-coding-agentic):
+opencode (Laguna-XS.2 33B-A3B via portal/auto-coding-agentic):
   explore_repository("how workspaces are defined, backends.yaml routing pattern")
   → citations: router/workspaces.py, config/backends.yaml, router/routing.py
   execute_bash "sed -n '205,250p' portal_pipeline/router/workspaces.py"
@@ -320,7 +320,7 @@ You: "Is devstral loaded? I don't want to wait for a cold start"
 
 Claude Code:
   portal-pipeline/get_loaded_models
-  → [{"name": "devstral:24b", "size_gb": 14.1, "expires_at": "2026-06-17T23:45:00"}]
+  → [{"name": "laguna-xs.2:Q4_K_M", "size_gb": 19.0, "expires_at": "2026-06-17T23:45:00"}]
   → Yes, warm for 33 more minutes
 ```
 
