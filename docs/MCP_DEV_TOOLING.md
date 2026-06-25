@@ -172,12 +172,16 @@ shows Portal models, run opencode from outside the repo (`cd ~ && opencode`) or 
 
 ## Claude Code Integration
 
-Claude Code uses Portal 5 as a **tool provider** only — its AI intelligence is always Anthropic.
-The `.mcp.json` gives Claude Code access to Portal 5 tools alongside its native capabilities.
+Claude Code has **two modes** with Portal 5:
+
+### Mode A — Cloud intelligence + Portal tools (default, `cc-portal.sh`)
+
+Anthropic cloud provides the AI. Portal 5 provides tools. The `.mcp.json` gives Claude Code
+access to Portal 5's full tool set alongside Anthropic's intelligence.
 
 ```bash
-# Open the project — Claude Code picks up .mcp.json automatically
-claude .
+scripts/cc-portal.sh            # cloud Anthropic + Portal MCP tools (default)
+claude .                        # equivalent — auto-discovers .mcp.json + CLAUDE.md
 ```
 
 Available tools after opening this project:
@@ -191,22 +195,49 @@ Available tools after opening this project:
 | `portal-sandbox/*` | execute_bash, execute_python, execute_nodejs, sandbox_status |
 | `portal-pipeline/*` | explore_repository, list_workspaces, get_loaded_models, get_metrics_summary |
 
-### Dual mode: Portal vs stock (no file renaming)
+### Mode B — Local model intelligence + Portal tools (`cc-local.sh`)
 
-Portal is the in-repo default — bare `claude` auto-discovers `.mcp.json` + `CLAUDE.md`.
-To run **stock** cloud Claude Code while inside the repo (ignoring the Portal MCP servers
-without renaming `.mcp.json`), use the documented bypass via the wrapper:
+Portal 5's local models provide the AI via the pipeline's `/v1/messages` Anthropic
+compatibility endpoint. All tokens stay on your hardware. Same tool set as Mode A.
 
 ```bash
-scripts/cc-portal.sh            # Portal: .mcp.json tools + CLAUDE.md (default)
+scripts/cc-local.sh                              # default: auto-agentic workspace
+scripts/cc-local.sh --model auto-coding-agentic  # Laguna-XS.2 33B (agentic loop)
+scripts/cc-local.sh --model bench-agentworld     # AgentWorld 35B (env-sim primary)
+scripts/cc-local.sh --model auto-coding          # Qwen3-Coder 30B (one-shot)
+scripts/cc-local.sh --model auto-reasoning       # DeepSeek-R1-0528 8B (reasoning)
+scripts/cc-local.sh --model auto-security        # VulnLLM-R-7B (security)
+```
+
+**How it works:** `cc-local.sh` sets `ANTHROPIC_BASE_URL=http://localhost:9099` and
+`ANTHROPIC_API_KEY=$PIPELINE_API_KEY`, then launches `claude`. The claude CLI sends all
+`/v1/messages` requests to portal-pipeline instead of Anthropic's servers.
+Portal-pipeline's `/v1/messages` endpoint translates to OpenAI format, routes through
+the workspace stack (LLM router → backend selection → streaming), and returns Anthropic
+SSE format. No change to `.mcp.json` — all Portal tools still available.
+
+**AgentWorld for IDE use:** `bench-agentworld` (Qwen-AgentWorld-35B-A3B, 45 t/s) is
+particularly well-matched — its pretraining covers MCP tool-calling, Terminal execution,
+SWE workflows, and web/OS environment simulation. These are exactly the trajectories
+Claude Code exercises. Available as `auto-agentic` fallback or directly via `--model bench-agentworld`.
+
+**Environment variable shortcut** (without the script):
+```bash
+export ANTHROPIC_BASE_URL=http://localhost:9099
+export ANTHROPIC_API_KEY=$(grep PIPELINE_API_KEY .env | cut -d= -f2)
+claude --model auto-agentic
+```
+
+### Mode C — Stock cloud (zero Portal MCP, `cc-stock.sh`)
+
+```bash
 scripts/cc-stock.sh             # stock: claude --strict-mcp-config --mcp-config '{}' (zero MCP)
 CC_STOCK_KEEP_GENERIC=1 scripts/cc-stock.sh   # stock intelligence, keep filesystem/git/fetch/docker
-CC_STOCK_IGNORE_SETTINGS=1 scripts/cc-stock.sh  # also ignore project/local settings (--setting-sources user)
+CC_STOCK_IGNORE_SETTINGS=1 scripts/cc-stock.sh  # also ignore project/local settings
 ```
 
 `--strict-mcp-config` makes Claude Code use only command-line MCP servers and ignore all
-file-based ones, so `.mcp.json` stays in place untouched. Extra args pass through to
-`claude`.
+file-based ones, so `.mcp.json` stays in place untouched.
 
 ---
 
