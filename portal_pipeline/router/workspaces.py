@@ -888,14 +888,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "🖊️ Portal Pentest Assistant",
         "description": (
             "Authorized penetration testing assistant with execution capability. "
-            "BaronLLM-abliterated (Llama-3.1-8B, 53K cybersec examples, 200+ domains — "
-            "broadest security domain training in fleet). Completion bench 2026-06-21: "
-            "1.00/1.00 both scenarios, 11s avg chain time — fastest correct pentest chain in group. "
+            "Gemma4-E2B-QAT abliterated (2B thinking model, ~3GB). Head-to-head bench 2026-06-25: "
+            "composite 0.70 vs 0.50 baronllm, header cov 0.83 vs 0.50, avg MITRE IDs 1.4 vs 0.5 — "
+            "wins on stripped final answer alone (not just reasoning chain). Zero refusals, zero disclaimers. "
+            "Exec chain: 80.0% EXPLOIT slot score, 71.6 t/s. "
             "Single-hop execution focus (pentest of one target); for multi-hop lateral movement use auto-purpleteam. "
             "execute_bash + execute_python + web_search for live target enumeration and PoC validation. "
             "Web app / AD / cloud / container attack paths, CVE-specific payloads, exec-ready findings."
         ),
-        "model_hint": "huihui_ai/baronllm-abliterated",
+        "model_hint": "huihui_ai/gemma-4-abliterated:E2b-qat",
         "keep_alive": "15m",
         "temperature": 0.3,
         "top_p": 0.9,
