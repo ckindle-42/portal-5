@@ -63,7 +63,7 @@ portal-5/
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
-│   ├── personas/                 # 142 persona YAML files → Open WebUI model presets
+│   ├── personas/                 # 150 persona YAML files → Open WebUI model presets
 │   ├── routing_descriptions.json # LLM router workspace descriptions
 │   └── routing_examples.json     # LLM router few-shot examples
 ├── deploy/portal-5/
@@ -133,11 +133,11 @@ Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during see
 
 ### 6 — Workspace Routing Must Stay Consistent
 
-Workspace routing is defined in `config/backends.yaml` `workspace_routing` block and the `WORKSPACES` dict in `router_pipe.py`. They must define **identical keys**. The `openwebui_init.py` seeding must create a model preset for each key. After any change, run:
+Workspace routing is defined in `config/backends.yaml` `workspace_routing` block and the `WORKSPACES` dict in `portal_pipeline/router/workspaces.py`. They must define **identical keys**. The `openwebui_init.py` seeding must create a model preset for each key. After any change, run:
 ```bash
 python3 -c "
 import yaml
-from portal_pipeline.router_pipe import WORKSPACES
+from portal_pipeline.router.workspaces import WORKSPACES
 cfg = yaml.safe_load(open('config/backends.yaml'))
 pipe_ids = set(WORKSPACES.keys())
 yaml_ids = set(cfg['workspace_routing'].keys())
@@ -250,7 +250,7 @@ The UAT driver, acceptance test v6, and bench_tps all print a freshness warning 
 3. No other changes needed
 
 ### New Workspace Routing Tier
-1. Add to `WORKSPACES` in `portal_pipeline/router_pipe.py`
+1. Add to `WORKSPACES` in `portal_pipeline/router/workspaces.py`
 2. Add same key to `workspace_routing` in `config/backends.yaml`
 3. Add workspace JSON to `imports/openwebui/workspaces/`
 4. Run workspace consistency check (see Rule 6 above)

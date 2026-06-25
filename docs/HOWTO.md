@@ -125,12 +125,12 @@ curl -s http://localhost:9099/v1/models \
 | Reasoning | 4 | GPT-OSS Analyst, Magistral Strategist, Math Reasoner, Phi-4 Technical Analyst |
 | Systems | 3 | Linux Terminal, SQL Terminal, Terraform Writer |
 | Architecture | 1 | IT Architect |
-| Benchmark | 17 | bench-devstral, bench-dolphin8b, bench-glm, bench-gptoss, bench-granite41-8b, bench-granite41-30b, bench-laguna, bench-llama33-70b, bench-negentropy, bench-olmo3-32b, bench-omnicoder2, bench-phi4, bench-phi4-reasoning, bench-qwen36-27b, bench-qwen36-35b-a3b, bench-qwen3-coder-30b, bench-qwen3-coder-next |
+| Benchmark | 54 | bench-agentworld, bench-devstral, bench-devstral-small-2, bench-glm, bench-glm-reap, bench-glm-z1-rumination, bench-gptoss, bench-granite41-8b, bench-granite41-30b, bench-laguna, bench-lfm25-8b, bench-nex-n2-mini, bench-omnicoder2, bench-qwable-35b, bench-qwen35-abliterated, bench-qwen36-27b, bench-qwen36-35b-a3b, bench-qwen36-35b-a3b-ud, bench-qwen3-coder-30b, bench-qwen3-coder-next, bench-sylink, bench-vulnllm-r7b, and others (see WORKSPACES for full list) |
 
 **Example — red team:**
 1. Select `Red Team Operator` from the model dropdown
 2. Type: `Analyze the attack surface of a typical REST API with JWT authentication`
-3. Gets routed to `xploiter/the-xploiter` security model
+3. Gets routed to `auto-redteam` workspace — SuperGemma4-26B uncensored or Qwen3.5-abliterated (simulation only, no tool execution)
 
 **Verify personas seeded:**
 ```bash
@@ -170,12 +170,12 @@ curl -s http://localhost:9099/v1/models \
 **Example — Gemma 4 Edge Vision (image + audio):**
 1. Select `Gemma 4 Edge Vision` from the model dropdown
 2. Attach an image or audio clip (up to 30 seconds) and type: `Describe what you see/hear and identify any anomalies`
-3. Routes to Gemma-4-E4B-IT (MLX VLM) — only model in the stack with native audio input
+3. Routes to `auto-gemma-e4b` workspace — Gemma 4 E4B (Ollama) — native audio+image+text input, 256K ctx
 
 **Example — Gemma 4 JANG Unfiltered Vision:**
 1. Select `Gemma 4 JANG Unfiltered Vision` from the model dropdown
 2. Attach a screenshot and type: `Analyze this network diagram for security weaknesses — no restrictions`
-3. Routes to Gemma-4-31B-JANG (MLX VLM) — abliterated 31B model, no refusal guardrails
+3. Routes to `auto-vision` workspace (Ollama) — uncensored vision analysis, no refusal guardrails
 
 ---
 

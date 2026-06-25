@@ -1,10 +1,10 @@
 # P5_ROADMAP.md — Portal 5 v7 Future Enhancements
 
 ```
-Portal 7.1.0 Roadmap
-==================
-Last updated: May 27, 2026
-Version: 7.0.0 (production-ready)
+Portal 5 v7 Roadmap
+===================
+Last updated: 2026-06-25
+Version: 7.6.0 (production-ready)
 
 LEGEND: P1=Critical, P2=High, P3=Medium
 STATUS: DONE, BLOCKED, CANCELED
@@ -28,7 +28,7 @@ genuinely open future work. Completed items are kept for reference only.
 | P5-FUT-REASONING | P2 | Reasoning content passthrough to OWUI | DONE | M1: `reasoning_content` SSE field forwarded; `emits_reasoning: True` flag on workspaces. |
 | P5-FUT-PERSONAS-M1 | P3 | 18 frontier-gap personas | DONE | M1: compliance/language/workplace/specialty/vision personas added. |
 | P5-FUT-010 | P2 | Abliterated Qwen3.5 Ollama upgrade | DONE | `huihui_ai/qwen3.5-abliterated:9b` is line 1 of ollama-general (TASK_TOOL_SUPPORT_AUDIT_V1, commit de96984). `huihui_ai/Qwen3.6-abliterated:27b` added as V6 larger fallback. |
-| P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | CANCELED | `auto-compliance` primary is now `granite-4.1-30b-mxfp4` (IBM GRC-trained, Apache 2.0, BFCL V3 73.7, 7.8 t/s). Granite won the V5 ladder bench over all Qwen3.5 variants. Uncensored MLX conversion no longer needed for this slot. |
+| P5-FUT-011 | P2 | Uncensored Qwen3.5-35B-A3B MLX conversion | CANCELED | `auto-compliance` primary is now `granite4.1:30b` (IBM GRC-trained, Ollama GGUF, Apache 2.0, BFCL V3 73.7). Granite won the V5 ladder bench over all Qwen3.5 variants. Uncensored MLX conversion no longer needed for this slot. Note: granite-4.1-30b-mxfp4 was the retired MLX variant; the Ollama equivalent is the production model. |
 | P5-FUT-012 | P3 | Speech pipeline upgrade (mlx-audio) | DONE | Host-native `scripts/mlx-speech.py` using mlx-audio. Qwen3-TTS (1.7B, 3 variants: CustomVoice, VoiceDesign, Base/Clone) + Qwen3-ASR (1.7B) + Kokoro (82M). Voice cloning from 3s audio, emotion control, voice design from text, 10 languages, streaming. Docker TTS/ASR kept as fallback. |
 | P5-FUT-013 | P3 | OMLX evaluation — MLX inference tier upgrade | MOOT | **Update 2026-06-09 (TASK_MLX_RETIRE_TRUEUP_V1):** MLX inference proxy fully retired in commit 3a0c58e. P5-FUT-SPEC (speculative decoding via the MLX proxy) and P5-FUT-009 (MLX admission control) are now MOOT — the proxy they depended on no longer exists. Any future speculative-decoding work targets Ollama's native MTP path instead. |
 | P5-FUT-SPEC | P2 | Speculative decoding for large MLX targets | MOOT | **Update 2026-06-09 (TASK_MLX_RETIRE_TRUEUP_V1):** MLX proxy retired. MTP speculative decoding now targets Ollama's native MTP path (llama.cpp b9180+). |
@@ -85,9 +85,9 @@ LLM_ROUTER_OLLAMA_URL=http://localhost:11434
 
 ### P5-FUT-009: Model-Size-Aware Admission Control (MLX Proxy)
 
-IMPLEMENTED in v6.0.0 (`scripts/mlx-proxy.py`). The CLAUDE.md coexistence table is now
-self-enforcing — the proxy rejects model loads that would exceed available memory before
-evicting the current model.
+IMPLEMENTED in v6.0.0 (`scripts/mlx-proxy.py`). Note: the MLX proxy was subsequently retired
+at commit 3a0c58e — this note is historical. Ollama's native model-load behavior now handles
+memory pressure via OLLAMA_MAX_LOADED_MODELS and OLLAMA_MEMORY_LIMIT (see Admin Guide).
 
 **What was built:**
 - `MODEL_MEMORY` dict: 16 model tags → estimated GB (sourced from CLAUDE.md catalog)
@@ -194,5 +194,5 @@ not exercise streaming ASR or TTS rendering.
 
 ---
 
-*Last updated: 2026-04-07*
-*Part of Portal 6.0.0 release documentation*
+*Last updated: 2026-06-25*
+*Part of Portal 5 v7 release documentation*
