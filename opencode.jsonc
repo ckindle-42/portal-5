@@ -171,7 +171,7 @@
     },
     "docker": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-docker"]
+      "command": ["npx", "-y", "mcp-docker-server"]
     },
     "portal-comfyui": {
       "type": "remote",
