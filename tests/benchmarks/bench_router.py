@@ -145,6 +145,40 @@ ROUND3_CANDIDATES: list[str] = [
     "hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M",           # OBLITERATED E4B, 5.3GB
 ]
 
+# Round 4: LFM2.5 micro candidates (Liquid AI hybrid architecture).
+# Purpose: Evaluate whether sub-1B hybrid models can classify workspace intent
+# accurately enough to replace the current 5.3GB OBLITERATED E4B router.
+# Key question: do LFM2.5 micro models refuse to classify security routing
+# queries (treating "classify this offensive request into a workspace" as
+# "execute this offensive request")? Abliterated = not needed for classification
+# but LFM2.5's hybrid conv+attention architecture may behave differently.
+# Security-refusal gate: a router model that refuses ANY security routing query
+# is wrong for Portal 5 (all security workspaces are legitimate; refusal = bug).
+#
+# Pull commands:
+#   ollama pull hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M
+#   ollama pull hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M
+#   ollama pull hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M
+#
+# Notes on LFM2.5 architecture:
+#   - Hybrid: LIV double-gated convolution layers + GQA attention layers
+#   - Does NOT emit <think> blocks — grammar-enforced JSON should work
+#   - Native tool-calling format differs from standard (Pythonic calls between
+#     <|tool_call_start|> tokens). For routing, this is irrelevant — we use
+#     /api/generate with format=JSON_SCHEMA, not tool-calling mode.
+#   - Ollama RENDERER/PARSER: uses 'lfm2' — ensure Ollama >= 0.31 for LFM2.5
+#
+# Expected outcome hypothesis:
+#   LFM2.5-230M: too small for reliable JSON schema routing (may score < 50%)
+#   LFM2.5-350M: marginal — interesting if it clears 65%+ at < 50ms warm
+#   LFM2.5-1.2B: viable if it clears 70%+ — offers 4x RAM saving vs E4B OBLITERATED
+#
+ROUND4_LFM_CANDIDATES: list[str] = [
+    "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",         # ~146MB, sub-250M baseline
+    "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",         # ~218MB, 313 t/s CPU
+    "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",  # ~697MB, reasoning-capable
+]
+
 # ── Golden test set ───────────────────────────────────────────────────────────
 #
 # Format: (message, expected_workspace, category, notes)
@@ -501,6 +535,8 @@ def run_bench(
             print(f"           abstain_acc={stats['abstain_accuracy']*100:.1f}%")
             print(f"           p50={stats['p50_ms']:.0f}ms  p95={stats['p95_ms']:.0f}ms")
             print(f"           timeouts={stats['timeout_count']}  security_refused={stats['security_refused']}")
+            if stats["security_refused"] > 0:
+                print(f"  *** ROUTER DISQUALIFIED: {stats['security_refused']} security classification refusals ***")
 
             short_name = model.split("/")[-1][:40]
             _send_bench_notification(
