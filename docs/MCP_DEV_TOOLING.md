@@ -142,14 +142,19 @@ opencode .
 ### Workspace selection
 
 ```bash
-opencode .                                     # default: portal/auto-coding-agentic (Devstral 24B)
-opencode . --model portal/auto-agentic         # heavy 80B MoE for complex multi-file refactors
-opencode . --model portal/auto-coding          # one-shot code generation (Qwen3-Coder 30B)
-opencode . --model portal/auto-reasoning       # reasoning-heavy architectural decisions
-opencode . --model portal/auto-purpleteam-exec # security/lab execution workspace
+opencode .                                          # default: portal/auto-coding-agentic (Laguna-XS.2 33B)
+opencode . --model portal/auto-agentic              # heavy 80B MoE for complex multi-file refactors
+opencode . --model portal/bench-agentworld          # AgentWorld 35B (MCP/SWE/Terminal/Web trajectories)
+opencode . --model portal/auto-coding               # one-shot code generation (Qwen3-Coder 30B)
+opencode . --model portal/auto-reasoning            # deep reasoning for architectural decisions
+opencode . --model portal/auto-security             # defensive security code review
+opencode . --model portal/auto-pentest              # authorized penetration testing assistance
+opencode . --model portal/auto-purpleteam-exec      # tool-calling security with live lab access
+opencode . --model portal/auto-data                 # data science, SQL, analysis
+opencode . --model portal/auto-research             # web-augmented research and summarization
 ```
 
-Run `opencode models` to list all 95 available workspaces.
+Run `opencode models` to list all 89 available workspaces.
 
 ### Dual mode: Portal vs stock (no file renaming)
 
