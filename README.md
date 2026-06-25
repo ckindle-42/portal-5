@@ -258,14 +258,14 @@ Run `python3 -c "from portal_pipeline.router.workspaces import WORKSPACES; [prin
 
 ### Core models (pulled automatically on first run, ~4 GB)
 - `dolphin-llama3:8b` — general purpose default
-- `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` — fast routing classifier (uncensored)
+- `hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF` — LLM router fallback/standby (uncensored 3B). Router primary is `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M` (pulled with `pull-models`)
 - `nomic-embed-text` — document embeddings for RAG
 
 ### Specialized models (pulled with `./launch.sh pull-models`, ~60–100 GB total)
 - **Security:** JANG-CRACK 31B (pentest), SuperGemma4-26B (red team), BaronLLM-9B (security analyst), sylink:8b (blue team primary — SOC triage, DFIR, ATT&CK); Foundation-Sec-8B in reasoning group for analytical blue-team work
-- **Coding:** Qwen3-Coder-30B, Devstral-24B, DeepSeek-Coder-V2, GLM-4.7-Flash
-- **Reasoning:** DeepSeek-R1-32B, Qwen3.6-27B, Tongyi-DeepResearch-30B
-- **Vision:** Qwen3-VL 32B, LLaVA-7B, Gemma4-26B Vision
+- **Coding:** Qwen3-Coder-30B MoE, Laguna-XS.2 33B-A3B (auto-coding-agentic), Devstral-Small-2, GLM-4.7-Flash REAP, DeepSeek-Coder-V2
+- **Reasoning:** DeepSeek-R1-0528-Qwen3-8B (auto-reasoning), GLM-Z1-Rumination-32B, GPT-OSS 20B, Tongyi-DeepResearch-abliterated
+- **Vision:** Qwen3-VL 32B (auto-vision), Gemma4-31B dense QAT (auto-gemma-vision), Gemma4-E4B (auto-gemma-e4b)
 
 ### MLX models (Apple Silicon, retained for audio/embedding/reranker only — chat inference is Ollama-only)
 - **Speech:** MLX speech server (:8918) — Kokoro + Qwen3-TTS/ASR, host-native
@@ -364,8 +364,8 @@ By default, the Portal Pipeline binds to all interfaces (`0.0.0.0:9099`) to allo
 Portal 5 ships first-class support for AI coding assistants. Two config files at the repo root
 activate automatically when either tool opens this project:
 
-- **`.mcp.json`** — 6 MCP servers: filesystem, git, docker, fetch, portal-sandbox (execute_bash),
-  portal-pipeline (FastContext code explorer + stack introspection)
+- **`.mcp.json`** — 19 MCP servers: filesystem, git, docker, fetch, portal-sandbox (execute_bash),
+  portal-pipeline (FastContext code explorer + stack introspection), plus all 14 portal-* tool servers
 - **`opencode.jsonc`** — points opencode at portal-pipeline (:9099) as a fully local AI backend;
   all 90 workspaces available as models; cloud providers disabled
 
@@ -411,7 +411,7 @@ See [MCP Dev Tooling](docs/MCP_DEV_TOOLING.md) for the full guide, workflow exam
 ### Acceptance Testing
 
 The full acceptance test suite (`tests/portal5_acceptance_v6.py`) runs
-~250 checks across 30 sections. Run with:
+~300 tests across ~27 sections. Run with:
 
 ```bash
 python3 tests/portal5_acceptance_v6.py        # full suite

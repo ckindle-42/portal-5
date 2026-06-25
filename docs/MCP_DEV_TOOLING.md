@@ -121,8 +121,8 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
   on your hardware. No tokens leave the machine.
 - **90 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
   `portal/auto-coding-agentic` (Laguna-XS.2 33B-A3B with FastContext explore loop).
-- **All 6 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
-  filesystem, git, docker, sandbox, and pipeline tools.
+- **All 19 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
+  filesystem, git, docker, sandbox, pipeline, and all 15 portal-* tool servers.
 - **Cloud providers disabled** — `anthropic`, `openai`, `google`, `bedrock`, `vertex` are
   all disabled to prevent accidental cloud use.
 
