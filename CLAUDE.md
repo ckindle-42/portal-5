@@ -10,7 +10,7 @@
 
 Portal 5 is an **Open WebUI enhancement layer** — not a replacement web stack. It extends Open WebUI through its Pipeline server (:9099) and MCP Tool Servers. Result: local AI platform for text, code, security, images, video, music, documents, voice — all on your hardware, one interface.
 
-**Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8923) provide tools (documents, code sandbox, TTS, research, memory, RAG, etc.).
+**Architecture**: Open WebUI → Portal Pipeline (:9099) → Ollama (:11434) → local models. MCP servers (:8910–8928) provide tools (documents, code sandbox, TTS, research, memory, RAG, browser, proxmox, pipeline introspection).
 
 **Inference**: Single tier — **Ollama** (GGUF models, Ollama 0.30.7+ with native MLX Metal backend on Apple Silicon). The MLX inference proxy was retired in commit 3a0c58e; Ollama now matches or beats standalone mlx_lm throughput while removing the dual-stack operational overhead. Host-native, not Docker. NOTE: MLX is still used outside inference — for speech (mlx-speech :8918), diarized transcription (mlx-transcribe :8924), embeddings (:8917), and reranking (:8925). Those are audio/retrieval runtimes, not the chat inference tier.
 
@@ -41,14 +41,18 @@ portal-5/
 │   ├── router_pipe.py            # FastAPI app, @app routes, lifespan, auth, option injection
 │   ├── __main__.py               # Uvicorn entrypoint (multi-worker)
 │   ├── router/                   # Decomposed pipeline modules (facade-exported by router_pipe.py)
+│   │   ├── anthropic_compat.py  # /v1/messages ↔ OpenAI format bridge (Claude Code local mode)
 │   │   ├── concurrency.py        # 3 semaphores + RequestSlot (single-owner lifecycle)
 │   │   ├── metrics.py            # CollectorRegistry + all Prometheus collectors
-│   │   ├── state.py              # State persistence + per-event recorders
+│   │   ├── monitor.py            # Metal GPU memory + Ollama model state primitives
 │   │   ├── power.py              # powermetrics polling, energy/cost, usage recording
 │   │   ├── routing.py            # LLM router + keyword workspace detection
+│   │   ├── state.py              # State persistence + per-event recorders
 │   │   ├── streaming.py          # SSE streaming: _stream_from_backend_guarded, tool loop, preamble
+│   │   ├── thinking.py           # Shared <think>…</think> strip + reasoning passthrough
 │   │   ├── tools.py              # MCP tool dispatch (_dispatch_tool_call)
 │   │   └── workspaces.py         # WORKSPACES dict, persona map, workspace tool helpers
+│   ├── tool_registry.py          # Tool discovery (polls MCP /tools), advertisement, dispatch
 │   └── notifications/            # Operational alerts + daily summaries
 │       ├── dispatcher.py         # Event bus: fans out to all configured channels
 │       ├── events.py             # AlertEvent / SummaryEvent / EventType
@@ -56,10 +60,16 @@ portal-5/
 │       └── channels/             # Slack, Telegram, Email, Pushover, Webhook
 ├── portal_mcp/                   # MCP Tool Servers (registered in Open WebUI)
 │   ├── documents/                # Word, PowerPoint, Excel generation (:8913)
-│   ├── generation/               # Music (:8912 host-native), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910)
+│   ├── generation/               # Music (:8912 host-native), TTS (:8916), Video (:8911), Whisper (:8915), ComfyUI (:8910), CAD render (:8926)
 │   ├── execution/                # Code sandbox (:8914)
 │   ├── security/                 # Vulnerability classification (:8919)
-│   ├── core/                     # Shared MCP utilities
+│   ├── memory/                   # Cross-session memory store (:8920)
+│   ├── rag/                      # LanceDB RAG + reranker (:8921, :8925)
+│   ├── research/                 # Web search + SearXNG (:8922)
+│   ├── browser/                  # Playwright browser automation (:8923)
+│   ├── proxmox/                  # Lab VM control via Proxmox API (:8927)
+│   ├── platform/                 # Pipeline MCP — stack introspection + FastContext (:8928)
+│   ├── core/                     # Shared MCP utilities (workspace helpers, path resolution)
 │   └── mcp_server/               # Vendored FastMCP implementation
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
@@ -146,7 +156,7 @@ print('Workspace IDs consistent')
 "
 ```
 
-Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (`Llama-3.2-3B-Instruct-abliterated-GGUF`, ~100ms, grammar-enforced JSON). **Layer 2** — weighted keyword scoring (fallback on low confidence or timeout). Vision text-only fallback: `auto-vision` with no image parts reroutes to `auto-reasoning`.
+Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (default: `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`, ~840ms warm, 82.2% accuracy; switchable via `LLM_ROUTER_MODEL` in `.env`). **Layer 2** — weighted keyword scoring (fallback on confidence < 0.5 or timeout). Vision text-only fallback: `auto-vision` with no image parts reroutes to `auto-reasoning`.
 
 ### 7 — All Ports Are Reserved
 
