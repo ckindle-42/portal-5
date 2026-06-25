@@ -50,6 +50,11 @@ backends:
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL
     supports_tools: true
     notes: Qwen3.6-35B-A3B UD-Q4_K_XL (~22GB, Unsloth Dynamic 2.0, MoE 3B active, 23 TPS). Also in ollama-coding.
+  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: true
+    notes: 'Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, Alibaba/Qwen, Apache 2.0, 2026-06-24, MoE 3B active, 262K ctx). Language
+      world model: trained on MCP, Terminal, SWE, Web, Android, OS, Search env-simulation trajectories. 45 TPS, TTFT 0.1s warm.
+      audit-tools PASS 2026-06-25. PROMOTED to auto-agentic secondary (TASK_LFM_AGENTWORLD_ROUTER_V1). Also in ollama-coding.'
   - id: portal5/gemma4-12b:q4_K_M-ctx8k
     supports_tools: true
     notes: Gemma 4 12B Q4_K_M ctx8k (~7.6GB, Google). gemma4:12b-it-q4_K_M + num_ctx 8192 modelfile cap — base model has 262K
@@ -130,6 +135,11 @@ backends:
     notes: Qwen3.6-35B-A3B MoE Q4 (~22GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 3B active — fast decode at 35B-class
       quality. PROMOTED to auto-compliance production model_hint. supports_tools=true per Qwen3.6 family; audit pending
       empirical confirmation (not yet run -- behavior consistent with tool use in production).
+  - id: hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL
+    supports_tools: true
+    notes: 'Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, MoE 3B active, 45 TPS). Language world model for env-simulation
+      across MCP/Terminal/SWE/Web/Android/OS/Search. Also in ollama-general. Cross-listed here for coding group access
+      (auto-agentic secondary slot). audit-tools PASS 2026-06-25.'
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
     supports_tools: true
     notes: Nex-N2-mini UD-Q4_K_M (~22GB, Nex AGI, June 2026, Apache 2.0). Post-trained on Qwen3.5-35B-A3B-Base. 35B total
