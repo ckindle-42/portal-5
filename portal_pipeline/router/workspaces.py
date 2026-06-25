@@ -1810,14 +1810,15 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "system_prompt_append": _BENCH_EXEC_SYSTEM,
     },
     "bench-exec-reasoning": {
-        "name": "🔬 Bench Exec · Reasoning (Qwable-3.6-35B)",
+        "name": "🔬 Bench Exec · Reasoning (Gemma4-E2B abliterated)",
         "description": (
-            "Security bench exec-chain role: EXPLOITATION / REASONING. Routes to Qwable-3.6-35B, "
-            "a thinking MoE model (3B active params) for complex multi-step exploit reasoning. "
+            "Security bench exec-chain role: EXPLOITATION / REASONING. Routes to Gemma4-E2B-QAT "
+            "abliterated (3GB, 71.6 t/s), bench winner 2026-06-24 at 80.0% (108/135 steps, "
+            "best of 8 candidates). Replaced Qwable-35B (+7.6pp, 18GB freed). "
             "Used by bench --exec-chain-models ... bench-exec-reasoning ... for the exploitation "
             "phase of multi-model attack chains through the pipeline."
         ),
-        "model_hint": "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf",
+        "model_hint": "huihui_ai/gemma-4-abliterated:E2b-qat",
         "max_concurrent": 1,
         "keep_alive": "15m",
         "tools": ["execute_bash", "execute_python", "web_search"],
