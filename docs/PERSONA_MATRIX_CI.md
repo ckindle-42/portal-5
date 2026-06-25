@@ -59,20 +59,13 @@ The CI run is **non-destructive** by design:
 
 ## MLX coverage policy
 
-MLX sweeps add 30–180s of cold-load latency per model. Default CI runs
-Ollama-only for two reasons:
-1. Ollama re-pulls drift more frequently (Ollama auto-updates digests),
-   making nightly diffs more valuable.
-2. MLX models are pinned to specific HF snapshots and only change when
-   the operator explicitly converts a new build.
+**MLX inference is retired (commit 3a0c58e).** All chat inference runs through
+Ollama (:11434). The `--mlx-warmup` flag and `mlx_models:` key in `backends.yaml`
+described here no longer exist — they were part of the pre-retirement MLX proxy.
 
-MLX sweeps run weekly via a separate scheduled trigger
-(`workflow_dispatch` with `backend: mlx`) or on operator-initiated
-changes to `mlx_models:` in `backends.yaml`.
-
-`--mlx-warmup` is **on** for MLX sweeps in CI, **off** for local
-development sweeps (the operator typically wants the cold-load latency
-visible in per-cell elapsed_s during interactive runs).
+CI sweeps are Ollama-only. MLX is retained only for non-chat runtimes:
+speech (:8918), transcription (:8924), embeddings (:8917), and reranking (:8925).
+Those runtimes are not exercised by the persona matrix driver.
 
 ## Big-model coverage
 
