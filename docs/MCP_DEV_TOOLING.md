@@ -144,7 +144,6 @@ opencode .
 ```bash
 opencode .                                          # default: portal/auto-coding-agentic (Laguna-XS.2 33B)
 opencode . --model portal/auto-agentic              # heavy 80B MoE for complex multi-file refactors
-opencode . --model portal/bench-agentworld          # AgentWorld 35B (MCP/SWE/Terminal/Web trajectories)
 opencode . --model portal/auto-coding               # one-shot code generation (Qwen3-Coder 30B)
 opencode . --model portal/auto-reasoning            # deep reasoning for architectural decisions
 opencode . --model portal/auto-security             # defensive security code review
@@ -208,7 +207,7 @@ compatibility endpoint. All tokens stay on your hardware. Same tool set as Mode 
 ```bash
 scripts/cc-local.sh                              # default: auto-agentic workspace
 scripts/cc-local.sh --model auto-coding-agentic  # Laguna-XS.2 33B (agentic loop)
-scripts/cc-local.sh --model bench-agentworld     # AgentWorld 35B (env-sim primary)
+scripts/cc-local.sh --model auto-agentic         # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
 scripts/cc-local.sh --model auto-coding          # Qwen3-Coder 30B (one-shot)
 scripts/cc-local.sh --model auto-reasoning       # DeepSeek-R1-0528 8B (reasoning)
 scripts/cc-local.sh --model auto-security        # VulnLLM-R-7B (security)
@@ -221,10 +220,10 @@ Portal-pipeline's `/v1/messages` endpoint translates to OpenAI format, routes th
 the workspace stack (LLM router → backend selection → streaming), and returns Anthropic
 SSE format. No change to `.mcp.json` — all Portal tools still available.
 
-**AgentWorld for IDE use:** `bench-agentworld` (Qwen-AgentWorld-35B-A3B, 45 t/s) is
+**AgentWorld for IDE use:** AgentWorld (Qwen-AgentWorld-35B-A3B, 45 t/s) is
 particularly well-matched — its pretraining covers MCP tool-calling, Terminal execution,
 SWE workflows, and web/OS environment simulation. These are exactly the trajectories
-Claude Code exercises. Available as `auto-agentic` fallback or directly via `--model bench-agentworld`.
+Claude Code exercises. It runs as the `auto-agentic` fallback when the primary 80B isn't warm.
 
 **Environment variable shortcut** (without the script):
 ```bash

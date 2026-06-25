@@ -7,7 +7,7 @@
 # Usage:
 #   scripts/cc-local.sh                                    # default: auto-agentic
 #   scripts/cc-local.sh --model auto-coding-agentic        # Laguna-XS.2 33B agentic
-#   scripts/cc-local.sh --model bench-agentworld           # AgentWorld 35B direct
+#   scripts/cc-local.sh --model auto-agentic               # Qwen3-Coder-Next 80B / AgentWorld 35B fallback
 #   scripts/cc-local.sh --model auto-reasoning             # DeepSeek-R1 reasoning
 #   scripts/cc-local.sh --model auto-coding                # Qwen3-Coder 30B one-shot
 #   scripts/cc-local.sh --model auto-security              # VulnLLM-R-7B security

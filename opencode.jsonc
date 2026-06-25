@@ -70,11 +70,6 @@
           "attachment": true,
           "reasoning": false
         },
-        "bench-agentworld": {
-          "name": "Portal · AgentWorld 35B (env-sim: MCP/SWE/Terminal/Web, 45 t/s)",
-          "attachment": false,
-          "reasoning": true
-        },
         "auto-coding-uncensored": {
           "name": "Portal · Code Uncensored (OmniCoder-2 9B, one-shot)",
           "attachment": true,
