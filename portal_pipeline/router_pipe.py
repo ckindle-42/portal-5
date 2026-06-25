@@ -366,89 +366,98 @@ def _inject_ollama_options(body: dict, workspace_id: str = "") -> dict:
     mutated. The ``options`` sub-dict is deep-copied so workspace
     injections never pollute the caller's original options dict.
 
-    Two categories of injection:
-
     **Global tuning** (applies to every Ollama request):
 
-    * ``keep_alive`` (top-level): set to ``-1`` to prevent model
-      unloading between requests. Eliminates the 10–30s cold-load
-      cost on the next request to the same model. Native Ollama
-      default is ~5 min; ``OLLAMA_KEEP_ALIVE`` env (server-wide)
-      handles the Docker case but not native installs. Per-request
-      injection covers both reliably.
-    * ``num_batch`` (under ``options``): set to 2048 (Ollama
-      default is 512). Quadruples prompt-evaluation throughput,
-      cutting TTFT on long conversation histories. 2048 fits every
-      model in the catalog without exceeding attention windows.
+    * ``keep_alive``: ``-1`` keeps model in VRAM, eliminates cold-load cost.
+    * ``num_batch``: 2048 — 4× faster prefill vs Ollama default 512.
 
     **Workspace-driven** (only when workspace declares the field):
 
-    * ``num_ctx`` from ``context_limit`` — big-model agentic
-      workspaces need explicit context caps to bound memory use.
-     * ``max_tokens`` from ``predict_limit`` — research/reasoning
-       workspaces cap output tokens to prevent DeepSeek-R1 CoT
-       exhaustion. Mapped to top-level ``max_tokens`` (OpenAI
-       standard); verified against Ollama 0.30.7 where
-       ``options.num_predict`` is ignored by
-       ``/v1/chat/completions``.
+    * ``num_ctx`` from ``context_limit`` — explicit KV-cache cap for big models.
+    * ``max_tokens`` from ``predict_limit`` — output token cap (CoT exhaustion guard).
+    * ``temperature`` — sampling temperature. 0.1 for exec/tool workspaces;
+      0.2 for coding; 0.6 for reasoning/research; 0.8 for creative.
+    * ``top_p`` — nucleus sampling cutoff. Tighter (0.9) for tool-calling roles;
+      wider (0.95) for reasoning and creative roles.
+    * ``top_k`` — vocabulary candidate pool. 20 for exec precision; 40 default.
+    * ``min_p`` — minimum token probability floor. Filters degenerate low-prob
+      tokens that abliterated models can drift toward. 0.05 is safe across fleet.
+    * ``repeat_penalty`` — penalises repeated n-grams. 1.1 for exec/tool chains
+      that show looping behaviour; 1.0 (default) elsewhere.
+    * ``seed`` — RNG seed for reproducibility. Set on bench workspaces only so
+      theory/exec scores are comparable across runs without non-determinism noise.
+    * ``think`` — extended thinking toggle for Qwen3/similar.
 
     All injections use ``setdefault`` so caller-supplied values
-    (e.g. Open WebUI passing its own ``keep_alive``) win. The
-    pipeline never overrides what Open WebUI explicitly sets.
+    (e.g. Open WebUI passing its own ``temperature``) always win.
 
     Args:
         body: Outgoing request body. Not mutated.
-        workspace_id: Workspace key; ``context_limit`` and
-            ``predict_limit`` are looked up here. Empty string
-            skips workspace-driven injection.
+        workspace_id: Workspace key used for per-workspace field lookup.
 
     Returns:
         Shallow copy of ``body`` with injections applied.
     """
     body = dict(body)
-    # Deep-copy options to prevent mutating caller's dict
     body["options"] = dict(body.get("options") or {})
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
-    # Big-model context cap (P5-BIG-001): workspace context_limit tracked here as self-healing; Ollama /v1 ignores options.num_ctx (VERIFY-1, 2026-06). Set 'PARAMETER num_ctx N' in the model's Modelfile or OLLAMA_CONTEXT_LENGTH env to enforce.
+
+    # context cap
     ctx_limit = ws_cfg_local.get("context_limit")
     if ctx_limit:
         body["options"].setdefault("num_ctx", ctx_limit)
-    # Research/reasoning workspaces: cap output tokens to prevent CoT exhaustion.
-    # Map predict_limit to top-level max_tokens; verified against Ollama
-    # 0.30.7 where options.num_predict is ignored by /v1/chat/completions.
+
+    # output token cap — map to top-level max_tokens (OpenAI standard)
     predict_limit = ws_cfg_local.get("predict_limit")
     if predict_limit:
         body.setdefault("max_tokens", predict_limit)
-    # Per-workspace keep_alive override: bench workspaces use "5m" (short-lived
-    # bench models shouldn't pin memory between runs); big-q8 quality lanes use
-    # "10m" (long enough to absorb back-to-back queries without reload cost, but
-    # not forever — a 35 GB q8 pinned by "-1" evicts the rest of the fleet).
-    # Falls back to the global _OLLAMA_KEEP_ALIVE ("-1") for all other workspaces.
-    # IMPORTANT: workspace-declared keep_alive is a hard override — use direct
-    # assignment, not setdefault. OWUI sends its own keep_alive but doesn't know
-    # about bench workspace model lifecycle; letting OWUI win here causes large
-    # models to stay loaded indefinitely, blocking subsequent bench runs.
+
+    # keep_alive: workspace override wins; fall back to global "-1"
+    # Hard assignment (not setdefault) — OWUI sends its own keep_alive but bench
+    # workspace lifecycle must take precedence to avoid pinning large models.
     ws_keep_alive = ws_cfg_local.get("keep_alive")
     if ws_keep_alive is not None:
         body["keep_alive"] = ws_keep_alive
     else:
         body.setdefault("keep_alive", _OLLAMA_KEEP_ALIVE)
+
+    # global prefill speedup
     body["options"].setdefault("num_batch", _OLLAMA_NUM_BATCH)
-    # Request usage stats in the final streaming chunk so TPS is recorded for every
-    # request. Without this, Ollama's /v1/chat/completions terminates with data:[DONE]
-    # (no token counts), which means _record_usage gets completion_tokens=0 and TPS
-    # is silently skipped. With include_usage=true, Ollama sends a final usage chunk
-    # before [DONE] containing prompt_tokens + completion_tokens, enabling accurate
-    # TPS tracking across all streaming requests.
+
+    # usage stats for TPS recording
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True
-    # Per-workspace thinking control: "think": false disables extended thinking
-    # for Qwen3/similar models that support it. Prevents token-budget exhaustion
-    # in thinking mode where the model burns all tokens in <think> and produces
-    # empty output. Set in workspace config as {"think": false}.
+
+    # ── Per-workspace sampling tuning ────────────────────────────────────────
+    # All use setdefault — OWUI/user values always take precedence.
+    _SAMPLING_KEYS = (
+        "temperature",   # creativity vs determinism
+        "top_p",         # nucleus sampling cutoff
+        "top_k",         # vocabulary candidate pool size
+        "min_p",         # minimum token probability floor
+        "repeat_penalty", # n-gram repetition penalty
+        "seed",          # RNG seed (bench reproducibility)
+    )
+    for key in _SAMPLING_KEYS:
+        val = ws_cfg_local.get(key)
+        if val is not None:
+            body["options"].setdefault(key, val)
+
+    # mirostat (perplexity-based adaptive sampling) — mutually exclusive with
+    # top_p/top_k; only inject when workspace explicitly opts in
+    mirostat = ws_cfg_local.get("mirostat")
+    if mirostat is not None:
+        body["options"].setdefault("mirostat", mirostat)
+        for mk in ("mirostat_tau", "mirostat_eta"):
+            mv = ws_cfg_local.get(mk)
+            if mv is not None:
+                body["options"].setdefault(mk, mv)
+
+    # extended thinking toggle (Qwen3/DeepSeek)
     ws_think = ws_cfg_local.get("think")
     if ws_think is not None:
         body.setdefault("think", ws_think)
+
     return body
 
 

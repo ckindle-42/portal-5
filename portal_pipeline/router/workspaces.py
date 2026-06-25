@@ -189,6 +189,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/Qwen3.6-abliterated:27b",
         "keep_alive": "10m",
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
         "tools": [
             "execute_bash",
             "execute_python",
@@ -213,6 +217,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/baronllm-abliterated",
         "keep_alive": "10m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [
             "execute_bash",
             "execute_python",
@@ -279,6 +288,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "For terminal output: emit the exact shell output, nothing else. "
             "Your response must be complete and self-contained — the user cannot follow up."
         ),
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.05,
         "tools": [
             "execute_python",
             "execute_nodejs",
@@ -303,6 +317,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "omnicoder2:9b-q4_k_m",
         "keep_alive": "10m",
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.05,
         "tools": [
             "execute_bash",
             "execute_python",
@@ -334,6 +353,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M",
         "keep_alive": "15m",
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.05,
         "tools": [
             "explore_repository",
             "execute_bash",
@@ -376,6 +400,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "laguna-xs.2:Q4_K_M",
         "keep_alive": "15m",
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.05,
         "tools": [
             "explore_repository",  # FastContext 4B subagent — locates files before edits
             "read_text_file",      # pipeline MCP :8928 — reads host project files
@@ -469,6 +498,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
         "keep_alive": "10m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [
             "web_search",
             "web_fetch",
@@ -488,6 +522,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [],
         "system_prompt_append": (
             "\n\nHARD CONSTRAINTS (never violate):\n"
@@ -522,6 +561,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [],
         "system_prompt_append": (
             "\n\nHARD CONSTRAINTS (never violate):\n"
@@ -573,6 +617,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/qwen3.5-abliterated:9b",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [],
         "system_prompt_append": (
             "\n\nHARD CONSTRAINTS (never violate):\n"
@@ -681,6 +730,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
         "keep_alive": "15m",
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
             "\n\nLAB ENVIRONMENT:\n"
@@ -802,6 +856,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "supergemma4-26b-uncensored:Q4_K_M",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [],
         "system_prompt_append": (
             "\n\nHARD CONSTRAINTS (never violate):\n"
@@ -838,6 +897,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/baronllm-abliterated",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
             "\n\nLAB ENVIRONMENT:\n"
@@ -874,6 +938,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Foundation-Sec-8B-Reasoning available via reasoning group for deep analytical tasks."
         ),
         "model_hint": "sylink/sylink:8b",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
         "tools": [
             "web_search",
             "web_fetch",
@@ -894,6 +963,11 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "will be set to the top D10 scorer from TASK_MODEL_EVAL_V9_CANDIDATES."
         ),
         "model_hint": "qwen3-coder:30b-a3b-q4_K_M",
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.05,
+        "repeat_penalty": 1.05,
         "tools": ["execute_python", "execute_bash", "web_search"],
     },
     "tools-specialist": {
@@ -913,6 +987,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4)."
         ),
         "model_hint": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4",
+        "temperature": 0.85,
+        "top_p": 0.95,
+        "top_k": 50,
+        "min_p": 0.02,
         "tools": [],
     },
     "auto-reasoning": {
@@ -926,6 +1004,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL",
         "predict_limit": 16384,
         "emits_reasoning": True,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.02,
         "tools": [],
     },
     "auto-documents": {
@@ -933,6 +1015,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "description": "Create Word, Excel, PowerPoint via MCP tools; diarized transcription",
         "model_hint": "granite4.1:8b",
         "predict_limit": 8192,
+        "temperature": 0.5,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
         "tools": [
             "create_word_document",
             "create_excel",
@@ -976,6 +1062,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/tongyi-deepresearch-abliterated",
         "predict_limit": 16384,
         "emits_reasoning": True,
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 40,
+        "min_p": 0.02,
         "tools": [
             "web_search",
             "web_fetch",
@@ -991,6 +1081,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "name": "👁️  Portal Vision",
         "description": "Image understanding, visual analysis, multimodal tasks (Qwen3-VL, Ollama)",
         "model_hint": "qwen3-vl:32b",
+        "temperature": 0.5,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
         "tools": ["transcribe_audio"],
     },
     "auto-data": {
@@ -1002,6 +1096,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "granite4.1:30b",
         "keep_alive": "10m",
+        "temperature": 0.4,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
         "tools": ["execute_python", "create_excel", "kb_search"],
     },
     "auto-compliance": {
@@ -1566,6 +1664,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         ),
         "model_hint": "huihui_ai/gemma-4-abliterated:E2b-qat",
         "keep_alive": "15m",
+        "temperature": 0.3,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
+        "seed": 42,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": (
             "\n\nLAB ENVIRONMENT:\n"
@@ -1843,6 +1947,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M",
         "max_concurrent": 1,
         "keep_alive": "15m",
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
+        "seed": 42,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": _BENCH_EXEC_SYSTEM,
     },
@@ -1858,6 +1968,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/gemma-4-abliterated:E2b-qat",
         "max_concurrent": 1,
         "keep_alive": "15m",
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
+        "seed": 42,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": _BENCH_EXEC_SYSTEM,
     },
@@ -1872,6 +1988,12 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "model_hint": "huihui_ai/baronllm-abliterated",
         "max_concurrent": 1,
         "keep_alive": "15m",
+        "temperature": 0.1,
+        "top_p": 0.9,
+        "top_k": 20,
+        "min_p": 0.05,
+        "repeat_penalty": 1.1,
+        "seed": 42,
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": _BENCH_EXEC_SYSTEM,
     },
