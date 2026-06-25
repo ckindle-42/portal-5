@@ -457,7 +457,10 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "Agentic coding workspace for long-horizon multi-file tasks, SWE-agent-style "
             "workflows, and complex refactors. Qwen3-Coder-Next 80B/3B MoE (V8: agentic RL "
             "training on 800K executable tasks, 256K ctx, ~46GB, 20 t/s pipeline). "
-            "Fallback: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, "
+            "Fallback 1: Qwen-AgentWorld-35B-A3B (~21GB, 45 t/s, MoE 3B active, 262K ctx) — "
+            "language world model trained on MCP/Terminal/SWE/Web/OS env-simulation; strong "
+            "tool-call coherence, available in general+coding pools. "
+            "Fallback 2: gpt-oss:20b (~12GB, o3-mini level, MoE, purpose-built for agent/tool use, "
             "2/2 security chain at 45s) — available in the coding pool when the primary is not loaded."
         ),
         "model_hint": "qwen3-coder-next:latest",
@@ -2045,7 +2048,7 @@ WORKSPACES: dict[str, dict[str, Any]] = {
             "262K ctx, MoE 3B active). Language world model: simulates MCP, Terminal, SWE, "
             "Web, Android, OS, Search environments via long chain-of-thought reasoning. "
             "Evaluate on tool-call coherence and env-simulation fidelity — NOT offensive depth. "
-            "Candidate for auto-agentic secondary if TPS >= 20 and tool audit passes."
+            "PROMOTED 2026-06-25 to auto-agentic secondary (45 TPS, audit-tools PASS)."
         ),
         "model_hint": "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL",
         "max_concurrent": 1,

@@ -54,7 +54,7 @@ tools live introspection of the running Portal 5 stack and an AI-powered code ex
 | Tool | What it does |
 |---|---|
 | `get_pipeline_status` | Pipeline health, workspace count, version |
-| `list_workspaces` | All 95 workspaces with names/descriptions; accepts optional filter string |
+| `list_workspaces` | All 89 workspaces with names/descriptions; accepts optional filter string |
 | `get_loaded_models` | Which Ollama models are in VRAM, their sizes, expiry times |
 | `get_metrics_summary` | Request totals, tool call counts, error rates, TPS from Prometheus |
 | `get_workspace_recommendation` | Given a task description, returns the best workspace ID with reasoning |
@@ -119,7 +119,7 @@ repo root tells it to use Portal 5 as its AI backend instead of any cloud API.
 
 - **Fully local inference** — all completions go through portal-pipeline (:9099) to Ollama
   on your hardware. No tokens leave the machine.
-- **95 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
+- **89 workspaces as models** — `opencode models` lists every Portal 5 workspace. Default:
   `portal/auto-coding-agentic` (Devstral 24B with FastContext explore loop).
 - **All 6 MCP servers** — opencode reads `.mcp.json` automatically, so it has the same
   filesystem, git, docker, sandbox, and pipeline tools.
