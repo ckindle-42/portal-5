@@ -1998,6 +1998,65 @@ WORKSPACES: dict[str, dict[str, Any]] = {
         "tools": ["execute_bash", "execute_python", "web_search"],
         "system_prompt_append": _BENCH_EXEC_SYSTEM,
     },
+    "bench-lfm-micro-230m": {
+        "name": "🧪 Bench LFM2.5-230M",
+        "description": (
+            "LFM2.5-230M (Liquid AI, Apache 2.0, ~140MB Q4, hybrid LIV conv + GQA). "
+            "Micro model bench: evaluates as pipeline-internal workspace classifier. "
+            "NOT a primary chat model — bench target only. Use bench_router.py Round 4 "
+            "to evaluate routing accuracy and security-refusal behaviour."
+        ),
+        "model_hint": "hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M",
+        "max_concurrent": 2,
+        "keep_alive": "5m",
+        "temperature": 0.0,
+        "tools": [],
+    },
+    "bench-lfm-micro-350m": {
+        "name": "🧪 Bench LFM2.5-350M",
+        "description": (
+            "LFM2.5-350M (Liquid AI, ~200MB Q4, 313 t/s CPU decode, 128K ctx). "
+            "Micro model bench: evaluates as router and daily-summarizer candidate. "
+            "Bench-only — not a primary chat workspace. Run bench_router.py Round 4."
+        ),
+        "model_hint": "hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M",
+        "max_concurrent": 2,
+        "keep_alive": "5m",
+        "temperature": 0.0,
+        "tools": [],
+    },
+    "bench-lfm-micro-1p2b": {
+        "name": "🧪 Bench LFM2.5-1.2B",
+        "description": (
+            "LFM2.5-1.2B-Instruct (Liquid AI, ~700MB Q4, reasoning-capable, 32K ctx). "
+            "Micro model bench: evaluates as router + auto-extract / structured-output "
+            "offload candidate. Bench-only. Run bench_router.py Round 4 and TPS probe."
+        ),
+        "model_hint": "hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M",
+        "max_concurrent": 2,
+        "keep_alive": "5m",
+        "temperature": 0.0,
+        "tools": [],
+    },
+    "bench-agentworld": {
+        "name": "🧪 Bench Qwen-AgentWorld-35B",
+        "description": (
+            "Qwen-AgentWorld-35B-A3B (Alibaba/Qwen, Apache 2.0, 2026-06-24, ~22GB Q4, "
+            "262K ctx, MoE 3B active). Language world model: simulates MCP, Terminal, SWE, "
+            "Web, Android, OS, Search environments via long chain-of-thought reasoning. "
+            "Evaluate on tool-call coherence and env-simulation fidelity — NOT offensive depth. "
+            "Candidate for auto-agentic secondary if TPS >= 20 and tool audit passes."
+        ),
+        "model_hint": "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL",
+        "max_concurrent": 1,
+        "keep_alive": "10m",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "tools": ["execute_bash", "execute_python", "web_search", "remember", "recall"],
+        "emits_reasoning": True,
+    },
 }
 
 # ── Tool-call helpers (M2) ──────────────────────────────────────────────────

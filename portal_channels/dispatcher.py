@@ -172,6 +172,11 @@ VALID_WORKSPACES = frozenset(
         "bench-exec-recon",
         "bench-exec-reasoning",
         "bench-exec-exploit",
+        # TASK_LFM_AGENTWORLD_ROUTER_V1
+        "bench-lfm-micro-230m",
+        "bench-lfm-micro-350m",
+        "bench-lfm-micro-1p2b",
+        "bench-agentworld",
     }
 )
 
