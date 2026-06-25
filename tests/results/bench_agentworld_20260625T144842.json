@@ -1,0 +1,36 @@
+{
+  "bench": "direct_tps_probe",
+  "model": "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL",
+  "workspace": "bench-agentworld",
+  "hardware": {
+    "platform": "Darwin",
+    "machine": "arm64",
+    "unified_memory_gb": 64.0,
+    "cpu": "Apple M4 Pro"
+  },
+  "date": "2026-06-25T19:48:42Z",
+  "runs": 5,
+  "max_tokens": 256,
+  "options": {
+    "temperature": 0.6,
+    "top_p": 0.95,
+    "top_k": 20
+  },
+  "per_run_tps": [
+    45.1,
+    45.1,
+    44.9,
+    45.1,
+    44.9
+  ],
+  "summary": {
+    "avg_tps": 45.02,
+    "median_tps": 45.1,
+    "min_tps": 44.9,
+    "max_tps": 45.1,
+    "ttft_s": 0.1
+  },
+  "gate_20tps": "PASS",
+  "audit_tools": "PASS",
+  "notes": "Model registered via ollama create from cached blob (HF OCI manifest endpoint timeout workaround). Pipeline mode bench deferred \u2014 pipeline image is stale; direct Ollama probe is authoritative."
+}
