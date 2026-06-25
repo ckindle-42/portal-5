@@ -543,7 +543,7 @@ def _print_intake_summary(results: list) -> None:
             f"add existing slots:\n"
             f"  --exec-chain-models "
             f"hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M "
-            f"<NEW_EXPLOIT_CANDIDATE> "
+            f"huihui_ai/gemma-4-abliterated:E2b-qat "
             f"huihui_ai/baronllm-abliterated"
         )
 
