@@ -184,64 +184,6 @@ models_app = typer.Typer(help="Model registry operations.")
 app.add_typer(models_app, name="models")
 
 
-# ── HuggingFace model registry ────────────────────────────────────────────────
-# Ported from scripts/lib/models.sh case statements. Migrate to portal.yaml
-# when the model registry schema lands (M5 follow-up).
-_HF_MODEL_SPECS: dict[str, dict] = {
-    "AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF": {
-        "actual_repo": "AlicanKiraz0/Cybersecurity-BaronLLM_Offensive_Security_LLM_Q6_K_GGUF",
-        "filename": "baronllm-llama3.1-v1-q6_k.gguf",
-        "ollama_name": "baronllm:q6_k",
-        "gated": True,
-    },
-    "segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF": {
-        "actual_repo": "segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF",
-        "filename": "Lily-7B-Instruct-v0.2.Q4_K_M.gguf",
-        "ollama_name": "lily-cybersecurity:7b-q4_k_m",
-    },
-    "cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF": {
-        "actual_repo": "bartowski/cognitivecomputations_Dolphin3.0-R1-Mistral-24B-GGUF",
-        "filename": "cognitivecomputations_Dolphin3.0-R1-Mistral-24B-Q4_K_M.gguf",
-        "ollama_name": "dolphin3-r1-mistral:24b-q4_k_m",
-    },
-    "WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF": {
-        "actual_repo": "dranger003/WhiteRabbitNeo-33B-v1.5-iMat.GGUF",
-        "filename": "ggml-whiterabbitneo-33b-v1.5-q4_k_m.gguf",
-        "ollama_name": "whiterabbitneo:33b-v1.5-q4_k_m",
-    },
-    "mradermacher/OmniCoder-2-9B-GGUF": {
-        "actual_repo": "mradermacher/OmniCoder-2-9B-GGUF",
-        "filename": "OmniCoder-2-9B.Q4_K_M.gguf",
-        "ollama_name": "omnicoder2:9b-q4_k_m",
-    },
-    "MiniMaxAI/MiniMax-M2.1-GGUF": {
-        "actual_repo": "bartowski/MiniMaxAI_MiniMax-M2.1-GGUF",
-        "filename": "MiniMaxAI_MiniMax-M2.1-Q4_K_M.gguf",
-        "ollama_name": "",
-        "skip_reason": "138 GB at Q4_K_M — requires ~160 GB RAM; skip by default",
-    },
-    "deepseek-ai/DeepSeek-R1-32B-GGUF": {
-        "actual_repo": "bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-        "filename": "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
-        "ollama_name": "deepseek-r1:32b-q4_k_m",
-    },
-    "Jiunsong/supergemma4-26b-uncensored-gguf-v2": {
-        "actual_repo": "Jiunsong/supergemma4-26b-uncensored-gguf-v2",
-        "filename": "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf",
-        "ollama_name": "supergemma4-26b-uncensored:q4_k_m",
-    },
-    "cognitivecomputations/dolphin-3-llama3-70b-GGUF": {
-        "actual_repo": "bartowski/dolphin-2.9.1-llama3-70b-GGUF",
-        "filename": "dolphin-2.9.1-llama-3-70b-Q4_K_M.gguf",
-        "ollama_name": "dolphin-llama3:70b-q4_k_m",
-    },
-    "meta-llama/Meta-Llama-3.3-70B-GGUF": {
-        "actual_repo": "bartowski/Llama-3.3-70B-Instruct-GGUF",
-        "filename": "Llama-3.3-70B-Instruct-Q4_K_M.gguf",
-        "ollama_name": "llama3.3:70b-q4_k_m",
-    },
-}
-
 # Default model list for pull-all (mirrors MODELS array in models.sh)
 _DEFAULT_MODELS: list[str] = [
     "${DEFAULT_MODEL:-dolphin-llama3:8b}",
@@ -326,21 +268,22 @@ def _pull_native(model: str, ollama_cmd: str) -> bool:
         return False
 
 
-def _pull_hf_model(repo_id: str, ollama_cmd: str) -> bool:
+def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
     """Pull a HuggingFace model via Python API + ollama create."""
-    spec = _HF_MODEL_SPECS.get(repo_id)
-    if spec is None:
-        typer.echo(f"  ⚠️  No verified spec for {repo_id} — attempting direct ollama pull")
-        return _pull_native(f"hf.co/{repo_id}", ollama_cmd)
+    from portal_pipeline.config import Model  # noqa: PLC0415
 
-    if spec.get("skip_reason"):
-        typer.echo(f"  ⚠️  Skipping {repo_id}: {spec['skip_reason']}")
-        return True  # Not a failure
+    actual_repo = m.actual_repo or m.hf_id
+    filename = m.filename
+    ollama_name = m.ollama_name
+    gated = m.gated
 
-    ollama_name = spec["ollama_name"]
-    actual_repo = spec["actual_repo"]
-    filename = spec["filename"]
-    gated = spec.get("gated", False)
+    if not ollama_name:
+        typer.echo(f"  ⚠️  Skipping {m.hf_id}: no ollama_name (too large for current hardware)")
+        return True
+
+    if not filename:
+        typer.echo(f"  ⚠️  No filename for {m.hf_id} — attempting direct ollama pull")
+        return _pull_native(f"hf.co/{actual_repo}", ollama_cmd)
 
     # Check if already in Ollama
     if _model_exists_in_ollama(ollama_name, ollama_cmd):
@@ -427,28 +370,49 @@ def _resolve_model_name(raw: str) -> str:
 def models_pull(
     model_ids: Annotated[
         list[str] | None,
-        typer.Argument(help="Model IDs to pull. Omit to pull all default models."),
+        typer.Argument(
+            help="hf_id or ollama_name from config/portal.yaml. Omit to pull all live entries."
+        ),
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="Re-pull even if present")] = False,
     skip_gated: Annotated[
         bool, typer.Option("--skip-gated", help="Skip models marked gated=true")
     ] = False,
+    include_retired: Annotated[
+        bool,
+        typer.Option("--include-retired", help="Include models marked retired=true (default skips)"),
+    ] = False,
 ) -> None:
-    """Pull models from HuggingFace or Ollama registry into Ollama.
+    """Pull HuggingFace models into Ollama per config/portal.yaml models: block.
 
-    Model definitions for hf.co/ repos are read from the built-in registry.
+    Model definitions are read from config/portal.yaml.
     Native Ollama registry models use ``ollama pull`` directly.
-
-    Without arguments, pulls all default models.
     """
+    cfg = load_portal_config()
+
     ollama_cmd = _detect_ollama_cmd()
     if ollama_cmd is None:
         typer.echo("No Ollama available. Run: ./launch.sh install-ollama", err=True)
         raise typer.Exit(code=1)
 
-    # Resolve model list
-    targets = model_ids or _DEFAULT_MODELS
-    targets = [_resolve_model_name(m) for m in targets]
+    # Select models from config
+    if model_ids:
+        targets = [
+            m
+            for m in cfg.models
+            if m.hf_id in model_ids
+            or m.ollama_name in model_ids
+        ]
+    else:
+        targets = [
+            m
+            for m in cfg.models
+            if (include_retired or not m.retired) and m.ollama_name
+        ]
+
+    if not targets:
+        typer.echo("No models to pull", err=True)
+        raise typer.Exit(code=0)
 
     typer.echo("=== Portal 5: Pulling AI models ===")
     typer.echo("This may take 30-90 minutes depending on connection speed.\n")
@@ -463,57 +427,30 @@ def models_pull(
 
     total = len(targets)
     failed = 0
-    for i, model in enumerate(targets, 1):
-        typer.echo(f"[{i}/{total}] {model}")
-        ok = _pull_one(model, ollama_cmd, force=force, skip_gated=skip_gated)
+    for i, m in enumerate(targets, 1):
+        typer.echo(f"[{i}/{total}] {m.hf_id}")
+        if skip_gated and m.gated:
+            typer.echo(f"  ⏭️  Skipping gated model: {m.hf_id}")
+            continue
+        ok = _pull_hf_model(m, ollama_cmd)
         if ok:
             typer.echo("  ✅ Done")
         else:
             failed += 1
         typer.echo("")
 
-    # Heavy models
-    if os.environ.get("PULL_HEAVY", "false").lower() in ("true", "1", "yes"):
-        typer.echo("Pulling heavy 70B models (PULL_HEAVY=true)...")
-        for model in _HEAVY_MODELS:
-            typer.echo(f"  Pulling: {model} (~35GB)")
-            ok = _pull_one(model, ollama_cmd, force=force, skip_gated=skip_gated)
-            typer.echo("  ✅ Done" if ok else "  ❌ Failed")
-            if not ok:
-                failed += 1
-    else:
-        typer.echo(
-            "Skipping 70B models (set PULL_HEAVY=true in .env to pull ~35GB models)"
-        )
-        for m in _HEAVY_MODELS:
-            typer.echo(f"  - {m}")
-
     typer.echo(f"\n=== Pull complete: {total - failed}/{total} succeeded ===")
-
     if failed:
         raise typer.Exit(code=1)
-
-
-def _pull_one(model: str, ollama_cmd: str, *, force: bool = False, skip_gated: bool = False) -> bool:
-    """Pull a single model. Returns True on success."""
-    if model.startswith("hf.co/"):
-        repo_id = model[len("hf.co/"):]
-        spec = _HF_MODEL_SPECS.get(repo_id, {})
-        if skip_gated and spec.get("gated"):
-            typer.echo(f"  ⏭️  Skipping gated model: {repo_id}")
-            return True  # Not a failure
-        return _pull_hf_model(repo_id, ollama_cmd)
-    else:
-        return _pull_native(model, ollama_cmd)
 
 
 @models_app.command("refresh")
 def models_refresh() -> None:
     """Force re-pull of every currently-installed model.
 
-    Shortcut for ``portal models pull --force`` on the full default model list.
+    Shortcut for ``portal models pull --force --include-retired``.
     """
-    models_pull(model_ids=None, force=True, skip_gated=False)
+    models_pull(model_ids=None, force=True, skip_gated=False, include_retired=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

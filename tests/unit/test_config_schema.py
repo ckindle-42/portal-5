@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portal_pipeline.config import PortalConfig, load_portal_config
+from portal_pipeline.config import Model, PortalConfig, load_portal_config
 
 REPO = Path(__file__).resolve().parent.parent.parent
 
@@ -168,3 +168,78 @@ def test_ollama_url_env_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     cfg = load_portal_config(path=p, _force_reload=True)
     assert cfg.ollama_url == "http://custom-host:11434"
     monkeypatch.delenv("OLLAMA_URL", raising=False)
+
+
+# ── Model schema tests (TASK_LIFT_HF_REGISTRY_TO_PORTAL_YAML_V1) ──────────────
+
+
+def test_model_schema_minimal() -> None:
+    """Only hf_id + ollama_name are required."""
+    m = Model.model_validate({"hf_id": "foo/bar", "ollama_name": "my-tag"})
+    assert m.hf_id == "foo/bar"
+    assert m.ollama_name == "my-tag"
+    assert m.actual_repo == "foo/bar"  # defaults to hf_id
+    assert m.filename is None
+    assert m.gated is False
+    assert m.retired is False
+
+
+def test_model_schema_full() -> None:
+    """All fields populate correctly."""
+    m = Model.model_validate(
+        {
+            "hf_id": "foo/bar",
+            "actual_repo": "baz/qux",
+            "filename": "model.gguf",
+            "ollama_name": "my-tag",
+            "gated": True,
+            "retired": True,
+        }
+    )
+    assert m.hf_id == "foo/bar"
+    assert m.actual_repo == "baz/qux"
+    assert m.filename == "model.gguf"
+    assert m.ollama_name == "my-tag"
+    assert m.gated is True
+    assert m.retired is True
+
+
+def test_model_schema_actual_repo_defaults_to_hf_id() -> None:
+    """actual_repo falls back to hf_id when omitted."""
+    m = Model.model_validate({"hf_id": "foo/bar", "ollama_name": "tag"})
+    assert m.actual_repo == "foo/bar"
+
+
+def test_model_schema_retired_default_false() -> None:
+    """retired defaults to False."""
+    m = Model.model_validate({"hf_id": "x/y", "ollama_name": "tag"})
+    assert m.retired is False
+
+
+def test_model_schema_rejects_unknown_fields() -> None:
+    """extra=forbid should reject unknown keys."""
+    from pydantic import ValidationError as PydanticValidationError
+
+    with pytest.raises(PydanticValidationError):
+        Model.model_validate(
+            {"hf_id": "x/y", "ollama_name": "tag", "not_a_field": 42}
+        )
+
+
+def test_portal_config_models_default_empty_list() -> None:
+    """PortalConfig.models defaults to empty list."""
+    cfg = PortalConfig.model_validate(
+        {
+            "workspaces": {
+                "auto": {
+                    "name": "Auto",
+                    "description": "x",
+                    "tools": [],
+                    "expose_to_owui": True,
+                    "enable_web_search": False,
+                }
+            },
+            "mcp_fleet": [],
+        }
+    )
+    assert cfg.models == []
