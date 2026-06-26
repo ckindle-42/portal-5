@@ -1,13 +1,13 @@
 {
   "id": "bench-laguna",
-  "name": "🔬 Bench · Laguna-XS.2 (Poolside)",
+  "name": "🔬 Bench · Laguna-XS.2 (Poolside) ✓ PROMOTED",
   "meta": {
-    "description": "Benchmark: Laguna-XS.2-4bit — Poolside AI MLX, 33B-A3B MoE, ~18.8GB, 68.2% SWE-bench Verified",
+    "description": "🔬 Bench · Laguna-XS.2 (Poolside) ✓ PROMOTED",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-laguna"
+    "model": "bench-laguna",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

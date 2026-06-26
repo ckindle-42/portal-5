@@ -1,0 +1,12 @@
+{
+  "id": "auto-security-uncensored",
+  "name": "🔓 Portal Security (Uncensored)",
+  "meta": {
+    "description": "🔓 Portal Security (Uncensored)",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-security-uncensored"
+  }
+}

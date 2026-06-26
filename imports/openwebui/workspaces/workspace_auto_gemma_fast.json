@@ -1,0 +1,12 @@
+{
+  "id": "auto-gemma-fast",
+  "name": "⚡ Portal Gemma Fast",
+  "meta": {
+    "description": "⚡ Portal Gemma Fast",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-gemma-fast"
+  }
+}

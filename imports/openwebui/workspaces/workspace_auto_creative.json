@@ -2,14 +2,14 @@
   "id": "auto-creative",
   "name": "✍️  Portal Creative Writer",
   "meta": {
-    "description": "✍️  Portal Creative Writer — Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB). Fiction, roleplay, unconstrained creative content.",
+    "description": "✍️  Portal Creative Writer",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_tts"
     ]
   },
   "params": {
-    "system": "You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling.",
-    "model": "auto-creative"
+    "model": "auto-creative",
+    "system": "You are a versatile creative writer. Generate engaging, imaginative content with vivid descriptions and authentic voice. Embrace complexity and nuance in storytelling."
   }
 }

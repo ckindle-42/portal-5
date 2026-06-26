@@ -1,13 +1,13 @@
 {
   "id": "bench-devstral",
-  "name": "🔬 Bench · Devstral-Small-2507",
+  "name": "🔬 Bench · Devstral 24B (Mistral)",
   "meta": {
-    "description": "Benchmark: Devstral-Small-2507 — Mistral/Codestral lineage, ~15GB",
+    "description": "🔬 Bench · Devstral 24B (Mistral)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-devstral"
+    "model": "bench-devstral",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

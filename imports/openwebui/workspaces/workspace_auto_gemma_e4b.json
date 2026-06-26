@@ -1,0 +1,12 @@
+{
+  "id": "auto-gemma-e4b",
+  "name": "🎯 Portal Gemma E4B",
+  "meta": {
+    "description": "🎯 Portal Gemma E4B",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-gemma-e4b"
+  }
+}

@@ -2,12 +2,12 @@
   "id": "bench-omnicoder2",
   "name": "🔬 Bench · OmniCoder-2-9B",
   "meta": {
-    "description": "Benchmark: omnicoder2:9b-q4_k_m — Ollama only, Qwen3.5-9B SFT on 425K agentic trajectories, ~5.7GB",
+    "description": "🔬 Bench · OmniCoder-2-9B",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-omnicoder2"
+    "model": "bench-omnicoder2",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

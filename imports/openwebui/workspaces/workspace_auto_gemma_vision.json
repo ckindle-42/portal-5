@@ -1,0 +1,12 @@
+{
+  "id": "auto-gemma-vision",
+  "name": "👁️ Portal Gemma Vision",
+  "meta": {
+    "description": "👁️ Portal Gemma Vision",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-gemma-vision"
+  }
+}

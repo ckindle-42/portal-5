@@ -1,0 +1,12 @@
+{
+  "id": "auto-phi4",
+  "name": "🧮 Portal STEM Analyst",
+  "meta": {
+    "description": "🧮 Portal STEM Analyst",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-phi4"
+  }
+}

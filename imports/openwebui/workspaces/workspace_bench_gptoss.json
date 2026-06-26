@@ -1,13 +1,13 @@
 {
   "id": "bench-gptoss",
-  "name": "🔬 Bench · GPT-OSS-20B",
+  "name": "🔬 Bench · GPT-OSS-20B ✓ PROMOTED",
   "meta": {
-    "description": "Benchmark: gpt-oss:20b — OpenAI open-weight MoE, Ollama only, ~12GB",
+    "description": "🔬 Bench · GPT-OSS-20B ✓ PROMOTED",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-gptoss"
+    "model": "bench-gptoss",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

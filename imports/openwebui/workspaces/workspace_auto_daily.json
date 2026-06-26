@@ -2,7 +2,7 @@
   "id": "auto-daily",
   "name": "🪶 Portal Daily Driver",
   "meta": {
-    "description": "🪶 Portal Daily Driver — gemma4:26b-a4b QAT (V8: +23% TPS vs q4_K_M, MoE 4B active, VLM, near-BF16 quality). Chat, writing, summarization, planning, light technical help. Redirects to specialist workspaces when out of lane.",
+    "description": "🪶 Portal Daily Driver",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_research",
@@ -10,8 +10,8 @@
     ]
   },
   "params": {
-    "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
     "model": "auto-daily",
+    "system": "You are Portal's daily driver — fast, capable, local. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, document generation, or regulatory work.",
     "enable_web_search": true
   }
 }

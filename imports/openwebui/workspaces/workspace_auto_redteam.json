@@ -10,8 +10,8 @@
     ]
   },
   "params": {
-    "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK.",
     "model": "auto-redteam",
+    "system": "You are an expert offensive security operator. Provide detailed, technically accurate red team guidance for authorized engagements. Cover attack techniques, tools, and TTPs mapped to MITRE ATT&CK.",
     "enable_web_search": true
   }
 }

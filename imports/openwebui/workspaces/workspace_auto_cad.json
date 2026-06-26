@@ -1,0 +1,12 @@
+{
+  "id": "auto-cad",
+  "name": "📐 Portal CAD / 3D-Print Designer",
+  "meta": {
+    "description": "📐 Portal CAD / 3D-Print Designer",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-cad"
+  }
+}

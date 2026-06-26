@@ -2,12 +2,12 @@
   "id": "bench-qwen36-35b-a3b",
   "name": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
   "meta": {
-    "description": "Benchmark: mlx-community/Qwen3.6-35B-A3B-4bit — Alibaba Apr 2026, 35B/3B active MoE, ~20GB",
+    "description": "🔬 Bench · Qwen3.6-35B-A3B (Alibaba MoE)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-qwen36-35b-a3b"
+    "model": "bench-qwen36-35b-a3b",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

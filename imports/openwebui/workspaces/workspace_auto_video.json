@@ -10,7 +10,7 @@
     ]
   },
   "params": {
-    "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing.",
-    "model": "auto-video"
+    "model": "auto-video",
+    "system": "You help generate videos. Use the Portal Video MCP tool to create video clips from text descriptions. Describe what will be generated before executing."
   }
 }

@@ -1,0 +1,12 @@
+{
+  "id": "auto-extract-uncensored",
+  "name": "🔓 Portal Extract (Uncensored)",
+  "meta": {
+    "description": "🔓 Portal Extract (Uncensored)",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-extract-uncensored"
+  }
+}

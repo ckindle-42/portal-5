@@ -2,14 +2,14 @@
   "id": "auto-audio",
   "name": "🎙️  Portal Audio Analyst",
   "meta": {
-    "description": "🎙️  Portal Audio Analyst — Gemma 4 12B QAT, encoder-free audio+image+text, 256K ctx",
+    "description": "🎙️  Portal Audio Analyst",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_whisper"
     ]
   },
   "params": {
-    "system": "You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it, then provide a clear summary with timestamps for key moments.",
-    "model": "auto-audio"
+    "model": "auto-audio",
+    "system": "You are an audio analysis assistant. Transcribe audio files, analyze speech content, identify speakers, summarize recordings, and extract key information from audio. When given an audio file, use the transcribe_audio tool to process it, then provide a clear summary with timestamps for key moments."
   }
 }
