@@ -36,26 +36,6 @@ _POWERMETRICS_SOCKET = "/tmp/portal5-powermetrics.sock"
 ELECTRICITY_RATE_USD_PER_KWH = float(os.environ.get("ELECTRICITY_RATE_USD_PER_KWH", "0.15"))
 
 
-def watts_seconds_to_cost_usd(ws: float) -> float:
-    """Convert watt-seconds to USD via ``ELECTRICITY_RATE_USD_PER_KWH``.
-
-    **Currently has no callers in the active codebase.** The
-    ``_energy_consumed_ws_total`` Prometheus counter is in
-    watt-seconds (the integral of ``current_w * elapsed``); this
-    helper is the canonical conversion to dollars, but no metric or
-    endpoint actually calls it. Likely scaffolded for a future cost
-    endpoint or Grafana-side query; tracked in
-    ``DOCSTRINGS_V1_NOTES.md``.
-
-    Args:
-        ws: Watt-seconds.
-
-    Returns:
-        Equivalent cost in USD at the configured kWh rate.
-    """
-    kwh = ws / 3600 / 1000
-    return kwh * ELECTRICITY_RATE_USD_PER_KWH
-
 
 async def _power_polling_loop():
     """Background task: poll the host powermetrics daemon every 10s; update gauges.

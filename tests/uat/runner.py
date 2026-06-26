@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re as _re_mod
 import time
 from pathlib import Path
 

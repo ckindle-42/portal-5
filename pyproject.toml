@@ -123,13 +123,28 @@ ignore = ["E501"]
 # convention matching their CLI identifiers.  N802/N806/E741/F821/F841/SIM117 are
 # pre-existing patterns in these standalone scripts.
 "tests/portal5_acceptance_comfyui.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
-"tests/portal5_acceptance_v6.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
+"tests/portal5_acceptance_v6.py" = ["N802", "N806", "E402", "E741", "F821", "F841", "SIM115", "SIM117"]
+"tests/portal5_persona_matrix.py" = ["F401", "F841"]
+"tests/benchmarks/bench_lab_exec.py" = ["SIM102"]
+"tests/benchmarks/bench_mbptl.py" = ["SIM102"]
+"tests/benchmarks/bench_router.py" = ["B905"]
+"tests/benchmarks/bench_router_conditions.py" = ["SIM102"]
+"tests/benchmarks/bench_security/__init__.py" = ["SIM102", "SIM105", "SIM117", "N806", "B023", "B007"]
+"tests/benchmarks/coding_shootout_analyze.py" = ["B905", "B007"]
+"tests/acceptance/**/*.py" = ["N806", "N802", "E741", "F841", "SIM105", "SIM115", "SIM117", "SIM118"]
+"tests/unit/test_persona_matrix_diff.py" = ["N803"]
+"tests/unit/test_document_mcp.py" = ["F401"]
+"tests/unit/test_pipeline.py" = ["E402"]
+"tests/unit/test_proxmox_mcp.py" = ["SIM117"]
+"tests/acceptance/s04_documents.py" = ["B007"]
+"tests/benchmarks/bench_security/rescore_run.py" = ["B007", "B905"]
 # tests/uat inherits the UAT driver's pre-existing patterns (TASK_UAT_MODULARIZE_V1).
 # F821 is deliberately NOT ignored here — undefined-name checking is the
 # import-hygiene gate for the decomposition.
-"tests/uat/**/*.py" = ["N802", "E741", "F841", "SIM115", "SIM117"]
+"tests/uat/**/*.py" = ["N802", "N806", "E741", "F841", "B905", "SIM105", "SIM115", "SIM117"]
+"tests/uat_dashboard.py" = ["F841"]
 # bench_security package: pre-existing patterns carried through refactor
-"tests/benchmarks/bench_security/__init__.py" = ["SIM117", "SIM105"]
+
 "tests/benchmarks/bench_security/blue.py" = ["SIM117"]
 "tests/benchmarks/bench_security/chain.py" = ["SIM117", "SIM105", "N806", "B023"]
 "tests/benchmarks/bench_security/scoring.py" = ["SIM103", "SIM102"]
@@ -138,6 +153,12 @@ ignore = ["E501"]
 # B905 zip strict= (Python 3.10 compat), N806 uppercase constants in function.
 "portal_pipeline/router/streaming.py" = ["SIM102", "B905", "N806"]
 "portal_pipeline/router_pipe.py" = ["N806", "SIM117"]
+# scripts/ — standalone operator scripts, pre-existing patterns (not package code)
+"scripts/**/*.py" = ["E402", "F841", "B007", "B904", "C408", "SIM105", "SIM102"]
+# portal_mcp — FastMCP imports after logging setup (E402 is intentional guard ordering)
+"portal_mcp/**/*.py" = ["E402", "SIM105"]
+# deploy/ standalone scripts — same patterns as scripts/
+"deploy/**/*.py" = ["E402", "F841", "B007", "SIM102", "SIM105", "SIM110", "SIM108"]
 
 [tool.mypy]
 python_version = "3.10"

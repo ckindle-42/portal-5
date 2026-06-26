@@ -18,9 +18,8 @@ import os
 import uuid
 from pathlib import Path
 
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 mcp = FastMCP("code-sandbox", host="0.0.0.0")
 

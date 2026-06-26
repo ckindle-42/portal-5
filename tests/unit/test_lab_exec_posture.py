@@ -8,8 +8,6 @@ from __future__ import annotations
 import importlib
 import sys
 
-import pytest
-
 MOD = "portal_mcp.execution.code_sandbox_mcp"
 
 

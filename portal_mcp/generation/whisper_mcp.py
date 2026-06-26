@@ -11,9 +11,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 mcp = FastMCP("whisper-transcription", host="0.0.0.0")
 

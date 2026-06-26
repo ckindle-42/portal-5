@@ -38,13 +38,13 @@ from .chain import (
     _WEB_SEARCH_CHAIN_TOOL,
     CHAIN_TOOLS_BASE,
     SCENARIOS,
+    TPS_FLOOR,
     _run_exec_chain,
     _run_multimodel_chain,
     _run_refusal_test,
     run_audit_tools,
     run_candidate_intake,
     run_chain_tests,
-    TPS_FLOOR,
 )
 from .lab import (
     print_lab_probe_report,
@@ -551,12 +551,12 @@ def _print_intake_summary(results: list) -> None:
             f"--exec-chain-models {models_arg}"
         )
         print(
-            f"\nTo keep current 3-slot chain structure (RECON/EXPLOIT/POST-EXPLOIT), "
-            f"add existing slots:\n"
-            f"  --exec-chain-models "
-            f"hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M "
-            f"huihui_ai/gemma-4-abliterated:E2b-qat "
-            f"huihui_ai/baronllm-abliterated"
+            "\nTo keep current 3-slot chain structure (RECON/EXPLOIT/POST-EXPLOIT), "
+            "add existing slots:\n"
+            "  --exec-chain-models "
+            "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M "
+            "huihui_ai/gemma-4-abliterated:E2b-qat "
+            "huihui_ai/baronllm-abliterated"
         )
 
 
