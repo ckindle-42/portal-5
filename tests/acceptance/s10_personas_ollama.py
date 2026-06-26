@@ -24,12 +24,12 @@ async def run() -> None:
     print("\n━━━ S10. PERSONAS (OLLAMA) ━━━")
     sec = "S10"
 
-    # Compliance personas → S10c; benchmark personas → bench_tps; skip both here.
+    # Compliance personas → S10c; benchmark/bench personas → bench_tps; skip both here.
     candidates = [
         p
         for p in PERSONAS
         if p.get("workspace_model") in OLLAMA_WORKSPACES
-        and p.get("category") not in ("compliance", "benchmark")
+        and p.get("category") not in ("compliance", "benchmark", "bench")
     ]
     candidates.sort(key=lambda p: p["workspace_model"])
 

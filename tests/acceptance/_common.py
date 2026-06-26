@@ -1089,10 +1089,27 @@ PERSONA_PROMPTS = {
         ["systematic", "search", "inclusion", "database", "literature", "source", "criteria"],
     ),
     "excelsheet": ("Formula for VLOOKUP.", ["VLOOKUP", "formula", "range", "col_index", "FALSE"]),
+    # Coding — additional models
+    "devstral_coder": (
+        "Write a Python function that flattens a nested list of arbitrary depth.",
+        ["def", "flatten", "recursive", "isinstance", "list", "return", "yield", "append", "extend"],
+    ),
+    "glm-coder": (
+        "Write a Python function to check if a string is a palindrome.",
+        ["def", "palindrome", "reverse", "[::-1]", "return", "lower", "replace", "=="],
+    ),
     # Systems (2 personas)
     "linuxterminal": ("ls -lhS", ["total", "home", "user", "-rw", "ls"]),
     "sqlterminal": ("SELECT users with admin role.", ["SELECT", "FROM", "WHERE", "role", "admin"]),
-    # General (2 personas)
+    # General (4 personas)
+    "gemma_e4b": (
+        "What are the key differences between HTTP and HTTPS?",
+        ["https", "ssl", "tls", "encrypt", "secure", "certificate", "port", "443"],
+    ),
+    "gemma_fast": (
+        "Explain what a REST API is in one paragraph.",
+        ["rest", "http", "endpoint", "request", "response", "resource", "stateless", "api"],
+    ),
     "itexpert": (
         "Troubleshoot slow network.",
         [
@@ -1137,7 +1154,11 @@ PERSONA_PROMPTS = {
         "Document an API endpoint.",
         ["endpoint", "request", "response", "parameter", "method"],
     ),
-    # Reasoning (3 personas)
+    # Reasoning (4 personas)
+    "glm-thinker": (
+        "Explain the halting problem and why it's undecidable.",
+        ["halting", "turing", "undecidable", "decide", "halt", "terminate", "prove", "program", "computable"],
+    ),
     "magistralstrategist": (
         "Create a 90-day strategic plan for launching a developer productivity SaaS, with milestones and KPIs.",
         ["milestone", "KPI", "launch", "objective", "strategy", "quarter", "metric", "goal"],
@@ -1154,7 +1175,11 @@ PERSONA_PROMPTS = {
         "Analyze trade-offs between microservices and monoliths.",
         ["trade", "scale", "complex", "maintain", "deploy"],
     ),
-    # Vision (2 personas)
+    # Vision (4 personas)
+    "gemma_vision": (
+        "Describe the key elements you would look for when analyzing a bar chart to extract insights.",
+        ["axis", "label", "value", "bar", "trend", "data", "chart", "compare", "height", "category"],
+    ),
     "gemma4e4bvision": (
         "A developer uploads a screenshot of an HTTP 500 error page with a stack trace. What would you identify and recommend?",
         ["stack", "trace", "error", "500", "exception", "debug", "log", "server"],
