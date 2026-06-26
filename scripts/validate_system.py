@@ -336,6 +336,58 @@ def check_unit_tests(*, skip_env_only: bool = True) -> tuple[str, str, list[dict
     return "FAIL", f"rc={result.returncode}: {summary_line}", []
 
 
+def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
+    """J. bench_security catalog covers every live security workspace."""
+    try:
+        from portal_pipeline.config import load_portal_config
+        from tests.benchmarks.bench_security import (
+            DEFAULT_WORKSPACES, EXECUTION_WORKSPACES,
+        )
+    except ImportError as e:
+        return "SKIP", f"import: {e}", []
+
+    cfg = load_portal_config()
+    # Production auto-* security workspaces must all appear in DEFAULT_WORKSPACES.
+    # Bench-* security workspaces are operator-triaged; not checked here.
+    prod_sec = {
+        ws_id for ws_id in cfg.workspaces
+        if ws_id.startswith("auto-") and any(t in ws_id for t in ("sec", "pentest", "redteam", "blueteam", "purpleteam"))
+    }
+    missing = prod_sec - set(DEFAULT_WORKSPACES)
+    if missing:
+        return "FAIL", f"{len(missing)} prod security workspace(s) missing from bench: {sorted(missing)}", []
+    return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
+
+
+def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
+    """K. UAT catalog has no stale workspace references.
+
+    Soft: stale (in-catalog but not-live) references warn but don't fail.
+    Live-but-uncovered is operator triage, not a hard error here.
+    """
+    try:
+        import re
+        from portal_pipeline.config import load_portal_config
+        import tests.uat_catalog as cat
+    except ImportError as e:
+        return "SKIP", f"import: {e}", []
+
+    cfg = load_portal_config()
+    ws_mentioned = set()
+    for attr in dir(cat):
+        if not attr.startswith("g_"):
+            continue
+        mod = getattr(cat, attr)
+        if hasattr(mod, "__file__"):
+            src = open(mod.__file__).read()
+            for m in re.finditer(r'["\']((auto|bench)-[a-z0-9_-]+)["\']', src):
+                ws_mentioned.add(m.group(1))
+    stale = ws_mentioned - set(cfg.workspaces.keys())
+    if stale:
+        return "WARN", f"{len(stale)} stale workspace ref(s) in UAT catalog", []
+    return "PASS", "UAT catalog refs all resolve to live workspaces", []
+
+
 def check_shim_contract() -> tuple[str, str, list[dict]]:
     """I. Historical symbols imported through router_pipe still resolve."""
     from portal_pipeline import router_pipe
@@ -410,6 +462,8 @@ def main() -> int:
     else:
         v.run("H. unit test suite", check_unit_tests)
     v.run("I. shim contract", check_shim_contract)
+    v.run("J. bench_security catalog", check_bench_security_catalog)
+    v.run("K. UAT catalog refs", check_uat_catalog_no_stale_refs)
 
     return v.summary()
 
