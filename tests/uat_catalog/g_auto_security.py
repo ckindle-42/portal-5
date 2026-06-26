@@ -491,4 +491,28 @@ TESTS: list[dict] = [  # -------------------------------------------------------
                           "format string", "vulnerable", "dangerous", "risk"]},
         ],
     },
+    # ── Workspace smoke test ───────────────────────────────────────────────────
+    {
+        "id": "WS-28",
+        "name": "Uncensored Security — SSRF Exploitation Vector",
+        "section": "auto-security-uncensored",
+        "model_slug": "auto-security-uncensored",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Explain how Server-Side Request Forgery (SSRF) works, "
+            "give a concrete example of how an attacker would exploit it against "
+            "a cloud metadata endpoint, and list the top 3 mitigations."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "SSRF mechanism explained",
+             "keywords": ["server-side", "internal", "metadata", "request", "forged", "ssrf"]},
+            {"type": "any_of", "label": "Attack vector concrete",
+             "keywords": ["169.254.169.254", "metadata", "aws", "cloud", "http://", "curl"]},
+            {"type": "any_of", "label": "Mitigations listed",
+             "keywords": ["allowlist", "whitelist", "block", "validate", "filter", "mitigation",
+                          "firewall", "egress"]},
+            {"type": "min_length", "label": "Substantive answer", "chars": 300},
+        ],
+    },
 ]

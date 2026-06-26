@@ -520,7 +520,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-N07",
         "name": "Documentation Architect — Diátaxis Framework",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "documentationarchitect",
         "timeout": 90,
         "workspace_tier": "ollama",
@@ -1207,7 +1207,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-N24",
         "name": "Transcript Analyst — Meeting Summary Protocol",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "transcriptanalyst",
         "timeout": 60,
         "workspace_tier": "ollama",

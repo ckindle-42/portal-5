@@ -84,4 +84,60 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── Workspace smoke tests (uncovered auto-* coverage) ─────────────────────
+    {
+        "id": "WS-29",
+        "name": "Gemma Vision Heavy — Architecture Diagram Description",
+        "section": "auto-gemma-vision",
+        "model_slug": "auto-gemma-vision",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Describe the typical components in a three-tier web architecture diagram: "
+            "what each tier contains, how they communicate, and what security controls "
+            "belong at each layer. No image provided — answer from knowledge."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "Three tiers named",
+             "keywords": ["presentation", "application", "data", "frontend", "backend",
+                          "database", "client", "server", "tier"]},
+            {"type": "any_of", "label": "Communication described",
+             "keywords": ["http", "api", "request", "response", "connect", "communicate"]},
+            {"type": "min_length", "label": "Substantive description", "chars": 300},
+        ],
+    },
+    {
+        "id": "WS-30",
+        "name": "Gemma E4B — Quick Multimodal Reasoning",
+        "section": "auto-gemma-e4b",
+        "model_slug": "auto-gemma-e4b",
+        "timeout": 90,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "What are the tradeoffs between using a small 4B-parameter model vs a large "
+            "70B-parameter model for a production chatbot? Give 3 advantages of each."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "Small model advantages",
+             "keywords": ["fast", "latency", "cost", "cheap", "memory", "lightweight", "speed"]},
+            {"type": "any_of", "label": "Large model advantages",
+             "keywords": ["accurate", "quality", "capability", "complex", "nuanced", "better"]},
+            {"type": "min_length", "label": "Substantive comparison", "chars": 250},
+        ],
+    },
+    {
+        "id": "WS-31",
+        "name": "Gemma Fast — Concise QA",
+        "section": "auto-gemma-fast",
+        "model_slug": "auto-gemma-fast",
+        "timeout": 60,
+        "workspace_tier": "ollama",
+        "prompt": "In two sentences, explain what a Python context manager is and when to use one.",
+        "assertions": [
+            {"type": "any_of", "label": "Context manager explained",
+             "keywords": ["with", "__enter__", "__exit__", "context", "resource",
+                          "cleanup", "manages"]},
+            {"type": "min_length", "label": "Non-trivial response", "chars": 80},
+        ],
+    },
 ]

@@ -1140,4 +1140,64 @@ TESTS: list[dict] = [  # -------------------------------------------------------
              "keywords": ["1000", "thousand"]},
         ],
     },
+    # ── Workspace smoke tests (uncovered auto-* coverage) ─────────────────────
+    {
+        "id": "WS-23",
+        "name": "Uncensored Coder — Python Argparse CLI",
+        "section": "auto-coding-uncensored",
+        "model_slug": "auto-coding-uncensored",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Write a Python CLI using argparse with three subcommands: 'init', 'run', and 'status'. "
+            "Each subcommand should accept a --config flag that defaults to 'config.yaml'. "
+            "Include a main() entry point."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "argparse used",
+             "keywords": ["argparse", "ArgumentParser", "add_parser", "add_subparsers"]},
+            {"type": "any_of", "label": "Subcommands present",
+             "keywords": ["init", "run", "status"]},
+        ],
+    },
+    {
+        "id": "WS-24",
+        "name": "Devstral — Async Generator Pattern",
+        "section": "auto-devstral",
+        "model_slug": "auto-devstral",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Write a Python async generator that reads lines from a file asynchronously "
+            "and yields non-empty, stripped lines. Include type annotations and a usage example."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "async generator syntax",
+             "keywords": ["async def", "yield", "async for", "aiofiles", "asyncio"]},
+            {"type": "any_of", "label": "Type annotations present",
+             "keywords": ["AsyncGenerator", "AsyncIterator", "str", "-> "]},
+        ],
+    },
+    {
+        "id": "WS-25",
+        "name": "GLM — Dataclass with Validation",
+        "section": "auto-glm",
+        "model_slug": "auto-glm",
+        "timeout": 120,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Write a Python dataclass 'ServerConfig' with fields: host (str), port (int, 1-65535), "
+            "workers (int, >= 1), and debug (bool, default False). Add a __post_init__ that raises "
+            "ValueError for out-of-range values. Include a usage example."
+        ),
+        "assertions": [
+            {"type": "has_code", "label": "Code block present"},
+            {"type": "any_of", "label": "Dataclass decorator",
+             "keywords": ["@dataclass", "dataclass", "dataclasses"]},
+            {"type": "any_of", "label": "Validation present",
+             "keywords": ["__post_init__", "ValueError", "raise", "if "]},
+        ],
+    },
 ]
