@@ -196,6 +196,10 @@ async def run() -> None:
     # S1-17: workspace hint reachability
     t0 = time.time()
     try:
+        import os, tempfile as _tf  # noqa: E401
+        if not os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+            _mp = _tf.mkdtemp(prefix="portal5_acceptance_metrics_")
+            os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp
         from portal_pipeline.cluster_backends import BackendRegistry
         from portal_pipeline.router_pipe import _validate_workspace_hints
 
