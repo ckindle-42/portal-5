@@ -36,6 +36,12 @@ backends:
     supports_tools: true
   - id: lfm2.5:8b
     supports_tools: true
+  - id: hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M
+    supports_tools: false
+  - id: hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M
+    supports_tools: false
   - id: mistral-small3.2:24b
     supports_tools: true
   - id: gemma4:e4b-it-q4_K_M
