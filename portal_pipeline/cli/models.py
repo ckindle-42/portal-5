@@ -115,6 +115,28 @@ def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
         Path(modelfile_path).unlink(missing_ok=True)
 
 
+def _select_pull_targets(
+    cfg_models: list[Model],
+    requested_ids: list[str] | None,
+    *,
+    include_retired: bool,
+    skip_gated: bool,
+) -> list[Model]:
+    """Resolve a pull-target list from the registry given user flags.
+
+    Pure function. Used by ``models pull`` and by tests.
+    """
+    if requested_ids:
+        wanted = set(requested_ids)
+        targets = [m for m in cfg_models if m.hf_id in wanted or m.ollama_name in wanted]
+    else:
+        targets = list(cfg_models)
+        if not include_retired:
+            targets = [m for m in targets if not m.retired]
+        targets = [m for m in targets if m.ollama_name]
+    if skip_gated:
+        targets = [m for m in targets if not m.gated]
+    return targets
 
 
 @models_app.command("pull")
@@ -147,19 +169,12 @@ def models_pull(
         raise typer.Exit(code=1)
 
     # Select models from config
-    if model_ids:
-        targets = [
-            m
-            for m in cfg.models
-            if m.hf_id in model_ids
-            or m.ollama_name in model_ids
-        ]
-    else:
-        targets = [
-            m
-            for m in cfg.models
-            if (include_retired or not m.retired) and m.ollama_name
-        ]
+    targets = _select_pull_targets(
+        cfg.models,
+        model_ids,
+        include_retired=include_retired,
+        skip_gated=False,  # skip_gated is handled inline in the loop below
+    )
 
     if not targets:
         typer.echo("No models to pull", err=True)
