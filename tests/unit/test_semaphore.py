@@ -19,9 +19,22 @@ HEADERS = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
 
 @pytest.fixture
 def client():
-    """Create a test client with proper lifespan (initializes registry + semaphore)."""
+    """Create a test client with proper lifespan + fake registry."""
+    import portal_pipeline.router.handlers as handlers_mod
+    from unittest.mock import MagicMock
+
+    from portal_pipeline.cluster_backends import BackendRegistry
+
+    reg = MagicMock(spec=BackendRegistry)
+    be = MagicMock()
+    be.id = "test-backend"
+    be.models = ["test-model"]
+    reg.list_healthy_backends.return_value = [be]
+    reg.list_backends.return_value = [be]
+    handlers_mod.registry = reg
     with TestClient(app) as test_client:
         yield test_client
+    handlers_mod.registry = None
 
 
 class TestSemaphoreExhaustion:

@@ -417,17 +417,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() in ("true", "1", "yes"):
         _init_notifications(registry)
 
+    _in_test_mode = os.environ.get("UNIT_TEST_MODE", "0") == "1"
+
     async def _on_health(r: BackendRegistry) -> None:
         """Callback for the health-check loop: dispatch threshold alerts."""
         if _notification_dispatcher:
             await _notification_dispatcher.check_thresholds_and_alert(r)
 
-    _health_task = asyncio.create_task(registry.start_health_loop(on_health_check=_on_health))
-
-    # Background task: persist metrics state to disk every 60s
-    _state_save_task = asyncio.create_task(_state_save_loop(interval=60))
+    if not _in_test_mode:
+        _health_task = asyncio.create_task(registry.start_health_loop(on_health_check=_on_health))
+        _state_save_task = asyncio.create_task(_state_save_loop(interval=60))
 
     yield
+
+    if _in_test_mode:
+        return
 
     # Final state save on shutdown
     _save_state()

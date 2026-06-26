@@ -85,6 +85,13 @@ from portal_pipeline.router.workspaces import (
 logger = logging.getLogger(__name__)
 
 # ── Constants from original router_pipe.py ────────────────────────────────────
+import importlib.metadata
+
+try:
+    _PKG_VERSION = importlib.metadata.version("portal-5")
+except importlib.metadata.PackageNotFoundError:
+    _PKG_VERSION = "dev"
+
 _MAX_REQUEST_BYTES: int = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * 1024 * 1024)))
 _startup_time_val: float = time.time()
 _mp_registry_cache: Any = None
@@ -359,9 +366,9 @@ async def metrics() -> PlainTextResponse:
         # fails with errno-2 (see ACCEPTANCE_RESULTS S70-07, 2026-04-25).
         os.makedirs(mp_dir, exist_ok=True)
         if _mp_registry_cache is None or _mp_registry_dir_cache != mp_dir:
-            from prometheus_client import multiprocess
+            from prometheus_client import CollectorRegistry as _CollectorRegistry, multiprocess
 
-            _mp_registry_cache = CollectorRegistry()
+            _mp_registry_cache = _CollectorRegistry()
             multiprocess.MultiProcessCollector(_mp_registry_cache)
             _mp_registry_dir_cache = mp_dir
         prometheus_output = generate_latest(_mp_registry_cache).decode("utf-8")

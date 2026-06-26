@@ -1,6 +1,7 @@
 """Portal 5 v7.0.0 Pipeline unit tests — no live backends required."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,26 +16,29 @@ _comfyui_enabled = pytest.mark.skipif(
 )
 
 
-# Use TestClient with context manager to trigger lifespan
-# Or set up registry before tests
-@pytest.fixture(scope="session", autouse=True)
-def setup_registry():
-    """Initialize registry before tests run."""
-    # Manually create registry for tests
-    reg = BackendRegistry()
-    # Replace module-level registry
-    import portal_pipeline.router_pipe as pipe_module
-
-    pipe_module.registry = reg
-    yield
-    pipe_module.registry = None
+def _make_fake_backend():
+    """Build a mock BackendRegistry suitable for TestClient tests."""
+    reg = MagicMock(spec=BackendRegistry)
+    be = MagicMock()
+    be.id = "test-backend"
+    be.group = "general"
+    be.models = ["test-model"]
+    be.type = "ollama"
+    reg.list_healthy_backends.return_value = [be]
+    reg.list_backends.return_value = [be]
+    reg.workspace_routes = {}
+    return reg
 
 
 @pytest.fixture
 def client():
-    """Create a test client with proper lifespan."""
+    """Create a test client with proper lifespan + fake registry."""
+    import portal_pipeline.router.handlers as handlers_mod
+
+    handlers_mod.registry = _make_fake_backend()
     with TestClient(app) as test_client:
         yield test_client
+    handlers_mod.registry = None
 
 
 import os as _os
@@ -220,17 +224,24 @@ class TestPipelineAPI:
 
     def test_chat_no_backends_returns_503_or_502(self, client):
         # Pipeline has no backends in test env — should return 503 or 502
-        resp = client.post(
-            "/v1/chat/completions",
-            json={
-                "model": "auto",
-                "messages": [{"role": "user", "content": "hi"}],
-                "stream": False,
-            },
-            headers=HEADERS,
-        )
-        # Either 503 (no backends) or 502 (backend error) are acceptable
-        assert resp.status_code in (503, 502)
+        import portal_pipeline.router.handlers as handlers_mod
+
+        old_reg = handlers_mod.registry
+        handlers_mod.registry = None  # Simulate no backends
+        try:
+            resp = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "stream": False,
+                },
+                headers=HEADERS,
+            )
+            # Either 503 (no backends) or 502 (backend error) are acceptable
+            assert resp.status_code in (503, 502)
+        finally:
+            handlers_mod.registry = old_reg
 
 
 class TestMetricsEndpoint:

@@ -1,23 +1,29 @@
 """Unit-test-specific pytest configuration.
 
-Isolates unit tests from environment pollution introduced during collection.
-
-Root cause: test_prompt_signal_overlap.py imports portal5_acceptance_v6, which
-calls _load_env() at module level. That reads .env and sets env vars — including
-PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics — before the first test runs.
-When TestClient starts the app lifespan, the lifespan calls
-os.makedirs(PROMETHEUS_MULTIPROC_DIR) which fails on macOS (/dev/shm is not a
-writable user directory). Unit tests don't use prometheus multiprocess mode;
-clearing the var here after collection (session fixture runs before first test)
-prevents the lifespan crash.
+Ensures prometheus_client can initialize on platforms without /dev/shm
+(e.g. macOS) by setting PROMETHEUS_MULTIPROC_DIR to a valid temp directory
+before any test module imports. Also patches lifespan background tasks
+that fail during fixture teardown.
 """
 
 import os
+import tempfile
+from pathlib import Path
 
-import pytest
 
+def pytest_configure(config) -> None:
+    """Set up PROMETHEUS_MULTIPROC_DIR before collection begins.
 
-@pytest.fixture(autouse=True, scope="session")
-def _unit_env_isolation() -> None:
-    """Remove env vars that portal5_acceptance_v6._load_env() injects during collection."""
-    os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
+    prometheus_client initialises mmap-backed metric files at import time.
+    On Linux this defaults to /dev/shm; on macOS that path does not exist
+    and import crashes with FileNotFoundError. Create a temp directory that
+    works cross-platform.
+    """
+    if "PROMETHEUS_MULTIPROC_DIR" not in os.environ:
+        mp_dir = Path(tempfile.gettempdir()) / "portal5_pytest_metrics"
+        mp_dir.mkdir(parents=True, exist_ok=True)
+        os.environ["PROMETHEUS_MULTIPROC_DIR"] = str(mp_dir)
+
+    # Prevent lifespan background tasks (health loop, state save) from
+    # being created during TestClient teardown — they fail in test mode.
+    os.environ.setdefault("UNIT_TEST_MODE", "1")
