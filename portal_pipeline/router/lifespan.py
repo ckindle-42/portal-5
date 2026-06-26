@@ -356,10 +356,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _routing_mod._http_client = _http_client
     _streaming_mod._http_client = _http_client
     registry = BackendRegistry()
-    # Push registry to handlers — same pattern as _routing_mod/_streaming_mod above.
-    # handlers.py cannot capture registry by name at import time (lifespan hasn't run yet).
+    # Push registry + _http_client to modules that cannot capture them at import time.
+    # Same pattern as _routing_mod/_streaming_mod above.
     import portal_pipeline.router.handlers as _handlers_mod  # noqa: PLC0415
+    import portal_pipeline.router.non_streaming as _non_streaming_mod  # noqa: PLC0415
     _handlers_mod.registry = registry
+    _non_streaming_mod.registry = registry
+    _non_streaming_mod._http_client = _http_client
     hint_errors = _validate_workspace_hints(registry)
     if hint_errors:
         for e in hint_errors:

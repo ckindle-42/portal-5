@@ -7,15 +7,23 @@ streaming/non-streaming branch is decided by the request body's
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
+from typing import Any
 
 import httpx
 from fastapi.responses import JSONResponse
 
-from portal_pipeline.router.validation import _inject_ollama_options
+from portal_pipeline.router.tools import _dispatch_tool_call
+from portal_pipeline.router.validation import _inject_ollama_options, _model_supports_tools
+from portal_pipeline.router.workspaces import WORKSPACES, _PERSONA_MAP, _resolve_persona_tools
 from portal_pipeline.router.power import _record_usage
+
+# Set by lifespan — same push pattern as streaming.py
+_http_client: Any = None
+registry: Any = None
 
 logger = logging.getLogger(__name__)
 
