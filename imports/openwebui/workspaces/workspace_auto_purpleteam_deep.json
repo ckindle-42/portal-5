@@ -1,0 +1,12 @@
+{
+  "id": "auto-purpleteam-deep",
+  "name": "🟣 Portal Purple Team · Deep",
+  "meta": {
+    "description": "🟣 Portal Purple Team · Deep",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-purpleteam-deep"
+  }
+}

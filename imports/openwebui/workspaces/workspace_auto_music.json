@@ -2,7 +2,7 @@
   "id": "auto-music",
   "name": "🎵 Portal Music Producer",
   "meta": {
-    "description": "🎵 Portal Music Producer — LFM2.5-8B-A1B (V8: 89 t/s, hybrid conv+attention architecture, fastest structured-output model in fleet). Generates music via AudioCraft/MusicGen MCP.",
+    "description": "🎵 Portal Music Producer",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_music",
@@ -10,7 +10,7 @@
     ]
   },
   "params": {
-    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file.",
-    "model": "auto-music"
+    "model": "auto-music",
+    "system": "You create music. Use the Portal Music MCP tool to generate audio clips. Ask for style, mood, tempo, and duration if not specified. After generating audio, include the download_url from the tool result as a clickable link so the user can download the file."
   }
 }

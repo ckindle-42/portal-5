@@ -1,0 +1,12 @@
+{
+  "id": "auto-redteam-deep",
+  "name": "🔴 Portal Red Team · Deep",
+  "meta": {
+    "description": "🔴 Portal Red Team · Deep",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-redteam-deep"
+  }
+}

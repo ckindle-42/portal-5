@@ -2,14 +2,14 @@
   "id": "auto-spl",
   "name": "🔍 Portal SPL Engineer",
   "meta": {
-    "description": "🔍 Portal SPL Engineer — Qwen3-Coder-Next abliterated 80B/3B MoE (V8: 19 t/s, no refusals on security code, ~46GB). Splunk SPL, YARA rules, detection engineering, offensive security scripting.",
+    "description": "🔍 Portal SPL Engineer",
     "profile_image_url": "",
     "toolIds": [
       "server:mcp:portal_code"
     ]
   },
   "params": {
-    "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions.",
-    "model": "auto-spl"
+    "model": "auto-spl",
+    "system": "You are an expert Splunk SPL Engineer. Write, explain, refactor, and debug SPL queries. Always filter on index and sourcetype before the first pipe. Never hallucinate eval functions."
   }
 }

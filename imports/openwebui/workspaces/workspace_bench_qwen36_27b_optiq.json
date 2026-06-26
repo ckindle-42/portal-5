@@ -2,12 +2,12 @@
   "id": "bench-qwen36-27b-optiq",
   "name": "🔬 Bench · Qwen3.6-27B (OptiQ)",
   "meta": {
-    "description": "Benchmark: mlx-community/Qwen3.6-27B-OptiQ-4bit — sensitivity-aware mixed 4-bit, ~16GB",
+    "description": "🔬 Bench · Qwen3.6-27B (OptiQ)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-qwen36-27b-optiq"
+    "model": "bench-qwen36-27b-optiq",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

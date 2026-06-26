@@ -1,0 +1,12 @@
+{
+  "id": "auto-glm-thinking",
+  "name": "🧠 Portal GLM Deep Reasoner",
+  "meta": {
+    "description": "🧠 Portal GLM Deep Reasoner",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-glm-thinking"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "auto-general-uncensored",
+  "name": "🔓 Portal General (Uncensored)",
+  "meta": {
+    "description": "🔓 Portal General (Uncensored)",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-general-uncensored"
+  }
+}

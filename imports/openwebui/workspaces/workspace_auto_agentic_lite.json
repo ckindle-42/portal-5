@@ -1,0 +1,12 @@
+{
+  "id": "auto-agentic-lite",
+  "name": "⚡ Portal Agentic Coder (Lite)",
+  "meta": {
+    "description": "⚡ Portal Agentic Coder (Lite)",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-agentic-lite"
+  }
+}

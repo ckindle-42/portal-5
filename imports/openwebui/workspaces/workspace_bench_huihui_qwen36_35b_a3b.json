@@ -2,12 +2,12 @@
   "id": "bench-huihui-qwen36-35b-a3b",
   "name": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
   "meta": {
-    "description": "Benchmark: vanch007/Huihui-Qwen3.6-35B-A3B-abliterated-mlx-4bit — MoE 3B active abliterated, ~20GB",
+    "description": "🔬 Bench · Huihui-Qwen3.6-35B-A3B (Abliterated)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-huihui-qwen36-35b-a3b"
+    "model": "bench-huihui-qwen36-35b-a3b",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

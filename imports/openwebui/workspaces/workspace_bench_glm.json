@@ -1,13 +1,13 @@
 {
   "id": "bench-glm",
-  "name": "🔬 Bench · GLM-4.7-Flash",
+  "name": "🔬 Bench · GLM-4.7-Flash Q4_K_M (ZhipuAI)",
   "meta": {
-    "description": "Benchmark: glm-4.7-flash:q4_k_m — Zhipu AI, Ollama only, ~6GB",
+    "description": "🔬 Bench · GLM-4.7-Flash Q4_K_M (ZhipuAI)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-glm"
+    "model": "bench-glm",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

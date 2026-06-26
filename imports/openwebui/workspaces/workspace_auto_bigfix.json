@@ -1,0 +1,12 @@
+{
+  "id": "auto-bigfix",
+  "name": "🩹 Portal BigFix Analyst",
+  "meta": {
+    "description": "🩹 Portal BigFix Analyst",
+    "profile_image_url": "",
+    "toolIds": []
+  },
+  "params": {
+    "model": "auto-bigfix"
+  }
+}

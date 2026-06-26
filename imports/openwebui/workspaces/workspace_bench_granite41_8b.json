@@ -2,12 +2,12 @@
   "id": "bench-granite41-8b",
   "name": "🔬 Bench · Granite-4.1 8B (IBM)",
   "meta": {
-    "description": "Benchmark: granite4.1:8b — IBM Research, Ollama only, ~5.3GB Q4_K_M, BFCL V3 68.3, IFEval 87.1",
+    "description": "🔬 Bench · Granite-4.1 8B (IBM)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version.",
-    "model": "bench-granite41-8b"
+    "model": "bench-granite41-8b",
+    "system": "You are a creative coder. Ship complete, working, single-file HTML. No TODOs. No framework questions. Build the most interesting version."
   }
 }

@@ -1,13 +1,13 @@
 {
   "id": "bench-qwen36-27b-ud",
-  "name": "🔬 Bench · Qwen3.6-27B (Unsloth UD)",
+  "name": "🔬 Bench · Qwen3.6-27B Q4 (Unsloth UD proxy)",
   "meta": {
-    "description": "Benchmark: unsloth/Qwen3.6-27B-UD-MLX-4bit — Alibaba+Unsloth Dynamic 2.0, dense 27B, ~16GB, quant-method probe vs stock 4-bit",
+    "description": "🔬 Bench · Qwen3.6-27B Q4 (Unsloth UD proxy)",
     "profile_image_url": "",
-    "toolIds": ["portal_code"]
+    "toolIds": []
   },
   "params": {
-    "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after.",
-    "model": "bench-qwen36-27b-ud"
+    "model": "bench-qwen36-27b-ud",
+    "system": "You are a creative coder who builds playable, visual, and interactive things in the browser. Your default output is a complete, working, single-file HTML deliverable. You ship first and explain after."
   }
 }
