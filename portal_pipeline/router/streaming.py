@@ -134,6 +134,130 @@ async def _stream_with_tool_loop(
         slot.release()
 
 
+def _accumulate_tool_calls(tc_deltas: list[dict], tool_calls_buf: list[dict]) -> None:
+    """Accumulate streamed tool_call deltas into tool_calls_buf in place."""
+    for tc_delta in tc_deltas:
+        idx = tc_delta.get("index", 0)
+        while len(tool_calls_buf) <= idx:
+            tool_calls_buf.append(
+                {
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                }
+            )
+        buf = tool_calls_buf[idx]
+        if "id" in tc_delta:
+            buf["id"] = tc_delta["id"]
+        if "function" in tc_delta:
+            fn = tc_delta["function"]
+            if "name" in fn:
+                buf["function"]["name"] += fn["name"]
+            if "arguments" in fn:
+                buf["function"]["arguments"] += fn["arguments"]
+
+
+def _apply_reasoning_rewrite(
+    line: str,
+    delta: dict,
+    choice: dict,
+    obj: dict,
+    thinking_off: bool,
+    hop: int,
+    think_content_buf: list[str],
+) -> tuple[bytes | None, bool, bool]:
+    """Handle think-content promotion and reasoning rewriting for a single SSE chunk.
+
+    Centralised logic for both reasoning_content (Qwen3/Ollama thinking mode) and
+    <think>...</think> inline tags. Mirrors the non-stream promotion in router_pipe.py.
+
+    Mutates think_content_buf in place (append only).
+
+    Returns:
+        (rewritten_chunk_or_None, content_emitted, skip_default_yield)
+
+        - rewritten_chunk_or_None: SSE bytes to yield instead of the original line,
+          or None if no rewrite is needed.
+        - content_emitted: True if content should count as emitted to the client.
+        - skip_default_yield: True if the caller should ``continue`` instead of yielding
+          the original line.
+    """
+    _rc = delta.get("reasoning_content")
+    _ct = delta.get("content") or ""
+
+    # Buffer reasoning_content for end-of-stream fallback.
+    if _rc:
+        think_content_buf.append(_rc)
+
+    if _rc and not _ct and (thinking_off or hop > 1):
+        # reasoning_content with no content — surface as content.
+        # hop > 1: synthesis hops always surface reasoning as content
+        # so recalled keywords are visible, not buried in <details>.
+        _new_delta = {k: v for k, v in delta.items() if k != "reasoning_content"}
+        _new_delta["content"] = _rc
+        _new_obj = dict(obj)
+        _new_obj["choices"] = [dict(choice, delta=_new_delta)]
+        return f"data: {json.dumps(_new_obj)}\n\n".encode(), True, True
+
+    if _ct and "<think>" in _ct:
+        _stripped = strip_think(_ct)
+        _inner_think = extract_think_inner(_ct)
+        # Buffer inline think content for end-of-stream fallback.
+        if _inner_think and _inner_think != _stripped:
+            think_content_buf.append(_inner_think)
+
+        if thinking_off and not _stripped and _inner_think:
+            # Thinking disabled + content is pure think block —
+            # surface inner text as content.
+            _new_delta = dict(delta)
+            _new_delta["content"] = _inner_think
+            _new_obj = dict(obj)
+            _new_obj["choices"] = [dict(choice, delta=_new_delta)]
+            return f"data: {json.dumps(_new_obj)}\n\n".encode(), True, True
+    elif _ct:
+        return None, True, False
+
+    return None, False, False
+
+
+async def _dispatch_hop_tool_calls(
+    all_tool_calls: list[dict],
+    effective_tools: set[str],
+    workspace_id: str,
+    persona: str,
+    request_id: str,
+    hop: int,
+    max_hops: int,
+) -> tuple[dict, list[dict]]:
+    """Dispatch all tool calls for one hop in parallel.
+
+    Returns (assistant_msg, dispatch_results) where assistant_msg is ready to
+    append to the message list and dispatch_results is the list of tool result
+    messages (one per tool call).
+    """
+    dispatch_results: list[dict] = list(
+        await asyncio.gather(
+            *[
+                _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
+                for tc in all_tool_calls
+            ],
+        )
+    )
+    assistant_msg = {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": all_tool_calls,
+    }
+    logger.info(
+        "Tool loop hop=%d/%d workspace=%s tools_called=%s",
+        hop,
+        max_hops,
+        workspace_id,
+        [tc["function"]["name"] for tc in all_tool_calls],
+    )
+    return assistant_msg, dispatch_results
+
+
 async def _stream_with_tool_loop_impl(
     backend_url: str,
     body: dict,
@@ -297,25 +421,7 @@ async def _stream_with_tool_loop_impl(
                     delta = choice.get("delta", {})
 
                     if delta.get("tool_calls"):
-                        for tc_delta in delta["tool_calls"]:
-                            idx = tc_delta.get("index", 0)
-                            while len(tool_calls_buf) <= idx:
-                                tool_calls_buf.append(
-                                    {
-                                        "id": "",
-                                        "type": "function",
-                                        "function": {"name": "", "arguments": ""},
-                                    }
-                                )
-                            buf = tool_calls_buf[idx]
-                            if "id" in tc_delta:
-                                buf["id"] = tc_delta["id"]
-                            if "function" in tc_delta:
-                                fn = tc_delta["function"]
-                                if "name" in fn:
-                                    buf["function"]["name"] += fn["name"]
-                                if "arguments" in fn:
-                                    buf["function"]["arguments"] += fn["arguments"]
+                        _accumulate_tool_calls(delta["tool_calls"], tool_calls_buf)
                         # Some backends send tool_calls + finish_reason in
                         # the same final chunk — capture finish_reason here
                         # so the dispatch gate fires after the stream ends.
@@ -336,44 +442,17 @@ async def _stream_with_tool_loop_impl(
                     # Mirrors the non-stream promotion in router_pipe.py so the
                     # same fallback behaviour applies regardless of stream mode.
                     _thinking_off = not current_body.get("enable_thinking", True)
-                    _rc = delta.get("reasoning_content")
-                    _ct = delta.get("content") or ""
-
-                    # Buffer reasoning_content for end-of-stream fallback.
-                    if _rc:
-                        _think_content_buf.append(_rc)
-
-                    if _rc and not _ct and (_thinking_off or hop > 1):
-                        # reasoning_content with no content — surface as content.
-                        # hop > 1: synthesis hops always surface reasoning as content
-                        # so recalled keywords are visible, not buried in <details>.
-                        _new_delta = {k: v for k, v in delta.items() if k != "reasoning_content"}
-                        _new_delta["content"] = _rc
-                        _new_obj = dict(obj)
-                        _new_obj["choices"] = [dict(choice, delta=_new_delta)]
-                        yield f"data: {json.dumps(_new_obj)}\n\n".encode()
+                    _rewrite_chunk, _emitted, _skip = _apply_reasoning_rewrite(
+                        line, delta, choice, obj,
+                        _thinking_off,
+                        hop, _think_content_buf,
+                    )
+                    if _rewrite_chunk is not None:
+                        yield _rewrite_chunk
                         _content_emitted = True
+                    if _skip:
                         continue
-
-                    if _ct and "<think>" in _ct:
-                        _stripped = strip_think(_ct)
-                        _inner_think = extract_think_inner(_ct)
-                        # Buffer inline think content for end-of-stream fallback.
-                        if _inner_think and _inner_think != _stripped:
-                            _think_content_buf.append(_inner_think)
-
-                        if _thinking_off and not _stripped:
-                            # Thinking disabled + content is pure think block —
-                            # surface inner text as content.
-                            if _inner_think:
-                                _new_delta = dict(delta)
-                                _new_delta["content"] = _inner_think
-                                _new_obj = dict(obj)
-                                _new_obj["choices"] = [dict(choice, delta=_new_delta)]
-                                yield f"data: {json.dumps(_new_obj)}\n\n".encode()
-                                _content_emitted = True
-                                continue
-                    elif _ct:
+                    if _emitted:
                         _content_emitted = True
 
                     yield (line + "\n\n").encode()
@@ -482,29 +561,11 @@ async def _stream_with_tool_loop_impl(
                 return
 
             # Dispatch all tool calls in parallel
-            dispatch_results = await asyncio.gather(
-                *[
-                    _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
-                    for tc in all_tool_calls
-                ],
+            assistant_msg, dispatch_results = await _dispatch_hop_tool_calls(
+                all_tool_calls, effective_tools, workspace_id, persona, request_id, hop, MAX_TOOL_HOPS
             )
-
-            # Append assistant turn and tool results to message list
-            assistant_msg = {
-                "role": "assistant",
-                "content": None,
-                "tool_calls": all_tool_calls,
-            }
             current_body["messages"] = (
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
-            )
-
-            logger.info(
-                "Tool loop hop=%d/%d workspace=%s tools_called=%s",
-                hop,
-                MAX_TOOL_HOPS,
-                workspace_id,
-                [tc["function"]["name"] for tc in all_tool_calls],
             )
             if _exec_audit:
                 _exec_audit_calls.extend(
