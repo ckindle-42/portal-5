@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,38 @@ class McpServerCommand(BaseModel):
     command: list[str]
 
 
+class Model(BaseModel):
+    """Single model registry entry.
+
+    Used by ``portal models pull`` to resolve HuggingFace pull metadata.
+    Workspaces reference models by ``ollama_name`` via ``model_hint``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    hf_id: str = Field(..., description="HuggingFace repo ID as known to the operator")
+    actual_repo: str | None = Field(
+        default=None,
+        description="Canonical HF repo for the pull (defaults to hf_id)",
+    )
+    filename: str | None = Field(
+        default=None,
+        description=".gguf filename inside actual_repo (omit for native Ollama models)",
+    )
+    ollama_name: str = Field(..., description="Tag the model lands under in Ollama")
+    gated: bool = Field(default=False, description="HF repo requires accepted terms")
+    retired: bool = Field(
+        default=False,
+        description="Excluded from default pulls; retained for history",
+    )
+
+    @model_validator(mode="after")
+    def _default_actual_repo(self) -> Model:
+        if self.actual_repo is None:
+            object.__setattr__(self, "actual_repo", self.hf_id)
+        return self
+
+
 class McpServer(BaseModel):
     """One MCP server in the fleet."""
 
@@ -146,6 +178,10 @@ class PortalConfig(BaseModel):
     mcp_fleet: list[McpServer]
     ollama_url: str = "http://host.docker.internal:11434"
     request_timeout: int = 300
+    models: list[Model] = Field(
+        default_factory=list,
+        description="HuggingFace → Ollama pull registry (consumed by portal models pull)",
+    )
 
     @model_validator(mode="after")
     def _no_port_collision(self) -> PortalConfig:
