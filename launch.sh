@@ -9,7 +9,6 @@ ENV_FILE="$PORTAL_ROOT/.env"
 # shellcheck source=scripts/lib/util.sh
 source "$PORTAL_ROOT/scripts/lib/util.sh"
 # shellcheck source=scripts/lib/models.sh
-source "$PORTAL_ROOT/scripts/lib/models.sh"
 # shellcheck source=scripts/lib/services.sh
 source "$PORTAL_ROOT/scripts/lib/services.sh"
 # shellcheck source=scripts/lib/lab.sh
@@ -214,154 +213,8 @@ case "${1:-up}" in
     echo "  Grafana:     http://localhost:3000  (admin / check .env)"
     echo "  Prometheus:  http://localhost:9090"
     ;;
-  test)
-    # Run end-to-end smoke tests against the live stack
-    # Usage: ./launch.sh up && sleep 30 && ./launch.sh test
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-    OWUI="${OPENWEBUI_URL:-http://localhost:8080}"
-    PIPE="http://localhost:9099"
-    PASS=0; FAIL=0
-
-    _check() {
-        local name="$1" result="$2" expect="$3"
-        if [ "$result" = "$expect" ]; then
-            echo "  ✅ $name"
-            PASS=$((PASS+1))
-        else
-            echo "  ❌ $name (got: $result, expected: $expect)"
-            FAIL=$((FAIL+1))
-        fi
-    }
-
-    echo "=== Portal 5 Live Stack Smoke Test ==="
-    echo ""
-
-    # ── Pipeline ──────────────────────────────────────────────────────────────
-    echo "Pipeline:"
-    HEALTH_JSON=$(curl -s "$PIPE/health" 2>/dev/null)
-    STATUS=$(_json_get "$HEALTH_JSON" '.status // "?"' "json.load(sys.stdin).get('status','?')" "?")
-    BACKENDS=$(_json_get "$HEALTH_JSON" '.backends_healthy // 0' "json.load(sys.stdin).get('backends_healthy',0)" "0")
-
-    # Pipeline is reachable if status is 'ok' or 'degraded' (either means it's running)
-    [ "$STATUS" = "ok" ] || [ "$STATUS" = "degraded" ] \
-        && { echo "  ✅ Pipeline reachable (status=$STATUS)"; PASS=$((PASS+1)); } \
-        || { echo "  ❌ Pipeline not responding (status=$STATUS)"; FAIL=$((FAIL+1)); }
-
-    # Ollama connectivity is informational — degraded is expected before models are pulled
-    [ "$STATUS" = "ok" ] \
-        && echo "  ✅ Ollama connected ($BACKENDS backends healthy)" && PASS=$((PASS+1)) \
-        || echo "  ℹ️  Ollama: no backends healthy yet — run: ./launch.sh pull-models"
-
-    WS_COUNT=$(_json_get "$(curl -s -H "Authorization: Bearer ${PIPELINE_API_KEY}" "$PIPE/v1/models" 2>/dev/null)" \
-        '(.data // []) | length' "d=json.load(sys.stdin); print(len(d.get('data',[])))" "0")
-    _check "all 17 workspaces exposed" "$WS_COUNT" "17"
-
-    METRICS=$(curl -s "$PIPE/metrics" | grep -c "^portal_")
-    [ "$METRICS" -ge 4 ] && echo "  ✅ Prometheus metrics ($METRICS gauges)" && PASS=$((PASS+1)) || { echo "  ❌ Metrics missing"; FAIL=$((FAIL+1)); }
-
-    # ── Open WebUI ────────────────────────────────────────────────────────────
-    echo ""
-    echo "Open WebUI:"
-    OW_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$OWUI/health")
-    _check "Open WebUI responds" "$OW_STATUS" "200"
-
-    # ── Ollama inference ──────────────────────────────────────────────────────
-    echo ""
-    echo "Ollama:"
-    MODELS=$(_json_get "$(curl -s http://localhost:11434/api/tags 2>/dev/null)" \
-        '(.models // []) | length' "d=json.load(sys.stdin); print(len(d.get('models',[])))" "0")
-    [ "$MODELS" -ge 1 ] && echo "  ✅ Ollama has $MODELS model(s) loaded" && PASS=$((PASS+1)) || { echo "  ❌ No Ollama models loaded — run: ./launch.sh pull-models"; FAIL=$((FAIL+1)); }
-
-    # Live inference test
-    _infer_json=$(curl -s -X POST "$PIPE/v1/chat/completions" \
-        -H "Authorization: Bearer ${PIPELINE_API_KEY}" \
-        -H "Content-Type: application/json" \
-        -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG"}],"stream":false}' \
-        2>/dev/null)
-    REPLY=$(_json_get "$_infer_json" \
-        '(.choices[0].message.content // "FAIL")[:20]' \
-        "d=json.load(sys.stdin); print(d.get('choices',[{}])[0].get('message',{}).get('content','FAIL')[:20])" "FAIL")
-    [ -n "$REPLY" ] && [ "$REPLY" != "FAIL" ] && echo "  ✅ Live inference: got reply" && PASS=$((PASS+1)) || { echo "  ❌ Live inference failed — check Ollama has a model"; FAIL=$((FAIL+1)); }
-
-    # ── MCP Servers ───────────────────────────────────────────────────────────
-    echo ""
-    echo "MCP Servers:"
-    for port_name in "8913:Documents" "8912:Music" "8916:TTS" "8915:Whisper" \
-                     "8910:ComfyUI" "8911:Video" "8914:Sandbox" "8917:Embedding" "8919:Security"; do
-        PORT="${port_name%%:*}"
-        NAME="${port_name##*:}"
-        HC=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT/health" 2>/dev/null)
-        _check "$NAME MCP (:$PORT)" "$HC" "200"
-    done
-
-    # ── Document generation ───────────────────────────────────────────────────
-    echo ""
-    echo "Document Generation:"
-    _doc_json=$(curl -s -X POST "http://localhost:8913/mcp" \
-        -H "Content-Type: application/json" \
-        -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_word_document","arguments":{"title":"Smoke Test","content":"Portal 5 smoke test document"}},"id":1}' \
-        2>/dev/null)
-    DOC_RESULT=$(_json_get "$_doc_json" \
-        'if (.result.success // false) or (.result | tostring | test("path")) then "OK" else "FAIL" end' \
-        "d=json.load(sys.stdin); r=d.get('result',{}); print('OK' if r.get('success') or 'path' in str(r) else 'FAIL')" "FAIL")
-    _check "Word document created" "$DOC_RESULT" "OK"
-
-    # ── TTS ───────────────────────────────────────────────────────────────────
-    echo ""
-    echo "TTS / Voice:"
-    TTS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8916/v1/audio/speech" \
-        -H "Content-Type: application/json" \
-        -d '{"input":"Hello from Portal 5","voice":"af_heart"}' 2>/dev/null)
-    # 200 = works, 503 = model downloading, both acceptable
-    [ "$TTS_STATUS" = "200" ] && echo "  ✅ TTS generates audio" && PASS=$((PASS+1)) || \
-    [ "$TTS_STATUS" = "503" ] && echo "  ⚠️  TTS: kokoro model downloading (first run — try again in 60s)" || \
-    { echo "  ❌ TTS error (HTTP $TTS_STATUS)"; FAIL=$((FAIL+1)); }
-
-    # ── SearXNG ───────────────────────────────────────────────────────────────
-    echo ""
-    echo "Web Search:"
-    SEARCH=$(_json_get "$(curl -s "http://localhost:8088/search?q=portal+ai&format=json" 2>/dev/null)" \
-        'if (.results // [] | length) > 0 then "OK" else "EMPTY" end' \
-        "d=json.load(sys.stdin); print('OK' if d.get('results') else 'EMPTY')" "EMPTY")
-    _check "SearXNG returns results" "$SEARCH" "OK"
-
-    # ── Prometheus + Grafana ──────────────────────────────────────────────────
-    echo ""
-    echo "Metrics:"
-    PROM=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:9090/-/healthy" 2>/dev/null)
-    _check "Prometheus healthy" "$PROM" "200"
-    GRAF=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000/api/health" 2>/dev/null)
-    _check "Grafana healthy" "$GRAF" "200"
-
-    # ── Channels (if running) ─────────────────────────────────────────────────
-    echo ""
-    echo "Channels:"
-    TG=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-telegram" || echo 0)
-    [ "$TG" -ge 1 ] && echo "  ✅ Telegram container running" && PASS=$((PASS+1)) || echo "  ℹ️  Telegram not running (./launch.sh up-telegram to start)"
-    SL=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -c "portal5-slack" || echo 0)
-    [ "$SL" -ge 1 ] && echo "  ✅ Slack container running" && PASS=$((PASS+1)) || echo "  ℹ️  Slack not running (./launch.sh up-slack to start)"
-
-    # ── Streaming gate ────────────────────────────────────────────────────────
-    echo ""
-    echo "Streaming:"
-    SMOKE_RESULT=$(PIPE="$PIPE" PIPELINE_API_KEY="${PIPELINE_API_KEY}" \
-        bash "$(dirname "$0")/scripts/smoke_stream.sh" 2>&1 | tail -1)
-    if echo "$SMOKE_RESULT" | grep -q "^PASS"; then
-        echo "  ✅ Streaming gate: $SMOKE_RESULT"
-        PASS=$((PASS+1))
-    else
-        echo "  ❌ Streaming gate: $SMOKE_RESULT"
-        FAIL=$((FAIL+1))
-    fi
-
-    # ── Summary ───────────────────────────────────────────────────────────────
-    echo ""
-    echo "=================================================="
-    echo "  Results: $PASS passed, $FAIL failed"
-    echo "=================================================="
-    [ "$FAIL" -eq 0 ] && echo "  ✅ All checks passed — Portal 5 is fully operational" || \
-        echo "  ❌ $FAIL check(s) failed — review output above"
-    [ "$FAIL" -gt 0 ] && exit 1 || exit 0
+   test)
+    exec python3 -m portal_pipeline.cli test "${@:2}"
     ;;
 
   promptfoo)
@@ -544,221 +397,7 @@ case "${1:-up}" in
     ;;
 
   update)
-    # Full update: git pull, Docker images, rebuilds, model refresh, re-seed, restart
-    # Usage: ./launch.sh update [--skip-models|--models-only] [--yes|-y]
-    _UPDATE_SKIP_MODELS=false
-    _UPDATE_MODELS_ONLY=false
-    _UPDATE_YES=false
-    for _arg in "${@:2}"; do
-        case "$_arg" in
-            --skip-models) _UPDATE_SKIP_MODELS=true ;;
-            --models-only) _UPDATE_MODELS_ONLY=true ;;
-            --yes|-y)      _UPDATE_YES=true ;;
-            *)
-                echo "Unknown option: $_arg"
-                echo "Usage: ./launch.sh update [--skip-models|--models-only] [--yes|-y]"
-                exit 1
-                ;;
-        esac
-    done
-
-    ARCH=$(uname -m)
-    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
-
-    echo ""
-    echo "  Portal 5 — Update"
-    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo ""
-
-    # ── Step 1: Git pull ───────────────────────────────────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[1/8] Updating portal-5 source..."
-        if [ -d "$PORTAL_ROOT/.git" ]; then
-            _BEFORE_SHA=$(git -C "$PORTAL_ROOT" rev-parse HEAD 2>/dev/null)
-            git -C "$PORTAL_ROOT" pull --ff-only 2>/dev/null
-            _AFTER_SHA=$(git -C "$PORTAL_ROOT" rev-parse HEAD 2>/dev/null)
-            if [ "$_BEFORE_SHA" != "$_AFTER_SHA" ]; then
-                echo "  ✅ Updated ($_BEFORE_SHA → $_AFTER_SHA)"
-            else
-                echo "  ✅ Already up to date"
-            fi
-        else
-            echo "  ⚠️  Not a git repo — skipping source update"
-        fi
-        echo ""
-    fi
-
-    # ── Step 2: Pull Docker images ────────────────────────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[2/8] Pulling latest Docker images..."
-        cd "$COMPOSE_DIR"
-        # pull_policy: always services get pulled automatically, but explicit pull
-        # also catches prometheus/grafana (pinned but we check for patch updates)
-        docker compose pull ollama open-webui searxng 2>/dev/null || true
-        echo "  ✅ Docker images pulled"
-        echo ""
-    fi
-
-    # ── Step 3: Rebuild portal-pipeline + MCP servers ─────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[3/8] Rebuilding portal-pipeline + MCP servers..."
-        cd "$COMPOSE_DIR"
-        _COMFYUI_SVCS=""
-        [ -d "${COMFYUI_DIR:-$HOME/ComfyUI}" ] && _COMFYUI_SVCS="mcp-comfyui mcp-video"
-        docker compose build portal-pipeline mcp-documents $_COMFYUI_SVCS mcp-tts mcp-whisper mcp-sandbox 2>/dev/null || \
-            docker compose build portal-pipeline 2>/dev/null || true
-        echo "  ✅ Images rebuilt"
-        echo ""
-    fi
-
-    # ── Step 4: Refresh Ollama models ─────────────────────────────────────
-    if [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
-        echo "[4/8] Refreshing Ollama models (checks for newer versions)..."
-        _ollama_cmd() {
-            if command -v ollama &>/dev/null && curl -s http://localhost:11434/api/tags &>/dev/null 2>&1; then
-                echo "ollama"
-            elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^portal5-ollama$"; then
-                echo "docker exec portal5-ollama ollama"
-            else
-                echo ""
-            fi
-        }
-        _OCMD=$(_ollama_cmd)
-        if [ -n "$_OCMD" ]; then
-            _MODELS=(
-                "${DEFAULT_MODEL:-dolphin-llama3:8b}"
-                "huihui_ai/qwen3.5-abliterated:9b"   # NEW: AUTO + general line 1 (uncensored, tool-capable)
-                "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF"
-                "nomic-embed-text:latest"
-        # Note: Harrier-0.6B is served by portal5-embedding container (TEI), not Ollama.
-        # nomic-embed-text kept as fallback if embedding service is down.
-                "hf.co/segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF"
-                "hf.co/cognitivecomputations/Dolphin3.0-R1-Mistral-24B-GGUF"
-                "xploiter/the-xploiter"
-                "hf.co/WhiteRabbitNeo/WhiteRabbitNeo-33B-v1.5-GGUF"
-                "huihui_ai/baronllm-abliterated"
-                "lazarevtill/Llama-3-WhiteRabbitNeo-8B-v2.0:q4_0"
-                "qwen3.5:9b"
-                "qwen3-coder:30b"
-                "deepseek-coder-v2:16b-lite-instruct-q4_K_M"
-                "devstral:24b"
-                "granite4.1:8b"                       # backfill: auto-video primary (de96984), general line 4
-                "granite4.1:30b"                      # backfill: ollama-reasoning fallback line 6
-                "hf.co/deepseek-ai/DeepSeek-R1-32B-GGUF"
-                "gpt-oss:20b"
-                "huihui_ai/tongyi-deepresearch-abliterated"
-                "qwen3-vl:32b"
-                "llava:7b"
-            )
-            if [ "${PULL_HEAVY:-false}" = "true" ]; then
-                _MODELS+=(
-                    "hf.co/cognitivecomputations/dolphin-3-llama3-70b-GGUF"
-                    "hf.co/meta-llama/Meta-Llama-3.3-70B-GGUF"
-                )
-            fi
-            _TOTAL=${#_MODELS[@]}
-            _COUNT=0
-            _FAILED=0
-            for _model in "${_MODELS[@]}"; do
-                _COUNT=$((_COUNT + 1))
-                echo "  [$_COUNT/$_TOTAL] $_model"
-                $_OCMD pull "$_model" 2>/dev/null && echo "  ✅ Done" || _FAILED=$((_FAILED + 1))
-            done
-            echo "  Ollama: $((_TOTAL - _FAILED))/$_TOTAL succeeded"
-        else
-            echo "  ⚠️  Ollama not running — skipping model refresh"
-            echo "     Start Ollama and run: ./launch.sh refresh-models"
-        fi
-        echo ""
-    fi
-
-    # ── Step 5: Update ComfyUI (if installed) ────────────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[5/7] Checking ComfyUI..."
-        _COMFYUI_DIR="${COMFYUI_DIR:-$HOME/ComfyUI}"
-        if [ -d "$_COMFYUI_DIR/.git" ]; then
-            echo "  Updating ComfyUI..."
-            git -C "$_COMFYUI_DIR" pull --quiet 2>/dev/null && \
-                echo "  ✅ ComfyUI updated" || echo "  ⚠️  ComfyUI pull failed"
-            # Update VHS plugin
-            _VHS_DIR="$_COMFYUI_DIR/custom_nodes/ComfyUI-VideoHelperSuite"
-            if [ -d "$_VHS_DIR/.git" ]; then
-                git -C "$_VHS_DIR" pull --quiet 2>/dev/null && \
-                    echo "  ✅ VideoHelperSuite updated" || true
-            fi
-            # Upgrade ComfyUI deps
-            if [ -f "$_COMFYUI_DIR/.venv/bin/pip" ]; then
-                "$_COMFYUI_DIR/.venv/bin/pip" install --quiet --upgrade -r "$_COMFYUI_DIR/requirements.txt" 2>/dev/null || true
-                echo "  ✅ ComfyUI dependencies upgraded"
-            fi
-        else
-            echo "  ℹ️  ComfyUI not installed — skipping"
-        fi
-        echo ""
-    fi
-
-    # ── Step 7: Update Music MCP (if installed) ───────────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[6/7] Checking Music MCP..."
-        _MUSIC_VENV="$HOME/.portal5/music/.venv"
-        if [ -d "$_MUSIC_VENV" ]; then
-            echo "  Upgrading Music MCP dependencies..."
-            "$_MUSIC_VENV/bin/pip" install --quiet --upgrade \
-                "torch>=2.1.0" \
-                "torchaudio>=2.1.0" \
-                "transformers>=4.40.0" \
-                "scipy>=1.11.0" \
-                "fastapi>=0.109.0" \
-                "uvicorn[standard]>=0.27.0" \
-                "httpx>=0.26.0" \
-                "pyyaml>=6.0.1" \
-                "starlette>=0.35.0" \
-                "mcp>=1.0.0" \
-                "fastmcp>=0.4.0" 2>/dev/null || true
-            echo "  ✅ Music MCP dependencies upgraded"
-            # Restart the service if running
-            if [ "$(uname -s)" = "Darwin" ]; then
-                launchctl stop com.portal5.music-mcp 2>/dev/null || true
-                launchctl start com.portal5.music-mcp 2>/dev/null || true
-            fi
-        else
-            echo "  ℹ️  Music MCP not installed — skipping"
-        fi
-        echo ""
-    fi
-
-    # ── Step 8: Re-seed Open WebUI + restart stack ────────────────────────
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "[7/7] Re-seeding Open WebUI + restarting stack..."
-        cd "$COMPOSE_DIR"
-        # Rebuild and restart all services with updated images
-        docker compose up -d 2>/dev/null
-        # Re-seed (force to pick up any new workspaces/personas)
-        docker compose run --rm -e FORCE_RESEED=true openwebui-init 2>/dev/null || true
-        echo "  ✅ Stack restarted + re-seeded"
-        echo ""
-    fi
-
-    # ── Summary ───────────────────────────────────────────────────────────
-    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  Update complete."
-    echo ""
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "  Updated:"
-        echo "    ✅ Portal 5 source (git pull)"
-        echo "    ✅ Docker images (ollama, open-webui, searxng)"
-        echo "    ✅ portal-pipeline + MCP server images (rebuild)"
-    fi
-    if [ "$_UPDATE_SKIP_MODELS" = "false" ]; then
-        echo "    ✅ Ollama models (checked for updates)"
-    fi
-    if [ "$_UPDATE_MODELS_ONLY" = "false" ]; then
-        echo "    ✅ ComfyUI (if installed)"
-        echo "    ✅ Music MCP (if installed)"
-        echo "    ✅ Open WebUI presets (re-seeded)"
-    fi
-    echo ""
-    echo "  Check status: ./launch.sh status"
+    exec python3 -m portal_pipeline.cli update "${@:2}"
     ;;
 
   clean)
@@ -942,11 +581,11 @@ PYEOF
     ;;
 
   apply-model-params)
-    _launch_apply_model_params
+    exec python3 -m portal_pipeline.cli models apply-params "${@:2}"
     ;;
 
   import-gguf)
-    _launch_import_gguf "$@"
+    exec python3 -m portal_pipeline.cli models import-gguf "${@:2}"
     ;;
 
   download-comfyui-models)
@@ -954,7 +593,7 @@ PYEOF
     ;;
 
   apply-mtp-drafts)
-    _launch_apply_mtp_drafts
+    exec python3 -m portal_pipeline.cli models apply-mtp-drafts "${@:2}"
     ;;
 
   sync-config)
