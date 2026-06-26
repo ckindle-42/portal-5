@@ -813,7 +813,7 @@ def _collect_text(chunk: bytes, parts: list[str]) -> None:
                 if text:
                     parts.append(text)
         except Exception:
-            pass
+            logger.debug("Skipping malformed SSE chunk in _collect_text", exc_info=True)
 
 
 async def _stream_with_chain(

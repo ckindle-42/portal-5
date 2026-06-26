@@ -112,7 +112,7 @@ async def _power_polling_loop():
         except FileNotFoundError:
             pass  # powermetrics daemon not running — degrade gracefully
         except Exception:
-            pass
+            logger.debug("Power poller error — skipping this tick", exc_info=True)
         await asyncio.sleep(10)
 
 

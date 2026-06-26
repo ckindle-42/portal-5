@@ -134,6 +134,10 @@ ignore = ["E501"]
 "tests/benchmarks/bench_security/chain.py" = ["SIM117", "SIM105", "N806", "B023"]
 "tests/benchmarks/bench_security/scoring.py" = ["SIM103", "SIM102"]
 "tests/benchmarks/bench_security.py" = ["SIM117", "SIM105"]
+# streaming.py: pre-existing patterns — SIM102 nested-if (deliberate guard),
+# B905 zip strict= (Python 3.10 compat), N806 uppercase constants in function.
+"portal_pipeline/router/streaming.py" = ["SIM102", "B905", "N806"]
+"portal_pipeline/router_pipe.py" = ["N806", "SIM117"]
 
 [tool.mypy]
 python_version = "3.10"
