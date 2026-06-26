@@ -1,6 +1,6 @@
 # Archived MLX inference stack (retired 2026-06-09, commit 3a0c58e)
 
-These 8 scripts powered the standalone MLX inference proxy that ran
+These 9 scripts powered the standalone MLX inference proxy that ran
 alongside Ollama on the M4 Pro Mac Mini through commit `3a0c58e^`.
 The MLX proxy tier was retired when Ollama 0.30.7 reached throughput
 parity (and often a small lead) using its native MLX Metal backend —
@@ -17,6 +17,7 @@ complexity, and dual-stack operational overhead that the proxy required.
 | `patch-mlx-templates.py` | 189 | Qwen 3.5/3.6 chat template vendor + patch |
 | `patch-mlx-threads.py` | 245 | Forced single-thread MLX patch |
 | `smoke_test_mlx.py` | 109 | MLX-proxy smoke test |
+| `mlx-tool-parser-laguna.py` | 21 | Qwen-3.6-style tool-call parser used by mlx-proxy |
 
 ## Status: archive-only
 
