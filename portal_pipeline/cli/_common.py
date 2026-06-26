@@ -4,6 +4,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from portal_pipeline.config import PortalConfig
 
 def _detect_ollama_cmd() -> str | None:
     """Return the ollama command to use (native or docker exec), or None."""
@@ -61,4 +66,54 @@ def _resolve_model_name(raw: str) -> str:
         return os.environ.get(var, default)
 
     return _re.sub(r"\$\{(\w+):-([^}]+)\}", _repl, raw)
+
+
+# ── Cross-reference workspace ↔ model registry ────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CrossRefReport:
+    """Result of cross-referencing portal.yaml workspaces ↔ models."""
+
+    orphan_hints: list[str]  # model_hint values with no matching ollama_name
+    unused_models: list[str]  # non-retired ollama_names referenced by zero workspaces
+
+    @property
+    def ok(self) -> bool:
+        return not self.orphan_hints
+
+
+def cross_reference_workspaces_and_models(cfg: PortalConfig) -> CrossRefReport:
+    """Cross-check workspace model_hint values against the models registry.
+
+    Returns a CrossRefReport that callers can format as they choose.
+    Pure function — no I/O, no side effects.
+    """
+    # Build the set of pullable ollama_names from the registry
+    ollama_names = {m.ollama_name for m in cfg.models}
+    non_retired_names = {m.ollama_name for m in cfg.models if not m.retired}
+
+    # Walk workspaces, collect their model_hint values
+    hint_to_workspaces: dict[str, list[str]] = {}
+    for ws_id, ws in cfg.workspaces.items():
+        hint = getattr(ws, "model_hint", None)
+        if hint:
+            hint_to_workspaces.setdefault(hint, []).append(ws_id)
+
+    # An orphan hint is one that starts with hf.co/ or matches a registered name
+    # but is not in the registry. Native Ollama tags are excluded.
+    orphan_hints = []
+    for hint in hint_to_workspaces:
+        looks_pullable = hint.startswith("hf.co/") or hint in ollama_names
+        if looks_pullable and hint not in ollama_names:
+            orphan_hints.append(hint)
+
+    # An unused model is a non-retired entry no workspace references
+    referenced = set(hint_to_workspaces)
+    unused_models = sorted(non_retired_names - referenced)
+
+    return CrossRefReport(
+        orphan_hints=sorted(orphan_hints),
+        unused_models=unused_models,
+    )
 
