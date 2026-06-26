@@ -8,7 +8,6 @@ ENV_FILE="$PORTAL_ROOT/.env"
 # ── Sourced libraries ─────────────────────────────────────────────────────────
 # shellcheck source=scripts/lib/util.sh
 source "$PORTAL_ROOT/scripts/lib/util.sh"
-# shellcheck source=scripts/lib/models.sh
 # shellcheck source=scripts/lib/services.sh
 source "$PORTAL_ROOT/scripts/lib/services.sh"
 # shellcheck source=scripts/lib/lab.sh
