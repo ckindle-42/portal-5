@@ -141,19 +141,27 @@ The pipeline does persist operational metrics (request counts, TPS, errors) to `
 
 Each `.yaml` in `config/personas/` becomes an Open WebUI model preset during seeding. The YAML defines: `name`, `slug`, `system_prompt`, `workspace_model`, `category`. The `openwebui_init.py` script reads these and creates model presets in Open WebUI. Adding a new persona = adding one YAML file. See `config/personas/` for the full catalog (150 personas).
 
-### 6 — Workspace Routing Must Stay Consistent
+### 6 — config/portal.yaml Is the Single Source of Truth for Workspaces and MCP Fleet
 
-Workspace routing is defined in `config/backends.yaml` `workspace_routing` block and the `WORKSPACES` dict in `portal_pipeline/router/workspaces.py`. They must define **identical keys**. The `openwebui_init.py` seeding must create a model preset for each key. After any change, run:
+All workspaces and the MCP tool server fleet are defined in **`config/portal.yaml`**. Do not hand-edit these derived files:
+- `config/backends.yaml` → `workspace_routing` block (auto-generated)
+- `.mcp.json` → IDE MCP server list (auto-generated)
+- `imports/openwebui/workspaces/workspace_*.json` → OWUI workspace presets (auto-generated)
+
+After any change to `config/portal.yaml`, regenerate all derived files:
 ```bash
-python3 -c "
-import yaml
-from portal_pipeline.router.workspaces import WORKSPACES
-cfg = yaml.safe_load(open('config/backends.yaml'))
-pipe_ids = set(WORKSPACES.keys())
-yaml_ids = set(cfg['workspace_routing'].keys())
-assert pipe_ids == yaml_ids, f'Mismatch: pipe={pipe_ids-yaml_ids} yaml={yaml_ids-pipe_ids}'
-print('Workspace IDs consistent')
-"
+./launch.sh sync-config
+# or directly:
+python3 -m portal_pipeline.sync_config
+```
+
+`sync-config` is idempotent — running it twice produces no diff. The test suite (`tests/unit/test_generated_artifacts_fresh.py`) verifies this.
+
+The `WORKSPACES` dict in `portal_pipeline/router/workspaces.py` is loaded at import time from `portal.yaml` via `portal_pipeline.config.get_workspace_dict()`. The `MCP_SERVERS` dict in `portal_pipeline/tool_registry.py` is similarly derived from the fleet table via `get_pipeline_mcp_servers()`.
+
+After any workspace change, verify consistency:
+```bash
+python3 -m pytest tests/unit/test_generated_artifacts_fresh.py tests/unit/test_mcp_fleet_single_source.py -q
 ```
 
 Auto-routing uses two layers: **Layer 1** — LLM-based intent classifier (default: `gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M`, ~840ms warm, 82.2% accuracy; switchable via `LLM_ROUTER_MODEL` in `.env`). **Layer 2** — weighted keyword scoring (fallback on confidence < 0.5 or timeout). Vision text-only fallback: `auto-vision` with no image parts reroutes to `auto-reasoning`.
@@ -249,10 +257,11 @@ The UAT driver, acceptance test v6, and bench_tps all print a freshness warning 
 
 ### New MCP Tool Server
 1. Create `portal_mcp/<category>/<name>_mcp.py`
-2. Add service to `deploy/portal-5/docker-compose.yml` on an unused port
-3. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`
-4. Add to `imports/openwebui/mcp-servers.json`
-5. `openwebui_init.py` picks up new tool servers automatically from `mcp-servers.json`
+2. Add service to `deploy/portal-5/docker-compose.yml` on an unused port (Rule 7)
+3. Add the server to `config/portal.yaml` under `mcp_fleet:` with the canonical `id`, `name`, `port`, and flags
+4. Run `./launch.sh sync-config` — regenerates `.mcp.json` and OWUI tool preset stubs
+5. Add tool JSON to `imports/openwebui/tools/portal_<name>.json`
+6. `openwebui_init.py` picks up new tool servers automatically from the fleet
 
 ### New Persona
 1. Create `config/personas/<slug>.yaml` with: `name`, `slug`, `system_prompt`, `workspace_model`, `category`
@@ -260,10 +269,10 @@ The UAT driver, acceptance test v6, and bench_tps all print a freshness warning 
 3. No other changes needed
 
 ### New Workspace Routing Tier
-1. Add to `WORKSPACES` in `portal_pipeline/router/workspaces.py`
-2. Add same key to `workspace_routing` in `config/backends.yaml`
-3. Add workspace JSON to `imports/openwebui/workspaces/`
-4. Run workspace consistency check (see Rule 6 above)
+1. Add the workspace entry to `config/portal.yaml` under `workspaces:`
+2. Run `./launch.sh sync-config` — regenerates `backends.yaml workspace_routing`, OWUI preset JSON, and `.mcp.json`
+3. Verify: `python3 -m pytest tests/unit/test_generated_artifacts_fresh.py -q`
+4. Do NOT hand-edit `backends.yaml workspace_routing` or `imports/openwebui/workspaces/` — those are generated
 
 ### New Cluster Node
 1. Edit `config/backends.yaml` — add backend entry, assign to group
