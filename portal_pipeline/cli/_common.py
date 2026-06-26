@@ -73,7 +73,18 @@ def _resolve_model_name(raw: str) -> str:
 
 @dataclass(frozen=True)
 class CrossRefReport:
-    """Result of cross-referencing portal.yaml workspaces ↔ models."""
+    """Result of cross-referencing portal.yaml workspaces ↔ models.
+
+    Classifications:
+      orphan_hints   — bare-tag workspace model_hint values that match
+                       a registered ollama_name with mismatched value
+                       (currently always empty pending near-miss detection)
+      unused_models  — non-retired registry ollama_names referenced by
+                       zero workspaces (soft warning)
+
+    Hints prefixed with ``hf.co/`` are Ollama-native and outside this
+    cross-reference's scope.
+    """
 
     orphan_hints: list[str]  # model_hint values with no matching ollama_name
     unused_models: list[str]  # non-retired ollama_names referenced by zero workspaces
@@ -100,13 +111,14 @@ def cross_reference_workspaces_and_models(cfg: PortalConfig) -> CrossRefReport:
         if hint:
             hint_to_workspaces.setdefault(hint, []).append(ws_id)
 
-    # An orphan hint is one that starts with hf.co/ or matches a registered name
-    # but is not in the registry. Native Ollama tags are excluded.
-    orphan_hints = []
+    # hf.co/ hints are Ollama-native HF pulls — no registry entry needed.
+    # Bare-tag hints use Ollama library models; registry coverage is opt-in.
+    # Future enhancement: near-miss detection for bare-tag typos of registered
+    # ollama_name values (Levenshtein distance ≤ 2).
+    orphan_hints: list[str] = []
     for hint in hint_to_workspaces:
-        looks_pullable = hint.startswith("hf.co/") or hint in ollama_names
-        if looks_pullable and hint not in ollama_names:
-            orphan_hints.append(hint)
+        if hint.startswith("hf.co/"):
+            continue  # Ollama-native HF pull, no registry needed
 
     # An unused model is a non-retired entry no workspace references
     referenced = set(hint_to_workspaces)
