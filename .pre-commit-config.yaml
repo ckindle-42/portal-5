@@ -47,6 +47,17 @@ repos:
         entry: ruff format --check
         types: [python]
 
+      # Guard: architectural pre-flight — imports, routes, config, Rule 6,
+      # hint validator, shim contract. Runs in ~1s before the heavier
+      # pytest pass so architectural breakage is caught immediately.
+      - id: validate-system
+        name: system pre-flight (validate_system.py --skip-pytest)
+        language: system
+        entry: python3 scripts/validate_system.py --skip-pytest
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       # Guard: unit-test suite passes before commit. Fast (~10s on a warm
       # pytest cache); blocks commits that break the test suite. Opt-in via
       # `pre-commit install`. Uses the developer's existing venv.
