@@ -69,6 +69,18 @@ Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). Synthetic-data 
 
 Liquid AI LFM2.5-8B-A1B (June 2026, Apache 2.0, ~5GB Q4, 128K ctx). Hybrid architecture: gated short convolutions + grouped-query attention (NOT a pure transformer). 8.3B total / 1.5B active MoE. Fastest in class on CPU. ONLY non-transformer model in fleet — unique architecture diversity. Recommended for: agentic workflows, tool use, structured outputs, multilingual. NOT recommended for: heavy code generation or knowledge-only tasks. bench-lfm25-8b target (TASK_MODEL_REFRESH_V8 A8). supports_tools=true per LFM2.5 function-calling format.
 
+### `hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M`
+
+Liquid AI LFM2.5-1.2B-Instruct Q4_K_M (~780MB Q4). Smallest LFM2.5 variant — candidate for LLM router classifier role. Bench target: bench-lfm-micro-1p2b. supports_tools=false (micro model, routing classification only).
+
+### `hf.co/LiquidAI/LFM2.5-350M-GGUF:Q4_K_M`
+
+Liquid AI LFM2.5-350M Q4_K_M (~230MB Q4). Ultra-small LFM2.5 variant — LLM router classifier candidate. Bench target: bench-lfm-micro-350m. supports_tools=false.
+
+### `hf.co/LiquidAI/LFM2.5-230M-GGUF:Q4_K_M`
+
+Liquid AI LFM2.5-230M Q4_K_M (~150MB Q4). Smallest practical LFM2.5 — LLM router classifier candidate probing the router quality floor at minimal latency. Bench target: bench-lfm-micro-230m. supports_tools=false.
+
 ### `mistral-small3.2:24b`
 
 Mistral Small 3.2 (June 2025, Apache 2.0, 24B, ~14GB Q4). Improved function calling and instruction following over Small 3.1. auto-mistral lane candidate. bench-mistral-small32 target (TASK_MODEL_REFRESH_V8 A14). supports_tools=true per Mistral function-calling format; verify via --audit-tools.
