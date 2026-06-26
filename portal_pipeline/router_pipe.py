@@ -108,6 +108,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from prometheus_client import CollectorRegistry, generate_latest
 
 from portal_pipeline.cluster_backends import BackendRegistry
+from portal_pipeline.config import ollama_url
 
 logger = logging.getLogger(__name__)
 # Ensure the logger has its own stderr handler — survives uvicorn multi-worker fork().
@@ -962,7 +963,7 @@ async def health_all():
     async with httpx.AsyncClient(timeout=3) as _health_client:
         pipeline_result = {"pipeline": {"status": "ok"}}
         ollama_result = await _probe(
-            os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
+            ollama_url(),
             "/api/tags",
         )
         mcp_probes = {
