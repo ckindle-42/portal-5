@@ -38,6 +38,17 @@ if _env_file.exists():
             _k, _, _v = _line.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
+# ── Prometheus multiprocess guard ────────────────────────────────────────────
+# .env sets PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics (Linux-only path).
+# On macOS test hosts where /dev/shm is absent, redirect to a writable temp dir
+# BEFORE any portal_pipeline import — prometheus_client reads the env var at
+# metric-instantiation time, so this must be set before the first import.
+_prom_dir = os.environ.get("PROMETHEUS_MULTIPROC_DIR", "")
+if _prom_dir and not os.path.isdir(_prom_dir):
+    import tempfile as _tempfile
+    _mp_dir = _tempfile.mkdtemp(prefix="portal5_acceptance_metrics_")
+    os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp_dir
+
 # ── Service URLs ─────────────────────────────────────────────────────────────
 PIPELINE_URL = "http://localhost:9099"
 OPENWEBUI_URL = "http://localhost:8080"
