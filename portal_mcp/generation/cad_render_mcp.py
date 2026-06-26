@@ -25,7 +25,7 @@ from pathlib import Path
 from starlette.responses import FileResponse, JSONResponse
 
 from portal_mcp.core.workspace import get_generated_dir
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 

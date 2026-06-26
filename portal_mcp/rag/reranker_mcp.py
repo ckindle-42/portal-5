@@ -14,7 +14,7 @@ import os
 
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 # Lazy references — populated on first call to rerank().
 # Declared at module level so unit tests can patch them.

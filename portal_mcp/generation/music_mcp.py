@@ -20,7 +20,7 @@ from typing import Any
 
 from starlette.responses import FileResponse, JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 port = int(os.getenv("MUSIC_MCP_PORT", "8912"))
 mcp = FastMCP("music-generation", host="0.0.0.0")

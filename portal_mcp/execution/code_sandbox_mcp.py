@@ -20,7 +20,7 @@ from pathlib import Path
 
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("code-sandbox", host="0.0.0.0")
 

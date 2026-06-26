@@ -38,8 +38,7 @@ notifications = [
     "APScheduler>=3.10.0",
 ]
 mcp = [
-    "mcp>=1.0.0",          # MCP Python SDK (required by fastmcp)
-    "fastmcp>=0.4.0",
+    "mcp>=1.9.0",          # MCP Python SDK — mcp.server.fastmcp replaces vendored copy (M4)
     "requests>=2.31.0",
     # Document generation
     "python-docx>=1.1.0",
@@ -92,7 +91,7 @@ apple-silicon = [
     "phonemizer>=3.2.0",
 ]
 dev = [
-    "mcp>=1.0.0",          # needed to run MCP endpoint tests
+    "mcp>=1.9.0",          # needed to run MCP endpoint tests (de-vendored in M4)
     "promptfoo>=0.1.4",    # PyPI wrapper around the promptfoo Node CLI (dev-only LLM quality evals)
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",

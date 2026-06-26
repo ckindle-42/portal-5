@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Vendored FastMCP
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 

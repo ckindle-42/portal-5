@@ -21,7 +21,7 @@ from typing import Any
 import httpx
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("proxmox", host="0.0.0.0")
 logger = logging.getLogger(__name__)
