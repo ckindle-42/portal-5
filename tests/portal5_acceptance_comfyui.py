@@ -69,11 +69,20 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 import httpx
+
+from tests.lib.results import (  # noqa: E402
+    _ICON,
+    R,
+    _blocked,
+    _emit,
+    _git_sha,
+    _log,
+    record,
+)
 
 ROOT = Path(__file__).parent.resolve()
 # Repo root — one level up from tests/
@@ -124,52 +133,6 @@ def _filter_checkpoints(ckpts: list[str]) -> list[str]:
     """
     exclude = ["lora"]
     return [c for c in ckpts if not any(e in c.lower() for e in exclude)]
-
-
-# ── Result model ──────────────────────────────────────────────────────────────
-@dataclass
-class R:
-    section: str
-    tid: str
-    name: str
-    status: str  # PASS | FAIL | BLOCKED | WARN | INFO
-    detail: str = ""
-    evidence: list[str] = field(default_factory=list)
-    fix: str = ""
-    duration: float = 0.0
-
-
-_log: list[R] = []
-_blocked: list[R] = []
-_ICON = {"PASS": "✅", "FAIL": "❌", "BLOCKED": "🚫", "WARN": "⚠️ ", "INFO": "ℹ️ "}
-
-
-def _emit(r: R) -> R:
-    icon = _ICON.get(r.status, "  ")
-    dur = f"({r.duration:.1f}s)" if r.duration else ""
-    print(f"  {icon} [{r.tid}] {r.name}  {r.detail}  {dur}")
-    if _verbose and r.evidence:
-        for e in r.evidence:
-            print(f"       {e}")
-    return r
-
-
-def record(section, tid, name, status, detail="", evidence=None, fix="", t0=None) -> R:
-    dur = time.time() - t0 if t0 else 0.0
-    r = R(section, tid, name, status, detail, evidence or [], fix, dur)
-    _log.append(r)
-    if status == "BLOCKED":
-        _blocked.append(r)
-    return _emit(r)
-
-
-def _git_sha() -> str:
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=str(ROOT)
-        ).stdout.strip()
-    except Exception:
-        return "unknown"
 
 
 # ── Memory management (free unified memory before generation) ─────────────────
