@@ -5,7 +5,8 @@ Modules:
     compliance_fixtures    — compliance scenario YAML loader and parameterizer
     coding_assertions      — behavioral assertion functions (coding scenarios)
     coding_fixtures        — coding scenario loader and parameterizer
+    results                — test result model, recording, emission, classification
 
-Both are pure-Python with no Docker / network dependencies. Can be unit-tested
+All are pure-Python with no Docker / network dependencies. Can be unit-tested
 without a live backend.
 """
