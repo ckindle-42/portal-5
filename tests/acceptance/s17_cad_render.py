@@ -118,22 +118,21 @@ async def run() -> None:
     # ── S17-04: render_mesh — PNG URL is reachable ────────────────────────────
     # We need the png_url from the previous call; call the tool again and inspect.
     t0 = time.time()
-    code_r, body_r = await _mcp_raw(
+    raw_text = await _mcp_raw(
         _CAD_RENDER_PORT,
         "render_mesh",
         {"mesh_path": "s17_smoke_box.stl", "resolution": 128},
         section=sec,
         tid="S17-04-pre",
         name="(internal) render_mesh for URL check",
+        ok_fn=lambda t: True,
         timeout=60,
     )
     png_url = None
-    if code_r == 200 and isinstance(body_r, dict):
-        try:
-            result = json.loads(body_r.get("content", [{}])[0].get("text", "{}"))
-            png_url = result.get("png_url")
-        except Exception:
-            pass
+    try:
+        png_url = json.loads(raw_text).get("png_url")
+    except Exception:
+        pass
     if png_url:
         # Convert container-internal URL to host-accessible URL
         host_url = png_url.replace("http://localhost", "http://localhost")
