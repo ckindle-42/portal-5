@@ -22,7 +22,7 @@ from typing import Any
 import httpx
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 

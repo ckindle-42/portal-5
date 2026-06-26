@@ -589,7 +589,7 @@ async def http_transcribe(
 
 # ── MCP wrapper ────────────────────────────────────────────────────────────────
 
-from portal_mcp.mcp_server.fastmcp import FastMCP  # noqa: E402
+from mcp.server.fastmcp import FastMCP  # noqa: E402
 
 mcp = FastMCP("mlx-transcribe", host=HOST, streamable_http_path="/")
 

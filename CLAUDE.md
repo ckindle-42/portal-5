@@ -69,8 +69,7 @@ portal-5/
 │   ├── browser/                  # Playwright browser automation (:8923)
 │   ├── proxmox/                  # Lab VM control via Proxmox API (:8927)
 │   ├── platform/                 # Pipeline MCP — stack introspection + FastContext (:8928)
-│   ├── core/                     # Shared MCP utilities (workspace helpers, path resolution)
-│   └── mcp_server/               # Vendored FastMCP implementation
+│   └── core/                     # Shared MCP utilities (workspace helpers, path resolution)
 ├── config/
 │   ├── backends.yaml             # OPERATOR EDITS THIS — adds cluster nodes here, no code changes
 │   ├── personas/                 # 150 persona YAML files → Open WebUI model presets

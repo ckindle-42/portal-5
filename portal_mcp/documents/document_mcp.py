@@ -15,7 +15,7 @@ from pathlib import Path
 
 from starlette.responses import FileResponse, JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 port = int(os.getenv("DOCUMENTS_MCP_PORT", "8913"))
 mcp = FastMCP("document-tools", host="0.0.0.0", port=port)

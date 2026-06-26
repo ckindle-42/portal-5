@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("whisper-transcription", host="0.0.0.0")
 

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from starlette.responses import FileResponse, JSONResponse, Response
 
 from portal_mcp.generation.utils import get_torch_device
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 port = int(os.getenv("TTS_MCP_PORT", "8916"))

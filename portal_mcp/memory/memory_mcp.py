@@ -18,7 +18,7 @@ import lancedb
 import pyarrow as pa
 from starlette.responses import JSONResponse
 
-from portal_mcp.mcp_server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 mcp = FastMCP("memory", host="0.0.0.0")
