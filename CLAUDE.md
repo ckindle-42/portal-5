@@ -246,7 +246,8 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 - Use `tmp_path` fixtures for file I/O
 - Mock `httpx.AsyncClient` for all HTTP calls
 - Run before every commit: `pytest tests/unit/ -q && ruff check . && ruff format --check .`
-- Pre-commit hooks (`.pre-commit-config.yaml`) enforce: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins. Install once: `pip install pre-commit && pre-commit install`.
+- Pre-commit hooks (`.pre-commit-config.yaml`) enforce: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins, **pytest unit suite**. Install once: `pip install pre-commit && pre-commit install`.
+- Unit tests also run on every PR and push to `main` via `.github/workflows/unit-tests.yml`.
 - **Any change touching `portal_pipeline/router/streaming.py` or the streaming paths of `router_pipe.py` MUST run `./scripts/smoke_stream.sh` against the live stack before commit** — unit mocks cannot detect dependency-contract mismatches (FX1, `34be1eb`). Also runs as part of `./launch.sh test`.
 
 ### Pre-Testing: Always Verify Code Freshness
