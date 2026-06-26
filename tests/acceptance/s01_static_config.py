@@ -176,7 +176,7 @@ async def run() -> None:
 
     # S1-11: Every non-benchmark persona has a PERSONA_PROMPTS entry
     t0 = time.time()
-    non_bench = [p for p in PERSONAS if p.get("category") != "benchmark"]
+    non_bench = [p for p in PERSONAS if p.get("category") not in ("benchmark", "bench")]
     missing_prompts = [
         p["slug"]
         for p in non_bench
