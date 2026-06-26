@@ -18,7 +18,7 @@ from fastapi import FastAPI
 
 from portal_pipeline.cluster_backends import BackendRegistry
 from portal_pipeline.router.workspaces import WORKSPACES
-from portal_pipeline.router.state import _load_state
+from portal_pipeline.router.state import _load_state, _request_count
 from portal_pipeline.router.routing import _LLM_ROUTER_ENABLED, _LLM_ROUTER_MODEL, _LLM_ROUTER_OLLAMA_URL
 from portal_pipeline.router.power import _power_polling_loop
 from portal_pipeline.router.state import _save_state, _state_save_loop
@@ -356,6 +356,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _routing_mod._http_client = _http_client
     _streaming_mod._http_client = _http_client
     registry = BackendRegistry()
+    # Push registry to handlers — same pattern as _routing_mod/_streaming_mod above.
+    # handlers.py cannot capture registry by name at import time (lifespan hasn't run yet).
+    import portal_pipeline.router.handlers as _handlers_mod  # noqa: PLC0415
+    _handlers_mod.registry = registry
     hint_errors = _validate_workspace_hints(registry)
     if hint_errors:
         for e in hint_errors:
@@ -416,6 +420,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ── Notifications: alerts + daily summaries ──────────────────────────────
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() in ("true", "1", "yes"):
         _init_notifications(registry)
+        _handlers_mod._notification_dispatcher = _notification_dispatcher
 
     _in_test_mode = os.environ.get("UNIT_TEST_MODE", "0") == "1"
 
