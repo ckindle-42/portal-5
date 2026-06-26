@@ -3436,8 +3436,17 @@ MEOF
     echo "  still points to the Qwopus artifact (TASK_MODEL_FLEET_REFRESH_V2 Phase 5)."
     ;;
 
+  sync-config)
+    # Regenerate all derived artifacts from config/portal.yaml:
+    #   config/backends.yaml workspace_routing block
+    #   .mcp.json (Claude Code MCP list)
+    #   imports/openwebui/workspaces/workspace_*.json (OWUI presets)
+    # Idempotent — safe to run after every edit to portal.yaml.
+    python3 -m portal_pipeline.sync_config
+    ;;
+
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-comfyui|install-music|download-comfyui-models|start-speech|stop-speech|start-transcribe|stop-transcribe|start-embedding-cpu-arm|stop-embedding-cpu-arm|install-embedding-service|uninstall-embedding-service|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|pull-wan22|pull-qwen-image|apply-mtp-drafts|build-lab-attack]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
@@ -3478,6 +3487,8 @@ MEOF
     echo "  down                  Stop all services (data preserved)"
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
+    echo "  sync-config           Regenerate derived artifacts from config/portal.yaml"
+    echo "                          (workspace_routing in backends.yaml, .mcp.json, OWUI presets)"
     echo "  seed                  Re-run Open WebUI seeding (workspaces + personas + tools)"
     echo "  logs [svc]            Tail logs (default: portal-pipeline; also: open-webui, searxng)"
     echo "  status                Show service status and health"
