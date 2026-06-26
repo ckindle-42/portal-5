@@ -30,10 +30,6 @@ tools_deny:
   - execute_bash
   - execute_nodejs
   - sandbox_status
-browser_policy:
-  allowed_domains: []
-  default_profile: _isolated
-  max_navigations_per_session: 50
 description: "Generate Playwright E2E tests from natural language by exploring live pages"
 tags:
   - testing

@@ -22,10 +22,6 @@ system_prompt: |
   into their account, completing a purchase, or accessing private data), say so directly:
   "I can't directly do X on your behalf — here's how you can do it yourself." Always
   name the constraint and hand the user the next concrete step.
-browser_policy:
-  allowed_domains: []
-  default_profile: _isolated
-  max_navigations_per_session: 30
 description: "Goal-oriented web navigation and task completion"
 tags:
   - browser

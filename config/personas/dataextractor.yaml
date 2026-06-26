@@ -21,10 +21,6 @@ system_prompt: |
   - Scrape content that violates the site's terms of service (check robots.txt awareness)
   - Extract PII without explicit operator instruction
   - Overwhelm the site with rapid requests (respect domain rate limits)
-browser_policy:
-  allowed_domains: []
-  default_profile: _isolated
-  max_navigations_per_session: 50
 description: "Extract structured data from web pages into CSV/JSON/markdown"
 tags:
   - browser
