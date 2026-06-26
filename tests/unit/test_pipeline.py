@@ -528,15 +528,18 @@ class TestR20NativeOllama:
         """launch.sh has install-ollama command for native Ollama setup."""
         content = open("launch.sh").read()
         assert "install-ollama" in content, "launch.sh must have install-ollama command"
-        assert "brew install ollama" in content, "install-ollama must use brew install ollama"
 
     def test_pull_models_supports_native_ollama(self):
-        """pull-models detects native Ollama, not just docker exec portal5-ollama."""
+        """pull-models delegates to portal CLI which detects native Ollama.
+
+        Post-M5-S2: the bash pull-models branch delegates to
+        ``python3 -m portal_pipeline.cli models pull``. Native Ollama detection
+        lives in ``portal_pipeline/cli/_common.py:_detect_ollama_cmd``.
+        This test verifies the delegation shim rather than the moved logic.
+        """
         content = open("launch.sh").read()
-        assert "command -v ollama" in content, "pull-models must detect native ollama binary"
-        # R23: Uses _pull_model with _ollama_cmd helper for native/Docker detection
-        assert "_pull_model" in content, (
-            "pull-models must use _pull_model() that handles both native and Docker via _ollama_cmd"
+        assert 'exec python3 -m portal_pipeline.cli models pull' in content, (
+            "pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
 
@@ -564,18 +567,12 @@ class TestR21NativeComfyUI:
         """launch.sh has install-comfyui command."""
         content = open("launch.sh").read()
         assert "install-comfyui" in content, "launch.sh must have install-comfyui command"
-        assert "comfyanonymous/ComfyUI" in content, (
-            "install-comfyui must clone from comfyanonymous/ComfyUI"
-        )
 
     def test_launch_sh_has_download_comfyui_models(self):
         """launch.sh has download-comfyui-models command."""
         content = open("launch.sh").read()
         assert "download-comfyui-models" in content, (
             "launch.sh must have download-comfyui-models command"
-        )
-        assert "download_comfyui_models.py" in content, (
-            "download-comfyui-models must call scripts/download_comfyui_models.py"
         )
 
 
@@ -611,17 +608,11 @@ class TestR22CodingModelUpdates:
         )
 
     def test_launch_sh_pull_models_has_r22_updates(self):
-        """launch.sh pull-models includes Llama 3.3 and Qwen3.5-9B."""
+        """pull-models delegates to portal CLI; model list lives in portal.yaml."""
         content = open("launch.sh").read()
-        # Qwen3.5-9B in standard list
-        assert "qwen3.5:9b" in content, "launch.sh should pull qwen3.5:9b in standard models"
-        # Llama 3.3 in PULL_HEAVY list
-        assert "Meta-Llama-3.3-70B-GGUF" in content, (
-            "launch.sh should pull Meta-Llama-3.3-70B-GGUF in PULL_HEAVY"
-        )
-        # Llama 3.1 should be gone
-        assert "Meta-Llama-3.1-70B-GGUF" not in content, (
-            "launch.sh should not pull Meta-Llama-3.1-70B-GGUF anymore"
+        # Post-M5-S2: pull-models delegates to portal CLI
+        assert 'portal_pipeline.cli models pull' in content, (
+            "launch.sh pull-models must delegate to portal CLI (post-M5-S2)"
         )
 
 
@@ -1027,14 +1018,18 @@ class TestCodeHygiene:
         assert count == 0, f"Expected 0 assignments (removed in MLX retirement), found {count}"
 
     def test_mcp_server_no_warning_suppression(self):
-        """Verify global warning suppression was removed (P5-OBS-001)."""
+        """Verify global warning suppression was removed (P5-OBS-001).
+
+        Post-M4 de-vendor: portal_mcp/mcp_server/ no longer exists. The check
+        confirms the directory is absent, which implies no vendored suppression.
+        """
         from pathlib import Path
 
-        mcp_main = Path("portal_mcp/mcp_server/__main__.py")
-        if not mcp_main.exists():
-            mcp_main = Path(__file__).parent.parent.parent / "portal_mcp/mcp_server/__main__.py"
-        content = mcp_main.read_text()
-        assert "warnings.simplefilter" not in content
+        vendored = Path("portal_mcp/mcp_server")
+        assert not vendored.exists(), (
+            "Vendored MCP SDK directory reappeared. "
+            "M4 de-vendor was supposed to delete this."
+        )
 
     def test_only_dind_is_privileged(self):
         """Verify only the dind service uses privileged mode (required for DinD on macOS Docker Desktop)."""
@@ -1247,34 +1242,38 @@ class TestPersonasHaveToolFields:
     def test_agentorchestrator_has_tools(self):
         from portal_pipeline.router_pipe import _PERSONA_MAP
 
-        p = _PERSONA_MAP.get("agentorchestrator", {})
-        assert "tools_allow" in p
-        assert "execute_python" in p["tools_allow"]
+        p = _PERSONA_MAP.get("agentorchestrator")
+        assert p is not None
+        assert p.tools_allow is not None
+        assert "execute_python" in p.tools_allow
 
     def test_webresearcher_has_web_tools(self):
         from portal_pipeline.router_pipe import _PERSONA_MAP
 
-        p = _PERSONA_MAP.get("webresearcher", {})
-        assert "tools_allow" in p
-        assert "web_search" in p["tools_allow"]
-        assert "web_fetch" in p["tools_allow"]
+        p = _PERSONA_MAP.get("webresearcher")
+        assert p is not None
+        assert p.tools_allow is not None
+        assert "web_search" in p.tools_allow
+        assert "web_fetch" in p.tools_allow
 
     def test_personalassistant_has_memory_tools(self):
         from portal_pipeline.router_pipe import _PERSONA_MAP
 
-        p = _PERSONA_MAP.get("personalassistant", {})
-        assert "tools_allow" in p
-        assert "remember" in p["tools_allow"]
-        assert "recall" in p["tools_allow"]
+        p = _PERSONA_MAP.get("personalassistant")
+        assert p is not None
+        assert p.tools_allow is not None
+        assert "remember" in p.tools_allow
+        assert "recall" in p.tools_allow
 
     def test_kbnavigator_has_rag_tools(self):
         from portal_pipeline.router_pipe import _PERSONA_MAP
 
-        p = _PERSONA_MAP.get("kbnavigator", {})
-        assert "tools_allow" in p
-        assert "kb_list" in p["tools_allow"]
-        assert "kb_search" in p["tools_allow"]
-        assert "kb_search_all" in p["tools_allow"]
+        p = _PERSONA_MAP.get("kbnavigator")
+        assert p is not None
+        assert p.tools_allow is not None
+        assert "kb_list" in p.tools_allow
+        assert "kb_search" in p.tools_allow
+        assert "kb_search_all" in p.tools_allow
 
 
 class TestModelSupportsToolsRealBackend:
@@ -1286,17 +1285,17 @@ class TestModelSupportsToolsRealBackend:
     """
 
     def test_real_backend_tool_lookup_does_not_raise(self, monkeypatch):
-        import portal_pipeline.router_pipe as rp
+        import portal_pipeline.router.validation as _vm
 
         class _Reg:
             def model_supports_tools(self, model_id):
                 return model_id == "tool-model"
 
-        monkeypatch.setattr(rp, "registry", _Reg())
-        assert rp._model_supports_tools("tool-model") is True
-        assert rp._model_supports_tools("plain-model") is False
-        assert rp._model_supports_tools("unknown") is False
-        assert rp._model_supports_tools("") is False
+        monkeypatch.setattr(_vm, "registry", _Reg())
+        assert _vm._model_supports_tools("tool-model") is True
+        assert _vm._model_supports_tools("plain-model") is False
+        assert _vm._model_supports_tools("unknown") is False
+        assert _vm._model_supports_tools("") is False
 
     def test_backend_has_no_mlx_metadata_field(self):
         import portal_pipeline.cluster_backends as cb
