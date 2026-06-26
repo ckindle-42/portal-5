@@ -124,6 +124,10 @@ ignore = ["E501"]
 # pre-existing patterns in these standalone scripts.
 "tests/portal5_acceptance_comfyui.py" = ["N802", "E741", "F821", "F841", "SIM115", "SIM117"]
 "tests/portal5_acceptance_v6.py" = ["N802", "N806", "E402", "E741", "F821", "F841", "SIM115", "SIM117"]
+# acceptance package: carries same patterns as the monolith it replaces
+"tests/acceptance/_common.py" = ["SIM117", "SIM105"]
+"tests/acceptance/results.py" = ["SIM105"]
+"tests/acceptance/runner.py" = ["N802"]
 "tests/portal5_persona_matrix.py" = ["F401", "F841"]
 "tests/benchmarks/bench_lab_exec.py" = ["SIM102"]
 "tests/benchmarks/bench_mbptl.py" = ["SIM102"]
