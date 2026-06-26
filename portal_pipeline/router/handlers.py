@@ -87,7 +87,6 @@ logger = logging.getLogger(__name__)
 # ── Constants from original router_pipe.py ────────────────────────────────────
 _MAX_REQUEST_BYTES: int = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * 1024 * 1024)))
 _startup_time_val: float = time.time()
-_PIPELINE_API_KEY: str = os.environ.get("PIPELINE_API_KEY", "")
 _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
 
