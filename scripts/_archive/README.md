@@ -16,3 +16,10 @@ Kept for recoverability only. The current Ollama bench path is
 `tests/benchmarks/results/`; the oMLX bake-off harnesses (`bench_omlx.py`,
 `bench_mlx_vs_ollama.py`) remain in `tests/benchmarks/` as evidence for the
 CANCELED P5-FUT-013 decision (see OMLX_DECISION.md).
+
+## MLX inference stack (archived after MLX-proxy retirement)
+
+See `mlx-retired-3a0c58e/` for the 8 scripts that powered the standalone
+MLX inference proxy through commit `3a0c58e^`. Retired 2026-06-09 with
+the Ollama-only migration. Archive-only — see the subdirectory's README
+for status and revival sketch.
