@@ -1,0 +1,246 @@
+{
+  "huihui_ai/Qwen3.6-abliterated:27b": {
+    "notes": "Qwen3.6-27B abliterated dense Q4 (~17GB, huihui-ai, Apache 2.0). bench-qwen36-abl-27b creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). Already in ollama-general for AUTO routing; entry here is for creative group routing of bench-qwen36-abl-27b.",
+    "group": "creative"
+  },
+  "huihui_ai/qwen3.5-abliterated:9b": {
+    "notes": "PRIMARY for auto-purpleteam/auto-purpleteam-deep hop-0 (red team). ~5.8GB Q4. Fast abliterated model optimised for TTP generation. Also in ollama-general \u2014 duplicate entry required for security-group routing so streaming hint resolution uses the correct model.",
+    "group": "security"
+  },
+  "dolphin-llama3:8b": {
+    "notes": "Uncensored, creative-tuned. Path 2 (OWUI MCP) dispatch only \u2014 pipeline never attaches tools to auto-creative requests.",
+    "group": "creative"
+  },
+  "hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF": {
+    "notes": "Ultra-fast 3B abliterated fallback. Stock Llama-3.2-3B template doesn't declare .Tools; abliterated GGUF inherits.",
+    "group": "general"
+  },
+  "granite4.1:8b": {
+    "notes": "REPLACES dolphin-llama3:8b at this fallback position (TASK_TOOL_SUPPORT_AUDIT_V1 \u00a7A11). Granite 4.1 8B is tool-tagged (BFCL V3 68.27); dolphin-llama3:8b is not. Dolphin retained in ollama-general line 2 for model_hint continuity.",
+    "group": "reasoning"
+  },
+  "gemma4:26b-a4b-it-q4_K_M": {
+    "notes": "Gemma 4 26B VLM Q4 \u2014 vision primary, same model as ollama-general entry.",
+    "group": "vision"
+  },
+  "gemma4:26b-a4b-it-qat": {
+    "notes": "Gemma 4 26B-A4B QAT (~15GB, Apache 2.0, 256K ctx, vision+text, QAT: near-BF16 quality at same ~15GB as production gemma4:26b-a4b-it-q4_K_M). Bench-only comparison vs production primary \u2014 if quality confirmed better at similar TPS, a separate promotion task swaps the primary. bench-gemma4-26b-qat target (TASK_MODEL_REFRESH_V8 A4). supports_tools=true per Gemma4 family; verify via --audit-tools before promotion.",
+    "group": "vision"
+  },
+  "phi4:14b-q8_0": {
+    "notes": "Microsoft Phi-4 14B Q8 (~14GB, MIT, synthetic training data, high precision). tools=false: Ollama 0.30.x rejects tool injection with 400 (no template support).",
+    "group": "general"
+  },
+  "hf.co/unsloth/Magistral-Small-2509-GGUF:Q8_0": {
+    "notes": "Magistral-Small-2509 Q8_0 (~25GB, Unsloth GGUF, [THINK] reasoning mode, Mistral lineage, Sept 2025 +vision). Pulled via hf.co route (magistral:24b-small-2509-q8_0 tag not in Ollama registry). Replaces 2506 entry (TASK_MODEL_FLEET_REFRESH_V2 Phase 2). Template has [AVAILABLE_TOOLS] format but Ollama tool dispatch does not fire \u2014 model reasons about tools in prose instead of generating tool_calls (verified TV-04 + direct API test, TASK_TOOL_AUDIT_V2). Kept false.",
+    "group": "general"
+  },
+  "hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf": {
+    "notes": "Gemma 4 26B heretic uncensored Q4 (~17GB, auto-creative primary).",
+    "group": "general"
+  },
+  "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL": {
+    "notes": "Qwen3.6-35B-A3B Unsloth Dynamic 2.0 UD-Q4_K_XL (~22GB, hf.co, MoE 3B active). Sensitivity-aware quant \u2014 bench-qwen36-35b-a3b-ud. Production-validated 2026-06-21 bench (quality 1.00, 21.9 TPS). Agentic lane C1 confirmed; coding fallback and general cross-listed. (TASK_MODEL_FLEET_REFRESH_V2 Phase 4 \u2014 promoted from candidate to fleet.)",
+    "group": "coding"
+  },
+  "hf.co/unsloth/Qwen-AgentWorld-35B-A3B-GGUF:UD-Q4_K_XL": {
+    "notes": "Qwen-AgentWorld-35B-A3B UD-Q4_K_XL (~21GB, MoE 3B active, 45 TPS). Language world model for env-simulation across MCP/Terminal/SWE/Web/Android/OS/Search. Also in ollama-general. Cross-listed here for coding group access (auto-agentic secondary slot). audit-tools PASS 2026-06-25.",
+    "group": "coding"
+  },
+  "portal5/gemma4-12b:q4_K_M-ctx8k": {
+    "notes": "Gemma 4 12B Q4_K_M ctx8k (~7.6GB, Google). gemma4:12b-it-q4_K_M + num_ctx 8192 modelfile cap \u2014 base model has 262K ctx which inflates KV cache and kills TPS.",
+    "group": "general"
+  },
+  "phi4-mini": {
+    "notes": "Microsoft Phi-4-Mini (Feb 2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). Synthetic-data training: multilingual, function calling, reasoning, math. Outperforms Llama 3.2 3B and Qwen 2.5 3B on reasoning/math. Ultra-lightweight daily fallback candidate. bench-phi4-mini target (TASK_MODEL_REFRESH_V8 A6). supports_tools=true per official model card. DO NOT PULL :math variant \u2014 bench 2026-06-21 shows quality 0.67 vs base 1.00 at same TPS.",
+    "group": "general"
+  },
+  "lfm2.5:8b": {
+    "notes": "Liquid AI LFM2.5-8B-A1B (~5GB Q4, Apache 2.0). Hybrid architecture: gated short convolutions + GQA (NOT a pure transformer \u2014 adds architecture diversity to security group). Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 10, 78.5 TPS, quality general:1.0. Purpose-built for agentic/tool-use per model card. Fast general security assistant. Also in ollama-general. Cross-listed here for security group access.",
+    "group": "security"
+  },
+  "mistral-small3.2:24b": {
+    "notes": "Mistral Small 3.2 (June 2025, Apache 2.0, 24B, ~14GB Q4). Improved function calling and instruction following over Small 3.1. auto-mistral lane candidate. bench-mistral-small32 target (TASK_MODEL_REFRESH_V8 A14). supports_tools=true per Mistral function-calling format; verify via --audit-tools.",
+    "group": "general"
+  },
+  "gemma4:e4b-it-q4_K_M": {
+    "notes": "Gemma 4 E4B standard Q4 (~5GB). CORRECTED NOTES: supports audio+image+video input and thinking mode (<|think|> token). Per-Layer Embeddings (PLE) give representational depth well above 4B weight count. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call. queue for --audit-tools re-verification (Gemma4 family supports function calling). Retained as production vision fallback; bench-gemma4-e4b-qat benchmarks the QAT upgrade (TASK_MODEL_REFRESH_V8 A18).",
+    "group": "vision"
+  },
+  "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M": {
+    "notes": "Huihui-Qwen3.6-35B-A3B abliterated Q4_K_M (~20GB, mradermacher, MoE 3B active). Speed play \u2014 3B active parameters for fast decode. Same huihui-ai abliteration lineage. bench-huihui-qwen36-35b-a3b target. Was vanch007 (HF repo deleted); moved to mradermacher (same base, confirmed Q4_K_M file). Pull: ollama pull hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M",
+    "group": "general"
+  },
+  "omnicoder2:9b-q4_k_m": {
+    "notes": "V6 bench candidate (TASK_MODEL_REFRESH_V6). OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0). Qwen3.5-9B base, SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. v2 fixes v1's repetition loops, bloated thinking, agentic-loop instability. Installed as omnicoder2:9b-q4_k_m (Ollama registry alias). supports_tools=false until verified via tests/portal5_persona_matrix.py --audit-tools.",
+    "group": "coding"
+  },
+  "devstral:24b": {
+    "notes": "Mistral Devstral Small 1 (May 2025, 128K ctx). Note: prior label 'devstral-small-2' was incorrect \u2014 this entry is V1. See devstral-small-2 below for V2 (TASK_MODEL_REFRESH_V8 A10).",
+    "group": "coding"
+  },
+  "devstral-small-2": {
+    "notes": "Mistral Devstral Small 2 (Dec 2025, Apache 2.0, 24B, ~14GB Q4). V2 of devstral \u2014 256K ctx (+2x vs V1), vision added, improved SWE-bench. bench-devstral-small-2 target (TASK_MODEL_REFRESH_V8 A10). supports_tools=true per Mistral function-calling format; verify via --audit-tools.",
+    "group": "coding"
+  },
+  "laguna-xs.2:Q4_K_M": {
+    "notes": "Laguna XS.2 33B-A3B MoE Q4 (~19GB, Poolside AI, 68.2% SWE-bench Verified). PROMOTED 2026-06-20: auto-coding-agentic primary (opencode/Claude Code default). 2/2 security chain at 63s.",
+    "group": "coding"
+  },
+  "gpt-oss:20b": {
+    "notes": "~12GB \u2014 OpenAI open-weight MoE, o3-mini level, configurable thinking depth, designed for agent/tool use. supports_tools=true: audit-tools 2026-06-18 confirmed tool_call (was false from 2026-05-14 text_only \u2014 likely stale Ollama template).",
+    "group": "reasoning"
+  },
+  "phi4-reasoning:plus": {
+    "notes": "Phi-4-reasoning-plus Q4 (~8GB, Microsoft RL-trained, strong STEM/math).",
+    "group": "coding"
+  },
+  "qwen3-coder:30b-a3b-q4_K_M": {
+    "notes": "Qwen3-Coder 30B-A3B MoE Q4 (~19GB, Alibaba, auto-spl primary).",
+    "group": "coding"
+  },
+  "qwen3.6:27b-q4_K_M": {
+    "notes": "Qwen3.6-27B dense Q4 (~16GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 77.2% SWE-bench Verified. Official non-abliterated build. PROMOTED to auto-spl + auto-data production model_hint. supports_tools=true per Qwen3.6 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).",
+    "group": "coding"
+  },
+  "qwen3.6:35b-a3b-q4_K_M": {
+    "notes": "Qwen3.6-35B-A3B MoE Q4 (~22GB, Alibaba, April 2026, Apache 2.0, 262K ctx). 3B active \u2014 fast decode at 35B-class quality. PROMOTED to auto-compliance production model_hint. supports_tools=true per Qwen3.6 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).",
+    "group": "coding"
+  },
+  "hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M": {
+    "notes": "Nex-N2-mini UD-Q4_K_M (~22GB, Nex AGI, June 2026, Apache 2.0). Post-trained on Qwen3.5-35B-A3B-Base. 35B total / 3B active MoE. Multimodal (image+text). Agentic coding, tool use, function calling, reasoning traces. imatrix quant from sjakek community GGUF. bench-nex-n2-mini target (TASK_MODEL_REFRESH_V8 A16). supports_tools=true per Nex-N2 function-calling support; verify via --audit-tools.",
+    "group": "coding"
+  },
+  "qwen3-coder-next:latest": {
+    "notes": "Qwen3-Coder-Next (Alibaba, Feb 2026, Apache 2.0, 80B total / 3B active MoE, ~46GB Q4, 256K ctx). Novel hybrid architecture: Gated DeltaNet + Gated Attention + MoE. Non-reasoning for ultra-fast code responses. Agentic training on 800K executable tasks with RL. Fits 64GB unified memory (~18GB headroom). Fast TPS due to 3B active. Wires pre-existing bench-qwen3-coder-next workspace (TASK_MODEL_REFRESH_V8 A17). supports_tools=true: audit-tools 2026-06-21 confirmed tool_call (6.8s) \u2014 retest resolved prior 2026-06-18 ERROR (model had been evicted during that probe).",
+    "group": "coding"
+  },
+  "hf.co/bartowski/huihui-ai_Qwen3-Coder-Next-abliterated-GGUF:Q4_K_M": {
+    "notes": "Huihui-ai Qwen3-Coder-Next abliterated Q4_K_M (~46GB, bartowski GGUF, 74k downloads, Feb 2026). Abliterated Qwen3-Coder-Next \u2014 80B/3B MoE agentic coder without refusals. bench-qwen3-coder-next-abliterated target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=true per Qwen coding family (same architecture as production qwen3-coder-next).",
+    "group": "coding"
+  },
+  "hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M": {
+    "notes": "FastContext-1.0-4B-SFT Q4_K_M (~2.5GB, Microsoft arxiv:2606.14066, mitkox GGUF quant). Repository-exploration SUBAGENT: issues parallel READ/GLOB/GREP tool calls to locate relevant code, returns compact file+line citations. Reduces main-agent exploration token burn by ~50-60% on SWE-bench. Used by pipeline_mcp.explore_repository() \u2014 called by auto-coding-agentic before edits. NOT for direct workspace routing. supports_tools=true (READ/GLOB/GREP are its three native tools per paper). Pull: ollama pull hf.co/mitkox/FastContext-1.0-4B-SFT-Q4_K_M-GGUF:Q4_K_M",
+    "group": "coding"
+  },
+  "hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M": {
+    "notes": "Qwen3.6-27B Q4_K_M (~16GB, bartowski). Head-to-head vs bench-qwen36-27b (unsloth Q4_K_XL) \u2014 TASK_QUANT_TRUEUP_V1 Finding A. Originally catalogued as OptiQ variant; bartowski repo was renamed to Qwen_Qwen3.6-27B-GGUF (no separate OptiQ GGUF published). supports_tools=true per Qwen3.6 tool-call format. Pull: ollama pull hf.co/bartowski/Qwen_Qwen3.6-27B-GGUF:Q4_K_M",
+    "group": "coding"
+  },
+  "hf.co/Mia-AiLab/Qwable-3.6-35b:Qwable-3.6-35b_q4_k_m.gguf": {
+    "notes": "Qwable-3.6-35B MoE (~21GB, MIT). SUPERSEDED in bench chain and auto-pentest by gemma-4-abliterated:E2b-qat (2026-06-25). bench-exec-reasoning pipeline workspace target. Confirmed tool-use 2026-06-18.",
+    "group": "security"
+  },
+  "glm-4.7-flash:Q4_K_M": {
+    "notes": "GLM-4.7-Flash Q4_K_M (~13GB, ZhipuAI / Z.AI, MIT). 31B MoE, 4 experts/token (~3B active). 128K context. Diverse non-Meta/Qwen lineage. Coding quality 0.67 in bench 2026-06-21 (benchmark prompt style may not favour GLM chat template). Restored 2026-06-21: lineage diversity value; re-bench after template verification. DO NOT pull :math variant. bench-glm target.",
+    "group": "coding"
+  },
+  "hf.co/unsloth/GLM-4.7-Flash-REAP-23B-A3B-GGUF:UD-Q4_K_XL": {
+    "notes": "GLM-4.7-Flash REAP UD-Q4_K_XL (~14.2GB, unsloth, MIT). Same base as glm-4.7-flash but REAP (Refined Expert Activation Pruning) + Unsloth Dynamic imatrix. PROMOTED 2026-06-21: quality 1.00, 12.3 TPS in bench. auto-glm production workspace. Non-Meta/Qwen lineage diversity. supports_tools=true: audit-tools 2026-06-21 confirmed tool_call (13.6s).",
+    "group": "coding"
+  },
+  "hf.co/bartowski/THUDM_GLM-Z1-Rumination-32B-0414-GGUF:THUDM_GLM-Z1-Rumination-32B-0414-Q4_K_M.gguf": {
+    "notes": "GLM-Z1-Rumination-32B Q4_K_M (~20GB, THUDM/ZhipuAI). Cross-listed from ollama-coding for auto-glm-thinking workspace routing (groups reasoning+general). PROMOTED 2026-06-21: quality 1.00, 12.1 TPS. supports_tools=false: Ollama HTTP 400 \"does not support tools\" \u2014 confirmed by audit-tools 2026-06-21.",
+    "group": "reasoning"
+  },
+  "huihui_ai/baronllm-abliterated": {
+    "notes": "No-restrictions creative. Tool-calling confirmed 2026-06-20 via corrected template (TASK_TOOLCALL_FIX_LOCKIN_V1) \u2014 see the security-group entry and the P5-TOOL-001 resolution in KNOWN_LIMITATIONS.md.",
+    "group": "creative"
+  },
+  "sylink/sylink:8b": {
+    "notes": "SYLink 8B F16 (~16GB \u2014 only available quantization, Qwen3 8B base). Purpose-built for SOC triage, threat intel, ATT&CK mapping, incident response. Full MITRE ATT&CK claimed. auto-blueteam PRIMARY (SECURITY_FLEET_REVIEW_2026-06) \u2014 training is defensive/blue-team; chain depth 12 reflects multi-step SOC investigation patterns. Fleet bench 2026-06-20: 1.00/1.00 both scenarios, depth 12 (deepest 8B in fleet).",
+    "group": "security"
+  },
+  "supergemma4-26b-uncensored:Q4_K_M": {
+    "notes": "SuperGemma4 26B A4B MoE uncensored (~16GB). Abliterated Gemma4, tool-use capable. bench_security eval pending before final removal/promotion.",
+    "group": "reasoning"
+  },
+  "hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf": {
+    "notes": "Gemma 4 31B JANG_4M-CRACK abliterated+uncensored fine-tune (~20GB Q4_K_M, dealignai, Gemma license, 4M context, vision+text). douyamv community quant (33K downloads). audit-tools 2026-06-16: finish_reason=tool_calls confirmed. Pentest bench 0.933 vs supergemma4 0.867. PROMOTED to auto-pentest primary.",
+    "group": "vision"
+  },
+  "hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M": {
+    "notes": "VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base, ~4.4GB Q4_K_M). AppSec / code vulnerability specialist \u2014 CVE severity, CWE classification, vulnerable code patterns. Full-fleet bench 2026-06-20: 2/2 chain wins at 15s (fastest security-group winner). audit-tools 2026-06-20: tool_call confirmed. supports_tools=true (Qwen2.5-7B tool-call format). auto-security + auto-pentest co-primary (vuln depth complements baronllm domain breadth).",
+    "group": "security"
+  },
+  "huihui_ai/gemma-4-abliterated:E2b-qat": {
+    "notes": "Gemma4-E2B QAT abliterated (~3GB, huihui_ai, Gemma4 base). auto-pentest PRIMARY (promoted 2026-06-25) + bench-exec-exploit PRIMARY. Thinking model \u2014 strips <think> blocks in pipeline output. Head-to-head vs baronllm 2026-06-25 (stripped final answer): composite 0.70 vs 0.50, header 0.83 vs 0.50, MITRE 1.4 vs 0.5 avg, zero refusals/disclaimers. Exec chain: 80.0% EXPLOIT slot (108/135), 71.6 t/s, zero zero-tool chains. Replaces Qwable-35B in bench chain (21GB \u2192 3GB, +7.6pp) and baronllm on auto-pentest (8B \u2192 2B, +0.20 composite). audit-tools 2026-06-24: tool_call confirmed.",
+    "group": "security"
+  },
+  "devstral-small-2:latest": {
+    "notes": "Mistral Devstral Small 2 (~15GB). Agentic coding / software engineering model \u2014 cross-listed in security for deep chain workspaces (auto-purpleteam-deep, auto-redteam-deep) where its structured sequential planning discipline and depth 11 chains are assets. 15.5 TPS pipeline \u2014 below interactive floor; deep async use only. Run A 2026-06-21: 1.00/1.00 both scenarios, depth 11.0, 45s. Primary home: ollama-coding.",
+    "group": "security"
+  },
+  "deepseek-r1:32b-q4_k_m": {
+    "notes": "Primary: strong reasoning + chain-of-thought. Reasoning-trained, not tool-trained \u2014 supports_tools intentionally false to prevent reasoning-budget exhaustion mixing with tool-call rendering.",
+    "group": "reasoning"
+  },
+  "huihui_ai/tongyi-deepresearch-abliterated": {
+    "notes": "Verified tool-capable via --audit-tools 2026-05-04 (emitted tool_call). Abliterated Qwen3.5-abliterated lineage; tools tag confirmed.",
+    "group": "reasoning"
+  },
+  "granite4.1:30b": {
+    "notes": "IBM Granite 4.1 30B Q4_K_M (~17GB, 128K ctx, dense, no-think) \u2014 leaderboard #1 BFCL V3 (73.7) + IFEval 89.7. Apache 2.0, ISO-certified, cryptographic signatures. IBM Research lineage.",
+    "group": "reasoning"
+  },
+  "qwen3.6:27b-q8_0": {
+    "notes": "Qwen3.6-27B Q8_0 (~29GB, Alibaba, dense 27B, Apache 2.0). High-precision quality candidate for bench-qwen36-27b. Phase-5 MTP A/B base (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). bench-qwen36-27b re-pointed from abliterated variant to stock q8.",
+    "group": "reasoning"
+  },
+  "hf.co/Jackrong/Qwopus3.6-27B-v2-MTP-GGUF:Qwopus3.6-27B-v2-MTP-Q5_K_M.gguf": {
+    "notes": "Qwopus3.6-27B-v2 MTP Q5 (~19GB, Jackrong, self-speculative MTP decoding, auto-reasoning primary). Pull failed (hf.co repo not llama.cpp-compatible as of 2026-06-09) \u2014 auto-reasoning falls back to reasoning group models.",
+    "group": "reasoning"
+  },
+  "qwen3.6:27b-mtp-q4_K_M": {
+    "notes": "Qwen3.6-27B MTP Q4_K_M (~19GB, Alibaba, embedded MTP draft heads). Draft model for portal5/qwen3.6-27b-mtp:q8_0-drafted (TASK_MODEL_FLEET_REFRESH_V2 Phase 5). Pull: ollama pull qwen3.6:27b-mtp-q4_K_M before running ./launch.sh apply-mtp-drafts.",
+    "group": "reasoning"
+  },
+  "portal5/qwen3.6-27b-mtp:q8_0-drafted": {
+    "notes": "Created by ./launch.sh apply-mtp-drafts (TASK_MODEL_FLEET_REFRESH_V2 Phase 5). q8_0 base + mtp-q4_K_M draft via DRAFT directive. bench-qwen36-27b-mtp Phase-6 A/B target. NOT pre-pulled \u2014 run apply-mtp-drafts to create.",
+    "group": "reasoning"
+  },
+  "phi4-mini-reasoning": {
+    "notes": "Microsoft Phi-4-Mini-Reasoning (2025, MIT, 3.8B, ~2.5GB Q4, 128K ctx). RL-trained for math, formal proofs, symbolic computation. Beats 7B models on AIME/MATH-500/GPQA at 3.8B. bench-phi4-mini-reasoning target (TASK_MODEL_REFRESH_V8 A7). supports_tools=false (math reasoning specialist). DO NOT PULL :math variant \u2014 bench 2026-06-21 shows quality 0.50 vs base 1.00 at same TPS.",
+    "group": "reasoning"
+  },
+  "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL": {
+    "notes": "DeepSeek-R1-0528-Qwen3-8B Q4_K_XL (~5GB, MIT, Qwen3-8B base, May 2026). Chain-of-thought distill of DeepSeek R1-0528 into Qwen3 8B. Matches Qwen3-235B performance on AIME 2024 despite 8B parameters. Complements existing deepseek-r1:32b \u2014 smaller/faster reasoning tier at same TPS floor. bench-r1-0528-qwen3-8b target (TASK_MODEL_REFRESH_V8 A-r1-8b). supports_tools=false (reasoning model, chain-of-thought format).",
+    "group": "reasoning"
+  },
+  "hf.co/fdtn-ai/Foundation-Sec-8B-Reasoning-Q8_0-GGUF:Q8_0": {
+    "notes": "Foundation-Sec-8B-Reasoning Q8_0 (~8.5GB, 128K ctx, Cisco fdtn-ai, Llama-3.1-8B cybersec continued-pretrain + reasoning, Apache 2.0). Native <think>. MOVED from security group to reasoning (SECURITY_FLEET_REVIEW_2026-06) \u2014 training is security reasoning/analysis, not agentic tool-calling; 400 error on all tool probes confirmed in Run A 2026-06-21. Correctly serves auto-blueteam analytical work (DFIR, threat modeling, ATT&CK analysis) through reasoning group pathway. supports_tools=false.",
+    "group": "reasoning"
+  },
+  "qwen3-vl:32b": {
+    "notes": "Qwen3-VL family carries tools tag.",
+    "group": "vision"
+  },
+  "gemma4:e2b-it-qat": {
+    "notes": "Gemma 4 E2B QAT (~3GB, Apache 2.0, 128K ctx, audio+image+video+text, QAT near-BF16 quality at 4-bit, thinking mode, PLE: ~5.1B representational depth from 2.3B active). Fastest model in fleet by TPS. bench-gemma4-e2b target (TASK_MODEL_REFRESH_V8 A1). supports_tools=true per Gemma4 family; verify via --audit-tools before promotion.",
+    "group": "vision"
+  },
+  "gemma4:e4b-it-qat": {
+    "notes": "Gemma 4 E4B QAT (~5GB, Apache 2.0, 128K ctx, audio+image+video+text, QAT: near-BF16 quality at 4-bit). Quality upgrade vs gemma4:e4b-it-q4_K_M. bench-gemma4-e4b-qat target (TASK_MODEL_REFRESH_V8 A2). supports_tools=true per Gemma4 family; verify via --audit-tools before promotion.",
+    "group": "vision"
+  },
+  "gemma4:12b-it-qat": {
+    "notes": "Gemma 4 12B Unified QAT (~7GB, Apache 2.0, 256K ctx, encoder-free audio+image+text, QAT near-BF16, configurable thinking, native function calling). First encoder-free audio model in fleet. Released June 3, 2026. PROMOTED to auto-audio production model_hint. supports_tools=true per Gemma4 family; audit pending empirical confirmation (not yet run -- behavior consistent with tool use in production).",
+    "group": "vision"
+  },
+  "gemma4:31b-it-qat": {
+    "notes": "Gemma 4 31B Dense QAT (~18GB, Apache 2.0, 256K ctx, vision+text, QAT: near-BF16 quality). Quality 1.00 in bench 2026-06-21 (vs q4_K_M quality 0.00 \u2014 q4_K_M removed from ollama-general). In ollama-vision group; bench-gemma4-31b-qat workspace for explicit access. supports_tools=false until --audit-tools verification. (TASK_MODEL_REFRESH_V8 A5)",
+    "group": "vision"
+  },
+  "hermes3:8b": {
+    "notes": "NousResearch, long-form narrative coherence. Tools-tagged in Ollama (Hermes function-calling format).",
+    "group": "creative"
+  },
+  "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4": {
+    "notes": "Qwen3.6-35B-A3B HauhauCS uncensored Q4 (~22GB, fredrezones55, MoE 3B active). HauhauCS abliteration: 0/465 refusals, lowest KL-divergence, vision patched. bench-qwen36-hauhaucs creative/music candidate (TASK_MODEL_FLEET_REFRESH_V2 Phase 4). audit-tools 2026-06-20 (TASK_TOOLCALL_TEMPLATE_FIX_V1): tool_call \u2014 chain 12/8 unique, lcs_acc=1.00, WIN. Corrects 2026-06-18 no_tool result.",
+    "group": "creative"
+  },
+  "hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:Q4_K_M": {
+    "notes": "LFM2.5-8B-A1B Uncensored (gaston-parravicini, imatrix Q4_K_M, ~5GB, abliterated base: LiquidAI/LFM2.5-8B-A1B). Head-to-head vs production lfm2.5:8b for creative/music/agentic lanes. bench-lfm25-8b-uncensored target (TASK_MODEL_REFRESH_V8_UNCENSORED). supports_tools=false: audit-tools 2026-06-18 confirmed no_tool (empty content \u2014 production lfm2.5:8b is true; abliteration broke tool template).",
+    "group": "creative"
+  }
+}
