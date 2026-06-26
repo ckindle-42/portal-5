@@ -10,16 +10,10 @@ from portal_pipeline.cli._common import cross_reference_workspaces_and_models
 from portal_pipeline.config import load_portal_config
 
 
-@pytest.mark.xfail(
-    reason="18 workspace model_hint values reference hf.co/ models not yet in portal.yaml:models. "
-    "Operator: add these entries to the models: block or mark as intentionally-pullable-later."
-)
 def test_no_orphan_workspace_hints() -> None:
-    """Every workspace model_hint that looks pullable must have a
-    matching ollama_name in the models registry.
-
-    Native Ollama tags (`granite4.1:8b` etc.) are excluded by the
-    heuristic in cross_reference_workspaces_and_models.
+    """Every workspace model_hint that could be served by the registry
+    must round-trip cleanly. ``hf.co/...`` references are Ollama-native
+    and outside the cross-reference scope.
     """
     cfg = load_portal_config()
     report = cross_reference_workspaces_and_models(cfg)
