@@ -43,28 +43,15 @@ from typing import Any
 
 import httpx
 
+from portal_pipeline.config import get_pipeline_mcp_servers, load_portal_config
+
 logger = logging.getLogger(__name__)
 
-# MCP server base URLs — env-overridable for development
-MCP_SERVERS: dict[str, str] = {
-    "documents": os.environ.get("MCP_DOCUMENTS_URL", "http://localhost:8913"),
-    "execution": os.environ.get("MCP_EXECUTION_URL", "http://localhost:8914"),
-    "security": os.environ.get("MCP_SECURITY_URL", "http://localhost:8919"),
-    "comfyui": os.environ.get("MCP_COMFYUI_URL", "http://localhost:8910"),
-    "music": os.environ.get("MCP_MUSIC_URL", "http://localhost:8912"),
-    "video": os.environ.get("MCP_VIDEO_URL", "http://localhost:8911"),
-    "whisper": os.environ.get("MCP_WHISPER_URL", "http://localhost:8915"),
-    "mlx_transcribe": os.environ.get("MCP_MLX_TRANSCRIBE_URL", "http://localhost:8924"),
-    "tts": os.environ.get("MCP_TTS_URL", "http://localhost:8916"),
-    # M3 additions:
-    "research": os.environ.get("MCP_RESEARCH_URL", "http://localhost:8922"),
-    "memory": os.environ.get("MCP_MEMORY_URL", "http://localhost:8920"),
-    "rag": os.environ.get("MCP_RAG_URL", "http://localhost:8921"),
-    "cad_render": os.environ.get("MCP_CAD_RENDER_URL", "http://localhost:8926"),
-    # Host-native pipeline-introspection MCP (coding tools): exposes
-    # explore_repository (FastContext subagent), list_workspaces, etc.
-    "pipeline": os.environ.get("MCP_PIPELINE_URL", "http://localhost:8928"),
-}
+# MCP server base URLs — derived from portal.yaml fleet table (M1 migration).
+# Env vars MCP_<ID_UPPER>_URL still override individual entries as before.
+# The hand-maintained dict below was replaced by the fleet table in portal.yaml;
+# this one-liner produces the identical runtime value.
+MCP_SERVERS: dict[str, str] = get_pipeline_mcp_servers(load_portal_config())
 
 TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
