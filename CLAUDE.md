@@ -52,6 +52,7 @@ portal-5/
 │   │   ├── thinking.py           # Shared <think>…</think> strip + reasoning passthrough
 │   │   ├── tools.py              # MCP tool dispatch (_dispatch_tool_call)
 │   │   └── workspaces.py         # WORKSPACES dict, persona map, workspace tool helpers
+│   ├── cli.py                    # Typed operator CLI (portal config show, …) — entry: portal
 │   ├── tool_registry.py          # Tool discovery (polls MCP /tools), advertisement, dispatch
 │   └── notifications/            # Operational alerts + daily summaries
 │       ├── dispatcher.py         # Event bus: fans out to all configured channels
@@ -78,6 +79,17 @@ portal-5/
 ├── deploy/portal-5/
 │   └── docker-compose.yml        # THE launch definition — all services
 ├── scripts/
+│   ├── lib/                      # Shell function libraries sourced by launch.sh dispatcher
+│   │   ├── util.sh               # Shared utilities (color, env, health checks)
+│   │   ├── models.sh             # Model pull/refresh/import wrappers
+│   │   ├── services.sh           # Service start/stop/status wrappers
+│   │   ├── lab.sh                # Lab-exec wrappers
+│   │   ├── backup.sh             # Backup/restore wrappers
+│   │   └── users.sh              # User management wrappers
+│   ├── ci/                       # Pre-commit CI guard scripts
+│   │   ├── check_generated_fresh.py       # Fail if sync-config produces a diff
+│   │   ├── check_no_identical_sources.py  # Warn on deploy/↔portal_mcp/ duplicates
+│   │   └── check_pyproject_no_dup.py      # Fail on duplicate dep pins
 │   ├── openwebui_init.py         # Auto-seeds Open WebUI on first fresh volume
 │   ├── mlx-speech.py             # Host-native MLX speech server (TTS + ASR, port :8918)
 │   ├── embedding-server.py       # Host-native ARM64 embedding server (fallback)
@@ -86,10 +98,12 @@ portal-5/
 │   └── ...                       # See scripts/ for full list
 ├── tests/
 │   ├── unit/                     # pytest unit tests — no Docker required
+│   ├── acceptance/               # Acceptance test section modules (s*.py) + shared infra
+│   ├── uat/                      # UAT driver modules (runner/cli/browser/grading/results)
 │   └── benchmarks/               # Inference benchmarks (Ollama TPS, positional recall, coding shootout)
 ├── Dockerfile.pipeline           # Lean image for portal-pipeline service
 ├── Dockerfile.mcp                # Image for all portal_mcp services
-├── launch.sh                     # Single entry point (30+ commands)
+├── launch.sh                     # Thin dispatcher — sources scripts/lib/*.sh, delegates to portal CLI
 └── .env.example                  # All configurable values with defaults
 ```
 
@@ -108,6 +122,7 @@ portal-5/
 | **Python** | 3.10+ required | pyproject.toml requires-python >= 3.10 |
 | **Framework** | FastAPI + Pydantic v2 | Async throughout |
 | **Launch** | `./launch.sh up` | Never `docker compose up` directly |
+| **Operator CLI** | `portal config show` | Typed CLI; `portal_pipeline/cli.py`; installed via `[project.scripts]` |
 
 ---
 
@@ -230,7 +245,8 @@ User-uploaded files and cross-MCP artifacts live at `${AI_OUTPUT_DIR}` (default 
 - No test may call a real Ollama, real Open WebUI, or real Docker
 - Use `tmp_path` fixtures for file I/O
 - Mock `httpx.AsyncClient` for all HTTP calls
-- Run before every commit: `pytest tests/ -v --tb=short && ruff check . && ruff format --check .`
+- Run before every commit: `pytest tests/unit/ -q && ruff check . && ruff format --check .`
+- Pre-commit hooks (`.pre-commit-config.yaml`) enforce: ruff lint+format, generated-artifact freshness (`sync-config` idempotent), no duplicate dep pins. Install once: `pip install pre-commit && pre-commit install`.
 - **Any change touching `portal_pipeline/router/streaming.py` or the streaming paths of `router_pipe.py` MUST run `./scripts/smoke_stream.sh` against the live stack before commit** — unit mocks cannot detect dependency-contract mismatches (FX1, `34be1eb`). Also runs as part of `./launch.sh test`.
 
 ### Pre-Testing: Always Verify Code Freshness
