@@ -197,7 +197,8 @@ async def run() -> None:
     t0 = time.time()
     try:
         import os, tempfile as _tf  # noqa: E401
-        if not os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        _prom = os.environ.get("PROMETHEUS_MULTIPROC_DIR", "")
+        if not _prom or not os.path.isdir(_prom):
             _mp = _tf.mkdtemp(prefix="portal5_acceptance_metrics_")
             os.environ["PROMETHEUS_MULTIPROC_DIR"] = _mp
         from portal_pipeline.cluster_backends import BackendRegistry
