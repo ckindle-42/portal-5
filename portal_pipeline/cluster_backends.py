@@ -595,9 +595,9 @@ class BackendRegistry:
                 import portal_pipeline.router.concurrency as _conc
                 _conc._last_memory_pct = _mem
             except Exception:
-                pass
+                pass  # concurrency gate update is best-effort; poller continues
         except Exception:
-            pass
+            logger.debug("Memory poller error — skipping this tick", exc_info=True)
 
     async def _check_one(
         self,

@@ -163,6 +163,11 @@ _mp_registry_dir_cache: str | None = None
 # so existing callers compile unchanged.
 import portal_pipeline.router.concurrency as _concurrency_mod  # noqa: E402
 import portal_pipeline.router.streaming as _streaming_mod  # noqa: E402
+from portal_pipeline.router.anthropic_compat import (  # noqa: E402
+    anthropic_to_openai_body,
+    openai_response_to_anthropic,
+    openai_stream_to_anthropic_sse,
+)
 from portal_pipeline.router.concurrency import (  # noqa: E402, F401  (facade re-export)
     _MAX_CONCURRENT,
     _SEMAPHORE_TIMEOUT,
@@ -244,11 +249,6 @@ from portal_pipeline.router.workspaces import (  # noqa: E402
     WORKSPACES,
     _resolve_persona_tools,
     _workspace_tools,  # noqa: F401 — re-exported for tests and external callers
-)
-from portal_pipeline.router.anthropic_compat import (  # noqa: E402
-    anthropic_to_openai_body,
-    openai_response_to_anthropic,
-    openai_stream_to_anthropic_sse,
 )
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")

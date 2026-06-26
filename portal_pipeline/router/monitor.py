@@ -94,7 +94,7 @@ def memory_pct() -> float:
         if total > 0:
             return round((active + wired) / total * 100, 1)
     except Exception:
-        pass
+        pass  # sysctl unavailable (Linux / permission) — caller gets 0.0
     return 0.0
 
 
@@ -175,7 +175,7 @@ def restart_ollama(ollama_url: str = DEFAULT_OLLAMA_URL) -> bool:
                 print("  [metal] Ollama back healthy after restart", flush=True)
                 return True
         except Exception:
-            pass
+            pass  # Ollama not yet up — poll loop continues until 30 s deadline
         time.sleep(2.0)
     print("  [metal] Ollama did not recover within 30s", flush=True)
     return False
@@ -336,7 +336,7 @@ async def wait_for_model_loaded(
             if r.status_code == 200 and r.json().get("models"):
                 return True
         except Exception:
-            pass
+            pass  # Ollama not yet responding — poll loop continues
         remaining = int(deadline - time.time())
         if remaining > 0:
             await _asyncio.sleep(min(poll_s, remaining))

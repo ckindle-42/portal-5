@@ -102,7 +102,7 @@ def emit_workspace_routing(config: Any) -> bool:
 
     # Build new workspace_routing block
     routing_lines: list[str] = ["workspace_routing:"]
-    for ws_id, spec in config.workspaces.items():
+    for ws_id, _spec in config.workspaces.items():
         routing_lines.append(f"  {ws_id}:")
         # Look up backend groups from current backends.yaml (preserve existing routing)
         # We need the routing groups from the current file; this is a round-trip.
@@ -178,7 +178,7 @@ def emit_mcp_json(config: Any) -> bool:
 def emit_opencode_picker(config: Any) -> bool:
     """Update the models block in opencode.jsonc with curated workspace subset. Returns True if changed."""
     oc_path = REPO / "opencode.jsonc"
-    original = oc_path.read_text(encoding="utf-8")
+    oc_path.read_text(encoding="utf-8")  # read to confirm file exists
 
     # Curated subset: auto-* non-bench workspaces that aren't security-offensive
     # or very specialised.  The full list is always available via `opencode models`.
