@@ -213,30 +213,17 @@ workspace_routing:
   - security
   - coding
   - general
-  auto-agentic:
-  - coding
+  auto-extract-uncensored:
   - general
-  auto-agentic-lite:
+  - creative
+  auto-general-uncensored:
   - general
-  - coding
-  auto-audio:
-  - vision
-  - general
-  auto-bigfix:
-  - security
-  - coding
-  - general
-  auto-blueteam:
-  - reasoning
+  auto-security-uncensored:
   - security
   - general
-  auto-cad:
-  - coding
+  auto-daily:
   - general
   auto-coding:
-  - coding
-  - general
-  auto-coding-agentic:
   - coding
   - general
   auto-coding-uncensored:
@@ -245,54 +232,23 @@ workspace_routing:
   auto-coding-uncensored-agentic:
   - coding
   - general
-  auto-compliance:
-  - reasoning
-  - general
-  auto-creative:
-  - creative
-  - general
-  auto-daily:
-  - general
-  auto-data:
-  - reasoning
-  - general
-  auto-devstral:
+  auto-coding-agentic:
   - coding
   - general
-  auto-documents:
-  - general
-  - coding
-  auto-extract-uncensored:
-  - general
-  - creative
-  auto-gemma-e4b:
-  - general
-  - vision
-  auto-gemma-fast:
-  - general
-  - vision
-  auto-gemma-vision:
-  - vision
-  - general
-  auto-general-uncensored:
-  - general
-  auto-glm:
+  auto-agentic:
   - coding
   - general
-  auto-glm-thinking:
-  - reasoning
+  auto-agentic-lite:
   - general
-  auto-math:
-  - reasoning
+  - coding
+  auto-spl:
+  - coding
   - general
-  auto-mistral:
-  - general
-  auto-music:
-  - general
-  auto-pentest:
+  auto-security:
   - security
-  auto-phi4:
-  - coding
+  - general
+  auto-redteam:
+  - security
   - general
   auto-purpleteam:
   - security
@@ -305,129 +261,88 @@ workspace_routing:
   - security
   - coding
   - general
+  auto-redteam-deep:
+  - security
+  - general
+  auto-pentest:
+  - security
+  auto-blueteam:
+  - reasoning
+  - security
+  - general
+  auto-bigfix:
+  - security
+  - coding
+  - general
+  tools-specialist:
+  - general
+  auto-creative:
+  - creative
+  - general
   auto-reasoning:
   - reasoning
   - general
-  auto-redteam:
-  - security
+  auto-documents:
   - general
-  auto-redteam-deep:
-  - security
+  - coding
+  auto-video:
+  - general
+  auto-music:
   - general
   auto-research:
   - reasoning
   - general
-  auto-security:
-  - security
-  - general
-  auto-security-uncensored:
-  - security
-  - general
-  auto-spl:
-  - coding
-  - general
-  auto-video:
-  - general
   auto-vision:
   - vision
   - general
-  bench-agentworld:
-  - general
-  - coding
-  bench-devstral:
-  - coding
-  - general
-  bench-devstral-small-2:
-  - coding
-  - general
-  bench-e2b-pentest:
-  - security
-  bench-exec-exploit:
-  - security
-  bench-exec-reasoning:
-  - security
-  bench-exec-recon:
-  - security
-  bench-fastcontext:
-  - coding
-  - general
-  bench-gemma4-12b:
-  - vision
-  - general
-  bench-gemma4-26b-optiq:
-  - vision
-  - general
-  bench-gemma4-26b-qat:
-  - vision
-  - general
-  bench-gemma4-31b-crack:
-  - vision
-  - general
-  bench-gemma4-31b-qat:
-  - vision
-  - general
-  bench-gemma4-e2b:
-  - vision
-  - general
-  bench-gemma4-e4b:
-  - general
-  bench-gemma4-e4b-qat:
-  - vision
-  - general
-  bench-glm:
-  - coding
-  - general
-  bench-glm-reap:
-  - coding
-  - general
-  bench-glm-z1-rumination:
+  auto-data:
   - reasoning
+  - general
+  auto-compliance:
+  - reasoning
+  - general
+  auto-mistral:
+  - general
+  auto-math:
+  - reasoning
+  - general
+  auto-phi4:
+  - coding
+  - general
+  auto-glm:
+  - coding
+  - general
+  auto-glm-thinking:
+  - reasoning
+  - general
+  auto-gemma-fast:
+  - general
+  - vision
+  auto-gemma-e4b:
+  - general
+  - vision
+  auto-devstral:
+  - coding
+  - general
+  auto-gemma-vision:
+  - vision
+  - general
+  auto-audio:
+  - vision
+  - general
+  bench-qwen3-coder-30b:
   - coding
   - general
   bench-gptoss:
   - reasoning
   - general
-  bench-granite41-30b:
-  - reasoning
-  - general
-  bench-granite41-8b:
-  - general
-  bench-huihui-qwen36-27b:
-  - general
-  bench-huihui-qwen36-35b-a3b:
-  - general
-  - creative
   bench-laguna:
   - coding
   - general
-  bench-lfm-micro-1p2b:
+  bench-granite41-8b:
   - general
-  bench-lfm-micro-230m:
-  - general
-  bench-lfm-micro-350m:
-  - general
-  bench-lfm25-8b:
-  - general
-  bench-lfm25-8b-uncensored:
-  - creative
-  - general
-  bench-nex-n2-mini:
-  - coding
-  - general
-  bench-omnicoder2:
-  - coding
-  - general
-  bench-qwable-35b:
-  - security
-  - general
-  bench-qwen3-coder-30b:
-  - coding
-  - general
-  bench-qwen3-coder-next:
-  - coding
-  - general
-  bench-qwen3-coder-next-abliterated:
-  - coding
+  bench-granite41-30b:
+  - reasoning
   - general
   bench-qwen35-abliterated:
   - general
@@ -439,14 +354,19 @@ workspace_routing:
   - reasoning
   - coding
   - general
-  bench-qwen36-27b-optiq:
-  - general
+  bench-qwen36-35b-a3b:
   - coding
+  - general
+  bench-omnicoder2:
+  - coding
+  - general
   bench-qwen36-27b-ud:
   - coding
   - general
-  bench-qwen36-35b-a3b:
-  - coding
+  bench-gemma4-26b-optiq:
+  - vision
+  - general
+  bench-huihui-qwen36-27b:
   - general
   bench-qwen36-35b-a3b-ud:
   - coding
@@ -454,8 +374,69 @@ workspace_routing:
   bench-qwen36-hauhaucs:
   - creative
   - general
+  bench-gemma4-12b:
+  - vision
+  - general
+  bench-gemma4-e4b:
+  - general
+  bench-gemma4-e2b:
+  - vision
+  - general
+  bench-gemma4-e4b-qat:
+  - vision
+  - general
+  bench-gemma4-26b-qat:
+  - vision
+  - general
+  bench-gemma4-31b-qat:
+  - vision
+  - general
+  bench-gemma4-31b-crack:
+  - vision
+  - general
+  bench-lfm25-8b:
+  - general
+  bench-devstral-small-2:
+  - coding
+  - general
+  bench-nex-n2-mini:
+  - coding
+  - general
+  bench-qwen3-coder-next:
+  - coding
+  - general
+  bench-lfm25-8b-uncensored:
+  - creative
+  - general
+  bench-qwen3-coder-next-abliterated:
+  - coding
+  - general
+  bench-e2b-pentest:
+  - security
+  bench-qwable-35b:
+  - security
+  - general
+  bench-fastcontext:
+  - coding
+  - general
+  bench-devstral:
+  - coding
+  - general
   bench-qwopus-coder-mtp-v2:
   - reasoning
+  - coding
+  - general
+  bench-glm:
+  - coding
+  - general
+  bench-glm-reap:
+  - coding
+  - general
+  bench-glm-z1-rumination:
+  - reasoning
+  - coding
+  - general
+  auto-cad:
   - coding
   - general
   bench-supergemma4-sec:
@@ -468,5 +449,24 @@ workspace_routing:
   bench-vulnllm-r7b:
   - security
   - general
-  tools-specialist:
+  bench-huihui-qwen36-35b-a3b:
   - general
+  - creative
+  bench-qwen36-27b-optiq:
+  - general
+  - coding
+  bench-exec-recon:
+  - security
+  bench-exec-reasoning:
+  - security
+  bench-exec-exploit:
+  - security
+  bench-lfm-micro-230m:
+  - general
+  bench-lfm-micro-350m:
+  - general
+  bench-lfm-micro-1p2b:
+  - general
+  bench-agentworld:
+  - general
+  - coding
