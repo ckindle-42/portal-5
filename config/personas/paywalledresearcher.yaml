@@ -24,17 +24,6 @@ system_prompt: |
   - Say so clearly
   - Direct the user to the open-access alternatives above by name and URL
   - Never fabricate paper content or citations
-browser_policy:
-  allowed_domains:
-    - acm.org
-    - ieee.org
-    - jstor.org
-    - arxiv.org
-    - semanticscholar.org
-    - scholar.google.com
-  default_profile: research_academic
-  force_credential_fill: false
-  max_navigations_per_session: 30
 description: "Research behind academic paywalls using saved login sessions"
 tags:
   - research

@@ -13,25 +13,21 @@ The pipeline's "what should I do?" decisions live here:
   ``./launch.sh sync-config``; CLAUDE.md §6). Workspaces prefixed
   ``bench-`` are user-pickable but excluded from auto-routing.
 
-* ``_PERSONA_MAP`` — slug → persona YAML dict for every file under
-  ``config/personas/``. Populated **at import time** by
-  ``_load_persona_map()``. The pipeline indexes this by the persona
+* ``_PERSONA_MAP`` — slug → :class:`~portal_pipeline.config.PersonaSpec`
+  for every file under ``config/personas/``. Populated **at import time**
+  by ``_load_persona_map()``. The pipeline indexes this by the persona
   slug taken from the chat-completion request.
 
 * ``_resolve_persona_tools`` — combines a persona's optional
   ``tools_allow``/``tools_deny`` with the workspace default to produce
-  the effective tool list for one request. This is the policy gate
-  before ``tool_registry.get_openai_tools`` is asked to advertise
-  anything to the model.
-
-* ``_resolve_persona_browser_policy`` — defined but **currently has no
-  callers in the active codebase**. Documented here for completeness;
-  see its own docstring for the intended consumer.
+  the effective tool list for one request. Delegates to
+  :func:`~portal_pipeline.config.resolve_preset_tools`.
 
 Import-time side effects:
 
-1. ``_load_persona_map()`` reads every ``*.yaml`` under
-   ``<repo>/config/personas/`` — one-time cost, fine in production.
+1. ``_load_persona_map()`` populates ``_PERSONA_MAP`` via
+   ``portal_pipeline.config.load_persona_map()`` — one-time cost at
+   pipeline start, fine in production.
 2. ``WORKSPACES`` is populated by calling
    :func:`portal_pipeline.config.load_portal_config`, which validates
    ``config/portal.yaml`` and fails loud on schema errors.
@@ -163,46 +159,3 @@ def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> li
     return sorted(effective - deny)
 
 
-def _resolve_persona_browser_policy(persona: dict) -> dict:
-    """Return the persona's browser policy dict with defaults applied.
-
-    **Currently has no callers in the active codebase.** The intended
-    consumer is the Playwright-backed browser MCP at port 8923, which
-    expects allowlist / blocklist / profile / credential-fill policy
-    on a per-persona basis (see ``portal_mcp/browser/browser_mcp.py``
-    for the corresponding enforcement side). The wiring that would
-    pass this through the pipeline to that MCP is not present at
-    HEAD. Persona YAMLs do declare ``browser_policy:`` blocks, so the
-    persona-side data shape is in place; only the request-time
-    plumbing is missing.
-
-    Treat as documentation of the intended shape until the wiring
-    lands. Do not delete: removing it would also remove the canonical
-    record of what fields a persona's ``browser_policy`` may declare.
-
-    Field defaults applied for missing keys:
-
-    * ``allowed_domains``                — ``[]`` (open by default;
-      browser MCP's own ``PLAYWRIGHT_MCP_BLOCKED_ORIGINS`` env still
-      applies).
-    * ``blocked_domains``                — ``[]``.
-    * ``default_profile``                — ``"_isolated"``
-      (ephemeral, cookies discarded).
-    * ``force_credential_fill``          — ``False``.
-    * ``max_navigations_per_session``    — ``50``.
-
-    Args:
-        persona: Persona YAML dict; ``persona.browser_policy`` (if
-            present) is consulted, otherwise defaults are returned.
-
-    Returns:
-        A fully-populated policy dict with the five fields above.
-    """
-    bp = persona.get("browser_policy", {}) or {}
-    return {
-        "allowed_domains": bp.get("allowed_domains") or [],
-        "blocked_domains": bp.get("blocked_domains") or [],
-        "default_profile": bp.get("default_profile", "_isolated"),
-        "force_credential_fill": bp.get("force_credential_fill", False),
-        "max_navigations_per_session": bp.get("max_navigations_per_session", 50),
-    }

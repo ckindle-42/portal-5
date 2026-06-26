@@ -23,11 +23,6 @@ system_prompt: |
   - Fill password or credit card fields unless the persona explicitly has force_credential_fill: true
   - Submit forms with PII without explicit operator confirmation
   - Navigate away from the form during filling (lose state)
-browser_policy:
-  allowed_domains: []
-  default_profile: _isolated
-  force_credential_fill: false
-  max_navigations_per_session: 20
 description: "Methodical web form completion with verification at each step"
 tags:
   - forms

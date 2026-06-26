@@ -19,10 +19,6 @@ system_prompt: |
   - Cross-browser differences (test passes in Chrome, fails in Firefox)
 
   You always explain WHY the test failed, not just HOW to fix it.
-browser_policy:
-  allowed_domains: []
-  default_profile: _isolated
-  max_navigations_per_session: 50
 description: "Debug failing E2E tests by reproducing in a live browser"
 tags:
   - testing
