@@ -5,13 +5,10 @@
 `auto-audio` workspace. **bench-* workspaces are out of acceptance scope by
 design** — full-catalog routing + TPS is `bench_tps.py`'s job.
 
-**Current coverage (as of 2026-06-20):** 35 production workspaces total.
-S3a tests 22 via `WORKSPACE_PROMPTS`; S6 adds auto-redteam-deep/auto-pentest/
-auto-purpleteam-exec; S17 adds auto-cad. **9 production workspaces have no
-acceptance coverage yet:** `auto-bigfix`, `auto-coding-uncensored`,
-`auto-coding-uncensored-agentic`, `auto-extract-uncensored`,
-`auto-general-uncensored`, `auto-phi4`, `auto-purpleteam`, `auto-purpleteam-deep`,
-`auto-security-uncensored` — add prompts to `WORKSPACE_PROMPTS` to close the gap.
+**Current coverage (as of 2026-06-26):** all 35 production workspaces are covered.
+S3a tests 31 via `WORKSPACE_PROMPTS`; S6 adds auto-redteam-deep/auto-pentest/
+auto-purpleteam/auto-purpleteam-deep/auto-purpleteam-exec/auto-security-uncensored;
+S17 adds auto-cad.
 
 The acceptance suite is not a benchmark and asserts no TPS/perf numbers anywhere.
 Missing-import runtime defects in the decomposed section files were fixed
