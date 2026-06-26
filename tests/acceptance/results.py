@@ -7,11 +7,16 @@ from tests.lib.results import *  # noqa: F401, F403
 from tests.lib.results import (  # noqa: F401 — explicit for static checkers
     R,
     _ICON,
+    _PROGRESS_LOG,
     _ROUTING_LOG,
     _blocked,
     _classify,
     _emit,
     _git_sha,
+    _load_prior_results,
     _log,
+    _print_routing_summary,
+    _verbose,
+    _write_results,
     record,
 )
