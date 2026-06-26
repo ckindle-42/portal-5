@@ -48,58 +48,33 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 from typing import Any
 
-from portal_pipeline.config import get_workspace_dict, load_portal_config
+from portal_pipeline.config import (
+    PersonaSpec,
+    get_workspace_dict,
+    load_persona_map,
+    load_portal_config,
+    resolve_preset_tools,
+)
 
 logger = logging.getLogger(__name__)
 
 # ── Persona map (for tool whitelist resolution) ─────────────────────────────
-_PERSONA_MAP: dict[str, dict[str, Any]] = {}
+# Loaded at import time via the typed loader in portal_pipeline.config.
+# Keys are persona slugs; values are PersonaSpec instances.
+_PERSONA_MAP: dict[str, PersonaSpec] = {}  # type: ignore[assignment]
 
 
 def _load_persona_map() -> None:
-    """Populate ``_PERSONA_MAP`` from every ``*.yaml`` under ``config/personas/``.
+    """Populate ``_PERSONA_MAP`` from the typed PersonaSpec loader.
 
-    Called exactly once, at module import time (line 40). The pipeline
-    has no hot-reload path for personas — operator workflow is to edit
-    YAML and restart the pipeline container.
-
-    Each file is keyed in ``_PERSONA_MAP`` by its ``slug:`` field if
-    present, otherwise by the filename stem. The fallback exists so a
-    persona YAML missing a ``slug:`` line still loads instead of
-    failing silently.
-
-    Failure modes — all logged, never raised:
-
-    * ``config/personas/`` directory missing → silent return; the
-      registry stays empty.
-    * Top-level YAML error → logged warning; no personas load.
-    * One file invalid → debug log for that file; surrounding files
-      still load.
-
-    The pipeline must reach a serving state even with a broken
-    persona catalog so operators can fix YAML without a manual
-    process bounce. Same "graceful empty" pattern as
-    ``cluster_backends._load_config``.
+    Wraps ``portal_pipeline.config.load_persona_map()`` so the module-level
+    dict is populated at import time with the same graceful-empty semantics
+    as the legacy loader (missing directory → silent return).
     """
     global _PERSONA_MAP
-    personas_dir = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
-    if not personas_dir.is_dir():
-        return
-    try:
-        import yaml  # noqa: F811 — pyyaml is a pipeline dependency
-
-        for yf in sorted(personas_dir.glob("*.yaml")):
-            try:
-                data = yaml.safe_load(yf.read_text()) or {}
-                slug = data.get("slug", yf.stem)
-                _PERSONA_MAP[slug] = data
-            except Exception as e:
-                logger.debug("Failed to load persona %s: %s", yf, e)
-    except Exception as e:
-        logger.warning("Failed to load persona map: %s", e)
+    _PERSONA_MAP.update(load_persona_map())  # type: ignore[arg-type]
 
 
 _load_persona_map()
@@ -164,39 +139,28 @@ def _workspace_tools(workspace_id: str) -> list[str]:
     return WORKSPACES.get(workspace_id, {}).get("tools", [])
 
 
-def _resolve_persona_tools(persona: dict, workspace_id: str) -> list[str]:
+def _resolve_persona_tools(persona: PersonaSpec | dict, workspace_id: str) -> list[str]:
     """Resolve the effective tool list for one persona × workspace pair.
 
-    This is the **least-privilege policy gate** for tool calling. The
-    workspace declares a default "what tools are reasonable here"; the
-    persona refines it per the YAML's ``tools_allow``/``tools_deny``
-    fields. Resolution rules:
+    Delegates to ``portal_pipeline.config.resolve_preset_tools`` — the single
+    tool-resolution path. Accepts both ``PersonaSpec`` (typed path) and legacy
+    ``dict`` (used by callers that still hold raw YAML) for backward compat.
 
-    1. ``tools_allow`` **absent** from the persona dict (or ``None``)
-       → use the workspace default tools unchanged.
-    2. ``tools_allow`` **present with an explicit list** (even ``[]``)
-       → that exact set **replaces** the workspace default.
-       ``tools_allow: []`` means *no tools at all*.
-    3. ``tools_deny`` then strips anything from the result.
+    Resolution:
+    1. ``tools_allow`` absent (``None``) → use workspace default unchanged.
+    2. ``tools_allow`` present (even ``[]``) → replaces workspace default.
+    3. ``tools_deny`` removes any matching entries.
 
-    Args:
-        persona: The persona YAML dict from ``_PERSONA_MAP``. An empty
-            dict (the standard fallback for unknown personas) yields
-            the workspace default unchanged because ``get("tools_allow", None)``
-            returns ``None``.
-        workspace_id: Workspace key for the default fallback; unknown
-            ids contribute ``[]`` as the base.
-
-    Returns:
-        Sorted, deduplicated tool names. Sorted alphabetically for
-        determinism in caching, tests, and logs; downstream
-        ``tool_registry.get_openai_tools`` preserves whatever order it
-        receives.
+    Returns sorted, deduplicated tool names.
     """
+    ws_tools = _workspace_tools(workspace_id)
+    if isinstance(persona, PersonaSpec):
+        return resolve_preset_tools(persona, ws_tools)
+    # Legacy dict path (still used by router_pipe direct dict lookups)
     raw_allow = persona.get("tools_allow")
-    persona_deny = set(persona.get("tools_deny", []) or [])
-    effective = set(_workspace_tools(workspace_id)) if raw_allow is None else set(raw_allow)
-    return sorted(effective - persona_deny)
+    deny = set(persona.get("tools_deny", []) or [])
+    effective = set(ws_tools) if raw_allow is None else set(raw_allow)
+    return sorted(effective - deny)
 
 
 def _resolve_persona_browser_policy(persona: dict) -> dict:
