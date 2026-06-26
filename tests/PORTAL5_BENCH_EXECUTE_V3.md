@@ -4,13 +4,9 @@ Run the Portal 5 comprehensive TPS benchmark suite (Ollama-only). The live
 stack is expected to be running when you begin. At the end, update the
 Grafana benchmarks dashboard with the results and commit them.
 
-Current scale (verify with the dry-run plan — counts are config-driven and
-drift): **78 workspaces total (35 production auto- + 43 bench-), 0 pipeline_bench_skip,
-144 personas**. Speech bench workspaces (`bench-voxtral-realtime`, `bench-voxtral-tts`,
-`bench-granite-speech`) were pruned in 2026-06-20 workspace cleanup — they no longer exist.
-OCR workspaces (`bench-nanonets-ocr2`, `bench-olmocr2`) remain in the skip list only if
-re-added; currently `pipeline_bench_skip: []`. Always confirm with `--dry-run` before a
-long run — these counts drift as workspaces are added/pruned.
+Current scale (verified 2026-06-26 @ HEAD — counts are config-driven and
+drift; always confirm with `--dry-run`): **90 workspaces total (42 production
+auto- + 48 bench-), 0 pipeline_bench_skip, 130 personas**.
 `bench_tps.py` is the sole TPS instrument for the platform — the
 acceptance and UAT suites assert no performance numbers.
 

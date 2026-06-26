@@ -10,8 +10,8 @@ fixture. Behavioral assertions (not signal-string matching) determine
 pass/warn/fail per cell. Output is a JSON matrix plus a console summary.
 
 This is V1. Companion to:
-- `PORTAL5_ACCEPTANCE_EXECUTE_V6.md` (pipeline-routed acceptance)
-- `PORTAL5_UAT_EXECUTE_V2.md` (OWUI-visible conversations)
+- `PORTAL5_ACCEPTANCE_EXECUTE_V8.md` (pipeline-routed acceptance)
+- `PORTAL5_UAT_EXECUTE_V5.md` (OWUI-visible conversations)
 
 ---
 
