@@ -360,7 +360,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if hint_errors:
         for e in hint_errors:
             logger.error("HINT VALIDATION: %s", e)
-        if os.environ.get("STRICT_HINT_VALIDATION", "false").lower() in ("true", "1", "yes"):
+        if os.environ.get("STRICT_HINT_VALIDATION", "true").lower() in ("true", "1", "yes"):
             raise RuntimeError(
                 f"STRICT_HINT_VALIDATION=true and {len(hint_errors)} hint(s) failed validation. "
                 "See logs above. Set STRICT_HINT_VALIDATION=false to start anyway."
