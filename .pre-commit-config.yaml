@@ -46,3 +46,14 @@ repos:
         language: python
         entry: ruff format --check
         types: [python]
+
+      # Guard: unit-test suite passes before commit. Fast (~10s on a warm
+      # pytest cache); blocks commits that break the test suite. Opt-in via
+      # `pre-commit install`. Uses the developer's existing venv.
+      - id: pytest-unit
+        name: pytest unit suite
+        language: system
+        entry: pytest tests/unit -x --tb=short -q
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

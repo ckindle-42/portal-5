@@ -420,6 +420,18 @@ python3 tests/portal5_acceptance_v6.py --section S70  # one section
 
 Latest run summary is in [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md).
 
+### Unit Test CI
+
+The unit test suite (`pytest tests/unit -x`) runs on every PR and push to
+`main` via GitHub Actions (`.github/workflows/unit-tests.yml`). For local
+pre-commit feedback, install the hooks:
+
+```bash
+pip install pre-commit && pre-commit install
+```
+
+This adds a `pytest-unit` hook that runs before each commit.
+
 ---
 
 ## Architecture
