@@ -2,6 +2,8 @@
 # models.sh — Portal 5 model commands (sourced by launch.sh)
 # shellcheck shell=bash
 
+# Deprecated: delegated to ``portal models pull`` in portal_pipeline/cli.py (M5 Stage 2).
+# Retained for parity; remove in next M5 pass.
 _launch_pull_models() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 
@@ -496,6 +498,8 @@ except Exception as e:
     echo "=== Pull complete: $((total - failed))/$total succeeded ==="
 }
 
+# Deprecated: delegated to ``portal models refresh`` in portal_pipeline/cli.py (M5 Stage 2).
+# Retained for parity; remove in next M5 pass.
 _launch_refresh_models() {
     set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
 

@@ -587,6 +587,8 @@ _launch_uninstall_powermetrics() {
     echo "[portal-5] ✅ Powermetrics daemon stopped and removed"
 }
 
+# Deprecated: delegated to ``portal workspace init`` in portal_pipeline/cli.py (M5 Stage 2).
+# Retained for parity; remove in next M5 pass.
 _launch_workspace_init() {
     WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
     echo "Initializing workspace at: ${WS}"
@@ -596,6 +598,8 @@ _launch_workspace_init() {
     ls -la "${WS}/" "${WS}/generated/"
 }
 
+# Deprecated: delegated to ``portal workspace status`` in portal_pipeline/cli.py (M5 Stage 2).
+# Retained for parity; remove in next M5 pass.
 _launch_workspace_status() {
     WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
     if [ ! -d "${WS}" ]; then
@@ -618,6 +622,8 @@ _launch_workspace_status() {
     echo "Total: ${TOTAL}"
 }
 
+# Deprecated: delegated to ``portal workspace show`` in portal_pipeline/cli.py (M5 Stage 2).
+# Retained for parity; remove in next M5 pass.
 _launch_workspace_show() {
     WS="${AI_OUTPUT_DIR:-${HOME}/AI_Output}"
     echo "Workspace root (host):     ${WS}"
