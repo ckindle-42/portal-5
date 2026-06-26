@@ -210,4 +210,26 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # ── Workspace smoke test (uncovered auto-* coverage) ──────────────────────
+    {
+        "id": "WS-34",
+        "name": "GLM Thinking — Multi-Step Reasoning Problem",
+        "section": "auto-glm-thinking",
+        "model_slug": "auto-glm-thinking",
+        "timeout": 240,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "A company has 3 servers: A handles 40% of traffic, B handles 35%, C handles 25%. "
+            "Server A fails. Traffic is redistributed proportionally to B and C. "
+            "What percentage of total traffic does each remaining server now handle? "
+            "Show your reasoning step by step."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "Proportional reasoning applied",
+             "keywords": ["35", "25", "proportion", "ratio", "redistribut", "percent"]},
+            {"type": "any_of", "label": "Final percentages given",
+             "keywords": ["58.3", "58%", "41.6", "41%", "58", "42", "63", "37"]},
+            {"type": "min_length", "label": "Reasoning shown", "chars": 150},
+        ],
+    },
 ]

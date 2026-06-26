@@ -70,4 +70,51 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             {"type": "min_length", "label": "Substantive response", "chars": 500},
         ],
     },
+    # ── Workspace smoke tests (uncovered auto-* coverage) ─────────────────────
+    {
+        "id": "WS-26",
+        "name": "Uncensored Agentic Coder — Refactor Plan",
+        "section": "auto-coding-uncensored-agentic",
+        "model_slug": "auto-coding-uncensored-agentic",
+        "timeout": 180,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "I have a 500-line Python module with 8 functions, no tests, and globals used "
+            "as state. Describe a step-by-step refactor plan to make it testable: "
+            "eliminate globals, extract a class, and add a pytest fixture. "
+            "Be specific about what to do in each step."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "Step-by-step structure",
+             "keywords": ["step", "first", "1.", "1)", "phase", "then"]},
+            {"type": "any_of", "label": "Class extraction mentioned",
+             "keywords": ["class", "encapsulate", "object", "__init__"]},
+            {"type": "any_of", "label": "Testing addressed",
+             "keywords": ["pytest", "fixture", "test", "mock", "assert"]},
+            {"type": "min_length", "label": "Substantive plan", "chars": 400},
+        ],
+    },
+    {
+        "id": "WS-27",
+        "name": "Agentic Lite — SWE Task Decomposition",
+        "section": "auto-agentic-lite",
+        "model_slug": "auto-agentic-lite",
+        "timeout": 180,
+        "workspace_tier": "ollama",
+        "prompt": (
+            "Break down this task into actionable subtasks: "
+            "Add rate limiting to a FastAPI endpoint using Redis. "
+            "List what files to create or modify, what dependencies to add, "
+            "and what tests to write."
+        ),
+        "assertions": [
+            {"type": "any_of", "label": "Files mentioned",
+             "keywords": ["requirements", "pyproject", "main.py", ".py", "redis", "middleware"]},
+            {"type": "any_of", "label": "Dependencies addressed",
+             "keywords": ["redis", "slowapi", "limits", "aioredis", "install", "pip", "uv"]},
+            {"type": "any_of", "label": "Testing mentioned",
+             "keywords": ["test", "pytest", "assert", "mock", "rate limit"]},
+            {"type": "min_length", "label": "Substantive decomposition", "chars": 300},
+        ],
+    },
 ]

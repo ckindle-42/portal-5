@@ -12,7 +12,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "WS-10",
         "name": "Document Builder — Change Management DOCX",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "ollama",
@@ -37,7 +37,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-W04",
         "name": "Tech Writer — Audience-Appropriate Docs",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "techwriter",
         "timeout": 360,
         "workspace_tier": "ollama",
@@ -90,7 +90,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "P-W05",
         "name": "Phi-4 Technical Analyst — Conclusion First",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "phi4specialist",
         "timeout": 90,
         "workspace_tier": "ollama",
@@ -116,7 +116,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "T-04",
         "name": "Document Generation — DOCX with Table",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "ollama",
@@ -140,7 +140,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "T-05",
         "name": "Document Generation — Excel Tracker",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "ollama",
@@ -169,7 +169,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "T-06",
         "name": "Document Generation — PowerPoint Zero Trust",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 180,
         "workspace_tier": "ollama",
@@ -198,7 +198,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "T-07",
         "name": "Document Reading — Parse Uploaded Word File",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 120,
         "workspace_tier": "ollama",
@@ -238,7 +238,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "TV-07",
         "name": "Tool Validation — read_excel proof (sample.xlsx)",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 90,
         "workspace_tier": "ollama",
@@ -271,7 +271,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "TV-08",
         "name": "Tool Validation — read_pdf proof (sample.pdf)",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 90,
         "workspace_tier": "ollama",
@@ -304,7 +304,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "TV-09",
         "name": "Tool Validation — read_powerpoint proof (sample.pptx)",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 90,
         "workspace_tier": "ollama",
@@ -331,7 +331,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     {
         "id": "TV-10",
         "name": "Tool Validation — read_word_document proof (sample.docx)",
-        "section": "auto-docs",
+        "section": "auto-documents",
         "model_slug": "auto-documents",
         "timeout": 90,
         "workspace_tier": "ollama",
