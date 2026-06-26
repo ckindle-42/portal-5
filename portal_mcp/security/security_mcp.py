@@ -10,11 +10,11 @@ import logging
 import os
 
 import torch
-from starlette.responses import JSONResponse
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Vendored FastMCP
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 

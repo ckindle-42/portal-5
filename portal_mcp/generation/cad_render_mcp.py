@@ -22,10 +22,10 @@ import subprocess  # noqa: S404 — openscad invocation is argument-controlled, 
 import uuid
 from pathlib import Path
 
+from mcp.server.fastmcp import FastMCP
 from starlette.responses import FileResponse, JSONResponse
 
 from portal_mcp.core.workspace import get_generated_dir
-from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 

@@ -212,7 +212,6 @@ from portal_pipeline.router.power import (  # noqa: E402, F401  (facade re-expor
     ELECTRICITY_RATE_USD_PER_KWH,
     _power_polling_loop,
     _record_usage,
-    watts_seconds_to_cost_usd,
 )
 from portal_pipeline.router.routing import (  # noqa: E402, F401  (facade re-export)
     _CODING_KEYWORDS,

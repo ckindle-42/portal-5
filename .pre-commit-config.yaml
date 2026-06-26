@@ -6,3 +6,43 @@ repos:
     hooks:
       - id: gitleaks
         name: gitleaks (block committed secrets)
+
+  - repo: local
+    hooks:
+      # Guard: no two tracked files byte-identical across deploy/ ↔ portal_mcp/
+      - id: no-identical-sources
+        name: no duplicate source files (deploy/ ↔ portal_mcp/)
+        language: python
+        entry: python3 scripts/ci/check_no_identical_sources.py
+        pass_filenames: false
+        always_run: true
+
+      # Guard: sync-config is idempotent — generated artifacts are never stale
+      - id: generated-fresh
+        name: generated artifacts fresh (sync-config idempotent)
+        language: python
+        entry: python3 scripts/ci/check_generated_fresh.py
+        pass_filenames: false
+        always_run: true
+
+      # Guard: pyproject.toml has no duplicate dependency strings
+      - id: pyproject-no-dup
+        name: pyproject.toml has no duplicate dependency pins
+        language: python
+        entry: python3 scripts/ci/check_pyproject_no_dup.py
+        pass_filenames: false
+        files: pyproject.toml
+
+      # Ruff lint + format check
+      - id: ruff-check
+        name: ruff lint
+        language: python
+        entry: ruff check
+        types: [python]
+        args: [--fix]
+
+      - id: ruff-format
+        name: ruff format check
+        language: python
+        entry: ruff format --check
+        types: [python]

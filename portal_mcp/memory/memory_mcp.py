@@ -16,9 +16,8 @@ import uuid
 import httpx
 import lancedb
 import pyarrow as pa
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 mcp = FastMCP("memory", host="0.0.0.0")

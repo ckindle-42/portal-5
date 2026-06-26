@@ -12,9 +12,8 @@ Tools:
 import logging
 import os
 
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 # Lazy references — populated on first call to rerank().
 # Declared at module level so unit tests can patch them.

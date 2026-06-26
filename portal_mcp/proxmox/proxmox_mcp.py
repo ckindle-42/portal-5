@@ -19,9 +19,8 @@ import urllib.parse
 from typing import Any
 
 import httpx
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 mcp = FastMCP("proxmox", host="0.0.0.0")
 logger = logging.getLogger(__name__)
@@ -929,7 +928,7 @@ async def proxmox_deploy_ctf_lab(
     compose_path   = shlex.quote(f"{deploy_dir}/{lab}/{compose_subdir}".rstrip("/"))
 
     steps = [
-        f"apt-get install -y git docker.io docker-compose-plugin 2>&1 | tail -5",
+        "apt-get install -y git docker.io docker-compose-plugin 2>&1 | tail -5",
         f"mkdir -p {deploy_dir_safe}",
         f"git -C {deploy_dir_safe}/{lab_safe} pull 2>/dev/null || git clone {git_url_safe} {deploy_dir_safe}/{lab_safe}",
         f"cd {compose_path} && docker compose up -d --build 2>&1 | tail -20",

@@ -33,9 +33,8 @@ from collections import defaultdict, deque
 from pathlib import Path
 from urllib.parse import urlparse
 
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))

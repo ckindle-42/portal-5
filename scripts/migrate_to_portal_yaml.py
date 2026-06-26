@@ -29,8 +29,6 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from portal_pipeline.router.workspaces import WORKSPACES
-from portal_pipeline.tool_registry import MCP_SERVERS as PIPELINE_MCP_SERVERS
-
 
 # ── Gather OWUI preset metadata ───────────────────────────────────────────────
 
@@ -287,7 +285,7 @@ def main() -> None:
             out_lines.append(f"    aliases: {json.dumps(server['aliases'])}")
         if server.get("command"):
             cmd = server["command"]
-            out_lines.append(f"    command:")
+            out_lines.append("    command:")
             out_lines.append(f"      type: {cmd['type']}")
             out_lines.append(f"      command: {json.dumps(cmd['command'])}")
 

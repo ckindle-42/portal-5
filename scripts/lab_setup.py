@@ -20,12 +20,12 @@ Requires:
   - lab-dc01 (vmid 110) and lab-srv01 (vmid 111) booted with Windows installed
   - QEMU guest agent running on both VMs (install from VirtIO ISO: guest-agent/qemu-ga-x86_64.msi)
 """
+import argparse
 import asyncio
 import base64
 import os
 import sys
 import time
-import argparse
 
 # ── Load .env ─────────────────────────────────────────────────────────────────
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,7 +40,14 @@ if os.path.exists(_ENV_FILE):
             os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
 sys.path.insert(0, _REPO)
-from portal_mcp.proxmox.proxmox_mcp import _client, _get, _post, API_BASE, PROXMOX_TOKEN_ID, PROXMOX_TOKEN_SECRET
+from portal_mcp.proxmox.proxmox_mcp import (
+    API_BASE,
+    PROXMOX_TOKEN_ID,
+    PROXMOX_TOKEN_SECRET,
+    _client,
+    _get,
+    _post,
+)
 
 NODE = "proxmox3"
 DC_VMID = 110
@@ -232,7 +239,7 @@ async def phase1_baseline_snapshots(c):
     print("\n=== Phase 1: Baseline snapshots (clean Windows install) ===")
     for vmid, name in [(DC_VMID, "lab-dc01"), (SRV_VMID, "lab-srv01")]:
         await _snapshot(c, vmid, "baseline-clean",
-                        f"Clean Windows Server 2022 — before AD promotion — portal.lab")
+                        "Clean Windows Server 2022 — before AD promotion — portal.lab")
 
 
 async def phase2_promote_dc(c):

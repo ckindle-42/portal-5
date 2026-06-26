@@ -482,9 +482,7 @@ def run_scenario(
             client, model, prompts[i], schema, valid_ids, timeout_s
         )
 
-        if workspace == expected:
-            result = "correct"
-        elif workspace is None and expected == "auto":
+        if workspace == expected or workspace is None and expected == "auto":
             result = "correct"
         elif workspace is None:
             result = "abstained"
@@ -570,11 +568,11 @@ def run_conditions_bench(
 
     if dry_run:
         print(f"\nDRY RUN  {len(routers)} routers × {len(scenarios)} scenarios × {len(GOLDEN_SET)} tests")
-        print(f"\nRouter candidates:")
+        print("\nRouter candidates:")
         for r in routers:
             print(f"  [{r['role']:8s}]  {r['label']:35s}  {r['vram_gb']}GB  timeout={r['timeout_ms']}ms")
         print(f"\nScenarios: {scenarios}")
-        print(f"\nCompanion models:")
+        print("\nCompanion models:")
         for c in companions:
             size_str = f"  ({c['size_gb']:.1f}GB)" if c.get("size_gb") else ""
             print(f"  {c['name']}{size_str}")
@@ -706,15 +704,15 @@ def print_summary(all_results: list[dict[str, Any]]) -> None:
             print(f"    First-req latency: {r['first_request_ms']:.0f}ms")
             print(f"    Production TOs:    {s['timeout_count']} / {len(r['rows'])} requests ({s['timeout_count']/len(r['rows'])*100:.0f}%)")
             print(f"    Accuracy:          {s['accuracy_pct']} ({s['accuracy']*100:.1f}%)")
-            print(f"    → Verdict: ⚠️  Router eviction IS occurring with current MAX_LOADED_MODELS")
-            print(f"       Increase OLLAMA_MAX_LOADED_MODELS or switch to smaller router (qwen2.5:1.5b)")
+            print("    → Verdict: ⚠️  Router eviction IS occurring with current MAX_LOADED_MODELS")
+            print("       Increase OLLAMA_MAX_LOADED_MODELS or switch to smaller router (qwen2.5:1.5b)")
         else:
             print(
                 f"\n  {r['router_label']:20s} ({r['router_vram_gb']}GB)  ← survived (not evicted)"
             )
             print(f"    Accuracy:  {s['accuracy_pct']} ({s['accuracy']*100:.1f}%)")
             print(f"    p50:       {s['p50_ms']:.0f}ms")
-            print(f"    → Verdict: ✓  Router stays warm under fleet load with current MAX_LOADED_MODELS")
+            print("    → Verdict: ✓  Router stays warm under fleet load with current MAX_LOADED_MODELS")
 
     print(f"\n{'━'*100}")
     print("RECOMMENDATIONS")

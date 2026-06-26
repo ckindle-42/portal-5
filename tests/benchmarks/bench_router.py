@@ -640,7 +640,7 @@ def main() -> None:
     else:
         models = DEFAULT_CANDIDATES
 
-    print(f"Portal 5 — Router Model Bench")
+    print("Portal 5 — Router Model Bench")
     print(f"Candidates : {len(models)} models")
     print(f"Test cases : {len(GOLDEN_SET)}")
     print(f"Timeout    : {TIMEOUT_MS}ms per request")

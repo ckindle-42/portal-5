@@ -14,9 +14,8 @@ import re
 from urllib.parse import urlparse
 
 import httpx
-from starlette.responses import JSONResponse
-
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 mcp = FastMCP("research", host="0.0.0.0")

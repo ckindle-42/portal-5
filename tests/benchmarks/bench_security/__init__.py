@@ -53,17 +53,17 @@ from .blue import (
 from .chain import (
     CHAIN_TOOLS_BASE,
     OLLAMA_URL,
+    PULL_TIMEOUT_S,
     SCENARIOS,
+    TPS_FLOOR,
+    _pull_model,
     _run_exec_chain,
     _run_multimodel_chain,
     _run_refusal_test,
+    _tps_warmup,
     run_audit_tools,
     run_candidate_intake,
     run_chain_tests,
-    _pull_model,
-    _tps_warmup,
-    TPS_FLOOR,
-    PULL_TIMEOUT_S,
 )
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
