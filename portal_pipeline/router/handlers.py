@@ -26,12 +26,16 @@ from portal_pipeline.router.concurrency import (
 )
 from portal_pipeline.router.lifespan import (
     _http_client,
-    _notification_dispatcher,
     _notification_scheduler,
     _state_save_task,
     _startup_time,
-    registry,
 )
+# Set by lifespan — NOT captured at import time.
+# Importing registry/dispatcher by name from lifespan would capture the module-level
+# None before lifespan runs; lifespan pushes the live objects in, same pattern
+# as _routing_mod._http_client and _streaming_mod._http_client.
+registry: BackendRegistry | None = None
+_notification_dispatcher: Any = None
 from portal_pipeline.router.metrics import (
     _REGISTRY,
     _concurrent_requests,
