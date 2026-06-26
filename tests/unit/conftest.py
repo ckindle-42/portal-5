@@ -26,4 +26,4 @@ def pytest_configure(config) -> None:
 
     # Prevent lifespan background tasks (health loop, state save) from
     # being created during TestClient teardown — they fail in test mode.
-    os.environ.setdefault("UNIT_TEST_MODE", "1")
+    os.environ["UNIT_TEST_MODE"] = "1"
