@@ -106,7 +106,10 @@ def expected_model_keys_for_persona(
     p = _PERSONA_MAP.get(persona_slug)
     if not p:
         return [], f"persona '{persona_slug}' not in _PERSONA_MAP"
-    ws = p.get("workspace_model") or p.get("workspace")
+    # p is now a PersonaSpec (typed); fall back to dict .get for legacy compat
+    ws = (p.workspace_model if hasattr(p, "workspace_model") else None) or (
+        p.get("workspace_model") if hasattr(p, "get") else None  # type: ignore[union-attr]
+    ) or (p.get("workspace") if hasattr(p, "get") else None)  # type: ignore[union-attr]
     if not ws:
         return [], f"persona '{persona_slug}' has no workspace_model"
     keys, src = expected_model_keys(ws)
@@ -130,7 +133,12 @@ def _init_routing_names() -> frozenset[str]:
     # persona slugs from _PERSONA_MAP
     for slug, info in _PERSONA_MAP.items():
         names.add(slug.lower())
-        ws = info.get("workspace_model") or info.get("workspace") or ""
+        # info is now a PersonaSpec (typed); handle both typed and legacy dict
+        ws = (
+            info.workspace_model
+            if hasattr(info, "workspace_model")
+            else (info.get("workspace_model") or info.get("workspace") or "")  # type: ignore[union-attr]
+        )
         if ws and ws.lower() not in _WORKSPACE_KEYS:
             _WORKSPACE_KEYS[slug.lower()] = {"ws": ws}
     _WORKSPACE_AND_PERSONA_NAMES = frozenset(names)
@@ -167,9 +175,7 @@ def model_matches_expected(
         return False
     if any(k in actual_lower for k in keys_list):
         return True
-    if _is_routing_identifier(actual_model):
-        return True
-    return False
+    return bool(_is_routing_identifier(actual_model))
 
 
 def resolve_expected(
