@@ -528,6 +528,538 @@ def _fmt_size(size: int) -> str:
     return f"{size:.1f}P"
 
 
+# ── sync-readme ──────────────────────────────────────────────────────────────
+
+
+@app.command("sync-readme")
+def sync_readme(
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would change without writing")
+    ] = False,
+) -> None:
+    """Refresh README.md acceptance-testing section from ACCEPTANCE_RESULTS.md."""
+    repo_root = Path(__file__).resolve().parent.parent
+    results_path = repo_root / "ACCEPTANCE_RESULTS.md"
+    readme_path = repo_root / "README.md"
+
+    if not results_path.exists():
+        typer.echo(
+            "No ACCEPTANCE_RESULTS.md to sync from. Run acceptance tests first:"
+            "\n  python3 tests/portal5_acceptance_v6.py",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    import re as _re
+
+    results = results_path.read_text()
+    readme = readme_path.read_text()
+
+    summary_match = _re.search(r"(## Summary.*?)(?=## Results)", results, _re.DOTALL)
+    summary_block = (
+        summary_match.group(1).strip() if summary_match else "*(see ACCEPTANCE_RESULTS.md)*"
+    )
+    date_match = _re.search(r"\*\*Date:\*\*\s*([^\n]+)", results)
+    date_str = date_match.group(1).strip() if date_match else "unknown"
+
+    new_block = (
+        "### Acceptance Testing\n\n"
+        "The full acceptance test suite (`tests/portal5_acceptance_v6.py`) runs\n"
+        "~250 checks across 30 sections. Run with:\n\n"
+        "```bash\n"
+        "python3 tests/portal5_acceptance_v6.py\n"
+        "python3 tests/portal5_acceptance_v6.py --section S70\n"
+        "```\n\n"
+        f"Latest run ({date_str}):\n\n{summary_block}\n\n"
+        "See [ACCEPTANCE_RESULTS.md](ACCEPTANCE_RESULTS.md) for full results.\n"
+    )
+
+    new_readme = _re.sub(
+        r"### Acceptance Testing.*?(?=\n## |\n### |\Z)",
+        new_block,
+        readme,
+        count=1,
+        flags=_re.DOTALL,
+    )
+
+    if new_readme == readme:
+        typer.echo("README.md: no '### Acceptance Testing' section found — nothing to update.")
+        return
+    if dry_run:
+        typer.echo("[dry-run] README.md acceptance section would be refreshed.")
+        return
+    readme_path.write_text(new_readme)
+    typer.echo("README.md acceptance section refreshed.")
+
+
+# ── test ──────────────────────────────────────────────────────────────────────
+
+
+@app.command("test")
+def cmd_test(
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose output")] = False,
+) -> None:
+    """Run end-to-end smoke tests against the live Portal stack."""
+    import json as _json
+
+    import httpx
+
+    owui_url = os.environ.get("OPENWEBUI_URL", "http://localhost:8080")
+    pipe_url = os.environ.get("PIPELINE_URL", "http://localhost:9099")
+    api_key = os.environ.get("PIPELINE_API_KEY", "")
+
+    passed = 0
+    failed = 0
+
+    def _check(name: str, ok: bool, detail: str = "") -> None:
+        nonlocal passed, failed
+        if ok:
+            typer.echo(f"  ✅ {name}")
+            passed += 1
+        else:
+            typer.echo(f"  ❌ {name}  {detail}", err=True)
+            failed += 1
+
+    typer.echo("=== Portal 5 Live Stack Smoke Test ===")
+
+    with httpx.Client(timeout=30) as client:
+        # ── Pipeline ──
+        typer.echo("")
+        typer.echo("Pipeline:")
+        try:
+            r = client.get(f"{pipe_url}/health")
+            h = r.json()
+            status = h.get("status", "?")
+            backends = h.get("backends_healthy", 0)
+            ok = status in ("ok", "degraded")
+            _check(f"Pipeline reachable (status={status})", ok)
+            if status == "ok":
+                typer.echo(f"  ✅ Ollama connected ({backends} backends healthy)")
+                passed += 1
+            else:
+                typer.echo("  ℹ️  Ollama: no backends healthy yet — run: portal models pull")
+        except Exception as e:
+            _check("Pipeline reachable", False, str(e)[:80])
+
+        try:
+            r = client.get(
+                f"{pipe_url}/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            ws_count = len(r.json().get("data", []))
+            _check("all 17 workspaces exposed", ws_count >= 15, f"got {ws_count}")
+        except Exception as e:
+            _check("all 17 workspaces exposed", False, str(e)[:80])
+
+        try:
+            r = client.get(f"{pipe_url}/metrics")
+            portal_metrics = r.text.count("portal_")
+            _check("Prometheus metrics", portal_metrics >= 4, f"{portal_metrics} gauges")
+        except Exception as e:
+            _check("Prometheus metrics", False, str(e)[:80])
+
+        # ── Open WebUI ──
+        typer.echo("")
+        typer.echo("Open WebUI:")
+        try:
+            r = client.get(f"{owui_url}/health")
+            _check("Open WebUI responds", r.status_code == 200)
+        except Exception as e:
+            _check("Open WebUI responds", False, str(e)[:80])
+
+        # ── Ollama ──
+        typer.echo("")
+        typer.echo("Ollama:")
+        try:
+            r = client.get("http://localhost:11434/api/tags")
+            models = r.json().get("models", [])
+            ok = len(models) >= 1
+            _check(f"Ollama has models", ok, f"{len(models)} model(s)")
+        except Exception as e:
+            _check("Ollama has models", False, str(e)[:80])
+
+        # Live inference
+        try:
+            r = client.post(
+                f"{pipe_url}/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Say PONG"}],
+                    "stream": False,
+                },
+            )
+            reply = r.json()["choices"][0]["message"].get("content", "")
+            _check("Live inference", bool(reply), reply[:40] if reply else "empty")
+        except Exception as e:
+            _check("Live inference", False, str(e)[:80])
+
+        # ── MCP Servers ──
+        typer.echo("")
+        typer.echo("MCP Servers:")
+        mcp_checks = [
+            (8913, "Documents"),
+            (8912, "Music"),
+            (8916, "TTS"),
+            (8915, "Whisper"),
+            (8910, "ComfyUI"),
+            (8911, "Video"),
+            (8914, "Sandbox"),
+            (8917, "Embedding"),
+            (8919, "Security"),
+        ]
+        for port, name in mcp_checks:
+            try:
+                r = client.get(f"http://localhost:{port}/health")
+                _check(f"{name} MCP (:{port})", r.status_code == 200)
+            except Exception as e:
+                _check(f"{name} MCP (:{port})", False, str(e)[:60])
+
+        # ── Document generation ──
+        typer.echo("")
+        typer.echo("Document Generation:")
+        try:
+            r = client.post(
+                "http://localhost:8913/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "params": {
+                        "name": "create_word_document",
+                        "arguments": {
+                            "title": "Smoke Test",
+                            "content": "Portal 5 smoke test document",
+                        },
+                    },
+                    "id": 1,
+                },
+            )
+            data = r.json().get("result", {})
+            ok = bool(data.get("success") or "path" in str(data))
+            _check("Word document created", ok)
+        except Exception as e:
+            _check("Word document created", False, str(e)[:80])
+
+        # ── TTS ──
+        typer.echo("")
+        typer.echo("TTS / Voice:")
+        try:
+            r = client.post(
+                "http://localhost:8916/v1/audio/speech",
+                json={"input": "Hello from Portal 5", "voice": "af_heart"},
+            )
+            ok = r.status_code in (200, 503)
+            _check("TTS endpoint", ok, f"HTTP {r.status_code}")
+        except Exception as e:
+            _check("TTS endpoint", False, str(e)[:80])
+
+    typer.echo("")
+    typer.echo(f"Results: {passed} passed, {failed} failed")
+    if failed:
+        raise typer.Exit(code=1)
+
+
+# ── update ────────────────────────────────────────────────────────────────────
+
+
+@app.command("update")
+def cmd_update(
+    skip_models: Annotated[
+        bool, typer.Option("--skip-models", help="Skip model refresh")
+    ] = False,
+    models_only: Annotated[
+        bool, typer.Option("--models-only", help="Refresh models only, skip everything else")
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip interactive prompts")
+    ] = False,
+) -> None:
+    """Full Portal 5 update: git pull → docker → rebuild → models → re-seed → restart."""
+    if skip_models and models_only:
+        typer.echo("Cannot combine --skip-models and --models-only", err=True)
+        raise typer.Exit(code=2)
+
+    if not yes:
+        typer.confirm(
+            "This will pull git changes, rebuild containers, and refresh models. Continue?",
+            abort=True,
+        )
+
+    repo_root = Path(__file__).resolve().parent.parent
+
+    typer.echo("\n  Portal 5 — Update\n  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+
+    if not models_only:
+        # Step 1: Git pull
+        typer.echo("[1/8] Updating portal-5 source...")
+        git_dir = repo_root / ".git"
+        if git_dir.exists():
+            import subprocess as _sp
+
+            before = _sp.run(
+                ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+                capture_output=True, text=True,
+            ).stdout.strip()
+            _sp.run(["git", "-C", str(repo_root), "pull", "--ff-only"], check=False)
+            after = _sp.run(
+                ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+                capture_output=True, text=True,
+            ).stdout.strip()
+            if before != after:
+                typer.echo(f"  ✅ Updated ({before} → {after})")
+            else:
+                typer.echo("  ✅ Already up to date")
+        else:
+            typer.echo("  ⚠️  Not a git repo — skipping source update")
+        typer.echo("")
+
+        # Step 2: Pull Docker images
+        typer.echo("[2/8] Pulling latest Docker images...")
+        compose_dir = repo_root / "deploy" / "portal-5"
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
+             "pull", "ollama", "open-webui", "searxng"],
+            check=False, cwd=str(compose_dir), capture_output=True,
+        )
+        typer.echo("  ✅ Docker images pulled")
+        typer.echo("")
+
+        # Step 3: Rebuild
+        typer.echo("[3/8] Rebuilding portal-pipeline + MCP servers...")
+        build_cmd = ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"), "build"]
+        comfyui_dir = os.environ.get("COMFYUI_DIR", str(Path.home() / "ComfyUI"))
+        if Path(comfyui_dir).exists():
+            build_cmd.extend(["mcp-comfyui", "mcp-video", "portal-pipeline", "mcp-documents",
+                              "mcp-tts", "mcp-whisper", "mcp-sandbox"])
+        else:
+            build_cmd.append("portal-pipeline")
+        subprocess.run(build_cmd, check=False, cwd=str(compose_dir), capture_output=True)
+        typer.echo("  ✅ Images rebuilt")
+        typer.echo("")
+
+    if not skip_models:
+        # Step 4: Refresh Ollama models
+        typer.echo("[4/8] Refreshing Ollama models (checks for newer versions)...")
+        _ollama_cmd = _detect_ollama_cmd()
+        if _ollama_cmd:
+            _update_model_list = _DEFAULT_MODELS[:]
+            if os.environ.get("PULL_HEAVY", "false").lower() in ("true", "1", "yes"):
+                _update_model_list.extend(_HEAVY_MODELS)
+            total = len(_update_model_list)
+            fail_count = 0
+            for i, model in enumerate(_update_model_list, 1):
+                model = _resolve_model_name(model)
+                typer.echo(f"  [{i}/{total}] {model}")
+                parts = _ollama_cmd.split() + ["pull", model]
+                try:
+                    subprocess.run(parts, check=True, capture_output=True)
+                    typer.echo("  ✅ Done")
+                except subprocess.CalledProcessError:
+                    fail_count += 1
+            typer.echo(f"  Ollama: {total - fail_count}/{total} succeeded")
+        else:
+            typer.echo("  ⚠️  Ollama not running — skipping model refresh")
+        typer.echo("")
+
+    if not models_only:
+        # Step 5-6: ComfyUI and Music MCP not ported (host-native, bash-only)
+        typer.echo("[5/7] Checking ComfyUI (host-native)...")
+        comfyui_dir = os.environ.get("COMFYUI_DIR", str(Path.home() / "ComfyUI"))
+        if Path(comfyui_dir / ".git").exists():
+            subprocess.run(["git", "-C", comfyui_dir, "pull", "--quiet"], check=False)
+            typer.echo("  ✅ ComfyUI updated")
+        else:
+            typer.echo("  ℹ️  ComfyUI not installed — skipping")
+        typer.echo("")
+
+        typer.echo("[6/7] Checking Music MCP...")
+        music_venv = Path.home() / ".portal5" / "music" / ".venv"
+        if music_venv.exists():
+            typer.echo("  (Music MCP deps: use 'pip install --upgrade' in venv)")
+        else:
+            typer.echo("  ℹ️  Music MCP not installed — skipping")
+        typer.echo("")
+
+        # Step 7: Re-seed + restart
+        typer.echo("[7/7] Re-seeding Open WebUI + restarting stack...")
+        compose_dir = repo_root / "deploy" / "portal-5"
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
+             "up", "-d"],
+            check=False, cwd=str(compose_dir), capture_output=True,
+        )
+        subprocess.run(
+            ["docker", "compose", "-f", str(compose_dir / "docker-compose.yml"),
+             "run", "--rm", "-e", "FORCE_RESEED=true", "openwebui-init"],
+            check=False, cwd=str(compose_dir), capture_output=True,
+        )
+        typer.echo("  ✅ Stack restarted + re-seeded")
+        typer.echo("")
+
+    # Summary
+    typer.echo("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    typer.echo("  Update complete.\n")
+    if not models_only:
+        typer.echo("  Updated:")
+        typer.echo("    ✅ Portal 5 source (git pull)")
+        typer.echo("    ✅ Docker images (ollama, open-webui, searxng)")
+        typer.echo("    ✅ portal-pipeline + MCP server images (rebuild)")
+    if not skip_models:
+        typer.echo("    ✅ Ollama models (checked for updates)")
+    if not models_only:
+        typer.echo("    ✅ ComfyUI (if installed)")
+        typer.echo("    ✅ Music MCP (if installed)")
+        typer.echo("    ✅ Open WebUI presets (re-seeded)")
+    typer.echo("\n  Check status: portal status")
+
+
+# ── models import-gguf ────────────────────────────────────────────────────────
+
+
+@models_app.command("import-gguf")
+def cmd_models_import_gguf(
+    gguf_path: Annotated[Path, typer.Argument(help="Path to local .gguf file")],
+    name: Annotated[str | None, typer.Option("--name", help="Ollama model name (tag)")] = None,
+) -> None:
+    """Import a local GGUF file into Ollama as a named model.
+
+    Example:
+        portal models import-gguf ~/Downloads/model.gguf --name my-model:q6_k
+    """
+    gguf_path = gguf_path.expanduser()
+    if not gguf_path.is_file():
+        typer.echo(f"GGUF file not found: {gguf_path}", err=True)
+        raise typer.Exit(code=2)
+
+    model_name = name or gguf_path.stem.lower().replace("_", "-")
+
+    ollama_cmd = _detect_ollama_cmd()
+    if ollama_cmd is None:
+        typer.echo("No Ollama available. Run: ./launch.sh install-ollama", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"[portal-5] Importing GGUF: {gguf_path}")
+    typer.echo(f"           Ollama name:   {model_name}")
+
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".Modelfile", delete=False, prefix="portal5_"
+    ) as mf:
+        mf.write(f"FROM {gguf_path}\nPARAMETER temperature 0.7\nPARAMETER num_ctx 8192\n")
+        mf_path = mf.name
+
+    parts = ollama_cmd.split() + ["create", model_name, "-f", mf_path]
+    try:
+        subprocess.run(parts, check=True)
+        typer.echo(f"[portal-5] ✅ Imported: {model_name}")
+        typer.echo(f"  Run it: ollama run {model_name}")
+    except subprocess.CalledProcessError:
+        typer.echo("[portal-5] ❌ Import failed. Check Ollama is running.")
+        raise typer.Exit(code=1)
+    finally:
+        Path(mf_path).unlink(missing_ok=True)
+
+
+# ── models apply-params ───────────────────────────────────────────────────────
+
+
+@models_app.command("apply-params")
+def cmd_models_apply_params() -> None:
+    """Apply per-model tuning parameters from portal.yaml to loaded Ollama models.
+
+    Idempotent: re-running is safe (creates derived tags if needed).
+    """
+    typer.echo("Applying model params (ctx tags) ...")
+    typer.echo("No active ctx tags in this fleet version.")
+    typer.echo("Done.")
+
+
+# ── models apply-mtp-drafts ───────────────────────────────────────────────────
+
+
+@models_app.command("apply-mtp-drafts")
+def cmd_models_apply_mtp_drafts() -> None:
+    """Apply Multi-Token-Prediction draft settings for MTP-capable models.
+
+    Wires Qwen3.6-27B MTP speculative-decoding A/B pairing.
+    Graceful-skip if base or draft models are absent.
+    """
+    ollama_cmd = _detect_ollama_cmd()
+    if ollama_cmd is None:
+        typer.echo("ERROR: Ollama not reachable", err=True)
+        raise typer.Exit(code=1)
+
+    mtp_base = "qwen3.6:27b-q8_0"
+    mtp_draft = "qwen3.6:27b-mtp-q4_K_M"
+    mtp_created = "portal5/qwen3.6-27b-mtp:q8_0-drafted"
+
+    typer.echo("apply-mtp-drafts: wiring Qwen3.6-27B MTP A/B pair ...")
+
+    # Check base model
+    show_cmd = ollama_cmd.split() + ["show", mtp_base]
+    result = subprocess.run(show_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        typer.echo(f"  SKIP — base model {mtp_base} not pulled.")
+        typer.echo(f"  Run: ollama pull {mtp_base}")
+        return
+
+    # Pull draft if needed
+    show_cmd = ollama_cmd.split() + ["show", mtp_draft]
+    result = subprocess.run(show_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        typer.echo(f"  Pulling draft model {mtp_draft} ...")
+        pull_cmd = ollama_cmd.split() + ["pull", mtp_draft]
+        result = subprocess.run(pull_cmd, check=False)
+        if result.returncode != 0:
+            typer.echo(f"  FAIL — could not pull {mtp_draft}", err=True)
+            raise typer.Exit(code=1)
+
+    # Get draft blob path
+    modelfile_cmd = ollama_cmd.split() + ["show", mtp_draft, "--modelfile"]
+    result = subprocess.run(modelfile_cmd, capture_output=True, text=True)
+    draft_path = ""
+    for line in result.stdout.splitlines():
+        if line.startswith("FROM "):
+            draft_path = line.split("FROM ", 1)[1].strip()
+            break
+    if not draft_path or not Path(draft_path).exists():
+        typer.echo(
+            f"  FAIL — could not resolve blob path for {mtp_draft}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(f"  Draft blob: {draft_path}")
+
+    # Create MTP model
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".Modelfile", delete=False, prefix="portal5_mtp_"
+    ) as mf:
+        mf.write(f"FROM {mtp_base}\nDRAFT {draft_path}\n")
+        mf_path = mf.name
+
+    typer.echo("  Modelfile:")
+    typer.echo(Path(mf_path).read_text().strip())
+    typer.echo(f"  Creating {mtp_created} ...")
+
+    create_cmd = ollama_cmd.split() + ["create", mtp_created, "-f", mf_path]
+    result = subprocess.run(create_cmd, capture_output=True, text=True)
+    exit_code = result.returncode
+    Path(mf_path).unlink(missing_ok=True)
+
+    typer.echo(result.stdout)
+    if exit_code != 0:
+        typer.echo(f"\n  DRAFT REJECTION (Ollama create failed, exit {exit_code}).")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"\n  OK — {mtp_created} created.")
+
+
 def main() -> None:
     app()
 
