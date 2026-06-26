@@ -23,6 +23,12 @@ Public API
 
 ``get_pipeline_mcp_servers(config)``
     Returns env-overridden ``{id: url}`` dict for all pipeline-exposed MCPs.
+
+``load_persona_map(personas_dir=None)``
+    Returns ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
+
+``resolve_preset_tools(persona_spec, workspace_spec)``
+    Single tool-resolution path for any persona × workspace pair.
 """
 
 from __future__ import annotations
@@ -93,6 +99,27 @@ class WorkspaceSpec(BaseModel):
     owui_system_prompt: str | None = None
 
 
+class PersonaSpec(BaseModel):
+    """One persona entry from ``config/personas/<slug>.yaml``.
+
+    A persona is a workspace override: it inherits ``workspace_model``'s
+    routing, model, and default tools, then optionally overrides system
+    prompt and tools.  ``workspace_model`` must be a key in the loaded
+    ``WORKSPACES`` catalog — validated by ``load_persona_map``.
+    """
+
+    name: str
+    slug: str
+    category: str = "general"
+    workspace_model: str  # parent workspace key (= OWUI base_model_id)
+    system_prompt: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+    # Tool overrides — None means inherit workspace default
+    tools_allow: list[str] | None = None
+    tools_deny: list[str] = Field(default_factory=list)
+
+
 class McpServerCommand(BaseModel):
     """Command spec for local (stdio) MCP servers registered in IDE configs."""
 
@@ -121,7 +148,7 @@ class PortalConfig(BaseModel):
     request_timeout: int = 300
 
     @model_validator(mode="after")
-    def _no_port_collision(self) -> "PortalConfig":
+    def _no_port_collision(self) -> PortalConfig:
         ports = [s.port for s in self.mcp_fleet if s.port is not None]
         seen: set[int] = set()
         dupes = [p for p in ports if p in seen or seen.add(p)]  # type: ignore[func-returns-value]
@@ -130,7 +157,7 @@ class PortalConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _no_id_collision(self) -> "PortalConfig":
+    def _no_id_collision(self) -> PortalConfig:
         ids = [s.id for s in self.mcp_fleet]
         seen: set[str] = set()
         dupes = [i for i in ids if i in seen or seen.add(i)]  # type: ignore[func-returns-value]
@@ -235,3 +262,91 @@ def ollama_url(config: PortalConfig | None = None) -> str:
     if config is None:
         config = load_portal_config()
     return config.ollama_url
+
+
+# ── Persona loader ────────────────────────────────────────────────────────────
+
+_PERSONAS_DIR: Path = Path(__file__).resolve().parent.parent / "config" / "personas"
+
+
+def load_persona_map(
+    personas_dir: Path | None = None,
+    config: PortalConfig | None = None,
+) -> dict[str, PersonaSpec]:
+    """Return ``{slug: PersonaSpec}`` for every YAML under ``config/personas/``.
+
+    Invalid files are logged and skipped (same "graceful-empty" pattern as
+    the legacy loader).  Does **not** validate that every ``workspace_model``
+    resolves — call ``validate_persona_parents`` if you need that gate.
+    """
+    directory = personas_dir or _PERSONAS_DIR
+    if not directory.is_dir():
+        logger.warning("Personas directory not found: %s", directory)
+        return {}
+
+    result: dict[str, PersonaSpec] = {}
+    for yf in sorted(directory.glob("*.yaml")):
+        try:
+            raw = yaml.safe_load(yf.read_text()) or {}
+            slug = raw.get("slug", yf.stem)
+            raw.setdefault("slug", slug)
+            spec = PersonaSpec.model_validate(raw)
+            result[spec.slug] = spec
+        except Exception as exc:
+            logger.debug("Failed to load persona %s: %s", yf.name, exc)
+    return result
+
+
+def validate_persona_parents(
+    personas: dict[str, PersonaSpec],
+    config: PortalConfig | None = None,
+) -> None:
+    """Raise ``ValueError`` if any persona's ``workspace_model`` is not in WORKSPACES.
+
+    Called at load time when strict validation is needed (e.g. seeding or
+    the CI catalog schema test).  Production pipeline import skips this to
+    avoid startup failure from a persona pointing at a since-removed workspace.
+    """
+    if config is None:
+        config = load_portal_config()
+    known = set(config.workspaces.keys())
+    orphans = [
+        f"{slug} → {p.workspace_model}"
+        for slug, p in personas.items()
+        if p.workspace_model not in known
+    ]
+    if orphans:
+        raise ValueError(
+            f"{len(orphans)} persona(s) reference unknown workspace_model:\n"
+            + "\n".join(f"  {o}" for o in sorted(orphans))
+        )
+
+
+# ── Single tool-resolution path ───────────────────────────────────────────────
+
+
+def resolve_preset_tools(
+    persona: PersonaSpec | None,
+    workspace_tools: list[str],
+) -> list[str]:
+    """Return the effective tool list for a persona × workspace pair.
+
+    Resolution:
+    1. ``tools_allow`` absent (``None``) → use ``workspace_tools`` unchanged.
+    2. ``tools_allow`` present (even ``[]``) → that set replaces workspace default.
+    3. ``tools_deny`` then removes any matching entries.
+
+    Args:
+        persona: Typed ``PersonaSpec``; pass ``None`` for bare-workspace requests.
+        workspace_tools: The workspace's default tool whitelist (pre-resolved).
+
+    Returns:
+        Sorted, deduplicated list of tool names.
+    """
+    if persona is None:
+        return sorted(set(workspace_tools))
+    effective = (
+        set(workspace_tools) if persona.tools_allow is None else set(persona.tools_allow)
+    )
+    deny = set(persona.tools_deny or [])
+    return sorted(effective - deny)
