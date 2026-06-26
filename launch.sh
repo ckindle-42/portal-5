@@ -862,11 +862,11 @@ PYEOF
     ;;
 
   pull-models)
-    _launch_pull_models
+    exec python3 -m portal_pipeline.cli models pull "${@:2}"
     ;;
 
   refresh-models)
-    _launch_refresh_models
+    exec python3 -m portal_pipeline.cli models refresh "${@:2}"
     ;;
 
   add-user)
@@ -922,15 +922,15 @@ PYEOF
     ;;
 
   workspace-init)
-    _launch_workspace_init
+    exec python3 -m portal_pipeline.cli workspace init "${@:2}"
     ;;
 
   workspace-status)
-    _launch_workspace_status
+    exec python3 -m portal_pipeline.cli workspace status "${@:2}"
     ;;
 
   workspace-show)
-    _launch_workspace_show
+    exec python3 -m portal_pipeline.cli workspace show "${@:2}"
     ;;
 
   start-transcribe)
@@ -958,12 +958,7 @@ PYEOF
     ;;
 
   sync-config)
-    # Regenerate all derived artifacts from config/portal.yaml:
-    #   config/backends.yaml workspace_routing block
-    #   .mcp.json (Claude Code MCP list)
-    #   imports/openwebui/workspaces/workspace_*.json (OWUI presets)
-    # Idempotent — safe to run after every edit to portal.yaml.
-    python3 -m portal_pipeline.sync_config
+    exec python3 -m portal_pipeline.cli sync-config "${@:2}"
     ;;
 
 
