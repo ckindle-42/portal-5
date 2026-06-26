@@ -106,7 +106,7 @@ def _parse_sse_delta(line: str) -> tuple[str, str, str]:
         obj = json.loads(payload)
     except Exception:
         return "", "", ""
-    delta = obj.get("choices", [{}])[0].get("delta", {})
+    delta = (obj.get("choices") or [{}])[0].get("delta", {})
     chunk = delta.get("content") or ""
     chunk += delta.get("reasoning") or ""
     for tc in delta.get("tool_calls") or []:
