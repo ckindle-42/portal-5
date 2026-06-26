@@ -9,6 +9,7 @@ import os
 
 _raw_api_key = os.environ.get("PIPELINE_API_KEY", "")
 PIPELINE_API_KEY: str = _raw_api_key
+PORTAL5_ADMIN_KEY: str = os.environ.get("PORTAL5_ADMIN_KEY", _raw_api_key)
 
 def _verify_key(authorization: str | None) -> None:
     """Validate the Authorization header against ``PIPELINE_API_KEY``.

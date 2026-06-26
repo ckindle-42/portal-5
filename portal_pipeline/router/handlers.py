@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import time
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -68,13 +69,21 @@ from portal_pipeline.router.state import (
     _record_error,
     _record_persona,
     _request_count,
+    _req_count_by_model,
 )
+from portal_pipeline.config import ollama_url
+from portal_pipeline.router.anthropic_compat import (
+    anthropic_to_openai_body,
+    openai_stream_to_anthropic_sse,
+)
+from portal_pipeline.router.non_streaming import _run_non_streaming_chain
 from portal_pipeline.router.streaming import (
     _json_completion_to_sse,
     _stream_from_backend_guarded,
     _stream_with_chain,
     _stream_with_preamble,
     _stream_with_tool_loop,
+    _stream_with_secondary_chain,
 )
 from portal_pipeline.router.tools import _dispatch_tool_call
 from portal_pipeline.router.validation import (
@@ -83,6 +92,7 @@ from portal_pipeline.router.validation import (
 )
 from portal_pipeline.router.workspaces import (
     WORKSPACES,
+    _PERSONA_MAP,
     _resolve_persona_tools,
 )
 
@@ -1084,10 +1094,13 @@ async def anthropic_messages(
         "Content-Type": "application/json",
     }
 
+    # Deferred to avoid circular import (app.py imports handlers.py)
+    from portal_pipeline.router.app import app as _app  # noqa: PLC0415
+
     if stream:
         async def _generate() -> AsyncIterator[str]:
             async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),  # type: ignore[arg-type]
+                transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
                 base_url="http://portal-local",
                 timeout=httpx.Timeout(300.0),
             ) as client:
@@ -1106,7 +1119,7 @@ async def anthropic_messages(
 
     # Non-streaming
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),  # type: ignore[arg-type]
+        transport=httpx.ASGITransport(app=_app),  # type: ignore[arg-type]
         base_url="http://portal-local",
         timeout=httpx.Timeout(300.0),
     ) as client:
