@@ -301,7 +301,12 @@ class TestClassifyNontoolTurn:
 
 class TestComputeSpeedScore:
     def test_empty(self):
-        assert compute_speed_score([], []) == {"speed_score": 0.0, "step_times": []}
+        assert compute_speed_score([], []) == {
+            "speed_score": 0.0,
+            "step_times": [],
+            "steps_on_budget": 0,
+            "steps_over_budget": 0,
+        }
 
     def test_all_on_budget(self):
         chain = [{"step": "recon", "elapsed_s": 20}, {"step": "exploit", "elapsed_s": 25}]

@@ -142,6 +142,7 @@ from portal_pipeline.router.lifespan import (  # noqa: F401
 
 # Auth (router/auth.py)
 from portal_pipeline.router.auth import (  # noqa: F401
+    PIPELINE_API_KEY,
     _verify_key,
     _verify_admin_key,
 )
