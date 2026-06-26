@@ -359,9 +359,93 @@ def cmd_models_apply_mtp_drafts() -> None:
     typer.echo(f"\n  OK — {mtp_created} created.")
 
 
-def main() -> None:
-    app()
+# ── models list ───────────────────────────────────────────────────────────────
 
 
-if __name__ == "__main__":
-    main()
+@models_app.command("list")
+def cmd_models_list(
+    output_json: Annotated[bool, typer.Option("--json", help="Emit JSON instead of a table")] = False,
+    include_retired: Annotated[
+        bool,
+        typer.Option("--include-retired", help="Include retired entries (default hides them)"),
+    ] = False,
+) -> None:
+    """Print the model registry from portal.yaml.
+
+    Default: human-readable table, retired entries hidden.
+    """
+    cfg = load_portal_config()
+    entries = cfg.models if include_retired else [m for m in cfg.models if not m.retired]
+
+    if output_json:
+        import json as _json
+
+        typer.echo(_json.dumps([m.model_dump() for m in entries], indent=2))
+        return
+
+    if not entries:
+        typer.echo("(no models)")
+        return
+
+    headers = ("ollama_name", "hf_id", "gated", "retired")
+    rows = [
+        (
+            m.ollama_name,
+            m.hf_id[:50] + "\u2026" if len(m.hf_id) > 50 else m.hf_id,
+            "Y" if m.gated else "",
+            "Y" if m.retired else "",
+        )
+        for m in entries
+    ]
+    widths = [max(len(str(r[i])) for r in (headers, *rows)) for i in range(len(headers))]
+    fmt = "  ".join(f"{{:<{w}}}" for w in widths)
+    typer.echo(fmt.format(*headers))
+    typer.echo(fmt.format(*("-" * w for w in widths)))
+    for row in rows:
+        typer.echo(fmt.format(*row))
+    typer.echo()
+    typer.echo(
+        f"{len(entries)} model(s)"
+        + ("" if include_retired else " (use --include-retired to see all)")
+    )
+
+
+# ── models validate ───────────────────────────────────────────────────────────
+
+
+@models_app.command("validate")
+def cmd_models_validate(
+    strict: Annotated[
+        bool,
+        typer.Option("--strict", help="Exit 1 on unused-model warnings (default exits only on orphans)"),
+    ] = False,
+) -> None:
+    """Cross-check portal.yaml workspaces ↔ models registry.
+
+    Hard errors (exit 1):
+      - Workspace model_hint references a pullable name not in registry
+
+    Soft warnings (exit 0 unless --strict):
+      - Registered model has no workspace referencing it
+    """
+    from portal_pipeline.cli._common import cross_reference_workspaces_and_models
+
+    cfg = load_portal_config()
+    report = cross_reference_workspaces_and_models(cfg)
+
+    if report.orphan_hints:
+        typer.echo("\u2717 Orphan workspace hints (must be in registry to be pullable):", err=True)
+        for h in report.orphan_hints:
+            typer.echo(f"    {h}", err=True)
+
+    if report.unused_models:
+        typer.echo("\u26a0 Unused registry entries (no workspace references these):")
+        for n in report.unused_models:
+            typer.echo(f"    {n}")
+        typer.echo("  Consider marking retired=true if intentional.")
+
+    if not report.orphan_hints and not report.unused_models:
+        typer.echo("\u2713 portal.yaml is consistent")
+
+    failed = bool(report.orphan_hints) or (strict and bool(report.unused_models))
+    raise typer.Exit(code=1 if failed else 0)
