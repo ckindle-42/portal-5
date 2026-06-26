@@ -3400,6 +3400,9 @@ DEFAULT_WORKSPACES = [
     "auto-pentest",
     "auto-blueteam",
     "auto-purpleteam-exec",
+    "auto-purpleteam",
+    "auto-purpleteam-deep",
+    "auto-security-uncensored",
 ]
 
 # Disclaimer phrases that indicate the model hedged its response
