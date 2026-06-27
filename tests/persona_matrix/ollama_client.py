@@ -24,7 +24,7 @@ from ._common import (
     RESULTS_DIR,
     SYSTEM_PROMPT_CAP_CHARS,
 )
-from .loaders import _ollama_size_estimate, chain_models_for_workspace, load_backends_yaml
+from .loaders import chain_models_for_workspace, load_backends_yaml
 
 
 async def _chat_direct(

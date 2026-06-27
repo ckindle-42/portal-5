@@ -39,13 +39,12 @@ import argparse
 import asyncio
 import importlib
 import json
-import os
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -340,9 +339,7 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     """J. bench_security catalog covers every live security workspace."""
     try:
         from portal_pipeline.config import load_portal_config
-        from tests.benchmarks.bench_security import (
-            DEFAULT_WORKSPACES, EXECUTION_WORKSPACES,
-        )
+        from tests.benchmarks.bench_security import DEFAULT_WORKSPACES
     except ImportError as e:
         return "SKIP", f"import: {e}", []
 

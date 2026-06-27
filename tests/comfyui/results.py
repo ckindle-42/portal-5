@@ -1,11 +1,10 @@
 """ComfyUI-specific result writer — writes to ACCEPTANCE_RESULTS_COMFYUI.md."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
 
-from ._common import _ICON, _blocked, _log
+from ._common import _blocked, _log
 
 ROOT = Path(__file__).parent.parent.resolve()
 

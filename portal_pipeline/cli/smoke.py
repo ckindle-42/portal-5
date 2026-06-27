@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -12,7 +11,6 @@ def cmd_test(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose output")] = False,
 ) -> None:
     """Run end-to-end smoke tests against the live Portal stack."""
-    import json as _json
 
     import httpx
 

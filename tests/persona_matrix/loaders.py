@@ -2,14 +2,12 @@
 Pure I/O — no HTTP, no async."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from ._common import WORKSPACE_REGISTRY
 
 ROOT = Path(__file__).parent.parent.resolve()
 REPO_ROOT = ROOT.parent

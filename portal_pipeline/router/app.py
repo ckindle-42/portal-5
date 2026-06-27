@@ -4,7 +4,7 @@ from __future__ import annotations
 import importlib.metadata
 import logging
 
-from fastapi import FastAPI, Header
+from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
 from portal_pipeline.router import handlers

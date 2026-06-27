@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -101,7 +100,7 @@ def cross_reference_workspaces_and_models(cfg: PortalConfig) -> CrossRefReport:
     Pure function — no I/O, no side effects.
     """
     # Build the set of pullable ollama_names from the registry
-    ollama_names = {m.ollama_name for m in cfg.models}
+    {m.ollama_name for m in cfg.models}
     non_retired_names = {m.ollama_name for m in cfg.models if not m.retired}
 
     # Walk workspaces, collect their model_hint values

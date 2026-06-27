@@ -100,7 +100,7 @@ async def run() -> None:
     video_loras: set[str] = set()
     try:
         async with httpx.AsyncClient(timeout=5) as c:
-            r = await c.get(f"http://localhost:{VIDEO_MCP_PORT}/health")
+            await c.get(f"http://localhost:{VIDEO_MCP_PORT}/health")
             # Ask Docker container env which LoRA video_mcp uses
             pass
     except Exception:

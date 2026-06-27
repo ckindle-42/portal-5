@@ -17,19 +17,15 @@ from typing import Any
 
 import httpx
 from fastapi import Header, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from prometheus_client import generate_latest
 
 from portal_pipeline.cluster_backends import BackendRegistry
 from portal_pipeline.router.auth import _verify_key, _verify_admin_key
 from portal_pipeline.router.concurrency import (
-    _MAX_CONCURRENT,
     RequestSlot,
 )
 from portal_pipeline.router.lifespan import (
-    _http_client,
-    _notification_scheduler,
-    _state_save_task,
     _startup_time,
 )
 # Set by lifespan — NOT captured at import time.
@@ -40,18 +36,8 @@ registry: BackendRegistry | None = None
 _notification_dispatcher: Any = None
 from portal_pipeline.router.metrics import (
     _REGISTRY,
-    _concurrent_requests,
     _record_response_time,
-    _requests_by_model,
     _requests_total,
-    _tokens_per_second,
-    _tool_call_duration,
-    _tool_call_errors,
-    _tool_calls_total,
-    _tool_loop_hops,
-    _tool_workspace_strip,
-    _workspace_semaphore_busy_total,
-    _workspace_semaphore_busy_total_metric,
 )
 from portal_pipeline.router.non_streaming import _try_non_streaming
 from portal_pipeline.router.preinject import (
@@ -61,10 +47,6 @@ from portal_pipeline.router.preinject import (
     _resolve_auto_routing,
     _resolve_persona_workspace,
     _resolve_vision_fallback,
-)
-from portal_pipeline.router.routing import (
-    _detect_workspace,
-    _route_with_llm,
 )
 from portal_pipeline.router.state import (
     _record_error,
@@ -80,13 +62,11 @@ from portal_pipeline.router.anthropic_compat import (
 from portal_pipeline.router.non_streaming import _run_non_streaming_chain
 from portal_pipeline.router.streaming import (
     _json_completion_to_sse,
-    _stream_from_backend_guarded,
     _stream_with_chain,
     _stream_with_preamble,
     _stream_with_tool_loop,
     _stream_with_secondary_chain,
 )
-from portal_pipeline.router.tools import _dispatch_tool_call
 from portal_pipeline.router.validation import (
     _inject_ollama_options,
     _model_supports_tools,

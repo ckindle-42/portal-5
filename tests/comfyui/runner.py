@@ -156,7 +156,6 @@ async def run_sections(sections: list[str], verbose: bool = False) -> tuple[list
     """Run the given sections in order. Returns (sections_run, elapsed_seconds)."""
     import time
 
-    from . import _common
     from ._common import record
 
     start_time = time.time()

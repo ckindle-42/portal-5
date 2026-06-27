@@ -8,7 +8,6 @@ streaming/non-streaming branch is decided by the request body's
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from typing import Any

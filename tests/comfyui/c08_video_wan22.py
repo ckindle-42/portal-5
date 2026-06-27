@@ -18,7 +18,7 @@ async def run() -> None:
     sec = "C8"
 
     # Check if video model is available
-    t0 = time.time()
+    time.time()
     await _mcp(
         VIDEO_MCP_PORT,
         "list_video_models",

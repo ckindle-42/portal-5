@@ -8,11 +8,9 @@ evicting models one at a time per the memory-discipline contract.
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -20,15 +18,11 @@ import httpx
 from ._common import (
     EVICT_BACKOFF_S,
     OLLAMA_URL,
-    RESULTS_DIR,
     WORKSPACE_REGISTRY,
-    _REPO,
     _load_workspace_modules,
-    ca,
     cf,
 )
 from .loaders import (
-    ROOT,
     _ollama_size_estimate,
     chain_models_for_workspace,
     load_backends_yaml,

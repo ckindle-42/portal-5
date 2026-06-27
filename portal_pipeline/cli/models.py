@@ -30,7 +30,6 @@ def _pull_native(model: str, ollama_cmd: str) -> bool:
 
 def _pull_hf_model(m: Model, ollama_cmd: str) -> bool:
     """Pull a HuggingFace model via Python API + ollama create."""
-    from portal_pipeline.config import Model  # noqa: PLC0415
 
     actual_repo = m.actual_repo or m.hf_id
     filename = m.filename
@@ -261,7 +260,7 @@ def cmd_models_import_gguf(
         typer.echo(f"  Run it: ollama run {model_name}")
     except subprocess.CalledProcessError:
         typer.echo("[portal-5] ❌ Import failed. Check Ollama is running.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     finally:
         Path(mf_path).unlink(missing_ok=True)
 

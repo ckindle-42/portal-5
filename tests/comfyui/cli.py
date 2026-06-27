@@ -5,7 +5,6 @@ import argparse
 import asyncio
 import contextlib
 import time
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.resolve()
@@ -18,12 +17,10 @@ async def main() -> int:
         _ICON,
         _comfyui_watchdog,
         _git_sha,
-        _log,
         COMFYUI_URL,
-        record,
     )
     from .results import _write_results
-    from .runner import ALL_ORDER, _parse_sections, run_sections
+    from .runner import _parse_sections, run_sections
 
     parser = argparse.ArgumentParser(description="Portal 5 — ComfyUI / Image & Video Generation Acceptance Tests")
     parser.add_argument("--section", default="ALL", help="Section(s) to run (e.g. C4, C4-C8, ALL)")
