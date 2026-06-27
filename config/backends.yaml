@@ -105,7 +105,12 @@ backends:
   - id: sylink/sylink:8b
     supports_tools: false
   - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: true
+    # supports_tools=false: model is wired to driver-dispatched workspaces
+    # (auto-purpleteam-exec). Empirically enters reasoning loop when given
+    # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
+    # parses model text output and dispatches via _lab_mcp_call directly.
+    # Reference: UAT 20260627 + commit 7fee599 regression analysis.
+    supports_tools: false
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
   - id: hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
@@ -136,7 +141,12 @@ backends:
   - id: huihui_ai/tongyi-deepresearch-abliterated
     supports_tools: true
   - id: supergemma4-26b-uncensored:Q4_K_M
-    supports_tools: true
+    # supports_tools=false: model is wired to driver-dispatched workspaces
+    # (auto-purpleteam-exec). Empirically enters reasoning loop when given
+    # tool definitions in context (UAT WS-PE03 killed at 1353s). Driver
+    # parses model text output and dispatches via _lab_mcp_call directly.
+    # Reference: UAT 20260627 + commit 7fee599 regression analysis.
+    supports_tools: false
   - id: granite4.1:30b
     supports_tools: true
   - id: qwen3.6:27b-q8_0
