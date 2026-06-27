@@ -13,7 +13,6 @@ import time
 from pathlib import Path
 
 import httpx
-from playwright.async_api import async_playwright
 
 from tests.memory_guard import memory_pct as _get_memory_pct
 from tests.uat import config, state
@@ -424,6 +423,7 @@ async def main() -> None:
     corpus_run_id: str = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     print(f"  Corpus: tests/uat_corpus/uat_{corpus_run_id}.jsonl")
 
+    from playwright.async_api import async_playwright  # lazy: keeps unit-test collection light
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
         ctx = await browser.new_context(
