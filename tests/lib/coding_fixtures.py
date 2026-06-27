@@ -9,8 +9,6 @@ coding-specific assertions (language.X, constraint.X).
 from __future__ import annotations
 
 import glob
-from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 

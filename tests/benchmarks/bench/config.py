@@ -65,14 +65,6 @@ MATH_MAX_TOKENS = 1024
 REASONING_WORKSPACES: frozenset[str] = frozenset(
     {
         "bench-laguna",
-        "bench-phi4-reasoning",
-        "bench-phi4",  # phi4 (non-reasoning variant) emits only reasoning_text via pipeline
-        "bench-phi4-mini-reasoning",  # phi4-mini-reasoning — 3.8B thinking model
-        "bench-foundation-sec",  # Foundation-Sec-8B-Reasoning — native <think> (Llama-3.1 base)
-        "bench-r1-0528-qwen3-8b",  # DeepSeek-R1-0528-Qwen3-8B — chain-of-thought
-        "bench-r1-0528-abliterated",  # R1-0528 abliterated — same architecture
-        "bench-olmo3-32b",  # OLMo-3.1-32B-Think — emits <think> blocks
-        "bench-negentropy",  # deepseek-r1:32b-q4_k_m — CoT reasoning
         "bench-nex-n2-mini",  # Nex-N2-mini (Qwen3.5-35B-A3B MoE) — emits_reasoning
         "auto-blueteam",  # Foundation-Sec-8B-Reasoning — same model as bench-foundation-sec
         "auto-data",  # deepseek-r1:32b-q8_0 — R1 chain-of-thought
@@ -93,9 +85,6 @@ REASONING_WORKSPACES: frozenset[str] = frozenset(
 MATH_SPECIALIST_WORKSPACES: frozenset[str] = frozenset(
     {
         "auto-math",  # phi4-mini-reasoning — AIME/MATH-500 specialist
-        "bench-phi4-mini-reasoning",  # direct bench target for auto-math model
-        "bench-phi4-mini",  # phi4-mini non-thinking baseline — compare vs reasoning variant
-        "bench-phi4",  # phi4 — broader reasoning, include for full phi4 family picture
     }
 )
 # Model substrings that trigger the extra math pass in direct mode.

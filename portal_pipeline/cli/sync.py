@@ -1,14 +1,12 @@
 """``portal sync-config`` / ``portal sync-readme``."""
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from portal_pipeline.config import load_portal_config
 
 
 def register(app: typer.Typer) -> None:

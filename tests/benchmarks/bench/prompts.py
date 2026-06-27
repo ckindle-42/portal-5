@@ -113,10 +113,6 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # Benchmark workspaces — prompt matches the model's primary capability
     "bench-qwen3-coder-next": "coding",
     "bench-qwen3-coder-30b": "coding",
-    "bench-llama33-70b": "coding",
-    "bench-phi4": "reasoning",
-    "bench-phi4-reasoning": "reasoning",
-    "bench-dolphin8b": "creative",
     "bench-glm": "coding",
     "bench-laguna": "reasoning",
     "bench-gptoss": "reasoning",
@@ -131,19 +127,12 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     # ── V6 bench workspaces (TASK_MODEL_REFRESH_V6) — ascending size, family-grouped ──
     # 9B tier
     "bench-omnicoder2": "coding",  # omnicoder2:9b — Qwen3.5-9B SFT on agentic traces
-    "bench-negentropy": "reasoning",  # Jackrong Negentropy 9B — trace-inversion CoT
     # Qwen3.6 family — 27B dense then 35B-A3B MoE (family-grouped, ascending)
     "bench-qwen36-27b": "coding",  # Qwen3.6-27B Q8 — dense 27B + vision, SWE-bench 77.2%
     "bench-qwen36-27b-mtp": "coding",  # Qwen3.6-27B MTP — speculative decoding bench
     "bench-qwen36-35b-a3b": "coding",  # Qwen3.6-35B-A3B — MoE 3B active, agentic-coding
     # 32B standalone
-    "bench-olmo3-32b": "reasoning",  # OLMo-3-32B — Allen AI dense 32B, non-Qwen lineage
     # V7 bench workspaces — OCR, MoE creative, security reasoning, tools
-    "bench-olmocr2": "vision",  # Allen AI olmOCR-2-7B — OCR/document understanding
-    "bench-nanonets-ocr2": "vision",  # Nanonets OCR2-3B — OCR specialist
-    "bench-lfm2-moe": "creative",  # LFM2-8B-A1B MoE — creative generation
-    "bench-foundation-sec": "reasoning",  # Foundation-Sec-8B-Reasoning — security CoT
-    "bench-toolace25": "coding",  # ToolACE-2.5 — tool-calling; "coding" is closest proxy
     # Auto workspaces added after TC-6 audit — fall back to "general" without these
     "auto-daily": "general",  # gemma4:26b-a4b-it-qat daily driver
     "auto-audio": "general",  # gemma4:12b-it-qat audio analyst
@@ -170,38 +159,26 @@ WORKSPACE_PROMPT_MAP: dict[str, str] = {
     "bench-gemma4-26b-qat": "general",  # Gemma 4 26B QAT — auto-daily production model
     "bench-gemma4-31b-qat": "general",  # Gemma 4 31B QAT — upper-tier candidate
     # Phi-4 mini family
-    "bench-phi4-mini": "reasoning",  # Phi-4-mini — dense 3.8B reasoning
-    "bench-phi4-mini-reasoning": "reasoning",  # Phi-4-mini-reasoning — AIME/MATH-500 specialist (auto-math primary)
     # LFM2.5 creative/music lane
     "bench-lfm25-8b": "creative",  # LFM2.5-8B — liquid foundation model, creative/music
     "bench-lfm25-8b-uncensored": "creative",  # LFM2.5-8B uncensored — abliterated creative variant
     # Coding lane additions
-    "bench-starcoder2": "coding",  # StarCoder2 — code completion
     "bench-devstral-small-2": "coding",  # Devstral-Small-2 — Mistral coding specialist
     "bench-qwen3-coder-next-abliterated": "coding",  # Qwen3-Coder-Next abliterated (auto-spl primary)
     # Reasoning/security additions
-    "bench-mistral-small32": "reasoning",  # Mistral-Small-3.2-24B
-    "bench-r1-0528-qwen3-8b": "reasoning",  # DeepSeek-R1-0528-Qwen3-8B (auto-reasoning primary)
-    "bench-r1-0528-abliterated": "reasoning",  # R1-0528 abliterated — CoT without refusals
     # General additions
     "bench-nex-n2-mini": "coding",  # Nex-N2-Mini — compact agentic coding
-    "bench-harness1": "general",  # Harness-1 eval model
     "bench-qwen36-hauhaucs": "creative",  # Qwen3.6-35B-A3B HauhauCS uncensored (auto-creative primary)
     # ── Security model bench workspaces ─────────────────────────────────────
     "bench-gemma4-31b-crack": "security",  # JANG-CRACK — auto-pentest primary (0.933 bench score)
-    "bench-supergemma4": "security",       # SuperGemma4-26B uncensored (auto-redteam-deep primary)
     # ── 3B reasoning/uncensored bench workspaces (2026-06-17) ───────────────
-    "bench-vibethinker-3b": "reasoning",   # VibeThinker-3B — Qwen2.5-3B, 0.938 avg, 39s (= phi4-mini at half latency)
-    "bench-vibethinker-3b-ablated": "security",  # VibeThinker-3B-Ablated — 0.775 security avg
     # ── CAD/3D-print bench workspace ────────────────────────────────────────
-    "bench-c3d-v0": "coding",              # 3D-print coding candidate (auto-cad evaluation)
     # ── Fast-context bench workspace ────────────────────────────────────────
     "bench-fastcontext": "coding",         # FastContext-1.0-4B-SFT (Microsoft long-context)
     # ── Generative image bench workspace ────────────────────────────────────
     # bench-diffusiongemma is a text→image diffusion model; the text harness produces
     # only the prompt text, not the image output, so TPS is not meaningful here.
     # Keep it in WORKSPACE_PROMPT_MAP so it doesn't fall through to "general" silently.
-    "bench-diffusiongemma": "vision",      # DiffusionGemma-26B-A4B — image gen via token diffusion
     # ── Qwopus v2 MTP bench ─────────────────────────────────────────────────
     "bench-qwopus-coder-mtp-v2": "coding",  # Qwopus3.6-27B-v2-MTP (BLOCKED — widespread 500s)
     # Speech models — NOT in WORKSPACE_PROMPT_MAP by design:
