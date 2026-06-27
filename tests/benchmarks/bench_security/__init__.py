@@ -34,6 +34,7 @@ from ._data import (
     EXEC_SEQUENCES,
     EXECUTION_WORKSPACES,
     MITRE_PATTERN,
+    PER_WORKSPACE_TIMEOUT,
     PIPELINE_API_KEY,
     PIPELINE_URL,
     PROMPT_MAX_TOKENS,
@@ -141,6 +142,7 @@ __all__ = [
     "PIPELINE_URL",
     "PIPELINE_API_KEY",
     "REQUEST_TIMEOUT",
+    "PER_WORKSPACE_TIMEOUT",
     "PROMPT_MAX_TOKENS",
     "DISCLAIMER_PATTERNS",
     "MITRE_PATTERN",
@@ -166,7 +168,8 @@ def call_pipeline(
     headers = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
     parts: list[str] = []
     t0 = time.monotonic()
-    with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
+    _timeout = PER_WORKSPACE_TIMEOUT.get(workspace, REQUEST_TIMEOUT)
+    with httpx.Client(timeout=httpx.Timeout(_timeout, connect=5.0)) as client:
         with client.stream(
             "POST",
             f"{PIPELINE_URL}/v1/chat/completions",
@@ -206,7 +209,8 @@ def call_pipeline_exec(
 
     exec_prompt = (prompt_meta.get("exec_text") if prompt_meta else None) or (_LAB_PREFIX + prompt)
 
-    with httpx.Client(timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=5.0)) as client:
+    _timeout = PER_WORKSPACE_TIMEOUT.get(workspace, REQUEST_TIMEOUT)
+    with httpx.Client(timeout=httpx.Timeout(_timeout, connect=5.0)) as client:
         with client.stream(
             "POST",
             f"{PIPELINE_URL}/v1/chat/completions",
