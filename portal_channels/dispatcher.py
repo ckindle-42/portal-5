@@ -47,8 +47,6 @@ VALID_WORKSPACES = frozenset(
         "auto-purpleteam-deep",
         "auto-purpleteam-exec",
         "auto-pentest",
-        "bench-vibethinker-3b",
-        "bench-vibethinker-3b-ablated",
         "auto-blueteam",
         "auto-creative",
         "auto-reasoning",
@@ -66,10 +64,6 @@ VALID_WORKSPACES = frozenset(
         # Coding capability benchmark workspaces (user-selected only)
         "bench-qwen3-coder-next",
         "bench-qwen3-coder-30b",
-        "bench-llama33-70b",
-        "bench-phi4",
-        "bench-phi4-reasoning",
-        "bench-dolphin8b",
         "bench-glm",
         "bench-glm-reap",
         "bench-glm-z1-rumination",
@@ -82,25 +76,13 @@ VALID_WORKSPACES = frozenset(
         "bench-qwen36-27b",
         "bench-qwen36-35b-a3b",
         "bench-omnicoder2",
-        "bench-negentropy",
-        "bench-olmo3-32b",
         # May 2026 additions (TASK_BENCH_COVERAGE_V1)
-        "bench-nemotron-omni",
         # V7 adds (PHASE_PLAN_MODEL_REFRESH_V7_V2)
-        "bench-olmocr2",
-        "bench-nanonets-ocr2",
-        "bench-lfm2-moe",
-        "bench-foundation-sec",
-        "bench-toolace25",
         # V7 catalog refresh (TASK_MODEL_REFRESH_V7)
-        "bench-voxtral-realtime",
-        "bench-voxtral-tts",
-        "bench-granite-speech",
         "bench-qwen36-27b-ud",
         "bench-qwen36-35b-a3b-ud",
         "bench-qwen36-27b-mtp",
         # V8 quant-trueup (TASK_QUANT_TRUEUP_V1)
-        "bench-qwen36-35b-a3b-dwq",
         "bench-qwen36-27b-optiq",
         "bench-gemma4-26b-optiq",
         "bench-huihui-qwen36-27b",
@@ -108,30 +90,19 @@ VALID_WORKSPACES = frozenset(
         # TASK_MODEL_FLEET_REFRESH_V2 Phase 4 adds
         "bench-qwen36-hauhaucs",
         "bench-gemma4-12b",
-        "bench-phi4-mini",
         "bench-gemma4-e4b",
         # V8 model refresh (TASK_MODEL_REFRESH_V8)
         "bench-gemma4-e2b",
         "bench-gemma4-e4b-qat",
         "bench-gemma4-26b-qat",
         "bench-gemma4-31b-qat",
-        "bench-phi4-mini-reasoning",
         "bench-lfm25-8b",
-        "bench-starcoder2",
         "bench-devstral-small-2",
-        "bench-mistral-small32",
-        "bench-r1-0528-qwen3-8b",
-        "bench-harness1",
         "bench-nex-n2-mini",
         # V8 uncensored candidates (TASK_MODEL_REFRESH_V8_UNCENSORED)
         "bench-lfm25-8b-uncensored",
-        "bench-r1-0528-abliterated",
         "bench-qwen3-coder-next-abliterated",
         # V9 candidate benches (TASK_MODEL_EVAL_V9_CANDIDATES)
-        "bench-qwopus-coder-mtp",
-        "bench-gemma4-12b-coder",
-        "bench-deepseek-coder-v2",
-        "bench-gemmable-12b",
         "bench-qwable-35b",
         "bench-e2b-pentest",
         # June 2026 new production workspaces
@@ -141,19 +112,10 @@ VALID_WORKSPACES = frozenset(
         "bench-gemma4-31b-crack",
         "bench-devstral",
         "bench-fastcontext",
-        "bench-magistral",
-        "bench-apriel-nemotron",
         "bench-qwopus-coder-mtp-v2",
-        "bench-c3d-v0",
-        "bench-wrn8b",
-        "bench-lily-cybersec",
-        "bench-dolphin-r1",
         "bench-supergemma4-sec",
-        "bench-xploiter-pentester",
         # June 2026 security candidate round 2
-        "bench-foundation-sec-abliterated",
         "bench-sylink",
-        "bench-dolphin3-cyber",
         # June 2026 new production security workspaces
         "auto-redteam-deep",
         # June 2026 uncensored coding + stranded-model lanes (TASK_CODING_UNCENSORED_LANES_V1)
@@ -165,7 +127,6 @@ VALID_WORKSPACES = frozenset(
         # June 2026 AppSec bench candidate
         "bench-vulnllm-r7b",
         # June 2026 diffusion research bench
-        "bench-diffusiongemma",
         # May 2026 specialist MLX production workspaces
         "tools-specialist",
         # June 2026 security bench exec-chain workspaces (pipeline-routed)
