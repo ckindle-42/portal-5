@@ -368,7 +368,11 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-data",
         "model_slug": "phi4stemanalyst",
         "timeout": 180,
-        # Phi-4-reasoning-plus (14B RL-trained, ~11GB) — routed via auto-phi4 workspace
+        # ROUTING NOTE: phi4stemanalyst → auto-phi4 → model_hint: phi4-reasoning:plus
+        # When :plus is missing from Ollama, falls back to bare phi4-reasoning (slow, ~1352s/attempt)
+        # or dolphin-llama3:8b (fast but fails content assertions). Run `ollama pull phi4-reasoning:plus`
+        # to stabilize. Until then expect 3x retry loops hitting 4068s+ elapsed.
+        "max_wait_no_progress": 1500,  # allow phi4-reasoning full think budget before fail
         "workspace_tier": "ollama",
         # phi4-reasoning:plus emits chain-of-thought in <think> block; include it so
         # keyword assertions can find mathematical content like "binomial", "E[X]=5"

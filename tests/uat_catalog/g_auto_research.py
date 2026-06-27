@@ -87,6 +87,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-research",
         "model_slug": "researchanalyst",
         "timeout": 360,
+        "max_wait_no_progress": 1200,  # tongyi-deepresearch-abliterated high variance: 22s–900s
         "workspace_tier": "ollama",
         "prompt": (
             "Analyze this claim: 'Passwordless authentication is more secure than passwords + MFA "
@@ -167,6 +168,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-research",
         "model_slug": "gemmaresearchanalyst",
         "timeout": 360,
+        "max_wait_no_progress": 1200,  # tongyi-deepresearch-abliterated: 900.5s pass→902s fail boundary
         "workspace_tier": "ollama",
         "prompt": (
             "Analyze AI regulation globally. Structure your response as follows:\n"

@@ -15,6 +15,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-spl",
         "model_slug": "auto-spl",
         "timeout": 160,
+        "max_wait_no_progress": 1200,  # qwen3-coder-next-abliterated regularly hits 900s cap
         "workspace_tier": "ollama",
         "prompt": (
             "Refactor this slow SPL search to use tstats for performance:\n"
