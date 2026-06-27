@@ -359,6 +359,37 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
 
 
+def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
+    """L. Every persona's workspace_model resolves to a live workspace."""
+    try:
+        import pathlib
+        import yaml
+        from portal_pipeline.config import load_portal_config
+    except ImportError as e:
+        return "SKIP", f"import: {e}", []
+    cfg = load_portal_config()
+    live_workspaces = set(cfg.workspaces.keys())
+    persona_dir = pathlib.Path("config/personas")
+    if not persona_dir.is_dir():
+        return "SKIP", "config/personas/ not found", []
+    broken: list[str] = []
+    n_total = 0
+    for yaml_path in persona_dir.glob("*.yaml"):
+        n_total += 1
+        try:
+            persona = yaml.safe_load(yaml_path.read_text())
+        except Exception:
+            continue
+        if not isinstance(persona, dict):
+            continue
+        ws = persona.get("workspace_model") or persona.get("workspace")
+        if ws and ws not in live_workspaces:
+            broken.append(f"{yaml_path.stem} -> {ws}")
+    if broken:
+        return "FAIL", f"{len(broken)} persona(s) reference dead workspace: {broken[:3]}", []
+    return "PASS", f"all {n_total} personas resolve to live workspaces", []
+
+
 def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
     """K. UAT catalog has no stale workspace references.
 
@@ -464,6 +495,7 @@ def main() -> int:
     v.run("I. shim contract", check_shim_contract)
     v.run("J. bench_security catalog", check_bench_security_catalog)
     v.run("K. UAT catalog refs", check_uat_catalog_no_stale_refs)
+    v.run("L. persona workspace refs", check_persona_workspace_resolution)
 
     return v.summary()
 
