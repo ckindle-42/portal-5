@@ -359,6 +359,25 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
 
 
+def check_valid_workspaces_resolve() -> tuple[str, str, list[dict]]:
+    """N. portal_channels.dispatcher.VALID_WORKSPACES contains only live workspace ids.
+
+    Catches the drift pattern where new workspaces are added to the
+    channel-adapter routing gate but retired workspaces are never removed.
+    Same shape as J/K — catalog drift detection.
+    """
+    try:
+        from portal_pipeline.config import load_portal_config
+        from portal_channels.dispatcher import VALID_WORKSPACES
+    except ImportError as e:
+        return "SKIP", f"import: {e}", []
+    live = set(load_portal_config().workspaces.keys())
+    stale = sorted(VALID_WORKSPACES - live)
+    if stale:
+        return "FAIL", f"{len(stale)} stale ws id(s) in VALID_WORKSPACES — first: {stale[0]}", []
+    return "PASS", f"all {len(VALID_WORKSPACES)} VALID_WORKSPACES entries resolve", []
+
+
 def check_no_undefined_names() -> tuple[str, str, list[dict]]:
     """M. Ruff F821 — no undefined-name violations anywhere in the repo.
 
@@ -525,6 +544,7 @@ def main() -> int:
     v.run("K. UAT catalog refs", check_uat_catalog_no_stale_refs)
     v.run("L. persona workspace refs", check_persona_workspace_resolution)
     v.run("M. ruff F821 (undefined names)", check_no_undefined_names)
+    v.run("N. VALID_WORKSPACES resolution", check_valid_workspaces_resolve)
 
     return v.summary()
 
