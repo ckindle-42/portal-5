@@ -10,17 +10,21 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 
 from ._common import (
     AUDIT_PROMPT,
     AUDIT_TOOL_DEFINITION,
+    EVICT_BACKOFF_S,
     OLLAMA_URL,
     REQUEST_TIMEOUT,
+    RESULTS_DIR,
     SYSTEM_PROMPT_CAP_CHARS,
 )
-from .loaders import _ollama_size_estimate
+from .loaders import _ollama_size_estimate, chain_models_for_workspace, load_backends_yaml
 
 
 async def _chat_direct(

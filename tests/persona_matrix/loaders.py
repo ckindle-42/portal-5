@@ -3,6 +3,7 @@ Pure I/O — no HTTP, no async."""
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ REPO_ROOT = ROOT.parent
 
 
 def load_backends_yaml() -> dict[str, Any]:
-    with open(_REPO / "config" / "backends.yaml") as f:
+    with open(REPO_ROOT / "config" / "backends.yaml") as f:
         return yaml.safe_load(f)
 
 
@@ -101,7 +102,7 @@ def load_personas_for_workspace(
         explicitly bound to this workspace).
     """
     out = []
-    for f in sorted((_REPO / "config" / "personas").glob("*.yaml")):
+    for f in sorted((REPO_ROOT / "config" / "personas").glob("*.yaml")):
         try:
             d = yaml.safe_load(f.read_text()) or {}
             ws = d.get("workspace_model")
@@ -125,7 +126,7 @@ def load_personas_by_slugs(slugs: tuple[str, ...]) -> list[dict[str, Any]]:
     See TASK_CODING_SHOOTOUT_V2.md §A2 / §A7.
     """
     by_slug: dict[str, dict[str, Any]] = {}
-    for f in sorted((_REPO / "config" / "personas").glob("*.yaml")):
+    for f in sorted((REPO_ROOT / "config" / "personas").glob("*.yaml")):
         try:
             d = yaml.safe_load(f.read_text()) or {}
             slug = d.get("slug")

@@ -1,6 +1,7 @@
 """ComfyUI-specific result writer — writes to ACCEPTANCE_RESULTS_COMFYUI.md."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
