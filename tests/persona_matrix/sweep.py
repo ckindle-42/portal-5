@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,7 @@ from ._common import (
 )
 from .loaders import (
     ROOT,
+    _ollama_size_estimate,
     chain_models_for_workspace,
     load_backends_yaml,
     load_personas_by_slugs,

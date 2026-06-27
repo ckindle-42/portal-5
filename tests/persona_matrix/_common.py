@@ -12,9 +12,6 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO))
 
-_REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_REPO))
-
 # Workspace registry — maps a workspace_id to its matrix configuration.
 # Each entry references its own assertion library and fixture loader.
 # Add a new workspace here; no other driver changes required.

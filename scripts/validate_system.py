@@ -359,6 +359,34 @@ def check_bench_security_catalog() -> tuple[str, str, list[dict]]:
     return "PASS", f"all {len(prod_sec)} production security workspaces in DEFAULT_WORKSPACES", []
 
 
+def check_no_undefined_names() -> tuple[str, str, list[dict]]:
+    """M. Ruff F821 — no undefined-name violations anywhere in the repo.
+
+    Hard gate against decomposition-leftover bugs of the class where
+    a name is referenced in a function body but never imported. The
+    bugs import cleanly at module-eval time but crash at runtime.
+    Ruff F821 catches them statically.
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["python3", "-m", "ruff", "check", "--select", "F821", "."],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        return "SKIP", "ruff not installed (pip install ruff)", []
+    except subprocess.TimeoutExpired:
+        return "WARN", "ruff check timed out (>30s)", []
+    if result.returncode == 0:
+        return "PASS", "no F821 (undefined-name) violations", []
+    n_errors = result.stdout.count("F821 ")
+    lines = [ln for ln in result.stdout.splitlines() if ln.startswith("F821")][:1]
+    detail = f"{n_errors} violation(s)" + (f" — first: {lines[0][:60]}" if lines else "")
+    return "FAIL", detail, []
+
+
 def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
     """L. Every persona's workspace_model resolves to a live workspace."""
     try:
@@ -496,6 +524,7 @@ def main() -> int:
     v.run("J. bench_security catalog", check_bench_security_catalog)
     v.run("K. UAT catalog refs", check_uat_catalog_no_stale_refs)
     v.run("L. persona workspace refs", check_persona_workspace_resolution)
+    v.run("M. ruff F821 (undefined names)", check_no_undefined_names)
 
     return v.summary()
 
