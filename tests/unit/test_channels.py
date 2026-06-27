@@ -375,8 +375,8 @@ class TestDocumentMCPTools:
     """Test document generation tool names and actual file creation."""
 
     pytestmark = pytest.mark.skipif(
-        any(importlib.util.find_spec(pkg) is None for pkg in ("docx", "openpyxl", "pptx")),
-        reason="python-docx / openpyxl / python-pptx not installed — run: pip install -e '.[dev,mcp]'",
+        any(importlib.util.find_spec(pkg) is None for pkg in ("docx", "openpyxl", "pptx", "mcp")),
+        reason="python-docx / openpyxl / python-pptx / mcp not installed — run: pip install -e '.[dev,mcp]'",
     )
 
     def test_registered_tool_names_match_manifest(self):
