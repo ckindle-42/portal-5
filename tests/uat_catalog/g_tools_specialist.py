@@ -136,6 +136,11 @@ TESTS: list[dict] = [  # -------------------------------------------------------
             },
         ],
     },
+    # TV-01/05/06: proof-of-dispatch tests. With tool_choice=auto, qwen3-coder computes arithmetic
+    # from training knowledge and may skip or mis-invoke the tool. The "proves tool ran" assertion
+    # fails when the model answers mentally with a wrong or different value.
+    # Fix needed: add tool_choice:required to catalog + pipeline handler, then the model MUST call
+    # the tool and return the sandbox output.
     {
         "id": "TV-01",
         "name": "Tool Validation — execute_python proof (auto-coding/qwen3-coder baseline)",

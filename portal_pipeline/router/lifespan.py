@@ -360,9 +360,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Same pattern as _routing_mod/_streaming_mod above.
     import portal_pipeline.router.handlers as _handlers_mod  # noqa: PLC0415
     import portal_pipeline.router.non_streaming as _non_streaming_mod  # noqa: PLC0415
+    import portal_pipeline.router.validation as _validation_mod  # noqa: PLC0415
     _handlers_mod.registry = registry
     _non_streaming_mod.registry = registry
     _non_streaming_mod._http_client = _http_client
+    _validation_mod.registry = registry
     hint_errors = _validate_workspace_hints(registry)
     if hint_errors:
         for e in hint_errors:

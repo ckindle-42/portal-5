@@ -78,6 +78,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-purpleteam",
         "model_slug": "auto-purpleteam-deep",
         "timeout": 600,
+        "max_wait_no_progress": 1500,  # qwen3.5-abliterated runs 1293s on this deep analysis prompt
         "workspace_tier": "ollama",
         "prompt": (
             "/nothink\n"
@@ -127,9 +128,12 @@ TESTS: list[dict] = [  # -------------------------------------------------------
     },
 
     # ── auto-purpleteam-exec (execution mode) ────────────────────────────────
-    # WS-PE01: verifies the model actually calls execute_bash (not just talks about it).
-    # think:false is set on the workspace so supergemma4 doesn't burn token budget
-    # in <think> without emitting a tool_calls JSON structure.
+    # WS-PE01/02/03: verifies the model actually calls execute_bash (not just talks about it).
+    # KNOWN ISSUE (2026-06-27): supergemma4-26b-uncensored with tool_choice=auto hallucinates
+    # plausible tool output rather than calling execute_bash. pipeline_tool_called metric stays 0.
+    # Fix: add tool_choice:required support to pipeline + catalog, OR change workspace to a model
+    # that reliably dispatches tools. Until then expect pipeline_tool_called assertion to fail.
+    # PE02 additionally times out at 1000s+ as model enters reasoning loop without emitting tool call.
     {
         "id": "WS-PE01",
         "name": "Purple Team Exec — Network Recon with Tool Use",
@@ -177,6 +181,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-purpleteam-exec",
         "model_slug": "auto-purpleteam-exec",
         "timeout": 600,
+        "max_wait_no_progress": 900,  # cap thinking loop; model spent 1240s in reasoning without tool call
         "workspace_tier": "ollama",
         "prompt": (
             "Authorized engagement. Call execute_bash to run impacket-GetUserSPNs against "
@@ -216,6 +221,7 @@ TESTS: list[dict] = [  # -------------------------------------------------------
         "section": "auto-purpleteam-exec",
         "model_slug": "auto-purpleteam-exec",
         "timeout": 600,
+        "max_wait_no_progress": 900,  # match PE02 cap; model enters long reasoning loop without tool call
         "workspace_tier": "ollama",
         "prompt": (
             "Authorized engagement. Call execute_bash to run nxc winrm against $LAB_TARGET_SRV "
