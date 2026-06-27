@@ -37,6 +37,21 @@ PIPELINE_INACTIVITY_TIMEOUT = 270.0
 # warmup probes, Ollama direct). Not used in the main bench streaming path.
 REQUEST_TIMEOUT = 180.0
 
+# Per-workspace request-timeout overrides (seconds).
+# These apply to pipeline mode (not direct Ollama).
+# Reasoning workspaces and slow research models get extended caps so
+# they don't get killed by the default REQUEST_TIMEOUT.
+# Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
+# tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
+PER_WORKSPACE_TIMEOUT: dict[str, float] = {
+    "auto-phi4": 1500.0,             # phi4-reasoning:plus
+    "auto-research": 1200.0,         # tongyi-deepresearch-abliterated
+    "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
+    "auto-spl": 600.0,               # huihui-ai_qwen3-coder-next
+    # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
+    # on supergemma4 which removes the underlying cause of long runtime.
+}
+
 # Reasoning models (Laguna, Phi-4-reasoning, Magistral, Qwopus, DeepSeek-R1)
 # emit <think> blocks that consume tokens before generating output. Two adjustments:
 #   1. REASONING_MAX_TOKENS: larger budget so output isn't truncated mid-response.

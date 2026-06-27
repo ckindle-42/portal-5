@@ -108,6 +108,20 @@ _load_env()
 PIPELINE_URL = "http://localhost:9099"
 PIPELINE_API_KEY = os.environ.get("PIPELINE_API_KEY", "")
 REQUEST_TIMEOUT = 600.0  # per-chunk httpx read ceiling — event-driven (fires on absent data)
+
+# Per-workspace request-timeout overrides (seconds).
+# Reasoning workspaces and slow research models get extended caps so
+# they don't get killed by the default REQUEST_TIMEOUT.
+# Reference: UAT 20260627 — phi4-reasoning ran 67min on P-DA05;
+# tongyi-deepresearch 901s on P-R05; qwen3.5-abliterated 1293s on WS-PT02.
+PER_WORKSPACE_TIMEOUT: dict[str, float] = {
+    "auto-phi4": 1500.0,             # phi4-reasoning:plus
+    "auto-research": 1200.0,         # tongyi-deepresearch-abliterated
+    "auto-purpleteam-deep": 1500.0,  # qwen3.5-abliterated
+    "auto-spl": 600.0,               # huihui-ai_qwen3-coder-next
+    # auto-purpleteam-exec NOT capped here — Phase 2 sets supports_tools=false
+    # on supergemma4 which removes the underlying cause of long runtime.
+}
 PROMPT_MAX_TOKENS = 6000  # model-level token cap — capacity event, not a timer
 # Hard wall-clock cap per model turn in the exec chain. Thinking models (Qwable-35B)
 # can generate 6000 reasoning tokens at ~10 TPS = 600s without hitting the per-chunk

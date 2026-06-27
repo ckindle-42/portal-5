@@ -12,6 +12,7 @@ from .config import (
     _MATH_SPECIALIST_PATTERNS,
     MATH_SPECIALIST_WORKSPACES,
     OLLAMA_URL,
+    PER_WORKSPACE_TIMEOUT,
     PIPELINE_INACTIVITY_TIMEOUT,
     PIPELINE_URL,
 )
@@ -264,8 +265,8 @@ def bench_pipeline(
         print("(warm-up) ", end="", flush=True)
         _warmup_pipeline_model(ws)
         # Pipeline calls may buffer <think> output before forwarding bytes —
-        # use the inactivity timeout for every workspace (reasoning or not).
-        _ws_timeout = PIPELINE_INACTIVITY_TIMEOUT
+        # use per-workspace cap when specified, inactivity timeout otherwise.
+        _ws_timeout = PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT)
         r = bench_tps(
             PIPELINE_URL,
             ws,
@@ -308,22 +309,22 @@ def bench_pipeline(
                     runs=runs,
                     label="pipeline",
                     prompt_category="math",
-                    request_timeout=PIPELINE_INACTIVITY_TIMEOUT,
+                request_timeout=PER_WORKSPACE_TIMEOUT.get(ws, PIPELINE_INACTIVITY_TIMEOUT),
+            )
+            rm["backend"] = "pipeline"
+            rm["path"] = "pipeline"
+            rm["workspace"] = math_label
+            rm["prompt_category"] = "math"
+            results.append(rm)
+            if output_path:
+                _append_result(output_path, rm)
+            if rm["avg_tps"] > 0:
+                print(
+                    f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]"
                 )
-                rm["backend"] = "pipeline"
-                rm["path"] = "pipeline"
-                rm["workspace"] = math_label
-                rm["prompt_category"] = "math"
-                results.append(rm)
-                if output_path:
-                    _append_result(output_path, rm)
-                if rm["avg_tps"] > 0:
-                    print(
-                        f"{rm['avg_tps']} t/s  ({rm['runs_success']}/{rm['runs_total']} ok) [math]"
-                    )
-                else:
-                    errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
-                    print(f"FAIL [math] ({', '.join(set(errors))})")
+            else:
+                errors = [run.get("error", "?") for run in rm["runs"] if "error" in run]
+                print(f"FAIL [math] ({', '.join(set(errors))})")
 
     return results
 

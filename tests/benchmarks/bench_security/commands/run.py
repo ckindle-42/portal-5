@@ -12,6 +12,7 @@ from typing import Any
 from .._config import BenchConfig
 from .._data import (
     EXECUTION_WORKSPACES,
+    PER_WORKSPACE_TIMEOUT,
     PIPELINE_API_KEY,
     PIPELINE_URL,
     PROMPT_MAX_TOKENS,
@@ -144,9 +145,10 @@ def run_bench(
                     _parts: list[str] = []
                     _t0 = time.monotonic()
                     _hdrs = {"Authorization": f"Bearer {PIPELINE_API_KEY}"}
+                    _timeout = PER_WORKSPACE_TIMEOUT.get(workspace, REQUEST_TIMEOUT)
                     with (
                         _httpx_tmp.Client(
-                            timeout=_httpx_tmp.Timeout(REQUEST_TIMEOUT, connect=5.0)
+                            timeout=_httpx_tmp.Timeout(_timeout, connect=5.0)
                         ) as _cl,
                         _cl.stream(
                             "POST",
