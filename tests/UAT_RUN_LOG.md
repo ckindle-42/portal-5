@@ -1,11 +1,10 @@
-# UAT Run Log — 20260618T1256Z
+# UAT Run Log — 20260627T0112Z
 | Phase | Status | Started | Completed | Tests | P/W/F (cum) | Notes |
-| 1 — Smoke (auto) | DONE | 2026-06-18 12:56 | 2026-06-18 08:07 | 4 | 4P/0W/0F | All pass |
-| 2 — Large-GGUF (40) | DONE | 2026-06-18 08:07 | 2026-06-18 11:51 | 40 | 40P/0W/0F | rerun: WS-14✅ P-V01✅ P-DA05✅ P-N05✅(event-driven fix, 411s) P-N19✅(browser-submit fix: /?models= nav + keyboard.type, 112s, 4/4 100%) — Gate ✅ |
-| 3 — Coding (37) | DONE | 2026-06-18 12:01 | 2026-06-18 12:32 | 37 | 35P/0W/2F | P-D05✗(3c) P-N23✗(3c) — eviction fix active, 37/37 routing correct — Gate ✅ |
-| 4 — Mid/small (57) | DONE | 2026-06-18 12:32 | 2026-06-18 13:49 | 57 | 52P/2W/3F | WS-BF-02✗(3c) P-S09✗(3c) TV-02✗(3c) WS-DD-03⚠ WS-DD-07⚠ — 56/56 routing correct — Gate ✅ |
-| 5 — Blueteam+docs (17) | DONE | 2026-06-18 13:49 | 2026-06-18 14:39 | 17 | 14P/2W/0F | T-06⚠ T-07⚠ WS-PP-D01 PASS 7/7 (672s) — 16/16 routing correct — Gate ✅ |
-| 6 — Media (5) | DONE | 2026-06-18 14:39 | 2026-06-18 15:00 | 5 | 1P/0W/2F/2S | M-01✗(3c-STT) WS-12✗(3c-music) T-09✓(371s) 2 video SKIPs(no ComfyUI) — Gate ✅ |
-| 7 — Advanced (12) | DONE | 2026-06-18 15:00 | 2026-06-18 15:19 | 12 | 9P/0W/0F/2S | PERFECT — 0 FAILs — A-05/A-06 SKIP(no bot token) — 8/8 routing correct |
-| — Rerun (12) | DONE | 2026-06-18 19:00 | 2026-06-18 22:00 | 12 | 7P/0W/5F | WS-BF-02✅ GC-03-devstral-small-2✅ GC-03-gemma4-12b-coder✅ P-D05✅ P-N23✅ M-01✅ WS-12✅ — P-S09✗(3c: assertion over-strict) TV-02✗(3c: baronllm tool gap) GC-03-deepseek-coder-v2✗(model cap) GC-03-dolphin8b✗(model cap) GC-04-dolphin8b✗(model cap) |
 |---|---|---|---|---|---|---|
+| 1 — Smoke (6) | DONE | 2026-06-27 01:12 | 2026-06-26 20:46 | 6 | 5P/0W/1F | routing.py PersonaSpec crash after test 3 (fixed); WS-33 3c(LFM2.5 prompt misread, 2x confirmed) — Gate ✅ |
+| 2 — Large-GGUF (43) | DONE | 2026-06-27 20:47 | 2026-06-28 02:00 | 43 | 37P/0W/12F (cum) | WS-04/P-R06/P-R05 3f(tongyi-deepresearch wrong workspace ×3); P-DA05 3f(phi4-reasoning:plus 67min 3×cap); TV-04/WS-08/WS-13/P-D17/P-V01/P-S06/P-R07 3c; routing 43/43 ✅ — Gate ✅ |
+| 3 — Bulk coding (42) | DONE | 2026-06-28 02:00 | 2026-06-28 03:10 | 42 | 67P/1W/23F (cum) | T-01/T-02/T-03 3c(sandbox MCP ×3); P-D02/P-D03/P-D04/P-D22 3c(qwen3-coder review cluster); P-D15/P-DA06 3c(Excel formula); P-D12/P-D13 3c(interpreter); WS-25 GLM PASS@1068s; routing 42/42 ✅ — Gate ✅ |
+| 4 — Mid/small lanes (62) | DONE | 2026-06-28 03:10 | 2026-06-28 07:28 | 62 | 117P/2W/34F (cum) | sandbox MCP ×4 3c; WS-DD-09/WS-DD-14/WS-09/P-S08/WS-28/P-C02 3c; WS-PHI4-02 3f(phi4-reasoning:plus 901s); TV-02 ⚠3f(baronllm 900s); routing 62/62 ✅ — Gate ✅ |
+| 5 — Blueteam+docs (27) | DONE | 2026-06-28 07:28 | 2026-06-28 10:08 | 27 | 137P/3W/40F (cum) | sandbox MCP 3c ×3(PE01/PE02/PE03 — execute_bash, first UAT run post-refactor); PT02 3f 1293s; TR-01 3c(diarize 3/5=60%); WS-CAD-03 3c; routing 27/27 ✅ — Gate ✅ |
+| 6 — Media-heavy (5) | DONE | 2026-06-28 10:09 | 2026-06-28 10:16 | 5 | 139P/3W/41F (cum) | T-08/WS-11 SKIP(ComfyUI not ready); M-01 3c(Whisper 3/4=75%); T-09/WS-12 ✓; routing 3/3 ✅ — Gate ✅ |
+| 7 — Advanced (12) | RUNNING | 2026-06-28 10:17 | — | — | — | section: advanced |

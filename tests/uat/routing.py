@@ -15,8 +15,13 @@ def _map_slug_to_workspace(slug: str) -> str:
 
     if slug in WORKSPACES:
         return slug
-    p = _PERSONA_MAP.get(slug, {})
-    ws = p.get("workspace_model") or p.get("workspace") or ""
+    p = _PERSONA_MAP.get(slug)
+    if p is None:
+        ws = ""
+    elif isinstance(p, dict):
+        ws = p.get("workspace_model") or p.get("workspace") or ""
+    else:
+        ws = getattr(p, "workspace_model", "") or getattr(p, "workspace", "") or ""
     return ws if ws in WORKSPACES else ""
 
 
