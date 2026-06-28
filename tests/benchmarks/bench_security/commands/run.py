@@ -6,7 +6,9 @@ only the argparse ``main()`` dispatcher.
 
 from __future__ import annotations
 
+import json
 import time
+from pathlib import Path
 from typing import Any
 
 from .._config import BenchConfig
@@ -56,6 +58,7 @@ def run_bench(
     lab_exec: bool = False,
     direct_theory_model: str | None = None,
     strip_think: bool = False,
+    checkpoint_path: "Path | None" = None,
 ) -> list[dict[str, Any]]:
     """Run the dual-pass security bench.
 
@@ -227,6 +230,13 @@ def run_bench(
                 row["exec_elapsed_s"] = round(exec_elapsed, 2)
 
             results.append(row)
+
+            # Write incremental checkpoint so a killed run loses at most one prompt.
+            if checkpoint_path and not dry_run:
+                try:
+                    checkpoint_path.write_text(json.dumps(results, indent=2))
+                except Exception:
+                    pass
 
             # Queue chain-eligible rows — executed as a batch in Phase 2
             if exec_eval and exec_chain_models and meta.get("exec_sequence") and status == "ok":

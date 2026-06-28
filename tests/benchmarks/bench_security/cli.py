@@ -480,6 +480,7 @@ def main() -> None:
 
     ts = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_path = Path(args.output) if args.output else RESULTS_DIR / f"sec_bench_{ts}.json"
+    checkpoint_path = out_path.with_suffix(".partial.json")
 
     print(f"Portal 5 Security Bench — {ts}")
     if not args.skip_workspace_bench:
@@ -489,6 +490,7 @@ def main() -> None:
         print(f"Chain models: {args.chain_models}")
         print(f"Audit-tools : {args.audit_tools}")
     print(f"Output     : {out_path}")
+    print(f"Checkpoint : {checkpoint_path}  (updated after every prompt)")
     print()
 
     _all_models = args.exec_chain_models or args.chain_models or []
@@ -856,6 +858,7 @@ def main() -> None:
             blue_defender_model=args.blue_defender_model or None,
             chain_rounds=args.chain_rounds,
             lab_exec=args.lab_exec,
+            checkpoint_path=checkpoint_path,
         )
     if not args.skip_workspace_bench:
         _explicit_prompts = args.prompts is not None
@@ -894,6 +897,7 @@ def main() -> None:
             lab_exec=args.lab_exec,
             direct_theory_model=getattr(args, "direct_theory", None) or None,
             strip_think=getattr(args, "strip_think", False),
+            checkpoint_path=checkpoint_path,
         )
 
     # ── Proxmox VM restore after exec_chain (Step 3) ────────────────────────
@@ -1000,6 +1004,9 @@ def main() -> None:
         )
     )
     print(f"\nResults written → {out_path}")
+    # Checkpoint file is superseded by the final output — remove it.
+    if checkpoint_path and checkpoint_path.exists():
+        checkpoint_path.unlink(missing_ok=True)
 
     # Summary notification
     by_ws: dict[str, list[dict[str, Any]]] = {}
