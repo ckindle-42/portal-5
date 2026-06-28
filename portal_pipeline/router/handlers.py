@@ -767,7 +767,8 @@ async def chat_completions(
         # portal_no_tools: bench theory-pass flag — skip tool attachment entirely
         # so the model cannot call tools and must return prose (tool_choice=none
         # alone leaves tool definitions in the request, causing skeletal responses).
-        if backend_body.pop("portal_no_tools", False):
+        _portal_no_tools = backend_body.pop("portal_no_tools", False)
+        if _portal_no_tools:
             backend_body.pop("tools", None)
             backend_body.pop("tool_choice", None)
             _has_tools = False
@@ -824,7 +825,10 @@ async def chat_completions(
                     set(effective_tools),
                     start_time,
                 )
-            elif _chain:
+            elif _chain and not _portal_no_tools:
+                # Chain requires tool execution to be meaningful — skip in theory
+                # mode (portal_no_tools) so exec models get a plain prose prompt
+                # instead of hallucinating the entire multi-hop chain themselves.
                 _stream_fn = _stream_with_chain(
                     backend.chat_url,
                     backend_body,
@@ -920,7 +924,7 @@ async def chat_completions(
                         set(effective_tools),
                         start_time,
                     )
-                elif _chain:
+                elif _chain and not _portal_no_tools:
                     _inner_stream = _stream_with_chain(
                         backend.chat_url,
                         backend_body,
