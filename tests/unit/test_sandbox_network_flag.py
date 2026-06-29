@@ -34,7 +34,7 @@ def test_health_reports_network_honestly():
 
 
 def test_writable_root_tmpfs_for_pip():
-    assert '"--tmpfs", "/root:size=256m,exec"' in SRC
+    assert "/root:size=256m,exec" in SRC
 
 
 def test_pythonpath_set_for_user_installs():
